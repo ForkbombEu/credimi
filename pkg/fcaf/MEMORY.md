@@ -71,21 +71,33 @@ surfaced now because nothing had executed them.
    `HAIP profile requires an encrypted response mode (direct_post.jwt or dc_api.jwt)`
    and shows the error screen. This is independent of `scheme`; `openid4vp://` behaves
    the same as `haip-vp://`. All 177 `response_mode: direct_post` steps were migrated
-   to `direct_post.jwt`. No test was subject to the response mode: the
-   `response-encryption-*` and `dcql-session-encryption` scenarios that do test it
-   already used `direct_post.jwt` or `dc_api*`, and the six scenarios that touch
-   `client_metadata` or own an encryption test only use it incidentally. All 193
-   distinct session bodies were replayed against the live Capture verifier and
-   returned `201`.
+   to `direct_post.jwt`. No test mandates the unencrypted mode: no assertion carries
+   `value: direct_post`, the `response-encryption-*` and `dcql-session-encryption`
+   scenarios that do test response modes already used `direct_post.jwt` or `dc_api*`,
+   and `WS_RP_IA_Supportive__001` tests the Section 8.3 redirect-URI mechanism, which
+   `direct_post.jwt` supports. All 193 distinct session bodies were replayed against
+   the live Capture verifier and returned `201`.
+1a. A second delivery shape carried `response_mode=direct_post` as a URL query
+   parameter in hand-built `eudi-openid4vp://` deep links assembled by `evalScript`,
+   unsigned and pointing at a fictitious `example.com` response URI: 54 request
+   variants across 10 scenarios owning 15 tests. A control run proved the evidence
+   had become worthless — a request carrying a perfectly valid DCQL was refused
+   identically, so the rejection no longer attributed to the malformed member. All 54
+   are now Capture sessions that carry the malformed query through
+   `request_mutation.request_object.set["/dcql_query"]`, and each test's evidence is
+   bound to `raw.authorization_request_delivered` rather than to a `json-parse`
+   literal. Every one was replayed against Capture: `201`, with the delivered query
+   byte-identical to the declared malformed query. All ten flows run green on the
+   emulator.
 2. Credential instances are single-use. Capture Wallet advertises no
    `batch_credential_issuance`, the wallet issues one instance and the Documents list
    shows `0/1` after the first presentation, after which every request answers
    `The requested document is not available in your EUDI Wallet`. Reuse policy landed
    upstream in 2026.07.39 (PR #621). `cmd/fcaf-pipeline-gen` now emits an issuance
-   session plus `getcredential-generic-credential-without-authentication` before each
-   presentation that can reach `Share`, reusing a scenario's own issuance when it has
-   one. A presentation the wallet refuses before consent does not spend an instance
-   and gets no injected issuance, so the wallet does not accumulate unused documents.
+   session plus `getcredential-generic-credential-without-authentication` per `Share`
+   a flow performs, reusing a scenario's own issuance when it has one. A presentation
+   the wallet refuses before consent does not spend an instance and gets no injected
+   issuance, so the wallet does not accumulate unused documents.
    `TestAggregateHoldsACredentialForEveryConsumingPresentation` guards the invariant;
    it reports 119 starved presentations on the pre-change pipeline.
 3. `wallet-actions.yaml` still declares `version: 2026-06-38-demo` and `onboarding-1`
@@ -99,6 +111,20 @@ surfaced now because nothing had executed them.
 5. `client_metadata` nested inside `presentation_request` is discarded by Capture,
    which documents it as top-level only. `dcql-protocol-messages-145` and `-146`
    nest it, so they do not deliver the metadata conflict they describe.
+6. Open assertion gap, exposed by the migration. Against a properly signed HAIP
+   request the reference wallet does not uniformly reject a malformed DCQL member.
+   Observed on 2026.09.42: `claims: null` and several non-array `claims` /
+   `claim_sets` values produce
+   `The requested document is not available in your EUDI Wallet`; some variants
+   return silently to Home; and at least one non-boolean
+   `require_cryptographic_holder_binding` is accepted outright, with the wallet
+   rendering the normal consent screen for a matching document. The migrated flows
+   therefore accept error, no-match, discontinuation, or consent as terminal states,
+   cancel any consent screen, and screenshot whichever occurred. The tests for these
+   15 IDs assert only that the delivered request carried the malformed member plus a
+   screenshot count, so a tolerant wallet still passes. Add a "no `vp_token` in the
+   session" assertion before trusting these verdicts; the evidence is now available
+   from the same `fetch-*` step.
 
 ## Git state at handoff
 

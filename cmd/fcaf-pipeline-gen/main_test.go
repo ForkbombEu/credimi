@@ -30,7 +30,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1134)
+	require.Len(t, definition.Steps, 1166)
 
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)
@@ -220,58 +220,55 @@ func TestAggregateHoldsACredentialForEveryConsumingPresentation(t *testing.T) {
 		require.NoError(t, yaml.Unmarshal(data, &definition))
 
 		available := 0
-		presentations := 0
+		shares := 0
 		injected := 0
 		for index, step := range definition.Steps {
 			if issuesCredential(step) {
 				available++
 				id, _ := step["id"].(string)
-				if strings.HasSuffix(id, "-issue-pid") {
+				if strings.Contains(id, "-issue-pid") {
 					injected++
-					// An injected issuance exists only to feed the very next
-					// presentation; anything else means it would be left unspent.
-					require.Lessf(
-						t,
-						index+1,
-						len(definition.Steps),
-						"%s: injected issuance %q is the last step",
-						pipeline,
-						id,
-					)
-					consuming, err := consumesCredentialInstance(
-						definition.Steps[index+1],
-						actions,
-					)
-					require.NoError(t, err)
+					// An injected issuance exists only to feed a later
+					// presentation in the same scenario; it must be followed by
+					// one, otherwise it would be left unspent in the wallet.
+					followed := false
+					for _, later := range definition.Steps[index+1:] {
+						consumed, err := credentialInstancesConsumed(later, actions)
+						require.NoError(t, err)
+						if consumed > 0 {
+							followed = true
+							break
+						}
+					}
 					require.Truef(
 						t,
-						consuming,
-						"%s: injected issuance %q is not followed by a presentation",
+						followed,
+						"%s: injected issuance %q is never followed by a presentation",
 						pipeline,
 						id,
 					)
 				}
 				continue
 			}
-			consuming, err := consumesCredentialInstance(step, actions)
+			consumed, err := credentialInstancesConsumed(step, actions)
 			require.NoError(t, err)
-			if !consuming {
-				continue
-			}
-			presentations++
+			shares += consumed
 			// A scenario-authored issuance may deliberately stay unspent, for
 			// example to prove a held credential does not match the request, but
-			// a presentation that shares must always find an unspent instance.
-			require.Positivef(
+			// every Share must find an unspent instance.
+			require.GreaterOrEqualf(
 				t,
 				available,
-				"%s: presentation %q has no unspent credential instance",
+				consumed,
+				"%s: presentation %q shares %d times with %d unspent instances",
 				pipeline,
 				step["id"],
+				consumed,
+				available,
 			)
-			available--
+			available -= consumed
 		}
-		require.Positivef(t, presentations, "%s: no consuming presentation found", pipeline)
-		t.Logf("%s: %d consuming presentations, %d injected issuances", pipeline, presentations, injected)
+		require.Positivef(t, shares, "%s: no presentation shares a credential", pipeline)
+		t.Logf("%s: %d shares, %d injected issuances", pipeline, shares, injected)
 	}
 }

@@ -7,37 +7,113 @@ runtime:
       retry_policy:
         maximum_attempts: 1
 steps:
-  - id: evidence-empty-claim-sets-request
-    use: json-parse
-    with:
-      rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"claim_sets":[]}]}}'
-      struct_type: map
-  - id: reject-empty-claim-sets
-    use: mobile-automation
-    with:
-      version_id: installed_from_external_source
-      action_code: |
-        appId: eu.europa.ec.euidi
-        ---
-        - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
-        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],claim_sets:[]}]})}
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-085-claim-sets-empty&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
-        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
-        - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
-        - takeScreenshot: fcaf-085-claim-sets-empty-rejected
-        - back
-        - waitForAnimationToEnd: { timeout: 2000 }
-
-  - id: run-fcaf-validators
-    use: fcaf-validation
-    with:
-      test_ids:
-        - WS_RP_MS_ProtocolMessages__085
-      suite: wallet_solution/relying_party
-      pipeline_outputs:
-        pipeline.dcql.claim-sets-empty:
-          output:
-            dcql_exchange: ${{ reject-empty-claim-sets.outputs.body }}
-            visual_evidence: ${{ reject-empty-claim-sets.outputs.flow_output.maestro_screenshot_urls }}
-            evidence-empty-claim-sets-request: ${{ evidence-empty-claim-sets-request.outputs }}
-            reject-empty-claim-sets: ${{ reject-empty-claim-sets.outputs }}
+- id: create-empty-claim-sets-request
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: fcaf-085-claim-sets-empty
+        dcql_query:
+          credentials:
+          - id: pididentity01
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object:
+          set:
+            /dcql_query:
+              credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                  - urn:eudi:pid:1
+                claims:
+                - path:
+                  - given_name
+                claim_sets: []
+        verification_applies: false
+- id: reject-empty-claim-sets
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp:
+          stopApp: true
+          clearState: false
+      - extendedWaitUntil:
+          visible: "Welcome back|Home|Documents|Welcome, .*"
+          timeout: 30000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+          - tapOn:
+              point: "11%,40%"
+          - inputText: "123456"
+          - hideKeyboard
+          - tapOn:
+              point: "50%,10%"
+      - extendedWaitUntil:
+          visible: "Home|Documents|Welcome, .*"
+          timeout: 30000
+      - openLink: { link: "${DEEPLINK_EMPTY_CLAIM_SETS_REQUEST}", autoVerify: false, browser: false }
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+          - tapOn:
+              point: "11%,40%"
+          - inputText: "123456"
+          - hideKeyboard
+          - tapOn:
+              point: "50%,10%"
+      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
+      - takeScreenshot: fcaf-085-claim-sets-empty-rejected
+      - runFlow:
+          when:
+            visible: "Data sharing request"
+          commands:
+          - tapOn: "Cancel"
+          - waitForAnimationToEnd:
+              timeout: 3000
+    parameters:
+      DEEPLINK_EMPTY_CLAIM_SETS_REQUEST: ${{ create-empty-claim-sets-request.outputs.body.deeplink }}
+- id: fetch-empty-claim-sets-request
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-empty-claim-sets-request.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_MS_ProtocolMessages__085
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dcql.claim-sets-empty:
+        output:
+          dcql_exchange: ${{ fetch-empty-claim-sets-request.outputs.body.raw.authorization_request_delivered }}
+          visual_evidence: ${{ reject-empty-claim-sets.outputs.flow_output.maestro_screenshot_urls }}
+          fetch-empty-claim-sets-request: ${{ fetch-empty-claim-sets-request.outputs.body.raw.authorization_request_delivered }}
+          reject-empty-claim-sets: ${{ reject-empty-claim-sets.outputs }}

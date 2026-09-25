@@ -7,166 +7,632 @@ runtime:
       retry_policy:
         maximum_attempts: 1
 steps:
-  - { id: evidence-null, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":null,"values":["authority-key-id"]}]}]}}', struct_type: map } }
-  - { id: evidence-true, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":true,"values":["authority-key-id"]}]}]}}', struct_type: map } }
-  - { id: evidence-false, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":false,"values":["authority-key-id"]}]}]}}', struct_type: map } }
-  - { id: evidence-zero, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":0,"values":["authority-key-id"]}]}]}}', struct_type: map } }
-  - { id: evidence-number, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":73,"values":["authority-key-id"]}]}]}}', struct_type: map } }
-  - { id: evidence-array, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":[],"values":["authority-key-id"]}]}]}}', struct_type: map } }
-  - { id: evidence-object, use: json-parse, with: { rawJSON: '{"dcql_query":{"credentials":[{"id":"pididentity01","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"path":["given_name"]}],"trusted_authorities":[{"type":{"key":"value"},"values":["authority-key-id"]}]}]}}', struct_type: map } }
-  - id: exercise-trusted-authorities-type-non-string
-    use: mobile-automation
-    with:
-      version_id: installed_from_external_source
-      action_code: |
-        appId: eu.europa.ec.euidi
-        ---
-        - stopApp
-        - launchApp: { clearState: false }
-        - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - evalScript: ${output.typeValue = null}
-        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:output.typeValue,values:['authority-key-id']}]}]})}
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-091-null&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
-        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
-        - tapOn: { text: "EUDI Wallet", optional: true }
-        - tapOn: { text: "Just once", optional: true }
-        - tapOn: { text: "Always", optional: true }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
-        - takeScreenshot: fcaf-091-null
-        - evalScript: ${output.typeValue = true}
-        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:output.typeValue,values:['authority-key-id']}]}]})}
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-091-true&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
-        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
-        - tapOn: { text: "EUDI Wallet", optional: true }
-        - tapOn: { text: "Just once", optional: true }
-        - tapOn: { text: "Always", optional: true }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
-        - takeScreenshot: fcaf-091-true
-        - evalScript: ${output.typeValue = false}
-        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:output.typeValue,values:['authority-key-id']}]}]})}
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-091-false&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
-        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
-        - tapOn: { text: "EUDI Wallet", optional: true }
-        - tapOn: { text: "Just once", optional: true }
-        - tapOn: { text: "Always", optional: true }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
-        - takeScreenshot: fcaf-091-false
-        - evalScript: ${output.typeValue = 0}
-        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:output.typeValue,values:['authority-key-id']}]}]})}
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-091-zero&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
-        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
-        - tapOn: { text: "EUDI Wallet", optional: true }
-        - tapOn: { text: "Just once", optional: true }
-        - tapOn: { text: "Always", optional: true }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
-        - takeScreenshot: fcaf-091-zero
-        - evalScript: ${output.typeValue = 73}
-        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:output.typeValue,values:['authority-key-id']}]}]})}
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-091-number&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
-        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
-        - tapOn: { text: "EUDI Wallet", optional: true }
-        - tapOn: { text: "Just once", optional: true }
-        - tapOn: { text: "Always", optional: true }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
-        - takeScreenshot: fcaf-091-number
-        - evalScript: ${output.typeValue = []}
-        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:output.typeValue,values:['authority-key-id']}]}]})}
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-091-array&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
-        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
-        - tapOn: { text: "EUDI Wallet", optional: true }
-        - tapOn: { text: "Just once", optional: true }
-        - tapOn: { text: "Always", optional: true }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
-        - takeScreenshot: fcaf-091-array
-        - evalScript: ${output.typeValue = ({key:'value'})}
-        - evalScript: ${output.dcqlQuery = JSON.stringify({credentials:[{id:'pididentity01',format:'dc+sd-jwt',meta:{vct_values:['urn:eudi:pid:1']},claims:[{path:['given_name']}],trusted_authorities:[{type:output.typeValue,values:['authority-key-id']}]}]})}
-        - evalScript: ${output.authorizationRequest = 'eudi-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Ffcaf-response&response_uri=https%3A%2F%2Fexample.com%2Ffcaf-response&response_type=vp_token&response_mode=direct_post&nonce=fcaf-091-object&dcql_query=' + encodeURIComponent(output.dcqlQuery)}
-        - openLink: { link: "${output.authorizationRequest}", autoVerify: false, browser: false }
-        - tapOn: { text: "EUDI Wallet", optional: true }
-        - tapOn: { text: "Just once", optional: true }
-        - tapOn: { text: "Always", optional: true }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "Oups! Something went wrong|invalid_request|not available|Close|Go Back|Home|Documents", timeout: 30000 }
-        - takeScreenshot: fcaf-091-object
-  - id: run-fcaf-validators
-    use: fcaf-validation
-    with:
-      test_ids:
-        - WS_RP_MS_ProtocolMessages__091
-      suite: wallet_solution/relying_party
-      pipeline_outputs:
-        pipeline.dcql.trusted-authorities-type-non-string:
-          output:
-            null_value: ${{ evidence-null.outputs }}
-            true_value: ${{ evidence-true.outputs }}
-            false_value: ${{ evidence-false.outputs }}
-            zero_value: ${{ evidence-zero.outputs }}
-            random_number: ${{ evidence-number.outputs }}
-            array_value: ${{ evidence-array.outputs }}
-            object_value: ${{ evidence-object.outputs }}
-            visual_evidence: ${{ exercise-trusted-authorities-type-non-string.outputs.screenshot_urls }}
+- id: create-null
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: fcaf-091-null
+        dcql_query:
+          credentials:
+          - id: pididentity01
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object:
+          set:
+            /dcql_query:
+              credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                  - urn:eudi:pid:1
+                claims:
+                - path:
+                  - given_name
+                trusted_authorities:
+                - type: null
+                  values:
+                  - authority-key-id
+        verification_applies: false
+- id: create-true
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: fcaf-091-true
+        dcql_query:
+          credentials:
+          - id: pididentity01
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object:
+          set:
+            /dcql_query:
+              credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                  - urn:eudi:pid:1
+                claims:
+                - path:
+                  - given_name
+                trusted_authorities:
+                - type: true
+                  values:
+                  - authority-key-id
+        verification_applies: false
+- id: create-false
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: fcaf-091-false
+        dcql_query:
+          credentials:
+          - id: pididentity01
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object:
+          set:
+            /dcql_query:
+              credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                  - urn:eudi:pid:1
+                claims:
+                - path:
+                  - given_name
+                trusted_authorities:
+                - type: false
+                  values:
+                  - authority-key-id
+        verification_applies: false
+- id: create-zero
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: fcaf-091-zero
+        dcql_query:
+          credentials:
+          - id: pididentity01
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object:
+          set:
+            /dcql_query:
+              credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                  - urn:eudi:pid:1
+                claims:
+                - path:
+                  - given_name
+                trusted_authorities:
+                - type: 0
+                  values:
+                  - authority-key-id
+        verification_applies: false
+- id: create-number
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: fcaf-091-number
+        dcql_query:
+          credentials:
+          - id: pididentity01
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object:
+          set:
+            /dcql_query:
+              credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                  - urn:eudi:pid:1
+                claims:
+                - path:
+                  - given_name
+                trusted_authorities:
+                - type: 73
+                  values:
+                  - authority-key-id
+        verification_applies: false
+- id: create-array
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: fcaf-091-array
+        dcql_query:
+          credentials:
+          - id: pididentity01
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object:
+          set:
+            /dcql_query:
+              credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                  - urn:eudi:pid:1
+                claims:
+                - path:
+                  - given_name
+                trusted_authorities:
+                - type: []
+                  values:
+                  - authority-key-id
+        verification_applies: false
+- id: create-object
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: fcaf-091-object
+        dcql_query:
+          credentials:
+          - id: pididentity01
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object:
+          set:
+            /dcql_query:
+              credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                  - urn:eudi:pid:1
+                claims:
+                - path:
+                  - given_name
+                trusted_authorities:
+                - type:
+                    key: value
+                  values:
+                  - authority-key-id
+        verification_applies: false
+- id: exercise-trusted-authorities-type-non-string
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - stopApp
+      - launchApp: { clearState: false }
+      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn: { point: "50%,10%" }
+      - openLink: { link: "${DEEPLINK_NULL}", autoVerify: false, browser: false }
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+          - tapOn:
+              point: "11%,40%"
+          - inputText: "123456"
+          - hideKeyboard
+          - tapOn:
+              point: "50%,10%"
+      - tapOn: { text: "EUDI Wallet", optional: true }
+      - tapOn: { text: "Just once", optional: true }
+      - tapOn: { text: "Always", optional: true }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn: { point: "50%,10%" }
+      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
+      - takeScreenshot: fcaf-091-null
+      - runFlow:
+          when: { visible: "Data sharing request" }
+          commands:
+            - tapOn: "Cancel"
+            - waitForAnimationToEnd: { timeout: 3000 }
+      - openLink: { link: "${DEEPLINK_TRUE}", autoVerify: false, browser: false }
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+          - tapOn:
+              point: "11%,40%"
+          - inputText: "123456"
+          - hideKeyboard
+          - tapOn:
+              point: "50%,10%"
+      - tapOn: { text: "EUDI Wallet", optional: true }
+      - tapOn: { text: "Just once", optional: true }
+      - tapOn: { text: "Always", optional: true }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn: { point: "50%,10%" }
+      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
+      - takeScreenshot: fcaf-091-true
+      - runFlow:
+          when: { visible: "Data sharing request" }
+          commands:
+            - tapOn: "Cancel"
+            - waitForAnimationToEnd: { timeout: 3000 }
+      - openLink: { link: "${DEEPLINK_FALSE}", autoVerify: false, browser: false }
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+          - tapOn:
+              point: "11%,40%"
+          - inputText: "123456"
+          - hideKeyboard
+          - tapOn:
+              point: "50%,10%"
+      - tapOn: { text: "EUDI Wallet", optional: true }
+      - tapOn: { text: "Just once", optional: true }
+      - tapOn: { text: "Always", optional: true }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn: { point: "50%,10%" }
+      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
+      - takeScreenshot: fcaf-091-false
+      - runFlow:
+          when: { visible: "Data sharing request" }
+          commands:
+            - tapOn: "Cancel"
+            - waitForAnimationToEnd: { timeout: 3000 }
+      - openLink: { link: "${DEEPLINK_ZERO}", autoVerify: false, browser: false }
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+          - tapOn:
+              point: "11%,40%"
+          - inputText: "123456"
+          - hideKeyboard
+          - tapOn:
+              point: "50%,10%"
+      - tapOn: { text: "EUDI Wallet", optional: true }
+      - tapOn: { text: "Just once", optional: true }
+      - tapOn: { text: "Always", optional: true }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn: { point: "50%,10%" }
+      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
+      - takeScreenshot: fcaf-091-zero
+      - runFlow:
+          when: { visible: "Data sharing request" }
+          commands:
+            - tapOn: "Cancel"
+            - waitForAnimationToEnd: { timeout: 3000 }
+      - openLink: { link: "${DEEPLINK_NUMBER}", autoVerify: false, browser: false }
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+          - tapOn:
+              point: "11%,40%"
+          - inputText: "123456"
+          - hideKeyboard
+          - tapOn:
+              point: "50%,10%"
+      - tapOn: { text: "EUDI Wallet", optional: true }
+      - tapOn: { text: "Just once", optional: true }
+      - tapOn: { text: "Always", optional: true }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn: { point: "50%,10%" }
+      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
+      - takeScreenshot: fcaf-091-number
+      - runFlow:
+          when: { visible: "Data sharing request" }
+          commands:
+            - tapOn: "Cancel"
+            - waitForAnimationToEnd: { timeout: 3000 }
+      - openLink: { link: "${DEEPLINK_ARRAY}", autoVerify: false, browser: false }
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+          - tapOn:
+              point: "11%,40%"
+          - inputText: "123456"
+          - hideKeyboard
+          - tapOn:
+              point: "50%,10%"
+      - tapOn: { text: "EUDI Wallet", optional: true }
+      - tapOn: { text: "Just once", optional: true }
+      - tapOn: { text: "Always", optional: true }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn: { point: "50%,10%" }
+      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
+      - takeScreenshot: fcaf-091-array
+      - runFlow:
+          when: { visible: "Data sharing request" }
+          commands:
+            - tapOn: "Cancel"
+            - waitForAnimationToEnd: { timeout: 3000 }
+      - openLink: { link: "${DEEPLINK_OBJECT}", autoVerify: false, browser: false }
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+          - tapOn:
+              point: "11%,40%"
+          - inputText: "123456"
+          - hideKeyboard
+          - tapOn:
+              point: "50%,10%"
+      - tapOn: { text: "EUDI Wallet", optional: true }
+      - tapOn: { text: "Just once", optional: true }
+      - tapOn: { text: "Always", optional: true }
+      - runFlow:
+          when: { visible: "Welcome back" }
+          commands:
+            - tapOn: { point: "11%,40%" }
+            - inputText: "123456"
+            - hideKeyboard
+            - tapOn: { point: "50%,10%" }
+      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
+      - takeScreenshot: fcaf-091-object
+      - runFlow:
+          when: { visible: "Data sharing request" }
+          commands:
+            - tapOn: "Cancel"
+            - waitForAnimationToEnd: { timeout: 3000 }
+    parameters:
+      DEEPLINK_NULL: ${{ create-null.outputs.body.deeplink }}
+      DEEPLINK_TRUE: ${{ create-true.outputs.body.deeplink }}
+      DEEPLINK_FALSE: ${{ create-false.outputs.body.deeplink }}
+      DEEPLINK_ZERO: ${{ create-zero.outputs.body.deeplink }}
+      DEEPLINK_NUMBER: ${{ create-number.outputs.body.deeplink }}
+      DEEPLINK_ARRAY: ${{ create-array.outputs.body.deeplink }}
+      DEEPLINK_OBJECT: ${{ create-object.outputs.body.deeplink }}
+- id: fetch-null
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-null.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-true
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-true.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-false
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-false.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-zero
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-zero.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-number
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-number.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-array
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-array.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-object
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-object.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_MS_ProtocolMessages__091
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dcql.trusted-authorities-type-non-string:
+        output:
+          null_value: ${{ fetch-null.outputs.body.raw.authorization_request_delivered }}
+          true_value: ${{ fetch-true.outputs.body.raw.authorization_request_delivered }}
+          false_value: ${{ fetch-false.outputs.body.raw.authorization_request_delivered }}
+          zero_value: ${{ fetch-zero.outputs.body.raw.authorization_request_delivered }}
+          random_number: ${{ fetch-number.outputs.body.raw.authorization_request_delivered }}
+          array_value: ${{ fetch-array.outputs.body.raw.authorization_request_delivered }}
+          object_value: ${{ fetch-object.outputs.body.raw.authorization_request_delivered }}
+          visual_evidence: ${{ exercise-trusted-authorities-type-non-string.outputs.screenshot_urls }}
 outputs:
-  null_value: { path: $.output.evidence-null.outputs, decoder: raw }
-  true_value: { path: $.output.evidence-true.outputs, decoder: raw }
-  false_value: { path: $.output.evidence-false.outputs, decoder: raw }
-  zero_value: { path: $.output.evidence-zero.outputs, decoder: raw }
-  random_number: { path: $.output.evidence-number.outputs, decoder: raw }
-  array_value: { path: $.output.evidence-array.outputs, decoder: raw }
-  object_value: { path: $.output.evidence-object.outputs, decoder: raw }
-  visual_evidence: { path: $.output.exercise-trusted-authorities-type-non-string.outputs.screenshot_urls, decoder: raw }
+  null_value:
+    path: $.output.fetch-null.outputs.body.raw.authorization_request_delivered
+    decoder: raw
+  true_value:
+    path: $.output.fetch-true.outputs.body.raw.authorization_request_delivered
+    decoder: raw
+  false_value:
+    path: $.output.fetch-false.outputs.body.raw.authorization_request_delivered
+    decoder: raw
+  zero_value:
+    path: $.output.fetch-zero.outputs.body.raw.authorization_request_delivered
+    decoder: raw
+  random_number:
+    path: $.output.fetch-number.outputs.body.raw.authorization_request_delivered
+    decoder: raw
+  array_value:
+    path: $.output.fetch-array.outputs.body.raw.authorization_request_delivered
+    decoder: raw
+  object_value:
+    path: $.output.fetch-object.outputs.body.raw.authorization_request_delivered
+    decoder: raw
+  visual_evidence:
+    path: $.output.exercise-trusted-authorities-type-non-string.outputs.screenshot_urls
+    decoder: raw
 failure_policy: fail_dependent_preconditions_and_tests

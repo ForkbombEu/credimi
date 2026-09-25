@@ -57,10 +57,12 @@ const (
 	mobileAutomationTask  = "mobile-automation"
 )
 
-// credentialConsumingFlow marks a Maestro flow that can reach the consent
-// screen's Share action, which is the point at which the wallet spends a
-// credential instance.
-var credentialConsumingFlow = regexp.MustCompile(`successfully shared|tapOn:\s*"Share"|text:\s*"Share"`)
+// shareTap counts the consent screen's Share action, which is the point at
+// which the wallet spends a credential instance. A flow that shares twice, such
+// as a scenario exercising two valid presentations in one step, spends two.
+var shareTap = regexp.MustCompile(
+	`tapOn:\s*(?:"Share"|\{[^}\n]*text:\s*"Share"|\n\s*text:\s*"Share")`,
+)
 
 var demoScenarioNames = []string{
 	"fcaf-wallet-solution-relying-party-engagement-haip-vp.yaml",
@@ -277,9 +279,9 @@ func buildAggregate(
 	pipelineOutputs := map[string]any{}
 	testIDs := map[string]struct{}{}
 	seenStepIDs := map[string]string{}
-	// The wallet keeps an unconsumed instance across scenarios, so an issuance
-	// the scenario already performs covers the next consuming presentation.
-	pidAvailable := false
+	// The wallet keeps unconsumed instances across scenarios, so an issuance a
+	// scenario already performs covers the next presentation that shares.
+	pidAvailable := 0
 
 	for _, path := range paths {
 		definition, err := loadPipeline(path)
@@ -322,17 +324,20 @@ func buildAggregate(
 				)
 			}
 			seenStepIDs[id] = path
-			consuming, err := consumesCredentialInstance(rewritten, walletActions)
+			consumed, err := credentialInstancesConsumed(rewritten, walletActions)
 			if err != nil {
 				return fmt.Errorf("FCAF scenario %s step %q: %w", path, id, err)
 			}
-			switch {
-			case issuesCredential(rewritten):
-				pidAvailable = true
-			case consuming && pidAvailable:
-				pidAvailable = false
-			case consuming:
-				aggregate.Steps = append(aggregate.Steps, pidIssuanceSteps(id, fixture)...)
+			if issuesCredential(rewritten) {
+				pidAvailable++
+			}
+			for issued := 0; consumed > 0; consumed-- {
+				if pidAvailable > 0 {
+					pidAvailable--
+					continue
+				}
+				aggregate.Steps = append(aggregate.Steps, pidIssuanceSteps(id, issued, fixture)...)
+				issued++
 			}
 			aggregate.Steps = append(aggregate.Steps, rewritten)
 		}
@@ -510,38 +515,42 @@ func issuesCredential(step map[string]any) bool {
 	return actionID == issuanceActionID
 }
 
-// consumesCredentialInstance reports whether a step presents a credential in a
-// way that spends one of the wallet's instances.
-func consumesCredentialInstance(step map[string]any, actions map[string]string) (bool, error) {
+// credentialInstancesConsumed reports how many credential instances a step
+// spends: one per Share it performs.
+func credentialInstancesConsumed(step map[string]any, actions map[string]string) (int, error) {
 	if use, _ := step["use"].(string); use != mobileAutomationTask {
-		return false, nil
+		return 0, nil
 	}
 	with, _ := step["with"].(map[string]any)
 	actionID, _ := with["action_id"].(string)
 	if actionID == issuanceActionID || actionID == onboardingActionID {
-		return false, nil
+		return 0, nil
 	}
 	source, _ := with["action_code"].(string)
 	if source == "" {
 		if actionID == "" {
-			return false, nil
+			return 0, nil
 		}
 		flow, known := actions[actionID]
 		if !known {
-			return false, fmt.Errorf("unknown wallet action %q", actionID)
+			return 0, fmt.Errorf("unknown wallet action %q", actionID)
 		}
 		source = flow
 	}
-	return credentialConsumingFlow.MatchString(source), nil
+	return len(shareTap.FindAllString(source, -1)), nil
 }
 
 // pidIssuanceSteps issues one fresh PID for the presentation that follows.
-func pidIssuanceSteps(presentationID string, fixture map[string]any) []map[string]any {
+func pidIssuanceSteps(presentationID string, index int, fixture map[string]any) []map[string]any {
 	base := "${fixture.verifier_url}"
 	if _, declared := fixture["issuer_url"].(string); declared {
 		base = "${fixture.issuer_url}"
 	}
-	sessionID := presentationID + "-issue-pid-session"
+	suffix := ""
+	if index > 0 {
+		suffix = fmt.Sprintf("-%d", index+1)
+	}
+	sessionID := presentationID + "-issue-pid" + suffix + "-session"
 	return []map[string]any{
 		{
 			"id":                sessionID,
@@ -559,7 +568,7 @@ func pidIssuanceSteps(presentationID string, fixture map[string]any) []map[strin
 			},
 		},
 		{
-			"id":                presentationID + "-issue-pid",
+			"id":                presentationID + "-issue-pid" + suffix,
 			"use":               mobileAutomationTask,
 			"continue_on_error": true,
 			"with": map[string]any{
