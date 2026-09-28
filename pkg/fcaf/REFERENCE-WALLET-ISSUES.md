@@ -83,3 +83,49 @@ error_description: One or more presentations failed verification.
 The wallet-side positive flow is evidenced through `Share`, PIN approval, and
 the submitted `vp_token`. Verifier acceptance is blocked by certificate/SAN
 validation and must not be reported as a wallet failure.
+
+## RI-WALLET-002: Client Identifier Prefix rejections are not returned to the verifier
+
+### Summary
+
+The reference Android wallet rejects requests whose Client Identifier Prefix it
+does not support, or that violate the prefix's rules, and displays an error
+page, but it does not return the required `invalid_request` response to the
+verifier.
+
+### Reproduction
+
+Create an OpenID4VP session at
+`https://beta-capture-wallet.credimi.io/openid4vp/sessions` with one of the
+`scenarios/fcaf-wallet-solution-relying-party-client-id-prefix-controls.yaml`
+request bodies, unlock the wallet, and open the generated deeplink:
+
+- a signed Request Object with `client_id` `redirect_uri:<response_uri>`;
+- an `origin:` Client Identifier outside the Digital Credentials API;
+- an unsupported `fcaf_unsupported_prefix:` Client Identifier;
+- plain unsigned URL parameters with an `https://` Client Identifier.
+
+### Observed
+
+Wallet 2026.09.42, 28/09/2026:
+
+- The wallet retrieves the Request Object where one is offered, then logs
+  `Invalid resolution: UnsupportedClientIdPrefix`, or
+  `InvalidClientIdPrefix(value=Invalid client_id: 'ORIGIN' cannot be used as a
+  Client ID prefix)` for `origin:`.
+- It displays `Oups! Something went wrong`.
+- The beta capture session records at most `vp_request_retrieved`; no POST
+  reaches the response endpoint, so no `error=invalid_request` is captured.
+
+### Expected
+
+OpenID4VP 1.0 Section 8.5 lists an unsupported Client Identifier Prefix and a
+violation of a prefix's requirements as `invalid_request` cases; the source
+tests require an error response whose `error` is exactly `invalid_request`.
+
+### FCAF Impact
+
+- Tests: `WS_RP_MS_Metadata__110`, `WS_RP_MS_Metadata__133`,
+  `WS_RP_MS_ProtocolMessages__143`, `WS_RP_MS_ProtocolMessages__144`.
+- The request-shape and visual-evidence assertions pass; the reference wallet
+  fails the protocol assertion.

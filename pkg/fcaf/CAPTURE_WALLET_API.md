@@ -471,6 +471,14 @@ source test permits it.
   carries a Client Identifier the verifier no longer expects, so a presentation
   that does arrive fails audience verification; bind those cases to rejection
   evidence only.
+- On 28/09/2026, beta refused `client_id_scheme: "redirect_uri"` with
+  `by_reference` and `by_value` delivery (`400
+  redirect_uri_client_id_requires_plain_delivery`). A signed Request Object
+  with a `redirect_uri:` Client Identifier is still deliverable through
+  `request_mutation` on the default x509_hash session: beta signed and served
+  the mutated `client_id` and `response_uri`, and `request_mutation` on
+  `outer_request` also replaced the `client_id` of a `plain` request. The same
+  path delivered `origin:` and unknown Client Identifier Prefixes.
 
 ### Known FCAF limitations
 

@@ -410,6 +410,21 @@ func TestJOSEJWSSignedRequestValidator(t *testing.T) {
 		StatusFail,
 		validator.Validate(context.Background(), Input{Value: "header.payload.signature"}).Status,
 	)
+
+	expiredRequest := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
+		"nonce": "nonce-1",
+		"iat":   now.Add(-time.Hour).Unix(),
+		"exp":   now.Add(-55 * time.Minute).Unix(),
+	})
+	expiredRequest.Header["x5c"] = []string{base64.StdEncoding.EncodeToString(certificateDER)}
+	compactExpiredRequest, err := expiredRequest.SignedString(privateKey)
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		StatusPass,
+		validator.Validate(context.Background(), Input{Value: compactExpiredRequest}).Status,
+		"captured Request Objects are validated after their exp",
+	)
 }
 
 func TestJOSEJWSInvalidSignatureValidator(t *testing.T) {

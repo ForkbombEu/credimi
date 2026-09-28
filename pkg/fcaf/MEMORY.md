@@ -2438,3 +2438,60 @@ shared actions.
 `make fcaf-generate` produces 872 aggregate steps, 614 test IDs, and 212
 pipeline outputs. The catalog grows to 614 because `IA_ProtocolFlow__003a` and
 `003b_UF` had no test YAML before this batch.
+
+## Client Identifier Prefix controls, Metadata 110 and 133, ProtocolMessages 143 and 144
+
+28/09/2026. The four cases were placeholders: 110 and 133 were bound to the
+positive `pipeline.dcql.metadata` exchange with `credentials_match`, and the
+dedicated 143/144 scenarios sent `client_id` and `unsigned` inside
+`presentation_request`, where the capture service ignores them. They now share
+`scenarios/fcaf-wallet-solution-relying-party-client-id-prefix-controls.yaml`
+(`pipeline.protocol.client-id-prefix-controls`); the two dedicated scenarios
+are deleted and 110/133 are removed from the metadata scenario.
+
+- `110`: `client_id_scheme: redirect_uri` with `by_reference` or `by_value` is
+  refused on beta with `redirect_uri_client_id_requires_plain_delivery`. The
+  scenario therefore keeps the x509_hash-signed Request Object and uses
+  `request_mutation` to set `client_id` (outer and Request Object) to
+  `redirect_uri:${fixture.verifier_url}/openid4vp/response` and `response_uri`
+  to the same URI, so the redirect_uri prefix is internally consistent and the
+  signature is the only defect. The state-keyed `/openid4vp/response` endpoint
+  still attributes a Wallet error to the session.
+- `133`: `origin:` Client Identifier in a `request_uri` / `direct_post.jwt`
+  request, i.e. outside the DC API.
+- `143`: `fcaf_unsupported_prefix:` Client Identifier.
+- `144`: `request_delivery: plain` with the outer `client_id` replaced by the
+  bare `https://` verifier URL. OpenID4VP 1.0 no longer defines an `https`
+  prefix, but Section 8.5 still names "an unsigned request was sent with
+  Client Identifier Prefix https" as an `invalid_request` case, and the source
+  test asks for exactly that shape.
+
+All four require `invalid_request_required`: the sources demand an error
+response whose `error` is exactly `invalid_request`, so a UI error or a return
+to Home must not pass.
+
+Reference wallet 2026.09.42 (AVD `credimi`, `emulator-5580`) against beta on
+28/09/2026, `fcaf-expect-request-rejected` green for all four: the wallet
+retrieved the Request Object by POST (110/133/143), logged
+`Invalid resolution: UnsupportedClientIdPrefix` (110/143/144) or
+`InvalidClientIdPrefix(... 'ORIGIN' cannot be used as a Client ID prefix)`
+(133), and showed `Oups! Something went wrong`, but posted nothing to the
+verifier. Its posted wallet metadata advertises
+`client_id_prefixes_supported: ["x509_san_dns", "x509_hash"]`. Recorded as
+`REFERENCE-WALLET-ISSUES.md` RI-WALLET-002. Evaluated through the FCAF engine
+on those captures: every request-shape assertion passes and every
+`wallet_returns_invalid_request` assertion fails.
+
+Found while verifying 110: `jose.jws_signed_request` validated the Request
+Object's registered time claims, and beta issues Request Objects with a 300 s
+`exp`. The aggregate validation step runs long after capture, so the assertion
+failed with `token is expired` on otherwise valid evidence for all 21 tests
+that use it. Fixed on 28/09/2026 at the user's request: `verifyJWSRequest`
+(shared with `jose.jws_invalid_signature`) now parses with
+`jwt.WithoutClaimsValidation()` and checks only the signature against the
+`x5c` leaf. The expired beta capture of 110 now passes. `oid4vp.did_signed_request`
+had the same time-claim check and now skips it too.
+
+`make fcaf-generate` produces 1290 aggregate steps, 614 test IDs, and 212
+pipeline outputs; the happy flow drops to 340 test IDs because 110 and 133 no
+longer borrow the positive metadata exchange.

@@ -76,6 +76,200 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ callback-redirect-298d09a0-create-callback-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: signed-redirect-uri-prefix
+            request_delivery: by_reference
+            request_mutation:
+                outer_request:
+                    set:
+                        /client_id: redirect_uri:${fixture.verifier_url}/openid4vp/response
+                request_object:
+                    set:
+                        /client_id: redirect_uri:${fixture.verifier_url}/openid4vp/response
+                        /response_uri: ${fixture.verifier_url}/openid4vp/response
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-fetch-signed-redirect-uri
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri.outputs.body.session_id }}
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-create-origin-outside-dc-api
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: origin-prefix-outside-dc-api
+            request_delivery: by_reference
+            request_mutation:
+                outer_request:
+                    set:
+                        /client_id: origin:${fixture.verifier_url}
+                request_object:
+                    set:
+                        /client_id: origin:${fixture.verifier_url}
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-prefix-controls-f49aa8ab-create-origin-outside-dc-api.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-fetch-origin-outside-dc-api
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-prefix-controls-f49aa8ab-create-origin-outside-dc-api.outputs.body.session_id }}
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-create-unsupported-prefix
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: unsupported-client-id-prefix
+            request_delivery: by_reference
+            request_mutation:
+                outer_request:
+                    set:
+                        /client_id: fcaf_unsupported_prefix:${fixture.verifier_url}
+                request_object:
+                    set:
+                        /client_id: fcaf_unsupported_prefix:${fixture.verifier_url}
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-reject-unsupported-prefix
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-prefix-controls-f49aa8ab-create-unsupported-prefix.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-fetch-unsupported-prefix
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-prefix-controls-f49aa8ab-create-unsupported-prefix.outputs.body.session_id }}
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-create-unsigned-https
+      use: http-request
+      with:
+        body:
+            client_id_scheme: redirect_uri
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: unsigned-https-client-id
+            request_delivery: plain
+            request_mutation:
+                outer_request:
+                    set:
+                        /client_id: ${fixture.verifier_url}
+                verification_applies: false
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-reject-unsigned-https
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-prefix-controls-f49aa8ab-create-unsigned-https.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-fetch-unsigned-https
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-prefix-controls-f49aa8ab-create-unsigned-https.outputs.body.session_id }}
+    - continue_on_error: true
       id: credential-digest-algorithm-1354cfc6-create-sha384-issuance
       use: http-request
       with:
@@ -10265,124 +10459,6 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-142-f7a51d3c-create-capture-session.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-protocol-messages-143-991665c6-create-capture-session
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                client_id: unknown://invalid-client-id
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                nonce: fcaf-143
-            response_mode: direct_post.jwt
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: dcql-protocol-messages-143-991665c6-exercise-wallet-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-protocol-messages-143-991665c6-exercise-wallet-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-protocol-messages-143-991665c6-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-protocol-messages-143-991665c6-exercise-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-        parameters:
-            deeplink: ${{ dcql-protocol-messages-143-991665c6-create-capture-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-protocol-messages-143-991665c6-fetch-capture-session
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-143-991665c6-create-capture-session.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-protocol-messages-144-3b15905c-create-capture-session
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                nonce: fcaf-144
-                unsigned: true
-            response_mode: direct_post.jwt
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: dcql-protocol-messages-144-3b15905c-exercise-wallet-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-protocol-messages-144-3b15905c-exercise-wallet-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-protocol-messages-144-3b15905c-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-protocol-messages-144-3b15905c-exercise-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-        parameters:
-            deeplink: ${{ dcql-protocol-messages-144-3b15905c-create-capture-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-protocol-messages-144-3b15905c-fetch-capture-session
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-144-3b15905c-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-protocol-messages-145-43efad77-create-capture-session
       use: http-request
@@ -22463,14 +22539,6 @@ steps:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-142-f7a51d3c-fetch-capture-session.outputs.body | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-142-f7a51d3c-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
-            pipeline.dcql.protocol-messages-143:
-                output:
-                    dcql_exchange: ${{ dcql-protocol-messages-143-991665c6-fetch-capture-session.outputs.body | optional }}
-                    visual_evidence: ${{ dcql-protocol-messages-143-991665c6-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
-            pipeline.dcql.protocol-messages-144:
-                output:
-                    dcql_exchange: ${{ dcql-protocol-messages-144-3b15905c-fetch-capture-session.outputs.body | optional }}
-                    visual_evidence: ${{ dcql-protocol-messages-144-3b15905c-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.protocol-messages-145:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-145-43efad77-fetch-capture-session.outputs.body | optional }}
@@ -22867,6 +22935,24 @@ steps:
                     pid_sdjwt: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     pid_sdjwt_presentations: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.protocol.client-id-prefix-controls:
+                output:
+                    origin_outside_dc_api_delivered_request: ${{ client-id-prefix-controls-f49aa8ab-fetch-origin-outside-dc-api.outputs.body.raw.authorization_request_delivered | optional }}
+                    origin_outside_dc_api_outer_request: ${{ client-id-prefix-controls-f49aa8ab-fetch-origin-outside-dc-api.outputs.body.raw.outer_request_delivered | optional }}
+                    origin_outside_dc_api_session: ${{ client-id-prefix-controls-f49aa8ab-fetch-origin-outside-dc-api.outputs.body | optional }}
+                    origin_outside_dc_api_visual_evidence: ${{ client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    signed_redirect_uri_delivered_request: ${{ client-id-prefix-controls-f49aa8ab-fetch-signed-redirect-uri.outputs.body.raw.authorization_request_delivered | optional }}
+                    signed_redirect_uri_outer_request: ${{ client-id-prefix-controls-f49aa8ab-fetch-signed-redirect-uri.outputs.body.raw.outer_request_delivered | optional }}
+                    signed_redirect_uri_request_object: ${{ client-id-prefix-controls-f49aa8ab-fetch-signed-redirect-uri.outputs.body.raw.authorization_request_jwt | optional }}
+                    signed_redirect_uri_session: ${{ client-id-prefix-controls-f49aa8ab-fetch-signed-redirect-uri.outputs.body | optional }}
+                    signed_redirect_uri_visual_evidence: ${{ client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    unsigned_https_outer_request: ${{ client-id-prefix-controls-f49aa8ab-fetch-unsigned-https.outputs.body.raw.outer_request_delivered | optional }}
+                    unsigned_https_session: ${{ client-id-prefix-controls-f49aa8ab-fetch-unsigned-https.outputs.body | optional }}
+                    unsigned_https_visual_evidence: ${{ client-id-prefix-controls-f49aa8ab-reject-unsigned-https.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    unsupported_prefix_delivered_request: ${{ client-id-prefix-controls-f49aa8ab-fetch-unsupported-prefix.outputs.body.raw.authorization_request_delivered | optional }}
+                    unsupported_prefix_outer_request: ${{ client-id-prefix-controls-f49aa8ab-fetch-unsupported-prefix.outputs.body.raw.outer_request_delivered | optional }}
+                    unsupported_prefix_session: ${{ client-id-prefix-controls-f49aa8ab-fetch-unsupported-prefix.outputs.body | optional }}
+                    unsupported_prefix_visual_evidence: ${{ client-id-prefix-controls-f49aa8ab-reject-unsupported-prefix.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.protocol.request-object-header-controls:
                 output:
                     invalid_typ_delivered_request: ${{ request-object-header-controls-ed82443e-fetch-invalid-typ.outputs.body.raw.authorization_request_delivered | optional }}

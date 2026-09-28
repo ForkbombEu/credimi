@@ -34,6 +34,8 @@ func (OID4VPDIDSignedRequestValidator) Validate(_ context.Context, input Input) 
 	if !ok {
 		return Result{Status: StatusFail, Message: "DID document is missing"}
 	}
+	// Time claims are skipped: captured Request Objects are validated after
+	// their short exp has passed.
 	token, err := jwt.Parse(request, func(token *jwt.Token) (any, error) {
 		kid, ok := token.Header["kid"].(string)
 		if !ok {
@@ -79,7 +81,7 @@ func (OID4VPDIDSignedRequestValidator) Validate(_ context.Context, input Input) 
 			return key, nil
 		}
 		return nil, fmt.Errorf("request object kid is not published by DID document")
-	})
+	}, jwt.WithoutClaimsValidation())
 	if err != nil {
 		return Result{
 			Status:  StatusFail,

@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"testing"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
@@ -49,6 +50,30 @@ func TestOID4VPDIDSignedRequestValidator(t *testing.T) {
 			require.Equal(t, test.wantStatus, result.Status, result.Message)
 		})
 	}
+}
+
+// TestOID4VPDIDSignedRequestAcceptsExpiredCapture keeps the verdict on the
+// signature: captured Request Objects are validated after their short exp.
+func TestOID4VPDIDSignedRequestAcceptsExpiredCapture(t *testing.T) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	const kid = "did:web:verifier.example#key-1"
+	now := time.Now()
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
+		"client_id": "decentralized_identifier:did:web:verifier.example",
+		"iat":       now.Add(-time.Hour).Unix(),
+		"exp":       now.Add(-55 * time.Minute).Unix(),
+	})
+	token.Header["kid"] = kid
+	request, err := token.SignedString(privateKey)
+	require.NoError(t, err)
+
+	result := OID4VPDIDSignedRequestValidator{}.Validate(context.Background(), Input{
+		Value: didRequestEvidence(kid, privateKey, request),
+	})
+
+	require.Equal(t, StatusPass, result.Status, result.Message)
 }
 
 // TestOID4VPDIDSignedRequestRejectsMalformedCoordinates keeps the published

@@ -610,6 +610,9 @@ func (JOSEJWSInvalidSignatureValidator) Validate(_ context.Context, input Input)
 	return Result{Status: StatusPass, Message: "signed request JWS signature is invalid"}
 }
 
+// verifyJWSRequest checks only the signature against the x5c leaf key. Time
+// claims are skipped: validation runs on captured evidence after the Request
+// Object's short exp has passed.
 func verifyJWSRequest(token string) error {
 	_, err := jwt.Parse(token, func(parsed *jwt.Token) (any, error) {
 		x5c, ok := parsed.Header["x5c"].([]any)
@@ -629,7 +632,7 @@ func verifyJWSRequest(token string) error {
 			return nil, fmt.Errorf("parse JWS x5c leaf certificate: %w", err)
 		}
 		return certificate.PublicKey, nil
-	})
+	}, jwt.WithoutClaimsValidation())
 	return err
 }
 
