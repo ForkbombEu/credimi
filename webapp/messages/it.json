@@ -1045,5 +1045,9 @@
 	"Role": "Ruolo",
 	"Component": "Componente",
 	"Provider": "Provider",
-	"Clear_filters": "Cancella filtri"
+	"Clear_filters": "Cancella filtri",
+	"Watch_live": "Watch live",
+	"Watch_live_on_device": "Watch live: {device}",
+	"Live_view_open_failed": "Could not open the live view",
+	"Live_view_choose_device": "Choose a device to watch:"
 }
