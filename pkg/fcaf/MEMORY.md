@@ -2495,3 +2495,37 @@ had the same time-claim check and now skips it too.
 `make fcaf-generate` produces 1290 aggregate steps, 614 test IDs, and 212
 pipeline outputs; the happy flow drops to 340 test IDs because 110 and 133 no
 longer borrow the positive metadata exchange.
+
+## Capture Wallet API resync, 28/09/2026
+
+`CAPTURE_WALLET_API.md` now mirrors upstream master `1c8162c`. Contract changes
+since `5b03750`: a supplied `redirect_uri`, with its fresh `response_code`, is
+signed into the wallet-facing request (this settles the open question above
+about whether the callback `response_code` equals the creation-time one); the
+per-credential `require_cryptographic_holder_binding` is documented; a
+**Confirmed FCAF protocol variants** section covers client metadata, Client
+Identifier prefixes and the default direct-post reply; `request_uri_response`
+applies to POST retrieval too.
+
+Upstream `FCAF_FIXTURES.md` and `REMAINING_WORK.md` at the same commit assign
+every remaining blocked test to a capability. Read against the local sources and
+probed on beta the same day, 39 tests are now listed under **Constructible from
+the current contract, definition pending** in `ASSERTION_REVIEW_BACKLOG.md`: 36
+moved out of **Blocked**, and `WS_RP_MS_Metadata__091`–`093` were added because
+they only had a placeholder assertion. The 38 with inventory rows carry a dated
+note there (`WS_RP_SM_RpIntegrity__013b_UF` has no row). Beyond the upstream
+assignment, the source reading adds `WS_RP_MS_ProtocolMessages__039`, `041`,
+`043`, `WS_RP_IA_MainInteraction__064`, and `WS_RP_SM_RpIntegrity__013b_UF`.
+
+Where the harness disagrees with upstream: `WS_RP_MS_Metadata__134` stays
+blocked, because its source requires the Wallet to decrypt an encrypted Request
+Object, not only the captured `wallet_metadata`; `WS_RP_MS_ProtocolMessages__040`
+stays blocked because it needs a non-`direct_post` response mode.
+
+Every Metadata test from `091` to `137` that is still in the metadata scenario
+binds the positive `pipeline.dcql.metadata` exchange with a placeholder
+`credentials_match` assertion. Those rows report on the wrong evidence until
+each gets its own scenario.
+
+Beta still refuses `verifier_attestation` and `x509_san_dns` sessions
+(`there are no SAN-DNS names`), so that group stays certificate-blocked.
