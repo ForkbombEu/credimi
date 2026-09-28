@@ -123,10 +123,27 @@ OpenID4VP 1.0 Section 8.5 lists an unsupported Client Identifier Prefix and a
 violation of a prefix's requirements as `invalid_request` cases; the source
 tests require an error response whose `error` is exactly `invalid_request`.
 
+### Same defect for Client Identifier binding failures
+
+The `scenarios/fcaf-wallet-solution-relying-party-client-id-binding-controls.yaml`
+requests show the same behaviour on 28/09/2026: the wallet retrieves the
+Request Object, logs `InvalidJarJwt(cause=ClientId not found in certificate's
+subject alternative names)` for an `x509_san_dns:` Client Identifier absent
+from the leaf, `InvalidJarJwt(cause=ClientId does not match leaf
+certificate's SHA-256 hash)` for a wrong `x509_hash:` value, and
+`UnsupportedClientIdPrefix` for `decentralized_identifier:`, then shows the
+error page without posting `invalid_request`. A signed Request Object without
+`x5c` and a plain request with a `redirect_uri:http://` Client Identifier end
+on the same error page; the captured logcat window recorded no reason for
+those two.
+
 ### FCAF Impact
 
-- Tests: `WS_RP_MS_Metadata__110`, `WS_RP_MS_Metadata__133`,
-  `WS_RP_MS_ProtocolMessages__143`, `WS_RP_MS_ProtocolMessages__144`.
+- Tests: `WS_RP_MS_Metadata__110`, `WS_RP_MS_Metadata__126`,
+  `WS_RP_MS_Metadata__130`, `WS_RP_MS_Metadata__133`,
+  `WS_RP_MS_ProtocolMessages__039`, `WS_RP_MS_ProtocolMessages__143`,
+  `WS_RP_MS_ProtocolMessages__144`, `WS_RP_SM_RpIntegrity__007`,
+  `WS_RP_SM_RpIntegrity__014`.
 - The request-shape and visual-evidence assertions pass; the reference wallet
   fails the protocol assertion.
 
@@ -168,3 +185,24 @@ source test requires the Wallet to reject the request with `invalid_request`.
 - Test: `WS_RP_MS_Metadata__106`.
 - The delivered-request and visual-evidence assertions pass; the reference
   wallet fails the protocol assertion.
+
+## MOCK-VERIFIER-002: Beta signs decentralized_identifier requests with the X.509 key
+
+On 28/09/2026 a beta session with `client_id_scheme: decentralized_identifier`
+and no `request_behavior` delivered a Request Object whose `client_id` was
+`decentralized_identifier:did:web:beta-capture-wallet.credimi.io:openid4vp` but
+whose JOSE header carried `kid: credimi-fake-verifier-key` and the X.509
+verifier `x5c`. The signature verified against that `x5c` leaf and not against
+the only verification method in `/openid4vp/did.json`
+(`#credimi-fake-verifier-did-key`). The published contract says this scheme
+signs with a separate `did:web` key.
+
+### FCAF Impact
+
+- `WS_RP_IA_Metadata__015`, `016` and `WS_RP_SM_RpIntegrity__006` require the
+  DID-published key to verify the request, so beta cannot satisfy them.
+- `WS_RP_SM_RpIntegrity__007` still holds its precondition, because
+  `request_behavior.signing_key: unrelated` also signs with a key the DID
+  document does not list, but on beta the normal DID request would satisfy it
+  too. The reference wallet additionally rejects `decentralized_identifier:`
+  as an unsupported prefix, so it never reaches the signing-key check.

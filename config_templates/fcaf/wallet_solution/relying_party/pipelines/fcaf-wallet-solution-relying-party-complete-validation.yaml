@@ -76,6 +76,392 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ callback-redirect-298d09a0-create-callback-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: client-id-binding-controls-616e872a-create-san-dns-mismatch
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: x509-san-dns-mismatch
+            request_delivery: by_reference
+            request_mutation:
+                outer_request:
+                    set:
+                        /client_id: x509_san_dns:beta-capture-wallet.credimi.io
+                request_object:
+                    set:
+                        /client_id: x509_san_dns:beta-capture-wallet.credimi.io
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-san-dns-mismatch
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-create-san-dns-mismatch.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-fetch-san-dns-mismatch
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-san-dns-mismatch.outputs.body.session_id }}
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-create-hash-mismatch
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: x509-hash-mismatch
+            request_delivery: by_reference
+            request_mutation:
+                outer_request:
+                    set:
+                        /client_id: x509_hash:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                request_object:
+                    set:
+                        /client_id: x509_hash:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-hash-mismatch
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-create-hash-mismatch.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-fetch-hash-mismatch
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-hash-mismatch.outputs.body.session_id }}
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-fetch-did-document
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/did.json
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-create-did-unlisted-key
+      use: http-request
+      with:
+        body:
+            client_id_scheme: decentralized_identifier
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: did-unlisted-signing-key
+            request_behavior:
+                signing_key: unrelated
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-did-unlisted-key
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-create-did-unlisted-key.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-fetch-did-unlisted-key
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-did-unlisted-key.outputs.body.session_id }}
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-create-missing-x5c
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: missing-x5c-header
+            request_delivery: by_reference
+            request_mutation:
+                request_object_header:
+                    unset:
+                        - /x5c
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-missing-x5c
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-create-missing-x5c.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-fetch-missing-x5c
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-missing-x5c.outputs.body.session_id }}
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-create-non-https-redirect-uri
+      use: http-request
+      with:
+        body:
+            client_id_scheme: redirect_uri
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: non-https-redirect-uri
+            request_delivery: plain
+            request_mutation:
+                outer_request:
+                    set:
+                        /client_id: redirect_uri:http://beta-capture-wallet.credimi.io/openid4vp/response
+                verification_applies: false
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-non-https-redirect-uri
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-create-non-https-redirect-uri.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-fetch-non-https-redirect-uri
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-non-https-redirect-uri.outputs.body.session_id }}
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-create-derived-response-uri
+      use: http-request
+      with:
+        body:
+            client_id_scheme: redirect_uri
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: derived-response-uri
+            request_delivery: plain
+            request_mutation:
+                outer_request:
+                    unset:
+                        - /response_uri
+                verification_applies: true
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-exercise-derived-response-uri-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-exercise-derived-response-uri-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-exercise-derived-response-uri-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-exercise-derived-response-uri
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-create-derived-response-uri.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-fetch-derived-response-uri
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-derived-response-uri.outputs.body.session_id }}
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-create-http-request-uri-target
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: http-request-uri-target
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-create-http-request-uri
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: http-request-uri
+            request_delivery: by_reference
+            request_mutation:
+                outer_request:
+                    set:
+                        /request_uri: http://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-http-request-uri-target.outputs.body.session_id }}/request
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-http-request-uri
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-create-http-request-uri.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-fetch-http-request-uri
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-http-request-uri.outputs.body.session_id }}
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-fetch-http-request-uri-target
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-http-request-uri-target.outputs.body.session_id }}
+    - continue_on_error: true
       id: client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri
       use: http-request
       with:
@@ -23174,6 +23560,35 @@ steps:
                     pid_sdjwt: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     pid_sdjwt_presentations: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.protocol.client-id-binding-controls:
+                output:
+                    derived_response_uri_outer_request: ${{ client-id-binding-controls-616e872a-fetch-derived-response-uri.outputs.body.raw.outer_request_delivered | optional }}
+                    derived_response_uri_session: ${{ client-id-binding-controls-616e872a-fetch-derived-response-uri.outputs.body | optional }}
+                    derived_response_uri_visual_evidence: ${{ client-id-binding-controls-616e872a-exercise-derived-response-uri.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    did_unlisted_key_evidence:
+                        did_document: ${{ client-id-binding-controls-616e872a-fetch-did-document.outputs.body | optional }}
+                        request_object: ${{ client-id-binding-controls-616e872a-fetch-did-unlisted-key.outputs.body.raw.authorization_request_jwt | optional }}
+                    did_unlisted_key_session: ${{ client-id-binding-controls-616e872a-fetch-did-unlisted-key.outputs.body | optional }}
+                    did_unlisted_key_visual_evidence: ${{ client-id-binding-controls-616e872a-reject-did-unlisted-key.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    hash_mismatch_outer_request: ${{ client-id-binding-controls-616e872a-fetch-hash-mismatch.outputs.body.raw.outer_request_delivered | optional }}
+                    hash_mismatch_request_object: ${{ client-id-binding-controls-616e872a-fetch-hash-mismatch.outputs.body.raw.authorization_request_jwt | optional }}
+                    hash_mismatch_session: ${{ client-id-binding-controls-616e872a-fetch-hash-mismatch.outputs.body | optional }}
+                    hash_mismatch_visual_evidence: ${{ client-id-binding-controls-616e872a-reject-hash-mismatch.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    http_request_uri_outer_request: ${{ client-id-binding-controls-616e872a-fetch-http-request-uri.outputs.body.raw.outer_request_delivered | optional }}
+                    http_request_uri_session: ${{ client-id-binding-controls-616e872a-fetch-http-request-uri.outputs.body | optional }}
+                    http_request_uri_target_session: ${{ client-id-binding-controls-616e872a-fetch-http-request-uri-target.outputs.body | optional }}
+                    http_request_uri_visual_evidence: ${{ client-id-binding-controls-616e872a-reject-http-request-uri.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    missing_x5c_outer_request: ${{ client-id-binding-controls-616e872a-fetch-missing-x5c.outputs.body.raw.outer_request_delivered | optional }}
+                    missing_x5c_request_object: ${{ client-id-binding-controls-616e872a-fetch-missing-x5c.outputs.body.raw.authorization_request_jwt | optional }}
+                    missing_x5c_session: ${{ client-id-binding-controls-616e872a-fetch-missing-x5c.outputs.body | optional }}
+                    missing_x5c_visual_evidence: ${{ client-id-binding-controls-616e872a-reject-missing-x5c.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    non_https_redirect_uri_outer_request: ${{ client-id-binding-controls-616e872a-fetch-non-https-redirect-uri.outputs.body.raw.outer_request_delivered | optional }}
+                    non_https_redirect_uri_session: ${{ client-id-binding-controls-616e872a-fetch-non-https-redirect-uri.outputs.body | optional }}
+                    non_https_redirect_uri_visual_evidence: ${{ client-id-binding-controls-616e872a-reject-non-https-redirect-uri.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    san_dns_mismatch_outer_request: ${{ client-id-binding-controls-616e872a-fetch-san-dns-mismatch.outputs.body.raw.outer_request_delivered | optional }}
+                    san_dns_mismatch_request_object: ${{ client-id-binding-controls-616e872a-fetch-san-dns-mismatch.outputs.body.raw.authorization_request_jwt | optional }}
+                    san_dns_mismatch_session: ${{ client-id-binding-controls-616e872a-fetch-san-dns-mismatch.outputs.body | optional }}
+                    san_dns_mismatch_visual_evidence: ${{ client-id-binding-controls-616e872a-reject-san-dns-mismatch.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.protocol.client-id-prefix-controls:
                 output:
                     origin_outside_dc_api_delivered_request: ${{ client-id-prefix-controls-f49aa8ab-fetch-origin-outside-dc-api.outputs.body.raw.authorization_request_delivered | optional }}
@@ -24098,6 +24513,7 @@ steps:
             - WS_RP_SM_RpIntegrity__012
             - WS_RP_SM_RpIntegrity__013
             - WS_RP_SM_RpIntegrity__013a
+            - WS_RP_SM_RpIntegrity__013b_UF
             - WS_RP_SM_RpIntegrity__014
             - WS_RP_SM_RpIntegrity__015
             - WS_RP_SM_RpIntegrity__016

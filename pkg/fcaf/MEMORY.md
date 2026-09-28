@@ -2572,3 +2572,41 @@ override, so `raw.authorization_request_delivered` records exactly what was
 signed. `make fcaf-generate` produces 1308 aggregate steps, 614 test IDs, and
 213 pipeline outputs; the happy flow drops to 331 test IDs because nine tests
 left the positive placeholder scenarios.
+
+## Client Identifier binding controls, second constructible group
+
+28/09/2026. Eight tests implemented with reference-Wallet verdicts (wallet
+2026.09.42, `emulator-5580`, beta):
+
+| Test | Evidence source | Verdict |
+| --- | --- | --- |
+| `WS_RP_MS_Metadata__126` | `client-id-binding-controls`, `x509_san_dns:` name absent from the leaf | fail: no `invalid_request` (RI-WALLET-002) |
+| `WS_RP_MS_Metadata__130` | same, `x509_hash:` value that is not the leaf hash | fail: no `invalid_request` (RI-WALLET-002) |
+| `WS_RP_SM_RpIntegrity__007` | same, `decentralized_identifier` with `signing_key: unrelated` | fail: prefix unsupported, no `invalid_request` |
+| `WS_RP_SM_RpIntegrity__014` | same, `x5c` removed from the JOSE header | fail: no `invalid_request` (RI-WALLET-002) |
+| `WS_RP_MS_ProtocolMessages__039` | same, plain `redirect_uri:http://` | fail: no `invalid_request` (RI-WALLET-002) |
+| `WS_RP_MS_ProtocolMessages__041` | same, plain `redirect_uri:` without `response_uri` | fail: `UnsupportedClientIdPrefix` |
+| `WS_RP_MS_ProtocolMessages__043` | same, `http://` Request URI pointing at a prior session | pass: `URL must use HTTPS` |
+| `WS_RP_SM_RpIntegrity__013b_UF` | `rp-integrity-invalid-signature`, shared with `027` | pass: `InvalidJarJwt ... Invalid signature` |
+
+`013b_UF` is the first definition for that source file, so the catalog grows to
+615 tests. Its source signs with a WRPAC key; beta uses its normal X.509
+verifier certificate, which the definition records in a comment.
+
+New validators: `oid4vp.x509_client_id_leaf_mismatch` (`prefix: x509_hash` or
+`x509_san_dns`) proves the Client Identifier does not bind the delivered `x5c`
+leaf, and `oid4vp.did_signing_key_unlisted` proves no P-256 verification method
+of the fetched DID document verifies an ES256 Request Object. The DID key
+parsing moved into `didMethodP256Key`, shared with `oid4vp.did_signed_request`.
+
+Beta finding, MOCK-VERIFIER-002: a normal `decentralized_identifier` session is
+signed with the X.509 verifier key, not the DID key, so
+`WS_RP_IA_Metadata__015`, `016` and `WS_RP_SM_RpIntegrity__006` cannot pass on
+beta. Beta also answers `http://` with a `308` to `https://`, which is why 043
+points its Request URI at a separately created session: a Wallet that followed
+the redirect would be captured there.
+
+`043` hardcodes the beta host in its `http://` URIs because an expression cannot
+rewrite the scheme of `${fixture.verifier_url}`; `039` does the same for its
+Client Identifier. `make fcaf-generate` produces 1334 aggregate steps, 615 test
+IDs, and 214 pipeline outputs; the happy flow drops to 324 test IDs.

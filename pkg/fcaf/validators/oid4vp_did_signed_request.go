@@ -50,35 +50,7 @@ func (OID4VPDIDSignedRequestValidator) Validate(_ context.Context, input Input) 
 			if !ok || method["id"] != kid {
 				continue
 			}
-			jwk, ok := normalizeJSONObject(method["publicKeyJwk"])
-			if !ok {
-				return nil, fmt.Errorf("did method JWK is missing")
-			}
-			if jwk["kty"] != "EC" || jwk["crv"] != "P-256" {
-				return nil, fmt.Errorf("did method is not P-256 EC")
-			}
-			x, xok := jwk["x"].(string)
-			y, yok := jwk["y"].(string)
-			if !xok || !yok {
-				return nil, fmt.Errorf("did method EC coordinates are missing")
-			}
-			xb, err := decodeP256Coordinate("x", x)
-			if err != nil {
-				return nil, err
-			}
-			yb, err := decodeP256Coordinate("y", y)
-			if err != nil {
-				return nil, err
-			}
-			encoded := make([]byte, 0, 1+2*p256CoordinateBytes)
-			encoded = append(encoded, 4)
-			encoded = append(encoded, xb...)
-			encoded = append(encoded, yb...)
-			key, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), encoded)
-			if err != nil {
-				return nil, fmt.Errorf("parse DID method EC key: %w", err)
-			}
-			return key, nil
+			return didMethodP256Key(method)
 		}
 		return nil, fmt.Errorf("request object kid is not published by DID document")
 	}, jwt.WithoutClaimsValidation())
@@ -99,6 +71,39 @@ func (OID4VPDIDSignedRequestValidator) Validate(_ context.Context, input Input) 
 		Status:  StatusPass,
 		Message: "DID-published key verifies the decentralized identifier Request Object",
 	}
+}
+
+// didMethodP256Key parses the P-256 publicKeyJwk of one DID verification method.
+func didMethodP256Key(method map[string]any) (*ecdsa.PublicKey, error) {
+	jwk, ok := normalizeJSONObject(method["publicKeyJwk"])
+	if !ok {
+		return nil, fmt.Errorf("did method JWK is missing")
+	}
+	if jwk["kty"] != "EC" || jwk["crv"] != "P-256" {
+		return nil, fmt.Errorf("did method is not P-256 EC")
+	}
+	x, xok := jwk["x"].(string)
+	y, yok := jwk["y"].(string)
+	if !xok || !yok {
+		return nil, fmt.Errorf("did method EC coordinates are missing")
+	}
+	xb, err := decodeP256Coordinate("x", x)
+	if err != nil {
+		return nil, err
+	}
+	yb, err := decodeP256Coordinate("y", y)
+	if err != nil {
+		return nil, err
+	}
+	encoded := make([]byte, 0, 1+2*p256CoordinateBytes)
+	encoded = append(encoded, 4)
+	encoded = append(encoded, xb...)
+	encoded = append(encoded, yb...)
+	key, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), encoded)
+	if err != nil {
+		return nil, fmt.Errorf("parse DID method EC key: %w", err)
+	}
+	return key, nil
 }
 
 // p256CoordinateBytes is the fixed length of a P-256 affine coordinate, so an

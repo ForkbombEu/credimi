@@ -83,10 +83,8 @@ steps:
       - WS_RP_MS_Metadata__123
       - WS_RP_MS_Metadata__124
       - WS_RP_MS_Metadata__125
-      - WS_RP_MS_Metadata__126
       - WS_RP_MS_Metadata__127
       - WS_RP_MS_Metadata__128
-      - WS_RP_MS_Metadata__130
       - WS_RP_MS_Metadata__134
       - WS_RP_MS_Metadata__141
     suite: wallet_solution/relying_party

@@ -21,7 +21,6 @@ func TestOID4VPDIDSignedRequestValidator(t *testing.T) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	const kid = "did:web:verifier.example#key-1"
 	tests := []struct {
 		name       string
 		clientID   string
@@ -42,9 +41,9 @@ func TestOID4VPDIDSignedRequestValidator(t *testing.T) {
 	validator := OID4VPDIDSignedRequestValidator{}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			request := signedDIDRequestObject(t, privateKey, kid, test.clientID)
+			request := signedDIDRequestObject(t, privateKey, test.clientID)
 			result := validator.Validate(context.Background(), Input{
-				Value: didRequestEvidence(kid, privateKey, request),
+				Value: didRequestEvidence(privateKey, request),
 			})
 
 			require.Equal(t, test.wantStatus, result.Status, result.Message)
@@ -58,19 +57,18 @@ func TestOID4VPDIDSignedRequestAcceptsExpiredCapture(t *testing.T) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	const kid = "did:web:verifier.example#key-1"
 	now := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
 		"client_id": "decentralized_identifier:did:web:verifier.example",
 		"iat":       now.Add(-time.Hour).Unix(),
 		"exp":       now.Add(-55 * time.Minute).Unix(),
 	})
-	token.Header["kid"] = kid
+	token.Header["kid"] = testDIDKeyID
 	request, err := token.SignedString(privateKey)
 	require.NoError(t, err)
 
 	result := OID4VPDIDSignedRequestValidator{}.Validate(context.Background(), Input{
-		Value: didRequestEvidence(kid, privateKey, request),
+		Value: didRequestEvidence(privateKey, request),
 	})
 
 	require.Equal(t, StatusPass, result.Status, result.Message)
@@ -83,11 +81,9 @@ func TestOID4VPDIDSignedRequestRejectsMalformedCoordinates(t *testing.T) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	const kid = "did:web:verifier.example#key-1"
 	request := signedDIDRequestObject(
 		t,
 		privateKey,
-		kid,
 		"decentralized_identifier:did:web:verifier.example",
 	)
 	validator := OID4VPDIDSignedRequestValidator{}
@@ -99,7 +95,7 @@ func TestOID4VPDIDSignedRequestRejectsMalformedCoordinates(t *testing.T) {
 		"padded": make([]byte, 1024),
 	} {
 		t.Run(name, func(t *testing.T) {
-			evidence := didRequestEvidence(kid, privateKey, request)
+			evidence := didRequestEvidence(privateKey, request)
 			document, _ := evidence["did_document"].(map[string]any)
 			methods, _ := document["verificationMethod"].([]any)
 			method, _ := methods[0].(map[string]any)
@@ -113,26 +109,27 @@ func TestOID4VPDIDSignedRequestRejectsMalformedCoordinates(t *testing.T) {
 	}
 }
 
+const testDIDKeyID = "did:web:verifier.example#key-1"
+
 func signedDIDRequestObject(
 	t *testing.T,
 	privateKey *ecdsa.PrivateKey,
-	kid string,
 	clientID string,
 ) string {
 	t.Helper()
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{"client_id": clientID})
-	token.Header["kid"] = kid
+	token.Header["kid"] = testDIDKeyID
 	request, err := token.SignedString(privateKey)
 	require.NoError(t, err)
 	return request
 }
 
-func didRequestEvidence(kid string, privateKey *ecdsa.PrivateKey, request string) map[string]any {
+func didRequestEvidence(privateKey *ecdsa.PrivateKey, request string) map[string]any {
 	return map[string]any{
 		"request_object": request,
 		"did_document": map[string]any{
 			"verificationMethod": []any{map[string]any{
-				"id": kid,
+				"id": testDIDKeyID,
 				"publicKeyJwk": map[string]any{
 					"kty": "EC",
 					"crv": "P-256",

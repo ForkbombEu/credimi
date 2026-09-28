@@ -19,9 +19,8 @@ Review baseline: the local source mirror under
 against upstream `submitted` commit `2b223b56be0d0a073ee0cdc9db1d7fd31d9529a1`
 (13/08/2026), and the Capture Wallet contract in `pkg/fcaf/CAPTURE_WALLET_API.md`
 as synced on 28/09/2026 (`1c8162c`). The mirror has 621 distinct `WS_RP_*` files
-against 614 Credimi test definitions; the seven without a definition are
-`WS_RP_SM_RpIntegrity__013b_UF`, listed under **Constructible from the current
-contract**, and six entries under **Blocked**.
+against 615 Credimi test definitions; the six without a definition are listed
+under **Blocked**.
 
 ## Ready to work
 
@@ -193,6 +192,17 @@ The `fcaf-dc-api-present` action drives the full browser path on wallet
   it. Upstream's `client_metadata: null` construction is limited to unencrypted
   `direct_post`, which the HAIP reference Wallet refuses right after retrieving
   the Request Object, so it would fail for a reason unrelated to the source.
+- The Client Identifier binding controls implemented on 28/09/2026 all reach
+  the reference Wallet with the source-defined defect, but only
+  `WS_RP_SM_RpIntegrity__013b_UF` and `WS_RP_MS_ProtocolMessages__043` pass.
+  `WS_RP_MS_Metadata__126`, `130`, `WS_RP_SM_RpIntegrity__007`, `014` and
+  `WS_RP_MS_ProtocolMessages__039` fail on the protocol assertion: the Wallet
+  rejects each request without posting `invalid_request` (RI-WALLET-002).
+  `WS_RP_MS_ProtocolMessages__041` fails because the Wallet does not support
+  the `redirect_uri:` prefix at all. `007` is weaker than it looks: the Wallet
+  rejects `decentralized_identifier:` as unsupported before any key check, and
+  beta signs even its normal DID requests with the X.509 key
+  (MOCK-VERIFIER-002).
 
 ### Constructible from the current contract, definition pending
 
@@ -204,33 +214,6 @@ the remaining entries has a scenario yet. Most currently bind the positive
 `pipeline.dcql.metadata` exchange with a placeholder `credentials_match`
 assertion, which proves nothing about the source; each needs its own scenario,
 exact evidence bindings, and a reference-Wallet run.
-
-Client Identifier and Request Object signature controls:
-
-- [ ] `WS_RP_MS_Metadata__126` (`request_mutation` sets `x509_san_dns:<name>` in
-  both `request_object` and `outer_request` on the default session; the leaf has
-  no `dNSName` SAN, so no entry can match)
-- [ ] `WS_RP_MS_Metadata__130` (`request_mutation` sets an `x509_hash:` value
-  that is not the leaf hash in both `request_object` and `outer_request`;
-  `request_behavior.certificate_chain` cannot serve it because it recomputes
-  the hash)
-- [ ] `WS_RP_SM_RpIntegrity__007` (`client_id_scheme: decentralized_identifier`
-  with `request_behavior.signing_key: unrelated`: the DID document stays
-  untouched, so the signing key is not among its verification methods)
-- [ ] `WS_RP_SM_RpIntegrity__013b_UF` (no Credimi definition yet;
-  `request_behavior.signature: corrupt`, as `WS_RP_SM_RpIntegrity__027`. The
-  source names a WRPAC signing key, while beta signs with its normal X.509
-  verifier certificate; record that difference in the definition)
-- [ ] `WS_RP_SM_RpIntegrity__014` (`request_mutation.request_object_header.unset`
-  `/x5c`)
-- [ ] `WS_RP_MS_ProtocolMessages__039` (`plain` with `client_id_scheme:
-  redirect_uri`, outer `client_id` mutated to `redirect_uri:http://…`)
-- [ ] `WS_RP_MS_ProtocolMessages__041` (`plain` with `client_id_scheme:
-  redirect_uri` and `outer_request.unset` `/response_uri`; the generated
-  Client Identifier already carries the session response URI)
-- [ ] `WS_RP_MS_ProtocolMessages__043` (outer `request_uri` mutated to an
-  `http://` URI; it must name a previously created session, because the new
-  session's own URI is unknown at creation)
 
 Verifier response controls:
 

@@ -1,0 +1,284 @@
+name: FCAF Client Identifier binding controls
+# The http:// URIs name the beta host explicitly: an expression cannot rewrite
+# the scheme of ${fixture.verifier_url}.
+runtime:
+  fixture:
+    issuer_url: https://beta-capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+- id: create-san-dns-mismatch
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: x509-san-dns-mismatch
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_mutation:
+        request_object:
+          set: { /client_id: "x509_san_dns:beta-capture-wallet.credimi.io" }
+        outer_request:
+          set: { /client_id: "x509_san_dns:beta-capture-wallet.credimi.io" }
+        verification_applies: false
+- id: reject-san-dns-mismatch
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-san-dns-mismatch.outputs.body.deeplink }}" }
+- id: fetch-san-dns-mismatch
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-san-dns-mismatch.outputs.body.session_id }}", expected_status: 200 }
+- id: create-hash-mismatch
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: x509-hash-mismatch
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_mutation:
+        request_object:
+          set: { /client_id: "x509_hash:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" }
+        outer_request:
+          set: { /client_id: "x509_hash:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" }
+        verification_applies: false
+- id: reject-hash-mismatch
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-hash-mismatch.outputs.body.deeplink }}" }
+- id: fetch-hash-mismatch
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-hash-mismatch.outputs.body.session_id }}", expected_status: 200 }
+- id: fetch-did-document
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/did.json", expected_status: 200 }
+- id: create-did-unlisted-key
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      client_id_scheme: decentralized_identifier
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: did-unlisted-signing-key
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_behavior:
+        signing_key: unrelated
+- id: reject-did-unlisted-key
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-did-unlisted-key.outputs.body.deeplink }}" }
+- id: fetch-did-unlisted-key
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-did-unlisted-key.outputs.body.session_id }}", expected_status: 200 }
+- id: create-missing-x5c
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: missing-x5c-header
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_mutation:
+        request_object_header:
+          unset: [/x5c]
+        verification_applies: false
+- id: reject-missing-x5c
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-missing-x5c.outputs.body.deeplink }}" }
+- id: fetch-missing-x5c
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-missing-x5c.outputs.body.session_id }}", expected_status: 200 }
+- id: create-non-https-redirect-uri
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: plain
+      client_id_scheme: redirect_uri
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: non-https-redirect-uri
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_mutation:
+        outer_request:
+          set: { /client_id: "redirect_uri:http://beta-capture-wallet.credimi.io/openid4vp/response" }
+        verification_applies: false
+- id: reject-non-https-redirect-uri
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-non-https-redirect-uri.outputs.body.deeplink }}" }
+- id: fetch-non-https-redirect-uri
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-non-https-redirect-uri.outputs.body.session_id }}", expected_status: 200 }
+- id: create-derived-response-uri
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: plain
+      client_id_scheme: redirect_uri
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: derived-response-uri
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_mutation:
+        outer_request:
+          unset: [/response_uri]
+        verification_applies: true
+- id: exercise-derived-response-uri
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-derived-response-uri.outputs.body.deeplink }}" }
+- id: fetch-derived-response-uri
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-derived-response-uri.outputs.body.session_id }}", expected_status: 200 }
+- id: create-http-request-uri-target
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: http-request-uri-target
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+- id: create-http-request-uri
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: http-request-uri
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_mutation:
+        outer_request:
+          set:
+            /request_uri: "http://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ create-http-request-uri-target.outputs.body.session_id }}/request"
+        verification_applies: false
+- id: reject-http-request-uri
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-http-request-uri.outputs.body.deeplink }}" }
+- id: fetch-http-request-uri
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-http-request-uri.outputs.body.session_id }}", expected_status: 200 }
+- id: fetch-http-request-uri-target
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-http-request-uri-target.outputs.body.session_id }}", expected_status: 200 }
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+      - WS_RP_MS_Metadata__126
+      - WS_RP_MS_Metadata__130
+      - WS_RP_MS_ProtocolMessages__039
+      - WS_RP_MS_ProtocolMessages__041
+      - WS_RP_MS_ProtocolMessages__043
+      - WS_RP_SM_RpIntegrity__007
+      - WS_RP_SM_RpIntegrity__014
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.protocol.client-id-binding-controls:
+        output:
+          san_dns_mismatch_session: ${{ fetch-san-dns-mismatch.outputs.body }}
+          san_dns_mismatch_request_object: ${{ fetch-san-dns-mismatch.outputs.body.raw.authorization_request_jwt }}
+          san_dns_mismatch_outer_request: ${{ fetch-san-dns-mismatch.outputs.body.raw.outer_request_delivered }}
+          san_dns_mismatch_visual_evidence: ${{ reject-san-dns-mismatch.outputs.flow_output.maestro_screenshot_urls }}
+          hash_mismatch_session: ${{ fetch-hash-mismatch.outputs.body }}
+          hash_mismatch_request_object: ${{ fetch-hash-mismatch.outputs.body.raw.authorization_request_jwt }}
+          hash_mismatch_outer_request: ${{ fetch-hash-mismatch.outputs.body.raw.outer_request_delivered }}
+          hash_mismatch_visual_evidence: ${{ reject-hash-mismatch.outputs.flow_output.maestro_screenshot_urls }}
+          did_unlisted_key_session: ${{ fetch-did-unlisted-key.outputs.body }}
+          did_unlisted_key_evidence:
+            request_object: ${{ fetch-did-unlisted-key.outputs.body.raw.authorization_request_jwt }}
+            did_document: ${{ fetch-did-document.outputs.body }}
+          did_unlisted_key_visual_evidence: ${{ reject-did-unlisted-key.outputs.flow_output.maestro_screenshot_urls }}
+          missing_x5c_session: ${{ fetch-missing-x5c.outputs.body }}
+          missing_x5c_request_object: ${{ fetch-missing-x5c.outputs.body.raw.authorization_request_jwt }}
+          missing_x5c_outer_request: ${{ fetch-missing-x5c.outputs.body.raw.outer_request_delivered }}
+          missing_x5c_visual_evidence: ${{ reject-missing-x5c.outputs.flow_output.maestro_screenshot_urls }}
+          non_https_redirect_uri_session: ${{ fetch-non-https-redirect-uri.outputs.body }}
+          non_https_redirect_uri_outer_request: ${{ fetch-non-https-redirect-uri.outputs.body.raw.outer_request_delivered }}
+          non_https_redirect_uri_visual_evidence: ${{ reject-non-https-redirect-uri.outputs.flow_output.maestro_screenshot_urls }}
+          derived_response_uri_session: ${{ fetch-derived-response-uri.outputs.body }}
+          derived_response_uri_outer_request: ${{ fetch-derived-response-uri.outputs.body.raw.outer_request_delivered }}
+          derived_response_uri_visual_evidence: ${{ exercise-derived-response-uri.outputs.flow_output.maestro_screenshot_urls }}
+          http_request_uri_session: ${{ fetch-http-request-uri.outputs.body }}
+          http_request_uri_outer_request: ${{ fetch-http-request-uri.outputs.body.raw.outer_request_delivered }}
+          http_request_uri_target_session: ${{ fetch-http-request-uri-target.outputs.body }}
+          http_request_uri_visual_evidence: ${{ reject-http-request-uri.outputs.flow_output.maestro_screenshot_urls }}
