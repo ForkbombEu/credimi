@@ -80,6 +80,8 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPResponseURIClientIDMismatchValidator{},
 		OID4VPRedirectURIVisitedValidator{},
 		OID4VPErrorResponseRequiredValidator{},
+		OID4VPWalletMetadataValidator{},
+		OID4VPUnencryptedRequestObjectRejectedValidator{},
 		OID4VPSessionEventCountValidator{},
 		OID4VPDeviceBindingValidator{},
 		OID4VPNonceStateBindingValidator{},

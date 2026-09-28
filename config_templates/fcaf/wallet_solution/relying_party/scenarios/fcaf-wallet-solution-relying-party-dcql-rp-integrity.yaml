@@ -65,7 +65,6 @@ steps:
       - WS_RP_SM_RpIntegrity__011
       - WS_RP_SM_RpIntegrity__012
       - WS_RP_SM_RpIntegrity__014
-      - WS_RP_SM_RpIntegrity__021
       - WS_RP_SM_RpIntegrity__024
       - WS_RP_SM_RpIntegrity__025
       - WS_RP_SM_RpIntegrity__027

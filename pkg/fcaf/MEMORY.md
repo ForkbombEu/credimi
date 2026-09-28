@@ -2529,3 +2529,46 @@ each gets its own scenario.
 
 Beta still refuses `verifier_attestation` and `x509_san_dns` sessions
 (`there are no SAN-DNS names`), so that group stays certificate-blocked.
+
+## Request and metadata controls, first constructible group
+
+28/09/2026. Nine tests from the constructible list are implemented and have
+reference-Wallet verdicts (wallet 2026.09.42, `emulator-5580`, beta):
+
+| Test | Evidence source | Verdict |
+| --- | --- | --- |
+| `WS_RP_MS_Metadata__105` | `metadata-request-controls`, unrecognised member set inside `client_metadata` | pass |
+| `WS_RP_MS_Metadata__106` | same scenario, string `client_metadata` | fail: rejected without posting `invalid_request` (RI-WALLET-003) |
+| `WS_RP_MS_Metadata__107` | same scenario, default POST retrieval | pass |
+| `WS_RP_MS_Metadata__109`, `WS_RP_SM_RpIntegrity__021` | same scenario, `client_name` outside `client_metadata` | pass |
+| `WS_RP_MS_Metadata__135` | default POST retrieval | `not_applicable`: no `jwks` in `wallet_metadata` |
+| `WS_RP_MS_Metadata__136` | default POST retrieval | pass |
+| `WS_RP_MS_Metadata__137` | `client-id-prefix-controls`, signed `redirect_uri:` session | pass |
+| `WS_RP_MS_ProtocolMessages__002` | `plain-redirect-uri` | fail: `UnsupportedClientIdPrefix` |
+
+New validators: `oid4vp.wallet_metadata` reads the `wallet_metadata` the Wallet
+POSTed to the Request URI (string or object) and checks `present` or `absent`
+members; `oid4vp.unencrypted_request_object_rejected` returns `not_applicable`
+unless that metadata publishes `jwks`, and otherwise requires an unencrypted
+compact JWS answered by `invalid_request` without a presentation.
+
+Two findings shaped the definitions:
+
+- Upstream builds 107 with `client_metadata: null`, which Capture limits to
+  unencrypted `direct_post`. The reference Wallet logs `HAIP profile requires an
+  encrypted response mode` and stops after retrieval, so that construction fails
+  for a reason the source does not test. 107 instead binds the default
+  by-reference session: its outer Authorization Request carries
+  `request_uri_method=post` and no `client_metadata`, which is the source's
+  precondition, and the Wallet then presents.
+- `WS_RP_MS_ProtocolMessages__002` and the existing `038` and
+  `WS_RP_SM_RpIntegrity__028` share the plain `redirect_uri:` scenario. Wallet
+  2026.09.42 advertises `client_id_prefixes_supported: ["x509_san_dns",
+  "x509_hash"]` and rejects every plain request, so all three fail on this
+  HAIP-profile Wallet.
+
+`105` and `109` use `request_mutation` rather than a `client_metadata`
+override, so `raw.authorization_request_delivered` records exactly what was
+signed. `make fcaf-generate` produces 1308 aggregate steps, 614 test IDs, and
+213 pipeline outputs; the happy flow drops to 331 test IDs because nine tests
+left the positive placeholder scenarios.

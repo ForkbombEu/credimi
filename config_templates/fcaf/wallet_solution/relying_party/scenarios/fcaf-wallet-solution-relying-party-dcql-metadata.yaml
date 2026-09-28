@@ -67,11 +67,7 @@ steps:
       - WS_RP_MS_Metadata__101
       - WS_RP_MS_Metadata__102
       - WS_RP_MS_Metadata__103
-      - WS_RP_MS_Metadata__105
-      - WS_RP_MS_Metadata__106
-      - WS_RP_MS_Metadata__107
       - WS_RP_MS_Metadata__108
-      - WS_RP_MS_Metadata__109
       - WS_RP_MS_Metadata__111
       - WS_RP_MS_Metadata__112
       - WS_RP_MS_Metadata__113
@@ -92,9 +88,6 @@ steps:
       - WS_RP_MS_Metadata__128
       - WS_RP_MS_Metadata__130
       - WS_RP_MS_Metadata__134
-      - WS_RP_MS_Metadata__135
-      - WS_RP_MS_Metadata__136
-      - WS_RP_MS_Metadata__137
       - WS_RP_MS_Metadata__141
     suite: wallet_solution/relying_party
     pipeline_outputs:

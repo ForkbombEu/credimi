@@ -47,11 +47,12 @@ steps:
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
-      test_ids: [WS_RP_MS_ProtocolMessages__038, WS_RP_SM_RpIntegrity__028]
+      test_ids: [WS_RP_MS_ProtocolMessages__002, WS_RP_MS_ProtocolMessages__038, WS_RP_SM_RpIntegrity__028]
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.wallet.protocol.plain-redirect-uri:
           output:
             authorization_request: ${{ create-presentation.outputs.body.authorization_request }}
+            outer_request: ${{ fetch-capture-session.outputs.body.raw.outer_request_delivered }}
             wallet_response: ${{ fetch-capture-session.outputs.body }}
             visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

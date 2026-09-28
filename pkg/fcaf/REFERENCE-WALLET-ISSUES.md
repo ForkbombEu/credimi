@@ -129,3 +129,42 @@ tests require an error response whose `error` is exactly `invalid_request`.
   `WS_RP_MS_ProtocolMessages__143`, `WS_RP_MS_ProtocolMessages__144`.
 - The request-shape and visual-evidence assertions pass; the reference wallet
   fails the protocol assertion.
+
+## RI-WALLET-003: Malformed client_metadata is not returned to the verifier
+
+### Summary
+
+The reference Android wallet rejects a signed Request Object whose
+`client_metadata` is not a JSON object and displays an error page, but it does
+not return the required `invalid_request` response to the verifier.
+
+### Reproduction
+
+Create an OpenID4VP session at
+`https://beta-capture-wallet.credimi.io/openid4vp/sessions` with the
+`create-non-object-client-metadata` body of
+`scenarios/fcaf-wallet-solution-relying-party-metadata-request-controls.yaml`
+(`request_mutation.request_object.set` `/client_metadata` to a string), unlock
+the wallet, and open the generated deeplink.
+
+### Observed
+
+Wallet 2026.09.42, 28/09/2026:
+
+- The wallet retrieves the Request Object by POST and logs `Unexpected JSON
+  token ... Expected start of the object '{', but had '"' instead at path:
+  $.client_metadata`.
+- It displays `Oups! Something went wrong`.
+- The beta capture session records `vp_request_retrieved` only; no
+  `error=invalid_request` reaches the response endpoint.
+
+### Expected
+
+OpenID4VP 1.0 Section 5.1 requires `client_metadata` to be a JSON object; the
+source test requires the Wallet to reject the request with `invalid_request`.
+
+### FCAF Impact
+
+- Test: `WS_RP_MS_Metadata__106`.
+- The delivered-request and visual-evidence assertions pass; the reference
+  wallet fails the protocol assertion.

@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__002
-title: FCAF WS_RP_MS_ProtocolMessages__002
+title: Process a plain Authorization Request passed as URL-encoded parameters
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__002.md
 suite:
@@ -11,21 +11,37 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+  outer_request: { from: pipeline.wallet.protocol.plain-redirect-uri.outputs.outer_request }
+  session: { from: pipeline.wallet.protocol.plain-redirect-uri.outputs.wallet_response }
+  visual_evidence: { from: pipeline.wallet.protocol.plain-redirect-uri.outputs.visual_evidence }
 assertions:
-- id: ws_rp_ms_protocolmessages__002_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: request_object_is_not_sent_by_value
+  validator: json.field_presence
+  input: evidence.outer_request
+  params: { field: request, present: false }
+- id: request_object_is_not_sent_by_reference
+  validator: json.field_presence
+  input: evidence.outer_request
+  params: { field: request_uri, present: false }
+- id: request_parameters_are_sent_directly
+  validator: json.field_presence
+  input: evidence.outer_request
+  params: { field: dcql_query, present: true }
+- id: wallet_submitted_the_authorization_response
+  validator: oid4vp.presentation_response_http
+  input: evidence.session
   params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__002_visual_evidence_stored
+    method: POST
+    media_type: application/x-www-form-urlencoded
+    require_response_parameter: true
+- id: wallet_returned_the_requested_credential
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params: { mode: credentials_match }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

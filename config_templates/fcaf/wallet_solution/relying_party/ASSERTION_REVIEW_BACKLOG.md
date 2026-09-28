@@ -177,42 +177,33 @@ The `fcaf-dc-api-present` action drives the full browser path on wallet
   reference Wallet answers several of those requests instead of rejecting them,
   so they are expected to fail until the Wallet is fixed; see
   `pkg/fcaf/MEMORY.md` for the per-variant table to report upstream.
+- The request and metadata controls implemented on 28/09/2026 have
+  reference-Wallet verdicts that are not passes:
+  `WS_RP_MS_ProtocolMessages__002` fails because wallet 2026.09.42 rejects
+  every plain request (`UnsupportedClientIdPrefix`: it supports only
+  `x509_san_dns` and `x509_hash`, and a plain request needs the unsigned
+  `redirect_uri:` prefix), a HAIP-profile mismatch rather than a defect;
+  `WS_RP_MS_Metadata__106` fails on the protocol assertion because the Wallet
+  rejects the non-object `client_metadata` without posting `invalid_request`
+  (`REFERENCE-WALLET-ISSUES.md` RI-WALLET-003); `WS_RP_MS_Metadata__135` is
+  `not_applicable` because the Wallet posts no `jwks`, so it never requires an
+  encrypted Request Object.
+- `WS_RP_MS_Metadata__107` reads "no `client_metadata`" as the outer
+  Authorization Request of a by-reference POST retrieval, which never carries
+  it. Upstream's `client_metadata: null` construction is limited to unencrypted
+  `direct_post`, which the HAIP reference Wallet refuses right after retrieving
+  the Request Object, so it would fail for a reason unrelated to the source.
 
 ### Constructible from the current contract, definition pending
 
 Reclassified on 28/09/2026 against the Capture Wallet contract at `1c8162c`
 and upstream `FCAF_FIXTURES.md` and `REMAINING_WORK.md` at the same commit.
 Beta accepted every control below on that date and the delivered request
-carried the property; see the dated probe in `CAPTURE_WALLET_API.md`. None has
-a scenario yet. Most currently bind the positive `pipeline.dcql.metadata`
-exchange with a placeholder `credentials_match` assertion, which proves
-nothing about the source; each needs its own scenario, exact evidence
-bindings, and a reference-Wallet run.
-
-Request and metadata controls:
-
-- [ ] `WS_RP_MS_ProtocolMessages__002` (`request_delivery: plain`; assert
-  `request` and `request_uri` absent from the delivered outer request and a
-  completed presentation)
-- [ ] `WS_RP_MS_Metadata__105` (`client_metadata` with an unrecognised member;
-  the presentation proceeds)
-- [ ] `WS_RP_MS_Metadata__106` (`request_mutation.request_object.set`
-  `/client_metadata` to a non-object; `invalid_request` required)
-- [ ] `WS_RP_MS_Metadata__107` (`client_metadata: null` with
-  `request_uri_method: post` and `response_mode: direct_post`; `null` is
-  limited to `direct_post`; bind `observed.request_uri_payload.wallet_metadata`)
-- [ ] `WS_RP_MS_Metadata__109` and `WS_RP_SM_RpIntegrity__021`
-  (`request_mutation.request_object.set` a non-key member such as
-  `/client_name` outside `client_metadata`; the presentation proceeds)
-- [ ] `WS_RP_MS_Metadata__135` (the default unencrypted Request Object after a
-  POST retrieval; the source applies only to a Wallet whose `wallet_metadata`
-  requires encryption, and the reference Wallet posted no `jwks` on 28/09/2026,
-  so expect `not_applicable` like `CryptographicHash_010`)
-- [ ] `WS_RP_MS_Metadata__136` (captured `wallet_metadata` for an `x509_hash`
-  POST retrieval; the reference Wallet listed `ES256`, `ES384`, `ES512`)
-- [ ] `WS_RP_MS_Metadata__137` (outer `redirect_uri:` Client Identifier with
-  `request_uri_method: post`, the `WS_RP_MS_Metadata__110` shape; the reference
-  Wallet omitted `request_object_signing_alg_values_supported`)
+carried the property; see the dated probe in `CAPTURE_WALLET_API.md`. None of
+the remaining entries has a scenario yet. Most currently bind the positive
+`pipeline.dcql.metadata` exchange with a placeholder `credentials_match`
+assertion, which proves nothing about the source; each needs its own scenario,
+exact evidence bindings, and a reference-Wallet run.
 
 Client Identifier and Request Object signature controls:
 
