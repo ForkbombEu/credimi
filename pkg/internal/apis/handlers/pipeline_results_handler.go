@@ -1173,6 +1173,22 @@ func readGlobalDeviceIDFromTemporalHistory(
 	c client.Client,
 	workflowID, runID string,
 ) (string, error) {
+	in, ok, err := readPipelineWorkflowInputFromHistory(ctx, c, workflowID, runID)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", nil
+	}
+	return pipeline.GlobalDeviceIDFromConfig(in.WorkflowInput.Config), nil
+}
+
+func readPipelineWorkflowInputFromHistory(
+	ctx context.Context,
+	c client.Client,
+	workflowID, runID string,
+) (pipeline.PipelineWorkflowInput, bool, error) {
+	var empty pipeline.PipelineWorkflowInput
 	iter := c.GetWorkflowHistory(
 		ctx,
 		workflowID,
@@ -1186,7 +1202,7 @@ func readGlobalDeviceIDFromTemporalHistory(
 	for iter.HasNext() {
 		ev, err := iter.Next()
 		if err != nil {
-			return "", err
+			return empty, false, err
 		}
 
 		if ev.GetEventType() != enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
@@ -1195,17 +1211,22 @@ func readGlobalDeviceIDFromTemporalHistory(
 
 		attr := ev.GetWorkflowExecutionStartedEventAttributes()
 		if attr == nil || attr.GetInput() == nil {
-			return "", nil
+			return empty, false, nil
+		}
+
+		payloads := attr.GetInput().GetPayloads()
+		if len(payloads) == 0 {
+			return empty, false, nil
 		}
 
 		var in pipeline.PipelineWorkflowInput
-		if err := dc.FromPayload(attr.GetInput().GetPayloads()[0], &in); err != nil {
-			// If decoding fails, omit (don’t fail the endpoint).
-			return "", nil // nolint
+		if err := dc.FromPayload(payloads[0], &in); err != nil {
+			// If decoding fails, omit (don't fail the endpoint).
+			return empty, false, nil //nolint:nilerr
 		}
 
-		return pipeline.GlobalDeviceIDFromConfig(in.WorkflowInput.Config), nil
+		return in, true, nil
 	}
 
-	return "", nil
+	return empty, false, nil
 }

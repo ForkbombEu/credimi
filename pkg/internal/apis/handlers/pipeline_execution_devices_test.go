@@ -7,7 +7,10 @@ package handlers
 import (
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
+	commonpb "go.temporal.io/api/common/v1"
 )
 
 func TestPipelineExecutionDeviceLiveView(t *testing.T) {
@@ -60,4 +63,18 @@ func TestResolveAndBuildPipelineExecutionDevicesEmpty(t *testing.T) {
 			nil,
 		),
 	)
+}
+
+func TestDeviceIDsFromSearchAttributeField(t *testing.T) {
+	t.Parallel()
+	require.Nil(t, deviceIDsFromSearchAttributeField(nil))
+
+	payload, err := temporalcrypto.DataConverter().ToPayload([]string{"org/runner/a", "org/runner/b"})
+	require.NoError(t, err)
+	attrs := &commonpb.SearchAttributes{
+		IndexedFields: map[string]*commonpb.Payload{
+			workflowengine.DeviceIdentifiersSearchAttribute: payload,
+		},
+	}
+	require.Equal(t, []string{"org/runner/a", "org/runner/b"}, deviceIDsFromSearchAttributeField(attrs))
 }

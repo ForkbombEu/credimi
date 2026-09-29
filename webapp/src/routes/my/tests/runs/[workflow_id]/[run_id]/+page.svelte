@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 	import ExecutionDevices from '$lib/pipeline/execution-devices.svelte';
-	import type { ExecutionSummary } from '$lib/pipeline/workflows';
+	import { getExecutionDevices, type ExecutionSummary } from '$lib/pipeline/workflows';
 	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
@@ -65,6 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		displayName: execution.id,
 		devices
 	});
+	const executionDevices = $derived(getExecutionDevices(executionSummary));
 
 	/* Iframe communication */
 
@@ -225,7 +226,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{execution.runId}
 					</td>
 				</tr>
-				{#if devices.length > 0}
+				{#if executionDevices.length > 0}
 					<tr>
 						<td class="h-2"></td>
 					</tr>
