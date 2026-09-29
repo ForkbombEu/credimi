@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { getExecutionDevices, type ExecutionSummary } from './workflows';
 
 describe('getExecutionDevices', () => {
-	it('prefers structured devices from the API', () => {
+	it('returns structured devices from the API', () => {
 		const summary = {
 			devices: [
 				{ device_id: 'org/runner/a', name: 'a', live_view: true },
@@ -17,16 +17,7 @@ describe('getExecutionDevices', () => {
 		expect(getExecutionDevices(summary)).toEqual(summary.devices);
 	});
 
-	it('falls back to legacy device_records without live view', () => {
-		const summary = {
-			device_records: [{ name: 'legacy' }]
-		} as ExecutionSummary;
-		expect(getExecutionDevices(summary)).toEqual([
-			{ device_id: 'legacy', name: 'legacy', live_view: false }
-		]);
-	});
-
-	it('returns empty when neither field is present', () => {
+	it('returns empty when devices are absent', () => {
 		expect(getExecutionDevices({} as ExecutionSummary)).toEqual([]);
 	});
 });

@@ -25,25 +25,15 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	pipeline_name?: string;
 	global_device_id?: string;
 	device_ids?: string[];
-	/** @deprecated Prefer `devices` for display. */
-	device_records?: Array<{ name: string }>;
 	/** Display-ready devices with optional live-view affordance. */
 	devices?: ExecutionDevice[];
 	progress?: PipelineProgress;
 }
 
 export function getExecutionDevices(
-	execution: Pick<ExecutionSummary, 'devices' | 'device_records'>
+	execution: Pick<ExecutionSummary, 'devices'>
 ): ExecutionDevice[] {
-	if (execution.devices?.length) {
-		return execution.devices;
-	}
-	// Legacy fallback while older payloads lack `devices`.
-	return (execution.device_records ?? []).map((device) => ({
-		device_id: device.name,
-		name: device.name,
-		live_view: false
-	}));
+	return execution.devices ?? [];
 }
 
 const groupedExecutionsUrl = '/api/pipeline/list-executions';

@@ -658,16 +658,10 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	}
 
 	deviceIDs := pipeline.DeviceIDsWithGlobal(runnerInfo, globalDeviceID)
-	runnerRecords := pipeline.ResolveDeviceRecords(
-		b.app,
-		deviceIDs,
-		b.runnerCache,
-	)
 	summary := &pipelineWorkflowSummary{
 		WorkflowExecutionSummary: *rootSummary,
 		GlobalDeviceID:           globalDeviceID,
 		DeviceIDs:                deviceIDs,
-		RunnerRecords:            runnerRecords,
 		Devices: ResolveAndBuildPipelineExecutionDevices(
 			b.app,
 			deviceIDs,
@@ -988,7 +982,6 @@ type pipelineWorkflowSummary struct {
 	PipelineName       string                    `json:"pipeline_name,omitempty"`
 	GlobalDeviceID     string                    `json:"global_device_id,omitempty"`
 	DeviceIDs          []string                  `json:"device_ids,omitempty"`
-	RunnerRecords      []map[string]any          `json:"device_records,omitempty"`
 	Devices            []PipelineExecutionDevice `json:"devices,omitempty"`
 }
 
@@ -1078,15 +1071,13 @@ func buildQueuedPipelineSummary(
 	}
 
 	deviceIDs := copyStringSlice(queued.DeviceIDs)
-	runnerRecords := pipeline.ResolveDeviceRecords(app, deviceIDs, runnerCache)
 	return &pipelineWorkflowSummary{
 		WorkflowExecutionSummary: *exec,
 		PipelineIdentifier: workflowengine.NormalizePipelineIdentifier(
 			queued.PipelineIdentifier,
 		),
-		PipelineName:  displayName,
-		DeviceIDs:     deviceIDs,
-		RunnerRecords: runnerRecords,
+		PipelineName: displayName,
+		DeviceIDs:    deviceIDs,
 		Devices: ResolveAndBuildPipelineExecutionDevices(
 			app,
 			deviceIDs,
