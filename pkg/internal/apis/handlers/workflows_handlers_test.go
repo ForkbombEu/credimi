@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -360,6 +361,65 @@ func TestHandleGetMyCheckRunSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "workflowExecutionInfo")
+}
+
+// The run detail page reads its device list (and the live view button) from
+// this endpoint, so pipeline runs must carry their devices here.
+func TestHandleGetMyWorkflowRunIncludesPipelineDevices(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := workflowTemporalClient
+	t.Cleanup(func() { workflowTemporalClient = origClient })
+	mockClient := &temporalmocks.Client{}
+	workflowTemporalClient = func(string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	deviceIDs, err := temporalcrypto.DataConverter().ToPayload([]string{"tenant/runner-1/pixel"})
+	require.NoError(t, err)
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "pipeline-1", "run-1").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+				Execution: &common.WorkflowExecution{WorkflowId: "pipeline-1", RunId: "run-1"},
+				Type:      &common.WorkflowType{Name: "Dynamic Pipeline Workflow"},
+				Status:    enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+				SearchAttributes: &common.SearchAttributes{
+					IndexedFields: map[string]*common.Payload{
+						workflowengine.DeviceIdentifiersSearchAttribute: deviceIDs,
+					},
+				},
+			},
+		}, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/workflows/pipeline-1/runs/run-1", nil)
+	req.SetPathValue("workflowId", "pipeline-1")
+	req.SetPathValue("runId", "run-1")
+	rec := httptest.NewRecorder()
+
+	err = HandleGetMyWorkflowRun()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var body struct {
+		Devices []PipelineExecutionDevice `json:"devices"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.Equal(t, []PipelineExecutionDevice{
+		{DeviceID: "tenant/runner-1/pixel", Name: "pixel", LiveView: false},
+	}, body.Devices)
 }
 
 func TestHandleGetMyCheckRunIncludesFailureReason(t *testing.T) {

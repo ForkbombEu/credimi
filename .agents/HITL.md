@@ -339,7 +339,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 - status: resolved
 - owner: human maintainer
-- context: `POST /api/pipeline/live-view` (`pkg/internal/apis/handlers/pipeline_live_view_handler.go`) asks the runner holding a running pipeline's device for a live-view URL via `POST {runner_url}/credimi/live-view` and returns it to the UI, which opens it in a new tab. Runner HTTP from credimi-2 normally goes through the `mobile-runner-http-request` Temporal activity.
+- context: `POST /api/pipeline/live-view` (`pkg/internal/apis/handlers/pipeline_live_view_handler.go`) asks the runner holding a running pipeline's device for a live-view URL via `POST {runner_url}/credimi/live-view` and returns it to the UI, which embeds it in a Sheet. Runner HTTP from credimi-2 normally goes through the `mobile-runner-http-request` Temporal activity.
 - question: May the live-view API handler call the runner directly over HTTP instead of through the `mobile-runner-http-request` activity?
 - options considered: (a) direct HTTP from the API handler via `mobilerunner.HTTPClient`, with the internal admin key and a 15s timeout (chosen); (b) start a workflow/activity and wait on it from the request.
 - default risk: The call bypasses Temporal retries and history; a slow or offline runner surfaces as `503 device runner is offline` to the user instead of being retried. The runner contract is listed in `AGENTS.md` "External runner HTTP contract".

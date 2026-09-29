@@ -236,6 +236,9 @@ type GetMyWorkflowRunResponse struct {
 	Callbacks              *Callbacks                           `json:"callbacks,omitempty"`
 	PendingWorkflowTask    *PendingWorkflowTaskInfo             `json:"pendingWorkflowTask,omitempty"`
 	FailureReason          *string                              `json:"failure_reason,omitempty"`
+	// Devices lists the mobile devices of a pipeline execution; live_view
+	// marks the ones Credimi can open a live view for.
+	Devices []PipelineExecutionDevice `json:"devices,omitempty"`
 }
 
 // ListMyWorkflowRunsResponse represents the response containing the runs of a workflow.

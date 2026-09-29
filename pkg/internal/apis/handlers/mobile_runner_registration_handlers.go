@@ -123,6 +123,9 @@ type UpsertMobileDeviceRequest struct {
 	Description  string `json:"description,omitempty"`
 	Type         string `json:"type"                   validate:"required"`
 	Serial       string `json:"serial,omitempty"`
+	// LiveStream is reported by the runner: live stream enabled on the device
+	// and supported by the runner. Absent (older runners) leaves it unchanged.
+	LiveStream *bool `json:"live_stream,omitempty"`
 }
 
 type DeleteMobileDeviceRequest struct {
@@ -274,6 +277,7 @@ type UpsertMobileDeviceResponse struct {
 	Description    string `json:"description,omitempty"`
 	Type           string `json:"type"`
 	Serial         string `json:"serial,omitempty"`
+	LiveStream     bool   `json:"live_stream"`
 }
 
 func HandlePreviewMobileDeviceID() func(*core.RequestEvent) error {
@@ -430,6 +434,9 @@ func HandleUpsertMobileDevice() func(*core.RequestEvent) error {
 		record.Set("description", strings.TrimSpace(input.Description))
 		record.Set("type", strings.TrimSpace(input.Type))
 		record.Set("serial", strings.TrimSpace(input.Serial))
+		if input.LiveStream != nil {
+			record.Set("live_stream", *input.LiveStream)
+		}
 		if err := e.App.Save(record); err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -458,6 +465,7 @@ func HandleUpsertMobileDevice() func(*core.RequestEvent) error {
 				Description:    record.GetString("description"),
 				Type:           record.GetString("type"),
 				Serial:         record.GetString("serial"),
+				LiveStream:     record.GetBool("live_stream"),
 			},
 		)
 	}

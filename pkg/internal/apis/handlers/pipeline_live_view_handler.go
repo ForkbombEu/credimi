@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,7 +33,6 @@ import (
 const (
 	runnerLiveViewTimeout    = 15 * time.Second
 	runnerLiveViewPathPrefix = "/live/"
-	iosSimulatorDeviceType   = "ios_simulator"
 )
 
 type PipelineLiveViewInput struct {
@@ -93,7 +93,7 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 				http.StatusInternalServerError,
 				"organization",
 				"unable to get user organization canonified name",
-				err.Error(),
+				"Could not determine your organization.",
 			)
 		}
 
@@ -103,7 +103,7 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 				http.StatusInternalServerError,
 				"temporal",
 				"unable to create client",
-				err.Error(),
+				"Could not reach the workflow engine. Try again in a moment.",
 			)
 		}
 
@@ -167,14 +167,14 @@ func runningPipelineDevices(
 				http.StatusNotFound,
 				"workflow",
 				"pipeline workflow not found",
-				err.Error(),
+				"This pipeline execution was not found.",
 			)
 		}
 		return nil, apierror.New(
 			http.StatusInternalServerError,
 			"workflow",
 			"unable to describe pipeline workflow",
-			err.Error(),
+			"Could not load this pipeline execution. Try again in a moment.",
 		)
 	}
 	info := description.GetWorkflowExecutionInfo()
@@ -183,7 +183,7 @@ func runningPipelineDevices(
 			http.StatusConflict,
 			"workflow",
 			"pipeline workflow is not running",
-			"live view is available only while the pipeline execution is running",
+			"This execution is no longer running, so there is nothing to watch live.",
 		)
 	}
 	if info.GetType() == nil || info.GetType().GetName() != "Dynamic Pipeline Workflow" {
@@ -191,7 +191,7 @@ func runningPipelineDevices(
 			http.StatusUnprocessableEntity,
 			"workflow",
 			"workflow is not a dynamic pipeline",
-			"live view is available only for dynamic pipeline workflows",
+			"Live view is available only for pipeline executions.",
 		)
 	}
 
@@ -202,12 +202,7 @@ func runningPipelineDevices(
 		pipeline.PipelineMobileDevicesQuery,
 	)
 	if err != nil {
-		return nil, apierror.New(
-			http.StatusConflict,
-			"device_id",
-			"pipeline mobile device is not initialized",
-			err.Error(),
-		)
+		return nil, liveViewDevicesNotReady()
 	}
 	var raw map[string]any
 	if err := encoded.Get(&raw); err != nil {
@@ -215,7 +210,7 @@ func runningPipelineDevices(
 			http.StatusInternalServerError,
 			"device_id",
 			"failed to read initialized pipeline devices",
-			err.Error(),
+			"Could not read the devices of this pipeline execution.",
 		)
 	}
 
@@ -241,7 +236,9 @@ func selectLiveViewDevices(
 				http.StatusConflict,
 				"device_id",
 				"pipeline mobile device is not initialized",
-				"the requested device is not initialized in this pipeline execution",
+				deviceDisplayName(deviceID, nil)+" is still being prepared by the pipeline "+
+					"(for emulators and Redroid this includes creating and booting it). "+
+					"Live view becomes available as soon as it is ready; try again in a moment.",
 			)
 		}
 		if workflowengine.AsString(device["type"]) == iosSimulatorDeviceType {
@@ -249,7 +246,7 @@ func selectLiveViewDevices(
 				http.StatusUnprocessableEntity,
 				"device_id",
 				"live view is not supported for ios_simulator devices",
-				"live view is available only for Android devices",
+				"Live view is not available for iOS simulators.",
 			)
 		}
 		return []string{deviceID}, nil
@@ -262,17 +259,33 @@ func selectLiveViewDevices(
 		}
 		deviceIDs = append(deviceIDs, id)
 	}
+	if len(devices) == 0 {
+		return nil, liveViewDevicesNotReady()
+	}
 	if len(deviceIDs) == 0 {
 		return nil, apierror.New(
 			http.StatusConflict,
 			"device_id",
 			"no live-view capable device is initialized",
-			"live view is available only for Android devices",
+			"Live view is not available for iOS simulators, the only devices of this execution.",
 		)
 	}
 	sort.Strings(deviceIDs)
 
 	return deviceIDs, nil
+}
+
+// liveViewDevicesNotReady reports that the pipeline has not finished preparing
+// its devices: the device map is filled only once the mobile setup completes.
+func liveViewDevicesNotReady() *apierror.APIError {
+	return apierror.New(
+		http.StatusConflict,
+		"device_id",
+		"pipeline mobile device is not initialized",
+		"The pipeline is still preparing its devices (for emulators and Redroid "+
+			"this includes creating and booting them). Live view becomes available "+
+			"as soon as a device is ready; try again in a moment.",
+	)
 }
 
 func openPipelineDeviceLiveView(
@@ -287,7 +300,8 @@ func openPipelineDeviceLiveView(
 			http.StatusConflict,
 			"runner_url",
 			"device runner URL is not usable",
-			"the runner holding this device has no callable URL",
+			"The runner that holds "+deviceDisplayName(deviceID, nil)+
+				" has no URL Credimi can reach.",
 		)
 	}
 
@@ -317,7 +331,8 @@ func openRunnerLiveViewHTTP(
 			http.StatusInternalServerError,
 			"live_view",
 			"internal admin key is not configured",
-			InternalAdminAPIKeyEnvVar+" is empty",
+			"Live view is not configured on this Credimi instance: "+
+				InternalAdminAPIKeyEnvVar+" is empty.",
 		)
 	}
 
@@ -327,7 +342,7 @@ func openRunnerLiveViewHTTP(
 			http.StatusConflict,
 			"runner_url",
 			"device runner URL is not usable",
-			err.Error(),
+			"The runner URL of this device is not valid.",
 		)
 	}
 	payload, err := json.Marshal(body)
@@ -336,7 +351,7 @@ func openRunnerLiveViewHTTP(
 			http.StatusInternalServerError,
 			"live_view",
 			"failed to encode live view request",
-			err.Error(),
+			"Could not prepare the live view request.",
 		)
 	}
 
@@ -354,7 +369,7 @@ func openRunnerLiveViewHTTP(
 			http.StatusConflict,
 			"runner_url",
 			"device runner URL is not usable",
-			err.Error(),
+			"The runner URL of this device is not valid.",
 		)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -366,7 +381,7 @@ func openRunnerLiveViewHTTP(
 			http.StatusServiceUnavailable,
 			"live_view",
 			"device runner is offline",
-			err.Error(),
+			"The runner that holds this device is not reachable. Check that it is online.",
 		)
 	}
 	defer resp.Body.Close()
@@ -374,24 +389,34 @@ func openRunnerLiveViewHTTP(
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		var runnerErr runnerLiveViewError
 		_ = json.NewDecoder(resp.Body).Decode(&runnerErr)
+		// The runner writes its messages for users; forward them unchanged.
 		message := strings.TrimSpace(runnerErr.Message)
 		if message == "" {
-			message = http.StatusText(resp.StatusCode)
+			message = "The runner could not start the live view (HTTP " +
+				strconv.Itoa(resp.StatusCode) + ")."
 		}
-		if resp.StatusCode == http.StatusServiceUnavailable {
+		switch resp.StatusCode {
+		case http.StatusServiceUnavailable:
 			return "", apierror.New(
 				http.StatusServiceUnavailable,
 				"live_view",
 				"live view is unavailable on the device runner",
 				message,
 			)
-		}
-		if resp.StatusCode == http.StatusBadRequest {
+		case http.StatusBadRequest:
 			return "", apierror.New(
 				http.StatusUnprocessableEntity,
 				"live_view",
+				"runner refused live view",
 				message,
-				message,
+			)
+		case http.StatusUnauthorized, http.StatusForbidden:
+			return "", apierror.New(
+				http.StatusBadGateway,
+				"live_view",
+				"runner refused live view",
+				"Credimi is not authorized on the runner that holds this device. "+
+					"Check that both use the same internal admin key.",
 			)
 		}
 		return "", apierror.New(
@@ -409,7 +434,7 @@ func openRunnerLiveViewHTTP(
 			http.StatusBadGateway,
 			"live_view",
 			"runner refused live view",
-			"runner returned an invalid live view path",
+			"The runner returned an invalid live view address.",
 		)
 	}
 

@@ -900,6 +900,10 @@ components:
       properties:
         callbacks:
           $ref: '#/components/schemas/HandlersCallbacks'
+        devices:
+          items:
+            $ref: '#/components/schemas/HandlersPipelineExecutionDevice'
+          type: array
         executionConfig:
           $ref: '#/components/schemas/HandlersWorkflowExecutionConfigWithMetadata'
         failure_reason:
@@ -1133,6 +1137,15 @@ components:
         startedTime:
           type: string
         state:
+          type: string
+      type: object
+    HandlersPipelineExecutionDevice:
+      properties:
+        device_id:
+          type: string
+        live_view:
+          type: boolean
+        name:
           type: string
       type: object
     HandlersReRunWorkflowRequest:

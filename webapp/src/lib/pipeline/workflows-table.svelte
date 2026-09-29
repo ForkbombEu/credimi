@@ -14,9 +14,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { makeDropdownActions } from './actions';
 	import { fromApiSummary } from './execution-artifacts';
+	import ExecutionDevices from './execution-devices.svelte';
 	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
-	import { getExecutionDeviceNames, type ExecutionSummary } from './workflows';
+	import type { ExecutionSummary } from './workflows';
 
 	//
 
@@ -69,8 +70,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet row({ workflow, Td, depth })}
-		{@const deviceNames = getExecutionDeviceNames(workflow)}
-
 		<Td>
 			<WorkflowStatusTag
 				status={workflow.status}
@@ -81,11 +80,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Td>
 
 		<Td>
-			{#if deviceNames.length > 0}
-				{deviceNames.join(', ')}
-			{:else}
-				<span class="text-muted-foreground opacity-50">N/A</span>
-			{/if}
+			<ExecutionDevices execution={workflow} />
 		</Td>
 
 		<Td>
