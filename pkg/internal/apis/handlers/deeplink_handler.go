@@ -12,6 +12,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -73,10 +74,15 @@ type deeplinkWorkflowResponse struct {
 	Output   []any
 }
 
+// getDeeplinkFromYAML runs the YAML through the custom check workflow. When
+// exposeStepCIReport is false, StepCI failures report only their summary: the full
+// report can echo response bodies and secret-interpolated URLs, so it is returned only
+// to the caller that supplied the YAML and secrets.
 func getDeeplinkFromYAML(
 	app core.App,
 	yaml string,
 	secrets map[string]string,
+	exposeStepCIReport bool,
 ) (deeplinkWorkflowResponse, error) {
 	appURL := app.Settings().Meta.AppURL
 
@@ -131,6 +137,12 @@ func getDeeplinkFromYAML(
 	if err != nil {
 		details := workflowengine.ParseWorkflowError(err)
 		message := details.Message
+		if !exposeStepCIReport && details.Code == errorcodes.StepCIRunFailed {
+			message = details.Summary
+			if message == "" {
+				message = errorcodes.Codes[errorcodes.StepCIRunFailed].Description
+			}
+		}
 		if message == "" {
 			message = err.Error()
 		}
@@ -220,7 +232,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
-		response, err := getDeeplinkFromYAML(e.App, body.Yaml, secrets)
+		response, err := getDeeplinkFromYAML(e.App, body.Yaml, secrets, true)
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
@@ -337,7 +349,7 @@ func deeplinkFromRecord(
 		return "", apiErr
 	}
 
-	response, err := getDeeplinkFromYAML(app, yamlStr, secrets)
+	response, err := getDeeplinkFromYAML(app, yamlStr, secrets, false)
 	if err != nil {
 		apiErr := &apierror.APIError{}
 		if errors.As(err, &apiErr) {
