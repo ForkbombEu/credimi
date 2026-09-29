@@ -1086,5 +1086,6 @@
 	"View_live": "View live",
 	"Live_view": "Live view",
 	"Live_view_open_failed": "Could not open the live view",
-	"Live_view_choose_device": "Choose a device to watch:"
+	"Live_view_choose_device": "Choose a device to watch:",
+	"Device": "Device"
 }

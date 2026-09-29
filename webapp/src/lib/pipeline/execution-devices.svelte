@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { VideoIcon } from '@lucide/svelte';
 	import StatusCircle from '$lib/components/status-circle.svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -14,25 +13,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ExecutionDevice } from './live-view';
 
 	import LiveViewSheet from './live-view-sheet.svelte';
+	import { getExecutionDevices, type ExecutionSummary } from './workflows';
 
 	type Props = {
-		devices: ExecutionDevice[];
-		workflowId: string;
-		runId: string;
+		execution: ExecutionSummary;
 		/** Compact layout for dense tables. */
 		compact?: boolean;
 		class?: string;
 	};
 
-	let { devices, workflowId, runId, compact = false, class: className = '' }: Props = $props();
+	let { execution, compact = false, class: className = '' }: Props = $props();
+
+	const devices = $derived(getExecutionDevices(execution));
 
 	let sheetOpen = $state(false);
 	let activeDeviceId = $state<string | undefined>(undefined);
-	let activeDeviceName = $state<string | undefined>(undefined);
 
 	function openLiveView(device: ExecutionDevice) {
 		activeDeviceId = device.device_id;
-		activeDeviceName = device.name;
 		sheetOpen = true;
 	}
 </script>
@@ -48,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					compact ? 'text-xs' : 'text-sm'
 				]}
 			>
-				<span class="min-w-0 truncate font-mono">{device.name}</span>
+				<span class="min-w-0 truncate">{device.name}</span>
 				{#if device.live_view}
 					<Button
 						variant="link"
@@ -60,7 +58,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onclick={() => openLiveView(device)}
 					>
 						<StatusCircle size={compact ? 10 : 12} />
-						<VideoIcon class={compact ? 'size-3' : 'size-3.5'} />
 						<span class="animate-pulse">{m.View_live()}</span>
 					</Button>
 				{/if}
@@ -68,11 +65,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/each}
 	</ul>
 
-	<LiveViewSheet
-		bind:open={sheetOpen}
-		{workflowId}
-		{runId}
-		deviceId={activeDeviceId}
-		deviceName={activeDeviceName}
-	/>
+	<LiveViewSheet bind:open={sheetOpen} {execution} deviceId={activeDeviceId} />
 {/if}

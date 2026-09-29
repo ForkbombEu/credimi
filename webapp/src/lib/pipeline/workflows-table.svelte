@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ExecutionDevices from './execution-devices.svelte';
 	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
-	import { getExecutionDevices, type ExecutionSummary } from './workflows';
+	import type { ExecutionSummary } from './workflows';
 
 	//
 
@@ -70,8 +70,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet row({ workflow, Td, depth })}
-		{@const devices = getExecutionDevices(workflow)}
-
 		<Td>
 			<WorkflowStatusTag
 				status={workflow.status}
@@ -82,11 +80,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Td>
 
 		<Td>
-			<ExecutionDevices
-				{devices}
-				workflowId={workflow.execution.workflowId}
-				runId={workflow.execution.runId}
-			/>
+			<ExecutionDevices execution={workflow} />
 		</Td>
 
 		<Td>

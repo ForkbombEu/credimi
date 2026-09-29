@@ -12,9 +12,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 	import ExecutionDevices from '$lib/pipeline/execution-devices.svelte';
+	import type { ExecutionSummary } from '$lib/pipeline/workflows';
 	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
+	import type { WorkflowStatus as WorkflowStatusValue } from '$lib/workflows/types';
 	import { WorkflowQrPoller } from '$lib/workflows';
 	import { onMount } from 'svelte';
 	import { fromStore } from 'svelte/store';
@@ -49,6 +51,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const timezone = $derived(user.current?.Timezone);
 	const startDisplay = $derived(formatExecutionTimestamp(execution.startTime, timezone) ?? '-');
 	const endDisplay = $derived(formatExecutionTimestamp(execution.endTime, timezone) ?? '-');
+
+	/** Adapt Temporal describe payload into the pipeline ExecutionSummary shape. */
+	const executionSummary = $derived<ExecutionSummary>({
+		execution: {
+			workflowId: execution.id,
+			runId: execution.runId
+		},
+		type: { name: execution.name },
+		startTime: execution.startTime ? String(execution.startTime) : '',
+		...(execution.endTime != null ? { endTime: String(execution.endTime) } : {}),
+		status: execution.status as WorkflowStatusValue,
+		displayName: execution.id,
+		devices
+	});
 
 	/* Iframe communication */
 
@@ -216,7 +232,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<tr>
 						<td class="align-top italic"> Devices </td>
 						<td class="pl-4">
-							<ExecutionDevices {devices} {workflowId} {runId} />
+							<ExecutionDevices execution={executionSummary} />
 						</td>
 					</tr>
 				{/if}

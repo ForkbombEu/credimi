@@ -13,22 +13,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import { requestLiveView } from './live-view';
+	import { getExecutionDevices, type ExecutionSummary } from './workflows';
 
 	type Props = {
 		open?: boolean;
-		workflowId: string;
-		runId: string;
+		execution: ExecutionSummary;
 		deviceId: string | undefined;
-		deviceName: string | undefined;
 	};
 
 	type LiveViewOutcome = { ok: true; url: string } | { ok: false; error: string };
 
-	let { open = $bindable(false), workflowId, runId, deviceId, deviceName }: Props = $props();
+	let { open = $bindable(false), execution, deviceId }: Props = $props();
+
+	const workflowId = $derived(execution.execution.workflowId);
+	const runId = $derived(execution.execution.runId);
+	const deviceName = $derived(
+		deviceId
+			? getExecutionDevices(execution).find((d) => d.device_id === deviceId)?.name
+			: undefined
+	);
 
 	/** Fresh promise whenever the sheet opens or the device/run identity changes. */
 	const liveViewRequest = $derived.by((): Promise<LiveViewOutcome> | undefined => {
-		if (!open || !deviceId) return undefined;
+		if (!open || !deviceId || !workflowId || !runId) return undefined;
 
 		const id = deviceId;
 		return requestLiveView(workflowId, runId, id).then((result): LiveViewOutcome => {
@@ -51,53 +58,63 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Sheet
 	bind:open
 	hideTrigger
-	side="right"
 	title={m.Live_view()}
-	class="h-full !w-[min(100vw,24rem)]"
-	contentClass="flex h-full min-h-0 flex-1 flex-col !overflow-hidden !px-0"
+	class="!w-[min(100vw,24rem)]"
+	contentClass="flex flex-1 flex-col gap-4 !overflow-hidden"
 >
 	{#snippet content()}
-		{#if deviceName}
-			<p class="shrink-0 truncate px-6 pb-2 font-mono text-sm text-muted-foreground">
-				{deviceName}
-			</p>
-		{/if}
-
 		{#if liveViewRequest}
+			<div class="space-y-3 text-sm">
+				<div>
+					<p class="font-semibold">{execution.displayName}</p>
+					{#if deviceName}
+						<p>{m.Device()}: {deviceName}</p>
+					{/if}
+				</div>
+
+				<dl class="space-y-3 text-muted-foreground">
+					<div>
+						<dt>{m.Workflow_ID()}</dt>
+						<dd class="truncate font-mono text-xs">{workflowId}</dd>
+					</div>
+					<div>
+						<dt>Run ID</dt>
+						<dd class="truncate font-mono text-xs">{runId}</dd>
+					</div>
+				</dl>
+			</div>
+
 			{#await liveViewRequest}
-				<div
-					class="flex min-h-[50vh] flex-1 flex-col items-center justify-center gap-3 px-6 py-8"
-				>
+				<div class="grid flex-1 place-content-center justify-items-center gap-3">
 					<Spinner />
 					<p class="text-sm text-muted-foreground">{m.Please_wait()}</p>
 				</div>
 			{:then outcome}
 				{#if outcome.ok}
-					<div class="flex shrink-0 items-center justify-end px-6 pb-2">
+					<div class="flex min-h-0 flex-1 flex-col items-end">
 						<Button
-							variant="outline"
+							variant="link"
 							size="sm"
 							href={outcome.url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="gap-1.5"
+							class="px-0"
 						>
-							<ExternalLinkIcon class="size-4" />
+							<ExternalLinkIcon />
 							{m.Open_in_new_page()}
 						</Button>
-					</div>
-					<div class="min-h-0 flex-1 overflow-hidden">
+
 						{#key deviceId}
 							<iframe
 								src={outcome.url}
 								title={iframeTitle}
-								class="h-full w-full border-0"
+								class="min-h-0 w-full flex-1 border-0"
 								allow="autoplay"
 							></iframe>
 						{/key}
 					</div>
 				{:else}
-					<div class="flex min-h-[50vh] flex-1 flex-col gap-2 px-6 py-4">
+					<div class="space-y-2">
 						<p class="text-sm">{m.Live_view_open_failed()}</p>
 						<p class="font-mono text-xs break-words text-muted-foreground">
 							{outcome.error}
@@ -105,9 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{/if}
 			{:catch}
-				<div class="flex min-h-[50vh] flex-1 flex-col gap-2 px-6 py-4">
-					<p class="text-sm">{m.Live_view_open_failed()}</p>
-				</div>
+				<p class="text-sm">{m.Live_view_open_failed()}</p>
 			{/await}
 		{/if}
 	{/snippet}
