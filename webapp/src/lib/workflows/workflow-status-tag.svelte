@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { WorkflowStatus as Tag } from '@forkbombeu/temporal-ui';
 	import { CircleQuestionMarkIcon } from '@lucide/svelte';
 
+	import FailureText from '@/components/ui-custom/failure-text.svelte';
 	import Popover from '@/components/ui-custom/popover.svelte';
 
 	import type { WorkflowStatus } from './types';
@@ -37,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<CircleQuestionMarkIcon class="size-4" />
 			{/snippet}
 			{#snippet content()}
-				{failureReason}
+				<FailureText>{failureReason}</FailureText>
 			{/snippet}
 		</Popover>
 	{/if}

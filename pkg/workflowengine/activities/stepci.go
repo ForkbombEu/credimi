@@ -11,9 +11,11 @@ import (
 	"html"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
+	"unicode/utf8"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -22,7 +24,14 @@ import (
 	"github.com/go-sprout/sprout/group/all"
 )
 
-const maxStepCIResultErrorBytes = 256 * 1024
+const (
+	maxStepCIResultErrorBytes  = 256 * 1024
+	maxStepCIFailureReportSize = 32 * 1024
+	stepCIGenericFailureReport = "One or more StepCI assertions failed."
+	stepCIReportTruncatedNote  = "\n… (StepCI report truncated)"
+	stepCIMaskedSecret         = "***"
+	minStepCIMaskedSecretLen   = 4
+)
 
 type TestResult struct {
 	ID            string       `json:"id"`
@@ -213,9 +222,13 @@ func (a *StepCIWorkflowActivity) Execute(
 		errCode := errorcodes.Codes[errorcodes.StepCIRunFailed]
 		return result, a.NewActivityError(
 			workflowengine.ActivityError{
-				Code:     errCode.Code,
-				Summary:  "StepCI checks failed",
-				Message:  "One or more StepCI assertions failed.",
+				Code:    errCode.Code,
+				Summary: "StepCI checks failed",
+				Message: formatStepCIFailureReport(
+					output,
+					parseStepCIRequests(stdoutBuf.Bytes()),
+					input.Secrets,
+				),
 				Category: "test_failure",
 				Details:  stepCIFailureDetails(output),
 			},
@@ -245,6 +258,273 @@ func stepCIFailureDetails(output StepCICliReturns) map[string]any {
 	details["result_omitted"] = true
 	details["result_omitted_reason"] = "StepCI result is too large to store safely in a Temporal failure payload."
 	return details
+}
+
+// stepCIRequests holds the executed request of each step, indexed like
+// StepCICliReturns.Tests[i].Steps[j]. Requests are kept out of StepResult so request
+// headers and bodies, which carry resolved secrets, stay out of activity outputs and
+// failure details.
+type stepCIRequests [][]*stepCIRequest
+
+type stepCIRequest struct {
+	Protocol string          `json:"protocol"`
+	URL      string          `json:"url"`
+	Method   string          `json:"method"`
+	Headers  json.RawMessage `json:"headers,omitempty"`
+	Body     any             `json:"body,omitempty"`
+}
+
+func parseStepCIRequests(stdout []byte) stepCIRequests {
+	var raw struct {
+		Tests []struct {
+			Steps []struct {
+				Request *stepCIRequest `json:"request"`
+			} `json:"steps"`
+		} `json:"tests"`
+	}
+	if err := json.Unmarshal(stdout, &raw); err != nil {
+		return nil
+	}
+
+	requests := make(stepCIRequests, len(raw.Tests))
+	for i, test := range raw.Tests {
+		requests[i] = make([]*stepCIRequest, len(test.Steps))
+		for j, step := range test.Steps {
+			requests[i][j] = step.Request
+		}
+	}
+	return requests
+}
+
+func (r stepCIRequests) at(test, step int) *stepCIRequest {
+	if test >= len(r) || step >= len(r[test]) {
+		return nil
+	}
+	return r[test][step]
+}
+
+// formatStepCIFailureReport renders the StepCI result as the human-readable report the
+// StepCI CLI prints (failed checks with expected and received values, the request, and the
+// response), followed by step and runner errors that the runner does not include in its
+// messages. Secret values are masked.
+func formatStepCIFailureReport(
+	output StepCICliReturns,
+	requests stepCIRequests,
+	secrets map[string]any,
+) string {
+	var report strings.Builder
+
+	writeSection := func(title string, lines []string) {
+		if len(lines) == 0 {
+			return
+		}
+		if report.Len() > 0 {
+			report.WriteString("\n\n")
+		}
+		report.WriteString(title)
+		for _, line := range lines {
+			report.WriteString("\n  - ")
+			report.WriteString(line)
+		}
+	}
+
+	messages, unplaced := withStepCIRequests(output, requests)
+	if messages != "" {
+		report.WriteString(messages)
+	}
+	for _, block := range unplaced {
+		if report.Len() > 0 {
+			report.WriteString("\n\n")
+		}
+		report.WriteString(block)
+	}
+
+	var stepErrors []string
+	for _, test := range output.Tests {
+		for _, step := range test.Steps {
+			if !step.Errored || step.ErrorMessage == nil || *step.ErrorMessage == "" {
+				continue
+			}
+			stepErrors = append(stepErrors, stepCIStepName(step)+": "+*step.ErrorMessage)
+		}
+	}
+	writeSection("Step errors:", stepErrors)
+
+	var runnerErrors []string
+	for _, cliErr := range output.Errors {
+		if msg := strings.TrimSpace(cliErr.Message); msg != "" {
+			runnerErrors = append(runnerErrors, msg)
+		}
+	}
+	writeSection("Errors:", runnerErrors)
+
+	if report.Len() == 0 {
+		return stepCIGenericFailureReport
+	}
+	return truncateStepCIReport(maskStepCISecrets(report.String(), secrets))
+}
+
+// withStepCIRequests joins the runner messages and inserts each failed step's request
+// after the "  Method:" line of that step's "Step Failed: <name>" block. Requests that
+// cannot be placed in the messages are returned as standalone blocks.
+func withStepCIRequests(output StepCICliReturns, requests stepCIRequests) (string, []string) {
+	type failedStep struct {
+		name    string
+		request *stepCIRequest
+	}
+	var failed []failedStep
+	for i, test := range output.Tests {
+		for j, step := range test.Steps {
+			if step.Passed {
+				continue
+			}
+			failed = append(
+				failed,
+				failedStep{name: stepCIStepName(step), request: requests.at(i, j)},
+			)
+		}
+	}
+
+	lines := make([]string, 0, len(output.Messages)+len(failed))
+	next := 0
+	current := -1
+	for _, message := range output.Messages {
+		lines = append(lines, message)
+		if name, ok := strings.CutPrefix(message, "Step Failed: "); ok {
+			current = -1
+			for k := next; k < len(failed); k++ {
+				if failed[k].name == name {
+					current, next = k, k+1
+					break
+				}
+			}
+			continue
+		}
+		if current >= 0 && strings.HasPrefix(message, "  Method:") &&
+			failed[current].request != nil {
+			lines = append(
+				lines,
+				"  Request:\n"+indentStepCILines(
+					renderStepCIRequest(failed[current].request),
+					"    ",
+				),
+			)
+			failed[current].request = nil
+			current = -1
+		}
+	}
+
+	var unplaced []string
+	for _, step := range failed {
+		if step.request != nil {
+			unplaced = append(unplaced, "Request of "+step.name+":\n"+
+				indentStepCILines(renderStepCIRequest(step.request), "    "))
+		}
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n")), unplaced
+}
+
+// renderStepCIRequest mirrors renderHTTPRequest of the StepCI CLI: request line, one
+// "name: value" line per header in sent order, then a blank line and the body when the
+// body is text.
+func renderStepCIRequest(request *stepCIRequest) string {
+	var out strings.Builder
+	out.WriteString(strings.TrimSpace(request.Method + " " + request.URL + " " + request.Protocol))
+	for _, header := range orderedStepCIHeaders(request.Headers) {
+		out.WriteString("\n")
+		out.WriteString(header)
+	}
+	if body, ok := request.Body.(string); ok && body != "" {
+		out.WriteString("\n\n")
+		out.WriteString(body)
+	}
+	return out.String()
+}
+
+// orderedStepCIHeaders decodes a JSON object of headers keeping the order the runner
+// sent them in.
+func orderedStepCIHeaders(raw json.RawMessage) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	if token, err := decoder.Token(); err != nil || token != json.Delim('{') {
+		return nil
+	}
+
+	var headers []string
+	for decoder.More() {
+		key, err := decoder.Token()
+		if err != nil {
+			return headers
+		}
+		var value any
+		if err := decoder.Decode(&value); err != nil {
+			return headers
+		}
+		text, ok := value.(string)
+		if !ok {
+			encoded, err := json.Marshal(value)
+			if err != nil {
+				continue
+			}
+			text = string(encoded)
+		}
+		headers = append(headers, fmt.Sprintf("%v: %s", key, text))
+	}
+	return headers
+}
+
+func indentStepCILines(text, prefix string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if line != "" {
+			lines[i] = prefix + line
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func stepCIStepName(step StepResult) string {
+	if step.Name != nil && *step.Name != "" {
+		return *step.Name
+	}
+	if step.ID != nil && *step.ID != "" {
+		return *step.ID
+	}
+	return step.TestID
+}
+
+// maskStepCISecrets replaces secret values in the report. Values shorter than
+// minStepCIMaskedSecretLen are left alone: masking them would garble unrelated text.
+func maskStepCISecrets(report string, secrets map[string]any) string {
+	values := make([]string, 0, len(secrets))
+	for _, value := range secrets {
+		if text, ok := value.(string); ok && len(text) >= minStepCIMaskedSecretLen {
+			values = append(values, text)
+		}
+	}
+	if len(values) == 0 {
+		return report
+	}
+	// Longest first, so a secret containing another secret is masked whole.
+	sort.Slice(values, func(i, j int) bool { return len(values[i]) > len(values[j]) })
+	pairs := make([]string, 0, len(values)*2)
+	for _, value := range values {
+		pairs = append(pairs, value, stepCIMaskedSecret)
+	}
+	return strings.NewReplacer(pairs...).Replace(report)
+}
+
+func truncateStepCIReport(report string) string {
+	if len(report) <= maxStepCIFailureReportSize {
+		return report
+	}
+	cut := maxStepCIFailureReportSize - len(stepCIReportTruncatedNote)
+	for cut > 0 && !utf8.RuneStart(report[cut]) {
+		cut--
+	}
+	return report[:cut] + stepCIReportTruncatedNote
 }
 
 func summarizeStepCIFailure(output StepCICliReturns) StepCIFailureSummary {

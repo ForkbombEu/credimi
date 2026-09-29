@@ -23,6 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import FailureText from '@/components/ui-custom/failure-text.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator';
@@ -193,7 +194,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if failureMessage}
 			<Alert variant="destructive" class="mt-2 block p-3! text-sm">
 				<span class="font-bold">{m.reason()}:</span>
-				{failureMessage}
+				<FailureText>{failureMessage}</FailureText>
 			</Alert>
 		{/if}
 

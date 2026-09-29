@@ -12,7 +12,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -72,6 +74,61 @@ func TestHandleGetDeeplinkWaitError(t *testing.T) {
 	requireHandlerErrorHandled(t, rec, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 	require.Contains(t, rec.Body.String(), "failed to get workflow result")
+}
+
+func TestGetDeeplinkFromYAMLStepCIFailureMessage(t *testing.T) {
+	const report = "Workflow failed. Details:\nStep Failed: get offer\n" +
+		"  URL: https://issuer.example/offer?token=secret\n" +
+		"  Failed Checks:\n    - status:\n        Expected: 200\n        Got:      401"
+
+	cases := []struct {
+		name        string
+		expose      bool
+		wantMessage string
+	}{
+		{name: "caller-supplied YAML gets the StepCI report", expose: true, wantMessage: report},
+		{
+			name:        "stored record YAML gets only the summary",
+			expose:      false,
+			wantMessage: "StepCI checks failed",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app, err := tests.NewTestApp(testDataDir)
+			require.NoError(t, err)
+			defer app.Cleanup()
+
+			restore := installDeeplinkSeams(t)
+			defer restore()
+
+			deeplinkStartWorkflow = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+				return workflowengine.WorkflowResult{
+					WorkflowID:    "wf-1",
+					WorkflowRunID: "run-1",
+				}, nil
+			}
+			deeplinkTemporalClient = func(namespace string) (client.Client, error) {
+				return &temporalmocks.Client{}, nil
+			}
+			deeplinkWaitForWorkflowResult = func(c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+				return workflowengine.WorkflowResult{}, workflowengine.NewAppError(
+					workflowengine.WorkflowError{
+						Code:    errorcodes.StepCIRunFailed,
+						Summary: "StepCI checks failed",
+						Message: report,
+					},
+				)
+			}
+
+			_, err = getDeeplinkFromYAML(app, "test", nil, tc.expose)
+			var apiErr *apierror.APIError
+			require.ErrorAs(t, err, &apiErr)
+			require.Equal(t, http.StatusInternalServerError, apiErr.Code)
+			require.Equal(t, tc.wantMessage, apiErr.Message)
+		})
+	}
 }
 
 func TestHandleGetDeeplinkMalformedOutput(t *testing.T) {
