@@ -218,7 +218,28 @@ func TestPipelineLiveViewRejectsUnknownExplicitDevice(t *testing.T) {
 	})
 
 	require.Equal(t, http.StatusConflict, rec.Code)
-	require.Contains(t, rec.Body.String(), "pipeline mobile device is not initialized")
+	require.Equal(
+		t,
+		"other is still being prepared by the pipeline (for emulators and Redroid "+
+			"this includes creating and booting it). Live view becomes available as "+
+			"soon as it is ready; try again in a moment.",
+		decodeAPIError(t, rec).Message,
+	)
+}
+
+// Devices appear in the pipeline only once its mobile setup has finished, so an
+// emulator still being created or booted must not look like a broken request.
+func TestPipelineLiveViewExplainsDevicesStillBeingPrepared(t *testing.T) {
+	app, authRecord, _ := pipelineLiveViewTestApp(t)
+	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{})
+
+	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
+		WorkflowID: "pipeline-1",
+		RunID:      "run-1",
+	})
+
+	require.Equal(t, http.StatusConflict, rec.Code)
+	require.Contains(t, decodeAPIError(t, rec).Message, "still preparing its devices")
 }
 
 func TestPipelineLiveViewForwardsRunnerRefusals(t *testing.T) {
@@ -226,25 +247,37 @@ func TestPipelineLiveViewForwardsRunnerRefusals(t *testing.T) {
 		name         string
 		runnerStatus int
 		message      string
+		wantMessage  string
 		wantStatus   int
 	}{
 		{
 			name:         "unavailable",
 			runnerStatus: http.StatusServiceUnavailable,
-			message:      "scrcpy is not installed",
+			message:      "The runner image has no scrcpy. Live stream needs the linux/amd64 runner image.",
+			wantMessage:  "The runner image has no scrcpy. Live stream needs the linux/amd64 runner image.",
 			wantStatus:   http.StatusServiceUnavailable,
 		},
 		{
 			name:         "unsupported device",
 			runnerStatus: http.StatusBadRequest,
-			message:      "this device does not support live stream",
+			message:      "Live stream is not enabled for this device on its runner.",
+			wantMessage:  "Live stream is not enabled for this device on its runner.",
 			wantStatus:   http.StatusUnprocessableEntity,
+		},
+		{
+			name:         "runner failure",
+			runnerStatus: http.StatusInternalServerError,
+			message:      "The runner could not start the live stream (boom).",
+			wantMessage:  "The runner could not start the live stream (boom).",
+			wantStatus:   http.StatusBadGateway,
 		},
 		{
 			name:         "unauthorized",
 			runnerStatus: http.StatusUnauthorized,
 			message:      "invalid api key",
-			wantStatus:   http.StatusBadGateway,
+			wantMessage: "Credimi is not authorized on the runner that holds this device. " +
+				"Check that both use the same internal admin key.",
+			wantStatus: http.StatusBadGateway,
 		},
 	}
 	for _, tc := range cases {
@@ -273,7 +306,7 @@ func TestPipelineLiveViewForwardsRunnerRefusals(t *testing.T) {
 			})
 
 			require.Equal(t, tc.wantStatus, rec.Code)
-			require.Contains(t, rec.Body.String(), tc.message)
+			require.Equal(t, tc.wantMessage, decodeAPIError(t, rec).Message)
 		})
 	}
 }

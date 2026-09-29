@@ -354,7 +354,7 @@ External runner HTTP contract:
 - `POST {runner_url}/credimi/live-view`
     - Header: `Credimi-Api-Key: <CREDIMI_INTERNAL_ADMIN_KEY>`
     - Body: `{ device_identifier, serial, namespace, workflow_id, run_id }`
-    - Response: `{ path: "/live/<token>" }`; errors use the runner `APIError` JSON (`400`, `401`, `403`, `500`, `503`). Credimi forwards the runner `message` as `422` for `400` (e.g. "this device does not support live stream"), as `503` for `503`, and as `502` otherwise.
+    - Response: `{ path: "/live/<token>" }`; errors use the runner `APIError` JSON (`400`, `401`, `403`, `500`, `503`). The runner writes `message` for users; Credimi forwards it unchanged, as `422` for `400`, `503` for `503` and `502` otherwise, except `401`/`403`, which it reports as an admin key mismatch.
     - Called directly over HTTP by `POST /api/pipeline/live-view` (see `.agents/HITL.md`), not through `mobile-runner-http-request`.
 
 The external runner service is implemented in `github.com/forkbombeu/credimi-extra`. If the contract changes, ask whether the sibling repository must change.
