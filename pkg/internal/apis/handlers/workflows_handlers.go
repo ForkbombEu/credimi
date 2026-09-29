@@ -503,6 +503,14 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				finalJSON["failure_reason"] = *failure
 			}
 		}
+		if devices := pipelineExecutionDevicesFromDescribe(
+			e.Request.Context(),
+			e.App,
+			namespace,
+			workflowExecution,
+		); len(devices) > 0 {
+			finalJSON["devices"] = devices
+		}
 		return e.JSON(http.StatusOK, finalJSON)
 	}
 }
