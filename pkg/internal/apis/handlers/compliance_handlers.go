@@ -239,6 +239,10 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 			)
 		}
 
+		if devices := pipelineExecutionDevicesFromDescribe(e.App, exec); len(devices) > 0 {
+			finalJSON["devices"] = devices
+		}
+
 		return e.JSON(http.StatusOK, finalJSON)
 	}
 }

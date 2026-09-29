@@ -4,10 +4,9 @@
 
 import { Workflow } from '$lib';
 
-import type { MobileDevicesResponse } from '@/pocketbase/types';
-
 import { pb } from '@/pocketbase';
 
+import type { ExecutionDevice } from './live-view';
 import type { PipelineProgress } from './progress';
 
 import StatusTag from './workflow-status-tag.svelte';
@@ -19,7 +18,6 @@ export { SmallTable, StatusTag, Table };
 
 export const QUEUED_STATUS = 'Queued';
 export type Status = Workflow.WorkflowStatus | typeof QUEUED_STATUS;
-export type ExecutionDeviceRecord = Pick<MobileDevicesResponse, 'name'>;
 
 /** Pipeline list/overview summary: shared API fields plus pipeline-only extras. */
 export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
@@ -27,21 +25,30 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	pipeline_name?: string;
 	global_device_id?: string;
 	device_ids?: string[];
-	device_records?: Array<ExecutionDeviceRecord>;
+	/** @deprecated Prefer `devices` for display. */
+	device_records?: Array<{ name: string }>;
+	/** Display-ready devices with optional live-view affordance. */
+	devices?: ExecutionDevice[];
 	progress?: PipelineProgress;
 }
 
-export function getExecutionDeviceNames(
-	execution: Pick<ExecutionSummary, 'device_records'>
-): string[] {
-	return (execution.device_records ?? []).map((device) => device.name);
+export function getExecutionDevices(
+	execution: Pick<ExecutionSummary, 'devices' | 'device_records'>
+): ExecutionDevice[] {
+	if (execution.devices?.length) {
+		return execution.devices;
+	}
+	// Legacy fallback while older payloads lack `devices`.
+	return (execution.device_records ?? []).map((device) => ({
+		device_id: device.name,
+		name: device.name,
+		live_view: false
+	}));
 }
 
 const groupedExecutionsUrl = '/api/pipeline/list-executions';
 
 export async function listAllGroupedByPipelineId(options: { fetch?: typeof fetch } = {}) {
-	// const test = await import('./workflows.mock.json');
-	// return test.default;
 	return pb.send<Record<string, ExecutionSummary[]>>(groupedExecutionsUrl, {
 		method: 'GET',
 		fetch: options.fetch,

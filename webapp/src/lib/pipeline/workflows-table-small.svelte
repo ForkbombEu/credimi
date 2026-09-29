@@ -33,10 +33,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { makeDropdownActions } from './actions';
 	import { fromApiSummary } from './execution-artifacts';
+	import ExecutionDevices from './execution-devices.svelte';
 	import ExecutionProgress from './execution-progress.svelte';
 	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
-	import { getExecutionDeviceNames, type ExecutionSummary } from './workflows';
+	import { getExecutionDevices, type ExecutionSummary } from './workflows';
 
 	//
 
@@ -103,7 +104,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<thead class=" bg-slate-100">
 					<tr>
 						<th class="rounded-l-sm">{m.Status()}</th>
-						<th>Device</th>
+						<th>{m.Devices()}</th>
 						<th>{m.Results()}</th>
 						<th>{m.Date()}</th>
 						<th>{m.start()}</th>
@@ -116,7 +117,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</thead>
 				<tbody>
 					{#each workflows as workflow (workflow.execution.runId)}
-						{@const deviceNames = getExecutionDeviceNames(workflow)}
+						{@const devices = getExecutionDevices(workflow)}
 						{@const artifacts = fromApiSummary(workflow)}
 						{@const children = (workflow.children ?? []) as WorkflowExecutionSummary[]}
 						{@const count = children.length}
@@ -136,11 +137,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/if}
 							</td>
 							<td>
-								{#if deviceNames.length > 0}
-									{deviceNames.join(', ')}
-								{:else}
-									{@render na()}
-								{/if}
+								<ExecutionDevices
+									{devices}
+									workflowId={workflow.execution.workflowId}
+									runId={workflow.execution.runId}
+									compact
+								/>
 							</td>
 
 							<td>

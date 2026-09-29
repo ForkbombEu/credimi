@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Workflow } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
-	import { watchLive, type LiveViewStream } from '$lib/pipeline/live-view';
+	import ExecutionDevices from '$lib/pipeline/execution-devices.svelte';
 	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
@@ -42,21 +42,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	let { organization, workflow } = $derived(data);
-	let { memo, execution } = $derived(workflow);
+	let { memo, execution, devices } = $derived(workflow);
 	let { id: workflowId, runId } = $derived(execution);
 
 	const user = fromStore(currentUser);
 	const timezone = $derived(user.current?.Timezone);
 	const startDisplay = $derived(formatExecutionTimestamp(execution.startTime, timezone) ?? '-');
 	const endDisplay = $derived(formatExecutionTimestamp(execution.endTime, timezone) ?? '-');
-
-	/* Live view */
-
-	let liveStreams = $state<LiveViewStream[]>([]);
-
-	$effect(() => {
-		if (execution.status !== 'Running') liveStreams = [];
-	});
 
 	/* Iframe communication */
 
@@ -217,6 +209,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{execution.runId}
 					</td>
 				</tr>
+				{#if devices.length > 0}
+					<tr>
+						<td class="h-2"></td>
+					</tr>
+					<tr>
+						<td class="align-top italic"> Devices </td>
+						<td class="pl-4">
+							<ExecutionDevices {devices} {workflowId} {runId} />
+						</td>
+					</tr>
+				{/if}
 			</tbody>
 		</table>
 
@@ -228,38 +231,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			>
 				{m.Cancel()}
 			</Button>
-			{#if workflow.execution.name === 'Dynamic Pipeline Workflow'}
-				<Button
-					variant="outline"
-					disabled={execution.status !== 'Running'}
-					onclick={async () => {
-						liveStreams = (await watchLive(workflowId, runId)) ?? [];
-					}}
-				>
-					{m.Watch_live()}
-				</Button>
-			{/if}
 		</div>
-
-		{#if liveStreams.length > 1}
-			<div class="pt-4 text-sm">
-				<p>{m.Live_view_choose_device()}</p>
-				<ul class="pt-1">
-					{#each liveStreams as s (s.device_id)}
-						<li>
-							<a
-								class="underline"
-								href={s.url}
-								target="_blank"
-								rel="noopener noreferrer"
-							>
-								{s.device_name} ↗
-							</a>
-						</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
 	</div>
 
 	{#if workflow.execution.name !== 'Dynamic Pipeline Workflow'}

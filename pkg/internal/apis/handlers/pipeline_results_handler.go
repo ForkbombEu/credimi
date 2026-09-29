@@ -658,13 +658,20 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	}
 
 	deviceIDs := pipeline.DeviceIDsWithGlobal(runnerInfo, globalDeviceID)
+	runnerRecords := pipeline.ResolveDeviceRecords(
+		b.app,
+		deviceIDs,
+		b.runnerCache,
+	)
 	summary := &pipelineWorkflowSummary{
 		WorkflowExecutionSummary: *rootSummary,
 		GlobalDeviceID:           globalDeviceID,
 		DeviceIDs:                deviceIDs,
-		RunnerRecords: pipeline.ResolveDeviceRecords(
+		RunnerRecords:            runnerRecords,
+		Devices: ResolveAndBuildPipelineExecutionDevices(
 			b.app,
 			deviceIDs,
+			rootSummary.Status,
 			b.runnerCache,
 		),
 	}
@@ -976,12 +983,13 @@ func describeWorkflowExecution(
 
 type pipelineWorkflowSummary struct {
 	WorkflowExecutionSummary
-	Progress           *PipelineProgress `json:"progress,omitempty"`
-	PipelineIdentifier string            `json:"pipeline_identifier,omitempty"`
-	PipelineName       string            `json:"pipeline_name,omitempty"`
-	GlobalDeviceID     string            `json:"global_device_id,omitempty"`
-	DeviceIDs          []string          `json:"device_ids,omitempty"`
-	RunnerRecords      []map[string]any  `json:"device_records,omitempty"`
+	Progress           *PipelineProgress         `json:"progress,omitempty"`
+	PipelineIdentifier string                    `json:"pipeline_identifier,omitempty"`
+	PipelineName       string                    `json:"pipeline_name,omitempty"`
+	GlobalDeviceID     string                    `json:"global_device_id,omitempty"`
+	DeviceIDs          []string                  `json:"device_ids,omitempty"`
+	RunnerRecords      []map[string]any          `json:"device_records,omitempty"`
+	Devices            []PipelineExecutionDevice `json:"devices,omitempty"`
 }
 
 func appendQueuedPipelineSummaries(
@@ -1070,6 +1078,7 @@ func buildQueuedPipelineSummary(
 	}
 
 	deviceIDs := copyStringSlice(queued.DeviceIDs)
+	runnerRecords := pipeline.ResolveDeviceRecords(app, deviceIDs, runnerCache)
 	return &pipelineWorkflowSummary{
 		WorkflowExecutionSummary: *exec,
 		PipelineIdentifier: workflowengine.NormalizePipelineIdentifier(
@@ -1077,7 +1086,13 @@ func buildQueuedPipelineSummary(
 		),
 		PipelineName:  displayName,
 		DeviceIDs:     deviceIDs,
-		RunnerRecords: pipeline.ResolveDeviceRecords(app, deviceIDs, runnerCache),
+		RunnerRecords: runnerRecords,
+		Devices: ResolveAndBuildPipelineExecutionDevices(
+			app,
+			deviceIDs,
+			exec.Status,
+			runnerCache,
+		),
 	}
 }
 

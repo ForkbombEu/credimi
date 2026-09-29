@@ -32,7 +32,6 @@ import (
 const (
 	runnerLiveViewTimeout    = 15 * time.Second
 	runnerLiveViewPathPrefix = "/live/"
-	iosSimulatorDeviceType   = "ios_simulator"
 )
 
 type PipelineLiveViewInput struct {

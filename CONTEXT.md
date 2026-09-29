@@ -60,6 +60,10 @@ _Avoid_: Child pipeline (unless a nested pipeline step), grandchild, step (as th
 One execution of a pipeline workflow (or a queued ticket awaiting start), shown as a parent row in the list SmallTable.
 _Avoid_: Calling a child workflow a pipeline run on the list card
 
+**Live view**:
+A temporary view of a live-view-capable device while its pipeline run is running.
+_Avoid_: Live stream, device streaming; Watch live (the action label, not the concept)
+
 ## Hub (listing)
 
 **Hub item**:
