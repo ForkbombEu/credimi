@@ -24,14 +24,10 @@ type PipelineExecutionDevice struct {
 	LiveView bool   `json:"live_view"`
 }
 
-// DeviceSupportsLiveView reports whether a mobile device type can open live view.
-func DeviceSupportsLiveView(deviceType string) bool {
-	return strings.TrimSpace(deviceType) != iosSimulatorDeviceType
-}
-
 // ResolveAndBuildPipelineExecutionDevices resolves PocketBase device records and
 // builds ordered display rows. live_view is true only when status is Running and
-// the device type supports live view.
+// the device record has live_stream, which the runner reports when the device
+// has live stream enabled and the runner can serve it.
 func ResolveAndBuildPipelineExecutionDevices(
 	app core.App,
 	deviceIDs []string,
@@ -53,20 +49,25 @@ func ResolveAndBuildPipelineExecutionDevices(
 			continue
 		}
 		record := pipeline.ResolveDeviceRecord(app, deviceID, deviceCache)
-		deviceType := ""
-		if record != nil {
-			deviceType = workflowengine.AsString(record["type"])
-		}
-		out = append(out, PipelineExecutionDevice{
-			DeviceID: deviceID,
-			Name:     deviceDisplayName(deviceID, record),
-			LiveView: running && DeviceSupportsLiveView(deviceType),
-		})
+		out = append(out, pipelineExecutionDevice(deviceID, record, running))
 	}
 	if len(out) == 0 {
 		return nil
 	}
 	return out
+}
+
+func pipelineExecutionDevice(
+	deviceID string,
+	record map[string]any,
+	running bool,
+) PipelineExecutionDevice {
+	liveStream, _ := record["live_stream"].(bool)
+	return PipelineExecutionDevice{
+		DeviceID: deviceID,
+		Name:     deviceDisplayName(deviceID, record),
+		LiveView: running && liveStream,
+	}
 }
 
 func pipelineExecutionDevicesFromDescribe(
