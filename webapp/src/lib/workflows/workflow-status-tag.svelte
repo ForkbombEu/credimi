@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<CircleQuestionMarkIcon class="size-4" />
 			{/snippet}
 			{#snippet content()}
-				{failureReason}
+				<div class="max-h-96 overflow-auto whitespace-pre-wrap">{failureReason}</div>
 			{/snippet}
 		</Popover>
 	{/if}

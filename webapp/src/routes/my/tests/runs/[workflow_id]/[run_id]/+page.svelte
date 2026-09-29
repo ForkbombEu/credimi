@@ -184,7 +184,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if failureMessage}
 			<Alert variant="destructive" class="mt-2 block p-3! text-sm">
 				<span class="font-bold">{m.reason()}:</span>
-				{failureMessage}
+				<span class="whitespace-pre-wrap">{failureMessage}</span>
 			</Alert>
 		{/if}
 

@@ -164,10 +164,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return output;
 	});
 
+	// The API error message carries the StepCI report when a StepCI check fails.
+	const workflowErrorMessage = $derived.by((): string | undefined => {
+		const message: unknown = get(workflowError, 'response.message');
+		return typeof message === 'string' && message.trim() ? message : undefined;
+	});
+
 	// Helper function for code editor error display
 	const codeEditorErrorDisplay = $derived(() => {
 		if (typeof workflowError === 'string') {
 			return workflowError;
+		}
+		if (workflowErrorMessage) {
+			return workflowErrorMessage;
 		}
 		if (workflowError && typeof workflowError === 'object') {
 			return JSON.stringify(workflowError, null, 2);
@@ -175,6 +184,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return undefined;
 	});
 
+	// The QR placeholder only fits a short message; multi-line reports stay in the editor output.
 	const error = $derived.by(() => {
 		if (!workflowError) {
 			return undefined;
@@ -183,8 +193,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return m.An_error_happened_while_generating_the_qr_code();
 		}
 		const errorSummary: string | undefined = get(workflowError, 'summary');
-		const errorCause: string | undefined = get(workflowError, 'cause.data.message');
-		return errorSummary ?? errorCause ?? m.An_error_happened_while_generating_the_qr_code();
+		const shortMessage = workflowErrorMessage?.includes('\n')
+			? undefined
+			: workflowErrorMessage;
+		return errorSummary ?? shortMessage ?? m.An_error_happened_while_generating_the_qr_code();
 	});
 </script>
 
