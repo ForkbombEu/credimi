@@ -354,6 +354,30 @@ func (a *ListInstalledAppsActivity) Execute(
 	return workflowengine.ActivityResult{Output: res}, nil
 }
 
+type PreparePhysicalAndroidAppsActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewPreparePhysicalAndroidAppsActivity() *PreparePhysicalAndroidAppsActivity {
+	return &PreparePhysicalAndroidAppsActivity{
+		BaseActivity: workflowengine.BaseActivity{Name: "Prepare physical Android apps"},
+	}
+}
+
+func (a *PreparePhysicalAndroidAppsActivity) Name() string { return a.BaseActivity.Name }
+
+func (a *PreparePhysicalAndroidAppsActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(ctx, input.Payload, a.NewActivityError, nil, true)
+	apps, err := mobile.PreparePhysicalAndroidApps(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+	return workflowengine.ActivityResult{Output: apps}, nil
+}
+
 type DisableAndroidPlayStoreActivity struct {
 	workflowengine.BaseActivity
 }
