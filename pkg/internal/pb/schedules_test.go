@@ -146,7 +146,6 @@ func TestResolveScheduleRunnerRecordsFallbackToCanonify(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 	canonify.RegisterCanonifyHooks(app)
-	ensureMobileDevicesCollection(t, app)
 
 	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
@@ -237,7 +236,6 @@ func TestRegisterSchedulesHooksNotFoundEnrich(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 	RegisterSchedulesHooks(app)
-	ensureMobileDevicesCollection(t, app)
 
 	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
@@ -357,7 +355,6 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 	RegisterSchedulesHooks(app)
-	ensureMobileDevicesCollection(t, app)
 
 	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)

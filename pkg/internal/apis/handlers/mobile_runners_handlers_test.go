@@ -35,10 +35,7 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
-	ensureMobileRunnerLifecycleFields(t, app)
-	ensureMobileDevicesCollection(t, app)
 
-	ensureMobileRunnerAccessFields(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	MobileRunnersPublicRoutes.Add(app)
 	MobileRunnerRegistrationRoutes.Add(app)
@@ -47,78 +44,6 @@ func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	seedInternalAdminKey(t, app)
 
 	return app
-}
-
-func ensureMobileDevicesCollection(t testing.TB, app *tests.TestApp) {
-	t.Helper()
-	collection, err := app.FindCollectionByNameOrId("mobile_devices")
-	if err != nil {
-		collection = core.NewBaseCollection("mobile_devices")
-		collection.Fields.Add(
-			&core.RelationField{
-				Name:         "owner",
-				CollectionId: "aako88kt3br4npt",
-				MaxSelect:    1,
-				Required:     true,
-			},
-		)
-		collection.Fields.Add(
-			&core.RelationField{
-				Name:          "runner",
-				CollectionId:  "pbc_500646217",
-				MaxSelect:     1,
-				Required:      true,
-				CascadeDelete: true,
-			},
-		)
-		collection.Fields.Add(&core.TextField{Name: "name", Required: true})
-		collection.Fields.Add(&core.TextField{Name: "canonified_name", Required: true})
-		collection.Fields.Add(&core.BoolField{Name: "online"})
-	}
-	if collection.Fields.GetByName("type") == nil {
-		collection.Fields.Add(&core.TextField{Name: "type"})
-	}
-	if collection.Fields.GetByName("serial") == nil {
-		collection.Fields.Add(&core.TextField{Name: "serial"})
-	}
-	require.NoError(t, app.Save(collection))
-}
-
-func ensureMobileRunnerAccessFields(t testing.TB, app *tests.TestApp) {
-	t.Helper()
-
-	orgs, err := app.FindCollectionByNameOrId("organizations")
-	require.NoError(t, err)
-	if orgs.Fields.GetByName("published") == nil {
-		orgs.Fields.Add(&core.BoolField{Name: "published"})
-	}
-	require.NoError(t, app.Save(orgs))
-
-	runners, err := app.FindCollectionByNameOrId("mobile_runners")
-	require.NoError(t, err)
-	if runners.Fields.GetByName("admin_managed") == nil {
-		runners.Fields.Add(&core.BoolField{Name: "admin_managed"})
-	}
-	require.NoError(t, app.Save(runners))
-}
-
-func ensureMobileRunnerLifecycleFields(t testing.TB, app *tests.TestApp) {
-	t.Helper()
-
-	collection, err := app.FindCollectionByNameOrId("mobile_runners")
-	require.NoError(t, err)
-
-	if collection.Fields.GetByName("online") == nil {
-		collection.Fields.Add(&core.BoolField{Name: "online"})
-	}
-	if collection.Fields.GetByName("last_heartbeat_at") == nil {
-		collection.Fields.Add(&core.DateField{Name: "last_heartbeat_at"})
-	}
-	if collection.Fields.GetByName("disabled") == nil {
-		collection.Fields.Add(&core.BoolField{Name: "disabled"})
-	}
-
-	require.NoError(t, app.Save(collection))
 }
 
 func performMobileRunnerRequest(
@@ -734,8 +659,6 @@ func TestListMobileDevicesMarksDeviceOfflineWhenHeartbeatIsStale(t *testing.T) {
 func TestListMobileDevicesSkipsDisabledRunnersWithoutProbing(t *testing.T) {
 	app := setupMobileRunnerApp(t)
 	defer app.Cleanup()
-	ensureMobileRunnerAccessFields(t, app)
-
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 	ownerID, err := pbutils.GetUserOrganizationID(app, user.Id)
@@ -891,7 +814,6 @@ func markRunnerHeartbeat(
 ) {
 	t.Helper()
 
-	ensureMobileRunnerLifecycleFields(t, app)
 	record, err := app.FindRecordById("mobile_runners", runner.Id)
 	require.NoError(t, err)
 	record.Set("online", true)
@@ -1050,8 +972,6 @@ func TestListMobileRunnerURLs(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupMobileRunnerApp(t)
-				ensureMobileRunnerAccessFields(t, app)
-
 				coll, err := app.FindCollectionByNameOrId("mobile_runners")
 				require.NoError(t, err)
 

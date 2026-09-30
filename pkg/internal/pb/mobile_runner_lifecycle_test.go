@@ -55,7 +55,6 @@ func createLifecycleMonitorDevice(
 	name string,
 ) {
 	t.Helper()
-	ensureMobileDevicesCollection(t, app)
 	collection, err := app.FindCollectionByNameOrId("mobile_devices")
 	require.NoError(t, err)
 	record := core.NewRecord(collection)
@@ -63,30 +62,14 @@ func createLifecycleMonitorDevice(
 	record.Set("runner", runner.Id)
 	record.Set("name", name)
 	record.Set("canonified_name", name)
+	record.Set("type", "android_emulator")
 	require.NoError(t, app.Save(record))
-}
-
-func ensureLifecycleMonitorFields(t testing.TB, app *tests.TestApp) {
-	t.Helper()
-
-	collection, err := app.FindCollectionByNameOrId("mobile_runners")
-	require.NoError(t, err)
-
-	if collection.Fields.GetByName("online") == nil {
-		collection.Fields.Add(&core.BoolField{Name: "online"})
-	}
-	if collection.Fields.GetByName("last_heartbeat_at") == nil {
-		collection.Fields.Add(&core.DateField{Name: "last_heartbeat_at"})
-	}
-
-	require.NoError(t, app.Save(collection))
 }
 
 func TestMarkStaleRunnersOfflineAndPauseSemaphores(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
-	ensureLifecycleMonitorFields(t, app)
 	canonify.RegisterCanonifyHooks(app)
 
 	orgID, err := getOrgIDfromName(app)
@@ -155,7 +138,6 @@ func TestMarkStaleRunnersOfflineUsesHeartbeatTimeoutEnv(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
-	ensureLifecycleMonitorFields(t, app)
 	canonify.RegisterCanonifyHooks(app)
 
 	orgID, err := getOrgIDfromName(app)
@@ -213,7 +195,6 @@ func TestMarkRunnerOfflineIfStillStaleSkipsFreshHeartbeat(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
-	ensureLifecycleMonitorFields(t, app)
 	canonify.RegisterCanonifyHooks(app)
 
 	orgID, err := getOrgIDfromName(app)
@@ -254,7 +235,6 @@ func TestMarkRunnerOfflineIfStillStaleAlreadyOffline(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
-	ensureLifecycleMonitorFields(t, app)
 	canonify.RegisterCanonifyHooks(app)
 
 	orgID, err := getOrgIDfromName(app)

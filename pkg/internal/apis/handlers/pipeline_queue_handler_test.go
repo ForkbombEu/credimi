@@ -38,7 +38,6 @@ func setupPipelineQueueApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 
-	ensureMobileDevicesCollection(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	PipelineRoutes.Add(app)
 
