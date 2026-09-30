@@ -551,18 +551,14 @@ func authorizeOwnerAccess(e *core.RequestEvent, ownerID string) *apierror.APIErr
 	return nil
 }
 
-// authorizePipelineResultDeviceStoreAccess lets a non-admin caller store
-// artifacts only from a mobile device that ran the given pipeline result,
-// on top of the owner/published-runner checks.
+// authorizePipelineResultDeviceStoreAccess lets any caller, internal admin
+// included, store artifacts only from a mobile device that ran the given
+// pipeline result; non-admin callers also pass the owner/published-runner checks.
 func authorizePipelineResultDeviceStoreAccess(
 	e *core.RequestEvent,
 	resultRecord *core.Record,
 	deviceIdentifier string,
 ) *apierror.APIError {
-	if isInternalAdminPrincipal(e.Auth) {
-		return nil
-	}
-
 	device, apiErr := resolvePipelineResultDevice(e.App, deviceIdentifier)
 	if apiErr != nil {
 		return apiErr
@@ -576,6 +572,9 @@ func authorizePipelineResultDeviceStoreAccess(
 			"forbidden",
 			"device did not run this pipeline result",
 		)
+	}
+	if isInternalAdminPrincipal(e.Auth) {
+		return nil
 	}
 
 	return authorizePipelineResultOwnerAccess(

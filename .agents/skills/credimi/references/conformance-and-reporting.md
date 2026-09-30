@@ -42,7 +42,7 @@ Results are now `pipeline_results` rows (see the pipelines reference for the ful
 
 Records are created and filled only through internal-admin routes (`Credimi-Api-Key` with the internal-admin scope): `POST /api/pipeline/pipeline-execution-results` plus `/{evidence,report,fcaf-report}`. The results handler is idempotent on `(workflow_id, run_id)` and validates the run type and device access.
 
-Runner artifacts are appended to an existing record by `POST /api/wallet/store-pipeline-result` (`RequireInternalAdminOrAuth`): `credimi-runner` sends its `CREDIMI_USER_API_KEY`, falling back to the internal admin key. It uploads `result_video`, `last_frame` and `logfile` into `video_results`, `screenshots` and `logcats`/`ios_logstreams`. A non-admin caller must name a device listed in the record's `devices`, and must belong to the record's organization or own that device's published runner while the record's organization is published.
+Runner artifacts are appended to an existing record by `POST /api/wallet/store-pipeline-result` (`RequireInternalAdminOrAuth`): `credimi-runner` sends its `CREDIMI_USER_API_KEY`, falling back to the internal admin key. It uploads `result_video`, `last_frame` and `logfile` into `video_results`, `screenshots` and `logcats`/`ios_logstreams`. Every caller, internal admin included, must name a device listed in the record's `devices` (as `POST /api/pipeline/store-step-screenshots` already requires); a non-admin caller must also belong to the record's organization or own that device's published runner while the record's organization is published.
 
 ## Scoreboard
 

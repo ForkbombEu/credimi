@@ -692,6 +692,22 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			TestAppFactory: setupReservedDeviceApp,
 		},
 		{
+			Name:   "internal admin cannot store result from device outside the run",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(otherDeviceBody),
+			Headers: map[string]string{
+				"Content-Type": otherDeviceContentType,
+			},
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				`"authorization"`,
+				`"forbidden"`,
+				`device did not run this pipeline result`,
+			},
+			TestAppFactory: setupReservedDeviceApp,
+		},
+		{
 			Name:   "published runner owner can store result for published organization",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
