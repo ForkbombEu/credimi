@@ -999,6 +999,74 @@ func TestSelectPipelineRunWalletAPKRunnerByTypeRequiresOnlineRunner(t *testing.T
 	require.Equal(t, "no online device found for device_type", apiErr.Reason)
 }
 
+// CI selection offers foreign runners under the same rule as the runner
+// catalog: an unpublished organization only gets admin-managed ones.
+func TestSelectPipelineCIDeviceByTypeForeignRunnerSharing(t *testing.T) {
+	origHealthCheck := checkRunnerReachable
+	t.Cleanup(func() { checkRunnerReachable = origHealthCheck })
+	checkRunnerReachable = func(_ context.Context, _ string) (bool, error) {
+		return true, nil
+	}
+	origQueueState := queryMobileDeviceSemaphoreState
+	t.Cleanup(func() { queryMobileDeviceSemaphoreState = origQueueState })
+	queryMobileDeviceSemaphoreState = func(
+		_ context.Context,
+		_ string,
+	) (workflows.MobileDeviceSemaphoreStateView, error) {
+		return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
+	}
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	cases := []struct {
+		name         string
+		runnerAdmin  bool
+		wantDeviceID string
+	}{
+		{
+			name: "unpublished org is not offered published non-admin runner",
+		},
+		{
+			name:         "unpublished org is offered published admin-managed runner",
+			runnerAdmin:  true,
+			wantDeviceID: "other-org/shared-runner/device-1",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupPipelineWalletAPKApp(t)
+			defer app.Cleanup()
+
+			orgColl, err := app.FindCollectionByNameOrId("organizations")
+			require.NoError(t, err)
+			otherOrg := core.NewRecord(orgColl)
+			otherOrg.Set("name", "Other Org")
+			otherOrg.Set("canonified_name", "other-org")
+			require.NoError(t, app.Save(otherOrg))
+			createWalletAPKMobileRunner(t, app, otherOrg.Id, "Shared Runner", "android_phone", true)
+			setMobileRunnerAdminManaged(t, app, "other-org/shared-runner", tc.runnerAdmin)
+
+			deviceID, apiErr := selectPipelineCIDeviceByType(
+				context.Background(),
+				app,
+				orgID,
+				"android_phone",
+			)
+
+			if tc.wantDeviceID == "" {
+				require.Empty(t, deviceID)
+				require.NotNil(t, apiErr)
+				require.Equal(t, http.StatusServiceUnavailable, apiErr.Code)
+				return
+			}
+			require.Nil(t, apiErr)
+			require.Equal(t, tc.wantDeviceID, deviceID)
+		})
+	}
+}
+
 func TestInjectPipelineRunWalletAPKGlobalDeviceID(t *testing.T) {
 	t.Run("rejects step device ids", func(t *testing.T) {
 		workflowDefinition, apiErr := parsePipelineCIWorkflow(
