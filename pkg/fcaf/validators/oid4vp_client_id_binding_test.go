@@ -30,7 +30,13 @@ func TestOID4VPX509ClientIDLeafMismatchValidator(t *testing.T) {
 		NotAfter:     now.Add(time.Hour),
 		DNSNames:     []string{"verifier.example"},
 	}
-	leaf, err := x509.CreateCertificate(rand.Reader, template, template, &privateKey.PublicKey, privateKey)
+	leaf, err := x509.CreateCertificate(
+		rand.Reader,
+		template,
+		template,
+		&privateKey.PublicKey,
+		privateKey,
+	)
 	require.NoError(t, err)
 	digest := sha256.Sum256(leaf)
 	leafHash := base64.RawURLEncoding.EncodeToString(digest[:])
@@ -51,12 +57,42 @@ func TestOID4VPX509ClientIDLeafMismatchValidator(t *testing.T) {
 		prefix  string
 		want    Status
 	}{
-		{"x509_hash of another certificate", signed("x509_hash:"+base64.RawURLEncoding.EncodeToString(make([]byte, 32)), true), "x509_hash", StatusPass},
-		{"x509_hash that binds the leaf", signed("x509_hash:"+leafHash, true), "x509_hash", StatusFail},
-		{"x509_san_dns name missing from the leaf", signed("x509_san_dns:mismatch.example", true), "x509_san_dns", StatusPass},
-		{"x509_san_dns name listed by the leaf", signed("x509_san_dns:verifier.example", true), "x509_san_dns", StatusFail},
-		{"client_id under a different prefix", signed("x509_hash:"+leafHash, true), "x509_san_dns", StatusFail},
-		{"no x5c leaf to compare against", signed("x509_san_dns:mismatch.example", false), "x509_san_dns", StatusFail},
+		{
+			"x509_hash of another certificate",
+			signed("x509_hash:"+base64.RawURLEncoding.EncodeToString(make([]byte, 32)), true),
+			"x509_hash",
+			StatusPass,
+		},
+		{
+			"x509_hash that binds the leaf",
+			signed("x509_hash:"+leafHash, true),
+			"x509_hash",
+			StatusFail,
+		},
+		{
+			"x509_san_dns name missing from the leaf",
+			signed("x509_san_dns:mismatch.example", true),
+			"x509_san_dns",
+			StatusPass,
+		},
+		{
+			"x509_san_dns name listed by the leaf",
+			signed("x509_san_dns:verifier.example", true),
+			"x509_san_dns",
+			StatusFail,
+		},
+		{
+			"client_id under a different prefix",
+			signed("x509_hash:"+leafHash, true),
+			"x509_san_dns",
+			StatusFail,
+		},
+		{
+			"no x5c leaf to compare against",
+			signed("x509_san_dns:mismatch.example", false),
+			"x509_san_dns",
+			StatusFail,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

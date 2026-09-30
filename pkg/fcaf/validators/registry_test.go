@@ -434,8 +434,16 @@ func TestJOSEJWSInvalidSignatureValidator(t *testing.T) {
 	now := time.Now()
 	certificateDER, err := x509.CreateCertificate(
 		rand.Reader,
-		&x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour)},
-		&x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour)},
+		&x509.Certificate{
+			SerialNumber: big.NewInt(1),
+			NotBefore:    now.Add(-time.Hour),
+			NotAfter:     now.Add(time.Hour),
+		},
+		&x509.Certificate{
+			SerialNumber: big.NewInt(1),
+			NotBefore:    now.Add(-time.Hour),
+			NotAfter:     now.Add(time.Hour),
+		},
 		&privateKey.PublicKey,
 		privateKey,
 	)
@@ -820,7 +828,10 @@ func TestJWTHeaderFieldPresenceValidator(t *testing.T) {
 		StatusPass,
 		validator.Validate(
 			context.Background(),
-			Input{Value: "eyJhbGciOiJFUzI1NiJ9.e30.signature", Params: map[string]any{"field": "typ", "present": false}},
+			Input{
+				Value:  "eyJhbGciOiJFUzI1NiJ9.e30.signature",
+				Params: map[string]any{"field": "typ", "present": false},
+			},
 		).Status,
 	)
 	require.Equal(
@@ -828,7 +839,10 @@ func TestJWTHeaderFieldPresenceValidator(t *testing.T) {
 		StatusFail,
 		validator.Validate(
 			context.Background(),
-			Input{Value: "eyJ0eXAiOiJKV1QifQ.e30.signature", Params: map[string]any{"field": "typ", "present": false}},
+			Input{
+				Value:  "eyJ0eXAiOiJKV1QifQ.e30.signature",
+				Params: map[string]any{"field": "typ", "present": false},
+			},
 		).Status,
 	)
 }

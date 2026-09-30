@@ -22,7 +22,10 @@ func TestOID4VPWalletNonceMismatchValidator(t *testing.T) {
 			name: "different Request Object nonce",
 			value: map[string]any{
 				"request_uri_payload": map[string]any{"wallet_nonce": "wallet-nonce"},
-				"request_object":      compactTestJWT(t, map[string]any{"wallet_nonce": "different-nonce"}),
+				"request_object": compactTestJWT(
+					t,
+					map[string]any{"wallet_nonce": "different-nonce"},
+				),
 			},
 			expected:   "different",
 			wantStatus: StatusPass,
@@ -40,7 +43,10 @@ func TestOID4VPWalletNonceMismatchValidator(t *testing.T) {
 			name: "matching Request Object nonce",
 			value: map[string]any{
 				"request_uri_payload": map[string]any{"wallet_nonce": "wallet-nonce"},
-				"request_object":      compactTestJWT(t, map[string]any{"wallet_nonce": "wallet-nonce"}),
+				"request_object": compactTestJWT(
+					t,
+					map[string]any{"wallet_nonce": "wallet-nonce"},
+				),
 			},
 			expected:   "different",
 			wantStatus: StatusFail,
@@ -49,7 +55,10 @@ func TestOID4VPWalletNonceMismatchValidator(t *testing.T) {
 			name: "present nonce when absent expected",
 			value: map[string]any{
 				"request_uri_payload": map[string]any{"wallet_nonce": "wallet-nonce"},
-				"request_object":      compactTestJWT(t, map[string]any{"wallet_nonce": "different-nonce"}),
+				"request_object": compactTestJWT(
+					t,
+					map[string]any{"wallet_nonce": "different-nonce"},
+				),
 			},
 			expected:   "missing",
 			wantStatus: StatusFail,

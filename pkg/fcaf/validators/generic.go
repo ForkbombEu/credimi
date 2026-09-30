@@ -10,7 +10,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-
 	"fmt"
 	"reflect"
 	"strings"
@@ -370,14 +369,22 @@ func (JWTPayloadFieldsDifferValidator) Validate(_ context.Context, input Input) 
 	second, secondExists := payload[params.Second]
 	if !firstExists || !secondExists {
 		return Result{
-			Status:  StatusFail,
-			Message: fmt.Sprintf("JWT payload fields %q and %q must both be present", params.First, params.Second),
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"JWT payload fields %q and %q must both be present",
+				params.First,
+				params.Second,
+			),
 		}
 	}
 	if reflect.DeepEqual(first, second) {
 		return Result{
-			Status:  StatusFail,
-			Message: fmt.Sprintf("JWT payload fields %q and %q are equal", params.First, params.Second),
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"JWT payload fields %q and %q are equal",
+				params.First,
+				params.Second,
+			),
 		}
 	}
 	return Result{
@@ -603,8 +610,11 @@ func (JOSEJWSInvalidSignatureValidator) Validate(_ context.Context, input Input)
 	}
 	if !errors.Is(err, jwt.ErrTokenSignatureInvalid) {
 		return Result{
-			Status:  StatusFail,
-			Message: fmt.Sprintf("signed request is invalid for a reason other than its signature: %v", err),
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"signed request is invalid for a reason other than its signature: %v",
+				err,
+			),
 		}
 	}
 	return Result{Status: StatusPass, Message: "signed request JWS signature is invalid"}
@@ -827,8 +837,12 @@ func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, inp
 		entries, ok := raw.([]any)
 		if !ok {
 			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("decoded_presentations[%q] is %T, expected array", queryID, raw),
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"decoded_presentations[%q] is %T, expected array",
+					queryID,
+					raw,
+				),
 			}
 		}
 		for index, entry := range entries {

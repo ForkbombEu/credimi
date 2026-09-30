@@ -22,9 +22,12 @@ func TestOID4VPNoPresentationValidator(t *testing.T) {
 		want    Status
 	}{
 		{
-			name:    "request refused before consent",
-			session: map[string]any{"status": "request_retrieved", "checks": map[string]any{"presentation_valid": nil}},
-			want:    StatusPass,
+			name: "request refused before consent",
+			session: map[string]any{
+				"status": "request_retrieved",
+				"checks": map[string]any{"presentation_valid": nil},
+			},
+			want: StatusPass,
 		},
 		{
 			name:    "deeplink never opened",
@@ -49,9 +52,12 @@ func TestOID4VPNoPresentationValidator(t *testing.T) {
 			want: StatusFail,
 		},
 		{
-			name:    "presentation decoded without a terminal status",
-			session: map[string]any{"status": "request_retrieved", "decoded_presentations": map[string]any{}},
-			want:    StatusFail,
+			name: "presentation decoded without a terminal status",
+			session: map[string]any{
+				"status":                "request_retrieved",
+				"decoded_presentations": map[string]any{},
+			},
+			want: StatusFail,
 		},
 		{
 			name:    "session evidence is missing",

@@ -43,12 +43,25 @@ func (OID4VPWalletNonceMismatchValidator) Validate(_ context.Context, input Inpu
 	case "different":
 		nonce, ok := requestObjectWalletNonce.(string)
 		if !ok || nonce == "" {
-			return Result{Status: StatusFail, Message: "Request Object wallet_nonce is missing or not a string"}
+			return Result{
+				Status:  StatusFail,
+				Message: "Request Object wallet_nonce is missing or not a string",
+			}
 		}
 		if nonce == postedWalletNonce {
-			return Result{Status: StatusFail, Message: "Request Object wallet_nonce matches the request_uri POST"}
+			return Result{
+				Status:  StatusFail,
+				Message: "Request Object wallet_nonce matches the request_uri POST",
+			}
 		}
-		return Result{Status: StatusPass, Message: fmt.Sprintf("Request Object wallet_nonce %q differs from request_uri POST wallet_nonce %q", nonce, postedWalletNonce)}
+		return Result{
+			Status: StatusPass,
+			Message: fmt.Sprintf(
+				"Request Object wallet_nonce %q differs from request_uri POST wallet_nonce %q",
+				nonce,
+				postedWalletNonce,
+			),
+		}
 	}
 
 	return Result{Status: StatusError, Message: "unreachable wallet_nonce expectation"}

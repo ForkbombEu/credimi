@@ -24,44 +24,58 @@ func TestOID4VPWalletMetadataValidator(t *testing.T) {
 		{
 			name:     "posted signing algorithms are present",
 			metadata: signingWalletMetadata,
-			params:   map[string]any{"present": []any{"request_object_signing_alg_values_supported"}},
-			want:     StatusPass,
+			params: map[string]any{
+				"present": []any{"request_object_signing_alg_values_supported"},
+			},
+			want: StatusPass,
 		},
 		{
-			name:     "an object wallet_metadata is accepted like the form-encoded string",
-			metadata: map[string]any{"vp_formats_supported": map[string]any{"mso_mdoc": map[string]any{}}},
-			params:   map[string]any{"present": []any{"vp_formats_supported"}},
-			want:     StatusPass,
+			name: "an object wallet_metadata is accepted like the form-encoded string",
+			metadata: map[string]any{
+				"vp_formats_supported": map[string]any{"mso_mdoc": map[string]any{}},
+			},
+			params: map[string]any{"present": []any{"vp_formats_supported"}},
+			want:   StatusPass,
 		},
 		{
 			name:     "signing algorithms omitted for a prefix that precludes signing",
 			metadata: `{"vp_formats_supported":{"dc+sd-jwt":{}}}`,
-			params:   map[string]any{"absent": []any{"request_object_signing_alg_values_supported"}},
-			want:     StatusPass,
+			params: map[string]any{
+				"absent": []any{"request_object_signing_alg_values_supported"},
+			},
+			want: StatusPass,
 		},
 		{
 			name:     "signing algorithms posted where they must be omitted",
 			metadata: signingWalletMetadata,
-			params:   map[string]any{"absent": []any{"request_object_signing_alg_values_supported"}},
-			want:     StatusFail,
+			params: map[string]any{
+				"absent": []any{"request_object_signing_alg_values_supported"},
+			},
+			want: StatusFail,
 		},
 		{
 			name:     "an empty algorithm list does not count as present",
 			metadata: `{"request_object_signing_alg_values_supported":[]}`,
-			params:   map[string]any{"present": []any{"request_object_signing_alg_values_supported"}},
-			want:     StatusFail,
+			params: map[string]any{
+				"present": []any{"request_object_signing_alg_values_supported"},
+			},
+			want: StatusFail,
 		},
 		{
 			name:     "a null wallet_metadata cannot satisfy an absence check",
 			metadata: "null",
-			params:   map[string]any{"absent": []any{"request_object_signing_alg_values_supported"}},
-			want:     StatusFail,
+			params: map[string]any{
+				"absent": []any{"request_object_signing_alg_values_supported"},
+			},
+			want: StatusFail,
 		},
 		{
 			name:     "a Wallet that posted no wallet_metadata fails",
 			metadata: nil,
-			params:   map[string]any{"absent": []any{"request_object_signing_alg_values_supported"}},
-			want:     StatusFail,
+			params: map[string]any{
+				"absent": []any{"request_object_signing_alg_values_supported"},
+			},
+			want: StatusFail,
 		},
 		{
 			name:     "at least one expectation is required",
@@ -137,8 +151,10 @@ func TestOID4VPUnencryptedRequestObjectRejectedValidator(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			session := map[string]any{
-				"raw":      map[string]any{"authorization_request_jwt": test.requestObject},
-				"observed": map[string]any{"wallet_response": map[string]any{"value": test.response}},
+				"raw": map[string]any{"authorization_request_jwt": test.requestObject},
+				"observed": map[string]any{
+					"wallet_response": map[string]any{"value": test.response},
+				},
 			}
 			if test.metadata != nil {
 				observed, _ := session["observed"].(map[string]any)
