@@ -74,6 +74,8 @@ Runner URLs for the worker manager come from `GET /api/mobile-runner/list-urls`,
 
 `U` = user auth or user API key, `P` = public, `I` = internal admin key.
 
+**Custom integrations.** `POST /api/custom-integrations/run` (U).
+
 **API keys.** `POST /api/apikey/generate` (needs `e.Auth`), `GET /api/apikey/authenticate` (reads the key header), `GET /api/apikey/authenticate-internal-admin` (I).
 
 **Canonify.** `POST /api/canonify/identifier/validate`, `GET /api/canonify/identifier/get` (P).
