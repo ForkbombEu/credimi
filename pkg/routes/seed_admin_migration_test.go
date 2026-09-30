@@ -10,7 +10,6 @@ import (
 	"sync"
 	"testing"
 
-	_ "github.com/forkbombeu/credimi/migrations"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
@@ -26,22 +25,28 @@ const (
 	operatorAdminSecret      = "operator-strong-password"
 	defaultAdminLoginURL     = "/api/collections/_superusers/auth-with-password"
 	removeSeedAdminMigration = "1790780000_remove_default_seed_admin.js"
+	// Only these two pb_migrations touch _superusers, and they depend on
+	// nothing but the system collection. Loading the other ~300 migrations
+	// makes each app take minutes under -race and floods PocketBase's async
+	// log writer, which races with TestApp.Cleanup.
+	seedAdminMigrationsPattern = `^(1685000000_seed_admin|1790780000_remove_default_seed_admin)\.js$`
 )
 
 var registerPBMigrationsOnce sync.Once
 
-// registerPBMigrations loads pb_migrations into the process-wide
-// core.AppMigrations list, as `credimi serve` does through jsvm, so every
-// app bootstrapped afterwards applies them.
+// registerPBMigrations loads the superuser seed migrations into the
+// process-wide core.AppMigrations list, as `credimi serve` does through jsvm,
+// so every app bootstrapped afterwards applies them.
 func registerPBMigrations(t testing.TB) {
 	t.Helper()
 
 	registerPBMigrationsOnce.Do(func() {
 		app := core.NewBaseApp(core.BaseAppConfig{DataDir: t.TempDir()})
 		require.NoError(t, jsvm.Register(app, jsvm.Config{
-			MigrationsDir:     "../../pb_migrations",
-			HooksDir:          "../../pb_hooks",
-			HooksFilesPattern: "^$",
+			MigrationsDir:          "../../pb_migrations",
+			MigrationsFilesPattern: seedAdminMigrationsPattern,
+			HooksDir:               "../../pb_hooks",
+			HooksFilesPattern:      "^$",
 		}))
 	})
 }
