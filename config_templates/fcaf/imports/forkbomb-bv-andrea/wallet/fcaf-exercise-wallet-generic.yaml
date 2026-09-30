@@ -17,8 +17,11 @@ tags:
     timeout: 30000
 - runFlow:
     when:
-      visible: "1"
+      visible: "Welcome back"
     commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
       - inputText: "12345"
       - tapOn: "6"
 - extendedWaitUntil:
@@ -28,29 +31,8 @@ tags:
     link: "${deeplink}"
     autoVerify: false
     browser: false
-- runFlow:
-    when:
-      visible: "EUDI Wallet"
-    commands:
-      - tapOn:
-          text: "EUDI Wallet"
-          optional: true
-- runFlow:
-    when:
-      visible: "Just once"
-    commands:
-      - tapOn:
-          text: "Just once"
-          optional: true
-- runFlow:
-    when:
-      visible: "Always"
-    commands:
-      - tapOn:
-          text: "Always"
-          optional: true
 - extendedWaitUntil:
-    visible: "Welcome back|Error|invalid request|Oups! Something went wrong|Data sharing request"
+    visible: "Error|invalid request|Oups! Something went wrong|Data sharing request"
     timeout: 100000
 - runFlow:
     when:
@@ -65,17 +47,8 @@ tags:
       # A verifier that rejects the Authorization Response or replies with an
       # HTTP error leaves the Wallet on its error screen instead.
       - extendedWaitUntil:
-          visible: ".*successfully shared.*|Oups! Something went wrong|Welcome back"
+          visible: ".*successfully shared.*|Oups! Something went wrong"
           timeout: 30000
-- runFlow:
-    when:
-      visible: "Welcome back"
-    commands:
-      - extendedWaitUntil:
-          visible: "1"
-          timeout: 30000
-      - inputText: "12345"
-      - tapOn: "6"
 - extendedWaitUntil:
     visible: "Error|invalid request|Oups! Something went wrong|.*successfully shared.*|Home|Documents"
     timeout: 30000
