@@ -2655,3 +2655,14 @@ Findings:
 `oid4vp.response_endpoint_callback` gained `forbidden_body_members` for 066.
 `make fcaf-generate` produces 1344 aggregate steps, 615 test IDs, and 214
 pipeline outputs; the happy flow drops to 322 test IDs.
+
+### MOCK-VERIFIER-003 fixed, 064 workaround removed
+
+Later on 30/09/2026 beta stopped signing a configured `redirect_uri` into the
+Request Object. A probe session with `redirect_uri` and `response_scenario`
+`400` delivered `response_uri` without `redirect_uri`, while session creation
+still returned the URI with its `response_code`. The 064 session no longer
+carries the `request_mutation`; `delivered_request_omits_redirect_uri` stays as
+the regression guard. The fail verdict above came from the mutated session, and
+the unmutated one has not been rerun on the emulator. The step count is
+unchanged, because the mutation was part of an existing step.

@@ -81,11 +81,8 @@ steps:
     expected_status: 200
 # 064: the verifier answers the Authorization Response with HTTP 400 and a JSON
 # body carrying a redirect_uri. The configured redirect_uri is what makes beta
-# return it with a fresh response_code, but beta also signs it into the Request
-# Object, which OpenID4VP 1.0 Section 8.2 forbids beside response_uri and which
-# the reference Wallet correctly rejects (RedirectUriMustNotBeProvided). The
-# mutation removes it from the delivered copy only, so the redirect_uri reaches
-# the Wallet solely through the error reply, as the source requires.
+# return it with a fresh response_code; it is not signed into the Request
+# Object, so it reaches the Wallet only through the error reply.
 - id: create-http-error-redirect-response
   use: http-request
   with:
@@ -106,10 +103,6 @@ steps:
             format: dc+sd-jwt
             meta: { vct_values: ["urn:eudi:pid:1"] }
             claims: [{ path: [given_name] }]
-      request_mutation:
-        request_object:
-          unset: ["/redirect_uri"]
-        verification_applies: true
       response_scenario:
         status: 400
 - id: exercise-http-error-redirect-response

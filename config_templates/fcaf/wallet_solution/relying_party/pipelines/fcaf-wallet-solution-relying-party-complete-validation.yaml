@@ -22389,11 +22389,6 @@ steps:
                 nonce: verifier-response-http-error-redirect
             redirect_uri: ${fixture.verifier_url}/openid4vp/redirect
             request_delivery: by_reference
-            request_mutation:
-                request_object:
-                    unset:
-                        - /redirect_uri
-                verification_applies: true
             response_mode: direct_post.jwt
             response_scenario:
                 status: 400

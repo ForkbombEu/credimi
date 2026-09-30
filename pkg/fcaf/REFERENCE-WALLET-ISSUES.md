@@ -207,7 +207,7 @@ signs with a separate `did:web` key.
   too. The reference wallet additionally rejects `decentralized_identifier:`
   as an unsupported prefix, so it never reaches the signing-key check.
 
-## MOCK-VERIFIER-003: Beta signs a configured redirect_uri beside response_uri
+## MOCK-VERIFIER-003: Beta signed a configured redirect_uri beside response_uri (resolved)
 
 On 30/09/2026 a beta `direct_post.jwt` session created with a top-level
 `redirect_uri` delivered a Request Object carrying both `response_uri` and
@@ -221,22 +221,20 @@ error: invalid_request
 error_description: RedirectUriMustNotBeProvided
 ```
 
-The contract change is upstream `a2fc6a0`, synced on 28/09/2026. The same
-configured `redirect_uri` is still what makes the Response Endpoint return
-`{ "redirect_uri": "..." }` with a valid `response_code`, so it cannot simply be
-dropped from the session.
+The behaviour came from upstream `a2fc6a0`, synced on 28/09/2026.
 
-Workaround: `request_mutation.request_object.unset: ["/redirect_uri"]` removes
-it from the delivered copy only, while the session keeps it and the Response
-Endpoint still returns it. Verified on beta 30/09/2026: the Wallet retrieved
-the mutated request and posted its Authorization Response.
+### Resolution
+
+Fixed on beta later on 30/09/2026: the configured `redirect_uri`, with its
+`response_code`, is returned at session creation and in the Response Endpoint
+reply, and is no longer signed into the Request Object. A probe session
+delivered `response_uri` without `redirect_uri`.
 
 ### FCAF Impact
 
-- `WS_RP_IA_MainInteraction__064` uses the workaround.
-- Still affected, because their sessions configure `redirect_uri` without the
-  mutation: `WS_RP_IA_MainInteraction__057`, `061`, `067`
-  (`callback-redirect`), `WS_RP_IA_Supportive__001`
-  (`supportive-redirect-uri`), and `WS_RP_MS_ProtocolMessages__127`, `128`
-  (`unknown-parameter-controls`). A conformant Wallet rejects each request, so
-  none of them can reach the redirect they assert.
+- `WS_RP_IA_MainInteraction__064` no longer needs a `request_mutation`
+  workaround, and still asserts that the delivered request omits
+  `redirect_uri`.
+- `WS_RP_IA_MainInteraction__057`, `061`, `067`, `WS_RP_IA_Supportive__001`,
+  and `WS_RP_MS_ProtocolMessages__127`, `128` are no longer rejected for this
+  reason. None has a reference-Wallet run since the fix.

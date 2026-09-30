@@ -207,17 +207,18 @@ The `fcaf-dc-api-present` action drives the full browser path on wallet
   `verifier-response-controls` with 125 and 126. 064 fails on wallet
   2026.09.42 (30/09/2026): the Wallet posted a verified presentation, beta
   answered HTTP 400 with `{ "redirect_uri": "..." }`, and the Wallet showed
-  `Verifier rejected the response` without opening the URI. 064 needs
-  `request_mutation` to remove the `redirect_uri` that beta signs into the
-  request (MOCK-VERIFIER-003). 066 has the same limit as 125 and 126: its only
-  evidence of the Wallet's own error is visual, so `evidence.non_empty` would
-  also pass for a Wallet that shows success. Its reference-Wallet run is still
-  pending.
-- MOCK-VERIFIER-003: beta signs a configured `redirect_uri` beside
-  `response_uri`, which a conformant Wallet rejects with `invalid_request`.
-  `WS_RP_IA_MainInteraction__057`, `061`, `067`, `WS_RP_IA_Supportive__001`,
-  and `WS_RP_MS_ProtocolMessages__127`, `128` configure `redirect_uri` without
-  the mutation that 064 uses, so they cannot reach the redirect they assert.
+  `Verifier rejected the response` without opening the URI. That run used a
+  `request_mutation` to strip the `redirect_uri` beta then signed into the
+  request (MOCK-VERIFIER-003, since fixed); the mutation is gone and the
+  unmutated session has not been rerun. 066 has the same limit as 125 and 126:
+  its only evidence of the Wallet's own error is visual, so
+  `evidence.non_empty` would also pass for a Wallet that shows success. Its
+  reference-Wallet run is still pending.
+- `WS_RP_IA_MainInteraction__057`, `061`, `067`, `WS_RP_IA_Supportive__001`,
+  and `WS_RP_MS_ProtocolMessages__127`, `128` configure a `redirect_uri` that
+  beta signed into the request until MOCK-VERIFIER-003 was fixed on
+  30/09/2026, so a conformant Wallet rejected them. They need a
+  reference-Wallet run after the fix.
 
 ### Constructible from the current contract, definition pending
 
