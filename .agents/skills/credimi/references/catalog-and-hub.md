@@ -33,7 +33,7 @@ Read-only PocketBase-shaped routes (public, `AuthenticationRequired: false`):
 - `GET /api/collections/conformance_checks/records` and `/records/{id}`
 - `GET /api/collections/conformance_suites/records` and `/records/{id}`
 
-Writes on those paths are rejected with HTTP 400 and `conformance_checks is a read-only catalog projection of config_templates`. List/get run through `pocketbase/tools/search`, so `filter`, `sort`, `page`, `perPage`, `skipTotal` and the PocketBase ListResult shape apply.
+Writes on those paths are rejected with HTTP 400 and a collection-specific `<collection> is a read-only catalog projection of config_templates` message. List/get run through `pocketbase/tools/search`, so `filter`, `sort`, `page`, `perPage`, `skipTotal` and the PocketBase ListResult shape apply.
 
 Refresh after editing templates: restart, or `POST /api/conformance-catalog/rebuild` → `{ok, count, source}`. That route is gated by the **internal admin API key in the `Credimi-Api-Key` header** (`key_type=internal_admin`, backed by the `api_keys` collection). A code comment in `pkg/conformancecatalog/store.go:127-129` still says `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` — stale, ignore it. Boot rebuild skips a missing templates directory and fails bootstrap on any other error.
 
