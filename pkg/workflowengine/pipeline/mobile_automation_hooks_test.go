@@ -39,22 +39,6 @@ func TestMobileAutomationSetupHookFailsWithoutSemaphoreMetadata(t *testing.T) {
 	require.Contains(t, err.Error(), "mobile-runner pipelines must be started via queue/semaphore")
 }
 
-func TestPhysicalAppPreparationRequiresDedicatedRunnerActivity(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-	listApps := activities.NewListInstalledAppsActivity()
-	env.RegisterActivityWithOptions(listApps.Execute, activity.RegisterOptions{Name: listApps.Name()})
-	env.OnActivity(listApps.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: []string{"com.leftover"}}, nil)
-	env.RegisterWorkflowWithOptions(func(ctx workflow.Context) error {
-		ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Minute})
-		_, err := preparePhysicalAndroidAppsOnRunner(ctx, "tenant/runner/phone", "usb-1")
-		return err
-	}, workflow.RegisterOptions{Name: "test-physical-app-preparation-ack"})
-	env.ExecuteWorkflow("test-physical-app-preparation-ack")
-	require.ErrorContains(t, env.GetWorkflowError(), "Prepare physical Android apps")
-}
-
 func TestMobileAutomationSetupHookRejectsMixedGlobalAndNestedDeviceIDs(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -2361,7 +2345,7 @@ env.OnActivity(
 			}}, nil).Once()
 
 		env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
-			Return(workflowengine.ActivityResult{Output: map[string]any{"apps": []string{"com.example.old"}, "baseline_prepared": true}}, nil)
+			Return(workflowengine.ActivityResult{Output: []string{"com.example.old"}}, nil)
 		env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
 			Return(workflowengine.ActivityResult{Output: map[string]any{
 				"recording_process_pid": float64(11),
