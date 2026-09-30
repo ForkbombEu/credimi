@@ -1,5 +1,5 @@
 id: WS_RP_SM_SessionEncryption__005
-title: FCAF WS_RP_SM_SessionEncryption__005
+title: Encrypt the response with ECDH-ES key agreement on P-256.
 source:
   path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__005.md
 suite:
@@ -11,21 +11,40 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: JSON Web Encryption (JWE)
+  section: 4.1.1
+  url: https://www.rfc-editor.org/rfc/rfc7516
+- title: JSON Web Algorithms (JWA)
+  section: 6.2.1.1
+  url: https://www.rfc-editor.org/rfc/rfc7518
 - ref: pipeline.dcql.session-encryption
 evidence:
   dcql_exchange:
     from: pipeline.dcql.session-encryption.outputs.dcql_exchange
+  encrypted_response:
+    from: pipeline.dcql.session-encryption.outputs.encrypted_response
   visual_evidence:
     from: pipeline.dcql.session-encryption.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_sessionencryption__005_jwe_verified
-  validator: jwt.header_field_equals
+- id: request_used_direct_post_jwt_response_mode
+  validator: json.field_equals
   input: evidence.dcql_exchange
-  params:
-    field: alg
-- id: ws_rp_sm_sessionencryption__005_visual_evidence
+  params: {field: response_mode, value: direct_post.jwt}
+- id: wallet_sent_one_encrypted_response
+  validator: oid4vp.session_event_count
+  input: evidence.dcql_exchange
+  params: {type: vp_presentation_response_received, count: 1}
+- id: key_management_algorithm_is_ecdh_es
+  validator: jose.jwe_protected_header
+  input: evidence.encrypted_response
+  params: {field: alg, value: ECDH-ES}
+- id: key_agreement_uses_p256_curve
+  validator: jose.jwe_protected_header
+  input: evidence.encrypted_response
+  params: {field: epk.crv, value: P-256}
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

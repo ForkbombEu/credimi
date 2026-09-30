@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__064
-title: FCAF WS_RP_IA_MainInteraction__064
+title: Open the redirect URI returned in an HTTP 400 Response Endpoint reply.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__064.md
 suite:
@@ -11,21 +11,57 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
+  session:
+    from: pipeline.protocol.verifier-response-controls.outputs.http_error_redirect_session
+  request_object:
+    from: pipeline.protocol.verifier-response-controls.outputs.http_error_redirect_request_object
+  callback:
+    from: pipeline.protocol.verifier-response-controls.outputs.http_error_redirect_callback
   visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+    from: pipeline.protocol.verifier-response-controls.outputs.http_error_redirect_visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__064_interaction
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: delivered_request_uses_direct_post_jwt
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params: { field: response_mode, value: direct_post.jwt }
+- id: delivered_request_carries_response_uri
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params: { field: response_uri, present: true }
+# Section 8.2 forbids redirect_uri beside response_uri, so the redirect URI
+# must reach the Wallet only through the Response Endpoint reply.
+- id: delivered_request_omits_redirect_uri
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params: { field: redirect_uri, present: false }
+- id: wallet_posted_the_authorization_response
+  validator: oid4vp.presentation_response_http
+  input: evidence.session
   params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__064_visual_evidence
+    method: POST
+    media_type: application/x-www-form-urlencoded
+    require_response_parameter: true
+- id: authorization_response_carries_the_requested_credential
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params: { mode: credentials_match }
+- id: verifier_replied_http_400_with_a_json_redirect_uri
+  validator: oid4vp.response_endpoint_callback
+  input: evidence.callback
+  params:
+    status: 400
+    media_type: application/json
+    body_format: json
+    match_configured_redirect_uri: true
+    require_response_code: true
+- id: wallet_opened_the_redirect_uri_from_the_error_reply
+  validator: oid4vp.redirect_uri_visited
+  input: evidence.session
+  params: { after_presentation_response: true }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

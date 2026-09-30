@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__043
-title: FCAF WS_RP_MS_ProtocolMessages__043
+title: Refuse a Request URI that is not HTTPS
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__043.md
 suite:
@@ -11,21 +11,28 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.5'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- title: OpenID for Verifiable Presentations 1.0
+  section: '5.10'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+  outer_request: { from: pipeline.protocol.client-id-binding-controls.outputs.http_request_uri_outer_request }
+  target_session: { from: pipeline.protocol.client-id-binding-controls.outputs.http_request_uri_target_session }
+  visual_evidence: { from: pipeline.protocol.client-id-binding-controls.outputs.http_request_uri_visual_evidence }
 assertions:
-- id: ws_rp_ms_protocolmessages__043_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__043_visual_evidence_stored
+- id: request_uri_uses_plain_http
+  validator: json.field_string_prefix
+  input: evidence.outer_request
+  params: { field: request_uri, prefix: "http://" }
+- id: request_uri_method_is_post
+  validator: json.field_equals
+  input: evidence.outer_request
+  params: { field: request_uri_method, value: post }
+- id: wallet_does_not_retrieve_the_http_request_uri
+  validator: oid4vp.request_uri_not_retrieved
+  input: evidence.target_session
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__144
-title: FCAF WS_RP_MS_ProtocolMessages__144
+title: Return invalid_request for an unsigned request with an https Client Identifier
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__144.md
 suite:
@@ -11,21 +11,33 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- title: OpenID for Verifiable Presentations 1.0
+  section: '8.5'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages-144.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages-144.outputs.visual_evidence
+  session: { from: pipeline.protocol.client-id-prefix-controls.outputs.unsigned_https_session }
+  outer_request: { from: pipeline.protocol.client-id-prefix-controls.outputs.unsigned_https_outer_request }
+  visual_evidence: { from: pipeline.protocol.client-id-prefix-controls.outputs.unsigned_https_visual_evidence }
 assertions:
-- id: ws_rp_ms_protocolmessages__144_dcql_protocol_valid
+- id: request_uses_https_client_identifier
+  validator: json.field_string_prefix
+  input: evidence.outer_request
+  params: { field: client_id, prefix: "https:" }
+- id: request_object_is_not_sent_by_value
+  validator: json.field_presence
+  input: evidence.outer_request
+  params: { field: request, present: false }
+- id: request_object_is_not_sent_by_reference
+  validator: json.field_presence
+  input: evidence.outer_request
+  params: { field: request_uri, present: false }
+- id: wallet_returns_invalid_request
   validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: invalid_request_generic
-- id: ws_rp_ms_protocolmessages__144_visual_evidence_stored
+  input: evidence.session
+  params: { mode: invalid_request_required }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

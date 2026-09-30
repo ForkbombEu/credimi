@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__032
-title: FCAF WS_RP_IA_MainInteraction__032
+title: Withhold a PID whose claim value fails the requested constraint.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__032.md
 suite:
@@ -11,22 +11,37 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '6.4'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+  issuance_session:
+    from: pipeline.fixtures.pid-under-18.outputs.issuance_session
+  matching_exchange:
+    from: pipeline.fixtures.pid-under-18.outputs.matching_exchange
+  constrained_exchange:
+    from: pipeline.fixtures.pid-under-18.outputs.constrained_exchange
+  matching_visual_evidence:
+    from: pipeline.fixtures.pid-under-18.outputs.matching_visual_evidence
+  constrained_visual_evidence:
+    from: pipeline.fixtures.pid-under-18.outputs.constrained_visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__032_interaction
+- id: wallet_was_issued_the_under_18_fixture
+  validator: json.field_equals
+  input: evidence.issuance_session
+  params: { field: fixture_id, value: pid_under_18 }
+- id: wallet_holds_a_pid_whose_age_over_18_is_false
   validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__032_visual_evidence
+  input: evidence.matching_exchange
+  params: { mode: credentials_match }
+- id: wallet_withholds_the_pid_from_the_over_18_constraint
+  validator: dcql.response_satisfies_constraints
+  input: evidence.constrained_exchange
+  params: { mode: claims_values_no_match }
+- id: visual_evidence_of_the_held_pid_is_stored
   validator: evidence.non_empty
-  input: evidence.visual_evidence
+  input: evidence.matching_visual_evidence
+- id: visual_evidence_of_the_unmet_requirement_is_stored
+  validator: evidence.non_empty
+  input: evidence.constrained_visual_evidence
 verdict:
   pass_when: all_assertions_pass

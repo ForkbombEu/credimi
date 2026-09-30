@@ -78,6 +78,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_format_presentation",
 		"mdoc_claim_path_presentation",
 		"mdoc_claim_path_no_match",
+		"mdoc_claim_path_error",
 		"vp_token_signed_presentation",
 		"vp_token_json_object",
 		"vp_token_query_ids",
@@ -96,6 +97,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"trusted_authority_array_item_type",
 		"trusted_authority_empty_string_item",
 		"multiple_default_false",
+		"multiple_false",
 		"multiple_true",
 		"no_match",
 		"request_rejected",
@@ -109,7 +111,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credential_format_presentation, mdoc_claim_path_presentation, mdoc_claim_path_no_match, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, trusted_authorities_no_match, claim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
+			Message: "mode must be credential_sets, credential_format_presentation, mdoc_claim_path_presentation, mdoc_claim_path_no_match, mdoc_claim_path_error, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, trusted_authorities_no_match, claim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
 		}
 	}
 
@@ -149,7 +151,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	case "claims_path_no_match":
 		return validateClaimsPathNoMatch(query, responseValue, params.ExpectedClaimPath)
 	case "claims_values_no_match":
-		return validateClaimsValuesNoMatch(query, responseValue)
+		return validateClaimsValuesNoMatch(
+			query,
+			responseValue,
+			params.ExpectedClaimPath,
+			params.ExpectedValue,
+		)
 	case "claim_id_missing_with_claim_sets":
 		return validateMissingClaimIDWithClaimSets(query, responseValue, errorValue)
 	case "claims_without_id_without_claim_sets":
@@ -237,6 +244,13 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateMDocClaimPathPresentation(query, responseValue, params.ExpectedClaimPath)
 	case "mdoc_claim_path_no_match":
 		return validateMDocClaimPathNoMatch(query, params.ExpectedClaimPath)
+	case "mdoc_claim_path_error":
+		return validateMDocClaimPathError(
+			query,
+			responseValue,
+			errorValue,
+			params.ExpectedClaimPath,
+		)
 	case "vp_token_signed_presentation":
 		return validateVPTokenSignedPresentation(root, query, responseValue)
 	case "vp_token_json_object":
@@ -253,6 +267,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"without_claims",
 		"without_claim_disclosures",
 		"multiple_default_false",
+		"multiple_false",
 		"multiple_true":
 		if params.Mode == "without_credential_sets" {
 			if _, exists := query["credential_sets"]; exists {
@@ -370,6 +385,28 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 					return Result{
 						Status:  StatusFail,
 						Message: fmt.Sprintf("credentials[%d] contains multiple", index),
+					}
+				}
+				presentations, ok := presentation.([]any)
+				if !ok || len(presentations) != 1 {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"vp_token must contain exactly one presentation for credential query %q",
+							id,
+						),
+					}
+				}
+			}
+			if params.Mode == "multiple_false" {
+				multiple, exists := credential["multiple"].(bool)
+				if !exists || multiple {
+					return Result{
+						Status: StatusFail,
+						Message: fmt.Sprintf(
+							"credentials[%d].multiple is not explicitly false",
+							index,
+						),
 					}
 				}
 				presentations, ok := presentation.([]any)
@@ -1272,6 +1309,46 @@ func validateMDocClaimPathNoMatch(query map[string]any, expectedPath []any) Resu
 		Status:  StatusFail,
 		Message: "mdoc credential query does not contain the expected absent namespace path",
 	}
+}
+
+func validateMDocClaimPathError(
+	query map[string]any,
+	responseValue, errorValue any,
+	expectedPath []any,
+) Result {
+	if len(expectedPath) == 0 {
+		return Result{Status: StatusError, Message: "expected_claim_path must not be empty"}
+	}
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) != 1 {
+		return Result{
+			Status:  StatusFail,
+			Message: "dcql_query must contain exactly one credential query",
+		}
+	}
+	credential, ok := normalizeJSONObject(credentials[0])
+	if !ok || credential["format"] != "mso_mdoc" {
+		return Result{Status: StatusFail, Message: "credential query format must be mso_mdoc"}
+	}
+	claims, ok := credential["claims"].([]any)
+	if !ok || len(claims) != 1 {
+		return Result{
+			Status:  StatusFail,
+			Message: "mdoc credential query must contain exactly one claim",
+		}
+	}
+	claim, ok := normalizeJSONObject(claims[0])
+	if !ok {
+		return Result{Status: StatusFail, Message: "mdoc claim is not an object"}
+	}
+	path, ok := claim["path"].([]any)
+	if !ok || !reflect.DeepEqual(path, expectedPath) {
+		return Result{
+			Status:  StatusFail,
+			Message: "mdoc credential query does not contain the expected error path",
+		}
+	}
+	return validateWalletErrorRequired(responseValue, errorValue)
 }
 
 func validateVPTokenSignedPresentation(
@@ -2621,7 +2698,17 @@ func validateClaimsPathNoMatch(
 	}
 }
 
-func validateClaimsValuesNoMatch(query map[string]any, responseValue any) Result {
+// validateClaimsValuesNoMatch requires every requested claim to carry a value
+// restriction and the wallet to return nothing. When expectedPath and
+// expectedValue are supplied it additionally pins the exact restriction, which
+// is what binds a no-match result to one named credential fixture rather than
+// to any unsatisfiable query.
+func validateClaimsValuesNoMatch(
+	query map[string]any,
+	responseValue any,
+	expectedPath []any,
+	expectedValue any,
+) Result {
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
 		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
@@ -2680,6 +2767,15 @@ func validateClaimsValuesNoMatch(query map[string]any, responseValue any) Result
 			}
 		}
 	}
+	if len(expectedPath) > 0 {
+		if result := requireClaimValueRestriction(
+			credentials,
+			expectedPath,
+			expectedValue,
+		); result != nil {
+			return *result
+		}
+	}
 	if !isEmptyDCQLValue(responseValue) {
 		return Result{
 			Status:  StatusFail,
@@ -2689,6 +2785,60 @@ func validateClaimsValuesNoMatch(query map[string]any, responseValue any) Result
 	return Result{
 		Status:  StatusPass,
 		Message: "wallet returned no credential for mismatched claim values",
+	}
+}
+
+// requireClaimValueRestriction finds the requested claim whose path equals the
+// expected one and requires its values to be exactly the expected value.
+func requireClaimValueRestriction(
+	credentials []any,
+	expectedPath []any,
+	expectedValue any,
+) *Result {
+	for _, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			continue
+		}
+		claims, ok := credential["claims"].([]any)
+		if !ok {
+			continue
+		}
+		for _, rawClaim := range claims {
+			claim, ok := normalizeJSONObject(rawClaim)
+			if !ok {
+				continue
+			}
+			if !equalClaimPath(claim["path"], expectedPath) {
+				continue
+			}
+			values, ok := claim["values"].([]any)
+			if !ok || len(values) != 1 {
+				return &Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"claims path %v does not carry exactly one value restriction",
+						expectedPath,
+					),
+				}
+			}
+			if !reflect.DeepEqual(values[0], expectedValue) {
+				return &Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"claims path %v is restricted to %v, expected %v",
+						expectedPath,
+						values[0],
+						expectedValue,
+					),
+				}
+			}
+			return nil
+		}
+	}
+	return &Result{
+		Status:  StatusFail,
+		Message: fmt.Sprintf("dcql_query does not request claims path %v", expectedPath),
 	}
 }
 

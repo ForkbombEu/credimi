@@ -1,5 +1,5 @@
 id: WS_RP_SH_Encoding_TextualEncoding_022
-title: FCAF WS_RP_SH_Encoding_TextualEncoding_022
+title: Encode the direct-post JWT response body in UTF-8.
 source:
   path: Shared/Encoding/WS_RP_SH_Encoding_TextualEncoding_022.md
 suite:
@@ -11,19 +11,28 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.encoding
+- ref: pipeline.direct-post-jwt.response-transport
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.encoding.outputs.dcql_exchange
+  capture_session:
+    from: pipeline.direct-post-jwt.response-transport.outputs.capture_session
   visual_evidence:
-    from: pipeline.dcql.encoding.outputs.visual_evidence
+    from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: ws_rp_sh_encoding_textualencoding_022_encoding_verified
-  validator: sdjwt.claim_utf8_string
-  input: evidence.dcql_exchange
-- id: ws_rp_sh_encoding_textualencoding_022_visual_evidence
+- id: request_used_direct_post_jwt_response_mode
+  validator: json.field_equals
+  input: evidence.capture_session
+  params: {field: response_mode, value: direct_post.jwt}
+- id: response_body_names_and_values_are_utf8
+  validator: oid4vp.presentation_response_http
+  input: evidence.capture_session
+  params:
+    method: POST
+    media_type: application/x-www-form-urlencoded
+    require_response_parameter: true
+    form_utf8: true
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

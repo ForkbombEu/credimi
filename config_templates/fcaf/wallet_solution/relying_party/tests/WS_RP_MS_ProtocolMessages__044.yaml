@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__044
-title: FCAF WS_RP_MS_ProtocolMessages__044
+title: UTF-8 encode request URI POST form names and values.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__044.md
 suite:
@@ -11,21 +11,22 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.10'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.request-uri.post
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
+  capture_session:
+    from: pipeline.request-uri.post.outputs.capture_session
   visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+    from: pipeline.request-uri.post.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__044_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: wallet_request_uri_form_names_and_values_are_utf8
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.capture_session
   params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__044_visual_evidence_stored
+    method: POST
+    form_utf8: true
+- id: wallet_request_uri_post_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

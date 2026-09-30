@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__130
-title: FCAF WS_RP_MS_Metadata__130
+title: Reject an x509_hash Client Identifier that is not the leaf certificate hash
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__130.md
 suite:
@@ -11,21 +11,34 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.metadata
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.metadata.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
+  session: { from: pipeline.protocol.client-id-binding-controls.outputs.hash_mismatch_session }
+  request_object: { from: pipeline.protocol.client-id-binding-controls.outputs.hash_mismatch_request_object }
+  outer_request: { from: pipeline.protocol.client-id-binding-controls.outputs.hash_mismatch_outer_request }
+  visual_evidence: { from: pipeline.protocol.client-id-binding-controls.outputs.hash_mismatch_visual_evidence }
 assertions:
-- id: ws_rp_ms_metadata__130_dcql_metadata_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_metadata__130_visual_evidence_stored
+- id: request_object_signature_verifies_against_the_x5c_leaf
+  validator: jose.jws_signed_request
+  input: evidence.request_object
+- id: client_id_does_not_bind_the_x5c_leaf
+  validator: oid4vp.x509_client_id_leaf_mismatch
+  input: evidence.request_object
+  params: { prefix: x509_hash }
+- id: outer_request_uses_the_same_prefix
+  validator: json.field_string_prefix
+  input: evidence.outer_request
+  params: { field: client_id, prefix: "x509_hash:" }
+- id: wallet_retrieves_request_object_with_post
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
+  params: { method: POST }
+- id: wallet_returns_invalid_request
+  validator: oid4vp.error_response_required
+  input: evidence.session
+  params: { code: invalid_request }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

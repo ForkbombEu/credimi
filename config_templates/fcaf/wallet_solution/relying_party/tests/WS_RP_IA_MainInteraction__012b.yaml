@@ -1,0 +1,14 @@
+id: WS_RP_IA_MainInteraction__012b
+title: Disclose a requested single mdoc data element.
+source: { path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__012b.md }
+suite: { sut: wallet_solution, role: relying_party, section: interaction.main_interaction }
+applicability: { profile: EUDI_generic, presentation_flow: redirects, credential_format: iso_mdoc }
+normative_references:
+  - { title: OpenID for Verifiable Presentations 1.0, section: "6.4.1", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }
+evidence:
+  dcql_exchange: { from: pipeline.credential-formats.mdoc-presentation.outputs.dcql_exchange }
+  pid_mdoc: { from: pipeline.credential-formats.mdoc-presentation.outputs.pid_mdoc }
+assertions:
+  - { id: requested_mdoc_element_is_present, validator: mdoc.namespace_element_present, input: evidence.pid_mdoc, params: { namespace: eu.europa.ec.eudi.pid.1, element: given_name } }
+  - { id: response_satisfies_the_single_mdoc_query, validator: dcql.response_satisfies_constraints, input: evidence.dcql_exchange, params: { mode: credentials_match } }
+verdict: { pass_when: all_assertions_pass }

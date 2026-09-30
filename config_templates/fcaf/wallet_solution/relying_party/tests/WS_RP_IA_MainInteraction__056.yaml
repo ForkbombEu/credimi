@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__056
-title: FCAF WS_RP_IA_MainInteraction__056
+title: Reject a response_uri that fails the strict Client Identifier matching rule.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__056.md
 suite:
@@ -11,21 +11,36 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
+- title: OpenID for Verifiable Presentations 1.0
+  section: '8.2'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
+  session:
+    from: pipeline.protocol.response-uri-controls.outputs.invalid_response_uri_session
+  request_object:
+    from: pipeline.protocol.response-uri-controls.outputs.invalid_response_uri_request_object
   visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+    from: pipeline.protocol.response-uri-controls.outputs.invalid_response_uri_visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__056_interaction
+- id: delivered_request_uses_direct_post_jwt
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params: { field: response_mode, value: direct_post.jwt }
+- id: delivered_response_uri_does_not_match_the_client_identifier
+  validator: oid4vp.response_uri_client_id_mismatch
+  input: evidence.request_object
+  params: { prefix: x509_san_dns }
+- id: wallet_retrieved_the_delivered_request_object
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
+  params: { method: GET }
+- id: wallet_rejects_the_request
   validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__056_visual_evidence
+  input: evidence.session
+  params: { mode: request_rejected }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:
