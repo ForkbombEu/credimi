@@ -267,7 +267,7 @@ func TestOID4VPMalformedStatusCredentialAbsentValidator(t *testing.T) {
 
 func TestOID4VPMalformedStatusCredentialAbsentValidatorMDoc(t *testing.T) {
 	const documentNumber = "CREDIMI-DEMO-CASE"
-	uri := "https://beta-capture-wallet.credimi.io/status-lists/1"
+	uri := "https://capture-wallet.credimi.io/status-lists/1"
 	statusMDoc := func(status any) string {
 		return encodedMSOStatusDeviceResponse(t, status, map[string]any{
 			"document_number": documentNumber,

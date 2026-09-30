@@ -84,7 +84,7 @@ func tokenStatusList() map[string]any {
 	return map[string]any{
 		"status_list": map[string]any{
 			"idx": uint64(42),
-			"uri": "https://beta-capture-wallet.credimi.io/status-lists/1",
+			"uri": "https://capture-wallet.credimi.io/status-lists/1",
 		},
 	}
 }
@@ -155,7 +155,7 @@ func TestMSOStatusCBORTypes(t *testing.T) {
 	rewritten := msoStatusPresentation(t, map[string]any{
 		"status_list": map[string]any{
 			"idx": "42",
-			"uri": "https://beta-capture-wallet.credimi.io/status-lists/1",
+			"uri": "https://capture-wallet.credimi.io/status-lists/1",
 		},
 	})
 	result := cborType.Validate(context.Background(), Input{
@@ -199,7 +199,7 @@ func TestMSOStatusURI(t *testing.T) {
 }
 
 func TestMSOStatusListStructure(t *testing.T) {
-	uri := "https://beta-capture-wallet.credimi.io/status-lists/1"
+	uri := "https://capture-wallet.credimi.io/status-lists/1"
 	for _, test := range []struct {
 		name       string
 		statusList any

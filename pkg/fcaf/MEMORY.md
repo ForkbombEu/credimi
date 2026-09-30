@@ -2728,3 +2728,24 @@ returned.
 
 `make fcaf-generate` produces 1376 aggregate steps, 615 test IDs, and 217
 pipeline outputs; the happy flow drops to 306 test IDs.
+
+## Target switched to production Capture, 30/09/2026
+
+Every scenario, the two Capture credential imports, and
+`pipeline.DefaultVerifierURL` now point at `https://capture-wallet.credimi.io`
+instead of `https://beta-capture-wallet.credimi.io`. That includes the
+hard-coded `http://` and `x509_san_dns:` values in `client-id-binding-controls`
+and the foreign `redirect_uri` in `response-uri-controls`. The
+`eudiw-beta-wallet` wallet-action namespace names the Wallet, not the
+verifier, and is unchanged.
+
+A same-day production probe (`CAPTURE_WALLET_API.md`) showed the gated
+controls enabled, the redirect_uri fix deployed, and certificates chaining to
+`PID Issuer CA 02`. The consent screen will name `Fake Verifier` rather than
+`Beta Fake Verifier`. Every verdict recorded above ran against beta; none has
+been repeated on production.
+
+`126` (`x509_san_dns:` with a name absent from the leaf) still holds its
+precondition: the production leaf lists only SAN URI
+`https://capture-wallet.credimi.io/`, so `capture-wallet.credimi.io` is not a
+dNSName of it.

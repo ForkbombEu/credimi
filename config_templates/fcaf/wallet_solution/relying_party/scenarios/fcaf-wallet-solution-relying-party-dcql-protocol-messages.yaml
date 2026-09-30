@@ -1,7 +1,7 @@
 name: FCAF protocol-messages
 runtime:
   fixture:
-    issuer_url: https://beta-capture-wallet.credimi.io
+    issuer_url: https://capture-wallet.credimi.io
     log_checker: capture-wallet
   global_device_id: forkbomb-bv-andrea/usb/device
   temporal:

@@ -1,7 +1,7 @@
 name: FCAF Request Object outer parameter controls
 runtime:
   fixture:
-    issuer_url: https://beta-capture-wallet.credimi.io
+    issuer_url: https://capture-wallet.credimi.io
   global_device_id: forkbomb-bv-andrea/usb/device
 steps:
 - id: create-conflicting-nonce

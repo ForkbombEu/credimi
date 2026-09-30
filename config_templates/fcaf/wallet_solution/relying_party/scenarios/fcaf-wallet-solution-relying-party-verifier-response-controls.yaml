@@ -1,7 +1,7 @@
 name: FCAF verifier response controls
 runtime:
   fixture:
-    issuer_url: https://beta-capture-wallet.credimi.io
+    issuer_url: https://capture-wallet.credimi.io
   global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
     activity_options:
@@ -80,7 +80,7 @@ steps:
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-http-error-response.outputs.body.session_id }}
     expected_status: 200
 # 064: the verifier answers the Authorization Response with HTTP 400 and a JSON
-# body carrying a redirect_uri. The configured redirect_uri is what makes beta
+# body carrying a redirect_uri. The configured redirect_uri is what makes Capture
 # return it with a fresh response_code; it is not signed into the Request
 # Object, so it reaches the Wallet only through the error reply.
 - id: create-http-error-redirect-response

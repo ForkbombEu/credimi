@@ -22,25 +22,29 @@ as synced on 28/09/2026 (`1c8162c`). The mirror has 621 distinct `WS_RP_*` files
 against 615 Credimi test definitions; the six without a definition are listed
 under **Blocked**.
 
+Since 30/09/2026 the scenarios target production `https://capture-wallet.credimi.io`.
+Every verdict and probe dated earlier ran against `beta-capture-wallet.credimi.io`
+and has not been repeated against production.
+
 ## Ready to work
 
-### Implemented, awaiting an emulator run against beta
+### Implemented, awaiting an emulator run against Capture
 
 These scenarios exist and their assertions are written. None has a reference
-Wallet verdict yet: the setup is accepted by beta, which is not evidence that
+Wallet verdict yet: the setup is accepted by Capture, which is not evidence that
 the Wallet received the property or answered as the source requires.
 
-- **Implemented; beta evidence pending:** `WS_RP_MS_ProtocolMessages__003_UF`,
+- **Implemented; Capture evidence pending:** `WS_RP_MS_ProtocolMessages__003_UF`,
   `006`, `007`, `009`, `010`, `016`, `033`, `034`, `049`, `051`, and
   `WS_RP_SM_RpIntegrity__027`. The scenarios use `request_mutation` or
   `request_behavior.signature=corrupt` and bind the delivered JAR, outer
   request where applicable, retrieval, and Wallet outcome.
-- **Implemented; beta evidence pending:** `WS_RP_MS_ProtocolMessages__046`,
+- **Implemented; Capture evidence pending:** `WS_RP_MS_ProtocolMessages__046`,
   `048`, `WS_RP_MS_Metadata__139`, `140`, and `WS_RP_IA_Supportive__002`.
   The scenarios use `request_behavior.wallet_nonce` or
   `request_uri_response`, require POST Request URI retrieval, and bind the
   delivered request or response plus the Wallet outcome.
-- **Implemented; beta evidence pending:**
+- **Implemented; Capture evidence pending:**
   `WS_RP_IA_MainInteraction__053`, `055`, `056`,
   `WS_RP_IA_Metadata__010`, and `WS_RP_MS_ProtocolMessages__124`–`128`, `132`.
   `request_mutation` builds the missing, duplicated, and foreign-host Response
@@ -50,7 +54,7 @@ the Wallet received the property or answered as the source requires.
   response. Open limitation: 125 and 126 can only evidence the Wallet's own
   error visually, because the Wallet has already submitted its Authorization
   Response when the malformed reply arrives.
-- **Implemented; beta evidence pending:** `WS_RP_IA_MainInteraction__032`,
+- **Implemented; Capture evidence pending:** `WS_RP_IA_MainInteraction__032`,
   `040`, `041`, `WS_RP_MS_CredentialFormats__033`, `044`, and
   `WS_RP_SH_Encoding_TextualEncoding_002`, `003`. Each case now issues the
   named fixture it needs and proves the fixture reached the Wallet before
@@ -58,7 +62,7 @@ the Wallet received the property or answered as the source requires.
   and establish simultaneous possession through two value-constrained probes
   whose `document_number` values differ, so counting presentations can no
   longer be satisfied by one credential presented twice.
-- **Implemented; beta evidence pending:** `WS_RP_MS_Metadata__081`–`090` and
+- **Implemented; Capture evidence pending:** `WS_RP_MS_Metadata__081`–`090` and
   `WS_RP_MS_CredentialFormats__030`, `031`. The six accept cases and the two
   storage cases read the existing `status_list_enabled` SD-JWT presentation;
   082 reads the statusless PID presentation. The five rejection cases each
@@ -70,7 +74,7 @@ the Wallet received the property or answered as the source requires.
   malformed_uri` expresses only the unparseable one. The missing-scheme,
   unencoded-space, invalid-percent-encoding, illegal-character and empty-string
   shapes need additional issuer fixtures.
-- **Implemented; beta evidence pending:** the ISO mdoc counterparts
+- **Implemented; Capture evidence pending:** the ISO mdoc counterparts
   `WS_RP_MS_Metadata__091`–`100`, `103` and `WS_RP_MS_CredentialFormats__029`.
   091, 093, 095, 098 and 103 read the `status_list_enabled` mdoc presentation
   of `credential-status-list`; 029 reads its SD-JWT VC, whose issuer-signed JWT
@@ -80,7 +84,7 @@ the Wallet received the property or answered as the source requires.
   rejection uses and probes with a pinned `mso_mdoc` query, so SD-JWT copies
   cannot answer it. 092 and 094 share the empty Status map; 094 asserts no
   outcome, because its source leaves it to local policy.
-- **Implemented; beta evidence pending:** `WS_RP_MS_CredentialFormats__041`
+- **Implemented; Capture evidence pending:** `WS_RP_MS_CredentialFormats__041`
   (`mdoc-multiple-device-responses`: three mdoc PIDs, three queries each
   pinning one `document_number`) and `WS_RP_MS_ProtocolMessages__013`
   (`pid-candidate-selection`: two SD-JWT PIDs matching one query). The 013
@@ -92,7 +96,7 @@ the Wallet received the property or answered as the source requires.
 that is not the one bound to the advertised client identifier, leaving `x5c` and
 the DID document untouched:
 
-- **Implemented; beta evidence pending:** `WS_RP_SM_RpIntegrity__015` and
+- **Implemented; Capture evidence pending:** `WS_RP_SM_RpIntegrity__015` and
   `WS_RP_MS_Metadata__132` share
   `fcaf-wallet-solution-relying-party-rp-integrity-unrelated-signing-key`.
   015 requires the delivered JAR to carry an `x5c` chain and its signature to
@@ -109,7 +113,7 @@ is self-signed, rooted in an untrusted generated root, or missing its issuer,
 signs with that chain's leaf key, and recomputes the `x509_hash` Client
 Identifier so the chain is the only defect:
 
-- **Implemented; beta evidence pending:** `WS_RP_SM_RpIntegrity__017`, `019`
+- **Implemented; Capture evidence pending:** `WS_RP_SM_RpIntegrity__017`, `019`
   and `026` share
   `fcaf-wallet-solution-relying-party-rp-integrity-certificate-chain`, one
   session per behaviour. The new `oid4vp.request_certificate_chain` validator
@@ -133,7 +137,7 @@ Identifier so the chain is the only defect:
 `dcql_query: null` combined with `scopes` delivers a Section 5.1 scope-only
 Authorization Request:
 
-- **Implemented; beta evidence pending:** `WS_RP_MS_ProtocolMessages__030` owns
+- **Implemented; Capture evidence pending:** `WS_RP_MS_ProtocolMessages__030` owns
   `fcaf-wallet-solution-relying-party-unknown-scope`. `dcql_query: null`
   removes the query from the delivered Request Object while the Verifier keeps
   one for its own verification, and `scopes` is joined into the delivered
@@ -262,19 +266,20 @@ Wallet-profile-dependent cryptography:
 
 ## Blocked
 
-The beta contract supplies only the capabilities documented in
+The Capture contract supplies only the capabilities documented in
 `CAPTURE_WALLET_API.md`. Each entry names the input, credential fixture,
 transport capture, Wallet profile, or verifier behaviour that is absent, with
 the upstream `REMAINING_WORK.md` owner where one exists.
 
-### Blocked on the beta deployment certificate
+### Blocked on the Capture deployment certificate
 
 The contract publishes `client_id_scheme: "verifier_attestation"`, the
 `verifier_attestation` object (`subject`, `issuer`, `redirect_uris`, extra
 `claims`, `signature: "corrupt"`), and `x509_san_dns`, so the entries below are
 constructible from the contract. Beta refuses the session with `500
 internal_error`, `there are no SAN-DNS names`, on 25/09/2026 and again on
-28/09/2026. Re-check after beta publishes a SAN-matching certificate.
+28/09/2026, and production `capture-wallet.credimi.io` answers the same on
+30/09/2026. Re-check after Capture publishes a SAN-matching certificate.
 
 - [ ] `WS_RP_SM_RpIntegrity__001` (also needs a caller-signed `verifier_info`;
   see the verifier info entry below)
@@ -298,7 +303,7 @@ internal_error`, `there are no SAN-DNS names`, on 25/09/2026 and again on
 - [ ] `WS_RP_MS_Metadata__125`, `127`, `128` (`x509_san_dns` happy path and
   redirect-URI host mismatch. Upstream: the EUDI service-provider registry
   issues no certificate with a `dNSName` SAN, so a registry-trusted request
-  cannot use this prefix even after beta changes its certificate)
+  cannot use this prefix even after Capture changes its certificate)
 
 ### Blocked on a missing Capture Wallet capability
 

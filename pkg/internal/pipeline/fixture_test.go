@@ -59,6 +59,6 @@ steps:
 `)
 	require.NoError(t, err)
 	require.NoError(t, ApplyFixture(wf))
-	require.Equal(t, "https://beta-capture-wallet.credimi.io", DefaultVerifierURL)
+	require.Equal(t, "https://capture-wallet.credimi.io", DefaultVerifierURL)
 	require.Equal(t, DefaultVerifierURL+"/requests", wf.Steps[0].With.Payload["url"])
 }

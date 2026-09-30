@@ -1,4 +1,4 @@
-# The source signs with the Verifier's WRPAC key; beta signs with its normal
+# The source signs with the Verifier's WRPAC key; Capture signs with its normal
 # X.509 verifier certificate, so the invalid signature value is the only
 # property this definition can hold the Wallet to.
 id: WS_RP_SM_RpIntegrity__013b_UF

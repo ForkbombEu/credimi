@@ -1,7 +1,7 @@
 name: FCAF Response URI controls
 runtime:
   fixture:
-    issuer_url: https://beta-capture-wallet.credimi.io
+    issuer_url: https://capture-wallet.credimi.io
   global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
     activity_options:
@@ -66,7 +66,7 @@ steps:
             claims: [{ path: [given_name] }]
       request_mutation:
         request_object:
-          set: { /redirect_uri: "https://beta-capture-wallet.credimi.io/openid4vp/redirect" }
+          set: { /redirect_uri: "https://capture-wallet.credimi.io/openid4vp/redirect" }
         verification_applies: false
 - id: reject-redirect-uri-present
   use: mobile-automation

@@ -1,9 +1,9 @@
 name: FCAF Client Identifier binding controls
-# The http:// URIs name the beta host explicitly: an expression cannot rewrite
+# The http:// URIs name the Capture host explicitly: an expression cannot rewrite
 # the scheme of ${fixture.verifier_url}.
 runtime:
   fixture:
-    issuer_url: https://beta-capture-wallet.credimi.io
+    issuer_url: https://capture-wallet.credimi.io
   global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
     activity_options:
@@ -29,9 +29,9 @@ steps:
           credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
       request_mutation:
         request_object:
-          set: { /client_id: "x509_san_dns:beta-capture-wallet.credimi.io" }
+          set: { /client_id: "x509_san_dns:capture-wallet.credimi.io" }
         outer_request:
-          set: { /client_id: "x509_san_dns:beta-capture-wallet.credimi.io" }
+          set: { /client_id: "x509_san_dns:capture-wallet.credimi.io" }
         verification_applies: false
 - id: reject-san-dns-mismatch
   use: mobile-automation
@@ -151,7 +151,7 @@ steps:
           credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
       request_mutation:
         outer_request:
-          set: { /client_id: "redirect_uri:http://beta-capture-wallet.credimi.io/openid4vp/response" }
+          set: { /client_id: "redirect_uri:http://capture-wallet.credimi.io/openid4vp/response" }
         verification_applies: false
 - id: reject-non-https-redirect-uri
   use: mobile-automation
@@ -226,7 +226,7 @@ steps:
       request_mutation:
         outer_request:
           set:
-            /request_uri: "http://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ create-http-request-uri-target.outputs.body.session_id }}/request"
+            /request_uri: "http://capture-wallet.credimi.io/openid4vp/sessions/${{ create-http-request-uri-target.outputs.body.session_id }}/request"
         verification_applies: false
 - id: reject-http-request-uri
   use: mobile-automation

@@ -423,13 +423,14 @@ When the public contract changes, update this file and `src/openapi.ts` in the s
 
 ## Credimi FCAF deployment notes
 
-FCAF scenarios target `https://beta-capture-wallet.credimi.io`; the public
-contract describes the service surface, but beta deployment configuration can
-differ. In particular, `request_mutation`, `request_behavior`,
-`response_scenario`, and malformed `status_reference` fixtures are only usable
-when beta enables `FCAF_SCENARIOS_ENABLED=true`. A published input does not by
-itself prove that the Wallet received it or that the desired Wallet outcome was
-captured.
+FCAF scenarios target `https://capture-wallet.credimi.io` (production) since
+30/09/2026; earlier observations below were recorded on
+`https://beta-capture-wallet.credimi.io`. The public contract describes the
+service surface, but deployment configuration can differ. In particular,
+`request_mutation`, `request_behavior`, `response_scenario`, and malformed
+`status_reference` fixtures are only usable when the deployment enables
+`FCAF_SCENARIOS_ENABLED=true`. A published input does not by itself prove that
+the Wallet received it or that the desired Wallet outcome was captured.
 
 Classify each FCAF candidate at three boundaries:
 
@@ -444,7 +445,7 @@ verifier-blocked. If the Wallet is shown the request but sends no required
 response, record a reference-Wallet failure or discontinuation only when the
 source test permits it.
 
-### Beta observations retained for FCAF
+### Deployment observations retained for FCAF
 
 - On 17/09/2026, `GET /issuers/eu-pid-device-bound/credential-jwks.json`
   published one leaf `x5c` certificate for `CN = Beta Fake Issuer EU PID Device
@@ -541,6 +542,18 @@ source test permits it.
   `response_code`. This fixes MOCK-VERIFIER-003: earlier the same day beta had
   signed the URI into the request, and wallet 2026.09.42 correctly refused it
   with `invalid_request` `RedirectUriMustNotBeProvided`.
+- On 30/09/2026 production `capture-wallet.credimi.io` accepted
+  `request_mutation`, `response_scenario`, `request_behavior`, and a malformed
+  mdoc `status_reference` (`negative_index`), recording each selection and its
+  event, so `FCAF_SCENARIOS_ENABLED` is on. It kept a configured `redirect_uri`
+  out of the signed Request Object, issued the numeric credential and
+  `digest_algorithm: "sha-384"`, created a `dc_api.jwt` session, and refused
+  `x509_san_dns` with the same `500` as beta. It answered `http://` with `308`
+  to `https://`. Its verifier leaf is `CN = Fake Verifier`, with SAN URI
+  `https://capture-wallet.credimi.io/`, and its issuer leaf is
+  `CN = Credimi Test Issuer`, with SAN URI
+  `https://capture-wallet.credimi.io/issuers/eu-pid-device-bound`. Both chain
+  to `PID Issuer CA 02`. No reference-Wallet run against production yet.
 
 ### Known FCAF limitations
 

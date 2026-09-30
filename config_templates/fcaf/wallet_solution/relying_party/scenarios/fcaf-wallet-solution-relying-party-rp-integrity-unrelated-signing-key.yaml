@@ -1,7 +1,7 @@
 name: FCAF Request Object signed with an unrelated key
 runtime:
   fixture:
-    issuer_url: https://beta-capture-wallet.credimi.io
+    issuer_url: https://capture-wallet.credimi.io
   global_device_id: forkbomb-bv-andrea/usb/device
   temporal:
     activity_options:

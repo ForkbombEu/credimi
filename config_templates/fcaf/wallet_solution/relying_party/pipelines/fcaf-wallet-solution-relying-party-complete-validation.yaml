@@ -96,10 +96,10 @@ steps:
             request_mutation:
                 outer_request:
                     set:
-                        /client_id: x509_san_dns:beta-capture-wallet.credimi.io
+                        /client_id: x509_san_dns:capture-wallet.credimi.io
                 request_object:
                     set:
-                        /client_id: x509_san_dns:beta-capture-wallet.credimi.io
+                        /client_id: x509_san_dns:capture-wallet.credimi.io
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -292,7 +292,7 @@ steps:
             request_mutation:
                 outer_request:
                     set:
-                        /client_id: redirect_uri:http://beta-capture-wallet.credimi.io/openid4vp/response
+                        /client_id: redirect_uri:http://capture-wallet.credimi.io/openid4vp/response
                 verification_applies: false
             response_mode: direct_post.jwt
             response_type: vp_token
@@ -429,7 +429,7 @@ steps:
             request_mutation:
                 outer_request:
                     set:
-                        /request_uri: http://beta-capture-wallet.credimi.io/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-http-request-uri-target.outputs.body.session_id }}/request
+                        /request_uri: http://capture-wallet.credimi.io/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-http-request-uri-target.outputs.body.session_id }}/request
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -669,7 +669,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: credential-digest-algorithm-1354cfc6-obtain-sha384-credential
       use: mobile-automation
@@ -684,7 +684,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ credential-digest-algorithm-1354cfc6-create-sha384-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-digest-algorithm-1354cfc6-create-sha384-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: credential-digest-algorithm-1354cfc6-create-sha384-presentation
       use: http-request
@@ -743,7 +743,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: credential-status-list-13040d21-obtain-status-sdjwt-credential
       use: mobile-automation
@@ -813,7 +813,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: credential-status-list-13040d21-obtain-status-mdoc-credential
       use: mobile-automation
@@ -3928,7 +3928,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-obtain-full-match-credential
       use: mobile-automation
@@ -3949,7 +3949,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-obtain-age-trap-credential
       use: mobile-automation
@@ -3970,7 +3970,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-obtain-case-trap-credential
       use: mobile-automation
@@ -3991,7 +3991,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-obtain-whitespace-trap-credential
       use: mobile-automation
@@ -4012,7 +4012,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-obtain-diacritics-trap-credential
       use: mobile-automation
@@ -4033,7 +4033,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-obtain-no-diacritics-trap-credential
       use: mobile-automation
@@ -4054,7 +4054,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-obtain-array-trap-credential
       use: mobile-automation
@@ -4075,7 +4075,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-obtain-expiry-trap-credential
       use: mobile-automation
@@ -4201,7 +4201,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-obtain-numeric-type-trap-credential
       use: mobile-automation
@@ -5664,7 +5664,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-degree-array-index-4bda57a0-obtain-degree-credential
       use: mobile-automation
@@ -5730,7 +5730,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-degree-array-selector-5794d6e6-obtain-degree-credential
       use: mobile-automation
@@ -5797,7 +5797,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-degree-index-selector-9bbb109a-obtain-degree-credential
       use: mobile-automation
@@ -16826,7 +16826,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-obtain-degree-credential
       use: mobile-automation
@@ -17346,7 +17346,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: interaction-pid-sdjwt-ec048f5c-obtain-pid-credential
       use: mobile-automation
@@ -17924,7 +17924,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: mdoc-multiple-device-responses-78e404d8-obtain-baseline-mdoc
       use: mobile-automation
@@ -17945,7 +17945,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: mdoc-multiple-device-responses-78e404d8-obtain-second-identity-mdoc
       use: mobile-automation
@@ -17966,7 +17966,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: mdoc-multiple-device-responses-78e404d8-obtain-under-18-mdoc
       use: mobile-automation
@@ -18052,7 +18052,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-offer-mdoc-status-without-status-list-credential
       use: mobile-automation
@@ -18067,7 +18067,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-status-without-status-list-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-status-without-status-list-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-status-without-status-list-probe
       use: http-request
@@ -18124,7 +18124,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-offer-mdoc-negative-index-credential
       use: mobile-automation
@@ -18139,7 +18139,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-negative-index-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-negative-index-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-negative-index-probe
       use: http-request
@@ -18196,7 +18196,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-offer-mdoc-missing-index-credential
       use: mobile-automation
@@ -18211,7 +18211,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-index-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-index-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-index-probe
       use: http-request
@@ -18268,7 +18268,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-offer-mdoc-malformed-uri-credential
       use: mobile-automation
@@ -18283,7 +18283,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-malformed-uri-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-malformed-uri-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-malformed-uri-probe
       use: http-request
@@ -18340,7 +18340,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-offer-mdoc-missing-uri-credential
       use: mobile-automation
@@ -18355,7 +18355,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-uri-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-uri-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-uri-probe
       use: http-request
@@ -18672,7 +18672,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: pid-candidate-selection-e35c6cf5-obtain-baseline-credential
       use: mobile-automation
@@ -18687,7 +18687,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ pid-candidate-selection-e35c6cf5-create-baseline-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ pid-candidate-selection-e35c6cf5-create-baseline-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: pid-candidate-selection-e35c6cf5-create-second-identity-issuance
       use: http-request
@@ -18700,7 +18700,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: pid-candidate-selection-e35c6cf5-obtain-second-identity-credential
       use: mobile-automation
@@ -18715,7 +18715,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ pid-candidate-selection-e35c6cf5-create-second-identity-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ pid-candidate-selection-e35c6cf5-create-second-identity-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: pid-candidate-selection-e35c6cf5-create-candidate-request
       use: http-request
@@ -18964,7 +18964,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: pid-multiple-credentials-3e946b72-obtain-baseline-credential
       use: mobile-automation
@@ -18985,7 +18985,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: pid-multiple-credentials-3e946b72-obtain-second-identity-credential
       use: mobile-automation
@@ -19187,7 +19187,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: pid-under-18-constraint-e7f0d444-obtain-under-18-credential
       use: mobile-automation
@@ -19202,7 +19202,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ pid-under-18-constraint-e7f0d444-create-under-18-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ pid-under-18-constraint-e7f0d444-create-under-18-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: pid-under-18-constraint-e7f0d444-create-under-18-match
       use: http-request
@@ -21193,7 +21193,7 @@ steps:
             request_mutation:
                 request_object:
                     set:
-                        /redirect_uri: https://beta-capture-wallet.credimi.io/openid4vp/redirect
+                        /redirect_uri: https://capture-wallet.credimi.io/openid4vp/redirect
                 verification_applies: false
             response_mode: direct_post.jwt
             response_type: vp_token
@@ -21790,7 +21790,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-offer-status-without-status-list-credential
       use: mobile-automation
@@ -21805,7 +21805,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-create-status-without-status-list-probe
       use: http-request
@@ -21862,7 +21862,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-offer-negative-index-credential
       use: mobile-automation
@@ -21877,7 +21877,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-negative-index-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-negative-index-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-create-negative-index-probe
       use: http-request
@@ -21934,7 +21934,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-offer-missing-index-credential
       use: mobile-automation
@@ -21949,7 +21949,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-missing-index-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-missing-index-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-create-missing-index-probe
       use: http-request
@@ -22006,7 +22006,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-offer-malformed-uri-credential
       use: mobile-automation
@@ -22021,7 +22021,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-malformed-uri-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-malformed-uri-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-create-malformed-uri-probe
       use: http-request
@@ -22078,7 +22078,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://beta-capture-wallet.credimi.io/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-offer-missing-uri-credential
       use: mobile-automation
@@ -22093,7 +22093,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://beta-capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-missing-uri-issuance.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-missing-uri-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-create-missing-uri-probe
       use: http-request

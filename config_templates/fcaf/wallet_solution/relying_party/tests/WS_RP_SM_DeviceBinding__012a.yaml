@@ -1,5 +1,5 @@
 id: WS_RP_SM_DeviceBinding__012a
-title: Present a key-binding JWT using beta Capture Wallet ES256.
+title: Present a key-binding JWT using Capture Wallet ES256.
 source:
   path: SecurityMechanisms/DeviceBinding/WS_RP_SM_DeviceBinding__012a.md
 suite:
