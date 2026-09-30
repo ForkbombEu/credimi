@@ -79,10 +79,91 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-http-error-response.outputs.body.session_id }}
     expected_status: 200
+# 064: the verifier answers the Authorization Response with HTTP 400 and a JSON
+# body carrying a redirect_uri. The configured redirect_uri is what makes beta
+# return it with a fresh response_code, but beta also signs it into the Request
+# Object, which OpenID4VP 1.0 Section 8.2 forbids beside response_uri and which
+# the reference Wallet correctly rejects (RedirectUriMustNotBeProvided). The
+# mutation removes it from the delivered copy only, so the redirect_uri reaches
+# the Wallet solely through the error reply, as the source requires.
+- id: create-http-error-redirect-response
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      redirect_uri: ${fixture.verifier_url}/openid4vp/redirect
+      presentation_request:
+        nonce: verifier-response-http-error-redirect
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+      request_mutation:
+        request_object:
+          unset: ["/redirect_uri"]
+        verification_applies: true
+      response_scenario:
+        status: 400
+- id: exercise-http-error-redirect-response
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-http-error-redirect-response.outputs.body.deeplink }}" }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+- id: fetch-http-error-redirect-response
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-http-error-redirect-response.outputs.body.session_id }}
+    expected_status: 200
+# 066: the default direct-post reply is HTTP 200 with an empty JSON object, so
+# the verifier supplies no redirect_uri and the Wallet must raise an error or
+# terminate the transaction.
+- id: create-no-redirect-response
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-response-without-redirect-uri
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta: { vct_values: ["urn:eudi:pid:1"] }
+            claims: [{ path: [given_name] }]
+- id: exercise-no-redirect-response
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-no-redirect-response.outputs.body.deeplink }}" }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+- id: fetch-no-redirect-response
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-no-redirect-response.outputs.body.session_id }}
+    expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
     test_ids:
+    - WS_RP_IA_MainInteraction__064
+    - WS_RP_IA_MainInteraction__066
     - WS_RP_MS_ProtocolMessages__125
     - WS_RP_MS_ProtocolMessages__126
     suite: wallet_solution/relying_party
@@ -97,3 +178,14 @@ steps:
           http_error_response_callback:
             verifier_http: ${{ fetch-http-error-response.outputs.body.raw.presentation_response_verifier_http }}
           http_error_response_visual_evidence: ${{ exercise-http-error-response.outputs.flow_output.maestro_screenshot_urls }}
+          http_error_redirect_session: ${{ fetch-http-error-redirect-response.outputs.body }}
+          http_error_redirect_request_object: ${{ fetch-http-error-redirect-response.outputs.body.raw.authorization_request_jwt }}
+          http_error_redirect_callback:
+            verifier_http: ${{ fetch-http-error-redirect-response.outputs.body.raw.presentation_response_verifier_http }}
+            configured_redirect_uri: ${{ create-http-error-redirect-response.outputs.body.redirect_uri }}
+          http_error_redirect_visual_evidence: ${{ exercise-http-error-redirect-response.outputs.flow_output.maestro_screenshot_urls }}
+          no_redirect_session: ${{ fetch-no-redirect-response.outputs.body }}
+          no_redirect_request_object: ${{ fetch-no-redirect-response.outputs.body.raw.authorization_request_jwt }}
+          no_redirect_callback:
+            verifier_http: ${{ fetch-no-redirect-response.outputs.body.raw.presentation_response_verifier_http }}
+          no_redirect_visual_evidence: ${{ exercise-no-redirect-response.outputs.flow_output.maestro_screenshot_urls }}

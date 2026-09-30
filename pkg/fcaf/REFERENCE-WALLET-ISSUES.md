@@ -206,3 +206,37 @@ signs with a separate `did:web` key.
   document does not list, but on beta the normal DID request would satisfy it
   too. The reference wallet additionally rejects `decentralized_identifier:`
   as an unsupported prefix, so it never reaches the signing-key check.
+
+## MOCK-VERIFIER-003: Beta signs a configured redirect_uri beside response_uri
+
+On 30/09/2026 a beta `direct_post.jwt` session created with a top-level
+`redirect_uri` delivered a Request Object carrying both `response_uri` and
+`redirect_uri` (the configured URI plus its fresh `response_code`). OpenID4VP
+1.0 Section 8.2: "When the response_uri parameter is present, the redirect_uri
+Authorization Request parameter MUST NOT be present", and the Wallet must answer
+`invalid_request`. Wallet 2026.09.42 did exactly that:
+
+```text
+error: invalid_request
+error_description: RedirectUriMustNotBeProvided
+```
+
+The contract change is upstream `a2fc6a0`, synced on 28/09/2026. The same
+configured `redirect_uri` is still what makes the Response Endpoint return
+`{ "redirect_uri": "..." }` with a valid `response_code`, so it cannot simply be
+dropped from the session.
+
+Workaround: `request_mutation.request_object.unset: ["/redirect_uri"]` removes
+it from the delivered copy only, while the session keeps it and the Response
+Endpoint still returns it. Verified on beta 30/09/2026: the Wallet retrieved
+the mutated request and posted its Authorization Response.
+
+### FCAF Impact
+
+- `WS_RP_IA_MainInteraction__064` uses the workaround.
+- Still affected, because their sessions configure `redirect_uri` without the
+  mutation: `WS_RP_IA_MainInteraction__057`, `061`, `067`
+  (`callback-redirect`), `WS_RP_IA_Supportive__001`
+  (`supportive-redirect-uri`), and `WS_RP_MS_ProtocolMessages__127`, `128`
+  (`unknown-parameter-controls`). A conformant Wallet rejects each request, so
+  none of them can reach the redirect they assert.

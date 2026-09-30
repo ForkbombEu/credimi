@@ -22371,6 +22371,134 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-response-controls-f1d3d4c9-create-http-error-response.outputs.body.session_id }}
     - continue_on_error: true
+      id: verifier-response-controls-f1d3d4c9-create-http-error-redirect-response
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-response-http-error-redirect
+            redirect_uri: ${fixture.verifier_url}/openid4vp/redirect
+            request_delivery: by_reference
+            request_mutation:
+                request_object:
+                    unset:
+                        - /redirect_uri
+                verification_applies: true
+            response_mode: direct_post.jwt
+            response_scenario:
+                status: 400
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-response-controls-f1d3d4c9-exercise-http-error-redirect-response-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: verifier-response-controls-f1d3d4c9-exercise-http-error-redirect-response-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ verifier-response-controls-f1d3d4c9-exercise-http-error-redirect-response-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-response-controls-f1d3d4c9-exercise-http-error-redirect-response
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ verifier-response-controls-f1d3d4c9-create-http-error-redirect-response.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-response-controls-f1d3d4c9-fetch-http-error-redirect-response
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-response-controls-f1d3d4c9-create-http-error-redirect-response.outputs.body.session_id }}
+    - continue_on_error: true
+      id: verifier-response-controls-f1d3d4c9-create-no-redirect-response
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-response-without-redirect-uri
+            request_delivery: by_reference
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-response-controls-f1d3d4c9-exercise-no-redirect-response-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: verifier-response-controls-f1d3d4c9-exercise-no-redirect-response-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ verifier-response-controls-f1d3d4c9-exercise-no-redirect-response-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-response-controls-f1d3d4c9-exercise-no-redirect-response
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ verifier-response-controls-f1d3d4c9-create-no-redirect-response.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-response-controls-f1d3d4c9-fetch-no-redirect-response
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-response-controls-f1d3d4c9-create-no-redirect-response.outputs.body.session_id }}
+    - continue_on_error: true
       id: wallet-nonce-controls-5bb1d8ef-create-protocol-message-nonce-mismatch
       use: http-request
       with:
@@ -23714,10 +23842,21 @@ steps:
                     visual_evidence: ${{ unknown-scope-f9476deb-reject-unknown-scope.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.protocol.verifier-response-controls:
                 output:
+                    http_error_redirect_callback:
+                        configured_redirect_uri: ${{ verifier-response-controls-f1d3d4c9-create-http-error-redirect-response.outputs.body.redirect_uri | optional }}
+                        verifier_http: ${{ verifier-response-controls-f1d3d4c9-fetch-http-error-redirect-response.outputs.body.raw.presentation_response_verifier_http | optional }}
+                    http_error_redirect_request_object: ${{ verifier-response-controls-f1d3d4c9-fetch-http-error-redirect-response.outputs.body.raw.authorization_request_jwt | optional }}
+                    http_error_redirect_session: ${{ verifier-response-controls-f1d3d4c9-fetch-http-error-redirect-response.outputs.body | optional }}
+                    http_error_redirect_visual_evidence: ${{ verifier-response-controls-f1d3d4c9-exercise-http-error-redirect-response.outputs.flow_output.maestro_screenshot_urls | optional }}
                     http_error_response_callback:
                         verifier_http: ${{ verifier-response-controls-f1d3d4c9-fetch-http-error-response.outputs.body.raw.presentation_response_verifier_http | optional }}
                     http_error_response_session: ${{ verifier-response-controls-f1d3d4c9-fetch-http-error-response.outputs.body | optional }}
                     http_error_response_visual_evidence: ${{ verifier-response-controls-f1d3d4c9-exercise-http-error-response.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    no_redirect_callback:
+                        verifier_http: ${{ verifier-response-controls-f1d3d4c9-fetch-no-redirect-response.outputs.body.raw.presentation_response_verifier_http | optional }}
+                    no_redirect_request_object: ${{ verifier-response-controls-f1d3d4c9-fetch-no-redirect-response.outputs.body.raw.authorization_request_jwt | optional }}
+                    no_redirect_session: ${{ verifier-response-controls-f1d3d4c9-fetch-no-redirect-response.outputs.body | optional }}
+                    no_redirect_visual_evidence: ${{ verifier-response-controls-f1d3d4c9-exercise-no-redirect-response.outputs.flow_output.maestro_screenshot_urls | optional }}
                     non_json_response_callback:
                         verifier_http: ${{ verifier-response-controls-f1d3d4c9-fetch-non-json-response.outputs.body.raw.presentation_response_verifier_http | optional }}
                     non_json_response_session: ${{ verifier-response-controls-f1d3d4c9-fetch-non-json-response.outputs.body | optional }}

@@ -26,37 +26,43 @@ func (OID4VPResponseEndpointCallbackValidator) ID() string {
 	return "oid4vp.response_endpoint_callback"
 }
 
+type responseEndpointCallbackParams struct {
+	Status                     int      `json:"status"`
+	MediaType                  string   `json:"media_type"`
+	MatchConfiguredRedirectURI bool     `json:"match_configured_redirect_uri"`
+	RequireResponseCode        bool     `json:"require_response_code"`
+	RequireNoStore             bool     `json:"require_no_store"`
+	BodyFormat                 string   `json:"body_format"`
+	RequiredBodyMembers        []string `json:"required_body_members"`
+	ForbiddenBodyMembers       []string `json:"forbidden_body_members"`
+}
+
+// definitionError reports a test definition that selects no check or combines
+// checks that cannot hold together.
+func (p responseEndpointCallbackParams) definitionError() string {
+	switch p.BodyFormat {
+	case "", callbackBodyJSON, callbackBodyNotJSON:
+	default:
+		return "body_format must be json or not_json"
+	}
+	hasMemberChecks := len(p.RequiredBodyMembers) > 0 || len(p.ForbiddenBodyMembers) > 0
+	if p.BodyFormat == callbackBodyNotJSON && hasMemberChecks {
+		return "body member checks cannot be combined with body_format not_json"
+	}
+	if p.Status == 0 && p.MediaType == "" && !p.MatchConfiguredRedirectURI &&
+		!p.RequireResponseCode && !p.RequireNoStore && p.BodyFormat == "" && !hasMemberChecks {
+		return "at least one callback check is required"
+	}
+	return ""
+}
+
 func (OID4VPResponseEndpointCallbackValidator) Validate(_ context.Context, input Input) Result {
-	params, err := DecodeParams[struct {
-		Status                     int      `json:"status"`
-		MediaType                  string   `json:"media_type"`
-		MatchConfiguredRedirectURI bool     `json:"match_configured_redirect_uri"`
-		RequireResponseCode        bool     `json:"require_response_code"`
-		RequireNoStore             bool     `json:"require_no_store"`
-		BodyFormat                 string   `json:"body_format"`
-		RequiredBodyMembers        []string `json:"required_body_members"`
-	}](input.Params)
+	params, err := DecodeParams[responseEndpointCallbackParams](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
-	switch params.BodyFormat {
-	case "", callbackBodyJSON, callbackBodyNotJSON:
-	default:
-		return Result{
-			Status:  StatusError,
-			Message: "body_format must be json or not_json",
-		}
-	}
-	if params.BodyFormat == callbackBodyNotJSON && len(params.RequiredBodyMembers) > 0 {
-		return Result{
-			Status:  StatusError,
-			Message: "required_body_members cannot be combined with body_format not_json",
-		}
-	}
-	if params.Status == 0 && params.MediaType == "" && !params.MatchConfiguredRedirectURI &&
-		!params.RequireResponseCode && !params.RequireNoStore && params.BodyFormat == "" &&
-		len(params.RequiredBodyMembers) == 0 {
-		return Result{Status: StatusError, Message: "at least one callback check is required"}
+	if message := params.definitionError(); message != "" {
+		return Result{Status: StatusError, Message: message}
 	}
 
 	evidence, ok := normalizeJSONObject(input.Value)
@@ -120,11 +126,13 @@ func (OID4VPResponseEndpointCallbackValidator) Validate(_ context.Context, input
 		}
 	}
 
-	if params.BodyFormat != "" || len(params.RequiredBodyMembers) > 0 {
+	if params.BodyFormat != "" || len(params.RequiredBodyMembers) > 0 ||
+		len(params.ForbiddenBodyMembers) > 0 {
 		if err := validateCallbackBody(
 			response,
 			params.BodyFormat,
 			params.RequiredBodyMembers,
+			params.ForbiddenBodyMembers,
 		); err != nil {
 			return Result{Status: StatusFail, Message: err.Error()}
 		}
@@ -146,13 +154,14 @@ func (OID4VPResponseEndpointCallbackValidator) Validate(_ context.Context, input
 
 // validateCallbackBody checks the exact body the verifier delivered to the
 // Wallet. A Response Endpoint that processed the Authorization Response must
-// answer with a JSON object, so both the malformed-body and the
-// unrecognised-member cases are decided on the delivered bytes rather than on
-// the scenario the test requested.
+// answer with a JSON object, so the malformed-body, unrecognised-member, and
+// missing-member cases are decided on the delivered bytes rather than on the
+// scenario the test requested.
 func validateCallbackBody(
 	response map[string]any,
 	format string,
 	requiredMembers []string,
+	forbiddenMembers []string,
 ) error {
 	body, ok := response["body"].(string)
 	if !ok {
@@ -172,6 +181,11 @@ func validateCallbackBody(
 	for _, member := range requiredMembers {
 		if _, exists := payload[member]; !exists {
 			return fmt.Errorf("verifier callback body does not contain %q", member)
+		}
+	}
+	for _, member := range forbiddenMembers {
+		if _, exists := payload[member]; exists {
+			return fmt.Errorf("verifier callback body contains %q", member)
 		}
 	}
 	return nil

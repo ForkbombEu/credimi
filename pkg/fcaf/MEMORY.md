@@ -2610,3 +2610,48 @@ the redirect would be captured there.
 rewrite the scheme of `${fixture.verifier_url}`; `039` does the same for its
 Client Identifier. `make fcaf-generate` produces 1334 aggregate steps, 615 test
 IDs, and 214 pipeline outputs; the happy flow drops to 324 test IDs.
+
+## Verifier response controls, MainInteraction 064 and 066
+
+30/09/2026. Both tests left the `dcql.main-interaction` placeholder
+(`credentials_match` proved nothing about either source). They now join
+`verifier-response-controls` beside 125 and 126 and use the shared
+`fcaf-exercise-wallet-generic` action.
+
+| Test | Construction | Verdict (wallet 2026.09.42, `emulator-5554`, beta) |
+| --- | --- | --- |
+| `WS_RP_IA_MainInteraction__064` | configured `redirect_uri`, `request_mutation` unsets `/redirect_uri`, `response_scenario.status: 400` | fail: beta delivered `400` with `{ "redirect_uri": "...?response_code=..." }`, the Wallet showed `Verifier rejected the response` and recorded no redirect visit |
+| `WS_RP_IA_MainInteraction__066` | default session, no `redirect_uri` | not run: stopped at the user's request |
+
+Findings:
+
+- MOCK-VERIFIER-003 (`REFERENCE-WALLET-ISSUES.md`): beta signs a configured
+  `redirect_uri` into a `direct_post.jwt` Request Object. The Wallet correctly
+  answers `invalid_request` `RedirectUriMustNotBeProvided` (OpenID4VP 1.0
+  Section 8.2). Unsetting it through `request_mutation` keeps the session's
+  `response_code` and the Response Endpoint's `redirect_uri`. 057, 061, 067,
+  Supportive 001, and ProtocolMessages 127 and 128 still send it unmutated.
+- With `response_scenario.status` alone, beta keeps the normal success body,
+  so a valid presentation yields a `400` carrying only `redirect_uri`. An
+  invalid presentation still gets the normal `invalid_presentation` body.
+- A foreign PID in the wallet ("Digital Credentials Issuer") is rejected by
+  beta on the certificate SAN (MOCK-VERIFIER-001) and masks every response
+  scenario. The emulator must hold only beta-issued PIDs. The beta PID is
+  single-use: a second presentation reports the document as unavailable, so
+  the generator's per-step issuance is required.
+- Beta issuance failed with `invalid_client` `jwt 'nbf' is in the future`
+  while the emulator clock ran about 1 s ahead of beta. `adb shell cmd alarm
+  set-time` with a clock 20 s behind unblocked it.
+- `hideKeyboard` left the Wallet or failed on this emulator. The shared
+  `fcaf-exercise-wallet-generic` and
+  `getcredential-generic-credential-without-authentication` actions now wait
+  for the keypad (`1` visible), enter `12345`, and tap `6`, without tapping
+  outside the keypad. Both ran green on 30/09/2026. The other shared actions
+  still use `hideKeyboard`.
+- `fcaf-exercise-wallet-generic` now also accepts `Oups! Something went wrong`
+  after the share PIN. Without that, a verifier HTTP error (125, 126, 064)
+  timed out the step before its screenshot.
+
+`oid4vp.response_endpoint_callback` gained `forbidden_body_members` for 066.
+`make fcaf-generate` produces 1344 aggregate steps, 615 test IDs, and 214
+pipeline outputs; the happy flow drops to 322 test IDs.

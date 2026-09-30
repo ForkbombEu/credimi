@@ -264,6 +264,30 @@ func TestOID4VPResponseEndpointCallbackValidator(t *testing.T) {
 			params: map[string]any{"body_format": "not_json", "required_body_members": []any{"extra"}},
 			status: StatusError,
 		},
+		{
+			name:   "forbidden body member is absent from an empty JSON object",
+			value:  testCallbackEvidence(200, "application/json", "", `{}`),
+			params: map[string]any{"forbidden_body_members": []any{"redirect_uri"}},
+			status: StatusPass,
+		},
+		{
+			name:   "forbidden body member is present",
+			value:  testCallbackEvidence(200, "application/json", "", redirectBody),
+			params: map[string]any{"forbidden_body_members": []any{"redirect_uri"}},
+			status: StatusFail,
+		},
+		{
+			name:   "forbidden body member check fails on a non-JSON body",
+			value:  testCallbackEvidence(200, "text/plain", "", "redirect_uri"),
+			params: map[string]any{"forbidden_body_members": []any{"redirect_uri"}},
+			status: StatusFail,
+		},
+		{
+			name:   "forbidden members cannot be combined with a non-JSON body",
+			value:  testCallbackEvidence(200, "text/plain", "", "plain"),
+			params: map[string]any{"body_format": "not_json", "forbidden_body_members": []any{"x"}},
+			status: StatusError,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := validator.Validate(

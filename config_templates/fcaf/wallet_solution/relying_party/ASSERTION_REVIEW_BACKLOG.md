@@ -203,6 +203,21 @@ The `fcaf-dc-api-present` action drives the full browser path on wallet
   rejects `decentralized_identifier:` as unsupported before any key check, and
   beta signs even its normal DID requests with the X.509 key
   (MOCK-VERIFIER-002).
+- `WS_RP_IA_MainInteraction__064` and `066` share
+  `verifier-response-controls` with 125 and 126. 064 fails on wallet
+  2026.09.42 (30/09/2026): the Wallet posted a verified presentation, beta
+  answered HTTP 400 with `{ "redirect_uri": "..." }`, and the Wallet showed
+  `Verifier rejected the response` without opening the URI. 064 needs
+  `request_mutation` to remove the `redirect_uri` that beta signs into the
+  request (MOCK-VERIFIER-003). 066 has the same limit as 125 and 126: its only
+  evidence of the Wallet's own error is visual, so `evidence.non_empty` would
+  also pass for a Wallet that shows success. Its reference-Wallet run is still
+  pending.
+- MOCK-VERIFIER-003: beta signs a configured `redirect_uri` beside
+  `response_uri`, which a conformant Wallet rejects with `invalid_request`.
+  `WS_RP_IA_MainInteraction__057`, `061`, `067`, `WS_RP_IA_Supportive__001`,
+  and `WS_RP_MS_ProtocolMessages__127`, `128` configure `redirect_uri` without
+  the mutation that 064 uses, so they cannot reach the redirect they assert.
 
 ### Constructible from the current contract, definition pending
 
@@ -214,14 +229,6 @@ the remaining entries has a scenario yet. Most currently bind the positive
 `pipeline.dcql.metadata` exchange with a placeholder `credentials_match`
 assertion, which proves nothing about the source; each needs its own scenario,
 exact evidence bindings, and a reference-Wallet run.
-
-Verifier response controls:
-
-- [ ] `WS_RP_IA_MainInteraction__064` (`response_scenario` with `status: 400`
-  and `extra_parameters.redirect_uri`; needs a stored PID the Wallet presents)
-- [ ] `WS_RP_IA_MainInteraction__066` (the default direct-post reply is HTTP 200
-  with `{}` and no `redirect_uri`, captured in
-  `raw.presentation_response_verifier_http`)
 
 Credential fixtures:
 
