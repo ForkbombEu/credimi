@@ -59,7 +59,6 @@ func TestStorePipelineStepScreenshots(t *testing.T) {
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupWalletApp(t)
-			ensureStepScreenshotField(t, app)
 			PipelineTemporalInternalRoutes.Add(app)
 			setupWalletPipelineTestRecords(t, app, orgID)
 			reserveStepScreenshotDevice(t, app, orgID)
@@ -71,7 +70,6 @@ func TestStorePipelineStepScreenshots(t *testing.T) {
 
 func reserveStepScreenshotDevice(t testing.TB, app *tests.TestApp, orgID string) {
 	t.Helper()
-	ensureMobileDevicesCollection(t, app)
 	runners, err := app.FindCollectionByNameOrId("mobile_runners")
 	require.NoError(t, err)
 	runner := core.NewRecord(runners)
@@ -96,22 +94,4 @@ func reserveStepScreenshotDevice(t testing.TB, app *tests.TestApp, orgID string)
 	require.NoError(t, err)
 	result.Set("devices", []string{device.Id})
 	require.NoError(t, app.Save(result))
-}
-
-func ensureStepScreenshotField(t testing.TB, app *tests.TestApp) {
-	t.Helper()
-	ensureMobileDevicesCollection(t, app)
-	collection, err := app.FindCollectionByNameOrId("pipeline_results")
-	require.NoError(t, err)
-	devices, err := app.FindCollectionByNameOrId("mobile_devices")
-	require.NoError(t, err)
-	if collection.Fields.GetByName("maestro_screenshots") == nil {
-		collection.Fields.Add(&core.FileField{Name: "maestro_screenshots", MaxSelect: 99})
-	}
-	if collection.Fields.GetByName("devices") == nil {
-		collection.Fields.Add(
-			&core.RelationField{Name: "devices", CollectionId: devices.Id, MaxSelect: 999},
-		)
-	}
-	require.NoError(t, app.Save(collection))
 }

@@ -42,7 +42,6 @@ func setupPipelineWalletAPKApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 
-	ensureMobileDevicesCollection(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	PipelineRoutes.Add(app)
 
@@ -960,7 +959,7 @@ func TestPipelineRunWalletAPKSelectsRunnerByType(t *testing.T) {
 			createWalletAPKMobileRunner(t, app, orgID, "Free Runner", "android_phone", true)
 			createWalletAPKMobileRunner(t, app, orgID, "Offline Runner", "android_phone", true)
 			createWalletAPKMobileRunner(t, app, orgID, "Hidden Runner", "android_phone", false)
-			createWalletAPKMobileRunner(t, app, orgID, "Other Type", "ios_phone", true)
+			createWalletAPKMobileRunner(t, app, orgID, "Other Type", "android_emulator", true)
 			return app
 		},
 	}

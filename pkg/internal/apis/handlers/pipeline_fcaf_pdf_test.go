@@ -24,7 +24,6 @@ import (
 func TestUpdatePipelineExecutionFCAFReportStoresJSONAndPDF(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-	ensureStepScreenshotField(t, app)
 
 	record := createFCAFReportPipelineResult(t, app, "workflow-fcaf", "run-fcaf")
 	imageData, err := base64.StdEncoding.DecodeString(
@@ -121,7 +120,6 @@ func TestUpdatePipelineExecutionFCAFReportStoresJSONAndPDF(t *testing.T) {
 func TestLoadPipelineFCAFReportImagesLoadsStoredScreenshots(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-	ensureStepScreenshotField(t, app)
 
 	record := createFCAFReportPipelineResult(t, app, "workflow-image", "run-image")
 	imageData, err := base64.StdEncoding.DecodeString(
@@ -158,7 +156,6 @@ func TestLoadPipelineFCAFReportImagesLoadsStoredScreenshots(t *testing.T) {
 func TestLoadPipelineFCAFReportImagesWarnsForUnstoredVisualReference(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
-	ensureStepScreenshotField(t, app)
 
 	record := createFCAFReportPipelineResult(t, app, "workflow-missing", "run-missing")
 	report := engine.Report{ExecutedTests: []engine.ExecutedTest{{

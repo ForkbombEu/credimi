@@ -32,7 +32,6 @@ import (
 func setupWalletApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
-	ensureMobileRunnerAccessFields(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	WalletTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
@@ -758,7 +757,6 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				)
 				runner, err := canonify.Resolve(app, "userb-s-organization/public-runner")
 				require.NoError(t, err)
-				ensureMobileDevicesCollection(t, app)
 				deviceCollection, err := app.FindCollectionByNameOrId("mobile_devices")
 				require.NoError(t, err)
 				device := core.NewRecord(deviceCollection)
@@ -766,6 +764,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				device.Set("runner", runner.Id)
 				device.Set("name", "public-device")
 				device.Set("canonified_name", "public-device")
+				device.Set("type", "android_emulator")
 				require.NoError(t, app.Save(device))
 				return app
 			},
