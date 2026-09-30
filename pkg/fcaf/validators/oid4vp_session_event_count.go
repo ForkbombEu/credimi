@@ -37,7 +37,7 @@ func (OID4VPSessionEventCountValidator) Validate(_ context.Context, input Input)
 
 	session, ok := normalizeJSONObject(input.Value)
 	if !ok {
-		return Result{Status: StatusFail, Message: "captured presentation session is not an object"}
+		return Result{Status: StatusFail, Message: sessionNotObjectMessage}
 	}
 	events, ok := session["events"].([]any)
 	if !ok {

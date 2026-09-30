@@ -2749,3 +2749,44 @@ been repeated on production.
 precondition: the production leaf lists only SAN URI
 `https://capture-wallet.credimi.io/`, so `capture-wallet.credimi.io` is not a
 dNSName of it.
+
+## Wallet-profile cryptography: CryptographicHash 006, 007, Encryption 002
+
+30/09/2026. All three left the `dcql.cryptography` placeholder, which asserted
+a non-existent `hash` field of the DCQL exchange.
+
+- HAIP Section 8 says only that entities using hash algorithms beyond SHA-256
+  SHOULD state them in their metadata. OpenID4VP 1.0 defines no metadata
+  member for this; `vp_formats_supported` lists signature algorithms (`ES384`
+  and so on), which are not hashes. The new `hashAlgorithmNames` helper
+  therefore recognises only IANA Named Information hash names, as values or
+  member names.
+- 006 binds the SHA-384 presentation session of `CryptographicHash_010`,
+  which already retrieves by POST. A presented SHA-384 PID proves the profile
+  applicability; the validator is `not_applicable` without one. Wallet
+  2026.09.42 POSTs `wallet_metadata` naming no hash algorithm and, per the 010
+  verdict, presents SHA-384, so 006 is expected to fail.
+- 007 issues `pid_expiry_2032` twice in `credential-digest-algorithm`
+  (SHA-384, then SHA-256; Capture accepts `digest_algorithm: sha-256`) and
+  pins the query to `CREDIMI-DEMO-EXPIRY`. The generated client metadata was
+  probed on production: it names no hash algorithm, only JWS
+  `sd-jwt_alg_values` and `kb-jwt_alg_values`. The generic action shares the
+  default consent option, so a Wallet that offers the SHA-384 copy first fails.
+  `pid_expiry_2032` is also the 033 expiry trap; extra copies cannot satisfy
+  033's date-bounded query.
+- Encryption_002 joins `response-encryption-a128gcm`. Applicability comes from
+  the POSTed `authorization_encryption_enc_values_supported`: wallet 2026.09.42
+  lists nine values, so it is `not_applicable`.
+
+New validators: `oid4vp.wallet_metadata_hash_algorithms`,
+`oid4vp.presented_digest_algorithms`, `oid4vp.client_metadata_hash_algorithms`
+and `oid4vp.response_enc_unsupported_error_required`. Verified on synthetic
+evidence through the engine. Reference-like evidence gives 006 fail, 007 pass
+and 010 `not_applicable`. Declared SHA-384 with SHA-384 presented in 007
+gives 006 pass and 007 fail. A withheld SHA-384 credential gives 006
+`not_applicable`. Encryption_002 is `not_applicable` for the reference
+metadata; an A256GCM-only Wallet passes with `access_denied` and fails when it
+presents.
+
+`make fcaf-generate` produces 1383 aggregate steps, 615 test IDs, and 217
+pipeline outputs; the happy flow drops to 303 test IDs.

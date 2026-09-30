@@ -61,6 +61,7 @@ steps:
   with:
     test_ids:
     - WS_RP_SM_SessionEncryption__007
+    - WS_RP_SH_Cryptography_Encryption_002
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.response-encryption.a128gcm:

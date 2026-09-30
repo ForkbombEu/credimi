@@ -67,7 +67,7 @@ func (OID4VPDCAPIInvocationValidator) Validate(_ context.Context, input Input) R
 
 	session, ok := normalizeJSONObject(input.Value)
 	if !ok {
-		return Result{Status: StatusFail, Message: "captured presentation session is not an object"}
+		return Result{Status: StatusFail, Message: sessionNotObjectMessage}
 	}
 	dcAPI, ok := normalizeJSONObject(session["dc_api"])
 	if !ok {

@@ -732,6 +732,108 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ credential-digest-algorithm-1354cfc6-create-sha384-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-create-sha384-selection-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            digest_algorithm: sha-384
+            fixture_id: pid_expiry_2032
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-obtain-sha384-selection-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ credential-digest-algorithm-1354cfc6-create-sha384-selection-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-fetch-sha384-selection-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-digest-algorithm-1354cfc6-create-sha384-selection-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-create-sha256-selection-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            digest_algorithm: sha-256
+            fixture_id: pid_expiry_2032
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-obtain-sha256-selection-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ credential-digest-algorithm-1354cfc6-create-sha256-selection-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-fetch-sha256-selection-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-digest-algorithm-1354cfc6-create-sha256-selection-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-create-sha256-only-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-EXPIRY
+                          format: dc+sd-jwt
+                          id: pid_expiry
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-cryptographic-hash-007
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-exercise-sha256-only-presentation
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ credential-digest-algorithm-1354cfc6-create-sha256-only-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-digest-algorithm-1354cfc6-fetch-sha256-only-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ credential-digest-algorithm-1354cfc6-create-sha256-only-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: credential-status-list-13040d21-create-status-sdjwt-issuance-session
       use: http-request
       with:
@@ -894,26 +996,6 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: dc-api-invalid-signature-32532cf2-invoke-dc-api-invalid-signature-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.issuer_url}/sessions
-    - continue_on_error: true
-      id: dc-api-invalid-signature-32532cf2-invoke-dc-api-invalid-signature-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dc-api-invalid-signature-32532cf2-invoke-dc-api-invalid-signature-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
     - continue_on_error: true
       id: dc-api-invalid-signature-32532cf2-invoke-dc-api-invalid-signature
       use: mobile-automation
@@ -23182,6 +23264,11 @@ steps:
                 output:
                     issuance_capture: ${{ credential-digest-algorithm-1354cfc6-fetch-sha384-issuance.outputs.body | optional }}
                     presentation_session: ${{ credential-digest-algorithm-1354cfc6-fetch-sha384-presentation.outputs.body | optional }}
+                    sha256_only_request_object: ${{ credential-digest-algorithm-1354cfc6-fetch-sha256-only-presentation.outputs.body.raw.authorization_request_jwt | optional }}
+                    sha256_only_session: ${{ credential-digest-algorithm-1354cfc6-fetch-sha256-only-presentation.outputs.body | optional }}
+                    sha256_only_visual_evidence: ${{ credential-digest-algorithm-1354cfc6-exercise-sha256-only-presentation.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    sha256_selection_issuance: ${{ credential-digest-algorithm-1354cfc6-fetch-sha256-selection-issuance.outputs.body | optional }}
+                    sha384_selection_issuance: ${{ credential-digest-algorithm-1354cfc6-fetch-sha384-selection-issuance.outputs.body | optional }}
                     visual_evidence: ${{ credential-digest-algorithm-1354cfc6-exercise-sha384-presentation.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dc-api.invalid-signature:
                 output:

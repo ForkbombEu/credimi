@@ -86,7 +86,7 @@ func (OID4VPUnencryptedRequestObjectRejectedValidator) Validate(
 ) Result {
 	session, ok := normalizeJSONObject(input.Value)
 	if !ok {
-		return Result{Status: StatusFail, Message: "captured presentation session is not an object"}
+		return Result{Status: StatusFail, Message: sessionNotObjectMessage}
 	}
 	observed, _ := normalizeJSONObject(session["observed"])
 	requestURIPayload, _ := normalizeJSONObject(observed["request_uri_payload"])

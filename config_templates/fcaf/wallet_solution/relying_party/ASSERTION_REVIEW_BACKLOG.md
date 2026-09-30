@@ -91,6 +91,21 @@ the Wallet received the property or answered as the source requires.
   flow was checked on wallet 2026.09.42 up to the selection: the consent screen
   lists the candidates as `Option N of M`, and exposes only the selected
   option's text to accessibility.
+- **Implemented; Capture evidence pending:** the Wallet-profile cryptography
+  cases. `WS_RP_SH_Cryptography_CryptographicHash_006` and `007` join
+  `credential-digest-algorithm`. 006 reads the `wallet_metadata` POSTed during
+  the 010 exchange and treats the SHA-384 presentation as proof that the Wallet
+  supports another hash algorithm, so it is `not_applicable` when the Wallet
+  withholds it. Because no metadata member is defined for hash algorithms, any
+  IANA hash name counts. 007 issues `pid_expiry_2032` digested with SHA-384 and
+  with SHA-256, requests it with the generated client metadata (which names no
+  hash algorithm), and requires only SHA-256 presentations.
+  `WS_RP_SH_Cryptography_Encryption_002` joins `response-encryption-a128gcm`;
+  it is `not_applicable` unless the POSTed `wallet_metadata` lists A256GCM
+  alone, and otherwise requires `access_denied`. Expected on wallet 2026.09.42:
+  006 fails, because its metadata names no hash algorithm although it presented
+  SHA-384; 007 depends on the default consent option; Encryption_002 is
+  `not_applicable`.
 
 `request_behavior.signing_key: "unrelated"` signs the Request Object with a key
 that is not the one bound to the advertised client identifier, leaving `x5c` and
@@ -240,29 +255,6 @@ The `fcaf-dc-api-present` action drives the full browser path on wallet
   beta signed into the request until MOCK-VERIFIER-003 was fixed on
   30/09/2026, so a conformant Wallet rejected them. They need a
   reference-Wallet run after the fix.
-
-### Constructible from the current contract, definition pending
-
-Reclassified on 28/09/2026 against the Capture Wallet contract at `1c8162c`
-and upstream `FCAF_FIXTURES.md` and `REMAINING_WORK.md` at the same commit.
-Beta accepted every control below on that date and the delivered request
-carried the property; see the dated probe in `CAPTURE_WALLET_API.md`. None of
-the remaining entries has a scenario yet. Most currently bind the positive
-`pipeline.dcql.metadata` exchange with a placeholder `credentials_match`
-assertion, which proves nothing about the source; each needs its own scenario,
-exact evidence bindings, and a reference-Wallet run.
-
-Wallet-profile-dependent cryptography:
-
-- [ ] `WS_RP_SH_Cryptography_CryptographicHash_006` (captured `wallet_metadata`
-  from a POST retrieval; the verdict depends on whether the Wallet profile
-  allows other hash algorithms)
-- [ ] `WS_RP_SH_Cryptography_CryptographicHash_007` (generated client metadata
-  advertises SHA-256 only; each decoded presentation records
-  `digest_algorithm`)
-- [ ] `WS_RP_SH_Cryptography_Encryption_002` (`client_metadata` narrowed to
-  `encrypted_response_enc_values_supported` without `A256GCM`; the reference
-  Wallet supports more than A256GCM, so expect `not_applicable`)
 
 ## Blocked
 

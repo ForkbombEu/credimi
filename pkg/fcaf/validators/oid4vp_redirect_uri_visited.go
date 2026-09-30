@@ -47,7 +47,7 @@ func (OID4VPRedirectURIVisitedValidator) Validate(_ context.Context, input Input
 
 	session, ok := normalizeJSONObject(input.Value)
 	if !ok {
-		return Result{Status: StatusFail, Message: "captured presentation session is not an object"}
+		return Result{Status: StatusFail, Message: sessionNotObjectMessage}
 	}
 
 	count, ok := normalizeInteger(session["redirect_uri_visit_count"])

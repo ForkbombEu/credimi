@@ -31,7 +31,7 @@ func (OID4VPErrorResponseRequiredValidator) Validate(_ context.Context, input In
 
 	session, ok := normalizeJSONObject(input.Value)
 	if !ok {
-		return Result{Status: StatusFail, Message: "captured presentation session is not an object"}
+		return Result{Status: StatusFail, Message: sessionNotObjectMessage}
 	}
 
 	responseValue, _ := findObjectKey(session, "vp_token")
