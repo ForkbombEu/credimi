@@ -131,9 +131,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									failureReason={workflow.failure_reason}
 									size="sm"
 								/>
-								{#if workflow.status === 'Running'}
-									<ExecutionProgress progress={workflow.progress} />
-								{/if}
 							</td>
 							<td>
 								<ExecutionDevices execution={workflow} compact />
@@ -146,14 +143,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{@render na()}
 								{/if}
 							</td>
-							{@render timeCells(parts)}
-							<td class="whitespace-nowrap text-muted-foreground">
-								{#if workflow.duration}
-									{workflow.duration}
-								{:else}
-									{@render na()}
-								{/if}
-							</td>
+							{@render dateStartCells(parts)}
+							{#if workflow.status === 'Running'}
+								<td colspan="2">
+									<ExecutionProgress progress={workflow.progress} />
+								</td>
+							{:else}
+								{@render endCell(parts)}
+								<td class="whitespace-nowrap text-muted-foreground">
+									{#if workflow.duration}
+										{workflow.duration}
+									{:else}
+										{@render na()}
+									{/if}
+								</td>
+							{/if}
 							<td class="max-w-24">
 								{#if count > 0}
 									<button
@@ -219,7 +223,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </TemporalI18nProvider>
 
-{#snippet timeCells(parts: SplitExecutionTimes | undefined)}
+{#snippet dateStartCells(parts: SplitExecutionTimes | undefined)}
 	<td class="whitespace-nowrap text-muted-foreground">
 		{#if parts}
 			{parts.date}
@@ -234,6 +238,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@render na()}
 		{/if}
 	</td>
+{/snippet}
+
+{#snippet endCell(parts: SplitExecutionTimes | undefined)}
 	<td class="whitespace-nowrap text-muted-foreground">
 		{#if parts}
 			{@const endClock = formatEndClock(parts)}
@@ -283,7 +290,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/if}
 				</div>
 			</td>
-			{@render timeCells(childParts)}
+			{@render dateStartCells(childParts)}
+			{@render endCell(childParts)}
 			<td class="whitespace-nowrap text-muted-foreground">
 				{#if child.duration}
 					{child.duration}
