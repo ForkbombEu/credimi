@@ -230,6 +230,25 @@ func (a *ListInstalledAppsActivity) Execute(
 	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
+type PreparePhysicalAndroidAppsActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewPreparePhysicalAndroidAppsActivity() *PreparePhysicalAndroidAppsActivity {
+	return &PreparePhysicalAndroidAppsActivity{
+		BaseActivity: workflowengine.BaseActivity{Name: "Prepare physical Android apps"},
+	}
+}
+
+func (a *PreparePhysicalAndroidAppsActivity) Name() string { return a.BaseActivity.Name }
+
+func (a *PreparePhysicalAndroidAppsActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
+}
+
 type DisableAndroidPlayStoreActivity struct {
 	workflowengine.BaseActivity
 }

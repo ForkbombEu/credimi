@@ -428,7 +428,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 
 	internalHTTPActivity := registerInternalHTTPActivity(env)
 	setupMobileDeviceActivity := activities.NewSetupMobileDeviceActivity()
-	listAppsActivity := activities.NewListInstalledAppsActivity()
+	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
 	env.RegisterActivityWithOptions(
 		setupMobileDeviceActivity.Execute,
 		activity.RegisterOptions{Name: setupMobileDeviceActivity.Name()},

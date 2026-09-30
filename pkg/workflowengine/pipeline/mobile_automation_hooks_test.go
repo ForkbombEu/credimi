@@ -39,6 +39,22 @@ func TestMobileAutomationSetupHookFailsWithoutSemaphoreMetadata(t *testing.T) {
 	require.Contains(t, err.Error(), "mobile-runner pipelines must be started via queue/semaphore")
 }
 
+func TestPhysicalAppPreparationRequiresDedicatedRunnerActivity(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	listApps := activities.NewListInstalledAppsActivity()
+	env.RegisterActivityWithOptions(listApps.Execute, activity.RegisterOptions{Name: listApps.Name()})
+	env.OnActivity(listApps.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{"com.leftover"}}, nil)
+	env.RegisterWorkflowWithOptions(func(ctx workflow.Context) error {
+		ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Minute})
+		_, err := preparePhysicalAndroidAppsOnRunner(ctx, "tenant/runner/phone", "usb-1")
+		return err
+	}, workflow.RegisterOptions{Name: "test-physical-app-preparation-ack"})
+	env.ExecuteWorkflow("test-physical-app-preparation-ack")
+	require.ErrorContains(t, env.GetWorkflowError(), "Prepare physical Android apps")
+}
+
 func TestMobileAutomationSetupHookRejectsMixedGlobalAndNestedDeviceIDs(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -826,7 +842,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 	setupActivity := activities.NewSetupMobileDeviceActivity()
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
-	listAppsActivity := activities.NewListInstalledAppsActivity()
+	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
 	env.RegisterActivityWithOptions(
 		setupActivity.Execute,
 		activity.RegisterOptions{Name: setupActivity.Name()},
@@ -929,7 +945,10 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 		"screen_prepared":     true,
 		"original_stay_awake": "0",
 	}}, nil)
-	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		payload, ok := input.Payload.(map[string]any)
+		return ok && payload["device_id"] == "tenant/runner-1/device-1"
+	})).
 		Return(workflowengine.ActivityResult{Output: []string{"com.android.settings"}}, nil)
 
 	env.OnActivity(
@@ -1621,7 +1640,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	recordActivity := activities.NewStartRecordingActivity()
-	listAppsActivity := activities.NewListInstalledAppsActivity()
+	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
 	env.RegisterActivityWithOptions(
 		setupActivity.Execute,
 		activity.RegisterOptions{Name: setupActivity.Name()},
@@ -1985,7 +2004,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	disablePlayStoreActivity := activities.NewDisableAndroidPlayStoreActivity()
-	listAppsActivity := activities.NewListInstalledAppsActivity()
+	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
 	recordActivity := activities.NewStartRecordingActivity()
 	env.RegisterActivityWithOptions(
 		setupActivity.Execute,
@@ -2342,7 +2361,7 @@ env.OnActivity(
 			}}, nil).Once()
 
 		env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
-			Return(workflowengine.ActivityResult{Output: []string{"com.example.old"}}, nil)
+			Return(workflowengine.ActivityResult{Output: map[string]any{"apps": []string{"com.example.old"}, "baseline_prepared": true}}, nil)
 		env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
 			Return(workflowengine.ActivityResult{Output: map[string]any{
 				"recording_process_pid": float64(11),
@@ -2805,7 +2824,7 @@ func TestMobileAutomationSetupHookProcessStepError(t *testing.T) {
 func TestProcessStepMissingRunnerURL(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
-	listAppsActivity := activities.NewListInstalledAppsActivity()
+	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
 	env.RegisterActivityWithOptions(
 		listAppsActivity.Execute,
 		activity.RegisterOptions{Name: listAppsActivity.Name()},

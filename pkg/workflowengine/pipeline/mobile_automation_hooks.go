@@ -768,12 +768,12 @@ func setupNewDevice(
 	input.deviceMap["runner_url"] = runnerURL
 	input.deviceMap["serial"] = serial
 
-	initialInstalledApps, err := listInstalledAppsOnRunner(
-		mobileCtx,
-		input.payload.DeviceID,
-		serial,
-		deviceType.String(),
-	)
+	var initialInstalledApps []string
+	if deviceType == deviceTypeAndroidPhone {
+		initialInstalledApps, err = preparePhysicalAndroidAppsOnRunner(mobileCtx, input.payload.DeviceID, serial)
+	} else {
+		initialInstalledApps, err = listInstalledAppsOnRunner(mobileCtx, input.payload.DeviceID, serial, deviceType.String())
+	}
 	if err != nil {
 		return err
 	}
@@ -997,7 +997,18 @@ func listInstalledAppsOnRunner(
 	).Get(mobileCtx, &result); err != nil {
 		return nil, err
 	}
+	return workflowengine.AsSliceOfStrings(result.Output), nil
+}
 
+func preparePhysicalAndroidAppsOnRunner(mobileCtx workflow.Context, deviceID, serial string) ([]string, error) {
+	var result workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		mobileCtx,
+		activities.NewPreparePhysicalAndroidAppsActivity().Name(),
+		workflowengine.ActivityInput{Payload: map[string]any{"device_id": deviceID, "serial": serial}},
+	).Get(mobileCtx, &result); err != nil {
+		return nil, err
+	}
 	return workflowengine.AsSliceOfStrings(result.Output), nil
 }
 
@@ -1012,12 +1023,13 @@ func ensureInitialInstalledAppsTracked(
 		return nil
 	}
 
-	initialInstalledApps, err := listInstalledAppsOnRunner(
-		mobileCtx,
-		deviceID,
-		serial,
-		deviceType.String(),
-	)
+	var initialInstalledApps []string
+	var err error
+	if deviceType == deviceTypeAndroidPhone {
+		initialInstalledApps, err = preparePhysicalAndroidAppsOnRunner(mobileCtx, deviceID, serial)
+	} else {
+		initialInstalledApps, err = listInstalledAppsOnRunner(mobileCtx, deviceID, serial, deviceType.String())
+	}
 	if err != nil {
 		return err
 	}
