@@ -37,7 +37,6 @@ func setupPipelineRetentionApp(t testing.TB) *tests.TestApp {
 	PipelineTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 	ensurePipelineRetentionEvidenceFields(t, app)
-	ensureStepScreenshotField(t, app)
 
 	return app
 }
