@@ -149,7 +149,7 @@ There is **no** `POST /api/pipeline/start` route in this worktree (grep over `pk
 
 ## Where runs live
 
-- Collection `pipeline_results`: `owner`, `pipeline`, `workflow_id`, `run_id`, `canonified_identifier`, `type` (`manual|scheduled|CI`), `devices`, files `video_results`, `screenshots`, `logcats`, `ios_logstreams`, `maestro_screenshots`, `report`, `fcaf_report`, `fcaf_report_pdf`, plus `credential_well_knowns`, `presentation_results`. Unique on `(owner, pipeline)` and `(owner, workflow_id, run_id)`.
+- Collection `pipeline_results`: `owner`, `pipeline`, `workflow_id`, `run_id`, `canonified_identifier`, `type` (`manual|scheduled|CI`), `devices`, files `video_results`, `screenshots`, `logcats`, `ios_logstreams`, `maestro_screenshots`, `report`, `fcaf_report`, `fcaf_report_pdf`, plus `credential_well_knowns`, `presentation_results`. The current unique index is `(canonified_identifier, owner)`; `canonified_identifier` is derived from `workflow_id`.
 - Written by the internal `POST /api/pipeline/pipeline-execution-results` (and `/{evidence,report,fcaf-report}` sub-routes), gated by the internal admin key.
 - Listed via `GET /api/pipeline/list-executions`, `/list-executions/{id}`, `/executions/{id}/{workflow_id}/{run_id}`; artifacts are enriched from files.
 - Temporal search attributes: `PipelineIdentifier`, `DeviceIdentifiers`, `ActionsID`, `VersionsID`, `CredentialsID`, `UseCaseID`, `ConformanceCheckID`, `CustomCheckID` (`pkg/workflowengine/search_attributes.go:13-24`).
