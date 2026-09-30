@@ -184,3 +184,119 @@ func (MDocMSOStatusURIValidator) Validate(_ context.Context, input Input) Result
 	}
 	return Result{Status: StatusPass, Message: fmt.Sprintf("%s is an RFC 3986 URI", name)}
 }
+
+// MDocMSOStatusListStructureValidator verifies the StatusListInfo map inside
+// the Mobile Security Object `status`: the pair count encoded in its CBOR
+// header, its text keys, and the CBOR type of each value. A map with non-text
+// keys already fails to decode as evidence, so every counted pair is a member.
+type MDocMSOStatusListStructureValidator struct{}
+
+// ID returns the validator identifier.
+func (MDocMSOStatusListStructureValidator) ID() string {
+	return "mdoc.mso_status_list_structure"
+}
+
+var statusListInfoMajorTypes = map[string]uint8{"idx": 0, "uri": 3, "certificate": 2}
+
+// Validate requires `status_list` to be a definite-length map of two pairs
+// (`idx` uint, `uri` tstr) or three pairs adding `certificate` bstr, and no
+// other text key.
+func (MDocMSOStatusListStructureValidator) Validate(_ context.Context, input Input) Result {
+	list, result := resolveMDocMSOStatus(input.Value, []string{"status_list"})
+	if result != nil {
+		return *result
+	}
+	if list.MajorType != 5 || len(list.Raw) == 0 {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"status.status_list has CBOR major type %d, expected map type 5",
+				list.MajorType,
+			),
+		}
+	}
+	pairs := int(list.Raw[0] & 0x1f)
+	if pairs != 2 && pairs != 3 {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"status.status_list header encodes additional information %d, expected 2 or 3 pairs",
+				pairs,
+			),
+		}
+	}
+	if len(list.Members) != pairs {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"status.status_list encodes %d pairs but %d have text keys",
+				pairs,
+				len(list.Members),
+			),
+		}
+	}
+	for key, member := range list.Members {
+		expected, known := statusListInfoMajorTypes[key]
+		if !known {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("status.status_list contains unrecognized key %q", key),
+			}
+		}
+		if member.MajorType != expected {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"status.status_list.%s has CBOR major type %d, expected %d",
+					key,
+					member.MajorType,
+					expected,
+				),
+			}
+		}
+	}
+	for _, required := range []string{"idx", "uri"} {
+		if _, present := list.Members[required]; !present {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("status.status_list has no %q", required),
+			}
+		}
+	}
+	return Result{
+		Status: StatusPass,
+		Message: fmt.Sprintf(
+			"status.status_list holds %d pairs with the StatusListInfo keys and types",
+			pairs,
+		),
+	}
+}
+
+// COSECWTStatusClaimValidator stands for the CWT Referenced Token checks that
+// address the Status claim by its CBOR label 65535. An ISO mdoc does not carry
+// one: its issuer-signed payload is a text-keyed Mobile Security Object whose
+// status sits under the key "status". The validator therefore reports the
+// presented mdoc as blocked evidence instead of reading "status" as if it were
+// label 65535.
+type COSECWTStatusClaimValidator struct{}
+
+// ID returns the validator identifier.
+func (COSECWTStatusClaimValidator) ID() string { return "cose.cwt_status_claim" }
+
+// Validate blocks on mdoc evidence and fails on anything else, because no CWT
+// Referenced Token parser exists to evaluate label 65535.
+func (COSECWTStatusClaimValidator) Validate(_ context.Context, input Input) Result {
+	presentation, ok := mdocPresentation(input.Value)
+	if !ok || len(presentation.Documents) == 0 {
+		return Result{
+			Status:  StatusFail,
+			Message: "evidence is not a presented COSE Referenced Token",
+		}
+	}
+	return Result{
+		Status: StatusBlocked,
+		Message: "issuer-signed payload is an ISO mdoc Mobile Security Object keyed by text, " +
+			"not a CWT claims set; the Status claim at CBOR label 65535 needs a CWT " +
+			"Referenced Token fixture",
+	}
+}

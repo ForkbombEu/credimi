@@ -70,6 +70,23 @@ the Wallet received the property or answered as the source requires.
   malformed_uri` expresses only the unparseable one. The missing-scheme,
   unencoded-space, invalid-percent-encoding, illegal-character and empty-string
   shapes need additional issuer fixtures.
+- **Implemented; beta evidence pending:** the ISO mdoc counterparts
+  `WS_RP_MS_Metadata__091`–`100`, `103` and `WS_RP_MS_CredentialFormats__029`.
+  091, 093, 095, 098 and 103 read the `status_list_enabled` mdoc presentation
+  of `credential-status-list`; 029 reads its SD-JWT VC, whose issuer-signed JWT
+  holds the `status` claim. 092, 094, 096, 097, 099 and 100 own
+  `mdoc-status-reference-rejection`, which issues each malformed
+  `status_reference` as an mdoc on the same claim-set fixtures the SD-JWT
+  rejection uses and probes with a pinned `mso_mdoc` query, so SD-JWT copies
+  cannot answer it. 092 and 094 share the empty Status map; 094 asserts no
+  outcome, because its source leaves it to local policy.
+- **Implemented; beta evidence pending:** `WS_RP_MS_CredentialFormats__041`
+  (`mdoc-multiple-device-responses`: three mdoc PIDs, three queries each
+  pinning one `document_number`) and `WS_RP_MS_ProtocolMessages__013`
+  (`pid-candidate-selection`: two SD-JWT PIDs matching one query). The 013
+  flow was checked on wallet 2026.09.42 up to the selection: the consent screen
+  lists the candidates as `Option N of M`, and exposes only the selected
+  option's text to accessibility.
 
 `request_behavior.signing_key: "unrelated"` signs the Request Object with a key
 that is not the one bound to the advertised client identifier, leaving `x5c` and
@@ -231,23 +248,6 @@ the remaining entries has a scenario yet. Most currently bind the positive
 assertion, which proves nothing about the source; each needs its own scenario,
 exact evidence bindings, and a reference-Wallet run.
 
-Credential fixtures:
-
-- [ ] `WS_RP_MS_Metadata__091`, `093`, `095`, `098`, `101`, `103` (mdoc PID with
-  `status_list_enabled: true` and `status_reference: valid`)
-- [ ] `WS_RP_MS_Metadata__092`, `094`, `096`, `097`, `099`, `100`, `102` (mdoc
-  PID with the matching malformed `status_reference`; `099` covers only the
-  unparseable-URI shape, the same gap as `089`; `102` needs the label-65535
-  status claim absent, so confirm the upstream fixture mapping before writing
-  its assertion)
-- [ ] `WS_RP_MS_CredentialFormats__029` (SD-JWT VC with `status_reference:
-  valid`, as `030` and `031`)
-- [ ] `WS_RP_MS_CredentialFormats__032` (mdoc PID with a valid COSE status)
-- [ ] `WS_RP_MS_CredentialFormats__041` (three mdoc PIDs on distinct claim-set
-  fixtures, one DCQL query each)
-- [ ] `WS_RP_MS_ProtocolMessages__013` (`pid_default` and `pid_person_b`, one
-  DCQL query matching both)
-
 Wallet-profile-dependent cryptography:
 
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_006` (captured `wallet_metadata`
@@ -338,6 +338,12 @@ internal_error`, `there are no SAN-DNS names`, on 25/09/2026 and again on
   shapes; `status_reference: malformed_uri` expresses only the unparseable one)
 - [ ] `WS_RP_SM_IssuerIntegrity__012` (an ISO mdoc revocation fixture; Capture
   publishes Token Status List allocation only)
+- [ ] `WS_RP_MS_Metadata__101`, `102` and `WS_RP_MS_CredentialFormats__032`
+  (a CWT Referenced Token with the Status claim at CBOR label 65535, and for
+  102 one without it. Capture issues only SD-JWT VC and ISO mdoc; the mdoc
+  Mobile Security Object keys its status by the text `"status"`, not label
+  65535. `cose.cwt_status_claim` reports the mdoc evidence as blocked. Upstream
+  `FCAF_FIXTURES.md` maps these tests to the mdoc configurations)
 
 ### Blocked on Credimi-signed or profile-defined attestations
 

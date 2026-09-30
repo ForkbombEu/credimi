@@ -31,11 +31,58 @@ const (
 // than once on the same device — the Wallet then holds a valid credential with
 // the same document_number, and only the status claim distinguishes it from the
 // one that had to be refused.
+//
+// `vct` selects an SD-JWT VC query, whose status is the JOSE `status` claim;
+// `doctype` with `namespace` selects an ISO mdoc query, whose status is the
+// `status` element of the Mobile Security Object.
 type OID4VPMalformedStatusCredentialAbsentValidator struct{}
 
 // ID returns the validator identifier.
 func (OID4VPMalformedStatusCredentialAbsentValidator) ID() string {
 	return "oid4vp.malformed_status_credential_absent"
+}
+
+type malformedStatusParams struct {
+	VCT       string `json:"vct"`
+	DocType   string `json:"doctype"`
+	Namespace string `json:"namespace"`
+	Claim     string `json:"claim"`
+	Value     any    `json:"value"`
+	Shape     string `json:"shape"`
+}
+
+func (p malformedStatusParams) definitionError() string {
+	if (p.VCT == "") == (p.DocType == "") {
+		return "exactly one of vct or doctype is required"
+	}
+	if p.DocType != "" && p.Namespace == "" {
+		return "namespace param is required with doctype"
+	}
+	if p.Claim == "" {
+		return claimParamRequired
+	}
+	if p.Value == nil {
+		return "value param is required"
+	}
+	switch p.Shape {
+	case statusShapeMissingStatusList,
+		statusShapeNegativeIndex,
+		statusShapeMissingIndex,
+		statusShapeMalformedURI,
+		statusShapeMissingURI:
+		return ""
+	default:
+		return "shape must be missing_status_list, negative_index, missing_index, " +
+			"malformed_uri or missing_uri"
+	}
+}
+
+// claimPath is the DCQL path the probe must pin.
+func (p malformedStatusParams) claimPath() []any {
+	if p.DocType != "" {
+		return []any{p.Namespace, p.Claim}
+	}
+	return []any{p.Claim}
 }
 
 // Validate requires the pinned, multiple-enabled query to return no
@@ -44,43 +91,25 @@ func (OID4VPMalformedStatusCredentialAbsentValidator) Validate(
 	_ context.Context,
 	input Input,
 ) Result {
-	params, err := DecodeParams[struct {
-		VCT   string `json:"vct"`
-		Claim string `json:"claim"`
-		Value any    `json:"value"`
-		Shape string `json:"shape"`
-	}](input.Params)
+	params, err := DecodeParams[malformedStatusParams](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
-	if params.VCT == "" {
-		return Result{Status: StatusError, Message: "vct param is required"}
-	}
-	if params.Claim == "" {
-		return Result{Status: StatusError, Message: claimParamRequired}
-	}
-	if params.Value == nil {
-		return Result{Status: StatusError, Message: "value param is required"}
-	}
-	switch params.Shape {
-	case statusShapeMissingStatusList,
-		statusShapeNegativeIndex,
-		statusShapeMissingIndex,
-		statusShapeMalformedURI,
-		statusShapeMissingURI:
-	default:
-		return Result{
-			Status: StatusError,
-			Message: "shape must be missing_status_list, negative_index, missing_index, " +
-				"malformed_uri or missing_uri",
-		}
+	if message := params.definitionError(); message != "" {
+		return Result{Status: StatusError, Message: message}
 	}
 
 	root, query, result := capturedDCQLQuery(input.Value)
 	if result != nil {
 		return *result
 	}
-	credential, credentialID, result := credentialQueryForVCT(query, params.VCT)
+	var credential map[string]any
+	var credentialID string
+	if params.DocType != "" {
+		credential, credentialID, result = credentialQueryForDocType(query, params.DocType)
+	} else {
+		credential, credentialID, result = credentialQueryForVCT(query, params.VCT)
+	}
 	if result != nil {
 		return *result
 	}
@@ -94,25 +123,25 @@ func (OID4VPMalformedStatusCredentialAbsentValidator) Validate(
 			),
 		}
 	}
-	credentials := []any{credential}
 	if result := requireClaimValueRestriction(
-		credentials,
-		[]any{params.Claim},
+		[]any{credential},
+		params.claimPath(),
 		params.Value,
 	); result != nil {
 		return *result
 	}
 
+	none := Result{
+		Status: StatusPass,
+		Message: fmt.Sprintf(
+			"wallet returned no presentation for %s %v",
+			params.Claim,
+			params.Value,
+		),
+	}
 	responseValue, found := findObjectKey(root, "vp_token")
 	if !found {
-		return Result{
-			Status: StatusPass,
-			Message: fmt.Sprintf(
-				"wallet returned no presentation for %s %v",
-				params.Claim,
-				params.Value,
-			),
-		}
+		return none
 	}
 	response, ok := normalizeJSONObject(responseValue)
 	if !ok {
@@ -120,37 +149,18 @@ func (OID4VPMalformedStatusCredentialAbsentValidator) Validate(
 	}
 	entries, _ := response[credentialID].([]any)
 	if len(entries) == 0 {
-		return Result{
-			Status: StatusPass,
-			Message: fmt.Sprintf(
-				"wallet returned no presentation for %s %v",
-				params.Claim,
-				params.Value,
-			),
-		}
+		return none
 	}
 
 	for index, entry := range entries {
-		token, ok := entry.(string)
-		if !ok || token == "" {
-			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("vp_token[%q][%d] is not an SD-JWT", credentialID, index),
-			}
-		}
-		presentation, err := evidence.ParseSDJWTPresentation(token)
+		malformed, err := presentedStatusIsMalformed(entry, params)
 		if err != nil {
 			return Result{
-				Status: StatusFail,
-				Message: fmt.Sprintf(
-					"vp_token[%q][%d] is not a valid SD-JWT presentation: %v",
-					credentialID,
-					index,
-					err,
-				),
+				Status:  StatusFail,
+				Message: fmt.Sprintf("vp_token[%q][%d]: %v", credentialID, index, err),
 			}
 		}
-		if hasMalformedStatusShape(presentation.Claims, params.Shape) {
+		if malformed {
 			return Result{
 				Status: StatusFail,
 				Message: fmt.Sprintf(
@@ -172,6 +182,68 @@ func (OID4VPMalformedStatusCredentialAbsentValidator) Validate(
 			params.Value,
 			params.Shape,
 		),
+	}
+}
+
+// presentedStatusIsMalformed decodes one vp_token entry in the query's format
+// and reports whether its status carries the probed defect.
+func presentedStatusIsMalformed(entry any, params malformedStatusParams) (bool, error) {
+	token, ok := entry.(string)
+	if !ok || token == "" {
+		return false, fmt.Errorf("entry is not a presentation string")
+	}
+	if params.DocType == "" {
+		presentation, err := evidence.ParseSDJWTPresentation(token)
+		if err != nil {
+			return false, fmt.Errorf("not a valid SD-JWT presentation: %w", err)
+		}
+		return hasMalformedStatusShape(presentation.Claims, params.Shape), nil
+	}
+	presentation, err := evidence.ParseMDocPresentation(token)
+	if err != nil {
+		return false, fmt.Errorf("not a valid mdoc DeviceResponse: %w", err)
+	}
+	document, ok := presentation.Document(params.DocType)
+	if !ok {
+		return false, fmt.Errorf("DeviceResponse holds no %q document", params.DocType)
+	}
+	return hasMalformedMDocStatusShape(document.MSOStatus, params.Shape), nil
+}
+
+// credentialQueryForDocType returns the credential query selecting the given
+// mdoc doctype together with its id.
+func credentialQueryForDocType(
+	query map[string]any,
+	docType string,
+) (map[string]any, string, *Result) {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return nil, "", &Result{
+			Status:  StatusFail,
+			Message: "dcql_query does not contain credentials",
+		}
+	}
+	for _, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			continue
+		}
+		meta, ok := normalizeJSONObject(credential["meta"])
+		if !ok || meta["doctype_value"] != docType {
+			continue
+		}
+		id, ok := credential["id"].(string)
+		if !ok || id == "" {
+			return nil, "", &Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credential query for doctype %q has no id", docType),
+			}
+		}
+		return credential, id, nil
+	}
+	return nil, "", &Result{
+		Status:  StatusFail,
+		Message: fmt.Sprintf("dcql_query has no credential query for doctype %q", docType),
 	}
 }
 
@@ -207,6 +279,46 @@ func hasMalformedStatusShape(claims map[string]any, shape string) bool {
 	case statusShapeMalformedURI:
 		text, ok := list["uri"].(string)
 		if !ok {
+			return true
+		}
+		parsed, err := url.Parse(text)
+		return err != nil || !parsed.IsAbs() || parsed.Host == ""
+	}
+	return false
+}
+
+// hasMalformedMDocStatusShape is the Mobile Security Object counterpart of
+// hasMalformedStatusShape: it reads the CBOR `status` map, so a negative index
+// is a CBOR negative integer (major type 1) rather than a JSON number.
+func hasMalformedMDocStatusShape(status *evidence.MDocCBORValue, shape string) bool {
+	if status == nil || status.ContentMajorType != 5 {
+		return false
+	}
+	list, listFound := status.Member("status_list")
+	if shape == statusShapeMissingStatusList {
+		return !listFound
+	}
+	if !listFound || list.ContentMajorType != 5 {
+		return false
+	}
+
+	switch shape {
+	case statusShapeMissingIndex:
+		_, indexFound := list.Member("idx")
+		return !indexFound
+	case statusShapeNegativeIndex:
+		index, indexFound := list.Member("idx")
+		return indexFound && index.MajorType == 1
+	case statusShapeMissingURI:
+		_, uriFound := list.Member("uri")
+		return !uriFound
+	case statusShapeMalformedURI:
+		uri, uriFound := list.Member("uri")
+		if !uriFound {
+			return false
+		}
+		text, ok := uri.Value.(string)
+		if uri.MajorType != 3 || !ok {
 			return true
 		}
 		parsed, err := url.Parse(text)

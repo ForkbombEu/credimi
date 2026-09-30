@@ -264,3 +264,104 @@ func TestOID4VPMalformedStatusCredentialAbsentValidator(t *testing.T) {
 		})
 	}
 }
+
+func TestOID4VPMalformedStatusCredentialAbsentValidatorMDoc(t *testing.T) {
+	const documentNumber = "CREDIMI-DEMO-CASE"
+	uri := "https://beta-capture-wallet.credimi.io/status-lists/1"
+	statusMDoc := func(status any) string {
+		return encodedMSOStatusDeviceResponse(t, status, map[string]any{
+			"document_number": documentNumber,
+		})
+	}
+	valid := statusMDoc(
+		map[string]any{"status_list": map[string]any{"idx": uint64(42), "uri": uri}},
+	)
+
+	exchange := func(path []any, tokens ...string) map[string]any {
+		credential := map[string]any{
+			"id":       "pid_mdoc",
+			"format":   "mso_mdoc",
+			"multiple": true,
+			"meta":     map[string]any{"doctype_value": msoStatusTestDocType},
+			"claims":   []any{map[string]any{"path": path, "values": []any{documentNumber}}},
+		}
+		entries := make([]any, 0, len(tokens))
+		for _, token := range tokens {
+			entries = append(entries, token)
+		}
+		return map[string]any{
+			"authorization_request": map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{credential}},
+			},
+			"observed": map[string]any{"wallet_response": map[string]any{
+				"value": map[string]any{"vp_token": map[string]any{"pid_mdoc": entries}},
+			}},
+		}
+	}
+	pinned := []any{msoStatusTestDocType, "document_number"}
+
+	for _, test := range []struct {
+		name  string
+		value any
+		shape string
+		want  Status
+	}{
+		{"wallet holds nothing", exchange(pinned), "missing_status_list", StatusPass},
+		{"only a valid duplicate", exchange(pinned, valid), "missing_status_list", StatusPass},
+		{
+			"empty status map retained",
+			exchange(pinned, statusMDoc(map[string]any{})),
+			"missing_status_list",
+			StatusFail,
+		},
+		{
+			"negative CBOR index retained",
+			exchange(pinned, statusMDoc(map[string]any{
+				"status_list": map[string]any{"idx": int64(-1), "uri": uri},
+			})),
+			"negative_index",
+			StatusFail,
+		},
+		{"valid index is not negative", exchange(pinned, valid), "negative_index", StatusPass},
+		{
+			"missing index retained",
+			exchange(pinned, statusMDoc(map[string]any{"status_list": map[string]any{"uri": uri}})),
+			"missing_index",
+			StatusFail,
+		},
+		{
+			"missing uri retained",
+			exchange(pinned, statusMDoc(map[string]any{"status_list": map[string]any{"idx": uint64(1)}})),
+			"missing_uri",
+			StatusFail,
+		},
+		{
+			"unparseable uri retained",
+			exchange(pinned, statusMDoc(map[string]any{
+				"status_list": map[string]any{"idx": uint64(1), "uri": "::not a uri"},
+			})),
+			"malformed_uri",
+			StatusFail,
+		},
+		{
+			"probe pinned the element without its namespace",
+			exchange([]any{"document_number"}),
+			"missing_status_list",
+			StatusFail,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := OID4VPMalformedStatusCredentialAbsentValidator{}.Validate(
+				context.Background(),
+				Input{Value: test.value, Params: map[string]any{
+					"doctype":   msoStatusTestDocType,
+					"namespace": msoStatusTestDocType,
+					"claim":     "document_number",
+					"value":     documentNumber,
+					"shape":     test.shape,
+				}},
+			)
+			require.Equal(t, test.want, result.Status, result.Message)
+		})
+	}
+}

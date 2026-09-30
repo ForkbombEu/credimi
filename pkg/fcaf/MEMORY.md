@@ -2666,3 +2666,65 @@ carries the `request_mutation`; `delivered_request_omits_redirect_uri` stays as
 the regression guard. The fail verdict above came from the mutated session, and
 the unmutated one has not been rerun on the emulator. The step count is
 unchanged, because the mutation was part of an existing step.
+
+## Credential fixture group: mdoc status, CWT, multiple mdocs, candidate selection
+
+30/09/2026. Seventeen tests left the placeholder `dcql.metadata`,
+`dcql.credential-formats` and `dcql.same-credential-multiple-queries`
+exchanges. Each asserted `credentials_match`, which proved nothing about its
+source.
+
+| Tests | Evidence source | Status |
+| --- | --- | --- |
+| `WS_RP_MS_Metadata__091`, `093`, `095`, `098`, `103`, `WS_RP_MS_CredentialFormats__029` | `credential-status-list` (mdoc and SD-JWT presentations) | reference Wallet run pending |
+| `WS_RP_MS_Metadata__092`, `094`, `096`, `097`, `099`, `100` | new `mdoc-status-reference-rejection` | reference Wallet run pending; needs `FCAF_SCENARIOS_ENABLED` |
+| `WS_RP_MS_Metadata__101`, `102`, `WS_RP_MS_CredentialFormats__032` | `credential-status-list` mdoc | blocked: no CWT Referenced Token fixture |
+| `WS_RP_MS_CredentialFormats__041` | new `mdoc-multiple-device-responses` | reference Wallet run pending |
+| `WS_RP_MS_ProtocolMessages__013` | new `pid-candidate-selection` | selection checked on the emulator; full run pending |
+
+Decisions:
+
+- 101, 102 and 032 name a CWT Referenced Token, with the Status claim at CBOR
+  label 65535. The mdoc MSO keys its status by the text `"status"` and is not
+  a CWT claims set, so the user chose to mark them blocked rather than map
+  them onto the MSO, even though upstream `FCAF_FIXTURES.md` maps them to the
+  mdoc configurations. `cose.cwt_status_claim` returns `blocked` on mdoc
+  evidence and `fail` on anything else. Unblocking needs a Capture issuer
+  fixture that emits a CWT Referenced Token, with and without label 65535.
+- 029 names a JWT Referenced Token. The issuer-signed JWT of the SD-JWT VC is
+  one, and Capture keeps `status` in that JWT's claims set, so it reads the
+  existing SD-JWT presentation.
+- The mdoc rejection reuses the five SD-JWT rejection fixtures. Its probes are
+  `mso_mdoc` queries, so SD-JWT copies cannot answer them.
+  `oid4vp.malformed_status_credential_absent` gained `doctype` and `namespace`
+  and checks the MSO status with CBOR types, so a negative index is major
+  type 1. 092 and 094 share the empty map from `status_without_status_list`;
+  094 asserts only that the probe captured the outcome, because its source
+  allows either.
+- Fixture document numbers, from upstream `pid-fixtures.ts`: `pid_default`
+  `CREDIMI-DEMO-001`, `pid_person_b` `CREDIMI-DEMO-002`, `pid_under_18`
+  `CREDIMI-DEMO-U18`, `pid_expiry_2032` `CREDIMI-DEMO-EXPIRY`. They are the
+  same in both formats.
+- UI discovery on wallet 2026.09.42 (`emulator-5554`): several PIDs matching one
+  query appear as radio cards `Option N of M`. Only the selected card's text is
+  in the accessibility tree, so the 013 flow reads `Option 1 of M` (M >= 2),
+  taps `15%,53%`, and requires `Option 2 of M`. That sequence ran green. Three
+  mdoc queries render one card per query and share with the single `Share`.
+
+New validators: `mdoc.mso_status_list_structure` (103: header pair count 2 or
+3, `idx` uint, `uri` tstr, optional `certificate` bstr, no other text key),
+`cose.cwt_status_claim`, and `oid4vp.mdoc_device_response_per_query` (041: one
+single-document DeviceResponse per value-pinned query).
+
+Verified by running the shipped definitions through the FCAF engine on
+synthetic evidence. With a valid status, the positive cases and 029 pass and
+101, 102 and 032 are blocked. Removing `status_list` fails all five positive
+cases. A text `idx` fails 093, 095 and 103, a relative `uri` fails 093 and 098,
+and an extra key fails 103 only. Every rejection case passes on an empty probe,
+and each fails on its own shape once the malformed mdoc is retained, except
+094 (local policy). 041 fails when one credential answers all three queries.
+013 fails when both PIDs are returned or when a PID outside the query is
+returned.
+
+`make fcaf-generate` produces 1376 aggregate steps, 615 test IDs, and 217
+pipeline outputs; the happy flow drops to 306 test IDs.

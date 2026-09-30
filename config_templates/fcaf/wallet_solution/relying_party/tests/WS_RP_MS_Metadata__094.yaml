@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__094
-title: FCAF WS_RP_MS_Metadata__094
+title: Handle a COSE Referenced Token whose Status map has no status_list per local policy.
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__094.md
 suite:
@@ -9,24 +9,34 @@ suite:
 applicability:
   profile: EUDI_generic
   presentation_flow: redirects
+  credential_format: iso_mdoc
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.metadata
+- title: Token Status List
+  section: '6.3'
+  url: https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-13.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.metadata.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
+  issuance_session:
+    from: pipeline.fixtures.status-reference.mdoc.outputs.status_without_status_list_issuance
+  probe_exchange:
+    from: pipeline.fixtures.status-reference.mdoc.outputs.status_without_status_list_probe
 assertions:
-- id: ws_rp_ms_metadata__094_dcql_metadata_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_metadata__094_visual_evidence_stored
+- id: issuer_offered_the_malformed_status_reference
+  validator: json.field_equals
+  input: evidence.issuance_session
+  params: { field: status_reference, value: status_without_status_list }
+- id: issuer_used_the_identifying_claim_fixture
+  validator: json.field_equals
+  input: evidence.issuance_session
+  params: { field: fixture_id, value: pid_family_name_uppercase }
+- id: issuer_offered_an_mdoc_pid
+  validator: json.field_equals
+  input: evidence.issuance_session
+  params: { field: credential_configuration_id, value: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required }
+# Local policy allows the Wallet to keep or refuse the token, so no outcome is
+# asserted. The probe for the fixture's document_number records which one the
+# Wallet chose; WS_RP_MS_Metadata__092 is the case that requires rejection.
+- id: wallet_outcome_for_the_token_is_captured
   validator: evidence.non_empty
-  input: evidence.visual_evidence
+  input: evidence.probe_exchange
 verdict:
   pass_when: all_assertions_pass
