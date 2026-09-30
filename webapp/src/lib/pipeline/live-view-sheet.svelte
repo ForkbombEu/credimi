@@ -60,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	hideTrigger
 	title={m.Live_view()}
 	class="!w-[min(100vw,24rem)]"
-	contentClass="flex flex-1 flex-col gap-4 !overflow-hidden"
+	contentClass="flex min-h-0 flex-1 flex-col gap-4"
 >
 	{#snippet content()}
 		{#if liveViewRequest}
@@ -71,27 +71,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<p>{m.Device()}: {deviceName}</p>
 					{/if}
 				</div>
-
-				<dl class="space-y-3 text-muted-foreground">
-					<div>
-						<dt>{m.Workflow_ID()}</dt>
-						<dd class="truncate font-mono text-xs">{workflowId}</dd>
-					</div>
-					<div>
-						<dt>Run ID</dt>
-						<dd class="truncate font-mono text-xs">{runId}</dd>
-					</div>
-				</dl>
 			</div>
 
 			{#await liveViewRequest}
-				<div class="grid flex-1 place-content-center justify-items-center gap-3">
+				<div class="grid min-h-[50dvh] place-content-center justify-items-center gap-3">
 					<Spinner />
 					<p class="text-sm text-muted-foreground">{m.Please_wait()}</p>
 				</div>
 			{:then outcome}
 				{#if outcome.ok}
-					<div class="flex min-h-0 flex-1 flex-col items-end">
+					<div class="flex flex-col items-end">
 						<Button
 							variant="link"
 							size="sm"
@@ -108,7 +97,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<iframe
 								src={outcome.url}
 								title={iframeTitle}
-								class="min-h-0 w-full flex-1 border-0"
+								class="aspect-[9/19.5] w-full border-0"
 								allow="autoplay"
 							></iframe>
 						{/key}
@@ -124,6 +113,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{:catch}
 				<p class="text-sm">{m.Live_view_open_failed()}</p>
 			{/await}
+
+			<dl class="space-y-3 text-sm text-muted-foreground">
+				<div>
+					<dt>{m.Workflow_ID()}</dt>
+					<dd class="truncate font-mono text-xs">{workflowId}</dd>
+				</div>
+				<div>
+					<dt>Run ID</dt>
+					<dd class="truncate font-mono text-xs">{runId}</dd>
+				</div>
+			</dl>
 		{/if}
 	{/snippet}
 </Sheet>
