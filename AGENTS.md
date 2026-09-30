@@ -194,6 +194,7 @@ Key environment variables:
 - `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL`: how recent a runner heartbeat must be for its devices to be offered in catalog selectors (default 60s).
 - `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for trusted internal HTTP activities, internal result posting, and `POST /api/conformance-catalog/rebuild`.
 - `CREDIMI_INTERNAL_APP_URL`: deployment-local Temporal-worker-to-Credimi base URL; callback consumers prefer it while persisted `app_url` remains public. It must be provisioned wherever workers execute.
+- `CREDIMI_SEED_SUPERUSER_PASSWORD`: password for the `admin@example.org` superuser seeded by `pb_migrations/1685000000_seed_admin.js`. `make dev` defaults it to `adminadmin` and `cmd/testdata-refresh` sets it for `test_pb_data`. Deployments must leave it unset: they create their first superuser through the PocketBase installer link or `credimi superuser upsert`, and `pb_migrations/1790780000_remove_default_seed_admin.js` removes or locks a leftover default-password `admin@example.org`.
 
 Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
 
