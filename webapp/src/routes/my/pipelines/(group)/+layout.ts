@@ -2,11 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { error } from '@sveltejs/kit';
 import { checkAuthFlagAndUser, getUserOrganization } from '$lib/utils';
 
 //
 
 export const load = async ({ fetch }) => {
 	await checkAuthFlagAndUser({ fetch });
-	await getUserOrganization({ fetch });
+	const organization = await getUserOrganization({ fetch });
+	if (!organization) error(500, { message: 'USER_MISSING_ORGANIZATION' });
+
+	return { organization };
 };

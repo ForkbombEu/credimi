@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SuperForm } from 'sveltekit-superforms';
 
-	import { getStandardsAndVersionsFlatOptionsList } from '$lib/standards';
+	import { getNestStandards } from '$lib/conformance';
 	import { String } from 'effect';
 	import { fromStore, type Writable } from 'svelte/store';
 	import { stringProxy } from 'sveltekit-superforms/client';
@@ -38,8 +38,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let options: SelectOption<string>[] = $state([]);
 
-	getStandardsAndVersionsFlatOptionsList().then((response) => {
-		options = response;
+	getNestStandards({ surface: 'manual' }).then((result) => {
+		if (result instanceof Error) {
+			options = [];
+			return;
+		}
+		options = result.flatMap((standard) =>
+			standard.versions.map((version) => ({
+				value: `${standard.uid}/${version.uid}`,
+				label: `${standard.name} – ${version.name}`
+			}))
+		);
 	});
 
 	//

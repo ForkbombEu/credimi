@@ -113,6 +113,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		emptyStateTitle: string;
 		emptyStateDescription: string;
+		emptyStateClassName: string;
 	};
 
 	//
@@ -129,6 +130,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filters = [],
 		emptyStateTitle = m.No_items_here(),
 		emptyStateDescription = m.Start_by_adding_a_record_to_this_collection_(),
+		emptyStateClassName,
 		onMount,
 		...rest
 	}: Props = $props();
@@ -221,11 +223,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Pagination class="mt-6" />
 		{/if}
 	{:else if manager.query.hasSearch() && manager.records.length === 0}
-		<EmptyState title={m.No_records_found()} icon={SearchIcon} />
+		<EmptyState
+			title={m.No_records_found()}
+			icon={SearchIcon}
+			className={emptyStateClassName}
+		/>
 	{:else if emptyState}
 		{@render emptyState({ EmptyState })}
 	{:else if !hide.includes('empty_state')}
-		<EmptyState title={emptyStateTitle} description={emptyStateDescription} icon={FolderIcon} />
+		<EmptyState
+			title={emptyStateTitle}
+			description={emptyStateDescription}
+			icon={FolderIcon}
+			className={emptyStateClassName}
+		/>
 	{/if}
 {/snippet}
 

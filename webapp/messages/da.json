@@ -195,6 +195,8 @@
 	"Submit": "Indsend",
 	"Select_a_value": "Vælg en værdi",
 	"Search": "Søge",
+	"Search_issuers_or_credentials": "Søg issuers eller credentials",
+	"Search_verifiers_or_use_case_verifications": "Søg verifiers eller use case verifications",
 	"No_results_found": "Ingen resultater fundet",
 	"No_items_selected": "Ingen elementer valgt",
 	"No_options_available": "Ingen tilgængelige muligheder",
@@ -789,6 +791,7 @@
 	"Add_step": "Add step",
 	"Steps_sequence": "Steps sequence",
 	"YAML_preview": "YAML preview",
+	"Scroll_follow": "Følg scroll",
 	"Wallet_action": "Wallet action",
 	"Credential_deeplink": "Bevis deeplink",
 	"Redo": "Redo",
@@ -1030,5 +1033,15 @@
 	"Failed_to_enable_pipeline_notifications": "Kunne ikke aktivere pipeline-notifikationer",
 	"Failed_to_disable_pipeline_notifications": "Kunne ikke deaktivere pipeline-notifikationer",
 	"Notifications_blocked_hint": "Notifikationer er blokeret for dette websted. Aktivér dem igen i browserens webstedsindstillinger.",
-	"Push_notifications_unsupported": "Denne browser understøtter ikke push-notifikationer."
+	"Push_notifications_unsupported": "Denne browser understøtter ikke push-notifikationer.",
+	"Protocol": "Protokol",
+	"SUT": "SUT",
+	"Role": "Rolle",
+	"Component": "Komponent",
+	"Provider": "Udbyder",
+	"Clear_filters": "Ryd filtre",
+	"View_live": "View live",
+	"Live_view": "Live view",
+	"Live_view_open_failed": "Could not open the live view",
+	"Device": "Device"
 }

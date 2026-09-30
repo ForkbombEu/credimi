@@ -40,7 +40,16 @@ export const workflowResponseSchema = z.object({
 	workflowExecutionInfo: workflowExecutionInfoSchema,
 	executionConfig: z.unknown(),
 	failure_reason: z.string().optional(),
-	pendingActivities: z.unknown()
+	pendingActivities: z.unknown(),
+	devices: z
+		.array(
+			z.object({
+				device_id: z.string(),
+				name: z.string(),
+				live_view: z.boolean()
+			})
+		)
+		.optional()
 });
 
 export type WorkflowResponse = z.infer<typeof workflowResponseSchema>;

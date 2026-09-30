@@ -4,19 +4,17 @@ SPDX-FileCopyrightText: 2026 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<script lang="ts">
+<script lang="ts" generics="TData">
 	import type { Header, Table } from '@tanstack/table-core';
 	import type { ClassValue } from 'svelte/elements';
 
 	import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from '@lucide/svelte';
 
-	import type { ScoreboardRow } from './types';
-
 	//
 
 	type Props = {
-		header: Header<ScoreboardRow, unknown>;
-		table: Table<ScoreboardRow>;
+		header: Header<TData, unknown>;
+		table: Table<TData>;
 		class?: ClassValue;
 	};
 

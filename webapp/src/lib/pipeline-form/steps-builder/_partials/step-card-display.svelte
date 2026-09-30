@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import type { Component, Snippet } from 'svelte';
 
 	import { TriangleAlert } from '@lucide/svelte';
+	import { Comp } from '$lib/renderable';
 	import { showPipelineFormError } from '$pipeline-form/errors.js';
 	import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 	import * as steps from '$pipeline-form/steps';
@@ -17,8 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
-	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
 
 	import { getStepData, getStepError } from './index.js';
@@ -28,17 +27,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		step: EnrichedStep;
 		topRight?: Snippet;
-		onContinueOnErrorChange?: (checked: boolean) => void;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		footer?: Snippet | Comp<Component<any>>;
 		readonly?: boolean;
 		editing?: boolean;
+		selected?: boolean;
+		hovered?: boolean;
 	};
 
 	let {
 		step,
 		topRight,
-		onContinueOnErrorChange,
+		footer,
 		readonly = false,
-		editing = false
+		editing = false,
+		selected = false,
+		hovered = false
 	}: Props = $props();
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
@@ -63,7 +67,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		'group flex flex-col overflow-hidden rounded-md border bg-card',
 		classes.border,
 		!readonly && 'hover:ring',
-		editing && 'ring-2 ring-primary'
+		editing && 'ring-2 ring-primary',
+		selected && !editing && 'ring-1 ring-primary/50',
+		hovered && !editing && !selected && 'ring'
 	]}
 >
 	<div class={['h-1', classes?.bg]}></div>
@@ -150,20 +156,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	{#if step[0].use !== 'debug'}
-		<Label
-			class={[
-				'flex items-center gap-1 bg-slate-50 px-3 py-1',
-				{ 'cursor-pointer': !readonly }
-			]}
-		>
-			<Checkbox
-				class="flex size-[10px] items-center justify-center disabled:cursor-default"
-				checked={step[0].continue_on_error}
-				disabled={readonly}
-				onCheckedChange={(checked) => onContinueOnErrorChange?.(checked)}
-			/>
-			<span class="text-xs text-slate-500">{m.Continue_on_error()}</span>
-		</Label>
+	{#if footer instanceof Comp}
+		{@const Footer = footer.component}
+		<Footer {...footer.props} />
+	{:else if footer}
+		{@render footer()}
 	{/if}
 </div>

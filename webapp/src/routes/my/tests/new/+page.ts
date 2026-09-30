@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { error } from '@sveltejs/kit';
-import { getStandardsWithTestSuites } from '$lib/standards';
+import { getNestStandards } from '$lib/conformance';
 
 //
 
 export const load = async ({ fetch }) => {
-	const result = await getStandardsWithTestSuites({ fetch });
+	const result = await getNestStandards({ fetch, surface: 'manual' });
 
 	if (result instanceof Error) {
 		error(500, { message: result.message });

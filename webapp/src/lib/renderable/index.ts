@@ -9,3 +9,4 @@ import Render from './render.svelte';
 //
 
 export { Render, type Renderable, type SelfProp };
+export { Comp, comp } from './comp.js';

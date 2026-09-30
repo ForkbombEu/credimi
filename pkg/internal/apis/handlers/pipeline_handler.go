@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/fcaf/reportgeneration"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
@@ -94,6 +95,14 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:        "/executions/{id}/{workflow_id}/{run_id}",
 			Handler:     HandleGetPipelineExecution,
 			Description: "Get one pipeline execution with its child workflows",
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/live-view",
+			Handler:        HandlePipelineLiveView,
+			RequestSchema:  PipelineLiveViewInput{},
+			ResponseSchema: PipelineLiveViewResponse{},
+			Description:    "Open live device views for a running pipeline execution",
 		},
 		{
 			Method:      http.MethodPost,
@@ -415,7 +424,16 @@ func HandleUpdatePipelineExecutionFCAFReport() func(*core.RequestEvent) error {
 		if apiErr != nil {
 			return apiErr
 		}
-		file, err := filesystem.NewFileFromBytes([]byte(input.JSON), "fcaf-assessment.json")
+		enrichedJSON, _, err := reportgeneration.EnrichReportJSON(e.App, record, []byte(input.JSON))
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"report",
+				"failed to enrich FCAF report",
+				err.Error(),
+			)
+		}
+		file, err := filesystem.NewFileFromBytes(enrichedJSON, "fcaf-assessment.json")
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -438,7 +456,7 @@ func HandleUpdatePipelineExecutionFCAFReport() func(*core.RequestEvent) error {
 			e.Request.Context(),
 			e.App,
 			record,
-			[]byte(input.JSON),
+			enrichedJSON,
 		)
 		if err != nil {
 			return apierror.New(

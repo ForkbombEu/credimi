@@ -96,8 +96,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}}
 		hide={['empty_state']}
 		formFieldsOptions={{
-			exclude: ['owner', 'canonified_tag'],
-			hide: { wallet: wallet.id },
+			exclude: ['canonified_tag'],
+			hide: { wallet: wallet.id, owner: props.organizationId },
 			placeholders: {
 				android_installer: m.Upload_a_new_file(),
 				ios_installer: m.Upload_a_new_file(),

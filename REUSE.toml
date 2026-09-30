@@ -43,6 +43,8 @@ path = [
     "webapp/bun.lock",
     "webapp/messages/**/*",
     "webapp/project.inlang/.gitignore",
+    "webapp/project.inlang/.meta.json",
+    "webapp/project.inlang/README.md",
     "webapp/project.inlang/project_id",
     "webapp/src/lib/content/**/*",
     "webapp/src/lib/types/openid-credential-issuer.ts",

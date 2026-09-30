@@ -1,0 +1,15 @@
+# Short display labels for catalog provider facet slugs (filter wire stays the slug).
+# Suite row titles/subtitles are authored per suite in metadata.yaml (ADR-0011).
+
+ewc:
+  label: EWC
+webuild:
+  label: WEBUILD
+fcaf:
+  label: FCAF
+openid_conformance_suite:
+  label: OpenID
+eudiw:
+  label: EUDIW
+vlei:
+  label: vLEI

@@ -38,6 +38,15 @@ func ParsePipelineDeviceInfo(yamlStr string) (PipelineDeviceInfo, error) {
 		return PipelineDeviceInfo{}, err
 	}
 
+	return DeviceInfoFromDefinition(wfDef), nil
+}
+
+// DeviceInfoFromDefinition collects mobile device IDs from a parsed workflow definition.
+func DeviceInfoFromDefinition(wfDef *pipeline.WorkflowDefinition) PipelineDeviceInfo {
+	if wfDef == nil {
+		return PipelineDeviceInfo{}
+	}
+
 	deviceIDs := make(map[string]struct{})
 	missingDeviceID := false
 
@@ -76,7 +85,7 @@ func ParsePipelineDeviceInfo(yamlStr string) (PipelineDeviceInfo, error) {
 	}
 
 	if len(deviceIDs) == 0 {
-		return info, nil
+		return info
 	}
 
 	info.DeviceIDs = make([]string, 0, len(deviceIDs))
@@ -85,7 +94,7 @@ func ParsePipelineDeviceInfo(yamlStr string) (PipelineDeviceInfo, error) {
 	}
 	sort.Strings(info.DeviceIDs)
 
-	return info, nil
+	return info
 }
 
 func DeviceIDsWithGlobal(info PipelineDeviceInfo, globalDeviceID string) []string {

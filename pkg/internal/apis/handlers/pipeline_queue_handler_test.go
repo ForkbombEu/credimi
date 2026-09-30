@@ -116,13 +116,19 @@ func installQueueStubs(t *testing.T, stub *queueStub) {
 	origEnqueue := enqueueRunTicket
 	origQuery := queryRunTicketStatus
 	origCancel := cancelRunTicket
+	// Enqueueing now requires every chosen runner to answer its health
+	// endpoint; these cases exercise queue semantics, not availability.
+	origReachable := checkRunnerReachable
 
 	t.Cleanup(func() {
 		ensureRunQueueSemaphoreWorkflow = origEnsure
 		enqueueRunTicket = origEnqueue
 		queryRunTicketStatus = origQuery
 		cancelRunTicket = origCancel
+		checkRunnerReachable = origReachable
 	})
+
+	checkRunnerReachable = func(context.Context, string) (bool, error) { return true, nil }
 
 	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, deviceID string) error {
 		return nil
@@ -374,6 +380,87 @@ func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
 
 	require.Len(t, stub.enqueueRequests, 1)
 	require.Equal(t, 7, stub.enqueueRequests[0].MaxPipelinesInQueue)
+}
+
+// The dashboard queues runs from YAML, so this is the only place that can
+// prove the chosen runners answer before a ticket is parked on a semaphore.
+func TestPipelineQueueEnqueueRejectsUnreachableRunner(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	stub := &queueStub{}
+	installQueueStubs(t, stub)
+	checkRunnerReachable = func(context.Context, string) (bool, error) { return false, nil }
+
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n"
+	scenario := tests.ApiScenario{
+		Name:   "enqueue rejects a device whose runner is unreachable",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/queue",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"yaml":                validYaml,
+		}),
+		ExpectedStatus:  http.StatusServiceUnavailable,
+		ExpectedContent: []string{"device runner is offline"},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			return setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+		},
+	}
+
+	scenario.Test(t)
+
+	require.Empty(t, stub.enqueueRequests)
+}
+
+// A run that needs several devices needs all of them, and a runner hosting
+// more than one of them is worth exactly one probe.
+func TestPipelineQueueEnqueueProbesEveryRunnerOnce(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	stub := &queueStub{}
+	installQueueStubs(t, stub)
+	var probed []string
+	checkRunnerReachable = func(_ context.Context, runnerURL string) (bool, error) {
+		probed = append(probed, runnerURL)
+		return len(probed) < 2, nil
+	}
+
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n  - name: step2\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-2/device-1\n"
+	scenario := tests.ApiScenario{
+		Name:   "enqueue rejects the run when the second runner is unreachable",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/queue",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"yaml":                validYaml,
+		}),
+		ExpectedStatus:  http.StatusServiceUnavailable,
+		ExpectedContent: []string{"device runner is offline"},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			return setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+		},
+	}
+
+	scenario.Test(t)
+
+	require.Len(t, probed, 2)
+	require.Empty(t, stub.enqueueRequests)
 }
 
 func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
@@ -713,13 +800,16 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 	origEnsure := ensureRunQueueSemaphoreWorkflow
 	origEnqueue := enqueueRunTicket
 	origCancel := cancelRunTicket
+	origReachable := checkRunnerReachable
 
 	t.Cleanup(func() {
 		ensureRunQueueSemaphoreWorkflow = origEnsure
 		enqueueRunTicket = origEnqueue
 		cancelRunTicket = origCancel
+		checkRunnerReachable = origReachable
 	})
 
+	checkRunnerReachable = func(context.Context, string) (bool, error) { return true, nil }
 	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, deviceID string) error {
 		return nil
 	}
@@ -1017,13 +1107,16 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 	origEnsure := ensureRunQueueSemaphoreWorkflow
 	origEnqueue := enqueueRunTicket
 	origCancel := cancelRunTicket
+	origReachable := checkRunnerReachable
 
 	t.Cleanup(func() {
 		ensureRunQueueSemaphoreWorkflow = origEnsure
 		enqueueRunTicket = origEnqueue
 		cancelRunTicket = origCancel
+		checkRunnerReachable = origReachable
 	})
 
+	checkRunnerReachable = func(context.Context, string) (bool, error) { return true, nil }
 	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, deviceID string) error {
 		return nil
 	}

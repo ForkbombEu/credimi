@@ -195,6 +195,8 @@
 	"Submit": "Absenden",
 	"Select_a_value": "Einen Wert auswählen ",
 	"Search": "Suchen",
+	"Search_issuers_or_credentials": "Issuer oder Credentials suchen",
+	"Search_verifiers_or_use_case_verifications": "Verifier oder Use-Case-Verifications suchen",
 	"No_results_found": "Keine Ergebnisse gefunden",
 	"No_items_selected": "Keine Elemente ausgewählt",
 	"No_options_available": "Keine Optionen verfügbar",
@@ -789,6 +791,7 @@
 	"Add_step": "Add step",
 	"Steps_sequence": "Steps sequence",
 	"YAML_preview": "YAML preview",
+	"Scroll_follow": "Scroll-Folge",
 	"Wallet_action": "Wallet action",
 	"Credential_deeplink": "Nachweis deeplink",
 	"Redo": "Redo",
@@ -1030,5 +1033,15 @@
 	"Failed_to_enable_pipeline_notifications": "Pipeline-Benachrichtigungen konnten nicht aktiviert werden",
 	"Failed_to_disable_pipeline_notifications": "Pipeline-Benachrichtigungen konnten nicht deaktiviert werden",
 	"Notifications_blocked_hint": "Benachrichtigungen sind für diese Website blockiert. Aktiviere sie in den Website-Einstellungen des Browsers erneut.",
-	"Push_notifications_unsupported": "Dieser Browser unterstützt keine Push-Benachrichtigungen."
+	"Push_notifications_unsupported": "Dieser Browser unterstützt keine Push-Benachrichtigungen.",
+	"Protocol": "Protokoll",
+	"SUT": "SUT",
+	"Role": "Rolle",
+	"Component": "Komponente",
+	"Provider": "Anbieter",
+	"Clear_filters": "Filter zurücksetzen",
+	"View_live": "View live",
+	"Live_view": "Live view",
+	"Live_view_open_failed": "Could not open the live view",
+	"Device": "Gerät"
 }

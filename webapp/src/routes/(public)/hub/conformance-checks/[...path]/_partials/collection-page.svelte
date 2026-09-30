@@ -34,11 +34,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{standard.name} • {version.name}
 		</T>
 		<T tag="h3">{suite.name}</T>
+		{#if suite.subtitle}
+			<p class="text-muted-foreground text-sm">{suite.subtitle}</p>
+		{/if}
 	{/snippet}
 
 	{#snippet content()}
 		<PageSection indexItem={s.description}>
-			<p>{standard.description}</p>
 			<p>{suite.description}</p>
 		</PageSection>
 
@@ -47,8 +49,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<FcafTests />
 			{:else}
 				<div class="space-y-2">
-					{#each suite.paths as path (path)}
-						<CheckCard {standard} {version} {suite} test={path} />
+					{#each suite.members as member (member.path)}
+						<CheckCard {standard} {version} {suite} test={member.path} />
 					{/each}
 				</div>
 			{/if}

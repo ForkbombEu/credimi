@@ -264,6 +264,15 @@ func enqueuePipelineRun(
 	); apiErr != nil {
 		return PipelineQueueResponse{}, apiErr
 	}
+	// Authorization first, then availability: parking a ticket on a semaphore
+	// whose runner is not answering only surfaces as a stuck queue entry later.
+	if apiErr := requireMobileDeviceRunnersOnline(
+		e.Request.Context(),
+		e.App,
+		deviceIDs,
+	); apiErr != nil {
+		return PipelineQueueResponse{}, apiErr
+	}
 
 	leaderDeviceID := deviceIDs[0]
 	if runContext.notification != nil && runContext.notification.GitHubPR != nil {

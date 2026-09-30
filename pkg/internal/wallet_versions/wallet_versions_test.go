@@ -33,6 +33,21 @@ func getTestOrgID() (string, error) {
 	return record.Id, nil
 }
 
+func getUserToken(email string) (string, error) {
+	app, err := tests.NewTestApp(testDataDir)
+	if err != nil {
+		return "", err
+	}
+	defer app.Cleanup()
+
+	record, err := app.FindAuthRecordByEmail("users", email)
+	if err != nil {
+		return "", err
+	}
+
+	return record.NewAuthToken()
+}
+
 func setupWalletVersionsApp(orgID string) func(t testing.TB) *tests.TestApp {
 	return func(t testing.TB) *tests.TestApp {
 		app, err := tests.NewTestApp(testDataDir)
@@ -41,6 +56,11 @@ func setupWalletVersionsApp(orgID string) func(t testing.TB) *tests.TestApp {
 
 		testFileContent := []byte("fake apk content for testing")
 		testFile, err := filesystem.NewFileFromBytes(testFileContent, "test_app.apk")
+		require.NoError(t, err)
+		iosFile, err := filesystem.NewFileFromBytes(
+			[]byte("fake ipa content for testing"),
+			"test_app.ipa",
+		)
 		require.NoError(t, err)
 		walletsColl, _ := app.FindCollectionByNameOrId("wallets")
 		walletRecord := core.NewRecord(walletsColl)
@@ -55,6 +75,7 @@ func setupWalletVersionsApp(orgID string) func(t testing.TB) *tests.TestApp {
 		record.Set("tag", "mytag")
 		record.Set("wallet", walletRecord.Id)
 		record.Set("android_installer", []*filesystem.File{testFile})
+		record.Set("ios_installer", []*filesystem.File{iosFile})
 		require.NoError(t, app.Save(record))
 
 		return app
@@ -63,6 +84,10 @@ func setupWalletVersionsApp(orgID string) func(t testing.TB) *tests.TestApp {
 
 func TestWalletVersions(t *testing.T) {
 	orgID, err := getTestOrgID()
+	require.NoError(t, err)
+	ownerMemberToken, err := getUserToken("userA@example.org")
+	require.NoError(t, err)
+	otherOrgToken, err := getUserToken("userB@example.org")
 	require.NoError(t, err)
 
 	scenarios := []tests.ApiScenario{
@@ -78,6 +103,7 @@ func TestWalletVersions(t *testing.T) {
 			},
 			NotExpectedContent: []string{
 				`"android_installer"`,
+				`"ios_installer"`,
 			},
 			TestAppFactory: setupWalletVersionsApp(orgID),
 		},
@@ -91,6 +117,7 @@ func TestWalletVersions(t *testing.T) {
 			ExpectedContent: []string{
 				`"id":"record123456789"`,
 				`"android_installer"`,
+				`"ios_installer"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletVersionsApp(orgID)(t)
@@ -103,6 +130,34 @@ func TestWalletVersions(t *testing.T) {
 
 				return app
 			},
+		},
+		{
+			Name:           "owner organization member sees non-downloadable installer",
+			Method:         http.MethodGet,
+			URL:            "/api/collections/wallet_versions/records/record123456789",
+			Headers:        map[string]string{"Authorization": ownerMemberToken},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"id":"record123456789"`,
+				`"android_installer":"test_app_`,
+				`"ios_installer":"test_app_`,
+			},
+			TestAppFactory: setupWalletVersionsApp(orgID),
+		},
+		{
+			Name:           "other organization member does not see non-downloadable installer",
+			Method:         http.MethodGet,
+			URL:            "/api/collections/wallet_versions/records/record123456789",
+			Headers:        map[string]string{"Authorization": otherOrgToken},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"id":"record123456789"`,
+			},
+			NotExpectedContent: []string{
+				`"android_installer"`,
+				`"ios_installer"`,
+			},
+			TestAppFactory: setupWalletVersionsApp(orgID),
 		},
 	}
 

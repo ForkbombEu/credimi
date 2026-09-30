@@ -36,10 +36,6 @@ export class HttpRequestStepForm extends BaseForm<HttpRequestFormData, HttpReque
 	getSubmitData() {
 		return this.isValid ? this.data : undefined;
 	}
-
-	submit() {
-		this.commit();
-	}
 }
 
 //

@@ -121,6 +121,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const secondaryInlineMinWidthPx = 48 * 16;
 
 	let isCompactHeader = $state(true);
+	let secondaryMenuOpen = $state(false);
 
 	const observeHeaderCompact: Attachment = (el) => {
 		const update = () => {
@@ -173,7 +174,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				{#if hasSecondaryControls}
 					{#if isCompactHeader}
-						<DropdownMenu.Root>
+						<DropdownMenu.Root bind:open={secondaryMenuOpen}>
 							<DropdownMenu.Trigger
 								class={buttonVariants({ variant: 'outline', size: 'icon' })}
 							>
@@ -183,6 +184,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<DropdownMenu.Content
 								align="end"
 								class="flex max-w-xs flex-wrap items-center gap-2 p-2"
+								onclick={() => {
+									secondaryMenuOpen = false;
+								}}
 							>
 								{@render secondaryControls()}
 							</DropdownMenu.Content>

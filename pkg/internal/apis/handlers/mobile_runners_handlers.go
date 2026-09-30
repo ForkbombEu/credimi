@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -354,11 +355,14 @@ func HandleListMobileDevices() func(*core.RequestEvent) error {
 
 		response := ListMobileDevicesPublicResponseSchema{Devices: make([]MobileDeviceListItem, 0)}
 		enabled := enabledMobileRunnerRecords(runners)
-		healths := probeMobileRunnerHealths(e.Request.Context(), enabled)
-		for i, runner := range enabled {
-			// A failed or misconfigured probe means offline, never a 500 that
-			// blanks the whole selector.
-			runnerOnline := healths[i].err == nil && healths[i].online
+		now := time.Now()
+		for _, runner := range enabled {
+			// The selector reports recent heartbeats, not a live probe. A probe
+			// answers for the instant the page renders, which is already stale
+			// when the operator clicks, and it costs one timeout per runner on
+			// every load. The run path decides availability for real.
+			runnerOnline := mobilerunner.RecentlyAlive(runner, now) &&
+				mobilerunner.URLUsable(mobileRunnerURL(runner))
 			devices, err := e.App.FindRecordsByFilter(
 				"mobile_devices",
 				"runner = {:runner}",
@@ -575,7 +579,7 @@ func checkMobileRunnerHealthHTTP(
 		return false, nil, errMalformedMobileRunnerURL
 	}
 
-	healthCtx, cancel := context.WithTimeout(ctx, walletAPKRunnerHealthTimeout)
+	healthCtx, cancel := context.WithTimeout(ctx, runnerHealthTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(healthCtx, http.MethodGet, healthURL, nil)
@@ -583,7 +587,7 @@ func checkMobileRunnerHealthHTTP(
 		return false, nil, errMalformedMobileRunnerURL
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := mobilerunner.HTTPClient(runnerURL).Do(req)
 	if err != nil {
 		return false, nil, nil
 	}

@@ -7,10 +7,12 @@ package activities
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
@@ -53,13 +55,30 @@ func (a *InternalHTTPActivity) Execute(
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
-	return executeInternalHTTPRequest(ctx, payload, &a.BaseActivity)
+	// A runner-directed call routed through this activity would resolve the
+	// destination with the host resolver and fail whenever a quick-tunnel
+	// hostname is still propagating. Rejecting it here turns a silent
+	// mid-pipeline failure into a named error at the first call.
+	if mobilerunner.IsQuickTunnelURL(payload.URL) {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "mobile runner URLs must use the mobile runner HTTP activity",
+				Details: map[string]any{"url": payload.URL},
+			},
+		)
+	}
+
+	return executeInternalHTTPRequest(ctx, payload, &a.BaseActivity, nil)
 }
 
 func executeInternalHTTPRequest(
 	ctx context.Context,
 	payload InternalHTTPActivityPayload,
 	act *workflowengine.BaseActivity,
+	transport http.RoundTripper,
 ) (workflowengine.ActivityResult, error) {
 	authLevel := payload.AuthLevel
 	if authLevel == "" {
@@ -103,5 +122,6 @@ func executeInternalHTTPRequest(
 		httpPayload,
 		map[string]string{"Credimi-Api-Key": apiKey},
 		act,
+		transport,
 	)
 }

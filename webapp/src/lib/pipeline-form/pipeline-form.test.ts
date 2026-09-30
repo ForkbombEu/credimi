@@ -59,6 +59,8 @@ const record = {
 	manual: true
 } as never;
 
+const ORGANIZATION_ID = 'org1';
+
 describe('PipelineForm locked manual init', () => {
 	afterEach(() => {
 		vi.clearAllMocks();
@@ -67,6 +69,7 @@ describe('PipelineForm locked manual init', () => {
 	it('auto-enters locked manual mode when pipeline.manual is true', () => {
 		const form = new PipelineForm({
 			mode: 'edit',
+			organizationId: ORGANIZATION_ID,
 			pipeline: { record, steps: [], runtime: undefined }
 		});
 
@@ -82,6 +85,7 @@ describe('PipelineForm locked manual init', () => {
 	it('auto-enters locked manual mode when startLockedManual is true', () => {
 		const form = new PipelineForm({
 			mode: 'edit',
+			organizationId: ORGANIZATION_ID,
 			pipeline: {
 				record: {
 					id: 'rec1',
@@ -111,9 +115,10 @@ const METADATA = {
 };
 
 function createFormWithMetadata(
-	props: ConstructorParameters<typeof PipelineForm>[0]
+	props: Omit<ConstructorParameters<typeof PipelineForm>[0], 'organizationId'>
 ): PipelineForm {
 	return new PipelineForm({
+		organizationId: ORGANIZATION_ID,
 		pipeline: { record: METADATA as never, steps: [], runtime: undefined },
 		...props
 	});
@@ -164,6 +169,7 @@ describe('PipelineForm manual save warning', () => {
 
 		expect(confirm).toHaveBeenCalledOnce();
 		expect(create).toHaveBeenCalledOnce();
+		expect(create).toHaveBeenCalledWith(expect.objectContaining({ owner: ORGANIZATION_ID }));
 		expect(goto).toHaveBeenCalledWith('/my/pipelines');
 		if (form.stepsBuilder.mode.id === 'manual') form.stepsBuilder.mode.editor.dispose();
 	});
@@ -173,6 +179,7 @@ describe('PipelineForm manual save warning', () => {
 
 		const form = new PipelineForm({
 			mode: 'edit',
+			organizationId: ORGANIZATION_ID,
 			pipeline: {
 				record: {
 					id: 'rec1',
@@ -199,6 +206,7 @@ describe('PipelineForm manual save warning', () => {
 
 		const form = new PipelineForm({
 			mode: 'edit',
+			organizationId: ORGANIZATION_ID,
 			pipeline: { record, steps: [], runtime: undefined }
 		});
 		if (form.stepsBuilder.mode.id !== 'manual') throw new Error('expected manual mode');

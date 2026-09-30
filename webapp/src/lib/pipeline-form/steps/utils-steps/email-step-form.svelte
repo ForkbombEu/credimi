@@ -9,8 +9,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { WithLabel } from '$pipeline-form/steps/_partials/index.js';
 
-	import T from '@/components/ui-custom/t.svelte';
-	import { Button } from '@/components/ui/button';
 	import { Input } from '@/components/ui/input';
 	import { Textarea } from '@/components/ui/textarea';
 	import { m } from '@/i18n';
@@ -43,10 +41,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</WithLabel>
 
 	<PlaceholderButtons />
-
-	{#if form.intent === 'add'}
-		<Button class="w-full" disabled={!form.isValid} onclick={() => form.submit()}>
-			<T>{m.Add_step()}</T>
-		</Button>
-	{/if}
 </div>

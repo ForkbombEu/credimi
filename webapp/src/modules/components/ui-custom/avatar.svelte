@@ -64,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 		{#if fallback && (!src || imageFailed)}
 			<span
-				class="flex size-full items-center justify-center rounded-none text-[80%] font-semibold uppercase"
+				class="flex size-full items-center justify-center rounded-none bg-background text-[80%] font-semibold uppercase"
 			>
 				{fallbackLength ? fallback.slice(0, fallbackLength) : fallback}
 			</span>

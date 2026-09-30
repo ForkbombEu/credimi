@@ -2,9 +2,40 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { FCAF } from '$lib';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('./fcaf-validation-step-form.svelte', () => ({ default: class {} }));
+vi.mock('$lib/query-client', () => ({
+	queryClient: {}
+}));
+
+const mockedTests = [
+	{
+		id: 'WS_RP_IA_Engagement__001',
+		title: 'Engagement'
+	},
+	{
+		id: 'WS_RP_SM_DeviceBinding__007',
+		title: 'Device binding'
+	}
+];
+
+vi.mock('@tanstack/svelte-query', () => ({
+	createQuery: (_options: unknown, queryClient?: () => unknown) => {
+		if (typeof queryClient !== 'function') {
+			throw new Error(
+				'FCAFValidationStepForm must pass an explicit QueryClient (form is built outside component init)'
+			);
+		}
+		return {
+			isPending: false,
+			error: null,
+			data: mockedTests
+		};
+	}
+}));
+
 import { createInitFormOptions } from '$pipeline-form/steps/init-form-options.test-utils.js';
-import { describe, expect, it } from 'vitest';
 
 import { fcafValidationStepConfig } from '.';
 import { getConfigByType, getDisplayData } from '..';
@@ -76,6 +107,8 @@ describe('FCAF validation test selection', () => {
 	it('selects all available test ids and clears them', () => {
 		const form = new FCAFValidationStepForm(createInitFormOptions({ intent: 'add' }));
 
+		expect(form.availableTests).toHaveLength(2);
+
 		form.selectAllTestIds();
 		expect(form.selectedTestIds).toHaveLength(form.availableTests.length);
 
@@ -83,14 +116,17 @@ describe('FCAF validation test selection', () => {
 		expect(form.selectedTestIds).toEqual([]);
 	});
 
-	it('filters pipeline_outputs to only the selected test sources', () => {
+	it('applies full pipeline_outputs defaults when any tests are selected', () => {
 		const form = new FCAFValidationStepForm(createInitFormOptions({ intent: 'add' }));
-		const test = FCAF.TESTS[0];
 
-		form.setTestIds([test.id]);
+		form.setTestIds(['WS_RP_IA_Engagement__001']);
 
 		const config = parseFCAFValidationConfiguration(form.data.yaml) as Record<string, unknown>;
 		const outputs = config.pipeline_outputs as Record<string, unknown>;
-		expect(Object.keys(outputs).sort()).toEqual([...test.sources].sort());
+		expect(Object.keys(outputs).length).toBeGreaterThan(0);
+
+		form.clearTestIds();
+		const cleared = parseFCAFValidationConfiguration(form.data.yaml) as Record<string, unknown>;
+		expect(cleared.pipeline_outputs).toEqual({});
 	});
 });

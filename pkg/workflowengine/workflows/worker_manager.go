@@ -100,6 +100,10 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	appURL = workflowengine.InternalAppURLFromConfig(input.Config)
 
 	internalHTTPActivity := activities.NewInternalHTTPActivity()
+	// Runner-directed calls get their own activity: the destination can be a
+	// quick tunnel, whose hostname only resolves through Cloudflare DNS while
+	// it is propagating.
+	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity()
 	runnerURLs := normalizeWorkerManagerRunnerURLs(payload.RunnerURLs)
 	if payload.RunnerURLs == nil {
 		listReq := workflowengine.ActivityInput{
@@ -170,8 +174,8 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 			RunnerURL: runnerURL,
 		}
 
-		err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), workflowengine.ActivityInput{
-			Payload: activities.InternalHTTPActivityPayload{
+		err = workflow.ExecuteActivity(ctx, runnerHTTPActivity.Name(), workflowengine.ActivityInput{
+			Payload: activities.MobileRunnerHTTPActivityPayload{
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					runnerURL,

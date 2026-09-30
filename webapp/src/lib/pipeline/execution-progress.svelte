@@ -44,10 +44,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 </script>
 
-<div class="mt-1 w-32 min-w-24">
+<div class="flex items-center gap-1.5">
 	{#if progress && percent !== null && eta !== null}
 		<div
-			class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200"
+			class="h-1.5 w-32 min-w-24 shrink-0 overflow-hidden rounded-full bg-slate-200"
 			role="progressbar"
 			aria-valuenow={Math.round(percent)}
 			aria-valuemin={0}
@@ -58,14 +58,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				style="width: {percent}%"
 			></div>
 		</div>
-		<p class="mt-0.5 text-[10px] whitespace-nowrap text-muted-foreground">
+		<p class="text-[10px] whitespace-nowrap text-muted-foreground">
 			<span class="font-mono">{Math.round(percent)}%</span>
 			·
 			{m.eta_remaining({ time: formatDurationParts(eta) })}
 		</p>
 	{:else}
 		<div
-			class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200"
+			class="h-1.5 w-32 min-w-24 overflow-hidden rounded-full bg-slate-200"
 			role="progressbar"
 			aria-label={m.Running()}
 		>

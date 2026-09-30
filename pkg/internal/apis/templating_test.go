@@ -37,17 +37,16 @@ func TestAddTemplatingRoutes(t *testing.T) {
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:   "Get configs templates",
+			Name:   "Blueprints route removed",
 			Method: http.MethodGet,
 			URL:    "/api/template/blueprints",
 			Headers: map[string]string{
 				"Authorization": "Bearer " + authToken,
 			},
-			Delay:           0,
-			ExpectedContent: []string{"suites"},
-			Timeout:         5 * time.Second,
-			ExpectedStatus:  http.StatusOK,
-			TestAppFactory:  setupTestApp,
+			Delay:          0,
+			Timeout:        5 * time.Second,
+			ExpectedStatus: http.StatusNotFound,
+			TestAppFactory: setupTestApp,
 		},
 	}
 

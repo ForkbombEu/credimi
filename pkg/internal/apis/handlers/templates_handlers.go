@@ -5,8 +5,6 @@
 package handlers
 
 import (
-	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -20,18 +18,11 @@ import (
 	engine "github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
-	"gopkg.in/yaml.v3"
 )
 
 var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL: "/api/template",
 	Routes: []routing.RouteDefinition{
-		{
-			Method:              http.MethodGet,
-			Path:                "/blueprints",
-			Handler:             HandleGetConfigsTemplates,
-			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
-		},
 		{
 			Method:        http.MethodPost,
 			Path:          "/placeholders",
@@ -44,40 +35,6 @@ var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 	AuthenticationRequired: true,
 }
-
-func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		surface := e.Request.URL.Query().Get("surface")
-		if surface != "" && surface != TemplateSurfaceManual && surface != TemplateSurfacePipeline {
-			return apierror.New(
-				http.StatusBadRequest,
-				"surface",
-				"invalid value for surface",
-				fmt.Sprintf(
-					"surface must be %q or %q",
-					TemplateSurfaceManual,
-					TemplateSurfacePipeline,
-				),
-			)
-		}
-
-		templatesDir := path.Join(os.Getenv("ROOT_DIR"), "config_templates")
-		configs, err := walkConfigTemplates(templatesDir, surface)
-		if err != nil {
-			appErr := &apierror.APIError{}
-			if errors.As(err, &appErr) {
-				return appErr
-			}
-			return err
-		}
-		return e.JSON(http.StatusOK, configs)
-	}
-}
-
-const (
-	TemplateSurfaceManual   = "manual"
-	TemplateSurfacePipeline = "pipeline"
-)
 
 type GetPlaceholdersByFilenamesRequestInput struct {
 	TestID    string   `json:"test_id"`
@@ -132,236 +89,4 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, placeholders)
 	}
-}
-
-type StandardMetadata struct {
-	UID           string              `json:"uid"            yaml:"uid"`
-	Name          string              `json:"name"           yaml:"name"`
-	Description   string              `json:"description"    yaml:"description"`
-	StandardURL   string              `json:"standard_url"   yaml:"standard_url"`
-	LatestUpdate  string              `json:"latest_update"  yaml:"latest_update"`
-	ExternalLinks map[string][]string `json:"external_links" yaml:"external_links"`
-	Disabled      bool                `json:"disabled"       yaml:"disabled"`
-}
-
-type VersionMetadata struct {
-	UID              string `json:"uid"               yaml:"uid"`
-	Name             string `json:"name"              yaml:"name"`
-	LatestUpdate     string `json:"latest_update"     yaml:"latest_update"`
-	SpecificationURL string `json:"specification_url" yaml:"specification_url"`
-}
-
-type SuiteMetadata struct {
-	UID         string   `json:"uid"                  yaml:"uid"`
-	Name        string   `json:"name"                 yaml:"name"`
-	Homepage    string   `json:"homepage"             yaml:"homepage"`
-	Repository  string   `json:"repository"           yaml:"repository"`
-	Help        string   `json:"help"                 yaml:"help"`
-	Description string   `json:"description"          yaml:"description"`
-	VisibleIn   []string `json:"visible_in,omitempty" yaml:"visible_in,omitempty"`
-	Logo        string   `json:"logo"                 yaml:"logo"`
-}
-
-type Suite struct {
-	SuiteMetadata
-	Files []string `json:"files" yaml:"files"`
-	Paths []string `json:"paths" yaml:"paths"`
-}
-
-type Version struct {
-	VersionMetadata
-	Suites []Suite `json:"suites" yaml:"suites"`
-}
-
-type Standard struct {
-	StandardMetadata
-	Versions []Version `json:"versions" yaml:"versions"`
-}
-
-type Standards []Standard
-
-// nonStandardTemplateDirs are config_templates entries that are not
-// conformance-check standards and must not appear in the template
-// blueprints listing.
-var nonStandardTemplateDirs = map[string]struct{}{
-	"fcaf_sources": {},
-}
-
-func walkConfigTemplates(dir string, surface string) (Standards, error) {
-	var standards = make(Standards, 0)
-	filter := surface != ""
-
-	readDir := func(path string) ([]os.DirEntry, error) {
-		entries, err := os.ReadDir(path)
-		if err != nil {
-			return nil, apierror.New(
-				http.StatusInternalServerError,
-				"filesystem.readDir",
-				"Failed to read directory: "+path,
-				err.Error(),
-			)
-		}
-		return entries, nil
-	}
-
-	readYaml := func(path string, out interface{}) error {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-			return apierror.New(
-				http.StatusInternalServerError,
-				"filesystem.readFile",
-				"Failed to read file: "+path,
-				err.Error(),
-			)
-		}
-		if err := yaml.Unmarshal(data, out); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"yaml.unmarshal",
-				"Failed to unmarshal yaml: "+path,
-				err.Error(),
-			)
-		}
-		return nil
-	}
-
-	standardEntries, err := readDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, entry := range standardEntries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		if _, skip := nonStandardTemplateDirs[entry.Name()]; skip {
-			continue
-		}
-
-		standardUID := entry.Name()
-		standardPath := filepath.Join(dir, standardUID)
-
-		standardMeta := StandardMetadata{UID: standardUID}
-		if err := readYaml(
-			filepath.Join(standardPath, "standard.yaml"),
-			&standardMeta,
-		); err != nil {
-			return nil, err
-		}
-
-		versionEntries, err := readDir(standardPath)
-		if err != nil {
-			return nil, err
-		}
-
-		var versions []Version
-
-		for _, vEntry := range versionEntries {
-			if !vEntry.IsDir() {
-				continue
-			}
-			versionUID := vEntry.Name()
-			versionPath := filepath.Join(standardPath, versionUID)
-
-			versionYamlPath := filepath.Join(versionPath, "version.yaml")
-			if _, err := os.Stat(versionYamlPath); err != nil {
-				continue
-			}
-
-			versionMeta := VersionMetadata{UID: versionUID}
-			if err := readYaml(versionYamlPath, &versionMeta); err != nil {
-				return nil, err
-			}
-
-			suiteEntries, err := readDir(versionPath)
-			if err != nil {
-				return nil, err
-			}
-
-			var suites []Suite
-			for _, sEntry := range suiteEntries {
-				if !sEntry.IsDir() {
-					continue
-				}
-				suiteUID := sEntry.Name()
-				suitePath := filepath.Join(versionPath, suiteUID)
-
-				metadataYamlPath := filepath.Join(suitePath, "metadata.yaml")
-				if _, err := os.Stat(metadataYamlPath); err != nil {
-					continue
-				}
-
-				suiteMeta := SuiteMetadata{UID: suiteUID}
-				if err := readYaml(metadataYamlPath, &suiteMeta); err != nil {
-					return nil, err
-				}
-
-				if filter && !suiteVisibleIn(suiteMeta, surface) {
-					continue
-				}
-
-				fileEntries, err := readDir(suitePath)
-				if err != nil {
-					return nil, err
-				}
-
-				files := []string{}
-				paths := []string{}
-				for _, f := range fileEntries {
-					if !f.IsDir() && f.Name() != "metadata.yaml" {
-						files = append(files, f.Name())
-						paths = append(paths, fmt.Sprintf(
-							"%s/%s/%s/%s",
-							standardMeta.UID,
-							versionMeta.UID,
-							suiteMeta.UID,
-							strings.TrimSuffix(f.Name(), filepath.Ext(f.Name())),
-						))
-					}
-				}
-
-				suites = append(suites, Suite{
-					SuiteMetadata: suiteMeta,
-					Files:         files,
-					Paths:         paths,
-				})
-			}
-
-			if filter && len(suites) == 0 {
-				continue
-			}
-
-			versions = append(versions, Version{
-				VersionMetadata: versionMeta,
-				Suites:          suites,
-			})
-		}
-		if filter && len(versions) == 0 {
-			continue
-		}
-
-		standards = append(standards, Standard{
-			StandardMetadata: standardMeta,
-			Versions:         versions,
-		})
-	}
-
-	return standards, nil
-}
-
-func suiteVisibleIn(suiteMeta SuiteMetadata, surface string) bool {
-	if len(suiteMeta.VisibleIn) == 0 {
-		return surface == TemplateSurfaceManual || surface == TemplateSurfacePipeline
-	}
-
-	for _, visibleSurface := range suiteMeta.VisibleIn {
-		if visibleSurface == surface {
-			return true
-		}
-	}
-	return false
 }

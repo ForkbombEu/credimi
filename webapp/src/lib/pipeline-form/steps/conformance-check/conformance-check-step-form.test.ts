@@ -127,7 +127,7 @@ describe('ConformanceCheckStepForm discard cascade', () => {
 				initial: {
 					standard: { uid: 's', name: 'S', versions: [] } as never,
 					version: { uid: 'v', name: 'V', suites: [] } as never,
-					suite: { uid: 'su', name: 'Su', paths: [] } as never,
+					suite: { uid: 'su', name: 'Su', members: [] } as never,
 					test: 'openid4vci_wallet/foo',
 					action_id: 'owners/w/actions/a1'
 				}
@@ -151,7 +151,7 @@ describe('ConformanceCheckStepForm edit intent', () => {
 				initial: {
 					standard: { uid: 's', name: 'S', versions: [] } as never,
 					version: { uid: 'v', name: 'V', suites: [] } as never,
-					suite: { uid: 'su', name: 'Su', paths: [] } as never,
+					suite: { uid: 'su', name: 'Su', members: [] } as never,
 					test: 'openid4vci_wallet/foo',
 					action_id: 'old/action/path'
 				}

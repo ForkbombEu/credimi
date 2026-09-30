@@ -4,9 +4,10 @@
 
 import type { PipelineStepByType, PipelineStepData } from '$lib/pipeline/types';
 
+import { createQuery } from '@tanstack/svelte-query';
 import { FCAF } from '$lib';
+import { queryClient } from '$lib/query-client';
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types';
-import { SvelteSet } from 'svelte/reactivity';
 import { parse, stringify } from 'yaml';
 
 import Component from './fcaf-validation-step-form.svelte';
@@ -19,6 +20,9 @@ export type FCAFValidationFormData = {
 	yaml: string;
 };
 
+/** Explicit client: this form is constructed inside `$effect.root()`, not component init. */
+const queryClientAccessor = () => queryClient;
+
 function defaultFCAFValidationYaml(): string {
 	return stringify({
 		suite: FCAF.SUITE,
@@ -28,19 +32,9 @@ function defaultFCAFValidationYaml(): string {
 }
 
 function filterPipelineOutputsFor(testIds: string[]): Record<string, unknown> {
-	const selected = new SvelteSet(testIds);
-	const needed = new SvelteSet<string>();
-	for (const test of FCAF.TESTS) {
-		if (!selected.has(test.id)) continue;
-		for (const source of test.sources) needed.add(source);
-	}
-
-	const outputs = FCAF.PIPELINE_OUTPUTS as Record<string, unknown>;
-	const filtered: Record<string, unknown> = {};
-	for (const source of needed) {
-		if (source in outputs) filtered[source] = outputs[source];
-	}
-	return filtered;
+	if (testIds.length === 0) return {};
+	// Full defaults map from aggregate pipeline — validators ignore unused keys.
+	return { ...(FCAF.PIPELINE_OUTPUTS as Record<string, unknown>) };
 }
 
 export class FCAFValidationStepForm extends BaseForm<
@@ -49,7 +43,17 @@ export class FCAFValidationStepForm extends BaseForm<
 > {
 	readonly Component = Component;
 
-	readonly availableTests: FCAF.TestCatalogEntry[] = FCAF.TESTS;
+	fcafTests = createQuery(
+		() => ({
+			queryKey: ['conformance-checks', 'fcaf'] as const,
+			queryFn: async () => {
+				const result = await FCAF.getFcafTests({ surface: 'pipeline' });
+				if (result instanceof Error) throw result;
+				return result;
+			}
+		}),
+		queryClientAccessor
+	);
 
 	data = $state<FCAFValidationFormData>({
 		yaml: defaultFCAFValidationYaml()
@@ -60,6 +64,10 @@ export class FCAFValidationStepForm extends BaseForm<
 		if (opts?.initial) {
 			this.data = { ...opts.initial };
 		}
+	}
+
+	get availableTests(): FCAF.TestCatalogEntry[] {
+		return this.fcafTests.data ?? [];
 	}
 
 	get selectedTestIds(): string[] {

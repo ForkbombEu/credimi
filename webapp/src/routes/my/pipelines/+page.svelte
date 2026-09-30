@@ -16,14 +16,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { IDS } from '../_partials/sidebar-data.svelte.js';
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import PipelineCard from './_partials/pipeline-card.svelte';
-	import PipelineListExecutionsSection from './_partials/pipeline-list-executions-section.svelte';
-	import { PipelineListExecutions } from './_partials/pipeline-list-executions.svelte.js';
 
 	//
 
 	setDashboardNavbar({ title: 'Pipelines', right: navbarRight });
-
-	const executions = new PipelineListExecutions();
 </script>
 
 <!-- Your Pipelines Section -->
@@ -48,23 +44,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet records({ records })}
-			<PipelineListExecutionsSection
-				store={executions}
-				section="owned"
-				ids={records.map((pipeline) => pipeline.id)}
-			/>
 			<div class="space-y-4">
 				{#each records as pipeline, index (pipeline.id)}
-					{@const entry = executions.getEntry(pipeline.id)}
 					{#if userOrganization.current}
-						<PipelineCard
-							bind:pipeline={records[index]}
-							workflows={entry?.workflows}
-							workflowsLoading={Boolean(entry?.loading && !entry?.hydrated)}
-							workflowsError={entry?.error}
-							onRetryWorkflows={() => executions.retry(pipeline.id)}
-							onRun={() => executions.refreshAll()}
-						/>
+						<PipelineCard bind:pipeline={records[index]} />
 					{/if}
 				{/each}
 			</div>
@@ -100,24 +83,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet records({ records })}
-			<PipelineListExecutionsSection
-				store={executions}
-				section="public"
-				ids={records.map((pipeline) => pipeline.id)}
-			/>
 			<div class="space-y-4">
 				{#each records as pipeline, index (pipeline.id)}
 					{@const ownerOrg = pipeline.expand?.owner}
-					{@const entry = executions.getEntry(pipeline.id)}
 					{#if ownerOrg}
-						<PipelineCard
-							bind:pipeline={records[index]}
-							workflows={entry?.workflows}
-							workflowsLoading={Boolean(entry?.loading && !entry?.hydrated)}
-							workflowsError={entry?.error}
-							onRetryWorkflows={() => executions.retry(pipeline.id)}
-							onRun={() => executions.refreshAll()}
-						/>
+						<PipelineCard bind:pipeline={records[index]} />
 					{/if}
 				{/each}
 			</div>

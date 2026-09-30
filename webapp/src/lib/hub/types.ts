@@ -35,6 +35,8 @@ export interface HubItem extends HubItemsResponse {
 	avatar_url: string | null;
 	organization_id: string;
 	children: { id: string; name: string; canonified_name: string }[] | null;
+	children_count: number;
+	children_search: string;
 	canonified_name: string;
 	organization_name: string;
 	organization_canonified_name: string;

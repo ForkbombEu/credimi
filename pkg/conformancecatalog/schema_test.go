@@ -1,0 +1,94 @@
+// SPDX-FileCopyrightText: 2026 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package conformancecatalog
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestSchemaColumnListsDriveSelectAndDDL(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, columnNames(checkColumns), catalogSelectColumns)
+	require.Equal(t, columnNames(suiteColumns), suiteSelectColumns)
+
+	checkDDL := createTableSQL(ChecksCollectionName, checkColumns)
+	require.Contains(t, checkDDL, "CREATE TABLE conformance_checks")
+	require.Contains(t, checkDDL, "path TEXT NOT NULL")
+	require.NotContains(t, checkDDL, "suite_name")
+
+	suiteDDL := createTableSQL(SuitesCollectionName, suiteColumns)
+	require.Contains(t, suiteDDL, "CREATE TABLE conformance_suites")
+	require.Contains(t, suiteDDL, "suite_name TEXT NOT NULL DEFAULT ''")
+	require.Contains(t, suiteDDL, "suite_subtitle TEXT NOT NULL DEFAULT ''")
+	require.Contains(t, suiteDDL, "provider_label TEXT NOT NULL DEFAULT ''")
+	require.Contains(t, suiteDDL, "path_prefix TEXT NOT NULL")
+
+	checkInsert := insertSQL(ChecksCollectionName, checkColumns)
+	require.Contains(t, checkInsert, "INSERT INTO conformance_checks")
+	require.Contains(t, checkInsert, "{:version}")
+	require.Contains(t, checkInsert, "{:fs_standard}")
+	require.Contains(t, checkInsert, "{:updated}")
+
+	suiteInsert := insertSQL(SuitesCollectionName, suiteColumns)
+	require.Contains(t, suiteInsert, "{:members}")
+	require.Contains(t, suiteInsert, "{:fs_standard}")
+}
+
+func TestClientColumnNamesOmitTimestamps(t *testing.T) {
+	t.Parallel()
+	checks := CheckClientColumnNames()
+	suites := SuiteClientColumnNames()
+	require.NotContains(t, checks, "created")
+	require.NotContains(t, checks, "updated")
+	require.NotContains(t, suites, "created")
+	require.NotContains(t, suites, "updated")
+	require.Contains(t, checks, "path")
+	require.Contains(t, suites, "path_prefix")
+}
+
+func TestGrainColumnsHaveKinds(t *testing.T) {
+	t.Parallel()
+	for _, c := range CheckGrainColumns() {
+		require.NotEmpty(t, c.Kind, c.Name)
+	}
+	for _, c := range SuiteGrainColumns() {
+		require.NotEmpty(t, c.Kind, c.Name)
+	}
+}
+
+func TestClientColumnsHaveKinds(t *testing.T) {
+	t.Parallel()
+	for _, c := range CheckClientColumns() {
+		require.NotEmpty(t, c.Kind, c.Name)
+		if c.Optional && c.Default == "" {
+			t.Fatalf("%s: optional client column needs Default literal", c.Name)
+		}
+	}
+	for _, c := range SuiteClientColumns() {
+		require.NotEmpty(t, c.Kind, c.Name)
+		if c.Optional && c.Default == "" {
+			t.Fatalf("%s: optional client column needs Default literal", c.Name)
+		}
+	}
+	rank := findClientColumn(SuiteClientColumns(), "component_rank")
+	require.Equal(t, ColumnKindNonNegInt, rank.Kind)
+	require.True(t, rank.Optional)
+	require.Equal(t, "9", rank.Default)
+	count := findClientColumn(SuiteClientColumns(), "check_count")
+	require.Equal(t, ColumnKindNonNegInt, count.Kind)
+	require.False(t, count.Optional)
+}
+
+func findClientColumn(cols []ClientColumn, name string) ClientColumn {
+	for _, c := range cols {
+		if c.Name == name {
+			return c
+		}
+	}
+	return ClientColumn{}
+}

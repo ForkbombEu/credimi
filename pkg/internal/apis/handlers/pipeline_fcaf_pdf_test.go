@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -23,8 +24,20 @@ import (
 func TestUpdatePipelineExecutionFCAFReportStoresJSONAndPDF(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
+	ensureStepScreenshotField(t, app)
 
 	record := createFCAFReportPipelineResult(t, app, "workflow-fcaf", "run-fcaf")
+	imageData, err := base64.StdEncoding.DecodeString(
+		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+	)
+	require.NoError(t, err)
+	imageFile, err := filesystem.NewFileFromBytes(imageData, "report-presentation.png")
+	require.NoError(t, err)
+	record.Set("maestro_screenshots", []*filesystem.File{imageFile})
+	require.NoError(t, app.Save(record))
+	screenshotFilenames := record.GetStringSlice("maestro_screenshots")
+	require.Len(t, screenshotFilenames, 1)
+
 	report := engine.Report{
 		Suite:  "wallet_solution/relying_party",
 		Status: "passed",
@@ -42,6 +55,7 @@ func TestUpdatePipelineExecutionFCAFReportStoresJSONAndPDF(t *testing.T) {
 				Outcome: engine.TestOutcome{Status: "passed"},
 			},
 		},
+		Presentation: &engine.Presentation{Deeplink: "https://stale.example"},
 	}
 	reportJSON, err := json.Marshal(report)
 	require.NoError(t, err)
@@ -87,6 +101,21 @@ func TestUpdatePipelineExecutionFCAFReportStoresJSONAndPDF(t *testing.T) {
 	pdf, err := io.ReadAll(reader)
 	require.NoError(t, err)
 	require.Contains(t, string(pdf), "%PDF-")
+
+	jsonReader, err := fileSystem.GetFile(
+		reloaded.BaseFilesPath() + "/" + reloaded.GetString("fcaf_report"),
+	)
+	require.NoError(t, err)
+	defer jsonReader.Close()
+	enrichedJSON, err := io.ReadAll(jsonReader)
+	require.NoError(t, err)
+	var enrichedReport engine.Report
+	require.NoError(t, json.Unmarshal(enrichedJSON, &enrichedReport))
+	require.NotNil(t, enrichedReport.Presentation)
+	require.Empty(t, enrichedReport.Presentation.Deeplink)
+	require.Len(t, enrichedReport.Presentation.Screenshots, 1)
+	maestroURLs := pipelineresults.ComputeMaestroScreenshotURLs(app, reloaded)
+	require.Equal(t, maestroURLs[0], enrichedReport.Presentation.Screenshots[0].URL)
 }
 
 func TestLoadPipelineFCAFReportImagesLoadsStoredScreenshots(t *testing.T) {

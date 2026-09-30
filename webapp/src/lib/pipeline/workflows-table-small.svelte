@@ -11,7 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		ArrowRightIcon,
 		ChevronDownIcon,
 		ChevronUpIcon,
-		EllipsisVerticalIcon
+		EllipsisVerticalIcon,
+		FileTextIcon
 	} from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
@@ -26,23 +27,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
 	import { makeDropdownActions } from './actions';
 	import { fromApiSummary } from './execution-artifacts';
+	import ExecutionDevices from './execution-devices.svelte';
 	import ExecutionProgress from './execution-progress.svelte';
 	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
-	import { getExecutionDeviceNames, type ExecutionSummary } from './workflows';
+	import type { ExecutionSummary } from './workflows';
 
 	//
 
 	type Props = {
 		workflows: ExecutionSummary[];
+		/** Called after a successful cancel from the row actions menu. */
+		onCancel?: () => void;
 	};
 
-	let { workflows }: Props = $props();
+	let { workflows, onCancel }: Props = $props();
 
 	const user = fromStore(currentUser);
 	const timezone = $derived(user.current?.Timezone);
@@ -99,7 +104,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<thead class=" bg-slate-100">
 					<tr>
 						<th class="rounded-l-sm">{m.Status()}</th>
-						<th>Device</th>
+						<th>{m.Devices()}</th>
 						<th>{m.Results()}</th>
 						<th>{m.Date()}</th>
 						<th>{m.start()}</th>
@@ -112,7 +117,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</thead>
 				<tbody>
 					{#each workflows as workflow (workflow.execution.runId)}
-						{@const deviceNames = getExecutionDeviceNames(workflow)}
 						{@const artifacts = fromApiSummary(workflow)}
 						{@const children = (workflow.children ?? []) as WorkflowExecutionSummary[]}
 						{@const count = children.length}
@@ -127,16 +131,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									failureReason={workflow.failure_reason}
 									size="sm"
 								/>
-								{#if workflow.status === 'Running'}
-									<ExecutionProgress progress={workflow.progress} />
-								{/if}
 							</td>
 							<td>
-								{#if deviceNames.length > 0}
-									{deviceNames.join(', ')}
-								{:else}
-									{@render na()}
-								{/if}
+								<ExecutionDevices execution={workflow} compact />
 							</td>
 
 							<td>
@@ -146,14 +143,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{@render na()}
 								{/if}
 							</td>
-							{@render timeCells(parts)}
-							<td class="whitespace-nowrap text-muted-foreground">
-								{#if workflow.duration}
-									{workflow.duration}
-								{:else}
-									{@render na()}
-								{/if}
-							</td>
+							{@render dateStartCells(parts)}
+							{#if workflow.status === 'Running'}
+								<td colspan="2">
+									<ExecutionProgress progress={workflow.progress} />
+								</td>
+							{:else}
+								{@render endCell(parts)}
+								<td class="whitespace-nowrap text-muted-foreground">
+									{#if workflow.duration}
+										{workflow.duration}
+									{:else}
+										{@render na()}
+									{/if}
+								</td>
+							{/if}
 							<td class="max-w-24">
 								{#if count > 0}
 									<button
@@ -195,7 +199,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</td>
 							<td class="text-right">
 								<DropdownMenu
-									items={makeDropdownActions(workflow)}
+									items={makeDropdownActions(workflow, { onSettled: onCancel })}
 									triggerVariants={{ variant: 'ghost', size: 'icon-sm' }}
 								>
 									{#snippet trigger({ props })}
@@ -219,7 +223,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </TemporalI18nProvider>
 
-{#snippet timeCells(parts: SplitExecutionTimes | undefined)}
+{#snippet dateStartCells(parts: SplitExecutionTimes | undefined)}
 	<td class="whitespace-nowrap text-muted-foreground">
 		{#if parts}
 			{parts.date}
@@ -234,6 +238,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@render na()}
 		{/if}
 	</td>
+{/snippet}
+
+{#snippet endCell(parts: SplitExecutionTimes | undefined)}
 	<td class="whitespace-nowrap text-muted-foreground">
 		{#if parts}
 			{@const endClock = formatEndClock(parts)}
@@ -266,9 +273,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="flex min-w-0 items-baseline gap-1.5">
 					<span class="shrink-0 font-normal">{child.type.name}</span>
 					<span class="min-w-0 truncate text-muted-foreground">{child.displayName}</span>
+					{#if child.has_logs}
+						<Tooltip>
+							{#snippet child({ props })}
+								<span
+									{...props}
+									class="inline-flex shrink-0 -translate-x-px translate-y-px"
+								>
+									<FileTextIcon size={12} class="text-muted-foreground" />
+								</span>
+							{/snippet}
+							{#snippet content()}
+								<p>{m.pipeline_artifact_log_tooltip()}</p>
+							{/snippet}
+						</Tooltip>
+					{/if}
 				</div>
 			</td>
-			{@render timeCells(childParts)}
+			{@render dateStartCells(childParts)}
+			{@render endCell(childParts)}
 			<td class="whitespace-nowrap text-muted-foreground">
 				{#if child.duration}
 					{child.duration}

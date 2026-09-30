@@ -20,6 +20,7 @@ Usage: scripts/worktree-env.sh <command>
 
 Commands:
   print         Print resolved port env (defaults + .env.worktree overrides)
+                and this checkout's absolute ROOT_DIR
   export        Same as print, each line prefixed with `export ` (for eval)
   project-name  Print sanitized COMPOSE_PROJECT_NAME for this checkout
   write         Write .env.worktree if missing (unique ports via Worktrunk hash_port;
@@ -27,6 +28,7 @@ Commands:
   write --classic
                 Write classic defaults from scripts/dev-ports.env if missing
   sync-urls     Rewrite PUBLIC_POCKETBASE_URL / VITE_API / PB_TYPEGEN_URL in webapp/.env
+  sync-root-dir Rewrite ROOT_DIR= in checkout .env to this checkout's absolute path
 USAGE
 }
 
@@ -89,7 +91,10 @@ branch_name() {
 print_env() {
 	load_defaults
 	resolve_runtime_paths
+	# Always emit this checkout's absolute path so make dev overrides a stale
+	# ROOT_DIR copied from the primary .env via Worktrunk copy-ignored.
 	cat <<EOF
+ROOT_DIR=${ROOT_DIR}
 API_PORT=${API_PORT}
 UI_PORT=${UI_PORT}
 TEMPORAL_PORT=${TEMPORAL_PORT}
@@ -178,6 +183,26 @@ cmd_sync_urls() {
 	echo "synced PocketBase URLs in webapp/.env -> ${api_url}"
 }
 
+# Rewrite checkout .env ROOT_DIR after copy-ignored so tools that only read
+# dotenv (not make-exported env) still resolve this worktree's templates.
+cmd_sync_root_dir() {
+	local envfile="${ROOT_DIR}/.env"
+	if [[ ! -f "${envfile}" ]]; then
+		echo "skip sync-root-dir: ${envfile} missing"
+		return 0
+	fi
+	local tmp
+	tmp="$(mktemp)"
+	awk -v root="${ROOT_DIR}" '
+		BEGIN { done=0 }
+		/^ROOT_DIR=/ { print "ROOT_DIR=" root; done=1; next }
+		{ print }
+		END { if (!done) print "ROOT_DIR=" root }
+	' "${envfile}" >"${tmp}"
+	mv "${tmp}" "${envfile}"
+	echo "synced ROOT_DIR in .env -> ${ROOT_DIR}"
+}
+
 main() {
 	local cmd="${1:-}"
 	shift || true
@@ -187,6 +212,7 @@ main() {
 	project-name) cmd_project_name ;;
 	write) cmd_write "$@" ;;
 	sync-urls) cmd_sync_urls ;;
+	sync-root-dir) cmd_sync_root_dir ;;
 	""|-h|--help) usage ;;
 	*)
 		echo "unknown command: ${cmd}" >&2

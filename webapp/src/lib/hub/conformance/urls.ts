@@ -26,7 +26,7 @@ export function getStandardCheckUrl(
 	return `${getSuitePageUrl(standardUid, versionUid, suiteUid)}/${checkId}`;
 }
 
-/** Joined `standard/version/suite/test` path as returned by suite.paths / pipeline `check_id`. */
+/** Joined `standard/version/suite/test` path as returned by suite.members / pipeline `check_id`. */
 export function getStandardCheckUrlFromPath(path: string): string {
 	return `${hubConformanceChecksPath}/${path}`;
 }

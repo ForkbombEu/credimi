@@ -30,18 +30,19 @@ export const load = async ({ params, fetch }) => {
 //
 
 export async function _getWorkflow(workflowId: string, runId: string, options = { fetch }) {
-	const execution = await fetchWorkflowExecution(workflowId, runId, options);
-	if (execution instanceof Error) return execution;
+	const fetched = await fetchWorkflowExecution(workflowId, runId, options);
+	if (fetched instanceof Error) return fetched;
 
 	const eventHistory = await fetchWorkflowHistory(workflowId, runId, options);
 	if (eventHistory instanceof Error) return eventHistory;
 
-	const memo = getWorkflowMemo(execution);
+	const memo = getWorkflowMemo(fetched.execution);
 	if (memo instanceof Error) return memo;
 
 	return {
-		execution,
+		execution: fetched.execution,
 		eventHistory,
-		memo
+		memo,
+		devices: fetched.devices ?? []
 	};
 }

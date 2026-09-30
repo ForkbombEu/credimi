@@ -5,6 +5,7 @@
 import type { PipelineStep, PipelineStepByType } from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
 import type { SelectedVersion } from '$pipeline-form/execution-target/types.js';
+import type { EnrichedFollowUp } from '$pipeline-form/functions.js';
 import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 
@@ -35,9 +36,12 @@ import Component from './steps-builder.svelte';
 
 type Props = {
 	steps: EnrichedStep[];
+	followUps?: EnrichedFollowUp[];
 	yamlPreview: () => string;
 	isSavedManualPipeline?: boolean;
 };
+
+type FormSection = 'steps' | 'follow-ups';
 
 type BuilderMode =
 	| { id: 'idle' }
@@ -45,6 +49,7 @@ type BuilderMode =
 			id: 'form';
 			intent: pipelinestep.FormIntent;
 			stepIndex?: number;
+			section?: FormSection;
 			config: pipelinestep.AnyConfig;
 			form: pipelinestep.Form;
 	  }
@@ -52,8 +57,15 @@ type BuilderMode =
 
 type State = {
 	steps: EnrichedStep[];
+	followUps: EnrichedFollowUp[];
 	mode: BuilderMode;
 	manualLocked: boolean;
+};
+
+type CreatedCardRef = {
+	section: 'steps' | 'follow-ups';
+	index: number;
+	token: number;
 };
 
 export class StepsBuilder implements Renderable<StepsBuilder> {
@@ -61,6 +73,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	private state = $state<State>({
 		steps: [],
+		followUps: [],
 		mode: { id: 'idle' },
 		manualLocked: false
 	});
@@ -74,8 +87,38 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	changeWalletVersionDialogOpen = $state(false);
 
+	/** View-bound scroll-follow hooks (reveal / edit-focus). Not product state. */
+	#composerScroll: {
+		onRevealStep?: (index: number) => void;
+		onEditFocus?: (stepIndex: number) => void;
+	} = {};
+
+	createdCard = $state<CreatedCardRef | null>(null);
+
+	private createdCardToken = 0;
+
 	constructor(private props: Props) {
 		this.state.steps = props.steps;
+		this.state.followUps = props.followUps ?? [];
+	}
+
+	/**
+	 * Bind Pipeline Composer scroll-follow side effects without a mailbox `$state`.
+	 * Pass `{}` on teardown.
+	 */
+	bindComposerScroll(handlers: {
+		onRevealStep?: (index: number) => void;
+		onEditFocus?: (stepIndex: number) => void;
+	}) {
+		this.#composerScroll = handlers;
+	}
+
+	#requestReveal(index: number) {
+		this.#composerScroll.onRevealStep?.(index);
+	}
+
+	#requestEditFocus(stepIndex: number) {
+		this.#composerScroll.onEditFocus?.(stepIndex);
 	}
 
 	// Shortcuts
@@ -86,6 +129,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	get steps() {
 		return this.state.steps;
+	}
+
+	get followUps() {
+		return this.state.followUps;
 	}
 
 	executionTarget = $derived(resolveExecutionTarget(this.state.steps));
@@ -143,13 +190,28 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		const config = pipelinestep.getConfigByType(step[0].use);
 		const data = getStepData(step);
 		if (!config || !data) return;
-		this.openForm('edit', config, { initial: data, stepIndex: index });
+		this.openForm('edit', config, { initial: data, stepIndex: index, section: 'steps' });
+		this.#requestEditFocus(index);
+	}
+
+	initEditFollowUp(index: number) {
+		if (this.state.mode.id === 'form') {
+			this.exitFormState();
+		}
+		const followUp = this.state.followUps[index];
+		if (!followUp) return;
+		const step = followUp.step;
+		if (!isStepEditable(step)) return;
+		const config = pipelinestep.getConfigByType(step[0].use);
+		const data = getStepData(step);
+		if (!config || !data) return;
+		this.openForm('edit', config, { initial: data, stepIndex: index, section: 'follow-ups' });
 	}
 
 	private openForm(
 		intent: pipelinestep.FormIntent,
 		config: pipelinestep.AnyConfig,
-		opts: { initial?: GenericRecord; stepIndex?: number }
+		opts: { initial?: GenericRecord; stepIndex?: number; section?: FormSection }
 	) {
 		this.stateManager.run((state) => {
 			const effectCleanup = $effect.root(() => {
@@ -179,20 +241,17 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 							if (inner.mode.id !== 'form') return;
 
 							if (inner.mode.intent === 'add') {
-								const step: PipelineStep = {
-									use: config.use as never,
-									id: '',
-									continue_on_error: false,
-									with: config.serialize(formData)
-								};
-								inner.steps.push([step, formData as GenericRecord]);
+								if (!this.placeNewStep(inner, config, formData, 'steps')) return;
+								this.#requestReveal(inner.steps.length - 1);
 							} else {
 								const editIndex = inner.mode.stepIndex;
 								if (editIndex === undefined) return;
-								const tuple = inner.steps[editIndex];
-								if (!tuple || tuple[0].use === 'debug') return;
-								tuple[0].with = config.serialize(formData);
-								tuple[1] = formData as GenericRecord;
+
+								const applied =
+									inner.mode.section === 'follow-ups'
+										? this.applyEditFollowUp(inner, config, formData, editIndex)
+										: this.applyEditStep(inner, config, formData, editIndex);
+								if (!applied) return;
 							}
 
 							inner.mode = { id: 'idle' };
@@ -206,6 +265,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 					id: 'form',
 					intent,
 					stepIndex: opts.stepIndex,
+					section: opts.section,
 					config,
 					form
 				};
@@ -214,10 +274,104 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		});
 	}
 
+	private createStep(config: pipelinestep.AnyConfig, formData: unknown): PipelineStep {
+		return {
+			use: config.use as never,
+			id: '',
+			continue_on_error: false,
+			with: config.serialize(formData)
+		};
+	}
+
+	private isFollowUpUse(use: string) {
+		return use === 'email' || use === 'http-request';
+	}
+
+	private placeNewStep(
+		state: State,
+		config: pipelinestep.AnyConfig,
+		formData: unknown,
+		section: FormSection
+	): boolean {
+		const step = this.createStep(config, formData);
+		if (section === 'follow-ups') {
+			if (!this.isFollowUpUse(step.use)) return false;
+			state.followUps.push({
+				step: [step, formData as GenericRecord],
+				condition: 'always'
+			});
+			this.markCreatedCard('follow-ups', state.followUps.length - 1);
+			return true;
+		}
+
+		state.steps.push([step, formData as GenericRecord]);
+		this.markCreatedCard('steps', state.steps.length - 1);
+		return true;
+	}
+
+	private applyEditStep(
+		state: State,
+		config: pipelinestep.AnyConfig,
+		formData: unknown,
+		index: number
+	): boolean {
+		const tuple = state.steps[index];
+		if (!tuple || tuple[0].use === 'debug') return false;
+		tuple[0].with = config.serialize(formData);
+		tuple[1] = formData as GenericRecord;
+		return true;
+	}
+
+	private applyEditFollowUp(
+		state: State,
+		config: pipelinestep.AnyConfig,
+		formData: unknown,
+		index: number
+	): boolean {
+		const followUp = state.followUps[index];
+		if (!followUp) return false;
+		const [pipelineStep] = followUp.step;
+		if (pipelineStep.use === 'debug') return false;
+		pipelineStep.with = config.serialize(formData);
+		followUp.step[1] = formData as GenericRecord;
+		return true;
+	}
+
+	isFollowUpEligibleForm() {
+		const mode = this.state.mode;
+		return mode.id === 'form' && mode.intent === 'add' && this.isFollowUpUse(mode.config.use);
+	}
+
+	addAsFollowUp() {
+		if (this.state.mode.id !== 'form' || this.state.mode.intent !== 'add') return;
+		const { config, form } = this.state.mode;
+		if (!this.isFollowUpUse(config.use)) return;
+
+		try {
+			const formData = form.getSubmitData();
+			if (formData === undefined) return;
+
+			this.stateManager.run((inner) => {
+				if (inner.mode.id !== 'form' || inner.mode.intent !== 'add') return;
+				if (!this.placeNewStep(inner, config, formData, 'follow-ups')) return;
+				inner.mode = { id: 'idle' };
+			});
+			this.disposeFormEffect();
+		} catch (e) {
+			showPipelineFormError(e);
+		}
+	}
+
+	private markCreatedCard(section: CreatedCardRef['section'], index: number) {
+		this.createdCard = { section, index, token: ++this.createdCardToken };
+	}
+
 	addDebugStep() {
 		this.stateManager.run((state) => {
 			state.steps.push([{ use: 'debug' }, {}]);
+			this.markCreatedCard('steps', state.steps.length - 1);
 		});
+		this.#requestReveal(this.steps.length - 1);
 	}
 
 	deleteStep(index: number) {
@@ -227,8 +381,16 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		});
 	}
 
+	deleteFollowUp(index: number) {
+		if (this.isFormMode) return;
+		this.stateManager.run((state) => {
+			state.followUps.splice(index, 1);
+		});
+	}
+
 	cloneStep(index: number) {
 		if (this.isFormMode) return;
+		let insertedAt: number | null = null;
 		this.stateManager.run((state) => {
 			const source = state.steps[index];
 			if (!source) return;
@@ -237,7 +399,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				pipelineStep.id = '';
 			}
 			state.steps.splice(index + 1, 0, [pipelineStep, formData]);
+			insertedAt = index + 1;
+			this.markCreatedCard('steps', insertedAt);
 		});
+		if (insertedAt != null) this.#requestReveal(insertedAt);
 	}
 
 	setContinueOnError(index: number, continueOnError: boolean) {
@@ -245,6 +410,14 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			const step = state.steps[index];
 			if (!step || step[0].use == 'debug') return;
 			step[0].continue_on_error = continueOnError;
+		});
+	}
+
+	setFollowUpCondition(index: number, condition: EnrichedFollowUp['condition']) {
+		this.stateManager.run((state) => {
+			const followUp = state.followUps[index];
+			if (!followUp) return;
+			followUp.condition = condition;
 		});
 	}
 

@@ -96,3 +96,18 @@ export async function cancel(
 		return err(getExceptionMessage(e));
 	}
 }
+
+export async function status(
+	ticketId: string,
+	deviceIds: string[]
+): Promise<Result<APIResponse, string>> {
+	try {
+		const params = new URLSearchParams();
+		params.set('device_ids', deviceIds.join(','));
+		const url = `/api/pipeline/queue/${ticketId}?${params.toString()}`;
+		const res = await pb.send<APIResponse>(url, { method: 'GET' });
+		return ok(res);
+	} catch (e) {
+		return err(getExceptionMessage(e));
+	}
+}

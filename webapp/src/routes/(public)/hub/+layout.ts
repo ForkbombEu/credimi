@@ -2,22 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { error } from '@sveltejs/kit';
-import { getStandardsWithTestSuites } from '$lib/standards';
 import { getUserOrganization } from '$lib/utils';
 
+/** Hub-wide: org for ownership / check-page namespace. Catalog loads stay route-local
+ * (suite table on `+page`, FS nest on conformance-checks detail). */
 export const load = async ({ fetch }) => {
 	const organization = await getUserOrganization({ fetch });
-	// Loading organization for displaying ownership status
-
-	const conformanceChecks = await getStandardsWithTestSuites({ fetch, surface: 'pipeline' });
-
-	if (conformanceChecks instanceof Error) {
-		error(500, { message: conformanceChecks.message });
-	}
-
-	return {
-		organization,
-		conformanceChecks
-	};
+	return { organization };
 };

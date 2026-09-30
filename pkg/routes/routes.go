@@ -13,6 +13,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/apis"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/logo"
@@ -57,6 +58,7 @@ func bindAppHooks(app core.App) {
 //     for JavaScript-based templates and automatic migration.
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
+	conformancecatalog.Register(app)
 	pb.HookOrganizations(app)
 	pb.RegisterMobileRunnerWorkerManagerHooks(app)
 	pb.HookNamespaceOrgs(app)

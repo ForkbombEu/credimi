@@ -14,24 +14,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { makeDropdownActions } from './actions';
 	import { fromApiSummary } from './execution-artifacts';
+	import ExecutionDevices from './execution-devices.svelte';
 	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
-	import { getExecutionDeviceNames, type ExecutionSummary } from './workflows';
+	import type { ExecutionSummary } from './workflows';
 
 	//
 
 	type Props = {
 		workflows: ExecutionSummary[];
 		hidePipelineColumn?: boolean;
+		/** Called after a successful cancel from the row actions menu. */
+		onCancel?: () => void;
 	};
 
-	let { workflows, hidePipelineColumn = false }: Props = $props();
+	let { workflows, hidePipelineColumn = false, onCancel }: Props = $props();
 </script>
 
 <WorkflowsTable
 	{workflows}
 	hideColumns={['status', 'type']}
-	actions={(w) => makeDropdownActions(w)}
+	actions={(w) => makeDropdownActions(w, { onSettled: onCancel })}
 	disableLink={(w) => w.queue !== undefined}
 >
 	{#snippet headerStart({ Th })}
@@ -66,23 +69,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	{/snippet}
 
-	{#snippet row({ workflow, Td })}
-		{@const deviceNames = getExecutionDeviceNames(workflow)}
-
+	{#snippet row({ workflow, Td, depth })}
 		<Td>
 			<WorkflowStatusTag
 				status={workflow.status}
 				queueData={workflow.queue}
 				failureReason={workflow.failure_reason}
+				size={depth > 0 ? 'sm' : 'md'}
 			/>
 		</Td>
 
 		<Td>
-			{#if deviceNames.length > 0}
-				{deviceNames.join(', ')}
-			{:else}
-				<span class="text-muted-foreground opacity-50">N/A</span>
-			{/if}
+			<ExecutionDevices execution={workflow} />
 		</Td>
 
 		<Td>

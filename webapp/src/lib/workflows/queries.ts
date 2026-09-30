@@ -61,14 +61,16 @@ export async function fetchWorkflowExecution(
 	workflowId: string,
 	runId: string,
 	options = { fetch }
-): Promise<WorkflowExecution | Error> {
+): Promise<{ execution: WorkflowExecution; devices?: WorkflowResponse['devices'] } | Error> {
 	return tryPromise(async () => {
 		const data = await pb.send(workflowApi(workflowId, runId), {
 			method: 'GET',
 			fetch: options.fetch
 		});
 		const parsed = workflowResponseSchema.parse(data);
-		return workflowResponseToExecution(parsed);
+		const execution = workflowResponseToExecution(parsed);
+		if (execution instanceof Error) throw execution;
+		return { execution, devices: parsed.devices };
 	}, 'Failed to fetch workflow');
 }
 

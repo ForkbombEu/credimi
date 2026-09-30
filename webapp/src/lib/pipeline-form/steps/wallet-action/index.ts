@@ -160,7 +160,9 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			});
 		}
 
-		const wallet: HubItem = await pb.collection('hub_items').getOne(action.wallet);
+		const wallet: HubItem = await pb.collection('hub_items').getOne(action.wallet, {
+			requestKey: null
+		});
 
 		return {
 			wallet,

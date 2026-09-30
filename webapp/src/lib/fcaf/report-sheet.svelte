@@ -17,11 +17,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		reportUrl: string | undefined;
 		pdfUrl: string | undefined;
-		maestroScreenshotUrls: string[];
 		sheetTrigger: Snippet<[{ props: GenericRecord; openSheet: () => void }]>;
 	};
 
-	let { reportUrl, pdfUrl, maestroScreenshotUrls, sheetTrigger }: Props = $props();
+	let { reportUrl, pdfUrl, sheetTrigger }: Props = $props();
 </script>
 
 {#if reportUrl}
@@ -32,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#snippet content()}
 			{#await loadReport(reportUrl) then report}
 				{#if report}
-					<ReportView {report} {reportUrl} {pdfUrl} {maestroScreenshotUrls} />
+					<ReportView {report} {reportUrl} {pdfUrl} />
 				{:else}
 					<p class="py-8 text-sm text-muted-foreground">
 						Unable to load the FCAF assessment.
