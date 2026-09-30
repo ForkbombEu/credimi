@@ -459,7 +459,7 @@ func onboardingPrelude() map[string]any {
 		"use": "mobile-automation",
 		"with": map[string]any{
 			"action_id":  "forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1",
-			"version_id": "forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo",
+			"version_id": "forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo",
 		},
 	}
 }
