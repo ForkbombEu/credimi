@@ -18,7 +18,7 @@ Review baseline: the local source mirror under
 `config_templates/fcaf_sources/wallet_solution/relying_party/`, cross-checked
 against upstream `submitted` commit `2b223b56be0d0a073ee0cdc9db1d7fd31d9529a1`
 (13/08/2026), and the Capture Wallet contract in `pkg/fcaf/CAPTURE_WALLET_API.md`
-as synced on 28/09/2026 (`1c8162c`). The mirror has 621 distinct `WS_RP_*` files
+as synced on 30/09/2026 (`3d40a8d`). The mirror has 621 distinct `WS_RP_*` files
 against 615 Credimi test definitions; the six without a definition are listed
 under **Blocked**.
 
@@ -189,6 +189,99 @@ The `fcaf-dc-api-present` action drives the full browser path on wallet
 2026.09.42, so these are now runnable.
 
 
+### Reclassified from Blocked, definition pending
+
+Reviewed on 30/09/2026 against each source, upstream `FCAF_CAPABILITY_MATRIX.csv`
+(`de49603`), and session-creation probes on production
+`capture-wallet.credimi.io`. Each construction below was accepted and the
+delivered request carried the property; no Wallet has run them yet.
+
+Constructible from existing controls:
+
+- [ ] `WS_RP_SM_RpIntegrity__024` (a normal `decentralized_identifier` session is
+  a signed request without the `x509_hash` prefix; the source accepts an error
+  or a discontinuation. Production signs it with the DID key, `kid
+  did:web:capture-wallet.credimi.io:openid4vp#credimi-fake-verifier-did-key`
+  and no `x5c`)
+- [ ] `WS_RP_MS_Metadata__119` (`request_mutation` sets `client_id` to
+  `verifier_attestation:capture-wallet.credimi.io` on the default session; the
+  delivered header has no `jwt`, which is the defect. No attestation session is
+  needed)
+- [ ] `WS_RP_MS_Metadata__113` (`request_mutation` sets an `openid_federation:`
+  `client_id` and a malformed `trust_chain` JOSE header; the source expects
+  rejection)
+- [ ] `WS_RP_IA_Metadata__012` (the default Request Object already carries
+  `aud: https://self-issued.me/v2`) and `013` (`request_mutation` on `/aud`)
+- [ ] `WS_RP_SM_RpIntegrity__033`, `034` and
+  `WS_RP_SM_RpIntegrity_CryptographicSignature_003`, `004` (the default
+  Request Object is `ES256`, ECDSA P-256 with SHA-256. For `-9` too the
+  sources' expected results name the JOSE identifier `ES256`; upstream
+  `FCAF_CAPABILITY_MATRIX.csv` rates all four category A since `9091cc2`. The
+  fully specified JOSE name `ESP256` is not deliverable: production refuses
+  `alg: ESP256` with `not supported either by JOSE or your javascript
+  runtime`)
+- [ ] `WS_RP_MS_ProtocolMessages__040` (plain request, `client_id`
+  `redirect_uri:<URI>` with `response_mode=fragment` and `response_uri`
+  removed through `outer_request` mutation. `<URI>` is a second session's
+  capture redirect page with its `response_code`, so a recorded visit on that
+  session proves the Wallet derived the target from the Client Identifier.
+  Upstream rates it category A. Wallet 2026.09.42 rejects the `redirect_uri:`
+  prefix, so it is expected to fail)
+- [ ] `WS_RP_MS_ProtocolMessages__017` (`transaction_data` of an unknown type;
+  `invalid_transaction_data` passes, a presentation carrying
+  `transaction_data_hashes` makes it `not_applicable` because the Wallet then
+  supports the parameter)
+
+Profile-conditional, decided by evidence like `WS_RP_MS_Metadata__135` and
+`WS_RP_SH_Cryptography_Encryption_002`: each applies only to a Wallet lacking a
+capability, and the verdict is `not_applicable` when the Wallet's own metadata
+or behaviour shows it has it.
+
+- [ ] `WS_RP_MS_ProtocolMessages__011` (Wallet without POST Request URI
+  retrieval; a POST retrieval shows support)
+- [ ] `WS_RP_IA_ProtocolFlow__002d` (same condition; no Credimi definition yet.
+  Its example invocation is `eu-eaap://`, which the reference Wallet does not
+  handle, so use the default scheme and record the deviation)
+- [ ] `WS_RP_MS_ProtocolMessages__151` (Wallet without `mso_mdoc`;
+  `vp_formats_supported` in the POSTed `wallet_metadata` shows support)
+- [ ] `WS_RP_MS_Metadata__134` (Wallet requiring encrypted Request Objects;
+  applies only when `wallet_metadata` publishes `jwks`, which wallet 2026.09.42
+  does not. For a Wallet that does, see the Request Object encryption entry
+  below)
+- [ ] `WS_RP_SH_Cryptography_CryptographicHash_008` (Wallet supporting SHA-256
+  only; a presented SHA-384 credential, as in `CryptographicHash_010`, shows
+  otherwise)
+- [ ] `WS_RP_IA_Metadata__011` (dynamic discovery; applies only when
+  `wallet_metadata` carries `issuer`, which wallet 2026.09.42 omits)
+
+Published in the Capture contract at `3d40a8d`, not yet deployed: on
+30/09/2026 production and beta both answered `request_delivery: "multisigned"`
+with `unsupported_request_delivery`, refused `request_behavior:
+{"request_object_encryption": "none"}` as `invalid_request_behavior`, and served
+a plain JWS to a POST retrieval whose `wallet_metadata` carried `jwks`. Re-probe
+after deployment.
+
+- [ ] `WS_RP_SM_RpIntegrity__030` (DC API `multisigned` delivery: a JWS JSON
+  Serialization whose two signatures carry the `x509_hash` and
+  `decentralized_identifier` Client Identifiers; upstream category A)
+- [ ] `WS_RP_MS_Metadata__134` for a Wallet publishing `jwks` (POST retrieval
+  returns a Nested JWT, `alg: ECDH-ES`, `cty: JWT`, kept in
+  `raw.authorization_request_jwe`; `raw.authorization_request_jwt` stays the
+  enclosed signed JWT). Capture negotiates the RFC 8414
+  `request_object_encryption_*` members, while the source names
+  `authorization_encryption_*`; upstream records that as an open decision
+- [ ] Fix `WS_RP_MS_Metadata__135` once encryption is deployed: its scenario
+  must set `request_behavior.request_object_encryption: none`, and
+  `oid4vp.unencrypted_request_object_rejected` must also require
+  `raw.authorization_request_jwe` to be absent. Otherwise a `jwks`-publishing
+  Wallet receives an encrypted object while the validator, reading
+  `authorization_request_jwt`, treats the delivery as unencrypted
+
+Found during the same review: MOCK-VERIFIER-002 does not reproduce on
+production, which signs `decentralized_identifier` requests with the DID key.
+`WS_RP_IA_Metadata__015`, `016` and `WS_RP_SM_RpIntegrity__006`, previously
+unable to pass on beta, need a production run.
+
 ### Known gaps inside implemented coverage
 
 - `WS_RP_MS_ProtocolMessages__125` and `126` can only evidence the Wallet's own
@@ -273,8 +366,6 @@ internal_error`, `there are no SAN-DNS names`, on 25/09/2026 and again on
 28/09/2026, and production `capture-wallet.credimi.io` answers the same on
 30/09/2026. Re-check after Capture publishes a SAN-matching certificate.
 
-- [ ] `WS_RP_SM_RpIntegrity__001` (also needs a caller-signed `verifier_info`;
-  see the verifier info entry below)
 - [ ] `WS_RP_SM_RpIntegrity__008` (default verifier attestation, `cnf` holding
   the signing key)
 - [ ] `WS_RP_SM_RpIntegrity__009` (`request_behavior.signing_key: unrelated`
@@ -287,8 +378,6 @@ internal_error`, `there are no SAN-DNS names`, on 25/09/2026 and again on
 - [ ] `WS_RP_MS_Metadata__116`, `118`, `122`, `124` (default verifier
   attestation)
 - [ ] `WS_RP_MS_Metadata__117` (`verifier_attestation.subject`)
-- [ ] `WS_RP_MS_Metadata__119` (`request_mutation.request_object_header.unset`
-  `/jwt`)
 - [ ] `WS_RP_MS_Metadata__120`, `121` (`verifier_attestation.redirect_uris`)
 - [ ] `WS_RP_MS_Metadata__123` (verifier attestation plus non-key metadata
   outside `client_metadata`)
@@ -299,30 +388,23 @@ internal_error`, `there are no SAN-DNS names`, on 25/09/2026 and again on
 
 ### Blocked on a missing Capture Wallet capability
 
-- [ ] `WS_RP_IA_MainInteraction__024` and `WS_RP_MS_Metadata__134` (encrypted
-  Request Object delivery is not implemented; upstream 5.4. Upstream lists
-  `134` as needing only the captured `wallet_metadata`, but its source also
-  requires the Wallet to decrypt an encrypted Request Object)
-- [ ] `WS_RP_IA_Metadata__011`, `012`, `013` (dynamic and static discovery,
-  including controlled SIOPv2 `aud` values; Credo-TS signs only DID,
-  `x509_hash`, `x509_san_dns`, and unsigned `redirect_uri` requests; upstream
-  5.9)
 - [ ] `WS_RP_SM_RpIntegrity__013c_UF` (no Credimi definition; a Request Object
-  signed with a controlled unacceptable algorithm; upstream 5.3)
-- [ ] `WS_RP_SM_RpIntegrity__030` (a multi-signed Request Object; upstream 5.3)
+  signed with an unacceptable algorithm such as EdDSA under a Wallet-trusted
+  certificate. Upstream: Credo signs EdDSA, but no trusted certificate exists
+  for such a key, so the Wallet would reject on trust rather than on the
+  algorithm)
 - [ ] `WS_RP_SM_RpIntegrity__032` and
   `WS_RP_SM_RpIntegrity_CryptographicSignature_002` (RS384 or PS384; the KMS
   generates EC keys only and the intended algorithm is an open upstream
   decision)
-- [ ] `WS_RP_SM_RpIntegrity__033`, `034`,
-  `WS_RP_SM_RpIntegrity_CryptographicSignature_003`, `004` (COSE `-7` versus
-  `-9`; both are ECDSA P-256 with SHA-256, expressible in a JAR only as
-  `ES256`; upstream expects a source reclassification)
-- [ ] `WS_RP_SM_RpIntegrity__025` (the Wallet's configured trust anchor inside
-  `x5c`; the service does not hold it)
-- [ ] `WS_RP_MS_ProtocolMessages__040` and `WS_RP_IA_MainInteraction__060`
-  (a response mode other than `direct_post`; Capture supports `direct_post`,
-  `direct_post.jwt`, `dc_api`, and `dc_api.jwt` only)
+- [ ] `WS_RP_SM_RpIntegrity__025` (the Wallet's trust anchor inside `x5c`,
+  awaiting a verifier control that serves it. The anchor, `PID Issuer CA 02`,
+  is public at `https://preprod.pki.eudiw.dev/aia/PIDIssuerCA02-EU.cacert.pem`,
+  and on 30/09/2026 a `request_object_header` mutation appending it to `x5c`
+  was delivered. A scenario would have to hard-code that certificate, because
+  no pipeline step can read the leaf's AIA and convert PEM to `x5c`, so it
+  would break when the anchor changes. The verifier will serve the anchor
+  itself)
 - [ ] `WS_RP_IA_MainInteraction__006`, `008`, `010` and
   `WS_RP_MS_CredentialFormats__046` (a credential without cryptographic holder
   binding; Credo refuses `require_cryptographic_holder_binding: false` during
@@ -340,10 +422,16 @@ internal_error`, `there are no SAN-DNS names`, on 25/09/2026 and again on
   102 one without it. Capture issues only SD-JWT VC and ISO mdoc; the mdoc
   Mobile Security Object keys its status by the text `"status"`, not label
   65535. `cose.cwt_status_claim` reports the mdoc evidence as blocked. Upstream
-  `FCAF_FIXTURES.md` maps these tests to the mdoc configurations)
+  `FCAF_FIXTURES.md` maps these tests to the mdoc configurations and
+  `FCAF_CAPABILITY_MATRIX.csv` rates them category A; blocked by decision)
 
 ### Blocked on Credimi-signed or profile-defined attestations
 
+- [ ] `WS_RP_SM_RpIntegrity__001` (delivering a `verifier_info` attestation
+  with a broken signature needs no signing, but the source applies only when
+  the Wallet chooses to use `verifier_info`, and nothing shows whether the
+  reference Wallet does. A presentation would be indistinguishable between
+  ignoring the attestation and accepting a bad one)
 - [ ] `WS_RP_SM_DeviceBinding__002`–`006` (Capture delivers `verifier_info`
   verbatim and signs none: the caller must sign the attestation and its proof
   over the chosen `nonce` and the Client Identifier. The EUDI concrete type,
@@ -357,7 +445,7 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
 
 - [ ] `WS_RP_SM_TrustMechanisms__101`, `101b_UF`, `101c_UF` (no Credimi
   definitions; WRPAC certificate fixtures; upstream 5.6)
-- [ ] `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__112`, `113`, `114`, `115`
+- [ ] `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__112`, `114`, `115`
   (OpenID Federation entity statements, trust chain, and authority; upstream
   5.7)
 - [ ] `WS_RP_SM_TrustMechanisms__002`–`013`, `015`, `021`,
@@ -371,25 +459,26 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
 
 - [ ] `WS_RP_IA_Engagement__001b` (no Credimi definition; the reference Android
   Wallet registers no `eu-eaap://` handler)
-- [ ] `WS_RP_IA_ProtocolFlow__002d` (no Credimi definition) and
-  `WS_RP_MS_ProtocolMessages__011` (a Wallet that does not support
-  `request_uri_method=post`)
-- [ ] `WS_RP_SM_RpIntegrity__024` (a Wallet profile rejecting every
-  non-`x509_hash` Client Identifier)
+- [ ] `WS_RP_IA_MainInteraction__024` (the Wallet holds a matching credential
+  whose data is encrypted or locked, so it cannot check a `values` restriction.
+  This is Wallet state, not Request Object encryption, which it was previously
+  filed under. Upstream rates it category A since `9091cc2`, reading it as
+  Request Object encryption; that reading does not match the source)
+- [ ] `WS_RP_IA_MainInteraction__060` (upstream category F: its source asks for
+  the Authorization Response appended to `redirect_uri` under
+  `response_mode=direct_post`, which contradicts OpenID4VP Section 8.2. Report
+  upstream rather than implement)
 - [ ] `WS_RP_UC_Presentation__004` (an independently controllable second-device
   invocation path)
 - [ ] `WS_RP_IA_Supportive__006` (deliberate Wallet device resource exhaustion)
 - [ ] `WS_RP_IA_MainInteraction__046` (a credential large enough to exceed URL
-  or transport limits)
-- [ ] `WS_RP_MS_ProtocolMessages__151` (an unsupported mdoc format variant; the
-  reference Wallet supports `mso_mdoc`)
+  or transport limits; a missing issuer fixture)
 
 ### Blocked on scope and transaction-data support
 
 - [ ] `WS_RP_MS_ProtocolMessages__020`, `141` and `WS_RP_UC_Presentation__003`
   (a scope the Wallet resolves to a DCQL query; the service defines no scope
   values)
-- [ ] `WS_RP_MS_ProtocolMessages__017`, `018`, `135`, `154`–`159` and
-  `WS_RP_SH_Cryptography_CryptographicHash_008` (a transaction-data type the
-  reference Wallet supports; `008` declares `transaction_data_hashes_alg:
-  ["sha-512"]` on such an entry)
+- [ ] `WS_RP_MS_ProtocolMessages__018`, `135`, `154`–`159` (a transaction-data
+  type the reference Wallet supports; `017` and
+  `WS_RP_SH_Cryptography_CryptographicHash_008` were reclassified above)
