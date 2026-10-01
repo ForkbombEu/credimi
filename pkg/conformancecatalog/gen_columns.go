@@ -14,10 +14,7 @@
 //
 //   - webapp/src/modules/pocketbase/types/catalog-pb-records.ts
 //
-// TS outputs are post-formatted with `bunx prettier --write` using webapp/.prettierrc
-// so `bun run lint` does not fail after generate. Requires bun + webapp prettier deps.
-//
-//	go generate ./pkg/conformancecatalog
+//     go generate ./pkg/conformancecatalog
 package main
 
 import (
@@ -25,7 +22,6 @@ import (
 	"fmt"
 	"go/format"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -47,15 +43,9 @@ func main() {
 	mustWrite(filepath.Join(root, "pkg", "conformancecatalog", "records_gen.go"), formatGoSource(recordsGo(checkGrain, suiteGrain)))
 
 	webapp := filepath.Join(root, "webapp")
-	tsFiles := []string{
-		filepath.Join(webapp, "src", "lib", "conformance", "columns.ts"),
-		filepath.Join(webapp, "src", "lib", "conformance", "record.schemas.ts"),
-		filepath.Join(webapp, "src", "modules", "pocketbase", "types", "catalog-pb-records.ts"),
-	}
-	mustWrite(tsFiles[0], columnsTS(checks, suites))
-	mustWrite(tsFiles[1], recordSchemasTS(checks, suites))
-	mustWrite(tsFiles[2], catalogPBRecordsTS(checks, suites))
-	prettierWrite(webapp, tsFiles...)
+	mustWrite(filepath.Join(webapp, "src", "lib", "conformance", "columns.ts"), columnsTS(checks, suites))
+	mustWrite(filepath.Join(webapp, "src", "lib", "conformance", "record.schemas.ts"), recordSchemasTS(checks, suites))
+	mustWrite(filepath.Join(webapp, "src", "modules", "pocketbase", "types", "catalog-pb-records.ts"), catalogPBRecordsTS(checks, suites))
 }
 
 func recordsGo(checks, suites []conformancecatalog.GrainColumn) string {
@@ -322,27 +312,6 @@ func formatGoSource(src string) string {
 		os.Exit(1)
 	}
 	return string(formatted)
-}
-
-func prettierWrite(webappRoot string, absPaths ...string) {
-	relPaths := make([]string, len(absPaths))
-	for i, p := range absPaths {
-		rel, err := filepath.Rel(webappRoot, p)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "prettier path %s: %v\n", p, err)
-			os.Exit(1)
-		}
-		relPaths[i] = rel
-	}
-	args := append([]string{"x", "prettier", "--write"}, relPaths...)
-	cmd := exec.Command("bun", args...)
-	cmd.Dir = webappRoot
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "prettier generated TS (need bun + webapp prettier): %v\n", err)
-		os.Exit(1)
-	}
 }
 
 func mustWrite(path, contents string) {
