@@ -14,55 +14,9 @@ import {
 	DEFAULT_YAML_STEP_ESTIMATE_SIZE,
 	stepCardSelector,
 	waitForSelectorInScroller,
-	yamlStepBlockSelector,
-	type ComposerVirtualizerClock
+	yamlStepBlockSelector
 } from './composer-virtualizer.svelte.js';
-
-type FakeClock = ComposerVirtualizerClock & {
-	flushRaf(): void;
-	advance(ms: number): void;
-};
-
-function createFakeClock(): FakeClock {
-	let nextRaf = 1;
-	const rafQueue = new Map<number, FrameRequestCallback>();
-	let nextTimer = 1;
-	const timers = new Map<number, { due: number; handler: () => void }>();
-	let now = 0;
-
-	return {
-		now: () => now,
-		raf(callback) {
-			const id = nextRaf++;
-			rafQueue.set(id, callback);
-			return id;
-		},
-		cancelRaf(handle) {
-			rafQueue.delete(handle);
-		},
-		setTimeout(handler, timeout = 0) {
-			const id = nextTimer++;
-			timers.set(id, { due: now + timeout, handler });
-			return id as unknown as ReturnType<typeof setTimeout>;
-		},
-		clearTimeout(handle) {
-			timers.delete(handle as unknown as number);
-		},
-		flushRaf() {
-			const queued = [...rafQueue.entries()];
-			rafQueue.clear();
-			for (const [, cb] of queued) cb(now);
-		},
-		advance(ms) {
-			now += ms;
-			const due = [...timers.entries()].filter(([, t]) => t.due <= now);
-			for (const [id, t] of due) {
-				timers.delete(id);
-				t.handler();
-			}
-		}
-	};
-}
+import { createFakeClock } from './test-support/fake-clock.js';
 
 type ElementStub = {
 	getAttribute(name: string): string | null;

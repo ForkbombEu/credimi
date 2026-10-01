@@ -5,12 +5,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AnimatableScroll } from './animatable-scroll.js';
-import { PeerScrollFollow, type PeerScrollFollowClock } from './peer-scroll-follow.svelte.js';
 
-type FakeClock = PeerScrollFollowClock & {
-	flushRaf(): void;
-	flushTimeouts(ms?: number): void;
-};
+import { createFakeClock, type FakeClock } from '../test-support/fake-clock.js';
+import { PeerScrollFollow } from './peer-scroll-follow.svelte.js';
 
 /** Test double: records Animatable retargets and mirrors onto scroller.scrollTo for assertions. */
 function fakeCreateAnimatableScroll(scroller: HTMLElement): AnimatableScroll {
@@ -25,46 +22,6 @@ function fakeCreateAnimatableScroll(scroller: HTMLElement): AnimatableScroll {
 		getScrollTop: () => (scroller as { scrollTop: number }).scrollTop,
 		dispose: vi.fn(),
 		animatable: {} as AnimatableScroll['animatable']
-	};
-}
-
-function createFakeClock(): FakeClock {
-	let nextRaf = 1;
-	const rafQueue = new Map<number, FrameRequestCallback>();
-	let nextTimer = 1;
-	const timers = new Map<number, { due: number; handler: () => void }>();
-	let now = 0;
-
-	return {
-		raf(callback) {
-			const id = nextRaf++;
-			rafQueue.set(id, callback);
-			return id;
-		},
-		cancelRaf(handle) {
-			rafQueue.delete(handle);
-		},
-		setTimeout(handler, timeout = 0) {
-			const id = nextTimer++;
-			timers.set(id, { due: now + timeout, handler });
-			return id as unknown as ReturnType<typeof setTimeout>;
-		},
-		clearTimeout(handle) {
-			timers.delete(handle as unknown as number);
-		},
-		flushRaf() {
-			const queued = [...rafQueue.entries()];
-			rafQueue.clear();
-			for (const [, cb] of queued) cb(now);
-		},
-		flushTimeouts(ms = 0) {
-			now += ms;
-			const due = [...timers.entries()].filter(([, t]) => t.due <= now);
-			for (const [id, t] of due) {
-				timers.delete(id);
-				t.handler();
-			}
-		}
 	};
 }
 
