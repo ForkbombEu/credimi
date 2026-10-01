@@ -16,7 +16,7 @@ import { pb } from '@/pocketbase';
 
 import { hubItemTypes, type HubItem, type HubItemType } from './types';
 
-export { getHubItemByPath, invalidateHubItemByPathCache } from './get-hub-item-by-path.js';
+export { getHubItemByPath, invalidateHubItemByPathCache } from './get-hub-item.js';
 
 //
 
