@@ -28,12 +28,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
+	import { getDeviceLabel, getVersionLabel } from './labels.js';
 	import WalletActionForm from './wallet-action-form.svelte';
-	import {
-		getDeviceLabel,
-		getVersionLabel,
-		type WalletActionStepForm
-	} from './wallet-action-step-form.svelte.js';
+	import { type WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
 	//
 

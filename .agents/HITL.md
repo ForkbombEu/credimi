@@ -378,3 +378,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: Agents and docs keep describing endpoints that 404, and sibling `credimi-extra` implementers may build against the wrong runner paths.
 - decision:
 - follow-up: Confirm (a) and update `AGENTS.md` "Dynamic Pipeline Workflow", "External runner HTTP contract" and "Routes, DTOs, Auth, Errors" sections.
+
+### 2026-10-01 - Unify cached fetch-load wrappers
+
+- status: open (deferred)
+- owner: human maintainer
+- context: `createCachedFetchLoad` already owns cache policy (`get` / `getOrError` / `invalidateAll` + shared `requestFetchRef`). Call sites wrap it inconsistently: canonify uses `getOrError`; hub by-id/by-path use throwing `get`; device adds `getCachedDeviceRecords` + `findCachedDeviceByPath` because the cache key is the whole list. Each module still exports its own `invalidate*Cache` for tests.
+- question: Should every cached loader expose the same public surface, or keep domain-named getters and only share the factory?
+- options considered: (a) leave as-is (domain APIs + factory); (b) export the same trio (`get` / `getOrError` / `invalidateAll`) from every cached module; (c) a thin per-module `{ get, invalidateAll }` returning the factory, with extra helpers (e.g. find-by-path) beside it.
+- default risk: Forcing the factory trio onto domain modules either leaks Effect-cache vocabulary into hub/canonify/device APIs, or paper-over device’s list-then-find shape.
+- decision: Do not unify in the current pipeline-composer work. Revisit later.
+- follow-up: When unifying, pick one error surface (throw vs return `Error`) and decide whether device list cache stays a special case.
