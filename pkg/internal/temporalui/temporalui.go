@@ -198,6 +198,15 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 			return e.Redirect(http.StatusFound, homePath(namespace))
 		case routeProxy, routePage, routeNamespaceList:
 		}
+		if kind == routeProxy || kind == routeNamespaceList {
+			served, ferr := tryServeFixture(e.Response, e.Request, namespace)
+			if ferr != nil {
+				return fmt.Errorf("Temporal UI API fixtures: %w", ferr)
+			}
+			if served {
+				return nil
+			}
+		}
 		ctx := context.WithValue(
 			e.Request.Context(),
 			scopeKey{},
@@ -252,6 +261,8 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 // embedHead adapts the UI to being embedded in a Credimi run page:
 //   - hides the shell (side and top navigation) and the "Back to Workflows" link,
 //     and makes links to other UI pages (workflow lists, task queues) inert;
+//   - hides the workflow summary above the history tabs (status, actions, id,
+//     metadata); Credimi's run page already shows that;
 //   - forces the light theme: Credimi has no dark mode, and the UI reads its theme
 //     from the persisted "dark mode" store, defaulting to the OS preference;
 //   - keeps navigation on the embedded run: its own tabs work, links to another
@@ -262,6 +273,8 @@ const embedHead = `<style id="credimi-embed">` +
 	`html,body{background-color:#f8fafc !important;color:#141414 !important}` +
 	`div:has(> nav[data-testid="navigation-header"]),nav[data-testid="top-nav"],` +
 	`[data-testid="back-to-workflows"]{display:none !important}` +
+	`header:has([data-testid="workflow-id-heading"]) > :not(.tabs)` +
+	`{display:none !important}` +
 	`a[href*="/workflows?"],a[href*="/task-queues/"]` +
 	`{pointer-events:none;color:inherit !important;text-decoration:none !important}` +
 	`</style>` +

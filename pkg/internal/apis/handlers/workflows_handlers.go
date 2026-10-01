@@ -26,6 +26,7 @@ import (
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalui"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -413,6 +414,33 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 				"runId",
 				"runId is required",
 				"missing runId",
+			)
+		}
+		if body, status, ok, ferr := temporalui.LookupMyWorkflowRunFixture(workflowID, runID); ok {
+			if ferr != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to load workflow fixture",
+					ferr.Error(),
+				)
+			}
+			var finalJSON map[string]interface{}
+			if err := json.Unmarshal(body, &finalJSON); err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to parse workflow fixture",
+					err.Error(),
+				)
+			}
+			return e.JSON(status, finalJSON)
+		} else if ferr != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to load workflow fixture",
+				ferr.Error(),
 			)
 		}
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, authRecord.Id)

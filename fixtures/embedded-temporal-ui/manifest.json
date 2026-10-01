@@ -1,0 +1,117 @@
+{
+  "source": "credimi.io.har (2026-10-01 run page iframe Temporal API)",
+  "recordedNamespace": "fcaf-1",
+  "workflowId": "Pipeline-fcaf-wallet-relying-party-data-model-sd-jwt-validation-764025c1-299a-43d1-8a59-6131c8451f76",
+  "runId": "01a0f3a9-a91c-7a83-8cda-f063f4695d0c",
+  "entries": [
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/settings",
+      "query": {},
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/settings.json"
+    },
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/namespaces",
+      "query": {},
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/namespaces.json"
+    },
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/cluster-info",
+      "query": {},
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/cluster-info.json"
+    },
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/system-info",
+      "query": {},
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/system-info.json"
+    },
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/namespaces/{namespace}/search-attributes",
+      "query": {},
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/namespaces___ns___search-attributes.json"
+    },
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/namespaces/{namespace}",
+      "query": {},
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/namespaces___ns_.json"
+    },
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/namespaces/{namespace}/workflows/Pipeline-fcaf-wallet-relying-party-data-model-sd-jwt-validation-764025c1-299a-43d1-8a59-6131c8451f76",
+      "query": {
+        "execution.runId": "01a0f3a9-a91c-7a83-8cda-f063f4695d0c"
+      },
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/namespaces___ns___workflows__Pipeline-fcaf-wallet-rel_c8451f76__execution.runId=01a0f3a9-a91c-7a83-8cda-f063f4695d0c.json"
+    },
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/namespaces/{namespace}/task-queues/PipelineTaskQueue",
+      "query": {
+        "taskQueueType": "1"
+      },
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/namespaces___ns___task-queues__PipelineTaskQueue__taskQueueType=1.json"
+    },
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/namespaces/{namespace}/task-queues/PipelineTaskQueue",
+      "query": {
+        "taskQueueType": "2"
+      },
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/namespaces___ns___task-queues__PipelineTaskQueue__taskQueueType=2.json"
+    },
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/namespaces/{namespace}/task-queues/PipelineTaskQueue",
+      "query": {
+        "taskQueueType": "3"
+      },
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/namespaces___ns___task-queues__PipelineTaskQueue__taskQueueType=3.json"
+    },
+    {
+      "method": "GET",
+      "path": "/temporal-ui/api/v1/namespaces/{namespace}/workflows/Pipeline-fcaf-wallet-relying-party-data-model-sd-jwt-validation-764025c1-299a-43d1-8a59-6131c8451f76/history",
+      "query": {
+        "execution.runId": "01a0f3a9-a91c-7a83-8cda-f063f4695d0c"
+      },
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/namespaces___ns___workflows__Pipeline-fcaf-wallet-rel_c8451f76__history__execution.runId=01a0f3a9-a91c-7a83-8cda-f063f4695d0c.json.gz"
+    }
+  ],
+  "credimi": {
+    "getMyWorkflowRun": {
+      "method": "GET",
+      "path": "/api/my/workflows/{workflowId}/runs/{runId}",
+      "workflowId": "Pipeline-fcaf-wallet-relying-party-data-model-sd-jwt-validation-764025c1-299a-43d1-8a59-6131c8451f76",
+      "runId": "01a0f3a9-a91c-7a83-8cda-f063f4695d0c",
+      "status": 200,
+      "contentType": "application/json",
+      "body": "bodies/credimi-my-workflow-run.json"
+    }
+  }
+}

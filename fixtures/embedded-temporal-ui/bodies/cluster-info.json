@@ -1,0 +1,37 @@
+{
+  "supportedClients": {
+    "Nexus-go-sdk": "<2.0.0",
+    "temporal-cli": "<2.0.0",
+    "temporal-go": "<2.0.0",
+    "temporal-java": "<2.0.0",
+    "temporal-php": "<2.0.0",
+    "temporal-server": "<2.0.0",
+    "temporal-typescript": "<2.0.0",
+    "temporal-ui": "<3.0.0"
+  },
+  "serverVersion": "1.29.1",
+  "clusterId": "18882ce6-1d55-422a-be7b-f3dc0e028715",
+  "versionInfo": {
+    "current": {
+      "version": "1.29.1",
+      "releaseTime": "2025-10-29T23:47:24Z"
+    },
+    "recommended": {
+      "version": "1.32.0",
+      "releaseTime": "2026-09-11T16:10:29Z"
+    },
+    "alerts": [
+      {
+        "message": "🪐 A new release is available!",
+        "severity": "SEVERITY_LOW"
+      }
+    ],
+    "lastUpdateTime": "2026-10-01T14:13:32.634196206Z"
+  },
+  "clusterName": "active",
+  "historyShardCount": 4,
+  "persistenceStore": "postgres12",
+  "visibilityStore": "elasticsearch",
+  "initialFailoverVersion": "1",
+  "failoverVersionIncrement": "10"
+}
