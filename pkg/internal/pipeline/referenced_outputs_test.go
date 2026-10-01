@@ -86,3 +86,49 @@ func TestReferencedStepOutputs(t *testing.T) {
 		})
 	}
 }
+
+func TestRequiredStepIDs(t *testing.T) {
+	tests := []struct {
+		name   string
+		inputs StepInputs
+		want   []string
+	}{
+		{
+			name: "full and embedded references in payload and config",
+			inputs: StepInputs{
+				Config: map[string]any{"token": "${{ login.outputs.token }}"},
+				Payload: map[string]any{
+					"deeplink": "${{ offer.outputs }}",
+					"nested":   []any{map[string]any{"url": "x ${{ offer.outputs.url | upper }}"}},
+				},
+			},
+			want: []string{"login", "offer"},
+		},
+		{
+			name: "optional references do not count",
+			inputs: StepInputs{Payload: map[string]any{
+				"a": "${{ offer.outputs | optional }}",
+				"b": "${{ offer.outputs.x | optional | upper }}",
+			}},
+			want: nil,
+		},
+		{
+			name: "pipeline_output references count for the step",
+			inputs: StepInputs{Payload: map[string]any{
+				"a": "${{ pipeline_output.offer.outputs.x }}",
+				"b": "${{ items[0].outputs }}",
+			}},
+			want: []string{"items", "offer"},
+		},
+		{
+			name:   "no references",
+			inputs: StepInputs{Payload: map[string]any{"a": "plain"}},
+			want:   nil,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, RequiredStepIDs(tc.inputs))
+		})
+	}
+}

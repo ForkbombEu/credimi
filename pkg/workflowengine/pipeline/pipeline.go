@@ -55,6 +55,8 @@ type pipelineExecutionState struct {
 	// filled from finalOutput after cleanup hooks and finally steps have run.
 	resultOutput   map[string]any
 	previousStepID string
+	// failedSteps holds the main steps that failed and let the pipeline continue.
+	failedSteps map[string]struct{}
 }
 
 func NewPipelineWorkflow() *PipelineWorkflow {
@@ -165,6 +167,7 @@ func (w *PipelineWorkflow) Workflow(
 	state := &pipelineExecutionState{
 		finalOutput:  map[string]any{},
 		resultOutput: map[string]any{},
+		failedSteps:  map[string]struct{}{},
 	}
 	if hasMobileAutomationStep(wfDef.Steps) {
 		state.finalOutput["result_video_warning"] = "Video recordings are limited to 30 minutes. " +
@@ -602,6 +605,22 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 		// This run's caller needs this step's outputs whole.
 		returnOutputs = []string{pipeline.AllStepOutputs}
 	}
+	if depErr := failedDependencyError(step, state.failedSteps); depErr != nil {
+		return handleChildPipelineStepError(
+			ctx,
+			step,
+			payload,
+			nil,
+			depErr,
+			ao,
+			config,
+			runMetadata,
+			state,
+			logger,
+			pipelineName,
+			pipelineURL,
+		)
+	}
 	childOut, err := runChildPipeline(
 		ctx,
 		step,
@@ -687,6 +706,7 @@ func handleChildPipelineStepError(
 	)
 	if step.ContinueOnError {
 		state.failures = append(state.failures, newPipelineStepFailure(step.ID, err))
+		state.failedSteps[step.ID] = struct{}{}
 		if out := workflowengine.ExtractOutputFromError(err); out != nil {
 			childOut = out
 		}
@@ -746,6 +766,22 @@ func (w *PipelineWorkflow) executeRegularStep(
 		len(state.failures) > 0,
 	)
 
+	if depErr := failedDependencyError(step, state.failedSteps); depErr != nil {
+		return ao, handleRegularStepError(
+			ctx,
+			step,
+			payload,
+			nil,
+			depErr,
+			ao,
+			config,
+			runMetadata,
+			state,
+			logger,
+			pipelineName,
+			pipelineURL,
+		)
+	}
 	stepOutput, err := Execute(&step, ctx, config, enrichedStepInputs, ao)
 	if err != nil {
 		if stepOutput != nil {
@@ -832,6 +868,7 @@ func handleRegularStepError(
 	)
 	if step.ContinueOnError {
 		state.failures = append(state.failures, newPipelineStepFailure(step.ID, err))
+		state.failedSteps[step.ID] = struct{}{}
 		state.failures = runStepErrorHooks(
 			ctx,
 			step,

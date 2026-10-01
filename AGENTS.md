@@ -226,6 +226,7 @@ Step outputs live in Temporal history, recorded once:
 - Every main step's activity or child-workflow input `config` carries `step_id` (`workflowengine.StepIDConfigKey`). `pkg/workflowengine/pipelinehistory` rebuilds main step outputs from a run's history by that key, mirroring the workflow's `finalOutput` rules.
 - Step activities receive only their own `with.config`, `step_id`, and the workflow config keys listed in `registry.TaskFactory.InheritedConfigKeys`. Child workflows and child pipelines keep the full config.
 - A step whose input exceeds 3 MiB fails before scheduling (`ensureStepInputSize`), because Temporal rejects workflow task messages above 4 MiB.
+- A main step whose inputs reference the output of a step that already failed (`continue_on_error`) fails before running with `CRE228` `step <id> needs the output of step <failed>, which failed` (`failedDependencyError`). References through `| optional` do not count, so `fcaf-validation` still runs.
 - Pipeline results and failure `Details.output` carry non-step entries (warnings, video and screenshot URLs, `finally_errors`) plus only the step outputs listed in `PipelineWorkflowInput.ReturnOutputs`. Top-level runs return none; a parent sets a child pipeline's `return_outputs` from the references in its own definition (`ReferencedStepOutputs`). `POST /api/pipeline/execute` returns all of them.
 
 Direct run path:

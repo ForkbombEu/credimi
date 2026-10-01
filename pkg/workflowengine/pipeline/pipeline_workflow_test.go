@@ -189,6 +189,87 @@ func requireFailureErrors(
 	return out
 }
 
+func TestPipelineWorkflowFailsStepsThatNeedAFailedStepOutput(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	registerFailingWorkflow(
+		t,
+		env,
+		"failing-offer",
+		"failing-offer-workflow",
+		workflowengine.WorkflowError{Code: "CRE310", Summary: "Unexpected HTTP status code"},
+	)
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
+
+	captureStep := func(id, text string) pipeline.StepDefinition {
+		return pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
+				ID:   id,
+				Use:  "capture-runtime",
+				With: pipeline.StepInputs{Payload: map[string]any{"text": text}},
+			},
+			ContinueOnError: true,
+		}
+	}
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "failed-dependency",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec:        pipeline.StepSpec{ID: "offer", Use: "failing-offer"},
+						ContinueOnError: true,
+					},
+					captureStep("obtain", "${{ offer.outputs }}"),
+					captureStep("present", "${{ obtain.outputs.text }}"),
+					captureStep("independent", "runs"),
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{"app_url": "https://example.test"},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.Equal(t, []string{"runs"}, captured)
+	err := env.GetWorkflowError()
+	require.ErrorContains(
+		t,
+		err,
+		"obtain failed with CRE228 Failed to resolve pipeline inputs: "+
+			"step obtain needs the output of step offer, which failed",
+	)
+	errorsList := requireFailureErrors(t, err)
+	require.Len(t, errorsList, 3)
+	messages := map[string]string{}
+	for _, entry := range errorsList {
+		details := entry["details"].(map[string]any)
+		messages[details["step_id"].(string)], _ = entry["message"].(string)
+	}
+	require.Equal(t, "step obtain needs the output of step offer, which failed", messages["obtain"])
+	require.Equal(
+		t,
+		"step present needs the output of step obtain, which failed",
+		messages["present"],
+	)
+	require.Equal(
+		t,
+		errorcodes.Codes[errorcodes.PipelineInputError].Code,
+		errorsList[1]["code"],
+	)
+}
+
 // TestPipelineWorkflowFailsWithoutDefinition asserts a clear error when workflow_definition is missing.
 func TestPipelineWorkflowFailsWithoutDefinition(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}

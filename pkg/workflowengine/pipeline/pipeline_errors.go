@@ -9,8 +9,39 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
+
+// failedDependencyError reports a step whose inputs need the output of a step that already
+// failed. Such a step fails before running, naming the failed steps, instead of resolving
+// its inputs against an empty result. References through `optional` do not count.
+func failedDependencyError(step pipeline.StepDefinition, failedSteps map[string]struct{}) error {
+	var failed []string
+	for _, id := range pipeline.RequiredStepIDs(step.With) {
+		if _, ok := failedSteps[id]; ok {
+			failed = append(failed, id)
+		}
+	}
+	if len(failed) == 0 {
+		return nil
+	}
+	label := "step"
+	if len(failed) > 1 {
+		label = "steps"
+	}
+	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
+	return workflowengine.NewAppError(workflowengine.WorkflowError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: fmt.Sprintf(
+			"step %s needs the output of %s %s, which failed",
+			step.ID,
+			label,
+			strings.Join(failed, ", "),
+		),
+	})
+}
 
 type pipelineStepFailure struct {
 	StepID  string

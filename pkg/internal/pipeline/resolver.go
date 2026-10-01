@@ -108,6 +108,42 @@ func ReferencedStepOutputs(def *WorkflowDefinition, stepID string) []string {
 	return slices.Sorted(maps.Keys(keys))
 }
 
+// RequiredStepIDs returns the IDs of the steps whose outputs the step inputs need, sorted
+// and unique. A reference counts when its expression does not start with the `optional`
+// function; `pipeline_output.<id>` references count for <id>.
+func RequiredStepIDs(inputs StepInputs) []string {
+	ids := map[string]struct{}{}
+	var walk func(value any)
+	walk = func(value any) {
+		switch typed := value.(type) {
+		case string:
+			for _, ref := range ExpressionRefs(typed) {
+				initial, functions, err := ParsePipeline(ref)
+				if err != nil || len(functions) > 0 && functions[0] == "optional" {
+					continue
+				}
+				segments := strings.Split(initial, ".")
+				if segments[0] == "pipeline_output" && len(segments) > 1 {
+					segments = segments[1:]
+				}
+				id, _, _ := strings.Cut(segments[0], "[")
+				ids[id] = struct{}{}
+			}
+		case map[string]any:
+			for _, item := range typed {
+				walk(item)
+			}
+		case []any:
+			for _, item := range typed {
+				walk(item)
+			}
+		}
+	}
+	walk(inputs.Config)
+	walk(inputs.Payload)
+	return slices.Sorted(maps.Keys(ids))
+}
+
 // helper to check if a string is exactly a single ${{ ... }} ref
 func isFullRef(s string) bool {
 	matches := exprRegexp.FindStringSubmatch(s)
