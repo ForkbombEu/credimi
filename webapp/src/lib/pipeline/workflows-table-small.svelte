@@ -31,13 +31,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
+	import type { ExecutionSummary } from './workflows';
+
 	import { makeDropdownActions } from './actions';
 	import { fromApiSummary } from './execution-artifacts';
 	import ExecutionDevices from './execution-devices.svelte';
 	import ExecutionProgress from './execution-progress.svelte';
 	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
-	import type { ExecutionSummary } from './workflows';
 
 	//
 

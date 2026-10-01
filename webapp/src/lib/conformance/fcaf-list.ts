@@ -4,8 +4,9 @@
 
 import * as Task from 'true-myth/task';
 
-import { awaitTask, listChecks, type ListChecksError, type ListChecksOptions } from './client.js';
 import type { ConformanceCheckRecord } from './record.js';
+
+import { awaitTask, listChecks, type ListChecksError, type ListChecksOptions } from './client.js';
 
 /**
  * Catalog entry for FCAF listing/picking (from conformance_checks).

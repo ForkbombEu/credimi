@@ -5,14 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { XIcon } from '@lucide/svelte';
 	import {
 		displayStandardName,
 		entityForComponent,
 		SuiteBrowse,
 		type SuiteFacetKey
 	} from '$lib/conformance';
-
-	import { XIcon } from '@lucide/svelte';
 
 	import { Button } from '@/components/ui/button';
 	import { m } from '@/i18n';

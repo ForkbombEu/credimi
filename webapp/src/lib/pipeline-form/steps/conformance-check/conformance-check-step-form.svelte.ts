@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { HubItem } from '$lib/hub';
 import type { NestStandards } from '$lib/conformance';
+import type { HubItem } from '$lib/hub';
 
 import { createQuery } from '@tanstack/svelte-query';
 import { Conformance } from '$lib';
