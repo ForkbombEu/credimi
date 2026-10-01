@@ -2,7 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { CardSection } from './yaml-ranges.js';
+import { browserClock, type ComposerClock } from '../composer-clock.js';
+import type { AnimatableScroll } from './animatable-scroll.js';
+import type { CardSection } from './card-section.js';
+
+export type { CardSection } from './card-section.js';
 
 export type ActiveUnit = {
 	section: CardSection;
@@ -22,7 +26,7 @@ export type CardListLengths = {
 
 /**
  * Mount (or scroll-to-index) a card that is not yet in the DOM; resolves true when ready.
- * Always async so PeerScrollFollow / scrollCardIntoView can await uniformly.
+ * Always async so PeerScrollFollow / scrollUnitIntoView can await uniformly.
  */
 export type EnsureMounted = (unit: ActiveUnit) => Promise<boolean>;
 
@@ -39,21 +43,47 @@ export function ensureMountedForStepsVirtualizer(
 	};
 }
 
-/**
- * Peer-scroll bridge for YAML step blocks: follow-ups stay fully mounted in the
- * YAML pane; steps call the YAML virtualizer's `ensureStepVisible`.
- */
-export function ensureMountedForYamlVirtualizer(
-	ensureStepVisible: (index: number) => boolean | Promise<boolean>
-): EnsureMounted {
-	return ensureMountedForStepsVirtualizer(ensureStepVisible);
-}
-
-export type ScrollCardIntoViewOptions = {
+export type ScrollUnitIntoViewOptions = {
 	focus?: boolean;
 	align?: ScrollAlign;
-	/** When the card is missing, call this before retrying the DOM query. */
+	/** When the unit is missing, call this before retrying the DOM query. */
 	ensureMounted?: EnsureMounted;
+	/**
+	 * When set, eases via Anime.js Animatable (retargetable) instead of native
+	 * `scrollTo({ behavior })`. Mount helpers should still use `behavior: 'auto'`.
+	 */
+	animatableScroll?: AnimatableScroll;
+	/** Per-call Animatable duration override (ms). */
+	durationMs?: number;
+};
+
+/**
+ * How a pane resolves the active unit at the scrollport top (and for header-only YAML).
+ * - `claim`: take the list-start unit (cards).
+ * - `intersect`: only claim when the unit's element intersects the scroller (YAML header).
+ */
+export type TopEdgePolicy = 'claim' | 'intersect';
+
+/** DOM attribute / query adapter for a cards or YAML twin pane. */
+export type PaneAdapter = {
+	sectionAttr: string;
+	indexAttr: string;
+	listQuery: string;
+	topEdgePolicy: TopEdgePolicy;
+};
+
+export const CARD_PANE: PaneAdapter = {
+	sectionAttr: 'data-card-section',
+	indexAttr: 'data-card-index',
+	listQuery: '[data-card-section][data-card-index]',
+	topEdgePolicy: 'claim'
+};
+
+export const YAML_PANE: PaneAdapter = {
+	sectionAttr: 'data-yaml-section',
+	indexAttr: 'data-yaml-index',
+	listQuery: '[data-yaml-section][data-yaml-index]',
+	topEdgePolicy: 'intersect'
 };
 
 const HYSTERESIS = 0.22;
@@ -62,9 +92,9 @@ const START_PADDING_PX = 16;
 /** Fraction of viewport height — start-band only scrolls if the line is outside this zone. */
 const START_BAND_RATIO = 0.35;
 
-function parseCard(el: Element): ActiveUnit | null {
-	const section = el.getAttribute('data-card-section');
-	const indexRaw = el.getAttribute('data-card-index');
+function parseUnit(el: Element, pane: PaneAdapter): ActiveUnit | null {
+	const section = el.getAttribute(pane.sectionAttr);
+	const indexRaw = el.getAttribute(pane.indexAttr);
 	if (section !== 'steps' && section !== 'follow-ups') return null;
 	if (indexRaw == null) return null;
 	const index = Number(indexRaw);
@@ -72,26 +102,14 @@ function parseCard(el: Element): ActiveUnit | null {
 	return { section, index };
 }
 
-function findCard(scrollContainer: HTMLElement, unit: ActiveUnit): HTMLElement | null {
+function findUnit(
+	scrollContainer: HTMLElement,
+	unit: ActiveUnit,
+	pane: PaneAdapter
+): HTMLElement | null {
 	return scrollContainer.querySelector<HTMLElement>(
-		`[data-card-section="${unit.section}"][data-card-index="${unit.index}"]`
+		`[${pane.sectionAttr}="${unit.section}"][${pane.indexAttr}="${unit.index}"]`
 	);
-}
-
-function findYamlBlock(scrollContainer: HTMLElement, unit: ActiveUnit): HTMLElement | null {
-	return scrollContainer.querySelector<HTMLElement>(
-		`[data-yaml-section="${unit.section}"][data-yaml-index="${unit.index}"]`
-	);
-}
-
-function parseYamlBlock(el: Element): ActiveUnit | null {
-	const section = el.getAttribute('data-yaml-section');
-	const indexRaw = el.getAttribute('data-yaml-index');
-	if (section !== 'steps' && section !== 'follow-ups') return null;
-	if (indexRaw == null) return null;
-	const index = Number(indexRaw);
-	if (!Number.isInteger(index) || index < 0) return null;
-	return { section, index };
 }
 
 /**
@@ -120,36 +138,48 @@ export function sameUnit(a: ActiveUnit | null, b: ActiveUnit | null): boolean {
 }
 
 /**
- * Pick the card nearest the scrollport vertical center, with sticky hysteresis so
+ * Pick the unit nearest the scrollport vertical center, with sticky hysteresis so
  * the active unit does not flicker at boundaries. At scroll edges, prefer the
- * first/last card so the ends of the list remain reachable.
+ * first/last unit so the ends of the list remain reachable.
  *
  * When `lengths` is provided, list-end edges use the true sequence ends instead of
- * the first/last *mounted* card (needed under virtualization).
+ * the first/last *mounted* unit (needed under virtualization).
+ *
+ * YAML (`topEdgePolicy: 'intersect'`) refuses to claim when only the header is
+ * visible (no block intersects the viewport).
  */
-export function resolveViewportActiveCard(
+export function resolveViewportUnit(
 	scrollContainer: HTMLElement,
 	previous: ActiveUnit | null,
+	pane: PaneAdapter,
 	lengths?: CardListLengths
 ): ActiveUnit | null {
-	const cards = [
-		...scrollContainer.querySelectorAll<HTMLElement>('[data-card-section][data-card-index]')
-	];
-	if (cards.length === 0) return null;
+	const items = [...scrollContainer.querySelectorAll<HTMLElement>(pane.listQuery)];
+	if (items.length === 0) return null;
 
 	const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
 	if (maxScroll > 0) {
 		if (scrollContainer.scrollTop <= 2) {
+			if (pane.topEdgePolicy === 'intersect') {
+				// At top: header may still own the viewport — only claim start when it intersects.
+				const start = lengths
+					? resolveListEndUnit(lengths, 'start')
+					: parseUnit(items[0]!, pane);
+				if (!start) return null;
+				const startEl = findUnit(scrollContainer, start, pane);
+				if (!startEl || !elementIntersectsScroller(startEl, scrollContainer)) return null;
+				return start;
+			}
 			return (
 				(lengths ? resolveListEndUnit(lengths, 'start') : null) ??
-				parseCard(cards[0]!) ??
+				parseUnit(items[0]!, pane) ??
 				null
 			);
 		}
 		if (scrollContainer.scrollTop >= maxScroll - 2) {
 			return (
 				(lengths ? resolveListEndUnit(lengths, 'end') : null) ??
-				parseCard(cards[cards.length - 1]!) ??
+				parseUnit(items[items.length - 1]!, pane) ??
 				null
 			);
 		}
@@ -160,23 +190,30 @@ export function resolveViewportActiveCard(
 	const thresholdPx = port.height * HYSTERESIS;
 
 	let best: { unit: ActiveUnit; distance: number; el: HTMLElement } | null = null;
-	for (const el of cards) {
-		const unit = parseCard(el);
+	for (const el of items) {
+		const unit = parseUnit(el, pane);
 		if (!unit) continue;
 		const rect = el.getBoundingClientRect();
-		const cardCenter = rect.top + rect.height / 2;
-		const distance = Math.abs(cardCenter - centerY);
+		const itemCenter = rect.top + rect.height / 2;
+		const distance = Math.abs(itemCenter - centerY);
 		if (!best || distance < best.distance) {
 			best = { unit, distance, el };
 		}
 	}
 	if (!best) return null;
 
+	if (
+		pane.topEdgePolicy === 'intersect' &&
+		!elementIntersectsScroller(best.el, scrollContainer)
+	) {
+		return null;
+	}
+
 	if (previous && sameUnit(previous, best.unit)) return previous;
 
 	if (previous) {
-		const prevEl = cards.find((el) => {
-			const u = parseCard(el);
+		const prevEl = items.find((el) => {
+			const u = parseUnit(el, pane);
 			return u && sameUnit(u, previous);
 		});
 		if (prevEl) {
@@ -193,37 +230,47 @@ export function resolveViewportActiveCard(
 }
 
 /**
- * Scroll a card into view. When the card is not mounted and `ensureMounted` is
- * provided, awaits mount then retries. Without `ensureMounted`, missing cards
+ * Scroll a pane unit into view. When the unit is not mounted and `ensureMounted` is
+ * provided, awaits mount then retries. Without `ensureMounted`, missing units
  * still return false (today's non-virtual path).
  */
-export async function scrollCardIntoView(
+export async function scrollUnitIntoView(
 	scrollContainer: HTMLElement,
 	unit: ActiveUnit,
 	behavior: ScrollBehavior,
-	options?: ScrollCardIntoViewOptions
+	pane: PaneAdapter,
+	options?: ScrollUnitIntoViewOptions
 ): Promise<boolean> {
-	let el = findCard(scrollContainer, unit);
+	let el = findUnit(scrollContainer, unit, pane);
 	if (!el && options?.ensureMounted) {
 		const mounted = await options.ensureMounted(unit);
 		if (!mounted) return false;
-		el = findCard(scrollContainer, unit);
+		el = findUnit(scrollContainer, unit, pane);
 	}
 	if (!el) return false;
 	const align = options?.align ?? 'center';
-	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align);
+	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align, {
+		animatableScroll: options?.animatableScroll,
+		durationMs: options?.durationMs
+	});
 	if (options?.focus !== false) {
 		el.focus({ preventScroll: true });
 	}
 	return scrolled;
 }
 
+export type ScrollChildIntoScrollerOptions = {
+	animatableScroll?: AnimatableScroll;
+	durationMs?: number;
+};
+
 /** Scroll `el` into `scroller` without using Element.scrollIntoView (avoids wrong ancestors). */
 export function scrollChildIntoScroller(
 	scroller: HTMLElement,
 	el: HTMLElement,
 	behavior: ScrollBehavior,
-	align: ScrollAlign = 'nearest'
+	align: ScrollAlign = 'nearest',
+	options?: ScrollChildIntoScrollerOptions
 ): boolean {
 	const nextTop = computeAlignedScrollTop(
 		scroller.scrollTop,
@@ -234,7 +281,12 @@ export function scrollChildIntoScroller(
 		align
 	);
 	if (nextTop === null) return false;
-	scroller.scrollTo({ top: nextTop, behavior });
+	const animatable = options?.animatableScroll;
+	if (animatable) {
+		animatable.scrollTo(nextTop, options?.durationMs);
+	} else {
+		scroller.scrollTo({ top: nextTop, behavior });
+	}
 	return true;
 }
 
@@ -305,171 +357,31 @@ export function computeNearestScrollTop(
 	return scrollTop + (elRect.bottom - visibleBottom);
 }
 
-export function scrollYamlLineIntoView(
-	scroller: HTMLElement,
-	line: number,
-	behavior: ScrollBehavior,
-	align: ScrollAlign = 'start'
-): boolean {
-	const el = scroller.querySelector<HTMLElement>(`[data-line="${line}"]`);
-	if (!el) return false;
-	return scrollChildIntoScroller(scroller, el, behavior, align);
-}
-
-/** Line nearest the vertical center of a YAML scroller; null if above first step. */
-export function resolveViewportYamlLine(
-	scroller: HTMLElement,
-	firstStepLine: number | null
-): number | null {
-	const lines = [...scroller.querySelectorAll<HTMLElement>('[data-line]')];
-	if (lines.length === 0) return null;
-
-	const port = scroller.getBoundingClientRect();
-	const centerY = port.top + port.height / 2;
-
-	let best: { line: number; distance: number } | null = null;
-	for (const el of lines) {
-		const line = Number(el.getAttribute('data-line'));
-		if (!Number.isInteger(line)) continue;
-		const rect = el.getBoundingClientRect();
-		const mid = rect.top + rect.height / 2;
-		const distance = Math.abs(mid - centerY);
-		if (!best || distance < best.distance) {
-			best = { line, distance };
-		}
-	}
-	if (!best) return null;
-	if (firstStepLine != null && best.line < firstStepLine) return null;
-	return best.line;
-}
-
-/**
- * Pick the YAML block nearest the scrollport vertical center (index-aligned peer-follow).
- * Returns null when only the header is visible (no block intersects the viewport).
- */
-export function resolveViewportYamlUnit(
-	scrollContainer: HTMLElement,
-	previous: ActiveUnit | null,
-	lengths?: CardListLengths
-): ActiveUnit | null {
-	const blocks = [
-		...scrollContainer.querySelectorAll<HTMLElement>('[data-yaml-section][data-yaml-index]')
-	];
-	if (blocks.length === 0) return null;
-
-	const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
-	if (maxScroll > 0) {
-		if (scrollContainer.scrollTop <= 2) {
-			// At top: header may still own the viewport — only claim step 0 when it intersects.
-			const start = lengths
-				? resolveListEndUnit(lengths, 'start')
-				: parseYamlBlock(blocks[0]!);
-			if (!start) return null;
-			const startEl = findYamlBlock(scrollContainer, start);
-			if (!startEl || !elementIntersectsScroller(startEl, scrollContainer)) return null;
-			return start;
-		}
-		if (scrollContainer.scrollTop >= maxScroll - 2) {
-			return (
-				(lengths ? resolveListEndUnit(lengths, 'end') : null) ??
-				parseYamlBlock(blocks[blocks.length - 1]!) ??
-				null
-			);
-		}
-	}
-
-	const port = scrollContainer.getBoundingClientRect();
-	const centerY = port.top + port.height / 2;
-	const thresholdPx = port.height * HYSTERESIS;
-
-	let best: { unit: ActiveUnit; distance: number; el: HTMLElement } | null = null;
-	for (const el of blocks) {
-		const unit = parseYamlBlock(el);
-		if (!unit) continue;
-		const rect = el.getBoundingClientRect();
-		const blockCenter = rect.top + rect.height / 2;
-		const distance = Math.abs(blockCenter - centerY);
-		if (!best || distance < best.distance) {
-			best = { unit, distance, el };
-		}
-	}
-	if (!best) return null;
-
-	// Header alone: nearest block is below the fold → clear active unit.
-	if (!elementIntersectsScroller(best.el, scrollContainer)) return null;
-
-	if (previous && sameUnit(previous, best.unit)) return previous;
-
-	if (previous) {
-		const prevEl = blocks.find((el) => {
-			const u = parseYamlBlock(el);
-			return u && sameUnit(u, previous);
-		});
-		if (prevEl) {
-			const prevRect = prevEl.getBoundingClientRect();
-			const prevCenter = prevRect.top + prevRect.height / 2;
-			const prevDistance = Math.abs(prevCenter - centerY);
-			if (prevDistance - best.distance < thresholdPx) {
-				return previous;
-			}
-		}
-	}
-
-	return best.unit;
-}
-
 function elementIntersectsScroller(el: HTMLElement, scroller: HTMLElement): boolean {
 	const elRect = el.getBoundingClientRect();
 	const port = scroller.getBoundingClientRect();
 	return elRect.bottom > port.top && elRect.top < port.bottom;
 }
 
-export type ScrollYamlUnitIntoViewOptions = ScrollCardIntoViewOptions;
-
-/**
- * Scroll a YAML preview block into view (index-aligned with cards).
- * Steps may need `ensureMounted` under virtualization; follow-ups are always mounted.
- */
-export async function scrollYamlUnitIntoView(
-	scrollContainer: HTMLElement,
-	unit: ActiveUnit,
-	behavior: ScrollBehavior,
-	options?: ScrollYamlUnitIntoViewOptions
-): Promise<boolean> {
-	let el = findYamlBlock(scrollContainer, unit);
-	if (!el && options?.ensureMounted) {
-		const mounted = await options.ensureMounted(unit);
-		if (!mounted) return false;
-		el = findYamlBlock(scrollContainer, unit);
-	}
-	if (!el) return false;
-	const align = options?.align ?? 'center';
-	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align);
-	if (options?.focus !== false) {
-		el.focus({ preventScroll: true });
-	}
-	return scrolled;
-}
-
 /**
  * Mark a scroller as programmatically driven until scrollend (or timeout fallback).
  * Peer scroll handlers should ignore events while their side is driven.
  */
-export type DrivenScrollClock = {
-	setTimeout: (handler: () => void, timeout?: number) => ReturnType<typeof setTimeout>;
-	clearTimeout: (handle: ReturnType<typeof setTimeout>) => void;
-};
-
-const defaultDrivenClock: DrivenScrollClock = {
-	setTimeout: (...args) => globalThis.setTimeout(...args),
-	clearTimeout: (...args) => globalThis.clearTimeout(...args)
+export type WatchDrivenScrollOptions = {
+	/**
+	 * Explicit idle timeout (ms). Prefer this for Animatable-driven scrolls
+	 * (`durationMs + pad`) so peer handlers stay muted until the tween settles.
+	 * When omitted, falls back to behavior heuristics (`smooth` → 650, else 120).
+	 */
+	idleTimeoutMs?: number;
 };
 
 export function watchDrivenScroll(
 	el: HTMLElement,
 	behavior: ScrollBehavior,
 	onClear: () => void,
-	clock: DrivenScrollClock = defaultDrivenClock
+	clock: ComposerClock = browserClock(),
+	options?: WatchDrivenScrollOptions
 ): () => void {
 	let cleared = false;
 	const clear = () => {
@@ -480,6 +392,7 @@ export function watchDrivenScroll(
 		onClear();
 	};
 	el.addEventListener('scrollend', clear, { once: true });
-	const timer = clock.setTimeout(clear, behavior === 'smooth' ? 650 : 120);
+	const idleMs = options?.idleTimeoutMs ?? (behavior === 'smooth' ? 650 : 120);
+	const timer = clock.setTimeout(clear, idleMs);
 	return clear;
 }

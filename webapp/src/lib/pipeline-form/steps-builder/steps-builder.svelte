@@ -42,18 +42,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		StepCard,
 		YamlPreviewPane
 	} from './_partials/index.js';
+	import {
+		createComposerVirtualizer,
+		DEFAULT_STEP_ESTIMATE_SIZE,
+		DEFAULT_YAML_STEP_ESTIMATE_SIZE,
+		stepCardSelector,
+		yamlStepBlockSelector
+	} from './composer-virtualizer.svelte.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 	import {
 		ensureMountedForStepsVirtualizer,
-		ensureMountedForYamlVirtualizer,
 		type ActiveUnit
 	} from './scroll-follow/active-unit.js';
 	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
+	import {
+		composeAttachments,
+		endPadAttach
+	} from './scroll-follow/scrollport-attachments.js';
 	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
-	import { mapYamlCardRanges, type YamlCardRange } from './scroll-follow/yaml-ranges.js';
-	import { createStepsVirtualizer } from './steps-virtualizer.svelte.js';
-	import { splitPipelineYamlPreview } from './yaml-preview-split.js';
-	import { createYamlStepsVirtualizer } from './yaml-virtualizer.svelte.js';
+	import { splitPipelineYamlPreview } from './yaml-preview/index.js';
 
 	//
 
@@ -73,36 +80,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let yamlEndPadPx = $state(0);
 	/** Header height inside the YAML scroller — TanStack scrollMargin for step blocks. */
 	let yamlScrollMargin = $state(0);
-
-	function composeAttachments(...parts: Array<Attachment | undefined>): Attachment | undefined {
-		const active = parts.filter((part): part is Attachment => part != null);
-		if (active.length === 0) return undefined;
-		if (active.length === 1) return active[0];
-		return (node) => {
-			const cleanups = active
-				.map((attach) => attach(node))
-				.filter((cleanup): cleanup is () => void => typeof cleanup === 'function');
-			if (cleanups.length === 0) return;
-			return () => {
-				for (const cleanup of cleanups) cleanup();
-			};
-		};
-	}
-
-	function endPadAttach(setPx: (px: number) => void): Attachment {
-		return (el) => {
-			const update = () => {
-				setPx(Math.round(el.clientHeight * 0.3));
-			};
-			update();
-			const ro = new ResizeObserver(update);
-			ro.observe(el);
-			return () => {
-				ro.disconnect();
-				setPx(0);
-			};
-		};
-	}
 
 	const cardsEndPadAttach = endPadAttach((px) => {
 		cardsEndPadPx = px;
@@ -124,32 +101,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let lastAppliedManualMode: boolean | null = null;
 	let lastFocusedCardToken = 0;
 
-	const EMPTY_YAML_RANGES: YamlCardRange[] = [];
-	const yamlRanges = $derived(
-		builder.isManualMode || EffectString.isEmpty(builder.yamlPreview)
-			? EMPTY_YAML_RANGES
-			: mapYamlCardRanges(builder.yamlPreview)
-	);
-
 	const yamlParts = $derived(
 		builder.isManualMode || EffectString.isEmpty(builder.yamlPreview)
 			? splitPipelineYamlPreview('')
 			: splitPipelineYamlPreview(builder.yamlPreview)
 	);
 
-	const stepsVirtualizer = createStepsVirtualizer({
+	const stepsVirtualizer = createComposerVirtualizer({
 		getCount: () => builder.steps.length,
-		getScrollElement: () => cardsScrollContainer
+		getScrollElement: () => cardsScrollContainer,
+		itemSelector: stepCardSelector,
+		estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE
 	});
 	/** Store auto-subscribe target — `$stepsVirt` in markup. */
 	const stepsVirt = stepsVirtualizer.virtualizer;
 
-	const yamlVirtualizer = createYamlStepsVirtualizer({
+	const yamlVirtualizer = createComposerVirtualizer({
 		getCount: () => yamlParts.steps.length,
 		getScrollElement: () => yamlScrollContainer,
-		getScrollMargin: () => yamlScrollMargin
+		getScrollMargin: () => yamlScrollMargin,
+		itemSelector: yamlStepBlockSelector,
+		estimateSize: () => DEFAULT_YAML_STEP_ESTIMATE_SIZE
 	});
-	const yamlVirt = yamlVirtualizer.virtualizer;
 
 	const measureStepCard: Attachment = (node) => {
 		stepsVirtualizer.measureElement(node);
@@ -161,11 +134,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	const peerScroll = new PeerScrollFollow({
+		// Mount with instant scrollToIndex — the peer/reveal path owns the single smooth align.
+		// Competing smooth animations (estimate → measure → realign) read as choppy jumps.
 		ensureMounted: ensureMountedForStepsVirtualizer((index) =>
-			stepsVirtualizer.ensureStepVisible(index)
+			stepsVirtualizer.ensureStepVisible(index, { behavior: 'auto' })
 		),
-		ensureMountedYaml: ensureMountedForYamlVirtualizer((index) =>
-			yamlVirtualizer.ensureStepVisible(index)
+		ensureMountedYaml: ensureMountedForStepsVirtualizer((index) =>
+			yamlVirtualizer.ensureStepVisible(index, { behavior: 'auto' })
 		),
 		getCardLengths: listLengths,
 		getYamlLengths: listLengths
@@ -173,8 +148,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const unitHighlight = new UnitHighlight({
 		getIsManual: () => builder.isManualMode,
 		getEditingIndex: () => editingIndex,
-		getEditingSection: () => editingSection ?? 'steps',
-		getRanges: () => yamlRanges
+		getEditingSection: () => editingSection ?? 'steps'
 	});
 
 	builder.bindComposerScroll({
@@ -278,7 +252,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function onYamlUnitHover(unit: ActiveUnit | null) {
 		if (unit === null) {
-			unitHighlight.hoverYamlLine(null);
+			unitHighlight.clearHover();
 			return;
 		}
 		unitHighlight.hoverCard(unit);
@@ -362,6 +336,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		bind:scrollContainer={cardsScrollContainer}
 		scrollAttach={cardsScrollAttach}
 		title={m.Steps_sequence()}
+		contentClass="scrollbar-thin scrollbar-thumb-primary scrollbar-track-muted"
 		defaultSize={LAYOUT.blocks.stepsSequence}
 		order={2}
 		disabled={builder.isManualMode}
@@ -534,7 +509,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				yaml={builder.yamlPreview}
 				parts={yamlParts}
 				{yamlVirtualizer}
-				{yamlVirt}
 				scrollMargin={yamlScrollMargin}
 				scrollContainer={yamlScrollContainer}
 				isUnitSelected={(section, index) => unitHighlight.isCardSelected(section, index)}

@@ -39,12 +39,22 @@ export async function highlightYamlFragment(content: string, theme: BundledTheme
 					this.addClassToHast(node, [
 						'yaml-preview-block-pre',
 						'w-full',
+						'min-w-full',
 						'overflow-x-auto',
 						'text-sm',
 						'm-0',
 						'rounded-none',
-						'border-0'
+						'border-0',
+						'bg-transparent'
 					]);
+					// Pane paints the dark canvas; drop theme fill so short virtual
+					// rows do not leave white gutters beside a narrow opaque pre.
+					const style = node.properties.style;
+					if (typeof style === 'string') {
+						node.properties.style = style
+							.replace(/background-color:\s*[^;]+;?/gi, '')
+							.trim();
+					}
 				},
 				line(node) {
 					this.addClassToHast(node, 'code-display-line');

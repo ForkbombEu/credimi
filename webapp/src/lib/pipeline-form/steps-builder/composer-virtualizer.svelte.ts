@@ -10,65 +10,60 @@ import {
 } from '@tanstack/svelte-virtual';
 import { get, type Readable } from 'svelte/store';
 
+import { browserClock, type ComposerClock } from './composer-clock.js';
+
 /** Rough collapsed StepCard height used before measureElement runs. */
 export const DEFAULT_STEP_ESTIMATE_SIZE = 140;
 
-/** Keep ±1 neighbors mounted near the viewport edge for animate:flip. */
+/** Rough collapsed YAML step block height before measureElement runs. */
+export const DEFAULT_YAML_STEP_ESTIMATE_SIZE = 96;
+
+/** Keep ±1 neighbors mounted near the viewport edge for animate:flip / preview. */
 export const DEFAULT_OVERSCAN = 8;
 
 export const DEFAULT_ENSURE_VISIBLE_TIMEOUT_MS = 2000;
-
-export type StepsVirtualizerClock = {
-	now: () => number;
-	raf: (callback: FrameRequestCallback) => number;
-	cancelRaf: (handle: number) => void;
-	setTimeout: (handler: () => void, timeout?: number) => ReturnType<typeof setTimeout>;
-	clearTimeout: (handle: ReturnType<typeof setTimeout>) => void;
-};
 
 export type EnsureStepVisibleOptions = ScrollToOptions & {
 	timeoutMs?: number;
 };
 
-export type StepsVirtualizerOptions = {
+export type ComposerVirtualizerOptions = {
 	getCount: () => number;
 	getScrollElement: () => HTMLElement | null;
-	estimateSize?: (index: number) => number;
+	/** Selector for the mounted item used by `ensureStepVisible`. */
+	itemSelector: (index: number) => string;
+	estimateSize: (index: number) => number;
 	overscan?: number;
+	/** Offset of the virtual list within a shared scroller (e.g. YAML header height). */
+	getScrollMargin?: () => number;
 	ensureVisibleTimeoutMs?: number;
-	clock?: StepsVirtualizerClock;
+	clock?: ComposerClock;
 	/**
 	 * Injected for tests. Defaults to `@tanstack/svelte-virtual` createVirtualizer.
 	 */
 	createVirtualizer?: typeof createVirtualizer;
 };
 
-export type StepsVirtualizer = {
+export type ComposerVirtualizer = {
 	/** TanStack Readable store — subscribe with `$virtualizer` in components. */
 	virtualizer: Readable<SvelteVirtualizer<HTMLElement, Element>>;
 	getVirtualItems: () => VirtualItem[];
 	getTotalSize: () => number;
 	measureElement: (node: Element | null) => void;
 	/**
-	 * Scroll index into view, then wait until the step card is mounted in the scroller
-	 * (`[data-card-section=steps][data-card-index="…"]`) or until timeout.
+	 * Scroll index into view, then wait until `itemSelector(index)` is mounted in the
+	 * scroller or until timeout.
 	 */
 	ensureStepVisible: (index: number, options?: EnsureStepVisibleOptions) => Promise<boolean>;
 	dispose: () => void;
 };
 
-function defaultClock(): StepsVirtualizerClock {
-	return {
-		now: () => globalThis.performance?.now?.() ?? Date.now(),
-		raf: (...args) => globalThis.requestAnimationFrame(...args),
-		cancelRaf: (...args) => globalThis.cancelAnimationFrame(...args),
-		setTimeout: (...args) => globalThis.setTimeout(...args),
-		clearTimeout: (...args) => globalThis.clearTimeout(...args)
-	};
-}
-
 export function stepCardSelector(index: number): string {
 	return `[data-card-section="steps"][data-card-index="${index}"]`;
+}
+
+export function yamlStepBlockSelector(index: number): string {
+	return `[data-yaml-section="steps"][data-yaml-index="${index}"]`;
 }
 
 /**
@@ -79,7 +74,7 @@ export function waitForSelectorInScroller(
 	scrollElement: ParentNode,
 	selector: string,
 	timeoutMs: number,
-	clock: StepsVirtualizerClock = defaultClock()
+	clock: ComposerClock = browserClock()
 ): Promise<boolean> {
 	const deadline = clock.now() + timeoutMs;
 
@@ -114,35 +109,45 @@ export function waitForSelectorInScroller(
 }
 
 /**
- * Svelte 5-safe wrapper around TanStack `createVirtualizer` for Pipeline Composer step cards.
+ * Svelte 5-safe wrapper around TanStack `createVirtualizer` for Pipeline Composer lists
+ * (step cards and YAML step blocks).
  *
  * The store adapter does not auto-track option getters, so count (and scroll element identity)
  * are pushed via `setOptions` inside an `$effect.root` (TanStack Virtual #866 / Table guide).
  */
-export function createStepsVirtualizer(options: StepsVirtualizerOptions): StepsVirtualizer {
+export function createComposerVirtualizer(
+	options: ComposerVirtualizerOptions
+): ComposerVirtualizer {
 	const create = options.createVirtualizer ?? createVirtualizer;
-	const clock = options.clock ?? defaultClock();
-	const estimateSize = options.estimateSize ?? (() => DEFAULT_STEP_ESTIMATE_SIZE);
+	const clock = options.clock ?? browserClock();
+	const estimateSize = options.estimateSize;
 	const overscan = options.overscan ?? DEFAULT_OVERSCAN;
 	const ensureVisibleTimeoutMs =
 		options.ensureVisibleTimeoutMs ?? DEFAULT_ENSURE_VISIBLE_TIMEOUT_MS;
+	const getScrollMargin = options.getScrollMargin;
+	const itemSelector = options.itemSelector;
 
-	const virtualizer = create<HTMLElement, Element>({
+	const initialOptions = {
 		count: options.getCount(),
 		getScrollElement: () => options.getScrollElement(),
 		estimateSize,
-		overscan
-	});
+		overscan,
+		...(getScrollMargin ? { scrollMargin: getScrollMargin() } : {})
+	};
+
+	const virtualizer = create<HTMLElement, Element>(initialOptions);
 
 	const syncOptions = () => {
 		const count = options.getCount();
 		// Synchronous read so rune-backed scrollport rebinds re-run the `$effect` (TanStack #866).
 		options.getScrollElement();
+		const scrollMargin = getScrollMargin?.();
 		get(virtualizer).setOptions({
 			count,
 			getScrollElement: () => options.getScrollElement(),
 			estimateSize,
-			overscan
+			overscan,
+			...(scrollMargin !== undefined ? { scrollMargin } : {})
 		});
 	};
 
@@ -152,7 +157,7 @@ export function createStepsVirtualizer(options: StepsVirtualizerOptions): StepsV
 
 	const destroyEffect = $effect.root(() => {
 		$effect(() => {
-			// getCount / getScrollElement reads are tracked when called from syncOptions.
+			// getCount / getScrollElement / getScrollMargin reads are tracked via syncOptions.
 			syncOptions();
 		});
 	});
@@ -174,18 +179,16 @@ export function createStepsVirtualizer(options: StepsVirtualizerOptions): StepsV
 		async ensureStepVisible(index, ensureOptions = {}) {
 			if (disposed) return false;
 			const { timeoutMs = ensureVisibleTimeoutMs, ...scrollOptions } = ensureOptions;
+			// Default `auto`: estimated-size smooth scrollToIndex fights measureElement and
+			// any caller smooth realign. Pass `behavior: 'smooth'` only when this is the
+			// sole scroll (e.g. focus a newly created card).
 			get(virtualizer).scrollToIndex(index, {
 				align: scrollOptions.align ?? 'center',
-				behavior: scrollOptions.behavior ?? 'smooth'
+				behavior: scrollOptions.behavior ?? 'auto'
 			});
 			const scrollElement = options.getScrollElement();
 			if (!scrollElement) return false;
-			return waitForSelectorInScroller(
-				scrollElement,
-				stepCardSelector(index),
-				timeoutMs,
-				clock
-			);
+			return waitForSelectorInScroller(scrollElement, itemSelector(index), timeoutMs, clock);
 		},
 		dispose() {
 			if (disposed) return;

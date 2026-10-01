@@ -4,16 +4,16 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { createFakeClock } from '../test-support/fake-clock.js';
 import {
+	CARD_PANE,
+	YAML_PANE,
 	computeAlignedScrollTop,
 	computeNearestScrollTop,
 	ensureMountedForStepsVirtualizer,
-	ensureMountedForYamlVirtualizer,
 	resolveListEndUnit,
-	resolveViewportActiveCard,
-	resolveViewportYamlUnit,
-	scrollCardIntoView,
-	scrollYamlUnitIntoView,
+	resolveViewportUnit,
+	scrollUnitIntoView,
 	watchDrivenScroll,
 	type ActiveUnit
 } from './active-unit.js';
@@ -33,17 +33,6 @@ describe('ensureMountedForStepsVirtualizer', () => {
 
 		await expect(ensureMounted({ section: 'follow-ups', index: 2 })).resolves.toBe(true);
 		expect(ensureStepVisible).not.toHaveBeenCalled();
-	});
-});
-
-describe('ensureMountedForYamlVirtualizer', () => {
-	it('mirrors the steps virtualizer mount bridge', async () => {
-		const ensureStepVisible = vi.fn(async (index: number) => index === 3);
-		const ensureMounted = ensureMountedForYamlVirtualizer(ensureStepVisible);
-
-		await expect(ensureMounted({ section: 'steps', index: 3 })).resolves.toBe(true);
-		await expect(ensureMounted({ section: 'follow-ups', index: 0 })).resolves.toBe(true);
-		expect(ensureStepVisible).toHaveBeenCalledOnce();
 	});
 });
 
@@ -205,7 +194,7 @@ describe('resolveListEndUnit', () => {
 	});
 });
 
-describe('resolveViewportActiveCard', () => {
+describe('resolveViewportUnit (cards)', () => {
 	type Rect = { top: number; bottom: number; height: number };
 
 	function makeRect(rect: Rect): DOMRect {
@@ -268,7 +257,7 @@ describe('resolveViewportActiveCard', () => {
 			{ section: 'steps', index: 7, center: 300 }
 		]);
 		scroller.scrollTop = 0;
-		expect(resolveViewportActiveCard(scroller as unknown as HTMLElement, null)).toEqual({
+		expect(resolveViewportUnit(scroller as unknown as HTMLElement, null, CARD_PANE)).toEqual({
 			section: 'steps',
 			index: 5
 		});
@@ -282,7 +271,7 @@ describe('resolveViewportActiveCard', () => {
 		]);
 		scroller.scrollTop = 0;
 		expect(
-			resolveViewportActiveCard(scroller as unknown as HTMLElement, null, {
+			resolveViewportUnit(scroller as unknown as HTMLElement, null, CARD_PANE, {
 				steps: 1400,
 				followUps: 2
 			})
@@ -297,7 +286,7 @@ describe('resolveViewportActiveCard', () => {
 		]);
 		scroller.scrollTop = 1600; // maxScroll = 1600
 		expect(
-			resolveViewportActiveCard(scroller as unknown as HTMLElement, null, {
+			resolveViewportUnit(scroller as unknown as HTMLElement, null, CARD_PANE, {
 				steps: 1400,
 				followUps: 2
 			})
@@ -311,14 +300,14 @@ describe('resolveViewportActiveCard', () => {
 			{ section: 'steps', index: 1392, center: 300 }
 		]);
 		scroller.scrollTop = 1600;
-		expect(resolveViewportActiveCard(scroller as unknown as HTMLElement, null)).toEqual({
+		expect(resolveViewportUnit(scroller as unknown as HTMLElement, null, CARD_PANE)).toEqual({
 			section: 'steps',
 			index: 1392
 		});
 	});
 });
 
-describe('scrollCardIntoView', () => {
+describe('scrollUnitIntoView (cards)', () => {
 	type Rect = { top: number; bottom: number; height: number };
 
 	function makeRect(rect: Rect): DOMRect {
@@ -382,10 +371,11 @@ describe('scrollCardIntoView', () => {
 	it('returns false when the card is missing and ensureMounted is absent', async () => {
 		const scroller = createCardsScroller([0]);
 		await expect(
-			scrollCardIntoView(
+			scrollUnitIntoView(
 				scroller as unknown as HTMLElement,
 				{ section: 'steps', index: 99 },
-				'auto'
+				'auto',
+				CARD_PANE
 			)
 		).resolves.toBe(false);
 		expect(scroller.scrollTo).not.toHaveBeenCalled();
@@ -399,10 +389,11 @@ describe('scrollCardIntoView', () => {
 		});
 
 		await expect(
-			scrollCardIntoView(
+			scrollUnitIntoView(
 				scroller as unknown as HTMLElement,
 				{ section: 'steps', index: 42 },
 				'auto',
+				CARD_PANE,
 				{ ensureMounted, focus: false }
 			)
 		).resolves.toBe(true);
@@ -416,10 +407,11 @@ describe('scrollCardIntoView', () => {
 		const ensureMounted = vi.fn(async () => false);
 
 		await expect(
-			scrollCardIntoView(
+			scrollUnitIntoView(
 				scroller as unknown as HTMLElement,
 				{ section: 'steps', index: 42 },
 				'auto',
+				CARD_PANE,
 				{ ensureMounted }
 			)
 		).resolves.toBe(false);
@@ -432,10 +424,11 @@ describe('scrollCardIntoView', () => {
 		const scroller = createCardsScroller([3]);
 		const ensureMounted = vi.fn(async () => true);
 
-		await scrollCardIntoView(
+		await scrollUnitIntoView(
 			scroller as unknown as HTMLElement,
 			{ section: 'steps', index: 3 },
 			'auto',
+			CARD_PANE,
 			{ ensureMounted, focus: false }
 		);
 
@@ -445,34 +438,6 @@ describe('scrollCardIntoView', () => {
 });
 
 describe('watchDrivenScroll', () => {
-	function fakeClock() {
-		let nextId = 1;
-		let now = 0;
-		const timers = new Map<number, { due: number; handler: () => void }>();
-		return {
-			setTimeout(handler: () => void, timeout = 0) {
-				const id = nextId++;
-				timers.set(id, { due: now + timeout, handler });
-				return id as unknown as ReturnType<typeof setTimeout>;
-			},
-			clearTimeout(handle: ReturnType<typeof setTimeout>) {
-				timers.delete(handle as unknown as number);
-			},
-			flush(ms: number) {
-				now += ms;
-				for (const [id, t] of [...timers.entries()]) {
-					if (t.due <= now) {
-						timers.delete(id);
-						t.handler();
-					}
-				}
-			},
-			pending() {
-				return timers.size;
-			}
-		};
-	}
-
 	function stubEl() {
 		const listeners = new Map<string, Set<EventListener>>();
 		return {
@@ -495,32 +460,43 @@ describe('watchDrivenScroll', () => {
 	}
 
 	it('clears via injected clock after auto timeout (120ms)', () => {
-		const clock = fakeClock();
+		const clock = createFakeClock();
 		const el = stubEl();
 		const onClear = vi.fn();
 		watchDrivenScroll(el as unknown as HTMLElement, 'auto', onClear, clock);
 		expect(onClear).not.toHaveBeenCalled();
-		clock.flush(119);
+		clock.flushTimeouts(119);
 		expect(onClear).not.toHaveBeenCalled();
-		clock.flush(1);
+		clock.flushTimeouts(1);
 		expect(onClear).toHaveBeenCalledTimes(1);
-		expect(clock.pending()).toBe(0);
 	});
 
 	it('clears on scrollend before timeout and cancels the timer', () => {
-		const clock = fakeClock();
+		const clock = createFakeClock();
 		const el = stubEl();
 		const onClear = vi.fn();
 		watchDrivenScroll(el as unknown as HTMLElement, 'smooth', onClear, clock);
 		el.dispatch('scrollend');
 		expect(onClear).toHaveBeenCalledTimes(1);
-		expect(clock.pending()).toBe(0);
-		clock.flush(650);
+		clock.flushTimeouts(650);
+		expect(onClear).toHaveBeenCalledTimes(1);
+	});
+
+	it('uses idleTimeoutMs when provided (Animatable-driven)', () => {
+		const clock = createFakeClock();
+		const el = stubEl();
+		const onClear = vi.fn();
+		watchDrivenScroll(el as unknown as HTMLElement, 'auto', onClear, clock, {
+			idleTimeoutMs: 360
+		});
+		clock.flushTimeouts(359);
+		expect(onClear).not.toHaveBeenCalled();
+		clock.flushTimeouts(1);
 		expect(onClear).toHaveBeenCalledTimes(1);
 	});
 });
 
-describe('resolveViewportYamlUnit', () => {
+describe('resolveViewportUnit (yaml)', () => {
 	type Rect = { top: number; bottom: number; height: number };
 
 	function makeRect(rect: Rect): DOMRect {
@@ -580,7 +556,7 @@ describe('resolveViewportYamlUnit', () => {
 			{ section: 'steps', index: 1, center: 220 },
 			{ section: 'steps', index: 2, center: 360 }
 		]);
-		expect(resolveViewportYamlUnit(scroller as unknown as HTMLElement, null)).toEqual({
+		expect(resolveViewportUnit(scroller as unknown as HTMLElement, null, YAML_PANE)).toEqual({
 			section: 'steps',
 			index: 1
 		});
@@ -592,11 +568,11 @@ describe('resolveViewportYamlUnit', () => {
 			{ section: 'steps', index: 1, center: 900 }
 		]);
 		scroller.scrollTop = 0;
-		expect(resolveViewportYamlUnit(scroller as unknown as HTMLElement, null)).toBeNull();
+		expect(resolveViewportUnit(scroller as unknown as HTMLElement, null, YAML_PANE)).toBeNull();
 	});
 });
 
-describe('scrollYamlUnitIntoView', () => {
+describe('scrollUnitIntoView (yaml)', () => {
 	it('calls ensureMounted when the yaml step block is missing', async () => {
 		const children: Array<{
 			getAttribute(name: string): string | null;
@@ -665,14 +641,90 @@ describe('scrollYamlUnitIntoView', () => {
 		});
 
 		await expect(
-			scrollYamlUnitIntoView(
+			scrollUnitIntoView(
 				scroller as unknown as HTMLElement,
 				{ section: 'steps', index: 4 },
 				'auto',
+				YAML_PANE,
 				{ ensureMounted, focus: false }
 			)
 		).resolves.toBe(true);
 		expect(ensureMounted).toHaveBeenCalledWith({ section: 'steps', index: 4 });
 		expect(scroller.scrollTo).toHaveBeenCalled();
+	});
+
+	it('prefers Animatable scrollTo over native scrollTo when provided', async () => {
+		const children: Array<{
+			getAttribute(name: string): string | null;
+			getBoundingClientRect(): DOMRect;
+			focus: ReturnType<typeof vi.fn>;
+		}> = [
+			{
+				getAttribute(name: string) {
+					if (name === 'data-yaml-section') return 'steps';
+					if (name === 'data-yaml-index') return '0';
+					return null;
+				},
+				getBoundingClientRect: () =>
+					({
+						top: 800,
+						bottom: 880,
+						height: 80,
+						left: 0,
+						right: 100,
+						width: 100,
+						x: 0,
+						y: 800,
+						toJSON() {
+							return this;
+						}
+					}) as DOMRect,
+				focus: vi.fn()
+			}
+		];
+
+		const scroller = {
+			querySelector() {
+				return children[0] ?? null;
+			},
+			getBoundingClientRect: () =>
+				({
+					top: 0,
+					bottom: 400,
+					height: 400,
+					left: 0,
+					right: 100,
+					width: 100,
+					x: 0,
+					y: 0,
+					toJSON() {
+						return this;
+					}
+				}) as DOMRect,
+			clientHeight: 400,
+			scrollHeight: 2000,
+			scrollTop: 0,
+			scrollTo: vi.fn()
+		};
+
+		const animatableScroll = {
+			scrollTo: vi.fn(),
+			getScrollTop: () => 0,
+			dispose: vi.fn(),
+			animatable: {} as never
+		};
+
+		await expect(
+			scrollUnitIntoView(
+				scroller as unknown as HTMLElement,
+				{ section: 'steps', index: 0 },
+				'auto',
+				YAML_PANE,
+				{ focus: false, animatableScroll, durationMs: 280 }
+			)
+		).resolves.toBe(true);
+
+		expect(animatableScroll.scrollTo).toHaveBeenCalledWith(expect.any(Number), 280);
+		expect(scroller.scrollTo).not.toHaveBeenCalled();
 	});
 });

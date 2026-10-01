@@ -6,16 +6,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Attachment } from 'svelte/attachments';
-	import type { Readable } from 'svelte/store';
 
 	import { Check, ClipboardCopy } from '@lucide/svelte';
-	import type { SvelteVirtualizer } from '@tanstack/svelte-virtual';
 
 	import Button from '@/components/ui/button/button.svelte';
 
+	import type { ComposerVirtualizer } from '../composer-virtualizer.svelte.js';
 	import type { ActiveUnit } from '../scroll-follow/active-unit.js';
-	import type { YamlPreviewParts } from '../yaml-preview-split.js';
-	import type { YamlStepsVirtualizer } from '../yaml-virtualizer.svelte.js';
+	import type { YamlPreviewParts } from '../yaml-preview/index.js';
 
 	import YamlShikiBlock from './yaml-shiki-block.svelte';
 
@@ -23,9 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/** Full document — SoT for copy; fragments come from `parts`. */
 		yaml: string;
 		parts: YamlPreviewParts;
-		yamlVirtualizer: YamlStepsVirtualizer;
-		/** Store auto-subscribe target — `$yamlVirt` in markup. */
-		yamlVirt: Readable<SvelteVirtualizer<HTMLElement, Element>>;
+		yamlVirtualizer: ComposerVirtualizer;
 		scrollMargin: number;
 		/** YAML column scroller — used to measure scrollMargin for the virtual step list. */
 		scrollContainer?: HTMLElement | null;
@@ -42,7 +38,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		yaml,
 		parts,
 		yamlVirtualizer,
-		yamlVirt,
 		scrollMargin,
 		scrollContainer = null,
 		isUnitSelected,
@@ -52,6 +47,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onHeaderHeightChange,
 		endPadPx = 0
 	}: Props = $props();
+
+	/** Store auto-subscribe target — `$yamlVirt` in markup. */
+	const yamlVirt = yamlVirtualizer.virtualizer;
 
 	let isCopied = $state(false);
 	/** Wraps everything above the virtual step list (padding + header). */
@@ -96,7 +94,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<div class="relative flex min-h-0 w-full flex-col bg-[#303446] text-sm text-white">
+<!--
+	  Must size to content (virtual spacer) and not flex-shrink to the scrollport.
+	  The pane sits in Column's `flex … flex-col` wrapper: without shrink-0 the
+	  canvas height collapses to the viewport, so past the first screen only the
+	  padded-inset spacer paints `#303446` and white gutters show in the p-4 band.
+	-->
+<div class="relative min-h-full w-full shrink-0 bg-[#303446] text-sm text-white">
 	{#if yaml}
 		<div class="absolute top-2 right-2 z-10 flex flex-col gap-1">
 			<Button
@@ -128,7 +132,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if parts.steps.length > 0}
 			<div
 				bind:this={virtualListEl}
-				class="relative w-full"
+				class="relative w-full bg-[#303446]"
 				style:height="{$yamlVirt.getTotalSize()}px"
 			>
 				{#each $yamlVirt.getVirtualItems() as vItem (parts.steps[vItem.index]?.text ?? vItem.key)}
@@ -140,7 +144,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							data-index={index}
 							data-yaml-section="steps"
 							data-yaml-index={index}
-							class="absolute left-0 w-full"
+							class="absolute right-0 left-0 w-full min-w-full"
 							style:top="{vItem.start - scrollMargin}px"
 							role="group"
 							tabindex="-1"

@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { joinPipelineYamlPreview, splitPipelineYamlPreview } from './yaml-preview-split.js';
+import { joinPipelineYamlPreview, splitPipelineYamlPreview } from './index.js';
 
 const SAMPLE = `name: demo
 
@@ -102,5 +102,74 @@ describe('splitPipelineYamlPreview', () => {
 		expect(parts.steps).toHaveLength(2);
 		expect(parts.steps[0]?.text).toContain('use: debug');
 		expect(parts.steps[1]?.text).toContain('email-0001');
+	});
+
+	it('keeps the blank line between continue_on_error-first steps in the prior fragment', () => {
+		const yaml = `name: x
+
+steps:
+  - continue_on_error: true
+    id: a
+    use: http-request
+
+  - continue_on_error: true
+    id: b
+    use: http-request
+`;
+		const parts = splitPipelineYamlPreview(yaml);
+		expect(parts.steps).toHaveLength(2);
+		// Inter-step blank stays on the previous fragment so virtual rows keep a true YAML gap.
+		expect(parts.steps[0]?.text.endsWith('\n')).toBe(true);
+		expect(parts.steps[0]?.text).toMatch(/use: http-request\n$/);
+		expect(parts.steps[1]?.text.startsWith('  - continue_on_error:')).toBe(true);
+		expect(joinPipelineYamlPreview(parts).replace(/\n$/, '')).toBe(yaml.replace(/\n$/, ''));
+	});
+
+	it('treats continue_on_error-first list items as step boundaries (FCAF-ish)', () => {
+		const yaml = `name: fcaf-ish
+
+steps:
+  - id: onboard-0001
+    use: mobile-automation
+
+  - continue_on_error: true
+    id: http-0002
+    use: http-request
+    with:
+      method: GET
+      url: https://example.com
+
+  - continue_on_error: true
+    id: http-0003
+    use: http-request
+`;
+		const parts = splitPipelineYamlPreview(yaml);
+		expect(parts.steps).toHaveLength(3);
+		expect(parts.steps[0]?.text).toContain('onboard-0001');
+		expect(parts.steps[1]?.text).toMatch(/continue_on_error[\s\S]*http-0002/);
+		expect(parts.steps[2]?.text).toMatch(/continue_on_error[\s\S]*http-0003/);
+		expect(joinPipelineYamlPreview(parts).replace(/\n$/, '')).toBe(yaml.replace(/\n$/, ''));
+	});
+
+	it('treats continue_on_error-first finally items as follow-up boundaries', () => {
+		const yaml = `name: x
+
+steps:
+  - id: a-0001
+    use: debug
+
+finally:
+  always:
+    - continue_on_error: true
+      id: email-0002
+      use: email
+    - id: http-0003
+      use: http-request
+`;
+		const parts = splitPipelineYamlPreview(yaml);
+		expect(parts.followUps).toHaveLength(2);
+		expect(parts.followUps[0]?.text).toMatch(/continue_on_error[\s\S]*email-0002/);
+		expect(parts.followUps[1]?.text).toContain('http-0003');
+		expect(joinPipelineYamlPreview(parts).replace(/\n$/, '')).toBe(yaml.replace(/\n$/, ''));
 	});
 });

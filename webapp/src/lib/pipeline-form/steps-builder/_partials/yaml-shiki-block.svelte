@@ -53,10 +53,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class={[
-			'yaml-preview-block relative w-full',
+			'yaml-preview-block relative w-full min-w-full rounded-sm',
 			interactive && 'yaml-preview-block-interactive',
-			selected && 'yaml-preview-block-selected',
-			hovered && !selected && 'yaml-preview-block-hovered',
+			selected && 'yaml-preview-block-selected ring-2 ring-orange-500',
+			hovered && !selected && 'yaml-preview-block-hovered ring-2 ring-orange-500/60',
+			(hovered || selected) && 'overflow-hidden',
 			className
 		]}
 		{onclick}
@@ -66,17 +67,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@html highlighted}
 		{:else}
 			<pre
-				class="yaml-preview-block-pre m-0 w-full overflow-x-auto border-0 text-sm">{content}</pre>
+				class="yaml-preview-block-pre m-0 w-full min-w-full overflow-x-auto border-0 bg-transparent text-sm">{content}</pre>
 		{/if}
 	</div>
 {/if}
 
 <style>
+	/*
+	  Pane owns the dark canvas. Shiki theme backgrounds are stripped so every
+	  virtual row paints the same full-width surface (avoids mid-scroll gutters
+	  when a block's content is narrower than its siblings).
+	*/
+	:global(.yaml-preview-block-pre) {
+		width: 100%;
+		min-width: 100%;
+		box-sizing: border-box;
+		background-color: transparent !important;
+	}
+
 	:global(.yaml-preview-block-pre > code) {
 		display: flex;
 		flex-direction: column;
 		min-width: 100%;
 		width: max-content;
+		box-sizing: border-box;
 	}
 
 	:global(.yaml-preview-block .code-display-line) {
@@ -90,11 +104,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		cursor: pointer;
 	}
 
-	:global(.yaml-preview-block-hovered) {
-		background-color: rgb(255 255 255 / 0.08);
+	/*
+	  Wash sits on the lines (like CodeDisplay), not behind Shiki's opaque pre —
+	  otherwise hover is invisible. Soft 15% hover; selected slightly stronger.
+	*/
+	:global(.yaml-preview-block-hovered .code-display-line) {
+		background-color: rgb(255 255 255 / 0.15);
 	}
 
-	:global(.yaml-preview-block-selected) {
-		background-color: rgb(255 255 255 / 0.16);
+	:global(.yaml-preview-block-selected .code-display-line) {
+		background-color: rgb(255 255 255 / 0.22);
 	}
 </style>
