@@ -116,6 +116,7 @@
 		"@sjsf/form": "^3.2.1",
 		"@sjsf/shadcn-theme": "^3.0.0",
 		"@tanstack/svelte-query": "^6.2.1",
+		"@tanstack/svelte-virtual": "^3.13.39",
 		"ajv": "^8.17.1",
 		"carta-md": "^4.11.1",
 		"date-fns": "2.29.3",
