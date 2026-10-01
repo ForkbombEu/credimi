@@ -258,8 +258,13 @@ function assignStepId(step: PipelineStep, counters: Map<string, number>) {
 
 function getIdBase(step: PipelineStep): string | undefined {
 	if (step.use === 'debug' || !('with' in step)) return undefined;
-	const config = getConfigByTypeOrThrow(step.use);
-	return slugify(config.makeId(step.with));
+	try {
+		const config = getConfigByTypeOrThrow(step.use);
+		return slugify(config.makeId(step.with));
+	} catch {
+		// One bad makeId (e.g. template URL) must not blank the whole YAML preview.
+		return slugify(step.use);
+	}
 }
 
 function getIdSuffix(id: string, base: string) {
