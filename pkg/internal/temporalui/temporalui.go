@@ -263,6 +263,9 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //     and makes links to other UI pages (workflow lists, task queues) inert;
 //   - hides the workflow summary above the history tabs (status, actions, id,
 //     metadata); Credimi's run page already shows that;
+//   - lets the document grow with content height (no inner viewport scroll) and
+//     posts height to the parent so the iframe can size without its own scrollbar;
+//   - keeps width at the parent iframe width (Temporal UI uses w-max / w-screen);
 //   - forces the light theme: Credimi has no dark mode, and the UI reads its theme
 //     from the persisted "dark mode" store, defaulting to the OS preference;
 //   - keeps navigation on the embedded run: its own tabs work, links to another
@@ -270,11 +273,21 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //     is blocked.
 const embedHead = `<style id="credimi-embed">` +
 	`:root{color-scheme:light}` +
-	`html,body{background-color:#f8fafc !important;color:#141414 !important}` +
+	`html,body{background-color:#f8fafc !important;color:#141414 !important;` +
+	`width:100% !important;max-width:100% !important;` +
+	`height:auto !important;min-height:0 !important;` +
+	`overflow-x:hidden !important;overflow-y:visible !important}` +
 	`div:has(> nav[data-testid="navigation-header"]),nav[data-testid="top-nav"],` +
 	`[data-testid="back-to-workflows"]{display:none !important}` +
 	`header:has([data-testid="workflow-id-heading"]) > :not(.tabs)` +
 	`{display:none !important}` +
+	`.h-dvh,.w-screen,.w-max,#content-wrapper,#content,#content > div` +
+	`{width:100% !important;max-width:100% !important;` +
+	`height:auto !important;max-height:none !important;min-height:0 !important;` +
+	`overflow-x:hidden !important;overflow-y:visible !important}` +
+	`[data-testid="input-and-result"],[data-testid="event-summary-table"]` +
+	`{max-width:100% !important;box-sizing:border-box}` +
+	`[data-testid="event-summary-table"]{overflow-x:auto !important}` +
 	`a[href*="/workflows?"],a[href*="/task-queues/"]` +
 	`{pointer-events:none;color:inherit !important;text-decoration:none !important}` +
 	`</style>` +
@@ -289,7 +302,24 @@ const embedHead = `<style id="credimi-embed">` +
 	`e.preventDefault();e.stopImmediatePropagation();` +
 	`if(there&&window.top!==window){` +
 	`window.top.location.href="/my/tests/runs/"+there[1]+"/"+there[2]}` +
-	`},true)})()</script>`
+	`},true);` +
+	`function reportHeight(){` +
+	`var h=Math.max(document.documentElement.scrollHeight,` +
+	`document.body&&document.body.scrollHeight||0);` +
+	`if(window.parent&&window.parent!==window){` +
+	`window.parent.postMessage({source:"credimi-temporal-ui",type:"height",height:h},` +
+	`location.origin)}}` +
+	`var scheduled=false;function schedule(){` +
+	`if(scheduled)return;scheduled=true;` +
+	`requestAnimationFrame(function(){scheduled=false;reportHeight()})}` +
+	`if(typeof ResizeObserver!=="undefined"){` +
+	`var ro=new ResizeObserver(schedule);` +
+	`ro.observe(document.documentElement);` +
+	`if(document.body)ro.observe(document.body)}` +
+	`new MutationObserver(schedule).observe(document.documentElement,` +
+	`{subtree:true,childList:true,attributes:true});` +
+	`window.addEventListener("load",schedule);schedule()` +
+	`})()</script>`
 
 func injectEmbedHead(resp *http.Response) error {
 	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") {

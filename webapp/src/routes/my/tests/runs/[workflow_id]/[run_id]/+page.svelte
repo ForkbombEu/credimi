@@ -78,6 +78,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 	let loadedTemporalUiUrl = $state<string>();
 	const isTemporalUiLoading = $derived(loadedTemporalUiUrl !== temporalUiUrl);
+	let temporalUiIframe = $state<HTMLIFrameElement>();
+	// Same guard as the pre-embed iframe (#497): ignore the steady delta that
+	// appears when the iframe height feeds back into the child's scrollHeight.
+	let temporalUiHeightDelta = $state(0);
+
+	$effect(() => {
+		function onMessage(ev: MessageEvent) {
+			if (ev.origin !== window.location.origin) return;
+			const data = ev.data as { source?: string; type?: string; height?: number } | null;
+			if (!data || data.source !== 'credimi-temporal-ui' || data.type !== 'height') return;
+			const iframe = temporalUiIframe;
+			if (!iframe || typeof data.height !== 'number' || data.height <= 0) return;
+			const next = Math.ceil(data.height);
+			const delta = next - (parseInt(iframe.height, 10) || 0);
+			if (delta === temporalUiHeightDelta) return;
+			iframe.height = `${next}px`;
+			temporalUiHeightDelta = delta;
+		}
+		window.addEventListener('message', onMessage);
+		return () => window.removeEventListener('message', onMessage);
+	});
 
 	/* Run status refresh */
 
@@ -286,10 +307,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<iframe
+		bind:this={temporalUiIframe}
 		title="Temporal workflow history"
 		src={temporalUiUrl}
-		class="block h-[calc(100vh-3rem)] min-h-[600px] w-full border-0"
-		onload={() => (loadedTemporalUiUrl = temporalUiUrl)}
+		class="block min-h-[600px] w-full max-w-full border-0"
+		style="overflow: hidden;"
+		scrolling="no"
+		onload={() => {
+			loadedTemporalUiUrl = temporalUiUrl;
+			temporalUiHeightDelta = 0;
+		}}
 	></iframe>
 </div>
 
