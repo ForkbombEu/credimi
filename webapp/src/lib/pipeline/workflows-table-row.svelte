@@ -85,10 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				workflow_id: workflow.execution.workflowId,
 				run_id: workflow.execution.runId
 			}),
-			artifactIconSize: isCompact ? ('mini' as const) : ('xs' as const),
-			artifactIconClass: isCompact
-				? 'text-primary hover:bg-secondary'
-				: 'rounded-sm text-primary hover:bg-secondary'
+			artifactIconSize: isCompact ? ('mini' as const) : ('xs' as const)
 		};
 	});
 </script>
@@ -190,7 +187,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			variant="ghost"
 			size={row.artifactIconSize}
 			tooltip={m.View()}
-			class={row.artifactIconClass}
+			class={['text-primary hover:bg-secondary', row.isCompact && 'rounded-sm']}
 			aria-label={m.View()}
 		/>
 	</TdDash>
