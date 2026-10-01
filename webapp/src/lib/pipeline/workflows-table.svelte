@@ -97,12 +97,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <TemporalI18nProvider>
 	<div class="-mx-2 overflow-hidden">
 		<div class="overflow-x-auto">
-			<table class={['w-full', isCompact ? 'text-xs' : 'text-sm']} data-density={density}>
+			<table
+				class={['w-full', isCompact ? 'text-xs' : 'text-sm']}
+				data-density={density}
+				style:--td-px={isCompact ? '0.5rem' : '0.75rem'}
+				style:--td-py={isCompact ? '0.125rem' : '0.5rem'}
+			>
 				<thead class="bg-slate-100">
 					<tr>
-						<th
-							class="col-expand w-px rounded-l-sm px-0 whitespace-nowrap"
-							aria-hidden="true"
+						<th class="col-expand w-px rounded-l-sm whitespace-nowrap" aria-hidden="true"
 						></th>
 						<th>{m.Status()}</th>
 						<th>{m.Devices()}</th>
@@ -136,16 +139,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <style lang="postcss">
 	@reference "tailwindcss";
 
-	/* Header stays in this component; body cell padding lives on each td via cellPadClass. */
-	table[data-density='compact'] th {
-		@apply px-2 py-0.5;
-	}
-
-	table[data-density='comfortable'] th {
-		@apply px-3 py-2;
-	}
-
 	th {
-		@apply text-left font-normal text-slate-500;
+		@apply px-(--td-px) py-(--td-py) text-left font-normal text-slate-500;
+	}
+
+	th.col-expand {
+		@apply px-0;
 	}
 </style>

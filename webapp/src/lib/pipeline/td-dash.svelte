@@ -4,25 +4,6 @@ SPDX-FileCopyrightText: 2026 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<script lang="ts" module>
-	export type CellDensity = 'compact' | 'comfortable';
-
-	/** Shared td padding for the pipeline executions table. */
-	export function cellPadClass(
-		density: CellDensity,
-		opts: { child?: boolean; expand?: boolean } = {}
-	): string {
-		if (opts.expand) {
-			// Shrink-wrap to the control; nest indent uses inline padding-left only.
-			const y = density === 'compact' ? 'py-0.5' : opts.child ? 'py-1' : 'py-2';
-			return `w-px whitespace-nowrap px-0 ${y}`;
-		}
-		if (density === 'compact') return 'px-2 py-0.5';
-		if (opts.child) return 'px-3 py-1 text-xs';
-		return 'px-3 py-2';
-	}
-</script>
-
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HTMLTdAttributes } from 'svelte/elements';
@@ -35,16 +16,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		value?: string | null | undefined;
 		/**
 		 * Content cell: when true, render `children`; when false, render the fallback.
-		 * Ignored when `value` is passed.
+		 * Ignored when `value` is passed. If omitted and `children` exist, children render.
 		 */
 		when?: boolean;
 		/** Shown when there is no content. Default dash; use `empty` for blank cells. */
 		fallback?: 'dash' | 'empty';
-		density?: CellDensity;
-		/** Comfortable child rows use tighter vertical padding. */
-		child?: boolean;
-		/** Leading expand column: narrower horizontal padding. */
+		/** Leading expand column: shrink-wrap, no horizontal pad. */
 		expand?: boolean;
+		/** Status / child-name nest: uses `--nest-pl` for padding-left. */
+		nest?: boolean;
 		class?: string;
 		colspan?: number;
 		children?: Snippet;
@@ -54,20 +34,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		value,
 		when,
 		fallback = 'dash',
-		density = 'comfortable',
-		child = false,
 		expand = false,
+		nest = false,
 		class: className,
 		colspan,
 		children,
 		...rest
 	}: Props = $props();
 
-	const showContent = $derived(value !== undefined ? Boolean(value) : when === true);
-	const padClass = $derived(cellPadClass(density, { child, expand }));
+	const showContent = $derived(
+		value !== undefined ? Boolean(value) : when !== undefined ? when : Boolean(children)
+	);
 </script>
 
-<td class={[padClass, className]} {colspan} {...rest}>
+<td
+	class={[
+		expand
+			? 'w-px whitespace-nowrap px-0 py-(--td-py)'
+			: nest
+				? 'py-(--td-py) pr-(--td-px) pl-(--nest-pl)'
+				: 'px-(--td-px) py-(--td-py)',
+		className
+	]}
+	{colspan}
+	{...rest}
+>
 	{#if showContent}
 		{#if value !== undefined}
 			{value}
