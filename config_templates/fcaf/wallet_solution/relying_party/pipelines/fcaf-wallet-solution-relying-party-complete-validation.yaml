@@ -4496,7 +4496,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-035-create-capture-session
       use: http-request
@@ -4533,7 +4533,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-035-fetch-capture-session
       use: http-request
@@ -4553,7 +4553,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-036-create-capture-session
       use: http-request
@@ -4588,7 +4588,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-036-fetch-capture-session
       use: http-request
@@ -5392,7 +5392,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-credential-sets-required-true-m-c6f43473-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-required-true-m-c6f43473-create-capture-session
       use: http-request
@@ -5424,7 +5424,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credential-sets-required-true-m-c6f43473-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-required-true-m-c6f43473-fetch-capture-session
       use: http-request
@@ -5582,7 +5582,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-credentials-match-cc301c32-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - activity_options:
         retry_policy:
             backoff_coefficient: 2
@@ -5623,7 +5623,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credentials-match-cc301c32-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - activity_options:
         retry_policy:
             backoff_coefficient: 2
@@ -9118,7 +9118,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-028-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-028-create-presentation
       use: http-request
@@ -9144,7 +9144,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-028-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-028-fetch-result
       use: http-request
@@ -9164,7 +9164,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-029-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-029-create-presentation
       use: http-request
@@ -9203,7 +9203,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-029-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-029-fetch-result
       use: http-request
@@ -9261,7 +9261,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-fetch-optional-no-match-result
       use: http-request
@@ -9281,7 +9281,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-030-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-create-presentation
       use: http-request
@@ -9316,7 +9316,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-030-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-fetch-result
       use: http-request
@@ -9336,7 +9336,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation
       use: http-request
@@ -9372,7 +9372,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-fetch-result
       use: http-request
@@ -9480,7 +9480,7 @@ steps:
             - tapOn: "Close"
         parameters:
             DEEPLINK: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-fetch-two-credentials-result
       use: http-request
@@ -12021,7 +12021,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-standard-all-28f43ce6-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-standard-all-28f43ce6-create-capture-session
       use: http-request
@@ -12058,7 +12058,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-standard-all-28f43ce6-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-standard-all-28f43ce6-fetch-capture-session
       use: http-request
@@ -16799,7 +16799,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-create-capture-session
       use: http-request
@@ -16889,7 +16889,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-fetch-capture-session
       use: http-request
@@ -17245,7 +17245,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ interaction-pid-mdoc-6b049464-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-pid-mdoc-6b049464-create-missing-element-presentation
       use: http-request
@@ -17772,7 +17772,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ mdoc-absent-namespace-8c8f84c8-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-absent-namespace-8c8f84c8-create-capture-session
       use: http-request
@@ -17833,7 +17833,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ mdoc-claim-path-absent-element-492e5a68-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-claim-path-absent-element-492e5a68-create-capture-session
       use: http-request
@@ -17893,7 +17893,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ mdoc-claim-path-component-count-b56f251e-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-claim-path-component-count-b56f251e-create-capture-session
       use: http-request
@@ -17952,7 +17952,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ mdoc-claim-path-non-string-61ff9b89-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-claim-path-non-string-61ff9b89-create-capture-session
       use: http-request
@@ -18919,7 +18919,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ pid-mdoc-data-model-8f915369-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-create-capture-session
       use: http-request
@@ -19026,7 +19026,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-fetch-capture-session
       use: http-request

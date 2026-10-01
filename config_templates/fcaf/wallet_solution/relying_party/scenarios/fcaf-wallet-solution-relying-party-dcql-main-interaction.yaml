@@ -422,7 +422,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ main-interaction-028-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - id: main-interaction-028-create-presentation
       use: http-request
       with:
@@ -446,7 +446,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-028-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - id: main-interaction-028-fetch-result
       use: http-request
       with:
@@ -463,7 +463,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ main-interaction-029-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - id: main-interaction-029-create-presentation
       use: http-request
       with:
@@ -500,7 +500,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-029-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - id: main-interaction-029-fetch-result
       use: http-request
       with:
@@ -535,7 +535,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-043-create-optional-no-match-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - id: main-interaction-043-fetch-optional-no-match-result
       use: http-request
       with:
@@ -552,7 +552,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ main-interaction-030-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - id: main-interaction-030-create-presentation
       use: http-request
       with:
@@ -585,7 +585,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-030-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - id: main-interaction-030-fetch-result
       use: http-request
       with:
@@ -602,7 +602,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ main-interaction-031-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - id: main-interaction-031-create-presentation
       use: http-request
       with:
@@ -636,7 +636,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-031-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - id: main-interaction-031-fetch-result
       use: http-request
       with:
@@ -721,7 +721,7 @@ steps:
             - tapOn: "Close"
         parameters:
             DEEPLINK: ${{ main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - id: main-interaction-039-fetch-two-credentials-result
       use: http-request
       with:

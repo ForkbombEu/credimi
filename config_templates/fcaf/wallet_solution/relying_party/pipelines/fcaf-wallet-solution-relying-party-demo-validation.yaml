@@ -26,7 +26,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-create-capture-session
       use: http-request
@@ -116,7 +116,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-fetch-capture-session
       use: http-request
