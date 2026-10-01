@@ -289,6 +289,9 @@ const embedHead = `<style id="credimi-embed">` +
 	`{width:100% !important;max-width:100% !important;` +
 	`height:auto !important;max-height:none !important;min-height:0 !important;` +
 	`overflow:visible !important}` +
+	// Upstream uses Tailwind p-4 md:p-8 on #content > div; drop top pad so
+	// history sits flush under Credimi chrome (keep side/bottom padding).
+	`#content > div{padding-top:0 !important}` +
 	`[data-testid="input-and-result"],[data-testid="event-summary-table"]` +
 	`{max-width:100% !important;box-sizing:border-box}` +
 	`[data-testid="event-summary-table"]{overflow-x:auto !important;overflow-y:hidden !important}` +
