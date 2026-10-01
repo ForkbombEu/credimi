@@ -81,12 +81,10 @@ function createElementStub(attrs: Record<string, string> = {}): ElementStub {
 		querySelectorAll(selector: string) {
 			const wantCard = selector.includes('[data-card-section]');
 			const wantYaml = selector.includes('[data-yaml-section]');
-			const wantLine = selector.includes('[data-line]');
 			const out: ElementStub[] = [];
 			const walk = (node: ElementStub) => {
 				if (wantCard && node.getAttribute('data-card-section') != null) out.push(node);
 				if (wantYaml && node.getAttribute('data-yaml-section') != null) out.push(node);
-				if (wantLine && node.getAttribute('data-line') != null) out.push(node);
 				for (const c of node._children) walk(c);
 			};
 			walk(el);
@@ -119,15 +117,6 @@ function createElementStub(attrs: Record<string, string> = {}): ElementStub {
 								c.getAttribute('data-yaml-section') === yamlMatch[1] &&
 								c.getAttribute('data-yaml-index') === yamlMatch[2]
 						) ?? null
-				);
-			}
-			const lineMatch = selector.match(/\[data-line="([^"]+)"\]/);
-			if (lineMatch) {
-				return (
-					el
-						.querySelectorAll('[data-line]')
-						.find((c: ElementStub) => c.getAttribute('data-line') === lineMatch[1]) ??
-					null
 				);
 			}
 			return null;
