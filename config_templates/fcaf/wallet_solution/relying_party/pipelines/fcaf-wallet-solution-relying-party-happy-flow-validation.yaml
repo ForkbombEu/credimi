@@ -619,7 +619,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-dcql-claim-sets
             response_type: vp_token
         expected_status: 201
@@ -687,7 +687,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-020
             response_type: vp_token
         expected_status: 201
@@ -743,7 +743,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-022
             response_type: vp_token
         expected_status: 201
@@ -792,7 +792,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-025
             response_type: vp_token
         expected_status: 201
@@ -865,7 +865,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-026
             response_type: vp_token
         expected_status: 201
@@ -919,7 +919,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-027
             response_type: vp_token
         expected_status: 201

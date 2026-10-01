@@ -30,7 +30,7 @@ steps:
                 multiple: true
                 meta:
                   vct_values:
-                    - urn:eu.europa.ec.eudi:pid:1
+                    - urn:eudi:pid:1
                 claims:
                   - path:
                       - given_name

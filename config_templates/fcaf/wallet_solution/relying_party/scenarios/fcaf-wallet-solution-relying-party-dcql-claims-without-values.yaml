@@ -15,7 +15,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-116
             response_type: vp_token
         expected_status: 201
