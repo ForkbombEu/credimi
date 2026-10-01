@@ -6,7 +6,7 @@ import type { HubItem } from '$lib/hub';
 import type { PipelineStepByType } from '$lib/pipeline/types';
 import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 
-import { isWalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
+import { isStoredWalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 import { isError } from 'effect/Predicate';
 
 //
@@ -44,7 +44,7 @@ export function getBulkWalletVersionContext(
 		const tuple = steps[i]!;
 		const [, data] = tuple;
 		if (isError(data)) return null;
-		if (!isWalletActionStepData(data)) return null;
+		if (!isStoredWalletActionStepData(data)) return null;
 
 		const w = mobileWith(tuple[0]);
 		if (!w || !('version_id' in w) || typeof w.version_id !== 'string') return null;

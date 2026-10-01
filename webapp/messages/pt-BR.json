@@ -1043,5 +1043,9 @@
 	"View_live": "View live",
 	"Live_view": "Live view",
 	"Live_view_open_failed": "Could not open the live view",
-	"Device": "Dispositivo"
+	"Device": "Dispositivo",
+	"Inline_Maestro": "Inline Maestro",
+	"Custom_wallet_action": "Custom wallet action",
+	"Custom_code": "Custom code",
+	"Inline_action_edit_notice": "This step uses inline Maestro code. Code editing will be available later. Saving keeps the existing code, version, device and parameters."
 }

@@ -7,7 +7,6 @@ import type { Renderable } from '$lib/renderable';
 import type { SelectedVersion } from '$pipeline-form/execution-target/types.js';
 import type { EnrichedFollowUp } from '$pipeline-form/functions.js';
 import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
-import type { WalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 
 import { confirm } from '$lib/layout/global-confirm.svelte';
 import { StateManager } from '$lib/state-manager/state-manager';
@@ -15,6 +14,7 @@ import { showPipelineFormError } from '$pipeline-form/errors.js';
 import { resolveExecutionTarget } from '$pipeline-form/execution-target/index.js';
 import * as pipelinestep from '$pipeline-form/steps';
 import { walletActionStepConfig } from '$pipeline-form/steps/wallet-action/index.js';
+import { isStoredWalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
 import { isError } from 'effect/Predicate';
 import { cloneDeep } from 'lodash';
 
@@ -529,11 +529,11 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			const [raw, data] = tuple;
 			if (raw.use !== 'mobile-automation') return tuple;
 			if (isError(data)) return tuple;
+			if (!isStoredWalletActionStepData(data)) return tuple;
 
-			const stepData = data as unknown as WalletActionStepData;
-			if (stepData.wallet.id !== walletId) return tuple;
+			if (data.wallet.id !== walletId) return tuple;
 
-			const updated: WalletActionStepData = { ...stepData, version };
+			const updated = { ...data, version };
 			const nextRaw = {
 				...raw,
 				with: walletActionStepConfig.serialize(updated)

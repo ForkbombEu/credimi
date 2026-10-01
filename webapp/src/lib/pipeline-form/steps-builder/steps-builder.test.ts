@@ -252,7 +252,7 @@ describe('StepsBuilder bulk wallet version sync', () => {
 		wallet: typeof walletA,
 		version: WalletActionStepData['version']
 	): WalletActionStepData {
-		return { wallet, version, device: GLOBAL_DEVICE, action };
+		return { kind: 'stored', wallet, version, device: GLOBAL_DEVICE, action };
 	}
 
 	it('shows the action only for matching steps when locked or more than one mobile step exists', () => {

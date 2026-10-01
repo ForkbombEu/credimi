@@ -5,10 +5,11 @@
 import type { Record } from '$lib/pipeline/device';
 import type { TypedConfig } from '$pipeline-form/steps/types';
 
-import { Pipeline, Wallet } from '$lib';
+import { Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
 import { getHubItemById, getHubItemLogo, getHubItemUrl } from '$lib/hub';
+import { findCachedDeviceByPath } from '$lib/pipeline/device/query.js';
 import {
 	type PipelineStepByType,
 	type PipelineStepData,
@@ -28,18 +29,69 @@ import { isError } from 'effect/Predicate';
 import { m } from '@/i18n/index.js';
 import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
 
-import type { WalletActionStepData } from './types.js';
+import type {
+	InlineWalletActionStepData,
+	StoredWalletActionStepData,
+	WalletActionStepData
+} from './types.js';
 
 import CardDetailsComponent from './card-details.svelte';
+import { InlineWalletActionStepForm } from './inline-wallet-action-step-form.svelte.js';
+import { isInlineWalletActionStepData } from './types.js';
 import {
 	getDeviceLabel,
 	getVersionLabel,
 	WalletActionStepForm
 } from './wallet-action-step-form.svelte.js';
 
-export type { WalletActionStepData } from './types.js';
-export { isWalletActionStepData } from './types.js';
+export type {
+	InlineWalletActionStepData,
+	StoredWalletActionStepData,
+	WalletActionStepData
+} from './types.js';
+export {
+	isInlineWalletActionStepData,
+	isStoredWalletActionStepData
+} from './types.js';
+export { InlineWalletActionStepForm } from './inline-wallet-action-step-form.svelte.js';
 export { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
+
+//
+
+type MobileWith = PipelineStepData<PipelineStepByType<'mobile-automation'>>;
+
+async function resolveVersion(versionId: string): Promise<SelectedVersion> {
+	if (versionId === EXTERNAL_VERSION) return EXTERNAL_VERSION;
+	const response = await getRecordByCanonifiedPath<WalletVersionsResponse>(versionId);
+	if (!isError(response)) return response;
+	throw response;
+}
+
+function fallbackDevice(path: string): Record {
+	return {
+		name: getLastPathSegment(path),
+		path,
+		isOwned: false,
+		isPublished: false,
+		isOnline: false
+	};
+}
+
+async function resolveDevice(deviceId: string | undefined): Promise<SelectedDevice> {
+	if (!deviceId || deviceId === GLOBAL_DEVICE) return GLOBAL_DEVICE;
+
+	const path = deviceId;
+	try {
+		return (await findCachedDeviceByPath(path)) ?? fallbackDevice(path);
+	} catch {
+		return fallbackDevice(path);
+	}
+}
+
+function parametersFrom(data: MobileWith): { [key: string]: string } | undefined {
+	if (!('parameters' in data) || !data.parameters) return undefined;
+	return data.parameters as { [key: string]: string };
+}
 
 //
 
@@ -50,7 +102,20 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 	CardDetailsComponent,
 
-	cardData: ({ action, wallet, version, device }) => {
+	cardData: (data) => {
+		if (data.kind === 'inline') {
+			return {
+				title: m.Custom_wallet_action(),
+				beforeTitle: m.Inline_Maestro(),
+				meta: {
+					Code: m.Custom_code(),
+					['Device']: getDeviceLabel(data.device),
+					[m.Version()]: getVersionLabel(data.version)
+				}
+			};
+		}
+
+		const { action, wallet, version, device } = data;
 		let publicUrl = getHubItemUrl(wallet);
 		publicUrl += `#${action.canonified_name}`;
 
@@ -69,17 +134,39 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	},
 
 	makeId: (data) => {
+		if ('action_code' in data && typeof data.action_code === 'string') {
+			return 'inline-maestro';
+		}
 		if (!('action_id' in data) || !('version_id' in data)) {
 			throw new Error(m.Pipeline_form_invalid_step_data());
 		}
 		return getLastPathSegment(data.action_id);
 	},
 
-	initForm: (opts) => new WalletActionStepForm(opts),
+	initForm: (opts) => {
+		if (opts?.initial && isInlineWalletActionStepData(opts.initial)) {
+			return new InlineWalletActionStepForm(opts);
+		}
+		return new WalletActionStepForm(opts);
+	},
 
-	serialize: ({ action, version, device, parameters }) => {
-		type StepData = PipelineStepData<PipelineStepByType<'mobile-automation'>>;
-		const _with: StepData = {
+	serialize: (data) => {
+		if (data.kind === 'inline') {
+			const _with: MobileWith = {
+				action_code: data.actionCode,
+				version_id: data.version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(data.version)
+			};
+			if (data.device !== GLOBAL_DEVICE) {
+				_with.device_id = data.device.path;
+			}
+			if (data.parameters && Object.keys(data.parameters).length > 0) {
+				_with.parameters = data.parameters;
+			}
+			return _with;
+		}
+
+		const { action, version, device, parameters } = data;
+		const _with: MobileWith = {
 			action_id: getPath(action),
 			version_id: version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(version)
 		};
@@ -87,8 +174,6 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			_with.device_id = device.path;
 		}
 		if (parameters && Object.keys(parameters).length > 0) {
-			// Keep the exact bound parameters so editing a step never drops
-			// values like deeplink references or custom action variables.
 			_with.parameters = parameters;
 		} else if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
@@ -117,6 +202,20 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	},
 
 	deserialize: async (data) => {
+		if ('action_code' in data && typeof data.action_code === 'string' && 'version_id' in data) {
+			const version = await resolveVersion(String(data.version_id));
+			const device = await resolveDevice(
+				'device_id' in data ? (data.device_id as string | undefined) : undefined
+			);
+			return {
+				kind: 'inline',
+				actionCode: data.action_code,
+				version,
+				device,
+				parameters: parametersFrom(data)
+			} satisfies InlineWalletActionStepData;
+		}
+
 		if (!('action_id' in data) || !('version_id' in data)) {
 			throw new Error(m.Pipeline_form_invalid_step_data());
 		}
@@ -126,47 +225,19 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			throw action;
 		}
 
-		let version: SelectedVersion = EXTERNAL_VERSION;
-		if (data.version_id !== EXTERNAL_VERSION) {
-			const response = await getRecordByCanonifiedPath<WalletVersionsResponse>(
-				data.version_id
-			);
-			if (!isError(response)) {
-				version = response;
-			} else {
-				throw response;
-			}
-		}
-
-		let device: SelectedDevice = GLOBAL_DEVICE;
-		if (data.device_id !== GLOBAL_DEVICE && data.device_id) {
-			const path = data.device_id;
-			const fallbackDevice = {
-				name: getLastPathSegment(path),
-				path,
-				isOwned: false,
-				isPublished: false,
-				isOnline: false
-			} satisfies Record;
-
-			await Pipeline.Device.fetchRecords().match({
-				Rejected: () => {
-					device = fallbackDevice;
-				},
-				Resolved: (devices) => {
-					device = devices.find((item) => item.path === path) ?? fallbackDevice;
-				}
-			});
-		}
-
+		const version = await resolveVersion(String(data.version_id));
+		const device = await resolveDevice(
+			'device_id' in data ? (data.device_id as string | undefined) : undefined
+		);
 		const wallet = await getHubItemById(action.wallet);
 
 		return {
+			kind: 'stored',
 			wallet,
 			version,
 			action,
 			device,
-			parameters: data.parameters as { [key: string]: string } | undefined
-		};
+			parameters: parametersFrom(data)
+		} satisfies StoredWalletActionStepData;
 	}
 };

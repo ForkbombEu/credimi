@@ -38,6 +38,7 @@ describe('resolveExecutionTarget', () => {
 
 	it('returns config from one valid mobile-automation step', () => {
 		const data: WalletActionStepData = {
+			kind: 'stored',
 			wallet: walletA,
 			version: EXTERNAL_VERSION,
 			device: GLOBAL_DEVICE,
@@ -53,12 +54,14 @@ describe('resolveExecutionTarget', () => {
 
 	it('uses the last mobile-automation step when multiple exist', () => {
 		const first: WalletActionStepData = {
+			kind: 'stored',
 			wallet: walletA,
 			version: EXTERNAL_VERSION,
 			device: GLOBAL_DEVICE,
 			action
 		};
 		const last: WalletActionStepData = {
+			kind: 'stored',
 			wallet: walletB,
 			version: EXTERNAL_VERSION,
 			device: {
@@ -82,6 +85,7 @@ describe('resolveExecutionTarget', () => {
 
 	it('returns undefined when the latest mobile step is error-enriched', () => {
 		const valid: WalletActionStepData = {
+			kind: 'stored',
 			wallet: walletA,
 			version: EXTERNAL_VERSION,
 			device: GLOBAL_DEVICE,
