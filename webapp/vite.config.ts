@@ -4,7 +4,6 @@
 
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
-import UnpluginTypia from '@typia/unplugin/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { playwright } from '@vitest/browser-playwright';
 import devtoolsJson from 'vite-plugin-devtools-json';
@@ -12,8 +11,6 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
-		// Must run before plugins that consume transformed TypeScript (sveltekit, etc.).
-		UnpluginTypia(),
 		tailwindcss(),
 		sveltekit(),
 		devtoolsJson(),
