@@ -3,7 +3,6 @@ runtime:
     fixture:
         issuer_url: https://capture-wallet.credimi.io
         log_checker: capture-wallet
-        verifier_url: https://capture-wallet.credimi.io
     global_device_id: forkbomb-bv-andrea/usb/device
     temporal:
         activity_options:
@@ -30,14 +29,14 @@ steps:
                 nonce: main-interaction
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - id: exercise-wallet
       use: mobile-automation
       with:
@@ -50,7 +49,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     - id: main-interaction-019-create-presentation
       use: http-request
       with:
@@ -97,7 +96,7 @@ steps:
                   notifications: allow
                   all: unset
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - waitForAnimationToEnd:
@@ -164,11 +163,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Welcome back|DATA SHARING REQUEST"
+                visible: "Welcome back|Data sharing request"
                 timeout: 100000
             - runFlow:
                 when:
@@ -177,10 +176,11 @@ steps:
                   - tapOn:
                       point: "11%,39%"
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn:
                       point: "50%,10%"
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - extendedWaitUntil:
@@ -189,6 +189,7 @@ steps:
             - tapOn:
                 point: "11%,39%"
             - inputText: "123456"
+            - hideKeyboard
             - tapOn:
                 point: "50%,10%"
             - extendedWaitUntil:
@@ -235,11 +236,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|invalid request|Something went wrong|Home|Documents"
+                visible: "Error|invalid request|Oups! Something went wrong|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-022
         parameters:
@@ -294,11 +295,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - takeScreenshot: fcaf-ia-025
@@ -344,11 +345,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|Home|Documents|No matching"
+                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-026
         parameters:
@@ -395,11 +396,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|Home|Documents|No matching"
+                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-027
         parameters:
@@ -668,7 +669,7 @@ steps:
                 nonce: fcaf-main-interaction-039
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -695,6 +696,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
             - runFlow:
@@ -705,7 +707,7 @@ steps:
                 when: { visible: "Just once" }
                 commands:
                   - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+            - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
             - takeScreenshot: fcaf-main-interaction-039-two-credentials
@@ -713,6 +715,7 @@ steps:
             - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
             - tapOn: { point: "11%,39%" }
             - inputText: "123456"
+            - hideKeyboard
             - tapOn: { point: "50%,10%" }
             - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
             - tapOn: "Close"
@@ -805,29 +808,14 @@ steps:
             - WS_RP_IA_MainInteraction__029
             - WS_RP_IA_MainInteraction__030
             - WS_RP_IA_MainInteraction__031
-            - WS_RP_IA_MainInteraction__032
-            - WS_RP_IA_MainInteraction__033
             - WS_RP_IA_MainInteraction__034
             - WS_RP_IA_MainInteraction__035
             - WS_RP_IA_MainInteraction__036
             - WS_RP_IA_MainInteraction__037
             - WS_RP_IA_MainInteraction__038
             - WS_RP_IA_MainInteraction__039
-            - WS_RP_IA_MainInteraction__040
-            - WS_RP_IA_MainInteraction__041
             - WS_RP_IA_MainInteraction__042
             - WS_RP_IA_MainInteraction__043
             - WS_RP_IA_MainInteraction__046
-            - WS_RP_IA_MainInteraction__049
-            - WS_RP_IA_MainInteraction__052
-            - WS_RP_IA_MainInteraction__053
-            - WS_RP_IA_MainInteraction__054
-            - WS_RP_IA_MainInteraction__055
-            - WS_RP_IA_MainInteraction__056
-            - WS_RP_IA_MainInteraction__057
             - WS_RP_IA_MainInteraction__060
-            - WS_RP_IA_MainInteraction__061
-            - WS_RP_IA_MainInteraction__064
             - WS_RP_IA_MainInteraction__065
-            - WS_RP_IA_MainInteraction__066
-            - WS_RP_IA_MainInteraction__067

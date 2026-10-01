@@ -1,0 +1,152 @@
+name: FCAF verifier metadata request controls
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+- id: create-default-post-retrieval
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: default-post-retrieval
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+- id: exercise-default-post-retrieval
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-default-post-retrieval.outputs.body.deeplink }}" }
+- id: fetch-default-post-retrieval
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-default-post-retrieval.outputs.body.session_id }}", expected_status: 200 }
+- id: create-unrecognised-client-metadata
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: unrecognised-client-metadata
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_mutation:
+        request_object:
+          set: { /client_metadata/fcaf_unrecognised_metadata: ignored-by-the-wallet }
+        verification_applies: true
+- id: exercise-unrecognised-client-metadata
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-unrecognised-client-metadata.outputs.body.deeplink }}" }
+- id: fetch-unrecognised-client-metadata
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-unrecognised-client-metadata.outputs.body.session_id }}", expected_status: 200 }
+- id: create-non-object-client-metadata
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: non-object-client-metadata
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_mutation:
+        request_object:
+          set: { /client_metadata: not-a-json-object }
+        verification_applies: false
+- id: reject-non-object-client-metadata
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-non-object-client-metadata.outputs.body.deeplink }}" }
+- id: fetch-non-object-client-metadata
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-non-object-client-metadata.outputs.body.session_id }}", expected_status: 200 }
+- id: create-metadata-outside-client-metadata
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: metadata-outside-client-metadata
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+      request_mutation:
+        request_object:
+          set: { /client_name: FCAF metadata outside client_metadata }
+        verification_applies: true
+- id: exercise-metadata-outside-client-metadata
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-metadata-outside-client-metadata.outputs.body.deeplink }}" }
+- id: fetch-metadata-outside-client-metadata
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-metadata-outside-client-metadata.outputs.body.session_id }}", expected_status: 200 }
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+      - WS_RP_MS_Metadata__105
+      - WS_RP_MS_Metadata__106
+      - WS_RP_MS_Metadata__107
+      - WS_RP_MS_Metadata__109
+      - WS_RP_MS_Metadata__135
+      - WS_RP_MS_Metadata__136
+      - WS_RP_SM_RpIntegrity__021
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.protocol.metadata-request-controls:
+        output:
+          default_post_retrieval_session: ${{ fetch-default-post-retrieval.outputs.body }}
+          default_post_retrieval_outer_request: ${{ fetch-default-post-retrieval.outputs.body.raw.outer_request_delivered }}
+          default_post_retrieval_request_uri_payload: ${{ fetch-default-post-retrieval.outputs.body.observed.request_uri_payload.value }}
+          default_post_retrieval_visual_evidence: ${{ exercise-default-post-retrieval.outputs.flow_output.maestro_screenshot_urls }}
+          unrecognised_client_metadata_session: ${{ fetch-unrecognised-client-metadata.outputs.body }}
+          unrecognised_client_metadata_request_object: ${{ fetch-unrecognised-client-metadata.outputs.body.raw.authorization_request_jwt }}
+          unrecognised_client_metadata_delivered_client_metadata: ${{ fetch-unrecognised-client-metadata.outputs.body.raw.authorization_request_delivered.client_metadata }}
+          unrecognised_client_metadata_visual_evidence: ${{ exercise-unrecognised-client-metadata.outputs.flow_output.maestro_screenshot_urls }}
+          non_object_client_metadata_session: ${{ fetch-non-object-client-metadata.outputs.body }}
+          non_object_client_metadata_request_object: ${{ fetch-non-object-client-metadata.outputs.body.raw.authorization_request_jwt }}
+          non_object_client_metadata_visual_evidence: ${{ reject-non-object-client-metadata.outputs.flow_output.maestro_screenshot_urls }}
+          metadata_outside_client_metadata_session: ${{ fetch-metadata-outside-client-metadata.outputs.body }}
+          metadata_outside_client_metadata_request_object: ${{ fetch-metadata-outside-client-metadata.outputs.body.raw.authorization_request_jwt }}
+          metadata_outside_client_metadata_visual_evidence: ${{ exercise-metadata-outside-client-metadata.outputs.flow_output.maestro_screenshot_urls }}

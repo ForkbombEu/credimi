@@ -6,6 +6,7 @@ package validators
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -57,7 +58,7 @@ func (SDJWTClaimInternationalPhoneValidator) Validate(_ context.Context, input I
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	if params.Claim == "" {
-		return Result{Status: StatusError, Message: "claim param is required"}
+		return Result{Status: StatusError, Message: claimParamRequired}
 	}
 	if params.MinLength < 1 {
 		return Result{Status: StatusError, Message: "min_length must be greater than zero"}
@@ -481,7 +482,7 @@ func decodeClaimAndMinimum(params map[string]any) (claimAndMinimum, error) {
 		return decoded, err
 	}
 	if decoded.Claim == "" {
-		return decoded, fmt.Errorf("claim param is required")
+		return decoded, errors.New(claimParamRequired)
 	}
 	if decoded.MinItems < 1 {
 		return decoded, fmt.Errorf("min_items must be greater than zero")

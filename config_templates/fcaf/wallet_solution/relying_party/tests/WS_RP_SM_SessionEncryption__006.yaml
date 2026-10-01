@@ -1,5 +1,5 @@
 id: WS_RP_SM_SessionEncryption__006
-title: FCAF WS_RP_SM_SessionEncryption__006
+title: Reject verifier metadata without a bare ECDH-ES JWK.
 source:
   path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__006.md
 suite:
@@ -13,19 +13,28 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.session-encryption
+- ref: pipeline.response-encryption.no-ecdh-es-jwk
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.session-encryption.outputs.dcql_exchange
+  capture_session:
+    from: pipeline.response-encryption.no-ecdh-es-jwk.outputs.capture_session
+  request_object:
+    from: pipeline.response-encryption.no-ecdh-es-jwk.outputs.request_object
   visual_evidence:
-    from: pipeline.dcql.session-encryption.outputs.visual_evidence
+    from: pipeline.response-encryption.no-ecdh-es-jwk.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_sessionencryption__006_jwe_verified
-  validator: jwt.header_field_equals
-  input: evidence.dcql_exchange
-  params:
-    field: alg
-- id: ws_rp_sm_sessionencryption__006_visual_evidence
+- id: only_the_non_bare_ecdh_es_jwk_is_published
+  validator: oid4vp.request_encryption_jwk
+  input: evidence.request_object
+  params: {field: alg, value: ECDH-ES+A256KW}
+- id: no_jwk_uses_bare_ecdh_es
+  validator: oid4vp.request_jwk_value_absent
+  input: evidence.request_object
+  params: {field: alg, value: ECDH-ES}
+- id: wallet_returns_an_error_without_a_presentation
+  validator: dcql.response_satisfies_constraints
+  input: evidence.capture_session
+  params: {mode: wallet_error_required}
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

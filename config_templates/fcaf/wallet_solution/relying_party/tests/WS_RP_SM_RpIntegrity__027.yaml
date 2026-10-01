@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__027
-title: FCAF WS_RP_SM_RpIntegrity__027
+title: Reject a Request Object with an invalid JWS signature
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__027.md
 suite:
@@ -10,22 +10,26 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- title: High Assurance Interoperability Profile
+  section: '5.1'
+  url: https://openid.net/specs/openid-4-high-assurance-interoperability-profile-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+  session: { from: pipeline.rp-integrity.invalid-signature.outputs.session }
+  request_object: { from: pipeline.rp-integrity.invalid-signature.outputs.request_object }
+  visual_evidence: { from: pipeline.rp-integrity.invalid-signature.outputs.visual_evidence }
 assertions:
-- id: ws_rp_sm_rpintegrity__027_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
-  params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__027_visual_evidence
+- id: request_object_signature_is_invalid
+  validator: jose.jws_invalid_signature
+  input: evidence.request_object
+- id: wallet_retrieves_request_object
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
+  params: { method: POST }
+- id: wallet_rejects_invalid_signature
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params: { mode: request_rejected }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

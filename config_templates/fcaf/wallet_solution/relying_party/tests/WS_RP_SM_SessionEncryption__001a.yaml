@@ -1,0 +1,12 @@
+id: WS_RP_SM_SessionEncryption__001a
+title: Serialize an encrypted Authorization Response as compact JWE.
+source: { path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__001a.md }
+suite: { sut: wallet_solution, role: relying_party, section: security_mechanisms.session_encryption }
+applicability: { profile: EUDI_generic, presentation_flow: redirects }
+normative_references:
+  - { title: OpenID for Verifiable Presentations 1.0, section: "6.1", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }
+evidence:
+  encrypted_response: { from: pipeline.dcql.session-encryption.outputs.encrypted_response }
+assertions:
+  - { id: encrypted_response_is_compact_jwe, validator: jose.jwe_encrypted_response, input: evidence.encrypted_response }
+verdict: { pass_when: all_assertions_pass }

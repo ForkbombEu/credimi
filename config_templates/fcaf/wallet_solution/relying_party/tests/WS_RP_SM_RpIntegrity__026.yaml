@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__026
-title: FCAF WS_RP_SM_RpIntegrity__026
+title: Reject or discontinue when the request certificate is self-signed.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__026.md
 suite:
@@ -11,21 +11,37 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- title: OpenID4VC High Assurance Interoperability Profile
+  section: '5'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  session:
+    from: pipeline.rp-integrity.certificate-chain.outputs.self_signed_leaf_session
+  request_object:
+    from: pipeline.rp-integrity.certificate-chain.outputs.self_signed_leaf_request_object
+  request_behavior:
+    from: pipeline.rp-integrity.certificate-chain.outputs.self_signed_leaf_request_behavior
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.rp-integrity.certificate-chain.outputs.self_signed_leaf_visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__026_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
-  params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__026_visual_evidence
+- id: verifier_delivered_the_self_signed_leaf_chain
+  validator: json.field_equals
+  input: evidence.request_behavior
+  params: { field: certificate_chain, value: unrelated_self_signed }
+- id: delivered_x5c_has_the_self_signed_leaf_defect
+  validator: oid4vp.request_certificate_chain
+  input: evidence.request_object
+  params: { shape: self_signed_leaf }
+- id: signature_verifies_against_the_delivered_leaf
+  validator: jose.jws_signed_request
+  input: evidence.request_object
+- id: wallet_rejects_or_discontinues_without_a_presentation
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params: { mode: request_rejected }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

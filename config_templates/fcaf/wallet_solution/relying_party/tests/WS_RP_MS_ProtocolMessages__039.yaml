@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__039
-title: FCAF WS_RP_MS_ProtocolMessages__039
+title: Reject a redirect_uri Client Identifier that is not an HTTPS URL
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__039.md
 suite:
@@ -11,21 +11,29 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.5'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- title: OpenID for Verifiable Presentations 1.0
+  section: '5.9.3'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+  session: { from: pipeline.protocol.client-id-binding-controls.outputs.non_https_redirect_uri_session }
+  outer_request: { from: pipeline.protocol.client-id-binding-controls.outputs.non_https_redirect_uri_outer_request }
+  visual_evidence: { from: pipeline.protocol.client-id-binding-controls.outputs.non_https_redirect_uri_visual_evidence }
 assertions:
-- id: ws_rp_ms_protocolmessages__039_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__039_visual_evidence_stored
+- id: client_id_embeds_a_non_https_uri
+  validator: json.field_string_prefix
+  input: evidence.outer_request
+  params: { field: client_id, prefix: "redirect_uri:http://" }
+- id: request_is_sent_as_plain_parameters
+  validator: json.field_presence
+  input: evidence.outer_request
+  params: { field: request_uri, present: false }
+- id: wallet_returns_invalid_request
+  validator: oid4vp.error_response_required
+  input: evidence.session
+  params: { code: invalid_request }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

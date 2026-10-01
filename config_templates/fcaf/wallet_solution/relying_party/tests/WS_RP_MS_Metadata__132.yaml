@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__132
-title: FCAF WS_RP_MS_Metadata__132
+title: Reject an x509_hash Request Object signed with a key other than the leaf key.
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__132.md
 suite:
@@ -11,21 +11,30 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.metadata
+- title: JSON Web Signature (JWS)
+  section: '4.1.6'
+  url: https://www.rfc-editor.org/rfc/rfc7515
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.metadata.outputs.dcql_exchange
+  session:
+    from: pipeline.rp-integrity.unrelated-signing-key.outputs.session
+  request_object:
+    from: pipeline.rp-integrity.unrelated-signing-key.outputs.request_object
   visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
+    from: pipeline.rp-integrity.unrelated-signing-key.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_metadata__132_dcql_metadata_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_metadata__132_visual_evidence_stored
+- id: client_id_is_the_hash_of_the_delivered_x5c_leaf_certificate
+  validator: oid4vp.x509_hash_client_id
+  input: evidence.request_object
+- id: signature_does_not_verify_against_that_leaf_key
+  validator: jose.jws_invalid_signature
+  input: evidence.request_object
+- id: wallet_returns_invalid_request_without_a_presentation
+  validator: oid4vp.error_response_required
+  input: evidence.session
+  params: { code: invalid_request }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

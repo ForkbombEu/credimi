@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__066
-title: FCAF WS_RP_IA_MainInteraction__066
+title: Raise an error when the Response Endpoint reply omits the redirect URI.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__066.md
 suite:
@@ -10,22 +10,50 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '5.1'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
+  session:
+    from: pipeline.protocol.verifier-response-controls.outputs.no_redirect_session
+  request_object:
+    from: pipeline.protocol.verifier-response-controls.outputs.no_redirect_request_object
+  callback:
+    from: pipeline.protocol.verifier-response-controls.outputs.no_redirect_callback
   visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+    from: pipeline.protocol.verifier-response-controls.outputs.no_redirect_visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__066_interaction
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: delivered_request_uses_direct_post_jwt
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params: { field: response_mode, value: direct_post.jwt }
+- id: delivered_request_carries_response_uri
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params: { field: response_uri, present: true }
+- id: wallet_posted_the_authorization_response
+  validator: oid4vp.presentation_response_http
+  input: evidence.session
   params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__066_visual_evidence
+    method: POST
+    media_type: application/x-www-form-urlencoded
+    require_response_parameter: true
+- id: verifier_reply_is_json_without_redirect_uri
+  validator: oid4vp.response_endpoint_callback
+  input: evidence.callback
+  params:
+    status: 200
+    media_type: application/json
+    body_format: json
+    forbidden_body_members: [redirect_uri]
+# The Wallet has already submitted its Authorization Response when the reply
+# arrives, so no protocol channel carries its error back to the verifier. The
+# screenshot of the terminal Wallet screen is the only evidence of the error or
+# termination; do not add a synthetic invalid_request assertion.
+- id: visual_evidence_of_the_wallet_error_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

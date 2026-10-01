@@ -1,8 +1,5 @@
 name: FCAF DCQL claims without values
 runtime:
-    fixture:
-        verifier_url: https://capture-wallet.credimi.io
-    global_device_id: forkbomb-bv-andrea/usb/device
 steps:
     - id: create-presentation
       use: http-request
@@ -44,13 +41,14 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Welcome back|DATA SHARING REQUEST"
+                visible: "Welcome back|Data sharing request"
                 timeout: 100000
             - runFlow:
                 when:
@@ -58,9 +56,10 @@ steps:
                 commands:
                   - tapOn: { point: "11%,39%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - extendedWaitUntil:
@@ -68,6 +67,7 @@ steps:
                 timeout: 30000
             - tapOn: { point: "11%,39%" }
             - inputText: "123456"
+            - hideKeyboard
             - tapOn: { point: "50%,10%" }
             - extendedWaitUntil:
                 visible: ".*successfully shared.*"
@@ -97,3 +97,4 @@ steps:
         suite: wallet_solution/relying_party
         test_ids:
             - WS_RP_MS_ProtocolMessages__116
+            - WS_RP_IA_MainInteraction__012a

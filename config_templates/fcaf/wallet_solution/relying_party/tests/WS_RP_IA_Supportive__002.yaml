@@ -1,5 +1,5 @@
 id: WS_RP_IA_Supportive__002
-title: FCAF WS_RP_IA_Supportive__002
+title: Terminate after an HTTP error from the Request URI endpoint
 source:
   path: Interaction/Supportive/WS_RP_IA_Supportive__002.md
 suite:
@@ -11,21 +11,30 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.10.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.interaction-supportive
 evidence:
-  wallet_response:
-    from: pipeline.dcql.interaction-supportive.outputs.wallet_response
-  visual_evidence:
-    from: pipeline.dcql.interaction-supportive.outputs.visual_evidence
+  session: { from: pipeline.protocol.request-uri-response-controls.outputs.http_error_session }
+  request_uri_response: { from: pipeline.protocol.request-uri-response-controls.outputs.http_error_response }
+  response_behavior: { from: pipeline.protocol.request-uri-response-controls.outputs.http_error_behavior }
+  visual_evidence: { from: pipeline.protocol.request-uri-response-controls.outputs.http_error_visual_evidence }
 assertions:
-- id: ws_rp_ia_supportive__002_redirect_uri_followed
-  validator: json.field_required
-  input: evidence.wallet_response
-  params:
-    field: vp_token
-- id: ws_rp_ia_supportive__002_visual_evidence_stored
+- id: request_uri_response_is_http_error
+  validator: json.field_equals
+  input: evidence.response_behavior
+  params: { field: status, value: 500 }
+- id: request_uri_response_is_recorded
+  validator: evidence.present
+  input: evidence.request_uri_response
+- id: wallet_retrieves_request_object_with_post
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
+  params: { method: POST }
+- id: wallet_terminates_request_processing
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params: { mode: request_rejected }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:
