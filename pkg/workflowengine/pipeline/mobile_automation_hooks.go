@@ -519,7 +519,7 @@ func processStep(
 		return err
 	}
 	SetConfigValue(&input.step.With.Config, "runner_url", runnerURL)
-	SetConfigValue(&input.step.With.Config, "step_id", input.step.ID)
+	SetConfigValue(&input.step.With.Config, workflowengine.StepIDConfigKey, input.step.ID)
 	SetConfigValue(
 		&input.step.With.Config,
 		"run_identifier",

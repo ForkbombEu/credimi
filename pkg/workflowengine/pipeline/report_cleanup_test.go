@@ -5,13 +5,14 @@
 package pipeline
 
 import (
-	"strings"
+	"encoding/json"
 	"testing"
 	"time"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
@@ -23,80 +24,61 @@ func TestPipelineReportCleanupHookStoresReport(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	reportActivity := activities.NewPipelineReportGenerationActivity()
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
+	reportActivity := activities.NewPipelineReportGenerationActivity(
+		registry.StepActivityOutputKind,
+	)
 	env.RegisterActivityWithOptions(
 		reportActivity.Execute,
 		activity.RegisterOptions{Name: reportActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		internalHTTPActivity.Execute,
-		activity.RegisterOptions{Name: internalHTTPActivity.Name()},
 	)
 	env.RegisterWorkflowWithOptions(
 		pipelineReportCleanupHookTestWorkflow,
 		workflow.RegisterOptions{Name: "test-pipeline-report-cleanup-hook"},
 	)
 
+	var rawInput map[string]any
 	env.OnActivity(
 		reportActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(activities.PipelineReportGenerationInput)
-			if !ok {
-				decoded, err := workflowengine.DecodePayload[activities.PipelineReportGenerationInput](
-					input.Payload,
-				)
-				if err != nil {
-					return false
-				}
-				payload = decoded
-			}
-			return payload.WorkflowID == "default-test-workflow-id" &&
-				len(payload.Evidence.CredentialOffers) == 1
+			encoded, err := json.Marshal(input.Payload)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(encoded, &rawInput))
+			return true
 		}),
 	).Return(
 		workflowengine.ActivityResult{
 			Output: activities.PipelineReportGenerationOutput{
-				Markdown: "# Report",
-				Filename: "workflow-1.md",
+				MarkdownSHA256: "abc",
+				Filename:       "workflow-1.md",
+				Warnings:       []string{"pipeline report storage failed: boom"},
 			},
 		},
 		nil,
 	)
-	env.OnActivity(
-		internalHTTPActivity.Name(),
-		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(activities.InternalHTTPActivityPayload)
-			if !ok {
-				decoded, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
-					input.Payload,
-				)
-				if err != nil {
-					return false
-				}
-				payload = decoded
-			}
-			require.Contains(t, payload.URL, "/api/pipeline/pipeline-execution-results/report")
-			body, ok := payload.Body.(map[string]any)
-			if !ok {
-				return false
-			}
-			return strings.Contains(
-				payload.URL,
-				"/api/pipeline/pipeline-execution-results/report",
-			) &&
-				body["workflow_id"] == "default-test-workflow-id" &&
-				body["run_id"] == "default-test-run-id" &&
-				body["filename"] == "workflow-1.md" &&
-				body["markdown"] == "# Report"
-		}),
-	).Return(workflowengine.ActivityResult{}, nil)
 
 	env.ExecuteWorkflow("test-pipeline-report-cleanup-hook")
 	require.NoError(t, env.GetWorkflowError())
 	env.AssertExpectations(t)
+
+	require.Equal(t, "default-test-namespace", rawInput["namespace"])
+	require.Equal(t, "default-test-workflow-id", rawInput["workflow_id"])
+	require.Equal(t, "default-test-run-id", rawInput["run_id"])
+	require.Equal(t, "https://credimi.test", rawInput["app_url"])
+	require.NotContains(t, rawInput, "workflow_definition")
+	require.NotContains(t, rawInput, "pipeline_output")
+	require.Equal(t, map[string]any{
+		setupWarningsOutputKey: []any{"evidence warning"},
+	}, rawInput["pipeline_output_meta"])
+	require.Len(t, rawInput["evidence"].(map[string]any)["credential_offers"], 1)
+
+	var finalOutput map[string]any
+	require.NoError(t, env.GetWorkflowResult(&finalOutput))
+	require.Equal(
+		t,
+		[]any{"pipeline report storage failed: boom"},
+		finalOutput[cleanupWarningsOutputKey],
+	)
 }
 
 func TestPipelineReportCleanupHookWarnsWhenEvidenceMissing(t *testing.T) {
@@ -151,21 +133,18 @@ func TestPipelineEvidenceFromRunDataDecodesMap(t *testing.T) {
 func TestPipelineReportCleanupHelpers(t *testing.T) {
 	result, err := decodePipelineReportOutput(workflowengine.ActivityResult{
 		Output: map[string]any{
-			"markdown":     "# Report",
-			"filename":     "workflow-1.md",
-			"fixture":      "workflow-1",
-			"slug":         "workflow-1",
-			"passed_count": float64(3),
+			"markdown_sha256": "abc",
+			"filename":        "workflow-1.md",
+			"fixture":         "workflow-1",
+			"slug":            "workflow-1",
+			"passed_count":    float64(3),
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, "# Report", result.Markdown)
+	require.Equal(t, "abc", result.MarkdownSHA256)
 	require.Equal(t, "workflow-1.md", result.Filename)
 
 	finalOutput := map[string]any{"workflow_id": "workflow-1"}
-	copied := copyStringAnyMap(&finalOutput)
-	copied["workflow_id"] = "changed"
-	require.Equal(t, "workflow-1", finalOutput["workflow_id"])
 	require.Equal(t, "workflow-1", stringFinalOutputValue(&finalOutput, "workflow_id"))
 	require.Empty(t, stringFinalOutputValue(nil, "workflow_id"))
 	workflowID, runID := pipelineWorkflowIDs(nil, &map[string]any{
@@ -197,7 +176,10 @@ func TestPipelineReportCleanupHookSkipsWithoutEvidenceSteps(t *testing.T) {
 func pipelineReportCleanupHookTestWorkflow(ctx workflow.Context) (map[string]any, error) {
 	ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 	ctx = workflow.WithActivityOptions(ctx, ao)
-	finalOutput := map[string]any{}
+	finalOutput := map[string]any{
+		"credential-step":      map[string]any{"outputs": map[string]any{"offer": "large"}},
+		setupWarningsOutputKey: []string{"evidence warning"},
+	}
 	runData := map[string]any{
 		pipelineEvidenceRunDataKey: activities.PipelineEvidenceExtractionOutput{
 			CredentialOffers: []map[string]any{

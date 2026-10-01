@@ -5,6 +5,7 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,8 +30,22 @@ func TestCompleteFCAFPipelineResolvesValidationAfterScenarioFailures(t *testing.
 	}
 	validation := definition.Steps[len(definition.Steps)-1]
 	require.Equal(t, "fcaf-validation", validation.Use)
+	authored, err := json.Marshal(validation.With.Payload["pipeline_outputs"])
+	require.NoError(t, err)
 	require.NoError(t, ResolveInputs(&validation, nil, context))
-	require.Len(t, validation.With.Payload["pipeline_outputs"], 217)
+	pipelineOutputs := validation.With.Payload["pipeline_outputs"]
+	require.Len(t, pipelineOutputs, 217)
+	unresolved, err := json.Marshal(pipelineOutputs)
+	require.NoError(t, err)
+	require.JSONEq(t, string(authored), string(unresolved))
+	require.Contains(t, string(unresolved), "${{")
+
+	resolved, err := ResolveExpressions(pipelineOutputs, context)
+	require.NoError(t, err)
+	require.Len(t, resolved, 217)
+	resolvedJSON, err := json.Marshal(resolved)
+	require.NoError(t, err)
+	require.NotContains(t, string(resolvedJSON), "${{")
 }
 
 func TestFCAFPipelineTemplatesParse(t *testing.T) {

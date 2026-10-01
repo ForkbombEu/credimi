@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/log"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
@@ -186,6 +187,87 @@ func requireFailureErrors(
 	}
 
 	return out
+}
+
+func TestPipelineWorkflowFailsStepsThatNeedAFailedStepOutput(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	registerFailingWorkflow(
+		t,
+		env,
+		"failing-offer",
+		"failing-offer-workflow",
+		workflowengine.WorkflowError{Code: "CRE310", Summary: "Unexpected HTTP status code"},
+	)
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
+
+	captureStep := func(id, text string) pipeline.StepDefinition {
+		return pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{
+				ID:   id,
+				Use:  "capture-runtime",
+				With: pipeline.StepInputs{Payload: map[string]any{"text": text}},
+			},
+			ContinueOnError: true,
+		}
+	}
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "failed-dependency",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec:        pipeline.StepSpec{ID: "offer", Use: "failing-offer"},
+						ContinueOnError: true,
+					},
+					captureStep("obtain", "${{ offer.outputs }}"),
+					captureStep("present", "${{ obtain.outputs.text }}"),
+					captureStep("independent", "runs"),
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{"app_url": "https://example.test"},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.Equal(t, []string{"runs"}, captured)
+	err := env.GetWorkflowError()
+	require.ErrorContains(
+		t,
+		err,
+		"obtain failed with CRE228 Failed to resolve pipeline inputs: "+
+			"step obtain needs the output of step offer, which failed",
+	)
+	errorsList := requireFailureErrors(t, err)
+	require.Len(t, errorsList, 3)
+	messages := map[string]string{}
+	for _, entry := range errorsList {
+		details := entry["details"].(map[string]any)
+		messages[details["step_id"].(string)], _ = entry["message"].(string)
+	}
+	require.Equal(t, "step obtain needs the output of step offer, which failed", messages["obtain"])
+	require.Equal(
+		t,
+		"step present needs the output of step obtain, which failed",
+		messages["present"],
+	)
+	require.Equal(
+		t,
+		errorcodes.Codes[errorcodes.PipelineInputError].Code,
+		errorsList[1]["code"],
+	)
 }
 
 // TestPipelineWorkflowFailsWithoutDefinition asserts a clear error when workflow_definition is missing.
@@ -356,7 +438,8 @@ func TestPipelineWorkflowCollectsContinueOnErrorFailuresAsResult(t *testing.T) {
 	require.NotNil(t, result.Errors)
 	output, ok := result.Output.(map[string]any)
 	require.True(t, ok)
-	require.Contains(t, output, "passed-test-step")
+	require.NotContains(t, output, "passed-test-step")
+	require.NotContains(t, output, "failed-test-step")
 }
 
 func TestPipelineWorkflowContinueOnErrorIncludesOnErrorStepFailures(t *testing.T) {
@@ -655,6 +738,13 @@ func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
 		debugAct.Execute,
 		activity.RegisterOptions{Name: debugAct.Name()},
 	)
+	var debugPayload map[string]any
+	env.OnActivity(debugAct.Name(), mock.Anything, mock.Anything).Return(
+		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			debugPayload = workflowengine.AsMap(input.Payload)
+			return workflowengine.ActivityResult{}, nil
+		},
+	)
 
 	env.ExecuteWorkflow(
 		pipelineWf.Name(),
@@ -690,7 +780,8 @@ func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
 					},
 				},
 			},
-			Debug: true,
+			Debug:         true,
+			ReturnOutputs: []string{pipeline.AllStepOutputs},
 			WorkflowInput: workflowengine.WorkflowInput{
 				Config: map[string]any{
 					"app_url": "https://example.test",
@@ -709,6 +800,12 @@ func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
 	output, ok := result.Output.(map[string]any)
 	require.True(t, ok)
 	require.Contains(t, output, "step-1")
+	require.Equal(t, "step-1", debugPayload["step"])
+	require.Equal(
+		t,
+		map[string]any{"outputs": map[string]any{"ok": true}},
+		debugPayload["outputs"],
+	)
 }
 
 func TestPipelineWorkflowOnSuccessHookFailuresPreserveStructuredErrors(t *testing.T) {
@@ -1451,6 +1548,52 @@ func TestPipelineWorkflowFinallyValidationFails(t *testing.T) {
 	require.Contains(t, err.Error(), "json-parse")
 }
 
+func TestPipelineWorkflowRejectsDuplicateStepIDsBeforeScheduling(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	scheduled := 0
+	env.SetOnActivityStartedListener(
+		func(*activity.Info, context.Context, converter.EncodedValues) { scheduled++ },
+	)
+
+	httpStep := pipeline.StepDefinition{StepSpec: pipeline.StepSpec{
+		ID:   "same",
+		Use:  "http-request",
+		With: pipeline.StepInputs{Payload: map[string]any{"url": "https://example.com"}},
+	}}
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name:  "duplicate-ids",
+				Steps: []pipeline.StepDefinition{httpStep, httpStep},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{"app_url": "https://example.test"},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `duplicate step id "same"`)
+	require.Zero(t, scheduled)
+}
+
 func TestPipelineWorkflowStartWithValidFinally(t *testing.T) {
 	pipelineWf := NewPipelineWorkflow()
 
@@ -1602,7 +1745,149 @@ func TestPipelineWorkflowFinallyErrorsDontBlockWorkflow(t *testing.T) {
 	errorStr := fmt.Sprintf("%v", finallyErrors)
 	require.Contains(t, errorStr, "email service unavailable")
 
-	require.Contains(t, output, "main-step")
+	require.NotContains(t, output, "main-step")
+}
+
+func TestPipelineWorkflowFailureDetailsIncludeLateCleanupWarnings(t *testing.T) {
+	origCleanupHooks := cleanupHooks
+	t.Cleanup(func() { cleanupHooks = origCleanupHooks })
+	cleanupHooks = []CleanupFunc{
+		func(
+			_ workflow.Context,
+			_ *pipeline.WorkflowDefinition,
+			_ *workflow.ActivityOptions,
+			_ map[string]any,
+			_ map[string]any,
+			output *map[string]any,
+		) error {
+			appendCleanupWarning(output, "written during cleanup")
+			return nil
+		},
+	}
+
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-failing", &captured)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "late-cleanup-warning",
+				Steps: []pipeline.StepDefinition{
+					{StepSpec: pipeline.StepSpec{
+						ID:  "failing-step",
+						Use: "capture-failing",
+						With: pipeline.StepInputs{
+							Payload: map[string]any{"text": "boom", "fail": true},
+						},
+					}},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{"app_url": "https://example.test"},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	output, ok := workflowengine.ParseWorkflowError(err).Details["output"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, []any{"written during cleanup"}, output[cleanupWarningsOutputKey])
+	require.NotContains(t, output, "failing-step")
+}
+
+func TestPipelineWorkflowChildPipelineReturnsOnlyReferencedOutputs(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
+	internalHTTPAct := registerInternalHTTPActivity(env)
+	env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"body": `
+name: Child Pipeline
+steps:
+  - id: inner
+    use: capture-runtime
+    with:
+      payload:
+        text: inner-value
+  - id: other
+    use: capture-runtime
+    with:
+      payload:
+        text: other-value
+`}}, nil).Once()
+
+	var childInput PipelineWorkflowInput
+	env.SetOnChildWorkflowStartedListener(
+		func(_ *workflow.Info, _ workflow.Context, args converter.EncodedValues) {
+			require.NoError(t, args.Get(&childInput))
+		},
+	)
+	var childResult workflowengine.WorkflowResult
+	env.SetOnChildWorkflowCompletedListener(
+		func(_ *workflow.Info, result converter.EncodedValue, err error) {
+			require.NoError(t, err)
+			require.NoError(t, result.Get(&childResult))
+		},
+	)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "Parent Pipeline",
+				Steps: []pipeline.StepDefinition{
+					{StepSpec: pipeline.StepSpec{
+						ID:   "child",
+						Use:  "child-pipeline",
+						With: pipeline.StepInputs{Payload: map[string]any{"pipeline_id": "child"}},
+					}},
+					{StepSpec: pipeline.StepSpec{
+						ID:  "use-child",
+						Use: "capture-runtime",
+						With: pipeline.StepInputs{Payload: map[string]any{
+							"text": "${{ child.outputs.inner.outputs.text }}",
+						}},
+					}},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{"app_url": "https://example.test"},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, []string{"inner-value", "other-value", "inner-value"}, captured)
+	require.Equal(t, []string{"inner"}, childInput.ReturnOutputs)
+	require.Equal(t, map[string]any{
+		"inner": map[string]any{"outputs": map[string]any{"text": "inner-value"}},
+	}, childResult.Output)
+
+	var result workflowengine.WorkflowResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Empty(t, result.Output)
 }
 
 func TestPipelineWorkflowFailure(t *testing.T) {
