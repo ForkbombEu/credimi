@@ -16,6 +16,8 @@ import { pb } from '@/pocketbase';
 
 import { hubItemTypes, type HubItem, type HubItemType } from './types';
 
+export { getHubItemByPath, invalidateHubItemByPathCache } from './get-hub-item.js';
+
 //
 
 export function getHubItemTypeEntityData(type: HubItemType): EntityData {
@@ -71,14 +73,6 @@ export function isCredentialIssuer(item: HubItemsResponse): boolean {
 
 export function isVerifier(item: HubItemsResponse): boolean {
 	return item.type === hubItemTypes[3];
-}
-
-//
-
-export function getHubItemByPath(path: string): Promise<HubItem> {
-	return pb.collection('hub_items').getFirstListItem(pb.filter('path ~ {:path}', { path }), {
-		requestKey: null
-	});
 }
 
 //

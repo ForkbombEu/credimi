@@ -63,14 +63,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/each}
 				</FadeScrollArea>
 			{:else}
-				<EmptyState text={'No devices found'} containerClass={emptyContainerClass} />
+				<EmptyState text={m.No_devices_found()} containerClass={emptyContainerClass} />
 			{/if}
 		{:else}
 			<div class={['space-y-2', listContainerClass]}>
 				{#each foundDevices as item (item.path)}
 					<DeviceSelectListItem {item} {presentation} {selectedDevice} {onSelect} />
 				{:else}
-					<EmptyState text={'No devices found'} containerClass={emptyContainerClass} />
+					<EmptyState text={m.No_devices_found()} containerClass={emptyContainerClass} />
 				{/each}
 			</div>
 		{/if}

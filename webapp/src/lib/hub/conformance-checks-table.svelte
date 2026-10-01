@@ -80,8 +80,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			id: 'checks',
 			header: m.Checks(),
 			enableSorting: false,
-			cell: ({ row }) =>
-				renderComponent(SuiteChecksCell, { suite: row.original, search })
+			cell: ({ row }) => renderComponent(SuiteChecksCell, { suite: row.original, search })
 		})
 	]);
 
@@ -101,8 +100,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		},
 		onSortingChange: (updater) => {
-			browse.sorting =
-				typeof updater === 'function' ? updater(browse.sorting) : updater;
+			browse.sorting = typeof updater === 'function' ? updater(browse.sorting) : updater;
 		}
 	});
 
@@ -112,11 +110,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if search.trim() && browse.displayedSuites.length === 0 && !browse.isLoading}
-	<EmptyState
-		title={m.No_records_found()}
-		icon={SearchIcon}
-		className="rounded-none border-0"
-	/>
+	<EmptyState title={m.No_records_found()} icon={SearchIcon} className="rounded-none border-0" />
 {:else}
 	<div class:opacity-60={browse.isLoading}>
 		<Table.Table>

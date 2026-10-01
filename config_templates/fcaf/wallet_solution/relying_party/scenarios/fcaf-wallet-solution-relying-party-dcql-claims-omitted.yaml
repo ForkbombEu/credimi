@@ -33,35 +33,9 @@ steps:
     - id: present-without-claims
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - extendedWaitUntil:
-                visible: "Home|Documents|Welcome, .*"
-                timeout: 30000
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - tapOn: "Share"
-            - extendedWaitUntil:
-                visible: "PIN"
-                timeout: 30000
-            - tapOn:
-                point: "11%,39%"
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*"
-                timeout: 30000
-            - takeScreenshot: fcaf-082-claims-omitted
-            - tapOn: "Close"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: get-presentation-result
       use: http-request

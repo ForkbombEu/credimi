@@ -27,9 +27,7 @@ export function displayStandardName(uid: string): string {
 }
 
 /** Prefer authored `suite_name`; fall back to humanized suite uid. */
-export function suiteTitle(
-	suite: Pick<ConformanceSuiteRecord, 'suite_name' | 'suite'>
-): string {
+export function suiteTitle(suite: Pick<ConformanceSuiteRecord, 'suite_name' | 'suite'>): string {
 	const name = suite.suite_name?.trim();
 	if (name) return name;
 	return displayNameFromUid(suite.suite);
@@ -44,17 +42,13 @@ export function suiteSubtitle(
 }
 
 /** Trimmed suite logo URL, or `undefined` when absent. */
-export function suiteLogo(
-	suite: Pick<ConformanceSuiteRecord, 'suite_logo'>
-): string | undefined {
+export function suiteLogo(suite: Pick<ConformanceSuiteRecord, 'suite_logo'>): string | undefined {
 	const logo = suite.suite_logo?.trim();
 	return logo || undefined;
 }
 
 /** Hub detail route for a suite-grain catalog row. */
-export function suiteHubHref(
-	suite: Pick<ConformanceSuiteRecord, 'path_prefix'>
-): string {
+export function suiteHubHref(suite: Pick<ConformanceSuiteRecord, 'path_prefix'>): string {
 	return `/hub/conformance-checks/${suite.path_prefix}`;
 }
 

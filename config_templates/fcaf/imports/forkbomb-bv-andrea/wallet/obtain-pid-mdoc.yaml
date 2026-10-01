@@ -33,7 +33,6 @@ tags:
 - extendedWaitUntil:
     visible: "Accept"
     timeout: 60000
-- takeScreenshot: fcaf-pid-mdoc-offer
 - tapOn: "Accept"
 - extendedWaitUntil:
     visible: "Sign in to your account|Non-Trusted Issuer|FormEU|Login|Get credentials|Review & Send|Close|Oups! Something went wrong|KeyError.*"

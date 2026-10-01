@@ -5,7 +5,9 @@ package handlers
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -484,7 +486,10 @@ func HandleUpdatePipelineExecutionFCAFReport() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		return e.JSON(http.StatusOK, record.FieldsData())
+		sum := sha256.Sum256(enrichedJSON)
+		fields := record.FieldsData()
+		fields["fcaf_report_sha256"] = hex.EncodeToString(sum[:])
+		return e.JSON(http.StatusOK, fields)
 	}
 }
 

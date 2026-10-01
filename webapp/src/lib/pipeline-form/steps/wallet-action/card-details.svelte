@@ -18,10 +18,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data }: steps.CardDetailsComponentProps<WalletActionStepData> = $props();
 </script>
 
-<WalletActionTags action={data.action}>
-	{#if !data.action.published}
-		<Badge variant="outline">
-			{m.private()}
-		</Badge>
-	{/if}
-</WalletActionTags>
+{#if data.kind === 'stored'}
+	<WalletActionTags action={data.action}>
+		{#if !data.action.published}
+			<Badge variant="outline">
+				{m.private()}
+			</Badge>
+		{/if}
+	</WalletActionTags>
+{/if}

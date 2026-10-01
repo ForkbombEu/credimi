@@ -526,7 +526,7 @@ func TestStartWebuildWorkflowSuccess(t *testing.T) {
 
 func TestStartEudiwWorkflowSuccess(t *testing.T) {
 	rootDir := t.TempDir()
-	filename := filepath.Join(rootDir, workflows.EudiwTemplateFolderPath+"test.yaml")
+	filename := filepath.Join(rootDir, workflows.EudiwTemplateFolderPath, "test.yaml")
 	require.NoError(t, os.MkdirAll(filepath.Dir(filename), 0o755))
 	require.NoError(t, os.WriteFile(filename, []byte("template"), 0o644))
 	t.Setenv("ROOT_DIR", rootDir)
@@ -662,7 +662,182 @@ func TestStartOpenID4VPWalletWorkflowMissingTemplate(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
 }
 
-func TestReadTemplateFileError(t *testing.T) {
-	_, err := readTemplateFile(filepath.Join(t.TempDir(), "missing.yaml"))
+func TestReadTemplateFileStaysInsideBaseDir(t *testing.T) {
+	dir := t.TempDir()
+	baseDir := filepath.Join(dir, "templates")
+	require.NoError(t, os.MkdirAll(filepath.Join(baseDir, "suite"), 0o755))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(baseDir, "suite", "ok.yaml"), []byte("ok"), 0o644),
+	)
+	secret := filepath.Join(dir, "secret.yaml")
+	require.NoError(t, os.WriteFile(secret, []byte("dummy-canary"), 0o600))
+	require.NoError(t, os.Symlink(secret, filepath.Join(baseDir, "link.yaml")))
+
+	tests := []struct {
+		name    string
+		file    string
+		want    string
+		wantErr bool
+	}{
+		{name: "nested file", file: "suite/ok.yaml", want: "ok"},
+		{name: "missing file", file: "missing.yaml", wantErr: true},
+		{name: "dot-dot escape", file: "../secret.yaml", wantErr: true},
+		{name: "dot-dot after subdir", file: "suite/../../secret.yaml", wantErr: true},
+		{name: "absolute path", file: secret, wantErr: true},
+		{name: "symlink escape", file: "link.yaml", wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := readTemplateFile(baseDir, tc.file)
+			if !tc.wantErr {
+				require.NoError(t, err)
+				require.Equal(t, tc.want, got)
+				return
+			}
+			require.Error(t, err)
+			require.Empty(t, got)
+			require.NotContains(t, err.Error(), dir)
+			var apiErr *apierror.APIError
+			require.ErrorAs(t, err, &apiErr)
+			require.Equal(t, http.StatusBadRequest, apiErr.Code)
+		})
+	}
+}
+
+func TestHandleSaveVariablesAndStartRejectsTemplateOutsideConfigTemplates(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	rootDir := filepath.Join(dir, "app")
+	// Linux resolves ".." against real directories, so every hop must exist.
+	require.NoError(
+		t,
+		os.MkdirAll(filepath.Join(rootDir, "config_templates", "ewc", "v1", "ewc"), 0o755),
+	)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "ewc"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "outside"), 0o755))
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(dir, "outside", "secret.yaml"),
+			[]byte("key: dummy-canary-1234\n"),
+			0o600,
+		),
+	)
+	t.Setenv("ROOT_DIR", rootDir)
+
+	var captured WorkflowStarterParams
+	origRegistry := workflowRegistry
+	t.Cleanup(func() {
+		workflowRegistry = origRegistry
+	})
+	workflowRegistry = map[Author]WorkflowStarter{
+		"ewc": func(params WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
+			captured = params
+			return workflowengine.WorkflowResult{WorkflowID: "wf-leak"}, nil
+		},
+	}
+
+	cases := []struct {
+		name     string
+		protocol string
+		version  string
+		testName string
+	}{
+		{
+			name:     "traversal in test name",
+			protocol: "ewc",
+			version:  "v1",
+			testName: "ewc/../../../../../outside/secret.yaml",
+		},
+		{
+			name:     "traversal in protocol and version",
+			protocol: "..",
+			version:  "..",
+			testName: "ewc/../outside/secret.yaml",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			captured = WorkflowStarterParams{}
+			input := SaveVariablesAndStartRequestInput{
+				ConfigsWithFields: map[string][]Variable{
+					tc.testName: {{FieldName: "foo", Value: "bar", CredimiID: "cred-1"}},
+				},
+				ConfigsWithJSON: map[string]string{},
+			}
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/compliance/x/y/save-variables-and-start",
+				nil,
+			)
+			req.SetPathValue("protocol", tc.protocol)
+			req.SetPathValue("version", tc.version)
+			req = withValidatedInput(req, input)
+			rec := httptest.NewRecorder()
+
+			err := HandleSaveVariablesAndStart()(&core.RequestEvent{
+				App:  app,
+				Auth: authRecord,
+				Event: router.Event{
+					Request:  req,
+					Response: rec,
+				},
+			})
+			requireHandlerErrorHandled(t, rec, err)
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+			require.Empty(t, captured.YAMLData)
+			require.NotContains(t, rec.Body.String(), "dummy-canary")
+			require.NotContains(t, rec.Body.String(), dir)
+
+			saved, err := app.FindRecordsByFilter(
+				"config_values",
+				"template_path={:template_path}",
+				"",
+				-1,
+				0,
+				map[string]any{"template_path": tc.testName},
+			)
+			require.NoError(t, err)
+			require.Empty(t, saved)
+		})
+	}
+}
+
+func TestStartEWCLikeWorkflowRejectsTemplateOutsideFolder(t *testing.T) {
+	rootDir := t.TempDir()
+	require.NoError(
+		t,
+		os.MkdirAll(filepath.Join(rootDir, workflows.EWCTemplateFolderPath), 0o755),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(rootDir, "secret.yaml"), []byte("dummy-canary"), 0o600),
+	)
+	t.Setenv("ROOT_DIR", rootDir)
+
+	started := false
+	origStart := ewcWorkflowStart
+	t.Cleanup(func() {
+		ewcWorkflowStart = origStart
+	})
+	ewcWorkflowStart = func(workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		started = true
+		return workflowengine.WorkflowResult{}, nil
+	}
+
+	_, err := startEWCWorkflow(WorkflowStarterParams{
+		YAMLData: "session_id: session-1\n",
+		Protocol: "openid4vp_wallet",
+		TestName: "ewc/../../../../secret.json",
+	})
 	require.Error(t, err)
+	require.False(t, started)
+	require.NotContains(t, err.Error(), rootDir)
 }

@@ -156,8 +156,9 @@ Local dev process:
 
 - `make dev` starts infrastructure and runs the API/UI through `hivemind`.
 - `make dev.noworkers` is the same stack with `CREDIMI_TEMPORAL_WORKERS_DISABLED=1` so Temporal workers are not registered (faster boot; pipelines/workflows will not run).
-- Classic ports (primary checkout): Temporal gRPC `localhost:7233`, PocketBase `localhost:8090`, webapp `localhost:5100`, Temporal UI `localhost:8280`.
+- Classic ports (primary checkout): Temporal gRPC `localhost:7233`, PocketBase `localhost:8090`, webapp `localhost:5100`, Temporal UI `localhost:8280`, embedded Temporal UI `127.0.0.1:8281` (`TEMPORAL_UI_EMBEDDED_PORT`).
 - PocketBase proxies `/{path...}` to `ADDRESS_UI` in `pkg/routes/routes.go`.
+- PocketBase proxies `/temporal-ui/...` to `ADDRESS_TEMPORAL_UI` (see "Embedded Temporal UI"); the Vite dev server forwards `/temporal-ui` to PocketBase so the page and the iframe share one origin.
 - Parallel worktrees: require Worktrunk for bootstrap. Cursor sandboxes use `.cursor/worktrees.json` → `make worktree-bootstrap`; CLI worktrees use `.config/wt.toml` pre-start. Ports live in gitignored `.env.worktree`. Checkout path is per-user (not committed). Primary `make dev` keeps classic ports without Worktrunk. See developer-setup “Parallel worktrees”.
 
 Procfile dev processes (classic defaults; runtime Procfile substitutes worktree ports):
@@ -173,6 +174,15 @@ Persistence:
 
 - PocketBase SQLite data lives in `pb_data/`.
 - Dev Temporal state also uses local project data/infrastructure and must be treated as disposable dev state.
+
+Embedded Temporal UI:
+
+- Run pages (`webapp/src/routes/my/tests/runs/[workflow_id]/[run_id]/+page.svelte`) embed the upstream Temporal UI history page in an iframe at `/temporal-ui/namespaces/<org canonified_name>/workflows/<id>/<run>/history`.
+- Compose service `temporal_ui_embedded` runs `temporalio/ui` with `TEMPORAL_UI_PUBLIC_PATH=/temporal-ui`, auth disabled, and write actions disabled. It publishes no port in production; only Credimi reaches it. The `temporal_ui` service (port 8280) is a separate admin/debug instance and is not used by the webapp.
+- `pkg/internal/temporalui` is the security boundary: it authenticates the `pb_auth` cookie (written by `webapp/src/hooks.client.ts`), allows only `GET`/`HEAD`, allows API calls only for the caller's organization namespace plus `settings`, `cluster-info` and `system-info`, answers the namespace list with the caller's namespace only, and strips the Credimi cookie and `Authorization` before forwarding.
+- The UI sends `X-Frame-Options: SAMEORIGIN`; the iframe must stay same-origin with the webapp.
+- The proxy injects `embedHead` into UI HTML pages: it hides the UI shell and "Back to Workflows", forces the light theme (Credimi has no dark mode), keeps in-frame navigation on the embedded run, and opens links to other runs (e.g. child workflows) as Credimi run pages in the top window. It relies on upstream `data-testid`s and the `"dark mode"` store key; re-check on `TEMPORAL_UI_VERSION` bumps.
+- Adding an allowed Temporal UI API path, a write method, or another namespace is a tenancy change: ask first.
 
 Conformance catalog refresh:
 
@@ -220,6 +230,15 @@ Pipeline contract:
 - `step.with.payload` is reserved for step payload.
 - Other keys under `step.with` are merged into `payload`.
 - `mobile-automation` steps must provide `with.payload.device_id`, or the pipeline must set `runtime.global_device_id`.
+
+Step outputs live in Temporal history, recorded once:
+
+- Main step IDs must be unique, and hook or `finally` step IDs must not reuse a main step ID (`ValidateStepIDs` in `pkg/internal/pipeline/validate.go`); the workflow and the queue path reject violations.
+- Every main step's activity or child-workflow input `config` carries `step_id` (`workflowengine.StepIDConfigKey`). `pkg/workflowengine/pipelinehistory` rebuilds main step outputs from a run's history by that key, mirroring the workflow's `finalOutput` rules.
+- Step activities receive only their own `with.config`, `step_id`, and the workflow config keys listed in `registry.TaskFactory.InheritedConfigKeys`. Child workflows and child pipelines keep the full config.
+- A step whose input exceeds 3 MiB fails before scheduling (`ensureStepInputSize`), because Temporal rejects workflow task messages above 4 MiB.
+- A main step whose inputs reference the output of a step that already failed (`continue_on_error`) fails before running with `CRE228` `step <id> needs the output of step <failed>, which failed` (`failedDependencyError`). References through `| optional` do not count, so `fcaf-validation` still runs.
+- Pipeline results and failure `Details.output` carry non-step entries (warnings, video and screenshot URLs, `finally_errors`) plus only the step outputs listed in `PipelineWorkflowInput.ReturnOutputs`. Top-level runs return none; a parent sets a child pipeline's `return_outputs` from the references in its own definition (`ReferencedStepOutputs`). `POST /api/pipeline/execute` returns all of them.
 
 Direct run path:
 
@@ -273,6 +292,8 @@ Grant/start path:
 - The generated pipeline runs all feasible scenarios with distinct prefixed step IDs, continues after scenario failures, merges exact named evidence sources, and performs one final validation for all catalog tests.
 - `fcaf sync` and `fcaf run` operate on the generated aggregate pipeline only. Do not move scenario sources back into the deployable pipelines directory.
 - Add or change tests in the owning scenario, regenerate the aggregate, and validate direct evidence coverage before removing any scenario.
+- `with.pipeline_outputs` reaches the `fcaf-validation` activity unresolved. The activity resolves it against the step outputs in the run's own history, stores the full report (with evidence values) through `POST /api/pipeline/pipeline-execution-results/fcaf-report` on the root run's `pipeline_results` row, and returns a compact report without evidence values, the stored file's `report_sha256`, and an `evidence_index` of `step_id`, history `event_id` and sha256 per evidence leaf. A storage failure fails the step.
+- `pipeline-report-generation` also reads the run's history and stores the markdown report itself; storage failures become cleanup warnings.
 
 ## CI Wallet APK Runs
 
@@ -855,7 +876,6 @@ If the graft command is not available, ignore the Graft-specific instructions be
 If graft is available but the local graft/ graph does not exist, run graft build before using the Graft workflow.
 
 <!-- graft:start -->
-
 ## Graft — repo context graph
 
 This repo is indexed in `graft/`: small linked markdown nodes that explain each
@@ -895,5 +915,4 @@ re-read whole files.
 
 After big code changes, refresh the graph with `graft build` (deterministic,
 no API key, $0).
-
 <!-- graft:end -->

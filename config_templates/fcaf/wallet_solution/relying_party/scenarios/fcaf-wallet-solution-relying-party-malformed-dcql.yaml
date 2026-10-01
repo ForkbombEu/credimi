@@ -16,13 +16,8 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: '${{ create.outputs.body.deeplink }}' }
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-      - extendedWaitUntil: { visible: "Error|invalid request|Oups! Something went wrong|Home|Documents", timeout: 100000 }
-      - takeScreenshot: protocol-messages-015
+    parameters: { deeplink: '${{ create.outputs.body.deeplink }}' }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
 - id: session
   use: http-request
   with: { method: GET, url: '${fixture.verifier_url}/openid4vp/sessions/${{ create.outputs.body.session_id }}', expected_status: 200 }

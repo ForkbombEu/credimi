@@ -31,7 +31,6 @@ tags:
 - extendedWaitUntil:
     visible: "Accept"
     timeout: 60000
-- takeScreenshot: fcaf-pid-sdjwt-offer
 - tapOn: "Accept"
 - runFlow:
     when:
@@ -51,7 +50,6 @@ tags:
     timeout: 60000
 - runFlow:
     file: complete-formeu-mandatory.yaml
-- takeScreenshot: fcaf-pid-sdjwt-form-entered
 - assertNotVisible:
     text: "Oups! Something went wrong"
 - assertNotVisible:

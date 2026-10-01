@@ -77,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if artifacts}
 			<ExecutionArtifactsPreview
 				{artifacts}
-				variant="preview"
+				presentation="preview"
 				previewClass="size-14!"
 				hideLogs
 			/>

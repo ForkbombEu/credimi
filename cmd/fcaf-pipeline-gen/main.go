@@ -51,10 +51,11 @@ const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
 	issuanceActionID      = walletActionNamespace +
 		"getcredential-generic-credential-without-authentication"
-	onboardingActionID    = walletActionNamespace + "onboarding-1"
-	pidIssuerConfigID     = "eu-pid-device-bound"
-	pidCredentialConfigID = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
-	mobileAutomationTask  = "mobile-automation"
+	onboardingActionID   = walletActionNamespace + "onboarding-1"
+	pidIssuerConfigID    = "eu-pid-device-bound"
+	pidSDJWTConfigID     = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
+	pidMdocConfigID      = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
+	mobileAutomationTask = "mobile-automation"
 )
 
 // shareTap counts the consent screen's Share action, which is the point at
@@ -63,6 +64,18 @@ const (
 var shareTap = regexp.MustCompile(
 	`tapOn:\s*(?:"Share"|\{[^}\n]*text:\s*"Share"|\n\s*text:\s*"Share")`,
 )
+
+// credentialFormat separates the PID instances the wallet holds: an mdoc
+// request cannot spend an SD-JWT VC instance, nor the other way round.
+type credentialFormat string
+
+const (
+	formatSDJWT credentialFormat = "sd-jwt"
+	formatMdoc  credentialFormat = "mdoc"
+)
+
+// deeplinkSource finds the step whose output a wallet step opens.
+var deeplinkSource = regexp.MustCompile(`\$\{\{\s*([A-Za-z0-9_.-]+?)\.outputs\b`)
 
 var demoScenarioNames = []string{
 	"fcaf-wallet-solution-relying-party-engagement-haip-vp.yaml",
@@ -280,8 +293,10 @@ func buildAggregate(
 	testIDs := map[string]struct{}{}
 	seenStepIDs := map[string]string{}
 	// The wallet keeps unconsumed instances across scenarios, so an issuance a
-	// scenario already performs covers the next presentation that shares.
-	pidAvailable := 0
+	// scenario already performs covers the next presentation that shares a
+	// credential of the same format.
+	pidAvailable := map[credentialFormat]int{}
+	emitted := map[string]map[string]any{}
 
 	for _, path := range paths {
 		definition, err := loadPipeline(path)
@@ -328,18 +343,26 @@ func buildAggregate(
 			if err != nil {
 				return fmt.Errorf("FCAF scenario %s step %q: %w", path, id, err)
 			}
+			source := deeplinkSourceStep(rewritten, emitted)
 			if issuesCredential(rewritten) {
-				pidAvailable++
+				pidAvailable[issuedCredentialFormat(source)]++
 			}
-			for issued := 0; consumed > 0; consumed-- {
-				if pidAvailable > 0 {
-					pidAvailable--
-					continue
+			issued := 0
+			for _, format := range presentedCredentialFormats(source, consumed) {
+				for need := consumed; need > 0; need-- {
+					if pidAvailable[format] > 0 {
+						pidAvailable[format]--
+						continue
+					}
+					aggregate.Steps = append(
+						aggregate.Steps,
+						pidIssuanceSteps(id, issued, format, fixture)...,
+					)
+					issued++
 				}
-				aggregate.Steps = append(aggregate.Steps, pidIssuanceSteps(id, issued, fixture)...)
-				issued++
 			}
 			aggregate.Steps = append(aggregate.Steps, rewritten)
+			emitted[id] = rewritten
 		}
 	}
 
@@ -459,7 +482,7 @@ func onboardingPrelude() map[string]any {
 		"use": "mobile-automation",
 		"with": map[string]any{
 			"action_id":  "forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1",
-			"version_id": "forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo",
+			"version_id": "forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo",
 		},
 	}
 }
@@ -540,8 +563,82 @@ func credentialInstancesConsumed(step map[string]any, actions map[string]string)
 	return len(shareTap.FindAllString(source, -1)), nil
 }
 
-// pidIssuanceSteps issues one fresh PID for the presentation that follows.
-func pidIssuanceSteps(presentationID string, index int, fixture map[string]any) []map[string]any {
+// deeplinkSourceStep returns the earlier step whose output a wallet step opens,
+// or nil when no parameter references one.
+func deeplinkSourceStep(step map[string]any, earlier map[string]map[string]any) map[string]any {
+	with, _ := step["with"].(map[string]any)
+	parameters, _ := with["parameters"].(map[string]any)
+	names := make([]string, 0, len(parameters))
+	for name := range parameters {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		text, _ := parameters[name].(string)
+		if match := deeplinkSource.FindStringSubmatch(text); match != nil {
+			return earlier[match[1]]
+		}
+	}
+	return nil
+}
+
+// issuedCredentialFormat reports the PID format an issuance adds, read from
+// the issuer session or credential offer that produced its deeplink.
+func issuedCredentialFormat(source map[string]any) credentialFormat {
+	with, _ := source["with"].(map[string]any)
+	identifier, _ := with["credential_id"].(string)
+	if body, ok := with["body"].(map[string]any); ok {
+		if configuration, ok := body["credential_configuration_id"].(string); ok {
+			identifier = configuration
+		}
+	}
+	if strings.Contains(strings.ToLower(identifier), "mdoc") {
+		return formatMdoc
+	}
+	return formatSDJWT
+}
+
+// presentedCredentialFormats lists the PID formats a consuming presentation
+// spends, read from the DCQL query of the verifier session it opens. A query
+// asking for both formats spends one instance of each per Share.
+func presentedCredentialFormats(source map[string]any, consumed int) []credentialFormat {
+	if consumed == 0 {
+		return nil
+	}
+	with, _ := source["with"].(map[string]any)
+	body, _ := with["body"].(map[string]any)
+	query := nestedMap(body, "dcql_query")
+	if len(query) == 0 {
+		query = nestedMap(nestedMap(body, "presentation_request"), "dcql_query")
+	}
+	credentials, _ := query["credentials"].([]any)
+	formats := make([]credentialFormat, 0, 2)
+	seen := map[credentialFormat]bool{}
+	for _, item := range credentials {
+		credential, _ := item.(map[string]any)
+		format := formatSDJWT
+		if declared, _ := credential["format"].(string); declared == "mso_mdoc" {
+			format = formatMdoc
+		}
+		if !seen[format] {
+			seen[format] = true
+			formats = append(formats, format)
+		}
+	}
+	if len(formats) == 0 {
+		return []credentialFormat{formatSDJWT}
+	}
+	return formats
+}
+
+// pidIssuanceSteps issues one fresh PID of the given format for the
+// presentation that follows.
+func pidIssuanceSteps(
+	presentationID string,
+	index int,
+	format credentialFormat,
+	fixture map[string]any,
+) []map[string]any {
 	base := "${fixture.verifier_url}"
 	if _, declared := fixture["issuer_url"].(string); declared {
 		base = "${fixture.issuer_url}"
@@ -563,7 +660,7 @@ func pidIssuanceSteps(presentationID string, index int, fixture map[string]any) 
 				"headers":         map[string]any{"Content-Type": "application/json"},
 				"body": map[string]any{
 					"issuer_configuration_id":     pidIssuerConfigID,
-					"credential_configuration_id": pidCredentialConfigID,
+					"credential_configuration_id": pidCredentialConfigID(format),
 				},
 			},
 		},
@@ -580,6 +677,13 @@ func pidIssuanceSteps(presentationID string, index int, fixture map[string]any) 
 			},
 		},
 	}
+}
+
+func pidCredentialConfigID(format credentialFormat) string {
+	if format == formatMdoc {
+		return pidMdocConfigID
+	}
+	return pidSDJWTConfigID
 }
 
 func scenarioStepIDs(

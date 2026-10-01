@@ -132,6 +132,42 @@ func TestPipelineEvidenceSetupHookStoresEvidence(t *testing.T) {
 	require.Equal(t, false, result["final_output_has_evidence"])
 }
 
+func TestPipelineEvidenceSetupHookSendsOnlyDiscoverySteps(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	var definition *pipelineinternal.WorkflowDefinition
+	evidenceActivity := activities.NewPipelineEvidenceExtractionActivity()
+	env.RegisterActivityWithOptions(
+		func(
+			_ context.Context,
+			input workflowengine.ActivityInput,
+		) (workflowengine.ActivityResult, error) {
+			payload, err := workflowengine.DecodePayload[activities.PipelineEvidenceExtractionInput](
+				input.Payload,
+			)
+			require.NoError(t, err)
+			definition = payload.WorkflowDefinition
+			return workflowengine.ActivityResult{
+				Output: activities.PipelineEvidenceExtractionOutput{},
+			}, nil
+		},
+		activity.RegisterOptions{Name: evidenceActivity.Name()},
+	)
+
+	env.ExecuteWorkflow(testPipelineEvidenceSetupWorkflow)
+	require.NoError(t, env.GetWorkflowError())
+
+	require.NotNil(t, definition)
+	require.Equal(t, "evidence-pipeline", definition.Name)
+	stepIDs := make([]string, 0, len(definition.Steps))
+	for _, step := range definition.Steps {
+		stepIDs = append(stepIDs, step.ID)
+	}
+	require.Equal(t, []string{"cred-step", "vp-step"}, stepIDs)
+	require.Equal(t, "tenant/credential-1", definition.Steps[0].With.Payload["credential_id"])
+}
+
 func TestPipelineEvidenceSetupHelpers(t *testing.T) {
 	wfDef := &pipelineinternal.WorkflowDefinition{
 		Steps: []pipelineinternal.StepDefinition{
@@ -162,6 +198,22 @@ func testPipelineEvidenceSetupWorkflow(ctx workflow.Context) (map[string]any, er
 					Use: "credential-offer",
 					With: pipelineinternal.StepInputs{
 						Payload: map[string]any{"credential_id": "tenant/credential-1"},
+					},
+				},
+			},
+			{
+				StepSpec: pipelineinternal.StepSpec{
+					ID:   "fetch-step",
+					Use:  "http-request",
+					With: pipelineinternal.StepInputs{Payload: map[string]any{"url": "https://x"}},
+				},
+			},
+			{
+				StepSpec: pipelineinternal.StepSpec{
+					ID:  "vp-step",
+					Use: "use-case-verification-deeplink",
+					With: pipelineinternal.StepInputs{
+						Payload: map[string]any{"use_case_id": "tenant/use-case-1"},
 					},
 				},
 			},

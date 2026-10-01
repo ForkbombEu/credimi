@@ -130,7 +130,7 @@ Separate, older substitution: `${fixture.<key>}` (no `${{ }}`), keys `issuer_url
 
 - No device steps → started directly, response `status: "running"` with `workflow_id`/`run_id`, and a `pipeline_results` row created immediately.
 - Device steps → one ticket per device on that device's semaphore; responses carry `ticket_id`, `status`, `position`, `line_len`, ids and URLs (`PipelineQueueResponse`).
-- Guards: runner ownership (`404 runner not found`, `403 device_id is not accessible` — unless the device is yours or the runner is `published`), liveness (`503 device runner is offline`), queue cap (`409 queue_limit`).
+- Guards: runner ownership (`404 runner not found`, `403 device_id is not accessible` — unless the device is yours, or its runner is `published` and either your organization is published or the runner is `admin_managed`; the same rule as the runner list), liveness (`503 device runner is offline`), queue cap (`409 queue_limit`).
 - `GET`/`DELETE /api/pipeline/queue/{ticket}` require the `device_ids` query parameter (repeated or comma separated).
 - Statuses: `queued`, `starting`, `running`, `failed`, `canceled`, `not_found`. `position` is **0-based** from the API; the wallet-APK response and the CLI display `position + 1`.
 - Cancel of a not-yet-running wallet-APK ticket deletes the temporary wallet version.
@@ -150,7 +150,8 @@ There is **no** `POST /api/pipeline/start` route in this worktree (grep over `pk
 ## Where runs live
 
 - Collection `pipeline_results`: `owner`, `pipeline`, `workflow_id`, `run_id`, `canonified_identifier`, `type` (`manual|scheduled|CI`), `devices`, files `video_results`, `screenshots`, `logcats`, `ios_logstreams`, `maestro_screenshots`, `report`, `fcaf_report`, `fcaf_report_pdf`, plus `credential_well_knowns`, `presentation_results`. The current unique index is `(canonified_identifier, owner)`; `canonified_identifier` is derived from `workflow_id`.
-- Written by the internal `POST /api/pipeline/pipeline-execution-results` (and `/{evidence,report,fcaf-report}` sub-routes), gated by the internal admin key.
+- Created and filled by the internal `POST /api/pipeline/pipeline-execution-results` (and `/{evidence,report,fcaf-report}` sub-routes), gated by the internal admin key. Runners append video, screenshot and log files through `POST /api/wallet/store-pipeline-result` (user or internal-admin auth; the device must be one of the record's `devices`).
+- List/view rules are `null` (superuser-only); users read results through the execution API below. Artifact files are unprotected and downloadable by URL.
 - Listed via `GET /api/pipeline/list-executions`, `/list-executions/{id}`, `/executions/{id}/{workflow_id}/{run_id}`; artifacts are enriched from files.
 - Temporal search attributes: `PipelineIdentifier`, `DeviceIdentifiers`, `ActionsID`, `VersionsID`, `CredentialsID`, `UseCaseID`, `ConformanceCheckID`, `CustomCheckID` (`pkg/workflowengine/search_attributes.go:13-24`).
 - Cancellation policy signal `pipeline-cancellation-policy` with `{reason, skip_device_cleanup, skip_device_cleanup_ids[]}`; skipping cleanup appends `cleanup_warnings`.

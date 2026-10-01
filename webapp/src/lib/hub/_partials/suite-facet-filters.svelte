@@ -5,14 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { XIcon } from '@lucide/svelte';
 	import {
 		displayStandardName,
 		entityForComponent,
 		SuiteBrowse,
 		type SuiteFacetKey
 	} from '$lib/conformance';
-
-	import { XIcon } from '@lucide/svelte';
 
 	import { Button } from '@/components/ui/button';
 	import { m } from '@/i18n';
@@ -51,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="flex flex-wrap items-end gap-3">
 	{#each facetFields as { key, label } (key)}
 		<div class="flex flex-col gap-1">
-			<label class="text-muted-foreground text-xs" for={`facet-${key}`}>{label}</label>
+			<label class="text-xs text-muted-foreground" for={`facet-${key}`}>{label}</label>
 			<select id={`facet-${key}`} class={selectClass} bind:value={browse.filters[key]}>
 				<option value="">{m.All()}</option>
 				{#each browse.facetOptions[key] as value (value)}

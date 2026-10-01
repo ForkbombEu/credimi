@@ -107,6 +107,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 		}
 
 		// 6. Prepare input per il workflow
+		// The response returns the step outputs, so the run must return all of them.
 		workflowInput := pip.PipelineWorkflowInput{
 			WorkflowDefinition: wfDef,
 			WorkflowInput: workflowengine.WorkflowInput{
@@ -115,6 +116,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 					StartToCloseTimeout: PipelineExecuteTimeout,
 				},
 			},
+			ReturnOutputs: []string{InternalPipeline.AllStepOutputs},
 		}
 
 		// 7. start workflow execution
