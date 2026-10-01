@@ -375,7 +375,8 @@ func isReservedQueuedWorkflowConfigKey(key string) bool {
 		key == queuedTempCredentialsConfigKey ||
 		key == queuedTempUseCaseVerificationsConfigKey ||
 		key == queuedGitHubPRCommentConfigKey ||
-		key == workflowengine.CollectPipelineStepFailuresConfigKey
+		key == workflowengine.CollectPipelineStepFailuresConfigKey ||
+		key == workflowengine.StepIDConfigKey
 }
 
 func parseQueuedWorkflowDefinition(
@@ -398,6 +399,9 @@ func validateQueuedWorkflowDefinitionReferences(yamlInput string) error {
 	definition, err := pipeline.ParseWorkflow(yamlInput)
 	if err != nil {
 		return fmt.Errorf("parse workflow definition: %w", err)
+	}
+	if err := pipeline.ValidateStepIDs(definition); err != nil {
+		return err
 	}
 
 	if !workflowDefinitionUsesStepOutputReferences(definition) {

@@ -113,7 +113,9 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	httpActivity := activities.NewHTTPActivity()
+	// Resolve on behalf of the schedule's organization: the response is stored
+	// in Temporal history, which that organization can read.
+	httpActivity := activities.NewInternalHTTPActivity()
 	httpCtx := workflow.WithActivityOptions(
 		ctx,
 		workflow.ActivityOptions{
@@ -129,17 +131,19 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	)
 
 	request := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
+		Payload: activities.InternalHTTPActivityPayload{
 			Method: http.MethodPost,
 			URL: utils.JoinURL(
 				appURL,
-				"api", "canonify", "identifier", "validate",
+				"api", "canonify", "internal", "resolve",
 			),
 			Headers: map[string]string{
 				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},
 			Body: map[string]any{
 				"canonified_name": pipelineIdentifier,
+				"collection":      "pipelines",
+				"owner_namespace": ownerNamespace,
 			},
 			ExpectedStatus: 200,
 		},

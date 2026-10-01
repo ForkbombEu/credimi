@@ -295,7 +295,7 @@ func storeMobileFlowScreenshots(
 	}
 
 	runnerURL := workflowengine.AsString(input.Config["runner_url"])
-	stepID := workflowengine.AsString(input.Config["step_id"])
+	stepID := workflowengine.AsString(input.Config[workflowengine.StepIDConfigKey])
 	runIdentifier := workflowengine.AsString(input.Config["run_identifier"])
 	if runnerURL == "" || stepID == "" || runIdentifier == "" || payload.DeviceID == "" {
 		return nil, workflowengine.NewMissingConfigError(

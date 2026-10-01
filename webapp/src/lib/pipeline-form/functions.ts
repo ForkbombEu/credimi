@@ -119,13 +119,12 @@ export function createPipelineYaml(
 		addNewlineBeforeFinallyCondition('always'),
 		addNewlineBeforeFinallyCondition('on_success'),
 		addNewlineBeforeFinallyCondition('on_failure'),
-		// Blank line before top-level step list items only (exactly two spaces).
-		// Nested finally items use four spaces (`    - id:`) and must not match.
-		addNewlineBeforeTopLevelStepItem('use'),
-		addNewlineBeforeTopLevelStepItem('id'),
+		// Blank line before any top-level step list item (exactly two spaces).
+		// Matches `- id:` / `- use:` / `- continue_on_error:` alike; four-space
+		// finally items are handled separately below.
+		addNewlineBeforeTopLevelStepItem(),
 		// Blank line before nested finally step items (exactly four spaces).
-		addNewlineBeforeFinallyStepItem('use'),
-		addNewlineBeforeFinallyStepItem('id'),
+		addNewlineBeforeFinallyStepItem(),
 		// Correcting first item newline under steps / finally / condition buckets
 		replaceWith('steps:\n\n', (t) => t.replace('\n\n', '\n'), false),
 		replaceWith('finally:\n\n', (t) => t.replace('\n\n', '\n'), false),
@@ -276,9 +275,9 @@ function addNewlineBefore(token: string, all = true) {
 	return replaceWith(token, (token) => `\n${token}`, all);
 }
 
-/** Insert a blank line before `  - use:` / `  - id:` at the steps list indent only. */
-function addNewlineBeforeTopLevelStepItem(field: 'use' | 'id') {
-	const pattern = new RegExp(`(?<=\\n)(  - ${field}:)`, 'g');
+/** Insert a blank line before any `  - ` item at the steps list indent only. */
+function addNewlineBeforeTopLevelStepItem() {
+	const pattern = /(?<=\n)(  - )/g;
 	return (yaml: string) => yaml.replace(pattern, '\n$1');
 }
 
@@ -288,9 +287,9 @@ function addNewlineBeforeFinallyCondition(condition: PipelineFinallyCondition) {
 	return (yaml: string) => yaml.replace(pattern, '\n$1');
 }
 
-/** Insert a blank line before `    - use:` / `    - id:` under finally condition lists. */
-function addNewlineBeforeFinallyStepItem(field: 'use' | 'id') {
-	const pattern = new RegExp(`(?<=\\n)(    - ${field}:)`, 'g');
+/** Insert a blank line before any `    - ` item under finally condition lists. */
+function addNewlineBeforeFinallyStepItem() {
+	const pattern = /(?<=\n)(    - )/g;
 	return (yaml: string) => yaml.replace(pattern, '\n$1');
 }
 
