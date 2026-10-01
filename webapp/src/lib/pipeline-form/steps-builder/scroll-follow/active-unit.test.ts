@@ -8,7 +8,6 @@ import {
 	computeAlignedScrollTop,
 	computeNearestScrollTop,
 	ensureMountedForStepsVirtualizer,
-	ensureMountedForYamlVirtualizer,
 	resolveListEndUnit,
 	resolveViewportActiveCard,
 	resolveViewportYamlUnit,
@@ -33,17 +32,6 @@ describe('ensureMountedForStepsVirtualizer', () => {
 
 		await expect(ensureMounted({ section: 'follow-ups', index: 2 })).resolves.toBe(true);
 		expect(ensureStepVisible).not.toHaveBeenCalled();
-	});
-});
-
-describe('ensureMountedForYamlVirtualizer', () => {
-	it('mirrors the steps virtualizer mount bridge', async () => {
-		const ensureStepVisible = vi.fn(async (index: number) => index === 3);
-		const ensureMounted = ensureMountedForYamlVirtualizer(ensureStepVisible);
-
-		await expect(ensureMounted({ section: 'steps', index: 3 })).resolves.toBe(true);
-		await expect(ensureMounted({ section: 'follow-ups', index: 0 })).resolves.toBe(true);
-		expect(ensureStepVisible).toHaveBeenCalledOnce();
 	});
 });
 

@@ -52,7 +52,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 	import {
 		ensureMountedForStepsVirtualizer,
-		ensureMountedForYamlVirtualizer,
 		type ActiveUnit
 	} from './scroll-follow/active-unit.js';
 	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
@@ -175,7 +174,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		ensureMounted: ensureMountedForStepsVirtualizer((index) =>
 			stepsVirtualizer.ensureStepVisible(index, { behavior: 'auto' })
 		),
-		ensureMountedYaml: ensureMountedForYamlVirtualizer((index) =>
+		ensureMountedYaml: ensureMountedForStepsVirtualizer((index) =>
 			yamlVirtualizer.ensureStepVisible(index, { behavior: 'auto' })
 		),
 		getCardLengths: listLengths,

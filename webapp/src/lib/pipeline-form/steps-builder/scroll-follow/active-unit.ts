@@ -40,16 +40,6 @@ export function ensureMountedForStepsVirtualizer(
 	};
 }
 
-/**
- * Peer-scroll bridge for YAML step blocks: follow-ups stay fully mounted in the
- * YAML pane; steps call the YAML virtualizer's `ensureStepVisible`.
- */
-export function ensureMountedForYamlVirtualizer(
-	ensureStepVisible: (index: number) => boolean | Promise<boolean>
-): EnsureMounted {
-	return ensureMountedForStepsVirtualizer(ensureStepVisible);
-}
-
 export type ScrollCardIntoViewOptions = {
 	focus?: boolean;
 	align?: ScrollAlign;
