@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { createCachedFetchLoad } from '$lib/utils/cached-fetch-load.js';
 import { ClientResponseError } from 'pocketbase';
 import * as Task from 'true-myth/task';
 import { z, ZodError } from 'zod';
@@ -69,4 +70,40 @@ export function fetchRecords(
 			return Task.reject(error as ZodError);
 		}
 	});
+}
+
+/**
+ * Shared device-list cache for enrich / path resolution.
+ * Kept separate from {@link fetchRecords} so the live Catalog can still refresh.
+ */
+const mobileDevicesListCache = createCachedFetchLoad<'list', DeviceRecord[]>({
+	capacity: 1,
+	lookup: async (_key, fetchFn) => {
+		const response = await pb.send('/api/mobile-devices', {
+			method: 'GET',
+			fetch: fetchFn,
+			requestKey: null
+		});
+		return parseSelectorResponse(response);
+	}
+});
+
+export async function getCachedDeviceRecords(
+	options: { fetch?: typeof fetch } = {}
+): Promise<DeviceRecord[]> {
+	return mobileDevicesListCache.get('list', { fetch: options.fetch ?? fetch });
+}
+
+/** Resolve one device by path using the shared list cache. */
+export async function findCachedDeviceByPath(
+	path: string,
+	options: { fetch?: typeof fetch } = {}
+): Promise<DeviceRecord | undefined> {
+	const devices = await getCachedDeviceRecords(options);
+	return devices.find((device) => device.path === path);
+}
+
+/** Clears cached device lists. Intended for tests. */
+export function invalidateMobileDevicesCache(): Promise<void> {
+	return mobileDevicesListCache.invalidateAll();
 }

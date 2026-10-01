@@ -2,25 +2,38 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { parseSelectorResponse } from './query';
+const send = vi.fn();
+
+vi.mock('@/pocketbase', () => ({
+	pb: {
+		send: (...args: unknown[]) => send(...args)
+	}
+}));
+
+import {
+	findCachedDeviceByPath,
+	getCachedDeviceRecords,
+	invalidateMobileDevicesCache,
+	parseSelectorResponse
+} from './query';
+
+const wireDevice = {
+	name: 'Online owned',
+	path: 'usera-s-organization/owned-host/device-a',
+	runner_id: 'usera-s-organization/owned-host',
+	runner_name: 'Owned host',
+	description: 'desc',
+	is_owned: true,
+	is_published: false,
+	is_online: true
+};
 
 describe('parseSelectorResponse', () => {
 	it('maps snake_case API body to DeviceRecord', () => {
 		const records = parseSelectorResponse({
-			devices: [
-				{
-					name: 'Online owned',
-					path: 'usera-s-organization/owned-host/device-a',
-					runner_id: 'usera-s-organization/owned-host',
-					runner_name: 'Owned host',
-					description: 'desc',
-					is_owned: true,
-					is_published: false,
-					is_online: true
-				}
-			]
+			devices: [wireDevice]
 		});
 
 		expect(records).toEqual([
@@ -35,5 +48,51 @@ describe('parseSelectorResponse', () => {
 				isOnline: true
 			}
 		]);
+	});
+});
+
+describe('cached mobile device list', () => {
+	beforeEach(async () => {
+		send.mockReset();
+		await invalidateMobileDevicesCache();
+	});
+
+	it('dedupes concurrent list loads into one network call', async () => {
+		let resolveSend!: (value: { devices: typeof wireDevice[] }) => void;
+		send.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					resolveSend = resolve;
+				})
+		);
+
+		const pending = Promise.all([
+			getCachedDeviceRecords(),
+			getCachedDeviceRecords(),
+			findCachedDeviceByPath(wireDevice.path)
+		]);
+
+		await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+
+		resolveSend({ devices: [wireDevice] });
+		const [listA, listB, found] = await pending;
+
+		expect(listA).toHaveLength(1);
+		expect(listB).toEqual(listA);
+		expect(found?.path).toBe(wireDevice.path);
+		expect(send).toHaveBeenCalledTimes(1);
+	});
+
+	it('reuses a successful list on later lookups', async () => {
+		send.mockResolvedValue({ devices: [wireDevice] });
+
+		await getCachedDeviceRecords();
+		await expect(findCachedDeviceByPath(wireDevice.path)).resolves.toMatchObject({
+			path: wireDevice.path,
+			name: 'Online owned'
+		});
+		await expect(findCachedDeviceByPath('missing/path')).resolves.toBeUndefined();
+
+		expect(send).toHaveBeenCalledTimes(1);
 	});
 });
