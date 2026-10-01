@@ -55,6 +55,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type ActiveUnit
 	} from './scroll-follow/active-unit.js';
 	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
+	import {
+		composeAttachments,
+		endPadAttach
+	} from './scroll-follow/scrollport-attachments.js';
 	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
 	import { splitPipelineYamlPreview } from './yaml-preview-split.js';
 
@@ -76,36 +80,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let yamlEndPadPx = $state(0);
 	/** Header height inside the YAML scroller — TanStack scrollMargin for step blocks. */
 	let yamlScrollMargin = $state(0);
-
-	function composeAttachments(...parts: Array<Attachment | undefined>): Attachment | undefined {
-		const active = parts.filter((part): part is Attachment => part != null);
-		if (active.length === 0) return undefined;
-		if (active.length === 1) return active[0];
-		return (node) => {
-			const cleanups = active
-				.map((attach) => attach(node))
-				.filter((cleanup): cleanup is () => void => typeof cleanup === 'function');
-			if (cleanups.length === 0) return;
-			return () => {
-				for (const cleanup of cleanups) cleanup();
-			};
-		};
-	}
-
-	function endPadAttach(setPx: (px: number) => void): Attachment {
-		return (el) => {
-			const update = () => {
-				setPx(Math.round(el.clientHeight * 0.3));
-			};
-			update();
-			const ro = new ResizeObserver(update);
-			ro.observe(el);
-			return () => {
-				ro.disconnect();
-				setPx(0);
-			};
-		};
-	}
 
 	const cardsEndPadAttach = endPadAttach((px) => {
 		cardsEndPadPx = px;
