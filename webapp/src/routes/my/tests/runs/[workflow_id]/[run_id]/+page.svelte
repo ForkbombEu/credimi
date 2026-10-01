@@ -8,8 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WorkflowStatus as WorkflowStatusValue } from '$lib/workflows/types';
 
 	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
-	import { browser } from '$app/environment';
-	import { page } from '$app/state';
 	import { Workflow } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
@@ -19,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
 	import { WorkflowQrPoller } from '$lib/workflows';
-	import { onMount } from 'svelte';
+	import { untrack } from 'svelte';
 	import { fromStore } from 'svelte/store';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
@@ -34,12 +32,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import EudiwTop from './_partials/eudiw-top.svelte';
 	import EwcTop from './_partials/ewc-top.svelte';
 	import OpenidnetTop from './_partials/openidnet-top.svelte';
-	import {
-		setupEmitter,
-		setupListener,
-		type IframeMessage,
-		type PageMessage
-	} from './_partials/page-events';
 	import { _getWorkflow } from './+layout';
 
 	//
@@ -69,68 +61,59 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 	const executionDevices = $derived(getExecutionDevices(executionSummary));
 
-	/* Iframe communication */
+	/* Embedded Temporal UI */
 
-	const iframeId = 'iframe';
+	// Upstream Temporal UI behind Credimi's read-only proxy scoped to the user's organization
+	// namespace (pkg/internal/temporalui). The proxy authenticates the `pb_auth` cookie that
+	// hooks.client.ts keeps in sync with the auth store.
+	const temporalUiUrl = $derived(
+		[
+			'/temporal-ui/namespaces',
+			encodeURIComponent(organization.canonified_name),
+			'workflows',
+			encodeURIComponent(workflowId),
+			encodeURIComponent(runId),
+			'history'
+		].join('/')
+	);
+	let loadedTemporalUiUrl = $state<string>();
+	const isTemporalUiLoading = $derived(loadedTemporalUiUrl !== temporalUiUrl);
 
-	function getIframe() {
-		if (!browser) return;
-		const iframe = document.getElementById(iframeId);
-		if (!iframe || !(iframe instanceof HTMLIFrameElement)) return;
-		return iframe;
-	}
+	/* Run status refresh */
 
-	function getIframeWindow() {
-		const iframe = getIframe();
-		return iframe?.contentWindow ?? undefined;
-	}
+	const POLL_INTERVAL_MS = 5000;
 
-	//
-
-	let isIframeLoading = $state(true);
-	let constantHeightDifference = $state(0);
-
-	setupListener<IframeMessage>((ev) => {
-		if (ev.type === 'height') {
-			const iframe = getIframe();
-			if (!iframe || !ev.height) return;
-			const heightDifference = ev.height - (parseInt(iframe.height) || 0);
-			if (heightDifference !== constantHeightDifference) {
-				iframe.height = ev.height + 'px';
-				constantHeightDifference = heightDifference;
-			}
-		} else if (ev.type === 'ready') {
-			isIframeLoading = false;
-		}
+	$effect(() => {
+		const run = { workflowId, runId };
+		return untrack(() => pollRunWhileRunning(run.workflowId, run.runId));
 	});
 
-	const emit = setupEmitter<PageMessage>(getIframeWindow);
+	// Sequential: a slow describe must not overlap the next one.
+	function pollRunWhileRunning(polledWorkflowId: string, polledRunId: string) {
+		let active = true;
+		let timer: ReturnType<typeof setTimeout> | undefined;
 
-	// Sending workflow data to iframe
-
-	onMount(() => {
-		emit({
-			type: 'workflow',
-			...workflow
-		});
-
-		const interval = setInterval(async () => {
-			const w = await _getWorkflow(workflowId, runId);
-			if (w instanceof Error) {
-				console.error(w);
-			} else {
-				workflow = w;
-				emit({
-					type: 'workflow',
-					...w
-				});
+		function schedule() {
+			if (active && workflow.execution.status === 'Running') {
+				timer = setTimeout(poll, POLL_INTERVAL_MS);
 			}
-		}, 5000);
+		}
+
+		async function poll() {
+			const w = await _getWorkflow(polledWorkflowId, polledRunId);
+			if (!active) return;
+			if (w instanceof Error) console.error(w);
+			else workflow = w;
+			schedule();
+		}
+
+		schedule();
 
 		return () => {
-			clearInterval(interval);
+			active = false;
+			clearTimeout(timer);
 		};
-	});
+	}
 
 	/* UI */
 
@@ -284,8 +267,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 {/if}
 
-<div class="relative min-h-[500px]">
-	{#if isIframeLoading}
+<div class="relative">
+	{#if isTemporalUiLoading}
 		<div class="bg-temporal padding-x absolute inset-0 pt-4">
 			<div
 				class={[
@@ -303,12 +286,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<iframe
-		id={iframeId}
-		title="Workflow"
-		src={page.url.pathname + '/temporal'}
-		class="bg-animate-pulse w-full"
-		style="overflow: hidden;"
-		scrolling="no"
+		title="Temporal workflow history"
+		src={temporalUiUrl}
+		class="block h-[calc(100vh-3rem)] min-h-[600px] w-full border-0"
+		onload={() => (loadedTemporalUiUrl = temporalUiUrl)}
 	></iframe>
 </div>
 

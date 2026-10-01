@@ -9,8 +9,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_VERSIONS_FILE="${ROOT_DIR}/scripts/dev-compose.env"
-INFRA_SERVICES=(elasticsearch postgresql temporal temporal_ui)
-UP_SERVICES=(elasticsearch postgresql temporal temporal_ui temporal_setup)
+INFRA_SERVICES=(elasticsearch postgresql temporal temporal_ui temporal_ui_embedded)
+UP_SERVICES=(elasticsearch postgresql temporal temporal_ui temporal_ui_embedded temporal_setup)
 
 usage() {
 	cat <<'USAGE'
