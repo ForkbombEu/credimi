@@ -286,7 +286,7 @@ describe('PeerScrollFollow', () => {
 		follow.dispose();
 	});
 
-	it('queues onReveal until cardsAttach then flushes', () => {
+	it('queues onReveal until cardsAttach then flushes', async () => {
 		const clock = createFakeClock();
 		const follow = new PeerScrollFollow({ clock });
 		follow.setEnabled(true);
@@ -298,6 +298,91 @@ describe('PeerScrollFollow', () => {
 		const yaml = createYamlScroller([0, 20, 40, 60, 80, 100]);
 		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
 		follow.cardsAttach(cards as unknown as HTMLElement);
+
+		await vi.waitFor(() => {
+			expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
+		});
+		follow.dispose();
+	});
+
+	it('calls ensureMounted when revealing an unmounted card', async () => {
+		const clock = createFakeClock();
+		const cards = createCardsScroller([]);
+		const ensureMounted = vi.fn(async (unit: { section: string; index: number }) => {
+			const card = createElementStub({
+				'data-card-section': unit.section,
+				'data-card-index': String(unit.index)
+			});
+			// Off-screen so center-align issues a scrollTo.
+			card.getBoundingClientRect = () => makeRect({ top: 800, bottom: 880, height: 80 });
+			cards.appendChild(card);
+			return true;
+		});
+		const follow = new PeerScrollFollow({ clock, ensureMounted });
+		follow.setEnabled(true);
+
+		const yaml = createYamlScroller([0, 20, 40, 60, 80, 100]);
+		follow.cardsAttach(cards as unknown as HTMLElement);
+		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
+
+		follow.onReveal({ section: 'steps', index: 7 });
+
+		await vi.waitFor(() => {
+			expect(ensureMounted).toHaveBeenCalledWith({ section: 'steps', index: 7 });
+			expect(follow.activeUnit).toEqual({ section: 'steps', index: 7 });
+		});
+		expect(cards.scrollTo).toHaveBeenCalled();
+		follow.dispose();
+	});
+
+	it('yaml→cards follow calls ensureMounted for an unmounted peer card', async () => {
+		const clock = createFakeClock();
+		const cards = createCardsScroller([]);
+		const ensureMounted = vi.fn(async (unit: { section: string; index: number }) => {
+			const card = createElementStub({
+				'data-card-section': unit.section,
+				'data-card-index': String(unit.index)
+			});
+			card.getBoundingClientRect = () => makeRect({ top: 800, bottom: 880, height: 80 });
+			cards.appendChild(card);
+			return true;
+		});
+		const follow = new PeerScrollFollow({ clock, ensureMounted });
+		follow.setEnabled(true);
+
+		const yaml = createYamlScroller([0, 20, 40, 60, 80, 100]);
+		follow.cardsAttach(cards as unknown as HTMLElement);
+		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
+
+		follow.followUnit({ section: 'steps', index: 1 }, 'yaml');
+
+		await vi.waitFor(() => {
+			expect(ensureMounted).toHaveBeenCalledWith({ section: 'steps', index: 1 });
+		});
+		expect(cards.scrollTo).toHaveBeenCalled();
+		follow.dispose();
+	});
+
+	it('uses getCardLengths at list-end when resolving cards scroll', () => {
+		const clock = createFakeClock();
+		const follow = new PeerScrollFollow({
+			clock,
+			getCardLengths: () => ({ steps: 1400, followUps: 2 })
+		});
+		follow.setEnabled(true);
+
+		// Mounted window is mid-list indices only — without hints we'd get index 10.
+		const scroller = createCardsScroller([100, 200, 300]);
+		// Rewrite indices to look like a virtual mid-window
+		const mounted = scroller.querySelectorAll('[data-card-section]');
+		mounted[0]!.setAttribute('data-card-index', '10');
+		mounted[1]!.setAttribute('data-card-index', '11');
+		mounted[2]!.setAttribute('data-card-index', '12');
+		scroller.scrollTop = 0;
+
+		follow.cardsAttach(scroller as unknown as HTMLElement);
+		scroller.dispatchEvent(new Event('pointerdown'));
+		scroller.dispatchEvent(new Event('scroll'));
 
 		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
 		follow.dispose();
