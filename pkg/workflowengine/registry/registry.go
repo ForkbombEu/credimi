@@ -124,7 +124,7 @@ var Registry = map[string]TaskFactory{
 	},
 	"fcaf-validation": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewFCAFValidationActivity() },
+		NewFunc:     func() any { return activities.NewFCAFValidationActivity(StepActivityOutputKind) },
 		PayloadType: reflect.TypeOf(activities.FCAFValidationActivityInput{}),
 		OutputKind:  workflowengine.OutputMap,
 		InheritedConfigKeys: []string{

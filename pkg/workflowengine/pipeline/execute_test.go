@@ -264,7 +264,7 @@ func TestExecuteStepActivity(t *testing.T) {
 		},
 		{
 			name:     "fcaf-validation inherits app URLs and root run IDs",
-			activity: activities.NewFCAFValidationActivity(),
+			activity: activities.NewFCAFValidationActivity(registry.StepActivityOutputKind),
 			step: pipeline.StepDefinition{StepSpec: pipeline.StepSpec{
 				ID:  "validate",
 				Use: "fcaf-validation",

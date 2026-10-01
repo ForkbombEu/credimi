@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -27,6 +28,22 @@ func MergeConfigs(global, step map[string]any) map[string]any {
 var stepPayloadExclusions = map[string][]string{
 	"rest-chain":        {"yaml"},
 	"conformance-check": {"config", "template"},
+}
+
+// stepPayloadRawKeys lists payload keys that reach the activity with their ${{ ... }}
+// expressions unresolved, because the activity resolves them itself from the run's history.
+var stepPayloadRawKeys = map[string][]string{
+	"fcaf-validation": {"pipeline_outputs"},
+}
+
+// ExpressionRefs returns the trimmed bodies of every ${{ ... }} expression in s.
+func ExpressionRefs(s string) []string {
+	matches := exprRegexp.FindAllStringSubmatch(s, -1)
+	refs := make([]string, 0, len(matches))
+	for _, match := range matches {
+		refs = append(refs, strings.TrimSpace(match[1]))
+	}
+	return refs
 }
 
 // helper to check if a string is exactly a single ${{ ... }} ref
@@ -323,6 +340,9 @@ func ResolveInputs(
 	step.With.Config = MergeConfigs(globalCfg, stepCfg)
 
 	for k, v := range step.With.Payload {
+		if slices.Contains(stepPayloadRawKeys[step.Use], k) {
+			continue
+		}
 		if shouldSkipInString(step.Use, k, v) {
 			continue
 		}

@@ -6,21 +6,34 @@ package activities
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipelinehistory"
+	"go.temporal.io/sdk/activity"
 )
 
 const (
 	FCAFValidationActivityName       = "Run FCAF validation"
 	DefaultFCAFValidationCatalogRoot = "config_templates/fcaf/wallet_solution/relying_party"
+
+	fcafReportStoreTimeout = 5 * time.Minute
 )
 
 type FCAFValidationActivityInput struct {
@@ -32,19 +45,44 @@ type FCAFValidationActivityInput struct {
 	Runtime     map[string]any `json:"runtime,omitempty"          yaml:"runtime,omitempty"`
 }
 
+// FCAFValidationActivityOutput is the compact report Temporal records. The full report,
+// with evidence values, is stored on the pipeline result as the fcaf_report file.
 type FCAFValidationActivityOutput struct {
+	// Report is the public report with every evidence value removed.
 	Report engine.Report `json:"report"`
+	// ReportSHA256 is the sha256 of the stored fcaf_report file.
+	ReportSHA256  string                  `json:"report_sha256"`
+	EvidenceIndex []FCAFEvidenceReference `json:"evidence_index,omitempty"`
+}
+
+// FCAFEvidenceReference points from one pipeline_outputs leaf to the history event that
+// recorded the step output it was resolved from.
+type FCAFEvidenceReference struct {
+	// Source is the pipeline_outputs key, e.g. "pipeline.pid.presentation.sdjwt.all-claims".
+	Source string `json:"source"`
+	// Path is the dotted path of the leaf inside Source, e.g. "output.pid_sdjwt".
+	Path string `json:"path"`
+	// Ref is the expression body, e.g. "obtain.outputs.body | optional".
+	Ref string `json:"ref"`
+	// StepID is the first segment of the expression's initial value.
+	StepID string `json:"step_id"`
+	// EventID is the history event that recorded StepID's output; 0 when none did.
+	EventID int64 `json:"event_id"`
+	// SHA256 is the hex sha256 of the JSON of the resolved leaf; empty when it is nil.
+	SHA256 string `json:"sha256"`
 }
 
 type FCAFValidationActivity struct {
 	workflowengine.BaseActivity
 	catalogLoader func(root string) (*catalog.Catalog, error)
+	outputKind    pipelinehistory.OutputKindFunc
 }
 
-func NewFCAFValidationActivity() *FCAFValidationActivity {
+func NewFCAFValidationActivity(outputKind pipelinehistory.OutputKindFunc) *FCAFValidationActivity {
 	return &FCAFValidationActivity{
 		BaseActivity:  workflowengine.BaseActivity{Name: FCAFValidationActivityName},
 		catalogLoader: catalog.Load,
+		outputKind:    outputKind,
 	}
 }
 
@@ -52,6 +90,9 @@ func (a *FCAFValidationActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
+// Execute resolves pipeline_outputs against the step outputs recorded in the run's own
+// history, runs the FCAF engine, stores the full report on the pipeline result and returns
+// a compact report that references the evidence instead of copying it.
 func (a *FCAFValidationActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
@@ -71,6 +112,45 @@ func (a *FCAFValidationActivity) Execute(
 			fmt.Errorf("pipeline_outputs is required"),
 		)
 	}
+	baseURL := strings.TrimSpace(input.Config[workflowengine.InternalAppURLConfigKey])
+	if baseURL == "" {
+		baseURL = strings.TrimSpace(input.Config[workflowengine.AppURLConfigKey])
+	}
+	if baseURL == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+		return workflowengine.ActivityResult{}, a.NewActivityError(workflowengine.ActivityError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: "app_url or internal_app_url is required to store the FCAF report",
+		})
+	}
+
+	leaves := collectFCAFEvidenceLeaves(payload.Pipeline)
+	dataCtx := map[string]any{}
+	eventIDs := map[string]int64{}
+	if len(leaves) > 0 {
+		run, err := a.loadRun(ctx)
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+			return workflowengine.ActivityResult{}, a.NewActivityError(workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("load pipeline history: %v", err),
+			})
+		}
+		dataCtx = run.DataContext()
+		eventIDs = run.EventIDs
+	}
+	resolvedValue, err := pipelineinternal.ResolveExpressions(payload.Pipeline, dataCtx)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.PipelineInputError]
+		return workflowengine.ActivityResult{}, a.NewActivityError(workflowengine.ActivityError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: fmt.Sprintf("resolve pipeline_outputs: %v", err),
+		})
+	}
+	resolved, _ := resolvedValue.(map[string]any)
 
 	catalogRoot := payload.CatalogRoot
 	if catalogRoot == "" {
@@ -100,7 +180,7 @@ func (a *FCAFValidationActivity) Execute(
 			Message: fmt.Sprintf("create fcaf engine: %v", err),
 		})
 	}
-	bundle := evidence.Bundle{PipelineOutputs: payload.Pipeline, Runtime: payload.Runtime}
+	bundle := evidence.Bundle{PipelineOutputs: resolved, Runtime: payload.Runtime}
 	report, err := fcafEngine.ExecuteCatalog(
 		ctx,
 		cat,
@@ -117,9 +197,206 @@ func (a *FCAFValidationActivity) Execute(
 		})
 	}
 	report.PopulateDerivedViews()
+	full := report.PublicReport()
+
+	reportSHA256, err := storeFCAFReport(ctx, baseURL, input.Config, full)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+		return workflowengine.ActivityResult{}, a.NewActivityError(workflowengine.ActivityError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: fmt.Sprintf("store FCAF report: %v", err),
+		})
+	}
+
 	return workflowengine.ActivityResult{
-		Output: FCAFValidationActivityOutput{Report: report.PublicReport()},
+		Output: FCAFValidationActivityOutput{
+			Report:        compactFCAFReport(full),
+			ReportSHA256:  reportSHA256,
+			EvidenceIndex: buildFCAFEvidenceIndex(leaves, resolved, eventIDs),
+		},
 	}, nil
+}
+
+func (a *FCAFValidationActivity) loadRun(ctx context.Context) (*pipelinehistory.Run, error) {
+	info := activity.GetInfo(ctx)
+	c, err := temporalclient.GetTemporalClientWithNamespace(info.WorkflowNamespace)
+	if err != nil {
+		return nil, err
+	}
+	return pipelinehistory.Load(
+		ctx,
+		c,
+		info.WorkflowExecution.ID,
+		info.WorkflowExecution.RunID,
+		a.outputKind,
+	)
+}
+
+// storeFCAFReport stores the full report on the top-level run's pipeline result and returns
+// the sha256 of the stored file. A child pipeline stores it on its root run, which owns the
+// pipeline_results row.
+func storeFCAFReport(
+	ctx context.Context,
+	baseURL string,
+	config map[string]string,
+	report engine.Report,
+) (string, error) {
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("encode report: %w", err)
+	}
+	workflowID := config[workflowengine.TelemetryRootWorkflowIDKey]
+	runID := config[workflowengine.TelemetryRootRunIDKey]
+	if workflowID == "" || runID == "" {
+		info := activity.GetInfo(ctx)
+		workflowID = info.WorkflowExecution.ID
+		runID = info.WorkflowExecution.RunID
+	}
+	respBody, err := postInternalJSON(
+		ctx,
+		baseURL,
+		[]string{"api", "pipeline", "pipeline-execution-results", "fcaf-report"},
+		map[string]string{"workflow_id": workflowID, "run_id": runID, "json": string(data)},
+		fcafReportStoreTimeout,
+	)
+	if err != nil {
+		return "", err
+	}
+	var stored struct {
+		SHA string `json:"fcaf_report_sha256"`
+	}
+	if err := json.Unmarshal(respBody, &stored); err != nil {
+		return "", fmt.Errorf("decode response: %w", err)
+	}
+	return stored.SHA, nil
+}
+
+// compactFCAFReport returns report with every evidence value removed.
+func compactFCAFReport(report engine.Report) engine.Report {
+	if report.Evidence == nil {
+		return report
+	}
+	compact := make(engine.EvidenceMap, len(report.Evidence))
+	for name, record := range report.Evidence {
+		record.Value = nil
+		compact[name] = record
+	}
+	report.Evidence = compact
+	return report
+}
+
+// fcafEvidenceLeaf is a pipeline_outputs string that contains expressions.
+type fcafEvidenceLeaf struct {
+	source string
+	path   []any // map keys (string) and slice indexes (int) below source
+	refs   []string
+}
+
+func collectFCAFEvidenceLeaves(pipelineOutputs map[string]any) []fcafEvidenceLeaf {
+	var leaves []fcafEvidenceLeaf
+	var walk func(source string, path []any, value any)
+	walk = func(source string, path []any, value any) {
+		switch typed := value.(type) {
+		case string:
+			if refs := pipelineinternal.ExpressionRefs(typed); len(refs) > 0 {
+				leaves = append(leaves, fcafEvidenceLeaf{
+					source: source,
+					path:   slices.Clone(path),
+					refs:   refs,
+				})
+			}
+		case map[string]any:
+			for _, key := range slices.Sorted(maps.Keys(typed)) {
+				walk(source, append(path, key), typed[key])
+			}
+		case []any:
+			for index, item := range typed {
+				walk(source, append(path, index), item)
+			}
+		}
+	}
+	for _, source := range slices.Sorted(maps.Keys(pipelineOutputs)) {
+		walk(source, nil, pipelineOutputs[source])
+	}
+	return leaves
+}
+
+func buildFCAFEvidenceIndex(
+	leaves []fcafEvidenceLeaf,
+	resolved map[string]any,
+	eventIDs map[string]int64,
+) []FCAFEvidenceReference {
+	index := make([]FCAFEvidenceReference, 0, len(leaves))
+	for _, leaf := range leaves {
+		value := valueAtPath(resolved[leaf.source], leaf.path)
+		digest := ""
+		if value != nil {
+			if data, err := json.Marshal(value); err == nil {
+				sum := sha256.Sum256(data)
+				digest = hex.EncodeToString(sum[:])
+			}
+		}
+		for _, ref := range leaf.refs {
+			stepID := refStepID(ref)
+			index = append(index, FCAFEvidenceReference{
+				Source:  leaf.source,
+				Path:    formatLeafPath(leaf.path),
+				Ref:     ref,
+				StepID:  stepID,
+				EventID: eventIDs[stepID],
+				SHA256:  digest,
+			})
+		}
+	}
+	return index
+}
+
+func valueAtPath(value any, path []any) any {
+	for _, segment := range path {
+		switch key := segment.(type) {
+		case string:
+			m, ok := value.(map[string]any)
+			if !ok {
+				return nil
+			}
+			value = m[key]
+		case int:
+			items, ok := value.([]any)
+			if !ok || key >= len(items) {
+				return nil
+			}
+			value = items[key]
+		}
+	}
+	return value
+}
+
+func formatLeafPath(path []any) string {
+	var b strings.Builder
+	for _, segment := range path {
+		switch key := segment.(type) {
+		case string:
+			if b.Len() > 0 {
+				b.WriteByte('.')
+			}
+			b.WriteString(key)
+		case int:
+			b.WriteString("[" + strconv.Itoa(key) + "]")
+		}
+	}
+	return b.String()
+}
+
+// refStepID returns the first dotted segment of an expression's initial value.
+func refStepID(ref string) string {
+	initial, _, err := pipelineinternal.ParsePipeline(ref)
+	if err != nil {
+		return ""
+	}
+	first, _, _ := strings.Cut(initial, ".")
+	first, _, _ = strings.Cut(first, "[")
+	return first
 }
 
 func normalizeValidationTestIDs(payload FCAFValidationActivityInput) []string {
