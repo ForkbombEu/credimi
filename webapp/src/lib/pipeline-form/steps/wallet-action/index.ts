@@ -37,12 +37,9 @@ import type {
 
 import CardDetailsComponent from './card-details.svelte';
 import { InlineWalletActionStepForm } from './inline-wallet-action-step-form.svelte.js';
+import { getDeviceLabel, getVersionLabel } from './labels.js';
 import { isInlineWalletActionStepData } from './types.js';
-import {
-	getDeviceLabel,
-	getVersionLabel,
-	WalletActionStepForm
-} from './wallet-action-step-form.svelte.js';
+import { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
 export type {
 	InlineWalletActionStepData,

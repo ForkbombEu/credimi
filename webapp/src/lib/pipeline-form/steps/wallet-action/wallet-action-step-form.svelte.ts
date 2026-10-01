@@ -23,16 +23,6 @@ import Component from './wallet-action-step-form.svelte';
 
 //
 
-export function getVersionLabel(version: SelectedVersion) {
-	return version === EXTERNAL_VERSION ? m.Installed_from_external_source() : `v. ${version.tag}`;
-}
-
-export function getDeviceLabel(device: SelectedDevice) {
-	return device === GLOBAL_DEVICE ? m.Choose_later() : device.name;
-}
-
-//
-
 export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
 
