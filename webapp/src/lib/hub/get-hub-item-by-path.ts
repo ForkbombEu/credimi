@@ -2,63 +2,36 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Cache, Duration, Effect, Exit, FiberRef, GlobalValue } from 'effect';
+import { createCachedFetchLoad } from '$lib/utils/cached-fetch-load.js';
 
 import { pb } from '@/pocketbase';
 
 import type { HubItem } from './types.js';
 
 /**
- * Per-fiber fetch override so SSR can pass SvelteKit's `fetch` while the
- * shared path cache still dedupes concurrent lookups for the same path.
- *
- * @see https://effect.website/docs/caching/cache/
- */
-const hubItemByPathFetchRef = GlobalValue.globalValue(
-	Symbol.for('@credimi/hub-item-by-path/fetch'),
-	() => FiberRef.unsafeMake<typeof fetch>(fetch)
-);
-
-/**
  * Path → hub_items record cache. Concurrent `get`s for the same path share one
- * lookup. Failures use TTL zero so transient errors (e.g. 429) are not sticky.
+ * lookup. Failures are not sticky so transient errors (e.g. 429) can be retried.
  */
-const hubItemByPathCache = Effect.runSync(
-	Cache.makeWith<string, HubItem, Error>({
-		capacity: 2048,
-		lookup: (path) =>
-			Effect.gen(function* () {
-				const fetchFn = yield* FiberRef.get(hubItemByPathFetchRef);
-				return yield* Effect.tryPromise({
-					try: () =>
-						pb
-							.collection('hub_items')
-							.getFirstListItem<HubItem>(pb.filter('path ~ {:path}', { path }), {
-								fetch: fetchFn,
-								requestKey: null
-							}),
-					catch: (cause) =>
-						cause instanceof Error
-							? cause
-							: new Error('Failed to get hub item by path')
+const hubItemByPathCache = createCachedFetchLoad<string, HubItem>({
+	lookup: async (path, fetchFn) => {
+		try {
+			return await pb
+				.collection('hub_items')
+				.getFirstListItem<HubItem>(pb.filter('path ~ {:path}', { path }), {
+					fetch: fetchFn,
+					requestKey: null
 				});
-			}),
-		timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)
-	})
-);
+		} catch (cause) {
+			throw cause instanceof Error ? cause : new Error('Failed to get hub item by path');
+		}
+	}
+});
 
 export async function getHubItemByPath(path: string, options = { fetch }): Promise<HubItem> {
-	return Effect.runPromise(
-		hubItemByPathCache.get(path).pipe(
-			Effect.catchAll((error) =>
-				hubItemByPathCache.invalidate(path).pipe(Effect.andThen(Effect.fail(error)))
-			),
-			Effect.locally(hubItemByPathFetchRef, options.fetch)
-		)
-	);
+	return hubItemByPathCache.get(path, options);
 }
 
 /** Clears cached hub_items path lookups. Intended for tests. */
 export function invalidateHubItemByPathCache(): Promise<void> {
-	return Effect.runPromise(hubItemByPathCache.invalidateAll);
+	return hubItemByPathCache.invalidateAll();
 }
