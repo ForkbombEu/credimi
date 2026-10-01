@@ -93,6 +93,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const executionStats = $derived(fromScoreboardCache(scoreboardCache) ?? emptyExecutionStats);
 	const currentItemCount = $derived(workflows.data?.length ?? 0);
+
+	function refreshWorkflows() {
+		void workflows.refetch();
+	}
 </script>
 
 <div class="">
@@ -156,4 +160,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</div>
 </div>
-<Pipeline.Workflows.Table workflows={workflows.data ?? []} hidePipelineColumn />
+<Pipeline.Workflows.Table
+	workflows={workflows.data ?? []}
+	density="comfortable"
+	onCancel={refreshWorkflows}
+/>

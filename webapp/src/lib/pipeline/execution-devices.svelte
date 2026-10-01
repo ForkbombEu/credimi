@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if devices.length === 0}
-	<span class="text-muted-foreground opacity-50">N/A</span>
+	<span class="text-muted-foreground opacity-50">—</span>
 {:else}
 	<ul class={['flex flex-col gap-1', className]}>
 		{#each devices as device (device.device_id)}

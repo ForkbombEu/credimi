@@ -26,16 +26,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type ArtifactButtonArgs = {
 		tooltip: string;
 		previewIcon: PreviewIcon;
-		compactIcon: IconComponent;
+		icon: IconComponent;
 		href?: string;
 		image?: string;
 		target?: string;
 		extraProps?: Record<string, unknown>;
 	};
 
+	/** `preview` = media thumbnails; `icons` / `icons-sm` = lucide icon buttons. */
+	type Presentation = 'preview' | 'icons' | 'icons-sm';
+
 	type Props = {
 		artifacts: PipelineExecutionArtifacts;
-		variant?: 'preview' | 'compact';
+		presentation?: Presentation;
 		previewClass?: string;
 		hideLogs?: boolean;
 		emptyState?: Snippet;
@@ -43,11 +46,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let {
 		artifacts,
-		variant = 'preview',
+		presentation = 'preview',
 		previewClass,
 		hideLogs = false,
 		emptyState
 	}: Props = $props();
+
+	const ICON_BUTTON_CLASS = 'text-primary hover:bg-secondary';
+
+	const presentationConfig = {
+		preview: {
+			isPreview: true as const,
+			iconSize: 'mini' as const,
+			containerClass: 'flex items-center gap-2',
+			groupClass: 'flex items-center gap-1',
+			iconClass: ICON_BUTTON_CLASS
+		},
+		icons: {
+			isPreview: false as const,
+			iconSize: 'xs' as const,
+			containerClass: 'flex flex-wrap items-center gap-0',
+			groupClass: 'flex items-center gap-0',
+			iconClass: `rounded-sm ${ICON_BUTTON_CLASS}`
+		},
+		'icons-sm': {
+			isPreview: false as const,
+			iconSize: 'mini' as const,
+			containerClass: 'flex flex-wrap items-center gap-1',
+			groupClass: 'flex items-center gap-0',
+			iconClass: ICON_BUTTON_CLASS
+		}
+	};
+
+	const config = $derived(presentationConfig[presentation]);
 
 	const hasContent = $derived(
 		artifacts.results.length > 0 ||
@@ -57,40 +88,47 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			Boolean(artifacts.fcafReportPdf)
 	);
 
-	const containerClass = $derived(
-		variant === 'compact' ? 'flex flex-wrap items-center gap-1' : 'flex items-center gap-2'
-	);
+	function resultButtons(
+		result: PipelineExecutionArtifacts['results'][number]
+	): ArtifactButtonArgs[] {
+		const buttons: ArtifactButtonArgs[] = [
+			{
+				tooltip: m.pipeline_artifact_video_tooltip(),
+				previewIcon: 'video',
+				icon: VideoIcon,
+				image: result.screenshot,
+				href: result.video,
+				target: '_blank'
+			},
+			{
+				tooltip: m.pipeline_artifact_screenshot_tooltip(),
+				previewIcon: 'image',
+				icon: ImageIcon,
+				image: result.screenshot,
+				href: result.screenshot,
+				target: '_blank'
+			}
+		];
+		if (!hideLogs) {
+			buttons.push({
+				tooltip: m.pipeline_artifact_log_tooltip(),
+				previewIcon: 'file',
+				icon: FileCogIcon,
+				href: result.log,
+				target: '_blank'
+			});
+		}
+		return buttons;
+	}
 </script>
 
 {#if hasContent}
-	<div class={containerClass}>
+	<div class={config.containerClass}>
 		{#each artifacts.results as result, index (index)}
-			<div class="flex items-center gap-1">
-				{@render artifactButton({
-					tooltip: m.pipeline_artifact_video_tooltip(),
-					previewIcon: 'video',
-					compactIcon: VideoIcon,
-					image: result.screenshot,
-					href: result.video,
-					target: '_blank'
-				})}
-				{@render artifactButton({
-					tooltip: m.pipeline_artifact_screenshot_tooltip(),
-					previewIcon: 'image',
-					compactIcon: ImageIcon,
-					image: result.screenshot,
-					href: result.screenshot,
-					target: '_blank'
-				})}
-				{#if !hideLogs}
-					{@render artifactButton({
-						tooltip: m.pipeline_artifact_log_tooltip(),
-						previewIcon: 'file',
-						compactIcon: FileCogIcon,
-						href: result.log,
-						target: '_blank'
-					})}
-				{/if}
+			<div class={config.groupClass}>
+				{#each resultButtons(result) as button (button.previewIcon)}
+					{@render artifactButton(button)}
+				{/each}
 			</div>
 		{/each}
 		<PipelineReportSheet reportUrl={artifacts.report}>
@@ -98,7 +136,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{@render artifactButton({
 					tooltip: m.pipeline_artifact_report_tooltip(),
 					previewIcon: 'document',
-					compactIcon: FileIcon,
+					icon: FileIcon,
 					extraProps: props
 				})}
 			{/snippet}
@@ -108,7 +146,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{@render artifactButton({
 					tooltip: 'FCAF assessment report',
 					previewIcon: 'fcaf',
-					compactIcon: BadgeCheckIcon,
+					icon: BadgeCheckIcon,
 					extraProps: props
 				})}
 			{/snippet}
@@ -121,13 +159,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet artifactButton({
 	tooltip,
 	previewIcon,
-	compactIcon,
+	icon,
 	href,
 	image,
 	target,
 	extraProps = {}
 }: ArtifactButtonArgs)}
-	{#if variant === 'preview'}
+	{#if config.isPreview}
 		<Tooltip>
 			{#snippet child({ props })}
 				<MediaPreview
@@ -145,12 +183,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Tooltip>
 	{:else}
 		<IconButton
-			size="mini"
+			size={config.iconSize}
 			variant="ghost"
-			icon={compactIcon}
+			{icon}
 			{href}
 			{target}
-			class="text-primary hover:bg-secondary"
+			class={config.iconClass}
 			{tooltip}
 			{...extraProps}
 		/>
