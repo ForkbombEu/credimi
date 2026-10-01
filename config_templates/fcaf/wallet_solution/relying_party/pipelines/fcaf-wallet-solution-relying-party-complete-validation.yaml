@@ -13,7 +13,7 @@ steps:
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: callback-redirect-298d09a0-create-callback-session
       use: http-request
@@ -1467,7 +1467,7 @@ steps:
                           id: pid
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-108
             response_mode: direct_post.jwt
         expected_status: 201
@@ -3521,35 +3521,9 @@ steps:
       id: dcql-claims-omitted-119046a6-present-without-claims
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - extendedWaitUntil:
-                visible: "Home|Documents|Welcome, .*"
-                timeout: 30000
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - tapOn: "Share"
-            - extendedWaitUntil:
-                visible: "PIN"
-                timeout: 30000
-            - tapOn:
-                point: "11%,39%"
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*"
-                timeout: 30000
-            - takeScreenshot: fcaf-082-claims-omitted
-            - tapOn: "Close"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-claims-omitted-119046a6-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-claims-omitted-119046a6-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-omitted-119046a6-get-presentation-result
@@ -3588,51 +3562,9 @@ steps:
       id: dcql-claims-path-no-match-00a99e11-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions: { camera: allow, notifications: allow, all: unset }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "EUDI Wallet" }
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when: { visible: "Just once" }
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when: { visible: "Always" }
-                commands:
-                  - tapOn: { text: "Always", optional: true }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - tapOn: { text: "1", retryTapIfNoChange: false }
-                  - tapOn: { text: "2", retryTapIfNoChange: false }
-                  - tapOn: { text: "3", retryTapIfNoChange: false }
-                  - tapOn: { text: "4", retryTapIfNoChange: false }
-                  - tapOn: { text: "5", retryTapIfNoChange: false }
-                  - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - takeScreenshot: fcaf-106-unmatched-claim-path
-            - tapOn: "Go Back"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ dcql-claims-path-no-match-00a99e11-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-claims-path-no-match-00a99e11-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-path-no-match-00a99e11-session
@@ -3782,51 +3714,9 @@ steps:
       id: dcql-claims-values-no-match-9e05fa90-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions: { camera: allow, notifications: allow, all: unset }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "EUDI Wallet" }
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when: { visible: "Just once" }
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when: { visible: "Always" }
-                commands:
-                  - tapOn: { text: "Always", optional: true }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - tapOn: { text: "1", retryTapIfNoChange: false }
-                  - tapOn: { text: "2", retryTapIfNoChange: false }
-                  - tapOn: { text: "3", retryTapIfNoChange: false }
-                  - tapOn: { text: "4", retryTapIfNoChange: false }
-                  - tapOn: { text: "5", retryTapIfNoChange: false }
-                  - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*", timeout: 30000 }
-            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - takeScreenshot: fcaf-107-unmatched-claim-value
-            - tapOn: "Go Back"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ dcql-claims-values-no-match-9e05fa90-create.outputs.body.deeplink }}
+            deeplink: ${{ dcql-claims-values-no-match-9e05fa90-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-values-no-match-9e05fa90-session
@@ -3850,7 +3740,7 @@ steps:
                           id: pid
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-109
             response_mode: direct_post.jwt
         expected_status: 201
@@ -3908,7 +3798,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-116
             response_type: vp_token
         expected_status: 201
@@ -3940,56 +3830,9 @@ steps:
       id: dcql-claims-without-values-174b98b6-present-claim-without-values
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Welcome back|Data sharing request"
-                timeout: 100000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn: { point: "11%,39%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - tapOn: "Share"
-            - extendedWaitUntil:
-                visible: "PIN"
-                timeout: 30000
-            - tapOn: { point: "11%,39%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*"
-                timeout: 30000
-            - takeScreenshot: fcaf-116-claims-without-values
-            - tapOn: "Close"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-claims-without-values-174b98b6-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-claims-without-values-174b98b6-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-without-values-174b98b6-fetch-result
@@ -4496,7 +4339,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-035-create-capture-session
       use: http-request
@@ -4533,7 +4376,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-035-fetch-capture-session
       use: http-request
@@ -4553,7 +4396,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-036-create-capture-session
       use: http-request
@@ -4588,7 +4431,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-036-fetch-capture-session
       use: http-request
@@ -4627,39 +4470,9 @@ steps:
       id: dcql-credential-formats-3cfeac03-credential-formats-039-exercise-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - stopApp
-            - launchApp: { clearState: false }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "EUDI Wallet" }
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when: { visible: "Just once" }
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "unsupported_response_type|Oups! Something went wrong|Error|Home|Documents|Welcome, .*", timeout: 100000 }
-            - takeScreenshot: fcaf-credential-formats-039-response-type-rejected
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-formats-3cfeac03-credential-formats-039-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-039-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-039-fetch-capture-session
@@ -4699,39 +4512,9 @@ steps:
       id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - stopApp
-            - launchApp: { clearState: false }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "EUDI Wallet" }
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when: { visible: "Just once" }
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "unsupported_response_type|Oups! Something went wrong|Error|Home|Documents|Welcome, .*", timeout: 100000 }
-            - takeScreenshot: fcaf-credential-formats-040-response-type-rejected
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-formats-3cfeac03-credential-formats-040-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-040-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-040-fetch-capture-session
@@ -5209,60 +4992,9 @@ steps:
       id: dcql-credential-sets-options-valid-r-bea443fd-present-valid-credential-sets-options
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: "Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when:
-                  visible: "EUDI Wallet"
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when:
-                  visible: "Just once"
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when:
-                  visible: "Always"
-                commands:
-                  - tapOn: { text: "Always", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Share", timeout: 100000 }
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-            - waitForAnimationToEnd: { timeout: 1000 }
-            - extendedWaitUntil: { visible: "Share", timeout: 30000 }
-            - tapOn: "Share"
-            - extendedWaitUntil: { visible: "Welcome back|To approve the transaction you need to verify your identity.", timeout: 100000 }
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-            - waitForAnimationToEnd: { timeout: 1000 }
-            - assertNotVisible: { text: "Oups! Something went wrong" }
-            - extendedWaitUntil: { visible: "Close", timeout: 30000 }
-            - takeScreenshot: fcaf-099
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-credential-sets-options-valid-r-bea443fd-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-sets-options-valid-r-bea443fd-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-options-valid-r-bea443fd-fetch-capture-session
@@ -5297,7 +5029,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-104
             type: vp_token
         expected_status: 201
@@ -5309,16 +5041,9 @@ steps:
       id: dcql-credential-sets-required-false-88748634-present-optional-set-with-valid-set
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: false, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd: { timeout: 5000 }
-            - tapOn: { text: "(?i)(continue|accept|authorize|share|present)", optional: true }
-            - takeScreenshot: fcaf-104
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-credential-sets-required-false-88748634-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-sets-required-false-88748634-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-required-false-88748634-fetch-result
@@ -5344,7 +5069,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-103
             type: vp_token
         expected_status: 201
@@ -5356,16 +5081,9 @@ steps:
       id: dcql-credential-sets-required-omitte-7e234cc1-present-default-required-set
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: false, clearState: false }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd: { timeout: 5000 }
-            - tapOn: { text: "(?i)(continue|accept|authorize|share|present)", optional: true }
-            - takeScreenshot: fcaf-103
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-credential-sets-required-omitte-7e234cc1-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-sets-required-omitte-7e234cc1-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-required-omitte-7e234cc1-fetch-result
@@ -5379,7 +5097,7 @@ steps:
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: dcql-credential-sets-required-true-m-c6f43473-create-pid-sdjwt-offer
       use: credential-offer
@@ -5392,7 +5110,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-credential-sets-required-true-m-c6f43473-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-required-true-m-c6f43473-create-capture-session
       use: http-request
@@ -5424,7 +5142,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credential-sets-required-true-m-c6f43473-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-required-true-m-c6f43473-fetch-capture-session
       use: http-request
@@ -5460,45 +5178,9 @@ steps:
       id: dcql-credential-sets-required-true-n-bfc8e293-reject-required-credential-set
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: "Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when:
-                  visible: "EUDI Wallet"
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when:
-                  visible: "Just once"
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when:
-                  visible: "Always"
-                commands:
-                  - tapOn: { text: "Always", optional: true }
-            - extendedWaitUntil: { visible: "Oups! Something went wrong|Error|invalid request|Oups! Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: fcaf-102
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-sets-required-true-n-bfc8e293-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-sets-required-true-n-bfc8e293-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-required-true-n-bfc8e293-fetch-capture-session
@@ -5569,7 +5251,7 @@ steps:
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: dcql-credentials-match-cc301c32-create-pid-sdjwt-offer
       use: credential-offer
@@ -5582,7 +5264,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-credentials-match-cc301c32-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - activity_options:
         retry_policy:
             backoff_coefficient: 2
@@ -5623,7 +5305,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-credentials-match-cc301c32-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - activity_options:
         retry_policy:
             backoff_coefficient: 2
@@ -5720,6 +5402,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-cryptography-1a488a33-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-cryptography-1a488a33-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-cryptography-1a488a33-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-cryptography-1a488a33-exercise-wallet
       use: mobile-automation
@@ -5963,6 +5665,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-device-binding-f7c71f86-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-device-binding-f7c71f86-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-device-binding-f7c71f86-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-device-binding-f7c71f86-exercise-wallet
       use: mobile-automation
       with:
@@ -5996,7 +5718,7 @@ steps:
                           id: pid
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-110
             response_mode: direct_post.jwt
         expected_status: 201
@@ -6055,7 +5777,7 @@ steps:
                           id: pid
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-111
             response_mode: direct_post.jwt
         expected_status: 201
@@ -6173,7 +5895,7 @@ steps:
                           id: pid
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-114
             response_mode: direct_post.jwt
         expected_status: 201
@@ -6315,35 +6037,32 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-format-mso-mdoc-fe537db0-present-with-reference-implementation-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-format-mso-mdoc-fe537db0-present-with-reference-implementation-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-format-mso-mdoc-fe537db0-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-format-mso-mdoc-fe537db0-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: false
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - takeScreenshot: fcaf-dcql-format-mso-mdoc
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-format-mso-mdoc-fe537db0-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-format-mso-mdoc-fe537db0-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-format-mso-mdoc-fe537db0-get-presentation-result
@@ -8519,7 +8238,7 @@ steps:
                           id: pid
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-112
             response_mode: direct_post.jwt
         expected_status: 201
@@ -8711,7 +8430,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-dcql-claim-sets
             response_type: vp_token
         expected_status: 201
@@ -8720,38 +8439,32 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: false
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - takeScreenshot: fcaf-dcql-claim-sets
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-019-fetch-capture-session
@@ -8785,7 +8498,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-020
             response_type: vp_token
         expected_status: 201
@@ -8817,49 +8530,9 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Welcome back|Data sharing request"
-                timeout: 100000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,39%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn:
-                      point: "50%,10%"
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - tapOn: "Share"
-            - extendedWaitUntil:
-                visible: "PIN"
-                timeout: 30000
-            - tapOn:
-                point: "11%,39%"
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn:
-                point: "50%,10%"
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*"
-                timeout: 30000
-            - takeScreenshot: fcaf-ia-020
-            - tapOn: "Close"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-020-fetch-result
@@ -8881,7 +8554,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-022
             response_type: vp_token
         expected_status: 201
@@ -8893,22 +8566,9 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-main-interaction-022-reject-claim-sets-without-claims
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Error|invalid request|Oups! Something went wrong|Home|Documents"
-                timeout: 100000
-            - takeScreenshot: fcaf-ia-022
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-022-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-022-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-022-fetch-result
@@ -8943,7 +8603,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-025
             response_type: vp_token
         expected_status: 201
@@ -9016,7 +8676,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-026
             response_type: vp_token
         expected_status: 201
@@ -9070,7 +8730,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-027
             response_type: vp_token
         expected_status: 201
@@ -9118,7 +8778,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-028-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-028-create-presentation
       use: http-request
@@ -9144,7 +8804,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-028-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-028-fetch-result
       use: http-request
@@ -9164,7 +8824,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-029-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-029-create-presentation
       use: http-request
@@ -9203,7 +8863,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-029-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-029-fetch-result
       use: http-request
@@ -9261,7 +8921,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-fetch-optional-no-match-result
       use: http-request
@@ -9281,7 +8941,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-030-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-create-presentation
       use: http-request
@@ -9316,7 +8976,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-030-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-fetch-result
       use: http-request
@@ -9336,7 +8996,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation
       use: http-request
@@ -9372,7 +9032,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-fetch-result
       use: http-request
@@ -9436,6 +9096,26 @@ steps:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials
       use: mobile-automation
       with:
@@ -9480,7 +9160,7 @@ steps:
             - tapOn: "Close"
         parameters:
             DEEPLINK: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-fetch-two-credentials-result
       use: http-request
@@ -9669,27 +9349,9 @@ steps:
       id: dcql-meta-vct-mismatch-1d861c4c-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: false
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - takeScreenshot: fcaf-dcql-meta-vct-mismatch
-            - tapOn:
-                text: "(?i)(cancel|reject|close)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ dcql-meta-vct-mismatch-1d861c4c-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-meta-vct-mismatch-1d861c4c-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-meta-vct-mismatch-1d861c4c-get-presentation-result
@@ -9774,7 +9436,7 @@ steps:
                           id: pid
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-113
             response_mode: direct_post.jwt
         expected_status: 201
@@ -9880,7 +9542,7 @@ steps:
                           id: pid_sdjwt
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                           multiple: true
                 nonce: fcaf-dcql-multiple-true
             request_delivery: by_reference
@@ -9893,36 +9555,32 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-multiple-true-ad438f05-present-with-reference-implementation-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-multiple-true-ad438f05-present-with-reference-implementation-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-multiple-true-ad438f05-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-multiple-true-ad438f05-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: false
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - takeScreenshot: fcaf-dcql-multiple-true-selection
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - takeScreenshot: fcaf-dcql-multiple-true-submitted
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-multiple-true-ad438f05-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-multiple-true-ad438f05-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-multiple-true-ad438f05-get-presentation-result
@@ -9961,70 +9619,9 @@ steps:
       id: dcql-no-matching-credentials-e35fd34a-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: "Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when:
-                  visible: "EUDI Wallet"
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when:
-                  visible: "Just once"
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when:
-                  visible: "Always"
-                commands:
-                  - tapOn: { text: "Always", optional: true }
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - tapOn: { text: "1", retryTapIfNoChange: false }
-                  - tapOn: { text: "2", retryTapIfNoChange: false }
-                  - tapOn: { text: "3", retryTapIfNoChange: false }
-                  - tapOn: { text: "4", retryTapIfNoChange: false }
-                  - tapOn: { text: "5", retryTapIfNoChange: false }
-                  - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - extendedWaitUntil:
-                visible: "The requested document is not available in your EUDI Wallet.*"
-                timeout: 30000
-            - assertNotVisible:
-                id: eu.europa.ec.euidi:id/request_screen_requested_document_0
-            - takeScreenshot: fcaf-147-no-matching-credential-access-denied
-            - tapOn: "Go Back"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ dcql-no-matching-credentials-e35fd34a-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-no-matching-credentials-e35fd34a-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-no-matching-credentials-e35fd34a-fetch-capture-session
@@ -10048,7 +9645,7 @@ steps:
                           id: pid
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-115
             response_mode: direct_post.jwt
         expected_status: 201
@@ -10542,75 +10139,9 @@ steps:
       id: dcql-protocol-messages-136-5cce48a8-exercise-wallet
       use: mobile-automation
       with:
-        action_code: |-
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn:
-                      point: "50%,10%"
-            - extendedWaitUntil:
-                visible: "Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - openLink:
-                link: "${DEEPLINK}"
-                autoVerify: false
-                browser: false
-            - runFlow:
-                when:
-                  visible: "EUDI Wallet"
-                commands:
-                  - tapOn:
-                      text: "EUDI Wallet"
-                      optional: true
-            - runFlow:
-                when:
-                  visible: "Just once"
-                commands:
-                  - tapOn:
-                      text: "Just once"
-                      optional: true
-            - runFlow:
-                when:
-                  visible: "Always"
-                commands:
-                  - tapOn:
-                      text: "Always"
-                      optional: true
-            - extendedWaitUntil:
-                visible: "Welcome back|Error|invalid request|Oups! Something went wrong|Data sharing request"
-                timeout: 100000
-            - assertNotVisible: "Data sharing request"
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-            - extendedWaitUntil:
-                visible: "Error|invalid request|Oups! Something went wrong|Home|Documents"
-                timeout: 30000
-            - takeScreenshot: protocol-messages-136
-            - back
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-protocol-messages-136-5cce48a8-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-protocol-messages-136-5cce48a8-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-136-5cce48a8-fetch-capture-session
@@ -12008,7 +11539,7 @@ steps:
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: dcql-standard-all-28f43ce6-create-pid-sdjwt-offer
       use: credential-offer
@@ -12021,7 +11552,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-standard-all-28f43ce6-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-standard-all-28f43ce6-create-capture-session
       use: http-request
@@ -12058,7 +11589,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-standard-all-28f43ce6-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-standard-all-28f43ce6-fetch-capture-session
       use: http-request
@@ -12503,70 +12034,9 @@ steps:
       id: dcql-trusted-authorities-match-a95b9bcc-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: "Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when:
-                  visible: "EUDI Wallet"
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when:
-                  visible: "Just once"
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when:
-                  visible: "Always"
-                commands:
-                  - tapOn: { text: "Always", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Share", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Share", timeout: 30000 }
-            - tapOn: "Share"
-            - extendedWaitUntil:
-                visible: "Welcome back|To approve the transaction you need to verify your identity."
-                timeout: 100000
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-            - assertNotVisible: { text: "Oups! Something went wrong" }
-            - extendedWaitUntil: { visible: "Close", timeout: 30000 }
-            - takeScreenshot: fcaf-dcql-trusted-authorities-match
-            - tapOn: "Close"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-trusted-authorities-match-a95b9bcc-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-trusted-authorities-match-a95b9bcc-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-match-a95b9bcc-fetch-capture-session
@@ -12805,63 +12275,9 @@ steps:
       id: dcql-trusted-authorities-no-match-9fc63a53-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: "Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when:
-                  visible: "EUDI Wallet"
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when:
-                  visible: "Just once"
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when:
-                  visible: "Always"
-                commands:
-                  - tapOn: { text: "Always", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 30000 }
-            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - takeScreenshot: fcaf-dcql-trusted-authorities-no-match
-            - runFlow:
-                when: { visible: "The requested document is not available in your EUDI Wallet.*" }
-                commands: [{ tapOn: "Go Back" }]
-            - runFlow:
-                when: { visible: "Cancel" }
-                commands: [{ tapOn: "Cancel" }]
-            - runFlow:
-                when: { visible: "Close" }
-                commands: [{ tapOn: "Close" }]
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ dcql-trusted-authorities-no-match-9fc63a53-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-trusted-authorities-no-match-9fc63a53-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-no-match-9fc63a53-get-capture-session
@@ -16401,7 +15817,7 @@ steps:
                           id: pididentity01
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-dcql-valid-id-alphanumeric
             request_delivery: by_reference
             response_mode: direct_post.jwt
@@ -16413,35 +15829,32 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-valid-id-alphanumeric-0dd94705-present-with-reference-implementation-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-valid-id-alphanumeric-0dd94705-present-with-reference-implementation-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-valid-id-alphanumeric-0dd94705-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-valid-id-alphanumeric-0dd94705-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: false
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - takeScreenshot: fcaf-dcql-valid-id-alphanumeric
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-valid-id-alphanumeric-0dd94705-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-valid-id-alphanumeric-0dd94705-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-valid-id-alphanumeric-0dd94705-get-presentation-result
@@ -16467,7 +15880,7 @@ steps:
                           id: pid_birth-02
                           meta:
                             vct_values:
-                                - urn:eu.europa.ec.eudi:pid:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-dcql-valid-id-special
             request_delivery: by_reference
             response_mode: direct_post.jwt
@@ -16479,35 +15892,32 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-valid-id-special-4b48cc60-present-with-reference-implementation-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-valid-id-special-4b48cc60-present-with-reference-implementation-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-valid-id-special-4b48cc60-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-valid-id-special-4b48cc60-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: false
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - takeScreenshot: fcaf-dcql-valid-id-special
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ dcql-valid-id-special-4b48cc60-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-valid-id-special-4b48cc60-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-valid-id-special-4b48cc60-get-presentation-result
@@ -16548,7 +15958,7 @@ steps:
       use: http-request
       with:
         body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
             issuer_configuration_id: eu-pid-device-bound
         expected_status: 201
         headers:
@@ -16609,7 +16019,7 @@ steps:
       use: http-request
       with:
         body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
             issuer_configuration_id: eu-pid-device-bound
         expected_status: 201
         headers:
@@ -16681,7 +16091,7 @@ steps:
       use: http-request
       with:
         body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
             issuer_configuration_id: eu-pid-device-bound
         expected_status: 201
         headers:
@@ -16799,7 +16209,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-create-capture-session
       use: http-request
@@ -16889,7 +16299,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-fetch-capture-session
       use: http-request
@@ -17232,7 +16642,7 @@ steps:
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: interaction-pid-mdoc-6b049464-create-pid-mdoc-offer
       use: credential-offer
@@ -17245,7 +16655,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ interaction-pid-mdoc-6b049464-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-pid-mdoc-6b049464-create-missing-element-presentation
       use: http-request
@@ -17323,7 +16733,7 @@ steps:
       use: http-request
       with:
         body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
             issuer_configuration_id: eu-pid-device-bound
         expected_status: 201
         headers:
@@ -17388,7 +16798,7 @@ steps:
       use: http-request
       with:
         body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
             issuer_configuration_id: eu-pid-device-bound
         expected_status: 201
         headers:
@@ -17731,14 +17141,9 @@ steps:
       id: malformed-dcql-1e84df7a-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Error|invalid request|Oups! Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: protocol-messages-015
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ malformed-dcql-1e84df7a-create.outputs.body.deeplink }}
+            deeplink: ${{ malformed-dcql-1e84df7a-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: malformed-dcql-1e84df7a-session
@@ -17759,7 +17164,7 @@ steps:
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: mdoc-absent-namespace-8c8f84c8-create-pid-mdoc-offer
       use: credential-offer
@@ -17772,7 +17177,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ mdoc-absent-namespace-8c8f84c8-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-absent-namespace-8c8f84c8-create-capture-session
       use: http-request
@@ -17820,7 +17225,7 @@ steps:
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: mdoc-claim-path-absent-element-492e5a68-create-pid-mdoc-offer
       use: credential-offer
@@ -17833,7 +17238,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ mdoc-claim-path-absent-element-492e5a68-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-claim-path-absent-element-492e5a68-create-capture-session
       use: http-request
@@ -17880,7 +17285,7 @@ steps:
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: mdoc-claim-path-component-count-b56f251e-create-pid-mdoc-offer
       use: credential-offer
@@ -17893,7 +17298,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ mdoc-claim-path-component-count-b56f251e-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-claim-path-component-count-b56f251e-create-capture-session
       use: http-request
@@ -17939,7 +17344,7 @@ steps:
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: mdoc-claim-path-non-string-61ff9b89-create-pid-mdoc-offer
       use: credential-offer
@@ -17952,7 +17357,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ mdoc-claim-path-non-string-61ff9b89-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-claim-path-non-string-61ff9b89-create-capture-session
       use: http-request
@@ -18513,48 +17918,9 @@ steps:
       id: metadata-direct-post-jwt-bf077ae9-submit-direct-post-jwt
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - stopApp
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "EUDI Wallet"
-                optional: true
-            - tapOn:
-                text: "Just once"
-                optional: true
-            - extendedWaitUntil:
-                visible: "Welcome back|Share|Cancel|Close"
-                timeout: 100000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-            - extendedWaitUntil:
-                visible: "Share"
-                timeout: 30000
-            - tapOn:
-                text: "Share"
-                enabled: true
-            - extendedWaitUntil:
-                visible: "verify your identity|PIN"
-                timeout: 30000
-            - inputText: "123456"
-            - hideKeyboard
-            - extendedWaitUntil:
-                visible: "Close"
-                timeout: 30000
-            - assertVisible: "Close"
-            - takeScreenshot: fcaf-metadata-direct-post-jwt-submitted
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ metadata-direct-post-jwt-bf077ae9-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ metadata-direct-post-jwt-bf077ae9-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: metadata-direct-post-jwt-bf077ae9-get-presentation-result
@@ -18589,6 +17955,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: metadata-request-controls-913fbdc1-exercise-default-post-retrieval-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: metadata-request-controls-913fbdc1-exercise-default-post-retrieval-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ metadata-request-controls-913fbdc1-exercise-default-post-retrieval-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: metadata-request-controls-913fbdc1-exercise-default-post-retrieval
       use: mobile-automation
@@ -18635,6 +18021,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: metadata-request-controls-913fbdc1-exercise-unrecognised-client-metadata-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: metadata-request-controls-913fbdc1-exercise-unrecognised-client-metadata-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ metadata-request-controls-913fbdc1-exercise-unrecognised-client-metadata-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: metadata-request-controls-913fbdc1-exercise-unrecognised-client-metadata
       use: mobile-automation
@@ -18727,6 +18133,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: metadata-request-controls-913fbdc1-exercise-metadata-outside-client-metadata-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: metadata-request-controls-913fbdc1-exercise-metadata-outside-client-metadata-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ metadata-request-controls-913fbdc1-exercise-metadata-outside-client-metadata-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: metadata-request-controls-913fbdc1-exercise-metadata-outside-client-metadata
       use: mobile-automation
@@ -18906,7 +18332,7 @@ steps:
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-create-pid-mdoc-offer
       use: credential-offer
@@ -18919,7 +18345,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ pid-mdoc-data-model-8f915369-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-create-capture-session
       use: http-request
@@ -19026,7 +18452,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-fetch-capture-session
       use: http-request
@@ -19242,6 +18668,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: pid-multiple-credentials-3e946b72-present-multiple-false-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: pid-multiple-credentials-3e946b72-present-multiple-false-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ pid-multiple-credentials-3e946b72-present-multiple-false-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: pid-multiple-credentials-3e946b72-present-multiple-false
       use: mobile-automation
@@ -20019,54 +19465,12 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: request-uri-method-default-9bc74bd3-submit-request-uri-method-default-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: request-uri-method-default-9bc74bd3-submit-request-uri-method-default-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ request-uri-method-default-9bc74bd3-submit-request-uri-method-default-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: request-uri-method-default-9bc74bd3-submit-request-uri-method-default
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - stopApp
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd: { timeout: 5000 }
-            - tapOn: { text: "EUDI Wallet", optional: true }
-            - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Share|Cancel|Close", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-            - extendedWaitUntil: { visible: "Share", timeout: 30000 }
-            - tapOn: { text: "Share", enabled: true }
-            - extendedWaitUntil: { visible: "verify your identity|PIN", timeout: 30000 }
-            - inputText: "123456"
-            - hideKeyboard
-            - extendedWaitUntil: { visible: "Close", timeout: 30000 }
-            - assertVisible: "Close"
-            - takeScreenshot: fcaf-request-uri-method-default-submitted
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ request-uri-method-default-9bc74bd3-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ request-uri-method-default-9bc74bd3-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-method-default-9bc74bd3-get-presentation-result
@@ -20106,71 +19510,12 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: request-uri-method-get-91ef716c-submit-request-uri-method-get-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: request-uri-method-get-91ef716c-submit-request-uri-method-get-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ request-uri-method-get-91ef716c-submit-request-uri-method-get-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: request-uri-method-get-91ef716c-submit-request-uri-method-get
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - stopApp
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "EUDI Wallet"
-                optional: true
-            - tapOn:
-                text: "Just once"
-                optional: true
-            - extendedWaitUntil:
-                visible: "Welcome back|Share|Cancel|Close"
-                timeout: 100000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-            - extendedWaitUntil:
-                visible: "Share"
-                timeout: 30000
-            - tapOn:
-                text: "Share"
-                enabled: true
-            - extendedWaitUntil:
-                visible: "verify your identity|PIN"
-                timeout: 30000
-            - inputText: "123456"
-            - hideKeyboard
-            - extendedWaitUntil:
-                visible: "Close"
-                timeout: 30000
-            - assertVisible: "Close"
-            - takeScreenshot: fcaf-request-uri-method-get-submitted
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ request-uri-method-get-91ef716c-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ request-uri-method-get-91ef716c-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-method-get-91ef716c-get-presentation-result
@@ -20210,71 +19555,12 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: request-uri-method-post-11b1acd0-submit-request-uri-method-post-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: request-uri-method-post-11b1acd0-submit-request-uri-method-post-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ request-uri-method-post-11b1acd0-submit-request-uri-method-post-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: request-uri-method-post-11b1acd0-submit-request-uri-method-post
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - stopApp
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "EUDI Wallet"
-                optional: true
-            - tapOn:
-                text: "Just once"
-                optional: true
-            - extendedWaitUntil:
-                visible: "Welcome back|Share|Cancel|Close"
-                timeout: 100000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-            - extendedWaitUntil:
-                visible: "Share"
-                timeout: 30000
-            - tapOn:
-                text: "Share"
-                enabled: true
-            - extendedWaitUntil:
-                visible: "verify your identity|PIN"
-                timeout: 30000
-            - inputText: "123456"
-            - hideKeyboard
-            - extendedWaitUntil:
-                visible: "Close"
-                timeout: 30000
-            - assertVisible: "Close"
-            - takeScreenshot: fcaf-request-uri-method-post-submitted
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ request-uri-method-post-11b1acd0-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ request-uri-method-post-11b1acd0-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-method-post-11b1acd0-get-presentation-result
@@ -21715,71 +21001,12 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: session-binding-valid-nonce-aa3a1f9c-submit-valid-nonce-presentation-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: session-binding-valid-nonce-aa3a1f9c-submit-valid-nonce-presentation-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ session-binding-valid-nonce-aa3a1f9c-submit-valid-nonce-presentation-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: session-binding-valid-nonce-aa3a1f9c-submit-valid-nonce-presentation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - stopApp
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "EUDI Wallet"
-                optional: true
-            - tapOn:
-                text: "Just once"
-                optional: true
-            - extendedWaitUntil:
-                visible: "Welcome back|Share|Cancel|Close"
-                timeout: 100000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-            - extendedWaitUntil:
-                visible: "Share"
-                timeout: 30000
-            - tapOn:
-                text: "Share"
-                enabled: true
-            - extendedWaitUntil:
-                visible: "verify your identity|PIN"
-                timeout: 30000
-            - inputText: "123456"
-            - hideKeyboard
-            - extendedWaitUntil:
-                visible: "Close"
-                timeout: 30000
-            - assertVisible: "Close"
-            - takeScreenshot: fcaf-session-binding-valid-nonce-accepted
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ session-binding-valid-nonce-aa3a1f9c-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ session-binding-valid-nonce-aa3a1f9c-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: session-binding-valid-nonce-aa3a1f9c-get-presentation-result
@@ -21821,7 +21048,7 @@ steps:
       use: http-request
       with:
         body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
             issuer_configuration_id: eu-pid-device-bound
         expected_status: 201
         headers:
@@ -22250,6 +21477,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: supportive-redirect-uri-9f399357-submit-and-follow-redirect-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: supportive-redirect-uri-9f399357-submit-and-follow-redirect-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ supportive-redirect-uri-9f399357-submit-and-follow-redirect-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: supportive-redirect-uri-9f399357-submit-and-follow-redirect
       use: mobile-automation
       with:
@@ -22400,47 +21647,9 @@ steps:
       id: transaction-data-matching-credential-09aba950-exercise-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions: { camera: allow, notifications: allow, all: unset }
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "EUDI Wallet" }
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when: { visible: "Just once" }
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Oups! Something went wrong|Data sharing request", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Data sharing request" }
-                commands:
-                  - tapOn: "Share"
-                  - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
-                  - tapOn: { point: "11%,39%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-                  - extendedWaitUntil: { visible: ".*successfully shared.*|Welcome back", timeout: 30000 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Oups! Something went wrong|Home|Documents", timeout: 30000 }
-            - takeScreenshot: protocol-messages-028
-            - back
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ transaction-data-matching-credential-09aba950-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ transaction-data-matching-credential-09aba950-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: transaction-data-matching-credential-09aba950-fetch-capture-session
@@ -22487,14 +21696,9 @@ steps:
       id: transaction-data-non-array-41ef94bc-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Error|invalid request|Oups! Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: protocol-messages-026
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ transaction-data-non-array-41ef94bc-create.outputs.body.deeplink }}
+            deeplink: ${{ transaction-data-non-array-41ef94bc-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: transaction-data-non-array-41ef94bc-session
@@ -22542,14 +21746,9 @@ steps:
       id: transaction-data-type-non-string-22c10bda-wallet
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - extendedWaitUntil: { visible: "Error|invalid request|Oups! Something went wrong|Home|Documents", timeout: 100000 }
-            - takeScreenshot: protocol-messages-025
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ transaction-data-type-non-string-22c10bda-create.outputs.body.deeplink }}
+            deeplink: ${{ transaction-data-type-non-string-22c10bda-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: transaction-data-type-non-string-22c10bda-session
@@ -22767,26 +21966,6 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: verifier-info-all-credentials-039537ba-exercise-wallet-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: verifier-info-all-credentials-039537ba-exercise-wallet-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ verifier-info-all-credentials-039537ba-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
     - continue_on_error: true
       id: verifier-info-all-credentials-039537ba-exercise-wallet
       use: mobile-automation

@@ -31,62 +31,8 @@ steps:
     with:
       version_id: installed_from_external_source
       parameters:
-        DEEPLINK: ${{ create-capture-session.outputs.body.deeplink }}
-      action_code: |
-        appId: eu.europa.ec.euidi
-        ---
-        - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
-        - extendedWaitUntil:
-            visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-            timeout: 30000
-        - runFlow:
-            when:
-              visible: "Welcome back"
-            commands:
-              - tapOn:
-                  point: "11%,40%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil:
-            visible: "Home|Documents|Add document|Welcome, .*"
-            timeout: 30000
-        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-        - runFlow:
-            when:
-              visible: "EUDI Wallet"
-            commands:
-              - tapOn: { text: "EUDI Wallet", optional: true }
-        - runFlow:
-            when:
-              visible: "Just once"
-            commands:
-              - tapOn: { text: "Just once", optional: true }
-        - runFlow:
-            when:
-              visible: "Always"
-            commands:
-              - tapOn: { text: "Always", optional: true }
-        - extendedWaitUntil: { visible: "Welcome back|The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 100000 }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "The requested document is not available in your EUDI Wallet.*|Cancel|Close|Home|Documents|Welcome, .*", timeout: 30000 }
-        - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-        - takeScreenshot: fcaf-dcql-trusted-authorities-no-match
-        - runFlow:
-            when: { visible: "The requested document is not available in your EUDI Wallet.*" }
-            commands: [{ tapOn: "Go Back" }]
-        - runFlow:
-            when: { visible: "Cancel" }
-            commands: [{ tapOn: "Cancel" }]
-        - runFlow:
-            when: { visible: "Close" }
-            commands: [{ tapOn: "Close" }]
+        deeplink: ${{ create-capture-session.outputs.body.deeplink }}
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
   - id: get-capture-session
     use: http-request
     with:
