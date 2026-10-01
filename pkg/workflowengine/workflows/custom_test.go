@@ -68,12 +68,22 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{
 					Name: stepCI.Name(),
 				})
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
 					Name: httpAct.Name(),
 				})
 
-				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(
+					httpAct.Name(),
+					mock.Anything,
+					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+							input.Payload,
+						)
+						return err == nil &&
+							strings.HasSuffix(payload.URL, "/api/canonify/internal/resolve")
+					}),
+				).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"body": map[string]any{
 							"record": map[string]any{
@@ -106,7 +116,7 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{
 					Name: stepCI.Name(),
 				})
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
 					Name: httpAct.Name(),
 				})

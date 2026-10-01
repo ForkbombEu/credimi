@@ -28,7 +28,6 @@ const (
 	mobileAutomationStepUse                = "mobile-automation"
 	mobileDeviceSemaphoreTicketIDConfigKey = "mobile_device_semaphore_ticket_id"
 	mobileDisableAndroidPlayStoreConfigKey = "disable_android_play_store"
-	mobileSkipInstallerRequestKey          = "skip_installer"
 	mobilePlatformAndroid                  = "android"
 	mobilePlatformIOS                      = "ios"
 	mobileExternalSourceVersionID          = "installed_from_external_source"
@@ -232,7 +231,7 @@ func MobileAutomationSetupHook(
 		)
 	}
 	semaphoreManaged := isSemaphoreManagedRun(config)
-	if err := markExternalInstallSteps(ctx, steps, config); err != nil {
+	if err := resolveStoredMobileActions(ctx, steps, config); err != nil {
 		return err
 	}
 
@@ -296,7 +295,11 @@ func MobileAutomationSetupHook(
 	return nil
 }
 
-func markExternalInstallSteps(
+// resolveStoredMobileActions loads the code of every stored wallet action
+// (`action_id` without `action_code`) once, on behalf of the run's
+// organization, and marks external-source install actions. Runners receive the
+// resolved code and never look actions up themselves.
+func resolveStoredMobileActions(
 	ctx workflow.Context,
 	steps *[]pipeline.StepDefinition,
 	config map[string]any,
@@ -305,61 +308,85 @@ func markExternalInstallSteps(
 	if appURL == "" {
 		return nil
 	}
+	ownerNamespace, _ := config["namespace"].(string)
 
 	return walkMutableStepSpecs(*steps, func(step *pipeline.StepSpec) error {
-		if step.Use != mobileAutomationStepUse ||
-			workflowengine.AsString(
-				step.With.Payload["version_id"],
-			) != mobileExternalSourceVersionID {
+		if step.Use != mobileAutomationStepUse {
+			return nil
+		}
+		actionID, _ := step.With.Payload["action_id"].(string)
+		actionCode, _ := step.With.Payload["action_code"].(string)
+		if strings.TrimSpace(actionID) == "" || actionCode != "" {
+			// Inline action_code steps have no stored action to resolve.
 			return nil
 		}
 
-		actionID, _ := step.With.Payload["action_id"].(string)
-		if strings.TrimSpace(actionID) == "" {
-			// Inline action_code steps have no stored action to categorize;
-			// resolving a missing identifier would query "<nil>".
-			return nil
-		}
-		category, err := fetchMobileActionCategory(
+		action, err := fetchMobileAction(
 			ctx,
 			workflowengine.InternalAppURLFromConfig(config),
+			ownerNamespace,
 			actionID,
 		)
 		if err != nil {
 			return err
 		}
-		if category == walletActionCategoryInstallApp {
+		code := workflowengine.AsString(action["code"])
+		if code == "" {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+			return workflowengine.NewAppError(
+				workflowengine.WorkflowError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf(
+						"%s: wallet action %s has no code for step %s",
+						errCode.Description,
+						actionID,
+						step.ID,
+					),
+				},
+			)
+		}
+		SetPayloadValue(&step.With.Payload, "action_code", code)
+		SetPayloadValue(&step.With.Payload, "stored_action_code", true)
+
+		if workflowengine.AsString(
+			step.With.Payload["version_id"],
+		) == mobileExternalSourceVersionID &&
+			strings.TrimSpace(workflowengine.AsString(action["category"])) ==
+				walletActionCategoryInstallApp {
 			SetConfigValue(&step.With.Config, mobileExternalInstallConfigKey, true)
 		}
 		return nil
 	})
 }
 
-func fetchMobileActionCategory(
+// fetchMobileAction resolves the wallet action on behalf of the run's
+// organization: the response is stored in Temporal history, which that
+// organization can read.
+func fetchMobileAction(
 	ctx workflow.Context,
-	appURL, actionID string,
-) (string, error) {
-	if strings.TrimSpace(actionID) == "" {
-		return "", nil
-	}
-
+	appURL, ownerNamespace, actionID string,
+) (map[string]any, error) {
 	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	var result workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), workflowengine.ActivityInput{
 		Payload: activities.InternalHTTPActivityPayload{
 			Method:         http.MethodPost,
-			URL:            utils.JoinURL(appURL, "api", "canonify", "identifier", "validate"),
+			URL:            utils.JoinURL(appURL, "api", "canonify", "internal", "resolve"),
 			ExpectedStatus: http.StatusOK,
-			Body:           map[string]any{"canonified_name": actionID},
+			Body: map[string]any{
+				"canonified_name": actionID,
+				"collection":      "wallet_actions",
+				"owner_namespace": ownerNamespace,
+			},
 		},
 	}).
 		Get(ctx, &result); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	body := workflowengine.AsMap(workflowengine.AsMap(result.Output)["body"])
-	record := workflowengine.AsMap(body["record"])
-	return strings.TrimSpace(workflowengine.AsString(record["category"])), nil
+	return workflowengine.AsMap(body["record"]), nil
 }
 
 func getOrCreateSettedDevices(runData *map[string]any) map[string]any {
@@ -651,17 +678,14 @@ func decodeAndValidatePayload(
 
 	normalizeMobileAutomationPayloadIDs(step, &payload)
 
-	// If action_code is present, version_id is REQUIRED
-	if payload.ActionCode != "" {
-		if payload.VersionID == "" {
-			return nil, workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf("missing or invalid version_id for step %s", step.ID),
-				},
-			)
-		}
+	if payload.VersionID == "" {
+		return nil, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing or invalid version_id for step %s", step.ID),
+			},
+		)
 	}
 	// If action_code is NOT present -> action_id is REQUIRED
 	if payload.ActionCode == "" {
@@ -1057,17 +1081,19 @@ func ensureInitialInstalledAppsTracked(
 	return nil
 }
 
+// fetchAndInstallAPK asks the runner for the installer of the step's wallet
+// version and installs it. The action code is already in the payload, resolved
+// by resolveStoredMobileActions or written inline.
 func fetchAndInstallAPK(
 	input fetchAndInstallAPKInput,
 ) error {
+	if input.skipInstaller {
+		return nil
+	}
 	body := map[string]any{
 		"version_identifier": input.payload.VersionID,
-		"action_identifier":  input.payload.ActionID,
 		"platform":           installerPlatformForDeviceType(input.deviceType),
 		"device_identifier":  input.payload.DeviceID,
-	}
-	if input.skipInstaller {
-		body[mobileSkipInstallerRequestKey] = true
 	}
 
 	req := workflowengine.ActivityInput{
@@ -1098,19 +1124,6 @@ func fetchAndInstallAPK(
 	if err != nil {
 		return err
 	}
-
-	actionCode, err := parseInstallerActionCode(responseBody, input.payload, input.step)
-	if err != nil {
-		return err
-	}
-	if input.payload.ActionCode == "" {
-		SetPayloadValue(&input.step.With.Payload, "action_code", actionCode)
-		SetPayloadValue(&input.step.With.Payload, "stored_action_code", true)
-	}
-	if input.skipInstaller {
-		return nil
-	}
-
 	apkPath, versionIdentifier, err := parseInstallerResponse(responseBody, input.step)
 	if err != nil {
 		return err
@@ -1192,58 +1205,6 @@ func parseInstallerResponse(
 		)
 	}
 	return apkPath, versionIdentifier, nil
-}
-
-func parseInstallerActionCode(
-	body map[string]any,
-	payload *workflows.MobileAutomationWorkflowPipelinePayload,
-	step *pipeline.StepSpec,
-) (string, error) {
-	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-	actionCode := payload.ActionCode
-	if actionCode == "" {
-		var ok bool
-		actionCode, ok = body["code"].(string)
-		if !ok || actionCode == "" {
-			return "", workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf(
-						"%s: missing action_code in response for step %s",
-						errCode.Description,
-						step.ID,
-					),
-					Details: map[string]any{"payload": body},
-				},
-			)
-		}
-	}
-
-	return actionCode, nil
-}
-
-func parseAPKResponse(
-	res workflowengine.ActivityResult,
-	payload *workflows.MobileAutomationWorkflowPipelinePayload,
-	step *pipeline.StepSpec,
-) (string, string, string, error) {
-	body, err := parseInstallerActionResponseBody(res, step)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	apkPath, versionIdentifier, err := parseInstallerResponse(body, step)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	actionCode, err := parseInstallerActionCode(body, payload, step)
-	if err != nil {
-		return "", "", "", err
-	}
-
-	return apkPath, versionIdentifier, actionCode, nil
 }
 
 func installAppIfNeeded(

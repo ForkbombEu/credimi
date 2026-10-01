@@ -48,12 +48,24 @@ func TestDecodeAndValidatePayload(t *testing.T) {
 	)
 	require.Error(t, err)
 
-	payload, err := decodeAndValidatePayload(
+	_, err = decodeAndValidatePayload(
 		&pipeline.StepSpec{
 			ID: "step-4",
 			With: pipeline.StepInputs{Payload: map[string]any{
 				"action_id": "action-1",
 				"device_id": "tenant/runner-2/device-2",
+			}},
+		},
+	)
+	require.ErrorContains(t, err, "missing or invalid version_id for step step-4")
+
+	payload, err := decodeAndValidatePayload(
+		&pipeline.StepSpec{
+			ID: "step-5",
+			With: pipeline.StepInputs{Payload: map[string]any{
+				"action_id":  "action-1",
+				"version_id": "tenant/wallet/v1",
+				"device_id":  "tenant/runner-2/device-2",
 			}},
 		},
 	)
@@ -88,8 +100,9 @@ func TestCollectMobileDeviceIDs(t *testing.T) {
 			StepSpec: pipeline.StepSpec{
 				Use: mobileAutomationStepUse,
 				With: pipeline.StepInputs{Payload: map[string]any{
-					"action_id": "action-1",
-					"device_id": "tenant/runner-b/device-b",
+					"action_id":  "action-1",
+					"version_id": "tenant/wallet-b/v1",
+					"device_id":  "tenant/runner-b/device-b",
 				}},
 			},
 		},
@@ -97,8 +110,9 @@ func TestCollectMobileDeviceIDs(t *testing.T) {
 			StepSpec: pipeline.StepSpec{
 				Use: mobileAutomationStepUse,
 				With: pipeline.StepInputs{Payload: map[string]any{
-					"action_id": "action-2",
-					"device_id": "tenant/runner-a/device-a",
+					"action_id":  "action-2",
+					"version_id": "tenant/wallet-a/v1",
+					"device_id":  "tenant/runner-a/device-a",
 				}},
 			},
 		},
@@ -119,8 +133,9 @@ func TestCollectMobileDeviceIDsNormalizesLeadingSlash(t *testing.T) {
 			StepSpec: pipeline.StepSpec{
 				Use: mobileAutomationStepUse,
 				With: pipeline.StepInputs{Payload: map[string]any{
-					"action_id": "action-1",
-					"device_id": "/tenant-a/runner-b/device-b",
+					"action_id":  "action-1",
+					"version_id": "tenant-a/wallet/v1",
+					"device_id":  "/tenant-a/runner-b/device-b",
 				}},
 			},
 		},
@@ -166,8 +181,9 @@ func TestCollectMobileDeviceIDsIncludesNestedStepsAndDeduplicates(t *testing.T) 
 				{StepSpec: pipeline.StepSpec{
 					Use: mobileAutomationStepUse,
 					With: pipeline.StepInputs{Payload: map[string]any{
-						"action_id": "action-1",
-						"device_id": "/tenant/runner/device",
+						"action_id":  "action-1",
+						"version_id": "tenant/wallet/v1",
+						"device_id":  "/tenant/runner/device",
 					}},
 				}},
 			},
@@ -175,8 +191,9 @@ func TestCollectMobileDeviceIDsIncludesNestedStepsAndDeduplicates(t *testing.T) 
 				{StepSpec: pipeline.StepSpec{
 					Use: mobileAutomationStepUse,
 					With: pipeline.StepInputs{Payload: map[string]any{
-						"action_id": "action-2",
-						"device_id": "tenant/runner/device",
+						"action_id":  "action-2",
+						"version_id": "tenant/wallet/v1",
+						"device_id":  "tenant/runner/device",
 					}},
 				}},
 			},
@@ -186,30 +203,6 @@ func TestCollectMobileDeviceIDsIncludesNestedStepsAndDeduplicates(t *testing.T) 
 	deviceIDs, err := collectMobileDeviceIDs(steps, "")
 	require.NoError(t, err)
 	require.Equal(t, []string{"tenant/runner/device"}, deviceIDs)
-}
-
-func TestParseAPKResponse(t *testing.T) {
-	result := workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{
-			"installer_path": "path.apk",
-			"version_id":     "ver-1",
-			"code":           "action-code",
-		},
-	}}
-	payload := &workflows.MobileAutomationWorkflowPipelinePayload{ActionID: "action-1"}
-	step := &pipeline.StepSpec{ID: "step-1"}
-	apkPath, versionID, actionCode, err := parseAPKResponse(result, payload, step)
-	require.NoError(t, err)
-	require.Equal(t, "path.apk", apkPath)
-	require.Equal(t, "ver-1", versionID)
-	require.Equal(t, "action-code", actionCode)
-
-	badResult := workflowengine.ActivityResult{Output: map[string]any{"body": map[string]any{}}}
-	apkPath, versionID, actionCode, err = parseAPKResponse(badResult, payload, step)
-	require.Error(t, err)
-	require.Empty(t, apkPath)
-	require.Empty(t, versionID)
-	require.Empty(t, actionCode)
 }
 
 func TestGetOrCreateSettedDevices(t *testing.T) {
