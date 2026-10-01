@@ -25,6 +25,9 @@ type TaskFactory struct {
 	PipelinePayloadType reflect.Type
 	OutputKind          workflowengine.OutputKind
 	CustomTaskQueue     bool
+	// InheritedConfigKeys lists the workflow-level config keys copied into this
+	// activity's input config. Other workflow-level keys stay out of the input.
+	InheritedConfigKeys []string
 }
 
 // Registry maps activity keys to their factory.
@@ -36,10 +39,11 @@ var Registry = map[string]TaskFactory{
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"container-run": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewDockerActivity() },
-		PayloadType: reflect.TypeOf(activities.DockerActivityPayload{}),
-		OutputKind:  workflowengine.OutputMap,
+		Kind:                TaskActivity,
+		NewFunc:             func() any { return activities.NewDockerActivity() },
+		PayloadType:         reflect.TypeOf(activities.DockerActivityPayload{}),
+		OutputKind:          workflowengine.OutputMap,
+		InheritedConfigKeys: []string{"HostIP"},
 	},
 	"email": {
 		Kind:        TaskActivity,
@@ -48,10 +52,11 @@ var Registry = map[string]TaskFactory{
 		OutputKind:  workflowengine.OutputString,
 	},
 	"rest-chain": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewStepCIWorkflowActivity() },
-		PayloadType: reflect.TypeOf(activities.StepCIWorkflowActivityPayload{}),
-		OutputKind:  workflowengine.OutputMap,
+		Kind:                TaskActivity,
+		NewFunc:             func() any { return activities.NewStepCIWorkflowActivity() },
+		PayloadType:         reflect.TypeOf(activities.StepCIWorkflowActivityPayload{}),
+		OutputKind:          workflowengine.OutputMap,
+		InheritedConfigKeys: []string{"template"},
 	},
 	"json-parse": {
 		Kind: TaskActivity,
@@ -122,6 +127,12 @@ var Registry = map[string]TaskFactory{
 		NewFunc:     func() any { return activities.NewFCAFValidationActivity() },
 		PayloadType: reflect.TypeOf(activities.FCAFValidationActivityInput{}),
 		OutputKind:  workflowengine.OutputMap,
+		InheritedConfigKeys: []string{
+			"app_url",
+			"internal_app_url",
+			workflowengine.TelemetryRootWorkflowIDKey,
+			workflowengine.TelemetryRootRunIDKey,
+		},
 	},
 	"use-case-verification-deeplink": {
 		Kind:        TaskWorkflow,

@@ -5,8 +5,10 @@
 package pipeline
 
 import (
+	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -232,6 +235,102 @@ steps:
 }
 
 func TestExecuteStepActivity(t *testing.T) {
+	globalCfg := map[string]any{
+		"app_url":          "https://app.example",
+		"internal_app_url": "http://credimi.internal",
+		"namespace":        "tenant",
+		"app_logo":         "https://app.example/logo.png",
+		workflowengine.TelemetryRootWorkflowIDKey: "root-wf",
+		workflowengine.TelemetryRootRunIDKey:      "root-run",
+	}
+	tests := []struct {
+		name       string
+		activity   workflowengine.ExecutableActivity
+		step       pipeline.StepDefinition
+		wantConfig map[string]string
+	}{
+		{
+			name:     "http-request receives only its own config and step_id",
+			activity: activities.NewHTTPActivity(),
+			step: pipeline.StepDefinition{StepSpec: pipeline.StepSpec{
+				ID:  "step-1",
+				Use: "http-request",
+				With: pipeline.StepInputs{
+					Config:  map[string]any{"timeout": "5s"},
+					Payload: map[string]any{"url": "https://example.com"},
+				},
+			}},
+			wantConfig: map[string]string{"timeout": "5s", "step_id": "step-1"},
+		},
+		{
+			name:     "fcaf-validation inherits app URLs and root run IDs",
+			activity: activities.NewFCAFValidationActivity(),
+			step: pipeline.StepDefinition{StepSpec: pipeline.StepSpec{
+				ID:  "validate",
+				Use: "fcaf-validation",
+				With: pipeline.StepInputs{
+					Payload: map[string]any{
+						"test_id":          "test-a",
+						"pipeline_outputs": map[string]any{"a": "b"},
+					},
+				},
+			}},
+			wantConfig: map[string]string{
+				"app_url":          "https://app.example",
+				"internal_app_url": "http://credimi.internal",
+				workflowengine.TelemetryRootWorkflowIDKey: "root-wf",
+				workflowengine.TelemetryRootRunIDKey:      "root-run",
+				"step_id":                                 "validate",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			suite := testsuite.WorkflowTestSuite{}
+			env := suite.NewTestWorkflowEnvironment()
+			env.RegisterActivityWithOptions(
+				tc.activity.Execute,
+				activity.RegisterOptions{Name: tc.activity.Name()},
+			)
+
+			workflowName := "execute-step-activity"
+			env.RegisterWorkflowWithOptions(
+				func(ctx workflow.Context) (map[string]any, error) {
+					ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+					ctx = workflow.WithActivityOptions(ctx, ao)
+					step := tc.step
+					output, err := Execute(&step, ctx, globalCfg, map[string]any{}, ao)
+					if err != nil {
+						return nil, err
+					}
+					return output.(map[string]any), nil
+				},
+				workflow.RegisterOptions{Name: workflowName},
+			)
+
+			var gotConfig map[string]string
+			env.OnActivity(tc.activity.Name(), mock.Anything, mock.Anything).Return(
+				func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+					gotConfig = input.Config
+					return workflowengine.ActivityResult{Output: map[string]any{"body": "ok"}}, nil
+				},
+			)
+
+			env.ExecuteWorkflow(workflowName)
+			require.True(t, env.IsWorkflowCompleted())
+			require.NoError(t, env.GetWorkflowError())
+
+			var result map[string]any
+			require.NoError(t, env.GetWorkflowResult(&result))
+			require.Equal(t, "ok", result["body"])
+			require.Equal(t, tc.wantConfig, gotConfig)
+			require.NotContains(t, tc.step.With.Config, "step_id")
+		})
+	}
+}
+
+func TestExecuteStepRejectsOversizedInput(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -240,58 +339,41 @@ func TestExecuteStepActivity(t *testing.T) {
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
 	)
+	scheduled := 0
+	env.SetOnActivityStartedListener(
+		func(*activity.Info, context.Context, converter.EncodedValues) { scheduled++ },
+	)
 
-	workflowName := "execute-step-activity"
-	executeStepActivityWorkflow := func(ctx workflow.Context) (map[string]any, error) {
-		ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-		ctx = workflow.WithActivityOptions(ctx, ao)
-
-		step := pipeline.StepDefinition{
-			StepSpec: pipeline.StepSpec{
-				ID:  "step-1",
-				Use: "http-request",
-				With: pipeline.StepInputs{
-					Payload: map[string]any{
-						"url": "https://example.com",
-					},
-				},
-			},
-		}
-
-		output, err := ExecuteStep(
-			step.ID,
-			step.Use,
-			step.With,
-			step.ActivityOptions,
-			ctx,
-			map[string]any{},
-			map[string]any{},
-			ao,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		return output.(map[string]any), nil
-	}
+	workflowName := "execute-step-oversized"
 	env.RegisterWorkflowWithOptions(
-		executeStepActivityWorkflow,
+		func(ctx workflow.Context) (any, error) {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+			return ExecuteStep(
+				"big",
+				"http-request",
+				pipeline.StepInputs{Payload: map[string]any{
+					"url":    "https://example.com",
+					"method": "POST",
+					"body":   strings.Repeat("a", 4<<20),
+				}},
+				nil,
+				ctx,
+				map[string]any{},
+				map[string]any{},
+				ao,
+			)
+		},
 		workflow.RegisterOptions{Name: workflowName},
 	)
 
-	env.OnActivity(
-		httpActivity.Name(),
-		mock.Anything,
-		mock.Anything,
-	).Return(workflowengine.ActivityResult{Output: map[string]any{"body": "ok"}}, nil)
-
 	env.ExecuteWorkflow(workflowName)
 	require.True(t, env.IsWorkflowCompleted())
-	require.NoError(t, env.GetWorkflowError())
-
-	var result map[string]any
-	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, "ok", result["body"])
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.PipelineExecutionError].Code)
+	require.Contains(t, err.Error(), "step big input is")
+	require.Zero(t, scheduled)
 }
 
 func TestRunChildPipelineSuccess(t *testing.T) {

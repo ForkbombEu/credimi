@@ -175,3 +175,23 @@ const (
 	OutputArrayOfMap
 	OutputBool
 )
+
+// StepOutputFromActivityResult converts an activity result into the value a pipeline
+// stores as the step's outputs, according to the step's registered output kind.
+func StepOutputFromActivityResult(kind OutputKind, result ActivityResult) any {
+	switch kind {
+	case OutputMap:
+		return AsMap(result.Output)
+	case OutputString:
+		return AsString(result.Output)
+	case OutputArrayOfString:
+		return AsSliceOfStrings(result.Output)
+	case OutputArrayOfMap:
+		return AsSliceOfMaps(result.Output)
+	case OutputBool:
+		return AsBool(result.Output)
+	case OutputAny:
+		return result
+	}
+	return nil
+}

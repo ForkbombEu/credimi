@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/log"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
@@ -1449,6 +1450,52 @@ func TestPipelineWorkflowFinallyValidationFails(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not allowed")
 	require.Contains(t, err.Error(), "json-parse")
+}
+
+func TestPipelineWorkflowRejectsDuplicateStepIDsBeforeScheduling(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	scheduled := 0
+	env.SetOnActivityStartedListener(
+		func(*activity.Info, context.Context, converter.EncodedValues) { scheduled++ },
+	)
+
+	httpStep := pipeline.StepDefinition{StepSpec: pipeline.StepSpec{
+		ID:   "same",
+		Use:  "http-request",
+		With: pipeline.StepInputs{Payload: map[string]any{"url": "https://example.com"}},
+	}}
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name:  "duplicate-ids",
+				Steps: []pipeline.StepDefinition{httpStep, httpStep},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{"app_url": "https://example.test"},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `duplicate step id "same"`)
+	require.Zero(t, scheduled)
 }
 
 func TestPipelineWorkflowStartWithValidFinally(t *testing.T) {

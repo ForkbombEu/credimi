@@ -88,6 +88,9 @@ func (w *PipelineWorkflow) Workflow(
 	if config == nil {
 		config = map[string]any{}
 	}
+	// A child pipeline's step_id identifies it in the parent's history only; its own
+	// steps receive their own step IDs.
+	delete(config, workflowengine.StepIDConfigKey)
 	debug := input.Debug
 
 	cleanupErrors := []error{}
@@ -145,6 +148,9 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	if err := ValidateFinallySteps(wfDef.Finally); err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+	}
+	if err := pipeline.ValidateStepIDs(wfDef); err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 
@@ -1004,7 +1010,8 @@ func isReservedWorkflowInputConfigKey(key string) bool {
 		key == tempCredentialsConfigKey ||
 		key == tempUseCaseVerificationsConfigKey ||
 		key == GitHubPRCommentConfigKey ||
-		key == workflowengine.CollectPipelineStepFailuresConfigKey
+		key == workflowengine.CollectPipelineStepFailuresConfigKey ||
+		key == workflowengine.StepIDConfigKey
 }
 
 func ExecuteEventStepsOnError(

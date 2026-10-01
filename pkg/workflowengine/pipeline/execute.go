@@ -4,7 +4,9 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"strings"
 
@@ -41,7 +43,12 @@ func ExecuteStep(
 		ContinueOnError: false,
 	}
 
-	err := pipeline.ResolveInputs(s, globalCfg, dataCtx)
+	step := registry.Registry[s.Use]
+	stepGlobalCfg := globalCfg
+	if step.Kind == registry.TaskActivity {
+		stepGlobalCfg = selectConfigKeys(globalCfg, step.InheritedConfigKeys)
+	}
+	err := pipeline.ResolveInputs(s, stepGlobalCfg, dataCtx)
 	if err != nil {
 		appErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
@@ -53,7 +60,6 @@ func ExecuteStep(
 
 		return nil, appErr
 	}
-	step := registry.Registry[s.Use]
 	switch step.Kind {
 	case registry.TaskActivity:
 		payload, err := DecodePayload(s)
@@ -76,7 +82,7 @@ func ExecuteStep(
 		act := step.NewFunc().(workflowengine.Activity)
 		input := workflowengine.ActivityInput{
 			Payload: payload,
-			Config:  workflowengine.ActivityTelemetryConfig(ctx, s.With.Config),
+			Config:  workflowengine.StringifyConfig(s.With.Config),
 		}
 		var result workflowengine.ActivityResult
 
@@ -112,32 +118,15 @@ func ExecuteStep(
 			return result, appErr
 		}
 
+		if err := ensureStepInputSize(s.ID, input); err != nil {
+			return nil, err
+		}
 		err = workflow.ExecuteActivity(ctx, execAct.Name(), input).Get(ctx, &result)
 		if err != nil {
 			return result, err
 		}
-		var output any
-		switch registry.Registry[s.Use].OutputKind {
-		case workflowengine.OutputMap:
-			output = workflowengine.AsMap(result.Output)
 
-		case workflowengine.OutputString:
-			output = workflowengine.AsString(result.Output)
-
-		case workflowengine.OutputArrayOfString:
-			output = workflowengine.AsSliceOfStrings(result.Output)
-
-		case workflowengine.OutputArrayOfMap:
-			output = workflowengine.AsSliceOfMaps(result.Output)
-
-		case workflowengine.OutputBool:
-			output = workflowengine.AsBool(result.Output)
-
-		case workflowengine.OutputAny:
-			output = result
-		}
-
-		return output, nil
+		return workflowengine.StepOutputFromActivityResult(step.OutputKind, result), nil
 	case registry.TaskWorkflow:
 		payload, err := DecodePayload(s)
 		if err != nil {
@@ -205,6 +194,9 @@ func ExecuteStep(
 			Memo:              memo,
 		}
 		ctxChild := workflow.WithChildOptions(ctx, opts)
+		if err := ensureStepInputSize(s.ID, input); err != nil {
+			return nil, err
+		}
 		err = workflow.ExecuteChildWorkflow(
 			ctxChild,
 			w.Name(),
@@ -226,7 +218,49 @@ func Execute(
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
-	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
+	with := s.With
+	with.Config = maps.Clone(s.With.Config)
+	if with.Config == nil {
+		with.Config = map[string]any{}
+	}
+	with.Config[workflowengine.StepIDConfigKey] = s.ID
+	return ExecuteStep(s.ID, s.Use, with, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
+}
+
+// maxStepInputBytes keeps a step's scheduling command below the 4 MiB gRPC message limit
+// the Temporal frontend enforces on workflow task completions.
+const maxStepInputBytes = 3 << 20
+
+// ensureStepInputSize rejects a step input that would make the workflow task completion
+// exceed the Temporal gRPC message limit, which would otherwise wedge the run.
+func ensureStepInputSize(stepID string, input any) error {
+	// A marshal error is left to the SDK, which reports it when it encodes the input.
+	data, marshalErr := json.Marshal(input)
+	if marshalErr != nil || len(data) <= maxStepInputBytes {
+		return nil //nolint:nilerr // the SDK reports encoding errors itself
+	}
+	errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+	return workflowengine.NewAppError(workflowengine.WorkflowError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: fmt.Sprintf(
+			"step %s input is %d bytes; the limit is %d bytes because Temporal rejects workflow task messages above 4 MiB",
+			stepID,
+			len(data),
+			maxStepInputBytes,
+		),
+	})
+}
+
+// selectConfigKeys copies the listed keys that are present in cfg.
+func selectConfigKeys(cfg map[string]any, keys []string) map[string]any {
+	selected := make(map[string]any, len(keys))
+	for _, key := range keys {
+		if value, ok := cfg[key]; ok {
+			selected[key] = value
+		}
+	}
+	return selected
 }
 
 func ExecuteOnError(
@@ -310,7 +344,11 @@ func runChildPipeline(
 		},
 		Debug: wfDef.Runtime.Debug,
 	}
+	childInput.WorkflowInput.Config[workflowengine.StepIDConfigKey] = step.ID
 
+	if err := ensureStepInputSize(step.ID, childInput); err != nil {
+		return nil, err
+	}
 	var childResult workflowengine.WorkflowResult
 	err = workflow.ExecuteChildWorkflow(
 		ctxChild,
