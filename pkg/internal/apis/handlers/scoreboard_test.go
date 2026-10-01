@@ -959,20 +959,6 @@ func createDeviceRecord(t testing.TB, app *tests.TestApp, orgID, runnerID, name 
 	require.NoError(t, app.Save(device))
 }
 
-func ensureScoreboardDeviceRelation(t testing.TB, app *tests.TestApp) {
-	t.Helper()
-	cache, err := app.FindCollectionByNameOrId("pipeline_scoreboard_cache")
-	require.NoError(t, err)
-	if cache.Fields.GetByName("mobile_devices") == nil {
-		devices, err := app.FindCollectionByNameOrId("mobile_devices")
-		require.NoError(t, err)
-		cache.Fields.Add(
-			&core.RelationField{Name: "mobile_devices", CollectionId: devices.Id, MaxSelect: 999},
-		)
-		require.NoError(t, app.Save(cache))
-	}
-}
-
 func createWalletRecord(t testing.TB, app *tests.TestApp, orgID, name string) *core.Record {
 	walletsColl, err := app.FindCollectionByNameOrId("wallets")
 	require.NoError(t, err)
@@ -1071,8 +1057,6 @@ func TestSaveScoreboardResults(t *testing.T) {
 	app := setupPipelineApp(t)
 	defer app.Cleanup()
 	app.Settings().Meta.AppURL = "https://credimi.test"
-	ensureMobileDevicesCollection(t, app)
-	ensureScoreboardDeviceRelation(t, app)
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 

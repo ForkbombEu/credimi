@@ -6,39 +6,38 @@ tags:
   - by-value
 ---
 - stopApp
-- evalScript: ${output.authorizationRequest = 'haip-vp://?client_id=' + encodeURIComponent(env.CLIENT_ID) + '&request=' + encodeURIComponent(env.REQUEST_OBJECT)}
 - openLink:
-    link: ${output.authorizationRequest}
+    link: "${deeplink}"
     autoVerify: false
     browser: false
 - waitForAnimationToEnd:
     timeout: 5000
-- tapOn:
-    text: "EUDI Wallet"
-    optional: true
-- tapOn:
-    text: "Just once"
-    optional: true
 - extendedWaitUntil:
     visible: "Welcome back|Share|Cancel|Close"
     timeout: 100000
+- waitForAnimationToEnd:
+    timeout: 3000
 - runFlow:
     when:
       visible: "Welcome back"
     commands:
-      - tapOn:
-          point: "11%,40%"
-      - inputText: "123456"
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
 - extendedWaitUntil:
     visible: "Share"
-    timeout: 30000
+    timeout: 100000
+- takeScreenshot: fcaf-request-object-by-value-consent
 - tapOn:
     text: "Share"
     enabled: true
 - extendedWaitUntil:
-    visible: "verify your identity|PIN"
+    visible: "1"
     timeout: 30000
-- inputText: "123456"
+- inputText: "12345"
+- tapOn: "6"
 - extendedWaitUntil:
     visible: "Close"
     timeout: 30000

@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__041
-title: FCAF WS_RP_MS_ProtocolMessages__041
+title: Derive the response URI from a redirect_uri Client Identifier under direct_post.jwt
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__041.md
 suite:
@@ -11,21 +11,37 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+  session: { from: pipeline.protocol.client-id-binding-controls.outputs.derived_response_uri_session }
+  outer_request: { from: pipeline.protocol.client-id-binding-controls.outputs.derived_response_uri_outer_request }
+  visual_evidence: { from: pipeline.protocol.client-id-binding-controls.outputs.derived_response_uri_visual_evidence }
 assertions:
-- id: ws_rp_ms_protocolmessages__041_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: client_id_uses_the_redirect_uri_prefix
+  validator: json.field_string_prefix
+  input: evidence.outer_request
+  params: { field: client_id, prefix: "redirect_uri:https://" }
+- id: request_uses_direct_post_jwt
+  validator: json.field_equals
+  input: evidence.outer_request
+  params: { field: response_mode, value: direct_post.jwt }
+- id: request_omits_response_uri
+  validator: json.field_presence
+  input: evidence.outer_request
+  params: { field: response_uri, present: false }
+- id: wallet_submitted_the_authorization_response
+  validator: oid4vp.presentation_response_http
+  input: evidence.session
   params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__041_visual_evidence_stored
+    method: POST
+    media_type: application/x-www-form-urlencoded
+    require_response_parameter: true
+- id: wallet_returned_the_requested_credential
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params: { mode: credentials_match }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

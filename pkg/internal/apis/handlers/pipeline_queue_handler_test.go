@@ -38,7 +38,6 @@ func setupPipelineQueueApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 
-	ensureMobileDevicesCollection(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	PipelineRoutes.Add(app)
 
@@ -328,6 +327,90 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}
+
+// Runs must honour the same sharing rule as the runner catalog: an unpublished
+// organization only borrows admin-managed published runners.
+func TestPipelineQueueEnqueueForeignRunnerSharing(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	stub := &queueStub{}
+	installQueueStubs(t, stub)
+
+	foreignYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: other-org/shared-runner/device-1\n"
+	ownYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n"
+
+	cases := []struct {
+		name           string
+		yaml           string
+		orgPublished   bool
+		runnerAdmin    bool
+		expectedStatus int
+		expected       string
+	}{
+		{
+			name:           "unpublished org cannot use published non-admin runner",
+			yaml:           foreignYaml,
+			expectedStatus: http.StatusForbidden,
+			expected:       "device_id is not accessible",
+		},
+		{
+			name:           "unpublished org can use published admin-managed runner",
+			yaml:           foreignYaml,
+			runnerAdmin:    true,
+			expectedStatus: http.StatusOK,
+			expected:       `"status":"queued"`,
+		},
+		{
+			name:           "published org can use published non-admin runner",
+			yaml:           foreignYaml,
+			orgPublished:   true,
+			expectedStatus: http.StatusOK,
+			expected:       `"status":"queued"`,
+		},
+		{
+			name:           "unpublished org can use its own private runner",
+			yaml:           ownYaml,
+			expectedStatus: http.StatusOK,
+			expected:       `"status":"queued"`,
+		},
+	}
+
+	for _, tc := range cases {
+		scenario := tests.ApiScenario{
+			Name:   tc.name,
+			Method: http.MethodPost,
+			URL:    "/api/pipeline/queue",
+			Headers: map[string]string{
+				"Authorization": "Bearer " + token,
+			},
+			Body: jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"yaml":                tc.yaml,
+			}),
+			ExpectedStatus:  tc.expectedStatus,
+			ExpectedContent: []string{tc.expected},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupPipelineQueueAppWithPipeline(t, orgID, tc.yaml)
+				orgColl, err := app.FindCollectionByNameOrId("organizations")
+				require.NoError(t, err)
+				otherOrg := core.NewRecord(orgColl)
+				otherOrg.Set("name", "Other Org")
+				otherOrg.Set("canonified_name", "other-org")
+				require.NoError(t, app.Save(otherOrg))
+				createPipelineQueueMobileRunner(t, app, otherOrg.Id, "Shared Runner", true)
+				setMobileRunnerAdminManaged(t, app, "other-org/shared-runner", tc.runnerAdmin)
+				setOrganizationPublished(t, app, orgID, tc.orgPublished)
+				return app
+			},
+		}
 		scenario.Test(t)
 	}
 }

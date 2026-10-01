@@ -2,7 +2,6 @@ name: FCAF wallet relying-party PID mDoc data-model happy flow
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
-    verifier_url: https://capture-wallet.credimi.io
     log_checker: capture-wallet
   global_device_id: ""
   temporal:
@@ -18,7 +17,7 @@ steps:
     use: mobile-automation
     with:
       action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-      version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+      version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
 
   - id: create-pid-mdoc-offer
     use: credential-offer
@@ -29,7 +28,7 @@ steps:
     use: mobile-automation
     with:
       action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-      version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+      version_id: installed_from_external_source
       parameters:
         deeplink: ${{ create-pid-mdoc-offer.outputs }}
 
@@ -37,7 +36,7 @@ steps:
     use: http-request
     with:
       method: POST
-      url: https://capture-wallet.credimi.io/openid4vp/sessions
+      url: ${fixture.verifier_url}/openid4vp/sessions
       expected_status: 201
       headers:
         Content-Type: application/json
@@ -46,7 +45,7 @@ steps:
         request_uri_method: post
         request_delivery: by_reference
         response_type: vp_token
-        response_mode: direct_post
+        response_mode: direct_post.jwt
         presentation_request:
           nonce: fcaf-pid-mdoc-data-model
           dcql_query:
@@ -86,7 +85,7 @@ steps:
     use: mobile-automation
     with:
       action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-      version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+      version_id: installed_from_external_source
       parameters:
         deeplink: ${{ create-capture-session.outputs.body.deeplink }}
 
@@ -94,7 +93,7 @@ steps:
     use: http-request
     with:
       method: GET
-      url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
       expected_status: 200
 
   - id: run-fcaf-validators
@@ -177,6 +176,8 @@ steps:
 
         - WS_RP_SH_Encoding_TextualEncoding_014
         - WS_RP_SH_Encoding_TextualEncoding_015
+        - WS_RP_SH_Encoding_TextualEncoding_017
+        - WS_RP_SH_Encoding_TextualEncoding_021
       suite: wallet_solution/relying_party
       pipeline_outputs:
         pipeline.pid.presentation.mdoc.all-claims-elements:

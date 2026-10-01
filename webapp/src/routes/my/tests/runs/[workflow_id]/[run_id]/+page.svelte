@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { WorkflowStatus as WorkflowStatusValue } from '$lib/workflows/types';
+
 	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
@@ -16,7 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
-	import type { WorkflowStatus as WorkflowStatusValue } from '$lib/workflows/types';
 	import { WorkflowQrPoller } from '$lib/workflows';
 	import { onMount } from 'svelte';
 	import { fromStore } from 'svelte/store';

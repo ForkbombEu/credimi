@@ -74,7 +74,8 @@ function isLastOwnerAuthorization(orgAuthorization) {
 
     const ownerAuthorizations = findRecordsByFilter(
         "orgAuthorizations",
-        `organization="${organizationId}" && role="${ownerRoleId}"`
+        "organization = {:organizationId} && role = {:roleId}",
+        { organizationId, roleId: ownerRoleId }
     );
 
     return ownerAuthorizations.length == 1;
@@ -89,7 +90,8 @@ function isLastOwnerAuthorization(orgAuthorization) {
 function getUserRole(userId, organizationId, app = $app) {
     const authorization = findFirstRecordByFilter(
         "orgAuthorizations",
-        `user = "${userId}" && organization = "${organizationId}"`,
+        "user = {:userId} && organization = {:organizationId}",
+        { userId, organizationId },
         app
     );
     if (!authorization) return undefined;
@@ -130,25 +132,31 @@ function getUserFromContext(e) {
 }
 
 /**
+ * Filter values MUST be passed through `params` (`{:name}` placeholders),
+ * never interpolated into `filter`.
  * @param {string} collection
  * @param {string} filter
+ * @param {Record<string, unknown>} [params={}]
  * @param {core.App | excludeHooks<PocketBase> } [app= $app]
  * @returns {Array<core.Record>}
  */
-function findRecordsByFilter(collection, filter, app = $app) {
+function findRecordsByFilter(collection, filter, params = {}, app = $app) {
     return app
-        .findRecordsByFilter(collection, filter, "", 0, 0)
+        .findRecordsByFilter(collection, filter, "", 0, 0, params)
         .filter((v) => v != undefined);
 }
 
 /**
+ * Filter values MUST be passed through `params` (`{:name}` placeholders),
+ * never interpolated into `filter`.
  * @param {string} collection
  * @param {string} filter
+ * @param {Record<string, unknown>} [params={}]
  * @param {core.App | excludeHooks<PocketBase> } [app= $app]
  */
-function findFirstRecordByFilter(collection, filter, app = $app) {
+function findFirstRecordByFilter(collection, filter, params = {}, app = $app) {
     try {
-        return app.findFirstRecordByFilter(collection, filter);
+        return app.findFirstRecordByFilter(collection, filter, params);
     } catch {
         return undefined;
     }
@@ -241,7 +249,8 @@ function removeTrailingSlash(string) {
 function getOrganizationAdminsAddresses(organizationId, app = $app) {
     const recipients = findRecordsByFilter(
         "orgAuthorizations",
-        `organization.id = "${organizationId}" && ( role.name = "admin" || role.name = "owner" )`,
+        `organization.id = {:organizationId} && ( role.name = "admin" || role.name = "owner" )`,
+        { organizationId },
         app
     );
 
@@ -297,7 +306,9 @@ function runOrganizationInviteEndpointChecks(e) {
     const userId = getUserFromContext(e)?.id;
     if (!userId) throw createMissingDataError("userId");
 
-    const invite = findFirstRecordByFilter("org_invites", `id = "${inviteId}"`);
+    const invite = findFirstRecordByFilter("org_invites", "id = {:inviteId}", {
+        inviteId,
+    });
     if (!invite) throw createMissingDataError("organization invite");
 
     const isOwner = invite.get("user") == userId;
@@ -511,7 +522,8 @@ function getRequestingUserOrganization(e) {
 
     const orgAuth = findFirstRecordByFilter(
         "orgAuthorizations",
-        `user = "${userId}"`
+        "user = {:userId}",
+        { userId }
     );
     if (!orgAuth) return undefined;
     return orgAuth.get("organization");

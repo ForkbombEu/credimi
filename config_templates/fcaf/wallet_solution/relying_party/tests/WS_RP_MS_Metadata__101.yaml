@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__101
-title: FCAF WS_RP_MS_Metadata__101
+title: Accept a COSE Referenced Token whose status claim at CBOR label 65535 is valid.
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__101.md
 suite:
@@ -9,23 +9,28 @@ suite:
 applicability:
   profile: EUDI_generic
   presentation_flow: redirects
+  credential_format: iso_mdoc
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.metadata
+- title: Token Status List
+  section: '6.3'
+  url: https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-13.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.metadata.outputs.dcql_exchange
+  pid_mdoc:
+    from: pipeline.credential-status.mdoc.outputs.pid_mdoc
   visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
+    from: pipeline.credential-status.mdoc.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_metadata__101_dcql_metadata_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_metadata__101_visual_evidence_stored
+# Capture issues no CWT Referenced Token. The mdoc Mobile Security Object carries
+# its status under the text key "status", not as a CWT claim at CBOR label
+# 65535, so cose.cwt_status_claim reports this evidence as blocked rather than
+# reading one encoding as the other.
+- id: status_claim_at_label_65535_holds_a_valid_status
+  validator: cose.cwt_status_claim
+  input: evidence.pid_mdoc
+- id: accepted_token_is_presented_by_the_wallet
+  validator: pid.mdoc_doc_type
+  input: evidence.pid_mdoc
+- id: presentation_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

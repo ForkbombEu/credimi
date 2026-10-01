@@ -395,22 +395,23 @@ func (s *ApiKeyService) authenticateByScope(
 			"API key does not have required scope",
 		)
 	}
+	if scope == ApiKeyScopeInternalAdmin && superuserID == "" {
+		return nil, apierror.New(
+			http.StatusForbidden,
+			"request.validation",
+			"insufficient_api_key_scope",
+			"API key does not have required scope",
+		)
+	}
 
 	collectionName := apiKeyUserCollection
 	ownerID := userID
 	if scope == ApiKeyScopeInternalAdmin {
-		if superuserID != "" {
-			collectionName = apiKeySuperuserCollection
-			ownerID = superuserID
-		}
+		collectionName = apiKeySuperuserCollection
+		ownerID = superuserID
 	}
 
 	authRecord, err := s.app.FindRecordById(collectionName, ownerID)
-	if err != nil {
-		if scope == ApiKeyScopeInternalAdmin && userID != "" {
-			authRecord, err = s.app.FindRecordById(apiKeyUserCollection, userID)
-		}
-	}
 	if err != nil {
 		reason := "failed_to_find_principal"
 		if scope == ApiKeyScopeUser {
@@ -422,12 +423,6 @@ func (s *ApiKeyService) authenticateByScope(
 			reason,
 			err.Error(),
 		)
-	}
-
-	if authRecord == nil {
-		if scope == ApiKeyScopeInternalAdmin && userID != "" {
-			authRecord, _ = s.app.FindRecordById(apiKeyUserCollection, userID)
-		}
 	}
 	if authRecord == nil {
 		reason := "principal_not_found"

@@ -142,16 +142,17 @@ worktree-destroy: ## 🗑️ remove a disposable worktree, its runtime data, and
 	@command -v wt >/dev/null 2>&1 || { echo "Worktrunk (wt) is required" >&2; exit 1; }
 	@wt remove --yes --foreground --reap --force --force-delete "$(WORKTREE)"
 
-test: ## 🧪 run tests
+test: testdata.refresh ## 🧪 run tests
 	$(call require_tools,$(TEST_DEPS))
 	bash ./scripts/test-summary.sh
 
-test.all: ## 🧪 run all tests, including long tests skipped by test
+test.all: testdata.refresh ## 🧪 run all tests, including long tests skipped by test
 	$(call require_tools,$(TEST_DEPS))
 	TEST_SHORT=0 bash ./scripts/test-summary.sh
 
-testdata.refresh: ## 🗄️ Apply pending migrations into test_pb_data (run after PocketBase upgrades)
+testdata.refresh: ## 🗄️ Apply pending Go and pb_migrations JS migrations into test_pb_data (run by test targets)
 	$(GOCMD) run ./cmd/testdata-refresh
+
 fcaf-generate: ## Generate one complete FCAF validation pipeline from scenario sources
 	$(GOCMD) run ./cmd/fcaf-pipeline-gen
 
@@ -167,12 +168,12 @@ endif
 test.p: tools ## 🍷 watch tests and run on change for a certain folder
 	$(GOTOOL) gow test -run "^$(test_name)$$" $(GODIRS)
 
-coverage: devtools # ☂️ run test and open code coverage report
+coverage: devtools testdata.refresh # ☂️ run test and open code coverage report
 	$(GOTEST) -tags=unit -covermode=atomic -coverprofile=$(COVOUT) ./...
 	$(GOTOOL) cover -html=$(COVOUT) -o coverage.html
 	$(GOTOOL) go-cover-treemap -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
 
-coverage-check: ## ☂️ run tests and fail if total coverage is below COVERAGE_MIN
+coverage-check: testdata.refresh ## ☂️ run tests and fail if total coverage is below COVERAGE_MIN
 	@$(GOTEST) -tags=unit -covermode=atomic -coverprofile=$(COVERAGE_FILE) $(COVERAGE_PKGS)
 	@awk -v min="$(COVERAGE_MIN)" -v file="$(COVERAGE_FILE)" '\
 		BEGIN { covered = 0; total = 0 } \

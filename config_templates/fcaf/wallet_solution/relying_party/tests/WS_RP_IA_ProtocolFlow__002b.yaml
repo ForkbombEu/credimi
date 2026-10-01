@@ -1,0 +1,19 @@
+id: WS_RP_IA_ProtocolFlow__002b
+title: Retrieve a signed Request Object by request_uri using POST.
+source: { path: Interaction/ProtocolFlow/WS_RP_IA_ProtocolFlow__002b.md }
+suite: { sut: wallet_solution, role: relying_party, section: interaction.protocol_flow }
+applicability: { profile: EUDI_generic, presentation_flow: redirects, request_uri_method_post: supported }
+normative_references:
+  - { title: High Assurance Interoperability Profile, section: "5.1", url: https://openid.net/specs/openid-4-high-assurance-interoperability-profile-1_0.html }
+  - { title: OpenID for Verifiable Presentations 1.0, section: "5.10", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }
+evidence:
+  session: { from: pipeline.wallet.protocol.request-uri-method-post.outputs.capture_session }
+  signed_request_object: { from: pipeline.wallet.protocol.request-uri-method-post.outputs.signed_request_object }
+  session_checks: { from: pipeline.wallet.protocol.request-uri-method-post.outputs.session_checks }
+  visual_evidence: { from: pipeline.wallet.protocol.request-uri-method-post.outputs.visual_evidence }
+assertions:
+  - { id: signed_request_object_is_valid, validator: jose.jws_signed_request, input: evidence.signed_request_object }
+  - { id: request_uri_is_retrieved_by_post_with_matching_host, validator: oid4vp.request_uri_retrieval, input: evidence.session, params: { method: POST } }
+  - { id: presentation_is_accepted, validator: json.field_equals, input: evidence.session_checks, params: { field: presentation_valid, value: true } }
+  - { id: user_consent_was_exercised, validator: evidence.non_empty, input: evidence.visual_evidence }
+verdict: { pass_when: all_assertions_pass }

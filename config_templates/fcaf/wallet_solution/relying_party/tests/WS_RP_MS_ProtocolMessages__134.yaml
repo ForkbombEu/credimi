@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__134
-title: FCAF WS_RP_MS_ProtocolMessages__134
+title: Submit the encrypted direct-post JWT response as a form-encoded POST.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__134.md
 suite:
@@ -13,19 +13,31 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.direct-post-jwt.response-transport
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages-134.outputs.dcql_exchange
+  capture_session:
+    from: pipeline.direct-post-jwt.response-transport.outputs.capture_session
+  encryption_evidence:
+    from: pipeline.direct-post-jwt.response-transport.outputs.default_encryption_evidence
   visual_evidence:
-    from: pipeline.dcql.protocol-messages-134.outputs.visual_evidence
+    from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__134_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: direct_post_jwt_response_is_form_encoded
+  validator: oid4vp.presentation_response_http
+  input: evidence.capture_session
   params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__134_visual_evidence_stored
+    method: POST
+    media_type: application/x-www-form-urlencoded
+    require_response_parameter: true
+    response_only: true
+    form_utf8: true
+- id: response_parameter_contains_compact_jwe
+  validator: oid4vp.response_encryption
+  input: evidence.encryption_evidence
+  params:
+    expected_enc: A128GCM
+    metadata_enc_absent: true
+- id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

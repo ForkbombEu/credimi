@@ -190,6 +190,28 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - follow-up: Optionally document a one-liner convention in `webapp/AGENTS.md` once the migration is validated in UI; do not reintroduce Credimi resource wrappers without an HITL revisit.
 - amendment (2026-09-18): Removed `activeSheet` / sheet-state pause. Root cause of FCAF Close failures was Credimi `ui-custom/sheet.svelte` asymmetric `bind:open` rejecting `false`; fixed with plain `bind:open` + `beforeClose` reopen. Polling no longer pauses for open sheets.
 
+### 2026-09-15 - FCAF acceptable JOSE algorithm set for ECCG ACM 5.2
+
+- status: resolved
+- owner: human maintainer
+- context: `WS_RP_SM_DeviceBinding__012a` requires the KB-JWT `alg` to be on
+  the ECCG ACM 5.2 acceptable-algorithm list. The vendored FCAF source names
+  the external standard but does not reproduce that list, and the repository
+  has no canonical mapping from ECCG ACM mechanisms to JOSE identifiers. The
+  current beta Capture Wallet evidence is ES256, while the source explicitly
+  identifies EdDSA as unacceptable in the related RP-integrity negative case.
+- question: Which JOSE `alg` values are the canonical acceptable set for this
+  FCAF assertion?
+- options considered: (1) encode only ES256, matching current beta evidence;
+  (2) encode a maintainer-approved JOSE mapping of ECCG ACM 5.2; (3) keep the
+  test blocked until the source repository publishes the mapping.
+- default risk: Guessing an allowlist can reject a conforming Wallet or accept
+  a disallowed algorithm while reporting a conformance pass.
+- decision: For the current beta Capture Wallet definition, require the
+  observed acceptable JOSE algorithm `ES256`. Revisit a broader mapping only
+  when a second supported Wallet algorithm is added to the beta fixture.
+- follow-up: Add the ES256 predicate to `WS_RP_SM_DeviceBinding__012a`.
+
 ### 2026-08-28 - FCAF runner-to-device identifier mapping
 
 - status: resolved
@@ -345,3 +367,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: The call bypasses Temporal retries and history; a slow or offline runner surfaces as `503 device runner is offline` to the user instead of being retried. The runner contract is listed in `AGENTS.md` "External runner HTTP contract".
 - decision: Approved exception — option (a), because the UI needs a synchronous answer (the URL) inside the click. Precedent: `checkMobileRunnerHealthHTTP` in `mobile_runners_handlers.go`, which also calls the runner directly.
 - follow-up: None.
+
+### 2026-09-30 - AGENTS.md names pipeline/runner surfaces that no longer exist
+
+- status: open
+- owner: human maintainer
+- context: While writing the `credimi` skill, three `AGENTS.md` claims were checked against code and do not hold in this worktree: (1) "UI calls `POST /api/pipeline/start`" — no such route exists under `/api/pipeline` (`pkg/internal/apis/handlers/pipeline_handler.go`); the GUI (`webapp/src/lib/pipeline/queue.ts`) and the CLI both use `POST /api/pipeline/queue`, which starts device-less pipelines directly. (2) The external runner HTTP contract lists `POST {runner_url}/fetch-apk-and-action` and `/store-pipeline-result`; the code calls `/credimi/installer-action` and `/credimi/pipeline-result` (`pkg/workflowengine/pipeline/mobile_automation_hooks.go`). (3) `X-Api-Key` is documented for internal-admin routes; the middleware reads `Credimi-Api-Key` (`pkg/internal/middlewares/auth_api_key.go`, `pkg/internal/apis/handlers/api_key_service.go`); the same stale header appears in `docs/src/content/docs/software-architecture/scoreboard.md` and a comment in `pkg/conformancecatalog/store.go`.
+- question: Update `AGENTS.md` (and the scoreboard doc/comment) to the current routes and header, or treat the documented names as the intended contract and change the code back?
+- options considered: (a) fix the docs/comments to match code; (b) add compatibility aliases for the old runner endpoints and accept `X-Api-Key` as an alias; (c) add a `/api/pipeline/start` alias.
+- default risk: Agents and docs keep describing endpoints that 404, and sibling `credimi-extra` implementers may build against the wrong runner paths.
+- decision:
+- follow-up: Confirm (a) and update `AGENTS.md` "Dynamic Pipeline Workflow", "External runner HTTP contract" and "Routes, DTOs, Auth, Errors" sections.

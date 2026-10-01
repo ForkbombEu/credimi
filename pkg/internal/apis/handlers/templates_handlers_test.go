@@ -73,3 +73,65 @@ func TestHandlePlaceholdersByFilenamesSuccess(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
 	require.Contains(t, payload, "specific_fields")
 }
+
+func TestHandlePlaceholdersByFilenamesRejectsPathsOutsideTemplates(t *testing.T) {
+	rootDir := t.TempDir()
+	t.Setenv("ROOT_DIR", filepath.Join(rootDir, "app"))
+
+	require.NoError(
+		t,
+		os.MkdirAll(filepath.Join(rootDir, "app", "config_templates", "test-suite"), 0o755),
+	)
+	const canary = "CREDIMI_INTERNAL_ADMIN_KEY=dummy-canary-1234"
+	outsideDir := filepath.Join(rootDir, "outside")
+	require.NoError(t, os.MkdirAll(outsideDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(outsideDir, "secret.txt"), []byte(canary), 0o600))
+
+	tests := []struct {
+		name  string
+		input GetPlaceholdersByFilenamesRequestInput
+	}{
+		{
+			name: "traversal in test_id",
+			input: GetPlaceholdersByFilenamesRequestInput{
+				TestID:    "../..",
+				Filenames: []string{"outside/secret.txt"},
+			},
+		},
+		{
+			name: "traversal in filename",
+			input: GetPlaceholdersByFilenamesRequestInput{
+				TestID:    "test-suite",
+				Filenames: []string{"../../../outside/secret.txt"},
+			},
+		},
+		{
+			name: "absolute test_id",
+			input: GetPlaceholdersByFilenamesRequestInput{
+				TestID:    outsideDir,
+				Filenames: []string{"x/../secret.txt"},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/template/placeholders", nil)
+			req = req.WithContext(
+				context.WithValue(req.Context(), middlewares.ValidatedInputKey, tc.input),
+			)
+			rec := httptest.NewRecorder()
+
+			err := HandlePlaceholdersByFilenames()(&core.RequestEvent{
+				Event: router.Event{
+					Request:  req,
+					Response: rec,
+				},
+			})
+			requireHandlerErrorHandled(t, rec, err)
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+			require.NotContains(t, rec.Body.String(), "dummy-canary")
+			require.NotContains(t, rec.Body.String(), rootDir)
+		})
+	}
+}

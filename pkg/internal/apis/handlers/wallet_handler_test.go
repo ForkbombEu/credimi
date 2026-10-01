@@ -32,7 +32,6 @@ import (
 func setupWalletApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
-	ensureMobileRunnerAccessFields(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	WalletTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
@@ -581,95 +580,28 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	runnerUserToken, err := runnerUserRecord.NewAuthToken()
 	require.NoError(t, err)
 
-	// Prepare the success multipart request with MP4
-	var successBody bytes.Buffer
-	successWriter := multipart.NewWriter(&successBody)
-
-	// add form fields
-	_ = successWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = successWriter.WriteField("device_identifier", "usera-s-organization/test-runner")
-	_ = successWriter.WriteField("platform", "android")
-
-	partHeader := textproto.MIMEHeader{}
-	partHeader.Set("Content-Disposition", `form-data; name="result_video"; filename="test.mp4"`)
-	partHeader.Set("Content-Type", "video/mp4")
-
-	fileWriter, err := successWriter.CreatePart(partHeader)
-	require.NoError(t, err)
-
-	// write minimal valid MP4 header
-	mp4Header := []byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'}
-	_, err = fileWriter.Write(mp4Header)
-	require.NoError(t, err)
-
-	frameWriter, err := successWriter.CreateFormFile("last_frame", "frame.txt")
-	require.NoError(t, err)
-
-	_, err = frameWriter.Write([]byte("test frame content"))
-	require.NoError(t, err)
-
-	logWriter, err := successWriter.CreateFormFile("logfile", "log.txt")
-	require.NoError(t, err)
-
-	_, err = logWriter.Write([]byte("test log content"))
-	require.NoError(t, err)
-
-	require.NoError(t, successWriter.Close())
-
-	var crossOrgRunnerBody bytes.Buffer
-	crossOrgRunnerWriter := multipart.NewWriter(&crossOrgRunnerBody)
-	_ = crossOrgRunnerWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = crossOrgRunnerWriter.WriteField(
-		"device_identifier",
-		"userb-s-organization/public-runner/public-device",
+	const (
+		reservedDevicePath = "usera-s-organization/test-runner/test-device"
+		otherDevicePath    = "usera-s-organization/test-runner/other-device"
+		publicDevicePath   = "userb-s-organization/public-runner/public-device"
 	)
-	_ = crossOrgRunnerWriter.WriteField("platform", "android")
 
-	crossOrgVideoWriter, err := crossOrgRunnerWriter.CreatePart(partHeader)
-	require.NoError(t, err)
-	_, err = crossOrgVideoWriter.Write(mp4Header)
-	require.NoError(t, err)
-
-	crossOrgFrameWriter, err := crossOrgRunnerWriter.CreateFormFile("last_frame", "frame.txt")
-	require.NoError(t, err)
-	_, err = crossOrgFrameWriter.Write([]byte("test frame content"))
-	require.NoError(t, err)
-
-	crossOrgLogWriter, err := crossOrgRunnerWriter.CreateFormFile("logfile", "log.txt")
-	require.NoError(t, err)
-	_, err = crossOrgLogWriter.Write([]byte("test log content"))
-	require.NoError(t, err)
-
-	require.NoError(t, crossOrgRunnerWriter.Close())
-
-	var iosBody bytes.Buffer
-	iosWriter := multipart.NewWriter(&iosBody)
-	_ = iosWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = iosWriter.WriteField("device_identifier", "usera-s-organization/test-runner")
-	_ = iosWriter.WriteField("platform", "ios")
-
-	iosVideoWriter, err := iosWriter.CreatePart(partHeader)
-	require.NoError(t, err)
-	_, err = iosVideoWriter.Write(mp4Header)
-	require.NoError(t, err)
-
-	iosFrameWriter, err := iosWriter.CreateFormFile("last_frame", "frame.txt")
-	require.NoError(t, err)
-	_, err = iosFrameWriter.Write([]byte("test frame content"))
-	require.NoError(t, err)
-
-	iosLogWriter, err := iosWriter.CreateFormFile("logfile", "ios-log.txt")
-	require.NoError(t, err)
-	_, err = iosLogWriter.Write([]byte("test ios log content"))
-	require.NoError(t, err)
-
-	require.NoError(t, iosWriter.Close())
+	successBody, successContentType := walletStorePipelineResultBody(
+		t, reservedDevicePath, "android",
+	)
+	otherDeviceBody, otherDeviceContentType := walletStorePipelineResultBody(
+		t, otherDevicePath, "android",
+	)
+	crossOrgRunnerBody, crossOrgRunnerContentType := walletStorePipelineResultBody(
+		t, publicDevicePath, "android",
+	)
+	iosBody, iosContentType := walletStorePipelineResultBody(t, reservedDevicePath, "ios")
 
 	// Prepare missing file multipart request
 	var missingBody bytes.Buffer
 	missingWriter := multipart.NewWriter(&missingBody)
 	_ = missingWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = missingWriter.WriteField("device_identifier", "usera-s-organization/test-runner")
+	_ = missingWriter.WriteField("device_identifier", reservedDevicePath)
 	_ = missingWriter.WriteField("platform", "android")
 	require.NoError(t, missingWriter.Close())
 
@@ -679,18 +611,41 @@ func TestWalletStorePipelineResult(t *testing.T) {
 		"run_identifier",
 		"usera-s-organization/workflow123-run123",
 	)
-	_ = invalidPlatformWriter.WriteField("device_identifier", "usera-s-organization/test-runner")
+	_ = invalidPlatformWriter.WriteField("device_identifier", reservedDevicePath)
 	_ = invalidPlatformWriter.WriteField("platform", "desktop")
 	require.NoError(t, invalidPlatformWriter.Close())
+
+	setupReservedDeviceApp := func(t testing.TB) *tests.TestApp {
+		app := setupWalletApp(t)
+		setupWalletPipelineTestRecords(t, app, orgID)
+		runner := createWalletTestMobileRunner(t, app, orgID, "test-runner", false)
+		device := createWalletTestMobileDevice(t, app, orgID, runner.Id, "test-device")
+		createWalletTestMobileDevice(t, app, orgID, runner.Id, "other-device")
+		addWalletPipelineResultDevice(t, app, device.Id)
+		return app
+	}
+	setupPublicRunnerApp := func(t testing.TB, reserved bool) *tests.TestApp {
+		app := setupReservedDeviceApp(t)
+		setOrganizationPublished(t, app, orgID, true)
+
+		runnerOrgID, err := pbutils.GetUserOrganizationID(app, runnerUserRecord.Id)
+		require.NoError(t, err)
+		runner := createWalletTestMobileRunner(t, app, runnerOrgID, "public-runner", true)
+		device := createWalletTestMobileDevice(t, app, runnerOrgID, runner.Id, "public-device")
+		if reserved {
+			addWalletPipelineResultDevice(t, app, device.Id)
+		}
+		return app
+	}
 
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "store  pipeline result successfully",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
-			Body:   bytes.NewReader(successBody.Bytes()),
+			Body:   bytes.NewReader(successBody),
 			Headers: map[string]string{
-				"Content-Type": successWriter.FormDataContentType(),
+				"Content-Type": successContentType,
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -699,20 +654,16 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"screenshot_urls"`,
 				`"video_file_name"`,
 			},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupWalletApp(t)
-				setupWalletPipelineTestRecords(t, app, orgID)
-				return app
-			},
+			TestAppFactory: setupReservedDeviceApp,
 		},
 		{
 			Name:   "store pipeline result successfully with authenticated user",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
-			Body:   bytes.NewReader(successBody.Bytes()),
+			Body:   bytes.NewReader(successBody),
 			Headers: map[string]string{
 				"Authorization": "Bearer " + userToken,
-				"Content-Type":  successWriter.FormDataContentType(),
+				"Content-Type":  successContentType,
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -721,20 +672,49 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"screenshot_urls"`,
 				`"video_file_name"`,
 			},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupWalletApp(t)
-				setupWalletPipelineTestRecords(t, app, orgID)
-				return app
+			TestAppFactory: setupReservedDeviceApp,
+		},
+		{
+			Name:   "same organization user cannot store result from device outside the run",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(otherDeviceBody),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + userToken,
+				"Content-Type":  otherDeviceContentType,
 			},
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				`"authorization"`,
+				`"forbidden"`,
+				`device did not run this pipeline result`,
+			},
+			TestAppFactory: setupReservedDeviceApp,
+		},
+		{
+			Name:   "internal admin cannot store result from device outside the run",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(otherDeviceBody),
+			Headers: map[string]string{
+				"Content-Type": otherDeviceContentType,
+			},
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				`"authorization"`,
+				`"forbidden"`,
+				`device did not run this pipeline result`,
+			},
+			TestAppFactory: setupReservedDeviceApp,
 		},
 		{
 			Name:   "published runner owner can store result for published organization",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
-			Body:   bytes.NewReader(crossOrgRunnerBody.Bytes()),
+			Body:   bytes.NewReader(crossOrgRunnerBody),
 			Headers: map[string]string{
 				"Authorization": "Bearer " + runnerUserToken,
-				"Content-Type":  crossOrgRunnerWriter.FormDataContentType(),
+				"Content-Type":  crossOrgRunnerContentType,
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -742,41 +722,35 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"device":"userb-s-organization/public-runner/public-device"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupWalletApp(t)
-				setupWalletPipelineTestRecords(t, app, orgID)
-				setOrganizationPublished(t, app, orgID, true)
-
-				runnerOrgID, err := pbutils.GetUserOrganizationID(app, runnerUserRecord.Id)
-				require.NoError(t, err)
-				createMobileRunnerRecord(
-					t,
-					app,
-					runnerOrgID,
-					"public-runner",
-					"http://127.0.0.1:1",
-					true,
-				)
-				runner, err := canonify.Resolve(app, "userb-s-organization/public-runner")
-				require.NoError(t, err)
-				ensureMobileDevicesCollection(t, app)
-				deviceCollection, err := app.FindCollectionByNameOrId("mobile_devices")
-				require.NoError(t, err)
-				device := core.NewRecord(deviceCollection)
-				device.Set("owner", runnerOrgID)
-				device.Set("runner", runner.Id)
-				device.Set("name", "public-device")
-				device.Set("canonified_name", "public-device")
-				require.NoError(t, app.Save(device))
-				return app
+				return setupPublicRunnerApp(t, true)
+			},
+		},
+		{
+			Name:   "published runner owner cannot store result for run its device did not execute",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(crossOrgRunnerBody),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + runnerUserToken,
+				"Content-Type":  crossOrgRunnerContentType,
+			},
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				`"authorization"`,
+				`"forbidden"`,
+				`device did not run this pipeline result`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				return setupPublicRunnerApp(t, false)
 			},
 		},
 		{
 			Name:   "store ios pipeline result successfully",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
-			Body:   bytes.NewReader(iosBody.Bytes()),
+			Body:   bytes.NewReader(iosBody),
 			Headers: map[string]string{
-				"Content-Type": iosWriter.FormDataContentType(),
+				"Content-Type": iosContentType,
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -785,11 +759,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"video_file_name"`,
 				`"log_file_name"`,
 			},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupWalletApp(t)
-				setupWalletPipelineTestRecords(t, app, orgID)
-				return app
-			},
+			TestAppFactory: setupReservedDeviceApp,
 		},
 		{
 			Name:   "store pipeline result missing files",
@@ -804,11 +774,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"file"`,
 				`failed to read file for field result_video"`,
 			},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupWalletApp(t)
-				setupWalletPipelineTestRecords(t, app, orgID)
-				return app
-			},
+			TestAppFactory: setupReservedDeviceApp,
 		},
 		{
 			Name:   "store pipeline result with invalid platform",
@@ -823,11 +789,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"platform"`,
 				`"invalid platform"`,
 			},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupWalletApp(t)
-				setupWalletPipelineTestRecords(t, app, orgID)
-				return app
-			},
+			TestAppFactory: setupReservedDeviceApp,
 		},
 	}
 
@@ -840,6 +802,47 @@ func TestWalletStorePipelineResult(t *testing.T) {
 		}
 		scenario.Test(t)
 	}
+}
+
+func walletStorePipelineResultBody(
+	t testing.TB,
+	deviceIdentifier string,
+	platform string,
+) ([]byte, string) {
+	t.Helper()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(
+		t,
+		writer.WriteField("run_identifier", "usera-s-organization/workflow123-run123"),
+	)
+	require.NoError(t, writer.WriteField("device_identifier", deviceIdentifier))
+	require.NoError(t, writer.WriteField("platform", platform))
+
+	videoHeader := textproto.MIMEHeader{}
+	videoHeader.Set("Content-Disposition", `form-data; name="result_video"; filename="test.mp4"`)
+	videoHeader.Set("Content-Type", "video/mp4")
+	videoWriter, err := writer.CreatePart(videoHeader)
+	require.NoError(t, err)
+	// minimal valid MP4 header
+	_, err = videoWriter.Write(
+		[]byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'},
+	)
+	require.NoError(t, err)
+
+	frameWriter, err := writer.CreateFormFile("last_frame", "frame.txt")
+	require.NoError(t, err)
+	_, err = frameWriter.Write([]byte("test frame content"))
+	require.NoError(t, err)
+
+	logWriter, err := writer.CreateFormFile("logfile", "log.txt")
+	require.NoError(t, err)
+	_, err = logWriter.Write([]byte("test log content"))
+	require.NoError(t, err)
+
+	require.NoError(t, writer.Close())
+	return body.Bytes(), writer.FormDataContentType()
 }
 
 func TestHandleWalletStartCheckInvalidJSON(t *testing.T) {
@@ -1216,4 +1219,58 @@ func setupWalletPipelineTestRecords(
 	run.Set("owner", orgID)
 	run.Set("pipeline", pipeline.Id)
 	require.NoError(t, app.Save(run))
+}
+
+func createWalletTestMobileRunner(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	name string,
+	published bool,
+) *core.Record {
+	t.Helper()
+
+	coll, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+	runner := core.NewRecord(coll)
+	runner.Set("owner", orgID)
+	runner.Set("name", name)
+	runner.Set("ip", "http://127.0.0.1:1")
+	runner.Set("type", "android_emulator")
+	runner.Set("published", published)
+	require.NoError(t, app.Save(runner))
+	return runner
+}
+
+func createWalletTestMobileDevice(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	runnerID string,
+	name string,
+) *core.Record {
+	t.Helper()
+
+	coll, err := app.FindCollectionByNameOrId("mobile_devices")
+	require.NoError(t, err)
+	device := core.NewRecord(coll)
+	device.Set("owner", orgID)
+	device.Set("runner", runnerID)
+	device.Set("name", name)
+	device.Set("canonified_name", name)
+	device.Set("type", "android_emulator")
+	require.NoError(t, app.Save(device))
+	return device
+}
+
+func addWalletPipelineResultDevice(t testing.TB, app *tests.TestApp, deviceID string) {
+	t.Helper()
+
+	result, err := app.FindFirstRecordByFilter(
+		"pipeline_results",
+		"workflow_id = 'workflow123' && run_id = 'run123'",
+	)
+	require.NoError(t, err)
+	result.Set("devices", append(result.GetStringSlice("devices"), deviceID))
+	require.NoError(t, app.Save(result))
 }

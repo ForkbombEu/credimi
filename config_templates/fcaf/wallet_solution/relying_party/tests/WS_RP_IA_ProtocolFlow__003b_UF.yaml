@@ -1,0 +1,48 @@
+id: WS_RP_IA_ProtocolFlow__003b_UF
+title: Refuse to answer a dc_api request with an unencrypted response.
+source:
+  path: Interaction/ProtocolFlow/WS_RP_IA_ProtocolFlow__003b_UF.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.protocol_flow
+applicability:
+  profile: EUDI_generic
+  presentation_flow: digital_credentials_api
+normative_references:
+- title: OpenID for Verifiable Presentations 1.0
+  section: '8.5'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: OpenID for Verifiable Presentations 1.0
+  section: 'A.2'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: OpenID4VC High Assurance Interoperability Profile
+  section: '5.2'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+evidence:
+  session:
+    from: pipeline.dc-api.unencrypted.outputs.session
+  visual_evidence:
+    from: pipeline.dc-api.unencrypted.outputs.visual_evidence
+assertions:
+- id: verifier_requested_an_unencrypted_dc_api_response
+  validator: json.field_equals
+  input: evidence.session
+  params:
+    field: response_mode
+    value: dc_api
+- id: wallet_refused_without_returning_a_vp_token
+  validator: oid4vp.dc_api_invocation
+  input: evidence.session
+  params:
+    protocol: openid4vp-v1-signed
+    allowed_outcomes:
+      - rejected
+      - no_vp_token
+      - failed
+    vp_token_present: false
+- id: visual_evidence_is_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

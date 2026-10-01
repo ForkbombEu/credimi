@@ -50,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <td
 	class={[
 		expand
-			? 'w-px whitespace-nowrap px-0 py-(--td-py)'
+			? 'w-px px-0 py-(--td-py) whitespace-nowrap'
 			: nest
 				? 'py-(--td-py) pr-(--td-px) pl-(--nest-pl)'
 				: 'px-(--td-px) py-(--td-py)',

@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, expect, it } from 'vitest';
-
 import { entities } from '$lib/global/entities';
+import { describe, expect, it } from 'vitest';
 
 import {
 	displayNameFromUid,

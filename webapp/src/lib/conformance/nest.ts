@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { ConformanceSuiteRecord } from './record';
-import { displayNameFromUid, suiteLogo, suiteSubtitle, suiteTitle } from './suite-present';
 import type { Standard, Suite, Version } from './types';
+
+import { displayNameFromUid, suiteLogo, suiteSubtitle, suiteTitle } from './suite-present';
 
 /**
  * Group suite-grain catalog rows into the nested standards → versions → suites

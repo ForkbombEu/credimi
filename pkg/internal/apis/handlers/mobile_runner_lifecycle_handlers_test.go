@@ -36,6 +36,7 @@ func createMobileDeviceForLifecycleTest(
 	device.Set("runner", runner.Id)
 	device.Set("name", name)
 	device.Set("canonified_name", name)
+	device.Set("type", "android_emulator")
 	require.NoError(t, app.Save(device))
 	identifier, err := mobileDeviceIdentifier(app, device)
 	require.NoError(t, err)

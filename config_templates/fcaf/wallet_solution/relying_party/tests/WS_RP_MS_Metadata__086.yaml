@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__086
-title: FCAF WS_RP_MS_Metadata__086
+title: Reject a Referenced Token whose status_list idx is negative.
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__086.md
 suite:
@@ -9,23 +9,36 @@ suite:
 applicability:
   profile: EUDI_generic
   presentation_flow: redirects
+  credential_format: ietf_sd_jwt_vc
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.metadata
+- title: Token Status List
+  section: '6.2'
+  url: https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-13.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.metadata.outputs.dcql_exchange
+  issuance_session:
+    from: pipeline.fixtures.status-reference.outputs.negative_index_issuance
+  probe_exchange:
+    from: pipeline.fixtures.status-reference.outputs.negative_index_probe
   visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
+    from: pipeline.fixtures.status-reference.outputs.negative_index_visual_evidence
 assertions:
-- id: ws_rp_ms_metadata__086_dcql_metadata_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: issuer_offered_the_malformed_status_reference
+  validator: json.field_equals
+  input: evidence.issuance_session
+  params: { field: status_reference, value: negative_index }
+- id: issuer_used_the_identifying_claim_fixture
+  validator: json.field_equals
+  input: evidence.issuance_session
+  params: { field: fixture_id, value: pid_family_name_trailing_space }
+- id: wallet_retained_no_credential_carrying_the_malformed_status
+  validator: oid4vp.malformed_status_credential_absent
+  input: evidence.probe_exchange
   params:
-    mode: credentials_match
-- id: ws_rp_ms_metadata__086_visual_evidence_stored
+    vct: urn:eudi:pid:1
+    claim: document_number
+    value: CREDIMI-DEMO-SPACE
+    shape: negative_index
+- id: rejection_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

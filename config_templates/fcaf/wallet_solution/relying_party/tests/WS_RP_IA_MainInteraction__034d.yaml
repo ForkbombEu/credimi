@@ -1,0 +1,46 @@
+id: WS_RP_IA_MainInteraction__034d
+title: Disclose one requested property of a selectively disclosable object claim only.
+source:
+  path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__034d.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+  credential_format: ietf_sd_jwt_vc
+normative_references:
+- title: OpenID for Verifiable Presentations 1.0
+  section: '7.1'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- ref: pipeline.interaction.degree-address-property
+evidence:
+  dcql_exchange:
+    from: pipeline.interaction.degree-address-property.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.interaction.degree-address-property.outputs.visual_evidence
+assertions:
+- id: wallet_discloses_only_the_requested_address_property
+  validator: oid4vp.dcql_object_property_filter
+  input: evidence.dcql_exchange
+  params:
+    vct: urn:credimi:degree:1
+    path:
+    - address
+    - street_address
+    required_properties:
+    - street_address
+    forbidden_properties:
+    - locality
+    - postal_code
+    forbidden_claims:
+    - name
+    - degrees
+    - academic_programmes
+    - nationalities
+- id: address_property_presentation_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

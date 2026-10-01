@@ -1,0 +1,48 @@
+id: WS_RP_IA_MainInteraction__034h_UF
+title: Reject a mixed available and unavailable SD-JWT VC claim request.
+source:
+  path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__034h_UF.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+  credential_format: ietf_sd_jwt_vc
+normative_references:
+- title: OpenID for Verifiable Presentations 1.0
+  section: '7.1'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- ref: pipeline.interaction.pid-sdjwt-claim-and-missing
+evidence:
+  dcql_exchange:
+    from: pipeline.interaction.pid-sdjwt-claim-and-missing.outputs.dcql_exchange
+  visual_evidence:
+    from: pipeline.interaction.pid-sdjwt-claim-and-missing.outputs.visual_evidence
+assertions:
+- id: available_and_unavailable_claims_are_requested_together
+  validator: oid4vp.dcql_requested_claim_paths
+  input: evidence.dcql_exchange
+  params:
+    format: dc+sd-jwt
+    paths:
+    - - given_name
+    - - unavailable_claim
+- id: unavailable_claim_is_requested_with_available_claim
+  validator: dcql.response_satisfies_constraints
+  input: evidence.dcql_exchange
+  params:
+    mode: claims_path_no_match
+    expected_claim_path:
+    - unavailable_claim
+- id: wallet_rejects_or_discontinues_the_mixed_claim_request
+  validator: dcql.response_satisfies_constraints
+  input: evidence.dcql_exchange
+  params:
+    mode: request_rejected
+- id: mixed_claim_request_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

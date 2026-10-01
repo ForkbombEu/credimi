@@ -185,22 +185,23 @@ func authenticateAPIKeyByScope(
 			"API key does not have required scope",
 		)
 	}
+	if scope == apiKeyScopeInternalAdmin && !hasSuperuser {
+		return nil, apierror.New(
+			http.StatusForbidden,
+			"request.validation",
+			"insufficient_api_key_scope",
+			"API key does not have required scope",
+		)
+	}
 
 	ownerCollection := userOwnerTable
 	ownerID := userID
 	if scope == apiKeyScopeInternalAdmin {
-		if superuserID != "" {
-			ownerCollection = internalAdminOwnerTable
-			ownerID = superuserID
-		}
+		ownerCollection = internalAdminOwnerTable
+		ownerID = superuserID
 	}
 
 	principal, err := app.FindRecordById(ownerCollection, ownerID)
-	if err != nil {
-		if scope == apiKeyScopeInternalAdmin && userID != "" {
-			principal, err = app.FindRecordById(userOwnerTable, userID)
-		}
-	}
 	if err != nil {
 		return nil, apierror.New(
 			http.StatusInternalServerError,
@@ -208,11 +209,6 @@ func authenticateAPIKeyByScope(
 			"failed_to_find_principal",
 			err.Error(),
 		)
-	}
-	if principal == nil {
-		if scope == apiKeyScopeInternalAdmin && userID != "" {
-			principal, _ = app.FindRecordById(userOwnerTable, userID)
-		}
 	}
 	if principal == nil {
 		return nil, apierror.New(

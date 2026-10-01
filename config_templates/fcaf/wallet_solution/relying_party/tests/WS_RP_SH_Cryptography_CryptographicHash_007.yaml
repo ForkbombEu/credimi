@@ -1,5 +1,5 @@
 id: WS_RP_SH_Cryptography_CryptographicHash_007
-title: FCAF WS_RP_SH_Cryptography_CryptographicHash_007
+title: Present SHA-256-digested credentials to a Verifier that advertises no other hash algorithm.
 source:
   path: Shared/Cryptography/WS_RP_SH_Cryptography_CryptographicHash_007.md
 suite:
@@ -10,22 +10,42 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.cryptography
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '8'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.cryptography.outputs.dcql_exchange
+  sha384_issuance:
+    from: pipeline.cryptography.digest-algorithm.outputs.sha384_selection_issuance
+  sha256_issuance:
+    from: pipeline.cryptography.digest-algorithm.outputs.sha256_selection_issuance
+  request_object:
+    from: pipeline.cryptography.digest-algorithm.outputs.sha256_only_request_object
+  presentation_session:
+    from: pipeline.cryptography.digest-algorithm.outputs.sha256_only_session
   visual_evidence:
-    from: pipeline.dcql.cryptography.outputs.visual_evidence
+    from: pipeline.cryptography.digest-algorithm.outputs.sha256_only_visual_evidence
 assertions:
-- id: ws_rp_sh_cryptography_cryptographichash_007_crypto_verified
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
-  params:
-    field: hash
-- id: ws_rp_sh_cryptography_cryptographichash_007_visual_evidence
+- id: wallet_received_a_sha384_copy_of_the_fixture
+  validator: json.field_equals
+  input: evidence.sha384_issuance
+  params: { field: digest_algorithm, value: sha-384 }
+- id: sha384_copy_was_issued
+  validator: json.field_equals
+  input: evidence.sha384_issuance
+  params: { field: status, value: credential_issued }
+- id: wallet_received_a_sha256_copy_of_the_fixture
+  validator: json.field_equals
+  input: evidence.sha256_issuance
+  params: { field: status, value: credential_issued }
+- id: verifier_client_metadata_names_no_other_hash_algorithm
+  validator: oid4vp.client_metadata_hash_algorithms
+  input: evidence.request_object
+  params: { allowed: [sha-256] }
+- id: vp_token_holds_only_sha256_digested_credentials
+  validator: oid4vp.presented_digest_algorithms
+  input: evidence.presentation_session
+  params: { allowed: [sha-256] }
+- id: presentation_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

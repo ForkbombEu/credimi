@@ -27,28 +27,6 @@ func setupWebPushApp(t testing.TB) *tests.TestApp {
 
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
-
-	subscriptions := core.NewCollection(core.CollectionTypeBase, pushSubscriptionsCollection)
-	subscriptions.Fields.Add(
-		&core.RelationField{
-			Name:          "user",
-			CollectionId:  "_pb_users_auth_",
-			MaxSelect:     1,
-			CascadeDelete: true,
-			Required:      true,
-		},
-		&core.TextField{Name: "endpoint", Required: true},
-		&core.JSONField{Name: "keys", Required: true},
-	)
-	require.NoError(t, app.Save(subscriptions))
-
-	settings := core.NewCollection(core.CollectionTypeBase, webPushSettingsCollection)
-	settings.Fields.Add(
-		&core.TextField{Name: "vapid_public_key", Required: true},
-		&core.TextField{Name: "vapid_private_key", Required: true},
-	)
-	require.NoError(t, app.Save(settings))
-
 	return app
 }
 func firstOrgMember(t testing.TB, app *tests.TestApp) (orgID string, userID string) {
@@ -175,8 +153,13 @@ func TestNotifyPipelineRunCompletionSendsToOrgMembersOnly(t *testing.T) {
 	defer server.Close()
 
 	// The non-member user has no authorization for the organization.
-	createPushSubscription(t, app, memberUserID, server.URL)
-	createPushSubscription(t, app, firstNonMemberUser(t, app, memberUserID), server.URL)
+	createPushSubscription(t, app, memberUserID, server.URL+"/member")
+	createPushSubscription(
+		t,
+		app,
+		firstNonMemberUser(t, app, memberUserID),
+		server.URL+"/non-member",
+	)
 
 	sent, err := NotifyPipelineRunCompletion(context.Background(), app, CompletionRequest{
 		OrgID:        orgID,

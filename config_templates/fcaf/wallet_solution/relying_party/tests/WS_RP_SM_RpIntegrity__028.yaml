@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__028
-title: FCAF WS_RP_SM_RpIntegrity__028
+title: Answer an unsigned presentation request.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__028.md
 suite:
@@ -11,21 +11,30 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- ref: pipeline.wallet.protocol.plain-redirect-uri
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  authorization_request:
+    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.authorization_request
+  wallet_response:
+    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.wallet_response
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__028_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
-  params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__028_visual_evidence
+- id: request_carries_no_signed_request_object
+  validator: json.field_presence
+  input: evidence.authorization_request
+  params: {field: request, present: false}
+- id: request_parameters_are_sent_directly
+  validator: json.field_presence
+  input: evidence.authorization_request
+  params: {field: request_uri, present: false}
+- id: wallet_answers_unsigned_request
+  validator: oid4vp.session_event_count
+  input: evidence.wallet_response
+  params: {type: vp_presentation_response_received, count: 1}
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

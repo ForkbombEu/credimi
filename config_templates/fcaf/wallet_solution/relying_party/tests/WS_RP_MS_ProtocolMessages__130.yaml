@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__130
-title: FCAF WS_RP_MS_ProtocolMessages__130
+title: Use the explicit client metadata encryption algorithm for direct-post responses.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__130.md
 suite:
@@ -13,19 +13,29 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.response-encryption-metadata
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages-130.outputs.dcql_exchange
+  encryption_evidence:
+    from: pipeline.response-encryption-metadata.outputs.replacement_encryption_evidence
+  capture_session:
+    from: pipeline.response-encryption-metadata.outputs.capture_session
   visual_evidence:
-    from: pipeline.dcql.protocol-messages-130.outputs.visual_evidence
+    from: pipeline.response-encryption-metadata.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__130_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: direct_post_jwt_response_is_captured
+  validator: oid4vp.presentation_response_http
+  input: evidence.capture_session
   params:
-    mode: jwe_enc_verified
-- id: ws_rp_ms_protocolmessages__130_visual_evidence_stored
+    method: POST
+    require_response_parameter: true
+- id: replacement_metadata_preserves_key_and_selects_encryption
+  validator: oid4vp.response_encryption
+  input: evidence.encryption_evidence
+  params:
+    expected_enc: A256GCM
+    metadata_enc: A256GCM
+    preserve_generated_jwks: true
+- id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

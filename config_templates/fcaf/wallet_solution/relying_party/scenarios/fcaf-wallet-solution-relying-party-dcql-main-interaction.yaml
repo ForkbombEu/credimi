@@ -3,7 +3,6 @@ runtime:
     fixture:
         issuer_url: https://capture-wallet.credimi.io
         log_checker: capture-wallet
-        verifier_url: https://capture-wallet.credimi.io
     global_device_id: forkbomb-bv-andrea/usb/device
     temporal:
         activity_options:
@@ -30,14 +29,14 @@ steps:
                 nonce: main-interaction
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - id: exercise-wallet
       use: mobile-automation
       with:
@@ -50,7 +49,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     - id: main-interaction-019-create-presentation
       use: http-request
       with:
@@ -75,7 +74,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-dcql-claim-sets
             response_type: vp_token
         expected_status: 201
@@ -86,35 +85,9 @@ steps:
     - id: main-interaction-019-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: false
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - openLink:
-                link: ${env.DEEPLINK}
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - takeScreenshot: fcaf-dcql-claim-sets
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ main-interaction-019-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ main-interaction-019-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: main-interaction-019-fetch-capture-session
       use: http-request
@@ -146,7 +119,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-020
             response_type: vp_token
         expected_status: 201
@@ -157,47 +130,9 @@ steps:
     - id: main-interaction-020-present-second-preferred-option
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${env.DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Welcome back|DATA SHARING REQUEST"
-                timeout: 100000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,39%"
-                  - inputText: "123456"
-                  - tapOn:
-                      point: "50%,10%"
-            - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
-                timeout: 100000
-            - tapOn: "Share"
-            - extendedWaitUntil:
-                visible: "PIN"
-                timeout: 30000
-            - tapOn:
-                point: "11%,39%"
-            - inputText: "123456"
-            - tapOn:
-                point: "50%,10%"
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*"
-                timeout: 30000
-            - takeScreenshot: fcaf-ia-020
-            - tapOn: "Close"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ main-interaction-020-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ main-interaction-020-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: main-interaction-020-fetch-result
       use: http-request
@@ -217,7 +152,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-022
             response_type: vp_token
         expected_status: 201
@@ -228,22 +163,9 @@ steps:
     - id: main-interaction-022-reject-claim-sets-without-claims
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${env.DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Error|invalid request|Something went wrong|Home|Documents"
-                timeout: 100000
-            - takeScreenshot: fcaf-ia-022
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ main-interaction-022-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ main-interaction-022-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: main-interaction-022-fetch-result
       use: http-request
@@ -276,7 +198,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-025
             response_type: vp_token
         expected_status: 201
@@ -294,11 +216,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - takeScreenshot: fcaf-ia-025
@@ -326,7 +248,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-026
             response_type: vp_token
         expected_status: 201
@@ -344,11 +266,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|Home|Documents|No matching"
+                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-026
         parameters:
@@ -377,7 +299,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-ia-027
             response_type: vp_token
         expected_status: 201
@@ -395,11 +317,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|Home|Documents|No matching"
+                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-027
         parameters:
@@ -421,7 +343,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ main-interaction-028-create-pid-mdoc-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - id: main-interaction-028-create-presentation
       use: http-request
       with:
@@ -445,7 +367,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-028-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - id: main-interaction-028-fetch-result
       use: http-request
       with:
@@ -462,7 +384,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ main-interaction-029-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - id: main-interaction-029-create-presentation
       use: http-request
       with:
@@ -499,7 +421,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-029-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - id: main-interaction-029-fetch-result
       use: http-request
       with:
@@ -534,7 +456,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-043-create-optional-no-match-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - id: main-interaction-043-fetch-optional-no-match-result
       use: http-request
       with:
@@ -551,7 +473,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ main-interaction-030-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - id: main-interaction-030-create-presentation
       use: http-request
       with:
@@ -584,7 +506,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-030-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - id: main-interaction-030-fetch-result
       use: http-request
       with:
@@ -601,7 +523,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ main-interaction-031-create-pid-sdjwt-offer.outputs }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - id: main-interaction-031-create-presentation
       use: http-request
       with:
@@ -635,7 +557,7 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ main-interaction-031-create-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - id: main-interaction-031-fetch-result
       use: http-request
       with:
@@ -668,7 +590,7 @@ steps:
                 nonce: fcaf-main-interaction-039
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
@@ -695,6 +617,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
             - runFlow:
@@ -705,7 +628,7 @@ steps:
                 when: { visible: "Just once" }
                 commands:
                   - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+            - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
             - takeScreenshot: fcaf-main-interaction-039-two-credentials
@@ -713,12 +636,13 @@ steps:
             - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
             - tapOn: { point: "11%,39%" }
             - inputText: "123456"
+            - hideKeyboard
             - tapOn: { point: "50%,10%" }
             - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
             - tapOn: "Close"
         parameters:
             DEEPLINK: ${{ main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-06-38-demo
+        version_id: installed_from_external_source
     - id: main-interaction-039-fetch-two-credentials-result
       use: http-request
       with:
@@ -805,29 +729,14 @@ steps:
             - WS_RP_IA_MainInteraction__029
             - WS_RP_IA_MainInteraction__030
             - WS_RP_IA_MainInteraction__031
-            - WS_RP_IA_MainInteraction__032
-            - WS_RP_IA_MainInteraction__033
             - WS_RP_IA_MainInteraction__034
             - WS_RP_IA_MainInteraction__035
             - WS_RP_IA_MainInteraction__036
             - WS_RP_IA_MainInteraction__037
             - WS_RP_IA_MainInteraction__038
             - WS_RP_IA_MainInteraction__039
-            - WS_RP_IA_MainInteraction__040
-            - WS_RP_IA_MainInteraction__041
             - WS_RP_IA_MainInteraction__042
             - WS_RP_IA_MainInteraction__043
             - WS_RP_IA_MainInteraction__046
-            - WS_RP_IA_MainInteraction__049
-            - WS_RP_IA_MainInteraction__052
-            - WS_RP_IA_MainInteraction__053
-            - WS_RP_IA_MainInteraction__054
-            - WS_RP_IA_MainInteraction__055
-            - WS_RP_IA_MainInteraction__056
-            - WS_RP_IA_MainInteraction__057
             - WS_RP_IA_MainInteraction__060
-            - WS_RP_IA_MainInteraction__061
-            - WS_RP_IA_MainInteraction__064
             - WS_RP_IA_MainInteraction__065
-            - WS_RP_IA_MainInteraction__066
-            - WS_RP_IA_MainInteraction__067

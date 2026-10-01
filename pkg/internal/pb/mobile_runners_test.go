@@ -47,7 +47,6 @@ func TestRegisterMobileRunnerHooksDeletesRunnerByShuttingDownSemaphore(t *testin
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
-	ensureMobileDevicesCollection(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	RegisterMobileRunnerHooks(app)
 
@@ -70,7 +69,6 @@ func TestRegisterMobileRunnerHooksIgnoresMissingSemaphore(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
-	ensureMobileDevicesCollection(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	RegisterMobileRunnerHooks(app)
 
@@ -83,7 +81,6 @@ func TestRegisterMobileDeviceHooksContinuesToCanonifyCreate(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
-	ensureMobileDevicesCollection(t, app)
 	canonify.RegisterCanonifyHooks(app)
 	RegisterMobileDeviceHooks(app)
 
@@ -94,37 +91,9 @@ func TestRegisterMobileDeviceHooksContinuesToCanonifyCreate(t *testing.T) {
 	device.Set("owner", runner.GetString("owner"))
 	device.Set("runner", runner.Id)
 	device.Set("name", "Android Emulator")
+	device.Set("type", "android_emulator")
 	require.NoError(t, app.Save(device))
 	require.Equal(t, "android-emulator", device.GetString("canonified_name"))
-}
-
-func ensureMobileDevicesCollection(t *testing.T, app core.App) {
-	t.Helper()
-	if _, err := app.FindCollectionByNameOrId("mobile_devices"); err == nil {
-		return
-	}
-
-	collection := core.NewBaseCollection("mobile_devices")
-	collection.Fields.Add(
-		&core.RelationField{
-			Name:         "owner",
-			CollectionId: "aako88kt3br4npt",
-			MaxSelect:    1,
-			Required:     true,
-		},
-	)
-	collection.Fields.Add(
-		&core.RelationField{
-			Name:          "runner",
-			CollectionId:  "pbc_500646217",
-			MaxSelect:     1,
-			Required:      true,
-			CascadeDelete: true,
-		},
-	)
-	collection.Fields.Add(&core.TextField{Name: "name", Required: true})
-	collection.Fields.Add(&core.TextField{Name: "canonified_name", Required: true})
-	require.NoError(t, app.Save(collection))
 }
 
 func createMobileDeviceRecordForDeleteTest(
@@ -141,6 +110,7 @@ func createMobileDeviceRecordForDeleteTest(
 	record.Set("runner", runner.Id)
 	record.Set("name", name)
 	record.Set("canonified_name", name)
+	record.Set("type", "android_emulator")
 	require.NoError(t, app.Save(record))
 }
 

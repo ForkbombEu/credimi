@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -284,6 +285,16 @@ func (JWTPayloadObjectKeysAllowedValidator) ID() string {
 	return "jwt.payload_object_keys_allowed"
 }
 
+type JWTHeaderFieldPresenceValidator struct{}
+
+func (JWTHeaderFieldPresenceValidator) ID() string {
+	return "jwt.header_field_presence"
+}
+
+func (JWTHeaderFieldPresenceValidator) Validate(_ context.Context, input Input) Result {
+	return validateJWTFieldPresence(input, 0, "header")
+}
+
 type JWTPayloadFieldPresenceValidator struct{}
 
 func (JWTPayloadFieldPresenceValidator) ID() string {
@@ -291,6 +302,10 @@ func (JWTPayloadFieldPresenceValidator) ID() string {
 }
 
 func (JWTPayloadFieldPresenceValidator) Validate(_ context.Context, input Input) Result {
+	return validateJWTFieldPresence(input, 1, "payload")
+}
+
+func validateJWTFieldPresence(input Input, partIndex int, partName string) Result {
 	params, err := DecodeParams[struct {
 		Field   string `json:"field"`
 		Present bool   `json:"present"`
@@ -304,11 +319,11 @@ func (JWTPayloadFieldPresenceValidator) Validate(_ context.Context, input Input)
 	if _, ok := input.Params["present"]; !ok {
 		return Result{Status: StatusError, Message: "present param is required"}
 	}
-	payload, err := compactJWTPart(input.Value, 1)
+	part, err := compactJWTPart(input.Value, partIndex)
 	if err != nil {
 		return Result{Status: StatusFail, Message: err.Error()}
 	}
-	_, exists := payload[params.Field]
+	_, exists := part[params.Field]
 	if exists != params.Present {
 		expectation := "absent"
 		if params.Present {
@@ -316,7 +331,7 @@ func (JWTPayloadFieldPresenceValidator) Validate(_ context.Context, input Input)
 		}
 		return Result{
 			Status:  StatusFail,
-			Message: fmt.Sprintf("JWT payload field %q is not %s", params.Field, expectation),
+			Message: fmt.Sprintf("JWT %s field %q is not %s", partName, params.Field, expectation),
 		}
 	}
 	expectation := "absent"
@@ -325,7 +340,56 @@ func (JWTPayloadFieldPresenceValidator) Validate(_ context.Context, input Input)
 	}
 	return Result{
 		Status:  StatusPass,
-		Message: fmt.Sprintf("JWT payload field %q is %s", params.Field, expectation),
+		Message: fmt.Sprintf("JWT %s field %q is %s", partName, params.Field, expectation),
+	}
+}
+
+type JWTPayloadFieldsDifferValidator struct{}
+
+func (JWTPayloadFieldsDifferValidator) ID() string {
+	return "jwt.payload_fields_differ"
+}
+
+func (JWTPayloadFieldsDifferValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		First  string `json:"first"`
+		Second string `json:"second"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.First == "" || params.Second == "" {
+		return Result{Status: StatusError, Message: "first and second params are required"}
+	}
+	payload, err := compactJWTPart(input.Value, 1)
+	if err != nil {
+		return Result{Status: StatusFail, Message: err.Error()}
+	}
+	first, firstExists := payload[params.First]
+	second, secondExists := payload[params.Second]
+	if !firstExists || !secondExists {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"JWT payload fields %q and %q must both be present",
+				params.First,
+				params.Second,
+			),
+		}
+	}
+	if reflect.DeepEqual(first, second) {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"JWT payload fields %q and %q are equal",
+				params.First,
+				params.Second,
+			),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("JWT payload fields %q and %q differ", params.First, params.Second),
 	}
 }
 
@@ -517,7 +581,49 @@ func (JOSEJWSSignedRequestValidator) Validate(_ context.Context, input Input) Re
 			Message: fmt.Sprintf("input is %T, expected compact JWS", input.Value),
 		}
 	}
+	if err := verifyJWSRequest(token); err != nil {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("signed request verification failed: %v", err),
+		}
+	}
+	return Result{Status: StatusPass, Message: "signed request JWS signature is valid"}
+}
 
+type JOSEJWSInvalidSignatureValidator struct{}
+
+func (JOSEJWSInvalidSignatureValidator) ID() string {
+	return "jose.jws_invalid_signature"
+}
+
+func (JOSEJWSInvalidSignatureValidator) Validate(_ context.Context, input Input) Result {
+	token, ok := input.Value.(string)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("input is %T, expected compact JWS", input.Value),
+		}
+	}
+	err := verifyJWSRequest(token)
+	if err == nil {
+		return Result{Status: StatusFail, Message: "signed request JWS signature is valid"}
+	}
+	if !errors.Is(err, jwt.ErrTokenSignatureInvalid) {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"signed request is invalid for a reason other than its signature: %v",
+				err,
+			),
+		}
+	}
+	return Result{Status: StatusPass, Message: "signed request JWS signature is invalid"}
+}
+
+// verifyJWSRequest checks only the signature against the x5c leaf key. Time
+// claims are skipped: validation runs on captured evidence after the Request
+// Object's short exp has passed.
+func verifyJWSRequest(token string) error {
 	_, err := jwt.Parse(token, func(parsed *jwt.Token) (any, error) {
 		x5c, ok := parsed.Header["x5c"].([]any)
 		if !ok || len(x5c) == 0 {
@@ -536,15 +642,8 @@ func (JOSEJWSSignedRequestValidator) Validate(_ context.Context, input Input) Re
 			return nil, fmt.Errorf("parse JWS x5c leaf certificate: %w", err)
 		}
 		return certificate.PublicKey, nil
-	})
-	if err != nil {
-		return Result{
-			Status:  StatusFail,
-			Message: fmt.Sprintf("signed request verification failed: %v", err),
-		}
-	}
-
-	return Result{Status: StatusPass, Message: "signed request JWS signature is valid"}
+	}, jwt.WithoutClaimsValidation())
+	return err
 }
 
 type JOSEJWEEncryptedResponseValidator struct{}
@@ -636,4 +735,146 @@ func hasAnyKey(object map[string]any, keys ...string) bool {
 		}
 	}
 	return false
+}
+
+// OID4VPNoPresentationValidator fails when a Verifier session shows that the
+// Wallet answered an Authorization Request with a presentation. FCAF negative
+// tests require the Wallet to reject the request instead, so any Authorization
+// Response, valid or not, is a failure of the test's normative requirement.
+type OID4VPNoPresentationValidator struct{}
+
+func (OID4VPNoPresentationValidator) ID() string {
+	return "oid4vp.no_presentation_returned"
+}
+
+func (OID4VPNoPresentationValidator) Validate(_ context.Context, input Input) Result {
+	session, ok := input.Value.(map[string]any)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("session evidence is %T, expected object", input.Value),
+		}
+	}
+	if _, submitted := session["decoded_presentations"]; submitted {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet returned a presentation for a request it had to reject",
+		}
+	}
+	if checks, ok := session["checks"].(map[string]any); ok {
+		if valid, recorded := checks["presentation_valid"]; recorded && valid != nil {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"wallet submitted an authorization response (presentation_valid=%v) for a request it had to reject",
+					valid,
+				),
+			}
+		}
+	}
+	status, _ := session["status"].(string)
+	switch status {
+	case "presentation_validated", "presentation_invalid":
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"verifier session reached %q, so the wallet did not reject the request",
+				status,
+			),
+		}
+	case "":
+		return Result{Status: StatusFail, Message: "session evidence does not contain status"}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("wallet returned no presentation; session stopped at %q", status),
+	}
+}
+
+// SDJWTPresentationDigestAlgorithmValidator decides a source test whose
+// requirement is conditional on the Wallet's supported hash functions: the
+// Wallet must not present a credential digested with an algorithm it does not
+// support. A Wallet that presents it has demonstrated support, which puts it
+// outside the source's profile applicability instead of in breach of it, so
+// that case is reported as not applicable rather than as a failure.
+type SDJWTPresentationDigestAlgorithmValidator struct{}
+
+func (SDJWTPresentationDigestAlgorithmValidator) ID() string {
+	return "sdjwt.presentation_digest_algorithm_unsupported"
+}
+
+func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		DigestAlgorithm string `json:"digest_algorithm"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.DigestAlgorithm == "" {
+		return Result{Status: StatusError, Message: "digest_algorithm param is required"}
+	}
+	session, ok := input.Value.(map[string]any)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("session evidence is %T, expected object", input.Value),
+		}
+	}
+	if _, recorded := session["status"]; !recorded {
+		return Result{Status: StatusFail, Message: "session evidence does not contain status"}
+	}
+	decoded, present := session["decoded_presentations"].(map[string]any)
+	if !present {
+		return Result{
+			Status: StatusPass,
+			Message: fmt.Sprintf(
+				"wallet returned no presentation digested with %q",
+				params.DigestAlgorithm,
+			),
+		}
+	}
+	for queryID, raw := range decoded {
+		entries, ok := raw.([]any)
+		if !ok {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"decoded_presentations[%q] is %T, expected array",
+					queryID,
+					raw,
+				),
+			}
+		}
+		for index, entry := range entries {
+			presentation, ok := entry.(map[string]any)
+			if !ok {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"decoded_presentations[%q][%d] is %T, expected object",
+						queryID,
+						index,
+						entry,
+					),
+				}
+			}
+			algorithm, _ := presentation["digest_algorithm"].(string)
+			if algorithm == params.DigestAlgorithm {
+				return Result{
+					Status: StatusNotApplicable,
+					Message: fmt.Sprintf(
+						"wallet presented a credential digested with %q, so it supports that hash function and the source's profile applicability does not hold",
+						params.DigestAlgorithm,
+					),
+				}
+			}
+		}
+	}
+	return Result{
+		Status: StatusPass,
+		Message: fmt.Sprintf(
+			"wallet returned no presentation digested with %q",
+			params.DigestAlgorithm,
+		),
+	}
 }

@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__107
-title: FCAF WS_RP_MS_Metadata__107
+title: Send full wallet_metadata to a POST Request URI without client_metadata
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__107.md
 suite:
@@ -11,21 +11,49 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.10'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.metadata
+- title: OpenID for Verifiable Presentations 1.0
+  section: '5.1'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.metadata.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
+  session: { from: pipeline.protocol.metadata-request-controls.outputs.default_post_retrieval_session }
+  outer_request: { from: pipeline.protocol.metadata-request-controls.outputs.default_post_retrieval_outer_request }
+  request_uri_payload: { from: pipeline.protocol.metadata-request-controls.outputs.default_post_retrieval_request_uri_payload }
+  visual_evidence: { from: pipeline.protocol.metadata-request-controls.outputs.default_post_retrieval_visual_evidence }
 assertions:
-- id: ws_rp_ms_metadata__107_dcql_metadata_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: authorization_request_asks_for_post_retrieval
+  validator: json.field_equals
+  input: evidence.outer_request
+  params: { field: request_uri_method, value: post }
+- id: authorization_request_carries_no_client_metadata
+  validator: json.field_presence
+  input: evidence.outer_request
+  params: { field: client_metadata, present: false }
+- id: wallet_retrieves_request_object_with_post
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
+  params: { method: POST }
+- id: wallet_posts_its_supported_capabilities
+  validator: oid4vp.wallet_metadata
+  input: evidence.request_uri_payload
   params:
-    mode: credentials_match
-- id: ws_rp_ms_metadata__107_visual_evidence_stored
+    present:
+    - vp_formats_supported
+    - response_types_supported
+    - response_modes_supported
+- id: wallet_submitted_the_authorization_response
+  validator: oid4vp.presentation_response_http
+  input: evidence.session
+  params:
+    method: POST
+    media_type: application/x-www-form-urlencoded
+    require_response_parameter: true
+- id: wallet_returned_the_requested_credential
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params: { mode: credentials_match }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

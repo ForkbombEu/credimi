@@ -1,0 +1,43 @@
+id: WS_RP_SM_SessionEncryption__001f
+title: Encrypt the Authorization Response as an unsigned JWT carrying a JSON object.
+source:
+  path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__001f.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: security_mechanisms.session_encryption
+applicability:
+  profile: EUDI_generic
+  presentation_flow: redirects
+normative_references:
+- title: OpenID for Verifiable Presentations 1.0
+  section: '8.3'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: JSON Web Token (JWT)
+  section: '5.2'
+  url: https://www.rfc-editor.org/rfc/rfc7519
+- ref: pipeline.dcql.session-encryption
+evidence:
+  encrypted_response:
+    from: pipeline.dcql.session-encryption.outputs.encrypted_response
+  decrypted_response:
+    from: pipeline.dcql.session-encryption.outputs.decrypted_response
+  visual_evidence:
+    from: pipeline.dcql.session-encryption.outputs.visual_evidence
+assertions:
+- id: encrypted_response_carries_no_nested_signature
+  validator: jose.jwe_protected_header
+  input: evidence.encrypted_response
+  params:
+    field: cty
+    present: false
+- id: decrypted_response_is_a_json_object_carrying_vp_token
+  validator: json.field_required
+  input: evidence.decrypted_response
+  params:
+    field: vp_token
+- id: encrypted_response_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass
