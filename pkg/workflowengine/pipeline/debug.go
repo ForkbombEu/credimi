@@ -52,11 +52,12 @@ func (a *DebugActivity) Execute(
 	}, nil
 }
 
+// runDebugActivity records stepOutput, the finalOutput entry of the step being debugged.
 func runDebugActivity(
 	ctx workflow.Context,
 	logger log.Logger,
 	stepID string,
-	finalOutput map[string]any,
+	stepOutput any,
 	input any,
 ) {
 	debugAO := workflow.ActivityOptions{
@@ -70,7 +71,7 @@ func runDebugActivity(
 	debugInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
 			"step":    stepID,
-			"outputs": finalOutput,
+			"outputs": stepOutput,
 			"inputs":  input,
 		},
 	}

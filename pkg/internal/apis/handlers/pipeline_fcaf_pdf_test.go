@@ -5,7 +5,9 @@
 package handlers
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -59,6 +61,7 @@ func TestUpdatePipelineExecutionFCAFReportStoresJSONAndPDF(t *testing.T) {
 	reportJSON, err := json.Marshal(report)
 	require.NoError(t, err)
 
+	var response map[string]any
 	baseRouter, err := apis.NewRouter(app)
 	require.NoError(t, err)
 	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
@@ -79,6 +82,7 @@ func TestUpdatePipelineExecutionFCAFReportStoresJSONAndPDF(t *testing.T) {
 		request.Header.Set("Credimi-Api-Key", "internal-test-api-key")
 		mux.ServeHTTP(recorder, request)
 		require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+		require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 		return nil
 	}))
 
@@ -108,6 +112,8 @@ func TestUpdatePipelineExecutionFCAFReportStoresJSONAndPDF(t *testing.T) {
 	defer jsonReader.Close()
 	enrichedJSON, err := io.ReadAll(jsonReader)
 	require.NoError(t, err)
+	storedSum := sha256.Sum256(enrichedJSON)
+	require.Equal(t, hex.EncodeToString(storedSum[:]), response["fcaf_report_sha256"])
 	var enrichedReport engine.Report
 	require.NoError(t, json.Unmarshal(enrichedJSON, &enrichedReport))
 	require.NotNil(t, enrichedReport.Presentation)

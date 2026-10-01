@@ -7,12 +7,10 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/temporal"
@@ -52,25 +50,29 @@ func PipelineReportCleanupHook(
 	}
 	cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
 
-	reportActivity := activities.NewPipelineReportGenerationActivity()
 	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
 	reportReq := workflowengine.ActivityInput{
 		Payload: activities.PipelineReportGenerationInput{
-			WorkflowDefinition: wfDef,
-			PipelineOutput:     copyStringAnyMap(finalOutput),
-			Evidence:           evidence,
+			Namespace:          workflow.GetInfo(ctx).Namespace,
 			WorkflowID:         workflowID,
 			RunID:              runID,
+			AppURL:             workflowengine.InternalAppURLFromConfig(config),
+			PipelineOutputMeta: pipelineOutputMeta(*finalOutput, wfDef),
+			Evidence:           evidence,
 		},
 	}
 
+	// The activity reads the run's history, generates the report and stores it.
 	reportCtx := workflow.WithActivityOptions(
 		cleanupCtx,
-		evidenceActivityOptions(&baseAO, 2*time.Minute, 1),
+		evidenceActivityOptions(&baseAO, 5*time.Minute, 1),
 	)
 	var reportResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(reportCtx, reportActivity.Name(), reportReq).
-		Get(reportCtx, &reportResult); err != nil {
+	if err := workflow.ExecuteActivity(
+		reportCtx,
+		activities.PipelineReportGenerationActivityName,
+		reportReq,
+	).Get(reportCtx, &reportResult); err != nil {
 		if temporal.IsCanceledError(err) {
 			return err
 		}
@@ -89,110 +91,26 @@ func PipelineReportCleanupHook(
 	for _, warning := range reportOutput.Warnings {
 		appendCleanupWarning(finalOutput, warning)
 	}
-	if strings.TrimSpace(reportOutput.Markdown) == "" {
-		return nil
-	}
-	if workflowID == "" || runID == "" {
-		appendCleanupWarning(
-			finalOutput,
-			"pipeline report storage skipped: missing workflow_id or run_id",
-		)
-		return nil
-	}
-
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	updateReq := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				appURL,
-				"api",
-				"pipeline",
-				"pipeline-execution-results",
-				"report",
-			),
-			ExpectedStatus: http.StatusOK,
-			Timeout:        "30",
-			Body: map[string]any{
-				"workflow_id": workflowID,
-				"run_id":      runID,
-				"filename":    reportOutput.Filename,
-				"markdown":    reportOutput.Markdown,
-			},
-		},
-	}
-
-	updateCtx := workflow.WithActivityOptions(
-		cleanupCtx,
-		evidenceActivityOptions(&baseAO, 2*time.Minute, 5),
-	)
-	var updateResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(updateCtx, internalHTTPActivity.Name(), updateReq).
-		Get(updateCtx, &updateResult); err != nil {
-		if temporal.IsCanceledError(err) {
-			return err
-		}
-		appendCleanupWarning(finalOutput, fmt.Sprintf("pipeline report storage failed: %v", err))
-	}
-
-	if fcafReport, ok := findFCAFReport(*finalOutput); ok {
-		data, err := json.MarshalIndent(fcafReport, "", "  ")
-		if err != nil {
-			appendCleanupWarning(finalOutput, fmt.Sprintf("FCAF report encoding failed: %v", err))
-			return nil
-		}
-		fcafReq := workflowengine.ActivityInput{
-			Payload: activities.InternalHTTPActivityPayload{
-				Method: http.MethodPost,
-				URL: utils.JoinURL(
-					appURL,
-					"api",
-					"pipeline",
-					"pipeline-execution-results",
-					"fcaf-report",
-				),
-				ExpectedStatus: http.StatusOK,
-				Timeout:        "30",
-				Body: map[string]any{
-					"workflow_id": workflowID,
-					"run_id":      runID,
-					"json":        string(data),
-				},
-			},
-		}
-		if err := workflow.ExecuteActivity(updateCtx, internalHTTPActivity.Name(), fcafReq).
-			Get(updateCtx, &updateResult); err != nil {
-			if temporal.IsCanceledError(err) {
-				return err
-			}
-			appendCleanupWarning(finalOutput, fmt.Sprintf("FCAF report storage failed: %v", err))
-		}
-	}
-
 	return nil
 }
 
-func findFCAFReport(value any) (map[string]any, bool) {
-	switch value := value.(type) {
-	case map[string]any:
-		if _, hasTests := value["executed_tests"]; hasTests {
-			if _, hasSummary := value["summary"]; hasSummary {
-				return value, true
-			}
-		}
-		for _, child := range value {
-			if report, ok := findFCAFReport(child); ok {
-				return report, true
-			}
-		}
-	case []any:
-		for _, child := range value {
-			if report, ok := findFCAFReport(child); ok {
-				return report, true
-			}
+// pipelineOutputMeta returns the finalOutput entries that are not main step outputs. Step
+// outputs are recorded in history; these entries exist only in the workflow's memory.
+func pipelineOutputMeta(
+	finalOutput map[string]any,
+	wfDef *pipelineinternal.WorkflowDefinition,
+) map[string]any {
+	mainStepIDs := make(map[string]struct{}, len(wfDef.Steps))
+	for _, step := range wfDef.Steps {
+		mainStepIDs[step.ID] = struct{}{}
+	}
+	meta := make(map[string]any)
+	for key, value := range finalOutput {
+		if _, isStep := mainStepIDs[key]; !isStep {
+			meta[key] = value
 		}
 	}
-	return nil, false
+	return meta
 }
 
 func pipelineEvidenceFromRunData(raw any) (activities.PipelineEvidenceExtractionOutput, bool) {
@@ -247,17 +165,6 @@ func pipelineWorkflowIDs(ctx workflow.Context, finalOutput *map[string]any) (str
 		}
 	}
 	return workflowID, runID
-}
-
-func copyStringAnyMap(value *map[string]any) map[string]any {
-	if value == nil || *value == nil {
-		return map[string]any{}
-	}
-	out := make(map[string]any, len(*value))
-	for k, v := range *value {
-		out[k] = v
-	}
-	return out
 }
 
 func stringFinalOutputValue(finalOutput *map[string]any, key string) string {

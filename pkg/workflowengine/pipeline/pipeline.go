@@ -6,6 +6,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -41,12 +42,21 @@ type PipelineWorkflowInput struct {
 
 	Debug         bool           `yaml:"debug,omitempty"           json:"debug,omitempty"`
 	ParentRunData map[string]any `yaml:"parent_run_data,omitempty" json:"parent_run_data,omitempty"`
+	// ReturnOutputs lists the main step outputs the caller references, so the run returns
+	// them in its result. Nil, as for a top-level run, returns no step outputs;
+	// pipeline.AllStepOutputs returns all of them.
+	ReturnOutputs []string `yaml:"return_outputs,omitempty" json:"return_outputs,omitempty"`
 }
 
 type pipelineExecutionState struct {
-	failures       []pipelineStepFailure
-	finalOutput    map[string]any
+	failures    []pipelineStepFailure
+	finalOutput map[string]any
+	// resultOutput is the output recorded in the workflow result or failure details. It is
+	// filled from finalOutput after cleanup hooks and finally steps have run.
+	resultOutput   map[string]any
 	previousStepID string
+	// failedSteps holds the main steps that failed and let the pipeline continue.
+	failedSteps map[string]struct{}
 }
 
 func NewPipelineWorkflow() *PipelineWorkflow {
@@ -88,6 +98,9 @@ func (w *PipelineWorkflow) Workflow(
 	if config == nil {
 		config = map[string]any{}
 	}
+	// A child pipeline's step_id identifies it in the parent's history only; its own
+	// steps receive their own step IDs.
+	delete(config, workflowengine.StepIDConfigKey)
 	debug := input.Debug
 
 	cleanupErrors := []error{}
@@ -147,9 +160,14 @@ func (w *PipelineWorkflow) Workflow(
 	if err := ValidateFinallySteps(wfDef.Finally); err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
+	if err := pipeline.ValidateStepIDs(wfDef); err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+	}
 
 	state := &pipelineExecutionState{
-		finalOutput: map[string]any{},
+		finalOutput:  map[string]any{},
+		resultOutput: map[string]any{},
+		failedSteps:  map[string]struct{}{},
 	}
 	if hasMobileAutomationStep(wfDef.Steps) {
 		state.finalOutput["result_video_warning"] = "Video recordings are limited to 30 minutes. " +
@@ -226,6 +244,7 @@ func (w *PipelineWorkflow) Workflow(
 			state.finalOutput["finally_errors"] = finallyErrorStrs
 			logger.Warn("Finally steps failed", "errors", finallyErrorStrs)
 		}
+		fillPipelineResultOutput(state.resultOutput, state.finalOutput, wfDef, input.ReturnOutputs)
 	}()
 
 	if err := runSetupHooks(ctx, wfDef, config, &runData, &state.finalOutput, logger); err != nil {
@@ -255,11 +274,11 @@ func (w *PipelineWorkflow) Workflow(
 				WorkflowID:    workflowID,
 				WorkflowRunID: runID,
 				Errors:        buildPipelineFailureErrors(state.failures),
-				Output:        state.finalOutput,
+				Output:        state.resultOutput,
 			}
 			return result, nil
 		}
-		finalErr = newPipelineExecutionError(state.failures, state.finalOutput, runMetadata)
+		finalErr = newPipelineExecutionError(state.failures, state.resultOutput, runMetadata)
 		result = workflowengine.WorkflowResult{}
 		return result, finalErr
 	}
@@ -271,7 +290,7 @@ func (w *PipelineWorkflow) Workflow(
 			Summary: fmt.Sprintf("workflow completed with %d cleanup errors", len(cleanupErrors)),
 			Details: map[string]any{
 				"errors": buildPipelineCleanupFailureErrors(cleanupErrors),
-				"output": state.finalOutput,
+				"output": state.resultOutput,
 			},
 		})
 
@@ -286,9 +305,33 @@ func (w *PipelineWorkflow) Workflow(
 	result = workflowengine.WorkflowResult{
 		WorkflowID:    workflowID,
 		WorkflowRunID: runID,
-		Output:        state.finalOutput,
+		Output:        state.resultOutput,
 	}
 	return result, finalErr
+}
+
+// fillPipelineResultOutput copies into result the finalOutput entries the run returns: every
+// entry that is not a main step output, and the main step outputs listed in returnOutputs.
+// Step outputs are recorded in history already, so only callers that reference them get a
+// copy.
+func fillPipelineResultOutput(
+	result map[string]any,
+	finalOutput map[string]any,
+	wfDef *pipeline.WorkflowDefinition,
+	returnOutputs []string,
+) {
+	mainStepIDs := make(map[string]struct{}, len(wfDef.Steps))
+	for _, step := range wfDef.Steps {
+		mainStepIDs[step.ID] = struct{}{}
+	}
+	returnAll := slices.Contains(returnOutputs, pipeline.AllStepOutputs)
+	for key, value := range finalOutput {
+		if _, isStep := mainStepIDs[key]; isStep && !returnAll &&
+			!slices.Contains(returnOutputs, key) {
+			continue
+		}
+		result[key] = value
+	}
 }
 
 func pipelineFinalResult(ctx workflow.Context, finalErr error) string {
@@ -408,7 +451,7 @@ func (w *PipelineWorkflow) executeStep(
 			ctx,
 			logger,
 			state.previousStepID,
-			state.finalOutput,
+			state.finalOutput[state.previousStepID],
 			input.WorkflowInput.Payload,
 		)
 		return ao, nil
@@ -556,7 +599,37 @@ func (w *PipelineWorkflow) executeChildPipelineStep(
 		pipelineURL,
 		len(state.failures) > 0,
 	)
-	childOut, err := runChildPipeline(ctx, step, input, w.Name(), stepInputs, runMetadata)
+	returnOutputs := pipeline.ReferencedStepOutputs(input.WorkflowDefinition, step.ID)
+	if slices.Contains(input.ReturnOutputs, pipeline.AllStepOutputs) ||
+		slices.Contains(input.ReturnOutputs, step.ID) {
+		// This run's caller needs this step's outputs whole.
+		returnOutputs = []string{pipeline.AllStepOutputs}
+	}
+	if depErr := failedDependencyError(step, state.failedSteps); depErr != nil {
+		return handleChildPipelineStepError(
+			ctx,
+			step,
+			payload,
+			nil,
+			depErr,
+			ao,
+			config,
+			runMetadata,
+			state,
+			logger,
+			pipelineName,
+			pipelineURL,
+		)
+	}
+	childOut, err := runChildPipeline(
+		ctx,
+		step,
+		input,
+		w.Name(),
+		stepInputs,
+		runMetadata,
+		returnOutputs,
+	)
 	if err != nil {
 		return handleChildPipelineStepError(
 			ctx,
@@ -633,6 +706,7 @@ func handleChildPipelineStepError(
 	)
 	if step.ContinueOnError {
 		state.failures = append(state.failures, newPipelineStepFailure(step.ID, err))
+		state.failedSteps[step.ID] = struct{}{}
 		if out := workflowengine.ExtractOutputFromError(err); out != nil {
 			childOut = out
 		}
@@ -662,7 +736,7 @@ func handleChildPipelineStepError(
 	)
 
 	failures := prependPipelineStepFailure(newPipelineStepFailure(step.ID, err), state.failures)
-	return newPipelineExecutionError(failures, state.finalOutput, runMetadata)
+	return newPipelineExecutionError(failures, state.resultOutput, runMetadata)
 }
 
 func (w *PipelineWorkflow) executeRegularStep(
@@ -692,6 +766,22 @@ func (w *PipelineWorkflow) executeRegularStep(
 		len(state.failures) > 0,
 	)
 
+	if depErr := failedDependencyError(step, state.failedSteps); depErr != nil {
+		return ao, handleRegularStepError(
+			ctx,
+			step,
+			payload,
+			nil,
+			depErr,
+			ao,
+			config,
+			runMetadata,
+			state,
+			logger,
+			pipelineName,
+			pipelineURL,
+		)
+	}
 	stepOutput, err := Execute(&step, ctx, config, enrichedStepInputs, ao)
 	if err != nil {
 		if stepOutput != nil {
@@ -733,7 +823,13 @@ func (w *PipelineWorkflow) executeRegularStep(
 		logger,
 	)
 	if debug {
-		runDebugActivity(ctx, logger, step.ID, state.finalOutput, input.WorkflowInput.Payload)
+		runDebugActivity(
+			ctx,
+			logger,
+			step.ID,
+			state.finalOutput[step.ID],
+			input.WorkflowInput.Payload,
+		)
 	}
 	state.previousStepID = step.ID
 
@@ -772,6 +868,7 @@ func handleRegularStepError(
 	)
 	if step.ContinueOnError {
 		state.failures = append(state.failures, newPipelineStepFailure(step.ID, err))
+		state.failedSteps[step.ID] = struct{}{}
 		state.failures = runStepErrorHooks(
 			ctx,
 			step,
@@ -793,7 +890,7 @@ func handleRegularStepError(
 		logger,
 	)
 	failures := prependPipelineStepFailure(newPipelineStepFailure(step.ID, err), state.failures)
-	return newPipelineExecutionError(failures, state.finalOutput, runMetadata)
+	return newPipelineExecutionError(failures, state.resultOutput, runMetadata)
 }
 
 func prependPipelineStepFailure(
@@ -1004,7 +1101,8 @@ func isReservedWorkflowInputConfigKey(key string) bool {
 		key == tempCredentialsConfigKey ||
 		key == tempUseCaseVerificationsConfigKey ||
 		key == GitHubPRCommentConfigKey ||
-		key == workflowengine.CollectPipelineStepFailuresConfigKey
+		key == workflowengine.CollectPipelineStepFailuresConfigKey ||
+		key == workflowengine.StepIDConfigKey
 }
 
 func ExecuteEventStepsOnError(
