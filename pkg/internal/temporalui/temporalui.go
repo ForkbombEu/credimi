@@ -265,7 +265,8 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //     metadata); Credimi's run page already shows that;
 //   - lets the document grow with content height (no inner viewport scroll) and
 //     posts height to the parent so the iframe can size without its own scrollbar;
-//   - keeps width at the parent iframe width (Temporal UI uses w-max / w-screen);
+//   - keeps width at the parent iframe width (Temporal UI uses w-max / w-screen)
+//     without overflow-x:hidden, which would pair to overflow-y:auto and trap wheel;
 //   - forces the light theme: Credimi has no dark mode, and the UI reads its theme
 //     from the persisted "dark mode" store, defaulting to the OS preference;
 //   - keeps navigation on the embedded run: its own tabs work, links to another
@@ -276,18 +277,21 @@ const embedHead = `<style id="credimi-embed">` +
 	`html,body{background-color:#f8fafc !important;color:#141414 !important;` +
 	`width:100% !important;max-width:100% !important;` +
 	`height:auto !important;min-height:0 !important;` +
-	`overflow-x:hidden !important;overflow-y:visible !important}` +
+	// Both axes must be visible: overflow-x:hidden + overflow-y:visible pairs to
+	// overflow-y:auto and the tall iframe then traps wheel events from the parent.
+	`overflow:visible !important;overscroll-behavior:auto !important}` +
 	`div:has(> nav[data-testid="navigation-header"]),nav[data-testid="top-nav"],` +
 	`[data-testid="back-to-workflows"]{display:none !important}` +
 	`header:has([data-testid="workflow-id-heading"]) > :not(.tabs)` +
 	`{display:none !important}` +
-	`.h-dvh,.w-screen,.w-max,#content-wrapper,#content,#content > div` +
+	`.h-dvh,.w-screen,.w-max,#content-wrapper,#content,#content > div,` +
+	`#-container,#content-wrapper .overflow-auto` +
 	`{width:100% !important;max-width:100% !important;` +
 	`height:auto !important;max-height:none !important;min-height:0 !important;` +
-	`overflow-x:hidden !important;overflow-y:visible !important}` +
+	`overflow:visible !important}` +
 	`[data-testid="input-and-result"],[data-testid="event-summary-table"]` +
 	`{max-width:100% !important;box-sizing:border-box}` +
-	`[data-testid="event-summary-table"]{overflow-x:auto !important}` +
+	`[data-testid="event-summary-table"]{overflow-x:auto !important;overflow-y:hidden !important}` +
 	`a[href*="/workflows?"],a[href*="/task-queues/"]` +
 	`{pointer-events:none;color:inherit !important;text-decoration:none !important}` +
 	`</style>` +

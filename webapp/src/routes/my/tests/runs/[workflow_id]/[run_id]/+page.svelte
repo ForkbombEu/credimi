@@ -73,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'workflows',
 			encodeURIComponent(workflowId),
 			encodeURIComponent(runId),
-			'history'
+			'timeline'
 		].join('/')
 	);
 	let loadedTemporalUiUrl = $state<string>();
