@@ -5,91 +5,147 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowRightIcon } from '@lucide/svelte';
-	import { resolve } from '$app/paths';
-	import WorkflowsTable from '$lib/workflows/workflows-table.svelte';
+	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
 
-	import A from '@/components/ui-custom/a.svelte';
+	import { TemporalI18nProvider } from '$lib/temporal';
+	import { SvelteSet } from 'svelte/reactivity';
+	import { fromStore } from 'svelte/store';
+
 	import { m } from '@/i18n';
+	import { currentUser } from '@/pocketbase';
 
-	import { makeDropdownActions } from './actions';
-	import { fromApiSummary } from './execution-artifacts';
-	import ExecutionDevices from './execution-devices.svelte';
-	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
-	import WorkflowStatusTag from './workflow-status-tag.svelte';
 	import type { ExecutionSummary } from './workflows';
 
-	//
+	import WorkflowsTableRow from './workflows-table-row.svelte';
+
+	type Density = 'compact' | 'comfortable';
 
 	type Props = {
 		workflows: ExecutionSummary[];
-		hidePipelineColumn?: boolean;
+		density?: Density;
 		/** Called after a successful cancel from the row actions menu. */
 		onCancel?: () => void;
 	};
 
-	let { workflows, hidePipelineColumn = false, onCancel }: Props = $props();
+	let { workflows, density = 'comfortable', onCancel }: Props = $props();
+
+	const isCompact = $derived(density === 'compact');
+	const user = fromStore(currentUser);
+	const timezone = $derived(user.current?.Timezone);
+
+	const expandedRunIds = new SvelteSet<string>();
+	const autoSeededRunIds = new SvelteSet<string>();
+
+	$effect(() => {
+		const validIds = collectRunIds(workflows);
+		for (const id of [...expandedRunIds]) {
+			if (!validIds.has(id)) {
+				expandedRunIds.delete(id);
+			}
+		}
+		for (const id of [...autoSeededRunIds]) {
+			if (!validIds.has(id)) {
+				autoSeededRunIds.delete(id);
+			}
+		}
+
+		if (density === 'comfortable') {
+			seedComfortableDefaults(workflows, 0);
+		}
+	});
+
+	function collectRunIds(
+		items: Array<{ execution: { runId: string }; children?: WorkflowExecutionSummary[] }>,
+		ids = new SvelteSet<string>()
+	): SvelteSet<string> {
+		for (const item of items) {
+			ids.add(item.execution.runId);
+			if (item.children?.length) {
+				collectRunIds(item.children, ids);
+			}
+		}
+		return ids;
+	}
+
+	function seedComfortableDefaults(items: WorkflowExecutionSummary[], depth: number) {
+		items.forEach((item, index) => {
+			const children = item.children ?? [];
+			if (children.length > 0) {
+				const shouldExpand =
+					depth === 0
+						? item.status === 'Running' || index === 0
+						: item.status === 'Running' || index === items.length - 1;
+				const id = item.execution.runId;
+				if (shouldExpand && !autoSeededRunIds.has(id)) {
+					autoSeededRunIds.add(id);
+					expandedRunIds.add(id);
+				}
+				seedComfortableDefaults(children, depth + 1);
+			}
+		});
+	}
+
+	function toggleChildren(runId: string) {
+		if (expandedRunIds.has(runId)) {
+			expandedRunIds.delete(runId);
+		} else {
+			expandedRunIds.add(runId);
+		}
+	}
 </script>
 
-<WorkflowsTable
-	{workflows}
-	hideColumns={['status', 'type']}
-	actions={(w) => makeDropdownActions(w, { onSettled: onCancel })}
-	disableLink={(w) => w.queue !== undefined}
->
-	{#snippet headerStart({ Th })}
-		{#if !hidePipelineColumn}
-			<Th>{m.Pipeline()}</Th>
-		{/if}
-	{/snippet}
+<TemporalI18nProvider>
+	<div class="-mx-2 overflow-hidden">
+		<div class="overflow-x-auto">
+			<table class={['w-full', isCompact ? 'text-xs' : 'text-sm']} data-density={density}>
+				<thead class="bg-slate-100">
+					<tr>
+						<th
+							class="col-expand w-px rounded-l-sm px-0 whitespace-nowrap"
+							aria-hidden="true"
+						></th>
+						<th>{m.Status()}</th>
+						<th>{m.Devices()}</th>
+						<th>{m.Results()}</th>
+						<th>{m.Date()}</th>
+						<th>{m.start()}</th>
+						<th>{m.end()}</th>
+						<th>{m.Duration()}</th>
+						<th>{m.details()}</th>
+						<th class="rounded-r-sm text-right!">{m.Actions()}</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each workflows as workflow, index (workflow.execution.runId)}
+						<WorkflowsTableRow
+							{workflow}
+							{density}
+							{timezone}
+							{expandedRunIds}
+							onToggle={toggleChildren}
+							{onCancel}
+							showTopBorder={!isCompact && index > 0}
+						/>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</TemporalI18nProvider>
 
-	{#snippet header({ Th })}
-		<Th>{m.Status()}</Th>
-		<Th>Device</Th>
-		<Th>{m.Results()}</Th>
-	{/snippet}
+<style lang="postcss">
+	@reference "tailwindcss";
 
-	{#snippet rowStart({ workflow, Td, depth })}
-		{#if !hidePipelineColumn}
-			<Td>
-				{#if depth === 0}
-					<A
-						href={resolve('/my/pipelines/[...pipeline_path]', {
-							pipeline_path: workflow.pipeline_identifier ?? ''
-						})}
-						class="flex items-center gap-1"
-					>
-						<ArrowRightIcon size={12} />
-						<span>
-							{m.View()}
-						</span>
-					</A>
-				{/if}
-			</Td>
-		{/if}
-	{/snippet}
+	/* Header stays in this component; body cell padding lives on each td via cellPadClass. */
+	table[data-density='compact'] th {
+		@apply px-2 py-0.5;
+	}
 
-	{#snippet row({ workflow, Td, depth })}
-		<Td>
-			<WorkflowStatusTag
-				status={workflow.status}
-				queueData={workflow.queue}
-				failureReason={workflow.failure_reason}
-				size={depth > 0 ? 'sm' : 'md'}
-			/>
-		</Td>
+	table[data-density='comfortable'] th {
+		@apply px-3 py-2;
+	}
 
-		<Td>
-			<ExecutionDevices execution={workflow} />
-		</Td>
-
-		<Td>
-			{@const artifacts = fromApiSummary(workflow)}
-			{#if artifacts}
-				<ExecutionArtifactsPreview {artifacts} variant="preview" />
-			{:else}
-				<span class="text-muted-foreground opacity-50">N/A</span>
-			{/if}
-		</Td>
-	{/snippet}
-</WorkflowsTable>
+	th {
+		@apply text-left font-normal text-slate-500;
+	}
+</style>

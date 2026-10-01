@@ -57,8 +57,8 @@ A Temporal workflow started by a pipeline run (for example a step workflow). On 
 _Avoid_: Child pipeline (unless a nested pipeline step), grandchild, step (as the count label), children as a PocketBase relation
 
 **Pipeline run**:
-One execution of a pipeline workflow (or a queued ticket awaiting start), shown as a parent row in the list SmallTable.
-_Avoid_: Calling a child workflow a pipeline run on the list card
+One execution of a pipeline workflow (or a queued ticket awaiting start), shown as a parent row in the pipeline executions list.
+_Avoid_: Calling a child workflow a pipeline run on the list
 
 **Live view**:
 A temporary view of a live-view-capable device while its pipeline run is running.
