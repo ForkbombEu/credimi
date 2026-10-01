@@ -4,7 +4,9 @@
 
 import { browserClock, type ComposerClock } from '../composer-clock.js';
 import type { AnimatableScroll } from './animatable-scroll.js';
-import type { CardSection } from './yaml-ranges.js';
+import type { CardSection } from './card-section.js';
+
+export type { CardSection } from './card-section.js';
 
 export type ActiveUnit = {
 	section: CardSection;

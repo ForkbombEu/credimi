@@ -60,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		endPadAttach
 	} from './scroll-follow/scrollport-attachments.js';
 	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
-	import { splitPipelineYamlPreview } from './yaml-preview-split.js';
+	import { splitPipelineYamlPreview } from './yaml-preview/index.js';
 
 	//
 

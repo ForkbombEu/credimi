@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { ComposerVirtualizer } from '../composer-virtualizer.svelte.js';
 	import type { ActiveUnit } from '../scroll-follow/active-unit.js';
-	import type { YamlPreviewParts } from '../yaml-preview-split.js';
+	import type { YamlPreviewParts } from '../yaml-preview/index.js';
 
 	import YamlShikiBlock from './yaml-shiki-block.svelte';
 

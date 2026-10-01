@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { mapYamlCardRanges, type YamlCardRange } from './scroll-follow/yaml-ranges.js';
+import { mapYamlCardRanges, type YamlCardRange } from './ranges.js';
 
 export type YamlPreviewStepBlock = {
 	index: number;
@@ -57,7 +57,7 @@ function sliceExclusive(lines: string[], start: number, endExclusive: number): s
  * Pull trailing blank lines + finally-condition headers off a follow-up body so they
  * can sit in `betweenFollowUps` (mapYamlCardRanges folds them into the previous unit).
  */
-export function peelTrailingFinallyChrome(text: string): { body: string; trailing: string } {
+function peelTrailingFinallyChrome(text: string): { body: string; trailing: string } {
 	if (!text) return { body: '', trailing: '' };
 	const lines = text.split('\n');
 	let end = lines.length - 1;
