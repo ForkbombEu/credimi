@@ -809,6 +809,16 @@ func processVariablesTest(
 	userName string,
 	orgID string,
 ) (workflowengine.WorkflowResult, error) {
+	templateData, err := readFileInDir(dirPath, testName)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"template",
+			"failed to open template for test "+testName,
+			"failed to open template",
+		)
+	}
+
 	values := make(map[string]interface{})
 	configValues, err := app.FindCollectionByNameOrId("config_values")
 	if err != nil {
@@ -831,16 +841,6 @@ func processVariablesTest(
 			)
 		}
 		values[variable.FieldName] = variable.Value
-	}
-
-	templateData, err := readFileInDir(dirPath, testName)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, apierror.New(
-			http.StatusBadRequest,
-			"template",
-			"failed to open template for test "+testName,
-			"failed to open template",
-		)
 	}
 
 	for key, value := range values {

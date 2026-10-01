@@ -795,6 +795,17 @@ func TestHandleSaveVariablesAndStartRejectsTemplateOutsideConfigTemplates(t *tes
 			require.Empty(t, captured.YAMLData)
 			require.NotContains(t, rec.Body.String(), "dummy-canary")
 			require.NotContains(t, rec.Body.String(), dir)
+
+			saved, err := app.FindRecordsByFilter(
+				"config_values",
+				"template_path={:template_path}",
+				"",
+				-1,
+				0,
+				map[string]any{"template_path": tc.testName},
+			)
+			require.NoError(t, err)
+			require.Empty(t, saved)
 		})
 	}
 }
