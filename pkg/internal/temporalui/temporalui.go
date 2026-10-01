@@ -266,10 +266,13 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //   - hides Call Stack, Queries, and Relationships tabs (unused in the embed);
 //   - lets the document grow with content height (no inner viewport scroll) and
 //     posts height to the parent so the iframe can size without its own scrollbar;
+//     measures body/#content (not html.scrollHeight) so shorter tabs like Timeline
+//     shrink after a tall Event History view;
 //   - keeps width at the parent iframe width (Temporal UI uses w-max / w-screen)
 //     without overflow-x:hidden, which would pair to overflow-y:auto and trap wheel;
-//   - hides Timeline start/end stamps that upstream rotates 90° for the full shell
-//     (they bleed over headings once the shell is removed);
+//   - keeps Timeline start/end stamps in the chart: upstream rotates them 90° for
+//     the full Temporal shell; without the shell sticky offset they can bleed over
+//     headings, so clip the chart and drop the shell-only sticky top;
 //   - forces the light theme: Credimi has no dark mode, and the UI reads its theme
 //     from the persisted "dark mode" store, defaulting to the OS preference;
 //   - keeps navigation on the embedded run: its own tabs work, links to another
@@ -284,7 +287,7 @@ const embedHead = `<style id="credimi-embed">` +
 	// overflow-y:visible pairs to overflow-y:auto and the tall iframe then traps
 	// wheel events from the parent. Do not force overflow:visible on nested
 	// .overflow-auto regions (timeline chart, tables) — that lets upstream
-	// rotate-90 axis date stamps bleed over headings.
+	// rotate-90 axis date stamps bleed over headings when left rotated.
 	`overflow:visible !important;overscroll-behavior:auto !important}` +
 	`div:has(> nav[data-testid="navigation-header"]),nav[data-testid="top-nav"],` +
 	`[data-testid="back-to-workflows"]{display:none !important}` +
@@ -300,9 +303,12 @@ const embedHead = `<style id="credimi-embed">` +
 	// history sits flush under Credimi chrome (keep side/bottom padding).
 	`#content > div{padding-top:0 !important}` +
 	// Timeline start/end stamps: upstream `w-60 ±translate-x-24 rotate-90` with
-	// sticky top-[120px] for the full Temporal shell. In the embed the shell is
-	// hidden, so those labels paint sideways over the Timeline heading — hide.
-	`p.w-60.rotate-90{display:none !important}` +
+	// sticky top-[120px] for the full Temporal shell. Keep the rotation (axis
+	// labels), but drop the shell sticky offset and clip the chart so they cannot
+	// paint over the Timeline heading.
+	`.pointer-events-none.sticky.top-\[120px\]{top:0 !important}` +
+	`.relative.h-auto.overflow-auto.border.border-t-0` +
+	`{overflow:hidden !important}` +
 	`[data-testid="input-and-result"],[data-testid="event-summary-table"]` +
 	`{max-width:100% !important;box-sizing:border-box}` +
 	`[data-testid="event-summary-table"]{overflow-x:auto !important;overflow-y:hidden !important}` +
@@ -322,8 +328,18 @@ const embedHead = `<style id="credimi-embed">` +
 	`window.top.location.href="/my/tests/runs/"+there[1]+"/"+there[2]}` +
 	`},true);` +
 	`function reportHeight(){` +
-	`var h=Math.max(document.documentElement.scrollHeight,` +
-	`document.body&&document.body.scrollHeight||0);` +
+	// Prefer body/#content over documentElement.scrollHeight: after a taller tab
+	// (Event History), html.scrollHeight sticks to the iframe viewport and never
+	// shrinks when switching to Timeline, leaving empty height in the parent.
+	`var body=document.body,` +
+	`content=document.querySelector("#content")||` +
+	`document.querySelector("main")||body,h=0;` +
+	`function measure(el){` +
+	`if(!el)return;` +
+	`h=Math.max(h,el.scrollHeight||0,el.offsetHeight||0,` +
+	`Math.ceil(el.getBoundingClientRect().height)||0)}` +
+	`measure(content);measure(body);` +
+	`if(h<1)h=document.documentElement.scrollHeight;` +
 	`if(window.parent&&window.parent!==window){` +
 	`window.parent.postMessage({source:"credimi-temporal-ui",type:"height",height:h},` +
 	`location.origin)}}` +
@@ -332,8 +348,9 @@ const embedHead = `<style id="credimi-embed">` +
 	`requestAnimationFrame(function(){scheduled=false;reportHeight()})}` +
 	`if(typeof ResizeObserver!=="undefined"){` +
 	`var ro=new ResizeObserver(schedule);` +
-	`ro.observe(document.documentElement);` +
-	`if(document.body)ro.observe(document.body)}` +
+	`if(document.body)ro.observe(document.body);` +
+	`var contentEl=document.querySelector("#content")||document.querySelector("main");` +
+	`if(contentEl)ro.observe(contentEl)}` +
 	`new MutationObserver(schedule).observe(document.documentElement,` +
 	`{subtree:true,childList:true,attributes:true});` +
 	`window.addEventListener("load",schedule);schedule()` +
