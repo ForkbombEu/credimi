@@ -87,7 +87,7 @@ export function createPipelineYaml(
 
 	const processedSteps = clonedSteps.map((step, index) => {
 		if (step.use === 'debug') {
-			return step;
+			return orderStepKeys(step);
 		}
 		const config = getConfigByTypeOrThrow(step.use);
 		if ('id' in step) {
@@ -96,7 +96,7 @@ export function createPipelineYaml(
 		if (config.linkProcedure && 'with' in step) {
 			config.linkProcedure?.(step.with, clonedSteps.slice(0, index));
 		}
-		return step;
+		return orderStepKeys(step);
 	});
 
 	const pipeline: Pipeline = {
@@ -225,7 +225,36 @@ function toFinallyStep(step: PipelineStep) {
 		continue_on_error?: boolean;
 	};
 	delete finallyStep.continue_on_error;
-	return finallyStep;
+	return orderStepKeys(finallyStep);
+}
+
+/**
+ * Stable YAML key order for pipeline step cards:
+ * use → id → continue_on_error → activity_options → with
+ * (omit absent keys; keep any unexpected keys after these).
+ */
+const STEP_YAML_KEY_ORDER = [
+	'use',
+	'id',
+	'continue_on_error',
+	'activity_options',
+	'with'
+] as const;
+
+function orderStepKeys(step: PipelineStep): PipelineStep {
+	const source = step as Record<string, unknown>;
+	const ordered: Record<string, unknown> = {};
+	for (const key of STEP_YAML_KEY_ORDER) {
+		if (Object.prototype.hasOwnProperty.call(source, key)) {
+			ordered[key] = source[key];
+		}
+	}
+	for (const key of Object.keys(source)) {
+		if (!(key in ordered)) {
+			ordered[key] = source[key];
+		}
+	}
+	return ordered as PipelineStep;
 }
 
 function seedIdCounters(steps: PipelineStep[]) {
