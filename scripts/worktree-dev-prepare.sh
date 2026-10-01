@@ -20,6 +20,10 @@ printf '%s\n' \
 	'  temporal:' \
 	'  temporal_ui:' \
 	"    container_name: ${COMPOSE_PROJECT_NAME}-temporal-ui" \
+	'  temporal_ui_embedded:' \
+	"    container_name: ${COMPOSE_PROJECT_NAME}-temporal-ui-embedded" \
+	'    ports:' \
+	"      - 127.0.0.1:${TEMPORAL_UI_EMBEDDED_PORT}:8080" \
 	>"${COMPOSE_DEV_OVERRIDE_FILE}"
 
 printf '%s\n' \
@@ -34,6 +38,7 @@ worktree ports (${COMPOSE_PROJECT_NAME}):
   ui          http://localhost:${UI_PORT}  (proxied via app)
   temporal    localhost:${TEMPORAL_PORT}
   temporal-ui http://localhost:${TEMPORAL_UI_PORT}
+  embedded temporal-ui http://localhost:${API_PORT}/temporal-ui (org-scoped proxy to 127.0.0.1:${TEMPORAL_UI_EMBEDDED_PORT})
   override    ${COMPOSE_DEV_OVERRIDE_FILE}
   procfile    ${PROCFILE_RUNTIME}
 EOF

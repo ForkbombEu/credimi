@@ -99,7 +99,9 @@ API_PORT=${API_PORT}
 UI_PORT=${UI_PORT}
 TEMPORAL_PORT=${TEMPORAL_PORT}
 TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT}
+TEMPORAL_UI_EMBEDDED_PORT=${TEMPORAL_UI_EMBEDDED_PORT}
 ADDRESS_UI=http://localhost:${UI_PORT}
+ADDRESS_TEMPORAL_UI=http://localhost:${TEMPORAL_UI_EMBEDDED_PORT}
 TEMPORAL_ADDRESS=localhost:${TEMPORAL_PORT}
 CREDIMI_INTERNAL_APP_URL=http://localhost:${API_PORT}
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
@@ -128,6 +130,7 @@ API_PORT=${API_PORT}
 UI_PORT=${UI_PORT}
 TEMPORAL_PORT=${TEMPORAL_PORT}
 TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT}
+TEMPORAL_UI_EMBEDDED_PORT=${TEMPORAL_UI_EMBEDDED_PORT}
 EOF
 }
 
@@ -151,6 +154,7 @@ cmd_write() {
 		UI_PORT="$(pick_port "ui")"
 		TEMPORAL_PORT="$(pick_port "temporal")"
 		TEMPORAL_UI_PORT="$(pick_port "temporal-ui")"
+		TEMPORAL_UI_EMBEDDED_PORT="$(pick_port "temporal-ui-embedded")"
 		write_ports_file "# Generated unique ports for worktree ${COMPOSE_PROJECT_NAME} (branch ${branch})
 # Seeds from Worktrunk hash_port; collision walk applied. Edit freely; not overwritten."
 	fi

@@ -156,8 +156,9 @@ Local dev process:
 
 - `make dev` starts infrastructure and runs the API/UI through `hivemind`.
 - `make dev.noworkers` is the same stack with `CREDIMI_TEMPORAL_WORKERS_DISABLED=1` so Temporal workers are not registered (faster boot; pipelines/workflows will not run).
-- Classic ports (primary checkout): Temporal gRPC `localhost:7233`, PocketBase `localhost:8090`, webapp `localhost:5100`, Temporal UI `localhost:8280`.
+- Classic ports (primary checkout): Temporal gRPC `localhost:7233`, PocketBase `localhost:8090`, webapp `localhost:5100`, Temporal UI `localhost:8280`, embedded Temporal UI `127.0.0.1:8281` (`TEMPORAL_UI_EMBEDDED_PORT`).
 - PocketBase proxies `/{path...}` to `ADDRESS_UI` in `pkg/routes/routes.go`.
+- PocketBase proxies `/temporal-ui/...` to `ADDRESS_TEMPORAL_UI` (see "Embedded Temporal UI"); the Vite dev server forwards `/temporal-ui` to PocketBase so the page and the iframe share one origin.
 - Parallel worktrees: require Worktrunk for bootstrap. Cursor sandboxes use `.cursor/worktrees.json` → `make worktree-bootstrap`; CLI worktrees use `.config/wt.toml` pre-start. Ports live in gitignored `.env.worktree`. Checkout path is per-user (not committed). Primary `make dev` keeps classic ports without Worktrunk. See developer-setup “Parallel worktrees”.
 
 Procfile dev processes (classic defaults; runtime Procfile substitutes worktree ports):
@@ -173,6 +174,15 @@ Persistence:
 
 - PocketBase SQLite data lives in `pb_data/`.
 - Dev Temporal state also uses local project data/infrastructure and must be treated as disposable dev state.
+
+Embedded Temporal UI:
+
+- Run pages (`webapp/src/routes/my/tests/runs/[workflow_id]/[run_id]/+page.svelte`) embed the upstream Temporal UI history page in an iframe at `/temporal-ui/namespaces/<org canonified_name>/workflows/<id>/<run>/history`.
+- Compose service `temporal_ui_embedded` runs `temporalio/ui` with `TEMPORAL_UI_PUBLIC_PATH=/temporal-ui`, auth disabled, and write actions disabled. It publishes no port in production; only Credimi reaches it. The `temporal_ui` service (port 8280) is a separate admin/debug instance and is not used by the webapp.
+- `pkg/internal/temporalui` is the security boundary: it authenticates the `pb_auth` cookie (written by `webapp/src/hooks.client.ts`), allows only `GET`/`HEAD`, allows API calls only for the caller's organization namespace plus `settings`, `cluster-info` and `system-info`, answers the namespace list with the caller's namespace only, and strips the Credimi cookie and `Authorization` before forwarding.
+- The UI sends `X-Frame-Options: SAMEORIGIN`; the iframe must stay same-origin with the webapp.
+- The proxy injects `embedHead` into UI HTML pages: it hides the UI shell and "Back to Workflows", forces the light theme (Credimi has no dark mode), keeps in-frame navigation on the embedded run, and opens links to other runs (e.g. child workflows) as Credimi run pages in the top window. It relies on upstream `data-testid`s and the `"dark mode"` store key; re-check on `TEMPORAL_UI_VERSION` bumps.
+- Adding an allowed Temporal UI API path, a write method, or another namespace is a tenancy change: ask first.
 
 Conformance catalog refresh:
 
@@ -854,7 +864,6 @@ If the graft command is not available, ignore the Graft-specific instructions be
 If graft is available but the local graft/ graph does not exist, run graft build before using the Graft workflow.
 
 <!-- graft:start -->
-
 ## Graft — repo context graph
 
 This repo is indexed in `graft/`: small linked markdown nodes that explain each
@@ -894,5 +903,4 @@ re-read whole files.
 
 After big code changes, refresh the graph with `graft build` (deterministic,
 no API key, $0).
-
 <!-- graft:end -->

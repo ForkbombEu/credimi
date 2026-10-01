@@ -4,7 +4,7 @@
 
 import { error } from '@sveltejs/kit';
 import { checkAuthFlagAndUser, getUserOrganization } from '$lib/utils';
-import { fetchWorkflowExecution, fetchWorkflowHistory, getWorkflowMemo } from '$lib/workflows';
+import { fetchWorkflowExecution, getWorkflowMemo } from '$lib/workflows';
 
 //
 
@@ -29,19 +29,16 @@ export const load = async ({ params, fetch }) => {
 
 //
 
+/** Describes the run only; the page fetches the event history (tens of MB for large pipelines) incrementally. */
 export async function _getWorkflow(workflowId: string, runId: string, options = { fetch }) {
 	const fetched = await fetchWorkflowExecution(workflowId, runId, options);
 	if (fetched instanceof Error) return fetched;
-
-	const eventHistory = await fetchWorkflowHistory(workflowId, runId, options);
-	if (eventHistory instanceof Error) return eventHistory;
 
 	const memo = getWorkflowMemo(fetched.execution);
 	if (memo instanceof Error) return memo;
 
 	return {
 		execution: fetched.execution,
-		eventHistory,
 		memo,
 		devices: fetched.devices ?? []
 	};

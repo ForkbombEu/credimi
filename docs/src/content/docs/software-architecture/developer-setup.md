@@ -86,7 +86,9 @@ This sets `CREDIMI_TEMPORAL_WORKERS_DISABLED=1`. Temporal Docker still starts be
 
 ## Parallel worktrees
 
-Parallel Credimi checkouts require [Worktrunk](https://worktrunk.dev/) for bootstrap (copy-ignored + unique ports). Classic ports stay centralized in `scripts/dev-ports.env` (`8090` / `5100` / `7233` / `8280`). Other worktrees override them with a gitignored `.env.worktree`.
+Parallel Credimi checkouts require [Worktrunk](https://worktrunk.dev/) for bootstrap (copy-ignored + unique ports). Classic ports stay centralized in `scripts/dev-ports.env` (`8090` / `5100` / `7233` / `8280` / `8281`). Other worktrees override them with a gitignored `.env.worktree`; worktrees created before the embedded Temporal UI port (`TEMPORAL_UI_EMBEDDED_PORT`, classic `8281`) fall back to the classic value, so add a unique one to `.env.worktree` when running several stacks at once.
+
+Run pages embed the Temporal UI from `/temporal-ui`, served by PocketBase through an organization-scoped, read-only proxy to the `temporal_ui_embedded` container. In dev, Vite forwards `/temporal-ui` to PocketBase, so the iframe stays on the webapp origin and receives the `pb_auth` session cookie.
 
 Checkout **location** is per user, not per repo. Do not commit a Worktrunk `worktree-path`. Set it in `~/.config/worktrunk/config.toml` if you use `wt switch` (see [Worktrunk config](https://worktrunk.dev/config/)). Cursor agent sandboxes usually live under `~/.cursor/worktrees/` and do not need that setting.
 
