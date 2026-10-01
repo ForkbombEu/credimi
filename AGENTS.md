@@ -220,6 +220,14 @@ Pipeline contract:
 - Other keys under `step.with` are merged into `payload`.
 - `mobile-automation` steps must provide `with.payload.device_id`, or the pipeline must set `runtime.global_device_id`.
 
+Step outputs live in Temporal history, recorded once:
+
+- Main step IDs must be unique, and hook or `finally` step IDs must not reuse a main step ID (`ValidateStepIDs` in `pkg/internal/pipeline/validate.go`); the workflow and the queue path reject violations.
+- Every main step's activity or child-workflow input `config` carries `step_id` (`workflowengine.StepIDConfigKey`). `pkg/workflowengine/pipelinehistory` rebuilds main step outputs from a run's history by that key, mirroring the workflow's `finalOutput` rules.
+- Step activities receive only their own `with.config`, `step_id`, and the workflow config keys listed in `registry.TaskFactory.InheritedConfigKeys`. Child workflows and child pipelines keep the full config.
+- A step whose input exceeds 3 MiB fails before scheduling (`ensureStepInputSize`), because Temporal rejects workflow task messages above 4 MiB.
+- Pipeline results and failure `Details.output` carry non-step entries (warnings, video and screenshot URLs, `finally_errors`) plus only the step outputs listed in `PipelineWorkflowInput.ReturnOutputs`. Top-level runs return none; a parent sets a child pipeline's `return_outputs` from the references in its own definition (`ReferencedStepOutputs`). `POST /api/pipeline/execute` returns all of them.
+
 Direct run path:
 
 - UI calls `POST /api/pipeline/start` with `{ pipeline_identifier, yaml }`.
@@ -272,6 +280,8 @@ Grant/start path:
 - The generated pipeline runs all feasible scenarios with distinct prefixed step IDs, continues after scenario failures, merges exact named evidence sources, and performs one final validation for all catalog tests.
 - `fcaf sync` and `fcaf run` operate on the generated aggregate pipeline only. Do not move scenario sources back into the deployable pipelines directory.
 - Add or change tests in the owning scenario, regenerate the aggregate, and validate direct evidence coverage before removing any scenario.
+- `with.pipeline_outputs` reaches the `fcaf-validation` activity unresolved. The activity resolves it against the step outputs in the run's own history, stores the full report (with evidence values) through `POST /api/pipeline/pipeline-execution-results/fcaf-report` on the root run's `pipeline_results` row, and returns a compact report without evidence values, the stored file's `report_sha256`, and an `evidence_index` of `step_id`, history `event_id` and sha256 per evidence leaf. A storage failure fails the step.
+- `pipeline-report-generation` also reads the run's history and stores the markdown report itself; storage failures become cleanup warnings.
 
 ## CI Wallet APK Runs
 
