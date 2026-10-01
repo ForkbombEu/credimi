@@ -13,8 +13,13 @@ export type YamlCardRange = {
 	endLine: number;
 };
 
-const TOP_LEVEL_STEP = /^ {2}- (?:id|use):/;
-const FINALLY_STEP = /^ {4}- (?:id|use):/;
+/**
+ * Any two-space list item under `steps:` (not only `- id:` / `- use:`).
+ * FCAF and other pipelines often emit `- continue_on_error:` as the first key.
+ */
+const TOP_LEVEL_STEP = /^ {2}- /;
+/** Any four-space list item under `finally:` condition buckets. */
+const FINALLY_STEP = /^ {4}- /;
 const STEPS_HEADER = /^steps:\s*$/;
 const FINALLY_HEADER = /^finally:\s*$/;
 const TOP_LEVEL_KEY = /^[A-Za-z_][\w-]*:/;

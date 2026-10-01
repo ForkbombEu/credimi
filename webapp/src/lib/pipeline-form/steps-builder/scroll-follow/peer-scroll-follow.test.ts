@@ -4,8 +4,6 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import type { YamlCardRange } from './yaml-ranges.js';
-
 import { PeerScrollFollow, type PeerScrollFollowClock } from './peer-scroll-follow.svelte.js';
 
 type FakeClock = PeerScrollFollowClock & {
@@ -107,11 +105,13 @@ function createElementStub(attrs: Record<string, string> = {}): ElementStub {
 			return child;
 		},
 		querySelectorAll(selector: string) {
-			const wantSection = selector.includes('[data-card-section]');
+			const wantCard = selector.includes('[data-card-section]');
+			const wantYaml = selector.includes('[data-yaml-section]');
 			const wantLine = selector.includes('[data-line]');
 			const out: ElementStub[] = [];
 			const walk = (node: ElementStub) => {
-				if (wantSection && node.getAttribute('data-card-section') != null) out.push(node);
+				if (wantCard && node.getAttribute('data-card-section') != null) out.push(node);
+				if (wantYaml && node.getAttribute('data-yaml-section') != null) out.push(node);
 				if (wantLine && node.getAttribute('data-line') != null) out.push(node);
 				for (const c of node._children) walk(c);
 			};
@@ -119,17 +119,31 @@ function createElementStub(attrs: Record<string, string> = {}): ElementStub {
 			return out;
 		},
 		querySelector(selector: string) {
-			const match = selector.match(
+			const cardMatch = selector.match(
 				/\[data-card-section="([^"]+)"\]\[data-card-index="([^"]+)"\]/
 			);
-			if (match) {
+			if (cardMatch) {
 				return (
 					el
 						.querySelectorAll('[data-card-section]')
 						.find(
 							(c: ElementStub) =>
-								c.getAttribute('data-card-section') === match[1] &&
-								c.getAttribute('data-card-index') === match[2]
+								c.getAttribute('data-card-section') === cardMatch[1] &&
+								c.getAttribute('data-card-index') === cardMatch[2]
+						) ?? null
+				);
+			}
+			const yamlMatch = selector.match(
+				/\[data-yaml-section="([^"]+)"\]\[data-yaml-index="([^"]+)"\]/
+			);
+			if (yamlMatch) {
+				return (
+					el
+						.querySelectorAll('[data-yaml-section]')
+						.find(
+							(c: ElementStub) =>
+								c.getAttribute('data-yaml-section') === yamlMatch[1] &&
+								c.getAttribute('data-yaml-index') === yamlMatch[2]
 						) ?? null
 				);
 			}
@@ -188,14 +202,18 @@ function createCardsScroller(cardCenters: number[]) {
 	return scroller;
 }
 
-function createYamlScroller(lineTops: number[]) {
+function createYamlScroller(blockCenters: number[]) {
 	const scroller = createElementStub();
 	stubScrollerGeometry(scroller, { top: 0, bottom: 400, height: 400 });
 
-	for (const [i, top] of lineTops.entries()) {
-		const line = createElementStub({ 'data-line': String(i) });
-		line.getBoundingClientRect = () => makeRect({ top, bottom: top + 20, height: 20 });
-		scroller.appendChild(line);
+	for (const [index, center] of blockCenters.entries()) {
+		const block = createElementStub({
+			'data-yaml-section': 'steps',
+			'data-yaml-index': String(index)
+		});
+		block.getBoundingClientRect = () =>
+			makeRect({ top: center - 40, bottom: center + 40, height: 80 });
+		scroller.appendChild(block);
 	}
 
 	return scroller;
@@ -208,11 +226,6 @@ function stubScrollerGeometry(el: ElementStub, rect: Rect) {
 	el.getBoundingClientRect = () => makeRect(rect);
 	el.scrollTo = vi.fn();
 }
-
-const ranges: YamlCardRange[] = [
-	{ section: 'steps', index: 0, startLine: 0, endLine: 2 },
-	{ section: 'steps', index: 1, startLine: 3, endLine: 5 }
-];
 
 describe('PeerScrollFollow', () => {
 	it('does not steal leadership or change activeUnit without user intent', () => {
@@ -238,9 +251,9 @@ describe('PeerScrollFollow', () => {
 
 		const scroller = createCardsScroller([50, 200, 450]);
 		scroller.scrollTop = 100;
-		const yaml = createYamlScroller([0, 20, 40, 60, 80, 100]);
+		const yaml = createYamlScroller([100, 300]);
 		follow.cardsAttach(scroller as unknown as HTMLElement);
-		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
+		follow.yamlAttach(yaml as unknown as HTMLElement);
 
 		scroller.dispatchEvent(new Event('pointerdown'));
 		scroller.dispatchEvent(new Event('scroll'));
@@ -249,18 +262,20 @@ describe('PeerScrollFollow', () => {
 		follow.dispose();
 	});
 
-	it('no-ops cards→yaml follow while yaml is scroll leader', () => {
+	it('no-ops cards→yaml follow while yaml is scroll leader', async () => {
 		const clock = createFakeClock();
 		const follow = new PeerScrollFollow({ clock });
 		follow.setEnabled(true);
 
 		const cards = createCardsScroller([100, 300]);
-		const yaml = createYamlScroller([800, 820, 840, 860, 880, 900]);
+		const yaml = createYamlScroller([800, 900]);
 		follow.cardsAttach(cards as unknown as HTMLElement);
-		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
+		follow.yamlAttach(yaml as unknown as HTMLElement);
 
 		follow.followUnit({ section: 'steps', index: 0 }, 'cards');
-		expect(yaml.scrollTo).toHaveBeenCalled();
+		await vi.waitFor(() => {
+			expect(yaml.scrollTo).toHaveBeenCalled();
+		});
 		vi.mocked(yaml.scrollTo).mockClear();
 
 		yaml.dispatchEvent(new Event('wheel'));
@@ -295,8 +310,8 @@ describe('PeerScrollFollow', () => {
 		expect(follow.activeUnit).toBeNull();
 
 		const cards = createCardsScroller([100]);
-		const yaml = createYamlScroller([0, 20, 40, 60, 80, 100]);
-		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
+		const yaml = createYamlScroller([100]);
+		follow.yamlAttach(yaml as unknown as HTMLElement);
 		follow.cardsAttach(cards as unknown as HTMLElement);
 
 		await vi.waitFor(() => {
@@ -321,9 +336,9 @@ describe('PeerScrollFollow', () => {
 		const follow = new PeerScrollFollow({ clock, ensureMounted });
 		follow.setEnabled(true);
 
-		const yaml = createYamlScroller([0, 20, 40, 60, 80, 100]);
+		const yaml = createYamlScroller([100]);
 		follow.cardsAttach(cards as unknown as HTMLElement);
-		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
+		follow.yamlAttach(yaml as unknown as HTMLElement);
 
 		follow.onReveal({ section: 'steps', index: 7 });
 
@@ -350,9 +365,9 @@ describe('PeerScrollFollow', () => {
 		const follow = new PeerScrollFollow({ clock, ensureMounted });
 		follow.setEnabled(true);
 
-		const yaml = createYamlScroller([0, 20, 40, 60, 80, 100]);
+		const yaml = createYamlScroller([100, 300]);
 		follow.cardsAttach(cards as unknown as HTMLElement);
-		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
+		follow.yamlAttach(yaml as unknown as HTMLElement);
 
 		follow.followUnit({ section: 'steps', index: 1 }, 'yaml');
 
@@ -360,6 +375,34 @@ describe('PeerScrollFollow', () => {
 			expect(ensureMounted).toHaveBeenCalledWith({ section: 'steps', index: 1 });
 		});
 		expect(cards.scrollTo).toHaveBeenCalled();
+		follow.dispose();
+	});
+
+	it('cards→yaml follow calls ensureMountedYaml for an unmounted yaml step', async () => {
+		const clock = createFakeClock();
+		const cards = createCardsScroller([100]);
+		const yaml = createYamlScroller([]);
+		const ensureMountedYaml = vi.fn(async (unit: { section: string; index: number }) => {
+			const block = createElementStub({
+				'data-yaml-section': unit.section,
+				'data-yaml-index': String(unit.index)
+			});
+			block.getBoundingClientRect = () => makeRect({ top: 800, bottom: 880, height: 80 });
+			yaml.appendChild(block);
+			return true;
+		});
+		const follow = new PeerScrollFollow({ clock, ensureMountedYaml });
+		follow.setEnabled(true);
+
+		follow.cardsAttach(cards as unknown as HTMLElement);
+		follow.yamlAttach(yaml as unknown as HTMLElement);
+
+		follow.followUnit({ section: 'steps', index: 3 }, 'cards');
+
+		await vi.waitFor(() => {
+			expect(ensureMountedYaml).toHaveBeenCalledWith({ section: 'steps', index: 3 });
+		});
+		expect(yaml.scrollTo).toHaveBeenCalled();
 		follow.dispose();
 	});
 

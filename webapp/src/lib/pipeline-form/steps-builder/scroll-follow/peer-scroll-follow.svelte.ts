@@ -6,22 +6,16 @@ import type { Attachment } from 'svelte/attachments';
 
 import {
 	resolveViewportActiveCard,
-	resolveViewportYamlLine,
+	resolveViewportYamlUnit,
 	sameUnit,
 	scrollCardIntoView,
-	scrollYamlLineIntoView,
+	scrollYamlUnitIntoView,
 	watchDrivenScroll,
 	type ActiveUnit,
 	type CardListLengths,
 	type EnsureMounted
 } from './active-unit.js';
 import { scrollFollowPreference } from './preference.js';
-import {
-	findNearestUnitToLine,
-	findRangeForUnit,
-	firstStepStartLine,
-	type YamlCardRange
-} from './yaml-ranges.js';
 
 export type PeerScrollFollowClock = {
 	raf: (callback: FrameRequestCallback) => number;
@@ -37,8 +31,15 @@ export type PeerScrollFollowOptions = {
 	 * Behavior-compatible when absent — missing cards still no-op scroll.
 	 */
 	ensureMounted?: EnsureMounted;
+	/**
+	 * Optional mount hook for unmounted (virtualized) YAML step blocks.
+	 * Follow-ups in the YAML pane stay fully mounted.
+	 */
+	ensureMountedYaml?: EnsureMounted;
 	/** Optional true list lengths for list-end viewport resolution under virtualization. */
 	getCardLengths?: () => CardListLengths | undefined;
+	/** Optional true YAML list lengths (usually same as cards). */
+	getYamlLengths?: () => CardListLengths | undefined;
 };
 
 const YAML_REGEN_DEBOUNCE_MS = 130;
@@ -54,7 +55,7 @@ function defaultClock(): PeerScrollFollowClock {
 }
 
 /**
- * Viewport peer sync for Pipeline Composer cards ↔ YAML.
+ * Viewport peer sync for Pipeline Composer cards ↔ YAML (index-aligned).
  * Does not select or highlight a step (see UnitHighlight).
  */
 export class PeerScrollFollow {
@@ -62,10 +63,11 @@ export class PeerScrollFollow {
 
 	#clock: PeerScrollFollowClock;
 	#ensureMounted: EnsureMounted | undefined;
+	#ensureMountedYaml: EnsureMounted | undefined;
 	#getCardLengths: (() => CardListLengths | undefined) | undefined;
+	#getYamlLengths: (() => CardListLengths | undefined) | undefined;
 	#cardsEl: HTMLElement | null = null;
 	#yamlEl: HTMLElement | null = null;
-	#getRanges: (() => YamlCardRange[]) | null = null;
 
 	#drivenSide: 'cards' | 'yaml' | null = null;
 	#clearDriven: (() => void) | null = null;
@@ -79,7 +81,9 @@ export class PeerScrollFollow {
 	constructor(options?: PeerScrollFollowOptions) {
 		this.#clock = options?.clock ?? defaultClock();
 		this.#ensureMounted = options?.ensureMounted;
+		this.#ensureMountedYaml = options?.ensureMountedYaml;
 		this.#getCardLengths = options?.getCardLengths;
+		this.#getYamlLengths = options?.getYamlLengths ?? options?.getCardLengths;
 	}
 
 	/** Shared persisted preference (rune-sync / localStorage). */
@@ -145,63 +149,49 @@ export class PeerScrollFollow {
 	};
 
 	/**
-	 * Attachment factory for the YAML scroller (CodeDisplay).
-	 * `getRanges` is read on scroll — do not recreate the attachment on every YAML regen.
+	 * Attachment for the YAML preview scroller (virtual step blocks + static header/follow-ups).
+	 * Resolves active unit from `data-yaml-section` / `data-yaml-index` (index peer-follow).
 	 */
-	yamlAttach(getRanges: () => YamlCardRange[]): Attachment {
-		return (node) => {
-			const el = node as HTMLElement;
-			this.#yamlEl = el;
-			this.#getRanges = getRanges;
+	yamlAttach: Attachment = (node) => {
+		const el = node as HTMLElement;
+		this.#yamlEl = el;
 
-			const onUserIntent = () => {
-				if (!this.enabled) return;
-				if (this.#drivenSide === 'yaml') this.#clearDriven?.();
-				this.#lastIntentSide = 'yaml';
-				this.#claimScrollLeader('yaml');
-			};
-
-			const onScroll = () => {
-				if (!this.enabled) return;
-				if (this.#drivenSide === 'yaml') return;
-				if (this.#scrollLeader === 'cards') return;
-				if (this.#scrollLeader !== 'yaml' && this.#lastIntentSide !== 'yaml') return;
-				this.#claimScrollLeader('yaml');
-				const ranges = this.#getRanges?.() ?? [];
-				const firstStep = firstStepStartLine(ranges);
-				const line = resolveViewportYamlLine(el, firstStep);
-				if (line === null) {
-					this.#setActiveUnit(null);
-					return;
-				}
-				const hit = findNearestUnitToLine(ranges, line);
-				if (!hit) {
-					this.#setActiveUnit(null);
-					return;
-				}
-				const next: ActiveUnit = { section: hit.section, index: hit.index };
-				if (sameUnit(this.activeUnit, next)) return;
-				this.#setActiveUnit(next);
-				this.#schedulePeerFollow('yaml');
-			};
-
-			el.addEventListener('wheel', onUserIntent, { passive: true });
-			el.addEventListener('touchstart', onUserIntent, { passive: true });
-			el.addEventListener('pointerdown', onUserIntent, { passive: true });
-			el.addEventListener('scroll', onScroll, { passive: true });
-
-			return () => {
-				el.removeEventListener('wheel', onUserIntent);
-				el.removeEventListener('touchstart', onUserIntent);
-				el.removeEventListener('pointerdown', onUserIntent);
-				el.removeEventListener('scroll', onScroll);
-				if (this.#yamlEl === el) {
-					this.#yamlEl = null;
-					this.#getRanges = null;
-				}
-			};
+		const onUserIntent = () => {
+			if (!this.enabled) return;
+			if (this.#drivenSide === 'yaml') this.#clearDriven?.();
+			this.#lastIntentSide = 'yaml';
+			this.#claimScrollLeader('yaml');
 		};
-	}
+
+		const onScroll = () => {
+			if (!this.enabled) return;
+			if (this.#drivenSide === 'yaml') return;
+			if (this.#scrollLeader === 'cards') return;
+			if (this.#scrollLeader !== 'yaml' && this.#lastIntentSide !== 'yaml') return;
+			this.#claimScrollLeader('yaml');
+			const next = resolveViewportYamlUnit(el, this.activeUnit, this.#getYamlLengths?.());
+			if (!next) {
+				this.#setActiveUnit(null);
+				return;
+			}
+			if (sameUnit(this.activeUnit, next)) return;
+			this.#setActiveUnit(next);
+			this.#schedulePeerFollow('yaml');
+		};
+
+		el.addEventListener('wheel', onUserIntent, { passive: true });
+		el.addEventListener('touchstart', onUserIntent, { passive: true });
+		el.addEventListener('pointerdown', onUserIntent, { passive: true });
+		el.addEventListener('scroll', onScroll, { passive: true });
+
+		return () => {
+			el.removeEventListener('wheel', onUserIntent);
+			el.removeEventListener('touchstart', onUserIntent);
+			el.removeEventListener('pointerdown', onUserIntent);
+			el.removeEventListener('scroll', onScroll);
+			if (this.#yamlEl === el) this.#yamlEl = null;
+		};
+	};
 
 	onEditFocus(stepIndex: number | undefined) {
 		if (this.#disposed) return;
@@ -284,7 +274,6 @@ export class PeerScrollFollow {
 		this.#pendingReveal = null;
 		this.#cardsEl = null;
 		this.#yamlEl = null;
-		this.#getRanges = null;
 	}
 
 	#setActiveUnit(next: ActiveUnit | null) {
@@ -319,16 +308,23 @@ export class PeerScrollFollow {
 	}
 
 	#followPeerFromCards(behavior: ScrollBehavior) {
+		void this.#followPeerFromCardsAsync(behavior);
+	}
+
+	async #followPeerFromCardsAsync(behavior: ScrollBehavior) {
 		if (this.#scrollLeader === 'yaml') return;
 		const unit = this.activeUnit;
 		const yaml = this.#yamlEl;
 		if (!unit || !yaml) return;
-		const ranges = this.#getRanges?.() ?? [];
-		const range = findRangeForUnit(ranges, unit.section, unit.index);
-		if (!range) return;
 		this.#beginDriven('yaml', yaml, behavior);
 		const align = this.#scrollLeader === 'cards' ? 'start-band' : 'start';
-		if (!scrollYamlLineIntoView(yaml, range.startLine, behavior, align)) {
+		const scrolled = await scrollYamlUnitIntoView(yaml, unit, behavior, {
+			align,
+			focus: false,
+			ensureMounted: this.#ensureMountedYaml
+		});
+		if (this.#disposed) return;
+		if (!scrolled) {
 			this.#clearDriven?.();
 		}
 	}

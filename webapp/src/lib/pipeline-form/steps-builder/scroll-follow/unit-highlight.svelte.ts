@@ -107,11 +107,16 @@ export class UnitHighlight {
 		if (this.#disposed) return null;
 		const hit = findUnitAtLine(this.#getRanges(), line);
 		if (!hit) return null;
-		const next: ActiveUnit = { section: hit.section, index: hit.index };
-		if (!sameUnit(this.pinnedUnit, next)) {
-			this.pinnedUnit = next;
+		return this.pinUnit({ section: hit.section, index: hit.index });
+	}
+
+	/** Pin selection from a YAML block / card unit (index-aligned preview). */
+	pinUnit(unit: ActiveUnit): ActiveUnit | null {
+		if (this.#disposed) return null;
+		if (!sameUnit(this.pinnedUnit, unit)) {
+			this.pinnedUnit = unit;
 		}
-		return next;
+		return unit;
 	}
 
 	isCardHovered(section: ActiveUnit['section'], index: number): boolean {

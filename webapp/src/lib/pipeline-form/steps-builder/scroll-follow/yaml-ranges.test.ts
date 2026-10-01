@@ -80,6 +80,51 @@ describe('mapYamlCardRanges', () => {
 		const ranges = mapYamlCardRanges(yaml);
 		expect(ranges.filter((r) => r.section === 'steps')).toHaveLength(2);
 	});
+
+	it('treats continue_on_error-first list items as step boundaries', () => {
+		const yaml = `name: fcaf-ish
+
+steps:
+  - id: onboard-0001
+    use: mobile-automation
+
+  - continue_on_error: true
+    id: http-0002
+    use: http-request
+    with:
+      method: GET
+      url: https://example.com
+
+  - continue_on_error: true
+    id: http-0003
+    use: http-request
+`;
+		const steps = mapYamlCardRanges(yaml).filter((r) => r.section === 'steps');
+		expect(steps).toHaveLength(3);
+		const lines = yaml.split('\n');
+		expect(lines[steps[1]!.startLine]).toMatch(/continue_on_error/);
+		expect(lines[steps[2]!.startLine]).toMatch(/continue_on_error/);
+	});
+
+	it('treats continue_on_error-first finally items as follow-up boundaries', () => {
+		const yaml = `name: x
+
+steps:
+  - id: a-0001
+    use: debug
+
+finally:
+  always:
+    - continue_on_error: true
+      id: email-0002
+      use: email
+    - id: http-0003
+      use: http-request
+`;
+		const followUps = mapYamlCardRanges(yaml).filter((r) => r.section === 'follow-ups');
+		expect(followUps).toHaveLength(2);
+		expect(yaml.split('\n')[followUps[0]!.startLine]).toMatch(/continue_on_error/);
+	});
 });
 
 describe('findNearestUnitToLine', () => {
