@@ -6,6 +6,7 @@ package workflows
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,10 +50,6 @@ steps:
 	suite := &testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpAct := activities.NewHTTPActivity()
-	env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
-		Name: httpAct.Name(),
-	})
 	internalHTTPAct := activities.NewInternalHTTPActivity()
 	env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
 		Name: internalHTTPAct.Name(),
@@ -71,18 +68,43 @@ steps:
 		activity.RegisterOptions{Name: activities.EnqueuePipelineRunTicketActivityName},
 	)
 
-	env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
+	internalHTTPURL := func(suffix string) any {
+		return mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+				input.Payload,
+			)
+			return err == nil && strings.HasSuffix(payload.URL, suffix)
+		})
+	}
+	env.OnActivity(
+		internalHTTPAct.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+				input.Payload,
+			)
+			body := workflowengine.AsMap(payload.Body)
+			return err == nil &&
+				strings.HasSuffix(payload.URL, "/api/canonify/internal/resolve") &&
+				body["collection"] == "pipelines" &&
+				body["owner_namespace"] == "org-1"
+		}),
+	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
 				"body": map[string]any{
 					"record": map[string]any{
-						"published": true,
+						"published": false,
 						"yaml":      pipelineYAML,
 					},
 				},
 			},
 		}, nil)
-	env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).
+	env.OnActivity(
+		internalHTTPAct.Name(),
+		mock.Anything,
+		internalHTTPURL("/api/mobile-runner/validate-access"),
+	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
 				"body": map[string]any{"valid": true},

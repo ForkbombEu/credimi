@@ -368,8 +368,10 @@ Internal lookup:
 
 External runner HTTP contract:
 
-- `POST {runner_url}/fetch-apk-and-action`
-    - Body: `{ instance_url, version_identifier, action_identifier, device_identifier }`
+- `POST {runner_url}/credimi/installer-action`
+    - Body: `{ version_identifier, platform, device_identifier }`
+    - Response: `{ installer_path, version_id }`
+    - Not called for `version_id: installed_from_external_source`. Credimi resolves a stored action's code itself through `POST /api/canonify/internal/resolve`, scoped to the pipeline's organization, and puts it in the step payload; runners never look wallet actions up.
 - `POST {runner_url}/store-pipeline-result`
     - Body: `{ video_path, last_frame_path, logcat_path, run_identifier, device_identifier, instance_url }`
     - Response: `{ result_urls: string[], screenshot_urls: string[] }`

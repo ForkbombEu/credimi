@@ -41,7 +41,7 @@ All of it goes through the `mobile-runner-http-request` activity (it injects the
 | Method | Path                                         | Body                                                                                    | Notes                                                                                                                |
 | ------ | -------------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | GET    | `{runner_url}/health`                        | —                                                                                       | liveness probe (called directly by the list/run-path helpers)                                                        |
-| POST   | `{runner_url}/credimi/installer-action`      | `{version_identifier, action_identifier, platform, device_identifier, skip_installer?}` | expected 200, 300s timeout; returns the action code                                                                  |
+| POST   | `{runner_url}/credimi/installer-action`      | `{version_identifier, platform, device_identifier}`                                     | expected 200, 300s timeout; returns `installer_path`, `version_id`; skipped for `installed_from_external_source`     |
 | POST   | `{runner_url}/credimi/pipeline-result`       | `{video_path, last_frame_path, run_identifier, device_identifier, platform, log_path?}` | expected 200, 300s; returns `result_video_urls` / `screenshot_urls`                                                  |
 | POST   | `{runner_url}/credimi/execution-screenshots` | `{run_identifier, device_identifier, step_id, screenshot_paths[]}`                      | expected 200, 300s; returns `screenshot_urls[]`                                                                      |
 | POST   | `{runner_url}/credimi/live-view`             | `{device_identifier, serial, namespace, workflow_id, run_id}`                           | **called directly**, not via the activity; header `Credimi-Api-Key`; expected `{path: "/live/<token>"}`, 15s timeout |
@@ -49,7 +49,7 @@ All of it goes through the `mobile-runner-http-request` activity (it injects the
 
 Runner URLs for the worker manager come from `GET /api/mobile-runner/list-urls`, which only returns runners eligible for worker start. Device/emulator activities (`ListInstalledApps`, `StartRecording`, `StopRecording`) live in the closed `credimi-extra` module, so their concrete runner paths are not visible here.
 
-**Doc drift:** `AGENTS.md` documents `POST {runner_url}/fetch-apk-and-action` and `/store-pipeline-result`; the code calls `/credimi/installer-action` and `/credimi/pipeline-result`.
+**Doc drift:** `AGENTS.md` documents `POST {runner_url}/store-pipeline-result`; the code calls `/credimi/pipeline-result`.
 
 ## Live view
 
@@ -78,7 +78,7 @@ Runner URLs for the worker manager come from `GET /api/mobile-runner/list-urls`,
 
 **API keys.** `POST /api/apikey/generate` (needs `e.Auth`), `GET /api/apikey/authenticate` (reads the key header), `GET /api/apikey/authenticate-internal-admin` (I).
 
-**Canonify.** `POST /api/canonify/identifier/validate`, `GET /api/canonify/identifier/get` (P).
+**Canonify.** `POST /api/canonify/identifier/validate`, `GET /api/canonify/identifier/get` (P; return only records the caller's view rules allow, 404 otherwise, with enrich-based field hiding such as credential `secrets`). `POST /api/canonify/internal/resolve` (I; body `{canonified_name, collection, owner_namespace}`, `collection` one of `pipelines`/`custom_checks`/`wallet_actions`; returns a published record of any org or an unpublished record of the owner org — Temporal workers use it because responses land in the org-readable run history).
 
 **Templates / organizations.** `POST /api/clone-record` (P), `POST /api/template/placeholders` (U), `GET /api/organizations/my`, `GET /api/organizations/visible-namespaces` (U), `GET /api/organizations/namespaces` (I).
 
@@ -124,7 +124,7 @@ Feature flags can hide sidebar sections (`ORGANIZATIONS`, `DID`).
 
 ## Doc drift to ignore
 
-1. Runner HTTP endpoints: `AGENTS.md` says `fetch-apk-and-action` / `store-pipeline-result`; the code calls `/credimi/installer-action` / `/credimi/pipeline-result`.
+1. Runner HTTP endpoints: `AGENTS.md` says `store-pipeline-result`; the code calls `/credimi/pipeline-result`.
 2. The internal-admin header is `Credimi-Api-Key`, not `X-Api-Key` (wrong in `AGENTS.md`, `docs/.../scoreboard.md`, and a comment in `pkg/conformancecatalog/store.go`).
 3. `POST /api/pipeline/start` does not exist in this worktree; the GUI and CLI both use `POST /api/pipeline/queue`.
 4. The two legacy scoreboard routes are not registered.
