@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__013
-title: FCAF WS_RP_MS_ProtocolMessages__013
+title: Offer every credential matching the DCQL query and present the one the user selects.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__013.md
 suite:
@@ -9,23 +9,41 @@ suite:
 applicability:
   profile: EUDI_generic
   presentation_flow: redirects
+  credential_format: ietf_sd_jwt_vc
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '6.4'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
 evidence:
+  baseline_issuance:
+    from: pipeline.fixtures.pid-candidate-selection.outputs.baseline_issuance
+  second_identity_issuance:
+    from: pipeline.fixtures.pid-candidate-selection.outputs.second_identity_issuance
   dcql_exchange:
-    from: pipeline.dcql.same-credential-multiple-queries.outputs.dcql_exchange
+    from: pipeline.fixtures.pid-candidate-selection.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.same-credential-multiple-queries.outputs.visual_evidence
+    from: pipeline.fixtures.pid-candidate-selection.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__013_dcql_protocol_valid
+- id: wallet_received_the_baseline_pid
+  validator: json.field_equals
+  input: evidence.baseline_issuance
+  params: { field: status, value: credential_issued }
+- id: wallet_received_the_second_identity_pid
+  validator: json.field_equals
+  input: evidence.second_identity_issuance
+  params: { field: status, value: credential_issued }
+- id: presentation_satisfies_the_query_both_pids_match
+  validator: oid4vp.dcql_value_constraints_satisfied
+  input: evidence.dcql_exchange
+  params: { vct: "urn:eudi:pid:1" }
+- id: one_selected_pid_is_presented
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__013_visual_evidence_stored
+  params: { mode: multiple_default_false }
+# The flow requires "Option 1 of M" with M >= 2 before its first screenshot and
+# "Option 2 of M" after selecting, so stored screenshots exist only when the
+# Wallet offered several candidates and let the user choose one.
+- id: candidate_selection_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

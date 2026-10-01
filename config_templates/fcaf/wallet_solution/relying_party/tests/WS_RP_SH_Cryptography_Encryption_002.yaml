@@ -1,5 +1,5 @@
 id: WS_RP_SH_Cryptography_Encryption_002
-title: FCAF WS_RP_SH_Cryptography_Encryption_002
+title: Answer access_denied when the Verifier offers no content encryption the A256GCM-only Wallet supports.
 source:
   path: Shared/Cryptography/WS_RP_SH_Cryptography_Encryption_002.md
 suite:
@@ -11,22 +11,24 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.cryptography
+- title: JSON Web Encryption
+  section: 4.1.2
+  url: https://www.rfc-editor.org/rfc/rfc7516
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.cryptography.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.cryptography.outputs.visual_evidence
+  capture_session:
+    from: pipeline.response-encryption.a128gcm.outputs.capture_session
 assertions:
-- id: ws_rp_sh_cryptography_encryption_002_crypto_verified
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+# The request narrows encrypted_response_enc_values_supported to A128GCM. The
+# source applies only to a Wallet supporting A256GCM alone, which its POSTed
+# wallet_metadata authorization_encryption_enc_values_supported must show;
+# any further value makes the case not_applicable.
+- id: a256gcm_only_wallet_answers_access_denied
+  validator: oid4vp.response_enc_unsupported_error_required
+  input: evidence.capture_session
   params:
-    field: hash
-- id: ws_rp_sh_cryptography_encryption_002_visual_evidence
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    wallet_only_enc: A256GCM
+    code: access_denied
 verdict:
   pass_when: all_assertions_pass

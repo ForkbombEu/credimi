@@ -1,0 +1,17 @@
+id: WS_RP_IA_MainInteraction__012a
+title: Disclose only a requested single SD-JWT VC claim.
+source: { path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__012a.md }
+suite: { sut: wallet_solution, role: relying_party, section: interaction.main_interaction }
+applicability: { profile: EUDI_generic, presentation_flow: redirects, credential_format: ietf_sd_jwt_vc }
+normative_references:
+  - { title: OpenID for Verifiable Presentations 1.0, section: "6.4.1", url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html }
+evidence:
+  dcql_exchange: { from: pipeline.dcql.claims-without-values.outputs.dcql_exchange }
+assertions:
+  - id: requested_claim_is_disclosed_without_unrequested_claims
+    validator: dcql.response_satisfies_constraints
+    input: evidence.dcql_exchange
+    params:
+      mode: claims_subset
+      forbidden_paths: [[family_name], [birthdate], [email], [phone_number], [address]]
+verdict: { pass_when: all_assertions_pass }

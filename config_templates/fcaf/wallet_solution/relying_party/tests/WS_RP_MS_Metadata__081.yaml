@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__081
-title: FCAF WS_RP_MS_Metadata__081
+title: Accept a Referenced Token whose status claim holds a valid status_list.
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__081.md
 suite:
@@ -9,23 +9,31 @@ suite:
 applicability:
   profile: EUDI_generic
   presentation_flow: redirects
+  credential_format: ietf_sd_jwt_vc
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.metadata
+- title: Token Status List
+  section: '6.2'
+  url: https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-13.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.metadata.outputs.dcql_exchange
+  pid_sdjwt:
+    from: pipeline.credential-status.sdjwt.outputs.pid_sdjwt
   visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
+    from: pipeline.credential-status.sdjwt.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_metadata__081_dcql_metadata_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: referenced_token_carries_a_status_claim
+  validator: sdjwt.claim_present
+  input: evidence.pid_sdjwt
   params:
-    mode: credentials_match
-- id: ws_rp_ms_metadata__081_visual_evidence_stored
+    claim: status
+- id: status_claim_holds_a_status_list_object
+  validator: sdjwt.claim_object
+  input: evidence.pid_sdjwt
+  params:
+    claim: status.status_list
+- id: accepted_token_is_presented_by_the_wallet
+  validator: pid.sdjwt_vct_pid
+  input: evidence.pid_sdjwt
+- id: presentation_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

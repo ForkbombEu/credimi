@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__040
-title: FCAF WS_RP_IA_MainInteraction__040
+title: Return one presentation when multiple is omitted.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__040.md
 suite:
@@ -11,21 +11,31 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
+  section: '8.1'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
 evidence:
+  fixture_exchanges:
+    from: pipeline.fixtures.pid-multiple-credentials.outputs.fixture_exchanges
   dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
+    from: pipeline.fixtures.pid-multiple-credentials.outputs.multiple_omitted_exchange
   visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+    from: pipeline.fixtures.pid-multiple-credentials.outputs.multiple_omitted_visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__040_interaction
+- id: wallet_holds_two_distinct_pids_for_the_same_query
+  validator: oid4vp.distinct_presentations
+  input: evidence.fixture_exchanges
+  params:
+    vct: urn:eudi:pid:1
+    claim: document_number
+    minimum: 2
+- id: credential_query_omits_multiple_and_returns_one_presentation
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__040_visual_evidence
+  params: { mode: multiple_default_false }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

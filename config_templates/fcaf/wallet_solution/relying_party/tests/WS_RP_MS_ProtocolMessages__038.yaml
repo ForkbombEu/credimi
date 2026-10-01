@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__038
-title: FCAF WS_RP_MS_ProtocolMessages__038
+title: Process an unsigned plain redirect-URI client identifier request.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__038.md
 suite:
@@ -10,23 +10,30 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+  - title: OpenID for Verifiable Presentations 1.0
+    section: "5.9.3"
+    url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
+  authorization_request:
+    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.authorization_request
+  wallet_response:
+    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.wallet_response
   visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__038_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
-  params:
-    mode: credentials_match
-- id: ws_rp_ms_protocolmessages__038_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+  - id: redirect_uri_client_identifier_is_plain
+    validator: json.field_string_prefix
+    input: evidence.authorization_request
+    params:
+      field: client_id
+      prefix: "redirect_uri:"
+  - id: wallet_processes_plain_redirect_uri_request
+    validator: json.field_required
+    input: evidence.wallet_response
+    params:
+      field: vp_token
+  - id: visual_evidence_is_stored
+    validator: evidence.non_empty
+    input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

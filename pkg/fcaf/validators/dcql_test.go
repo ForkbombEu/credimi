@@ -1767,6 +1767,87 @@ func TestDCQLWalletErrorRequiredRejectsSilentDiscontinuation(t *testing.T) {
 	require.Contains(t, result.Message, "expected error")
 }
 
+func TestDCQLMDocClaimPathError(t *testing.T) {
+	baseEvidence := func(path []any) map[string]any {
+		return map[string]any{
+			"authorization_request": map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid_mdoc",
+						"format": "mso_mdoc",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+						"claims": []any{map[string]any{"path": path}},
+					}},
+				},
+			},
+			"observed": map[string]any{
+				"wallet_response": map[string]any{
+					"value": map[string]any{"error": "invalid_request"},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name           string
+		path           []any
+		expectedPath   []any
+		mutate         func(map[string]any)
+		expectedStatus Status
+	}{
+		{
+			name:           "accepts exact malformed mdoc path with a wallet error",
+			path:           []any{"eu.europa.ec.eudi.pid.1"},
+			expectedPath:   []any{"eu.europa.ec.eudi.pid.1"},
+			expectedStatus: StatusPass,
+		},
+		{
+			name:           "rejects a different mdoc path",
+			path:           []any{"eu.europa.ec.eudi.pid.1", 123},
+			expectedPath:   []any{"eu.europa.ec.eudi.pid.1"},
+			expectedStatus: StatusFail,
+		},
+		{
+			name:         "rejects a presentation returned with the error",
+			path:         []any{"eu.europa.ec.eudi.pid.1", "Bob"},
+			expectedPath: []any{"eu.europa.ec.eudi.pid.1", "Bob"},
+			mutate: func(evidence map[string]any) {
+				evidence["vp_token"] = map[string]any{"pid_mdoc": []any{"presentation"}}
+			},
+			expectedStatus: StatusFail,
+		},
+		{
+			name:         "rejects silent discontinuation",
+			path:         []any{"eu.europa.ec.eudi.pid.1", "Bob"},
+			expectedPath: []any{"eu.europa.ec.eudi.pid.1", "Bob"},
+			mutate: func(evidence map[string]any) {
+				delete(
+					evidence["observed"].(map[string]any)["wallet_response"].(map[string]any),
+					"value",
+				)
+			},
+			expectedStatus: StatusFail,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			evidence := baseEvidence(test.path)
+			if test.mutate != nil {
+				test.mutate(evidence)
+			}
+			result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+				Value: evidence,
+				Params: map[string]any{
+					"mode":                "mdoc_claim_path_error",
+					"expected_claim_path": test.expectedPath,
+				},
+			})
+			require.Equal(t, test.expectedStatus, result.Status, result.Message)
+		})
+	}
+}
+
 func TestDCQLVPTokenResponseModes(t *testing.T) {
 	baseEvidence := func() map[string]any {
 		return map[string]any{

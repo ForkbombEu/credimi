@@ -1,0 +1,55 @@
+id: WS_RP_IA_ProtocolFlow__003a
+title: Answer a dc_api.jwt request with an encrypted JWT.
+source:
+  path: Interaction/ProtocolFlow/WS_RP_IA_ProtocolFlow__003a.md
+suite:
+  sut: wallet_solution
+  role: relying_party
+  section: interaction.protocol_flow
+applicability:
+  profile: EUDI_generic
+  presentation_flow: digital_credentials_api
+normative_references:
+- title: OpenID for Verifiable Presentations 1.0
+  section: '8.3'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: OpenID for Verifiable Presentations 1.0
+  section: 'A.2'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+- title: OpenID4VC High Assurance Interoperability Profile
+  section: '5.2'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+evidence:
+  session:
+    from: pipeline.dc-api.signed-encrypted.outputs.session
+  encrypted_response:
+    from: pipeline.dc-api.signed-encrypted.outputs.encrypted_response
+  visual_evidence:
+    from: pipeline.dc-api.signed-encrypted.outputs.visual_evidence
+assertions:
+- id: wallet_was_invoked_over_the_dc_api
+  validator: oid4vp.dc_api_invocation
+  input: evidence.session
+  params:
+    protocol: openid4vp-v1-signed
+    invoked: true
+- id: response_mode_is_dc_api_jwt
+  validator: json.field_equals
+  input: evidence.session
+  params:
+    field: response_mode
+    value: dc_api.jwt
+- id: authorization_response_is_a_compact_jwe
+  validator: jose.jwe_encrypted_response
+  input: evidence.encrypted_response
+- id: encrypted_response_is_an_unsigned_jwt
+  validator: jose.jwe_protected_header
+  input: evidence.encrypted_response
+  params:
+    field: cty
+    present: false
+- id: visual_evidence_is_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
+verdict:
+  pass_when: all_assertions_pass

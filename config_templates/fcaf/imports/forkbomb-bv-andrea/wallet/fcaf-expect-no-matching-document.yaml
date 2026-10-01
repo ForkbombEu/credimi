@@ -1,0 +1,76 @@
+appId: eu.europa.ec.euidi
+name: FCAF expect no matching document in the wallet
+tags:
+  - fcaf
+  - expect
+  - no-match
+---
+# Shared terminal flow for negative cases whose expected outcome is the Wallet
+# telling the End-User it holds no credential satisfying the request. It is
+# separate from fcaf-expect-request-rejected because that flow accepts an error
+# screen or a return to Home, neither of which proves the request reached
+# credential selection and found nothing.
+- launchApp:
+    stopApp: true
+    clearState: false
+    permissions:
+      camera: allow
+      notifications: allow
+      all: unset
+- extendedWaitUntil:
+    visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - tapOn:
+          point: "11%,40%"
+      - inputText: "123456"
+      - hideKeyboard
+      - tapOn:
+          point: "50%,10%"
+- extendedWaitUntil:
+    visible: "Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+- openLink:
+    link: "${deeplink}"
+    autoVerify: false
+    browser: false
+- runFlow:
+    when:
+      visible: "EUDI Wallet"
+    commands:
+      - tapOn:
+          text: "EUDI Wallet"
+          optional: true
+- runFlow:
+    when:
+      visible: "Just once"
+    commands:
+      - tapOn:
+          text: "Just once"
+          optional: true
+- runFlow:
+    when:
+      visible: "Always"
+    commands:
+      - tapOn:
+          text: "Always"
+          optional: true
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - tapOn:
+          point: "11%,40%"
+      - inputText: "123456"
+      - hideKeyboard
+      - tapOn:
+          point: "50%,10%"
+- extendedWaitUntil:
+    visible: "The requested document is not available in your EUDI Wallet.*"
+    timeout: 30000
+- assertNotVisible:
+    id: eu.europa.ec.euidi:id/request_screen_requested_document_0
+- takeScreenshot: expect-no-matching-document

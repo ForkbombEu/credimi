@@ -1,0 +1,262 @@
+// SPDX-FileCopyrightText: 2026 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package validators
+
+import (
+	"context"
+	"encoding/base64"
+	"testing"
+
+	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
+	"github.com/fxamacker/cbor/v2"
+	"github.com/stretchr/testify/require"
+)
+
+const msoStatusTestDocType = "eu.europa.ec.eudi.pid.1"
+
+// msoStatusPresentation builds a device response whose Mobile Security Object
+// carries the given `status` value, mirroring the issuer-signed shape the
+// Capture Wallet emits when `status_list_enabled` is set.
+func msoStatusPresentation(t *testing.T, status any) *evidence.MDocPresentation {
+	t.Helper()
+	presentation, err := evidence.ParseMDocPresentation(
+		encodedMSOStatusDeviceResponse(t, status, map[string]any{"given_name": "Arthur"}),
+	)
+	require.NoError(t, err)
+	return presentation
+}
+
+// encodedMSOStatusDeviceResponse returns the base64url DeviceResponse a
+// vp_token entry carries, with the given MSO status and PID elements.
+func encodedMSOStatusDeviceResponse(
+	t *testing.T,
+	status any,
+	elements map[string]any,
+) string {
+	t.Helper()
+	mso := map[string]any{"digestAlgorithm": "SHA-256"}
+	if status != nil {
+		mso["status"] = status
+	}
+	encodedMSO, err := cbor.Marshal(mso)
+	require.NoError(t, err)
+	msoBytes, err := cbor.Marshal(encodedMSO)
+	require.NoError(t, err)
+
+	items := make([]any, 0, len(elements))
+	digestID := uint64(1)
+	for identifier, value := range elements {
+		elementValue, err := cbor.Marshal(value)
+		require.NoError(t, err)
+		item, err := cbor.Marshal(map[string]any{
+			"digestID":          digestID,
+			"random":            []byte("salt"),
+			"elementIdentifier": identifier,
+			"elementValue":      cbor.RawMessage(elementValue),
+		})
+		require.NoError(t, err)
+		items = append(items, cbor.Tag{Number: 24, Content: item})
+		digestID++
+	}
+
+	raw, err := cbor.Marshal(map[string]any{
+		"version": "1.0",
+		"documents": []any{
+			map[string]any{
+				"docType": msoStatusTestDocType,
+				"issuerSigned": map[string]any{
+					"nameSpaces": map[string]any{msoStatusTestDocType: items},
+					"issuerAuth": cbor.Tag{Number: 18, Content: []any{
+						[]byte{}, map[string]any{}, msoBytes, []byte("signature"),
+					}},
+				},
+			},
+		},
+		"status": uint64(0),
+	})
+	require.NoError(t, err)
+	return base64.RawURLEncoding.EncodeToString(raw)
+}
+
+func tokenStatusList() map[string]any {
+	return map[string]any{
+		"status_list": map[string]any{
+			"idx": uint64(42),
+			"uri": "https://capture-wallet.credimi.io/status-lists/1",
+		},
+	}
+}
+
+func TestMSOStatusMemberPresence(t *testing.T) {
+	present := MDocMSOStatusMemberPresentValidator{}
+	withStatus := msoStatusPresentation(t, tokenStatusList())
+
+	for _, path := range [][]any{
+		{},
+		{"status_list"},
+		{"status_list", "idx"},
+		{"status_list", "uri"},
+	} {
+		result := present.Validate(context.Background(), Input{
+			Value:  withStatus,
+			Params: map[string]any{"path": path},
+		})
+		require.Equalf(t, StatusPass, result.Status, "path %v: %s", path, result.Message)
+	}
+
+	missingStatus := present.Validate(context.Background(), Input{
+		Value:  msoStatusPresentation(t, nil),
+		Params: map[string]any{"path": []any{}},
+	})
+	require.Equal(t, StatusFail, missingStatus.Status, missingStatus.Message)
+
+	identifierListOnly := present.Validate(context.Background(), Input{
+		Value: msoStatusPresentation(t, map[string]any{
+			"identifier_list": map[string]any{"id": "abc", "uri": "https://example.test/l"},
+		}),
+		Params: map[string]any{"path": []any{"status_list"}},
+	})
+	require.Equal(t, StatusFail, identifierListOnly.Status, identifierListOnly.Message)
+}
+
+func TestMSOStatusCBORTypes(t *testing.T) {
+	cborType := MDocMSOStatusCBORTypeValidator{}
+	withStatus := msoStatusPresentation(t, tokenStatusList())
+
+	for _, expectation := range []struct {
+		path      []any
+		majorType int
+	}{
+		{path: []any{}, majorType: 5},
+		{path: []any{"status_list"}, majorType: 5},
+		{path: []any{"status_list", "idx"}, majorType: 0},
+		{path: []any{"status_list", "uri"}, majorType: 3},
+	} {
+		result := cborType.Validate(context.Background(), Input{
+			Value: withStatus,
+			Params: map[string]any{
+				"path":       expectation.path,
+				"major_type": expectation.majorType,
+			},
+		})
+		require.Equalf(
+			t,
+			StatusPass,
+			result.Status,
+			"path %v: %s",
+			expectation.path,
+			result.Message,
+		)
+	}
+
+	// A wallet that re-encoded idx as a text string breaks the CBOR contract.
+	rewritten := msoStatusPresentation(t, map[string]any{
+		"status_list": map[string]any{
+			"idx": "42",
+			"uri": "https://capture-wallet.credimi.io/status-lists/1",
+		},
+	})
+	result := cborType.Validate(context.Background(), Input{
+		Value:  rewritten,
+		Params: map[string]any{"path": []any{"status_list", "idx"}, "major_type": 0},
+	})
+	require.Equal(t, StatusFail, result.Status, result.Message)
+
+	missingMajorType := cborType.Validate(context.Background(), Input{
+		Value:  withStatus,
+		Params: map[string]any{"path": []any{}},
+	})
+	require.Equal(t, StatusError, missingMajorType.Status, missingMajorType.Message)
+}
+
+func TestMSOStatusURI(t *testing.T) {
+	validator := MDocMSOStatusURIValidator{}
+	params := map[string]any{"path": []any{"status_list", "uri"}}
+
+	absolute := validator.Validate(context.Background(), Input{
+		Value:  msoStatusPresentation(t, tokenStatusList()),
+		Params: params,
+	})
+	require.Equal(t, StatusPass, absolute.Status, absolute.Message)
+
+	relative := validator.Validate(context.Background(), Input{
+		Value: msoStatusPresentation(t, map[string]any{
+			"status_list": map[string]any{"idx": uint64(1), "uri": "/status-lists/1"},
+		}),
+		Params: params,
+	})
+	require.Equal(t, StatusFail, relative.Status, relative.Message)
+
+	nonString := validator.Validate(context.Background(), Input{
+		Value: msoStatusPresentation(t, map[string]any{
+			"status_list": map[string]any{"idx": uint64(1), "uri": uint64(7)},
+		}),
+		Params: params,
+	})
+	require.Equal(t, StatusFail, nonString.Status, nonString.Message)
+}
+
+func TestMSOStatusListStructure(t *testing.T) {
+	uri := "https://capture-wallet.credimi.io/status-lists/1"
+	for _, test := range []struct {
+		name       string
+		statusList any
+		want       Status
+	}{
+		{
+			name:       "required pair",
+			statusList: map[string]any{"idx": uint64(42), "uri": uri},
+			want:       StatusPass,
+		},
+		{
+			name:       "optional certificate",
+			statusList: map[string]any{"idx": uint64(42), "uri": uri, "certificate": []byte{1}},
+			want:       StatusPass,
+		},
+		{
+			name:       "missing uri",
+			statusList: map[string]any{"idx": uint64(42)},
+			want:       StatusFail,
+		},
+		{
+			name:       "unrecognized text key",
+			statusList: map[string]any{"idx": uint64(42), "uri": uri, "extra": "x"},
+			want:       StatusFail,
+		},
+		{
+			name:       "certificate is not a byte string",
+			statusList: map[string]any{"idx": uint64(42), "uri": uri, "certificate": "pem"},
+			want:       StatusFail,
+		},
+		{
+			name:       "idx is a text string",
+			statusList: map[string]any{"idx": "42", "uri": uri},
+			want:       StatusFail,
+		},
+		{
+			name:       "four pairs",
+			statusList: map[string]any{"idx": uint64(42), "uri": uri, "certificate": []byte{1}, "x": 1},
+			want:       StatusFail,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := MDocMSOStatusListStructureValidator{}.Validate(context.Background(), Input{
+				Value: msoStatusPresentation(t, map[string]any{"status_list": test.statusList}),
+			})
+			require.Equal(t, test.want, result.Status, result.Message)
+		})
+	}
+}
+
+func TestCOSECWTStatusClaimBlocksOnMobileSecurityObject(t *testing.T) {
+	validator := COSECWTStatusClaimValidator{}
+	mdoc := validator.Validate(context.Background(), Input{
+		Value: msoStatusPresentation(t, tokenStatusList()),
+	})
+	require.Equal(t, StatusBlocked, mdoc.Status, mdoc.Message)
+
+	notCOSE := validator.Validate(context.Background(), Input{Value: "not-a-token"})
+	require.Equal(t, StatusFail, notCOSE.Status, notCOSE.Message)
+}

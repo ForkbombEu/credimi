@@ -1,5 +1,5 @@
 id: WS_RP_SM_SessionEncryption__003
-title: FCAF WS_RP_SM_SessionEncryption__003
+title: Reject a verifier JWK whose alg cannot be the JWE alg.
 source:
   path: SecurityMechanisms/SessionEncryption/WS_RP_SM_SessionEncryption__003.md
 suite:
@@ -11,21 +11,30 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.session-encryption
+- ref: pipeline.response-encryption.jwk-alg-mismatch
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.session-encryption.outputs.dcql_exchange
+  capture_session:
+    from: pipeline.response-encryption.jwk-alg-mismatch.outputs.capture_session
+  request_object:
+    from: pipeline.response-encryption.jwk-alg-mismatch.outputs.request_object
   visual_evidence:
-    from: pipeline.dcql.session-encryption.outputs.visual_evidence
+    from: pipeline.response-encryption.jwk-alg-mismatch.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_sessionencryption__003_jwe_verified
-  validator: jwt.header_field_equals
-  input: evidence.dcql_exchange
-  params:
-    field: alg
-- id: ws_rp_sm_sessionencryption__003_visual_evidence
+- id: verifier_jwk_alg_cannot_be_the_jwe_alg
+  validator: oid4vp.request_encryption_jwk
+  input: evidence.request_object
+  params: {field: alg, value: ECDH-ES+A256KW}
+- id: wallet_sent_no_authorization_response
+  validator: oid4vp.session_event_count
+  input: evidence.capture_session
+  params: {type: vp_presentation_response_received, count: 0}
+- id: wallet_returned_an_error_without_presentation
+  validator: oid4vp.error_response_required
+  input: evidence.capture_session
+  params: {code: invalid_request}
+- id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

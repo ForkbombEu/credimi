@@ -6,6 +6,7 @@ package validators
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/mail"
 	"regexp"
@@ -38,6 +39,81 @@ func (PIDMDocTypeValidator) Validate(_ context.Context, input Input) Result {
 		}
 	}
 	return Result{Status: StatusPass, Message: fmt.Sprintf("mdoc document type is %q", pidMDocType)}
+}
+
+// MDocExactNamespaceElementsValidator verifies that a presentation contains
+// exactly the requested elements in one namespace.
+type MDocExactNamespaceElementsValidator struct{}
+
+// ID returns the validator identifier.
+func (MDocExactNamespaceElementsValidator) ID() string {
+	return "mdoc.exact_namespace_elements"
+}
+
+// Validate rejects presentations that contain unrequested namespaces or
+// elements, in addition to requiring every requested element.
+func (MDocExactNamespaceElementsValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Namespace string   `json:"namespace"`
+		Elements  []string `json:"elements"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Namespace == "" || len(params.Elements) == 0 {
+		return Result{Status: StatusError, Message: "namespace and elements params are required"}
+	}
+	expected := make(map[string]struct{}, len(params.Elements))
+	for _, element := range params.Elements {
+		if element == "" {
+			return Result{
+				Status:  StatusError,
+				Message: "elements must not contain an empty identifier",
+			}
+		}
+		if _, duplicate := expected[element]; duplicate {
+			return Result{
+				Status:  StatusError,
+				Message: fmt.Sprintf("elements contains duplicate identifier %q", element),
+			}
+		}
+		expected[element] = struct{}{}
+	}
+	presentation, ok := mdocPresentation(input.Value)
+	if !ok {
+		return wrongMDocInput(input.Value)
+	}
+	if len(presentation.Namespaces) != 1 {
+		return Result{
+			Status:  StatusFail,
+			Message: "mdoc presentation contains unrequested namespaces",
+		}
+	}
+	actual, exists := presentation.Namespaces[params.Namespace]
+	if !exists {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("mdoc namespace %q is missing", params.Namespace),
+		}
+	}
+	if len(actual) != len(expected) {
+		return Result{
+			Status:  StatusFail,
+			Message: "mdoc presentation contains unrequested or missing elements",
+		}
+	}
+	for element := range expected {
+		if _, exists := actual[element]; !exists {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("mdoc element %q is missing", element),
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "mdoc presentation contains exactly the requested elements",
+	}
 }
 
 type PIDMDocMandatoryElementsValidator struct{}
@@ -713,6 +789,13 @@ func mdocPresentation(value any) (*evidence.MDocPresentation, bool) {
 			return presentation, true
 		}
 		presentation, err = evidence.ParseMDocVPTokenJSON(typed)
+		return presentation, err == nil
+	case map[string]any:
+		encoded, err := json.Marshal(typed)
+		if err != nil {
+			return nil, false
+		}
+		presentation, err := evidence.ParseMDocVPTokenJSON(string(encoded))
 		return presentation, err == nil
 	default:
 		return nil, false

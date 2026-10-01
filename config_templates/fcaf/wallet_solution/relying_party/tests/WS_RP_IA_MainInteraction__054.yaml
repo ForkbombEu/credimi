@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__054
-title: FCAF WS_RP_IA_MainInteraction__054
+title: Deliver the direct-post JWT response to the response URI by POST.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__054.md
 suite:
@@ -13,19 +13,20 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
+- ref: pipeline.direct-post-jwt.response-transport
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
+  capture_session:
+    from: pipeline.direct-post-jwt.response-transport.outputs.capture_session
   visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+    from: pipeline.direct-post-jwt.response-transport.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__054_interaction
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: authorization_response_is_delivered_by_post
+  validator: oid4vp.presentation_response_http
+  input: evidence.capture_session
   params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__054_visual_evidence
+    method: POST
+    require_response_parameter: true
+- id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

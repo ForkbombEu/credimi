@@ -1,5 +1,5 @@
 id: WS_RP_IA_Metadata__010
-title: FCAF WS_RP_IA_Metadata__010
+title: Return invalid_request when direct_post.jwt carries redirect_uri as well.
 source:
   path: Interaction/Metadata/WS_RP_IA_Metadata__010.md
 suite:
@@ -11,21 +11,29 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.interaction-metadata
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.interaction-metadata.outputs.dcql_exchange
+  session:
+    from: pipeline.protocol.response-uri-controls.outputs.redirect_uri_present_session
+  request_object:
+    from: pipeline.protocol.response-uri-controls.outputs.redirect_uri_present_request_object
   visual_evidence:
-    from: pipeline.dcql.interaction-metadata.outputs.visual_evidence
+    from: pipeline.protocol.response-uri-controls.outputs.redirect_uri_present_visual_evidence
 assertions:
-- id: ws_rp_ia_metadata__010_metadata_valid
-  validator: json.field_required
-  input: evidence.dcql_exchange
-  params:
-    field: vp_token
-- id: ws_rp_ia_metadata__010_visual_evidence
+- id: delivered_request_uses_direct_post_jwt
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params: { field: response_mode, value: direct_post.jwt }
+- id: delivered_request_carries_both_mutually_exclusive_parameters
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params: { field: redirect_uri, present: true }
+- id: wallet_returns_invalid_request_without_a_presentation
+  validator: oid4vp.error_response_required
+  input: evidence.session
+  params: { code: invalid_request }
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

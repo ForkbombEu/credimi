@@ -33,14 +33,34 @@ steps:
                 nonce: credential-formats
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-credential-formats-3cfeac03-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-exercise-wallet
       use: mobile-automation
@@ -55,7 +75,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-035-create-pid-mdoc-offer
       use: credential-offer
@@ -90,14 +110,14 @@ steps:
                 nonce: fcaf-credential-format-mso-mdoc
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-035-present-pid-mdoc
       use: mobile-automation
@@ -112,7 +132,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-credential-formats-035-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-credential-formats-035-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-036-create-pid-sdjwt-offer
       use: credential-offer
@@ -145,14 +165,14 @@ steps:
                 nonce: fcaf-credential-format-dc-sd-jwt
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-036-present-pid-sdjwt
       use: mobile-automation
@@ -167,7 +187,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-credential-formats-036-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-credential-formats-036-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-039-create-capture-session
       use: http-request
@@ -187,14 +207,14 @@ steps:
                 nonce: fcaf-credential-formats-039
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token id_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-039-exercise-wallet
       use: mobile-automation
@@ -210,6 +230,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
             - runFlow:
@@ -225,6 +246,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - extendedWaitUntil: { visible: "unsupported_response_type|Oups! Something went wrong|Error|Home|Documents|Welcome, .*", timeout: 100000 }
             - takeScreenshot: fcaf-credential-formats-039-response-type-rejected
@@ -237,7 +259,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-credential-formats-039-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-credential-formats-039-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-040-create-capture-session
       use: http-request
@@ -257,14 +279,14 @@ steps:
                 nonce: fcaf-credential-formats-040
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: code
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet
       use: mobile-automation
@@ -280,6 +302,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
             - runFlow:
@@ -295,6 +318,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - extendedWaitUntil: { visible: "unsupported_response_type|Oups! Something went wrong|Error|Home|Documents|Welcome, .*", timeout: 100000 }
             - takeScreenshot: fcaf-credential-formats-040-response-type-rejected
@@ -307,7 +331,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-credential-formats-040-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-credential-formats-3cfeac03-credential-formats-040-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-credentials-match-cc301c32-onboard-reference-wallet
       use: mobile-automation
@@ -359,7 +383,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-credentials-match-cc301c32-present-with-reference-implementation
       use: mobile-automation
@@ -381,7 +405,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-credentials-match-cc301c32-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-credentials-match-cc301c32-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-cryptography-1a488a33-create-capture-session
       use: http-request
@@ -401,14 +425,34 @@ steps:
                 nonce: cryptography
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-cryptography-1a488a33-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-cryptography-1a488a33-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-cryptography-1a488a33-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-cryptography-1a488a33-exercise-wallet
       use: mobile-automation
@@ -423,7 +467,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-cryptography-1a488a33-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-cryptography-1a488a33-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-device-binding-f7c71f86-create-capture-session
       use: http-request
@@ -443,14 +487,34 @@ steps:
                 nonce: device-binding
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-device-binding-f7c71f86-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-device-binding-f7c71f86-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-device-binding-f7c71f86-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-device-binding-f7c71f86-exercise-wallet
       use: mobile-automation
@@ -465,7 +529,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-device-binding-f7c71f86-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-device-binding-f7c71f86-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-interaction-metadata-f9737358-create-capture-session
       use: http-request
@@ -485,14 +549,34 @@ steps:
                 nonce: interaction-metadata
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-interaction-metadata-f9737358-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-interaction-metadata-f9737358-exercise-wallet
       use: mobile-automation
@@ -507,7 +591,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-interaction-metadata-f9737358-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-interaction-metadata-f9737358-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-create-capture-session
       use: http-request
@@ -527,14 +611,34 @@ steps:
                 nonce: main-interaction
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-exercise-wallet
       use: mobile-automation
@@ -549,7 +653,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-019-create-presentation
       use: http-request
@@ -582,7 +686,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation
       use: mobile-automation
@@ -598,7 +702,7 @@ steps:
                   notifications: allow
                   all: unset
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - waitForAnimationToEnd:
@@ -623,7 +727,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-020-create-presentation
       use: http-request
@@ -656,7 +760,27 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option
       use: mobile-automation
@@ -668,11 +792,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Welcome back|DATA SHARING REQUEST"
+                visible: "Welcome back|Data sharing request"
                 timeout: 100000
             - runFlow:
                 when:
@@ -681,10 +805,11 @@ steps:
                   - tapOn:
                       point: "11%,39%"
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn:
                       point: "50%,10%"
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - extendedWaitUntil:
@@ -693,6 +818,7 @@ steps:
             - tapOn:
                 point: "11%,39%"
             - inputText: "123456"
+            - hideKeyboard
             - tapOn:
                 point: "50%,10%"
             - extendedWaitUntil:
@@ -709,7 +835,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-022-create-presentation
       use: http-request
@@ -730,7 +856,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-022-reject-claim-sets-without-claims
       use: mobile-automation
@@ -742,11 +868,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|invalid request|Something went wrong|Home|Documents"
+                visible: "Error|invalid request|Oups! Something went wrong|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-022
         parameters:
@@ -758,7 +884,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-022-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-022-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-create-presentation
       use: http-request
@@ -792,7 +918,27 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback
       use: mobile-automation
@@ -804,11 +950,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "DATA SHARING REQUEST"
+                visible: "Data sharing request"
                 timeout: 100000
             - tapOn: "Share"
             - takeScreenshot: fcaf-ia-025
@@ -821,7 +967,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-026-create-presentation
       use: http-request
@@ -845,7 +991,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-026-exercise-no-match
       use: mobile-automation
@@ -857,11 +1003,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|Home|Documents|No matching"
+                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-026
         parameters:
@@ -873,7 +1019,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-026-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-026-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-027-create-presentation
       use: http-request
@@ -899,7 +1045,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match
       use: mobile-automation
@@ -911,11 +1057,11 @@ steps:
                 stopApp: true
                 clearState: false
             - openLink:
-                link: ${env.DEEPLINK}
+                link: ${DEEPLINK}
                 autoVerify: false
                 browser: false
             - extendedWaitUntil:
-                visible: "Error|Home|Documents|No matching"
+                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
                 timeout: 100000
             - takeScreenshot: fcaf-ia-027
         parameters:
@@ -927,7 +1073,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-028-create-pid-mdoc-offer
       use: credential-offer
@@ -958,7 +1104,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-028-present-full-disclosure
       use: mobile-automation
@@ -973,7 +1119,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-028-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-028-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-029-create-pid-sdjwt-offer
       use: credential-offer
@@ -1017,7 +1163,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-029-present-required-option
       use: mobile-automation
@@ -1032,7 +1178,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-029-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-029-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation
       use: http-request
@@ -1055,7 +1201,27 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match
       use: mobile-automation
@@ -1070,7 +1236,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-create-pid-sdjwt-offer
       use: credential-offer
@@ -1110,7 +1276,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-present-available-option
       use: mobile-automation
@@ -1125,7 +1291,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-030-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-030-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-pid-sdjwt-offer
       use: credential-offer
@@ -1166,7 +1332,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-present-combined-option
       use: mobile-automation
@@ -1181,7 +1347,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation
       use: http-request
@@ -1209,14 +1375,34 @@ steps:
                 nonce: fcaf-main-interaction-039
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials
       use: mobile-automation
@@ -1237,6 +1423,7 @@ steps:
                 commands:
                   - tapOn: { point: "11%,40%" }
                   - inputText: "123456"
+                  - hideKeyboard
                   - tapOn: { point: "50%,10%" }
             - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
             - runFlow:
@@ -1247,7 +1434,7 @@ steps:
                 when: { visible: "Just once" }
                 commands:
                   - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "DATA SHARING REQUEST", timeout: 100000 }
+            - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
             - takeScreenshot: fcaf-main-interaction-039-two-credentials
@@ -1255,6 +1442,7 @@ steps:
             - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
             - tapOn: { point: "11%,39%" }
             - inputText: "123456"
+            - hideKeyboard
             - tapOn: { point: "50%,10%" }
             - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
             - tapOn: "Close"
@@ -1267,7 +1455,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-metadata-b66a6319-create-capture-session
       use: http-request
@@ -1287,14 +1475,34 @@ steps:
                 nonce: metadata
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-metadata-b66a6319-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-metadata-b66a6319-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-metadata-b66a6319-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-metadata-b66a6319-exercise-wallet
       use: mobile-automation
@@ -1309,7 +1517,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-metadata-b66a6319-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-metadata-b66a6319-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-create-capture-session
       use: http-request
@@ -1329,14 +1537,68 @@ steps:
                 nonce: protocol-messages
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-create-request-uri-media-type-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: protocol-messages-request-uri-media-type
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-probe-request-uri-response
+      use: http-request
+      with:
+        expected_status: 200
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-request-uri-media-type-probe.outputs.body.session_id }}/request
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-protocol-messages-a25772b2-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-exercise-wallet
       use: mobile-automation
@@ -1351,14 +1613,14 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-fetch-signed-request-object
       use: http-request
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.session_id }}/request
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.session_id }}/request
     - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-create-capture-session
       use: http-request
@@ -1378,14 +1640,34 @@ steps:
                 nonce: rp-integrity
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-rp-integrity-3576cc79-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-rp-integrity-3576cc79-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-rp-integrity-3576cc79-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-exercise-wallet
       use: mobile-automation
@@ -1400,7 +1682,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-rp-integrity-3576cc79-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-rp-integrity-3576cc79-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-session-encryption-210827bd-create-capture-session
       use: http-request
@@ -1420,14 +1702,34 @@ steps:
                 nonce: session-encryption
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
-            scheme: haip-vp://
+            scheme: openid4vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-session-encryption-210827bd-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-session-encryption-210827bd-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-session-encryption-210827bd-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-session-encryption-210827bd-exercise-wallet
       use: mobile-automation
@@ -1442,7 +1744,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-session-encryption-210827bd-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-session-encryption-210827bd-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-create-capture-session
       use: http-request
@@ -1462,14 +1764,34 @@ steps:
                 nonce: trust-mechanisms
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-exercise-wallet
       use: mobile-automation
@@ -1484,7 +1806,69 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ dcql-trust-mechanisms-157d0f39-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trust-mechanisms-157d0f39-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: direct-post-jwt-response-transport-57ec17f1-create-capture-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: direct-post-jwt-response-transport
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.issuer_url}/sessions
+    - continue_on_error: true
+      id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ direct-post-jwt-response-transport-57ec17f1-create-capture-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: direct-post-jwt-response-transport-57ec17f1-fetch-capture-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ direct-post-jwt-response-transport-57ec17f1-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
       use: credential-offer
@@ -1572,14 +1956,14 @@ steps:
                 nonce: fcaf-engagement-haip-vp
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp
       use: mobile-automation
@@ -1594,7 +1978,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-onboard-reference-wallet
       use: mobile-automation
@@ -1705,14 +2089,14 @@ steps:
                 nonce: fcaf-pid-mdoc-data-model
             request_delivery: by_reference
             request_uri_method: post
-            response_mode: direct_post
+            response_mode: direct_post.jwt
             response_type: vp_token
             scheme: haip-vp://
         expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: https://capture-wallet.credimi.io/openid4vp/sessions
+        url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp
       use: mobile-automation
@@ -1727,41 +2111,63 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
       id: request-object-by-value-f1c94061-create-presentation
       use: http-request
       with:
         body:
-            dcql_query:
-                credentials:
-                    - claims:
-                        - path:
-                            - eu.europa.ec.eudi.pid.1
-                            - given_name
-                        - path:
-                            - eu.europa.ec.eudi.pid.1
-                            - family_name
-                      format: mso_mdoc
-                      id: pid_mdoc
-                      meta:
-                        doctype_value: eu.europa.ec.eudi.pid.1
-            nonce: fcaf-request-object-by-value
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - family_name
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-request-object-by-value
             request_delivery: by_value
-            type: vp_token
-        expected_status: 200
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.verifier_url}/ui/presentations
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-by-value-f1c94061-submit-request-object-by-value
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-submit-request-object-by-value
         parameters:
-            CLIENT_ID: ${{ request-object-by-value-f1c94061-create-presentation.outputs.body.client_id }}
-            REQUEST_OBJECT: ${{ request-object-by-value-f1c94061-create-presentation.outputs.body.request }}
+            deeplink: ${{ request-object-by-value-f1c94061-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-by-value-f1c94061-get-presentation-result
@@ -1769,7 +2175,7 @@ steps:
       with:
         expected_status: 200
         method: GET
-        url: ${fixture.verifier_url}/ui/presentations/${{ request-object-by-value-f1c94061-create-presentation.outputs.body.transaction_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ request-object-by-value-f1c94061-create-presentation.outputs.body.session_id }}
     - id: run-complete-fcaf-validation
       use: fcaf-validation
       with:
@@ -1904,10 +2310,13 @@ steps:
                     visual_evidence: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-028-present-full-disclosure.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.protocol-messages:
                 output:
+                    capture_session: ${{ dcql-protocol-messages-a25772b2-fetch-capture-session.outputs.body | optional }}
                     client_id_evidence:
                         deeplink: ${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.deeplink | optional }}
                         request_object: ${{ dcql-protocol-messages-a25772b2-fetch-signed-request-object.outputs.body | optional }}
                     dcql_exchange: ${{ dcql-protocol-messages-a25772b2-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ dcql-protocol-messages-a25772b2-probe-request-uri-response.outputs.body | optional }}
+                    request_uri_response: ${{ dcql-protocol-messages-a25772b2-probe-request-uri-response.outputs | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-a25772b2-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
                     wallet_nonce_evidence:
                         request_object: ${{ dcql-protocol-messages-a25772b2-fetch-signed-request-object.outputs.body | optional }}
@@ -1919,6 +2328,9 @@ steps:
             pipeline.dcql.session-encryption:
                 output:
                     dcql_exchange: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body | optional }}
+                    decrypted_response: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.raw.presentation_response_decrypted | optional }}
+                    encrypted_response: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.observed.wallet_response.value.response | optional }}
+                    session_checks: ${{ dcql-session-encryption-210827bd-fetch-capture-session.outputs.body.checks | optional }}
                     visual_evidence: ${{ dcql-session-encryption-210827bd-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.trust-mechanisms:
                 output:
@@ -1932,6 +2344,13 @@ steps:
                 output:
                     dcql_exchange: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-fetch-result.outputs.body | optional }}
                     visual_evidence: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.direct-post-jwt.response-transport:
+                output:
+                    capture_session: ${{ direct-post-jwt-response-transport-57ec17f1-fetch-capture-session.outputs.body | optional }}
+                    default_encryption_evidence:
+                        presentation_response_http: ${{ direct-post-jwt-response-transport-57ec17f1-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
+                        request_object: ${{ direct-post-jwt-response-transport-57ec17f1-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    visual_evidence: ${{ direct-post-jwt-response-transport-57ec17f1-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.pid.presentation.mdoc.all-claims-elements:
                 output:
                     create-capture-session: ${{ pid-mdoc-data-model-8f915369-create-capture-session.outputs | optional }}
@@ -2114,8 +2533,10 @@ steps:
             - WS_RP_DM_IdentifyingData_Sex_PID_ISO-mdoc_002
             - WS_RP_DM_IdentifyingData_Sex_PID_ISO-mdoc_003
             - WS_RP_IA_Engagement__001
+            - WS_RP_IA_Engagement__001a
             - WS_RP_IA_MainInteraction__006
             - WS_RP_IA_MainInteraction__010
+            - WS_RP_IA_MainInteraction__012b
             - WS_RP_IA_MainInteraction__018
             - WS_RP_IA_MainInteraction__019
             - WS_RP_IA_MainInteraction__020
@@ -2128,43 +2549,23 @@ steps:
             - WS_RP_IA_MainInteraction__029
             - WS_RP_IA_MainInteraction__030
             - WS_RP_IA_MainInteraction__031
-            - WS_RP_IA_MainInteraction__032
-            - WS_RP_IA_MainInteraction__033
             - WS_RP_IA_MainInteraction__035
             - WS_RP_IA_MainInteraction__036
             - WS_RP_IA_MainInteraction__037
             - WS_RP_IA_MainInteraction__038
             - WS_RP_IA_MainInteraction__039
-            - WS_RP_IA_MainInteraction__040
-            - WS_RP_IA_MainInteraction__041
             - WS_RP_IA_MainInteraction__042
             - WS_RP_IA_MainInteraction__043
             - WS_RP_IA_MainInteraction__046
             - WS_RP_IA_MainInteraction__049
             - WS_RP_IA_MainInteraction__052
-            - WS_RP_IA_MainInteraction__053
             - WS_RP_IA_MainInteraction__054
-            - WS_RP_IA_MainInteraction__055
-            - WS_RP_IA_MainInteraction__056
-            - WS_RP_IA_MainInteraction__057
             - WS_RP_IA_MainInteraction__060
-            - WS_RP_IA_MainInteraction__061
-            - WS_RP_IA_MainInteraction__064
             - WS_RP_IA_MainInteraction__065
-            - WS_RP_IA_MainInteraction__066
-            - WS_RP_IA_MainInteraction__067
-            - WS_RP_IA_Metadata__010
             - WS_RP_IA_Metadata__011
             - WS_RP_IA_Metadata__012
             - WS_RP_IA_Metadata__013
             - WS_RP_IA_Metadata__014
-            - WS_RP_IA_Metadata__015
-            - WS_RP_IA_Metadata__016
-            - WS_RP_MS_CredentialFormats__029
-            - WS_RP_MS_CredentialFormats__030
-            - WS_RP_MS_CredentialFormats__031
-            - WS_RP_MS_CredentialFormats__032
-            - WS_RP_MS_CredentialFormats__033
             - WS_RP_MS_CredentialFormats__034
             - WS_RP_MS_CredentialFormats__035
             - WS_RP_MS_CredentialFormats__036
@@ -2172,42 +2573,16 @@ steps:
             - WS_RP_MS_CredentialFormats__038
             - WS_RP_MS_CredentialFormats__039
             - WS_RP_MS_CredentialFormats__040
-            - WS_RP_MS_CredentialFormats__041
-            - WS_RP_MS_CredentialFormats__044
             - WS_RP_MS_CredentialFormats__045
+            - WS_RP_MS_CredentialFormats__045a
+            - WS_RP_MS_CredentialFormats__045b
+            - WS_RP_MS_CredentialFormats__045c
+            - WS_RP_MS_CredentialFormats__045d
             - WS_RP_MS_CredentialFormats__046
             - WS_RP_MS_CredentialFormats__048
-            - WS_RP_MS_Metadata__081
             - WS_RP_MS_Metadata__082
-            - WS_RP_MS_Metadata__083
-            - WS_RP_MS_Metadata__084
-            - WS_RP_MS_Metadata__085
-            - WS_RP_MS_Metadata__086
-            - WS_RP_MS_Metadata__087
-            - WS_RP_MS_Metadata__088
-            - WS_RP_MS_Metadata__089
-            - WS_RP_MS_Metadata__090
-            - WS_RP_MS_Metadata__091
-            - WS_RP_MS_Metadata__092
-            - WS_RP_MS_Metadata__093
-            - WS_RP_MS_Metadata__094
-            - WS_RP_MS_Metadata__095
-            - WS_RP_MS_Metadata__096
-            - WS_RP_MS_Metadata__097
-            - WS_RP_MS_Metadata__098
-            - WS_RP_MS_Metadata__099
-            - WS_RP_MS_Metadata__100
-            - WS_RP_MS_Metadata__101
-            - WS_RP_MS_Metadata__102
-            - WS_RP_MS_Metadata__103
             - WS_RP_MS_Metadata__104
-            - WS_RP_MS_Metadata__105
-            - WS_RP_MS_Metadata__106
-            - WS_RP_MS_Metadata__107
             - WS_RP_MS_Metadata__108
-            - WS_RP_MS_Metadata__109
-            - WS_RP_MS_Metadata__110
-            - WS_RP_MS_Metadata__111
             - WS_RP_MS_Metadata__112
             - WS_RP_MS_Metadata__113
             - WS_RP_MS_Metadata__114
@@ -2222,58 +2597,28 @@ steps:
             - WS_RP_MS_Metadata__123
             - WS_RP_MS_Metadata__124
             - WS_RP_MS_Metadata__125
-            - WS_RP_MS_Metadata__126
             - WS_RP_MS_Metadata__127
             - WS_RP_MS_Metadata__128
-            - WS_RP_MS_Metadata__129
-            - WS_RP_MS_Metadata__130
-            - WS_RP_MS_Metadata__131
-            - WS_RP_MS_Metadata__132
-            - WS_RP_MS_Metadata__133
             - WS_RP_MS_Metadata__134
-            - WS_RP_MS_Metadata__135
-            - WS_RP_MS_Metadata__136
-            - WS_RP_MS_Metadata__137
             - WS_RP_MS_Metadata__138
-            - WS_RP_MS_Metadata__139
-            - WS_RP_MS_Metadata__140
             - WS_RP_MS_Metadata__141
-            - WS_RP_MS_ProtocolMessages__002
             - WS_RP_MS_ProtocolMessages__003
             - WS_RP_MS_ProtocolMessages__004
-            - WS_RP_MS_ProtocolMessages__006
-            - WS_RP_MS_ProtocolMessages__007
             - WS_RP_MS_ProtocolMessages__008
-            - WS_RP_MS_ProtocolMessages__009
-            - WS_RP_MS_ProtocolMessages__010
             - WS_RP_MS_ProtocolMessages__011
             - WS_RP_MS_ProtocolMessages__012
-            - WS_RP_MS_ProtocolMessages__016
             - WS_RP_MS_ProtocolMessages__017
             - WS_RP_MS_ProtocolMessages__018
             - WS_RP_MS_ProtocolMessages__019
             - WS_RP_MS_ProtocolMessages__020
-            - WS_RP_MS_ProtocolMessages__030
             - WS_RP_MS_ProtocolMessages__032
-            - WS_RP_MS_ProtocolMessages__033
-            - WS_RP_MS_ProtocolMessages__034
             - WS_RP_MS_ProtocolMessages__035
             - WS_RP_MS_ProtocolMessages__036
             - WS_RP_MS_ProtocolMessages__037
-            - WS_RP_MS_ProtocolMessages__038
-            - WS_RP_MS_ProtocolMessages__039
             - WS_RP_MS_ProtocolMessages__040
-            - WS_RP_MS_ProtocolMessages__041
-            - WS_RP_MS_ProtocolMessages__042
-            - WS_RP_MS_ProtocolMessages__043
-            - WS_RP_MS_ProtocolMessages__044
             - WS_RP_MS_ProtocolMessages__045
-            - WS_RP_MS_ProtocolMessages__046
             - WS_RP_MS_ProtocolMessages__047
-            - WS_RP_MS_ProtocolMessages__048
-            - WS_RP_MS_ProtocolMessages__049
             - WS_RP_MS_ProtocolMessages__050
-            - WS_RP_MS_ProtocolMessages__051
             - WS_RP_MS_ProtocolMessages__052
             - WS_RP_MS_ProtocolMessages__057
             - WS_RP_MS_ProtocolMessages__059
@@ -2281,15 +2626,23 @@ steps:
             - WS_RP_MS_ProtocolMessages__070
             - WS_RP_MS_ProtocolMessages__095
             - WS_RP_MS_ProtocolMessages__105
+            - WS_RP_MS_ProtocolMessages__127a
+            - WS_RP_MS_ProtocolMessages__127b
+            - WS_RP_MS_ProtocolMessages__127c
+            - WS_RP_MS_ProtocolMessages__127d
+            - WS_RP_MS_ProtocolMessages__129
+            - WS_RP_MS_ProtocolMessages__131
+            - WS_RP_MS_ProtocolMessages__132
+            - WS_RP_MS_ProtocolMessages__133
+            - WS_RP_MS_ProtocolMessages__134
             - WS_RP_SH_Cryptography_CryptographicHash_001
             - WS_RP_SH_Cryptography_CryptographicHash_002
-            - WS_RP_SH_Cryptography_CryptographicHash_006
-            - WS_RP_SH_Cryptography_CryptographicHash_007
             - WS_RP_SH_Cryptography_CryptographicHash_008
-            - WS_RP_SH_Cryptography_CryptographicHash_010
-            - WS_RP_SH_Cryptography_Encryption_002
             - WS_RP_SH_Encoding_TextualEncoding_014
             - WS_RP_SH_Encoding_TextualEncoding_015
+            - WS_RP_SH_Encoding_TextualEncoding_017
+            - WS_RP_SH_Encoding_TextualEncoding_021
+            - WS_RP_SH_Encoding_TextualEncoding_022
             - WS_RP_SM_DeviceBinding__002
             - WS_RP_SM_DeviceBinding__003
             - WS_RP_SM_DeviceBinding__004
@@ -2299,55 +2652,36 @@ steps:
             - WS_RP_SM_DeviceBinding__010
             - WS_RP_SM_DeviceBinding__011
             - WS_RP_SM_DeviceBinding__012
+            - WS_RP_SM_DeviceBinding__012a
+            - WS_RP_SM_DeviceBinding__012b
+            - WS_RP_SM_DeviceBinding__012c
             - WS_RP_SM_IssuerIntegrity__013
+            - WS_RP_SM_IssuerIntegrity__014
             - WS_RP_SM_RpIntegrity_CryptographicSignature_002
             - WS_RP_SM_RpIntegrity_CryptographicSignature_003
             - WS_RP_SM_RpIntegrity_CryptographicSignature_004
             - WS_RP_SM_RpIntegrity__001
-            - WS_RP_SM_RpIntegrity__002
-            - WS_RP_SM_RpIntegrity__003
-            - WS_RP_SM_RpIntegrity__004
-            - WS_RP_SM_RpIntegrity__005
-            - WS_RP_SM_RpIntegrity__006
-            - WS_RP_SM_RpIntegrity__007
             - WS_RP_SM_RpIntegrity__008
             - WS_RP_SM_RpIntegrity__009
             - WS_RP_SM_RpIntegrity__010
             - WS_RP_SM_RpIntegrity__011
             - WS_RP_SM_RpIntegrity__012
-            - WS_RP_SM_RpIntegrity__013
-            - WS_RP_SM_RpIntegrity__014
-            - WS_RP_SM_RpIntegrity__015
-            - WS_RP_SM_RpIntegrity__016
-            - WS_RP_SM_RpIntegrity__017
-            - WS_RP_SM_RpIntegrity__018
-            - WS_RP_SM_RpIntegrity__019
-            - WS_RP_SM_RpIntegrity__020
-            - WS_RP_SM_RpIntegrity__021
-            - WS_RP_SM_RpIntegrity__022
-            - WS_RP_SM_RpIntegrity__023
             - WS_RP_SM_RpIntegrity__024
             - WS_RP_SM_RpIntegrity__025
-            - WS_RP_SM_RpIntegrity__026
-            - WS_RP_SM_RpIntegrity__027
-            - WS_RP_SM_RpIntegrity__028
-            - WS_RP_SM_RpIntegrity__029
             - WS_RP_SM_RpIntegrity__030
-            - WS_RP_SM_RpIntegrity__031
             - WS_RP_SM_RpIntegrity__032
             - WS_RP_SM_RpIntegrity__033
             - WS_RP_SM_RpIntegrity__034
             - WS_RP_SM_SessionEncryption__001
-            - WS_RP_SM_SessionEncryption__002
-            - WS_RP_SM_SessionEncryption__003
+            - WS_RP_SM_SessionEncryption__001a
+            - WS_RP_SM_SessionEncryption__001b
+            - WS_RP_SM_SessionEncryption__001c
+            - WS_RP_SM_SessionEncryption__001d
+            - WS_RP_SM_SessionEncryption__001e
+            - WS_RP_SM_SessionEncryption__001f
             - WS_RP_SM_SessionEncryption__005
-            - WS_RP_SM_SessionEncryption__006
-            - WS_RP_SM_SessionEncryption__007
-            - WS_RP_SM_SessionEncryption__008
-            - WS_RP_SM_SessionEncryption__009
-            - WS_RP_SM_SessionEncryption__010
-            - WS_RP_SM_SessionEncryption__011
             - WS_RP_SM_SessionEncryption__012
+            - WS_RP_SM_SessionEncryption__013
             - WS_RP_SM_TrustMechanisms__002
             - WS_RP_SM_TrustMechanisms__003
             - WS_RP_SM_TrustMechanisms__004
