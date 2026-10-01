@@ -8,9 +8,12 @@ import {
 	computeAlignedScrollTop,
 	computeNearestScrollTop,
 	ensureMountedForStepsVirtualizer,
+	ensureMountedForYamlVirtualizer,
 	resolveListEndUnit,
 	resolveViewportActiveCard,
+	resolveViewportYamlUnit,
 	scrollCardIntoView,
+	scrollYamlUnitIntoView,
 	watchDrivenScroll,
 	type ActiveUnit
 } from './active-unit.js';
@@ -30,6 +33,17 @@ describe('ensureMountedForStepsVirtualizer', () => {
 
 		await expect(ensureMounted({ section: 'follow-ups', index: 2 })).resolves.toBe(true);
 		expect(ensureStepVisible).not.toHaveBeenCalled();
+	});
+});
+
+describe('ensureMountedForYamlVirtualizer', () => {
+	it('mirrors the steps virtualizer mount bridge', async () => {
+		const ensureStepVisible = vi.fn(async (index: number) => index === 3);
+		const ensureMounted = ensureMountedForYamlVirtualizer(ensureStepVisible);
+
+		await expect(ensureMounted({ section: 'steps', index: 3 })).resolves.toBe(true);
+		await expect(ensureMounted({ section: 'follow-ups', index: 0 })).resolves.toBe(true);
+		expect(ensureStepVisible).toHaveBeenCalledOnce();
 	});
 });
 
@@ -506,3 +520,159 @@ describe('watchDrivenScroll', () => {
 	});
 });
 
+describe('resolveViewportYamlUnit', () => {
+	type Rect = { top: number; bottom: number; height: number };
+
+	function makeRect(rect: Rect): DOMRect {
+		return {
+			top: rect.top,
+			bottom: rect.bottom,
+			height: rect.height,
+			left: 0,
+			right: 100,
+			width: 100,
+			x: 0,
+			y: rect.top,
+			toJSON() {
+				return this;
+			}
+		} as DOMRect;
+	}
+
+	function createYamlScroller(blocks: { section: string; index: number; center: number }[]) {
+		const blockEls = blocks.map((b) => ({
+			getAttribute(name: string) {
+				if (name === 'data-yaml-section') return b.section;
+				if (name === 'data-yaml-index') return String(b.index);
+				return null;
+			},
+			getBoundingClientRect: () =>
+				makeRect({ top: b.center - 40, bottom: b.center + 40, height: 80 })
+		}));
+
+		return {
+			querySelectorAll() {
+				return blockEls;
+			},
+			querySelector(selector: string) {
+				const match = selector.match(
+					/\[data-yaml-section="([^"]+)"\]\[data-yaml-index="([^"]+)"\]/
+				);
+				if (!match) return null;
+				return (
+					blockEls.find(
+						(el) =>
+							el.getAttribute('data-yaml-section') === match[1] &&
+							el.getAttribute('data-yaml-index') === match[2]
+					) ?? null
+				);
+			},
+			getBoundingClientRect: () => makeRect({ top: 0, bottom: 400, height: 400 }),
+			clientHeight: 400,
+			scrollHeight: 2000,
+			scrollTop: 100
+		};
+	}
+
+	it('picks the yaml block nearest the viewport center', () => {
+		const scroller = createYamlScroller([
+			{ section: 'steps', index: 0, center: 80 },
+			{ section: 'steps', index: 1, center: 220 },
+			{ section: 'steps', index: 2, center: 360 }
+		]);
+		expect(resolveViewportYamlUnit(scroller as unknown as HTMLElement, null)).toEqual({
+			section: 'steps',
+			index: 1
+		});
+	});
+
+	it('returns null when no yaml block intersects the viewport (header-only)', () => {
+		const scroller = createYamlScroller([
+			{ section: 'steps', index: 0, center: 800 },
+			{ section: 'steps', index: 1, center: 900 }
+		]);
+		scroller.scrollTop = 0;
+		expect(resolveViewportYamlUnit(scroller as unknown as HTMLElement, null)).toBeNull();
+	});
+});
+
+describe('scrollYamlUnitIntoView', () => {
+	it('calls ensureMounted when the yaml step block is missing', async () => {
+		const children: Array<{
+			getAttribute(name: string): string | null;
+			getBoundingClientRect(): DOMRect;
+			focus: ReturnType<typeof vi.fn>;
+		}> = [];
+
+		const scroller = {
+			querySelector(selector: string) {
+				const match = selector.match(
+					/\[data-yaml-section="([^"]+)"\]\[data-yaml-index="([^"]+)"\]/
+				);
+				if (!match) return null;
+				return (
+					children.find(
+						(c) =>
+							c.getAttribute('data-yaml-section') === match[1] &&
+							c.getAttribute('data-yaml-index') === match[2]
+					) ?? null
+				);
+			},
+			getBoundingClientRect: () =>
+				({
+					top: 0,
+					bottom: 400,
+					height: 400,
+					left: 0,
+					right: 100,
+					width: 100,
+					x: 0,
+					y: 0,
+					toJSON() {
+						return this;
+					}
+				}) as DOMRect,
+			clientHeight: 400,
+			scrollHeight: 2000,
+			scrollTop: 0,
+			scrollTo: vi.fn()
+		};
+
+		const ensureMounted = vi.fn(async (unit: ActiveUnit) => {
+			children.push({
+				getAttribute(name: string) {
+					if (name === 'data-yaml-section') return unit.section;
+					if (name === 'data-yaml-index') return String(unit.index);
+					return null;
+				},
+				getBoundingClientRect: () =>
+					({
+						top: 800,
+						bottom: 880,
+						height: 80,
+						left: 0,
+						right: 100,
+						width: 100,
+						x: 0,
+						y: 800,
+						toJSON() {
+							return this;
+						}
+					}) as DOMRect,
+				focus: vi.fn()
+			});
+			return true;
+		});
+
+		await expect(
+			scrollYamlUnitIntoView(
+				scroller as unknown as HTMLElement,
+				{ section: 'steps', index: 4 },
+				'auto',
+				{ ensureMounted, focus: false }
+			)
+		).resolves.toBe(true);
+		expect(ensureMounted).toHaveBeenCalledWith({ section: 'steps', index: 4 });
+		expect(scroller.scrollTo).toHaveBeenCalled();
+	});
+});

@@ -39,6 +39,16 @@ export function ensureMountedForStepsVirtualizer(
 	};
 }
 
+/**
+ * Peer-scroll bridge for YAML step blocks: follow-ups stay fully mounted in the
+ * YAML pane; steps call the YAML virtualizer's `ensureStepVisible`.
+ */
+export function ensureMountedForYamlVirtualizer(
+	ensureStepVisible: (index: number) => boolean | Promise<boolean>
+): EnsureMounted {
+	return ensureMountedForStepsVirtualizer(ensureStepVisible);
+}
+
 export type ScrollCardIntoViewOptions = {
 	focus?: boolean;
 	align?: ScrollAlign;
@@ -66,6 +76,22 @@ function findCard(scrollContainer: HTMLElement, unit: ActiveUnit): HTMLElement |
 	return scrollContainer.querySelector<HTMLElement>(
 		`[data-card-section="${unit.section}"][data-card-index="${unit.index}"]`
 	);
+}
+
+function findYamlBlock(scrollContainer: HTMLElement, unit: ActiveUnit): HTMLElement | null {
+	return scrollContainer.querySelector<HTMLElement>(
+		`[data-yaml-section="${unit.section}"][data-yaml-index="${unit.index}"]`
+	);
+}
+
+function parseYamlBlock(el: Element): ActiveUnit | null {
+	const section = el.getAttribute('data-yaml-section');
+	const indexRaw = el.getAttribute('data-yaml-index');
+	if (section !== 'steps' && section !== 'follow-ups') return null;
+	if (indexRaw == null) return null;
+	const index = Number(indexRaw);
+	if (!Number.isInteger(index) || index < 0) return null;
+	return { section, index };
 }
 
 /**
@@ -315,6 +341,114 @@ export function resolveViewportYamlLine(
 	if (!best) return null;
 	if (firstStepLine != null && best.line < firstStepLine) return null;
 	return best.line;
+}
+
+/**
+ * Pick the YAML block nearest the scrollport vertical center (index-aligned peer-follow).
+ * Returns null when only the header is visible (no block intersects the viewport).
+ */
+export function resolveViewportYamlUnit(
+	scrollContainer: HTMLElement,
+	previous: ActiveUnit | null,
+	lengths?: CardListLengths
+): ActiveUnit | null {
+	const blocks = [
+		...scrollContainer.querySelectorAll<HTMLElement>('[data-yaml-section][data-yaml-index]')
+	];
+	if (blocks.length === 0) return null;
+
+	const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+	if (maxScroll > 0) {
+		if (scrollContainer.scrollTop <= 2) {
+			// At top: header may still own the viewport — only claim step 0 when it intersects.
+			const start = lengths
+				? resolveListEndUnit(lengths, 'start')
+				: parseYamlBlock(blocks[0]!);
+			if (!start) return null;
+			const startEl = findYamlBlock(scrollContainer, start);
+			if (!startEl || !elementIntersectsScroller(startEl, scrollContainer)) return null;
+			return start;
+		}
+		if (scrollContainer.scrollTop >= maxScroll - 2) {
+			return (
+				(lengths ? resolveListEndUnit(lengths, 'end') : null) ??
+				parseYamlBlock(blocks[blocks.length - 1]!) ??
+				null
+			);
+		}
+	}
+
+	const port = scrollContainer.getBoundingClientRect();
+	const centerY = port.top + port.height / 2;
+	const thresholdPx = port.height * HYSTERESIS;
+
+	let best: { unit: ActiveUnit; distance: number; el: HTMLElement } | null = null;
+	for (const el of blocks) {
+		const unit = parseYamlBlock(el);
+		if (!unit) continue;
+		const rect = el.getBoundingClientRect();
+		const blockCenter = rect.top + rect.height / 2;
+		const distance = Math.abs(blockCenter - centerY);
+		if (!best || distance < best.distance) {
+			best = { unit, distance, el };
+		}
+	}
+	if (!best) return null;
+
+	// Header alone: nearest block is below the fold → clear active unit.
+	if (!elementIntersectsScroller(best.el, scrollContainer)) return null;
+
+	if (previous && sameUnit(previous, best.unit)) return previous;
+
+	if (previous) {
+		const prevEl = blocks.find((el) => {
+			const u = parseYamlBlock(el);
+			return u && sameUnit(u, previous);
+		});
+		if (prevEl) {
+			const prevRect = prevEl.getBoundingClientRect();
+			const prevCenter = prevRect.top + prevRect.height / 2;
+			const prevDistance = Math.abs(prevCenter - centerY);
+			if (prevDistance - best.distance < thresholdPx) {
+				return previous;
+			}
+		}
+	}
+
+	return best.unit;
+}
+
+function elementIntersectsScroller(el: HTMLElement, scroller: HTMLElement): boolean {
+	const elRect = el.getBoundingClientRect();
+	const port = scroller.getBoundingClientRect();
+	return elRect.bottom > port.top && elRect.top < port.bottom;
+}
+
+export type ScrollYamlUnitIntoViewOptions = ScrollCardIntoViewOptions;
+
+/**
+ * Scroll a YAML preview block into view (index-aligned with cards).
+ * Steps may need `ensureMounted` under virtualization; follow-ups are always mounted.
+ */
+export async function scrollYamlUnitIntoView(
+	scrollContainer: HTMLElement,
+	unit: ActiveUnit,
+	behavior: ScrollBehavior,
+	options?: ScrollYamlUnitIntoViewOptions
+): Promise<boolean> {
+	let el = findYamlBlock(scrollContainer, unit);
+	if (!el && options?.ensureMounted) {
+		const mounted = await options.ensureMounted(unit);
+		if (!mounted) return false;
+		el = findYamlBlock(scrollContainer, unit);
+	}
+	if (!el) return false;
+	const align = options?.align ?? 'center';
+	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align);
+	if (options?.focus !== false) {
+		el.focus({ preventScroll: true });
+	}
+	return scrolled;
 }
 
 /**
