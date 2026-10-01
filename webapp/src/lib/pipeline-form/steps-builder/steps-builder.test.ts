@@ -28,11 +28,7 @@ vi.mock('../steps/wallet-action/index.js', () => {
 	function isMatchingMobileStepData(
 		data: unknown
 	): data is { kind: 'stored'; wallet: { id: string }; version: unknown } {
-		return (
-			!!data &&
-			typeof data === 'object' &&
-			(data as { kind?: unknown }).kind === 'stored'
-		);
+		return !!data && typeof data === 'object' && (data as { kind?: unknown }).kind === 'stored';
 	}
 
 	function applyWalletActionStepVersion(

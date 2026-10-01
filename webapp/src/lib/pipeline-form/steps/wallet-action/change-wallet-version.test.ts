@@ -6,10 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EXTERNAL_VERSION, GLOBAL_DEVICE } from '$pipeline-form/execution-target/types.js';
 
-import {
-	applyWalletActionStepVersion,
-	isMatchingMobileStepData
-} from './change-wallet-version.js';
+import { applyWalletActionStepVersion, isMatchingMobileStepData } from './change-wallet-version.js';
 import type { InlineWalletActionStepData, StoredWalletActionStepData } from './types.js';
 
 describe('Matching mobile steps / Change wallet version helpers', () => {
