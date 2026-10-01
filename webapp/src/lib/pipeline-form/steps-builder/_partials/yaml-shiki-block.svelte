@@ -53,10 +53,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class={[
-			'yaml-preview-block relative w-full min-w-full',
+			'yaml-preview-block relative w-full min-w-full rounded-md',
 			interactive && 'yaml-preview-block-interactive',
 			selected && 'yaml-preview-block-selected',
 			hovered && !selected && 'yaml-preview-block-hovered',
+			(hovered || selected) && 'overflow-hidden',
 			className
 		]}
 		{onclick}
@@ -105,13 +106,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	/*
 	  Wash sits on the lines (like CodeDisplay), not behind Shiki's opaque pre —
-	  otherwise hover is invisible. ≥20% so the block wash stays obvious.
+	  otherwise hover is invisible. Soft 15% hover; selected slightly stronger.
 	*/
 	:global(.yaml-preview-block-hovered .code-display-line) {
-		background-color: rgb(255 255 255 / 0.2);
+		background-color: rgb(255 255 255 / 0.15);
 	}
 
 	:global(.yaml-preview-block-selected .code-display-line) {
-		background-color: rgb(255 255 255 / 0.28);
+		background-color: rgb(255 255 255 / 0.22);
 	}
 </style>
