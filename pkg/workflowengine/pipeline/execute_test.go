@@ -413,6 +413,7 @@ steps: []
 				"child-workflow",
 				map[string]any{},
 				&workflowengine.WorkflowRunMetadata{},
+				[]string{"inner"},
 			)
 			if err != nil {
 				return nil, err
@@ -423,8 +424,10 @@ steps: []
 		workflow.RegisterOptions{Name: "parent-workflow"},
 	)
 
+	var childInput PipelineWorkflowInput
 	env.RegisterWorkflowWithOptions(
-		func(_ workflow.Context, _ PipelineWorkflowInput) (workflowengine.WorkflowResult, error) {
+		func(_ workflow.Context, input PipelineWorkflowInput) (workflowengine.WorkflowResult, error) {
+			childInput = input
 			return workflowengine.WorkflowResult{
 				Output: map[string]any{"child": true},
 			}, nil
@@ -443,6 +446,8 @@ steps: []
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, map[string]any{"child": true}, result)
+	require.Equal(t, []string{"inner"}, childInput.ReturnOutputs)
+	require.Equal(t, "child", childInput.WorkflowInput.Config[workflowengine.StepIDConfigKey])
 }
 
 func TestFetchChildPipelineYAMLValidationErrors(t *testing.T) {

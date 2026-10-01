@@ -6,6 +6,7 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
 	"regexp"
 	"slices"
@@ -44,6 +45,67 @@ func ExpressionRefs(s string) []string {
 		refs = append(refs, strings.TrimSpace(match[1]))
 	}
 	return refs
+}
+
+// AllStepOutputs in a ReferencedStepOutputs result means the whole outputs are referenced.
+const AllStepOutputs = "*"
+
+// ReferencedStepOutputs returns the keys of stepID's outputs that expressions anywhere in
+// def reference, sorted and unique. It returns [AllStepOutputs] when an expression
+// references the step's outputs as a whole or the aggregated pipeline_output, and an empty
+// result when nothing references them.
+func ReferencedStepOutputs(def *WorkflowDefinition, stepID string) []string {
+	all := []string{AllStepOutputs}
+	data, err := json.Marshal(def)
+	if err != nil {
+		return all
+	}
+	var value any
+	if err := json.Unmarshal(data, &value); err != nil {
+		return all
+	}
+
+	keys := map[string]struct{}{}
+	referencesAll := false
+	var walk func(value any)
+	walk = func(value any) {
+		switch typed := value.(type) {
+		case string:
+			for _, ref := range ExpressionRefs(typed) {
+				initial, _, err := ParsePipeline(ref)
+				if err != nil {
+					continue
+				}
+				segments := strings.Split(initial, ".")
+				for i, segment := range segments {
+					segments[i], _, _ = strings.Cut(segment, "[")
+				}
+				switch {
+				case segments[0] == "pipeline_output":
+					referencesAll = true
+				case segments[0] != stepID:
+				case len(segments) == 1, len(segments) == 2 && segments[1] == "outputs":
+					referencesAll = true
+				case segments[1] == "outputs":
+					keys[segments[2]] = struct{}{}
+				}
+			}
+		case map[string]any:
+			for _, item := range typed {
+				walk(item)
+			}
+		case []any:
+			for _, item := range typed {
+				walk(item)
+			}
+		}
+	}
+	walk(value)
+
+	if referencesAll {
+		return all
+	}
+	return slices.Sorted(maps.Keys(keys))
 }
 
 // helper to check if a string is exactly a single ${{ ... }} ref
