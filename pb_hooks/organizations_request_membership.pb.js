@@ -25,7 +25,8 @@ onRecordCreateRequest((e) => {
 
     const authorization = utils.findFirstRecordByFilter(
         "orgAuthorizations",
-        `organization.id = "${organizationId}" && user.id = "${userId}"`
+        "organization.id = {:organizationId} && user.id = {:userId}",
+        { organizationId, userId }
     );
 
     if (authorization)
@@ -217,7 +218,8 @@ cronAdd("remind admins about join requests", "0 9 * * 1", () => {
             requests: utils
                 .findRecordsByFilter(
                     "orgJoinRequests",
-                    `organization.id = "${organization.id}"`
+                    "organization.id = {:organizationId}",
+                    { organizationId: organization.id }
                 )
                 .filter((r) => r.get("status") == "pending"),
         }))
