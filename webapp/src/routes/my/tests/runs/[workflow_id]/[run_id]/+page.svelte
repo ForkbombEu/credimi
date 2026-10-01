@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WorkflowStatus as WorkflowStatusValue } from '$lib/workflows/types';
 
 	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import { XIcon } from '@lucide/svelte';
 	import { Workflow } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
@@ -223,73 +224,72 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		{#if failureMessage}
-			<Alert variant="destructive" class="mt-2 block p-3! text-sm">
+			<Alert variant="destructive" class="mt-2 block border border-destructive p-3!">
 				<span class="font-bold">{m.reason()}:</span>
 				<FailureText>{failureMessage}</FailureText>
 			</Alert>
 		{/if}
 
-		<table class="mt-6 text-sm">
-			<tbody>
-				<tr>
-					<td class="italic"> Start </td>
-					<td class="pl-4 font-mono">
-						{startDisplay}
-					</td>
-				</tr>
-				<tr>
-					<td class="italic"> End </td>
-					<td class="pl-4 font-mono">
-						{endDisplay}
-					</td>
-				</tr>
-				<tr>
-					<td class="h-2"></td>
-				</tr>
-				<tr>
-					<td class="italic"> Workflow ID </td>
-					<td class="pl-4">
-						{execution.id}
-					</td>
-				</tr>
-				<tr>
-					<td class="italic"> Run ID </td>
-					<td class="pl-4">
-						{execution.runId}
-					</td>
-				</tr>
-				{#if executionDevices.length > 0}
+		<div class="flex flex-nowrap items-start gap-8">
+			<table class="mt-6 grow text-sm">
+				<tbody>
+					<tr>
+						<td class="italic"> Start </td>
+						<td class="pl-4">
+							{startDisplay}
+						</td>
+					</tr>
+					<tr>
+						<td class="italic"> End </td>
+						<td class="pl-4">
+							{endDisplay}
+						</td>
+					</tr>
 					<tr>
 						<td class="h-2"></td>
 					</tr>
 					<tr>
-						<td class="align-top italic"> Devices </td>
+						<td class="italic"> Workflow ID </td>
 						<td class="pl-4">
-							<ExecutionDevices execution={executionSummary} />
+							{execution.id}
 						</td>
 					</tr>
-				{/if}
-			</tbody>
-		</table>
+					<tr>
+						<td class="italic"> Run ID </td>
+						<td class="pl-4">
+							{execution.runId}
+						</td>
+					</tr>
+					{#if executionDevices.length > 0}
+						<tr>
+							<td class="h-2"></td>
+						</tr>
+						<tr>
+							<td class="align-top italic"> Devices </td>
+							<td class="pl-4">
+								<ExecutionDevices execution={executionSummary} />
+							</td>
+						</tr>
+					{/if}
+				</tbody>
+			</table>
 
-		<div class="flex flex-wrap gap-2 pt-6">
-			<Button
-				variant="outline"
-				onclick={() => runWithLoading({ fn: () => Workflow.cancel(workflowId, runId) })}
-				disabled={execution.status !== 'Running'}
-			>
-				{m.Cancel()}
-			</Button>
+			<div class="flex flex-wrap gap-2 pt-6">
+				<Button
+					variant="outline"
+					onclick={() => runWithLoading({ fn: () => Workflow.cancel(workflowId, runId) })}
+					disabled={execution.status !== 'Running'}
+				>
+					<XIcon />
+					{m.Cancel()}
+				</Button>
+			</div>
 		</div>
 	</div>
 
 	{#if workflow.execution.name !== 'Dynamic Pipeline Workflow'}
 		<WorkflowQrPoller {workflowId} {runId} showQrLink={true} containerClass="size-40" />
 	{/if}
-</div>
-
-<div class="bg-temporal padding-x py-2">
-	<Separator />
 </div>
 
 {#if memo}
@@ -360,6 +360,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.padding-x {
-		@apply px-2! md:px-4! lg:px-8!;
+		@apply px-4! md:px-8!;
 	}
 </style>
