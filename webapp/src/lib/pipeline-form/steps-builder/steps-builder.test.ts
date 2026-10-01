@@ -25,8 +25,30 @@ vi.mock('../steps/wallet-action/index.js', () => {
 		}
 	}
 
+	function isMatchingMobileStepData(
+		data: unknown
+	): data is { kind: 'stored'; wallet: { id: string }; version: unknown } {
+		return (
+			!!data &&
+			typeof data === 'object' &&
+			(data as { kind?: unknown }).kind === 'stored'
+		);
+	}
+
+	function applyWalletActionStepVersion(
+		data: unknown,
+		walletId: string,
+		version: unknown
+	): { kind: 'stored'; wallet: { id: string }; version: unknown } | undefined {
+		if (!isMatchingMobileStepData(data)) return undefined;
+		if (data.wallet.id !== walletId) return undefined;
+		return { ...data, version };
+	}
+
 	return {
 		WalletActionStepForm,
+		isMatchingMobileStepData,
+		applyWalletActionStepVersion,
 		walletActionStepConfig: {
 			serialize: (data: { version: string | { __canonified_path__: string } }) => ({
 				action_id: 'org/w-a/action',
@@ -399,5 +421,25 @@ describe('StepsBuilder bulk wallet version sync', () => {
 		} as never);
 
 		expect(builder.steps).toBe(steps);
+	});
+
+	it('excludes inline wallet-action steps from Matching mobile steps', () => {
+		const stored = mobileStep(stepData(walletA, EXTERNAL_VERSION), {
+			action_id: 'org/w-a/action',
+			version_id: EXTERNAL_VERSION
+		});
+		const inline: WalletActionStepData = {
+			kind: 'inline',
+			actionCode: 'appId: x\n---\n- tapOn: Share\n',
+			version: EXTERNAL_VERSION,
+			device: GLOBAL_DEVICE
+		};
+		const inlineStep = mobileStep(inline, {
+			action_code: inline.actionCode,
+			version_id: EXTERNAL_VERSION
+		});
+
+		expect(getBulkWalletVersionContext([stored, inlineStep])).toBeNull();
+		expect(isChangeWalletVersionAvailable([stored, inlineStep], { locked: true })).toBe(false);
 	});
 });

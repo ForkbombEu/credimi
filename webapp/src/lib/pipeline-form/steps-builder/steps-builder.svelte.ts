@@ -13,8 +13,10 @@ import { StateManager } from '$lib/state-manager/state-manager';
 import { showPipelineFormError } from '$pipeline-form/errors.js';
 import { resolveExecutionTarget } from '$pipeline-form/execution-target/index.js';
 import * as pipelinestep from '$pipeline-form/steps';
-import { walletActionStepConfig } from '$pipeline-form/steps/wallet-action/index.js';
-import { isStoredWalletActionStepData } from '$pipeline-form/steps/wallet-action/types.js';
+import {
+	applyWalletActionStepVersion,
+	walletActionStepConfig
+} from '$pipeline-form/steps/wallet-action/index.js';
 import { isError } from 'effect/Predicate';
 import { cloneDeep } from 'lodash';
 
@@ -529,11 +531,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			const [raw, data] = tuple;
 			if (raw.use !== 'mobile-automation') return tuple;
 			if (isError(data)) return tuple;
-			if (!isStoredWalletActionStepData(data)) return tuple;
 
-			if (data.wallet.id !== walletId) return tuple;
+			const updated = applyWalletActionStepVersion(data, walletId, version);
+			if (!updated) return tuple;
 
-			const updated = { ...data, version };
 			const nextRaw = {
 				...raw,
 				with: walletActionStepConfig.serialize(updated)

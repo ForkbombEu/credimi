@@ -32,6 +32,10 @@ export type {
 	WalletActionStepData
 } from './types.js';
 export { isInlineWalletActionStepData, isStoredWalletActionStepData } from './types.js';
+export {
+	applyWalletActionStepVersion,
+	isMatchingMobileStepData
+} from './change-wallet-version.js';
 export { InlineWalletActionStepForm } from './inline-wallet-action-step-form.svelte.js';
 export { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
