@@ -263,6 +263,7 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //     and makes links to other UI pages (workflow lists, task queues) inert;
 //   - hides the workflow summary above the history tabs (status, actions, id,
 //     metadata); Credimi's run page already shows that;
+//   - hides Call Stack, Queries, and Relationships tabs (unused in the embed);
 //   - lets the document grow with content height (no inner viewport scroll) and
 //     posts height to the parent so the iframe can size without its own scrollbar;
 //   - keeps width at the parent iframe width (Temporal UI uses w-max / w-screen)
@@ -284,6 +285,8 @@ const embedHead = `<style id="credimi-embed">` +
 	`[data-testid="back-to-workflows"]{display:none !important}` +
 	`header:has([data-testid="workflow-id-heading"]) > :not(.tabs)` +
 	`{display:none !important}` +
+	`[data-testid="call-stack-tab"],[data-testid="queries-tab"],` +
+	`[data-testid="relationships-tab"]{display:none !important}` +
 	`.h-dvh,.w-screen,.w-max,#content-wrapper,#content,#content > div,` +
 	`#-container,#content-wrapper .overflow-auto` +
 	`{width:100% !important;max-width:100% !important;` +
