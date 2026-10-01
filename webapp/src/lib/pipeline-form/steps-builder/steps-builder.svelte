@@ -56,7 +56,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from './scroll-follow/active-unit.js';
 	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
 	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
-	import { mapYamlCardRanges, type YamlCardRange } from './scroll-follow/yaml-ranges.js';
 	import { splitPipelineYamlPreview } from './yaml-preview-split.js';
 
 	//
@@ -128,13 +127,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let lastAppliedManualMode: boolean | null = null;
 	let lastFocusedCardToken = 0;
 
-	const EMPTY_YAML_RANGES: YamlCardRange[] = [];
-	const yamlRanges = $derived(
-		builder.isManualMode || EffectString.isEmpty(builder.yamlPreview)
-			? EMPTY_YAML_RANGES
-			: mapYamlCardRanges(builder.yamlPreview)
-	);
-
 	const yamlParts = $derived(
 		builder.isManualMode || EffectString.isEmpty(builder.yamlPreview)
 			? splitPipelineYamlPreview('')
@@ -183,8 +175,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const unitHighlight = new UnitHighlight({
 		getIsManual: () => builder.isManualMode,
 		getEditingIndex: () => editingIndex,
-		getEditingSection: () => editingSection ?? 'steps',
-		getRanges: () => yamlRanges
+		getEditingSection: () => editingSection ?? 'steps'
 	});
 
 	builder.bindComposerScroll({
@@ -288,7 +279,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function onYamlUnitHover(unit: ActiveUnit | null) {
 		if (unit === null) {
-			unitHighlight.hoverYamlLine(null);
+			unitHighlight.clearHover();
 			return;
 		}
 		unitHighlight.hoverCard(unit);
