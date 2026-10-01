@@ -3,12 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { ConformanceSuiteRecord } from './record';
-import {
-	displayNameFromUid,
-	suiteLogo,
-	suiteSubtitle,
-	suiteTitle
-} from './suite-present';
+import { displayNameFromUid, suiteLogo, suiteSubtitle, suiteTitle } from './suite-present';
 import type { Standard, Suite, Version } from './types';
 
 /**
@@ -88,10 +83,7 @@ export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
  * Resolve a check display title from suite members, falling back to the path
  * stem when the path is missing from the suite.
  */
-export function titleForCheckPath(
-	suite: Pick<Suite, 'members'>,
-	pathOrStem: string
-): string {
+export function titleForCheckPath(suite: Pick<Suite, 'members'>, pathOrStem: string): string {
 	const exact = suite.members.find((m) => m.path === pathOrStem);
 	if (exact?.title) return exact.title;
 	const bySuffix = suite.members.find(

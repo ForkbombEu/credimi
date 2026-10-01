@@ -112,10 +112,7 @@ describe('distinctSuiteFacetValues', () => {
 			suite({ standard: 'openid4vci' }),
 			suite({ standard: 'openid4vp' })
 		];
-		expect(distinctSuiteFacetValues(records, 'standard')).toEqual([
-			'openid4vci',
-			'openid4vp'
-		]);
+		expect(distinctSuiteFacetValues(records, 'standard')).toEqual(['openid4vci', 'openid4vp']);
 	});
 });
 

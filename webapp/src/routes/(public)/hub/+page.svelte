@@ -186,7 +186,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="min-h-[300px] grow bg-secondary">
 		<div class="mx-auto max-w-7xl px-4 pb-8 md:px-8">
 			<div class="rounded-b-lg bg-white">
-				<ConformanceChecksTable browse={suiteBrowse} search={debouncedSuiteSearch.current} />
+				<ConformanceChecksTable
+					browse={suiteBrowse}
+					search={debouncedSuiteSearch.current}
+				/>
 			</div>
 		</div>
 	</div>
@@ -227,7 +230,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet records({ records, Pagination, manager: recordsManager })}
-			{@const searchQuery = resolveHubSearchQuery(recordsManager.query.getMergedOptions().search)}
+			{@const searchQuery = resolveHubSearchQuery(
+				recordsManager.query.getMergedOptions().search
+			)}
 			{#if params.mode === 'cards'}
 				<div class="space-y-4">
 					<PageGrid>

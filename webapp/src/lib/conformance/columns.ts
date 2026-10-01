@@ -12,12 +12,7 @@
 
 export type CatalogColumnPbType = 'text' | 'number' | 'json';
 
-export type CatalogColumnKind =
-	| 'string'
-	| 'int'
-	| 'nonNegInt'
-	| 'stringArray'
-	| 'memberArray';
+export type CatalogColumnKind = 'string' | 'int' | 'nonNegInt' | 'stringArray' | 'memberArray';
 
 export const CHECK_CLIENT_COLUMN_SPECS = [
 	{ name: 'id', kind: 'string', optional: false, pbType: 'text' },
@@ -34,12 +29,14 @@ export const CHECK_CLIENT_COLUMN_SPECS = [
 	{ name: 'provider', kind: 'string', optional: true, pbType: 'text' },
 	{ name: 'standard', kind: 'string', optional: true, pbType: 'text' },
 	{ name: 'component', kind: 'string', optional: true, pbType: 'text' },
-	{ name: 'version', kind: 'string', optional: true, pbType: 'text' },
+	{ name: 'version', kind: 'string', optional: true, pbType: 'text' }
 ] as const;
 
 export type CheckClientColumn = (typeof CHECK_CLIENT_COLUMN_SPECS)[number]['name'];
 
-export const CHECK_CLIENT_COLUMNS: readonly CheckClientColumn[] = CHECK_CLIENT_COLUMN_SPECS.map((c) => c.name);
+export const CHECK_CLIENT_COLUMNS: readonly CheckClientColumn[] = CHECK_CLIENT_COLUMN_SPECS.map(
+	(c) => c.name
+);
 
 export const SUITE_CLIENT_COLUMN_SPECS = [
 	{ name: 'id', kind: 'string', optional: false, pbType: 'text' },
@@ -62,9 +59,11 @@ export const SUITE_CLIENT_COLUMN_SPECS = [
 	{ name: 'visible_in', kind: 'stringArray', optional: true, pbType: 'json' },
 	{ name: 'fs_standard', kind: 'string', optional: false, pbType: 'text' },
 	{ name: 'fs_version', kind: 'string', optional: false, pbType: 'text' },
-	{ name: 'path_prefix', kind: 'string', optional: false, pbType: 'text' },
+	{ name: 'path_prefix', kind: 'string', optional: false, pbType: 'text' }
 ] as const;
 
 export type SuiteClientColumn = (typeof SUITE_CLIENT_COLUMN_SPECS)[number]['name'];
 
-export const SUITE_CLIENT_COLUMNS: readonly SuiteClientColumn[] = SUITE_CLIENT_COLUMN_SPECS.map((c) => c.name);
+export const SUITE_CLIENT_COLUMNS: readonly SuiteClientColumn[] = SUITE_CLIENT_COLUMN_SPECS.map(
+	(c) => c.name
+);

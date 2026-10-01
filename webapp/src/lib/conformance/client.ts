@@ -164,8 +164,6 @@ export function listNest(options: ListNestOptions): Task.Task<NestStandards, Lis
  * Sole SSR / non-hydrating Filesystem-axis nest one-shot (ADR-0004). Catalog
  * surface is required at the call site. Does not hydrate Store.
  */
-export async function getNestStandards(
-	options: ListNestOptions
-): Promise<NestStandards | Error> {
+export async function getNestStandards(options: ListNestOptions): Promise<NestStandards | Error> {
 	return awaitTask(listNest(options));
 }
