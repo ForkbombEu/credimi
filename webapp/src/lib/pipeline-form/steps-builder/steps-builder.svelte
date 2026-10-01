@@ -149,7 +149,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		itemSelector: yamlStepBlockSelector,
 		estimateSize: () => DEFAULT_YAML_STEP_ESTIMATE_SIZE
 	});
-	const yamlVirt = yamlVirtualizer.virtualizer;
 
 	const measureStepCard: Attachment = (node) => {
 		stepsVirtualizer.measureElement(node);
@@ -536,7 +535,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				yaml={builder.yamlPreview}
 				parts={yamlParts}
 				{yamlVirtualizer}
-				{yamlVirt}
 				scrollMargin={yamlScrollMargin}
 				scrollContainer={yamlScrollContainer}
 				isUnitSelected={(section, index) => unitHighlight.isCardSelected(section, index)}

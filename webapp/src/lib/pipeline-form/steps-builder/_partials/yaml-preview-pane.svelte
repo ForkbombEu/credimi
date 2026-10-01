@@ -5,9 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { SvelteVirtualizer } from '@tanstack/svelte-virtual';
 	import type { Attachment } from 'svelte/attachments';
-	import type { Readable } from 'svelte/store';
 
 	import { Check, ClipboardCopy } from '@lucide/svelte';
 
@@ -24,8 +22,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		yaml: string;
 		parts: YamlPreviewParts;
 		yamlVirtualizer: ComposerVirtualizer;
-		/** Store auto-subscribe target — `$yamlVirt` in markup. */
-		yamlVirt: Readable<SvelteVirtualizer<HTMLElement, Element>>;
 		scrollMargin: number;
 		/** YAML column scroller — used to measure scrollMargin for the virtual step list. */
 		scrollContainer?: HTMLElement | null;
@@ -42,7 +38,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		yaml,
 		parts,
 		yamlVirtualizer,
-		yamlVirt,
 		scrollMargin,
 		scrollContainer = null,
 		isUnitSelected,
@@ -52,6 +47,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onHeaderHeightChange,
 		endPadPx = 0
 	}: Props = $props();
+
+	/** Store auto-subscribe target — `$yamlVirt` in markup. */
+	const yamlVirt = yamlVirtualizer.virtualizer;
 
 	let isCopied = $state(false);
 	/** Wraps everything above the virtual step list (padding + header). */
