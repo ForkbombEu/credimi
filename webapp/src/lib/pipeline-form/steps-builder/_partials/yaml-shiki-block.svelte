@@ -53,10 +53,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class={[
-			'yaml-preview-block relative w-full min-w-full rounded-md',
+			'yaml-preview-block relative w-full min-w-full rounded-sm',
 			interactive && 'yaml-preview-block-interactive',
-			selected && 'yaml-preview-block-selected',
-			hovered && !selected && 'yaml-preview-block-hovered',
+			selected && 'yaml-preview-block-selected ring-2 ring-orange-500',
+			hovered && !selected && 'yaml-preview-block-hovered ring-2 ring-orange-500/60',
 			(hovered || selected) && 'overflow-hidden',
 			className
 		]}
