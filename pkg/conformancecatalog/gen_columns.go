@@ -20,6 +20,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"go/format"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,10 +40,12 @@ func main() {
 	checkGrain := conformancecatalog.CheckGrainColumns()
 	suiteGrain := conformancecatalog.SuiteGrainColumns()
 
-	mustWrite(filepath.Join(root, "pkg", "conformancecatalog", "records_gen.go"), recordsGo(checkGrain, suiteGrain))
-	mustWrite(filepath.Join(root, "webapp", "src", "lib", "conformance", "columns.ts"), columnsTS(checks, suites))
-	mustWrite(filepath.Join(root, "webapp", "src", "lib", "conformance", "record.schemas.ts"), recordSchemasTS(checks, suites))
-	mustWrite(filepath.Join(root, "webapp", "src", "modules", "pocketbase", "types", "catalog-pb-records.ts"), catalogPBRecordsTS(checks, suites))
+	mustWrite(filepath.Join(root, "pkg", "conformancecatalog", "records_gen.go"), formatGoSource(recordsGo(checkGrain, suiteGrain)))
+
+	webapp := filepath.Join(root, "webapp")
+	mustWrite(filepath.Join(webapp, "src", "lib", "conformance", "columns.ts"), columnsTS(checks, suites))
+	mustWrite(filepath.Join(webapp, "src", "lib", "conformance", "record.schemas.ts"), recordSchemasTS(checks, suites))
+	mustWrite(filepath.Join(webapp, "src", "modules", "pocketbase", "types", "catalog-pb-records.ts"), catalogPBRecordsTS(checks, suites))
 }
 
 func recordsGo(checks, suites []conformancecatalog.GrainColumn) string {
@@ -300,6 +303,15 @@ func tsType(kind conformancecatalog.ColumnKind) string {
 	default:
 		panic(fmt.Sprintf("unknown column kind %q", kind))
 	}
+}
+
+func formatGoSource(src string) string {
+	formatted, err := format.Source([]byte(src))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "gofmt generated Go: %v\n", err)
+		os.Exit(1)
+	}
+	return string(formatted)
 }
 
 func mustWrite(path, contents string) {

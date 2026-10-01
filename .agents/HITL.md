@@ -379,13 +379,13 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision:
 - follow-up: Confirm (a) and update `AGENTS.md` "Dynamic Pipeline Workflow", "External runner HTTP contract" and "Routes, DTOs, Auth, Errors" sections.
 
-### 2026-10-01 - Embed the real Temporal UI with per-organization access
+### 2026-10-01 - Unify cached fetch-load wrappers
 
-- status: resolved
+- status: open (deferred)
 - owner: human maintainer
-- context: The run page rendered history through forked `@forkbombeu/temporal-ui` components inside an iframe. Large pipelines (FCAF complete validation: ~14.7k events, ~32 MB history) never rendered: the iframe missed the first message and 5 s full-history polls cancelled each other. `tui.credimi.io` is an admin/debug instance and is out of scope.
-- question: Should Credimi embed the upstream Temporal UI instead of the fork, and how should each organization see only its own namespace?
-- options considered: (a) keep the fork and fetch history incrementally; (b) serve upstream Temporal UI under a Credimi sub-path behind a PocketBase reverse proxy scoped to the caller's namespace, read-only; (c) Temporal UI OIDC + Temporal server JWT ClaimMapper/Authorizer with Credimi-issued permission tokens. Dynamic config alone cannot scope namespaces per user.
-- default risk: Under (b) the proxy is the only tenancy boundary of the embedded instance, so its allow-list must stay narrow; under (c) every Credimi Temporal client (server, workers, runners) would need tokens.
-- decision: (b), with the embedded UI as its own compose service next to the webapp (`temporal_ui_embedded`, no published port) and the proxy in `pkg/internal/temporalui`. Documented in `AGENTS.md` "Embedded Temporal UI".
-- follow-up: None.
+- context: `createCachedFetchLoad` already owns cache policy (`get` / `getOrError` / `invalidateAll` + shared `requestFetchRef`). Call sites wrap it inconsistently: canonify uses `getOrError`; hub by-id/by-path use throwing `get`; device adds `getCachedDeviceRecords` + `findCachedDeviceByPath` because the cache key is the whole list. Each module still exports its own `invalidate*Cache` for tests.
+- question: Should every cached loader expose the same public surface, or keep domain-named getters and only share the factory?
+- options considered: (a) leave as-is (domain APIs + factory); (b) export the same trio (`get` / `getOrError` / `invalidateAll`) from every cached module; (c) a thin per-module `{ get, invalidateAll }` returning the factory, with extra helpers (e.g. find-by-path) beside it.
+- default risk: Forcing the factory trio onto domain modules either leaks Effect-cache vocabulary into hub/canonify/device APIs, or paper-over device’s list-then-find shape.
+- decision: Do not unify in the current pipeline-composer work. Revisit later.
+- follow-up: When unifying, pick one error surface (throw vs return `Error`) and decide whether device list cache stays a special case.

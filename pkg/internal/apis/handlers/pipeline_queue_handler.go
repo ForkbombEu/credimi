@@ -681,11 +681,38 @@ func resolvePipelineDeviceIDs(yaml string, info pipeline.PipelineDeviceInfo) ([]
 	return deviceIDs, nil
 }
 
+// mobileRunnerSharedWith reports whether another organization's runner may be
+// used by an organization, mirroring listMobileRunnerRecords: only published
+// runners are shared, and unpublished organizations only get admin-managed ones.
+func mobileRunnerSharedWith(runner *core.Record, orgPublished bool) bool {
+	return runner.GetBool("published") && (orgPublished || runner.GetBool("admin_managed"))
+}
+
+// organizationPublishedLoader returns a function that reads the organization's
+// published flag on first use and reuses it afterwards.
+func organizationPublishedLoader(app core.App, orgID string) func() (bool, error) {
+	loaded := false
+	published := false
+	return func() (bool, error) {
+		if loaded {
+			return published, nil
+		}
+		org, err := app.FindRecordById("organizations", orgID)
+		if err != nil {
+			return false, err
+		}
+		loaded = true
+		published = org.GetBool("published")
+		return published, nil
+	}
+}
+
 func validatePipelineRunnerAccess(
 	app core.App,
 	ownerID string,
 	deviceIDs []string,
 ) *apierror.APIError {
+	ownerPublished := organizationPublishedLoader(app, ownerID)
 	for _, deviceID := range normalizeDeviceIDs(deviceIDs) {
 		record, err := canonify.Resolve(app, deviceID)
 		if err != nil {
@@ -721,7 +748,19 @@ func validatePipelineRunnerAccess(
 				runnerErr.Error(),
 			)
 		}
-		if record.GetString("owner") == ownerID || runner.GetBool("published") {
+		if record.GetString("owner") == ownerID {
+			continue
+		}
+		orgPublished, orgErr := ownerPublished()
+		if orgErr != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed to load organization",
+				orgErr.Error(),
+			)
+		}
+		if mobileRunnerSharedWith(runner, orgPublished) {
 			continue
 		}
 		return apierror.New(

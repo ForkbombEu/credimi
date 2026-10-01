@@ -18,61 +18,70 @@
 
 /* Routes */
 
-routerAdd("POST", "/organizations/verify-user-membership", (e) => {
-    /** @type {Utils} */
-    const utils = require(`${__hooks}/utils.js`);
-    /** @type {AuditLogger} */
-    const auditLogger = require(`${__hooks}/auditLogger.js`);
+routerAdd(
+    "POST",
+    "/organizations/verify-user-membership",
+    (e) => {
+        /** @type {Utils} */
+        const utils = require(`${__hooks}/utils.js`);
+        /** @type {AuditLogger} */
+        const auditLogger = require(`${__hooks}/auditLogger.js`);
 
-    const userId = utils.getUserFromContext(e)?.id;
+        const userId = utils.getUserFromContext(e)?.id;
+        if (!userId) throw new UnauthorizedError();
 
-    /** @type {string | undefined} */
-    const organizationId = e.requestInfo().body["organizationId"];
-    if (!organizationId)
-        throw utils.createMissingDataError("organizationId", "roles");
+        /** @type {unknown} */
+        const organizationId = e.requestInfo().body["organizationId"];
+        if (!organizationId || typeof organizationId !== "string")
+            throw utils.createMissingDataError("organizationId");
 
-    try {
-        $app.findFirstRecordByFilter(
+        const authorization = utils.findFirstRecordByFilter(
             "orgAuthorizations",
-            `organization="${organizationId}" && user="${userId}"`
+            "organization = {:organizationId} && user = {:userId}",
+            { organizationId, userId }
         );
-        return e.json(200, { isMember: true });
-    } catch {
+        if (authorization) return e.json(200, { isMember: true });
+
         auditLogger(e).info(
             "request_from_user_not_member",
             "organizationId",
             organizationId
         );
         return e.json(200, { isMember: false });
-    }
-});
+    },
+    $apis.requireAuth()
+);
 
-routerAdd("POST", "/organizations/verify-user-role", (e) => {
-    /** @type {Utils} */
-    const utils = require(`${__hooks}/utils.js`);
+routerAdd(
+    "POST",
+    "/organizations/verify-user-role",
+    (e) => {
+        /** @type {Utils} */
+        const utils = require(`${__hooks}/utils.js`);
 
-    const userId = utils.getUserFromContext(e)?.id;
+        const userId = utils.getUserFromContext(e)?.id;
+        if (!userId) throw new UnauthorizedError();
 
-    /** @type {{organizationId: string, roles: string[]}}*/
-    // @ts-ignore
-    const { organizationId, roles } = e.requestInfo().body;
-    if (!organizationId || !roles || roles.length === 0)
-        throw utils.createMissingDataError("organizationId", "roles");
+        /** @type {{organizationId: unknown, roles: unknown}} */
+        // @ts-ignore
+        const { organizationId, roles } = e.requestInfo().body;
+        if (
+            !organizationId ||
+            typeof organizationId !== "string" ||
+            !Array.isArray(roles) ||
+            roles.length === 0 ||
+            roles.some((r) => typeof r !== "string")
+        )
+            throw utils.createMissingDataError("organizationId", "roles");
 
-    const roleFilter = `( ${roles
-        .map((r) => `role.name="${r}"`)
-        .join(" || ")} )`;
-
-    try {
-        $app.findFirstRecordByFilter(
-            "orgAuthorizations",
-            `organization="${organizationId}" && user="${userId}" && ${roleFilter}`
-        );
-        return e.json(200, { hasRole: true });
-    } catch {
-        return e.json(200, { hasRole: false });
-    }
-});
+        // Compare role names in JS: request values never reach the filter.
+        const roleName = utils.getUserRole(userId, organizationId)?.get("name");
+        return e.json(200, {
+            hasRole: typeof roleName === "string" && roles.includes(roleName),
+        });
+    },
+    $apis.requireAuth()
+);
 
 /* Business logic hooks */
 

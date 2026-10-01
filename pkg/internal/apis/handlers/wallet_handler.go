@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -463,9 +464,9 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		if apiErr := authorizePipelineResultStoreAccess(
+		if apiErr := authorizePipelineResultDeviceStoreAccess(
 			e,
-			resultRecord.GetString("owner"),
+			resultRecord,
 			deviceIdentifier,
 		); apiErr != nil {
 			return apiErr
@@ -550,6 +551,39 @@ func authorizeOwnerAccess(e *core.RequestEvent, ownerID string) *apierror.APIErr
 	return nil
 }
 
+// authorizePipelineResultDeviceStoreAccess lets any caller, internal admin
+// included, store artifacts only from a mobile device that ran the given
+// pipeline result; non-admin callers also pass the owner/published-runner checks.
+func authorizePipelineResultDeviceStoreAccess(
+	e *core.RequestEvent,
+	resultRecord *core.Record,
+	deviceIdentifier string,
+) *apierror.APIError {
+	device, apiErr := resolvePipelineResultDevice(e.App, deviceIdentifier)
+	if apiErr != nil {
+		return apiErr
+	}
+	if device.Collection() == nil ||
+		device.Collection().Name != mobileDevicesCollection ||
+		!slices.Contains(resultRecord.GetStringSlice("devices"), device.Id) {
+		return apierror.New(
+			http.StatusForbidden,
+			"authorization",
+			"forbidden",
+			"device did not run this pipeline result",
+		)
+	}
+	if isInternalAdminPrincipal(e.Auth) {
+		return nil
+	}
+
+	return authorizePipelineResultOwnerAccess(
+		e,
+		resultRecord.GetString("owner"),
+		func() (*core.Record, *apierror.APIError) { return device, nil },
+	)
+}
+
 func authorizePipelineResultStoreAccess(
 	e *core.RequestEvent,
 	ownerID string,
@@ -558,6 +592,24 @@ func authorizePipelineResultStoreAccess(
 	if isInternalAdminPrincipal(e.Auth) {
 		return nil
 	}
+
+	return authorizePipelineResultOwnerAccess(
+		e,
+		ownerID,
+		func() (*core.Record, *apierror.APIError) {
+			return resolvePipelineResultDevice(e.App, deviceIdentifier)
+		},
+	)
+}
+
+// authorizePipelineResultOwnerAccess allows members of the result owner
+// organization, or owners of a published runner whose device is resolved
+// by resolveDevice when the result owner organization is published.
+func authorizePipelineResultOwnerAccess(
+	e *core.RequestEvent,
+	ownerID string,
+	resolveDevice func() (*core.Record, *apierror.APIError),
+) *apierror.APIError {
 	if ownerID == "" {
 		return apierror.New(
 			http.StatusInternalServerError,
@@ -584,7 +636,7 @@ func authorizePipelineResultStoreAccess(
 		e.App,
 		userOrgID,
 		ownerID,
-		deviceIdentifier,
+		resolveDevice,
 	)
 	if apiErr != nil {
 		return apiErr
@@ -601,11 +653,28 @@ func authorizePipelineResultStoreAccess(
 	)
 }
 
+func resolvePipelineResultDevice(
+	app core.App,
+	deviceIdentifier string,
+) (*core.Record, *apierror.APIError) {
+	device, err := canonify.Resolve(app, deviceIdentifier)
+	if err != nil {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"device_identifier",
+			"failed_to_resolve_device_identifier",
+			err.Error(),
+		)
+	}
+
+	return device, nil
+}
+
 func publishedDeviceCanStoreForPublishedOrganization(
 	app core.App,
 	deviceOwnerID string,
 	resultOwnerID string,
-	deviceIdentifier string,
+	resolveDevice func() (*core.Record, *apierror.APIError),
 ) (bool, *apierror.APIError) {
 	ownerOrg, err := app.FindRecordById("organizations", resultOwnerID)
 	if err != nil {
@@ -620,14 +689,9 @@ func publishedDeviceCanStoreForPublishedOrganization(
 		return false, nil
 	}
 
-	device, err := canonify.Resolve(app, deviceIdentifier)
-	if err != nil {
-		return false, apierror.New(
-			http.StatusBadRequest,
-			"device_identifier",
-			"failed_to_resolve_device_identifier",
-			err.Error(),
-		)
+	device, apiErr := resolveDevice()
+	if apiErr != nil {
+		return false, apiErr
 	}
 	if device.Collection() == nil || device.Collection().Name != mobileDevicesCollection {
 		return false, nil

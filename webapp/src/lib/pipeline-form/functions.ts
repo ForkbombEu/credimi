@@ -9,7 +9,7 @@ import {
 	type PipelineStep
 } from '$lib/pipeline/types';
 import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
-import { pipe, String } from 'effect';
+import { Effect, pipe, String } from 'effect';
 import * as _ from 'lodash';
 import { ClientResponseError } from 'pocketbase';
 import slugify from 'slugify';
@@ -26,6 +26,9 @@ import type { RuntimeOptions } from './runtime-options-form/runtime-options-form
 import { getConfigByTypeOrThrow } from './steps';
 
 /* Fetching pipeline */
+
+/** Cap parallel step enrichment to avoid flooding PocketBase rate limits. */
+export const PIPELINE_ENRICH_CONCURRENCY = 12;
 
 export interface EnrichedPipeline {
 	record: PipelinesResponse;
@@ -51,8 +54,12 @@ export async function getEnrichedPipeline(
 	const yaml = parse(record.yaml) as Pipeline;
 	const steps = yaml.steps ?? [];
 
-	const enrichedSteps = await Promise.all(steps.map(enrichStep));
-	const followUps = await enrichFollowUps(yaml.finally);
+	const enrichedSteps = await Effect.runPromise(
+		Effect.forEach(steps, (step) => Effect.promise(() => enrichStep(step)), {
+			concurrency: PIPELINE_ENRICH_CONCURRENCY
+		})
+	);
+	const followUps = await Effect.runPromise(enrichFollowUps(yaml.finally));
 
 	return {
 		record,
@@ -130,18 +137,25 @@ export function createPipelineYaml(
 
 // Utils
 
-async function enrichFollowUps(finallyDefinition: PipelineFinally | undefined) {
-	const followUps: EnrichedFollowUp[] = [];
-	for (const condition of getFinallyConditions()) {
-		const steps = getFinallySteps(finallyDefinition, condition);
-		for (const step of steps) {
-			followUps.push({
-				step: await enrichStep(step as PipelineStep),
+function enrichFollowUps(
+	finallyDefinition: PipelineFinally | undefined
+): Effect.Effect<EnrichedFollowUp[]> {
+	const pending = getFinallyConditions().flatMap((condition) =>
+		getFinallySteps(finallyDefinition, condition).map((step) => ({
+			step: step as PipelineStep,
+			condition
+		}))
+	);
+
+	return Effect.forEach(
+		pending,
+		({ step, condition }) =>
+			Effect.promise(async () => ({
+				step: await enrichStep(step),
 				condition
-			});
-		}
-	}
-	return followUps;
+			})),
+		{ concurrency: PIPELINE_ENRICH_CONCURRENCY }
+	);
 }
 
 function getFinallyConditions(): PipelineFinallyCondition[] {
@@ -244,8 +258,13 @@ function assignStepId(step: PipelineStep, counters: Map<string, number>) {
 
 function getIdBase(step: PipelineStep): string | undefined {
 	if (step.use === 'debug' || !('with' in step)) return undefined;
-	const config = getConfigByTypeOrThrow(step.use);
-	return slugify(config.makeId(step.with));
+	try {
+		const config = getConfigByTypeOrThrow(step.use);
+		return slugify(config.makeId(step.with));
+	} catch {
+		// One bad makeId (e.g. template URL) must not blank the whole YAML preview.
+		return slugify(step.use);
+	}
 }
 
 function getIdSuffix(id: string, base: string) {

@@ -130,7 +130,19 @@ export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormD
 
 	makeId: (data) => {
 		const method = (data.method || 'request').toLowerCase();
-		const urlPath = new URL(data.url || 'unknown').host;
-		return `http-${method}-${urlPath}`;
+		return `http-${method}-${httpRequestIdHost(data.url)}`;
 	}
 };
+
+/** Host fragment for step ids; template/relative URLs must not throw. */
+export function httpRequestIdHost(url: string | undefined): string {
+	const raw = url?.trim() || 'unknown';
+	if (URL.canParse(raw)) {
+		return new URL(raw).host || 'unknown';
+	}
+	const slug = raw
+		.replace(/[^a-zA-Z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, 48);
+	return slug || 'unknown';
+}

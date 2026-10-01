@@ -54,7 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="space-y-3" transition:fly>
 		<div class="space-y-2">
 			<Label for={name}>
-				{'Device'}
+				{m.Device()}
 				{#if required}
 					<span class="font-bold text-destructive">*</span>
 				{/if}
