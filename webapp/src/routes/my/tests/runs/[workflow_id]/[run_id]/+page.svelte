@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
 	import { WorkflowQrPoller } from '$lib/workflows';
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { fromStore } from 'svelte/store';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
@@ -79,25 +79,49 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let loadedTemporalUiUrl = $state<string>();
 	const isTemporalUiLoading = $derived(loadedTemporalUiUrl !== temporalUiUrl);
 	let temporalUiIframe = $state<HTMLIFrameElement>();
+	// Set on iframe onload for the current src; height messages from a previous
+	// document must not clear the spinner for a newly navigated URL.
+	let temporalUiOnloadUrl = $state<string>();
 	// Same guard as the pre-embed iframe (#497): ignore the steady delta that
 	// appears when the iframe height feeds back into the child's scrollHeight.
 	let temporalUiHeightDelta = $state(0);
+	// onload alone can reveal a tall empty iframe before the embed posts height;
+	// fall back if that message never arrives (e.g. blocked script).
+	const TEMPORAL_UI_LOAD_FALLBACK_MS = 1500;
+	let temporalUiLoadFallback: ReturnType<typeof setTimeout> | undefined;
 
-	$effect(() => {
-		function onMessage(ev: MessageEvent) {
-			if (ev.origin !== window.location.origin) return;
-			const data = ev.data as { source?: string; type?: string; height?: number } | null;
-			if (!data || data.source !== 'credimi-temporal-ui' || data.type !== 'height') return;
-			const iframe = temporalUiIframe;
-			if (!iframe || typeof data.height !== 'number' || data.height <= 0) return;
-			const next = Math.ceil(data.height);
-			const delta = next - (parseInt(iframe.height, 10) || 0);
-			if (delta === temporalUiHeightDelta) return;
+	function markTemporalUiReady(url: string) {
+		if (loadedTemporalUiUrl === url) return;
+		loadedTemporalUiUrl = url;
+		if (temporalUiLoadFallback !== undefined) {
+			clearTimeout(temporalUiLoadFallback);
+			temporalUiLoadFallback = undefined;
+		}
+	}
+
+	function onTemporalUiMessage(ev: MessageEvent) {
+		if (ev.origin !== window.location.origin) return;
+		const data = ev.data as { source?: string; type?: string; height?: number } | null;
+		if (!data || data.source !== 'credimi-temporal-ui' || data.type !== 'height') return;
+		const iframe = temporalUiIframe;
+		if (!iframe || typeof data.height !== 'number' || data.height <= 0) return;
+		const next = Math.ceil(data.height);
+		const delta = next - (parseInt(iframe.height, 10) || 0);
+		if (delta !== temporalUiHeightDelta) {
 			iframe.height = `${next}px`;
 			temporalUiHeightDelta = delta;
 		}
-		window.addEventListener('message', onMessage);
-		return () => window.removeEventListener('message', onMessage);
+		// First paint-sized height after onload: content is measurable.
+		if (temporalUiOnloadUrl === temporalUiUrl) {
+			markTemporalUiReady(temporalUiUrl);
+		}
+	}
+
+	onDestroy(() => {
+		if (temporalUiLoadFallback !== undefined) {
+			clearTimeout(temporalUiLoadFallback);
+			temporalUiLoadFallback = undefined;
+		}
 	});
 
 	/* Run status refresh */
@@ -157,6 +181,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	</style>
 </svelte:head>
+
+<svelte:window onmessage={onTemporalUiMessage} />
 
 <div class="bg-primary">
 	<div class="padding-x">
@@ -288,9 +314,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 {/if}
 
-<div class="relative">
+<div class="relative" aria-busy={isTemporalUiLoading}>
 	{#if isTemporalUiLoading}
-		<div class="bg-temporal padding-x absolute inset-0 pt-4">
+		<div class="bg-temporal padding-x absolute inset-0 z-10 pt-4">
 			<div
 				class={[
 					'rounded-lg border bg-slate-200 py-10 text-center',
@@ -314,8 +340,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		style="overflow: hidden;"
 		scrolling="no"
 		onload={() => {
-			loadedTemporalUiUrl = temporalUiUrl;
+			const url = temporalUiUrl;
+			temporalUiOnloadUrl = url;
 			temporalUiHeightDelta = 0;
+			if (temporalUiLoadFallback !== undefined) clearTimeout(temporalUiLoadFallback);
+			// Prefer first height message; clear spinner anyway if none arrives.
+			temporalUiLoadFallback = setTimeout(() => {
+				markTemporalUiReady(url);
+			}, TEMPORAL_UI_LOAD_FALLBACK_MS);
 		}}
 	></iframe>
 </div>
