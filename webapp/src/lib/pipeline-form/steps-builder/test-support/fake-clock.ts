@@ -2,16 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ComposerClock } from '../composer-clock.js';
+
 /**
- * Shared fake clock for steps-builder unit tests (composer virtualizer, peer scroll-follow).
  * Deterministic raf + setTimeout without happy-dom/jsdom timers.
+ * Implements ComposerClock plus flush helpers for unit tests.
  */
-export type FakeClock = {
-	now: () => number;
-	raf: (callback: FrameRequestCallback) => number;
-	cancelRaf: (handle: number) => void;
-	setTimeout: (handler: () => void, timeout?: number) => ReturnType<typeof setTimeout>;
-	clearTimeout: (handle: ReturnType<typeof setTimeout>) => void;
+export type FakeClock = ComposerClock & {
 	flushRaf(): void;
 	/** Advance virtual time and fire due timers (composer-virtualizer call site). */
 	advance(ms: number): void;

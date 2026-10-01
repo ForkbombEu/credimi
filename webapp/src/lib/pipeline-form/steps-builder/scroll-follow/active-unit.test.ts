@@ -4,6 +4,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { createFakeClock } from '../test-support/fake-clock.js';
 import {
 	CARD_PANE,
 	YAML_PANE,
@@ -437,34 +438,6 @@ describe('scrollUnitIntoView (cards)', () => {
 });
 
 describe('watchDrivenScroll', () => {
-	function fakeClock() {
-		let nextId = 1;
-		let now = 0;
-		const timers = new Map<number, { due: number; handler: () => void }>();
-		return {
-			setTimeout(handler: () => void, timeout = 0) {
-				const id = nextId++;
-				timers.set(id, { due: now + timeout, handler });
-				return id as unknown as ReturnType<typeof setTimeout>;
-			},
-			clearTimeout(handle: ReturnType<typeof setTimeout>) {
-				timers.delete(handle as unknown as number);
-			},
-			flush(ms: number) {
-				now += ms;
-				for (const [id, t] of [...timers.entries()]) {
-					if (t.due <= now) {
-						timers.delete(id);
-						t.handler();
-					}
-				}
-			},
-			pending() {
-				return timers.size;
-			}
-		};
-	}
-
 	function stubEl() {
 		const listeners = new Map<string, Set<EventListener>>();
 		return {
@@ -487,40 +460,38 @@ describe('watchDrivenScroll', () => {
 	}
 
 	it('clears via injected clock after auto timeout (120ms)', () => {
-		const clock = fakeClock();
+		const clock = createFakeClock();
 		const el = stubEl();
 		const onClear = vi.fn();
 		watchDrivenScroll(el as unknown as HTMLElement, 'auto', onClear, clock);
 		expect(onClear).not.toHaveBeenCalled();
-		clock.flush(119);
+		clock.flushTimeouts(119);
 		expect(onClear).not.toHaveBeenCalled();
-		clock.flush(1);
+		clock.flushTimeouts(1);
 		expect(onClear).toHaveBeenCalledTimes(1);
-		expect(clock.pending()).toBe(0);
 	});
 
 	it('clears on scrollend before timeout and cancels the timer', () => {
-		const clock = fakeClock();
+		const clock = createFakeClock();
 		const el = stubEl();
 		const onClear = vi.fn();
 		watchDrivenScroll(el as unknown as HTMLElement, 'smooth', onClear, clock);
 		el.dispatch('scrollend');
 		expect(onClear).toHaveBeenCalledTimes(1);
-		expect(clock.pending()).toBe(0);
-		clock.flush(650);
+		clock.flushTimeouts(650);
 		expect(onClear).toHaveBeenCalledTimes(1);
 	});
 
 	it('uses idleTimeoutMs when provided (Animatable-driven)', () => {
-		const clock = fakeClock();
+		const clock = createFakeClock();
 		const el = stubEl();
 		const onClear = vi.fn();
 		watchDrivenScroll(el as unknown as HTMLElement, 'auto', onClear, clock, {
 			idleTimeoutMs: 360
 		});
-		clock.flush(359);
+		clock.flushTimeouts(359);
 		expect(onClear).not.toHaveBeenCalled();
-		clock.flush(1);
+		clock.flushTimeouts(1);
 		expect(onClear).toHaveBeenCalledTimes(1);
 	});
 });

@@ -4,6 +4,7 @@
 
 import type { Attachment } from 'svelte/attachments';
 
+import { browserClock, type ComposerClock } from '../composer-clock.js';
 import {
 	CARD_PANE,
 	YAML_PANE,
@@ -24,18 +25,11 @@ import {
 } from './animatable-scroll.js';
 import { scrollFollowPreference } from './preference.js';
 
-export type PeerScrollFollowClock = {
-	raf: (callback: FrameRequestCallback) => number;
-	cancelRaf: (handle: number) => void;
-	setTimeout: (handler: () => void, timeout?: number) => ReturnType<typeof setTimeout>;
-	clearTimeout: (handle: ReturnType<typeof setTimeout>) => void;
-};
-
 /** Continuous retarget vs intentional reveal/edit/click (duration only; both use Animatable). */
 export type PeerScrollKind = 'follow' | 'discrete';
 
 export type PeerScrollFollowOptions = {
-	clock?: PeerScrollFollowClock;
+	clock?: ComposerClock;
 	/**
 	 * Optional mount hook for unmounted (virtualized) cards.
 	 * Behavior-compatible when absent — missing cards still no-op scroll.
@@ -57,15 +51,6 @@ export type PeerScrollFollowOptions = {
 const YAML_REGEN_DEBOUNCE_MS = 130;
 const LEADER_IDLE_MS = 900;
 
-function defaultClock(): PeerScrollFollowClock {
-	return {
-		raf: (...args) => globalThis.requestAnimationFrame(...args),
-		cancelRaf: (...args) => globalThis.cancelAnimationFrame(...args),
-		setTimeout: (...args) => globalThis.setTimeout(...args),
-		clearTimeout: (...args) => globalThis.clearTimeout(...args)
-	};
-}
-
 function durationFor(kind: PeerScrollKind): number {
 	return kind === 'follow' ? FOLLOW_SCROLL_DURATION_MS : DISCRETE_SCROLL_DURATION_MS;
 }
@@ -80,7 +65,7 @@ function durationFor(kind: PeerScrollKind): number {
 export class PeerScrollFollow {
 	activeUnit = $state.raw<ActiveUnit | null>(null);
 
-	#clock: PeerScrollFollowClock;
+	#clock: ComposerClock;
 	#ensureMounted: EnsureMounted | undefined;
 	#ensureMountedYaml: EnsureMounted | undefined;
 	#getCardLengths: (() => CardListLengths | undefined) | undefined;
@@ -101,7 +86,7 @@ export class PeerScrollFollow {
 	#disposed = false;
 
 	constructor(options?: PeerScrollFollowOptions) {
-		this.#clock = options?.clock ?? defaultClock();
+		this.#clock = options?.clock ?? browserClock();
 		this.#ensureMounted = options?.ensureMounted;
 		this.#ensureMountedYaml = options?.ensureMountedYaml;
 		this.#getCardLengths = options?.getCardLengths;

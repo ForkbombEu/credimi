@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { browserClock, type ComposerClock } from '../composer-clock.js';
 import type { AnimatableScroll } from './animatable-scroll.js';
 import type { CardSection } from './yaml-ranges.js';
 
@@ -364,16 +365,6 @@ function elementIntersectsScroller(el: HTMLElement, scroller: HTMLElement): bool
  * Mark a scroller as programmatically driven until scrollend (or timeout fallback).
  * Peer scroll handlers should ignore events while their side is driven.
  */
-export type DrivenScrollClock = {
-	setTimeout: (handler: () => void, timeout?: number) => ReturnType<typeof setTimeout>;
-	clearTimeout: (handle: ReturnType<typeof setTimeout>) => void;
-};
-
-const defaultDrivenClock: DrivenScrollClock = {
-	setTimeout: (...args) => globalThis.setTimeout(...args),
-	clearTimeout: (...args) => globalThis.clearTimeout(...args)
-};
-
 export type WatchDrivenScrollOptions = {
 	/**
 	 * Explicit idle timeout (ms). Prefer this for Animatable-driven scrolls
@@ -387,7 +378,7 @@ export function watchDrivenScroll(
 	el: HTMLElement,
 	behavior: ScrollBehavior,
 	onClear: () => void,
-	clock: DrivenScrollClock = defaultDrivenClock,
+	clock: ComposerClock = browserClock(),
 	options?: WatchDrivenScrollOptions
 ): () => void {
 	let cleared = false;

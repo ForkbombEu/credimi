@@ -10,6 +10,8 @@ import {
 } from '@tanstack/svelte-virtual';
 import { get, type Readable } from 'svelte/store';
 
+import { browserClock, type ComposerClock } from './composer-clock.js';
+
 /** Rough collapsed StepCard height used before measureElement runs. */
 export const DEFAULT_STEP_ESTIMATE_SIZE = 140;
 
@@ -20,14 +22,6 @@ export const DEFAULT_YAML_STEP_ESTIMATE_SIZE = 96;
 export const DEFAULT_OVERSCAN = 8;
 
 export const DEFAULT_ENSURE_VISIBLE_TIMEOUT_MS = 2000;
-
-export type ComposerVirtualizerClock = {
-	now: () => number;
-	raf: (callback: FrameRequestCallback) => number;
-	cancelRaf: (handle: number) => void;
-	setTimeout: (handler: () => void, timeout?: number) => ReturnType<typeof setTimeout>;
-	clearTimeout: (handle: ReturnType<typeof setTimeout>) => void;
-};
 
 export type EnsureStepVisibleOptions = ScrollToOptions & {
 	timeoutMs?: number;
@@ -43,7 +37,7 @@ export type ComposerVirtualizerOptions = {
 	/** Offset of the virtual list within a shared scroller (e.g. YAML header height). */
 	getScrollMargin?: () => number;
 	ensureVisibleTimeoutMs?: number;
-	clock?: ComposerVirtualizerClock;
+	clock?: ComposerClock;
 	/**
 	 * Injected for tests. Defaults to `@tanstack/svelte-virtual` createVirtualizer.
 	 */
@@ -64,16 +58,6 @@ export type ComposerVirtualizer = {
 	dispose: () => void;
 };
 
-function defaultClock(): ComposerVirtualizerClock {
-	return {
-		now: () => globalThis.performance?.now?.() ?? Date.now(),
-		raf: (...args) => globalThis.requestAnimationFrame(...args),
-		cancelRaf: (...args) => globalThis.cancelAnimationFrame(...args),
-		setTimeout: (...args) => globalThis.setTimeout(...args),
-		clearTimeout: (...args) => globalThis.clearTimeout(...args)
-	};
-}
-
 export function stepCardSelector(index: number): string {
 	return `[data-card-section="steps"][data-card-index="${index}"]`;
 }
@@ -90,7 +74,7 @@ export function waitForSelectorInScroller(
 	scrollElement: ParentNode,
 	selector: string,
 	timeoutMs: number,
-	clock: ComposerVirtualizerClock = defaultClock()
+	clock: ComposerClock = browserClock()
 ): Promise<boolean> {
 	const deadline = clock.now() + timeoutMs;
 
@@ -135,7 +119,7 @@ export function createComposerVirtualizer(
 	options: ComposerVirtualizerOptions
 ): ComposerVirtualizer {
 	const create = options.createVirtualizer ?? createVirtualizer;
-	const clock = options.clock ?? defaultClock();
+	const clock = options.clock ?? browserClock();
 	const estimateSize = options.estimateSize;
 	const overscan = options.overscan ?? DEFAULT_OVERSCAN;
 	const ensureVisibleTimeoutMs =
