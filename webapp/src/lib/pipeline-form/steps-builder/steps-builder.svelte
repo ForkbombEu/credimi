@@ -43,10 +43,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		StepCard
 	} from './_partials/index.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
-	import { type ActiveUnit } from './scroll-follow/active-unit.js';
+	import {
+		ensureMountedForStepsVirtualizer,
+		type ActiveUnit
+	} from './scroll-follow/active-unit.js';
 	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
 	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
 	import { mapYamlCardRanges, type YamlCardRange } from './scroll-follow/yaml-ranges.js';
+	import { createStepsVirtualizer } from './steps-virtualizer.svelte.js';
 
 	//
 
@@ -57,6 +61,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let addStepPane: PaneHandle | null = $state(null);
 	let stepsPane: PaneHandle | null = $state(null);
 	let rightPane: PaneHandle | null = $state(null);
+	/** Cards column scrollport — TanStack virtualizer + peer-scroll share this element. */
+	let cardsScrollContainer: HTMLElement | null = $state(null);
 	/** Half-viewport end pad so the last (short) card can scroll to center. */
 	let cardsEndPadPx = $state(0);
 
@@ -75,18 +81,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		};
 	}
 
-	const cardsEndPadAttach: Attachment = (el) => {
-		const update = () => {
-			cardsEndPadPx = Math.round(el.clientHeight * 0.3);
+	function endPadAttach(setPx: (px: number) => void): Attachment {
+		return (el) => {
+			const update = () => {
+				setPx(Math.round(el.clientHeight * 0.3));
+			};
+			update();
+			const ro = new ResizeObserver(update);
+			ro.observe(el);
+			return () => {
+				ro.disconnect();
+				setPx(0);
+			};
 		};
-		update();
-		const ro = new ResizeObserver(update);
-		ro.observe(el);
-		return () => {
-			ro.disconnect();
-			cardsEndPadPx = 0;
-		};
-	};
+	}
+
+	const cardsEndPadAttach = endPadAttach((px) => {
+		cardsEndPadPx = px;
+	});
 
 	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
 	const editingSection = $derived(
@@ -108,7 +120,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			: mapYamlCardRanges(builder.yamlPreview)
 	);
 
-	const peerScroll = new PeerScrollFollow();
+	const stepsVirtualizer = createStepsVirtualizer({
+		getCount: () => builder.steps.length,
+		getScrollElement: () => cardsScrollContainer
+	});
+	/** Store auto-subscribe target — `$stepsVirt` in markup. */
+	const stepsVirt = stepsVirtualizer.virtualizer;
+
+	const measureStepCard: Attachment = (node) => {
+		stepsVirtualizer.measureElement(node);
+	};
+
+	const listLengths = () => ({
+		steps: builder.steps.length,
+		followUps: builder.followUps.length
+	});
+
+	const peerScroll = new PeerScrollFollow({
+		ensureMounted: ensureMountedForStepsVirtualizer((index) =>
+			stepsVirtualizer.ensureStepVisible(index)
+		),
+		getCardLengths: listLengths
+	});
 	const unitHighlight = new UnitHighlight({
 		getIsManual: () => builder.isManualMode,
 		getEditingIndex: () => editingIndex,
@@ -149,6 +182,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		builder.bindComposerScroll({});
 		peerScroll.dispose();
 		unitHighlight.dispose();
+		stepsVirtualizer.dispose();
 	});
 
 	$effect(() => {
@@ -175,10 +209,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!createdCard || createdCard.token === lastFocusedCardToken) return;
 
 		lastFocusedCardToken = createdCard.token;
-		void tick().then(() => {
+		void tick().then(async () => {
+			if (createdCard.section === 'steps') {
+				await stepsVirtualizer.ensureStepVisible(createdCard.index, {
+					align: 'auto',
+					behavior: 'smooth'
+				});
+			}
+			const scroller = cardsScrollContainer;
 			const selector = `[data-card-section="${createdCard.section}"][data-card-index="${createdCard.index}"]`;
-			const card = document.querySelector<HTMLElement>(selector);
-			card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			const card =
+				scroller?.querySelector<HTMLElement>(selector) ??
+				document.querySelector<HTMLElement>(selector);
+			if (createdCard.section !== 'steps') {
+				card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			}
 			card?.focus({ preventScroll: true });
 		});
 	});
@@ -282,6 +327,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Column
 		bind:pane={stepsPane}
+		bind:scrollContainer={cardsScrollContainer}
 		scrollAttach={cardsScrollAttach}
 		title={m.Steps_sequence()}
 		defaultSize={LAYOUT.blocks.stepsSequence}
@@ -308,12 +354,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div class="space-y-4 p-4">
 			{#if builder.steps.length > 0}
-				<div class="space-y-3">
-					{#each builder.steps as step, index (step)}
+				<!--
+					Virtual window for steps only: absolute rows + measureElement.
+					Use top (not transform) so animate:flip can own transform.
+					pb-3 approximates former space-y-3 gaps inside measured size.
+				-->
+				<div class="relative w-full" style:height="{$stepsVirt.getTotalSize()}px">
+					{#each $stepsVirt.getVirtualItems() as vItem (builder.steps[vItem.index] ?? vItem.key)}
+						{@const step = builder.steps[vItem.index]}
+						{@const index = vItem.index}
 						<div
 							animate:flip={{ duration: 300 }}
+							{@attach measureStepCard}
+							data-index={index}
 							data-card-section="steps"
 							data-card-index={index}
+							class="absolute left-0 w-full pb-3"
+							style:top="{vItem.start}px"
 							role="group"
 							tabindex="-1"
 							onmouseenter={() => {
@@ -323,14 +380,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								unitHighlight.clearHoverCard({ section: 'steps', index });
 							}}
 						>
-							<StepCard
-								{builder}
-								{step}
-								{index}
-								editing={editingSection === 'steps' && editingIndex === index}
-								selected={unitHighlight.isCardSelected('steps', index)}
-								hovered={unitHighlight.isCardHovered('steps', index)}
-							/>
+							{#if step}
+								<StepCard
+									{builder}
+									{step}
+									{index}
+									editing={editingSection === 'steps' && editingIndex === index}
+									selected={unitHighlight.isCardSelected('steps', index)}
+									hovered={unitHighlight.isCardHovered('steps', index)}
+								/>
+							{/if}
 						</div>
 					{/each}
 				</div>
