@@ -29,9 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Sidebar.Header
 		class="flex flex-row items-center justify-between border-b border-b-primary/50 px-4 pb-[7px]"
 	>
-		<div class="flex size-8 items-center justify-center overflow-hidden">
-			<AppLogo />
-		</div>
+		<AppLogo class="size-10 object-contain" />
 		<UserNav />
 	</Sidebar.Header>
 	<Sidebar.Content class="gap-0">
