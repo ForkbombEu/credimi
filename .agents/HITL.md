@@ -378,3 +378,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: Agents and docs keep describing endpoints that 404, and sibling `credimi-extra` implementers may build against the wrong runner paths.
 - decision:
 - follow-up: Confirm (a) and update `AGENTS.md` "Dynamic Pipeline Workflow", "External runner HTTP contract" and "Routes, DTOs, Auth, Errors" sections.
+
+### 2026-10-01 - Embed the real Temporal UI with per-organization access
+
+- status: resolved
+- owner: human maintainer
+- context: The run page rendered history through forked `@forkbombeu/temporal-ui` components inside an iframe. Large pipelines (FCAF complete validation: ~14.7k events, ~32 MB history) never rendered: the iframe missed the first message and 5 s full-history polls cancelled each other. `tui.credimi.io` is an admin/debug instance and is out of scope.
+- question: Should Credimi embed the upstream Temporal UI instead of the fork, and how should each organization see only its own namespace?
+- options considered: (a) keep the fork and fetch history incrementally; (b) serve upstream Temporal UI under a Credimi sub-path behind a PocketBase reverse proxy scoped to the caller's namespace, read-only; (c) Temporal UI OIDC + Temporal server JWT ClaimMapper/Authorizer with Credimi-issued permission tokens. Dynamic config alone cannot scope namespaces per user.
+- default risk: Under (b) the proxy is the only tenancy boundary of the embedded instance, so its allow-list must stay narrow; under (c) every Credimi Temporal client (server, workers, runners) would need tokens.
+- decision: (b), with the embedded UI as its own compose service next to the webapp (`temporal_ui_embedded`, no published port) and the proxy in `pkg/internal/temporalui`. Documented in `AGENTS.md` "Embedded Temporal UI".
+- follow-up: None.
