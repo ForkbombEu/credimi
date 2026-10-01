@@ -9,7 +9,7 @@ export const load = async ({ fetch }) => {
 		fetch,
 		perPage: 20,
 		page: 1,
-		sort: '-latest_execution.created'
+		sort: '-expanded_data.latest_execution.created'
 	});
 	return {
 		scoreboardPage
