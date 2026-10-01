@@ -1,9 +1,0 @@
-{
-  "versioningInfo": {
-    "currentVersion": "__unversioned__"
-  },
-  "effectiveRateLimit": {
-    "requestsPerSecond": 4000,
-    "rateLimitSource": "RATE_LIMIT_SOURCE_SYSTEM"
-  }
-}

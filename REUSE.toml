@@ -24,7 +24,6 @@ path = [
     "config_templates/**/*",
     "docs/**/*",
     "fixtures/test_pb_data/types.d.ts",
-    "fixtures/embedded-temporal-ui/**/*",
     "go.sum",
     "mocked_templates/**/*",
     "pb_migrations/*",

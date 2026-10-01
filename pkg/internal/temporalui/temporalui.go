@@ -198,15 +198,6 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 			return e.Redirect(http.StatusFound, homePath(namespace))
 		case routeProxy, routePage, routeNamespaceList:
 		}
-		if kind == routeProxy || kind == routeNamespaceList {
-			served, ferr := tryServeFixture(e.Response, e.Request, namespace)
-			if ferr != nil {
-				return fmt.Errorf("Temporal UI API fixtures: %w", ferr)
-			}
-			if served {
-				return nil
-			}
-		}
 		ctx := context.WithValue(
 			e.Request.Context(),
 			scopeKey{},

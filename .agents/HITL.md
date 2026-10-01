@@ -381,14 +381,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-10-01 - Dev-only Temporal UI API fixture replay
 
-- status: open
+- status: resolved
 - owner: human maintainer
-- context: Branch `fix/embedded-temporal-ui` needs to replay production Temporal UI iframe API JSON (`/temporal-ui/api/v1/...`) from a HAR without a matching local Temporal history. Implemented as env-gated loading in `pkg/internal/temporalui` via `CREDIMI_TEMPORAL_UI_API_FIXTURES` → `fixtures/embedded-temporal-ui/` (~1.4MB history body). Auth/method/namespace scoping still apply; HTML/assets still proxy upstream.
+- context: Branch `fix/embedded-temporal-ui` briefly added env-gated HAR replay (`CREDIMI_TEMPORAL_UI_API_FIXTURES` → `fixtures/embedded-temporal-ui/`) in the Temporal UI proxy and `GET /api/my/workflows/.../runs/...`.
 - question: Keep this env-gated proxy seam (and commit the HAR-derived fixtures), or move replay to Playwright `routeFromHAR` / a separate mock process and leave the proxy free of fixture code?
-- options considered: (a) env-gated replay in `temporalui.Handler` (implemented); (b) Playwright-only HAR replay; (c) standalone mock upstream behind `ADDRESS_TEMPORAL_UI`.
-- default risk: Fixture code in the security-boundary proxy; large fixture in git; accidental enable in a shared env could show stale/wrong tenant-shaped history (still scoped to caller namespace path).
-- decision:
-- follow-up: Confirm (a) and whether to document `CREDIMI_TEMPORAL_UI_API_FIXTURES` in `AGENTS.md` Embedded Temporal UI, or strip before merge.
+- options considered: (a) env-gated replay in `temporalui.Handler`; (b) Playwright-only HAR replay; (c) standalone mock upstream behind `ADDRESS_TEMPORAL_UI`; (d) strip entirely before merge.
+- default risk: Fixture code in the security-boundary proxy; large fixture in git; accidental enable in a shared env could show stale/wrong tenant-shaped history.
+- decision: Option (d). Removed fixtures directory, `pkg/internal/temporalui/fixtures*.go`, proxy/handler wiring, and REUSE annotation before merge.
+- follow-up: None.
 
 ### 2026-10-01 - Unify cached fetch-load wrappers
 
