@@ -30,6 +30,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ## Open Questions
 
+### 2026-10-01 - Typia setup: stay on TypeScript 5.9 or move to TypeScript 6
+
+- status: resolved
+- owner: human maintainer
+- context: Typia was set up on the legacy typia 12 / below-TypeScript-7 line for the SvelteKit Vite webapp (`typia@12`, `@typia/unplugin@12`, Vite plugin only — no `ts-patch`). Installed TypeScript is still `5.9.3` (`package.json` `typescript: ^5.9.3`). The user asked for TypeScript 6 when requesting the setup.
+- question: Keep TypeScript 5.9 (compatible with typia 12) or upgrade `webapp` to `typescript@6`?
+- options considered: (a) keep 5.9 and typia 12 / Vite unplugin (current); (b) bump to TypeScript 6 and keep typia 12; (c) move to typia 13 + TypeScript 7 when ready.
+- default risk: Bumping TypeScript without checking `svelte-check` / tooling support can break `bun run check`. Leaving 5.9 mismatches the user’s stated “uses TypeScript 6” expectation.
+- decision: Keep TypeScript 5.9; do not bump for this typia setup.
+- follow-up: None.
+
 ### 2026-09-24 - CatalogSurface rename vs TemplateSurface
 
 - status: resolved (agent during PR #1404 review fixes)
