@@ -8,7 +8,7 @@ import type { TypedConfig } from '$pipeline-form/steps/types';
 import { Pipeline, Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
-import { getHubItemLogo, getHubItemUrl, type HubItem } from '$lib/hub';
+import { getHubItemById, getHubItemLogo, getHubItemUrl } from '$lib/hub';
 import {
 	type PipelineStepByType,
 	type PipelineStepData,
@@ -26,7 +26,6 @@ import { formatLinkedId } from '$pipeline-form/steps/utils.js';
 import { isError } from 'effect/Predicate';
 
 import { m } from '@/i18n/index.js';
-import { pb } from '@/pocketbase';
 import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
 
 import type { WalletActionStepData } from './types.js';
@@ -160,9 +159,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			});
 		}
 
-		const wallet: HubItem = await pb.collection('hub_items').getOne(action.wallet, {
-			requestKey: null
-		});
+		const wallet = await getHubItemById(action.wallet);
 
 		return {
 			wallet,
