@@ -9,7 +9,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { fly } from 'svelte/transition';
 
 	import Label from '@/components/ui/label/label.svelte';
-	import { m } from '@/i18n';
 
 	import type { DeviceRecord } from './types';
 
@@ -54,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="space-y-3" transition:fly>
 		<div class="space-y-2">
 			<Label for={name}>
-				{'Device'}
+				Device
 				{#if required}
 					<span class="font-bold text-destructive">*</span>
 				{/if}

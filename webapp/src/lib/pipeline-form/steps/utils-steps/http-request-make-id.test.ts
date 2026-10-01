@@ -12,9 +12,9 @@ describe('httpRequestIdHost', () => {
 	});
 
 	it('does not throw on pipeline template URLs', () => {
-		expect(
-			httpRequestIdHost('${fixture.verifier_url}/openid4vp/sessions')
-		).toBe('fixture-verifier-url-openid4vp-sessions');
+		expect(httpRequestIdHost('${fixture.verifier_url}/openid4vp/sessions')).toBe(
+			'fixture-verifier-url-openid4vp-sessions'
+		);
 	});
 
 	it('falls back for empty input', () => {

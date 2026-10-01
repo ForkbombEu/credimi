@@ -11,9 +11,8 @@ import { Cache, Duration, Effect, Exit, FiberRef, GlobalValue } from 'effect';
  *
  * @see https://effect.website/docs/caching/cache/
  */
-export const requestFetchRef = GlobalValue.globalValue(
-	Symbol.for('@credimi/request-fetch'),
-	() => FiberRef.unsafeMake<typeof fetch>(fetch)
+export const requestFetchRef = GlobalValue.globalValue(Symbol.for('@credimi/request-fetch'), () =>
+	FiberRef.unsafeMake<typeof fetch>(fetch)
 );
 
 export type CachedFetchLoadOptions<Key, Value> = {

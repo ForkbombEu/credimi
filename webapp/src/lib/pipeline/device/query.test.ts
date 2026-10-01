@@ -58,7 +58,7 @@ describe('cached mobile device list', () => {
 	});
 
 	it('dedupes concurrent list loads into one network call', async () => {
-		let resolveSend!: (value: { devices: typeof wireDevice[] }) => void;
+		let resolveSend!: (value: { devices: (typeof wireDevice)[] }) => void;
 		send.mockImplementation(
 			() =>
 				new Promise((resolve) => {

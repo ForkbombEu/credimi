@@ -14,10 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { InlineWalletActionStepForm } from './inline-wallet-action-step-form.svelte.js';
 
-	import {
-		getDeviceLabel,
-		getVersionLabel
-	} from './wallet-action-step-form.svelte.js';
+	import { getDeviceLabel, getVersionLabel } from './wallet-action-step-form.svelte.js';
 
 	let { self: form }: SelfProp<InlineWalletActionStepForm> = $props();
 </script>

@@ -49,10 +49,7 @@ export type {
 	StoredWalletActionStepData,
 	WalletActionStepData
 } from './types.js';
-export {
-	isInlineWalletActionStepData,
-	isStoredWalletActionStepData
-} from './types.js';
+export { isInlineWalletActionStepData, isStoredWalletActionStepData } from './types.js';
 export { InlineWalletActionStepForm } from './inline-wallet-action-step-form.svelte.js';
 export { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
@@ -154,7 +151,8 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		if (data.kind === 'inline') {
 			const _with: MobileWith = {
 				action_code: data.actionCode,
-				version_id: data.version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(data.version)
+				version_id:
+					data.version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(data.version)
 			};
 			if (data.device !== GLOBAL_DEVICE) {
 				_with.device_id = data.device.path;
