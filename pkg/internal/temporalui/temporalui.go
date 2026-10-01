@@ -14,8 +14,8 @@
 //   - API calls must target the caller's organization namespace; the namespace
 //     list is replaced by the caller's namespace alone.
 //
-// HTML pages get a stylesheet hiding the UI's own navigation shell, since Credimi
-// pages embed only the workflow content.
+// HTML pages get embedHead, which fits the UI into a Credimi run page: no shell,
+// light theme only, navigation kept on the embedded run.
 package temporalui
 
 import (
@@ -48,7 +48,7 @@ const (
 	routeForbidden routeKind = iota
 	// routeProxy forwards unchanged: API calls and build assets.
 	routeProxy
-	// routePage forwards a client-side page; HTML documents get embedStyle.
+	// routePage forwards a client-side page; HTML documents get embedHead.
 	routePage
 	routeNamespaceList
 	routeHome
@@ -241,7 +241,7 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 			case routeNamespaceList:
 				return wrapNamespaceList(resp)
 			case routePage:
-				return injectEmbedStyle(resp)
+				return injectEmbedHead(resp)
 			case routeForbidden, routeProxy, routeHome:
 			}
 			return nil
@@ -249,13 +249,36 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 	}
 }
 
-// embedStyle hides the Temporal UI shell (side and top navigation): Credimi pages
-// embed only the workflow content and own the navigation.
-const embedStyle = `<style id="credimi-embed">` +
-	`div:has(> nav[data-testid="navigation-header"]),nav[data-testid="top-nav"]` +
-	`{display:none !important}</style>`
+// embedHead adapts the UI to being embedded in a Credimi run page:
+//   - hides the shell (side and top navigation) and the "Back to Workflows" link,
+//     and makes links to other UI pages (workflow lists, task queues) inert;
+//   - forces the light theme: Credimi has no dark mode, and the UI reads its theme
+//     from the persisted "dark mode" store, defaulting to the OS preference;
+//   - keeps navigation on the embedded run: its own tabs work, links to another
+//     run open that run's Credimi page in the top window, any other in-app link
+//     is blocked.
+const embedHead = `<style id="credimi-embed">` +
+	`:root{color-scheme:light}` +
+	`html,body{background-color:#f8fafc !important;color:#141414 !important}` +
+	`div:has(> nav[data-testid="navigation-header"]),nav[data-testid="top-nav"],` +
+	`[data-testid="back-to-workflows"]{display:none !important}` +
+	`a[href*="/workflows?"],a[href*="/task-queues/"]` +
+	`{pointer-events:none;color:inherit !important;text-decoration:none !important}` +
+	`</style>` +
+	`<script id="credimi-embed-script">(function(){` +
+	`try{localStorage.setItem("dark mode","false")}catch(e){}` +
+	`var run=/^\/temporal-ui\/namespaces\/[^\/]+\/workflows\/([^\/]+)\/([^\/?#]+)/;` +
+	`document.addEventListener("click",function(e){` +
+	`var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(!a)return;` +
+	`var u=new URL(a.href,location.href);if(u.origin!==location.origin)return;` +
+	`var here=location.pathname.match(run),there=u.pathname.match(run);` +
+	`if(here&&there&&here[1]===there[1]&&here[2]===there[2])return;` +
+	`e.preventDefault();e.stopImmediatePropagation();` +
+	`if(there&&window.top!==window){` +
+	`window.top.location.href="/my/tests/runs/"+there[1]+"/"+there[2]}` +
+	`},true)})()</script>`
 
-func injectEmbedStyle(resp *http.Response) error {
+func injectEmbedHead(resp *http.Response) error {
 	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") {
 		return nil
 	}
@@ -264,7 +287,7 @@ func injectEmbedStyle(resp *http.Response) error {
 	if err != nil {
 		return fmt.Errorf("read Temporal UI page: %w", err)
 	}
-	body = bytes.Replace(body, []byte("</head>"), []byte(embedStyle+"</head>"), 1)
+	body = bytes.Replace(body, []byte("</head>"), []byte(embedHead+"</head>"), 1)
 	setBody(resp, body)
 	return nil
 }

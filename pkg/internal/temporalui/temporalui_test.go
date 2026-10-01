@@ -251,6 +251,6 @@ func TestHandler(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, rec.Code)
-		require.Contains(t, rec.Body.String(), embedStyle+"</head>")
+		require.Contains(t, rec.Body.String(), embedHead+"</head>")
 	})
 }

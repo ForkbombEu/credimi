@@ -181,6 +181,7 @@ Embedded Temporal UI:
 - Compose service `temporal_ui_embedded` runs `temporalio/ui` with `TEMPORAL_UI_PUBLIC_PATH=/temporal-ui`, auth disabled, and write actions disabled. It publishes no port in production; only Credimi reaches it. The `temporal_ui` service (port 8280) is a separate admin/debug instance and is not used by the webapp.
 - `pkg/internal/temporalui` is the security boundary: it authenticates the `pb_auth` cookie (written by `webapp/src/hooks.client.ts`), allows only `GET`/`HEAD`, allows API calls only for the caller's organization namespace plus `settings`, `cluster-info` and `system-info`, answers the namespace list with the caller's namespace only, and strips the Credimi cookie and `Authorization` before forwarding.
 - The UI sends `X-Frame-Options: SAMEORIGIN`; the iframe must stay same-origin with the webapp.
+- The proxy injects `embedHead` into UI HTML pages: it hides the UI shell and "Back to Workflows", forces the light theme (Credimi has no dark mode), keeps in-frame navigation on the embedded run, and opens links to other runs (e.g. child workflows) as Credimi run pages in the top window. It relies on upstream `data-testid`s and the `"dark mode"` store key; re-check on `TEMPORAL_UI_VERSION` bumps.
 - Adding an allowed Temporal UI API path, a write method, or another namespace is a tenancy change: ask first.
 
 Conformance catalog refresh:
