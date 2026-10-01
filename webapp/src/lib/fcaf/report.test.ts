@@ -281,7 +281,7 @@ describe('prepareReportDisplay', () => {
 describe('sourceUrl', () => {
 	it('builds the FCAF docs anchor', () => {
 		expect(sourceUrl('WS_RP_DM_AddressData_001')).toBe(
-			'https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/ws_rp/#ws_rp_dm_addressdata_001'
+			'https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/test_cases/#ws_rp_dm_addressdata_001'
 		);
 		expect(sourceUrl(undefined)).toBeUndefined();
 	});
