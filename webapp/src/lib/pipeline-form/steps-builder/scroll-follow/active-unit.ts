@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { AnimatableScroll } from './animatable-scroll.js';
 import type { CardSection } from './yaml-ranges.js';
 
 export type ActiveUnit = {
@@ -54,6 +55,13 @@ export type ScrollCardIntoViewOptions = {
 	align?: ScrollAlign;
 	/** When the card is missing, call this before retrying the DOM query. */
 	ensureMounted?: EnsureMounted;
+	/**
+	 * When set, eases via Anime.js Animatable (retargetable) instead of native
+	 * `scrollTo({ behavior })`. Mount helpers should still use `behavior: 'auto'`.
+	 */
+	animatableScroll?: AnimatableScroll;
+	/** Per-call Animatable duration override (ms). */
+	durationMs?: number;
 };
 
 const HYSTERESIS = 0.22;
@@ -211,19 +219,28 @@ export async function scrollCardIntoView(
 	}
 	if (!el) return false;
 	const align = options?.align ?? 'center';
-	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align);
+	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align, {
+		animatableScroll: options?.animatableScroll,
+		durationMs: options?.durationMs
+	});
 	if (options?.focus !== false) {
 		el.focus({ preventScroll: true });
 	}
 	return scrolled;
 }
 
+export type ScrollChildIntoScrollerOptions = {
+	animatableScroll?: AnimatableScroll;
+	durationMs?: number;
+};
+
 /** Scroll `el` into `scroller` without using Element.scrollIntoView (avoids wrong ancestors). */
 export function scrollChildIntoScroller(
 	scroller: HTMLElement,
 	el: HTMLElement,
 	behavior: ScrollBehavior,
-	align: ScrollAlign = 'nearest'
+	align: ScrollAlign = 'nearest',
+	options?: ScrollChildIntoScrollerOptions
 ): boolean {
 	const nextTop = computeAlignedScrollTop(
 		scroller.scrollTop,
@@ -234,7 +251,12 @@ export function scrollChildIntoScroller(
 		align
 	);
 	if (nextTop === null) return false;
-	scroller.scrollTo({ top: nextTop, behavior });
+	const animatable = options?.animatableScroll;
+	if (animatable) {
+		animatable.scrollTo(nextTop, options?.durationMs);
+	} else {
+		scroller.scrollTo({ top: nextTop, behavior });
+	}
 	return true;
 }
 
@@ -444,7 +466,10 @@ export async function scrollYamlUnitIntoView(
 	}
 	if (!el) return false;
 	const align = options?.align ?? 'center';
-	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align);
+	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align, {
+		animatableScroll: options?.animatableScroll,
+		durationMs: options?.durationMs
+	});
 	if (options?.focus !== false) {
 		el.focus({ preventScroll: true });
 	}
@@ -465,11 +490,21 @@ const defaultDrivenClock: DrivenScrollClock = {
 	clearTimeout: (...args) => globalThis.clearTimeout(...args)
 };
 
+export type WatchDrivenScrollOptions = {
+	/**
+	 * Explicit idle timeout (ms). Prefer this for Animatable-driven scrolls
+	 * (`durationMs + pad`) so peer handlers stay muted until the tween settles.
+	 * When omitted, falls back to behavior heuristics (`smooth` → 650, else 120).
+	 */
+	idleTimeoutMs?: number;
+};
+
 export function watchDrivenScroll(
 	el: HTMLElement,
 	behavior: ScrollBehavior,
 	onClear: () => void,
-	clock: DrivenScrollClock = defaultDrivenClock
+	clock: DrivenScrollClock = defaultDrivenClock,
+	options?: WatchDrivenScrollOptions
 ): () => void {
 	let cleared = false;
 	const clear = () => {
@@ -480,6 +515,7 @@ export function watchDrivenScroll(
 		onClear();
 	};
 	el.addEventListener('scrollend', clear, { once: true });
-	const timer = clock.setTimeout(clear, behavior === 'smooth' ? 650 : 120);
+	const idleMs = options?.idleTimeoutMs ?? (behavior === 'smooth' ? 650 : 120);
+	const timer = clock.setTimeout(clear, idleMs);
 	return clear;
 }

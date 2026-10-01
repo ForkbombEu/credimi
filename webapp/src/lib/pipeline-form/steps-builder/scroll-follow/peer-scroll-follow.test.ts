@@ -4,12 +4,29 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import type { AnimatableScroll } from './animatable-scroll.js';
 import { PeerScrollFollow, type PeerScrollFollowClock } from './peer-scroll-follow.svelte.js';
 
 type FakeClock = PeerScrollFollowClock & {
 	flushRaf(): void;
 	flushTimeouts(ms?: number): void;
 };
+
+/** Test double: records Animatable retargets and mirrors onto scroller.scrollTo for assertions. */
+function fakeCreateAnimatableScroll(scroller: HTMLElement): AnimatableScroll {
+	const scrollTo = vi.fn((top: number, _durationMs?: number) => {
+		(scroller as { scrollTop: number }).scrollTop = top;
+		const scrollToNative = (scroller as unknown as { scrollTo: ReturnType<typeof vi.fn> })
+			.scrollTo;
+		scrollToNative?.({ top, behavior: 'auto' });
+	});
+	return {
+		scrollTo,
+		getScrollTop: () => (scroller as { scrollTop: number }).scrollTop,
+		dispose: vi.fn(),
+		animatable: {} as AnimatableScroll['animatable']
+	};
+}
 
 function createFakeClock(): FakeClock {
 	let nextRaf = 1;
@@ -227,10 +244,24 @@ function stubScrollerGeometry(el: ElementStub, rect: Rect) {
 	el.scrollTo = vi.fn();
 }
 
+function createFollow(
+	clock: FakeClock,
+	extra?: Omit<
+		ConstructorParameters<typeof PeerScrollFollow>[0],
+		'clock' | 'createAnimatableScroll'
+	>
+) {
+	return new PeerScrollFollow({
+		clock,
+		createAnimatableScroll: fakeCreateAnimatableScroll,
+		...extra
+	});
+}
+
 describe('PeerScrollFollow', () => {
 	it('does not steal leadership or change activeUnit without user intent', () => {
 		const clock = createFakeClock();
-		const follow = new PeerScrollFollow({ clock });
+		const follow = createFollow(clock);
 		follow.setEnabled(true);
 
 		const scroller = createCardsScroller([100, 300, 500]);
@@ -246,7 +277,7 @@ describe('PeerScrollFollow', () => {
 
 	it('updates activeUnit from cards scroll after cards intent', () => {
 		const clock = createFakeClock();
-		const follow = new PeerScrollFollow({ clock });
+		const follow = createFollow(clock);
 		follow.setEnabled(true);
 
 		const scroller = createCardsScroller([50, 200, 450]);
@@ -264,7 +295,7 @@ describe('PeerScrollFollow', () => {
 
 	it('no-ops cards→yaml follow while yaml is scroll leader', async () => {
 		const clock = createFakeClock();
-		const follow = new PeerScrollFollow({ clock });
+		const follow = createFollow(clock);
 		follow.setEnabled(true);
 
 		const cards = createCardsScroller([100, 300]);
@@ -289,7 +320,7 @@ describe('PeerScrollFollow', () => {
 
 	it('setEnabled(false) clears activeUnit', () => {
 		const clock = createFakeClock();
-		const follow = new PeerScrollFollow({ clock });
+		const follow = createFollow(clock);
 		follow.setEnabled(true);
 		follow.followUnit({ section: 'steps', index: 0 }, 'cards');
 		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
@@ -303,7 +334,7 @@ describe('PeerScrollFollow', () => {
 
 	it('queues onReveal until cardsAttach then flushes', async () => {
 		const clock = createFakeClock();
-		const follow = new PeerScrollFollow({ clock });
+		const follow = createFollow(clock);
 		follow.setEnabled(true);
 
 		follow.onReveal({ section: 'steps', index: 0 });
@@ -333,7 +364,7 @@ describe('PeerScrollFollow', () => {
 			cards.appendChild(card);
 			return true;
 		});
-		const follow = new PeerScrollFollow({ clock, ensureMounted });
+		const follow = createFollow(clock, { ensureMounted });
 		follow.setEnabled(true);
 
 		const yaml = createYamlScroller([100]);
@@ -362,7 +393,7 @@ describe('PeerScrollFollow', () => {
 			cards.appendChild(card);
 			return true;
 		});
-		const follow = new PeerScrollFollow({ clock, ensureMounted });
+		const follow = createFollow(clock, { ensureMounted });
 		follow.setEnabled(true);
 
 		const yaml = createYamlScroller([100, 300]);
@@ -391,7 +422,7 @@ describe('PeerScrollFollow', () => {
 			yaml.appendChild(block);
 			return true;
 		});
-		const follow = new PeerScrollFollow({ clock, ensureMountedYaml });
+		const follow = createFollow(clock, { ensureMountedYaml });
 		follow.setEnabled(true);
 
 		follow.cardsAttach(cards as unknown as HTMLElement);
@@ -408,8 +439,7 @@ describe('PeerScrollFollow', () => {
 
 	it('uses getCardLengths at list-end when resolving cards scroll', () => {
 		const clock = createFakeClock();
-		const follow = new PeerScrollFollow({
-			clock,
+		const follow = createFollow(clock, {
 			getCardLengths: () => ({ steps: 1400, followUps: 2 })
 		});
 		follow.setEnabled(true);

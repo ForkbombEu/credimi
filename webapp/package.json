@@ -118,6 +118,7 @@
 		"@tanstack/svelte-query": "^6.2.1",
 		"@tanstack/svelte-virtual": "^3.13.39",
 		"ajv": "^8.17.1",
+		"animejs": "^4.5.0",
 		"carta-md": "^4.11.1",
 		"date-fns": "2.29.3",
 		"date-fns-tz": "1.3.7",

@@ -518,6 +518,19 @@ describe('watchDrivenScroll', () => {
 		clock.flush(650);
 		expect(onClear).toHaveBeenCalledTimes(1);
 	});
+
+	it('uses idleTimeoutMs when provided (Animatable-driven)', () => {
+		const clock = fakeClock();
+		const el = stubEl();
+		const onClear = vi.fn();
+		watchDrivenScroll(el as unknown as HTMLElement, 'auto', onClear, clock, {
+			idleTimeoutMs: 360
+		});
+		clock.flush(359);
+		expect(onClear).not.toHaveBeenCalled();
+		clock.flush(1);
+		expect(onClear).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe('resolveViewportYamlUnit', () => {
@@ -674,5 +687,79 @@ describe('scrollYamlUnitIntoView', () => {
 		).resolves.toBe(true);
 		expect(ensureMounted).toHaveBeenCalledWith({ section: 'steps', index: 4 });
 		expect(scroller.scrollTo).toHaveBeenCalled();
+	});
+
+	it('prefers Animatable scrollTo over native scrollTo when provided', async () => {
+		const children: Array<{
+			getAttribute(name: string): string | null;
+			getBoundingClientRect(): DOMRect;
+			focus: ReturnType<typeof vi.fn>;
+		}> = [
+			{
+				getAttribute(name: string) {
+					if (name === 'data-yaml-section') return 'steps';
+					if (name === 'data-yaml-index') return '0';
+					return null;
+				},
+				getBoundingClientRect: () =>
+					({
+						top: 800,
+						bottom: 880,
+						height: 80,
+						left: 0,
+						right: 100,
+						width: 100,
+						x: 0,
+						y: 800,
+						toJSON() {
+							return this;
+						}
+					}) as DOMRect,
+				focus: vi.fn()
+			}
+		];
+
+		const scroller = {
+			querySelector() {
+				return children[0] ?? null;
+			},
+			getBoundingClientRect: () =>
+				({
+					top: 0,
+					bottom: 400,
+					height: 400,
+					left: 0,
+					right: 100,
+					width: 100,
+					x: 0,
+					y: 0,
+					toJSON() {
+						return this;
+					}
+				}) as DOMRect,
+			clientHeight: 400,
+			scrollHeight: 2000,
+			scrollTop: 0,
+			scrollTo: vi.fn()
+		};
+
+		const animatableScroll = {
+			scrollTo: vi.fn(),
+			getScrollTop: () => 0,
+			dispose: vi.fn(),
+			animatable: {} as never
+		};
+
+		await expect(
+			scrollYamlUnitIntoView(
+				scroller as unknown as HTMLElement,
+				{ section: 'steps', index: 0 },
+				'auto',
+				{ focus: false, animatableScroll, durationMs: 280 }
+			)
+		).resolves.toBe(true);
+
+		expect(animatableScroll.scrollTo).toHaveBeenCalledWith(expect.any(Number), 280);
+		expect(scroller.scrollTo).not.toHaveBeenCalled();
 	});
 });
