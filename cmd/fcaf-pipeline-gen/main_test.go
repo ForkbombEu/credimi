@@ -30,7 +30,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1397)
+	require.Len(t, definition.Steps, 1399)
 
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)
@@ -128,7 +128,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 152)
+	require.Len(t, definition.Steps, 154)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validationSteps := make([]map[string]any, 0, 1)
@@ -195,8 +195,8 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 
 // TestAggregateHoldsACredentialForEveryConsumingPresentation guards the
 // reference wallet's single-use credential instances: a presentation that can
-// reach Share must always be preceded by an issuance that has not already been
-// spent by an earlier presentation.
+// reach Share must always be preceded by an issuance of the format it requests
+// that has not already been spent by an earlier presentation.
 func TestAggregateHoldsACredentialForEveryConsumingPresentation(t *testing.T) {
 	root := filepath.Join(
 		"..",
@@ -219,12 +219,17 @@ func TestAggregateHoldsACredentialForEveryConsumingPresentation(t *testing.T) {
 		var definition pipelineDefinition
 		require.NoError(t, yaml.Unmarshal(data, &definition))
 
-		available := 0
+		available := map[credentialFormat]int{}
+		earlier := map[string]map[string]any{}
 		shares := 0
 		injected := 0
 		for index, step := range definition.Steps {
+			source := deeplinkSourceStep(step, earlier)
+			if id, ok := step["id"].(string); ok {
+				earlier[id] = step
+			}
 			if issuesCredential(step) {
-				available++
+				available[issuedCredentialFormat(source)]++
 				id, _ := step["id"].(string)
 				if strings.Contains(id, "-issue-pid") {
 					injected++
@@ -255,18 +260,21 @@ func TestAggregateHoldsACredentialForEveryConsumingPresentation(t *testing.T) {
 			shares += consumed
 			// A scenario-authored issuance may deliberately stay unspent, for
 			// example to prove a held credential does not match the request, but
-			// every Share must find an unspent instance.
-			require.GreaterOrEqualf(
-				t,
-				available,
-				consumed,
-				"%s: presentation %q shares %d times with %d unspent instances",
-				pipeline,
-				step["id"],
-				consumed,
-				available,
-			)
-			available -= consumed
+			// every Share must find an unspent instance of the requested format.
+			for _, format := range presentedCredentialFormats(source, consumed) {
+				require.GreaterOrEqualf(
+					t,
+					available[format],
+					consumed,
+					"%s: presentation %q shares %d %s instances with %d unspent",
+					pipeline,
+					step["id"],
+					consumed,
+					format,
+					available[format],
+				)
+				available[format] -= consumed
+			}
 		}
 		require.Positivef(t, shares, "%s: no presentation shares a credential", pipeline)
 		t.Logf("%s: %d shares, %d injected issuances", pipeline, shares, injected)
