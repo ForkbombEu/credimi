@@ -364,6 +364,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		bind:scrollContainer={cardsScrollContainer}
 		scrollAttach={cardsScrollAttach}
 		title={m.Steps_sequence()}
+		contentClass="scrollbar-thin scrollbar-thumb-primary scrollbar-track-muted"
 		defaultSize={LAYOUT.blocks.stepsSequence}
 		order={2}
 		disabled={builder.isManualMode}
