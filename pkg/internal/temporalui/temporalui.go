@@ -268,6 +268,8 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //     posts height to the parent so the iframe can size without its own scrollbar;
 //   - keeps width at the parent iframe width (Temporal UI uses w-max / w-screen)
 //     without overflow-x:hidden, which would pair to overflow-y:auto and trap wheel;
+//   - hides Timeline start/end stamps that upstream rotates 90° for the full shell
+//     (they bleed over headings once the shell is removed);
 //   - forces the light theme: Credimi has no dark mode, and the UI reads its theme
 //     from the persisted "dark mode" store, defaulting to the OS preference;
 //   - keeps navigation on the embedded run: its own tabs work, links to another
@@ -278,8 +280,11 @@ const embedHead = `<style id="credimi-embed">` +
 	`html,body{background-color:#f8fafc !important;color:#141414 !important;` +
 	`width:100% !important;max-width:100% !important;` +
 	`height:auto !important;min-height:0 !important;` +
-	// Both axes must be visible: overflow-x:hidden + overflow-y:visible pairs to
-	// overflow-y:auto and the tall iframe then traps wheel events from the parent.
+	// Both axes must be visible on the document shell only: overflow-x:hidden +
+	// overflow-y:visible pairs to overflow-y:auto and the tall iframe then traps
+	// wheel events from the parent. Do not force overflow:visible on nested
+	// .overflow-auto regions (timeline chart, tables) — that lets upstream
+	// rotate-90 axis date stamps bleed over headings.
 	`overflow:visible !important;overscroll-behavior:auto !important}` +
 	`div:has(> nav[data-testid="navigation-header"]),nav[data-testid="top-nav"],` +
 	`[data-testid="back-to-workflows"]{display:none !important}` +
@@ -287,14 +292,17 @@ const embedHead = `<style id="credimi-embed">` +
 	`{display:none !important}` +
 	`[data-testid="call-stack-tab"],[data-testid="queries-tab"],` +
 	`[data-testid="relationships-tab"]{display:none !important}` +
-	`.h-dvh,.w-screen,.w-max,#content-wrapper,#content,#content > div,` +
-	`#-container,#content-wrapper .overflow-auto` +
+	`.h-dvh,.w-screen,.w-max,#content-wrapper,#content,#content > div` +
 	`{width:100% !important;max-width:100% !important;` +
 	`height:auto !important;max-height:none !important;min-height:0 !important;` +
 	`overflow:visible !important}` +
 	// Upstream uses Tailwind p-4 md:p-8 on #content > div; drop top pad so
 	// history sits flush under Credimi chrome (keep side/bottom padding).
 	`#content > div{padding-top:0 !important}` +
+	// Timeline start/end stamps: upstream `w-60 ±translate-x-24 rotate-90` with
+	// sticky top-[120px] for the full Temporal shell. In the embed the shell is
+	// hidden, so those labels paint sideways over the Timeline heading — hide.
+	`p.w-60.rotate-90{display:none !important}` +
 	`[data-testid="input-and-result"],[data-testid="event-summary-table"]` +
 	`{max-width:100% !important;box-sizing:border-box}` +
 	`[data-testid="event-summary-table"]{overflow-x:auto !important;overflow-y:hidden !important}` +
