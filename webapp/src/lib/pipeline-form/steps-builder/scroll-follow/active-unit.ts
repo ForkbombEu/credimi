@@ -11,6 +11,41 @@ export type ActiveUnit = {
 
 export type ScrollAlign = 'nearest' | 'start' | 'center' | 'start-band';
 
+/**
+ * True list lengths for cards sequence (steps then follow-ups).
+ * Under virtualization, first/last *mounted* cards may not be the true ends.
+ */
+export type CardListLengths = {
+	steps: number;
+	followUps: number;
+};
+
+/**
+ * Mount (or scroll-to-index) a card that is not yet in the DOM; resolves true when ready.
+ * Always async so PeerScrollFollow / scrollCardIntoView can await uniformly.
+ */
+export type EnsureMounted = (unit: ActiveUnit) => Promise<boolean>;
+
+/**
+ * Peer-scroll bridge for a steps-only virtualizer: follow-ups stay fully mounted,
+ * steps call `ensureStepVisible(index)` (e.g. TanStack scrollToIndex + wait).
+ */
+export function ensureMountedForStepsVirtualizer(
+	ensureStepVisible: (index: number) => boolean | Promise<boolean>
+): EnsureMounted {
+	return async (unit) => {
+		if (unit.section !== 'steps') return true;
+		return await ensureStepVisible(unit.index);
+	};
+}
+
+export type ScrollCardIntoViewOptions = {
+	focus?: boolean;
+	align?: ScrollAlign;
+	/** When the card is missing, call this before retrying the DOM query. */
+	ensureMounted?: EnsureMounted;
+};
+
 const HYSTERESIS = 0.22;
 const ALIGN_EPSILON_PX = 1;
 const START_PADDING_PX = 16;
@@ -27,6 +62,32 @@ function parseCard(el: Element): ActiveUnit | null {
 	return { section, index };
 }
 
+function findCard(scrollContainer: HTMLElement, unit: ActiveUnit): HTMLElement | null {
+	return scrollContainer.querySelector<HTMLElement>(
+		`[data-card-section="${unit.section}"][data-card-index="${unit.index}"]`
+	);
+}
+
+/**
+ * Logical first/last unit from injected lengths (steps then follow-ups).
+ * Returns null when both counts are zero or lengths are invalid.
+ */
+export function resolveListEndUnit(
+	lengths: CardListLengths,
+	edge: 'start' | 'end'
+): ActiveUnit | null {
+	const steps = Math.max(0, Math.floor(lengths.steps));
+	const followUps = Math.max(0, Math.floor(lengths.followUps));
+	if (steps === 0 && followUps === 0) return null;
+
+	if (edge === 'start') {
+		if (steps > 0) return { section: 'steps', index: 0 };
+		return { section: 'follow-ups', index: 0 };
+	}
+	if (followUps > 0) return { section: 'follow-ups', index: followUps - 1 };
+	return { section: 'steps', index: steps - 1 };
+}
+
 export function sameUnit(a: ActiveUnit | null, b: ActiveUnit | null): boolean {
 	if (a === null || b === null) return a === b;
 	return a.section === b.section && a.index === b.index;
@@ -36,10 +97,14 @@ export function sameUnit(a: ActiveUnit | null, b: ActiveUnit | null): boolean {
  * Pick the card nearest the scrollport vertical center, with sticky hysteresis so
  * the active unit does not flicker at boundaries. At scroll edges, prefer the
  * first/last card so the ends of the list remain reachable.
+ *
+ * When `lengths` is provided, list-end edges use the true sequence ends instead of
+ * the first/last *mounted* card (needed under virtualization).
  */
 export function resolveViewportActiveCard(
 	scrollContainer: HTMLElement,
-	previous: ActiveUnit | null
+	previous: ActiveUnit | null,
+	lengths?: CardListLengths
 ): ActiveUnit | null {
 	const cards = [
 		...scrollContainer.querySelectorAll<HTMLElement>('[data-card-section][data-card-index]')
@@ -49,10 +114,18 @@ export function resolveViewportActiveCard(
 	const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
 	if (maxScroll > 0) {
 		if (scrollContainer.scrollTop <= 2) {
-			return parseCard(cards[0]!) ?? null;
+			return (
+				(lengths ? resolveListEndUnit(lengths, 'start') : null) ??
+				parseCard(cards[0]!) ??
+				null
+			);
 		}
 		if (scrollContainer.scrollTop >= maxScroll - 2) {
-			return parseCard(cards[cards.length - 1]!) ?? null;
+			return (
+				(lengths ? resolveListEndUnit(lengths, 'end') : null) ??
+				parseCard(cards[cards.length - 1]!) ??
+				null
+			);
 		}
 	}
 
@@ -93,15 +166,23 @@ export function resolveViewportActiveCard(
 	return best.unit;
 }
 
-export function scrollCardIntoView(
+/**
+ * Scroll a card into view. When the card is not mounted and `ensureMounted` is
+ * provided, awaits mount then retries. Without `ensureMounted`, missing cards
+ * still return false (today's non-virtual path).
+ */
+export async function scrollCardIntoView(
 	scrollContainer: HTMLElement,
 	unit: ActiveUnit,
 	behavior: ScrollBehavior,
-	options?: { focus?: boolean; align?: ScrollAlign }
-): boolean {
-	const el = scrollContainer.querySelector<HTMLElement>(
-		`[data-card-section="${unit.section}"][data-card-index="${unit.index}"]`
-	);
+	options?: ScrollCardIntoViewOptions
+): Promise<boolean> {
+	let el = findCard(scrollContainer, unit);
+	if (!el && options?.ensureMounted) {
+		const mounted = await options.ensureMounted(unit);
+		if (!mounted) return false;
+		el = findCard(scrollContainer, unit);
+	}
 	if (!el) return false;
 	const align = options?.align ?? 'center';
 	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align);
