@@ -349,12 +349,18 @@ export class PeerScrollFollow {
 		}
 	}
 
+	/**
+	 * Continuous scroll sync uses `auto` (not smooth): each active-unit change would
+	 * otherwise restart a CSS smooth animation toward a moving target — slow start,
+	 irregular mid-flight, then a late jump when the previous tween is cancelled.
+	 Discrete paths (reveal / edit focus / click) keep `smooth`.
+	 */
 	#schedulePeerFollow(from: 'cards' | 'yaml') {
 		if (this.#peerFollowRaf != null) this.#clock.cancelRaf(this.#peerFollowRaf);
 		this.#peerFollowRaf = this.#clock.raf(() => {
 			this.#peerFollowRaf = null;
-			if (from === 'cards') this.#followPeerFromCards('smooth');
-			else this.#followPeerFromYaml('smooth');
+			if (from === 'cards') this.#followPeerFromCards('auto');
+			else this.#followPeerFromYaml('auto');
 		});
 	}
 }

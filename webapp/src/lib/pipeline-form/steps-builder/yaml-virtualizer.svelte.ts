@@ -125,9 +125,10 @@ export function createYamlStepsVirtualizer(
 		async ensureStepVisible(index, ensureOptions = {}) {
 			if (disposed) return false;
 			const { timeoutMs = ensureVisibleTimeoutMs, ...scrollOptions } = ensureOptions;
+			// Default `auto` — see steps-virtualizer ensureStepVisible.
 			get(virtualizer).scrollToIndex(index, {
 				align: scrollOptions.align ?? 'center',
-				behavior: scrollOptions.behavior ?? 'smooth'
+				behavior: scrollOptions.behavior ?? 'auto'
 			});
 			const scrollElement = options.getScrollElement();
 			if (!scrollElement) return false;

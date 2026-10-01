@@ -161,11 +161,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	const peerScroll = new PeerScrollFollow({
+		// Mount with instant scrollToIndex — the peer/reveal path owns the single smooth align.
+		// Competing smooth animations (estimate → measure → realign) read as choppy jumps.
 		ensureMounted: ensureMountedForStepsVirtualizer((index) =>
-			stepsVirtualizer.ensureStepVisible(index)
+			stepsVirtualizer.ensureStepVisible(index, { behavior: 'auto' })
 		),
 		ensureMountedYaml: ensureMountedForYamlVirtualizer((index) =>
-			yamlVirtualizer.ensureStepVisible(index)
+			yamlVirtualizer.ensureStepVisible(index, { behavior: 'auto' })
 		),
 		getCardLengths: listLengths,
 		getYamlLengths: listLengths

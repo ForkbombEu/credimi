@@ -174,9 +174,12 @@ export function createStepsVirtualizer(options: StepsVirtualizerOptions): StepsV
 		async ensureStepVisible(index, ensureOptions = {}) {
 			if (disposed) return false;
 			const { timeoutMs = ensureVisibleTimeoutMs, ...scrollOptions } = ensureOptions;
+			// Default `auto`: estimated-size smooth scrollToIndex fights measureElement and
+			// any caller smooth realign. Pass `behavior: 'smooth'` only when this is the
+			// sole scroll (e.g. focus a newly created card).
 			get(virtualizer).scrollToIndex(index, {
 				align: scrollOptions.align ?? 'center',
-				behavior: scrollOptions.behavior ?? 'smooth'
+				behavior: scrollOptions.behavior ?? 'auto'
 			});
 			const scrollElement = options.getScrollElement();
 			if (!scrollElement) return false;

@@ -306,7 +306,7 @@ describe('createStepsVirtualizer', () => {
 		await expect(pending).resolves.toBe(false);
 		expect(fake.scrollToIndex).toHaveBeenCalledWith(7, {
 			align: 'center',
-			behavior: 'smooth'
+			behavior: 'auto'
 		});
 	});
 
