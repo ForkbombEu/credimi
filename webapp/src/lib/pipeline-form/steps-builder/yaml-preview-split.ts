@@ -114,7 +114,8 @@ export function splitPipelineYamlPreview(yaml: string): YamlPreviewParts {
 	const lastStep = stepRanges[stepRanges.length - 1];
 	const afterSteps = lastStep ? lastStep.endLine + 1 : firstStep ? firstStep.startLine : 0;
 
-	// Each step slice runs until the next step starts (includes inter-step blank lines).
+	// Each step slice runs until the next step starts (includes inter-step blank
+	// lines so virtual rows keep a true YAML gap; rejoin stays lossless).
 	const steps: YamlPreviewStepBlock[] = stepRanges.map((r, i) => {
 		const endExclusive = stepRanges[i + 1]?.startLine ?? afterSteps;
 		return {

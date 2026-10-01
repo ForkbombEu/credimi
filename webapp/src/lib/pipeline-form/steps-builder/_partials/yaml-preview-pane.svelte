@@ -140,7 +140,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							data-index={index}
 							data-yaml-section="steps"
 							data-yaml-index={index}
-							class="absolute left-0 w-full"
+							class="absolute right-0 left-0 w-full min-w-full"
 							style:top="{vItem.start - scrollMargin}px"
 							role="group"
 							tabindex="-1"

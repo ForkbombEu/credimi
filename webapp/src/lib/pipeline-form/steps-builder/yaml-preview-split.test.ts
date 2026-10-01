@@ -103,4 +103,25 @@ describe('splitPipelineYamlPreview', () => {
 		expect(parts.steps[0]?.text).toContain('use: debug');
 		expect(parts.steps[1]?.text).toContain('email-0001');
 	});
+
+	it('keeps the blank line between continue_on_error-first steps in the prior fragment', () => {
+		const yaml = `name: x
+
+steps:
+  - continue_on_error: true
+    id: a
+    use: http-request
+
+  - continue_on_error: true
+    id: b
+    use: http-request
+`;
+		const parts = splitPipelineYamlPreview(yaml);
+		expect(parts.steps).toHaveLength(2);
+		// Inter-step blank stays on the previous fragment so virtual rows keep a true YAML gap.
+		expect(parts.steps[0]?.text.endsWith('\n')).toBe(true);
+		expect(parts.steps[0]?.text).toMatch(/use: http-request\n$/);
+		expect(parts.steps[1]?.text.startsWith('  - continue_on_error:')).toBe(true);
+		expect(joinPipelineYamlPreview(parts).replace(/\n$/, '')).toBe(yaml.replace(/\n$/, ''));
+	});
 });

@@ -37,6 +37,40 @@ describe('yaml-shiki-cache', () => {
 		expect(yamlShikiCacheSize()).toBe(1);
 	});
 
+	it('asks Shiki for a transparent pre background via transformers', async () => {
+		await highlightYamlFragment('a: 1', 'catppuccin-frappe');
+		expect(codeToHtml).toHaveBeenCalledWith(
+			'a: 1',
+			expect.objectContaining({
+				lang: 'yaml',
+				theme: 'catppuccin-frappe',
+				transformers: expect.any(Array)
+			})
+		);
+		const opts = vi.mocked(codeToHtml).mock.calls[0]?.[1] as {
+			transformers: Array<{ pre?: (node: { properties: Record<string, unknown> }) => void }>;
+		};
+		const pre = opts.transformers[0]?.pre;
+		expect(pre).toBeTypeOf('function');
+		const node = {
+			properties: {
+				style: 'background-color:#303446;color:#c6d0f5',
+				class: 'shiki'
+			}
+		};
+		pre!.call(
+			{
+				addClassToHast(n: { properties: Record<string, unknown> }, classes: string[]) {
+					const prev = typeof n.properties.class === 'string' ? n.properties.class : '';
+					n.properties.class = `${prev} ${classes.join(' ')}`.trim();
+				}
+			},
+			node
+		);
+		expect(String(node.properties.style)).not.toMatch(/background-color/i);
+		expect(String(node.properties.class)).toContain('bg-transparent');
+	});
+
 	it('re-highlights when content changes', async () => {
 		await highlightYamlFragment('a: 1', 'catppuccin-frappe');
 		await highlightYamlFragment('a: 2', 'catppuccin-frappe');
