@@ -8,6 +8,7 @@ import {
 	checksForTest,
 	groupExecutedTests,
 	prepareReportDisplay,
+	rebaseResultFileURLs,
 	screenshotsForTest,
 	sourceUrl,
 	statusIsFailed,
@@ -70,6 +71,60 @@ describe('screenshot helpers', () => {
 		];
 		const test: TestResult = { test_id: 'test-1' };
 		expect(screenshotsForTest(screenshots, test)).toEqual([{ url: '/b.png', label: 'b' }]);
+	});
+});
+
+describe('rebaseResultFileURLs', () => {
+	const reportUrl = 'https://credimi.io/api/files/pipeline_results/rec1/fcaf_assessment.json';
+
+	it('rebases stored result file URLs onto the report origin and keeps other URLs', () => {
+		const report: Report = {
+			evidence: {
+				shots: {
+					value: ['http://localhost:8090/api/files/pipeline_results/rec1/legacy.png']
+				}
+			},
+			presentation: {
+				screenshots: [
+					{
+						url: 'http://localhost:8090/api/files/pipeline_results/rec1/step.png',
+						label: 'step',
+						test_ids: ['test-1']
+					},
+					{ url: 'https://runner.example/shots/external.png', label: 'external' }
+				]
+			}
+		};
+
+		expect(rebaseResultFileURLs(report, reportUrl)).toEqual({
+			evidence: {
+				shots: { value: ['https://credimi.io/api/files/pipeline_results/rec1/legacy.png'] }
+			},
+			presentation: {
+				screenshots: [
+					{
+						url: 'https://credimi.io/api/files/pipeline_results/rec1/step.png',
+						label: 'step',
+						test_ids: ['test-1']
+					},
+					{ url: 'https://runner.example/shots/external.png', label: 'external' }
+				]
+			}
+		});
+	});
+
+	it('leaves the report unchanged when the report URL is not a result file', () => {
+		const report: Report = {
+			presentation: {
+				screenshots: [
+					{
+						url: 'http://localhost:8090/api/files/pipeline_results/rec1/a.png',
+						label: 'a'
+					}
+				]
+			}
+		};
+		expect(rebaseResultFileURLs(report, 'https://cdn.example/report.json')).toBe(report);
 	});
 });
 
