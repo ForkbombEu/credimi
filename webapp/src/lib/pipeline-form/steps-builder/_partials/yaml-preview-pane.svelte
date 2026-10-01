@@ -97,10 +97,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <!--
-	  Must size to content (virtual spacer), not flex-shrink to the scrollport —
-	  otherwise `#303446` only paints the first screen and spacer gaps show white.
+	  Must size to content (virtual spacer) and not flex-shrink to the scrollport.
+	  The pane sits in Column's `flex … flex-col` wrapper: without shrink-0 the
+	  canvas height collapses to the viewport, so past the first screen only the
+	  padded-inset spacer paints `#303446` and white gutters show in the p-4 band.
 	-->
-<div class="relative min-h-full w-full bg-[#303446] text-sm text-white">
+<div class="relative min-h-full w-full shrink-0 bg-[#303446] text-sm text-white">
 	{#if yaml}
 		<div class="absolute top-2 right-2 z-10 flex flex-col gap-1">
 			<Button
