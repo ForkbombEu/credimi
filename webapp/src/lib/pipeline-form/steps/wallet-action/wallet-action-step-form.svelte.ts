@@ -16,26 +16,17 @@ import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types.js';
 import { m } from '@/i18n/index.js';
 import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocketbase/types';
 
-import type { WalletActionStepData } from './types.js';
+import type { StoredWalletActionStepData, WalletActionStepData } from './types.js';
 
+import { isStoredWalletActionStepData } from './types.js';
 import Component from './wallet-action-step-form.svelte';
-
-//
-
-export function getVersionLabel(version: SelectedVersion) {
-	return version === EXTERNAL_VERSION ? m.Installed_from_external_source() : `v. ${version.tag}`;
-}
-
-export function getDeviceLabel(device: SelectedDevice) {
-	return device === GLOBAL_DEVICE ? m.Choose_later() : device.name;
-}
 
 //
 
 export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
 
-	data = $state<Partial<WalletActionStepData>>({});
+	data = $state<Partial<StoredWalletActionStepData>>({});
 
 	state = $derived.by(() => {
 		const { wallet, version, action, device } = this.data;
@@ -67,11 +58,11 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	constructor(opts?: InitFormOptions<WalletActionStepData>) {
 		super(opts);
 
-		if (opts?.initial) {
+		if (opts?.initial && isStoredWalletActionStepData(opts.initial)) {
 			this.data = { ...opts.initial };
-		} else {
+		} else if (!opts?.initial) {
 			const target = this.getExecutionTarget();
-			if (target) this.data = { ...target, action: undefined };
+			if (target) this.data = { kind: 'stored', ...target, action: undefined };
 		}
 	}
 
@@ -79,9 +70,9 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		return this.state === 'ready';
 	}
 
-	getSubmitData() {
+	getSubmitData(): WalletActionStepData | undefined {
 		if (this.state !== 'ready') return undefined;
-		return this.data as WalletActionStepData;
+		return { ...this.data, kind: 'stored' } as StoredWalletActionStepData;
 	}
 
 	//
@@ -125,7 +116,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	selectAction(action: WalletActionsResponse) {
 		this.data.action = action;
-		this.commitIfAdding({ ...this.data, action } as WalletActionStepData);
+		this.commitIfAdding({ ...this.data, kind: 'stored', action } as StoredWalletActionStepData);
 	}
 
 	removeAction() {

@@ -59,6 +59,7 @@ describe('WalletActionStepForm execution target', () => {
 			createInitFormOptions({
 				intent: 'edit',
 				initial: {
+					kind: 'stored',
 					wallet: { id: 'w1', name: 'W' } as never,
 					version: EXTERNAL_VERSION,
 					device: GLOBAL_DEVICE,
@@ -97,6 +98,7 @@ describe('WalletActionStepForm execution target', () => {
 			createInitFormOptions({
 				intent: 'edit',
 				initial: {
+					kind: 'stored',
 					wallet: { id: 'w1', name: 'W' } as never,
 					version: EXTERNAL_VERSION,
 					device: GLOBAL_DEVICE,
@@ -121,6 +123,7 @@ describe('WalletActionStepForm edit intent', () => {
 			createInitFormOptions({
 				intent: 'edit',
 				initial: {
+					kind: 'stored',
 					wallet: { id: 'w1', name: 'W' } as never,
 					version: EXTERNAL_VERSION,
 					device: GLOBAL_DEVICE,
@@ -133,6 +136,7 @@ describe('WalletActionStepForm edit intent', () => {
 		form.selectAction(newAction);
 		expect(onSubmit).not.toHaveBeenCalled();
 		form.commit({
+			kind: 'stored',
 			wallet: { id: 'w1', name: 'W' } as never,
 			version: EXTERNAL_VERSION,
 			device: GLOBAL_DEVICE,

@@ -139,7 +139,7 @@ export function sourceUrl(testId: string | undefined): string | undefined {
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '_')
 		.replace(/^_+|_+$/g, '');
-	return `https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/ws_rp/#${anchor}`;
+	return `https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/test_cases/#${anchor}`;
 }
 
 export function groupExecutedTests(tests: TestResult[]): CategoryGroup[] {

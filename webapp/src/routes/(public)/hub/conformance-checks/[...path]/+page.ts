@@ -5,9 +5,9 @@
 import type { Merge } from 'type-fest';
 
 import { error } from '@sveltejs/kit';
+import { Hub } from '$lib';
 import { getNestStandards } from '$lib/conformance';
 import { resolveCheckPathFromNest } from '$lib/conformance/standard/resolve-check-path';
-import { Hub } from '$lib';
 
 //
 

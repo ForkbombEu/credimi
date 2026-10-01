@@ -100,9 +100,7 @@ export function compileSuiteListQuery(
 	intent: SuiteListIntent,
 	filterFn: FilterCompiler
 ): CompiledListQuery {
-	const filters: string[] = [
-		filterFn('visible_in ~ {:surface}', { surface: intent.surface })
-	];
+	const filters: string[] = [filterFn('visible_in ~ {:surface}', { surface: intent.surface })];
 	appendSuiteFacetFilters(filters, intent.facets, filterFn);
 	appendSuiteSearchFilter(filters, intent.search, filterFn);
 
@@ -119,9 +117,7 @@ export function compileCheckListQuery(
 	intent: CheckListIntent,
 	filterFn: FilterCompiler
 ): CompiledListQuery {
-	const filters: string[] = [
-		filterFn('visible_in ~ {:surface}', { surface: intent.surface })
-	];
+	const filters: string[] = [filterFn('visible_in ~ {:surface}', { surface: intent.surface })];
 	if (intent.fs_standard) {
 		filters.push(filterFn('fs_standard = {:fs_standard}', { fs_standard: intent.fs_standard }));
 	}

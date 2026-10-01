@@ -45,25 +45,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const configs: Record<IconButtonSize, ButtonConfig> = {
-		xs: {
-			iconSize: 14,
-			sizeClass: '!size-6'
-		},
-		sm: {
-			iconSize: 16,
-			sizeClass: '!size-8'
+		lg: {
+			sizeClass: '!size-12',
+			iconSize: 18
 		},
 		md: {
-			iconSize: 16,
-			sizeClass: '!size-9'
+			sizeClass: '!size-9',
+			iconSize: 16
 		},
-		lg: {
-			iconSize: 18,
-			sizeClass: '!size-12'
+		sm: {
+			sizeClass: '!size-8',
+			iconSize: 16
+		},
+		xs: {
+			sizeClass: '!size-6',
+			iconSize: 15
 		},
 		mini: {
-			iconSize: 14,
-			sizeClass: '!size-5'
+			sizeClass: '!size-5',
+			iconSize: 14
 		}
 	};
 
@@ -105,7 +105,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			className
 		]}
 	>
-		<Icon src={icon ?? X} size={currentConfig.iconSize} />
+		<Icon
+			src={icon ?? X}
+			size={currentConfig.iconSize}
+			class="size-[var(--icon-button-glyph-size)]"
+			style={`--icon-button-glyph-size: ${currentConfig.iconSize}px`}
+		/>
 		{@render children?.()}
 	</Button>
 {/snippet}

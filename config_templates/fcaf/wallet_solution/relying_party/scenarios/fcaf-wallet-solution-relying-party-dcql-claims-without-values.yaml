@@ -15,7 +15,7 @@ steps:
                       id: pid
                       meta:
                         vct_values:
-                            - urn:eu.europa.ec.eudi:pid:1
+                            - urn:eudi:pid:1
             nonce: fcaf-116
             response_type: vp_token
         expected_status: 201
@@ -26,56 +26,9 @@ steps:
     - id: present-claim-without-values
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Welcome back|Data sharing request"
-                timeout: 100000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn: { point: "11%,39%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - tapOn: "Share"
-            - extendedWaitUntil:
-                visible: "PIN"
-                timeout: 30000
-            - tapOn: { point: "11%,39%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*"
-                timeout: 30000
-            - takeScreenshot: fcaf-116-claims-without-values
-            - tapOn: "Close"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: fetch-result
       use: http-request

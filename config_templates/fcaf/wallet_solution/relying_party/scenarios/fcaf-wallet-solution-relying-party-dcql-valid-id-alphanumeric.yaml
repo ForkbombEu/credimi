@@ -29,7 +29,7 @@ steps:
                 format: dc+sd-jwt
                 meta:
                   vct_values:
-                    - urn:eu.europa.ec.eudi:pid:1
+                    - urn:eudi:pid:1
                 claims:
                   - path:
                       - given_name
@@ -41,31 +41,8 @@ steps:
     with:
       version_id: installed_from_external_source
       parameters:
-        DEEPLINK: ${{ create-presentation.outputs.body.deeplink }}
-      action_code: |
-        appId: eu.europa.ec.euidi
-        ---
-        - launchApp:
-            stopApp: false
-            clearState: false
-            permissions:
-              camera: allow
-              notifications: allow
-              all: unset
-        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-        - waitForAnimationToEnd:
-            timeout: 5000
-        - tapOn:
-            text: "(?i)(continue|accept|authorize|share|present)"
-            optional: true
-        - waitForAnimationToEnd:
-            timeout: 5000
-        - tapOn:
-            text: "(?i)(continue|accept|authorize|share|present)"
-            optional: true
-        - waitForAnimationToEnd:
-            timeout: 5000
-        - takeScreenshot: fcaf-dcql-valid-id-alphanumeric
+        deeplink: ${{ create-presentation.outputs.body.deeplink }}
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
   - id: get-presentation-result
     use: http-request
     with:

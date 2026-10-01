@@ -215,7 +215,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					? fromScoreboardRow(scoreboard.data)
 					: undefined}
 				<div class="space-y-3">
-					<Pipeline.Workflows.SmallTable {workflows} onCancel={refreshWorkflows} />
+					<Pipeline.Workflows.Table
+						{workflows}
+						density="compact"
+						onCancel={refreshWorkflows}
+					/>
 
 					<div class="flex items-center justify-between gap-2">
 						{#if executionStats}

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { createCachedFetchLoad } from '$lib/utils/cached-fetch-load.js';
 import { ClientResponseError } from 'pocketbase';
 import * as Task from 'true-myth/task';
 import { z, ZodError } from 'zod';
@@ -49,24 +50,53 @@ export function parseSelectorResponse(body: unknown): DeviceRecord[] {
 	return parsed.devices.map(mapWireToRecord);
 }
 
+async function requestDeviceRecords(fetchFn: typeof fetch): Promise<DeviceRecord[]> {
+	const response = await pb.send('/api/mobile-devices', {
+		method: 'GET',
+		fetch: fetchFn,
+		requestKey: null
+	});
+	return parseSelectorResponse(response);
+}
+
+/** Live list for Catalog refresh — always hits the network. */
 export function fetchRecords(
 	options: { fetch?: typeof fetch } = {}
 ): Task.Task<DeviceRecord[], ClientResponseError | ZodError> {
 	const { fetch: fetchFn = fetch } = options;
 
 	return Task.tryOrElse(
-		(err) => err as ClientResponseError,
-		() =>
-			pb.send('/api/mobile-devices', {
-				method: 'GET',
-				fetch: fetchFn,
-				requestKey: null
-			})
-	).andThen((response) => {
-		try {
-			return Task.resolve(parseSelectorResponse(response));
-		} catch (error) {
-			return Task.reject(error as ZodError);
-		}
-	});
+		(err) => err as ClientResponseError | ZodError,
+		() => requestDeviceRecords(fetchFn)
+	);
+}
+
+/**
+ * Sticky device-list cache for enrich / path resolution.
+ * Kept separate from {@link fetchRecords} so the live Catalog can still refresh.
+ */
+const mobileDevicesListCache = createCachedFetchLoad<'list', DeviceRecord[]>({
+	capacity: 1,
+	lookup: async (_key, fetchFn) => requestDeviceRecords(fetchFn)
+});
+
+/** Test seam: sticky list behind {@link resolveByPath}. */
+export async function getCachedDeviceRecords(
+	options: { fetch?: typeof fetch } = {}
+): Promise<DeviceRecord[]> {
+	return mobileDevicesListCache.get('list', { fetch: options.fetch ?? fetch });
+}
+
+/** Resolve one device by path using the sticky list cache. */
+export async function resolveByPath(
+	path: string,
+	options: { fetch?: typeof fetch } = {}
+): Promise<DeviceRecord | undefined> {
+	const devices = await getCachedDeviceRecords(options);
+	return devices.find((device) => device.path === path);
+}
+
+/** Test seam: clears sticky device lists. */
+export function invalidateMobileDevicesCache(): Promise<void> {
+	return mobileDevicesListCache.invalidateAll();
 }

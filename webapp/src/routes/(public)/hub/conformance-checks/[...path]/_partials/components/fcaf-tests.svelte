@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { createQuery } from '@tanstack/svelte-query';
 	import { ChevronRightIcon } from '@lucide/svelte';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { FCAF } from '$lib';
 
 	import { Input } from '@/components/ui/input';

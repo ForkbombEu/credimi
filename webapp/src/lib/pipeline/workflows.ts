@@ -10,9 +10,8 @@ import type { ExecutionDevice } from './live-view';
 import type { PipelineProgress } from './progress';
 
 import StatusTag from './workflow-status-tag.svelte';
-import SmallTable from './workflows-table-small.svelte';
 import Table from './workflows-table.svelte';
-export { SmallTable, StatusTag, Table };
+export { StatusTag, Table };
 
 //
 

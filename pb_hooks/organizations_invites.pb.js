@@ -24,7 +24,8 @@ onRecordCreateRequest((e) => {
 
     const invites = utils.findRecordsByFilter(
         "org_invites",
-        `user_email = "${e.record?.email()}"`
+        "user_email = {:email}",
+        { email: e.record?.email() }
     );
     invites.forEach((invite) => {
         invite.markAsNotNew();
@@ -140,7 +141,8 @@ routerAdd("POST", "/organizations/invite", (e) => {
 
             const user = utils.findFirstRecordByFilter(
                 "users",
-                `email = "${email}"`,
+                "email = {:email}",
+                { email },
                 txApp
             );
             if (user) {
@@ -156,7 +158,8 @@ routerAdd("POST", "/organizations/invite", (e) => {
 
             const existingInvite = utils.findFirstRecordByFilter(
                 "org_invites",
-                `user_email = "${email}"`,
+                "user_email = {:email}",
+                { email },
                 txApp
             );
             if (existingInvite) continue;
