@@ -354,44 +354,6 @@ export function computeNearestScrollTop(
 	return scrollTop + (elRect.bottom - visibleBottom);
 }
 
-export function scrollYamlLineIntoView(
-	scroller: HTMLElement,
-	line: number,
-	behavior: ScrollBehavior,
-	align: ScrollAlign = 'start'
-): boolean {
-	const el = scroller.querySelector<HTMLElement>(`[data-line="${line}"]`);
-	if (!el) return false;
-	return scrollChildIntoScroller(scroller, el, behavior, align);
-}
-
-/** Line nearest the vertical center of a YAML scroller; null if above first step. */
-export function resolveViewportYamlLine(
-	scroller: HTMLElement,
-	firstStepLine: number | null
-): number | null {
-	const lines = [...scroller.querySelectorAll<HTMLElement>('[data-line]')];
-	if (lines.length === 0) return null;
-
-	const port = scroller.getBoundingClientRect();
-	const centerY = port.top + port.height / 2;
-
-	let best: { line: number; distance: number } | null = null;
-	for (const el of lines) {
-		const line = Number(el.getAttribute('data-line'));
-		if (!Number.isInteger(line)) continue;
-		const rect = el.getBoundingClientRect();
-		const mid = rect.top + rect.height / 2;
-		const distance = Math.abs(mid - centerY);
-		if (!best || distance < best.distance) {
-			best = { line, distance };
-		}
-	}
-	if (!best) return null;
-	if (firstStepLine != null && best.line < firstStepLine) return null;
-	return best.line;
-}
-
 function elementIntersectsScroller(el: HTMLElement, scroller: HTMLElement): boolean {
 	const elRect = el.getBoundingClientRect();
 	const port = scroller.getBoundingClientRect();

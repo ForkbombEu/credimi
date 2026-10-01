@@ -8,7 +8,6 @@ import {
 	findRangeForUnit,
 	findNearestUnitToLine,
 	findUnitAtLine,
-	firstStepStartLine,
 	mapYamlCardRanges
 } from './yaml-ranges.js';
 
@@ -65,14 +64,6 @@ describe('mapYamlCardRanges', () => {
 		expect(followUps[1]?.index).toBe(1);
 		const line = SAMPLE.split('\n').findIndex((l) => l.includes('email-0003'));
 		expect(findUnitAtLine(ranges, line)?.section).toBe('follow-ups');
-	});
-
-	it('reports first step start for header wash clearing', () => {
-		const ranges = mapYamlCardRanges(SAMPLE);
-		const start = firstStepStartLine(ranges);
-		expect(start).not.toBeNull();
-		expect(start!).toBeGreaterThan(0);
-		expect(SAMPLE.split('\n')[start!]).toMatch(/email-0001/);
 	});
 
 	it('handles debug steps that start with use', () => {
@@ -148,7 +139,7 @@ describe('findNearestUnitToLine', () => {
 
 	it('clears above the first step', () => {
 		const ranges = mapYamlCardRanges(SAMPLE);
-		const start = firstStepStartLine(ranges)!;
+		const start = findRangeForUnit(ranges, 'steps', 0)!.startLine;
 		expect(findNearestUnitToLine(ranges, start - 1)).toBeUndefined();
 	});
 });

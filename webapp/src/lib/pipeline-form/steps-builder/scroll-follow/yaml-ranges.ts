@@ -148,9 +148,3 @@ export function findNearestUnitToLine(
 	}
 	return undefined;
 }
-
-/** First step start line, or null if none — used to clear wash in name/runtime header. */
-export function firstStepStartLine(ranges: YamlCardRange[]): number | null {
-	const first = ranges.find((r) => r.section === 'steps');
-	return first ? first.startLine : null;
-}
