@@ -270,9 +270,9 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //     shrink after a tall Event History view;
 //   - keeps width at the parent iframe width (Temporal UI uses w-max / w-screen)
 //     without overflow-x:hidden, which would pair to overflow-y:auto and trap wheel;
-//   - keeps Timeline start/end stamps in the chart: upstream rotates them 90° for
-//     the full Temporal shell; without the shell sticky offset they can bleed over
-//     headings, so clip the chart and drop the shell-only sticky top;
+//   - keeps Timeline start/end stamps readable in the embed: upstream rotates
+//     them 90° for the full Temporal shell, which spills or misplaces them once
+//     the shell is gone — flatten to horizontal labels and drop shell sticky top;
 //   - forces the light theme: Credimi has no dark mode, and the UI reads its theme
 //     from the persisted "dark mode" store, defaulting to the OS preference;
 //   - keeps navigation on the embedded run: its own tabs work, links to another
@@ -286,8 +286,8 @@ const embedHead = `<style id="credimi-embed">` +
 	// Both axes must be visible on the document shell only: overflow-x:hidden +
 	// overflow-y:visible pairs to overflow-y:auto and the tall iframe then traps
 	// wheel events from the parent. Do not force overflow:visible on nested
-	// .overflow-auto regions (timeline chart, tables) — that lets upstream
-	// rotate-90 axis date stamps bleed over headings when left rotated.
+	// .overflow-auto regions (timeline chart, tables) — that lets rotated
+	// timeline stamps and wide tables spill outside their panels.
 	`overflow:visible !important;overscroll-behavior:auto !important}` +
 	`div:has(> nav[data-testid="navigation-header"]),nav[data-testid="top-nav"],` +
 	`[data-testid="back-to-workflows"]{display:none !important}` +
@@ -302,13 +302,12 @@ const embedHead = `<style id="credimi-embed">` +
 	// Upstream uses Tailwind p-4 md:p-8 on #content > div; drop top pad so
 	// history sits flush under Credimi chrome (keep side/bottom padding).
 	`#content > div{padding-top:0 !important}` +
-	// Timeline start/end stamps: upstream `w-60 ±translate-x-24 rotate-90` with
-	// sticky top-[120px] for the full Temporal shell. Keep the rotation (axis
-	// labels), but drop the shell sticky offset and clip the chart so they cannot
-	// paint over the Timeline heading.
+	// Timeline start/end stamps: upstream uses `w-60 ±translate-x-24 rotate-90`
+	// plus sticky top-[120px] for the full Temporal shell. In the embed those
+	// transforms spill or land on the activity column; flatten to horizontal
+	// labels in the existing justify-between row and drop the shell sticky offset.
 	`.pointer-events-none.sticky.top-\[120px\]{top:0 !important}` +
-	`.relative.h-auto.overflow-auto.border.border-t-0` +
-	`{overflow:hidden !important}` +
+	`p.w-60.rotate-90{transform:none !important;width:auto !important}` +
 	`[data-testid="input-and-result"],[data-testid="event-summary-table"]` +
 	`{max-width:100% !important;box-sizing:border-box}` +
 	`[data-testid="event-summary-table"]{overflow-x:auto !important;overflow-y:hidden !important}` +
