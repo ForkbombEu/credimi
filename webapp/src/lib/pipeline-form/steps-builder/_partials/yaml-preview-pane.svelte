@@ -96,7 +96,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<div class="relative flex min-h-0 w-full flex-col bg-[#303446] text-sm text-white">
+<!--
+	  Must size to content (virtual spacer), not flex-shrink to the scrollport —
+	  otherwise `#303446` only paints the first screen and spacer gaps show white.
+	-->
+<div class="relative min-h-full w-full bg-[#303446] text-sm text-white">
 	{#if yaml}
 		<div class="absolute top-2 right-2 z-10 flex flex-col gap-1">
 			<Button
@@ -128,7 +132,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if parts.steps.length > 0}
 			<div
 				bind:this={virtualListEl}
-				class="relative w-full"
+				class="relative w-full bg-[#303446]"
 				style:height="{$yamlVirt.getTotalSize()}px"
 			>
 				{#each $yamlVirt.getVirtualItems() as vItem (parts.steps[vItem.index]?.text ?? vItem.key)}
