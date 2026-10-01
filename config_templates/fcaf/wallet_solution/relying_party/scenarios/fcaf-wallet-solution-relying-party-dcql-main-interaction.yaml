@@ -85,35 +85,9 @@ steps:
     - id: main-interaction-019-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: false
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-                  all: unset
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "(?i)(continue|accept|authorize|share|present)"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - takeScreenshot: fcaf-dcql-claim-sets
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ main-interaction-019-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ main-interaction-019-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: main-interaction-019-fetch-capture-session
       use: http-request
@@ -156,49 +130,9 @@ steps:
     - id: main-interaction-020-present-second-preferred-option
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Welcome back|Data sharing request"
-                timeout: 100000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,39%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn:
-                      point: "50%,10%"
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - tapOn: "Share"
-            - extendedWaitUntil:
-                visible: "PIN"
-                timeout: 30000
-            - tapOn:
-                point: "11%,39%"
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn:
-                point: "50%,10%"
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*"
-                timeout: 30000
-            - takeScreenshot: fcaf-ia-020
-            - tapOn: "Close"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ main-interaction-020-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ main-interaction-020-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: main-interaction-020-fetch-result
       use: http-request
@@ -229,22 +163,9 @@ steps:
     - id: main-interaction-022-reject-claim-sets-without-claims
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Error|invalid request|Oups! Something went wrong|Home|Documents"
-                timeout: 100000
-            - takeScreenshot: fcaf-ia-022
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ main-interaction-022-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ main-interaction-022-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: main-interaction-022-fetch-result
       use: http-request
