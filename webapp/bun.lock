@@ -15,6 +15,7 @@
         "@sjsf/form": "^3.2.1",
         "@sjsf/shadcn-theme": "^3.0.0",
         "@tanstack/svelte-query": "^6.2.1",
+        "@tanstack/svelte-virtual": "^3.13.39",
         "ajv": "^8.17.1",
         "carta-md": "^4.11.1",
         "date-fns": "2.29.3",
@@ -622,7 +623,11 @@
 
     "@tanstack/svelte-query": ["@tanstack/svelte-query@6.2.1", "", { "dependencies": { "@tanstack/query-core": "5.103.1" }, "peerDependencies": { "svelte": "^5.25.0" } }, "sha512-qnOuwv5u/xAiOq1WKnPub4oBjFfro2EebM/DWqC7vVvlVk/AEvxy5DApdSHzmvORLtO3fhCP0Jhg8nOdpdsDgA=="],
 
+    "@tanstack/svelte-virtual": ["@tanstack/svelte-virtual@3.13.39", "", { "dependencies": { "@tanstack/virtual-core": "3.17.11" }, "peerDependencies": { "svelte": "^3.48.0 || ^4.0.0 || ^5.0.0" } }, "sha512-MTBnp0N9YEuShNc2m8MywsiFeHSSE0J8KvMISpU26tbO+8CEUYpRyNDV2H7rce1wTOH6wuRmDzahH20Zprdt9A=="],
+
     "@tanstack/table-core": ["@tanstack/table-core@8.21.3", "", {}, "sha512-ldZXEhOBb8Is7xLs01fR3YEc3DERiz5silj8tnGkFZytt1abEvl/GhUmCE0PMLaMPTa3Jk4HbKmRlHmu+gCftg=="],
+
+    "@tanstack/virtual-core": ["@tanstack/virtual-core@3.17.11", "", {}, "sha512-+ILjvtHup6Y2hzQ6YzwMgX1Q+oQpxEGOXCEsCNaPoIP0VxMbizIBTmYTDtkerkIQS8/CbP1BRuyt8V/8BCsy1g=="],
 
     "@testing-library/svelte-core": ["@testing-library/svelte-core@1.0.0", "", { "peerDependencies": { "svelte": "^3 || ^4 || ^5 || ^5.0.0-next.0" } }, "sha512-VkUePoLV6oOYwSUvX6ShA8KLnJqZiYMIbP2JW2t0GLWLkJxKGvuH5qrrZBV/X7cXFnLGuFQEC7RheYiZOW68KQ=="],
 
