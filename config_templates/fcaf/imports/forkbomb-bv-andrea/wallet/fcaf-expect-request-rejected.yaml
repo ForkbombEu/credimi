@@ -20,6 +20,8 @@ tags:
 - extendedWaitUntil:
     visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
     timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
 - runFlow:
     when:
       visible: "Welcome back"

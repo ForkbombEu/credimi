@@ -15,6 +15,10 @@ tags:
 - extendedWaitUntil:
     visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
     timeout: 30000
+# A wait that ends on a screen still being composed leaves the next `when`
+# check no lookup time; settling first restarts Maestro's lookup window.
+- waitForAnimationToEnd:
+    timeout: 3000
 - runFlow:
     when:
       visible: "Welcome back"
@@ -34,6 +38,8 @@ tags:
 - extendedWaitUntil:
     visible: "Error|invalid request|Oups! Something went wrong|Data sharing request"
     timeout: 100000
+- waitForAnimationToEnd:
+    timeout: 3000
 - runFlow:
     when:
       visible: "Data sharing request"
