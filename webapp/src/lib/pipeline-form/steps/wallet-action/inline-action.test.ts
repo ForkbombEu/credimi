@@ -23,7 +23,7 @@ vi.mock('$lib', () => ({
 }));
 
 vi.mock('$lib/pipeline/device/query.js', () => ({
-	findCachedDeviceByPath: vi.fn(async () => undefined)
+	resolveByPath: vi.fn(async () => undefined)
 }));
 
 import { EXTERNAL_VERSION, GLOBAL_DEVICE } from '$pipeline-form/execution-target/types.js';

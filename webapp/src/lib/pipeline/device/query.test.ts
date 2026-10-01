@@ -13,10 +13,10 @@ vi.mock('@/pocketbase', () => ({
 }));
 
 import {
-	findCachedDeviceByPath,
 	getCachedDeviceRecords,
 	invalidateMobileDevicesCache,
-	parseSelectorResponse
+	parseSelectorResponse,
+	resolveByPath
 } from './query';
 
 const wireDevice = {
@@ -51,7 +51,7 @@ describe('parseSelectorResponse', () => {
 	});
 });
 
-describe('cached mobile device list', () => {
+describe('resolveByPath sticky device list', () => {
 	beforeEach(async () => {
 		send.mockReset();
 		await invalidateMobileDevicesCache();
@@ -69,7 +69,7 @@ describe('cached mobile device list', () => {
 		const pending = Promise.all([
 			getCachedDeviceRecords(),
 			getCachedDeviceRecords(),
-			findCachedDeviceByPath(wireDevice.path)
+			resolveByPath(wireDevice.path)
 		]);
 
 		await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
@@ -87,11 +87,11 @@ describe('cached mobile device list', () => {
 		send.mockResolvedValue({ devices: [wireDevice] });
 
 		await getCachedDeviceRecords();
-		await expect(findCachedDeviceByPath(wireDevice.path)).resolves.toMatchObject({
+		await expect(resolveByPath(wireDevice.path)).resolves.toMatchObject({
 			path: wireDevice.path,
 			name: 'Online owned'
 		});
-		await expect(findCachedDeviceByPath('missing/path')).resolves.toBeUndefined();
+		await expect(resolveByPath('missing/path')).resolves.toBeUndefined();
 
 		expect(send).toHaveBeenCalledTimes(1);
 	});

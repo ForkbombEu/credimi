@@ -9,12 +9,7 @@ import RunNowButton from './run-now-button.svelte';
 
 export * as Binding from './binding.js';
 export * as Catalog from './catalog.svelte.js';
-export {
-	fetchRecords,
-	findCachedDeviceByPath,
-	getCachedDeviceRecords,
-	invalidateMobileDevicesCache
-} from './query.js';
+export { fetchRecords, resolveByPath } from './query.js';
 export type { DeviceRecord as Record } from './types.js';
 
 export { bindDeviceCatalogSearch } from './device-select-catalog.svelte.js';

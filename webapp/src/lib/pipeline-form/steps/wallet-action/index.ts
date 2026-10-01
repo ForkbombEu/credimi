@@ -9,7 +9,7 @@ import { Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
 import { getHubItemById, getHubItemLogo, getHubItemUrl } from '$lib/hub';
-import { findCachedDeviceByPath } from '$lib/pipeline/device/query.js';
+import { resolveByPath } from '$lib/pipeline/device/query.js';
 import {
 	type PipelineStepByType,
 	type PipelineStepData,
@@ -76,7 +76,7 @@ async function resolveDevice(deviceId: string | undefined): Promise<SelectedDevi
 
 	const path = deviceId;
 	try {
-		return (await findCachedDeviceByPath(path)) ?? fallbackDevice(path);
+		return (await resolveByPath(path)) ?? fallbackDevice(path);
 	} catch {
 		return fallbackDevice(path);
 	}
