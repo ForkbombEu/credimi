@@ -141,6 +141,27 @@ var Registry = map[string]TaskFactory{
 	},
 }
 
+// stepActivityOutputKinds maps every step-usable activity to its output kind. It has no
+// initializer so Registry entries can reference StepActivityOutputKind without an
+// initialization cycle.
+var stepActivityOutputKinds map[string]workflowengine.OutputKind
+
+//nolint:gochecknoinits // Registry and the lookup reference each other; see stepActivityOutputKinds.
+func init() {
+	stepActivityOutputKinds = make(map[string]workflowengine.OutputKind, len(Registry))
+	for use, factory := range Registry {
+		if factory.Kind == TaskActivity {
+			stepActivityOutputKinds[use] = factory.OutputKind
+		}
+	}
+}
+
+// StepActivityOutputKind reports the output kind of the step-usable activity `use`.
+func StepActivityOutputKind(use string) (workflowengine.OutputKind, bool) {
+	kind, ok := stepActivityOutputKinds[use]
+	return kind, ok
+}
+
 var PipelineInternalRegistry = map[string]TaskFactory{
 	"openidnet-logs": {
 		Kind:    TaskWorkflow,
