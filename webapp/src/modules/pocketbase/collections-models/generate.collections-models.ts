@@ -11,11 +11,6 @@ import path from 'node:path';
 import { type CollectionModel } from 'pocketbase';
 
 import {
-	CHECK_CLIENT_COLUMN_SPECS,
-	SUITE_CLIENT_COLUMN_SPECS,
-	type CatalogColumnPbType
-} from '../../../lib/conformance/columns.js';
-import {
 	EXPORT_TYPE,
 	formatCode,
 	GENERATED,
@@ -23,6 +18,12 @@ import {
 	SEPARATOR,
 	openDb
 } from '@/utils/codegen';
+
+import {
+	CHECK_CLIENT_COLUMN_SPECS,
+	SUITE_CLIENT_COLUMN_SPECS,
+	type CatalogColumnPbType
+} from '../../../lib/conformance/columns.js';
 
 /* Constants */
 const COLLECTION_FIELD = `CollectionField`;

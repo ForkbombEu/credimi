@@ -10,43 +10,43 @@
  */
 
 export type ConformanceChecksRecord = {
-	id: string
-	path: string
-	title: string
-	fs_standard: string
-	fs_version: string
-	suite: string
-	file: string
-	visible_in?: string[]
-	protocol?: string
-	sut?: string
-	role?: string
-	provider?: string
-	standard?: string
-	component?: string
-	version?: string
-}
+	id: string;
+	path: string;
+	title: string;
+	fs_standard: string;
+	fs_version: string;
+	suite: string;
+	file: string;
+	visible_in?: string[];
+	protocol?: string;
+	sut?: string;
+	role?: string;
+	provider?: string;
+	standard?: string;
+	component?: string;
+	version?: string;
+};
 
 export type ConformanceSuitesRecord = {
-	id: string
-	standard: string
-	component?: string
-	component_rank?: number
-	version?: string
-	suite: string
-	provider?: string
-	provider_label?: string
-	suite_name?: string
-	suite_subtitle?: string
-	suite_homepage?: string
-	suite_repository?: string
-	suite_help?: string
-	suite_description?: string
-	suite_logo?: string
-	check_count: number
-	members?: { path: string; title: string; file: string }[]
-	visible_in?: string[]
-	fs_standard: string
-	fs_version: string
-	path_prefix: string
-}
+	id: string;
+	standard: string;
+	component?: string;
+	component_rank?: number;
+	version?: string;
+	suite: string;
+	provider?: string;
+	provider_label?: string;
+	suite_name?: string;
+	suite_subtitle?: string;
+	suite_homepage?: string;
+	suite_repository?: string;
+	suite_help?: string;
+	suite_description?: string;
+	suite_logo?: string;
+	check_count: number;
+	members?: { path: string; title: string; file: string }[];
+	visible_in?: string[];
+	fs_standard: string;
+	fs_version: string;
+	path_prefix: string;
+};

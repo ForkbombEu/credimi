@@ -12,12 +12,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import { m } from '@/i18n';
 
+	import type { ExecutionSummary } from './workflows';
+
 	import { makeDropdownActions } from './actions';
 	import { fromApiSummary } from './execution-artifacts';
 	import ExecutionDevices from './execution-devices.svelte';
 	import ExecutionArtifactsPreview from './results/execution-artifacts-preview.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
-	import type { ExecutionSummary } from './workflows';
 
 	//
 
