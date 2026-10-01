@@ -66,9 +66,9 @@ describe('suiteLogo', () => {
 
 describe('suiteHubHref', () => {
 	it('builds the hub detail path from path_prefix', () => {
-		expect(
-			suiteHubHref({ path_prefix: 'openid4vp_wallet/1.0/openid_conformance_suite' })
-		).toBe('/hub/conformance-checks/openid4vp_wallet/1.0/openid_conformance_suite');
+		expect(suiteHubHref({ path_prefix: 'openid4vp_wallet/1.0/openid_conformance_suite' })).toBe(
+			'/hub/conformance-checks/openid4vp_wallet/1.0/openid_conformance_suite'
+		);
 	});
 });
 

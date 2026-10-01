@@ -23,7 +23,7 @@ export const conformanceCheckRecordSchema = z.object({
 	provider: z.string().optional().default(''),
 	standard: z.string().optional().default(''),
 	component: z.string().optional().default(''),
-	version: z.string().optional().default(''),
+	version: z.string().optional().default('')
 });
 
 export type ConformanceCheckRecord = z.infer<typeof conformanceCheckRecordSchema>;
@@ -45,11 +45,14 @@ export const conformanceSuiteRecordSchema = z.object({
 	suite_description: z.string().optional().default(''),
 	suite_logo: z.string().optional().default(''),
 	check_count: z.number().int().nonnegative(),
-	members: z.array(z.object({ path: z.string(), title: z.string(), file: z.string() })).optional().default([]),
+	members: z
+		.array(z.object({ path: z.string(), title: z.string(), file: z.string() }))
+		.optional()
+		.default([]),
 	visible_in: z.array(z.string()).optional().default([]),
 	fs_standard: z.string(),
 	fs_version: z.string(),
-	path_prefix: z.string(),
+	path_prefix: z.string()
 });
 
 export type ConformanceSuiteRecord = z.infer<typeof conformanceSuiteRecordSchema>;

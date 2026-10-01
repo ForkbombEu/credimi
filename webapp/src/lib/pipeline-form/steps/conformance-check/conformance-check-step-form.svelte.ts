@@ -145,9 +145,7 @@ export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceChec
 	});
 
 	selectedTestName = $derived(
-		this.data.test
-			? getTestName(this.data.test, this.data.suite ?? undefined)
-			: ''
+		this.data.test ? getTestName(this.data.test, this.data.suite ?? undefined) : ''
 	);
 
 	testOptions: TestOption[] = $derived.by(() => {

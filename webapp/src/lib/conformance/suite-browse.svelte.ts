@@ -39,9 +39,7 @@ export function emptySuiteFacetFilters(): Record<SuiteFacetKey, string> {
 }
 
 /** Non-empty facet values from the hub filter UI. */
-export function activeSuiteFacetsFromFilters(
-	filters: Record<SuiteFacetKey, string>
-): SuiteFacets {
+export function activeSuiteFacetsFromFilters(filters: Record<SuiteFacetKey, string>): SuiteFacets {
 	const facets: SuiteFacets = {};
 	for (const key of SUITE_FACET_KEYS) {
 		const value = filters[key];
@@ -155,8 +153,8 @@ export class SuiteBrowse {
 	private readonly sortIntent = $derived(suiteSortFromTableColumns(this.sorting));
 	private readonly searchQuery = $derived.by(() => this.props.search.trim());
 
-	private readonly activeFacets = $derived.by((): SuiteFacets =>
-		activeSuiteFacetsFromFilters(this.filters)
+	private readonly activeFacets = $derived.by(
+		(): SuiteFacets => activeSuiteFacetsFromFilters(this.filters)
 	);
 
 	readonly hasActiveFilters = $derived(Object.keys(this.activeFacets).length > 0);
@@ -223,8 +221,9 @@ export class SuiteBrowse {
 		return [];
 	});
 
-	readonly facetOptions = $derived.by((): Record<SuiteFacetKey, string[]> =>
-		dynamicSuiteFacetOptions(this.facetSourceSuites, this.filters)
+	readonly facetOptions = $derived.by(
+		(): Record<SuiteFacetKey, string[]> =>
+			dynamicSuiteFacetOptions(this.facetSourceSuites, this.filters)
 	);
 
 	/** provider slug → short label from suite rows (providers.yaml projected). */
