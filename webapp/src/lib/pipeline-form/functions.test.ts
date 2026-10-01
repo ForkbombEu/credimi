@@ -40,8 +40,8 @@ describe('createPipelineYaml step key order', () => {
     activity_options:
       StartToCloseTimeout: 30s
     with:
-      method: GET
-      url: https://example.com`);
+      url: https://example.com
+      method: GET`);
 	});
 
 	it('omits absent optional keys while keeping the relative order of present ones', () => {
@@ -93,5 +93,82 @@ describe('createPipelineYaml step key order', () => {
         subject: s
         body: b`);
 		expect(yaml).not.toMatch(/finally:[\s\S]*continue_on_error/);
+	});
+
+	it('orders with keys as scalars, then arrays, then objects by ascending key count', () => {
+		const step = {
+			with: {
+				body: { hello: 'world', nested: true, extra: 1 },
+				method: 'POST',
+				tags: ['a', 'b'],
+				url: 'https://example.com',
+				headers: { Accept: 'application/json' }
+			},
+			id: 'http-request-0001',
+			use: 'http-request'
+		} as PipelineStep;
+
+		const yaml = createPipelineYaml('ordered', [step], {});
+
+		expect(yaml).toContain(`with:
+      url: https://example.com
+      method: POST
+      tags:
+        - a
+        - b
+      headers:
+        Accept: application/json
+      body:
+        hello: world
+        nested: true
+        extra: 1`);
+	});
+
+	it('puts http-request with keys url, method, expected_status first', () => {
+		const step = {
+			with: {
+				expected_status: 200,
+				headers: { Accept: 'application/json' },
+				method: 'GET',
+				url: 'https://example.com'
+			},
+			id: 'http-request-0001',
+			use: 'http-request'
+		} as PipelineStep;
+
+		const yaml = createPipelineYaml('ordered', [step], {});
+
+		expect(yaml).toContain(`with:
+      url: https://example.com
+      method: GET
+      expected_status: 200
+      headers:
+        Accept: application/json`);
+	});
+
+	it('orders runtime keys as scalars, then arrays, then objects by ascending key count', () => {
+		const yaml = createPipelineYaml(
+			'ordered',
+			[],
+			{
+				temporal: {
+					activity_options: {
+						retry_policy: { maximum_attempts: 3 },
+						start_to_close_timeout: '20m'
+					}
+				},
+				disable_android_play_store: false,
+				global_timeout: 60
+			} as never
+		);
+
+		expect(yaml).toContain(`runtime:
+  disable_android_play_store: false
+  global_timeout: 60
+  temporal:
+    activity_options:
+      start_to_close_timeout: 20m
+      retry_policy:
+        maximum_attempts: 3`);
 	});
 });
