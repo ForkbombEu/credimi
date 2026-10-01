@@ -2790,3 +2790,19 @@ presents.
 
 `make fcaf-generate` produces 1383 aggregate steps, 615 test IDs, and 217
 pipeline outputs; the happy flow drops to 303 test IDs.
+
+## onboarding-1: keypad PIN entry and named launch permissions
+
+01/10/2026. `onboarding-1` now enters both the create/confirm PIN and the
+unlock PIN like `fcaf-exercise-wallet-generic`: wait for the keypad (`1`
+visible), `inputText: "12345"`, `tapOn: "6"`, no field tap or `hideKeyboard`.
+
+Its `launchApp` dropped `all: unset` and names only `camera` and
+`notifications`. Maestro resolves `all` (also the default when `permissions` is
+omitted) by pulling the installed APK to read its manifest; the 2026.09.42 APK
+is 381 MB, so `launchApp` took 26.3 s on `emulator-5554` against 2.3 s after
+the change. `unset` also revokes granted runtime permissions, which kills a
+running Wallet before Maestro relaunches it. The unlock path ran green on
+`emulator-5554`; the create-PIN path was not re-run, because it needs a wiped
+Wallet. `fcaf-exercise-wallet-generic`, `getcredential-generic-credential-without-authentication`
+and the `obtain-pid-*` flows still launch with `all` or default permissions.

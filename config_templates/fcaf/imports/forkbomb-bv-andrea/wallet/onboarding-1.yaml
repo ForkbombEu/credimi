@@ -5,38 +5,48 @@ tags:
   - precondition
   - onboarding
 ---
+# Name each permission: `all` makes Maestro pull the whole installed APK
+# (about 380 MB for this Wallet) to read its manifest before launching, and
+# `unset` revokes granted permissions, which kills the running Wallet.
 - launchApp:
+    stopApp: true
     clearState: false
     permissions:
       camera: allow
       notifications: allow
-      all: unset
 - extendedWaitUntil:
     visible: "Welcome to your Wallet|Welcome back|Home|Documents|Add document"
     timeout: 30000
+# A wait that ends on a screen still being composed leaves the next `when`
+# check no lookup time; settling first restarts Maestro's lookup window.
+- waitForAnimationToEnd:
+    timeout: 3000
 - runFlow:
     when:
       visible: "Welcome to your Wallet"
     commands:
-      - tapOn:
-          point: "11%,42%"
-      - inputText: "123456"
-      - hideKeyboard
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
       - extendedWaitUntil:
           visible: "Confirm PIN"
           timeout: 15000
-      - tapOn:
-          point: "11%,42%"
-      - inputText: "123456"
-      - hideKeyboard
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
 - runFlow:
     when:
       visible: "Welcome back"
     commands:
-      - tapOn:
-          point: "11%,40%"
-      - inputText: "123456"
-      - hideKeyboard
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
 - extendedWaitUntil:
     visible: "GO TO HOME|Home|Documents|Add document"
     timeout: 30000
