@@ -5,17 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { SvelteVirtualizer } from '@tanstack/svelte-virtual';
 	import type { Attachment } from 'svelte/attachments';
 	import type { Readable } from 'svelte/store';
 
 	import { Check, ClipboardCopy } from '@lucide/svelte';
-	import type { SvelteVirtualizer } from '@tanstack/svelte-virtual';
 
 	import Button from '@/components/ui/button/button.svelte';
 
+	import type { ComposerVirtualizer } from '../composer-virtualizer.svelte.js';
 	import type { ActiveUnit } from '../scroll-follow/active-unit.js';
 	import type { YamlPreviewParts } from '../yaml-preview-split.js';
-	import type { YamlStepsVirtualizer } from '../yaml-virtualizer.svelte.js';
 
 	import YamlShikiBlock from './yaml-shiki-block.svelte';
 
@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/** Full document — SoT for copy; fragments come from `parts`. */
 		yaml: string;
 		parts: YamlPreviewParts;
-		yamlVirtualizer: YamlStepsVirtualizer;
+		yamlVirtualizer: ComposerVirtualizer;
 		/** Store auto-subscribe target — `$yamlVirt` in markup. */
 		yamlVirt: Readable<SvelteVirtualizer<HTMLElement, Element>>;
 		scrollMargin: number;

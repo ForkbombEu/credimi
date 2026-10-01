@@ -42,6 +42,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		StepCard,
 		YamlPreviewPane
 	} from './_partials/index.js';
+	import {
+		createComposerVirtualizer,
+		DEFAULT_STEP_ESTIMATE_SIZE,
+		DEFAULT_YAML_STEP_ESTIMATE_SIZE,
+		stepCardSelector,
+		yamlStepBlockSelector
+	} from './composer-virtualizer.svelte.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 	import {
 		ensureMountedForStepsVirtualizer,
@@ -51,9 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
 	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
 	import { mapYamlCardRanges, type YamlCardRange } from './scroll-follow/yaml-ranges.js';
-	import { createStepsVirtualizer } from './steps-virtualizer.svelte.js';
 	import { splitPipelineYamlPreview } from './yaml-preview-split.js';
-	import { createYamlStepsVirtualizer } from './yaml-virtualizer.svelte.js';
 
 	//
 
@@ -137,17 +142,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			: splitPipelineYamlPreview(builder.yamlPreview)
 	);
 
-	const stepsVirtualizer = createStepsVirtualizer({
+	const stepsVirtualizer = createComposerVirtualizer({
 		getCount: () => builder.steps.length,
-		getScrollElement: () => cardsScrollContainer
+		getScrollElement: () => cardsScrollContainer,
+		itemSelector: stepCardSelector,
+		estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE
 	});
 	/** Store auto-subscribe target — `$stepsVirt` in markup. */
 	const stepsVirt = stepsVirtualizer.virtualizer;
 
-	const yamlVirtualizer = createYamlStepsVirtualizer({
+	const yamlVirtualizer = createComposerVirtualizer({
 		getCount: () => yamlParts.steps.length,
 		getScrollElement: () => yamlScrollContainer,
-		getScrollMargin: () => yamlScrollMargin
+		getScrollMargin: () => yamlScrollMargin,
+		itemSelector: yamlStepBlockSelector,
+		estimateSize: () => DEFAULT_YAML_STEP_ESTIMATE_SIZE
 	});
 	const yamlVirt = yamlVirtualizer.virtualizer;
 
