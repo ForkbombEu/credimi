@@ -181,14 +181,22 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			)
 		}
 
+		if !filepath.IsLocal(filepath.Join(protocol, version)) {
+			return apierror.New(
+				http.StatusBadRequest,
+				"protocol and version",
+				"invalid protocol or version",
+				"invalid protocol or version",
+			)
+		}
 		rootDir := utils.GetEnvironmentVariable("ROOT_DIR", ".")
-		dirPath := rootDir + "/config_templates/" + protocol + "/" + version + "/"
+		dirPath := filepath.Join(rootDir, "config_templates", protocol, version)
 		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 			return apierror.New(
 				http.StatusBadRequest,
 				"directory",
-				"directory does not exist for test "+rootDir+"/"+protocol+"/"+version,
-				err.Error(),
+				"directory does not exist for test "+protocol+"/"+version,
+				"directory does not exist",
 			)
 		}
 
@@ -404,20 +412,16 @@ func startOpenID4VPWalletWorkflow(i WorkflowStarterParams) (workflowengine.Workf
 	switch version {
 	case "1.0":
 		templateStr, err = readTemplateFile(
-			utils.GetEnvironmentVariable(
-				"ROOT_DIR",
-				".",
-			) + "/" + workflows.OpenID4VPWalletStepCITemplatePathv1_0,
+			utils.GetEnvironmentVariable("ROOT_DIR", "."),
+			workflows.OpenID4VPWalletStepCITemplatePathv1_0,
 		)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
 		}
 	case "draft-24":
 		templateStr, err = readTemplateFile(
-			utils.GetEnvironmentVariable(
-				"ROOT_DIR",
-				".",
-			) + "/" + workflows.OpenID4VPWalletStepCITemplatePathDr24,
+			utils.GetEnvironmentVariable("ROOT_DIR", "."),
+			workflows.OpenID4VPWalletStepCITemplatePathDr24,
 		)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
@@ -477,10 +481,8 @@ func startOpenIDAutomatedConformanceWorkflow(
 	}
 
 	templateStr, err := readTemplateFile(
-		utils.GetEnvironmentVariable(
-			"ROOT_DIR",
-			".",
-		) + "/" + templatePath,
+		utils.GetEnvironmentVariable("ROOT_DIR", "."),
+		templatePath,
 	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -556,7 +558,8 @@ func startEWCLikeWorkflow(
 	)
 	filename = strings.TrimPrefix(filename, "/")
 	templateStr, err := readTemplateFile(
-		filepath.Join(utils.GetEnvironmentVariable("ROOT_DIR", "."), templateFolderPath, filename),
+		filepath.Join(utils.GetEnvironmentVariable("ROOT_DIR", "."), templateFolderPath),
+		filename,
 	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -631,11 +634,13 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 		strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml",
 		workflows.EudiwSuite,
 	)
+	filename = strings.TrimPrefix(filename, "/")
 	templateStr, err := readTemplateFile(
-		utils.GetEnvironmentVariable(
-			"ROOT_DIR",
-			".",
-		) + "/" + workflows.EudiwTemplateFolderPath + filename,
+		filepath.Join(
+			utils.GetEnvironmentVariable("ROOT_DIR", "."),
+			workflows.EudiwTemplateFolderPath,
+		),
+		filename,
 	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -828,14 +833,13 @@ func processVariablesTest(
 		values[variable.FieldName] = variable.Value
 	}
 
-	templatePath := dirPath + testName
-	templateData, err := os.ReadFile(templatePath)
+	templateData, err := readFileInDir(dirPath, testName)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"template",
 			"failed to open template for test "+testName,
-			err.Error(),
+			"failed to open template",
 		)
 	}
 
@@ -881,15 +885,35 @@ func processVariablesTest(
 	)
 }
 
-func readTemplateFile(path string) (string, error) {
-	data, err := os.ReadFile(path)
+// readTemplateFile reads the template name inside baseDir. Names that would
+// resolve outside baseDir are rejected, and the error never exposes server paths.
+func readTemplateFile(baseDir, name string) (string, error) {
+	data, err := readFileInDir(baseDir, name)
 	if err != nil {
 		return "", apierror.New(
 			http.StatusBadRequest,
 			"file",
 			"failed to read template file",
-			err.Error(),
+			"failed to read template file",
 		)
 	}
 	return string(data), nil
+}
+
+// readFileInDir reads name relative to baseDir. Absolute names, ".." escapes and
+// symlinks leading outside baseDir are rejected.
+func readFileInDir(baseDir, name string) ([]byte, error) {
+	if !filepath.IsLocal(name) {
+		return nil, fmt.Errorf("template name is not local: %q", name)
+	}
+	root, err := os.OpenRoot(baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("open template dir: %w", err)
+	}
+	defer root.Close()
+	data, err := root.ReadFile(name)
+	if err != nil {
+		return nil, fmt.Errorf("read template: %w", err)
+	}
+	return data, nil
 }

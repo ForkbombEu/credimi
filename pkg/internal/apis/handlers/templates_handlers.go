@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -57,20 +56,39 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 			)
 		}
 
+		templatesDir := filepath.Join(os.Getenv("ROOT_DIR"), "config_templates")
+		root, err := os.OpenRoot(templatesDir)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"request.file.open",
+				"templates unavailable",
+				"templates unavailable",
+			)
+		}
+		defer root.Close()
+
 		var files []io.Reader
 		for _, filename := range requestPayload.Filenames {
 			if !strings.Contains(filename, "/") {
 				continue
 			}
-			templatesDir := path.Join(os.Getenv("ROOT_DIR"), "config_templates")
-			filePath := filepath.Join(templatesDir, requestPayload.TestID, filename)
-			file, err := os.Open(filePath)
+			rel := filepath.Join(requestPayload.TestID, filename)
+			if !filepath.IsLocal(rel) {
+				return apierror.New(
+					http.StatusBadRequest,
+					"request.validation",
+					"invalid filename",
+					"invalid filename",
+				)
+			}
+			file, err := root.Open(rel)
 			if err != nil {
 				return apierror.New(
 					http.StatusBadRequest,
 					"request.file.open",
 					"Error opening file: "+filename,
-					err.Error(),
+					"unable to open template file",
 				)
 			}
 			defer file.Close()
