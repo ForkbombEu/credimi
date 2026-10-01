@@ -68,6 +68,19 @@ services:
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
     ports:
       - ${TEMPORAL_UI_PORT:-8280}:8280
+  # Read-only Temporal UI embedded in Credimi run pages. No published port: only
+  # Credimi reaches it, through the org-scoped proxy at /temporal-ui (pkg/internal/temporalui).
+  temporal_ui_embedded:
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_UI_PORT=8080
+      - TEMPORAL_UI_PUBLIC_PATH=/temporal-ui
+      - TEMPORAL_DISABLE_WRITE_ACTIONS=true
+      - TEMPORAL_DISABLE_NEWS_FETCH=true
+      - TEMPORAL_NAV_COLLAPSED_BY_DEFAULT=true
+    image: temporalio/ui:${TEMPORAL_UI_VERSION}
   temporal_setup:
     depends_on:
       - temporal
@@ -86,6 +99,7 @@ services:
   credimi:
     depends_on:
       - temporal
+      - temporal_ui_embedded
     build:
       context: .
       dockerfile: Dockerfile
@@ -95,6 +109,7 @@ services:
     environment:
       - ADDRESS_GRAFANA=http://grafana:8085
       - ADDRESS_UI=http://localhost:5100
+      - ADDRESS_TEMPORAL_UI=http://temporal_ui_embedded:8080
       - ROOT_DIR=/app
       - DATA_DB_PATH=/app/pb_data/data.db
       - MAIL_SENDER=no-reply@credimi.io

@@ -4,9 +4,8 @@
 
 import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
-import { toWorkflowExecution, type HistoryEvent } from '@forkbombeu/temporal-ui';
+import { toWorkflowExecution } from '@forkbombeu/temporal-ui';
 import { String } from 'effect';
-import { z } from 'zod/v3';
 
 import { pb } from '@/pocketbase';
 import { warn } from '@/utils/other';
@@ -72,23 +71,6 @@ export async function fetchWorkflowExecution(
 		if (execution instanceof Error) throw execution;
 		return { execution, devices: parsed.devices };
 	}, 'Failed to fetch workflow');
-}
-
-export async function fetchWorkflowHistory(
-	workflowId: string,
-	runId: string,
-	options = { fetch }
-): Promise<HistoryEvent[] | Error> {
-	return tryPromise(async () => {
-		const data = await pb.send(`${workflowApi(workflowId, runId)}/history`, {
-			method: 'GET',
-			fetch: options.fetch
-		});
-		const schema = z.object({
-			history: z.array(z.record(z.unknown()))
-		});
-		return schema.parse(data).history as HistoryEvent[];
-	}, 'Failed to fetch workflow history');
 }
 
 // Private

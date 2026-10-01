@@ -9,6 +9,7 @@
 package routes
 
 import (
+	"fmt"
 	"log"
 	"net/http/httputil"
 	"net/url"
@@ -20,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/recordsecrets"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalui"
 	walletversions "github.com/forkbombeu/credimi/pkg/internal/wallet_versions"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
@@ -33,10 +35,21 @@ func bindAppHooks(app core.App) {
 	routes := map[string]string{
 		"/{path...}": utils.GetEnvironmentVariable("ADDRESS_UI", "http://localhost:5100"),
 	}
+	temporalUITarget := utils.GetEnvironmentVariable(
+		"ADDRESS_TEMPORAL_UI",
+		"http://localhost:8281",
+	)
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		for path, target := range routes {
 			se.Router.Any(path, createReverseProxy(target))
 		}
+		target, err := url.Parse(temporalUITarget)
+		if err != nil {
+			return fmt.Errorf("parse ADDRESS_TEMPORAL_UI: %w", err)
+		}
+		temporalUI := temporalui.Handler(target)
+		se.Router.Any(temporalui.PathPrefix, temporalUI)
+		se.Router.Any(temporalui.PathPrefix+"/{path...}", temporalUI)
 		return se.Next()
 	})
 }
