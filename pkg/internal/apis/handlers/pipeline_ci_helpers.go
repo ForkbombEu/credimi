@@ -941,13 +941,27 @@ func selectPipelineCIDeviceByType(
 		)
 	}
 
+	ownerPublished := organizationPublishedLoader(app, ownerID)
 	selectedDeviceID := ""
 	selectedBacklog := 0
 	for _, device := range devices {
 		runner, runnerErr := app.FindRecordById("mobile_runners", device.GetString("runner"))
-		if runnerErr != nil ||
-			(runner.GetString("owner") != ownerID && !runner.GetBool("published")) {
+		if runnerErr != nil {
 			continue
+		}
+		if runner.GetString("owner") != ownerID {
+			orgPublished, orgErr := ownerPublished()
+			if orgErr != nil {
+				return "", apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"failed to load organization",
+					orgErr.Error(),
+				)
+			}
+			if !mobileRunnerSharedWith(runner, orgPublished) {
+				continue
+			}
 		}
 		online, apiErr := mobileRunnerReachable(ctx, runner)
 		if apiErr != nil {

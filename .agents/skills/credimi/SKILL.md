@@ -72,5 +72,5 @@ For writing FCAF tests use the dedicated skill `fcaf-definitions`.
 
 - **Code beats docs.** Known drift: `AGENTS.md` and some manual pages still name `POST /api/pipeline/start` (it does not exist — the GUI and CLI use `POST /api/pipeline/queue`), the runner endpoints `fetch-apk-and-action` / `store-pipeline-result` (real paths: `/credimi/installer-action`, `/credimi/pipeline-result`), the header `X-Api-Key` (real header: `Credimi-Api-Key`), and suites such as W3C-VC/VC-API and PagoPA that have no catalog directory.
 - Do not promise W3C/PagoPA suites or Hub compliance scores; both are absent from the code.
-- `pipeline_results` is superuser-only. Anything user-facing about "results" goes through the API or the webapp pages, not raw collection access.
+- `pipeline_results` is superuser-only through the raw collection API (list/view rules are `null`); users read results only through the Credimi API and the webapp pages. Its artifact files are unprotected and downloadable by anyone holding the URL (the public scoreboard links to them).
 - Repository-engineering rules (Temporal namespaces, migrations, validation matrix, commit contract) live in the root `AGENTS.md`, not here.
