@@ -5,14 +5,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+	CARD_PANE,
+	YAML_PANE,
 	computeAlignedScrollTop,
 	computeNearestScrollTop,
 	ensureMountedForStepsVirtualizer,
 	resolveListEndUnit,
-	resolveViewportActiveCard,
-	resolveViewportYamlUnit,
-	scrollCardIntoView,
-	scrollYamlUnitIntoView,
+	resolveViewportUnit,
+	scrollUnitIntoView,
 	watchDrivenScroll,
 	type ActiveUnit
 } from './active-unit.js';
@@ -193,7 +193,7 @@ describe('resolveListEndUnit', () => {
 	});
 });
 
-describe('resolveViewportActiveCard', () => {
+describe('resolveViewportUnit (cards)', () => {
 	type Rect = { top: number; bottom: number; height: number };
 
 	function makeRect(rect: Rect): DOMRect {
@@ -256,7 +256,7 @@ describe('resolveViewportActiveCard', () => {
 			{ section: 'steps', index: 7, center: 300 }
 		]);
 		scroller.scrollTop = 0;
-		expect(resolveViewportActiveCard(scroller as unknown as HTMLElement, null)).toEqual({
+		expect(resolveViewportUnit(scroller as unknown as HTMLElement, null, CARD_PANE)).toEqual({
 			section: 'steps',
 			index: 5
 		});
@@ -270,7 +270,7 @@ describe('resolveViewportActiveCard', () => {
 		]);
 		scroller.scrollTop = 0;
 		expect(
-			resolveViewportActiveCard(scroller as unknown as HTMLElement, null, {
+			resolveViewportUnit(scroller as unknown as HTMLElement, null, CARD_PANE, {
 				steps: 1400,
 				followUps: 2
 			})
@@ -285,7 +285,7 @@ describe('resolveViewportActiveCard', () => {
 		]);
 		scroller.scrollTop = 1600; // maxScroll = 1600
 		expect(
-			resolveViewportActiveCard(scroller as unknown as HTMLElement, null, {
+			resolveViewportUnit(scroller as unknown as HTMLElement, null, CARD_PANE, {
 				steps: 1400,
 				followUps: 2
 			})
@@ -299,14 +299,14 @@ describe('resolveViewportActiveCard', () => {
 			{ section: 'steps', index: 1392, center: 300 }
 		]);
 		scroller.scrollTop = 1600;
-		expect(resolveViewportActiveCard(scroller as unknown as HTMLElement, null)).toEqual({
+		expect(resolveViewportUnit(scroller as unknown as HTMLElement, null, CARD_PANE)).toEqual({
 			section: 'steps',
 			index: 1392
 		});
 	});
 });
 
-describe('scrollCardIntoView', () => {
+describe('scrollUnitIntoView (cards)', () => {
 	type Rect = { top: number; bottom: number; height: number };
 
 	function makeRect(rect: Rect): DOMRect {
@@ -370,10 +370,11 @@ describe('scrollCardIntoView', () => {
 	it('returns false when the card is missing and ensureMounted is absent', async () => {
 		const scroller = createCardsScroller([0]);
 		await expect(
-			scrollCardIntoView(
+			scrollUnitIntoView(
 				scroller as unknown as HTMLElement,
 				{ section: 'steps', index: 99 },
-				'auto'
+				'auto',
+				CARD_PANE
 			)
 		).resolves.toBe(false);
 		expect(scroller.scrollTo).not.toHaveBeenCalled();
@@ -387,10 +388,11 @@ describe('scrollCardIntoView', () => {
 		});
 
 		await expect(
-			scrollCardIntoView(
+			scrollUnitIntoView(
 				scroller as unknown as HTMLElement,
 				{ section: 'steps', index: 42 },
 				'auto',
+				CARD_PANE,
 				{ ensureMounted, focus: false }
 			)
 		).resolves.toBe(true);
@@ -404,10 +406,11 @@ describe('scrollCardIntoView', () => {
 		const ensureMounted = vi.fn(async () => false);
 
 		await expect(
-			scrollCardIntoView(
+			scrollUnitIntoView(
 				scroller as unknown as HTMLElement,
 				{ section: 'steps', index: 42 },
 				'auto',
+				CARD_PANE,
 				{ ensureMounted }
 			)
 		).resolves.toBe(false);
@@ -420,10 +423,11 @@ describe('scrollCardIntoView', () => {
 		const scroller = createCardsScroller([3]);
 		const ensureMounted = vi.fn(async () => true);
 
-		await scrollCardIntoView(
+		await scrollUnitIntoView(
 			scroller as unknown as HTMLElement,
 			{ section: 'steps', index: 3 },
 			'auto',
+			CARD_PANE,
 			{ ensureMounted, focus: false }
 		);
 
@@ -521,7 +525,7 @@ describe('watchDrivenScroll', () => {
 	});
 });
 
-describe('resolveViewportYamlUnit', () => {
+describe('resolveViewportUnit (yaml)', () => {
 	type Rect = { top: number; bottom: number; height: number };
 
 	function makeRect(rect: Rect): DOMRect {
@@ -581,7 +585,7 @@ describe('resolveViewportYamlUnit', () => {
 			{ section: 'steps', index: 1, center: 220 },
 			{ section: 'steps', index: 2, center: 360 }
 		]);
-		expect(resolveViewportYamlUnit(scroller as unknown as HTMLElement, null)).toEqual({
+		expect(resolveViewportUnit(scroller as unknown as HTMLElement, null, YAML_PANE)).toEqual({
 			section: 'steps',
 			index: 1
 		});
@@ -593,11 +597,11 @@ describe('resolveViewportYamlUnit', () => {
 			{ section: 'steps', index: 1, center: 900 }
 		]);
 		scroller.scrollTop = 0;
-		expect(resolveViewportYamlUnit(scroller as unknown as HTMLElement, null)).toBeNull();
+		expect(resolveViewportUnit(scroller as unknown as HTMLElement, null, YAML_PANE)).toBeNull();
 	});
 });
 
-describe('scrollYamlUnitIntoView', () => {
+describe('scrollUnitIntoView (yaml)', () => {
 	it('calls ensureMounted when the yaml step block is missing', async () => {
 		const children: Array<{
 			getAttribute(name: string): string | null;
@@ -666,10 +670,11 @@ describe('scrollYamlUnitIntoView', () => {
 		});
 
 		await expect(
-			scrollYamlUnitIntoView(
+			scrollUnitIntoView(
 				scroller as unknown as HTMLElement,
 				{ section: 'steps', index: 4 },
 				'auto',
+				YAML_PANE,
 				{ ensureMounted, focus: false }
 			)
 		).resolves.toBe(true);
@@ -739,10 +744,11 @@ describe('scrollYamlUnitIntoView', () => {
 		};
 
 		await expect(
-			scrollYamlUnitIntoView(
+			scrollUnitIntoView(
 				scroller as unknown as HTMLElement,
 				{ section: 'steps', index: 0 },
 				'auto',
+				YAML_PANE,
 				{ focus: false, animatableScroll, durationMs: 280 }
 			)
 		).resolves.toBe(true);

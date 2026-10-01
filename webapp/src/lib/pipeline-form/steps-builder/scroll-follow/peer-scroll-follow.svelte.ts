@@ -5,11 +5,11 @@
 import type { Attachment } from 'svelte/attachments';
 
 import {
-	resolveViewportActiveCard,
-	resolveViewportYamlUnit,
+	CARD_PANE,
+	YAML_PANE,
+	resolveViewportUnit,
 	sameUnit,
-	scrollCardIntoView,
-	scrollYamlUnitIntoView,
+	scrollUnitIntoView,
 	watchDrivenScroll,
 	type ActiveUnit,
 	type CardListLengths,
@@ -147,7 +147,12 @@ export class PeerScrollFollow {
 			if (this.#scrollLeader === 'yaml') return;
 			if (this.#scrollLeader !== 'cards' && this.#lastIntentSide !== 'cards') return;
 			this.#claimScrollLeader('cards');
-			const next = resolveViewportActiveCard(el, this.activeUnit, this.#getCardLengths?.());
+			const next = resolveViewportUnit(
+				el,
+				this.activeUnit,
+				CARD_PANE,
+				this.#getCardLengths?.()
+			);
 			if (!next || sameUnit(this.activeUnit, next)) return;
 			this.#setActiveUnit(next);
 			this.#schedulePeerFollow('cards');
@@ -200,7 +205,12 @@ export class PeerScrollFollow {
 			if (this.#scrollLeader === 'cards') return;
 			if (this.#scrollLeader !== 'yaml' && this.#lastIntentSide !== 'yaml') return;
 			this.#claimScrollLeader('yaml');
-			const next = resolveViewportYamlUnit(el, this.activeUnit, this.#getYamlLengths?.());
+			const next = resolveViewportUnit(
+				el,
+				this.activeUnit,
+				YAML_PANE,
+				this.#getYamlLengths?.()
+			);
 			if (!next) {
 				this.#setActiveUnit(null);
 				return;
@@ -256,7 +266,7 @@ export class PeerScrollFollow {
 		if (!cards) return;
 		const durationMs = DISCRETE_SCROLL_DURATION_MS;
 		this.#beginDriven('cards', cards, durationMs);
-		const scrolled = await scrollCardIntoView(cards, unit, 'auto', {
+		const scrolled = await scrollUnitIntoView(cards, unit, 'auto', CARD_PANE, {
 			align: 'center',
 			focus: false,
 			ensureMounted: this.#ensureMounted,
@@ -366,7 +376,7 @@ export class PeerScrollFollow {
 		const durationMs = durationFor(kind);
 		this.#beginDriven('yaml', yaml, durationMs);
 		const align = this.#scrollLeader === 'cards' ? 'start-band' : 'start';
-		const scrolled = await scrollYamlUnitIntoView(yaml, unit, 'auto', {
+		const scrolled = await scrollUnitIntoView(yaml, unit, 'auto', YAML_PANE, {
 			align,
 			focus: false,
 			ensureMounted: this.#ensureMountedYaml,
@@ -389,7 +399,7 @@ export class PeerScrollFollow {
 		if (!unit || !cards) return;
 		const durationMs = durationFor(kind);
 		this.#beginDriven('cards', cards, durationMs);
-		const scrolled = await scrollCardIntoView(cards, unit, 'auto', {
+		const scrolled = await scrollUnitIntoView(cards, unit, 'auto', CARD_PANE, {
 			align: 'center',
 			focus: kind === 'discrete',
 			ensureMounted: this.#ensureMounted,
