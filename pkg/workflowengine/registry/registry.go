@@ -215,8 +215,10 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"pipeline-report-generation": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewPipelineReportGenerationActivity() },
+		Kind: TaskActivity,
+		NewFunc: func() any {
+			return activities.NewPipelineReportGenerationActivity(StepActivityOutputKind)
+		},
 		PayloadType: reflect.TypeOf(activities.PipelineReportGenerationInput{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
