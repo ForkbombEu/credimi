@@ -67,6 +67,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// Upstream Temporal UI behind Credimi's read-only proxy scoped to the user's organization
 	// namespace (pkg/internal/temporalui). The proxy authenticates the `pb_auth` cookie that
 	// hooks.client.ts keeps in sync with the auth store.
+	// Use /history (not /timeline): older Temporal UI builds have no /timeline route and
+	// their SvelteKit router logs `Not found: /temporal-ui/.../timeline` in the iframe.
+	// Temporal UI >= 2.52 redirects /history → /timeline, so this stays compatible both ways.
 	const temporalUiUrl = $derived(
 		[
 			'/temporal-ui/namespaces',
@@ -74,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'workflows',
 			encodeURIComponent(workflowId),
 			encodeURIComponent(runId),
-			'timeline'
+			'history'
 		].join('/')
 	);
 	let loadedTemporalUiUrl = $state<string>();
