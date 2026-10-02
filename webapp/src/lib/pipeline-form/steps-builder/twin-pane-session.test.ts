@@ -382,6 +382,18 @@ describe('createTwinPaneSession', () => {
 		session.dispose();
 	});
 
+	it('exposes symmetric Readable virt surfaces; omits dead stepsVirtualizer', () => {
+		const order: string[] = [];
+		const { options, stepsVirt, yamlVirt } = baseOptions(order);
+		const session = createTwinPaneSession(options);
+
+		expect(session.stepsVirt).toBe(stepsVirt.virtualizer);
+		expect(session.yamlVirt).toBe(yamlVirt.virtualizer);
+		expect(session.yamlVirtualizer).toBe(yamlVirt);
+		expect(session).not.toHaveProperty('stepsVirtualizer');
+		session.dispose();
+	});
+
 	it('cardsScrollAttach stays defined in manual mode; yamlScrollAttach gates manual/empty', () => {
 		let isManual = false;
 		let yamlPreview = 'steps:\n  - id: a\n';

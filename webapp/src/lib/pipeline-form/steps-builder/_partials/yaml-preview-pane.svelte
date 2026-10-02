@@ -21,6 +21,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/** Full document — SoT for copy; fragments come from `parts`. */
 		yaml: string;
 		parts: YamlPreviewParts;
+		/** TanStack Readable — `$yamlVirt` for virtual items / totalSize. */
+		yamlVirt: ComposerVirtualizer['virtualizer'];
+		/**
+		 * Until M4 `measureYamlStep` — needed only for `.measureElement`.
+		 * Prefer `yamlVirt` for subscribe.
+		 */
 		yamlVirtualizer: ComposerVirtualizer;
 		scrollMargin: number;
 		/** YAML column scroller — used to measure scrollMargin for the virtual step list. */
@@ -39,6 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let {
 		yaml,
 		parts,
+		yamlVirt,
 		yamlVirtualizer,
 		scrollMargin,
 		scrollContainer = null,
@@ -50,9 +57,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		endPadPx = 0,
 		stepsListEl = $bindable<HTMLElement | null>(null)
 	}: Props = $props();
-
-	/** Store auto-subscribe target — `$yamlVirt` in markup. */
-	const yamlVirt = yamlVirtualizer.virtualizer;
 
 	let isCopied = $state(false);
 	/** Wraps everything above the virtual step list (padding + header). */

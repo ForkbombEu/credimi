@@ -92,6 +92,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => () => session.dispose());
 
 	const stepsVirt = session.stepsVirt;
+	const yamlVirt = session.yamlVirt;
 	const { measureStepCard, yamlVirtualizer } = session;
 
 	const yamlScrollAttach = $derived(session.yamlScrollAttach);
@@ -376,6 +377,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<YamlPreviewPane
 				yaml={builder.yamlPreview}
 				parts={yamlParts}
+				{yamlVirt}
 				{yamlVirtualizer}
 				scrollMargin={session.yamlScrollMargin}
 				scrollContainer={session.yamlScroller}

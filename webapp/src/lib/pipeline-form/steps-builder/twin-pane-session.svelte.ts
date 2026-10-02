@@ -94,7 +94,13 @@ export type TwinPaneSession = {
 	get yamlScrollMargin(): number;
 	/** TanStack Readable — `$stepsVirt` in markup. */
 	stepsVirt: ComposerVirtualizer['virtualizer'];
-	stepsVirtualizer: ComposerVirtualizer;
+	/** TanStack Readable — `$yamlVirt` in markup (virtual items / totalSize). */
+	yamlVirt: ComposerVirtualizer['virtualizer'];
+	/**
+	 * Full YAML virtualizer — view needs `.measureElement` until M4
+	 * (`measureYamlStep` Attachment mirrors `measureStepCard`). Prefer `yamlVirt`
+	 * for subscribe; do not grow new call sites on this object.
+	 */
 	yamlVirtualizer: ComposerVirtualizer;
 	measureStepCard: Attachment;
 	/**
@@ -436,7 +442,7 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			return yamlScrollMargin;
 		},
 		stepsVirt: stepsVirtualizer.virtualizer,
-		stepsVirtualizer,
+		yamlVirt: yamlVirtualizer.virtualizer,
 		yamlVirtualizer,
 		measureStepCard,
 		get cardsScrollAttach() {
