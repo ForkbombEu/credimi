@@ -472,7 +472,11 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 		"delete status=%d body=%s", rec.Code, rec.Body.String())
 
 	// Suites projection: filter/sort against suite rows (normalized axes).
-	suiteBody := catalogListJSON(t, mux, "/api/collections/conformance_suites/records?perPage=100&sort=component_rank,standard,suite")
+	suiteBody := catalogListJSON(
+		t,
+		mux,
+		"/api/collections/conformance_suites/records?perPage=100&sort=component_rank,standard,suite",
+	)
 	suiteItems, ok := suiteBody["items"].([]any)
 	require.True(t, ok)
 	require.NotEmpty(t, suiteItems)
@@ -488,7 +492,11 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	require.NotEmpty(t, suite["path_prefix"])
 	require.GreaterOrEqual(t, int(suite["check_count"].(float64)), 1)
 
-	rec = serve(http.MethodGet, "/api/collections/conformance_suites/records/"+suite["id"].(string), "")
+	rec = serve(
+		http.MethodGet,
+		"/api/collections/conformance_suites/records/"+suite["id"].(string),
+		"",
+	)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	rec = serve(http.MethodPost, "/api/collections/conformance_suites/records", `{"suite":"x"}`)

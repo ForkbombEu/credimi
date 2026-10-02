@@ -136,7 +136,12 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	externalInstall := workflowengine.AsBool(input.Config[externalInstallDetectionConfigKey])
 	var beforeApps []string
 	if externalInstall {
-		beforeApps, err = executeListInstalledApps(runnerCtx, payload.DeviceID, payload.Serial, payload.Type)
+		beforeApps, err = executeListInstalledApps(
+			runnerCtx,
+			payload.DeviceID,
+			payload.Serial,
+			payload.Type,
+		)
 		if err != nil {
 			if temporal.IsCanceledError(err) {
 				return workflowengine.WorkflowResult{}, err
@@ -155,7 +160,9 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	// Temporal child workflow ID, otherwise valid Maestro screenshots are
 	// written under a directory the runner cannot later upload from.
 	workspaceID := workflow.GetInfo(ctx).WorkflowExecution.ID
-	if runIdentifier := workflowengine.AsString(input.Config["run_identifier"]); runIdentifier != "" {
+	if runIdentifier := workflowengine.AsString(
+		input.Config["run_identifier"],
+	); runIdentifier != "" {
 		workspaceID = runIdentifier
 	}
 	var mobileResponse workflowengine.ActivityResult

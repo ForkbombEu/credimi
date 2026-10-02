@@ -46,7 +46,10 @@ func enumerateSuites(templatesDir string) ([]suiteWork, error) {
 		standardPath := filepath.Join(templatesDir, standardUID)
 
 		stdMeta := standardYAML{UID: standardUID}
-		if err := readRequiredYAML(filepath.Join(standardPath, "standard.yaml"), &stdMeta); err != nil {
+		if err := readRequiredYAML(
+			filepath.Join(standardPath, "standard.yaml"),
+			&stdMeta,
+		); err != nil {
 			return nil, err
 		}
 		if stdMeta.UID == "" {
@@ -69,7 +72,10 @@ func enumerateSuites(templatesDir string) ([]suiteWork, error) {
 			}
 
 			verMeta := versionYAML{UID: versionUID}
-			if err := readRequiredYAML(filepath.Join(versionPath, "version.yaml"), &verMeta); err != nil {
+			if err := readRequiredYAML(
+				filepath.Join(versionPath, "version.yaml"),
+				&verMeta,
+			); err != nil {
 				return nil, err
 			}
 			if verMeta.UID == "" {
@@ -92,7 +98,10 @@ func enumerateSuites(templatesDir string) ([]suiteWork, error) {
 				}
 
 				sMeta := suiteYAML{UID: suiteUID}
-				if err := readRequiredYAML(filepath.Join(suitePath, "metadata.yaml"), &sMeta); err != nil {
+				if err := readRequiredYAML(
+					filepath.Join(suitePath, "metadata.yaml"),
+					&sMeta,
+				); err != nil {
 					return nil, err
 				}
 				if sMeta.UID == "" {

@@ -52,7 +52,11 @@ func TestGetWorkflowResultActivityDoesNotCloseSharedClient(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, map[string]any{"status": "ok"}, result.Output.(workflowengine.WorkflowResult).Output)
+	require.Equal(
+		t,
+		map[string]any{"status": "ok"},
+		result.Output.(workflowengine.WorkflowResult).Output,
+	)
 	mockClient.AssertNotCalled(t, "Close")
 }
 
@@ -126,6 +130,10 @@ func TestGetWorkflowResultActivityReturnsStructuredFailedWorkflowDetails(t *test
 	require.NoError(t, err)
 	workflowResult, ok := result.Output.(workflowengine.WorkflowResult)
 	require.True(t, ok)
-	require.Equal(t, "ok", workflowResult.Output.(map[string]any)["successful-step"].(map[string]any)["outputs"])
+	require.Equal(
+		t,
+		"ok",
+		workflowResult.Output.(map[string]any)["successful-step"].(map[string]any)["outputs"],
+	)
 	require.NotNil(t, workflowResult.Errors)
 }
