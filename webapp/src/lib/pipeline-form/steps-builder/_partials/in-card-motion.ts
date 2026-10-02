@@ -221,8 +221,8 @@ function finishEnterLayout(
 	display.style.visibility = 'hidden';
 
 	// Keep the form absolutely filling the lock until `settleEnterFormHost` runs.
-	// Clearing absolute here would fall back to the pre-enterComplete `h-0` host
-	// class for a frame and jump the save footer before flex layout applies.
+	// Clearing absolute before settled flex host classes paint would collapse the
+	// overlay for a frame and jump the save footer.
 	prepareFormForEnter(form);
 	form.style.opacity = '1';
 	form.style.pointerEvents = '';

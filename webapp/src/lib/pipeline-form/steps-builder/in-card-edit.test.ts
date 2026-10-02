@@ -4,7 +4,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { editingUnit, isInCardEdit, type InCardEditMode } from './in-card-edit.js';
+import {
+	editingUnit,
+	inCardFormHostClass,
+	isInCardEdit,
+	type InCardEditMode
+} from './in-card-edit.js';
 
 const idle: InCardEditMode = { id: 'idle' };
 const manual: InCardEditMode = { id: 'manual' };
@@ -15,6 +20,20 @@ describe('isInCardEdit', () => {
 		expect(isInCardEdit({ id: 'form', intent: 'add' })).toBe(false);
 		expect(isInCardEdit(idle)).toBe(false);
 		expect(isInCardEdit(manual)).toBe(false);
+	});
+});
+
+describe('inCardFormHostClass', () => {
+	it('keeps flex column during enter absolute fill so Save stays column-pinned', () => {
+		const enter = inCardFormHostClass(false);
+		expect(enter.split(/\s+/)).toEqual(
+			expect.arrayContaining(['absolute', 'inset-0', 'flex', 'flex-col', 'min-h-0'])
+		);
+		const settled = inCardFormHostClass(true);
+		expect(settled.split(/\s+/)).toEqual(
+			expect.arrayContaining(['flex', 'flex-col', 'grow', 'min-h-0', 'overflow-hidden'])
+		);
+		expect(settled).not.toContain('absolute');
 	});
 });
 

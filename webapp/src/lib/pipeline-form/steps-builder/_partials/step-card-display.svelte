@@ -28,6 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		playInCardExit,
 		type MotionHandle
 	} from './in-card-motion.js';
+	import { inCardFormHostClass } from '../in-card-edit.js';
 	import { getStepData, getStepError } from './index.js';
 
 	//
@@ -261,9 +262,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<div
 					bind:this={formHost}
-					class={enterComplete || exiting
-						? 'flex min-h-0 grow flex-col overflow-hidden'
-						: 'pointer-events-none invisible absolute inset-0 overflow-hidden opacity-0'}
+					class={inCardFormHostClass(enterComplete || exiting)}
 					data-testid="in-card-form-host"
 					inert={!enterComplete || exiting}
 				>
