@@ -31,6 +31,12 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
 	require.Len(t, definition.Steps, 1399)
+	require.NotContains(
+		t,
+		string(data),
+		"${fixture.issuer_url}",
+		"PID issuance must target the scenario issuer, not pipeline.DefaultIssuerURL",
+	)
 
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 	validationSteps := make([]map[string]any, 0, 1)

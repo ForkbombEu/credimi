@@ -643,6 +643,9 @@ func pidIssuanceSteps(
 	if _, declared := fixture["issuer_url"].(string); declared {
 		base = "${fixture.issuer_url}"
 	}
+	// Inserted steps miss the scenario rewrite; an unresolved token would fall
+	// back to pipeline.DefaultIssuerURL at run time instead of the scenario issuer.
+	base = rewriteString(base, nil, fixture)
 	suffix := ""
 	if index > 0 {
 		suffix = fmt.Sprintf("-%d", index+1)
