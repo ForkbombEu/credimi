@@ -229,10 +229,18 @@ export function resolveViewportUnit(
 	return best.unit;
 }
 
+/** Ignore sub-pixel / border clipping when deciding if a card top is in-port. */
+const TOP_CLIP_EPSILON_PX = 1;
+
 /**
- * Pick the topmost unit that intersects the scroller viewport (nearest element top
- * to the scroller top). Used for continuous cards→YAML peer follow under unequal
- * heights — center hysteresis stays on `resolveViewportUnit` (YAML→cards).
+ * Pick the topmost unit that meaningfully leads the cards viewport for
+ * continuous cards→YAML peer follow (unequal heights). Center hysteresis stays
+ * on `resolveViewportUnit` (YAML→cards).
+ *
+ * Prefers cards whose **top edge is inside** the scroller (not clipped above the
+ * fold). A sliver still intersecting from above must not keep owning follow —
+ * otherwise a barely-peeking card with long YAML stays locked in the peer pane.
+ * Falls back to any intersecting card only when nothing unclipped is visible.
  *
  * At absolute scroll top, reuses list-end start policy (`claim` / `intersect` +
  * optional `lengths`) so virtualization does not pin the first *mounted* card.
@@ -263,18 +271,25 @@ export function resolveTopmostVisibleUnit(
 		);
 	}
 
-	let best: { unit: ActiveUnit; top: number } | null = null;
+	const portTop = scrollContainer.getBoundingClientRect().top;
+	let bestUnclipped: { unit: ActiveUnit; top: number } | null = null;
+	let bestAny: { unit: ActiveUnit; top: number } | null = null;
 	for (const el of items) {
 		const unit = parseUnit(el, pane);
 		if (!unit) continue;
 		if (!elementIntersectsScroller(el, scrollContainer)) continue;
 		const top = el.getBoundingClientRect().top;
-		// Topmost intersecting = smallest document top (first from the viewport top).
-		if (!best || top < best.top) {
-			best = { unit, top };
+		if (!bestAny || top < bestAny.top) {
+			bestAny = { unit, top };
+		}
+		// Top edge still in-port → card actually leads the visible list.
+		if (top >= portTop - TOP_CLIP_EPSILON_PX) {
+			if (!bestUnclipped || top < bestUnclipped.top) {
+				bestUnclipped = { unit, top };
+			}
 		}
 	}
-	return best?.unit ?? null;
+	return bestUnclipped?.unit ?? bestAny?.unit ?? null;
 }
 
 /**
