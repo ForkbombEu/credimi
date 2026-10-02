@@ -99,6 +99,13 @@ export function stableItemKey(item: object | null | undefined, fallback: number)
 	return id;
 }
 
+/** One pane for {@link pinBothScrollports}: DOM scroller + TanStack scrollOffset owner. */
+export type ScrollPinPane = {
+	scroller: HTMLElement | null | undefined;
+	top: number;
+	virtualizer?: { scrollOffset: number | null } | null;
+};
+
 /** Pin scrollTop on a scroller (and optional TanStack instance) after a layout rememo. */
 export function restoreScrollTop(
 	scroller: HTMLElement | null | undefined,
@@ -110,6 +117,20 @@ export function restoreScrollTop(
 	if (virtualizer && virtualizer.scrollOffset !== top) {
 		virtualizer.scrollOffset = top;
 	}
+}
+
+/**
+ * Twin-pane scroll pin: always write DOM scrollTop and TanStack scrollOffset for both
+ * cards and YAML. Used by mount-swap and paired-shift FLIP restore so neither path can
+ * restore DOM-only.
+ */
+export function pinBothScrollports(
+	cards: ScrollPinPane,
+	yaml: ScrollPinPane,
+	restore: typeof restoreScrollTop = restoreScrollTop
+): void {
+	restore(cards.scroller, cards.top, cards.virtualizer ?? undefined);
+	restore(yaml.scroller, yaml.top, yaml.virtualizer ?? undefined);
 }
 
 /**

@@ -4,11 +4,7 @@
 
 import { tick as svelteTick } from 'svelte';
 
-import {
-	restoreScrollTop as defaultRestoreScrollTop,
-	stepCardSelector,
-	yamlStepBlockSelector
-} from './composer-virtualizer.svelte.js';
+import { stepCardSelector, yamlStepBlockSelector } from './composer-virtualizer.svelte.js';
 import { framePairScrollTop, type FramePairRect } from './scroll-follow/frame-pair.js';
 
 /** Default lag between cards and YAML pair framing (helps peer sync). */
@@ -44,10 +40,13 @@ export type PairedShiftArgs = {
 	layout: PairedShiftLayout | null | undefined;
 	/** Domain mutate only — e.g. `() => builder.shiftStep(i, d)`. */
 	mutate: () => void;
+	/**
+	 * Pin both panes after mutate/FLIP — twin-pane wires DOM+TanStack via
+	 * `pinBothScrollports`. Paired-shift must not call virt-less restore.
+	 */
+	pinScrollports: (cardsTop: number, yamlTop: number) => void;
 	/** Inject for tests; defaults to Svelte `tick`. */
 	tick?: () => Promise<void>;
-	/** Inject for tests; defaults to composer-virtualizer `restoreScrollTop`. */
-	restoreScrollTop?: (el: HTMLElement | null | undefined, top: number) => void;
 	/**
 	 * Measure swapped-pair geometry in a pane. Return null to skip framing that pane.
 	 * Defaults to querySelector + getBoundingClientRect via card/yaml selectors.
@@ -149,8 +148,8 @@ export async function runPairedShift(args: PairedShiftArgs): Promise<void> {
 		syncBoth,
 		layout,
 		mutate,
+		pinScrollports,
 		tick = svelteTick,
-		restoreScrollTop = defaultRestoreScrollTop,
 		measurePair = defaultMeasurePair,
 		scrollTo = defaultScrollTo,
 		yamlFrameDelayMs = DEFAULT_YAML_FRAME_DELAY_MS,
@@ -172,8 +171,7 @@ export async function runPairedShift(args: PairedShiftArgs): Promise<void> {
 	};
 
 	const restoreScroll = () => {
-		restoreScrollTop(cardsScroller, cardsTop);
-		restoreScrollTop(yamlScroller, yamlTop);
+		pinScrollports(cardsTop, yamlTop);
 	};
 
 	if (!layout) {

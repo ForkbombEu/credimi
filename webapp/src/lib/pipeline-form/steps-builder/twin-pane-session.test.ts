@@ -159,6 +159,7 @@ describe('createTwinPaneSession', () => {
 				await args.ensureSwapMounted(args.fromIndex, args.toIndex);
 				args.mutate();
 				args.syncBoth();
+				args.pinScrollports(11, 22);
 			}
 		});
 		const session = createTwinPaneSession(options);
@@ -203,7 +204,9 @@ describe('createTwinPaneSession', () => {
 			'tick',
 			'mutate',
 			'sync:cards',
-			'sync:yaml'
+			'sync:yaml',
+			'restore',
+			'restore'
 		]);
 		session.dispose();
 	});

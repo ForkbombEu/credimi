@@ -11,6 +11,7 @@ import {
 	createComposerVirtualizer,
 	DEFAULT_STEP_ESTIMATE_SIZE,
 	DEFAULT_YAML_STEP_ESTIMATE_SIZE,
+	pinBothScrollports,
 	restoreScrollTop as defaultRestoreScrollTop,
 	stepCardSelector,
 	yamlStepBlockSelector,
@@ -202,9 +203,25 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			yamlVirtualizer.ensureStepVisible(fromIndex, mountOpts),
 			yamlVirtualizer.ensureStepVisible(toIndex, mountOpts)
 		]);
-		restoreScrollTop(cardsScroller, cardsTop, get(stepsVirtualizer.virtualizer));
-		restoreScrollTop(yamlScroller, yamlTop, get(yamlVirtualizer.virtualizer));
+		pinBothAt(cardsTop, yamlTop);
 		await tick();
+	}
+
+	/** DOM+TanStack pin for both panes — shared by mount-swap and paired-shift FLIP. */
+	function pinBothAt(cardsTop: number, yamlTop: number) {
+		pinBothScrollports(
+			{
+				scroller: cardsScroller,
+				top: cardsTop,
+				virtualizer: get(stepsVirtualizer.virtualizer)
+			},
+			{
+				scroller: yamlScroller,
+				top: yamlTop,
+				virtualizer: get(yamlVirtualizer.virtualizer)
+			},
+			restoreScrollTop
+		);
 	}
 
 	async function shiftStep(index: number, change: number) {
@@ -224,8 +241,8 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 				stepsVirtualizer.syncAfterReorder();
 				yamlVirtualizer.syncAfterReorder();
 			},
-			tick,
-			restoreScrollTop
+			pinScrollports: pinBothAt,
+			tick
 		});
 	}
 

@@ -12,6 +12,7 @@ import {
 	DEFAULT_OVERSCAN,
 	DEFAULT_STEP_ESTIMATE_SIZE,
 	DEFAULT_YAML_STEP_ESTIMATE_SIZE,
+	pinBothScrollports,
 	stableItemKey,
 	stepCardSelector,
 	waitForSelectorInScroller,
@@ -99,6 +100,40 @@ function createFakeVirtualizerStore(overrides?: {
 		measureElement
 	};
 }
+
+describe('pinBothScrollports', () => {
+	it('pins DOM scrollTop and TanStack scrollOffset on both panes', () => {
+		const cards = { scrollTop: 999 } as HTMLElement;
+		const yaml = { scrollTop: 888 } as HTMLElement;
+		const cardsVirt = { scrollOffset: 999 as number | null };
+		const yamlVirt = { scrollOffset: 888 as number | null };
+
+		pinBothScrollports(
+			{ scroller: cards, top: 40, virtualizer: cardsVirt },
+			{ scroller: yaml, top: 50, virtualizer: yamlVirt }
+		);
+
+		expect(cards.scrollTop).toBe(40);
+		expect(yaml.scrollTop).toBe(50);
+		expect(cardsVirt.scrollOffset).toBe(40);
+		expect(yamlVirt.scrollOffset).toBe(50);
+	});
+
+	it('forwards both panes through an injected restore', () => {
+		const calls: Array<{ top: number; hasVirt: boolean }> = [];
+		pinBothScrollports(
+			{ scroller: { scrollTop: 0 } as HTMLElement, top: 10, virtualizer: { scrollOffset: 0 } },
+			{ scroller: { scrollTop: 0 } as HTMLElement, top: 20, virtualizer: { scrollOffset: 0 } },
+			(_el, top, virtualizer) => {
+				calls.push({ top, hasVirt: virtualizer != null });
+			}
+		);
+		expect(calls).toEqual([
+			{ top: 10, hasVirt: true },
+			{ top: 20, hasVirt: true }
+		]);
+	});
+});
 
 describe('item selectors', () => {
 	it.each([

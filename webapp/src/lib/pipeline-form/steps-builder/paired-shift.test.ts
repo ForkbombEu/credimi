@@ -57,10 +57,12 @@ describe('runPairedShift', () => {
 				expect(insideRun).toBe(true);
 				order.push('tick');
 			},
-			restoreScrollTop: (el, top) => {
+			pinScrollports: (cardsTop, yamlTop) => {
 				expect(insideRun).toBe(true);
-				order.push(`restore:${top}`);
-				if (el) el.scrollTop = top;
+				order.push(`restore:${cardsTop}`);
+				order.push(`restore:${yamlTop}`);
+				cards.scrollTop = cardsTop;
+				yaml.scrollTop = yamlTop;
 			},
 			measurePair: (scroller, upper, lower) => {
 				const pane = scroller === cards ? 'cards' : 'yaml';
@@ -109,7 +111,7 @@ describe('runPairedShift', () => {
 			mutate: () => {},
 			syncBoth: () => {},
 			tick: async () => {},
-			restoreScrollTop: () => {},
+			pinScrollports: () => {},
 			measurePair: (_scroller, upper, lower) => {
 				measured.push(`${upper},${lower}`);
 				return null;
@@ -136,7 +138,7 @@ describe('runPairedShift', () => {
 			mutate: () => {},
 			syncBoth: () => {},
 			tick: async () => {},
-			restoreScrollTop: () => {},
+			pinScrollports: () => {},
 			measurePair: () => ({
 				scrollTop: 120,
 				clientHeight: 400,
@@ -177,7 +179,7 @@ describe('runPairedShift', () => {
 			mutate: () => {},
 			syncBoth: () => {},
 			tick: async () => {},
-			restoreScrollTop: () => {},
+			pinScrollports: () => {},
 			measurePair: () => clippedFittingPair,
 			scrollTo,
 			yamlFrameDelayMs: 0,
@@ -223,7 +225,7 @@ describe('runPairedShift', () => {
 			mutate: () => {},
 			syncBoth: () => {},
 			tick: async () => {},
-			restoreScrollTop: () => {},
+			pinScrollports: () => {},
 			measurePair: (scroller) => (scroller === cards ? cardsGapOnlyClip : yamlContentClipped),
 			scrollTo,
 			yamlFrameDelayMs: 0,
@@ -259,9 +261,11 @@ describe('runPairedShift', () => {
 			tick: async () => {
 				order.push('tick');
 			},
-			restoreScrollTop: (el, top) => {
-				order.push(`restore:${top}`);
-				if (el) el.scrollTop = top;
+			pinScrollports: (cardsTop, yamlTop) => {
+				order.push(`restore:${cardsTop}`);
+				order.push(`restore:${yamlTop}`);
+				cards.scrollTop = cardsTop;
+				yaml.scrollTop = yamlTop;
 			},
 			measurePair: () => null,
 			scrollTo: () => {},
@@ -288,7 +292,7 @@ describe('runPairedShift', () => {
 			mutate: () => order.push('mutate'),
 			syncBoth: () => order.push('sync'),
 			tick: async () => {},
-			restoreScrollTop: () => {},
+			pinScrollports: () => {},
 			measurePair: () => null,
 			scrollTo: () => {},
 			yamlFrameDelayMs: 0,
@@ -313,7 +317,7 @@ describe('runPairedShift', () => {
 			mutate: () => order.push('mutate'),
 			syncBoth: () => order.push('sync'),
 			tick: async () => order.push('tick'),
-			restoreScrollTop: () => order.push('restore'),
+			pinScrollports: () => order.push('pin'),
 			measurePair: (scroller) => {
 				order.push(scroller ? 'measure-yaml' : 'measure-missing');
 				return null;
@@ -331,8 +335,7 @@ describe('runPairedShift', () => {
 			'mutate',
 			'sync',
 			'tick',
-			'restore',
-			'restore',
+			'pin',
 			'delay:80',
 			'measure-yaml'
 		]);
