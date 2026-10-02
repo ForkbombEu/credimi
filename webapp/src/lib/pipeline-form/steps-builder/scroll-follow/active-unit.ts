@@ -230,6 +230,54 @@ export function resolveViewportUnit(
 }
 
 /**
+ * Pick the topmost unit that intersects the scroller viewport (nearest element top
+ * to the scroller top). Used for continuous cards→YAML peer follow under unequal
+ * heights — center hysteresis stays on `resolveViewportUnit` (YAML→cards).
+ *
+ * At absolute scroll top, reuses list-end start policy (`claim` / `intersect` +
+ * optional `lengths`) so virtualization does not pin the first *mounted* card.
+ */
+export function resolveTopmostVisibleUnit(
+	scrollContainer: HTMLElement,
+	pane: PaneAdapter,
+	lengths?: CardListLengths
+): ActiveUnit | null {
+	const items = [...scrollContainer.querySelectorAll<HTMLElement>(pane.listQuery)];
+	if (items.length === 0) return null;
+
+	const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+	if (maxScroll > 0 && scrollContainer.scrollTop <= 2) {
+		if (pane.topEdgePolicy === 'intersect') {
+			const start = lengths
+				? resolveListEndUnit(lengths, 'start')
+				: parseUnit(items[0]!, pane);
+			if (!start) return null;
+			const startEl = findUnit(scrollContainer, start, pane);
+			if (!startEl || !elementIntersectsScroller(startEl, scrollContainer)) return null;
+			return start;
+		}
+		return (
+			(lengths ? resolveListEndUnit(lengths, 'start') : null) ??
+			parseUnit(items[0]!, pane) ??
+			null
+		);
+	}
+
+	let best: { unit: ActiveUnit; top: number } | null = null;
+	for (const el of items) {
+		const unit = parseUnit(el, pane);
+		if (!unit) continue;
+		if (!elementIntersectsScroller(el, scrollContainer)) continue;
+		const top = el.getBoundingClientRect().top;
+		// Topmost intersecting = smallest document top (first from the viewport top).
+		if (!best || top < best.top) {
+			best = { unit, top };
+		}
+	}
+	return best?.unit ?? null;
+}
+
+/**
  * Scroll a pane unit into view. When the unit is not mounted and `ensureMounted` is
  * provided, awaits mount then retries. Without `ensureMounted`, missing units
  * still return false (today's non-virtual path).

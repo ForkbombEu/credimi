@@ -8,6 +8,7 @@ import { browserClock, type ComposerClock } from '../composer-clock.js';
 import {
 	CARD_PANE,
 	YAML_PANE,
+	resolveTopmostVisibleUnit,
 	resolveViewportUnit,
 	sameUnit,
 	scrollUnitIntoView,
@@ -160,7 +161,12 @@ export class PeerScrollFollow {
 			if (this.#scrollLeader === otherSide) return;
 			if (this.#scrollLeader !== side && this.#lastIntentSide !== side) return;
 			this.#claimScrollLeader(side);
-			const next = resolveViewportUnit(el, this.activeUnit, pane, getLengths?.());
+			// Cards→YAML continuous follow: topmost intersecting card (unequal heights).
+			// YAML→cards keeps center + hysteresis via resolveViewportUnit.
+			const next =
+				side === 'cards'
+					? resolveTopmostVisibleUnit(el, pane, getLengths?.())
+					: resolveViewportUnit(el, this.activeUnit, pane, getLengths?.());
 			if (!next) {
 				if (side === 'yaml') this.#setActiveUnit(null);
 				return;

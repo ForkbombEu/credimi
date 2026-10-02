@@ -20,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as steps from '$pipeline-form/steps';
 	import { String as EffectString } from 'effect';
 	import { tick } from 'svelte';
+	import { get } from 'svelte/store';
 	import { fly } from 'svelte/transition';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -45,6 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		createComposerVirtualizer,
 		DEFAULT_STEP_ESTIMATE_SIZE,
 		DEFAULT_YAML_STEP_ESTIMATE_SIZE,
+		restoreScrollTop,
 		stableItemKey,
 		stepCardSelector,
 		yamlStepBlockSelector
@@ -288,10 +290,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		unitHighlight.hoverCard(unit);
 	}
 
+	/**
+	 * Mount both swap indices on cards and YAML before FLIP. `ensureStepVisible` may
+	 * scrollToIndex — snapshot scrollTops first and restore immediately so a mid-list
+	 * pin is not abandoned before `runPairedReorder`.
+	 */
+	async function ensureSwapIndicesMounted(index: number, newIndex: number) {
+		const cardsTop = cardsScrollContainer?.scrollTop ?? 0;
+		const yamlTop = yamlScrollContainer?.scrollTop ?? 0;
+		const mountOpts = { behavior: 'auto' as const, align: 'start' as const };
+		await Promise.all([
+			stepsVirtualizer.ensureStepVisible(index, mountOpts),
+			stepsVirtualizer.ensureStepVisible(newIndex, mountOpts),
+			yamlVirtualizer.ensureStepVisible(index, mountOpts),
+			yamlVirtualizer.ensureStepVisible(newIndex, mountOpts)
+		]);
+		restoreScrollTop(cardsScrollContainer, cardsTop, get(stepsVirt));
+		restoreScrollTop(yamlScrollContainer, yamlTop, get(yamlVirtualizer.virtualizer));
+		await tick();
+	}
+
 	async function shiftStep(index: number, change: number) {
 		if (!builder.canShiftStep(index, change)) return;
 		const newIndex = index + change;
 		peerScroll.notePairedReorder();
+		await ensureSwapIndicesMounted(index, newIndex);
 		await runPairedReorder({
 			cardsScroller: cardsScrollContainer,
 			yamlScroller: yamlScrollContainer,

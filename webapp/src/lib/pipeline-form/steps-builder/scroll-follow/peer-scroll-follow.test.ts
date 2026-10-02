@@ -235,7 +235,48 @@ describe('PeerScrollFollow', () => {
 		scroller.dispatchEvent(new Event('pointerdown'));
 		scroller.dispatchEvent(new Event('scroll'));
 
-		expect(follow.activeUnit).toEqual({ section: 'steps', index: 1 });
+		// Topmost intersecting (index 0 at center 50) — not vertical center (index 1).
+		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
+		follow.dispose();
+	});
+
+	it('cards continuous follow tracks topmost intersecting card under long geometry', async () => {
+		const clock = createFakeClock();
+		const follow = createFollow(clock);
+		follow.setEnabled(true);
+
+		const cards = createElementStub();
+		stubScrollerGeometry(cards, { top: 0, bottom: 400, height: 400 });
+		cards.scrollTop = 100;
+		// Short top card + tall middle (owns center) + third below fold.
+		const geometries = [
+			{ index: 0, top: 10, bottom: 90 },
+			{ index: 1, top: 90, bottom: 500 },
+			{ index: 2, top: 500, bottom: 580 }
+		];
+		for (const g of geometries) {
+			const card = createElementStub({
+				'data-card-section': 'steps',
+				'data-card-index': String(g.index)
+			});
+			card.getBoundingClientRect = () =>
+				makeRect({ top: g.top, bottom: g.bottom, height: g.bottom - g.top });
+			cards.appendChild(card);
+		}
+
+		const yaml = createYamlScroller([800, 200, 360]);
+		follow.cardsAttach(cards as unknown as HTMLElement);
+		follow.yamlAttach(yaml as unknown as HTMLElement);
+
+		cards.dispatchEvent(new Event('pointerdown'));
+		cards.dispatchEvent(new Event('scroll'));
+
+		// Topmost card (0), not the tall center-owning card (1).
+		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
+		clock.flushRaf();
+		await vi.waitFor(() => {
+			expect(yaml.scrollTo).toHaveBeenCalled();
+		});
 		follow.dispose();
 	});
 
