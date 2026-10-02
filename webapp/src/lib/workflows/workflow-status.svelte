@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { m } from '@/i18n';
+
 	import type { WorkflowStatus } from './types';
 
 	type Props = {
@@ -27,20 +29,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		Unspecified: 'bg-slate-100'
 	};
 
-	/** English fallback labels; commit 2 wires Paraglide. */
-	const statusLabel: Record<WorkflowStatus, string> = {
-		Running: 'Running',
-		TimedOut: 'Timed Out',
-		Completed: 'Completed',
-		Failed: 'Failed',
-		ContinuedAsNew: 'Continued as New',
-		Canceled: 'Canceled',
-		Terminated: 'Terminated',
-		Unspecified: 'Unspecified'
-	};
-
 	const colorClass = $derived(statusClass[status] ?? statusClass.Unspecified);
-	const label = $derived(statusLabel[status] ?? status);
+	const label = $derived.by(() => {
+		switch (status) {
+			case 'Running':
+				return m.Running();
+			case 'TimedOut':
+				return m.Timed_Out();
+			case 'Completed':
+				return m.Completed();
+			case 'Failed':
+				return m.Failed();
+			case 'ContinuedAsNew':
+				return m.Continued_as_New();
+			case 'Canceled':
+				return m.Canceled();
+			case 'Terminated':
+				return m.Terminated();
+			case 'Unspecified':
+			default:
+				return m.Unspecified();
+		}
+	});
 </script>
 
 <span
