@@ -22,6 +22,10 @@ const (
 	runCompletionCheckInterval            = 45 * time.Second
 	runStartingReconcileInterval          = 20 * time.Second
 	terminalRunRetention                  = 2 * time.Minute
+	// Runs started before this change neither count repeated pauses nor
+	// honor the server's continue-as-new suggestion; replaying them with
+	// either would diverge from their recorded history.
+	mobileDeviceSemaphoreCountAllUpdatesChange = "mobile-device-semaphore-count-all-updates"
 )
 
 type MobileDeviceSemaphoreWorkflow struct {
@@ -78,7 +82,12 @@ func (w *MobileDeviceSemaphoreWorkflow) ExecuteWorkflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
-
+	runtime.countAllUpdates = workflow.GetVersion(
+		ctx,
+		mobileDeviceSemaphoreCountAllUpdatesChange,
+		workflow.DefaultVersion,
+		1,
+	) == 1
 	defer func() {
 		if runtime.shouldContinue || runtime.shutdownCompleted {
 			return
@@ -154,6 +163,7 @@ type mobileDeviceSemaphoreRuntime struct {
 	pauseGeneration      int
 	shutdownAfterSeconds int
 	updateCount          int
+	countAllUpdates      bool
 	shouldContinue       bool
 	continueInput        workflowengine.WorkflowInput
 	runStarterRequested  bool
@@ -595,6 +605,12 @@ func (r *mobileDeviceSemaphoreRuntime) handlePauseDevice(
 	}
 	if r.paused {
 		resp.ShutdownAfterSeconds = r.shutdownAfterSeconds
+		if r.countAllUpdates {
+			// A repeated pause changes nothing but is still a distinct update
+			// the server counts toward its per-run limit.
+			r.updateCount++
+			r.maybeScheduleContinue()
+		}
 		return resp, nil
 	}
 
@@ -811,11 +827,21 @@ func (r *mobileDeviceSemaphoreRuntime) handleListQueuedRunsQuery(
 }
 
 func (r *mobileDeviceSemaphoreRuntime) maybeScheduleContinue() {
-	if r.shutdownRequested || r.shouldContinue ||
-		r.updateCount < mobileDeviceSemaphoreMaxUpdateBatches {
+	if r.updateCount < mobileDeviceSemaphoreMaxUpdateBatches {
 		return
 	}
+	r.scheduleContinue()
+}
 
+func (r *mobileDeviceSemaphoreRuntime) scheduleContinue() {
+	if r.shutdownRequested || r.shouldContinue {
+		return
+	}
+	r.continueInput = r.buildContinueInput()
+	r.shouldContinue = true
+}
+
+func (r *mobileDeviceSemaphoreRuntime) buildContinueInput() workflowengine.WorkflowInput {
 	stateCopy := MobileDeviceSemaphoreWorkflowState{
 		Capacity:             r.capacity,
 		RunQueue:             copyQueue(r.runQueue),
@@ -828,32 +854,58 @@ func (r *mobileDeviceSemaphoreRuntime) maybeScheduleContinue() {
 		UpdateCount:          0,
 	}
 
-	r.continueInput = workflowengine.WorkflowInput{
+	return workflowengine.WorkflowInput{
 		Payload: MobileDeviceSemaphoreWorkflowInput{
 			DeviceID: r.deviceID,
 			Capacity: r.capacity,
 			State:    &stateCopy,
 		},
 	}
-	r.shouldContinue = true
+}
+
+// continueAsNewSuggested reports the server's own update and history
+// accounting, which also covers updates the handlers do not count.
+func (r *mobileDeviceSemaphoreRuntime) continueAsNewSuggested() bool {
+	return r.countAllUpdates && !r.shutdownRequested &&
+		workflow.GetInfo(r.ctx).GetContinueAsNewSuggested()
 }
 
 func (r *mobileDeviceSemaphoreRuntime) awaitContinue() error {
-	if err := workflow.Await(r.ctx, func() bool {
-		return r.shouldContinue || r.shutdownCompleted
-	}); err != nil {
-		return err
-	}
+	for {
+		if err := workflow.Await(r.ctx, func() bool {
+			return r.shouldContinue || r.shutdownCompleted || r.continueAsNewSuggested()
+		}); err != nil {
+			return err
+		}
+		if !r.shouldContinue && r.shutdownCompleted {
+			return nil
+		}
+		r.scheduleContinue()
+		if !r.countAllUpdates {
+			return workflow.NewContinueAsNewError(
+				r.ctx,
+				MobileDeviceSemaphoreWorkflowName,
+				r.continueInput,
+			)
+		}
 
-	if r.shouldContinue {
+		// Continue-as-new drops handlers still in flight, and the state they
+		// change belongs in the carried-over snapshot.
+		if err := workflow.Await(r.ctx, func() bool {
+			return workflow.AllHandlersFinished(r.ctx)
+		}); err != nil {
+			return err
+		}
+		if !r.shouldContinue {
+			// A shutdown canceled the continue while handlers drained.
+			continue
+		}
 		return workflow.NewContinueAsNewError(
 			r.ctx,
 			MobileDeviceSemaphoreWorkflowName,
-			r.continueInput,
+			r.buildContinueInput(),
 		)
 	}
-
-	return nil
 }
 
 func (r *mobileDeviceSemaphoreRuntime) processRunQueue(ctx workflow.Context) {

@@ -265,8 +265,11 @@ Semaphore:
 - Workflow ID: `mobile-device-semaphore/<device_id>`.
 - Types: `pkg/workflowengine/mobiledevicesemaphore/types.go`.
 - Implementation: `pkg/workflowengine/workflows/mobile_device_semaphore.go`.
-- Updates: `EnqueueRun`, `CancelRun`, `RunDone`.
+- Updates: `EnqueueRun`, `CancelRun`, `RunDone`, plus the device lifecycle updates `MobileDeviceSemaphore{Pause,Resume,Shutdown}DeviceUpdate`.
 - Queries: `GetRunStatus`, `GetState`.
+- Temporal caps accepted updates per workflow run (`history.maxTotalUpdates`, default 2000) and then rejects every update, so a stuck semaphore fails every lifecycle call (`failed_to_pause_device_semaphore` / `failed_to_resume_device_semaphore`). Two guards:
+    - The lifecycle heartbeat queries the semaphore state first and sends a pause or resume only when the device's online state disagrees with `Paused`. Heartbeats carry a fresh request ID every 30s, so each update they send is distinct.
+    - The workflow counts repeated pauses toward its continue-as-new budget, and also continues-as-new when the server suggests it. Before continuing it drains in-flight handlers (`AllHandlersFinished`) and snapshots state. This is gated by `workflow.GetVersion("mobile-device-semaphore-count-all-updates")`, so runs started before the change keep their old behavior until their next continue-as-new.
 
 Grant/start path:
 
