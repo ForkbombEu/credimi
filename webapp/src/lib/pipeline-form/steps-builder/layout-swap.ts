@@ -12,6 +12,7 @@ export const LAYOUT_SWAP_DURATION_MS = 300;
 export const LAYOUT_SWAP_EASE = 'out(3)';
 
 export const DEFAULT_CARD_LAYOUT_CHILDREN = '[data-card-section="steps"]';
+export const DEFAULT_YAML_LAYOUT_CHILDREN = '[data-yaml-section="steps"]';
 
 export type FlipInvert = {
 	el: HTMLElement;
@@ -42,6 +43,12 @@ export type CreateCardListLayoutOptions = {
 	ease?: string;
 	measureTops?: MeasureCardTops;
 	animate?: AnimateFlip;
+};
+
+export type MultiListLayoutEntry = {
+	root: HTMLElement;
+	/** Defaults to `options.children` then `DEFAULT_CARD_LAYOUT_CHILDREN`. */
+	children?: string;
 };
 
 const FLIP_EPSILON_PX = 0.5;
@@ -79,19 +86,45 @@ function clearFlipTransform(el: HTMLElement) {
 	el.style?.removeProperty('transform');
 }
 
+function mergeMeasuredTops(
+	entries: MultiListLayoutEntry[],
+	defaultChildren: string,
+	measure: MeasureCardTops
+): Map<HTMLElement, number> {
+	const merged = new Map<HTMLElement, number>();
+	for (const entry of entries) {
+		const selector = entry.children ?? defaultChildren;
+		for (const [el, top] of measure(entry.root, selector)) {
+			merged.set(el, top);
+		}
+	}
+	return merged;
+}
+
+function clearMeasuredTransforms(
+	entries: MultiListLayoutEntry[],
+	defaultChildren: string,
+	measure: MeasureCardTops
+) {
+	for (const entry of entries) {
+		const selector = entry.children ?? defaultChildren;
+		for (const el of measure(entry.root, selector).keys()) clearFlipTransform(el);
+	}
+}
+
 /**
- * Anime.js FLIP for a virtualized card list.
+ * Anime.js FLIP across one or more virtualized list roots (cards + YAML).
  *
- * `createLayout` rewrites `position`/`top` during the tween, which fights
- * TanStack's absolute `style:top`. This helper only animates `y` (translate).
+ * Measures all roots before mutate, mutates once, collects inverts from every
+ * root, then runs a single animate call. Never writes `top` / `position`.
  */
-export function createCardListLayout(
-	root: HTMLElement,
+export function createMultiListLayout(
+	entries: MultiListLayoutEntry[],
 	options?: CreateCardListLayoutOptions
 ): CardListLayout {
 	const duration = options?.durationMs ?? LAYOUT_SWAP_DURATION_MS;
 	const ease = options?.ease ?? LAYOUT_SWAP_EASE;
-	const children = options?.children ?? DEFAULT_CARD_LAYOUT_CHILDREN;
+	const defaultChildren = options?.children ?? DEFAULT_CARD_LAYOUT_CHILDREN;
 	const measure = options?.measureTops ?? measureOffsetTops;
 	const runAnimate = options?.animate ?? defaultAnimate;
 
@@ -114,13 +147,13 @@ export function createCardListLayout(
 			}
 			const gen = ++generation;
 			resetPlaying();
-			for (const el of measure(root, children).keys()) clearFlipTransform(el);
+			clearMeasuredTransforms(entries, defaultChildren, measure);
 
-			const first = measure(root, children);
+			const first = mergeMeasuredTops(entries, defaultChildren, measure);
 			await mutate();
 			if (disposed || gen !== generation) return;
 
-			const last = measure(root, children);
+			const last = mergeMeasuredTops(entries, defaultChildren, measure);
 			const inverts = flipInverts(first, last);
 			if (inverts.length === 0) return;
 
@@ -138,9 +171,20 @@ export function createCardListLayout(
 			disposed = true;
 			generation += 1;
 			resetPlaying();
-			for (const el of measure(root, children).keys()) clearFlipTransform(el);
+			clearMeasuredTransforms(entries, defaultChildren, measure);
 		}
 	};
+}
+
+/**
+ * Anime.js FLIP for a single virtualized card list.
+ * Thin wrapper over {@link createMultiListLayout}.
+ */
+export function createCardListLayout(
+	root: HTMLElement,
+	options?: CreateCardListLayoutOptions
+): CardListLayout {
+	return createMultiListLayout([{ root, children: options?.children }], options);
 }
 
 function defaultAnimate(

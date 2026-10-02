@@ -48,7 +48,10 @@ export type PeerScrollFollowOptions = {
 	createAnimatableScroll?: typeof createAnimatableScroll;
 };
 
-const YAML_REGEN_DEBOUNCE_MS = 130;
+/** Debounce before cards→YAML discrete follow after preview text regenerates. */
+export const YAML_REGEN_DEBOUNCE_MS = 130;
+/** Slack past debounce so paired-reorder regen does not schedule a competing follow. */
+const PAIRED_REORDER_SUPPRESS_MS = YAML_REGEN_DEBOUNCE_MS + 50;
 const LEADER_IDLE_MS = 900;
 
 function durationFor(kind: PeerScrollKind): number {
@@ -84,6 +87,8 @@ export class PeerScrollFollow {
 	#peerFollowRaf: number | null = null;
 	#pendingReveal: ActiveUnit | null = null;
 	#disposed = false;
+	/** Clock time of last paired card/YAML reorder — suppresses regen follow briefly. */
+	#pairedReorderAt = Number.NEGATIVE_INFINITY;
 
 	constructor(options?: PeerScrollFollowOptions) {
 		this.#clock = options?.clock ?? browserClock();
@@ -239,9 +244,22 @@ export class PeerScrollFollow {
 		this.#followPeerFromCards('discrete');
 	}
 
+	/**
+	 * Call before a paired reorder so YAML regen (`onYamlTextChanged`) does not
+	 * schedule a discrete follow that fights the scroll pin.
+	 */
+	notePairedReorder(): void {
+		if (this.#disposed) return;
+		this.#pairedReorderAt = this.#clock.now();
+	}
+
 	/** Debounced re-follow from cards; returns cancel cleanup. */
 	onYamlTextChanged(): () => void {
 		if (this.#disposed || !this.enabled) return () => {};
+		const now = this.#clock.now();
+		if (now - this.#pairedReorderAt < PAIRED_REORDER_SUPPRESS_MS) {
+			return () => {};
+		}
 		const timer = this.#clock.setTimeout(() => {
 			if (!this.activeUnit) return;
 			this.#followPeerFromCards('discrete');

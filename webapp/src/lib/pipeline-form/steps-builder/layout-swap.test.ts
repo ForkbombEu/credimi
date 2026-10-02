@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
 	createCardListLayout,
+	createMultiListLayout,
+	DEFAULT_YAML_LAYOUT_CHILDREN,
 	flipInverts,
 	LAYOUT_SWAP_DURATION_MS,
 	LAYOUT_SWAP_EASE
@@ -161,5 +163,64 @@ describe('createCardListLayout', () => {
 		await Promise.all([first, second]);
 
 		expect(animateFn).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('createMultiListLayout', () => {
+	it('measures both roots, mutates once, animates invert ys from both', async () => {
+		const cardA = el('card-a');
+		const cardB = el('card-b');
+		const yamlA = el('yaml-a');
+		const yamlB = el('yaml-b');
+		const cardsRoot = {} as HTMLElement;
+		const yamlRoot = {} as HTMLElement;
+		const animateFn = vi.fn(() => ({ cancel: vi.fn() }));
+
+		const measureTops = vi.fn((root: HTMLElement, _selector: string) => {
+			const call = measureTops.mock.calls.length;
+			// clear + first pass: calls 1–4; after mutate last pass: 5–6
+			const swapped = call > 4;
+			if (root === cardsRoot) {
+				return swapped
+					? new Map<HTMLElement, number>([
+							[cardA, 140],
+							[cardB, 0]
+						])
+					: new Map<HTMLElement, number>([
+							[cardA, 0],
+							[cardB, 140]
+						]);
+			}
+			return swapped
+				? new Map<HTMLElement, number>([
+						[yamlA, 200],
+						[yamlB, 0]
+					])
+				: new Map<HTMLElement, number>([
+						[yamlA, 0],
+						[yamlB, 200]
+					]);
+		});
+
+		const handle = createMultiListLayout(
+			[
+				{ root: cardsRoot },
+				{ root: yamlRoot, children: DEFAULT_YAML_LAYOUT_CHILDREN }
+			],
+			{ measureTops, animate: animateFn }
+		);
+
+		const mutate = vi.fn();
+		await handle.run(mutate);
+
+		expect(mutate).toHaveBeenCalledTimes(1);
+		expect(animateFn).toHaveBeenCalledWith(
+			[cardA, cardB, yamlA, yamlB],
+			expect.objectContaining({
+				y: [-140, 140, -200, 200],
+				duration: LAYOUT_SWAP_DURATION_MS,
+				ease: LAYOUT_SWAP_EASE
+			})
+		);
 	});
 });

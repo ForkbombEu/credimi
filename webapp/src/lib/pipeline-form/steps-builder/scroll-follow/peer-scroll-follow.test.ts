@@ -264,6 +264,38 @@ describe('PeerScrollFollow', () => {
 		follow.dispose();
 	});
 
+	it('skips yaml regen discrete follow after notePairedReorder; follows without note', async () => {
+		const clock = createFakeClock();
+		const follow = createFollow(clock);
+		follow.setEnabled(true);
+
+		const cards = createCardsScroller([100, 300]);
+		const yaml = createYamlScroller([100, 500]);
+		follow.cardsAttach(cards as unknown as HTMLElement);
+		follow.yamlAttach(yaml as unknown as HTMLElement);
+
+		follow.followUnit({ section: 'steps', index: 1 }, 'cards');
+		await vi.waitFor(() => {
+			expect(yaml.scrollTo).toHaveBeenCalled();
+		});
+		vi.mocked(yaml.scrollTo).mockClear();
+
+		follow.notePairedReorder();
+		const cancelSuppressed = follow.onYamlTextChanged();
+		clock.flushTimeouts(130);
+		expect(yaml.scrollTo).not.toHaveBeenCalled();
+		cancelSuppressed();
+
+		clock.flushTimeouts(100);
+		const cancelFollow = follow.onYamlTextChanged();
+		clock.flushTimeouts(130);
+		await vi.waitFor(() => {
+			expect(yaml.scrollTo).toHaveBeenCalled();
+		});
+		cancelFollow();
+		follow.dispose();
+	});
+
 	it('setEnabled(false) clears activeUnit', () => {
 		const clock = createFakeClock();
 		const follow = createFollow(clock);

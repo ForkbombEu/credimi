@@ -49,7 +49,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		stepCardSelector,
 		yamlStepBlockSelector
 	} from './composer-virtualizer.svelte.js';
-	import { createCardListLayout, type CardListLayout } from './layout-swap.js';
+	import {
+		createMultiListLayout,
+		DEFAULT_YAML_LAYOUT_CHILDREN,
+		type CardListLayout
+	} from './layout-swap.js';
 	import { runPairedReorder } from './paired-reorder.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 	import {
@@ -74,6 +78,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let cardsScrollContainer: HTMLElement | null = $state(null);
 	/** Virtual steps list root — animejs FLIP (translateY only) for reorder. */
 	let stepsLayoutRoot: HTMLElement | null = $state(null);
+	/** YAML virtual steps list root — paired FLIP with cards. */
+	let yamlStepsLayoutRoot: HTMLElement | null = $state(null);
 	let stepsCardLayout: CardListLayout | null = null;
 	/** YAML preview column scrollport — virtual step blocks + peer-scroll. */
 	let yamlScrollContainer: HTMLElement | null = $state(null);
@@ -186,9 +192,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 
 	$effect(() => {
-		const root = stepsLayoutRoot;
-		if (!root) return;
-		const created = createCardListLayout(root);
+		const cardsRoot = stepsLayoutRoot;
+		if (!cardsRoot) return;
+		const yamlRoot = yamlStepsLayoutRoot;
+		const created = createMultiListLayout([
+			{ root: cardsRoot },
+			...(yamlRoot ? [{ root: yamlRoot, children: DEFAULT_YAML_LAYOUT_CHILDREN }] : [])
+		]);
 		stepsCardLayout = created;
 		return () => {
 			created.dispose();
@@ -279,6 +289,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	async function shiftStep(index: number, change: number) {
+		peerScroll.notePairedReorder();
 		await runPairedReorder({
 			cardsScroller: cardsScrollContainer,
 			yamlScroller: yamlScrollContainer,
@@ -554,6 +565,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{yamlVirtualizer}
 				scrollMargin={yamlScrollMargin}
 				scrollContainer={yamlScrollContainer}
+				bind:stepsListEl={yamlStepsLayoutRoot}
 				isUnitSelected={(section, index) => unitHighlight.isCardSelected(section, index)}
 				isUnitHovered={(section, index) => unitHighlight.isCardHovered(section, index)}
 				onUnitClick={(unit) => onUnitClick(unit, 'yaml')}

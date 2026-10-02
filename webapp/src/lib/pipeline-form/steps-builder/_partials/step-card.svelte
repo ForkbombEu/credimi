@@ -87,14 +87,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				icon={ArrowUpIcon}
 				variant="ghost"
 				size="xs"
-				onclick={() => onShift(-1)}
+				onclick={(e) => {
+					e.stopPropagation();
+					onShift(-1);
+				}}
 				disabled={actionsDisabled || !builder.canShiftStep(index, -1)}
 			/>
 			<IconButton
 				icon={ArrowDownIcon}
 				variant="ghost"
 				size="xs"
-				onclick={() => onShift(1)}
+				onclick={(e) => {
+					e.stopPropagation();
+					onShift(1);
+				}}
 				disabled={actionsDisabled || !builder.canShiftStep(index, 1)}
 			/>
 		</div>
