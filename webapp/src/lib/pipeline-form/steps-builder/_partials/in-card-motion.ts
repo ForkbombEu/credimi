@@ -50,9 +50,28 @@ export type InCardEnterOptions = MotionOptions & {
 	display: HTMLElement;
 	/** Form host that fades in at the locked height, then drives the grow. */
 	form: HTMLElement;
-	/** Optional cap (px) for the grown height (card max-height). */
+	/**
+	 * Cap (px) for the grown *body* height (below the type header / color bar).
+	 * Pass `bodyMaxHeightWithinCard(...)` so this matches the card's max-height
+	 * minus chrome — otherwise the save footer clamps in and the card shrinks.
+	 */
 	maxHeightPx?: number;
 };
+
+/**
+ * How tall the form body may grow when the whole card is capped at `cardMaxHeightPx`.
+ * Chrome = color bar + type header (everything in the card above `display`/`lock`).
+ */
+export function bodyMaxHeightWithinCard(
+	card: HTMLElement,
+	display: HTMLElement,
+	cardMaxHeightPx: number
+): number {
+	const cardHeight = card.getBoundingClientRect().height;
+	const displayHeight = display.getBoundingClientRect().height;
+	const chromePx = Math.max(0, cardHeight - displayHeight);
+	return Math.max(0, cardMaxHeightPx - chromePx);
+}
 
 //
 

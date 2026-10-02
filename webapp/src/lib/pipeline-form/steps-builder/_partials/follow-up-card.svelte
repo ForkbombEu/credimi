@@ -69,10 +69,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div
 	class={[
 		'flex min-h-0 flex-col transition-opacity duration-200',
-		showFormBody && enterComplete && 'h-full',
 		faded && 'pointer-events-none opacity-40'
 	]}
-	style:max-height={showFormBody && enterComplete ? `${maxHeightPx}px` : undefined}
+	style:max-height={showFormBody ? `${maxHeightPx}px` : undefined}
 >
 	<StepCardDisplay
 		step={followUp.step}
@@ -83,7 +82,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{expandReady}
 		{maxHeightPx}
 		bind:enterComplete
-		class={showFormBody && enterComplete ? 'h-full' : undefined}
 	>
 		{#snippet topRight()}
 			{#if showFormBody}

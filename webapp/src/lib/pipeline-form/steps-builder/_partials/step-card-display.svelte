@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import { cancelMotion, playInCardEnter, type MotionHandle } from './in-card-motion.js';
+	import { cancelMotion, playInCardEnter, bodyMaxHeightWithinCard, type MotionHandle } from './in-card-motion.js';
 	import { getStepData, getStepError } from './index.js';
 
 	//
@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		 * Ignored when not showing the form body.
 		 */
 		expandReady?: boolean;
-		/** Cap for the grown form body height (px). */
+		/** Cap for the *whole card* while editing (px). Body grow subtracts header chrome. */
 		maxHeightPx?: number;
 		/** Becomes true after enter grow finishes; parent uses it for h-full / max-height. */
 		enterComplete?: boolean;
@@ -84,7 +84,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	/** Keep summary painted until enter crossfade finishes (or edit ends). */
 	let showDisplayLayer = $state(true);
+	/** Body cap (card max − chrome); kept on the lock so the save bar does not reflow. */
+	let bodyMaxPx = $state<number | undefined>(undefined);
 
+	let cardRoot: HTMLElement | null = $state(null);
 	let bodyLock: HTMLElement | null = $state(null);
 	let displayRoot: HTMLElement | null = $state(null);
 	let formHost: HTMLElement | null = $state(null);
@@ -101,6 +104,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			enterMotion = undefined;
 			showDisplayLayer = true;
 			enterComplete = false;
+			bodyMaxPx = undefined;
 			cancelMotion(bodyLock);
 			cancelMotion(displayRoot);
 			cancelMotion(formHost);
@@ -110,19 +114,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => {
 		if (!showFormBody || !expandReady) return;
 		if (untrack(() => enterComplete)) return;
+		const card = cardRoot;
 		const lock = bodyLock;
 		const display = displayRoot;
 		const form = formHost;
-		if (!lock || !display || !form) return;
+		if (!card || !lock || !display || !form) return;
 
 		const token = ++enterToken;
 		untrack(() => {
 			enterMotion?.cancel();
+			const bodyMax =
+				typeof maxHeightPx === 'number' && Number.isFinite(maxHeightPx)
+					? bodyMaxHeightWithinCard(card, display, maxHeightPx)
+					: undefined;
+			bodyMaxPx = bodyMax;
 			enterMotion = playInCardEnter({
 				lock,
 				display,
 				form,
-				maxHeightPx,
+				maxHeightPx: bodyMax,
 				onComplete: () => {
 					if (token !== enterToken) return;
 					showDisplayLayer = false;
@@ -142,6 +152,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div
+	bind:this={cardRoot}
 	class={[
 		'group flex min-h-0 flex-col overflow-hidden rounded-md border bg-card',
 		classes.border,
@@ -167,7 +178,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if showFormBody && formBody}
 			<div
 				bind:this={bodyLock}
-				class={['relative min-h-0', enterComplete ? 'flex grow flex-col' : '']}
+				class={['relative min-h-0', enterComplete ? 'flex min-h-0 grow flex-col' : '']}
+				style:max-height={bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
 				data-testid="in-card-body-lock"
 				data-enter-complete={enterComplete}
 			>
