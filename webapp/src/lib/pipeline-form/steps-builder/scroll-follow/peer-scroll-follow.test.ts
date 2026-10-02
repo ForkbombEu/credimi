@@ -337,7 +337,7 @@ describe('PeerScrollFollow', () => {
 		follow.dispose();
 	});
 
-	it('revealUnitNearest scrolls when the unit is above the viewport; no-ops when visible', async () => {
+	it('revealUnitNearest scrolls when the unit is fully above the viewport; no-ops when visible', async () => {
 		const follow = createFollow(createFakeClock());
 		// index 0 above the fold (after shift-up); index 1 fully visible
 		const cards = createCardsScroller([-40, 200]);
@@ -358,6 +358,41 @@ describe('PeerScrollFollow', () => {
 
 		const scrolledVisible = await follow.revealUnitNearest({ section: 'steps', index: 1 });
 		expect(scrolledVisible).toBe(false);
+		expect(cards.scrollTo).not.toHaveBeenCalled();
+		expect(yaml.scrollTo).not.toHaveBeenCalled();
+		follow.dispose();
+	});
+
+	it('revealUnitNearest no-ops when the moved card is only partially clipped below (mid-list down)', async () => {
+		// After two center downs + scroll pin, the moved card often sticks out the
+		// bottom. Nearest-reveal would scroll down and eject the swap target above
+		// the fold — only fully-outside units should reveal.
+		const follow = createFollow(createFakeClock());
+		const cards = createElementStub();
+		stubScrollerGeometry(cards, { top: 0, bottom: 400, height: 400 });
+		cards.scrollTop = 200;
+		const moved = createElementStub({
+			'data-card-section': 'steps',
+			'data-card-index': '4'
+		});
+		// Intersects viewport but bottom is clipped (top 320, bottom 480 in a 0–400 port)
+		moved.getBoundingClientRect = () => makeRect({ top: 320, bottom: 480, height: 160 });
+		cards.appendChild(moved);
+		const yaml = createElementStub();
+		stubScrollerGeometry(yaml, { top: 0, bottom: 400, height: 400 });
+		yaml.scrollTop = 200;
+		const yamlMoved = createElementStub({
+			'data-yaml-section': 'steps',
+			'data-yaml-index': '4'
+		});
+		yamlMoved.getBoundingClientRect = () => makeRect({ top: 320, bottom: 480, height: 160 });
+		yaml.appendChild(yamlMoved);
+
+		follow.cardsAttach(cards as unknown as HTMLElement);
+		follow.yamlAttach(yaml as unknown as HTMLElement);
+
+		const scrolled = await follow.revealUnitNearest({ section: 'steps', index: 4 });
+		expect(scrolled).toBe(false);
 		expect(cards.scrollTo).not.toHaveBeenCalled();
 		expect(yaml.scrollTo).not.toHaveBeenCalled();
 		follow.dispose();

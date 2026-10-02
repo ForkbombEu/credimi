@@ -51,6 +51,20 @@ describe('computeNearestScrollTop', () => {
 	it('scrolls down when below the viewport', () => {
 		expect(computeNearestScrollTop(0, 400, { top: 480, bottom: 560 }, scroller)).toBe(60);
 	});
+
+	it('mid-list double-down nearest reveal would eject the swap target above the fold', () => {
+		// Documents why revealUnitNearest uses onlyIfOutside: after two center
+		// downs with tall cards, nearest on the moved card scrolls enough that
+		// the upward swap partner sits above the viewport top.
+		const viewportH = 400;
+		const scrollTop = 340;
+		const port = { top: 100, bottom: 500 };
+		const moved = { top: 100 + (880 - scrollTop), bottom: 100 + (1100 - scrollTop) };
+		const next = computeNearestScrollTop(scrollTop, viewportH, moved, port);
+		expect(next).not.toBeNull();
+		const targetTopInPort = 100 + (660 - next!);
+		expect(targetTopInPort).toBeLessThan(port.top);
+	});
 });
 
 describe('computeAlignedScrollTop', () => {

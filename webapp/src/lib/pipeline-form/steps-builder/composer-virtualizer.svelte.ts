@@ -25,6 +25,12 @@ export const DEFAULT_ENSURE_VISIBLE_TIMEOUT_MS = 2000;
 
 export type EnsureStepVisibleOptions = ScrollToOptions & {
 	timeoutMs?: number;
+	/**
+	 * When true, skip `scrollToIndex` if the item is already in the scroller DOM.
+	 * Used by paired-swap mount: in-view units must not be align-scrolled (TanStack
+	 * `scheduleScrollReconcile` can overwrite a later `restoreScrollTop`).
+	 */
+	mountOnly?: boolean;
 };
 
 export type ComposerVirtualizerOptions = {
@@ -235,7 +241,17 @@ export function createComposerVirtualizer(
 		},
 		async ensureStepVisible(index, ensureOptions = {}) {
 			if (disposed) return false;
-			const { timeoutMs = ensureVisibleTimeoutMs, ...scrollOptions } = ensureOptions;
+			const {
+				timeoutMs = ensureVisibleTimeoutMs,
+				mountOnly = false,
+				...scrollOptions
+			} = ensureOptions;
+			const scrollElement = options.getScrollElement();
+			if (!scrollElement) return false;
+			const selector = itemSelector(index);
+			if (mountOnly && scrollElement.querySelector(selector)) {
+				return true;
+			}
 			// Default `auto`: estimated-size smooth scrollToIndex fights measureElement and
 			// any caller smooth realign. Pass `behavior: 'smooth'` only when this is the
 			// sole scroll (e.g. focus a newly created card).
@@ -243,9 +259,7 @@ export function createComposerVirtualizer(
 				align: scrollOptions.align ?? 'center',
 				behavior: scrollOptions.behavior ?? 'auto'
 			});
-			const scrollElement = options.getScrollElement();
-			if (!scrollElement) return false;
-			return waitForSelectorInScroller(scrollElement, itemSelector(index), timeoutMs, clock);
+			return waitForSelectorInScroller(scrollElement, selector, timeoutMs, clock);
 		},
 		dispose() {
 			if (disposed) return;

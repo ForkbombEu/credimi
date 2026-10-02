@@ -7,18 +7,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	animatableDrivenIdleMs,
 	ANIMATABLE_DRIVEN_IDLE_PAD_MS,
+	ANIMATABLE_SCROLL_SYNC_EPSILON,
 	createAnimatableScroll,
 	DISCRETE_SCROLL_DURATION_MS,
 	FOLLOW_SCROLL_DURATION_MS,
 	SCROLL_EASE
 } from './animatable-scroll.js';
 
+let animatableScrollTop = 42;
 const scrollTopFn = vi.fn();
 const revertFn = vi.fn();
 const createAnimatableMock = vi.fn(
 	(_target: unknown, params: { scrollTop: number; ease: string }) => {
 		scrollTopFn.mockImplementation((to?: number, duration?: number) => {
-			if (to === undefined) return 42;
+			if (to === undefined) return animatableScrollTop;
+			animatableScrollTop = to;
 			return { to, duration: duration ?? params.scrollTop };
 		});
 		return {
@@ -36,13 +39,14 @@ vi.mock('animejs', () => ({
 
 describe('animatable-scroll', () => {
 	beforeEach(() => {
+		animatableScrollTop = 42;
 		scrollTopFn.mockClear();
 		revertFn.mockClear();
 		createAnimatableMock.mockClear();
 	});
 
 	it('creates a persistent Animatable with follow defaults', () => {
-		const scroller = { scrollTop: 0 } as HTMLElement;
+		const scroller = { scrollTop: 42 } as HTMLElement;
 		const handle = createAnimatableScroll(scroller);
 
 		expect(createAnimatableMock).toHaveBeenCalledWith(
@@ -59,10 +63,49 @@ describe('animatable-scroll', () => {
 		handle.scrollTo(200, DISCRETE_SCROLL_DURATION_MS);
 		expect(scrollTopFn).toHaveBeenCalledWith(200, DISCRETE_SCROLL_DURATION_MS);
 
-		expect(handle.getScrollTop()).toBe(42);
+		expect(handle.getScrollTop()).toBe(200);
 
 		handle.dispose();
 		expect(revertFn).toHaveBeenCalled();
+	});
+
+	it('syncs from DOM before scrollTo when Animatable is desynced', () => {
+		animatableScrollTop = 800;
+		const scroller = { scrollTop: 200 } as HTMLElement;
+		const handle = createAnimatableScroll(scroller);
+
+		handle.scrollTo(500);
+
+		expect(scrollTopFn.mock.calls).toEqual([
+			[], // getScrollTop() probe
+			[200, 0], // syncFromDom
+			[500] // tween
+		]);
+		expect(Math.abs(200 - 800)).toBeGreaterThan(ANIMATABLE_SCROLL_SYNC_EPSILON);
+	});
+
+	it('does not sync when DOM and Animatable already match', () => {
+		animatableScrollTop = 200;
+		const scroller = { scrollTop: 200 } as HTMLElement;
+		const handle = createAnimatableScroll(scroller);
+
+		handle.scrollTo(500);
+
+		expect(scrollTopFn.mock.calls).toEqual([
+			[], // getScrollTop() probe
+			[500]
+		]);
+	});
+
+	it('syncFromDom instantly writes current DOM scrollTop', () => {
+		animatableScrollTop = 800;
+		const scroller = { scrollTop: 200 } as HTMLElement;
+		const handle = createAnimatableScroll(scroller);
+
+		handle.syncFromDom();
+
+		expect(scrollTopFn).toHaveBeenCalledWith(200, 0);
+		expect(handle.getScrollTop()).toBe(200);
 	});
 
 	it('pads driven idle timeout past the tween duration', () => {

@@ -302,7 +302,119 @@ describe('createComposerVirtualizer', () => {
 		disposers.push(() => list.dispose());
 
 		await expect(list.ensureStepVisible(0)).resolves.toBe(false);
-		expect(fake.scrollToIndex).toHaveBeenCalled();
+		expect(fake.scrollToIndex).not.toHaveBeenCalled();
+	});
+
+	it('mountOnly skips scrollToIndex when the item is already mounted', async () => {
+		const fake = createFakeVirtualizerStore();
+		const scroller = createElementStub();
+		scroller.appendChild(
+			createElementStub({ 'data-card-section': 'steps', 'data-card-index': '2' })
+		);
+
+		const list = createComposerVirtualizer({
+			getCount: () => 10,
+			getScrollElement: () => scroller as unknown as HTMLElement,
+			itemSelector: stepCardSelector,
+			estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+			createVirtualizer: (() => fake.store) as never
+		});
+		disposers.push(() => list.dispose());
+
+		await expect(list.ensureStepVisible(2, { mountOnly: true, align: 'start' })).resolves.toBe(
+			true
+		);
+		expect(fake.scrollToIndex).not.toHaveBeenCalled();
+	});
+
+	it('mountOnly still scrollToIndex when the item is not mounted', async () => {
+		const clock = createFakeClock();
+		const fake = createFakeVirtualizerStore();
+		const scroller = createElementStub();
+
+		const list = createComposerVirtualizer({
+			getCount: () => 10,
+			getScrollElement: () => scroller as unknown as HTMLElement,
+			itemSelector: stepCardSelector,
+			estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+			clock,
+			createVirtualizer: (() => fake.store) as never
+		});
+		disposers.push(() => list.dispose());
+
+		const pending = list.ensureStepVisible(2, {
+			mountOnly: true,
+			align: 'start',
+			behavior: 'auto'
+		});
+		expect(fake.scrollToIndex).toHaveBeenCalledWith(2, {
+			align: 'start',
+			behavior: 'auto'
+		});
+
+		clock.flushRaf();
+		scroller.appendChild(
+			createElementStub({ 'data-card-section': 'steps', 'data-card-index': '2' })
+		);
+		clock.flushRaf();
+
+		await expect(pending).resolves.toBe(true);
+	});
+
+	it('without mountOnly, already-mounted ensure still scrollToIndex (reconcile race source)', async () => {
+		/**
+		 * Smoke diagnosis: ensureSwap used to call ensureStepVisible(align:start) even when
+		 * both swap cards were already in the DOM. TanStack scrollToIndex schedules
+		 * reconcileScroll via rAF; restoreScrollTop then loses to that reconcile → jump
+		 * toward align-start (often scrollTop≈0 for index 0).
+		 */
+		let scrollTop = 200;
+		let deferredReconcile: (() => void) | null = null;
+		const scroller = createElementStub();
+		scroller.appendChild(
+			createElementStub({ 'data-card-section': 'steps', 'data-card-index': '0' })
+		);
+		Object.defineProperty(scroller, 'scrollTop', {
+			configurable: true,
+			get: () => scrollTop,
+			set: (v: number) => {
+				scrollTop = v;
+			}
+		});
+
+		const scrollToIndex = vi.fn((_index: number, _opts: unknown) => {
+			// Immediate write like TanStack _scrollToOffset, then deferred reconcileScroll.
+			scrollTop = 0;
+			deferredReconcile = () => {
+				scrollTop = 0;
+			};
+		});
+		const fake = createFakeVirtualizerStore({ scrollToIndex });
+
+		const list = createComposerVirtualizer({
+			getCount: () => 10,
+			getScrollElement: () => scroller as unknown as HTMLElement,
+			itemSelector: stepCardSelector,
+			estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+			createVirtualizer: (() => fake.store) as never
+		});
+		disposers.push(() => list.dispose());
+
+		await list.ensureStepVisible(0, { align: 'start', behavior: 'auto' });
+		expect(scrollToIndex).toHaveBeenCalledOnce();
+		// Caller restores mid-list pin…
+		scrollTop = 200;
+		// …then TanStack reconcileScroll rAF re-applies align-start target.
+		deferredReconcile?.();
+		expect(scrollTop).toBe(0);
+
+		scrollToIndex.mockClear();
+		deferredReconcile = null;
+		scrollTop = 200;
+		await list.ensureStepVisible(0, { mountOnly: true, align: 'start', behavior: 'auto' });
+		expect(scrollToIndex).not.toHaveBeenCalled();
+		deferredReconcile?.();
+		expect(scrollTop).toBe(200);
 	});
 
 	it('keeps WeakMap keys stable across reorder and maps missing items to fallback', () => {

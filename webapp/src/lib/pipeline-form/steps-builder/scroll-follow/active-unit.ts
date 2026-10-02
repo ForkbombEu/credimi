@@ -55,6 +55,13 @@ export type ScrollUnitIntoViewOptions = {
 	animatableScroll?: AnimatableScroll;
 	/** Per-call Animatable duration override (ms). */
 	durationMs?: number;
+	/**
+	 * When true, skip scrolling if `el` still intersects the scroller (partial
+	 * clip is OK). Used after paired reorder so mid-list downs that leave the
+	 * moved card peeking below the fold do not nearest-scroll and eject the
+	 * swap target above the top.
+	 */
+	onlyIfOutside?: boolean;
 };
 
 /**
@@ -167,7 +174,7 @@ export function resolveViewportUnit(
 					: parseUnit(items[0]!, pane);
 				if (!start) return null;
 				const startEl = findUnit(scrollContainer, start, pane);
-				if (!startEl || !elementIntersectsScroller(startEl, scrollContainer)) return null;
+				if (!startEl || !unitIntersectsScroller(startEl, scrollContainer)) return null;
 				return start;
 			}
 			return (
@@ -204,7 +211,7 @@ export function resolveViewportUnit(
 
 	if (
 		pane.topEdgePolicy === 'intersect' &&
-		!elementIntersectsScroller(best.el, scrollContainer)
+		!unitIntersectsScroller(best.el, scrollContainer)
 	) {
 		return null;
 	}
@@ -261,7 +268,7 @@ export function resolveTopmostVisibleUnit(
 				: parseUnit(items[0]!, pane);
 			if (!start) return null;
 			const startEl = findUnit(scrollContainer, start, pane);
-			if (!startEl || !elementIntersectsScroller(startEl, scrollContainer)) return null;
+			if (!startEl || !unitIntersectsScroller(startEl, scrollContainer)) return null;
 			return start;
 		}
 		return (
@@ -277,7 +284,7 @@ export function resolveTopmostVisibleUnit(
 	for (const el of items) {
 		const unit = parseUnit(el, pane);
 		if (!unit) continue;
-		if (!elementIntersectsScroller(el, scrollContainer)) continue;
+		if (!unitIntersectsScroller(el, scrollContainer)) continue;
 		const top = el.getBoundingClientRect().top;
 		if (!bestAny || top < bestAny.top) {
 			bestAny = { unit, top };
@@ -311,6 +318,9 @@ export async function scrollUnitIntoView(
 		el = findUnit(scrollContainer, unit, pane);
 	}
 	if (!el) return false;
+	if (options?.onlyIfOutside && unitIntersectsScroller(el, scrollContainer)) {
+		return false;
+	}
 	const align = options?.align ?? 'center';
 	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align, {
 		animatableScroll: options?.animatableScroll,
@@ -420,7 +430,8 @@ export function computeNearestScrollTop(
 	return scrollTop + (elRect.bottom - visibleBottom);
 }
 
-function elementIntersectsScroller(el: HTMLElement, scroller: HTMLElement): boolean {
+/** True when `el` overlaps the scroller's client rect (partial clip counts). */
+export function unitIntersectsScroller(el: HTMLElement, scroller: HTMLElement): boolean {
 	const elRect = el.getBoundingClientRect();
 	const port = scroller.getBoundingClientRect();
 	return elRect.bottom > port.top && elRect.top < port.bottom;

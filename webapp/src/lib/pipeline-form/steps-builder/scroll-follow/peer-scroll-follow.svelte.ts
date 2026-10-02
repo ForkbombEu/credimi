@@ -260,9 +260,10 @@ export class PeerScrollFollow {
 	}
 
 	/**
-	 * After paired reorder: if the moved unit left either viewport (e.g. shift-up
-	 * from the top of the visible list), scroll that pane with `nearest` only.
-	 * Mid-list swaps that stay fully visible no-op — preserves the scroll pin.
+	 * After paired reorder: if the moved unit left either viewport entirely
+	 * (e.g. shift-up from the top of the visible list), scroll that pane with
+	 * `nearest` only. Partial clip (mid-list down peeking below the fold) is
+	 * ignored so nearest-reveal cannot eject the swap target above the top.
 	 * Runs even when scroll-follow is off; does not use Animatable (avoids fighting FLIP).
 	 */
 	async revealUnitNearest(unit: ActiveUnit): Promise<boolean> {
@@ -272,6 +273,7 @@ export class PeerScrollFollow {
 			const did = await scrollUnitIntoView(this.#cardsEl, unit, 'auto', CARD_PANE, {
 				align: 'nearest',
 				focus: false,
+				onlyIfOutside: true,
 				ensureMounted: this.#ensureMounted
 			});
 			scrolled = did || scrolled;
@@ -280,6 +282,7 @@ export class PeerScrollFollow {
 			const did = await scrollUnitIntoView(this.#yamlEl, unit, 'auto', YAML_PANE, {
 				align: 'nearest',
 				focus: false,
+				onlyIfOutside: true,
 				ensureMounted: this.#ensureMountedYaml
 			});
 			scrolled = did || scrolled;
