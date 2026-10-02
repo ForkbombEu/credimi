@@ -332,7 +332,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="space-y-4 p-4">
 			{#if builder.steps.length > 0}
 				<div class="space-y-3">
-					{#each builder.steps as step, index (step)}
+					{#each builder.steps as step, index (builder.stepKeys[index])}
 						<div
 							animate:flip={{ duration: 300 }}
 							data-card-section="steps"
@@ -374,7 +374,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#if builder.followUps.length > 0}
 				<div class="space-y-3">
-					{#each builder.followUps as followUp, index (followUp)}
+					{#each builder.followUps as followUp, index (builder.followUpKeys[index])}
 						<div
 							animate:flip={{ duration: 300 }}
 							data-card-section="follow-ups"

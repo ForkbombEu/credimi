@@ -63,9 +63,20 @@ type BuilderMode =
 type State = {
 	steps: EnrichedStep[];
 	followUps: EnrichedFollowUp[];
+	/** Stable UI keys for `{#each}` — survive mutative applyEdit; move with reorder/delete. */
+	stepKeys: string[];
+	followUpKeys: string[];
 	mode: BuilderMode;
 	manualLocked: boolean;
 };
+
+function newCardKey(): string {
+	return crypto.randomUUID();
+}
+
+function cardKeysFor(count: number): string[] {
+	return Array.from({ length: count }, () => newCardKey());
+}
 
 type CreatedCardRef = {
 	section: 'steps' | 'follow-ups';
@@ -79,6 +90,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	private state = $state<State>({
 		steps: [],
 		followUps: [],
+		stepKeys: [],
+		followUpKeys: [],
 		mode: { id: 'idle' },
 		manualLocked: false
 	});
@@ -103,8 +116,12 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	private createdCardToken = 0;
 
 	constructor(private props: Props) {
-		this.state.steps = props.steps;
-		this.state.followUps = props.followUps ?? [];
+		const steps = props.steps;
+		const followUps = props.followUps ?? [];
+		this.state.steps = steps;
+		this.state.followUps = followUps;
+		this.state.stepKeys = cardKeysFor(steps.length);
+		this.state.followUpKeys = cardKeysFor(followUps.length);
 	}
 
 	/**
@@ -138,6 +155,16 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	get followUps() {
 		return this.state.followUps;
+	}
+
+	/** Parallel to `steps` — `{#each}` key that survives applyEdit remount. */
+	get stepKeys() {
+		return this.state.stepKeys;
+	}
+
+	/** Parallel to `followUps` — `{#each}` key that survives applyEdit remount. */
+	get followUpKeys() {
+		return this.state.followUpKeys;
 	}
 
 	executionTarget = $derived(resolveExecutionTarget(this.state.steps));
@@ -316,11 +343,13 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				step: [step, formData as GenericRecord],
 				condition: 'always'
 			});
+			state.followUpKeys.push(newCardKey());
 			this.markCreatedCard('follow-ups', state.followUps.length - 1);
 			return true;
 		}
 
 		state.steps.push([step, formData as GenericRecord]);
+		state.stepKeys.push(newCardKey());
 		this.markCreatedCard('steps', state.steps.length - 1);
 		return true;
 	}
@@ -385,6 +414,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	addDebugStep() {
 		this.stateManager.run((state) => {
 			state.steps.push([{ use: 'debug' }, {}]);
+			state.stepKeys.push(newCardKey());
 			this.markCreatedCard('steps', state.steps.length - 1);
 		});
 		this.#requestReveal(this.steps.length - 1);
@@ -394,6 +424,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
 			state.steps.splice(index, 1);
+			state.stepKeys.splice(index, 1);
 		});
 	}
 
@@ -401,6 +432,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
 			state.followUps.splice(index, 1);
+			state.followUpKeys.splice(index, 1);
 		});
 	}
 
@@ -415,6 +447,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				pipelineStep.id = '';
 			}
 			state.steps.splice(index + 1, 0, [pipelineStep, formData]);
+			state.stepKeys.splice(index + 1, 0, newCardKey());
 			insertedAt = index + 1;
 			this.markCreatedCard('steps', insertedAt);
 		});
@@ -493,7 +526,9 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			const indices = this.calculateShiftIndices(state, index, change);
 			if (!indices) return;
 			const [movedItem] = state.steps.splice(indices.index, 1);
+			const [movedKey] = state.stepKeys.splice(indices.index, 1);
 			state.steps.splice(indices.newIndex, 0, movedItem);
+			state.stepKeys.splice(indices.newIndex, 0, movedKey);
 		});
 	}
 
@@ -529,7 +564,12 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		const ctx = getBulkWalletVersionContext(this.state.steps);
 		if (!ctx) return;
 		this.stateManager.run((state) => {
-			state.steps = this.syncMobileStepVersions(state.steps, ctx.wallet.id, version);
+			const next = this.syncMobileStepVersions(state.steps, ctx.wallet.id, version);
+			// Length-preserving map: keep stepKeys by index so cards do not remount.
+			if (next.length !== state.stepKeys.length) {
+				state.stepKeys = cardKeysFor(next.length);
+			}
+			state.steps = next;
 			if (state.mode.id === 'form') {
 				state.mode.form.applyBulkWalletVersion?.(ctx.wallet.id, version);
 			}
