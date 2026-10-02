@@ -34,24 +34,6 @@ export default defineConfig(({ mode }) => {
 			allowedHosts: true
 		},
 
-		optimizeDeps: {
-			include: ['date-fns'],
-			exclude: [
-				'codemirror',
-				'@codemirror/language-javascript',
-				'@codemirror/autocomplete',
-				'@codemirror/commands',
-				'@codemirror/lang-json',
-				'@codemirror/lang-yaml',
-				'@codemirror/language',
-				'@codemirror/state',
-				'@codemirror/view',
-				'@codemirror/lint',
-				'@codemirror/search',
-				'thememirror'
-			]
-		},
-
 		test: {
 			expect: { requireAssertions: true },
 
