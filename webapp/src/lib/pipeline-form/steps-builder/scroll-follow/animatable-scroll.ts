@@ -21,7 +21,7 @@ export const ANIMATABLE_DRIVEN_IDLE_PAD_MS = 80;
 
 /**
  * If |DOM scrollTop − Animatable getter| exceeds this, `scrollTo` instant-resyncs
- * before tweening. External writers (restoreScrollTop, revealUnitNearest, native
+ * before tweening. External writers (restoreScrollTop, pair framing, native
  * scroll) leave Animatable's internal `_number` stale; animejs setters tween from
  * that value, not the DOM.
  */

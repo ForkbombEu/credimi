@@ -53,9 +53,10 @@ describe('computeNearestScrollTop', () => {
 	});
 
 	it('mid-list double-down nearest reveal would eject the swap target above the fold', () => {
-		// Documents why revealUnitNearest uses onlyIfOutside: after two center
-		// downs with tall cards, nearest on the moved card scrolls enough that
-		// the upward swap partner sits above the viewport top.
+		// Why single-unit nearest post-reorder was unsafe (ADR-0001 uses pair
+		// framing instead): after two center downs with tall cards, nearest on
+		// the moved card scrolls enough that the upward swap partner sits above
+		// the viewport top.
 		const viewportH = 400;
 		const scrollTop = 340;
 		const port = { top: 100, bottom: 500 };

@@ -37,7 +37,7 @@ describe('animatable-scroll desync (real animejs)', () => {
 		jsAnim.seek(jsAnim.duration);
 		expect(scroller.scrollTop).toBe(800);
 
-		// External write (restoreScrollTop / revealUnitNearest / native scroll)
+		// External write (restoreScrollTop / pair framing / native scroll)
 		scroller.scrollTop = 200;
 
 		handle.scrollTo(500, 100);
