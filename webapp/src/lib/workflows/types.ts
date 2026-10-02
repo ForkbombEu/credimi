@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import z from 'zod/v3';
-
 import type { WorkflowStatusType } from '$lib/temporal';
+
+import z from 'zod/v3';
 
 //
 
