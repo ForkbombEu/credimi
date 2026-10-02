@@ -23,6 +23,21 @@ export function resolveSelectedUnit(
 }
 
 /**
+ * After an adjacent steps swap (`fromIndex` ↔ `toIndex`), remap a unit so the
+ * wash stays on the same step identity rather than the vacated slot index.
+ */
+export function remapUnitAfterAdjacentSwap(
+	unit: ActiveUnit | null,
+	fromIndex: number,
+	toIndex: number
+): ActiveUnit | null {
+	if (!unit || unit.section !== 'steps') return unit;
+	if (unit.index === fromIndex) return { section: 'steps', index: toIndex };
+	if (unit.index === toIndex) return { section: 'steps', index: fromIndex };
+	return unit;
+}
+
+/**
  * Hover / pin / edit-selected washes for Pipeline Composer cards and YAML.
  * Does not own scroll leadership (see PeerScrollFollow).
  */
@@ -75,6 +90,16 @@ export class UnitHighlight {
 			this.pinnedUnit = unit;
 		}
 		return unit;
+	}
+
+	/**
+	 * Keep pin/hover on the moved steps after an adjacent reorder swap.
+	 * Follow-ups are untouched (shift only moves steps).
+	 */
+	remapStepsAfterAdjacentSwap(fromIndex: number, toIndex: number) {
+		if (this.#disposed) return;
+		this.pinnedUnit = remapUnitAfterAdjacentSwap(this.pinnedUnit, fromIndex, toIndex);
+		this.hoveredUnit = remapUnitAfterAdjacentSwap(this.hoveredUnit, fromIndex, toIndex);
 	}
 
 	isCardHovered(section: ActiveUnit['section'], index: number): boolean {

@@ -12,6 +12,8 @@ import {
 	DEFAULT_OVERSCAN,
 	DEFAULT_STEP_ESTIMATE_SIZE,
 	DEFAULT_YAML_STEP_ESTIMATE_SIZE,
+	pinBothScrollports,
+	stableItemKey,
 	stepCardSelector,
 	waitForSelectorInScroller,
 	yamlStepBlockSelector
@@ -98,6 +100,48 @@ function createFakeVirtualizerStore(overrides?: {
 		measureElement
 	};
 }
+
+describe('pinBothScrollports', () => {
+	it('pins DOM scrollTop and TanStack scrollOffset on both panes', () => {
+		const cards = { scrollTop: 999 } as HTMLElement;
+		const yaml = { scrollTop: 888 } as HTMLElement;
+		const cardsVirt = { scrollOffset: 999 as number | null };
+		const yamlVirt = { scrollOffset: 888 as number | null };
+
+		pinBothScrollports(
+			{ scroller: cards, top: 40, virtualizer: cardsVirt },
+			{ scroller: yaml, top: 50, virtualizer: yamlVirt }
+		);
+
+		expect(cards.scrollTop).toBe(40);
+		expect(yaml.scrollTop).toBe(50);
+		expect(cardsVirt.scrollOffset).toBe(40);
+		expect(yamlVirt.scrollOffset).toBe(50);
+	});
+
+	it('forwards both panes through an injected restore', () => {
+		const calls: Array<{ top: number; hasVirt: boolean }> = [];
+		pinBothScrollports(
+			{
+				scroller: { scrollTop: 0 } as HTMLElement,
+				top: 10,
+				virtualizer: { scrollOffset: 0 }
+			},
+			{
+				scroller: { scrollTop: 0 } as HTMLElement,
+				top: 20,
+				virtualizer: { scrollOffset: 0 }
+			},
+			(_el, top, virtualizer) => {
+				calls.push({ top, hasVirt: virtualizer != null });
+			}
+		);
+		expect(calls).toEqual([
+			{ top: 10, hasVirt: true },
+			{ top: 20, hasVirt: true }
+		]);
+	});
+});
 
 describe('item selectors', () => {
 	it.each([
@@ -301,6 +345,200 @@ describe('createComposerVirtualizer', () => {
 		disposers.push(() => list.dispose());
 
 		await expect(list.ensureStepVisible(0)).resolves.toBe(false);
-		expect(fake.scrollToIndex).toHaveBeenCalled();
+		expect(fake.scrollToIndex).not.toHaveBeenCalled();
+	});
+
+	it('mountOnly skips scrollToIndex when the item is already mounted', async () => {
+		const fake = createFakeVirtualizerStore();
+		const scroller = createElementStub();
+		scroller.appendChild(
+			createElementStub({ 'data-card-section': 'steps', 'data-card-index': '2' })
+		);
+
+		const list = createComposerVirtualizer({
+			getCount: () => 10,
+			getScrollElement: () => scroller as unknown as HTMLElement,
+			itemSelector: stepCardSelector,
+			estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+			createVirtualizer: (() => fake.store) as never
+		});
+		disposers.push(() => list.dispose());
+
+		await expect(list.ensureStepVisible(2, { mountOnly: true, align: 'start' })).resolves.toBe(
+			true
+		);
+		expect(fake.scrollToIndex).not.toHaveBeenCalled();
+	});
+
+	it('mountOnly still scrollToIndex when the item is not mounted', async () => {
+		const clock = createFakeClock();
+		const fake = createFakeVirtualizerStore();
+		const scroller = createElementStub();
+
+		const list = createComposerVirtualizer({
+			getCount: () => 10,
+			getScrollElement: () => scroller as unknown as HTMLElement,
+			itemSelector: stepCardSelector,
+			estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+			clock,
+			createVirtualizer: (() => fake.store) as never
+		});
+		disposers.push(() => list.dispose());
+
+		const pending = list.ensureStepVisible(2, {
+			mountOnly: true,
+			align: 'start',
+			behavior: 'auto'
+		});
+		expect(fake.scrollToIndex).toHaveBeenCalledWith(2, {
+			align: 'start',
+			behavior: 'auto'
+		});
+
+		clock.flushRaf();
+		scroller.appendChild(
+			createElementStub({ 'data-card-section': 'steps', 'data-card-index': '2' })
+		);
+		clock.flushRaf();
+
+		await expect(pending).resolves.toBe(true);
+	});
+
+	it('without mountOnly, already-mounted ensure still scrollToIndex (reconcile race source)', async () => {
+		/**
+		 * Smoke diagnosis: before twin-pane `mountSwapIndices` used mountOnly, swap mount
+		 * called ensureStepVisible(align:start) even when both swap cards were already in
+		 * the DOM. TanStack scrollToIndex schedules reconcileScroll via rAF; restoreScrollTop
+		 * then loses to that reconcile → jump toward align-start (often scrollTop≈0 for index 0).
+		 */
+		let scrollTop = 200;
+		let deferredReconcile: (() => void) | null = null;
+		const scroller = createElementStub();
+		scroller.appendChild(
+			createElementStub({ 'data-card-section': 'steps', 'data-card-index': '0' })
+		);
+		Object.defineProperty(scroller, 'scrollTop', {
+			configurable: true,
+			get: () => scrollTop,
+			set: (v: number) => {
+				scrollTop = v;
+			}
+		});
+
+		const scrollToIndex = vi.fn((_index: number, _opts: unknown) => {
+			// Immediate write like TanStack _scrollToOffset, then deferred reconcileScroll.
+			scrollTop = 0;
+			deferredReconcile = () => {
+				scrollTop = 0;
+			};
+		});
+		const fake = createFakeVirtualizerStore({ scrollToIndex });
+
+		const list = createComposerVirtualizer({
+			getCount: () => 10,
+			getScrollElement: () => scroller as unknown as HTMLElement,
+			itemSelector: stepCardSelector,
+			estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+			createVirtualizer: (() => fake.store) as never
+		});
+		disposers.push(() => list.dispose());
+
+		await list.ensureStepVisible(0, { align: 'start', behavior: 'auto' });
+		expect(scrollToIndex).toHaveBeenCalledOnce();
+		// Caller restores mid-list pin…
+		scrollTop = 200;
+		// …then TanStack reconcileScroll rAF re-applies align-start target.
+		deferredReconcile?.();
+		expect(scrollTop).toBe(0);
+
+		scrollToIndex.mockClear();
+		deferredReconcile = null;
+		scrollTop = 200;
+		await list.ensureStepVisible(0, { mountOnly: true, align: 'start', behavior: 'auto' });
+		expect(scrollToIndex).not.toHaveBeenCalled();
+		deferredReconcile?.();
+		expect(scrollTop).toBe(200);
+	});
+
+	it('keeps WeakMap keys stable across reorder and maps missing items to fallback', () => {
+		const a = { id: 'a' };
+		const b = { id: 'b' };
+		const ka = stableItemKey(a, 0);
+		const kb = stableItemKey(b, 1);
+		expect(ka).not.toBe(kb);
+		expect(stableItemKey(a, 99)).toBe(ka);
+		expect(stableItemKey(undefined, 7)).toBe(7);
+	});
+
+	it('passes getItemKey through and remaps it only on syncAfterReorder', () => {
+		const keys = ['a', 'b'];
+		const fake = createFakeVirtualizerStore();
+		const list = createComposerVirtualizer({
+			getCount: () => keys.length,
+			getScrollElement: () => null,
+			itemSelector: stepCardSelector,
+			estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+			getItemKey: (index) => keys[index] ?? index,
+			createVirtualizer: (() => fake.store) as never
+		});
+		disposers.push(() => list.dispose());
+
+		const first = fake.setOptions.mock.calls.at(-1)?.[0] as {
+			getItemKey?: (index: number) => string | number;
+		};
+		expect(first.getItemKey?.(0)).toBe('a');
+		expect(first.getItemKey?.(1)).toBe('b');
+
+		keys.reverse();
+		list.syncAfterReorder();
+
+		const after = fake.setOptions.mock.calls.at(-1)?.[0] as {
+			getItemKey?: (index: number) => string | number;
+		};
+		expect(after.getItemKey).not.toBe(first.getItemKey);
+		expect(after.getItemKey?.(0)).toBe('b');
+		expect(after.getItemKey?.(1)).toBe('a');
+	});
+
+	it('restores scrollTop after syncAfterReorder rememo', () => {
+		const scroller = { _top: 480 } as HTMLElement & { _top: number };
+		Object.defineProperty(scroller, 'scrollTop', {
+			configurable: true,
+			get() {
+				return scroller._top;
+			},
+			set(v: number) {
+				scroller._top = v;
+			}
+		});
+
+		const instance = {
+			scrollToIndex: vi.fn(),
+			setOptions: vi.fn(() => {
+				scroller._top = 0;
+			}),
+			measureElement: vi.fn(),
+			getVirtualItems: () => [],
+			getTotalSize: () => 0,
+			scrollOffset: 480 as number | null
+		};
+		const store = readable(instance as unknown as SvelteVirtualizer<HTMLElement, Element>);
+
+		const list = createComposerVirtualizer({
+			getCount: () => 2,
+			getScrollElement: () => scroller,
+			itemSelector: stepCardSelector,
+			estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+			getItemKey: (index) => index,
+			createVirtualizer: (() => store) as never
+		});
+		disposers.push(() => list.dispose());
+
+		scroller._top = 480;
+		instance.scrollOffset = 480;
+		list.syncAfterReorder();
+
+		expect(scroller._top).toBe(480);
+		expect(instance.scrollOffset).toBe(480);
 	});
 });

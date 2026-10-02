@@ -147,20 +147,16 @@ describe('createPipelineYaml step key order', () => {
 	});
 
 	it('orders runtime keys as scalars, then arrays, then objects by ascending key count', () => {
-		const yaml = createPipelineYaml(
-			'ordered',
-			[],
-			{
-				temporal: {
-					activity_options: {
-						retry_policy: { maximum_attempts: 3 },
-						start_to_close_timeout: '20m'
-					}
-				},
-				disable_android_play_store: false,
-				global_timeout: 60
-			} as never
-		);
+		const yaml = createPipelineYaml('ordered', [], {
+			temporal: {
+				activity_options: {
+					retry_policy: { maximum_attempts: 3 },
+					start_to_close_timeout: '20m'
+				}
+			},
+			disable_android_play_store: false,
+			global_timeout: 60
+		} as never);
 
 		expect(yaml).toContain(`runtime:
   disable_android_play_store: false

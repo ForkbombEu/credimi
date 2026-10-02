@@ -13,15 +13,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { ComposerVirtualizer } from '../composer-virtualizer.svelte.js';
 	import type { ActiveUnit } from '../scroll-follow/active-unit.js';
-	import { exactSuffixGapAndChrome, type YamlPreviewParts } from '../yaml-preview/index.js';
 
+	import { exactSuffixGapAndChrome, type YamlPreviewParts } from '../yaml-preview/index.js';
 	import YamlShikiBlock from './yaml-shiki-block.svelte';
 
 	type Props = {
 		/** Full document — SoT for copy; fragments come from `parts`. */
 		yaml: string;
 		parts: YamlPreviewParts;
-		yamlVirtualizer: ComposerVirtualizer;
+		/** TanStack Readable — `$yamlVirt` for virtual items / totalSize. */
+		yamlVirt: ComposerVirtualizer['virtualizer'];
+		/** Session-owned measure — no ComposerVirtualizer reach-in. */
+		measureYamlStep: Attachment;
 		scrollMargin: number;
 		/** YAML column scroller — used to measure scrollMargin for the virtual step list. */
 		scrollContainer?: HTMLElement | null;
@@ -32,12 +35,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/** Reports offset of the virtual step list within the YAML scroller. */
 		onHeaderHeightChange?: (height: number) => void;
 		endPadPx?: number;
+		/** Virtual steps list root — parent binds for multi-list FLIP reorder. */
+		stepsListEl?: HTMLElement | null;
 	};
 
 	let {
 		yaml,
 		parts,
-		yamlVirtualizer,
+		yamlVirt,
+		measureYamlStep,
 		scrollMargin,
 		scrollContainer = null,
 		isUnitSelected,
@@ -45,23 +51,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onUnitClick,
 		onUnitHover,
 		onHeaderHeightChange,
-		endPadPx = 0
+		endPadPx = 0,
+		stepsListEl = $bindable<HTMLElement | null>(null)
 	}: Props = $props();
-
-	/** Store auto-subscribe target — `$yamlVirt` in markup. */
-	const yamlVirt = yamlVirtualizer.virtualizer;
 
 	let isCopied = $state(false);
 	/** Wraps everything above the virtual step list (padding + header). */
 	let beforeStepsEl: HTMLElement | null = $state(null);
-	let virtualListEl: HTMLElement | null = $state(null);
-
-	const measureStepBlock: Attachment = (node) => {
-		yamlVirtualizer.measureElement(node);
-	};
 
 	$effect(() => {
-		const list = virtualListEl;
+		const list = stepsListEl;
 		const scroller = scrollContainer;
 		const before = beforeStepsEl;
 		if (!list || !scroller || !onHeaderHeightChange) return;
@@ -92,7 +91,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			console.error('Failed to copy text: ', err);
 		}
 	}
-
 </script>
 
 <!--
@@ -132,17 +130,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<!-- Virtual per-step Shiki blocks (index-aligned with cards) -->
 		{#if parts.steps.length > 0}
 			<div
-				bind:this={virtualListEl}
+				bind:this={stepsListEl}
 				class="relative w-full bg-[#303446]"
 				style:height="{$yamlVirt.getTotalSize()}px"
 			>
-				{#each $yamlVirt.getVirtualItems() as vItem (parts.steps[vItem.index]?.text ?? vItem.key)}
+				{#each $yamlVirt.getVirtualItems() as vItem (vItem.key)}
 					{@const block = parts.steps[vItem.index]}
 					{@const index = vItem.index}
 					{@const { gapLines } = exactSuffixGapAndChrome(parts.betweenSteps[index] ?? '')}
 					{#if block}
 						<div
-							{@attach measureStepBlock}
+							{@attach measureYamlStep}
 							data-index={index}
 							data-yaml-section="steps"
 							data-yaml-index={index}

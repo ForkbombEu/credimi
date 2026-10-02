@@ -19,11 +19,24 @@ export const SCROLL_EASE = 'out(3)';
 /** Extra ms past the tween duration before driven-scroll idle fallback clears. */
 export const ANIMATABLE_DRIVEN_IDLE_PAD_MS = 80;
 
+/**
+ * If |DOM scrollTop − Animatable getter| exceeds this, `scrollTo` instant-resyncs
+ * before tweening. External writers (restoreScrollTop, pair framing, native
+ * scroll) leave Animatable's internal `_number` stale; animejs setters tween from
+ * that value, not the DOM.
+ */
+export const ANIMATABLE_SCROLL_SYNC_EPSILON = 0.5;
+
 export type AnimatableScroll = {
 	/** Retarget scrollTop; optional per-call duration override (ms). */
 	scrollTo(top: number, durationMs?: number): void;
 	/** Current scrollTop from the Animatable getter. */
 	getScrollTop(): number;
+	/**
+	 * Instantly align Animatable's internal scrollTop with the DOM.
+	 * Prefer letting `scrollTo` auto-sync; expose for explicit callers/tests.
+	 */
+	syncFromDom(): void;
 	/** Tear down the persistent Animatable (attach cleanup / dispose). */
 	dispose(): void;
 	readonly animatable: AnimatableObject;
@@ -53,19 +66,29 @@ export function createAnimatableScroll(
 		onComplete: options?.onComplete
 	});
 
+	function getScrollTop(): number {
+		const value = animatable.scrollTop();
+		return typeof value === 'number' ? value : Number(value);
+	}
+
+	function syncFromDom(): void {
+		animatable.scrollTop(scroller.scrollTop, 0);
+	}
+
 	return {
 		animatable,
+		syncFromDom,
 		scrollTo(top, overrideDuration) {
+			if (Math.abs(scroller.scrollTop - getScrollTop()) > ANIMATABLE_SCROLL_SYNC_EPSILON) {
+				syncFromDom();
+			}
 			if (overrideDuration != null) {
 				animatable.scrollTop(top, overrideDuration);
 			} else {
 				animatable.scrollTop(top);
 			}
 		},
-		getScrollTop() {
-			const value = animatable.scrollTop();
-			return typeof value === 'number' ? value : Number(value);
-		},
+		getScrollTop,
 		dispose() {
 			animatable.revert();
 		}
