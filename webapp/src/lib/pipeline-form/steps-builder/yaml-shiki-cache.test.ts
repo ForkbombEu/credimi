@@ -69,6 +69,7 @@ describe('yaml-shiki-cache', () => {
 		);
 		expect(String(node.properties.style)).not.toMatch(/background-color/i);
 		expect(String(node.properties.class)).toContain('bg-transparent');
+		expect(String(node.properties.class)).toContain('scrollbar-on-dark');
 	});
 
 	it('re-highlights when content changes', async () => {
