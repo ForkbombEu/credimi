@@ -92,6 +92,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			console.error('Failed to copy text: ', err);
 		}
 	}
+
+	/** `betweenSteps` stores an exact newline suffix (`'\n'` per blank line). */
+	function gapLineCount(trailing: string): number {
+		if (!trailing) return 0;
+		return Math.max(0, trailing.split('\n').length - 1);
+	}
 </script>
 
 <!--
@@ -138,6 +144,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#each $yamlVirt.getVirtualItems() as vItem (parts.steps[vItem.index]?.text ?? vItem.key)}
 					{@const block = parts.steps[vItem.index]}
 					{@const index = vItem.index}
+					{@const gapLines = gapLineCount(parts.betweenSteps[index] ?? '')}
 					{#if block}
 						<div
 							{@attach measureStepBlock}
@@ -158,6 +165,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								hovered={isUnitHovered('steps', index)}
 								onclick={() => onUnitClick({ section: 'steps', index })}
 							/>
+							{#if gapLines > 0}
+								<!-- Inter-step blank lines stay in the virtual row for YAML gap /
+								     measure height, but outside the selected/hovered ring. -->
+								<div
+									class="pointer-events-none w-full"
+									style:height="{gapLines * 1.25}em"
+									aria-hidden="true"
+								></div>
+							{/if}
 						</div>
 					{/if}
 				{/each}

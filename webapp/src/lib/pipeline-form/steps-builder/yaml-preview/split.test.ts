@@ -44,6 +44,7 @@ describe('splitPipelineYamlPreview', () => {
 		expect(splitPipelineYamlPreview('')).toEqual({
 			header: '',
 			steps: [],
+			betweenSteps: [],
 			followUpsPreamble: '',
 			followUps: [],
 			betweenFollowUps: []
@@ -55,6 +56,7 @@ describe('splitPipelineYamlPreview', () => {
 		expect(splitPipelineYamlPreview(yaml)).toEqual({
 			header: yaml,
 			steps: [],
+			betweenSteps: [],
 			followUpsPreamble: '',
 			followUps: [],
 			betweenFollowUps: []
@@ -74,6 +76,9 @@ describe('splitPipelineYamlPreview', () => {
 		expect(parts.steps[0]?.text).toContain('email-0001');
 		expect(parts.steps[1]?.index).toBe(1);
 		expect(parts.steps[1]?.text).toContain('http-0002');
+		expect(parts.betweenSteps).toHaveLength(2);
+		expect(parts.betweenSteps[0]).toBe('\n');
+		expect(parts.betweenSteps[1]).toBe('');
 
 		expect(parts.followUpsPreamble).toContain('finally:');
 		expect(parts.followUpsPreamble).toContain('always:');
@@ -104,7 +109,7 @@ describe('splitPipelineYamlPreview', () => {
 		expect(parts.steps[1]?.text).toContain('email-0001');
 	});
 
-	it('keeps the blank line between continue_on_error-first steps in the prior fragment', () => {
+	it('peels the blank line between continue_on_error-first steps into betweenSteps', () => {
 		const yaml = `name: x
 
 steps:
@@ -118,9 +123,11 @@ steps:
 `;
 		const parts = splitPipelineYamlPreview(yaml);
 		expect(parts.steps).toHaveLength(2);
-		// Inter-step blank stays on the previous fragment so virtual rows keep a true YAML gap.
-		expect(parts.steps[0]?.text.endsWith('\n')).toBe(true);
-		expect(parts.steps[0]?.text).toMatch(/use: http-request\n$/);
+		// Body excludes the gap so selection rings do not wrap a trailing empty line;
+		// betweenSteps keeps the exact suffix for the virtual-row YAML gap / rejoin.
+		expect(parts.steps[0]?.text).toMatch(/use: http-request$/);
+		expect(parts.steps[0]?.text.endsWith('\n')).toBe(false);
+		expect(parts.betweenSteps[0]).toBe('\n');
 		expect(parts.steps[1]?.text.startsWith('  - continue_on_error:')).toBe(true);
 		expect(joinPipelineYamlPreview(parts).replace(/\n$/, '')).toBe(yaml.replace(/\n$/, ''));
 	});

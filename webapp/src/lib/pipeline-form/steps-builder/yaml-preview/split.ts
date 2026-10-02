@@ -24,6 +24,13 @@ export type YamlPreviewParts = {
 	/** One YAML snippet per top-level step (index-aligned with cards). */
 	steps: YamlPreviewStepBlock[];
 	/**
+	 * Trailing blank lines after each step body (exact suffix, e.g. `'\n'`).
+	 * Kept outside the interactive/selected block so the orange ring does not
+	 * include the inter-step YAML gap. `betweenSteps[i]` sits after `steps[i]`.
+	 * Length is `steps.length` (trailing may be '').
+	 */
+	betweenSteps: string[];
+	/**
 	 * Text between the last step and the first follow-up item (typically `finally:` /
 	 * condition headers). Empty when there is no `finally` section.
 	 */
@@ -40,6 +47,7 @@ export type YamlPreviewParts = {
 const EMPTY: YamlPreviewParts = {
 	header: '',
 	steps: [],
+	betweenSteps: [],
 	followUpsPreamble: '',
 	followUps: [],
 	betweenFollowUps: []
@@ -51,6 +59,23 @@ const FINALLY_CONDITION = /^ {2}[A-Za-z_][\w-]*:\s*$/;
 function sliceExclusive(lines: string[], start: number, endExclusive: number): string {
 	if (start >= endExclusive || start < 0) return '';
 	return lines.slice(start, endExclusive).join('\n');
+}
+
+/**
+ * Pull trailing blank lines off a step body so they can sit in `betweenSteps`
+ * (outside the selected Shiki block). Returns the exact original suffix so rejoin
+ * stays lossless when concatenated onto `body` before chunk-joining.
+ */
+function peelTrailingBlankLines(text: string): { body: string; trailing: string } {
+	if (!text) return { body: '', trailing: '' };
+	const lines = text.split('\n');
+	let end = lines.length - 1;
+	while (end >= 0 && lines[end]!.trim() === '') {
+		end -= 1;
+	}
+	if (end === lines.length - 1) return { body: text, trailing: '' };
+	const body = lines.slice(0, end + 1).join('\n');
+	return { body, trailing: text.slice(body.length) };
 }
 
 /**
@@ -75,8 +100,13 @@ function peelTrailingFinallyChrome(text: string): { body: string; trailing: stri
 export function joinPipelineYamlPreview(parts: YamlPreviewParts): string {
 	const chunks: string[] = [];
 	if (parts.header) chunks.push(parts.header);
-	for (const step of parts.steps) {
-		if (step.text) chunks.push(step.text);
+	for (let i = 0; i < parts.steps.length; i++) {
+		const step = parts.steps[i]!;
+		const between = parts.betweenSteps[i] ?? '';
+		// `between` is an exact suffix (often `'\n'`); keep it on the same chunk so
+		// the later `join('\n')` does not insert an extra separator.
+		const piece = step.text + between;
+		if (piece) chunks.push(piece);
 	}
 	if (parts.followUpsPreamble) chunks.push(parts.followUpsPreamble);
 	for (let i = 0; i < parts.followUps.length; i++) {
@@ -114,20 +144,25 @@ export function splitPipelineYamlPreview(yaml: string): YamlPreviewParts {
 	const lastStep = stepRanges[stepRanges.length - 1];
 	const afterSteps = lastStep ? lastStep.endLine + 1 : firstStep ? firstStep.startLine : 0;
 
-	// Each step slice runs until the next step starts (includes inter-step blank
-	// lines so virtual rows keep a true YAML gap; rejoin stays lossless).
-	const steps: YamlPreviewStepBlock[] = stepRanges.map((r, i) => {
+	// Each step slice runs until the next step starts. Trailing blank lines are
+	// peeled into `betweenSteps` so selection/hover rings wrap only the step body
+	// while the virtual row still keeps the true YAML gap.
+	const steps: YamlPreviewStepBlock[] = [];
+	const betweenSteps: string[] = [];
+	for (let i = 0; i < stepRanges.length; i++) {
+		const r = stepRanges[i]!;
 		const endExclusive = stepRanges[i + 1]?.startLine ?? afterSteps;
-		return {
-			index: r.index,
-			text: sliceExclusive(lines, r.startLine, endExclusive)
-		};
-	});
+		const raw = sliceExclusive(lines, r.startLine, endExclusive);
+		const { body, trailing } = peelTrailingBlankLines(raw);
+		steps.push({ index: r.index, text: body });
+		betweenSteps.push(trailing);
+	}
 
 	if (followUpRanges.length === 0) {
 		return {
 			header,
 			steps,
+			betweenSteps,
 			followUpsPreamble: sliceExclusive(lines, afterSteps, lines.length),
 			followUps: [],
 			betweenFollowUps: []
@@ -150,5 +185,5 @@ export function splitPipelineYamlPreview(yaml: string): YamlPreviewParts {
 		betweenFollowUps.push(trailing);
 	}
 
-	return { header, steps, followUpsPreamble, followUps, betweenFollowUps };
+	return { header, steps, betweenSteps, followUpsPreamble, followUps, betweenFollowUps };
 }
