@@ -263,6 +263,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Column
 		bind:pane={addStepPane}
 		title={columnTitle}
+		contentClass="scrollbar-thin scrollbar-thumb-primary scrollbar-track-muted"
 		defaultSize={LAYOUT.blocks.addStep}
 		order={1}
 		disabled={builder.isManualMode}
