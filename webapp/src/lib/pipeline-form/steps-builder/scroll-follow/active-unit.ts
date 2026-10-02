@@ -13,7 +13,8 @@ export type ScrollAlign = 'nearest' | 'start' | 'center' | 'start-band';
 
 const HYSTERESIS = 0.22;
 const ALIGN_EPSILON_PX = 1;
-const START_PADDING_PX = 16;
+/** Inset from scroller top when start-aligning a card / YAML range. */
+export const START_PADDING_PX = 16;
 /** Fraction of viewport height — start-band only scrolls if the line is outside this zone. */
 const START_BAND_RATIO = 0.35;
 

@@ -9,7 +9,8 @@
  * 1. lock card body height to the current summary height
  * 2. fade summary out (height unchanged)
  * 3. fade form in (still at locked height)
- * 4. grow the body to the form's natural height
+ * 4. grow the body to the column body max (or form natural height)
+ * 5. caller applies settled flex classes, then `settleEnterFormHost` clears overlay
  *
  * - One running animation per element: starting a new one cancels the previous
  *   one in place (no revert), so retargeting (expand -> collapse mid-flight)
@@ -35,7 +36,7 @@ export type MotionHandle = {
 export type MotionOptions = {
 	durationMs?: number;
 	/** Runs only when the animation reaches its end (not when cancelled). */
-	onComplete?: () => void;
+	onComplete?: () => void | Promise<void>;
 };
 
 export type ExpandOptions = MotionOptions & {
@@ -53,7 +54,8 @@ export type InCardEnterOptions = MotionOptions & {
 	/**
 	 * Cap (px) for the grown *body* height (below the type header / color bar).
 	 * Pass `bodyMaxHeightWithinCard(...)` so this matches the card's max-height
-	 * minus chrome — otherwise the save footer clamps in and the card shrinks.
+	 * minus chrome. When set, enter grows to fill this height (form scrolls inside);
+	 * when omitted, enter grows to the form's natural height.
 	 */
 	maxHeightPx?: number;
 };
@@ -207,26 +209,64 @@ function prepareFormForEnter(form: HTMLElement) {
 	form.style.pointerEvents = 'none';
 }
 
-function finishEnterLayout(lock: HTMLElement, display: HTMLElement, form: HTMLElement) {
+function finishEnterLayout(
+	lock: HTMLElement,
+	display: HTMLElement,
+	form: HTMLElement,
+	/** Keep the lock at this height so the card fills the column after grow. */
+	lockHeightPx?: number
+) {
 	display.style.opacity = '0';
 	display.style.pointerEvents = 'none';
 	display.style.visibility = 'hidden';
 
+	// Keep the form absolutely filling the lock until `settleEnterFormHost` runs.
+	// Clearing absolute here would fall back to the pre-enterComplete `h-0` host
+	// class for a frame and jump the save footer before flex layout applies.
+	prepareFormForEnter(form);
+	form.style.opacity = '1';
+	form.style.pointerEvents = '';
+
+	if (typeof lockHeightPx === 'number' && Number.isFinite(lockHeightPx)) {
+		lock.style.overflow = 'hidden';
+		lock.style.height = `${lockHeightPx}px`;
+		lock.style.opacity = '';
+	} else {
+		clearInlineBox(lock);
+	}
+}
+
+/**
+ * Clears enter overlay styles after the caller has applied the settled flex
+ * host classes (e.g. after `enterComplete` + `tick()`).
+ */
+export function settleEnterFormHost(form: HTMLElement) {
 	form.style.position = '';
 	form.style.inset = '';
 	form.style.width = '';
 	form.style.height = '';
 	form.style.overflow = '';
-	// Keep opacity:1 until the caller flips enterComplete (drops opacity-0 class), then clear.
-	form.style.opacity = '1';
+	form.style.opacity = '';
 	form.style.visibility = '';
 	form.style.pointerEvents = '';
-
-	clearInlineBox(lock);
 }
 
-function clearFormEnterOpacity(form: HTMLElement) {
-	form.style.opacity = '';
+async function afterEnterComplete(
+	onComplete: (() => void | Promise<void>) | undefined,
+	form: HTMLElement,
+	isCancelled: () => boolean
+) {
+	await Promise.resolve(onComplete?.());
+	if (isCancelled()) return;
+	settleEnterFormHost(form);
+}
+
+/** Fill the column when a body max is provided; otherwise size to form content. */
+function resolveEnterHeight(form: HTMLElement, maxHeightPx?: number): number {
+	if (typeof maxHeightPx === 'number' && Number.isFinite(maxHeightPx)) {
+		return Math.max(0, maxHeightPx);
+	}
+	return measureFormNaturalHeight(form);
 }
 
 //
@@ -311,7 +351,8 @@ export function fadeTo(
 
 /**
  * Enter motion after the card has scrolled into place:
- * fade summary (height held) → fade form in → grow to form height.
+ * fade summary (height held) → fade form in → grow to fill the column body
+ * (or the form's natural height when no max is provided).
  */
 export function playInCardEnter(options: InCardEnterOptions): MotionHandle {
 	const { lock, display, form, maxHeightPx, onComplete, durationMs } = options;
@@ -326,32 +367,33 @@ export function playInCardEnter(options: InCardEnterOptions): MotionHandle {
 	lock.style.height = `${fromHeight}px`;
 	prepareFormForEnter(form);
 
-	const snapOpen = () => {
-		form.style.position = 'absolute';
-		form.style.inset = '';
-		form.style.top = '0';
-		form.style.left = '0';
-		form.style.right = '0';
-		form.style.bottom = 'auto';
-		form.style.width = '100%';
-		form.style.height = 'auto';
-		form.style.opacity = '1';
-		form.style.visibility = 'visible';
-		form.style.pointerEvents = '';
-		form.style.overflow = 'hidden';
-		let toHeight = measureFormNaturalHeight(form);
-		if (typeof maxHeightPx === 'number' && Number.isFinite(maxHeightPx)) {
-			toHeight = Math.min(toHeight, maxHeightPx);
-		}
-		lock.style.height = `${toHeight}px`;
-		finishEnterLayout(lock, display, form);
-		onComplete?.();
-		clearFormEnterOpacity(form);
-	};
-
 	if (prefersReducedMotion()) {
-		snapOpen();
-		return NOOP_HANDLE;
+		let cancelled = false;
+		const finished = (async () => {
+			// Measure natural height with bottom:auto when no body max is set.
+			form.style.position = 'absolute';
+			form.style.inset = '';
+			form.style.top = '0';
+			form.style.left = '0';
+			form.style.right = '0';
+			form.style.bottom = 'auto';
+			form.style.width = '100%';
+			form.style.height = 'auto';
+			form.style.opacity = '1';
+			form.style.visibility = 'visible';
+			form.style.pointerEvents = '';
+			form.style.overflow = 'hidden';
+			const toHeight = resolveEnterHeight(form, maxHeightPx);
+			lock.style.height = `${toHeight}px`;
+			finishEnterLayout(lock, display, form, toHeight);
+			await afterEnterComplete(onComplete, form, () => cancelled);
+		})();
+		return {
+			cancel: () => {
+				cancelled = true;
+			},
+			finished
+		};
 	}
 
 	let cancelled = false;
@@ -371,24 +413,25 @@ export function playInCardEnter(options: InCardEnterOptions): MotionHandle {
 		}
 	};
 
+	const completeEnter = (toHeight: number) => {
+		finishEnterLayout(lock, display, form, toHeight);
+		void afterEnterComplete(onComplete, form, () => cancelled).then(() => {
+			if (!cancelled) resolveFinished();
+		});
+	};
+
 	const stepOpts = { durationMs };
 
 	const grow = () => {
 		if (cancelled) return;
-		let toHeight = measureFormNaturalHeight(form);
-		if (typeof maxHeightPx === 'number' && Number.isFinite(maxHeightPx)) {
-			toHeight = Math.min(toHeight, maxHeightPx);
-		}
+		const toHeight = resolveEnterHeight(form, maxHeightPx);
 		// Keep the form clipped to the lock while the lock height animates.
 		prepareFormForEnter(form);
 		form.style.opacity = '1';
 		form.style.pointerEvents = '';
 		const from = lock.getBoundingClientRect().height;
 		if (Math.abs(toHeight - from) < 1) {
-			finishEnterLayout(lock, display, form);
-			onComplete?.();
-			clearFormEnterOpacity(form);
-			resolveFinished();
+			completeEnter(toHeight);
 			return;
 		}
 		step = run(
@@ -397,10 +440,7 @@ export function playInCardEnter(options: InCardEnterOptions): MotionHandle {
 			stepOpts,
 			() => {
 				if (cancelled) return;
-				finishEnterLayout(lock, display, form);
-				onComplete?.();
-				clearFormEnterOpacity(form);
-				resolveFinished();
+				completeEnter(toHeight);
 			}
 		);
 	};

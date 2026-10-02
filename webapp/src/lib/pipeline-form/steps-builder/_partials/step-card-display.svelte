@@ -144,10 +144,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				display,
 				form,
 				maxHeightPx: bodyMax,
-				onComplete: () => {
+				onComplete: async () => {
 					if (token !== motionToken) return;
 					showDisplayLayer = false;
 					enterComplete = true;
+					// Wait for flex host classes + lock height binding before the
+					// motion helper clears absolute fill (avoids save-bar jump).
+					await tick();
 				}
 			});
 		});
@@ -237,6 +240,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div
 				bind:this={bodyLock}
 				class={['relative min-h-0', enterComplete || exiting ? 'flex min-h-0 grow flex-col' : '']}
+				style:height={enterComplete && bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
 				style:max-height={bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
 				data-testid="in-card-body-lock"
 				data-enter-complete={enterComplete}
@@ -259,7 +263,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					bind:this={formHost}
 					class={enterComplete || exiting
 						? 'flex min-h-0 grow flex-col overflow-hidden'
-						: 'pointer-events-none invisible absolute top-0 right-0 left-0 h-0 overflow-hidden opacity-0'}
+						: 'pointer-events-none invisible absolute inset-0 overflow-hidden opacity-0'}
 					data-testid="in-card-form-host"
 					inert={!enterComplete || exiting}
 				>

@@ -17,7 +17,8 @@ import {
 	expandRegion,
 	fadeTo,
 	playInCardEnter,
-	playInCardExit
+	playInCardExit,
+	settleEnterFormHost
 } from './in-card-motion.js';
 
 type AnimeParams = {
@@ -141,11 +142,16 @@ describe('in-card-motion', () => {
 		expect(animateMock).not.toHaveBeenCalled();
 	});
 
-	it('playInCardEnter fades display, fades form, then grows lock height', async () => {
+	it('playInCardEnter fades display, fades form, then grows lock to the column body max', async () => {
 		const lock = fakeEl(80, 80);
 		const display = fakeEl(80, 80);
 		const form = fakeEl(0, 200);
-		const onComplete = vi.fn();
+		const onComplete = vi.fn(async () => {
+			// Caller applies settled flex classes before settleEnterFormHost runs.
+			expect(form.style.position).toBe('absolute');
+			expect(form.style.height).toBe('100%');
+			expect(lock.style.height).toBe('480px');
+		});
 
 		const handle = playInCardEnter({ lock, display, form, maxHeightPx: 480, onComplete });
 
@@ -164,16 +170,30 @@ describe('in-card-motion', () => {
 		expect(paramsAt(1).opacity).toBe(1);
 		paramsAt(1).onComplete();
 
-		// 3) grow lock — measures form with bottom:auto so height is natural, not lock-sized
+		// 3) grow lock to the provided body max (fill column), not form natural height
 		expect(animateMock).toHaveBeenCalledTimes(3);
-		expect(paramsAt(2).height).toEqual(['80px', '200px']);
+		expect(paramsAt(2).height).toEqual(['80px', '480px']);
 		paramsAt(2).onComplete();
 
 		await handle.finished;
 		expect(onComplete).toHaveBeenCalledOnce();
-		expect(lock.style.height).toBe('');
+		expect(lock.style.height).toBe('480px');
+		// Absolute fill is cleared only after onComplete resolves (post-tick in UI).
 		expect(form.style.position).toBe('');
+		expect(form.style.height).toBe('');
 		expect(display.style.visibility).toBe('hidden');
+	});
+
+	it('settleEnterFormHost clears overlay styles without touching the lock', () => {
+		const form = fakeEl(100, 100);
+		form.style.position = 'absolute';
+		form.style.inset = '0';
+		form.style.height = '100%';
+		form.style.opacity = '1';
+		settleEnterFormHost(form);
+		expect(form.style.position).toBe('');
+		expect(form.style.height).toBe('');
+		expect(form.style.opacity).toBe('');
 	});
 
 	it('playInCardEnter grow measures natural height even when inset pins the form', () => {

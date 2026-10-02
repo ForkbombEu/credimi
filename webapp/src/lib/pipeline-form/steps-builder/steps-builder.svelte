@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		StepCard
 	} from './_partials/index.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
-	import { type ActiveUnit } from './scroll-follow/active-unit.js';
+	import { START_PADDING_PX, type ActiveUnit } from './scroll-follow/active-unit.js';
 	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
 	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
 	import { mapYamlCardRanges, type YamlCardRange } from './scroll-follow/yaml-ranges.js';
@@ -61,11 +61,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let cardsEndPadPx = $state(0);
 	/** Steps column scroll viewport height; caps the In-card edit shell. */
 	let stepsViewportPx = $state(0);
-	/** Column body padding (p-4 top + bottom) subtracted from the viewport. */
-	const STEPS_BODY_PADDING_PX = 32;
+	/**
+	 * Top + bottom inset matching start-align scroll padding so the open card
+	 * fills the column with the same gap you see after scroll-to-top.
+	 */
+	const CARD_VIEWPORT_INSET_PX = START_PADDING_PX * 2;
 	const MIN_CARD_MAX_HEIGHT_PX = 240;
 	const cardMaxHeightPx = $derived(
-		Math.max(MIN_CARD_MAX_HEIGHT_PX, stepsViewportPx - STEPS_BODY_PADDING_PX)
+		Math.max(MIN_CARD_MAX_HEIGHT_PX, stepsViewportPx - CARD_VIEWPORT_INSET_PX)
 	);
 
 	function composeAttachments(...parts: Array<Attachment | undefined>): Attachment | undefined {
