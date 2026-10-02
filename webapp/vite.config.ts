@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
 		},
 
 		optimizeDeps: {
-			include: ['date-fns', 'date-fns-tz'],
+			include: ['date-fns'],
 			exclude: [
 				'codemirror',
 				'@codemirror/language-javascript',
