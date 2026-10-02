@@ -613,6 +613,7 @@
 	"Before_adding_a_new_wallet_you_need_to_start_a_conformance_check": "Before adding a new Wallet, you need to start a Konformität check.",
 	"navigation": "Navigation",
 	"Loading_workflow_data_may_take_some_seconds": "Wird geladen workflow data may take some seconds...",
+	"Loading_pipeline": "Pipeline wird geladen...",
 	"Workflow": "Workflow",
 	"View_logs_workflow": "View logs workflow",
 	"Filter_runs_by_status": "Filtern runs by status",
