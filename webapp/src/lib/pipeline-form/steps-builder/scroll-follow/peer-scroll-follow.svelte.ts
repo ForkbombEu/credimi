@@ -11,7 +11,8 @@ import {
 	scrollCardIntoView,
 	scrollYamlLineIntoView,
 	watchDrivenScroll,
-	type ActiveUnit
+	type ActiveUnit,
+	type ScrollAlign
 } from './active-unit.js';
 import { scrollFollowPreference } from './preference.js';
 import {
@@ -56,8 +57,8 @@ export class PeerScrollFollow {
 	#yamlEl: HTMLElement | null = null;
 	#getRanges: (() => YamlCardRange[]) | null = null;
 
-	#drivenSide: 'cards' | 'yaml' | null = null;
-	#clearDriven: (() => void) | null = null;
+	/** Per-side programmatic-scroll guards; hard start drives both sides at once. */
+	#clearDriven: Record<'cards' | 'yaml', (() => void) | null> = { cards: null, yaml: null };
 	#scrollLeader: 'cards' | 'yaml' | null = null;
 	#lastIntentSide: 'cards' | 'yaml' | null = null;
 	#leaderIdleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -74,15 +75,15 @@ export class PeerScrollFollow {
 		return scrollFollowPreference.enabled;
 	}
 
-	setEnabled(next: boolean, editingIndex?: number) {
+	setEnabled(next: boolean, editingUnit?: ActiveUnit | null) {
 		if (this.#disposed) return;
 		scrollFollowPreference.enabled = next;
 		if (!next) {
 			this.activeUnit = null;
 			return;
 		}
-		if (editingIndex !== undefined) {
-			this.#setActiveUnit({ section: 'steps', index: editingIndex });
+		if (editingUnit) {
+			this.#setActiveUnit(editingUnit);
 			this.#followPeerFromCards('smooth');
 		}
 	}
@@ -94,14 +95,14 @@ export class PeerScrollFollow {
 
 		const onUserIntent = () => {
 			if (!this.enabled) return;
-			if (this.#drivenSide === 'cards') this.#clearDriven?.();
+			this.#clearDriven.cards?.();
 			this.#lastIntentSide = 'cards';
 			this.#claimScrollLeader('cards');
 		};
 
 		const onScroll = () => {
 			if (!this.enabled) return;
-			if (this.#drivenSide === 'cards') return;
+			if (this.#clearDriven.cards) return;
 			if (this.#scrollLeader === 'yaml') return;
 			if (this.#scrollLeader !== 'cards' && this.#lastIntentSide !== 'cards') return;
 			this.#claimScrollLeader('cards');
@@ -143,14 +144,14 @@ export class PeerScrollFollow {
 
 			const onUserIntent = () => {
 				if (!this.enabled) return;
-				if (this.#drivenSide === 'yaml') this.#clearDriven?.();
+				this.#clearDriven.yaml?.();
 				this.#lastIntentSide = 'yaml';
 				this.#claimScrollLeader('yaml');
 			};
 
 			const onScroll = () => {
 				if (!this.enabled) return;
-				if (this.#drivenSide === 'yaml') return;
+				if (this.#clearDriven.yaml) return;
 				if (this.#scrollLeader === 'cards') return;
 				if (this.#scrollLeader !== 'yaml' && this.#lastIntentSide !== 'yaml') return;
 				this.#claimScrollLeader('yaml');
@@ -190,13 +191,44 @@ export class PeerScrollFollow {
 		};
 	}
 
-	onEditFocus(stepIndex: number | undefined) {
-		if (this.#disposed) return;
-		if (stepIndex === undefined) return;
-		const next: ActiveUnit = { section: 'steps', index: stepIndex };
-		if (sameUnit(this.activeUnit, next)) return;
-		this.#setActiveUnit(next);
-		if (this.enabled) this.#followPeerFromCards('smooth');
+	/**
+	 * Enter hard start for In-card edit: start-align the card and its YAML range, regardless
+	 * of the Scroll follow preference. One-shot — does not pin or suspend peer sync afterwards.
+	 * Resolves when the cards pane scroll has settled (or immediately if no scroll was needed),
+	 * so callers can sequence expand-after-scroll.
+	 */
+	onEditFocus(unit: ActiveUnit): Promise<void> {
+		if (this.#disposed) return Promise.resolve();
+		this.#setActiveUnit(unit);
+		const cards = this.#cardsEl;
+		let cardsSettled = Promise.resolve();
+		if (cards) {
+			cardsSettled = new Promise<void>((resolve) => {
+				this.#clearDriven.cards?.();
+				const scrolled = scrollCardIntoView(cards, unit, 'smooth', {
+					align: 'start',
+					focus: false
+				});
+				if (!scrolled) {
+					resolve();
+					return;
+				}
+				// Drive-guard + settle signal (same timeout as #beginDriven / watchDrivenScroll).
+				this.#claimScrollLeader('yaml');
+				this.#clearDriven.cards = watchDrivenScroll(
+					cards,
+					'smooth',
+					() => {
+						this.#clearDriven.cards = null;
+						this.#claimScrollLeader('yaml');
+						resolve();
+					},
+					this.#clock
+				);
+			});
+		}
+		this.#scrollYamlToUnit(unit, 'smooth', 'start');
+		return cardsSettled;
 	}
 
 	/** Center-scroll card; if enabled also peer-follow YAML. Queues if cards not bound yet. */
@@ -247,9 +279,8 @@ export class PeerScrollFollow {
 	dispose() {
 		if (this.#disposed) return;
 		this.#disposed = true;
-		this.#clearDriven?.();
-		this.#clearDriven = null;
-		this.#drivenSide = null;
+		this.#clearDriven.cards?.();
+		this.#clearDriven.yaml?.();
 		if (this.#leaderIdleTimer) {
 			this.#clock.clearTimeout(this.#leaderIdleTimer);
 			this.#leaderIdleTimer = null;
@@ -281,16 +312,14 @@ export class PeerScrollFollow {
 	}
 
 	#beginDriven(side: 'cards' | 'yaml', el: HTMLElement, behavior: ScrollBehavior) {
-		this.#clearDriven?.();
-		this.#drivenSide = side;
+		this.#clearDriven[side]?.();
 		const leader: 'cards' | 'yaml' = side === 'cards' ? 'yaml' : 'cards';
 		this.#claimScrollLeader(leader);
-		this.#clearDriven = watchDrivenScroll(
+		this.#clearDriven[side] = watchDrivenScroll(
 			el,
 			behavior,
 			() => {
-				if (this.#drivenSide === side) this.#drivenSide = null;
-				this.#clearDriven = null;
+				this.#clearDriven[side] = null;
 				this.#claimScrollLeader(leader);
 			},
 			this.#clock
@@ -300,15 +329,23 @@ export class PeerScrollFollow {
 	#followPeerFromCards(behavior: ScrollBehavior) {
 		if (this.#scrollLeader === 'yaml') return;
 		const unit = this.activeUnit;
+		if (!unit) return;
+		this.#scrollYamlToUnit(
+			unit,
+			behavior,
+			this.#scrollLeader === 'cards' ? 'start-band' : 'start'
+		);
+	}
+
+	#scrollYamlToUnit(unit: ActiveUnit, behavior: ScrollBehavior, align: ScrollAlign) {
 		const yaml = this.#yamlEl;
-		if (!unit || !yaml) return;
+		if (!yaml) return;
 		const ranges = this.#getRanges?.() ?? [];
 		const range = findRangeForUnit(ranges, unit.section, unit.index);
 		if (!range) return;
 		this.#beginDriven('yaml', yaml, behavior);
-		const align = this.#scrollLeader === 'cards' ? 'start-band' : 'start';
 		if (!scrollYamlLineIntoView(yaml, range.startLine, behavior, align)) {
-			this.#clearDriven?.();
+			this.#clearDriven.yaml?.();
 		}
 	}
 
@@ -324,7 +361,7 @@ export class PeerScrollFollow {
 				focus: behavior === 'smooth'
 			})
 		) {
-			this.#clearDriven?.();
+			this.#clearDriven.cards?.();
 		}
 	}
 

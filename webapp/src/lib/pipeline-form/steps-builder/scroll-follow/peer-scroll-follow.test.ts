@@ -171,13 +171,17 @@ function createElementStub(attrs: Record<string, string> = {}): ElementStub {
 	return el;
 }
 
-function createCardsScroller(cardCenters: number[]) {
+function createCardsScroller(cardCenters: number[], followUpCenters: number[] = []) {
 	const scroller = createElementStub();
 	stubScrollerGeometry(scroller, { top: 0, bottom: 400, height: 400 });
 
-	for (const [index, center] of cardCenters.entries()) {
+	const cards = [
+		...cardCenters.map((center, index) => ({ section: 'steps', index, center })),
+		...followUpCenters.map((center, index) => ({ section: 'follow-ups', index, center }))
+	];
+	for (const { section, index, center } of cards) {
 		const card = createElementStub({
-			'data-card-section': 'steps',
+			'data-card-section': section,
 			'data-card-index': String(index)
 		});
 		card.getBoundingClientRect = () =>
@@ -211,7 +215,8 @@ function stubScrollerGeometry(el: ElementStub, rect: Rect) {
 
 const ranges: YamlCardRange[] = [
 	{ section: 'steps', index: 0, startLine: 0, endLine: 2 },
-	{ section: 'steps', index: 1, startLine: 3, endLine: 5 }
+	{ section: 'steps', index: 1, startLine: 3, endLine: 5 },
+	{ section: 'follow-ups', index: 0, startLine: 6, endLine: 8 }
 ];
 
 describe('PeerScrollFollow', () => {
@@ -300,6 +305,129 @@ describe('PeerScrollFollow', () => {
 		follow.cardsAttach(cards as unknown as HTMLElement);
 
 		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
+		follow.dispose();
+	});
+
+	describe('onEditFocus (In-card edit hard start)', () => {
+		function setup(enabled: boolean) {
+			const clock = createFakeClock();
+			const follow = new PeerScrollFollow({ clock });
+			follow.setEnabled(enabled);
+			const cards = createCardsScroller([100, 300], [500]);
+			const yaml = createYamlScroller([0, 20, 40, 60, 80, 100, 120, 140, 160]);
+			follow.cardsAttach(cards as unknown as HTMLElement);
+			follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
+			return { clock, follow, cards, yaml };
+		}
+
+		it('start-aligns the card and its yaml range, keeping scroll follow on', () => {
+			const { follow, cards, yaml } = setup(true);
+
+			follow.onEditFocus({ section: 'steps', index: 1 });
+
+			expect(follow.activeUnit).toEqual({ section: 'steps', index: 1 });
+			expect(follow.enabled).toBe(true);
+			// card top 260 − scroller top 0 − 16px padding
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'smooth' });
+			// yaml line 3 top 60 − 16px padding
+			expect(yaml.scrollTo).toHaveBeenCalledWith({ top: 44, behavior: 'smooth' });
+			expect(cards.focus).not.toHaveBeenCalled();
+			follow.dispose();
+		});
+
+		it('supports follow-up units', () => {
+			const { follow, cards, yaml } = setup(true);
+
+			follow.onEditFocus({ section: 'follow-ups', index: 0 });
+
+			expect(follow.activeUnit).toEqual({ section: 'follow-ups', index: 0 });
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 444, behavior: 'smooth' });
+			expect(yaml.scrollTo).toHaveBeenCalledWith({ top: 104, behavior: 'smooth' });
+			follow.dispose();
+		});
+
+		it('hard-starts again even when the unit is already active', () => {
+			const { follow, cards, yaml } = setup(true);
+			follow.followUnit({ section: 'steps', index: 1 }, 'cards');
+			vi.mocked(cards.scrollTo).mockClear();
+			vi.mocked(yaml.scrollTo).mockClear();
+
+			follow.onEditFocus({ section: 'steps', index: 1 });
+
+			expect(cards.scrollTo).toHaveBeenCalledTimes(1);
+			expect(yaml.scrollTo).toHaveBeenCalledTimes(1);
+			follow.dispose();
+		});
+
+		it('still start-aligns yaml when scroll follow is off, without enabling it', () => {
+			const { follow, cards, yaml } = setup(false);
+
+			follow.onEditFocus({ section: 'steps', index: 1 });
+
+			expect(follow.enabled).toBe(false);
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'smooth' });
+			expect(yaml.scrollTo).toHaveBeenCalledWith({ top: 44, behavior: 'smooth' });
+			follow.dispose();
+		});
+
+		it('resolves after the cards scroll settles so expand can wait', async () => {
+			const { clock, follow, cards } = setup(true);
+
+			let settled = false;
+			const done = follow.onEditFocus({ section: 'steps', index: 1 }).then(() => {
+				settled = true;
+			});
+
+			expect(settled).toBe(false);
+			expect(cards.scrollTo).toHaveBeenCalled();
+			clock.flushTimeouts(700);
+			await done;
+			expect(settled).toBe(true);
+			follow.dispose();
+		});
+
+		it('resolves immediately when the card is already start-aligned', async () => {
+			const { follow, cards } = setup(true);
+			// Place card 1 already at the start-align target (top ≈ 16 with 16px padding).
+			cards.scrollTop = 244;
+			const card = cards.querySelector('[data-card-section="steps"][data-card-index="1"]');
+			expect(card).not.toBeNull();
+			card!.getBoundingClientRect = () =>
+				makeRect({ top: 16, bottom: 116, height: 100 });
+
+			vi.mocked(cards.scrollTo).mockClear();
+			await follow.onEditFocus({ section: 'steps', index: 1 });
+			expect(cards.scrollTo).not.toHaveBeenCalled();
+			follow.dispose();
+		});
+
+		it('does not suppress later peer sync after the driven scrolls settle', () => {
+			const { clock, follow, cards } = setup(true);
+			void follow.onEditFocus({ section: 'steps', index: 0 });
+			clock.flushTimeouts(700);
+
+			cards.scrollTop = 100;
+			cards.dispatchEvent(new Event('pointerdown'));
+			cards.dispatchEvent(new Event('scroll'));
+
+			expect(follow.enabled).toBe(true);
+			expect(follow.activeUnit).not.toBeNull();
+			follow.dispose();
+		});
+	});
+
+	it('setEnabled(true, unit) re-follows the editing unit (including follow-ups)', () => {
+		const clock = createFakeClock();
+		const follow = new PeerScrollFollow({ clock });
+		const cards = createCardsScroller([100, 300], [500]);
+		const yaml = createYamlScroller([0, 20, 40, 60, 80, 100, 120, 140, 160]);
+		follow.cardsAttach(cards as unknown as HTMLElement);
+		follow.yamlAttach(() => ranges)(yaml as unknown as HTMLElement);
+
+		follow.setEnabled(true, { section: 'follow-ups', index: 0 });
+
+		expect(follow.activeUnit).toEqual({ section: 'follow-ups', index: 0 });
+		expect(yaml.scrollTo).toHaveBeenCalled();
 		follow.dispose();
 	});
 });

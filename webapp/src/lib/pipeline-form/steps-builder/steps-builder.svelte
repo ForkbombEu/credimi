@@ -59,6 +59,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let rightPane: PaneHandle | null = $state(null);
 	/** Half-viewport end pad so the last (short) card can scroll to center. */
 	let cardsEndPadPx = $state(0);
+	/** Steps column scroll viewport height; caps the In-card edit shell. */
+	let stepsViewportPx = $state(0);
+	/** Column body padding (p-4 top + bottom) subtracted from the viewport. */
+	const STEPS_BODY_PADDING_PX = 32;
+	const MIN_CARD_MAX_HEIGHT_PX = 240;
+	const cardMaxHeightPx = $derived(
+		Math.max(MIN_CARD_MAX_HEIGHT_PX, stepsViewportPx - STEPS_BODY_PADDING_PX)
+	);
 
 	function composeAttachments(...parts: Array<Attachment | undefined>): Attachment | undefined {
 		const active = parts.filter((part): part is Attachment => part != null);
@@ -78,6 +86,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const cardsEndPadAttach: Attachment = (el) => {
 		const update = () => {
 			cardsEndPadPx = Math.round(el.clientHeight * 0.3);
+			stepsViewportPx = el.clientHeight;
 		};
 		update();
 		const ro = new ResizeObserver(update);
@@ -85,6 +94,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return () => {
 			ro.disconnect();
 			cardsEndPadPx = 0;
+			stepsViewportPx = 0;
 		};
 	};
 
@@ -93,10 +103,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		formMode?.intent === 'edit' ? (formMode.section ?? 'steps') : undefined
 	);
 	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
-	const columnTitle = $derived(formMode?.intent === 'edit' ? m.Edit_step() : m.Add_step());
-	const stepDocsUrl = $derived(formMode?.config.docsUrl);
+	const isEditIntent = $derived(formMode?.intent === 'edit');
+	const addFormMode = $derived(formMode?.intent === 'add' ? formMode : null);
+	/** Flips true after enter scroll settles so the in-card crossfade can start. */
+	let editExpandReady = $state(false);
+	const stepDocsUrl = $derived(addFormMode?.config.docsUrl);
 	const showFollowUpAddActions = $derived(builder.isFollowUpEligibleForm());
 	const rightColumnTitle = $derived(builder.isManualMode ? m.manual_edit() : m.YAML_preview());
+
+	// Drop a stale expand gate when leaving edit so the next open waits for scroll again.
+	$effect(() => {
+		if (!isEditIntent) editExpandReady = false;
+	});
 
 	let lastAppliedManualMode: boolean | null = null;
 	let lastFocusedCardToken = 0;
@@ -123,9 +141,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			// Wait for the new card to mount before scrolling.
 			void tick().then(() => peerScroll.onReveal(unit));
 		},
-		onEditFocus: (stepIndex) => {
+		onEditFocus: (unit) => {
 			if (builder.isManualMode) return;
-			peerScroll.onEditFocus(stepIndex);
+			editExpandReady = false;
+			// Keep summary visible, scroll, then crossfade (fade summary → fade form → grow).
+			void tick().then(async () => {
+				await peerScroll.onEditFocus(unit);
+				if (builder.isInCardEdit) editExpandReady = true;
+			});
 		}
 	});
 
@@ -193,8 +216,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return peerScroll.onYamlTextChanged();
 	});
 
+	/** Siblings of the card being edited in place are dimmed. */
+	function isCardFaded(section: 'steps' | 'follow-ups', index: number): boolean {
+		const unit = builder.editingUnit;
+		if (!unit) return false;
+		return !(unit.section === section && unit.index === index);
+	}
+
 	function setScrollFollowEnabled(checked: boolean) {
-		peerScroll.setEnabled(checked, editingSection === 'steps' ? editingIndex : undefined);
+		peerScroll.setEnabled(checked, builder.editingUnit);
 	}
 
 	function onYamlLineClick(line: number) {
@@ -211,37 +241,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Resizable.PaneGroup direction="horizontal" class="min-h-0 grow gap-2">
 	<Column
 		bind:pane={addStepPane}
-		title={columnTitle}
+		title={m.Add_step()}
 		defaultSize={LAYOUT.blocks.addStep}
 		order={1}
-		disabled={builder.isManualMode}
+		disabled={builder.isManualMode || isEditIntent}
 	>
-		{#if builder.mode.id == 'form'}
+		{#if addFormMode}
 			<div class="flex grow flex-col" in:fly>
-				<Render item={builder.mode.form} />
-				{#if formMode?.intent === 'edit'}
-					<div class="mt-auto border-t p-4">
-						<Button
-							class="w-full"
-							disabled={!formMode.form.canSave()}
-							onclick={() => formMode.form.commit()}
-						>
-							{m.Save()}
-						</Button>
-					</div>
-				{:else if showFollowUpAddActions && formMode}
+				<Render item={addFormMode.form} />
+				{#if showFollowUpAddActions}
 					<div class="mt-auto space-y-2 border-t p-4">
 						<Button
 							class="w-full"
-							disabled={!formMode.form.canSave()}
-							onclick={() => formMode.form.commit()}
+							disabled={!addFormMode.form.canSave()}
+							onclick={() => addFormMode.form.commit()}
 						>
 							{m.Add_step()}
 						</Button>
 						<Button
 							variant="outline"
 							class="w-full"
-							disabled={!formMode.form.canSave()}
+							disabled={!addFormMode.form.canSave()}
 							onclick={() => builder.addAsFollowUp()}
 						>
 							{m.Add_as_follow_up()}
@@ -254,7 +274,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		{#snippet titleRight()}
-			{#if builder.mode.id == 'form'}
+			{#if addFormMode}
 				<div class="flex items-center gap-1">
 					{#if stepDocsUrl}
 						<IconButton
@@ -328,6 +348,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{step}
 								{index}
 								editing={editingSection === 'steps' && editingIndex === index}
+								expandReady={editingSection === 'steps' &&
+									editingIndex === index &&
+									editExpandReady}
+								faded={isCardFaded('steps', index)}
+								maxHeightPx={cardMaxHeightPx}
 								selected={unitHighlight.isCardSelected('steps', index)}
 								hovered={unitHighlight.isCardHovered('steps', index)}
 							/>
@@ -365,6 +390,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{followUp}
 								{index}
 								editing={editingSection === 'follow-ups' && editingIndex === index}
+								expandReady={editingSection === 'follow-ups' &&
+									editingIndex === index &&
+									editExpandReady}
+								faded={isCardFaded('follow-ups', index)}
+								maxHeightPx={cardMaxHeightPx}
 								selected={unitHighlight.isCardSelected('follow-ups', index)}
 								hovered={unitHighlight.isCardHovered('follow-ups', index)}
 							/>
@@ -445,6 +475,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				contentClass="text-sm"
 				selectedLines={unitHighlight.selectedLines}
 				hoverLines={unitHighlight.hoverLines}
+				focusLines={editingIndex !== undefined ? unitHighlight.selectedLines : null}
 				endPadRatio={0.3}
 				onLineClick={onYamlLineClick}
 				onLineHover={onYamlLineHover}

@@ -35,6 +35,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		selectedLines?: LineRange | null;
 		/** Lighter wash over these lines (0-based inclusive). Selected wins when both apply. */
 		hoverLines?: LineRange | null;
+		/** When set, lines outside this range (0-based inclusive) are dimmed. Null disables dimming. */
+		focusLines?: LineRange | null;
 		onLineClick?: (line: number) => void;
 		onLineHover?: (line: number | null) => void;
 		/** Fraction of scroller height as bottom padding so the last block can center. */
@@ -54,6 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		contentClass = '',
 		selectedLines = null,
 		hoverLines = null,
+		focusLines = null,
 		onLineClick,
 		onLineHover,
 		endPadRatio = 0,
@@ -117,7 +120,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function applyWashClasses(
 		pre: HTMLElement,
 		selected: LineRange | null,
-		hover: LineRange | null
+		hover: LineRange | null,
+		focus: LineRange | null
 	) {
 		for (const el of pre.querySelectorAll<HTMLElement>('[data-line]')) {
 			const idx = Number(el.getAttribute('data-line'));
@@ -125,6 +129,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			const isSelected = inRange(idx, selected);
 			el.classList.toggle('code-display-line-wash-selected', isSelected);
 			el.classList.toggle('code-display-line-wash-hover', !isSelected && inRange(idx, hover));
+			el.classList.toggle('code-display-line-dim', focus != null && !inRange(idx, focus));
 		}
 	}
 
@@ -215,9 +220,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => {
 		const selected = selectedLines;
 		const hover = hoverLines;
+		const focus = focusLines;
 		const pre = scroller;
 		if (!(pre instanceof HTMLElement)) return;
-		applyWashClasses(pre, selected, hover);
+		applyWashClasses(pre, selected, hover, focus);
 	});
 
 	// Bottom pad so the last block can scroll to viewport center.
@@ -335,6 +341,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	:global(.code-display-line-wash-selected) {
 		background-color: rgb(255 255 255 / 0.16);
+	}
+
+	/* Outside the focus range; opacity avoids touching Shiki token colors or the wash background. */
+	:global(.code-display-line-dim) {
+		opacity: 0.4;
+		transition: opacity 150ms ease-out;
 	}
 
 	:global(.code-display-clickable .code-display-line) {

@@ -10,7 +10,8 @@ import { UnitHighlight, resolveSelectedUnit, linesForUnit } from './unit-highlig
 
 const ranges: YamlCardRange[] = [
 	{ section: 'steps', index: 0, startLine: 0, endLine: 2 },
-	{ section: 'steps', index: 1, startLine: 4, endLine: 6 }
+	{ section: 'steps', index: 1, startLine: 4, endLine: 6 },
+	{ section: 'follow-ups', index: 0, startLine: 8, endLine: 10 }
 ];
 
 describe('resolveSelectedUnit / linesForUnit', () => {
@@ -47,6 +48,21 @@ describe('UnitHighlight', () => {
 		expect(editing.isCardSelected('steps', 1)).toBe(false);
 
 		highlight.dispose();
+		editing.dispose();
+	});
+
+	it('selects the follow-up when editing section is follow-ups', () => {
+		const editing = new UnitHighlight({
+			getIsManual: () => false,
+			getEditingIndex: () => 0,
+			getEditingSection: () => 'follow-ups',
+			getRanges: () => ranges
+		});
+		editing.pinYamlLine(5);
+		expect(editing.selectedUnit).toEqual({ section: 'follow-ups', index: 0 });
+		expect(editing.selectedLines).toEqual({ start: 8, end: 10 });
+		expect(editing.isCardSelected('follow-ups', 0)).toBe(true);
+		expect(editing.isCardSelected('steps', 0)).toBe(false);
 		editing.dispose();
 	});
 

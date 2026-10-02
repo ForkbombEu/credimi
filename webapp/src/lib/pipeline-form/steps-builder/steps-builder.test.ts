@@ -28,11 +28,7 @@ vi.mock('../steps/wallet-action/index.js', () => {
 	function isMatchingMobileStepData(
 		data: unknown
 	): data is { kind: 'stored'; wallet: { id: string }; version: unknown } {
-		return (
-			!!data &&
-			typeof data === 'object' &&
-			(data as { kind?: unknown }).kind === 'stored'
-		);
+		return !!data && typeof data === 'object' && (data as { kind?: unknown }).kind === 'stored';
 	}
 
 	function applyWalletActionStepVersion(
@@ -226,6 +222,29 @@ describe('StepsBuilder form mode', () => {
 		setFormMode(builder);
 
 		expect(builder.isFormMode).toBe(true);
+	});
+
+	it('exposes isInCardEdit and editingUnit for edit intent only', () => {
+		const builder = createBuilder();
+		const internal = builder as unknown as BuilderInternal;
+
+		expect(builder.isInCardEdit).toBe(false);
+		expect(builder.editingUnit).toBeNull();
+
+		setFormMode(builder);
+		expect(builder.isInCardEdit).toBe(false);
+		expect(builder.editingUnit).toBeNull();
+
+		internal.state.mode = {
+			id: 'form',
+			intent: 'edit',
+			stepIndex: 1,
+			section: 'follow-ups',
+			config: {} as never,
+			form: { onSubmit: vi.fn() } as never
+		};
+		expect(builder.isInCardEdit).toBe(true);
+		expect(builder.editingUnit).toEqual({ section: 'follow-ups', index: 1 });
 	});
 
 	it('blocks clone, delete, and reorder while in form mode', () => {

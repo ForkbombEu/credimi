@@ -24,6 +24,8 @@ import type { GenericRecord } from '@/utils/types';
 
 import { m } from '@/i18n';
 
+import type { ActiveUnit } from './scroll-follow/active-unit.js';
+
 import {
 	getBulkWalletVersionContext,
 	getStepData,
@@ -31,6 +33,7 @@ import {
 	isStepEditable
 } from './_partials/index.js';
 import { isExecutionTargetLocked } from './execution-target-lock.js';
+import { editingUnit, isInCardEdit } from './in-card-edit.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
 import Component from './steps-builder.svelte';
 
@@ -92,7 +95,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	/** View-bound scroll-follow hooks (reveal / edit-focus). Not product state. */
 	#composerScroll: {
 		onRevealStep?: (index: number) => void;
-		onEditFocus?: (stepIndex: number) => void;
+		onEditFocus?: (unit: ActiveUnit) => void;
 	} = {};
 
 	createdCard = $state<CreatedCardRef | null>(null);
@@ -110,7 +113,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	 */
 	bindComposerScroll(handlers: {
 		onRevealStep?: (index: number) => void;
-		onEditFocus?: (stepIndex: number) => void;
+		onEditFocus?: (unit: ActiveUnit) => void;
 	}) {
 		this.#composerScroll = handlers;
 	}
@@ -119,8 +122,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		this.#composerScroll.onRevealStep?.(index);
 	}
 
-	#requestEditFocus(stepIndex: number) {
-		this.#composerScroll.onEditFocus?.(stepIndex);
+	#requestEditFocus(unit: ActiveUnit) {
+		this.#composerScroll.onEditFocus?.(unit);
 	}
 
 	// Shortcuts
@@ -147,6 +150,16 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			return '';
 		}
 	});
+
+	/** True while a Step or Follow-up card hosts its edit form (In-card edit). */
+	get isInCardEdit() {
+		return isInCardEdit(this.state.mode);
+	}
+
+	/** The Step / Follow-up unit being edited in place, or null. */
+	get editingUnit(): ActiveUnit | null {
+		return editingUnit(this.state.mode);
+	}
 
 	get isManualMode() {
 		return this.state.mode.id === 'manual';
@@ -193,7 +206,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		const data = getStepData(step);
 		if (!config || !data) return;
 		this.openForm('edit', config, { initial: data, stepIndex: index, section: 'steps' });
-		this.#requestEditFocus(index);
+		this.#requestEditFocus({ section: 'steps', index });
 	}
 
 	initEditFollowUp(index: number) {
@@ -208,6 +221,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		const data = getStepData(step);
 		if (!config || !data) return;
 		this.openForm('edit', config, { initial: data, stepIndex: index, section: 'follow-ups' });
+		this.#requestEditFocus({ section: 'follow-ups', index });
 	}
 
 	private openForm(

@@ -22,6 +22,10 @@ _Avoid_: Using Steps builder in user-facing strings
 In Pipeline Composer, the optional behaviour that keeps the cards pane and the YAML preview viewport peer-synced while scrolling. It does not select or highlight a step.
 _Avoid_: Scroll sync (as the product name), proportional scroll, peer sync (as user-facing copy), active unit
 
+**In-card edit**:
+In Pipeline Composer, the mode where a Step or Follow-up card expands to host the edit form in place. Sibling cards and non-active YAML lines are faded. Scroll follow stays on when feasible.
+_Avoid_: Inline edit, form mode (as product copy), card expand edit
+
 ## Pipeline editor (wallet version)
 
 **Change wallet version**:
