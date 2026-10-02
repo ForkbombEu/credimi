@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { WorkflowStatus as WorkflowStatusValue } from '$lib/workflows/types';
 
-	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { XIcon } from '@lucide/svelte';
 	import { Workflow } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
@@ -15,9 +14,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ExecutionDevices from '$lib/pipeline/execution-devices.svelte';
 	import { getExecutionDevices, type ExecutionSummary } from '$lib/pipeline/workflows';
 	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
-	import { TemporalI18nProvider } from '$lib/temporal';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
 	import { WorkflowQrPoller } from '$lib/workflows';
+	import WorkflowStatusBadge from '$lib/workflows/workflow-status.svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { fromStore } from 'svelte/store';
 
@@ -221,9 +220,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		{#if execution.status}
-			<TemporalI18nProvider>
-				<WorkflowStatus status={execution.status} />
-			</TemporalI18nProvider>
+			<WorkflowStatusBadge status={execution.status} />
 		{/if}
 
 		{#if failureMessage}
