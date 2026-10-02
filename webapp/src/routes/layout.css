@@ -139,9 +139,59 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 }
 
 @layer base {
+	:root {
+		/* Credimi UI is light; pin native chrome so OS dark mode does not paint dark scrollbars. */
+		color-scheme: light;
+		--scrollbar-thumb: var(--primary);
+		--scrollbar-thumb-hover: color-mix(in oklch, var(--primary) 85%, white);
+		--scrollbar-track: transparent;
+		--scrollbar-size: 0.625rem;
+		--scrollbar-thumb-inset: 2px;
+	}
+
 	* {
 		@apply border-border outline-ring/50;
+		scrollbar-width: thin;
+		scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 	}
+
+	*::-webkit-scrollbar {
+		width: var(--scrollbar-size);
+		height: var(--scrollbar-size);
+		background: transparent;
+	}
+
+	*::-webkit-scrollbar-track {
+		background: var(--scrollbar-track);
+	}
+
+	*::-webkit-scrollbar-thumb {
+		background-color: var(--scrollbar-thumb);
+		border-radius: 9999px;
+		/* Transparent border + content-box clip = visual padding around the thumb. */
+		border: var(--scrollbar-thumb-inset) solid transparent;
+		background-clip: content-box;
+	}
+
+	*::-webkit-scrollbar-thumb:hover {
+		background-color: var(--scrollbar-thumb-hover);
+	}
+
+	*::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+
+	/*
+	  Dark surfaces (Shiki / code panes): light thumb, transparent track.
+	  Put this class on the scrolling element; descendants inherit the tokens.
+	*/
+	.scrollbar-on-dark {
+		color-scheme: dark;
+		--scrollbar-thumb: rgb(255 255 255 / 0.35);
+		--scrollbar-thumb-hover: rgb(255 255 255 / 0.55);
+		--scrollbar-track: transparent;
+	}
+
 	body {
 		@apply bg-background text-foreground;
 	}

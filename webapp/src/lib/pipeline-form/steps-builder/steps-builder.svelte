@@ -263,7 +263,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Column
 		bind:pane={addStepPane}
 		title={columnTitle}
-		contentClass="scrollbar-thin scrollbar-thumb-primary scrollbar-track-muted"
 		defaultSize={LAYOUT.blocks.addStep}
 		order={1}
 		disabled={builder.isManualMode}
@@ -337,7 +336,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		bind:scrollContainer={cardsScrollContainer}
 		scrollAttach={cardsScrollAttach}
 		title={m.Steps_sequence()}
-		contentClass="scrollbar-thin scrollbar-thumb-primary scrollbar-track-muted"
 		defaultSize={LAYOUT.blocks.stepsSequence}
 		order={2}
 		disabled={builder.isManualMode}
@@ -459,6 +457,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		scrollAttach={yamlScrollAttach}
 		title={rightColumnTitle}
 		class="card min-w-0 overflow-hidden"
+		contentClass="scrollbar-on-dark bg-[#303446]"
 		defaultSize={LAYOUT.blocks.right}
 		order={3}
 	>
