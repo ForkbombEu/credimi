@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from './_partials/index.js';
 	import { stableItemKey } from './composer-virtualizer.svelte.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
-	import { composeAttachments, endPadAttach } from './scroll-follow/scrollport-attachments.js';
+	import { endPadAttach } from './scroll-follow/scrollport-attachments.js';
 	import { createTwinPaneSession } from './twin-pane-session.svelte.js';
 	import { splitPipelineYamlPreview } from './yaml-preview/index.js';
 
@@ -106,22 +106,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => () => session.dispose());
 
 	const stepsVirt = session.stepsVirt;
-	const { peerScroll, unitHighlight, measureStepCard, yamlVirtualizer } = session;
+	const { measureStepCard, yamlVirtualizer } = session;
 
-	const yamlPreviewEmpty = $derived(EffectString.isEmpty(builder.yamlPreview));
-	const yamlScrollAttach = $derived(
-		builder.isManualMode || yamlPreviewEmpty
-			? undefined
-			: composeAttachments(peerScroll.yamlAttach, yamlEndPadAttach)
-	);
-
-	// Compose peer-scroll + end-pad; identity stable unless isManualMode flips.
-	const cardsScrollAttach = $derived(
-		composeAttachments(
-			!builder.isManualMode ? peerScroll.cardsAttach : undefined,
-			cardsEndPadAttach
-		)
-	);
+	const yamlScrollAttach = $derived(session.composeYamlScrollAttach(yamlEndPadAttach));
+	const cardsScrollAttach = $derived(session.composeCardsScrollAttach(cardsEndPadAttach));
 
 	$effect(() => {
 		const isManual = builder.isManualMode;
@@ -270,10 +258,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							tabindex="-1"
 							onclick={() => session.onUnitClick({ section: 'steps', index }, 'cards')}
 							onmouseenter={() => {
-								unitHighlight.hoverCard({ section: 'steps', index });
+								session.hoverCard({ section: 'steps', index });
 							}}
 							onmouseleave={() => {
-								unitHighlight.clearHoverCard({ section: 'steps', index });
+								session.clearHoverCard({ section: 'steps', index });
 							}}
 						>
 							{#if step}
@@ -282,8 +270,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{step}
 									{index}
 									editing={editingSection === 'steps' && editingIndex === index}
-									selected={unitHighlight.isCardSelected('steps', index)}
-									hovered={unitHighlight.isCardHovered('steps', index)}
+									selected={session.isCardSelected('steps', index)}
+									hovered={session.isCardHovered('steps', index)}
 									onShift={(change) => session.shiftStep(index, change)}
 								/>
 							{/if}
@@ -313,10 +301,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							tabindex="-1"
 							onclick={() => session.onUnitClick({ section: 'follow-ups', index }, 'cards')}
 							onmouseenter={() => {
-								unitHighlight.hoverCard({ section: 'follow-ups', index });
+								session.hoverCard({ section: 'follow-ups', index });
 							}}
 							onmouseleave={() => {
-								unitHighlight.clearHoverCard({ section: 'follow-ups', index });
+								session.clearHoverCard({ section: 'follow-ups', index });
 							}}
 						>
 							<FollowUpCard
@@ -324,8 +312,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{followUp}
 								{index}
 								editing={editingSection === 'follow-ups' && editingIndex === index}
-								selected={unitHighlight.isCardSelected('follow-ups', index)}
-								hovered={unitHighlight.isCardHovered('follow-ups', index)}
+								selected={session.isCardSelected('follow-ups', index)}
+								hovered={session.isCardHovered('follow-ups', index)}
 							/>
 						</div>
 					{/each}
@@ -363,7 +351,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						title={m.Scroll_follow()}
 					>
 						<Switch
-							checked={peerScroll.enabled}
+							checked={session.followEnabled}
 							onCheckedChange={(checked) => session.setFollowEnabled(checked)}
 							class="shrink-0 scale-75"
 						/>
@@ -406,8 +394,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				scrollMargin={yamlScrollMargin}
 				scrollContainer={session.yamlScroller}
 				bind:stepsListEl={session.yamlStepsLayoutRoot}
-				isUnitSelected={(section, index) => unitHighlight.isCardSelected(section, index)}
-				isUnitHovered={(section, index) => unitHighlight.isCardHovered(section, index)}
+				isUnitSelected={(section, index) => session.isCardSelected(section, index)}
+				isUnitHovered={(section, index) => session.isCardHovered(section, index)}
 				onUnitClick={(unit) => session.onUnitClick(unit, 'yaml')}
 				onUnitHover={(unit) => session.onYamlUnitHover(unit)}
 				onHeaderHeightChange={(h) => {

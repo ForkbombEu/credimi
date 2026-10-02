@@ -34,6 +34,7 @@ import {
 	PeerScrollFollow,
 	type PeerScrollFollowOptions
 } from './scroll-follow/peer-scroll-follow.svelte.js';
+import { composeAttachments } from './scroll-follow/scrollport-attachments.js';
 import {
 	UnitHighlight,
 	type UnitHighlightInputs
@@ -92,8 +93,21 @@ export type TwinPaneSession = {
 	stepsVirtualizer: ComposerVirtualizer;
 	yamlVirtualizer: ComposerVirtualizer;
 	measureStepCard: Attachment;
-	peerScroll: PeerScrollFollow;
-	unitHighlight: UnitHighlight;
+	/**
+	 * Peer-scroll + view-owned endPad (endPad ownership stays in the view until M2).
+	 * Manual mode omits the peer attach; endPad still applies.
+	 */
+	composeCardsScrollAttach(endPadAttach: Attachment): Attachment | undefined;
+	/**
+	 * Peer-scroll + view-owned endPad for YAML. Undefined when manual or preview empty
+	 * (no peer bind and no endPad).
+	 */
+	composeYamlScrollAttach(endPadAttach: Attachment): Attachment | undefined;
+	isCardSelected(section: ActiveUnit['section'], index: number): boolean;
+	isCardHovered(section: ActiveUnit['section'], index: number): boolean;
+	hoverCard(unit: ActiveUnit): void;
+	clearHoverCard(unit: ActiveUnit): void;
+	get followEnabled(): boolean;
 	shiftStep(index: number, change: number): Promise<void>;
 	onUnitClick(unit: ActiveUnit, from: 'cards' | 'yaml'): void;
 	onYamlUnitHover(unit: ActiveUnit | null): void;
@@ -104,7 +118,8 @@ export type TwinPaneSession = {
 /**
  * Owns Pipeline Composer twin-pane lifecycle: both virtualizers, PeerScrollFollow,
  * UnitHighlight, multi-list FLIP layout, and paired shift (`runPairedShift`).
- * View binds DOM roots and forwards UI events only.
+ * View binds DOM roots and forwards UI events; scroll attach composition and
+ * highlight helpers are session-owned (raw peerScroll / unitHighlight stay private).
  */
 export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPaneSession {
 	const createVirt = options.createComposerVirtualizer ?? createComposerVirtualizer;
@@ -178,6 +193,34 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 	const measureStepCard: Attachment = (node) => {
 		stepsVirtualizer.measureElement(node);
 	};
+
+	function composeCardsScrollAttach(endPad: Attachment): Attachment | undefined {
+		return composeAttachments(
+			!options.getIsManual() ? peerScroll.cardsAttach : undefined,
+			endPad
+		);
+	}
+
+	function composeYamlScrollAttach(endPad: Attachment): Attachment | undefined {
+		if (options.getIsManual() || !options.getYamlPreview()) return undefined;
+		return composeAttachments(peerScroll.yamlAttach, endPad);
+	}
+
+	function isCardSelected(section: ActiveUnit['section'], index: number): boolean {
+		return unitHighlight.isCardSelected(section, index);
+	}
+
+	function isCardHovered(section: ActiveUnit['section'], index: number): boolean {
+		return unitHighlight.isCardHovered(section, index);
+	}
+
+	function hoverCard(unit: ActiveUnit): void {
+		unitHighlight.hoverCard(unit);
+	}
+
+	function clearHoverCard(unit: ActiveUnit): void {
+		unitHighlight.clearHoverCard(unit);
+	}
 
 	/**
 	 * Named swap-mount: sole owner of mountOnly + align:start + dual-pane
@@ -365,8 +408,15 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		stepsVirtualizer,
 		yamlVirtualizer,
 		measureStepCard,
-		peerScroll,
-		unitHighlight,
+		composeCardsScrollAttach,
+		composeYamlScrollAttach,
+		isCardSelected,
+		isCardHovered,
+		hoverCard,
+		clearHoverCard,
+		get followEnabled() {
+			return peerScroll.enabled;
+		},
 		shiftStep,
 		onUnitClick,
 		onYamlUnitHover,
