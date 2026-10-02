@@ -6,14 +6,14 @@ import { type Pipeline, type PipelineFinally, type PipelineStep } from '$lib/pip
 import * as _ from 'lodash';
 import { stringify } from 'yaml';
 
-import type { EnrichedFollowUp } from './get-enriched-pipeline.js';
-import type { RuntimeOptions } from './runtime-options-form/runtime-options-form.svelte.js';
+import type { EnrichedFollowUp } from '../get-enriched-pipeline.js';
+import type { RuntimeOptions } from '../runtime-options-form/runtime-options-form.svelte.js';
 
-import { getFinallyConditions } from './pipeline-finally.js';
-import { assignStepId, seedIdCounters } from './pipeline-step-ids.js';
-import { getConfigByTypeOrThrow } from './steps';
-import { formatPipelineYamlDocument } from './yaml-format.js';
-import { orderMapKeysByValueKind, orderStepKeys } from './yaml-key-order.js';
+import { getConfigByTypeOrThrow } from '../steps';
+import { getFinallyConditions } from './finally.js';
+import { formatPipelineYamlDocument } from './format.js';
+import { orderMapKeysByValueKind, orderStepKeys } from './key-order.js';
+import { assignStepId, seedIdCounters } from './step-ids.js';
 
 export function createPipelineYaml(
 	name: string,

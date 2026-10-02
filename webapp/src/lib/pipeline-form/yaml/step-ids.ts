@@ -7,7 +7,7 @@ import type { PipelineStep } from '$lib/pipeline/types';
 import * as _ from 'lodash';
 import slugify from 'slugify';
 
-import { getConfigByTypeOrThrow } from './steps';
+import { getConfigByTypeOrThrow } from '../steps';
 
 export function seedIdCounters(steps: PipelineStep[]) {
 	const counters = new Map<string, number>();

@@ -4,7 +4,6 @@
 
 /** Public barrel for pipeline-form load / serialize helpers. */
 
-export { createPipelineYaml } from './create-pipeline-yaml.js';
 export {
 	PIPELINE_ENRICH_CONCURRENCY,
 	getEnrichedPipeline,
@@ -12,3 +11,4 @@ export {
 	type EnrichedFollowUp,
 	type EnrichedPipeline
 } from './get-enriched-pipeline.js';
+export { createPipelineYaml } from './yaml/create-pipeline-yaml.js';

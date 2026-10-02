@@ -21,8 +21,8 @@ import { getExceptionMessage } from '@/utils/errors.js';
 
 import type { RuntimeOptions } from './runtime-options-form/runtime-options-form.svelte.js';
 
-import { getFinallyConditions, getFinallySteps } from './pipeline-finally.js';
 import { getConfigByTypeOrThrow } from './steps';
+import { getFinallyConditions, getFinallySteps } from './yaml/finally.js';
 
 /** Cap parallel step enrichment to avoid flooding PocketBase rate limits. */
 export const PIPELINE_ENRICH_CONCURRENCY = 12;
