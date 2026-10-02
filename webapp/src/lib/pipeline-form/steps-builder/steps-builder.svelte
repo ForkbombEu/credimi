@@ -243,7 +243,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							style:top="{vItem.start}px"
 							role="group"
 							tabindex="-1"
-							onclick={() => session.onUnitClick({ section: 'steps', index }, 'cards')}
+							onclick={() =>
+								session.onUnitClick({ section: 'steps', index }, 'cards')}
 							onmouseenter={() => {
 								session.hoverCard({ section: 'steps', index });
 							}}
@@ -286,7 +287,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							class="cursor-pointer"
 							role="group"
 							tabindex="-1"
-							onclick={() => session.onUnitClick({ section: 'follow-ups', index }, 'cards')}
+							onclick={() =>
+								session.onUnitClick({ section: 'follow-ups', index }, 'cards')}
 							onmouseenter={() => {
 								session.hoverCard({ section: 'follow-ups', index });
 							}}

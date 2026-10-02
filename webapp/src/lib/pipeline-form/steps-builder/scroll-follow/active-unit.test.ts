@@ -373,9 +373,7 @@ describe('resolveTopmostVisibleUnit (cards)', () => {
 
 	it('returns null when no cards are mounted', () => {
 		const scroller = createScroller([]);
-		expect(
-			resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)
-		).toBeNull();
+		expect(resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)).toBeNull();
 	});
 
 	it('picks the topmost intersecting card over the vertical center', () => {
@@ -389,9 +387,10 @@ describe('resolveTopmostVisibleUnit (cards)', () => {
 			section: 'steps',
 			index: 1
 		});
-		expect(
-			resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)
-		).toEqual({ section: 'steps', index: 0 });
+		expect(resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)).toEqual({
+			section: 'steps',
+			index: 0
+		});
 	});
 
 	it('skips a top-clipped sliver so the next in-port card leads follow', () => {
@@ -401,18 +400,18 @@ describe('resolveTopmostVisibleUnit (cards)', () => {
 			{ section: 'steps', index: 1, top: 20, bottom: 400 },
 			{ section: 'steps', index: 2, top: 400, bottom: 480 }
 		]);
-		expect(
-			resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)
-		).toEqual({ section: 'steps', index: 1 });
+		expect(resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)).toEqual({
+			section: 'steps',
+			index: 1
+		});
 	});
 
 	it('falls back to a top-clipped card when it is the only intersection', () => {
-		const scroller = createScroller([
-			{ section: 'steps', index: 0, top: -40, bottom: 30 }
-		]);
-		expect(
-			resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)
-		).toEqual({ section: 'steps', index: 0 });
+		const scroller = createScroller([{ section: 'steps', index: 0, top: -40, bottom: 30 }]);
+		expect(resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)).toEqual({
+			section: 'steps',
+			index: 0
+		});
 	});
 
 	it('ignores cards fully below the viewport', () => {
@@ -420,9 +419,7 @@ describe('resolveTopmostVisibleUnit (cards)', () => {
 			{ section: 'steps', index: 0, top: 500, bottom: 580 },
 			{ section: 'steps', index: 1, top: 600, bottom: 680 }
 		]);
-		expect(
-			resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)
-		).toBeNull();
+		expect(resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)).toBeNull();
 	});
 
 	it('uses length hints at absolute top so true list start wins', () => {

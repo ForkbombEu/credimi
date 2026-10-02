@@ -26,19 +26,13 @@ import {
 	type MultiListLayoutEntry
 } from './layout-swap.js';
 import { runPairedShift as defaultRunPairedShift, type PairedShiftArgs } from './paired-shift.js';
-import {
-	ensureMountedForStepsVirtualizer,
-	type ActiveUnit
-} from './scroll-follow/active-unit.js';
+import { ensureMountedForStepsVirtualizer, type ActiveUnit } from './scroll-follow/active-unit.js';
 import {
 	PeerScrollFollow,
 	type PeerScrollFollowOptions
 } from './scroll-follow/peer-scroll-follow.svelte.js';
 import { composeAttachments, endPadAttach } from './scroll-follow/scrollport-attachments.js';
-import {
-	UnitHighlight,
-	type UnitHighlightInputs
-} from './scroll-follow/unit-highlight.svelte.js';
+import { UnitHighlight, type UnitHighlightInputs } from './scroll-follow/unit-highlight.svelte.js';
 
 export type TwinPaneCreatedCard = {
 	section: 'steps' | 'follow-ups';
@@ -63,9 +57,7 @@ export type TwinPaneSessionOptions = {
 		onEditFocus?: (stepIndex: number) => void;
 	}) => void;
 	/** Inject for tests. */
-	createComposerVirtualizer?: (
-		options: ComposerVirtualizerOptions
-	) => ComposerVirtualizer;
+	createComposerVirtualizer?: (options: ComposerVirtualizerOptions) => ComposerVirtualizer;
 	createPeerScrollFollow?: (options?: PeerScrollFollowOptions) => PeerScrollFollow;
 	createUnitHighlight?: (inputs: UnitHighlightInputs) => UnitHighlight;
 	createMultiListLayout?: (

@@ -122,8 +122,16 @@ describe('pinBothScrollports', () => {
 	it('forwards both panes through an injected restore', () => {
 		const calls: Array<{ top: number; hasVirt: boolean }> = [];
 		pinBothScrollports(
-			{ scroller: { scrollTop: 0 } as HTMLElement, top: 10, virtualizer: { scrollOffset: 0 } },
-			{ scroller: { scrollTop: 0 } as HTMLElement, top: 20, virtualizer: { scrollOffset: 0 } },
+			{
+				scroller: { scrollTop: 0 } as HTMLElement,
+				top: 10,
+				virtualizer: { scrollOffset: 0 }
+			},
+			{
+				scroller: { scrollTop: 0 } as HTMLElement,
+				top: 20,
+				virtualizer: { scrollOffset: 0 }
+			},
 			(_el, top, virtualizer) => {
 				calls.push({ top, hasVirt: virtualizer != null });
 			}

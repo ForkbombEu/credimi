@@ -209,10 +209,7 @@ export function resolveViewportUnit(
 	}
 	if (!best) return null;
 
-	if (
-		pane.topEdgePolicy === 'intersect' &&
-		!unitIntersectsScroller(best.el, scrollContainer)
-	) {
+	if (pane.topEdgePolicy === 'intersect' && !unitIntersectsScroller(best.el, scrollContainer)) {
 		return null;
 	}
 

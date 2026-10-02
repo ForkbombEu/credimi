@@ -212,10 +212,7 @@ describe('createMultiListLayout', () => {
 		});
 
 		const handle = createMultiListLayout(
-			[
-				{ root: cardsRoot },
-				{ root: yamlRoot, children: DEFAULT_YAML_LAYOUT_CHILDREN }
-			],
+			[{ root: cardsRoot }, { root: yamlRoot, children: DEFAULT_YAML_LAYOUT_CHILDREN }],
 			{ measureTops, animate: animateFn }
 		);
 

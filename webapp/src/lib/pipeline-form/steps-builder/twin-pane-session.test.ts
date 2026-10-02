@@ -251,7 +251,10 @@ describe('createTwinPaneSession', () => {
 		const stepsVirt = fakeVirtualizer('cards', order, {
 			ensureStepVisible: vi.fn(async (index: number, opts?: { mountOnly?: boolean }) => {
 				order.push(`ensure:cards:${index}`);
-				if (opts?.mountOnly && cardsScroller.querySelector(`[data-card-index="${index}"]`)) {
+				if (
+					opts?.mountOnly &&
+					cardsScroller.querySelector(`[data-card-index="${index}"]`)
+				) {
 					return true;
 				}
 				// Legacy align:start yank toward list start (the smoke bug writer).
@@ -300,8 +303,14 @@ describe('createTwinPaneSession', () => {
 
 		expect(cardsTop).toBe(200);
 		expect(yamlTop).toBe(200);
-		expect(stepsVirt.ensureStepVisible).toHaveBeenCalledWith(0, expect.objectContaining({ mountOnly: true }));
-		expect(stepsVirt.ensureStepVisible).toHaveBeenCalledWith(1, expect.objectContaining({ mountOnly: true }));
+		expect(stepsVirt.ensureStepVisible).toHaveBeenCalledWith(
+			0,
+			expect.objectContaining({ mountOnly: true })
+		);
+		expect(stepsVirt.ensureStepVisible).toHaveBeenCalledWith(
+			1,
+			expect.objectContaining({ mountOnly: true })
+		);
 		session.dispose();
 	});
 

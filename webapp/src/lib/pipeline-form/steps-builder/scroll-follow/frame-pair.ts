@@ -18,8 +18,7 @@ function intersects(el: FramePairRect, port: FramePairRect): boolean {
 
 function fullyVisible(el: FramePairRect, port: FramePairRect): boolean {
 	return (
-		el.top >= port.top - VISIBLE_EDGE_SLOP_PX &&
-		el.bottom <= port.bottom + VISIBLE_EDGE_SLOP_PX
+		el.top >= port.top - VISIBLE_EDGE_SLOP_PX && el.bottom <= port.bottom + VISIBLE_EDGE_SLOP_PX
 	);
 }
 

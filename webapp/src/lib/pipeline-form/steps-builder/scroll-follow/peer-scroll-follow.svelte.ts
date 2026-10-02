@@ -362,7 +362,11 @@ export class PeerScrollFollow {
 		// Do not focus YAML on discrete — card action buttons (edit etc.) bubble through the
 		// click handler and must keep focus for the form.
 		const align =
-			kind === 'discrete' ? 'center' : this.#scrollLeader === 'cards' ? 'start-band' : 'start';
+			kind === 'discrete'
+				? 'center'
+				: this.#scrollLeader === 'cards'
+					? 'start-band'
+					: 'start';
 		const scrolled = await scrollUnitIntoView(yaml, unit, 'auto', YAML_PANE, {
 			align,
 			focus: false,
