@@ -100,7 +100,13 @@ func TestLoadFromDirClassicSuiteFacetsFromMetadata(t *testing.T) {
 		require.Equal(t, id.Component, ch.Component, ch.Path)
 		require.Equal(t, id.Version, ch.Version, ch.Path)
 		if want.Role != "" {
-			require.Equal(t, want.Role, ch.Component, "component should match classic role: %s", ch.Path)
+			require.Equal(
+				t,
+				want.Role,
+				ch.Component,
+				"component should match classic role: %s",
+				ch.Path,
+			)
 		}
 	}
 	require.Greater(t, len(classic), 0, "expected classic suite checks from config_templates")
