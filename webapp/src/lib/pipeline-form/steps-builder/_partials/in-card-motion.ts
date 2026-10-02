@@ -10,7 +10,7 @@
  * 2. fade summary out (height unchanged)
  * 3. fade form in (still at locked height)
  * 4. grow the body to the column body max (or form natural height)
- * 5. caller applies settled flex classes, then `settleEnterFormHost` clears overlay
+ * 5. enter-layout applies settled host/lock, then `settleEnterFormHost` clears overlay
  *
  * - One running animation per element: starting a new one cancels the previous
  *   one in place (no revert), so retargeting mid-flight continues from the
@@ -23,7 +23,8 @@ import { animate, type JSAnimation } from 'animejs';
 
 //
 
-export const IN_CARD_MOTION_MS = 200;
+/** Per-step duration for enter/exit (fade ×2 + grow/shrink). Keep ≤ product motion budget. */
+export const IN_CARD_MOTION_MS = 150;
 export const IN_CARD_MOTION_EASE = 'outQuad';
 
 export type MotionHandle = {
