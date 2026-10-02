@@ -16,7 +16,8 @@ import {
 	collapseRegion,
 	expandRegion,
 	fadeTo,
-	playInCardEnter
+	playInCardEnter,
+	playInCardExit
 } from './in-card-motion.js';
 
 type AnimeParams = {
@@ -197,5 +198,34 @@ describe('in-card-motion', () => {
 		const display = fakeEl(80, 80);
 		expect(bodyMaxHeightWithinCard(card, display, 480)).toBe(440);
 		expect(bodyMaxHeightWithinCard(card, display, 100)).toBe(60);
+	});
+
+	it('playInCardExit shrinks lock to summary height then crossfades', async () => {
+		const lock = fakeEl(200, 200);
+		lock.style.height = '200px';
+		const display = fakeEl(0, 80);
+		const form = fakeEl(200, 200);
+		const onComplete = vi.fn();
+
+		const handle = playInCardExit({ lock, display, form, onComplete });
+
+		// 1) shrink to summary natural height (not zero)
+		expect(animateMock).toHaveBeenCalledTimes(1);
+		expect(paramsAt(0).height).toEqual(['200px', '80px']);
+		paramsAt(0).onComplete();
+
+		// 2) form fade out
+		expect(animateMock).toHaveBeenCalledTimes(2);
+		expect(paramsAt(1).opacity).toBe(0);
+		paramsAt(1).onComplete();
+
+		// 3) display fade in
+		expect(animateMock).toHaveBeenCalledTimes(3);
+		expect(paramsAt(2).opacity).toBe(1);
+		paramsAt(2).onComplete();
+
+		await handle.finished;
+		expect(onComplete).toHaveBeenCalledOnce();
+		expect(lock.style.height).toBe('');
 	});
 });

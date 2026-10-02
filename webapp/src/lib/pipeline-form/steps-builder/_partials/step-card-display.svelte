@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Component, Snippet } from 'svelte';
 
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { Comp } from '$lib/renderable';
 	import { showPipelineFormError } from '$pipeline-form/errors.js';
@@ -21,7 +21,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import { cancelMotion, playInCardEnter, bodyMaxHeightWithinCard, type MotionHandle } from './in-card-motion.js';
+	import {
+		bodyMaxHeightWithinCard,
+		cancelMotion,
+		playInCardEnter,
+		playInCardExit,
+		type MotionHandle
+	} from './in-card-motion.js';
 	import { getStepData, getStepError } from './index.js';
 
 	//
@@ -41,6 +47,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		maxHeightPx?: number;
 		/** Becomes true after enter grow finishes; parent uses it for h-full / max-height. */
 		enterComplete?: boolean;
+		/** Fired after exit shrink/crossfade finishes — clear the held form mode. */
+		onExitComplete?: () => void;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		footer?: Snippet | Comp<Component<any>>;
 		readonly?: boolean;
@@ -58,6 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		expandReady = false,
 		maxHeightPx,
 		enterComplete = $bindable(false),
+		onExitComplete,
 		footer,
 		readonly = false,
 		editing = false,
@@ -82,29 +91,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 	const CardDetailsComponent = $derived(config?.CardDetailsComponent);
 
-	/** Keep summary painted until enter crossfade finishes (or edit ends). */
+	/** Keep summary painted until enter crossfade finishes (or during exit). */
 	let showDisplayLayer = $state(true);
 	/** Body cap (card max − chrome); kept on the lock so the save bar does not reflow. */
 	let bodyMaxPx = $state<number | undefined>(undefined);
+	let exiting = $state(false);
 
 	let cardRoot: HTMLElement | null = $state(null);
 	let bodyLock: HTMLElement | null = $state(null);
 	let displayRoot: HTMLElement | null = $state(null);
 	let formHost: HTMLElement | null = $state(null);
 
-	let enterMotion: MotionHandle | undefined;
-	let enterToken = 0;
+	let motion: MotionHandle | undefined;
+	let motionToken = 0;
 
 	$effect(() => {
 		if (showFormBody) return;
-		// Leaving form mode: restore display for the next open.
+		// Form fully cleared — restore idle display state.
 		untrack(() => {
-			enterToken++;
-			enterMotion?.cancel();
-			enterMotion = undefined;
+			motionToken++;
+			motion?.cancel();
+			motion = undefined;
 			showDisplayLayer = true;
 			enterComplete = false;
 			bodyMaxPx = undefined;
+			exiting = false;
 			cancelMotion(bodyLock);
 			cancelMotion(displayRoot);
 			cancelMotion(formHost);
@@ -112,29 +123,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	$effect(() => {
-		if (!showFormBody || !expandReady) return;
-		if (untrack(() => enterComplete)) return;
+		if (!showFormBody || !expandReady || !editing) return;
+		if (untrack(() => enterComplete || exiting)) return;
 		const card = cardRoot;
 		const lock = bodyLock;
 		const display = displayRoot;
 		const form = formHost;
 		if (!card || !lock || !display || !form) return;
 
-		const token = ++enterToken;
+		const token = ++motionToken;
 		untrack(() => {
-			enterMotion?.cancel();
+			motion?.cancel();
 			const bodyMax =
 				typeof maxHeightPx === 'number' && Number.isFinite(maxHeightPx)
 					? bodyMaxHeightWithinCard(card, display, maxHeightPx)
 					: undefined;
 			bodyMaxPx = bodyMax;
-			enterMotion = playInCardEnter({
+			motion = playInCardEnter({
 				lock,
 				display,
 				form,
 				maxHeightPx: bodyMax,
 				onComplete: () => {
-					if (token !== enterToken) return;
+					if (token !== motionToken) return;
 					showDisplayLayer = false;
 					enterComplete = true;
 				}
@@ -142,9 +153,56 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		});
 	});
 
+	// Exit: shrink to summary height, then crossfade — do not collapse to zero.
+	$effect(() => {
+		if (editing || !showFormBody) return;
+		if (untrack(() => exiting)) return;
+
+		const token = ++motionToken;
+		untrack(() => {
+			motion?.cancel();
+			exiting = true;
+
+			if (!enterComplete) {
+				// Enter never finished — drop straight back to the summary.
+				showDisplayLayer = true;
+				enterComplete = false;
+				bodyMaxPx = undefined;
+				exiting = false;
+				onExitComplete?.();
+				return;
+			}
+
+			showDisplayLayer = true;
+			void tick().then(() => {
+				if (token !== motionToken) return;
+				const lock = bodyLock;
+				const display = displayRoot;
+				const form = formHost;
+				if (!lock || !display || !form) {
+					exiting = false;
+					onExitComplete?.();
+					return;
+				}
+				motion = playInCardExit({
+					lock,
+					display,
+					form,
+					onComplete: () => {
+						if (token !== motionToken) return;
+						enterComplete = false;
+						bodyMaxPx = undefined;
+						exiting = false;
+						onExitComplete?.();
+					}
+				});
+			});
+		});
+	});
+
 	onDestroy(() => {
-		enterToken++;
-		enterMotion?.cancel();
+		motionToken++;
+		motion?.cancel();
 		cancelMotion(bodyLock);
 		cancelMotion(displayRoot);
 		cancelMotion(formHost);
@@ -178,13 +236,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if showFormBody && formBody}
 			<div
 				bind:this={bodyLock}
-				class={['relative min-h-0', enterComplete ? 'flex min-h-0 grow flex-col' : '']}
+				class={['relative min-h-0', enterComplete || exiting ? 'flex min-h-0 grow flex-col' : '']}
 				style:max-height={bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
 				data-testid="in-card-body-lock"
 				data-enter-complete={enterComplete}
+				data-exiting={exiting}
 			>
 				{#if showDisplayLayer}
-					<div bind:this={displayRoot} data-testid="in-card-display-body">
+					<div
+						bind:this={displayRoot}
+						class={enterComplete || exiting
+							? 'pointer-events-none absolute top-0 right-0 left-0 w-full'
+							: undefined}
+						data-testid="in-card-display-body"
+					>
 						{@render displayDetails()}
 						{@render displayFooter()}
 					</div>
@@ -192,11 +257,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<div
 					bind:this={formHost}
-					class={enterComplete
+					class={enterComplete || exiting
 						? 'flex min-h-0 grow flex-col overflow-hidden'
 						: 'pointer-events-none invisible absolute top-0 right-0 left-0 h-0 overflow-hidden opacity-0'}
 					data-testid="in-card-form-host"
-					inert={!enterComplete}
+					inert={!enterComplete || exiting}
 				>
 					{@render formBody()}
 				</div>

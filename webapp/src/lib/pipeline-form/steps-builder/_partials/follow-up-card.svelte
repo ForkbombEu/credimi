@@ -82,6 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{expandReady}
 		{maxHeightPx}
 		bind:enterComplete
+		onExitComplete={() => held.clear()}
 	>
 		{#snippet topRight()}
 			{#if showFormBody}
@@ -145,7 +146,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					canSave={editing && mode.form.canSave()}
 					onSave={() => mode.form.commit()}
 					onDismiss={() => builder.exitFormState()}
-					onCollapsed={() => held.clear()}
 				>
 					{#snippet form()}
 						<Render item={mode.form} />

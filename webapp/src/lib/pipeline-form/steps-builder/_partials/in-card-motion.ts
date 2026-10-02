@@ -425,3 +425,132 @@ export function playInCardEnter(options: InCardEnterOptions): MotionHandle {
 
 	return handle;
 }
+
+export type InCardExitOptions = MotionOptions & {
+	lock: HTMLElement;
+	display: HTMLElement;
+	form: HTMLElement;
+};
+
+/**
+ * Exit motion (reverse of enter):
+ * shrink body to the summary height → fade form out → fade summary in.
+ */
+export function playInCardExit(options: InCardExitOptions): MotionHandle {
+	const { lock, display, form, onComplete, durationMs } = options;
+
+	cancelMotion(lock);
+	cancelMotion(display);
+	cancelMotion(form);
+
+	const fromHeight = lock.getBoundingClientRect().height;
+
+	lock.style.overflow = 'hidden';
+	lock.style.height = `${fromHeight}px`;
+
+	// Both layers overlay the lock so remounting the summary does not inflate height.
+	prepareFormForEnter(form);
+	form.style.opacity = '1';
+	form.style.pointerEvents = 'none';
+
+	display.style.position = 'absolute';
+	display.style.inset = '';
+	display.style.top = '0';
+	display.style.left = '0';
+	display.style.right = '0';
+	display.style.bottom = 'auto';
+	display.style.width = '100%';
+	display.style.height = 'auto';
+	display.style.overflow = 'visible';
+	display.style.opacity = '0';
+	display.style.visibility = 'visible';
+	display.style.pointerEvents = 'none';
+
+	const toHeight = measureFormNaturalHeight(display);
+
+	const finish = () => {
+		display.style.position = '';
+		display.style.inset = '';
+		display.style.top = '';
+		display.style.left = '';
+		display.style.right = '';
+		display.style.bottom = '';
+		display.style.width = '';
+		display.style.height = '';
+		display.style.overflow = '';
+		display.style.opacity = '';
+		display.style.visibility = '';
+		display.style.pointerEvents = '';
+
+		form.style.position = '';
+		form.style.inset = '';
+		form.style.width = '';
+		form.style.height = '';
+		form.style.overflow = '';
+		form.style.opacity = '0';
+		form.style.visibility = 'hidden';
+		form.style.pointerEvents = 'none';
+
+		clearInlineBox(lock);
+	};
+
+	if (prefersReducedMotion()) {
+		lock.style.height = `${toHeight}px`;
+		finish();
+		onComplete?.();
+		return NOOP_HANDLE;
+	}
+
+	let cancelled = false;
+	let step: MotionHandle | undefined;
+
+	let resolveFinished: () => void = () => {};
+	const finished = new Promise<void>((r) => {
+		resolveFinished = r;
+	});
+
+	const handle: MotionHandle = {
+		finished,
+		cancel: () => {
+			cancelled = true;
+			step?.cancel();
+			resolveFinished();
+		}
+	};
+
+	const stepOpts = { durationMs };
+
+	const fadeDisplayIn = () => {
+		if (cancelled) return;
+		step = run(display, { opacity: 1 }, stepOpts, () => {
+			if (cancelled) return;
+			finish();
+			onComplete?.();
+			resolveFinished();
+		});
+	};
+
+	const fadeFormOut = () => {
+		if (cancelled) return;
+		step = run(form, { opacity: 0 }, stepOpts, () => {
+			if (cancelled) return;
+			fadeDisplayIn();
+		});
+	};
+
+	const shrink = () => {
+		if (cancelled) return;
+		const from = lock.getBoundingClientRect().height;
+		if (Math.abs(toHeight - from) < 1) {
+			fadeFormOut();
+			return;
+		}
+		step = run(lock, { height: [`${from}px`, `${toHeight}px`] }, stepOpts, () => {
+			if (cancelled) return;
+			fadeFormOut();
+		});
+	};
+
+	shrink();
+	return handle;
+}

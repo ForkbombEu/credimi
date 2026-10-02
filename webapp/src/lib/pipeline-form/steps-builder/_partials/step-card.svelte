@@ -84,6 +84,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{expandReady}
 		{maxHeightPx}
 		bind:enterComplete
+		onExitComplete={() => held.clear()}
 		footer={comp(ContinueOnErrorFooter, {
 			step,
 			onCheckedChange: (checked) => builder.setContinueOnError(index, checked)
@@ -173,7 +174,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					canSave={editing && mode.form.canSave()}
 					onSave={() => mode.form.commit()}
 					onDismiss={() => builder.exitFormState()}
-					onCollapsed={() => held.clear()}
 				>
 					{#snippet form()}
 						<Render item={mode.form} />
