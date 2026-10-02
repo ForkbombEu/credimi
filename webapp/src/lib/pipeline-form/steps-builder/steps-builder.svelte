@@ -289,6 +289,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	async function shiftStep(index: number, change: number) {
+		if (!builder.canShiftStep(index, change)) return;
+		const newIndex = index + change;
 		peerScroll.notePairedReorder();
 		await runPairedReorder({
 			cardsScroller: cardsScrollContainer,
@@ -300,6 +302,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				yamlVirtualizer.syncAfterReorder();
 			}
 		});
+		// Pin keeps mid-list view stable; edge swaps can leave the moved step above/below
+		// the fold — nearest-only reveal brings cards + YAML back without a center yank.
+		await peerScroll.revealUnitNearest({ section: 'steps', index: newIndex });
 	}
 </script>
 

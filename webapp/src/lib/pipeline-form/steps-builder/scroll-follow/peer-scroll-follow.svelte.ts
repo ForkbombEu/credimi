@@ -253,6 +253,35 @@ export class PeerScrollFollow {
 		this.#pairedReorderAt = this.#clock.now();
 	}
 
+	/**
+	 * After paired reorder: if the moved unit left either viewport (e.g. shift-up
+	 * from the top of the visible list), scroll that pane with `nearest` only.
+	 * Mid-list swaps that stay fully visible no-op — preserves the scroll pin.
+	 * Runs even when scroll-follow is off; does not use Animatable (avoids fighting FLIP).
+	 */
+	async revealUnitNearest(unit: ActiveUnit): Promise<boolean> {
+		if (this.#disposed) return false;
+		let scrolled = false;
+		if (this.#cardsEl) {
+			const did = await scrollUnitIntoView(this.#cardsEl, unit, 'auto', CARD_PANE, {
+				align: 'nearest',
+				focus: false,
+				ensureMounted: this.#ensureMounted
+			});
+			scrolled = did || scrolled;
+		}
+		if (this.#yamlEl) {
+			const did = await scrollUnitIntoView(this.#yamlEl, unit, 'auto', YAML_PANE, {
+				align: 'nearest',
+				focus: false,
+				ensureMounted: this.#ensureMountedYaml
+			});
+			scrolled = did || scrolled;
+		}
+		if (scrolled) this.#setActiveUnit(unit);
+		return scrolled;
+	}
+
 	/** Debounced re-follow from cards; returns cancel cleanup. */
 	onYamlTextChanged(): () => void {
 		if (this.#disposed || !this.enabled) return () => {};

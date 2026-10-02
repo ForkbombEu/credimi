@@ -296,6 +296,32 @@ describe('PeerScrollFollow', () => {
 		follow.dispose();
 	});
 
+	it('revealUnitNearest scrolls when the unit is above the viewport; no-ops when visible', async () => {
+		const follow = createFollow(createFakeClock());
+		// index 0 above the fold (after shift-up); index 1 fully visible
+		const cards = createCardsScroller([-40, 200]);
+		cards.scrollTop = 100;
+		const yaml = createYamlScroller([-40, 200]);
+		yaml.scrollTop = 100;
+		follow.cardsAttach(cards as unknown as HTMLElement);
+		follow.yamlAttach(yaml as unknown as HTMLElement);
+
+		const scrolledOff = await follow.revealUnitNearest({ section: 'steps', index: 0 });
+		expect(scrolledOff).toBe(true);
+		expect(cards.scrollTo).toHaveBeenCalled();
+		expect(yaml.scrollTo).toHaveBeenCalled();
+		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
+
+		vi.mocked(cards.scrollTo).mockClear();
+		vi.mocked(yaml.scrollTo).mockClear();
+
+		const scrolledVisible = await follow.revealUnitNearest({ section: 'steps', index: 1 });
+		expect(scrolledVisible).toBe(false);
+		expect(cards.scrollTo).not.toHaveBeenCalled();
+		expect(yaml.scrollTo).not.toHaveBeenCalled();
+		follow.dispose();
+	});
+
 	it('setEnabled(false) clears activeUnit', () => {
 		const clock = createFakeClock();
 		const follow = createFollow(clock);
