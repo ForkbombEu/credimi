@@ -41,7 +41,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from './_partials/index.js';
 	import { stableItemKey } from './composer-virtualizer.svelte.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
-	import { endPadAttach } from './scroll-follow/scrollport-attachments.js';
 	import { createTwinPaneSession } from './twin-pane-session.svelte.js';
 	import { splitPipelineYamlPreview } from './yaml-preview/index.js';
 
@@ -54,18 +53,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let addStepPane: PaneHandle | null = $state(null);
 	let stepsPane: PaneHandle | null = $state(null);
 	let rightPane: PaneHandle | null = $state(null);
-	/** Half-viewport end pad so the last (short) card can scroll to center. */
-	let cardsEndPadPx = $state(0);
-	let yamlEndPadPx = $state(0);
-	/** Header height inside the YAML scroller — TanStack scrollMargin for step blocks. */
-	let yamlScrollMargin = $state(0);
-
-	const cardsEndPadAttach = endPadAttach((px) => {
-		cardsEndPadPx = px;
-	});
-	const yamlEndPadAttach = endPadAttach((px) => {
-		yamlEndPadPx = px;
-	});
 
 	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
 	const editingSection = $derived(
@@ -97,7 +84,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		getYamlPreview: () => builder.yamlPreview,
 		getFollowUpsLength: () => builder.followUps.length,
 		getCreatedCard: () => builder.createdCard,
-		getYamlScrollMargin: () => yamlScrollMargin,
 		canShiftStep: (index, change) => builder.canShiftStep(index, change),
 		mutateShiftStep: (index, change) => builder.shiftStep(index, change),
 		bindComposerScroll: (handlers) => builder.bindComposerScroll(handlers)
@@ -108,8 +94,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const stepsVirt = session.stepsVirt;
 	const { measureStepCard, yamlVirtualizer } = session;
 
-	const yamlScrollAttach = $derived(session.composeYamlScrollAttach(yamlEndPadAttach));
-	const cardsScrollAttach = $derived(session.composeCardsScrollAttach(cardsEndPadAttach));
+	const yamlScrollAttach = $derived(session.yamlScrollAttach);
+	const cardsScrollAttach = $derived(session.cardsScrollAttach);
 
 	$effect(() => {
 		const isManual = builder.isManualMode;
@@ -325,7 +311,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<!-- End pad after all content so peer-follow can center short cards without a gap before Follow-ups. -->
 			<div
 				class="pointer-events-none shrink-0"
-				style:height="{cardsEndPadPx}px"
+				style:height="{session.cardsEndPadPx}px"
 				aria-hidden="true"
 			></div>
 		</div>
@@ -391,17 +377,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				yaml={builder.yamlPreview}
 				parts={yamlParts}
 				{yamlVirtualizer}
-				scrollMargin={yamlScrollMargin}
+				scrollMargin={session.yamlScrollMargin}
 				scrollContainer={session.yamlScroller}
 				bind:stepsListEl={session.yamlStepsLayoutRoot}
 				isUnitSelected={(section, index) => session.isCardSelected(section, index)}
 				isUnitHovered={(section, index) => session.isCardHovered(section, index)}
 				onUnitClick={(unit) => session.onUnitClick(unit, 'yaml')}
 				onUnitHover={(unit) => session.onYamlUnitHover(unit)}
-				onHeaderHeightChange={(h) => {
-					yamlScrollMargin = h;
-				}}
-				endPadPx={yamlEndPadPx}
+				onHeaderHeightChange={(h) => session.setYamlHeaderHeight(h)}
+				endPadPx={session.yamlEndPadPx}
 			/>
 		{/if}
 	</Column>

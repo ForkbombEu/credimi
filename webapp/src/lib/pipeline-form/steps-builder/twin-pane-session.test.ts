@@ -76,7 +76,6 @@ function baseOptions(order: string[], extras: Record<string, unknown> = {}) {
 			getYamlPreview: () => 'steps:\n  - id: a\n',
 			getFollowUpsLength: () => 0,
 			getCreatedCard: () => null,
-			getYamlScrollMargin: () => 0,
 			canShiftStep: () => true,
 			mutateShiftStep: () => {
 				order.push('mutate');
@@ -354,6 +353,58 @@ describe('createTwinPaneSession', () => {
 
 		expect(pinUnit).toHaveBeenCalledWith(unit);
 		expect(followUnit).toHaveBeenCalledWith(unit, 'cards');
+		session.dispose();
+	});
+
+	it('owns yaml scrollMargin and wires it into the yaml virtualizer', () => {
+		const order: string[] = [];
+		let capturedGetScrollMargin: (() => number) | undefined;
+		const stepsVirt = fakeVirtualizer('cards', order);
+		const yamlVirt = fakeVirtualizer('yaml', order);
+		const { options } = baseOptions(order, {
+			createComposerVirtualizer: (virtOpts: { getScrollMargin?: () => number }) => {
+				if (virtOpts.getScrollMargin) {
+					capturedGetScrollMargin = virtOpts.getScrollMargin;
+					order.push('virt:yaml');
+					return yamlVirt;
+				}
+				order.push('virt:cards');
+				return stepsVirt;
+			}
+		});
+		const session = createTwinPaneSession(options);
+
+		expect(session.yamlScrollMargin).toBe(0);
+		expect(capturedGetScrollMargin?.()).toBe(0);
+		session.setYamlHeaderHeight(48);
+		expect(session.yamlScrollMargin).toBe(48);
+		expect(capturedGetScrollMargin?.()).toBe(48);
+		session.dispose();
+	});
+
+	it('cardsScrollAttach stays defined in manual mode; yamlScrollAttach gates manual/empty', () => {
+		let isManual = false;
+		let yamlPreview = 'steps:\n  - id: a\n';
+		const order: string[] = [];
+		const { options } = baseOptions(order, {
+			getIsManual: () => isManual,
+			getYamlPreview: () => yamlPreview
+		});
+		const session = createTwinPaneSession(options);
+
+		expect(session.cardsScrollAttach).toBeTypeOf('function');
+		expect(session.yamlScrollAttach).toBeTypeOf('function');
+
+		isManual = true;
+		expect(session.cardsScrollAttach).toBeTypeOf('function');
+		expect(session.yamlScrollAttach).toBeUndefined();
+
+		isManual = false;
+		yamlPreview = '';
+		expect(session.yamlScrollAttach).toBeUndefined();
+
+		expect(session.cardsEndPadPx).toBe(0);
+		expect(session.yamlEndPadPx).toBe(0);
 		session.dispose();
 	});
 });

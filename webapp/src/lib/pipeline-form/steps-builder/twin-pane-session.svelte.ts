@@ -34,7 +34,7 @@ import {
 	PeerScrollFollow,
 	type PeerScrollFollowOptions
 } from './scroll-follow/peer-scroll-follow.svelte.js';
-import { composeAttachments } from './scroll-follow/scrollport-attachments.js';
+import { composeAttachments, endPadAttach } from './scroll-follow/scrollport-attachments.js';
 import {
 	UnitHighlight,
 	type UnitHighlightInputs
@@ -56,8 +56,6 @@ export type TwinPaneSessionOptions = {
 	getYamlPreview: () => string;
 	getFollowUpsLength: () => number;
 	getCreatedCard: () => TwinPaneCreatedCard | null;
-	/** TanStack scrollMargin for YAML step blocks (header height). */
-	getYamlScrollMargin?: () => number;
 	canShiftStep: (index: number, change: number) => boolean;
 	mutateShiftStep: (index: number, change: number) => void;
 	bindComposerScroll: (handlers: {
@@ -88,21 +86,29 @@ export type TwinPaneSession = {
 	set stepsLayoutRoot(el: HTMLElement | null);
 	get yamlStepsLayoutRoot(): HTMLElement | null;
 	set yamlStepsLayoutRoot(el: HTMLElement | null);
+	/** Half-viewport end pad for the cards scrollport (view paints height). */
+	get cardsEndPadPx(): number;
+	/** Half-viewport end pad for the YAML scrollport (view paints height). */
+	get yamlEndPadPx(): number;
+	/** TanStack scrollMargin for YAML step blocks (header height inside scroller). */
+	get yamlScrollMargin(): number;
 	/** TanStack Readable — `$stepsVirt` in markup. */
 	stepsVirt: ComposerVirtualizer['virtualizer'];
 	stepsVirtualizer: ComposerVirtualizer;
 	yamlVirtualizer: ComposerVirtualizer;
 	measureStepCard: Attachment;
 	/**
-	 * Peer-scroll + view-owned endPad (endPad ownership stays in the view until M2).
+	 * Peer-scroll + session-owned endPad for cards.
 	 * Manual mode omits the peer attach; endPad still applies.
 	 */
-	composeCardsScrollAttach(endPadAttach: Attachment): Attachment | undefined;
+	get cardsScrollAttach(): Attachment | undefined;
 	/**
-	 * Peer-scroll + view-owned endPad for YAML. Undefined when manual or preview empty
+	 * Peer-scroll + session-owned endPad for YAML. Undefined when manual or preview empty
 	 * (no peer bind and no endPad).
 	 */
-	composeYamlScrollAttach(endPadAttach: Attachment): Attachment | undefined;
+	get yamlScrollAttach(): Attachment | undefined;
+	/** YAML header → TanStack scrollMargin (view forwards from YamlPreviewPane). */
+	setYamlHeaderHeight(height: number): void;
 	isCardSelected(section: ActiveUnit['section'], index: number): boolean;
 	isCardHovered(section: ActiveUnit['section'], index: number): boolean;
 	hoverCard(unit: ActiveUnit): void;
@@ -117,9 +123,10 @@ export type TwinPaneSession = {
 
 /**
  * Owns Pipeline Composer twin-pane lifecycle: both virtualizers, PeerScrollFollow,
- * UnitHighlight, multi-list FLIP layout, and paired shift (`runPairedShift`).
- * View binds DOM roots and forwards UI events; scroll attach composition and
- * highlight helpers are session-owned (raw peerScroll / unitHighlight stay private).
+ * UnitHighlight, multi-list FLIP layout, paired shift (`runPairedShift`), and
+ * scrollport chrome (end pads + YAML header→scrollMargin).
+ * View binds DOM roots, paints pad heights from session getters, and forwards UI
+ * events; raw peerScroll / unitHighlight stay private.
  */
 export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPaneSession {
 	const createVirt = options.createComposerVirtualizer ?? createComposerVirtualizer;
@@ -129,15 +136,26 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 	const runPairedShift = options.runPairedShift ?? defaultRunPairedShift;
 	const restoreScrollTop = options.restoreScrollTop ?? defaultRestoreScrollTop;
 	const tick = options.tick ?? svelteTick;
-	const getYamlScrollMargin = options.getYamlScrollMargin ?? (() => 0);
 
 	let cardsScroller = $state.raw<HTMLElement | null>(null);
 	let yamlScroller = $state.raw<HTMLElement | null>(null);
 	let stepsLayoutRoot = $state.raw<HTMLElement | null>(null);
 	let yamlStepsLayoutRoot = $state.raw<HTMLElement | null>(null);
+	/** Half-viewport end pad so the last (short) card can scroll to center. */
+	let cardsEndPadPx = $state(0);
+	let yamlEndPadPx = $state(0);
+	/** Header height inside the YAML scroller — TanStack scrollMargin for step blocks. */
+	let yamlScrollMargin = $state(0);
 	let layout: CardListLayout | null = null;
 	let lastFocusedCardToken = 0;
 	let disposed = false;
+
+	const cardsEndPadAttach = endPadAttach((px) => {
+		cardsEndPadPx = px;
+	});
+	const yamlEndPadAttach = endPadAttach((px) => {
+		yamlEndPadPx = px;
+	});
 
 	const listLengths = () => ({
 		steps: options.getStepsCount(),
@@ -155,7 +173,7 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 	const yamlVirtualizer = createVirt({
 		getCount: () => options.getYamlStepsCount(),
 		getScrollElement: () => yamlScroller,
-		getScrollMargin: () => getYamlScrollMargin(),
+		getScrollMargin: () => yamlScrollMargin,
 		itemSelector: yamlStepBlockSelector,
 		estimateSize: () => DEFAULT_YAML_STEP_ESTIMATE_SIZE,
 		getItemKey: options.getItemKey
@@ -194,16 +212,20 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		stepsVirtualizer.measureElement(node);
 	};
 
-	function composeCardsScrollAttach(endPad: Attachment): Attachment | undefined {
+	function cardsScrollAttach(): Attachment | undefined {
 		return composeAttachments(
 			!options.getIsManual() ? peerScroll.cardsAttach : undefined,
-			endPad
+			cardsEndPadAttach
 		);
 	}
 
-	function composeYamlScrollAttach(endPad: Attachment): Attachment | undefined {
+	function yamlScrollAttach(): Attachment | undefined {
 		if (options.getIsManual() || !options.getYamlPreview()) return undefined;
-		return composeAttachments(peerScroll.yamlAttach, endPad);
+		return composeAttachments(peerScroll.yamlAttach, yamlEndPadAttach);
+	}
+
+	function setYamlHeaderHeight(height: number) {
+		yamlScrollMargin = height;
 	}
 
 	function isCardSelected(section: ActiveUnit['section'], index: number): boolean {
@@ -404,12 +426,26 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		set yamlStepsLayoutRoot(el) {
 			yamlStepsLayoutRoot = el;
 		},
+		get cardsEndPadPx() {
+			return cardsEndPadPx;
+		},
+		get yamlEndPadPx() {
+			return yamlEndPadPx;
+		},
+		get yamlScrollMargin() {
+			return yamlScrollMargin;
+		},
 		stepsVirt: stepsVirtualizer.virtualizer,
 		stepsVirtualizer,
 		yamlVirtualizer,
 		measureStepCard,
-		composeCardsScrollAttach,
-		composeYamlScrollAttach,
+		get cardsScrollAttach() {
+			return cardsScrollAttach();
+		},
+		get yamlScrollAttach() {
+			return yamlScrollAttach();
+		},
+		setYamlHeaderHeight,
 		isCardSelected,
 		isCardHovered,
 		hoverCard,
