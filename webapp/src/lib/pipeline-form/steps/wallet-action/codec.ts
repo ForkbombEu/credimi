@@ -125,7 +125,10 @@ export function serializeWalletAction(data: WalletActionStepData): MobileWith {
 	const { action, version, device, parameters } = data;
 	const _with = { action_id: getPath(action) } as MobileWith;
 	applyTargetFields(_with, version, device, parameters);
-	if (!_with.parameters && (action.code.includes('${DL}') || action.code.includes('${deeplink}'))) {
+	if (
+		!_with.parameters &&
+		(action.code.includes('${DL}') || action.code.includes('${deeplink}'))
+	) {
 		_with.parameters = {
 			deeplink: '<deeplink-placeholder>'
 		};

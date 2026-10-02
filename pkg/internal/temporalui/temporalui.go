@@ -252,6 +252,18 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 // embedHead adapts the UI to being embedded in a Credimi run page:
 //   - hides the shell (side and top navigation) and the "Back to Workflows" link,
 //     and makes links to other UI pages (workflow lists, task queues) inert;
+//   - hides the workflow summary above the history tabs (status, actions, id,
+//     metadata); Credimi's run page already shows that;
+//   - hides Call Stack, Queries, and Relationships tabs (unused in the embed);
+//   - lets the document grow with content height (no inner viewport scroll) and
+//     posts height to the parent so the iframe can size without its own scrollbar;
+//     measures body/#content (not html.scrollHeight) so shorter tabs like Timeline
+//     shrink after a tall Event History view;
+//   - keeps width at the parent iframe width (Temporal UI uses w-max / w-screen)
+//     without overflow-x:hidden, which would pair to overflow-y:auto and trap wheel;
+//   - keeps Timeline start/end stamps readable in the embed: upstream rotates
+//     them 90° for the full Temporal shell, which spills or misplaces them once
+//     the shell is gone — flatten to horizontal labels and drop shell sticky top;
 //   - forces the light theme: Credimi has no dark mode, and the UI reads its theme
 //     from the persisted "dark mode" store, defaulting to the OS preference;
 //   - keeps navigation on the embedded run: its own tabs work, links to another
@@ -259,9 +271,37 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //     is blocked.
 const embedHead = `<style id="credimi-embed">` +
 	`:root{color-scheme:light}` +
-	`html,body{background-color:#f8fafc !important;color:#141414 !important}` +
+	`html,body{background-color:#f8fafc !important;color:#141414 !important;` +
+	`width:100% !important;max-width:100% !important;` +
+	`height:auto !important;min-height:0 !important;` +
+	// Both axes must be visible on the document shell only: overflow-x:hidden +
+	// overflow-y:visible pairs to overflow-y:auto and the tall iframe then traps
+	// wheel events from the parent. Do not force overflow:visible on nested
+	// .overflow-auto regions (timeline chart, tables) — that lets rotated
+	// timeline stamps and wide tables spill outside their panels.
+	`overflow:visible !important;overscroll-behavior:auto !important}` +
 	`div:has(> nav[data-testid="navigation-header"]),nav[data-testid="top-nav"],` +
 	`[data-testid="back-to-workflows"]{display:none !important}` +
+	`header:has([data-testid="workflow-id-heading"]) > :not(.tabs)` +
+	`{display:none !important}` +
+	`[data-testid="call-stack-tab"],[data-testid="queries-tab"],` +
+	`[data-testid="relationships-tab"]{display:none !important}` +
+	`.h-dvh,.w-screen,.w-max,#content-wrapper,#content,#content > div` +
+	`{width:100% !important;max-width:100% !important;` +
+	`height:auto !important;max-height:none !important;min-height:0 !important;` +
+	`overflow:visible !important}` +
+	// Upstream uses Tailwind p-4 md:p-8 on #content > div; drop top pad so
+	// history sits flush under Credimi chrome (keep side/bottom padding).
+	`#content > div{padding-top:0 !important}` +
+	// Timeline start/end stamps: upstream uses `w-60 ±translate-x-24 rotate-90`
+	// plus sticky top-[120px] for the full Temporal shell. In the embed those
+	// transforms spill or land on the activity column; flatten to horizontal
+	// labels in the existing justify-between row and drop the shell sticky offset.
+	`.pointer-events-none.sticky.top-\[120px\]{top:0 !important}` +
+	`p.w-60.rotate-90{transform:none !important;width:auto !important}` +
+	`[data-testid="input-and-result"],[data-testid="event-summary-table"]` +
+	`{max-width:100% !important;box-sizing:border-box}` +
+	`[data-testid="event-summary-table"]{overflow-x:auto !important;overflow-y:hidden !important}` +
 	`a[href*="/workflows?"],a[href*="/task-queues/"]` +
 	`{pointer-events:none;color:inherit !important;text-decoration:none !important}` +
 	`</style>` +
@@ -276,7 +316,35 @@ const embedHead = `<style id="credimi-embed">` +
 	`e.preventDefault();e.stopImmediatePropagation();` +
 	`if(there&&window.top!==window){` +
 	`window.top.location.href="/my/tests/runs/"+there[1]+"/"+there[2]}` +
-	`},true)})()</script>`
+	`},true);` +
+	`function reportHeight(){` +
+	// Prefer body/#content over documentElement.scrollHeight: after a taller tab
+	// (Event History), html.scrollHeight sticks to the iframe viewport and never
+	// shrinks when switching to Timeline, leaving empty height in the parent.
+	`var body=document.body,` +
+	`content=document.querySelector("#content")||` +
+	`document.querySelector("main")||body,h=0;` +
+	`function measure(el){` +
+	`if(!el)return;` +
+	`h=Math.max(h,el.scrollHeight||0,el.offsetHeight||0,` +
+	`Math.ceil(el.getBoundingClientRect().height)||0)}` +
+	`measure(content);measure(body);` +
+	`if(h<1)h=document.documentElement.scrollHeight;` +
+	`if(window.parent&&window.parent!==window){` +
+	`window.parent.postMessage({source:"credimi-temporal-ui",type:"height",height:h},` +
+	`location.origin)}}` +
+	`var scheduled=false;function schedule(){` +
+	`if(scheduled)return;scheduled=true;` +
+	`requestAnimationFrame(function(){scheduled=false;reportHeight()})}` +
+	`if(typeof ResizeObserver!=="undefined"){` +
+	`var ro=new ResizeObserver(schedule);` +
+	`if(document.body)ro.observe(document.body);` +
+	`var contentEl=document.querySelector("#content")||document.querySelector("main");` +
+	`if(contentEl)ro.observe(contentEl)}` +
+	`new MutationObserver(schedule).observe(document.documentElement,` +
+	`{subtree:true,childList:true,attributes:true});` +
+	`window.addEventListener("load",schedule);schedule()` +
+	`})()</script>`
 
 func injectEmbedHead(resp *http.Response) error {
 	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") {

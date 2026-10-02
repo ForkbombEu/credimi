@@ -5,13 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ClassValue } from 'clsx';
 	import type { Snippet } from 'svelte';
 
 	//
 
 	type Props = {
 		children?: Snippet;
-		class?: string;
+		class?: ClassValue;
 	};
 
 	let { class: className, children }: Props = $props();
@@ -19,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	class={[
-		'max-h-96 overflow-auto font-mono text-sm leading-relaxed whitespace-pre-wrap',
+		'max-h-96 overflow-auto font-sans text-sm leading-relaxed whitespace-pre-wrap',
 		className
 	]}
 >
