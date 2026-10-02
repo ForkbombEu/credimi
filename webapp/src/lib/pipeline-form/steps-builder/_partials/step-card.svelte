@@ -26,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		editing?: boolean;
 		selected?: boolean;
 		hovered?: boolean;
+		onShift: (change: number) => void;
 	};
 
 	let {
@@ -34,7 +35,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		index,
 		editing = false,
 		selected = false,
-		hovered = false
+		hovered = false,
+		onShift
 	}: Props = $props();
 
 	const editable = $derived(isStepEditable(step));
@@ -85,14 +87,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				icon={ArrowUpIcon}
 				variant="ghost"
 				size="xs"
-				onclick={() => builder.shiftStep(index, -1)}
+				onclick={() => onShift(-1)}
 				disabled={actionsDisabled || !builder.canShiftStep(index, -1)}
 			/>
 			<IconButton
 				icon={ArrowDownIcon}
 				variant="ghost"
 				size="xs"
-				onclick={() => builder.shiftStep(index, 1)}
+				onclick={() => onShift(1)}
 				disabled={actionsDisabled || !builder.canShiftStep(index, 1)}
 			/>
 		</div>

@@ -12,6 +12,7 @@ import {
 	DEFAULT_OVERSCAN,
 	DEFAULT_STEP_ESTIMATE_SIZE,
 	DEFAULT_YAML_STEP_ESTIMATE_SIZE,
+	stableItemKey,
 	stepCardSelector,
 	waitForSelectorInScroller,
 	yamlStepBlockSelector
@@ -302,5 +303,87 @@ describe('createComposerVirtualizer', () => {
 
 		await expect(list.ensureStepVisible(0)).resolves.toBe(false);
 		expect(fake.scrollToIndex).toHaveBeenCalled();
+	});
+
+	it('keeps WeakMap keys stable across reorder and maps missing items to fallback', () => {
+		const a = { id: 'a' };
+		const b = { id: 'b' };
+		const ka = stableItemKey(a, 0);
+		const kb = stableItemKey(b, 1);
+		expect(ka).not.toBe(kb);
+		expect(stableItemKey(a, 99)).toBe(ka);
+		expect(stableItemKey(undefined, 7)).toBe(7);
+	});
+
+	it('passes getItemKey through and remaps it only on syncAfterReorder', () => {
+		const keys = ['a', 'b'];
+		const fake = createFakeVirtualizerStore();
+		const list = createComposerVirtualizer({
+			getCount: () => keys.length,
+			getScrollElement: () => null,
+			itemSelector: stepCardSelector,
+			estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+			getItemKey: (index) => keys[index] ?? index,
+			createVirtualizer: (() => fake.store) as never
+		});
+		disposers.push(() => list.dispose());
+
+		const first = fake.setOptions.mock.calls.at(-1)?.[0] as {
+			getItemKey?: (index: number) => string | number;
+		};
+		expect(first.getItemKey?.(0)).toBe('a');
+		expect(first.getItemKey?.(1)).toBe('b');
+
+		keys.reverse();
+		list.syncAfterReorder();
+
+		const after = fake.setOptions.mock.calls.at(-1)?.[0] as {
+			getItemKey?: (index: number) => string | number;
+		};
+		expect(after.getItemKey).not.toBe(first.getItemKey);
+		expect(after.getItemKey?.(0)).toBe('b');
+		expect(after.getItemKey?.(1)).toBe('a');
+	});
+
+	it('restores scrollTop after syncAfterReorder rememo', () => {
+		const scroller = { _top: 480 } as HTMLElement & { _top: number };
+		Object.defineProperty(scroller, 'scrollTop', {
+			configurable: true,
+			get() {
+				return scroller._top;
+			},
+			set(v: number) {
+				scroller._top = v;
+			}
+		});
+
+		const instance = {
+			scrollToIndex: vi.fn(),
+			setOptions: vi.fn(() => {
+				scroller._top = 0;
+			}),
+			measureElement: vi.fn(),
+			getVirtualItems: () => [],
+			getTotalSize: () => 0,
+			scrollOffset: 480 as number | null
+		};
+		const store = readable(instance as unknown as SvelteVirtualizer<HTMLElement, Element>);
+
+		const list = createComposerVirtualizer({
+			getCount: () => 2,
+			getScrollElement: () => scroller,
+			itemSelector: stepCardSelector,
+			estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+			getItemKey: (index) => index,
+			createVirtualizer: (() => store) as never
+		});
+		disposers.push(() => list.dispose());
+
+		scroller._top = 480;
+		instance.scrollOffset = 480;
+		list.syncAfterReorder();
+
+		expect(scroller._top).toBe(480);
+		expect(instance.scrollOffset).toBe(480);
 	});
 });

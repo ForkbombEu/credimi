@@ -13,8 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { ComposerVirtualizer } from '../composer-virtualizer.svelte.js';
 	import type { ActiveUnit } from '../scroll-follow/active-unit.js';
-	import { exactSuffixGapAndChrome, type YamlPreviewParts } from '../yaml-preview/index.js';
 
+	import { exactSuffixGapAndChrome, type YamlPreviewParts } from '../yaml-preview/index.js';
 	import YamlShikiBlock from './yaml-shiki-block.svelte';
 
 	type Props = {
@@ -92,7 +92,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			console.error('Failed to copy text: ', err);
 		}
 	}
-
 </script>
 
 <!--
@@ -136,7 +135,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				class="relative w-full bg-[#303446]"
 				style:height="{$yamlVirt.getTotalSize()}px"
 			>
-				{#each $yamlVirt.getVirtualItems() as vItem (parts.steps[vItem.index]?.text ?? vItem.key)}
+				{#each $yamlVirt.getVirtualItems() as vItem (vItem.key)}
 					{@const block = parts.steps[vItem.index]}
 					{@const index = vItem.index}
 					{@const { gapLines } = exactSuffixGapAndChrome(parts.betweenSteps[index] ?? '')}

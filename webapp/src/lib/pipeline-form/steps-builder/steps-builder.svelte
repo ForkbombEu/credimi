@@ -20,7 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as steps from '$pipeline-form/steps';
 	import { String as EffectString } from 'effect';
 	import { tick } from 'svelte';
-	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -46,19 +45,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		createComposerVirtualizer,
 		DEFAULT_STEP_ESTIMATE_SIZE,
 		DEFAULT_YAML_STEP_ESTIMATE_SIZE,
+		stableItemKey,
 		stepCardSelector,
 		yamlStepBlockSelector
 	} from './composer-virtualizer.svelte.js';
+	import { createCardListLayout, type CardListLayout } from './layout-swap.js';
+	import { runPairedReorder } from './paired-reorder.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 	import {
 		ensureMountedForStepsVirtualizer,
 		type ActiveUnit
 	} from './scroll-follow/active-unit.js';
 	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
-	import {
-		composeAttachments,
-		endPadAttach
-	} from './scroll-follow/scrollport-attachments.js';
+	import { composeAttachments, endPadAttach } from './scroll-follow/scrollport-attachments.js';
 	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
 	import { splitPipelineYamlPreview } from './yaml-preview/index.js';
 
@@ -73,6 +72,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let rightPane: PaneHandle | null = $state(null);
 	/** Cards column scrollport — TanStack virtualizer + peer-scroll share this element. */
 	let cardsScrollContainer: HTMLElement | null = $state(null);
+	/** Virtual steps list root — animejs FLIP (translateY only) for reorder. */
+	let stepsLayoutRoot: HTMLElement | null = $state(null);
+	let stepsCardLayout: CardListLayout | null = null;
 	/** YAML preview column scrollport — virtual step blocks + peer-scroll. */
 	let yamlScrollContainer: HTMLElement | null = $state(null);
 	/** Half-viewport end pad so the last (short) card can scroll to center. */
@@ -107,11 +109,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			: splitPipelineYamlPreview(builder.yamlPreview)
 	);
 
+	const stepItemKey = (index: number) => stableItemKey(builder.steps[index], index);
+
 	const stepsVirtualizer = createComposerVirtualizer({
 		getCount: () => builder.steps.length,
 		getScrollElement: () => cardsScrollContainer,
 		itemSelector: stepCardSelector,
-		estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE
+		estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE,
+		getItemKey: stepItemKey
 	});
 	/** Store auto-subscribe target — `$stepsVirt` in markup. */
 	const stepsVirt = stepsVirtualizer.virtualizer;
@@ -121,7 +126,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		getScrollElement: () => yamlScrollContainer,
 		getScrollMargin: () => yamlScrollMargin,
 		itemSelector: yamlStepBlockSelector,
-		estimateSize: () => DEFAULT_YAML_STEP_ESTIMATE_SIZE
+		estimateSize: () => DEFAULT_YAML_STEP_ESTIMATE_SIZE,
+		getItemKey: stepItemKey
 	});
 
 	const measureStepCard: Attachment = (node) => {
@@ -179,12 +185,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		)
 	);
 
+	$effect(() => {
+		const root = stepsLayoutRoot;
+		if (!root) return;
+		const created = createCardListLayout(root);
+		stepsCardLayout = created;
+		return () => {
+			created.dispose();
+			if (stepsCardLayout === created) stepsCardLayout = null;
+		};
+	});
+
 	$effect(() => () => {
 		builder.bindComposerScroll({});
 		peerScroll.dispose();
 		unitHighlight.dispose();
 		stepsVirtualizer.dispose();
 		yamlVirtualizer.dispose();
+		stepsCardLayout?.dispose();
+		stepsCardLayout = null;
 	});
 
 	$effect(() => {
@@ -257,6 +276,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return;
 		}
 		unitHighlight.hoverCard(unit);
+	}
+
+	async function shiftStep(index: number, change: number) {
+		await runPairedReorder({
+			cardsScroller: cardsScrollContainer,
+			yamlScroller: yamlScrollContainer,
+			layout: stepsCardLayout,
+			mutate: () => builder.shiftStep(index, change),
+			syncBoth: () => {
+				stepsVirtualizer.syncAfterReorder();
+				yamlVirtualizer.syncAfterReorder();
+			}
+		});
 	}
 </script>
 
@@ -363,17 +395,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if builder.steps.length > 0}
 				<!--
 					Virtual window for steps only: absolute rows + measureElement.
-					Use top (not transform) so animate:flip can own transform.
-					pb-3 approximates former space-y-3 gaps inside measured size.
+					Use top (not transform) for TanStack placement; reorder FLIP
+					animates translateY only. pb-3 approximates former space-y-3 gaps.
 				-->
-				<div class="relative w-full" style:height="{$stepsVirt.getTotalSize()}px">
-					{#each $stepsVirt.getVirtualItems() as vItem (builder.steps[vItem.index] ?? vItem.key)}
+				<div
+					bind:this={stepsLayoutRoot}
+					class="relative w-full"
+					style:height="{$stepsVirt.getTotalSize()}px"
+				>
+					{#each $stepsVirt.getVirtualItems() as vItem (vItem.key)}
 						{@const step = builder.steps[vItem.index]}
 						{@const index = vItem.index}
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
-							animate:flip={{ duration: 300 }}
 							{@attach measureStepCard}
 							data-index={index}
 							data-card-section="steps"
@@ -398,6 +433,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									editing={editingSection === 'steps' && editingIndex === index}
 									selected={unitHighlight.isCardSelected('steps', index)}
 									hovered={unitHighlight.isCardHovered('steps', index)}
+									onShift={(change) => shiftStep(index, change)}
 								/>
 							{/if}
 						</div>
@@ -419,7 +455,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
-							animate:flip={{ duration: 300 }}
 							data-card-section="follow-ups"
 							data-card-index={index}
 							class="cursor-pointer"
