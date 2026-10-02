@@ -67,7 +67,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@html highlighted}
 		{:else}
 			<pre
-				class="yaml-preview-block-pre m-0 w-full min-w-full overflow-x-auto border-0 bg-transparent text-sm">{content}</pre>
+				class="yaml-preview-block-pre scrollbar-on-dark m-0 w-full min-w-full overflow-x-auto border-0 bg-transparent text-sm">{content}</pre>
 		{/if}
 	</div>
 {/if}
@@ -83,6 +83,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		min-width: 100%;
 		box-sizing: border-box;
 		background-color: transparent !important;
+	}
+
+	/*
+	  Per-chunk horizontal bars: inherit .scrollbar-on-dark tokens, but keep the
+	  thumb quiet until hover/focus (Windows otherwise shows a bar on every step).
+	*/
+	@media (hover: hover) {
+		:global(.yaml-preview-block-pre) {
+			--scrollbar-thumb: transparent;
+		}
+
+		:global(.yaml-preview-block:hover .yaml-preview-block-pre),
+		:global(.yaml-preview-block:focus-within .yaml-preview-block-pre) {
+			--scrollbar-thumb: rgb(255 255 255 / 0.35);
+		}
 	}
 
 	:global(.yaml-preview-block-pre > code) {
