@@ -4,9 +4,9 @@
 
 import { browserClock, type ComposerClock } from '../composer-clock.js';
 import type { AnimatableScroll } from './animatable-scroll.js';
-import type { CardSection } from './card-section.js';
 
-export type { CardSection } from './card-section.js';
+/** Card / YAML twin pane section: top-level steps vs finally follow-ups. */
+export type CardSection = 'steps' | 'follow-ups';
 
 export type ActiveUnit = {
 	section: CardSection;

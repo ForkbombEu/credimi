@@ -176,17 +176,6 @@ export function createMultiListLayout(
 	};
 }
 
-/**
- * Anime.js FLIP for a single virtualized card list.
- * Thin wrapper over {@link createMultiListLayout}.
- */
-export function createCardListLayout(
-	root: HTMLElement,
-	options?: CreateCardListLayoutOptions
-): CardListLayout {
-	return createMultiListLayout([{ root, children: options?.children }], options);
-}
-
 function defaultAnimate(
 	targets: HTMLElement[],
 	params: { y: number[]; duration: number; ease: string }

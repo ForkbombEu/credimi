@@ -5,16 +5,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-	createCardListLayout,
 	createMultiListLayout,
 	DEFAULT_YAML_LAYOUT_CHILDREN,
 	flipInverts,
 	LAYOUT_SWAP_DURATION_MS,
-	LAYOUT_SWAP_EASE
+	LAYOUT_SWAP_EASE,
+	type CardListLayout,
+	type CreateCardListLayoutOptions
 } from './layout-swap.js';
 
 function el(id: string): HTMLElement {
 	return { id } as HTMLElement;
+}
+
+/** Test-local single-root FLIP helper (production uses createMultiListLayout). */
+function createCardListLayout(
+	root: HTMLElement,
+	options?: CreateCardListLayoutOptions
+): CardListLayout {
+	return createMultiListLayout([{ root, children: options?.children }], options);
 }
 
 describe('flipInverts', () => {
