@@ -93,7 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const stepsVirt = session.stepsVirt;
 	const yamlVirt = session.yamlVirt;
-	const { measureStepCard, yamlVirtualizer } = session;
+	const { measureStepCard, measureYamlStep } = session;
 
 	const yamlScrollAttach = $derived(session.yamlScrollAttach);
 	const cardsScrollAttach = $derived(session.cardsScrollAttach);
@@ -378,7 +378,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				yaml={builder.yamlPreview}
 				parts={yamlParts}
 				{yamlVirt}
-				{yamlVirtualizer}
+				{measureYamlStep}
 				scrollMargin={session.yamlScrollMargin}
 				scrollContainer={session.yamlScroller}
 				bind:stepsListEl={session.yamlStepsLayoutRoot}

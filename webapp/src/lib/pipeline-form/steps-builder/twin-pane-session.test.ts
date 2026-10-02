@@ -382,15 +382,17 @@ describe('createTwinPaneSession', () => {
 		session.dispose();
 	});
 
-	it('exposes symmetric Readable virt surfaces; omits dead stepsVirtualizer', () => {
+	it('exposes Readable virt + measure attachments; omits full virtualizers', () => {
 		const order: string[] = [];
 		const { options, stepsVirt, yamlVirt } = baseOptions(order);
 		const session = createTwinPaneSession(options);
 
 		expect(session.stepsVirt).toBe(stepsVirt.virtualizer);
 		expect(session.yamlVirt).toBe(yamlVirt.virtualizer);
-		expect(session.yamlVirtualizer).toBe(yamlVirt);
+		expect(session.measureStepCard).toBeTypeOf('function');
+		expect(session.measureYamlStep).toBeTypeOf('function');
 		expect(session).not.toHaveProperty('stepsVirtualizer');
+		expect(session).not.toHaveProperty('yamlVirtualizer');
 		session.dispose();
 	});
 

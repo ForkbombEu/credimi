@@ -96,13 +96,9 @@ export type TwinPaneSession = {
 	stepsVirt: ComposerVirtualizer['virtualizer'];
 	/** TanStack Readable — `$yamlVirt` in markup (virtual items / totalSize). */
 	yamlVirt: ComposerVirtualizer['virtualizer'];
-	/**
-	 * Full YAML virtualizer — view needs `.measureElement` until M4
-	 * (`measureYamlStep` Attachment mirrors `measureStepCard`). Prefer `yamlVirt`
-	 * for subscribe; do not grow new call sites on this object.
-	 */
-	yamlVirtualizer: ComposerVirtualizer;
 	measureStepCard: Attachment;
+	/** Measure YAML step blocks — mirrors `measureStepCard`. */
+	measureYamlStep: Attachment;
 	/**
 	 * Peer-scroll + session-owned endPad for cards.
 	 * Manual mode omits the peer attach; endPad still applies.
@@ -216,6 +212,10 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 
 	const measureStepCard: Attachment = (node) => {
 		stepsVirtualizer.measureElement(node);
+	};
+
+	const measureYamlStep: Attachment = (node) => {
+		yamlVirtualizer.measureElement(node);
 	};
 
 	function cardsScrollAttach(): Attachment | undefined {
@@ -443,8 +443,8 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		},
 		stepsVirt: stepsVirtualizer.virtualizer,
 		yamlVirt: yamlVirtualizer.virtualizer,
-		yamlVirtualizer,
 		measureStepCard,
+		measureYamlStep,
 		get cardsScrollAttach() {
 			return cardsScrollAttach();
 		},

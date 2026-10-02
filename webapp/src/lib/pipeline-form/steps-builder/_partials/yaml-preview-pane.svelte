@@ -23,11 +23,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		parts: YamlPreviewParts;
 		/** TanStack Readable — `$yamlVirt` for virtual items / totalSize. */
 		yamlVirt: ComposerVirtualizer['virtualizer'];
-		/**
-		 * Until M4 `measureYamlStep` — needed only for `.measureElement`.
-		 * Prefer `yamlVirt` for subscribe.
-		 */
-		yamlVirtualizer: ComposerVirtualizer;
+		/** Session-owned measure — no ComposerVirtualizer reach-in. */
+		measureYamlStep: Attachment;
 		scrollMargin: number;
 		/** YAML column scroller — used to measure scrollMargin for the virtual step list. */
 		scrollContainer?: HTMLElement | null;
@@ -46,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		yaml,
 		parts,
 		yamlVirt,
-		yamlVirtualizer,
+		measureYamlStep,
 		scrollMargin,
 		scrollContainer = null,
 		isUnitSelected,
@@ -61,10 +58,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let isCopied = $state(false);
 	/** Wraps everything above the virtual step list (padding + header). */
 	let beforeStepsEl: HTMLElement | null = $state(null);
-
-	const measureStepBlock: Attachment = (node) => {
-		yamlVirtualizer.measureElement(node);
-	};
 
 	$effect(() => {
 		const list = stepsListEl;
@@ -147,7 +140,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{@const { gapLines } = exactSuffixGapAndChrome(parts.betweenSteps[index] ?? '')}
 					{#if block}
 						<div
-							{@attach measureStepBlock}
+							{@attach measureYamlStep}
 							data-index={index}
 							data-yaml-section="steps"
 							data-yaml-index={index}
