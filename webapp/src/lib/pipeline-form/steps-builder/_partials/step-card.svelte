@@ -54,11 +54,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	})}
 >
 	{#snippet topRight()}
+		<!-- Prevent action chrome from selecting the card via bubbled click/pointerdown. -->
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class={[
 				'flex items-center gap-1 pr-1 transition-opacity',
 				actionsDisabled ? 'opacity-30' : 'opacity-30 group-hover:opacity-100'
 			]}
+			onclick={(e) => e.stopPropagation()}
+			onpointerdown={(e) => e.stopPropagation()}
 		>
 			{#if editable}
 				<IconButton
@@ -87,20 +92,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				icon={ArrowUpIcon}
 				variant="ghost"
 				size="xs"
-				onclick={(e) => {
-					e.stopPropagation();
-					onShift(-1);
-				}}
+				onclick={() => onShift(-1)}
 				disabled={actionsDisabled || !builder.canShiftStep(index, -1)}
 			/>
 			<IconButton
 				icon={ArrowDownIcon}
 				variant="ghost"
 				size="xs"
-				onclick={(e) => {
-					e.stopPropagation();
-					onShift(1);
-				}}
+				onclick={() => onShift(1)}
 				disabled={actionsDisabled || !builder.canShiftStep(index, 1)}
 			/>
 		</div>

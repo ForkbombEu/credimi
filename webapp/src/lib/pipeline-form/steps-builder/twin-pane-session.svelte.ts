@@ -313,7 +313,10 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			cardsScroller,
 			yamlScroller,
 			layout,
-			mutate: () => options.mutateShiftStep(index, change),
+			mutate: () => {
+				options.mutateShiftStep(index, change);
+				unitHighlight.remapStepsAfterAdjacentSwap(index, toIndex);
+			},
 			rememoAfterMutate: rememoAfterPairedMutate,
 			pinScrollports: pinBothAt,
 			tick

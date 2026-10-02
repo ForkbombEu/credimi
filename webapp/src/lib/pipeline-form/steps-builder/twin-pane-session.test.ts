@@ -108,6 +108,9 @@ function baseOptions(order: string[], extras: Record<string, unknown> = {}) {
 					hoverCard: vi.fn(),
 					clearHover: vi.fn(),
 					clearHoverCard: vi.fn(),
+					remapStepsAfterAdjacentSwap: vi.fn((from: number, to: number) => {
+						order.push(`remap:${from}->${to}`);
+					}),
 					isCardSelected: () => false,
 					isCardHovered: () => false,
 					dispose: highlightDispose
@@ -202,6 +205,7 @@ describe('createTwinPaneSession', () => {
 			'restore',
 			'tick',
 			'mutate',
+			'remap:2->3',
 			'sync:cards',
 			'sync:yaml',
 			'restore',
@@ -341,6 +345,7 @@ describe('createTwinPaneSession', () => {
 					hoverCard: vi.fn(),
 					clearHover: vi.fn(),
 					clearHoverCard: vi.fn(),
+					remapStepsAfterAdjacentSwap: vi.fn(),
 					isCardSelected: () => false,
 					isCardHovered: () => false,
 					dispose: vi.fn()
