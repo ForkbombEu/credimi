@@ -224,6 +224,12 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		);
 	}
 
+	/** Rememo both cards+yaml virtualizers (`itemKeyFn` identity bump) after a paired mutate. */
+	function rememoAfterPairedMutate() {
+		stepsVirtualizer.syncAfterReorder();
+		yamlVirtualizer.syncAfterReorder();
+	}
+
 	async function shiftStep(index: number, change: number) {
 		if (disposed) return;
 		if (!options.canShiftStep(index, change)) return;
@@ -237,10 +243,7 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			yamlScroller,
 			layout,
 			mutate: () => options.mutateShiftStep(index, change),
-			syncBoth: () => {
-				stepsVirtualizer.syncAfterReorder();
-				yamlVirtualizer.syncAfterReorder();
-			},
+			rememoAfterMutate: rememoAfterPairedMutate,
 			pinScrollports: pinBothAt,
 			tick
 		});

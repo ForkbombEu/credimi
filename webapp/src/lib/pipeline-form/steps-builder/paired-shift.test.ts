@@ -49,7 +49,7 @@ describe('runPairedShift', () => {
 				cards.scrollTop = 999;
 				yaml.scrollTop = 888;
 			},
-			syncBoth: () => {
+			rememoAfterMutate: () => {
 				expect(insideRun).toBe(true);
 				order.push('sync');
 			},
@@ -109,7 +109,7 @@ describe('runPairedShift', () => {
 			yamlScroller: fakeScroller(0),
 			layout: null,
 			mutate: () => {},
-			syncBoth: () => {},
+			rememoAfterMutate: () => {},
 			tick: async () => {},
 			pinScrollports: () => {},
 			measurePair: (_scroller, upper, lower) => {
@@ -136,7 +136,7 @@ describe('runPairedShift', () => {
 			yamlScroller: fakeScroller(0),
 			layout: null,
 			mutate: () => {},
-			syncBoth: () => {},
+			rememoAfterMutate: () => {},
 			tick: async () => {},
 			pinScrollports: () => {},
 			measurePair: () => ({
@@ -177,7 +177,7 @@ describe('runPairedShift', () => {
 			yamlScroller: fakeScroller(0),
 			layout: null,
 			mutate: () => {},
-			syncBoth: () => {},
+			rememoAfterMutate: () => {},
 			tick: async () => {},
 			pinScrollports: () => {},
 			measurePair: () => clippedFittingPair,
@@ -223,7 +223,7 @@ describe('runPairedShift', () => {
 			yamlScroller: yaml,
 			layout: null,
 			mutate: () => {},
-			syncBoth: () => {},
+			rememoAfterMutate: () => {},
 			tick: async () => {},
 			pinScrollports: () => {},
 			measurePair: (scroller) => (scroller === cards ? cardsGapOnlyClip : yamlContentClipped),
@@ -255,7 +255,7 @@ describe('runPairedShift', () => {
 				cards.scrollTop = 999;
 				yaml.scrollTop = 888;
 			},
-			syncBoth: () => {
+			rememoAfterMutate: () => {
 				order.push('sync');
 			},
 			tick: async () => {
@@ -278,7 +278,7 @@ describe('runPairedShift', () => {
 		expect(yaml.scrollTop).toBe(80);
 	});
 
-	it('calls syncBoth after mutate so rememo sees the new step order', async () => {
+	it('calls rememoAfterMutate after mutate so rememo sees the new step order', async () => {
 		const order: string[] = [];
 
 		await runPairedShift({
@@ -290,7 +290,7 @@ describe('runPairedShift', () => {
 			yamlScroller: undefined,
 			layout: null,
 			mutate: () => order.push('mutate'),
-			syncBoth: () => order.push('sync'),
+			rememoAfterMutate: () => order.push('sync'),
 			tick: async () => {},
 			pinScrollports: () => {},
 			measurePair: () => null,
@@ -315,7 +315,7 @@ describe('runPairedShift', () => {
 			yamlScroller: fakeScroller(0),
 			layout: null,
 			mutate: () => order.push('mutate'),
-			syncBoth: () => order.push('sync'),
+			rememoAfterMutate: () => order.push('sync'),
 			tick: async () => order.push('tick'),
 			pinScrollports: () => order.push('pin'),
 			measurePair: (scroller) => {

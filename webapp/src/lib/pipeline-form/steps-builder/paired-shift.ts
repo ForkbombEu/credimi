@@ -36,7 +36,7 @@ export type PairedShiftArgs = {
 	cardsScroller: HTMLElement | null | undefined;
 	yamlScroller: HTMLElement | null | undefined;
 	/** Rememo both cards + yaml virtualizers after domain mutate. */
-	syncBoth: () => void;
+	rememoAfterMutate: () => void;
 	layout: PairedShiftLayout | null | undefined;
 	/** Domain mutate only — e.g. `() => builder.shiftStep(i, d)`. */
 	mutate: () => void;
@@ -145,7 +145,7 @@ export async function runPairedShift(args: PairedShiftArgs): Promise<void> {
 		ensureSwapMounted,
 		cardsScroller,
 		yamlScroller,
-		syncBoth,
+		rememoAfterMutate,
 		layout,
 		mutate,
 		pinScrollports,
@@ -167,7 +167,7 @@ export async function runPairedShift(args: PairedShiftArgs): Promise<void> {
 
 	const apply = () => {
 		mutate();
-		syncBoth();
+		rememoAfterMutate();
 	};
 
 	const restoreScroll = () => {

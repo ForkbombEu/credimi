@@ -158,7 +158,7 @@ describe('createTwinPaneSession', () => {
 				args.notePairedReorder();
 				await args.ensureSwapMounted(args.fromIndex, args.toIndex);
 				args.mutate();
-				args.syncBoth();
+				args.rememoAfterMutate();
 				args.pinScrollports(11, 22);
 			}
 		});
@@ -282,7 +282,7 @@ describe('createTwinPaneSession', () => {
 				expect(cardsScroller.scrollTop).toBe(200);
 				expect(yamlScroller.scrollTop).toBe(200);
 				args.mutate();
-				args.syncBoth();
+				args.rememoAfterMutate();
 			},
 			restoreScrollTop: (el, top) => {
 				order.push(`restore:${top}`);
