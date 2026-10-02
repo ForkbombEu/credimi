@@ -4,7 +4,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { joinPipelineYamlPreview, splitPipelineYamlPreview } from './index.js';
+import {
+	exactSuffixGapAndChrome,
+	joinPipelineYamlPreview,
+	splitPipelineYamlPreview
+} from './index.js';
 
 const SAMPLE = `name: demo
 
@@ -91,8 +95,14 @@ describe('splitPipelineYamlPreview', () => {
 		expect(parts.followUps[1]?.text).toContain('http-0004');
 
 		expect(parts.betweenFollowUps).toHaveLength(2);
-		expect(parts.betweenFollowUps[0]).toContain('on_success:');
-		expect(parts.betweenFollowUps[1]).toBe('');
+		// Exact suffix (connector \n + chrome) so rejoin can concat onto the body.
+		expect(parts.betweenFollowUps[0]).toBe('\n  on_success:');
+		// Document trailing newline lands on the last follow-up suffix.
+		expect(parts.betweenFollowUps[1]).toBe('\n');
+		expect(exactSuffixGapAndChrome(parts.betweenFollowUps[0]!)).toEqual({
+			gapLines: 0,
+			chrome: '  on_success:'
+		});
 	});
 
 	it('rejoins to the original document when fragments are concatenated', () => {
@@ -177,6 +187,27 @@ finally:
 		expect(parts.followUps).toHaveLength(2);
 		expect(parts.followUps[0]?.text).toMatch(/continue_on_error[\s\S]*email-0002/);
 		expect(parts.followUps[1]?.text).toContain('http-0003');
+		expect(joinPipelineYamlPreview(parts).replace(/\n$/, '')).toBe(yaml.replace(/\n$/, ''));
+	});
+
+	it('keeps a blank-only gap between same-condition follow-ups for rejoin', () => {
+		const yaml = `name: x
+
+steps:
+  - id: a-0001
+    use: debug
+
+finally:
+  always:
+    - id: email-0002
+      use: email
+
+    - id: http-0003
+      use: http-request
+`;
+		const parts = splitPipelineYamlPreview(yaml);
+		expect(parts.betweenFollowUps[0]).toBe('\n');
+		expect(exactSuffixGapAndChrome('\n')).toEqual({ gapLines: 1, chrome: '' });
 		expect(joinPipelineYamlPreview(parts).replace(/\n$/, '')).toBe(yaml.replace(/\n$/, ''));
 	});
 });

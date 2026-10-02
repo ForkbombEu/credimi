@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { ComposerVirtualizer } from '../composer-virtualizer.svelte.js';
 	import type { ActiveUnit } from '../scroll-follow/active-unit.js';
-	import type { YamlPreviewParts } from '../yaml-preview/index.js';
+	import { exactSuffixGapAndChrome, type YamlPreviewParts } from '../yaml-preview/index.js';
 
 	import YamlShikiBlock from './yaml-shiki-block.svelte';
 
@@ -93,11 +93,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}
 
-	/** `betweenSteps` stores an exact newline suffix (`'\n'` per blank line). */
-	function gapLineCount(trailing: string): number {
-		if (!trailing) return 0;
-		return Math.max(0, trailing.split('\n').length - 1);
-	}
 </script>
 
 <!--
@@ -144,7 +139,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#each $yamlVirt.getVirtualItems() as vItem (parts.steps[vItem.index]?.text ?? vItem.key)}
 					{@const block = parts.steps[vItem.index]}
 					{@const index = vItem.index}
-					{@const gapLines = gapLineCount(parts.betweenSteps[index] ?? '')}
+					{@const { gapLines } = exactSuffixGapAndChrome(parts.betweenSteps[index] ?? '')}
 					{#if block}
 						<div
 							{@attach measureStepBlock}
@@ -187,6 +182,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		{#each parts.followUps as followUp (followUp.index)}
 			{@const index = followUp.index}
+			{@const between = exactSuffixGapAndChrome(parts.betweenFollowUps[index] ?? '')}
 			<div
 				data-yaml-section="follow-ups"
 				data-yaml-index={index}
@@ -203,8 +199,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					onclick={() => onUnitClick({ section: 'follow-ups', index })}
 				/>
 			</div>
-			{#if parts.betweenFollowUps[index]}
-				<YamlShikiBlock content={parts.betweenFollowUps[index]!} />
+			{#if between.gapLines > 0}
+				<div
+					class="pointer-events-none w-full"
+					style:height="{between.gapLines * 1.25}em"
+					aria-hidden="true"
+				></div>
+			{/if}
+			{#if between.chrome}
+				<YamlShikiBlock content={between.chrome} />
 			{/if}
 		{/each}
 
