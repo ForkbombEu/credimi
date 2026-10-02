@@ -55,8 +55,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class={[
 			'yaml-preview-block relative w-full min-w-full rounded-sm',
 			interactive && 'yaml-preview-block-interactive',
-			selected && 'yaml-preview-block-selected ring-1 ring-orange-300',
-			hovered && !selected && 'yaml-preview-block-hovered ring-1 ring-orange-400',
+			selected && 'yaml-preview-block-selected ring-1 ring-orange-400',
+			hovered && !selected && 'yaml-preview-block-hovered ring-1 ring-orange-300',
 			(hovered || selected) && 'overflow-hidden',
 			className
 		]}
