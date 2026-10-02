@@ -21,14 +21,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 
+	import { inCardFormHostClass, playInCardEnterLayout } from '../in-card-enter-layout.js';
 	import {
-		bodyMaxHeightWithinCard,
 		cancelMotion,
-		playInCardEnter,
 		playInCardExit,
 		type MotionHandle
 	} from './in-card-motion.js';
-	import { inCardFormHostClass } from '../in-card-edit.js';
 	import { getStepData, getStepError } from './index.js';
 
 	//
@@ -123,6 +121,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		});
 	});
 
+	// Hide the form host until enter-layout owns it — avoids a visible flash between
+	// showFormBody mount and expandReady (enter previously set these classes itself).
+	$effect(() => {
+		const form = formHost;
+		if (!form || !showFormBody) return;
+		if (enterComplete || exiting) return;
+		form.className = inCardFormHostClass(false);
+	});
+
 	$effect(() => {
 		if (!showFormBody || !expandReady || !editing) return;
 		if (untrack(() => enterComplete || exiting)) return;
@@ -135,23 +142,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const token = ++motionToken;
 		untrack(() => {
 			motion?.cancel();
-			const bodyMax =
-				typeof maxHeightPx === 'number' && Number.isFinite(maxHeightPx)
-					? bodyMaxHeightWithinCard(card, display, maxHeightPx)
-					: undefined;
-			bodyMaxPx = bodyMax;
-			motion = playInCardEnter({
+			motion = playInCardEnterLayout({
 				lock,
 				display,
 				form,
-				maxHeightPx: bodyMax,
-				onComplete: async () => {
+				card,
+				cardMaxHeightPx: maxHeightPx,
+				onSettled: async ({ bodyMaxPx: settledBodyMax }) => {
 					if (token !== motionToken) return;
 					showDisplayLayer = false;
 					enterComplete = true;
-					// Wait for flex host classes + lock height binding before the
-					// motion helper clears absolute fill (avoids save-bar jump).
-					await tick();
+					bodyMaxPx = settledBodyMax;
 				}
 			});
 		});
@@ -241,7 +242,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div
 				bind:this={bodyLock}
 				class={['relative min-h-0', enterComplete || exiting ? 'flex min-h-0 grow flex-col' : '']}
-				style:height={enterComplete && bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
 				style:max-height={bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
 				data-testid="in-card-body-lock"
 				data-enter-complete={enterComplete}
@@ -262,7 +262,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<div
 					bind:this={formHost}
-					class={inCardFormHostClass(enterComplete || exiting)}
 					data-testid="in-card-form-host"
 					inert={!enterComplete || exiting}
 				>

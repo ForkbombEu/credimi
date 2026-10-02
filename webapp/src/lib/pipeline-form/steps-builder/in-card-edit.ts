@@ -19,17 +19,6 @@ export function isInCardEdit(mode: InCardEditMode): boolean {
 	return mode.id === 'form' && mode.intent === 'edit';
 }
 
-/**
- * Form-host classes for In-card enter vs settled/exit.
- * Enter keeps absolute fill over the growing lock, but must still be a flex column
- * so the shell's grow pushes Save to the column bottom during the grow (not only
- * after `enterComplete`).
- */
-export function inCardFormHostClass(settled: boolean): string {
-	if (settled) return 'flex min-h-0 grow flex-col overflow-hidden';
-	return 'pointer-events-none invisible absolute inset-0 flex min-h-0 flex-col overflow-hidden opacity-0';
-}
-
 /** The unit being edited in place, or null when not in In-card edit (or no index yet). */
 export function editingUnit(mode: InCardEditMode): ActiveUnit | null {
 	if (mode.id !== 'form' || mode.intent !== 'edit') return null;
