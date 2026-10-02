@@ -5,11 +5,13 @@
 package workflows
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -198,6 +200,69 @@ func TestMobileDeviceSemaphoreWorkflowResumeBeforePauseTimeoutPreventsShutdown(t
 		require.NoError(t, err)
 	case <-time.After(2 * time.Second):
 		require.Fail(t, "timed out waiting for resumed state after timeout window")
+	}
+}
+
+// An offline device is paused once and then receives a no-op pause on every
+// runner heartbeat. Each one is a distinct Temporal update, so the run must
+// continue-as-new before the server's per-run update limit, keeping its state.
+func TestMobileDeviceSemaphoreWorkflowNoopPausesContinueAsNew(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileDeviceSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	errCh := make(chan error, mobileDeviceSemaphoreMaxUpdateBatches)
+	env.RegisterDelayedCallback(func() {
+		for i := range mobileDeviceSemaphoreMaxUpdateBatches {
+			env.UpdateWorkflow(
+				MobileDeviceSemaphorePauseDeviceUpdate,
+				fmt.Sprintf("pause/runner-1/heartbeat-%d", i),
+				&testsuite.TestUpdateCallback{
+					OnReject:   func(err error) { errCh <- err },
+					OnComplete: func(_ interface{}, err error) { errCh <- err },
+				},
+				MobileDeviceSemaphorePauseDeviceRequest{
+					Reason:               "device offline",
+					CancelRunning:        true,
+					ShutdownAfterSeconds: int((7 * 24 * time.Hour) / time.Second),
+				},
+			)
+		}
+	}, time.Second)
+
+	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+		Payload: MobileDeviceSemaphoreWorkflowInput{
+			DeviceID: "runner-1",
+			Capacity: 1,
+			State: &MobileDeviceSemaphoreWorkflowState{
+				Paused:               true,
+				PauseReason:          "device offline",
+				PauseGeneration:      3,
+				ShutdownAfterSeconds: int((7 * 24 * time.Hour) / time.Second),
+			},
+		},
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	var canErr *workflow.ContinueAsNewError
+	require.ErrorAs(t, err, &canErr)
+
+	var next workflowengine.WorkflowInput
+	require.NoError(t, converter.GetDefaultDataConverter().FromPayloads(canErr.Input, &next))
+	payload, err := workflowengine.DecodePayload[MobileDeviceSemaphoreWorkflowInput](next.Payload)
+	require.NoError(t, err)
+	require.NotNil(t, payload.State)
+	require.True(t, payload.State.Paused)
+	require.Equal(t, "device offline", payload.State.PauseReason)
+	require.Equal(t, 3, payload.State.PauseGeneration)
+	require.Zero(t, payload.State.UpdateCount)
+
+	for range mobileDeviceSemaphoreMaxUpdateBatches {
+		require.NoError(t, <-errCh)
 	}
 }
 

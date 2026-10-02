@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -196,11 +197,16 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 	origNow := mobileRunnerLifecycleNow
 	origLifecycleClient := mobileRunnerLifecycleTemporalClient
 	origQueueClient := queueTemporalClient
+	origQuerySemaphore := queryMobileDeviceSemaphoreState
 	t.Cleanup(func() {
 		mobileRunnerLifecycleNow = origNow
 		mobileRunnerLifecycleTemporalClient = origLifecycleClient
 		queueTemporalClient = origQueueClient
+		queryMobileDeviceSemaphoreState = origQuerySemaphore
 	})
+	queryMobileDeviceSemaphoreState = func(_ context.Context, id string) (workflows.MobileDeviceSemaphoreStateView, error) {
+		return workflows.MobileDeviceSemaphoreStateView{DeviceID: id, Paused: true}, nil
+	}
 
 	fixedNow := time.Date(2026, 6, 24, 10, 20, 30, 0, time.UTC)
 	mobileRunnerLifecycleNow = func() time.Time { return fixedNow }
@@ -245,6 +251,109 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 
 	err = HandleMobileRunnerLifecycleHeartbeat()(event)
 	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, responseRecorder(t, event).Code)
+}
+
+// A runner keeps reporting an offline device on every heartbeat, each with a
+// fresh request ID. Re-sending the pause would add a distinct Temporal update
+// per heartbeat until the semaphore hits the server's per-run update limit.
+func TestHandleMobileRunnerLifecycleHeartbeatSkipsPauseForPausedSemaphore(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, orgID, "offline-device-runner", "https://runner.example", false)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/offline-device-runner")
+	require.NoError(t, err)
+	offlineID := createMobileDeviceForLifecycleTest(t, app, runner, "offline-device")
+	staleID := createMobileDeviceForLifecycleTest(t, app, runner, "stale-device")
+
+	origLifecycleClient := mobileRunnerLifecycleTemporalClient
+	origQuerySemaphore := queryMobileDeviceSemaphoreState
+	t.Cleanup(func() {
+		mobileRunnerLifecycleTemporalClient = origLifecycleClient
+		queryMobileDeviceSemaphoreState = origQuerySemaphore
+	})
+	queried := map[string]bool{}
+	queryMobileDeviceSemaphoreState = func(_ context.Context, id string) (workflows.MobileDeviceSemaphoreStateView, error) {
+		queried[id] = true
+		return workflows.MobileDeviceSemaphoreStateView{DeviceID: id, Paused: true}, nil
+	}
+	// No UpdateWorkflow expectation: any update call fails the test.
+	mockClient := temporalmocks.NewClient(t)
+	mobileRunnerLifecycleTemporalClient = func(_ string) (client.Client, error) { return mockClient, nil }
+
+	for i := range 3 {
+		event := performMobileRunnerRequest(
+			t,
+			app,
+			user,
+			"/api/mobile-runner/lifecycle/heartbeat",
+			MobileRunnerLifecycleRequest{
+				RunnerID:  "/usera-s-organization/offline-device-runner",
+				RequestID: fmt.Sprintf("heartbeat-%d", i),
+				Devices:   []MobileDeviceLifecycleState{{DeviceID: offlineID, Online: false}},
+			},
+		)
+		require.NoError(t, HandleMobileRunnerLifecycleHeartbeat()(event))
+		require.Equal(t, http.StatusOK, responseRecorder(t, event).Code)
+	}
+	require.True(t, queried[offlineID])
+	require.True(t, queried[staleID])
+}
+
+func TestHandleMobileRunnerLifecycleHeartbeatPausesRunningSemaphore(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	createMobileRunnerRecord(t, app, orgID, "pausing-runner", "https://runner.example", false)
+	runner, err := canonify.Resolve(app, "/usera-s-organization/pausing-runner")
+	require.NoError(t, err)
+	deviceID := createMobileDeviceForLifecycleTest(t, app, runner, "device-a")
+
+	origLifecycleClient := mobileRunnerLifecycleTemporalClient
+	origQuerySemaphore := queryMobileDeviceSemaphoreState
+	t.Cleanup(func() {
+		mobileRunnerLifecycleTemporalClient = origLifecycleClient
+		queryMobileDeviceSemaphoreState = origQuerySemaphore
+	})
+	queryMobileDeviceSemaphoreState = func(_ context.Context, id string) (workflows.MobileDeviceSemaphoreStateView, error) {
+		return workflows.MobileDeviceSemaphoreStateView{DeviceID: id, Paused: false}, nil
+	}
+	mockClient := temporalmocks.NewClient(t)
+	mockClient.
+		On(
+			"UpdateWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(options client.UpdateWorkflowOptions) bool {
+				return options.WorkflowID == workflows.MobileDeviceSemaphoreWorkflowID(deviceID) &&
+					options.UpdateName == workflows.MobileDeviceSemaphorePauseDeviceUpdate &&
+					options.UpdateID == "pause/"+deviceID+"/heartbeat-1"
+			}),
+		).
+		Return(temporalmocks.NewWorkflowUpdateHandle(t), nil).
+		Once()
+	mobileRunnerLifecycleTemporalClient = func(_ string) (client.Client, error) { return mockClient, nil }
+
+	event := performMobileRunnerRequest(
+		t,
+		app,
+		user,
+		"/api/mobile-runner/lifecycle/heartbeat",
+		MobileRunnerLifecycleRequest{
+			RunnerID:  "/usera-s-organization/pausing-runner",
+			RequestID: "heartbeat-1",
+			Devices:   []MobileDeviceLifecycleState{{DeviceID: deviceID, Online: false}},
+		},
+	)
+	require.NoError(t, HandleMobileRunnerLifecycleHeartbeat()(event))
 	require.Equal(t, http.StatusOK, responseRecorder(t, event).Code)
 }
 
