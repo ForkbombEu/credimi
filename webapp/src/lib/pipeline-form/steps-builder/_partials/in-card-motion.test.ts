@@ -13,9 +13,6 @@ import {
 	IN_CARD_MOTION_MS,
 	bodyMaxHeightWithinCard,
 	cancelMotion,
-	collapseRegion,
-	expandRegion,
-	fadeTo,
 	playInCardEnter,
 	playInCardExit,
 	settleEnterFormHost
@@ -59,87 +56,35 @@ beforeEach(() => {
 	});
 });
 
-function lastParams(): AnimeParams {
-	return animateMock.mock.calls.at(-1)![1] as AnimeParams;
-}
-
 function paramsAt(index: number): AnimeParams {
 	return animateMock.mock.calls[index]![1] as AnimeParams;
 }
 
 describe('in-card-motion', () => {
-	it('expands to natural height with ~200ms ease-out and clears inline styles on complete', async () => {
-		const el = fakeEl();
-		const onComplete = vi.fn();
-		const handle = expandRegion(el, { startCollapsed: true, onComplete });
-
-		const params = lastParams();
-		expect(params.height).toEqual(['0px', '120px']);
-		expect(params.opacity).toBe(1);
-		expect(params.duration).toBe(IN_CARD_MOTION_MS);
-		expect(params.ease).toBe(IN_CARD_MOTION_EASE);
-		expect(el.style.overflow).toBe('hidden');
-
-		params.onComplete();
-		await handle.finished;
-
-		expect(onComplete).toHaveBeenCalledOnce();
-		expect(el.style.height).toBe('');
-		expect(el.style.overflow).toBe('');
-		expect(el.style.opacity).toBe('');
-	});
-
-	it('collapses from current height to 0 and fades out', () => {
-		const el = fakeEl(80);
-		collapseRegion(el);
-
-		const params = lastParams();
-		expect(params.height).toEqual(['80px', '0px']);
-		expect(params.opacity).toBe(0);
-	});
-
-	it('cancels the previous animation on the same element and resolves finished', async () => {
-		const el = fakeEl(80);
-		const first = collapseRegion(el);
-		expandRegion(el);
+	it('starting a new enter cancels the previous step animation', () => {
+		const lock = fakeEl(80, 80);
+		const display = fakeEl(80, 80);
+		const form = fakeEl(0, 200);
+		playInCardEnter({ lock, display, form, maxHeightPx: 480 });
+		playInCardEnter({ lock, display, form, maxHeightPx: 480 });
 
 		expect(cancels[0]).toHaveBeenCalledOnce();
-		await first.finished;
 	});
 
 	it('cancel is idempotent and does not run onComplete', async () => {
-		const el = fakeEl(80);
+		const lock = fakeEl(80, 80);
+		const display = fakeEl(80, 80);
+		const form = fakeEl(0, 200);
 		const onComplete = vi.fn();
-		const handle = collapseRegion(el, { onComplete });
+		const handle = playInCardEnter({ lock, display, form, maxHeightPx: 480, onComplete });
 
 		handle.cancel();
 		handle.cancel();
-		cancelMotion(el);
+		cancelMotion(lock);
 
 		await handle.finished;
 		expect(onComplete).not.toHaveBeenCalled();
 		expect(() => cancelMotion(null)).not.toThrow();
-	});
-
-	it('fadeTo animates each element and completes once', async () => {
-		const a = fakeEl();
-		const b = fakeEl();
-		const onComplete = vi.fn();
-		const handle = fadeTo([a, b], 0.4, { onComplete });
-
-		expect(animateMock).toHaveBeenCalledTimes(2);
-		expect(lastParams().opacity).toBe(0.4);
-
-		for (const call of animateMock.mock.calls) (call[1] as AnimeParams).onComplete();
-		await handle.finished;
-		expect(onComplete).toHaveBeenCalledOnce();
-	});
-
-	it('fadeTo with no targets completes immediately', () => {
-		const onComplete = vi.fn();
-		fadeTo([], 1, { onComplete });
-		expect(onComplete).toHaveBeenCalledOnce();
-		expect(animateMock).not.toHaveBeenCalled();
 	});
 
 	it('playInCardEnter fades display, fades form, then grows lock to the column body max', async () => {
@@ -163,6 +108,8 @@ describe('in-card-motion', () => {
 		// 1) display fade out
 		expect(animateMock).toHaveBeenCalledTimes(1);
 		expect(paramsAt(0).opacity).toBe(0);
+		expect(paramsAt(0).duration).toBe(IN_CARD_MOTION_MS);
+		expect(paramsAt(0).ease).toBe(IN_CARD_MOTION_EASE);
 		paramsAt(0).onComplete();
 
 		// 2) form fade in

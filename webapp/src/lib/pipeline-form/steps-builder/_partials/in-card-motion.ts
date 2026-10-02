@@ -13,8 +13,8 @@
  * 5. caller applies settled flex classes, then `settleEnterFormHost` clears overlay
  *
  * - One running animation per element: starting a new one cancels the previous
- *   one in place (no revert), so retargeting (expand -> collapse mid-flight)
- *   continues from the current height/opacity instead of jumping.
+ *   one in place (no revert), so retargeting mid-flight continues from the
+ *   current height/opacity instead of jumping.
  * - `cancel()` and `cancelMotion()` are idempotent and never throw.
  * - Honors `prefers-reduced-motion` by applying the end state synchronously.
  */
@@ -37,11 +37,6 @@ export type MotionOptions = {
 	durationMs?: number;
 	/** Runs only when the animation reaches its end (not when cancelled). */
 	onComplete?: () => void | Promise<void>;
-};
-
-export type ExpandOptions = MotionOptions & {
-	/** Reset the region to height 0 / opacity 0 before animating (use right after mount). */
-	startCollapsed?: boolean;
 };
 
 export type InCardEnterOptions = MotionOptions & {
@@ -89,11 +84,6 @@ function prefersReducedMotion(): boolean {
 
 const NOOP_HANDLE: MotionHandle = { cancel: () => {}, finished: Promise.resolve() };
 
-function settled(onComplete?: () => void): MotionHandle {
-	onComplete?.();
-	return NOOP_HANDLE;
-}
-
 /** Cancels the animation currently running on `el`, if any. Leaves styles as they are. */
 export function cancelMotion(el: Element | null | undefined): void {
 	if (!el) return;
@@ -138,15 +128,6 @@ function run(el: HTMLElement, props: Props, options: MotionOptions, onDone?: () 
 	});
 
 	return handle;
-}
-
-/** Natural height of `el` with `height: auto`, respecting any ancestor max-height. */
-function measureAutoHeight(el: HTMLElement): number {
-	const previous = el.style.height;
-	el.style.height = 'auto';
-	const natural = el.getBoundingClientRect().height;
-	el.style.height = previous;
-	return natural;
 }
 
 /**
@@ -270,84 +251,6 @@ function resolveEnterHeight(form: HTMLElement, maxHeightPx?: number): number {
 }
 
 //
-
-/** Animates a form region from its current size to its natural height and fades it in. */
-export function expandRegion(el: HTMLElement, options: ExpandOptions = {}): MotionHandle {
-	cancelMotion(el);
-
-	if (options.startCollapsed) {
-		el.style.height = '0px';
-		el.style.opacity = '0';
-	}
-
-	const from = el.getBoundingClientRect().height;
-	const to = measureAutoHeight(el);
-
-	const finish = () => {
-		clearInlineBox(el);
-	};
-
-	if (prefersReducedMotion()) {
-		finish();
-		return settled(options.onComplete);
-	}
-
-	el.style.overflow = 'hidden';
-	el.style.height = `${from}px`;
-
-	return run(el, { height: [`${from}px`, `${to}px`], opacity: 1 }, options, finish);
-}
-
-/** Animates a form region to height 0 and fades it out. */
-export function collapseRegion(el: HTMLElement, options: MotionOptions = {}): MotionHandle {
-	cancelMotion(el);
-
-	if (prefersReducedMotion()) {
-		el.style.overflow = 'hidden';
-		el.style.height = '0px';
-		el.style.opacity = '0';
-		return settled(options.onComplete);
-	}
-
-	const from = el.getBoundingClientRect().height;
-	el.style.overflow = 'hidden';
-	el.style.height = `${from}px`;
-
-	return run(el, { height: [`${from}px`, '0px'], opacity: 0 }, options);
-}
-
-/** Fades one or more elements to `opacity`. Cancelling the handle cancels all of them. */
-export function fadeTo(
-	targets: HTMLElement | readonly HTMLElement[],
-	opacity: number,
-	options: MotionOptions = {}
-): MotionHandle {
-	const elements = Array.isArray(targets) ? [...targets] : [targets as HTMLElement];
-	if (elements.length === 0) return settled(options.onComplete);
-
-	if (prefersReducedMotion()) {
-		for (const el of elements) {
-			cancelMotion(el);
-			el.style.opacity = String(opacity);
-		}
-		return settled(options.onComplete);
-	}
-
-	let remaining = elements.length;
-	const handles = elements.map((el) =>
-		run(el, { opacity }, { durationMs: options.durationMs }, () => {
-			remaining -= 1;
-			if (remaining === 0) options.onComplete?.();
-		})
-	);
-
-	return {
-		cancel: () => {
-			for (const handle of handles) handle.cancel();
-		},
-		finished: Promise.all(handles.map((handle) => handle.finished)).then(() => {})
-	};
-}
 
 /**
  * Enter motion after the card has scrolled into place:
