@@ -83,6 +83,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		min-width: 100%;
 		box-sizing: border-box;
 		background-color: transparent !important;
+		/* Thin bar; thumb hidden until hover/focus so Windows does not paint a fat classic bar on every chunk. */
+		scrollbar-width: thin;
+		scrollbar-color: transparent transparent;
+	}
+
+	:global(.yaml-preview-block-pre::-webkit-scrollbar) {
+		height: 6px;
+	}
+
+	:global(.yaml-preview-block-pre::-webkit-scrollbar-track) {
+		background: transparent;
+	}
+
+	:global(.yaml-preview-block-pre::-webkit-scrollbar-thumb) {
+		background: transparent;
+		border-radius: 3px;
+	}
+
+	@media (hover: hover) {
+		:global(.yaml-preview-block:hover .yaml-preview-block-pre),
+		:global(.yaml-preview-block:focus-within .yaml-preview-block-pre) {
+			scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+		}
+
+		:global(.yaml-preview-block:hover .yaml-preview-block-pre::-webkit-scrollbar-thumb),
+		:global(.yaml-preview-block:focus-within .yaml-preview-block-pre::-webkit-scrollbar-thumb) {
+			background: rgb(255 255 255 / 0.25);
+		}
+	}
+
+	/* Touch / no-hover: keep a quiet thin thumb so overflow stays discoverable. */
+	@media (hover: none) {
+		:global(.yaml-preview-block-pre) {
+			scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+		}
+
+		:global(.yaml-preview-block-pre::-webkit-scrollbar-thumb) {
+			background: rgb(255 255 255 / 0.25);
+		}
 	}
 
 	:global(.yaml-preview-block-pre > code) {
