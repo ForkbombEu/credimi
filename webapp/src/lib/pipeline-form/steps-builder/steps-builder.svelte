@@ -244,10 +244,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		peerScroll.setEnabled(checked, editingSection === 'steps' ? editingIndex : undefined);
 	}
 
-	function onYamlUnitClick(unit: ActiveUnit) {
+	/** Pin selection and peer-scroll the other pane (YAML click → cards, card click → YAML). */
+	function onUnitClick(unit: ActiveUnit, from: 'cards' | 'yaml') {
 		const pinned = unitHighlight.pinUnit(unit);
 		if (!pinned) return;
-		peerScroll.followUnit(pinned, 'yaml');
+		peerScroll.followUnit(pinned, from);
 	}
 
 	function onYamlUnitHover(unit: ActiveUnit | null) {
@@ -369,16 +370,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#each $stepsVirt.getVirtualItems() as vItem (builder.steps[vItem.index] ?? vItem.key)}
 						{@const step = builder.steps[vItem.index]}
 						{@const index = vItem.index}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
 							animate:flip={{ duration: 300 }}
 							{@attach measureStepCard}
 							data-index={index}
 							data-card-section="steps"
 							data-card-index={index}
-							class="absolute left-0 w-full pb-3"
+							class="absolute left-0 w-full cursor-pointer pb-3"
 							style:top="{vItem.start}px"
 							role="group"
 							tabindex="-1"
+							onclick={() => onUnitClick({ section: 'steps', index }, 'cards')}
 							onmouseenter={() => {
 								unitHighlight.hoverCard({ section: 'steps', index });
 							}}
@@ -412,12 +416,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if builder.followUps.length > 0}
 				<div class="space-y-3">
 					{#each builder.followUps as followUp, index (followUp)}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
 							animate:flip={{ duration: 300 }}
 							data-card-section="follow-ups"
 							data-card-index={index}
+							class="cursor-pointer"
 							role="group"
 							tabindex="-1"
+							onclick={() => onUnitClick({ section: 'follow-ups', index }, 'cards')}
 							onmouseenter={() => {
 								unitHighlight.hoverCard({ section: 'follow-ups', index });
 							}}
@@ -513,7 +521,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				scrollContainer={yamlScrollContainer}
 				isUnitSelected={(section, index) => unitHighlight.isCardSelected(section, index)}
 				isUnitHovered={(section, index) => unitHighlight.isCardHovered(section, index)}
-				onUnitClick={onYamlUnitClick}
+				onUnitClick={(unit) => onUnitClick(unit, 'yaml')}
 				onUnitHover={onYamlUnitHover}
 				onHeaderHeightChange={(h) => {
 					yamlScrollMargin = h;

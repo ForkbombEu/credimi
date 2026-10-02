@@ -249,7 +249,7 @@ export class PeerScrollFollow {
 		return () => this.#clock.clearTimeout(timer);
 	}
 
-	/** After view pins selection from YAML click. */
+	/** After view pins selection from a card or YAML click. */
 	followUnit(unit: ActiveUnit, from: 'cards' | 'yaml') {
 		if (this.#disposed) return;
 		this.#setActiveUnit(unit);
@@ -334,7 +334,11 @@ export class PeerScrollFollow {
 		if (!unit || !yaml) return;
 		const durationMs = durationFor(kind);
 		this.#beginDriven('yaml', yaml, durationMs);
-		const align = this.#scrollLeader === 'cards' ? 'start-band' : 'start';
+		// Discrete click/reveal centers like yaml→cards; continuous scroll keeps start-band.
+		// Do not focus YAML on discrete — card action buttons (edit etc.) bubble through the
+		// click handler and must keep focus for the form.
+		const align =
+			kind === 'discrete' ? 'center' : this.#scrollLeader === 'cards' ? 'start-band' : 'start';
 		const scrolled = await scrollUnitIntoView(yaml, unit, 'auto', YAML_PANE, {
 			align,
 			focus: false,
