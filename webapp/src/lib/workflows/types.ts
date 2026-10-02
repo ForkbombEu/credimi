@@ -2,58 +2,48 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
+import type { WorkflowStatusType } from '$lib/temporal';
 
 import z from 'zod/v3';
 
 //
 
+/** Fields Credimi reads from Temporal describe (protojson) via /api/my/workflows/... */
 export const workflowExecutionInfoSchema = z
 	.object({
 		execution: z.object({
 			runId: z.string(),
 			workflowId: z.string()
 		}),
-		executionTime: z.string(),
-		memo: z.record(z.unknown()),
-		rootExecution: z.object({
-			runId: z.string(),
-			workflowId: z.string()
-		}),
-		startTime: z.string(),
-		endTime: z.string().optional(),
-		closeTime: z.string().optional(),
-		executionDuration: z.string().optional(),
-		historyLength: z.string().optional(),
-		stateTransitionCount: z.string().optional(),
-		status: z.string(),
-		taskQueue: z.string(),
 		type: z.object({
 			name: z.string()
-		})
+		}),
+		status: z.string(),
+		startTime: z.string().optional(),
+		closeTime: z.string().optional(),
+		memo: z.unknown().optional()
 	})
 	.passthrough();
 
 export type WorkflowExecutionInfo = z.infer<typeof workflowExecutionInfoSchema>;
 
-export const workflowResponseSchema = z.object({
-	workflowExecutionInfo: workflowExecutionInfoSchema,
-	executionConfig: z.unknown(),
-	failure_reason: z.string().optional(),
-	pendingActivities: z.unknown(),
-	devices: z
-		.array(
-			z.object({
-				device_id: z.string(),
-				name: z.string(),
-				live_view: z.boolean()
-			})
-		)
-		.optional()
-});
+export const workflowResponseSchema = z
+	.object({
+		workflowExecutionInfo: workflowExecutionInfoSchema,
+		failure_reason: z.string().optional(),
+		devices: z
+			.array(
+				z.object({
+					device_id: z.string(),
+					name: z.string(),
+					live_view: z.boolean()
+				})
+			)
+			.optional()
+	})
+	.passthrough();
 
 export type WorkflowResponse = z.infer<typeof workflowResponseSchema>;
 
-//
-
-export type WorkflowStatus = NonNullable<ReturnType<typeof toWorkflowStatusReadable>>;
+/** Readable workflow status labels (plus Unspecified for unknown/empty). */
+export type WorkflowStatus = WorkflowStatusType | 'Unspecified';

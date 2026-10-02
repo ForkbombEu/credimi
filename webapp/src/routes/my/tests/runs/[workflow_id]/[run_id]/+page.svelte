@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { WorkflowStatus as WorkflowStatusValue } from '$lib/workflows/types';
 
-	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { XIcon } from '@lucide/svelte';
 	import { Workflow } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
@@ -15,9 +14,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ExecutionDevices from '$lib/pipeline/execution-devices.svelte';
 	import { getExecutionDevices, type ExecutionSummary } from '$lib/pipeline/workflows';
 	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
-	import { TemporalI18nProvider } from '$lib/temporal';
 	import { isOpenIDConformanceStandard } from '$lib/wallet-test-pages/openidnet';
 	import { WorkflowQrPoller } from '$lib/workflows';
+	import WorkflowStatusBadge from '$lib/workflows/workflow-status.svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { fromStore } from 'svelte/store';
 
@@ -39,25 +38,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	let { organization, workflow } = $derived(data);
-	let { memo, execution, devices } = $derived(workflow);
-	let { id: workflowId, runId } = $derived(execution);
+	let { info, status, failure_reason: failureMessage, memo, devices } = $derived(workflow);
+	let workflowId = $derived(info.execution.workflowId);
+	let runId = $derived(info.execution.runId);
+	let workflowName = $derived(info.type.name);
 
 	const user = fromStore(currentUser);
 	const timezone = $derived(user.current?.Timezone);
-	const startDisplay = $derived(formatExecutionTimestamp(execution.startTime, timezone) ?? '-');
-	const endDisplay = $derived(formatExecutionTimestamp(execution.endTime, timezone) ?? '-');
+	const startDisplay = $derived(formatExecutionTimestamp(info.startTime, timezone) ?? '-');
+	const endDisplay = $derived(formatExecutionTimestamp(info.closeTime, timezone) ?? '-');
 
 	/** Adapt Temporal describe payload into the pipeline ExecutionSummary shape. */
 	const executionSummary = $derived<ExecutionSummary>({
 		execution: {
-			workflowId: execution.id,
-			runId: execution.runId
+			workflowId,
+			runId
 		},
-		type: { name: execution.name },
-		startTime: execution.startTime ? String(execution.startTime) : '',
-		...(execution.endTime != null ? { endTime: String(execution.endTime) } : {}),
-		status: execution.status as WorkflowStatusValue,
-		displayName: execution.id,
+		type: { name: workflowName },
+		startTime: info.startTime ? String(info.startTime) : '',
+		...(info.closeTime != null ? { endTime: String(info.closeTime) } : {}),
+		status: status as WorkflowStatusValue,
+		displayName: workflowId,
 		devices
 	});
 	const executionDevices = $derived(getExecutionDevices(executionSummary));
@@ -143,7 +144,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		let timer: ReturnType<typeof setTimeout> | undefined;
 
 		function schedule() {
-			if (active && workflow.execution.status === 'Running') {
+			if (active && workflow.status === 'Running') {
 				timer = setTimeout(poll, POLL_INTERVAL_MS);
 			}
 		}
@@ -171,10 +172,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		memo?.author === 'openid_conformance_suite' && isOpenIDConformanceStandard(memo.standard)
 			? memo.standard
 			: undefined
-	);
-
-	const failureMessage = $derived(
-		(execution as typeof execution & { failure_reason?: string }).failure_reason
 	);
 </script>
 
@@ -215,15 +212,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</T>
 			{:else}
 				<T tag="h3" class="!p-0 break-words">
-					{execution.id}
+					{workflowId}
 				</T>
 			{/if}
 		</div>
 
-		{#if execution.status}
-			<TemporalI18nProvider>
-				<WorkflowStatus status={execution.status} />
-			</TemporalI18nProvider>
+		{#if status}
+			<WorkflowStatusBadge {status} />
 		{/if}
 
 		{#if failureMessage}
@@ -254,13 +249,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<tr>
 						<td class="italic"> Workflow ID </td>
 						<td class="pl-4">
-							{execution.id}
+							{workflowId}
 						</td>
 					</tr>
 					<tr>
 						<td class="italic"> Run ID </td>
 						<td class="pl-4">
-							{execution.runId}
+							{runId}
 						</td>
 					</tr>
 					{#if executionDevices.length > 0}
@@ -281,7 +276,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Button
 					variant="outline"
 					onclick={() => runWithLoading({ fn: () => Workflow.cancel(workflowId, runId) })}
-					disabled={execution.status !== 'Running'}
+					disabled={status !== 'Running'}
 				>
 					<XIcon />
 					{m.Cancel()}
@@ -290,7 +285,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	{#if workflow.execution.name !== 'Dynamic Pipeline Workflow'}
+	{#if workflowName !== 'Dynamic Pipeline Workflow'}
 		<WorkflowQrPoller {workflowId} {runId} showQrLink={true} containerClass="size-40" />
 	{/if}
 </div>

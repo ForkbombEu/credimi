@@ -113,7 +113,6 @@ Important related dependencies:
 - `github.com/ForkbombEu/et-tu-cesr`: CESR tooling and binary integration.
 - `github.com/forkbombeu/avdctl`: Android virtual device support used through the mobile automation stack.
 - `github.com/ForkbombEu/stepci-captured-runner`: external binary downloaded into `.bin/` by `make tools`.
-- `@forkbombeu/temporal-ui`: Svelte Temporal workflow UI package.
 - `github.com/forkbombeu/credimi_plugins`: ecosystem plugins/resources referenced by the product.
 
 Rules:

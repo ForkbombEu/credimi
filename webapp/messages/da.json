@@ -1049,5 +1049,11 @@
 	"Inline_Maestro": "Inline Maestro",
 	"Custom_wallet_action": "Custom wallet action",
 	"Custom_code": "Custom code",
-	"Inline_action_edit_notice": "This step uses inline Maestro code. Code editing will be available later. Saving keeps the existing code, version, device and parameters."
+	"Inline_action_edit_notice": "This step uses inline Maestro code. Code editing will be available later. Saving keeps the existing code, version, device and parameters.",
+	"Failed": "Mislykkedes",
+	"Timed_Out": "Timeout",
+	"Continued_as_New": "Fortsati som ny",
+	"Canceled": "Annulleret",
+	"Terminated": "Afsluttet",
+	"Unspecified": "Uspecificeret"
 }

@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { SearchIcon, SparkleIcon, TestTubeIcon } from '@lucide/svelte';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { Pipeline } from '$lib';
-	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
 	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -115,13 +114,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if params.status}
 			<EmptyState icon={SearchIcon} title={m.No_check_runs_with_this_status()}>
 				{#snippet bottom()}
-					<TemporalI18nProvider>
-						<div class="pt-2">
-							{#if params.status}
-								<Pipeline.Workflows.StatusTag status={params.status} />
-							{/if}
-						</div>
-					</TemporalI18nProvider>
+					<div class="pt-2">
+						{#if params.status}
+							<Pipeline.Workflows.StatusTag status={params.status} />
+						{/if}
+					</div>
 				{/snippet}
 			</EmptyState>
 		{:else}

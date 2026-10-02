@@ -6,7 +6,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('./conformance-check-step-form.svelte', () => ({ default: class {} }));
 // Avoids uuid import failure when loading conformance-check-step-form module graph in Vitest.
-vi.mock('@forkbombeu/temporal-ui', () => ({}));
 vi.mock('$lib/query-client', () => ({
 	queryClient: {}
 }));
