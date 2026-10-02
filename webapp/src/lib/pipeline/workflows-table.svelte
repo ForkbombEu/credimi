@@ -103,9 +103,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			<thead class="bg-slate-100">
 				<tr>
-					<th
-						class="col-expand w-px rounded-l-sm whitespace-nowrap"
-						aria-hidden="true"
+					<th class="col-expand w-px rounded-l-sm whitespace-nowrap" aria-hidden="true"
 					></th>
 					<th>{m.Status()}</th>
 					<th>{m.Devices()}</th>
