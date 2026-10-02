@@ -42,6 +42,11 @@ export type EnrichedFollowUp = {
 	condition: PipelineFinallyCondition;
 };
 
+/** Empty enriched shell (record only) for loading UI / enrichment fallbacks. */
+export function minimalEnrichedPipeline(record: PipelinesResponse): EnrichedPipeline {
+	return { record, steps: [], runtime: undefined };
+}
+
 export async function getEnrichedPipeline(
 	id: string,
 	options = { fetch }
