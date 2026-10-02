@@ -55,8 +55,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class={[
 			'yaml-preview-block relative w-full min-w-full rounded-sm',
 			interactive && 'yaml-preview-block-interactive',
-			selected && 'yaml-preview-block-selected ring-2 ring-orange-500',
-			hovered && !selected && 'yaml-preview-block-hovered ring-2 ring-orange-500/60',
+			selected && 'yaml-preview-block-selected ring-1 ring-orange-300',
+			hovered && !selected && 'yaml-preview-block-hovered ring-1 ring-orange-400',
 			(hovered || selected) && 'overflow-hidden',
 			className
 		]}
@@ -124,10 +124,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	  otherwise hover is invisible. Soft 15% hover; selected slightly stronger.
 	*/
 	:global(.yaml-preview-block-hovered .code-display-line) {
-		background-color: rgb(255 255 255 / 0.15);
+		background-color: rgb(255 255 255 / 0.05);
 	}
 
 	:global(.yaml-preview-block-selected .code-display-line) {
-		background-color: rgb(255 255 255 / 0.22);
+		background-color: rgb(255 255 255 / 0.05);
 	}
 </style>

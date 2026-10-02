@@ -66,10 +66,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class={[
 		'group flex flex-col overflow-hidden rounded-md border bg-card',
 		classes.border,
-		!readonly && 'hover:ring-2 hover:ring-orange-500/60',
-		editing && 'ring-2 ring-orange-500',
-		selected && !editing && 'ring-2 ring-orange-500',
-		hovered && !editing && !selected && 'ring-2 ring-orange-500/60'
+		!readonly && 'hover:border-orange-500',
+		editing && 'border-orange-600',
+		selected && !editing && 'border-orange-600 ring-1 ring-orange-600',
+		hovered && !editing && !selected && 'border-orange-500'
 	]}
 >
 	<div class={['h-1', classes?.bg]}></div>
