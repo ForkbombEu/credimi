@@ -179,13 +179,16 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 	};
 
 	/**
-	 * Mount both swap indices on cards and YAML before FLIP.
+	 * Named swap-mount: sole owner of mountOnly + align:start + dual-pane
+	 * scrollTop/scrollOffset pin for paired shift. Paired-shift only sees the
+	 * opaque `ensureSwapMounted` callback — it must not pass mountOnly or virt opts.
+	 *
 	 * Uses `mountOnly` so already-in-DOM units do not `scrollToIndex` (align:start +
 	 * TanStack scroll reconcile would yank mid-list / top-of-list pins toward 0).
 	 * When a scroll-to-mount did run, snapshot+restore still pins scrollTop before
 	 * `runPairedShift`.
 	 */
-	async function ensureSwapIndicesMounted(fromIndex: number, toIndex: number) {
+	async function mountSwapIndices(fromIndex: number, toIndex: number) {
 		const cardsTop = cardsScroller?.scrollTop ?? 0;
 		const yamlTop = yamlScroller?.scrollTop ?? 0;
 		const mountOpts = {
@@ -212,7 +215,7 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			fromIndex: index,
 			toIndex,
 			notePairedReorder: () => peerScroll.notePairedReorder(),
-			ensureSwapMounted: ensureSwapIndicesMounted,
+			ensureSwapMounted: mountSwapIndices,
 			cardsScroller,
 			yamlScroller,
 			layout,

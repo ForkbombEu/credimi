@@ -208,7 +208,7 @@ describe('createTwinPaneSession', () => {
 		session.dispose();
 	});
 
-	it('ensureSwapIndicesMounted keeps mid-list scrollTop when pair units are already mounted', async () => {
+	it('mountSwapIndices keeps mid-list scrollTop when pair units are already mounted', async () => {
 		/**
 		 * Guilty writer without mountOnly: ensureStepVisible → scrollToIndex(align:start)
 		 * (+ TanStack reconcile) toward ≈0. With mountOnly, already-mounted units must not

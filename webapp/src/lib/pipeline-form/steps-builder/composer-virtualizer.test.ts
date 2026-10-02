@@ -363,10 +363,10 @@ describe('createComposerVirtualizer', () => {
 
 	it('without mountOnly, already-mounted ensure still scrollToIndex (reconcile race source)', async () => {
 		/**
-		 * Smoke diagnosis: ensureSwap used to call ensureStepVisible(align:start) even when
-		 * both swap cards were already in the DOM. TanStack scrollToIndex schedules
-		 * reconcileScroll via rAF; restoreScrollTop then loses to that reconcile → jump
-		 * toward align-start (often scrollTop≈0 for index 0).
+		 * Smoke diagnosis: before twin-pane `mountSwapIndices` used mountOnly, swap mount
+		 * called ensureStepVisible(align:start) even when both swap cards were already in
+		 * the DOM. TanStack scrollToIndex schedules reconcileScroll via rAF; restoreScrollTop
+		 * then loses to that reconcile → jump toward align-start (often scrollTop≈0 for index 0).
 		 */
 		let scrollTop = 200;
 		let deferredReconcile: (() => void) | null = null;

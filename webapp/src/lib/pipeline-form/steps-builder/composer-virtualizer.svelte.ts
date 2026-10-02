@@ -27,8 +27,9 @@ export type EnsureStepVisibleOptions = ScrollToOptions & {
 	timeoutMs?: number;
 	/**
 	 * When true, skip `scrollToIndex` if the item is already in the scroller DOM.
-	 * Used by paired-swap mount: in-view units must not be align-scrolled (TanStack
-	 * `scheduleScrollReconcile` can overwrite a later `restoreScrollTop`).
+	 * Primitive for twin-pane `mountSwapIndices` only: in-view units must not be
+	 * align-scrolled (TanStack `scheduleScrollReconcile` can overwrite a later
+	 * `restoreScrollTop`). Callers must not pass this outside that named method.
 	 */
 	mountOnly?: boolean;
 };

@@ -32,7 +32,10 @@ export type PairedShiftArgs = {
 	toIndex: number;
 	/** Mute continuous Scroll follow around the ritual. */
 	notePairedReorder: () => void;
-	/** Mount both swap indices on cards + YAML (scrollTop pin/restore inside). */
+	/**
+	 * Opaque swap-mount seam — twin-pane wires `mountSwapIndices`.
+	 * Must not know mountOnly / align / virtualizer scrollOffset options.
+	 */
 	ensureSwapMounted: (fromIndex: number, toIndex: number) => Promise<void>;
 	cardsScroller: HTMLElement | null | undefined;
 	yamlScroller: HTMLElement | null | undefined;
