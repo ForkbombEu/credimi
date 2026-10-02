@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Memo } from '@forkbombeu/temporal-ui/dist/types';
-
 import { z } from 'zod/v3';
 
 import { warn } from '@/utils/other';
@@ -25,13 +23,14 @@ export type WorkflowMemo = {
 	test: string;
 };
 
-export function getWorkflowMemo(workflow: { memo: Memo }): WorkflowMemo | undefined {
+/** Parse Credimi memo fields from Temporal describe `memo` (protojson). */
+export function getWorkflowMemo(memo: unknown): WorkflowMemo | undefined {
 	try {
-		if (!workflow.memo || !workflow.memo['fields']) {
+		if (!memo || typeof memo !== 'object' || !('fields' in memo)) {
 			return undefined;
 		}
 
-		const fields = z.record(memoFieldSchema).parse(workflow.memo['fields']);
+		const fields = z.record(memoFieldSchema).parse((memo as { fields: unknown }).fields);
 		if (!fields) return undefined;
 		const author = memoFieldToText(fields['author']);
 		const standard = memoFieldToText(fields['standard']);

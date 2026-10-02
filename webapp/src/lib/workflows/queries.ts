@@ -2,17 +2,16 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
-
-import { toWorkflowExecution } from '@forkbombeu/temporal-ui';
 import { String } from 'effect';
 
 import { pb } from '@/pocketbase';
 import { warn } from '@/utils/other';
 
 import type { FetchWorkflowsResponse, WorkflowExecutionSummary } from './queries.types';
+import type { WorkflowExecutionInfo, WorkflowResponse, WorkflowStatus } from './types';
 
-import { workflowResponseSchema, type WorkflowResponse } from './types';
+import { toReadableWorkflowStatus } from './status';
+import { workflowResponseSchema } from './types';
 
 //
 
@@ -31,12 +30,17 @@ type FetchWorkflowsOptions = {
 	status?: string | null;
 };
 
+/** Describe payload fields Credimi uses on the run page (no Temporal UI model). */
+export type WorkflowRunDetails = {
+	info: WorkflowExecutionInfo;
+	status: WorkflowStatus;
+	failure_reason?: string;
+	devices: NonNullable<WorkflowResponse['devices']>;
+};
+
 export async function fetchWorkflows(
 	options: FetchWorkflowsOptions = {}
 ): Promise<WorkflowExecutionSummary[] | Error> {
-	// const test = await import('./queries.test.json');
-	// return test.default.executions;
-
 	const { fetch: fetchFn = fetch, status } = options;
 
 	let url = WORKFLOW_LIST_API;
@@ -60,49 +64,20 @@ export async function fetchWorkflowExecution(
 	workflowId: string,
 	runId: string,
 	options = { fetch }
-): Promise<{ execution: WorkflowExecution; devices?: WorkflowResponse['devices'] } | Error> {
+): Promise<WorkflowRunDetails | Error> {
 	return tryPromise(async () => {
 		const data = await pb.send(workflowApi(workflowId, runId), {
 			method: 'GET',
 			fetch: options.fetch
 		});
 		const parsed = workflowResponseSchema.parse(data);
-		const execution = workflowResponseToExecution(parsed);
-		if (execution instanceof Error) throw execution;
-		return { execution, devices: parsed.devices };
+		return {
+			info: parsed.workflowExecutionInfo,
+			status: toReadableWorkflowStatus(parsed.workflowExecutionInfo.status),
+			failure_reason: parsed.failure_reason,
+			devices: parsed.devices ?? []
+		};
 	}, 'Failed to fetch workflow');
-}
-
-// Private
-
-function workflowResponseToExecution(data: WorkflowResponse): WorkflowExecution | Error {
-	return tryFn(() => {
-		// @ts-expect-error Slight type mismatch
-		const workflowExecution = toWorkflowExecution(data);
-
-		/* HACK */
-		// canBeTerminated a property of workflow object is a getter that requires a svelte `store` to work
-		// by removing it, we can avoid the store dependency and solve a svelte error about state not updating
-		Object.defineProperty(workflowExecution, 'canBeTerminated', {
-			value: true
-		});
-		Object.defineProperty(workflowExecution, 'failure_reason', {
-			value: data.failure_reason,
-			enumerable: true
-		});
-
-		return workflowExecution;
-	}, 'Failed to convert workflow response to execution');
-}
-
-function tryFn<T>(fn: () => T, errorMessage?: string): T | Error {
-	try {
-		return fn();
-	} catch (error) {
-		warn(errorMessage, error);
-		if (error instanceof Error) return error;
-		else return new Error(errorMessage);
-	}
 }
 
 async function tryPromise<T>(fn: () => Promise<T>, errorMessage?: string): Promise<T | Error> {
