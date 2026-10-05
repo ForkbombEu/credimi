@@ -584,24 +584,6 @@ func authorizePipelineResultDeviceStoreAccess(
 	)
 }
 
-func authorizePipelineResultStoreAccess(
-	e *core.RequestEvent,
-	ownerID string,
-	deviceIdentifier string,
-) *apierror.APIError {
-	if isInternalAdminPrincipal(e.Auth) {
-		return nil
-	}
-
-	return authorizePipelineResultOwnerAccess(
-		e,
-		ownerID,
-		func() (*core.Record, *apierror.APIError) {
-			return resolvePipelineResultDevice(e.App, deviceIdentifier)
-		},
-	)
-}
-
 // authorizePipelineResultOwnerAccess allows members of the result owner
 // organization, or owners of a published runner whose device is resolved
 // by resolveDevice when the result owner organization is published.
