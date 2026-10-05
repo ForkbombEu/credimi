@@ -82,6 +82,16 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
+		// Resolve fixtures before validating, so the step types checked below are
+		// the ones the workflow runs.
+		if err := InternalPipeline.ApplyFixture(wfDef); err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"yaml",
+				"failed to apply pipeline fixture",
+				err.Error(),
+			)
+		}
 
 		// 4. Validate pipeline steps: every step the workflow can run, including
 		// on_success/on_error hooks and finally steps, must be an http-request.

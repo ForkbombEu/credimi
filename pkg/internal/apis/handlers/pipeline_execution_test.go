@@ -12,6 +12,7 @@ import (
 
 	InternalPipeline "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	pip "github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -670,6 +671,70 @@ func TestHandlePipelineExecute_WithoutAuthUsesDefaultNamespace(t *testing.T) {
 	scenario.Test(t)
 
 	require.Equal(t, "default", capturedNamespace)
+}
+
+func TestHandlePipelineExecute_FixtureCannotChangeStepType(t *testing.T) {
+	injected := `a"},"use":"container-run","with":{"payload":{"image":"alpine","cmd":["id"]}},"metadata":{"z":"b`
+	var captured pip.PipelineWorkflowInput
+	orig := pipelineTemporalClient
+	t.Cleanup(func() { pipelineTemporalClient = orig })
+
+	mockClient := temporalmocks.NewClient(t)
+	workflowRun := temporalmocks.NewWorkflowRun(t)
+	workflowRun.On("GetID").Return("wf-test-123").Maybe()
+	workflowRun.On("GetRunID").Return("run-test-456").Maybe()
+	workflowRun.On("Get", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			if out, ok := args.Get(1).(*workflowengine.WorkflowResult); ok {
+				*out = workflowengine.WorkflowResult{WorkflowID: "wf-test-123"}
+			}
+		}).
+		Return(nil)
+	mockClient.On(
+		"ExecuteWorkflow",
+		mock.Anything,
+		mock.Anything,
+		"Dynamic Pipeline Workflow",
+		mock.Anything,
+	).Run(func(args mock.Arguments) {
+		captured = args.Get(3).(pip.PipelineWorkflowInput)
+	}).Return(workflowRun, nil)
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	scenario := tests.ApiScenario{
+		Name:   "fixture value stays inside its string",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/execute",
+		Body: rawBody(`name: audit
+runtime:
+  fixture:
+    p: '` + injected + `'
+steps:
+  - id: s1
+    use: http-request
+    with:
+      payload:
+        url: https://example.invalid
+    metadata:
+      z: "${fixture.p}"
+`),
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{"\"workflow_id\""},
+		TestAppFactory:  setupPipelineExecuteApp,
+	}
+	scenario.Test(t)
+
+	// The workflow applies the fixture before dispatching steps; what it runs
+	// must still be the http-request step the handler validated.
+	require.NotNil(t, captured.WorkflowDefinition)
+	require.NoError(t, InternalPipeline.ApplyFixture(captured.WorkflowDefinition))
+	require.Len(t, captured.WorkflowDefinition.Steps, 1)
+	step := captured.WorkflowDefinition.Steps[0]
+	require.Equal(t, "http-request", step.Use)
+	require.Equal(t, map[string]any{"url": "https://example.invalid"}, step.With.Payload)
+	require.Equal(t, injected, step.Metadata["z"])
 }
 
 func TestExtractDeeplink(t *testing.T) {
