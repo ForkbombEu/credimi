@@ -5,11 +5,16 @@
 package logo
 
 import (
+	"bytes"
 	"context"
+	"image"
+	"image/png"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -26,6 +31,16 @@ func setupTestApp(t testing.TB) *tests.TestApp {
 	)
 	require.NoError(t, err)
 	LogoHooks(app)
+
+	return app
+}
+
+// setupTestAppAllowingLoopback binds the hooks with a client that may reach
+// httptest servers, which listen on loopback.
+func setupTestAppAllowingLoopback(t testing.TB) *tests.TestApp {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	bindLogoHooks(app, newLogoHTTPClient(allowAllIPs))
 
 	return app
 }
@@ -50,13 +65,13 @@ func getTestOrgID() (string, error) {
 func TestLogoHooks_Valid(t *testing.T) {
 	// Crea un server di test per simulare il download
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Content-Type", "image/png")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("fake logo image data"))
+		w.Write(testPNG(t))
 	}))
 	defer ts.Close()
 
-	app := setupTestApp(t)
+	app := setupTestAppAllowingLoopback(t)
 	defer app.Cleanup()
 	coll, err := app.FindCollectionByNameOrId("wallets")
 	require.NoError(t, err)
@@ -110,13 +125,13 @@ func TestLogoHooks_Valid(t *testing.T) {
 
 func TestLogoHooks_UpdateAddLogoURL(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/jpeg")
+		w.Header().Set("Content-Type", "image/png")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("fake logo image data"))
+		w.Write(testPNG(t))
 	}))
 	defer ts.Close()
 
-	app := setupTestApp(t)
+	app := setupTestAppAllowingLoopback(t)
 	defer app.Cleanup()
 
 	coll, err := app.FindCollectionByNameOrId("wallets")
@@ -189,7 +204,7 @@ func TestLogoHooks_HTTPError(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	app := setupTestApp(t)
+	app := setupTestAppAllowingLoopback(t)
 	defer app.Cleanup()
 
 	coll, err := app.FindCollectionByNameOrId("wallets")
@@ -265,7 +280,8 @@ func TestLogoHooks_WithUnsavedFiles(t *testing.T) {
 	record.Set("owner", own)
 	record.Set("logo_url", "https://example.com/logo.png")
 
-	testFile, err := filesystem.NewFileFromBytes([]byte("manual upload data"), "manual-logo.jpg")
+	manualUpload := testPNG(t)
+	testFile, err := filesystem.NewFileFromBytes(manualUpload, "manual-logo.png")
 	require.NoError(t, err)
 
 	record.Set("logo", []*filesystem.File{testFile})
@@ -287,12 +303,7 @@ func TestLogoHooks_WithUnsavedFiles(t *testing.T) {
 
 	fileData, err := io.ReadAll(r)
 	require.NoError(t, err)
-	require.Equal(
-		t,
-		[]byte("manual upload data"),
-		fileData,
-		"Should preserve manually uploaded file data",
-	)
+	require.Equal(t, manualUpload, fileData, "Should preserve manually uploaded file data")
 
 	t.Logf("Test complete: LogoHooks skipped download when unsaved files exist")
 }
@@ -337,35 +348,178 @@ func TestDownloadImage_MalformedURL(t *testing.T) {
 	)
 }
 
-func TestDownloadImage_ContextInRequest(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Context().Err() != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test image"))
+func TestDownloadImage_RejectsLoopbackDestination(t *testing.T) {
+	var hits atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.Write([]byte("DUMMY-INTERNAL-METADATA-TOKEN"))
 	}))
 	defer ts.Close()
 
-	ctx := context.WithValue(context.Background(), "testKey", "testValue")
-	file, err := DownloadImage(ctx, ts.URL+"/test.jpg")
+	file, err := DownloadImage(context.Background(), ts.URL+"/latest/meta-data")
 
-	require.NoError(t, err)
-	require.NotNil(t, file)
+	require.ErrorIs(t, err, errBlockedDestination)
+	require.Nil(t, file)
+	require.Zero(t, hits.Load(), "the internal server must never be contacted")
 }
 
-func TestDownloadImage_EmptyImage(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.WriteHeader(http.StatusOK)
+func TestLogoHooks_LoopbackLogoURLNotStored(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write(testPNG(t))
 	}))
 	defer ts.Close()
 
-	file, err := DownloadImage(context.Background(), ts.URL+"/empty.jpg")
+	app := setupTestApp(t)
+	defer app.Cleanup()
 
-	require.Error(t, err)
+	coll, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	record := core.NewRecord(coll)
+	own, err := getTestOrgID()
+	require.NoError(t, err)
+	record.Set("owner", own)
+	record.Set("logo_url", ts.URL+"/latest/meta-data")
+
+	require.NoError(t, app.Save(record), "save must succeed when the logo is refused")
+	require.Empty(t, record.GetString("logo"), "a logo from a loopback host must not be stored")
+}
+
+func testPNG(t testing.TB) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 1, 1))))
+	return buf.Bytes()
+}
+
+func allowAllIPs(net.IP) bool { return true }
+
+func TestIsPublicIP(t *testing.T) {
+	tests := []struct {
+		ip     string
+		public bool
+	}{
+		{"127.0.0.1", false},
+		{"10.1.2.3", false},
+		{"172.16.0.1", false},
+		{"192.168.1.1", false},
+		{"169.254.169.254", false},
+		{"0.0.0.0", false},
+		{"224.0.0.1", false},
+		{"::1", false},
+		{"::", false},
+		{"fe80::1", false},
+		{"fc00::1", false},
+		{"ff02::1", false},
+		{"::ffff:127.0.0.1", false},
+		{"::ffff:169.254.169.254", false},
+		{"8.8.8.8", true},
+		{"93.184.216.34", true},
+		{"2606:4700:4700::1111", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.ip, func(t *testing.T) {
+			ip := net.ParseIP(tc.ip)
+			require.NotNil(t, ip)
+			require.Equal(t, tc.public, isPublicIP(ip))
+		})
+	}
+}
+
+func TestDownloadImage_RejectsLocalHostname(t *testing.T) {
+	var hits atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.Write(testPNG(t))
+	}))
+	defer ts.Close()
+
+	_, port, err := net.SplitHostPort(ts.Listener.Addr().String())
+	require.NoError(t, err)
+
+	file, err := DownloadImage(context.Background(), "http://localhost:"+port+"/logo.png")
+
+	require.ErrorIs(t, err, errBlockedDestination)
 	require.Nil(t, file)
-	require.Contains(t, err.Error(), "empty image", "Error should mention empty image")
+	require.Zero(t, hits.Load())
+}
+
+func TestDownloadImage_RejectsRedirectToBlockedAddress(t *testing.T) {
+	var internalHits atomic.Int32
+	internal := httptest.NewUnstartedServer(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			internalHits.Add(1)
+			w.Write(testPNG(t))
+		}),
+	)
+	listener, err := net.Listen("tcp", "127.0.0.2:0")
+	if err != nil {
+		t.Skipf("127.0.0.2 not bindable: %v", err)
+	}
+	internal.Listener = listener
+	internal.Start()
+	defer internal.Close()
+
+	public := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, internal.URL+"/latest/meta-data", http.StatusFound)
+	}))
+	defer public.Close()
+
+	onlyPublicServer := func(ip net.IP) bool { return ip.Equal(net.IPv4(127, 0, 0, 1)) }
+	file, err := downloadImage(
+		context.Background(),
+		newLogoHTTPClient(onlyPublicServer),
+		public.URL+"/logo.png",
+	)
+
+	require.ErrorIs(t, err, errBlockedDestination)
+	require.Nil(t, file)
+	require.Zero(t, internalHits.Load())
+}
+
+func TestDownloadImage_ValidatesBody(t *testing.T) {
+	pngData := testPNG(t)
+	exactlyMax := append(append([]byte{}, pngData...), make([]byte, maxLogoSize-len(pngData))...)
+
+	tests := []struct {
+		name    string
+		body    []byte
+		wantErr string
+	}{
+		{name: "png accepted", body: pngData},
+		{name: "image at size cap accepted", body: exactlyMax},
+		{name: "image over size cap rejected", body: append(exactlyMax, 0), wantErr: "exceeds"},
+		{
+			name:    "non image rejected",
+			body:    []byte("DUMMY-INTERNAL-METADATA-TOKEN"),
+			wantErr: "unsupported image content type",
+		},
+		{
+			name:    "html rejected",
+			body:    []byte("<html><script>alert(1)</script></html>"),
+			wantErr: "unsupported image content type",
+		},
+		{name: "empty rejected", body: nil, wantErr: "empty image"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "image/png")
+				w.Write(tc.body)
+			}))
+			defer ts.Close()
+
+			file, err := downloadImage(
+				context.Background(),
+				newLogoHTTPClient(allowAllIPs),
+				ts.URL+"/logo.png",
+			)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				require.Nil(t, file)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, int64(len(tc.body)), file.Size)
+		})
+	}
 }
