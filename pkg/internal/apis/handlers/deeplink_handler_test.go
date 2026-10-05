@@ -269,17 +269,58 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 	}
 }
 
+// setupPublishedDeeplinkApp seeds the deeplink fixtures, publishes the deeplink
+// records and sets the published flag of their issuer and verifier parents.
+func setupPublishedDeeplinkApp(
+	orgID string,
+	parentPublished bool,
+) func(t testing.TB) *tests.TestApp {
+	return func(t testing.TB) *tests.TestApp {
+		app := setupDeeplinkApp(orgID)(t)
+		setPublished := func(collection, filter string, published bool) {
+			r, err := app.FindFirstRecordByFilter(collection, filter)
+			require.NoError(t, err)
+			r.Set("published", published)
+			require.NoError(t, app.Save(r))
+		}
+		setPublished("credential_issuers", `id="issuer123456789"`, parentPublished)
+		setPublished("credentials", `name="test credential"`, true)
+		setPublished("verifiers", `id="verify123456789"`, parentPublished)
+		setPublished("use_cases_verifications", `name="test use cases"`, true)
+
+		return app
+	}
+}
+
+func deeplinkAuthHeaders(t *testing.T, email string) map[string]string {
+	t.Helper()
+
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	user, err := app.FindAuthRecordByEmail("users", email)
+	require.NoError(t, err)
+	token, err := user.NewAuthToken()
+	require.NoError(t, err)
+
+	return map[string]string{"Authorization": token}
+}
+
 func TestGetCredentialDeeplink(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
 	var capturedInput workflowengine.WorkflowInput
 	installSuccessfulDeeplinkWorkflow(t, &capturedInput)
+	member := deeplinkAuthHeaders(t, "userA@example.org")
+	nonMember := deeplinkAuthHeaders(t, "userB@example.org")
 
 	scenarios := []tests.ApiScenario{
 		{
 			Name:           "get credential deeplink-success",
 			Method:         http.MethodGet,
+			Headers:        member,
 			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
@@ -326,6 +367,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 		{
 			Name:           "get credential deeplink - redirect",
 			Method:         http.MethodGet,
+			Headers:        member,
 			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential&redirect=true",
 			ExpectedStatus: http.StatusMovedPermanently,
 			TestAppFactory: setupDeeplinkApp(orgID),
@@ -340,6 +382,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 		{
 			Name:           "get credential deeplink - empty deeplink",
 			Method:         http.MethodGet,
+			Headers:        member,
 			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
 			ExpectedStatus: http.StatusInternalServerError,
 			ExpectedContent: []string{
@@ -360,6 +403,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 		{
 			Name:           "get credential deeplink with yaml - success",
 			Method:         http.MethodGet,
+			Headers:        member,
 			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
@@ -382,6 +426,53 @@ func TestGetCredentialDeeplink(t *testing.T) {
 				}, capturedInput.Secrets)
 			},
 		},
+		{
+			Name:           "get credential deeplink - anonymous cannot read an unpublished credential",
+			Method:         http.MethodGet,
+			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				`"reason":"record not found"`,
+			},
+			NotExpectedContent: []string{"openid-credential-offer://"},
+			TestAppFactory:     setupDeeplinkApp(orgID),
+		},
+		{
+			Name:           "get credential deeplink - non-member cannot read an unpublished credential",
+			Method:         http.MethodGet,
+			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential&redirect=true",
+			Headers:        nonMember,
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				`"reason":"record not found"`,
+			},
+			NotExpectedContent: []string{"openid-credential-offer://"},
+			TestAppFactory:     setupDeeplinkApp(orgID),
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+				require.Empty(t.(*testing.T), res.Header.Get("Location"))
+			},
+		},
+		{
+			Name:           "get credential deeplink - anonymous cannot read a published credential of an unpublished issuer",
+			Method:         http.MethodGet,
+			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				`"reason":"record not found"`,
+			},
+			NotExpectedContent: []string{"openid-credential-offer://"},
+			TestAppFactory:     setupPublishedDeeplinkApp(orgID, false),
+		},
+		{
+			Name:           "get credential deeplink - anonymous reads a published credential of a published issuer",
+			Method:         http.MethodGet,
+			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				"openid-credential-offer://",
+			},
+			TestAppFactory: setupPublishedDeeplinkApp(orgID, true),
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -395,6 +486,8 @@ func TestGetVerificationDeeplink(t *testing.T) {
 
 	var capturedInput workflowengine.WorkflowInput
 	installSuccessfulDeeplinkWorkflow(t, &capturedInput)
+	member := deeplinkAuthHeaders(t, "userA@example.org")
+	nonMember := deeplinkAuthHeaders(t, "userB@example.org")
 
 	scenarios := []tests.ApiScenario{
 		{
@@ -436,6 +529,7 @@ func TestGetVerificationDeeplink(t *testing.T) {
 		{
 			Name:           "get verification deeplink with yaml - success",
 			Method:         http.MethodGet,
+			Headers:        member,
 			URL:            "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases",
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
@@ -459,12 +553,69 @@ func TestGetVerificationDeeplink(t *testing.T) {
 		{
 			Name:           "get verification deeplink - redirect",
 			Method:         http.MethodGet,
+			Headers:        member,
 			URL:            "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases&redirect=true",
 			ExpectedStatus: http.StatusMovedPermanently,
 			TestAppFactory: setupDeeplinkApp(orgID),
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
 				require.Equal(t.(*testing.T), "mock-deeplink-from-yaml", res.Header.Get("Location"))
 			},
+		},
+		{
+			Name:           "get verification deeplink - anonymous cannot run an unpublished use case",
+			Method:         http.MethodGet,
+			URL:            "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases",
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				`"reason":"record not found"`,
+			},
+			NotExpectedContent: []string{"mock-deeplink-from-yaml"},
+			TestAppFactory:     setupDeeplinkApp(orgID),
+			BeforeTestFunc: func(testing.TB, *tests.TestApp, *core.ServeEvent) {
+				capturedInput = workflowengine.WorkflowInput{}
+			},
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, _ *http.Response) {
+				require.Empty(t.(*testing.T), capturedInput.Payload, "workflow must not start")
+			},
+		},
+		{
+			Name:           "get verification deeplink - non-member cannot run an unpublished use case",
+			Method:         http.MethodGet,
+			URL:            "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases",
+			Headers:        nonMember,
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				`"reason":"record not found"`,
+			},
+			NotExpectedContent: []string{"mock-deeplink-from-yaml"},
+			TestAppFactory:     setupDeeplinkApp(orgID),
+			BeforeTestFunc: func(testing.TB, *tests.TestApp, *core.ServeEvent) {
+				capturedInput = workflowengine.WorkflowInput{}
+			},
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, _ *http.Response) {
+				require.Empty(t.(*testing.T), capturedInput.Payload, "workflow must not start")
+			},
+		},
+		{
+			Name:           "get verification deeplink - anonymous cannot run a published use case of an unpublished verifier",
+			Method:         http.MethodGet,
+			URL:            "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases",
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				`"reason":"record not found"`,
+			},
+			NotExpectedContent: []string{"mock-deeplink-from-yaml"},
+			TestAppFactory:     setupPublishedDeeplinkApp(orgID, false),
+		},
+		{
+			Name:           "get verification deeplink - anonymous runs a published use case of a published verifier",
+			Method:         http.MethodGet,
+			URL:            "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases",
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`mock-deeplink-from-yaml`,
+			},
+			TestAppFactory: setupPublishedDeeplinkApp(orgID, true),
 		},
 	}
 

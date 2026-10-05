@@ -309,6 +309,9 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 			"id must resolve to a "+opts.ExpectedCollection+" record",
 		)
 	}
+	if apiErr := requireRecordViewAccess(e, rec); apiErr != nil {
+		return apiErr
+	}
 
 	deeplink, apiErr := deeplinkFromRecord(e.App, rec, opts.MissingDomain)
 	if apiErr != nil {
