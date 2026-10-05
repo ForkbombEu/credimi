@@ -351,7 +351,7 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 			},
 		},
 		{
-			Name:   "authenticated user can get installer for published wallet from another organization",
+			Name:   "authenticated user can get downloadable installer for published wallet from another organization",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/get-installer-md5-or-etag",
 			Body: jsonBody(map[string]any{
@@ -391,12 +391,51 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 				versionRecord.Set("wallet", walletRecord.Id)
 				versionRecord.Set("tag", "1.0.0")
 				versionRecord.Set("owner", otherOrg.Id)
+				versionRecord.Set("downloadable", true)
 				apkFile := NewTestFile("app.apk", []byte("dummy apk content"))
 				versionRecord.Set("android_installer", []*filesystem.File{apkFile})
 				require.NoError(t, app.Save(versionRecord))
 
 				return app
 			},
+		},
+		{
+			Name:   "authenticated user cannot get non-downloadable installer for published wallet from another organization",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_identifier":         "other-org/wallet-published",
+				"wallet_version_identifier": "",
+				"platform":                  "android",
+			}),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + userToken,
+			},
+			ExpectedStatus: 403,
+			ExpectedContent: []string{
+				`"authorization"`,
+				`"forbidden"`,
+			},
+			NotExpectedContent: []string{
+				`"installer_name"`,
+			},
+			TestAppFactory: setupPublishedWalletWithPrivateInstaller,
+		},
+		{
+			Name:   "internal admin gets non-downloadable installer for published wallet from another organization",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_identifier":         "other-org/wallet-published",
+				"wallet_version_identifier": "",
+				"platform":                  "android",
+			}),
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"installer_name"`,
+				`"installer_identifier"`,
+			},
+			TestAppFactory: setupPublishedWalletWithPrivateInstaller,
 		},
 		{
 			Name:   "authenticated user cannot get installer for another organization",
@@ -566,6 +605,40 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 		}
 		scenario.Test(t)
 	}
+}
+
+// setupPublishedWalletWithPrivateInstaller stores a published wallet of another
+// organization whose version is not downloadable.
+func setupPublishedWalletWithPrivateInstaller(t testing.TB) *tests.TestApp {
+	app := setupWalletApp(t)
+
+	orgColl, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	otherOrg := core.NewRecord(orgColl)
+	otherOrg.Set("name", "Other Org")
+	otherOrg.Set("canonified_name", "other-org")
+	require.NoError(t, app.Save(otherOrg))
+
+	walletColl, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	walletRecord := core.NewRecord(walletColl)
+	walletRecord.Set("name", "wallet-published")
+	walletRecord.Set("owner", otherOrg.Id)
+	walletRecord.Set("published", true)
+	require.NoError(t, app.Save(walletRecord))
+
+	walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
+	require.NoError(t, err)
+	versionRecord := core.NewRecord(walletVersionColl)
+	versionRecord.Set("wallet", walletRecord.Id)
+	versionRecord.Set("tag", "1.0.0")
+	versionRecord.Set("owner", otherOrg.Id)
+	versionRecord.Set("downloadable", false)
+	apkFile := NewTestFile("app.apk", []byte("dummy apk content"))
+	versionRecord.Set("android_installer", []*filesystem.File{apkFile})
+	require.NoError(t, app.Save(versionRecord))
+
+	return app
 }
 
 func TestWalletStorePipelineResult(t *testing.T) {
