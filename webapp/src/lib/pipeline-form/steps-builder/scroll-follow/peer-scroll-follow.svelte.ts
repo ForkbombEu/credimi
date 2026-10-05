@@ -47,6 +47,12 @@ export type PeerScrollFollowOptions = {
 	getYamlLengths?: () => CardListLengths | undefined;
 	/** Injectable Animatable factory (tests). Defaults to animejs `createAnimatable`. */
 	createAnimatableScroll?: typeof createAnimatableScroll;
+	/**
+	 * When true, peer sync is a no-op in both directions. YAML still scrolls
+	 * natively; the Scroll follow preference is unchanged. Twin-pane session
+	 * owns the flag.
+	 */
+	isCardsParked?: () => boolean;
 };
 
 /** Debounce before cards→YAML discrete follow after preview text regenerates. */
@@ -75,6 +81,7 @@ export class PeerScrollFollow {
 	#getCardLengths: (() => CardListLengths | undefined) | undefined;
 	#getYamlLengths: (() => CardListLengths | undefined) | undefined;
 	#createAnimatableScroll: typeof createAnimatableScroll;
+	#isCardsParked: (() => boolean) | undefined;
 	#cardsEl: HTMLElement | null = null;
 	#yamlEl: HTMLElement | null = null;
 	#cardsAnim: AnimatableScroll | null = null;
@@ -98,6 +105,7 @@ export class PeerScrollFollow {
 		this.#getCardLengths = options?.getCardLengths;
 		this.#getYamlLengths = options?.getYamlLengths ?? options?.getCardLengths;
 		this.#createAnimatableScroll = options?.createAnimatableScroll ?? createAnimatableScroll;
+		this.#isCardsParked = options?.isCardsParked;
 	}
 
 	/** Shared persisted preference (rune-sync / localStorage). */
@@ -114,7 +122,7 @@ export class PeerScrollFollow {
 		}
 		if (editingIndex !== undefined) {
 			this.#setActiveUnit({ section: 'steps', index: editingIndex });
-			this.#followPeerFromCards('discrete');
+			if (!this.#isCardsParked?.()) this.#followPeerFromCards('discrete');
 		}
 	}
 
@@ -149,6 +157,7 @@ export class PeerScrollFollow {
 
 		const onUserIntent = () => {
 			if (!this.enabled) return;
+			if (this.#isCardsParked?.()) return;
 			if (this.#drivenSide === side) this.#clearDriven?.();
 			this.#lastIntentSide = side;
 			this.#claimScrollLeader(side);
@@ -156,6 +165,7 @@ export class PeerScrollFollow {
 
 		const onScroll = () => {
 			if (!this.enabled) return;
+			if (this.#isCardsParked?.()) return;
 			if (this.#drivenSide === side) return;
 			const otherSide = side === 'cards' ? 'yaml' : 'cards';
 			if (this.#scrollLeader === otherSide) return;
@@ -211,7 +221,7 @@ export class PeerScrollFollow {
 	/**
 	 * Enter hard start for In-card edit: start-align the card (and YAML peer if
 	 * possible), regardless of the Scroll follow preference. One-shot — does not
-	 * pin or suspend peer sync afterwards.
+	 * park the cards pane (Twin-pane session sequences park after this settles).
 	 * Resolves when the cards pane scroll has settled (or immediately if no
 	 * scroll was needed), so callers can sequence expand-after-scroll.
 	 */
@@ -301,7 +311,7 @@ export class PeerScrollFollow {
 
 	/** Debounced re-follow from cards; returns cancel cleanup. */
 	onYamlTextChanged(): () => void {
-		if (this.#disposed || !this.enabled) return () => {};
+		if (this.#disposed || !this.enabled || this.#isCardsParked?.()) return () => {};
 		const now = this.#clock.now();
 		if (now - this.#pairedReorderAt < PAIRED_REORDER_SUPPRESS_MS) {
 			return () => {};
@@ -318,6 +328,7 @@ export class PeerScrollFollow {
 		if (this.#disposed) return;
 		this.#setActiveUnit(unit);
 		if (!this.enabled) return;
+		if (this.#isCardsParked?.()) return;
 		if (from === 'yaml') {
 			this.#lastIntentSide = 'yaml';
 			this.#claimScrollLeader('yaml');
@@ -391,10 +402,12 @@ export class PeerScrollFollow {
 	}
 
 	#followPeerFromCards(kind: PeerScrollKind) {
+		if (this.#isCardsParked?.()) return;
 		void this.#followPeerFromCardsAsync(kind);
 	}
 
 	async #followPeerFromCardsAsync(kind: PeerScrollKind) {
+		if (this.#isCardsParked?.()) return;
 		if (this.#scrollLeader === 'yaml') return;
 		const unit = this.activeUnit;
 		const yaml = this.#yamlEl;
@@ -424,10 +437,12 @@ export class PeerScrollFollow {
 	}
 
 	#followPeerFromYaml(kind: PeerScrollKind) {
+		if (this.#isCardsParked?.()) return;
 		void this.#followPeerFromYamlAsync(kind);
 	}
 
 	async #followPeerFromYamlAsync(kind: PeerScrollKind) {
+		if (this.#isCardsParked?.()) return;
 		const unit = this.activeUnit;
 		const cards = this.#cardsEl;
 		if (!unit || !cards) return;

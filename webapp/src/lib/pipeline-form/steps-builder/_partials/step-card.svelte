@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import ContinueOnErrorFooter from './continue-on-error-footer.svelte';
 	import { InCardFormShell, isStepEditable, StepCardDisplay } from './index.js';
-	import { useHeldFormMode } from './use-held-form-mode.svelte.js';
+	import { useCardShell } from './use-card-shell.svelte.js';
 
 	//
 
@@ -44,6 +44,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/** Max height of the card while editing, in px. */
 		maxHeightPx?: number;
 		onShift: (change: number) => void;
+		/** Paired with held-form clear — Twin-pane `noteExitComplete`. */
+		onExitUnlock?: () => void;
 	};
 
 	let {
@@ -56,17 +58,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		hovered = false,
 		faded = false,
 		maxHeightPx = DEFAULT_MAX_HEIGHT_PX,
-		onShift
+		onShift,
+		onExitUnlock
 	}: Props = $props();
 
 	const editable = $derived(isStepEditable(step));
 	const actionsDisabled = $derived(builder.isFormMode);
 
-	const held = useHeldFormMode(
+	const shell = useCardShell(
 		() => builder,
-		() => editing
+		() => editing,
+		() => {
+			onExitUnlock?.();
+		}
 	);
-	const showFormBody = $derived(held.mode !== null);
+	const showFormBody = $derived(shell.mode !== null);
 	let enterComplete = $state(false);
 </script>
 
@@ -86,7 +92,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{expandReady}
 		{maxHeightPx}
 		bind:enterComplete
-		onExitComplete={() => held.clear()}
+		onExitComplete={() => {
+			shell.completeExit();
+		}}
 		footer={comp(ContinueOnErrorFooter, {
 			step,
 			onCheckedChange: (checked) => builder.setContinueOnError(index, checked)
@@ -101,10 +109,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					onclick={(e) => e.stopPropagation()}
 					onpointerdown={(e) => e.stopPropagation()}
 				>
-					{#if held.mode?.config.docsUrl}
+					{#if shell.mode?.config.docsUrl}
 						<IconButton
 							variant="ghost"
-							href={held.mode.config.docsUrl}
+							href={shell.mode.config.docsUrl}
 							target="_blank"
 							rel="noopener noreferrer"
 							icon={HelpCircle}
@@ -180,8 +188,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet formBody()}
-			{#if held.mode}
-				{@const mode = held.mode}
+			{#if shell.mode}
+				{@const mode = shell.mode}
 				<InCardFormShell
 					expanded={editing}
 					canSave={editing && mode.form.canSave()}

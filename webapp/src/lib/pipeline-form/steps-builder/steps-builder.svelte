@@ -104,7 +104,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			editExpandReady = false;
 		},
 		onEditFocusSettled: () => {
-			if (builder.isInCardEdit) editExpandReady = true;
+			if (!builder.isInCardEdit) return;
+			editExpandReady = true;
 		}
 	});
 
@@ -118,8 +119,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const yamlVirt = session.yamlVirt;
 	const { measureStepCard, measureYamlStep } = session;
 
-	const yamlScrollAttach = $derived(session.yamlScrollAttach);
-	const cardsScrollAttach = $derived(session.cardsScrollAttach);
+	const yamlScrollAttach = session.yamlScrollAttach;
+	const cardsScrollAttach = session.cardsScrollAttach;
 
 	$effect(() => {
 		const isManual = builder.isManualMode;
@@ -214,6 +215,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		bind:pane={stepsPane}
 		bind:scrollContainer={session.cardsScroller}
 		scrollAttach={cardsScrollAttach}
+		scrollLocked={session.still}
 		title={m.Steps_sequence()}
 		defaultSize={LAYOUT.blocks.stepsSequence}
 		order={2}
@@ -286,6 +288,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									selected={session.isCardSelected('steps', index)}
 									hovered={session.isCardHovered('steps', index)}
 									onShift={(change) => session.shiftStep(index, change)}
+									onExitUnlock={() => session.inCard.noteExitComplete()}
 								/>
 							{/if}
 						</div>
@@ -333,6 +336,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								maxHeightPx={cardMaxHeightPx}
 								selected={session.isCardSelected('follow-ups', index)}
 								hovered={session.isCardHovered('follow-ups', index)}
+								onExitUnlock={() => session.inCard.noteExitComplete()}
 							/>
 						</div>
 					{/each}
@@ -366,11 +370,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="flex min-w-0 items-center gap-1">
 				{#if !builder.isManualMode}
 					<label
-						class="flex min-w-0 shrink items-center gap-0.5 text-xs font-medium text-primary hover:cursor-pointer hover:underline"
+						class={[
+							'flex min-w-0 shrink items-center gap-0.5 text-xs font-medium',
+							session.still
+								? 'pointer-events-none text-muted-foreground'
+								: 'text-primary hover:cursor-pointer hover:underline'
+						]}
 						title={m.Scroll_follow()}
 					>
 						<Switch
 							checked={session.followEnabled}
+							disabled={session.still}
 							onCheckedChange={(checked) => session.setFollowEnabled(checked)}
 							class="shrink-0 scale-75"
 						/>

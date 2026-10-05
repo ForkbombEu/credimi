@@ -24,6 +24,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		pane?: PaneHandle | null;
 		scrollAttach?: Attachment;
 		scrollContainer?: HTMLElement | null;
+		/** In-card park: no wheel/trackpad scrolling of this pane. */
+		scrollLocked?: boolean;
 		title: string;
 		titleRight?: Snippet;
 	};
@@ -39,6 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		pane = $bindable<PaneHandle | null>(null),
 		scrollAttach,
 		scrollContainer = $bindable<HTMLElement | null>(null),
+		scrollLocked = false,
 		title,
 		titleRight
 	}: Props = $props();
@@ -59,7 +62,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div
 		bind:this={scrollContainer}
 		{@attach scrollAttach}
-		class={['relative flex min-h-0 grow flex-col overflow-y-scroll', contentClass]}
+		class={[
+			'relative flex min-h-0 grow flex-col',
+			scrollLocked ? 'overflow-y-hidden overscroll-none' : 'overflow-y-scroll',
+			contentClass
+		]}
 	>
 		{#if disabled}
 			<div class="absolute inset-0 z-10 bg-white/40" aria-hidden="true"></div>
