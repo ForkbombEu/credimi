@@ -63,6 +63,6 @@ steps:
         output:
           session: ${{ fetch-dc-api-invalid-signature.outputs.body }}
           encrypted_response: ${{ fetch-dc-api-invalid-signature.outputs.body.observed.wallet_response.value.response }}
-          pid_sdjwt: ${{ fetch-dc-api-invalid-signature.outputs.body.observed.wallet_response.value.vp_token }}
+          pid_sdjwt: ${{ fetch-dc-api-invalid-signature.outputs.body.raw.presentation_response_decrypted.vp_token }}
           request_object: ${{ fetch-dc-api-invalid-signature.outputs.body.dc_api.request.data.request }}
           visual_evidence: ${{ invoke-dc-api-invalid-signature.outputs.flow_output.maestro_screenshot_urls }}

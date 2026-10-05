@@ -154,7 +154,7 @@ steps:
       pipeline.interaction.pid-mdoc-two-elements:
         output:
           dcql_exchange: ${{ fetch-two-element-presentation.outputs.body }}
-          pid_mdoc: ${{ fetch-two-element-presentation.outputs.body.observed.wallet_response.value.vp_token }}
+          pid_mdoc: ${{ fetch-two-element-presentation.outputs.body.raw.presentation_response_decrypted.vp_token }}
           visual_evidence: ${{ present-two-element-presentation.outputs.flow_output.maestro_screenshot_urls }}
       pipeline.interaction.pid-mdoc-element-and-missing:
         output:
