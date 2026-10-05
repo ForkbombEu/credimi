@@ -178,6 +178,131 @@ func TestHandlePipelineExecute_MixedStepTypes(t *testing.T) {
 	scenario.Test(t)
 }
 
+func TestHandlePipelineExecute_NonHTTPRequestHookAndFinallySteps(t *testing.T) {
+	cases := []struct {
+		name string
+		yaml string
+		use  string
+	}{
+		{
+			name: "on_success hook",
+			yaml: `
+name: t
+steps:
+  - id: s1
+    use: http-request
+    with: {method: GET, url: "http://127.0.0.1/"}
+    on_success:
+      - id: h
+        use: container-run
+        with: {image: alpine, cmd: [id]}
+`,
+			use: "container-run",
+		},
+		{
+			name: "on_error hook",
+			yaml: `
+name: t
+steps:
+  - id: s1
+    use: http-request
+    with: {method: GET, url: "http://127.0.0.1/"}
+    on_error:
+      - id: e
+        use: rest-chain
+        with: {yaml: "x"}
+`,
+			use: "rest-chain",
+		},
+		{
+			name: "finally step",
+			yaml: `
+name: t
+steps:
+  - id: s1
+    use: http-request
+    with: {method: GET, url: "http://127.0.0.1/"}
+finally:
+  always:
+    - id: f
+      use: container-run
+      with: {image: alpine, cmd: [id]}
+`,
+			use: "container-run",
+		},
+		{
+			name: "null on_success hook",
+			yaml: `
+name: t
+steps:
+  - id: s1
+    use: http-request
+    with: {method: GET, url: "http://127.0.0.1/"}
+    on_success:
+      - ~
+`,
+			use: "''",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			scenario := tests.ApiScenario{
+				Name:   tc.name + " with non http-request step returns 400",
+				Method: http.MethodPost,
+				URL:    "/api/pipeline/execute",
+				Body:   rawBody(tc.yaml),
+				ExpectedContent: []string{
+					"yaml",
+					tc.use,
+					"Only 'http-request' steps are allowed",
+				},
+				ExpectedStatus: http.StatusBadRequest,
+				TestAppFactory: setupPipelineExecuteApp,
+			}
+			scenario.Test(t)
+		})
+	}
+}
+
+func TestHandlePipelineExecute_HTTPRequestHookAndFinallySteps(t *testing.T) {
+	mockTemporalClient(t, workflowengine.WorkflowResult{
+		WorkflowID:    "wf-test-123",
+		WorkflowRunID: "run-test-456",
+		Output:        map[string]any{"s1": map[string]any{"outputs": map[string]any{}}},
+	}, nil)
+
+	scenario := tests.ApiScenario{
+		Name:   "http-request hooks and finally steps return 200",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/execute",
+		Body: rawBody(`
+name: t
+steps:
+  - id: s1
+    use: http-request
+    with: {method: GET, url: "http://127.0.0.1/"}
+    on_success:
+      - id: h
+        use: http-request
+        with: {method: GET, url: "http://127.0.0.1/ok"}
+    on_error:
+      - id: e
+        use: http-request
+        with: {method: GET, url: "http://127.0.0.1/err"}
+finally:
+  always:
+    - id: f
+      use: http-request
+      with: {method: GET, url: "http://127.0.0.1/done"}
+`),
+		ExpectedContent: []string{"\"workflow_id\"", "\"run_id\""},
+		ExpectedStatus:  http.StatusOK,
+		TestAppFactory:  setupPipelineExecuteApp,
+	}
+	scenario.Test(t)
+}
+
 func TestHandlePipelineExecute_RedirectWithoutDeeplink(t *testing.T) {
 	scenario := tests.ApiScenario{
 		Name:   "redirect=true without deeplink=true returns 400",

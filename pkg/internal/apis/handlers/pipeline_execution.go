@@ -83,20 +83,20 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 			)
 		}
 
-		// 4. Validate pipeline steps
-		for _, step := range wfDef.Steps {
-			if step.Use != httpRequestStepUse {
-				return apierror.New(
-					http.StatusBadRequest,
-					"yaml",
-					fmt.Sprintf(
-						"pipeline contains invalid step type '%s'. Only 'http-request' steps are allowed",
-						step.Use,
-					),
-					"",
-				)
-			}
+		// 4. Validate pipeline steps: every step the workflow can run, including
+		// on_success/on_error hooks and finally steps, must be an http-request.
+		if use, ok := firstDisallowedExecuteStepUse(wfDef); !ok {
+			return apierror.New(
+				http.StatusBadRequest,
+				"yaml",
+				fmt.Sprintf(
+					"pipeline contains invalid step type '%s'. Only 'http-request' steps are allowed",
+					use,
+				),
+				"",
+			)
 		}
+
 		// 5. Determine Temporal namespace based on user organization (or default)
 		namespace := "default"
 		if e.Auth != nil {
@@ -201,6 +201,38 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 
 		return e.String(http.StatusOK, deeplink)
 	}
+}
+
+// firstDisallowedExecuteStepUse returns the first step type that is not http-request
+// across main steps, their on_error/on_success hooks and finally steps.
+func firstDisallowedExecuteStepUse(wfDef *InternalPipeline.WorkflowDefinition) (string, bool) {
+	for _, step := range wfDef.Steps {
+		if step.Use != httpRequestStepUse {
+			return step.Use, false
+		}
+		for _, hook := range step.OnError {
+			if hook == nil {
+				return "", false
+			}
+			if hook.Use != httpRequestStepUse {
+				return hook.Use, false
+			}
+		}
+		for _, hook := range step.OnSuccess {
+			if hook == nil {
+				return "", false
+			}
+			if hook.Use != httpRequestStepUse {
+				return hook.Use, false
+			}
+		}
+	}
+	for _, step := range wfDef.Finally.AllSteps() {
+		if step.Use != httpRequestStepUse {
+			return step.Use, false
+		}
+	}
+	return "", true
 }
 
 func extractDeeplink(output any, steps []InternalPipeline.StepDefinition) (string, error) {
