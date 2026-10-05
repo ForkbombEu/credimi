@@ -79,10 +79,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	async function updateHighlighting() {
 		const generation = ++highlightGeneration;
-		const classes = [
+		const classes = clsx(
 			'p-4 w-full min-h-0 grow h-full overflow-auto code-display-scroller',
-			clsx(contentClass)
-		];
+			isDarkTheme && 'scrollbar-on-dark',
+			contentClass
+		);
 
 		const html = await codeToHtml(content, {
 			lang: language,

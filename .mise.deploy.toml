@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Tools for the deployment image. Go is provided by the Docker builder stage;
+# developer tooling stays in .mise.toml and is excluded from the Docker context.
+min_version = '2025.1.8'
+
+[tools]
+bun = "latest"
+node = "24.13.0"
+"github:forkbombeu/stepci-captured-runner" = { version = "latest", bin = "stepci-captured-runner" }
+"github:forkbombeu/et-tu-cesr" = "latest"

@@ -81,23 +81,29 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 				input.RunMetadata,
 			)
 		}
-		var HTTPActivity = activities.NewHTTPActivity()
+		// Resolve on behalf of the run's organization: the response is stored in
+		// Temporal history, which that organization can read.
+		ownerNamespace, _ := input.Config["namespace"].(string)
+		internalHTTPActivity := activities.NewInternalHTTPActivity()
 		var HTTPResponse workflowengine.ActivityResult
-		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), workflowengine.ActivityInput{
-			Payload: activities.HTTPActivityPayload{
+		err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), workflowengine.ActivityInput{
+			Payload: activities.InternalHTTPActivityPayload{
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					workflowengine.InternalAppURLFromConfig(input.Config),
-					"api", "canonify", "identifier", "validate",
+					"api", "canonify", "internal", "resolve",
 				),
 				Body: map[string]any{
 					"canonified_name": payload.CheckID,
+					"collection":      "custom_checks",
+					"owner_namespace": ownerNamespace,
 				},
 				ExpectedStatus: 200,
 			},
-		}).Get(ctx, &HTTPResponse)
+		}).
+			Get(ctx, &HTTPResponse)
 		if err != nil {
-			logger.Error(HTTPActivity.Name(), "error", err)
+			logger.Error(internalHTTPActivity.Name(), "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
 				input.RunMetadata,

@@ -38,7 +38,16 @@ func main() {
 	}
 }
 
+// fixtureSuperuserPassword keeps the fixture's admin@example.org superuser:
+// the seed migration creates it and the cleanup migration spares it only when
+// CREDIMI_SEED_SUPERUSER_PASSWORD is set.
+const fixtureSuperuserPassword = "adminadmin"
+
 func refresh(app *tests.TestApp, target string) error {
+	if err := os.Setenv("CREDIMI_SEED_SUPERUSER_PASSWORD", fixtureSuperuserPassword); err != nil {
+		return fmt.Errorf("failed to set seed superuser password: %w", err)
+	}
+
 	// Load pb_migrations only; the hooks pattern matches no file, so pb_hooks
 	// never run while migrations save collections.
 	if err := jsvm.Register(app, jsvm.Config{

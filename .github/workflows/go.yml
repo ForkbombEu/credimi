@@ -11,6 +11,9 @@ on:
       - "go.mod"
       - "go.sum"
       - ".mise.toml"
+      - ".golangci.yaml"
+      - "Makefile"
+      - ".github/workflows/go.yml"
 
 jobs:
   lint:
@@ -129,6 +132,7 @@ jobs:
       - uses: golangci/golangci-lint-action@v9
         with:
           version: latest
+          args: --fix=false
 
   test:
     name: 🧪 Test

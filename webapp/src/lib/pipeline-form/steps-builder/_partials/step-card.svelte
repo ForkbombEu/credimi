@@ -43,6 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		faded?: boolean;
 		/** Max height of the card while editing, in px. */
 		maxHeightPx?: number;
+		onShift: (change: number) => void;
 	};
 
 	let {
@@ -54,7 +55,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		selected = false,
 		hovered = false,
 		faded = false,
-		maxHeightPx = DEFAULT_MAX_HEIGHT_PX
+		maxHeightPx = DEFAULT_MAX_HEIGHT_PX,
+		onShift
 	}: Props = $props();
 
 	const editable = $derived(isStepEditable(step));
@@ -92,7 +94,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		{#snippet topRight()}
 			{#if showFormBody}
-				<div class="flex items-center gap-1 pr-1">
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="flex items-center gap-1 pr-1"
+					onclick={(e) => e.stopPropagation()}
+					onpointerdown={(e) => e.stopPropagation()}
+				>
 					{#if held.mode?.config.docsUrl}
 						<IconButton
 							variant="ghost"
@@ -114,6 +122,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					/>
 				</div>
 			{:else}
+				<!-- Prevent action chrome from selecting the card via bubbled click/pointerdown. -->
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class={[
 						'flex items-center gap-1 pr-1 transition-opacity',
@@ -123,6 +134,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								? 'opacity-30'
 								: 'opacity-30 group-hover:opacity-100'
 					]}
+					onclick={(e) => e.stopPropagation()}
+					onpointerdown={(e) => e.stopPropagation()}
 				>
 					{#if editable}
 						<IconButton
@@ -152,14 +165,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						icon={ArrowUpIcon}
 						variant="ghost"
 						size="xs"
-						onclick={() => builder.shiftStep(index, -1)}
+						onclick={() => onShift(-1)}
 						disabled={actionsDisabled || !builder.canShiftStep(index, -1)}
 					/>
 					<IconButton
 						icon={ArrowDownIcon}
 						variant="ghost"
 						size="xs"
-						onclick={() => builder.shiftStep(index, 1)}
+						onclick={() => onShift(1)}
 						disabled={actionsDisabled || !builder.canShiftStep(index, 1)}
 					/>
 				</div>

@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { TriangleIcon } from '@lucide/svelte';
 	import clsx from 'clsx';
 	import { slide } from 'svelte/transition';
@@ -15,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { WorkflowExecutionSummary } from './queries.types';
 
+	import WorkflowStatusBadge from './workflow-status.svelte';
 	import WorkflowTreeBranch from './workflow-tree.svelte';
 
 	//
@@ -71,7 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div
 					class="inline-block [&>div>span]:h-4 [&>div>span]:text-[8px] [&>div>span>.heart-beat]:hidden"
 				>
-					<WorkflowStatus status={workflow.status} />
+					<WorkflowStatusBadge status={workflow.status} />
 				</div>
 			{/if}
 		</A>

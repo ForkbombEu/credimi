@@ -116,6 +116,7 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 		unset PORT; \
 		export PUBLIC_TURNSTILE_SITE_KEY="$${PUBLIC_TURNSTILE_SITE_KEY:-1x00000000000000000000AA}"; \
 		export TURNSTILE_SECRET_KEY="$${TURNSTILE_SECRET_KEY:-1x0000000000000000000000000000000AA}"; \
+		export CREDIMI_SEED_SUPERUSER_PASSWORD="$${CREDIMI_SEED_SUPERUSER_PASSWORD:-adminadmin}"; \
 		./scripts/worktree-compose.sh prepare; \
 		trap "./scripts/worktree-compose.sh stop" EXIT; \
 		./scripts/worktree-compose.sh up; \
@@ -201,10 +202,10 @@ lint: devtools ## 📑 lint rules checks
 	$(GOMOD) verify
 	$(GOCMD) vet $(SUBDIRS)
 	$(GOTOOL) govulncheck $(SUBDIRS)
-	$(GOTOOL) golangci-lint run $(SUBDIRS)
+	golangci-lint run $(SUBDIRS)
 
 fmt: devtools ## 🗿 format rules checks
-	$(GOFMT) $(GODIRS)
+	golangci-lint fmt $(SUBDIRS)
 
 tidy: $(GOMOD_FILES)
 	@$(GOMOD) tidy

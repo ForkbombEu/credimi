@@ -78,18 +78,47 @@ type LegacyScreenshot = PresentationScreenshot;
 
 const reportCache = new Map<string, Promise<Report | undefined>>();
 
+const RESULT_FILES_PATH = '/api/files/pipeline_results/';
+
 export function loadReport(url: string): Promise<Report | undefined> {
 	let cached = reportCache.get(url);
 	if (!cached) {
 		cached = fetch(url)
 			.then(async (response) => {
 				if (!response.ok) throw new Error(`FCAF report request failed: ${response.status}`);
-				return (await response.json()) as Report;
+				return rebaseResultFileURLs((await response.json()) as Report, url);
 			})
 			.catch(() => undefined);
 		reportCache.set(url, cached);
 	}
 	return cached;
+}
+
+/**
+ * A stored report embeds absolute pipeline result file URLs from the moment it was generated;
+ * some carry an origin browsers cannot reach (e.g. localhost). The report itself is served from
+ * the current public base URL, so every result file URL is rebased onto that base. This mirrors
+ * the PDF renderer, which resolves screenshots by filename on the pipeline result record.
+ */
+export function rebaseResultFileURLs<T>(value: T, reportUrl: string): T {
+	const baseEnd = reportUrl.indexOf(RESULT_FILES_PATH);
+	if (baseEnd < 0) return value;
+	return rebaseResultFileValue(value, reportUrl.slice(0, baseEnd)) as T;
+}
+
+function rebaseResultFileValue(value: unknown, base: string): unknown {
+	if (typeof value === 'string') {
+		const pathStart = value.indexOf(RESULT_FILES_PATH);
+		if (pathStart < 0 || !/^https?:\/\//i.test(value)) return value;
+		return base + value.slice(pathStart);
+	}
+	if (Array.isArray(value)) return value.map((child) => rebaseResultFileValue(child, base));
+	if (value && typeof value === 'object') {
+		return Object.fromEntries(
+			Object.entries(value).map(([key, child]) => [key, rebaseResultFileValue(child, base)])
+		);
+	}
+	return value;
 }
 
 export type TestCheck = NonNullable<TestResult['assertions']>[number];

@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-export type CardSection = 'steps' | 'follow-ups';
+/**
+ * Private line-range map used only by `splitPipelineYamlPreview`.
+ * Not part of the yaml-preview public barrel.
+ */
 
 export type YamlCardRange = {
-	section: CardSection;
+	section: 'steps' | 'follow-ups';
 	index: number;
 	/** Inclusive 0-based line index */
 	startLine: number;
@@ -13,8 +16,13 @@ export type YamlCardRange = {
 	endLine: number;
 };
 
-const TOP_LEVEL_STEP = /^ {2}- (?:id|use):/;
-const FINALLY_STEP = /^ {4}- (?:id|use):/;
+/**
+ * Any two-space list item under `steps:` (not only `- id:` / `- use:`).
+ * FCAF and other pipelines often emit `- continue_on_error:` as the first key.
+ */
+const TOP_LEVEL_STEP = /^ {2}- /;
+/** Any four-space list item under `finally:` condition buckets. */
+const FINALLY_STEP = /^ {4}- /;
 const STEPS_HEADER = /^steps:\s*$/;
 const FINALLY_HEADER = /^finally:\s*$/;
 const TOP_LEVEL_KEY = /^[A-Za-z_][\w-]*:/;
@@ -99,53 +107,4 @@ export function mapYamlCardRanges(yaml: string): YamlCardRange[] {
 	flushFollowUp(i);
 
 	return ranges;
-}
-
-export function findRangeForUnit(
-	ranges: YamlCardRange[],
-	section: CardSection,
-	index: number
-): YamlCardRange | undefined {
-	return ranges.find((r) => r.section === section && r.index === index);
-}
-
-export function findUnitAtLine(ranges: YamlCardRange[], line: number): YamlCardRange | undefined {
-	return ranges.find((r) => line >= r.startLine && line <= r.endLine);
-}
-
-/**
- * Like findUnitAtLine, but blank/gap lines between card ranges resolve to the
- * nearer neighbouring range so wash/activeUnit do not flicker off mid-scroll.
- * Lines above the first step still return undefined (header clear).
- */
-export function findNearestUnitToLine(
-	ranges: YamlCardRange[],
-	line: number
-): YamlCardRange | undefined {
-	if (ranges.length === 0) return undefined;
-	const hit = findUnitAtLine(ranges, line);
-	if (hit) return hit;
-
-	const first = ranges[0]!;
-	if (line < first.startLine) return undefined;
-
-	const last = ranges[ranges.length - 1]!;
-	if (line > last.endLine) return last;
-
-	for (let i = 0; i < ranges.length - 1; i++) {
-		const a = ranges[i]!;
-		const b = ranges[i + 1]!;
-		if (line > a.endLine && line < b.startLine) {
-			const distA = line - a.endLine;
-			const distB = b.startLine - line;
-			return distA <= distB ? a : b;
-		}
-	}
-	return undefined;
-}
-
-/** First step start line, or null if none — used to clear wash in name/runtime header. */
-export function firstStepStartLine(ranges: YamlCardRange[]): number | null {
-	const first = ranges.find((r) => r.section === 'steps');
-	return first ? first.startLine : null;
 }

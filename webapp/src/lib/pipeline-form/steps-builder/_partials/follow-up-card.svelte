@@ -86,7 +86,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		{#snippet topRight()}
 			{#if showFormBody}
-				<div class="flex items-center gap-1 pr-1">
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="flex items-center gap-1 pr-1"
+					onclick={(e) => e.stopPropagation()}
+					onpointerdown={(e) => e.stopPropagation()}
+				>
 					{#if held.mode?.config.docsUrl}
 						<IconButton
 							variant="ghost"
@@ -108,6 +114,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					/>
 				</div>
 			{:else}
+				<!-- Prevent action chrome from selecting the card via bubbled click/pointerdown. -->
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class={[
 						'flex items-center gap-1 pr-1 transition-opacity',
@@ -117,6 +126,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								? 'opacity-30'
 								: 'opacity-30 group-hover:opacity-100'
 					]}
+					onclick={(e) => e.stopPropagation()}
+					onpointerdown={(e) => e.stopPropagation()}
 				>
 					{#if editable}
 						<IconButton

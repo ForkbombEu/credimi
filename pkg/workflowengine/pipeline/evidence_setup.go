@@ -48,7 +48,7 @@ func PipelineEvidenceSetupHook(
 	extractionActivity := activities.NewPipelineEvidenceExtractionActivity()
 	extractionReq := workflowengine.ActivityInput{
 		Payload: activities.PipelineEvidenceExtractionInput{
-			WorkflowDefinition: wfDef,
+			WorkflowDefinition: evidenceDiscoveryDefinition(wfDef),
 			CredimiBaseURL:     workflowengine.InternalAppURLFromConfig(config),
 		},
 	}
@@ -140,6 +140,20 @@ func hasPipelineEvidenceStep(wfDef *pipelineinternal.WorkflowDefinition) bool {
 		}
 	}
 	return false
+}
+
+// evidenceDiscoveryDefinition keeps only the steps evidence discovery reads, so the
+// extraction activity input does not copy the whole definition.
+func evidenceDiscoveryDefinition(
+	wfDef *pipelineinternal.WorkflowDefinition,
+) *pipelineinternal.WorkflowDefinition {
+	discovery := &pipelineinternal.WorkflowDefinition{Name: wfDef.Name}
+	for _, step := range wfDef.Steps {
+		if step.Use == "credential-offer" || step.Use == "use-case-verification-deeplink" {
+			discovery.Steps = append(discovery.Steps, step)
+		}
+	}
+	return discovery
 }
 
 func decodePipelineEvidenceOutput(

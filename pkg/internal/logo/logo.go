@@ -6,22 +6,51 @@ package logo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
 
-func LogoHooks(app core.App) {
-	app.OnRecordCreate().BindFunc(HandleLogo)
-	app.OnRecordUpdate().BindFunc(HandleLogo)
+const (
+	// maxLogoSize matches the maxSize of the wallets.logo file field.
+	maxLogoSize      = 2 << 20
+	logoFetchTimeout = 10 * time.Second
+	maxLogoRedirects = 5
+)
+
+var errBlockedDestination = errors.New("logo destination is not a public address")
+
+// allowedLogoContentTypes are the sniffed types the logo file fields accept.
+var allowedLogoContentTypes = map[string]bool{
+	"image/png":  true,
+	"image/jpeg": true,
+	"image/gif":  true,
+	"image/webp": true,
 }
 
-func HandleLogo(e *core.RecordEvent) error {
+func LogoHooks(app core.App) {
+	bindLogoHooks(app, newLogoHTTPClient(isPublicIP))
+}
+
+func bindLogoHooks(app core.App, client *http.Client) {
+	handle := func(e *core.RecordEvent) error {
+		return handleLogo(e, client)
+	}
+	app.OnRecordCreate().BindFunc(handle)
+	app.OnRecordUpdate().BindFunc(handle)
+}
+
+func handleLogo(e *core.RecordEvent, client *http.Client) error {
 	logos := e.Record.GetUnsavedFiles("logo")
 	if len(logos) > 0 {
 		return e.Next()
@@ -37,7 +66,7 @@ func HandleLogo(e *core.RecordEvent) error {
 		return e.Next()
 	}
 
-	file, err := DownloadImage(e.Context, logoURL)
+	file, err := downloadImage(e.Context, client, logoURL)
 	if err != nil {
 		log.Printf("ERROR download: %v", err)
 		return e.Next()
@@ -47,7 +76,25 @@ func HandleLogo(e *core.RecordEvent) error {
 	return e.Next()
 }
 
+// DownloadImage fetches a logo from a public http(s) host and returns it only
+// when it is a bounded image.
 func DownloadImage(ctx context.Context, imageURL string) (*filesystem.File, error) {
+	return downloadImage(ctx, newLogoHTTPClient(isPublicIP), imageURL)
+}
+
+func downloadImage(
+	ctx context.Context,
+	client *http.Client,
+	imageURL string,
+) (*filesystem.File, error) {
+	parsed, err := url.Parse(imageURL)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	if err := checkLogoURL(parsed); err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -55,7 +102,6 @@ func DownloadImage(ctx context.Context, imageURL string) (*filesystem.File, erro
 
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("download failed: %w", err)
@@ -66,7 +112,7 @@ func DownloadImage(ctx context.Context, imageURL string) (*filesystem.File, erro
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxLogoSize+1))
 	if err != nil {
 		return nil, fmt.Errorf("read data: %w", err)
 	}
@@ -74,9 +120,68 @@ func DownloadImage(ctx context.Context, imageURL string) (*filesystem.File, erro
 	if len(data) == 0 {
 		return nil, fmt.Errorf("empty image")
 	}
+	if len(data) > maxLogoSize {
+		return nil, fmt.Errorf("image exceeds %d bytes", maxLogoSize)
+	}
+	if contentType := http.DetectContentType(data); !allowedLogoContentTypes[contentType] {
+		return nil, fmt.Errorf("unsupported image content type %q", contentType)
+	}
 
 	filename := extractFilenameFromURL(imageURL)
 	return filesystem.NewFileFromBytes(data, filename)
+}
+
+func checkLogoURL(u *url.URL) error {
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("unsupported protocol scheme %q", u.Scheme)
+	}
+	if u.Hostname() == "" {
+		return errors.New("missing host")
+	}
+	return nil
+}
+
+// newLogoHTTPClient checks every dialed address after DNS resolution, so
+// redirects and rebinding hostnames cannot reach an address allow rejects.
+func newLogoHTTPClient(allow func(net.IP) bool) *http.Client {
+	dialer := &net.Dialer{
+		Timeout: logoFetchTimeout,
+		Control: func(_, address string, _ syscall.RawConn) error {
+			host, _, err := net.SplitHostPort(address)
+			if err != nil {
+				return fmt.Errorf("%w: %s", errBlockedDestination, address)
+			}
+			if ip := net.ParseIP(host); ip == nil || !allow(ip) {
+				return fmt.Errorf("%w: %s", errBlockedDestination, host)
+			}
+			return nil
+		},
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	// A proxy would be the dialed address, hiding the real destination.
+	transport.Proxy = nil
+	transport.DialContext = dialer.DialContext
+	transport.DisableKeepAlives = true
+
+	return &http.Client{
+		Timeout:   logoFetchTimeout,
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= maxLogoRedirects {
+				return fmt.Errorf("stopped after %d redirects", maxLogoRedirects)
+			}
+			return checkLogoURL(req.URL)
+		},
+	}
+}
+
+func isPublicIP(ip net.IP) bool {
+	return !ip.IsLoopback() &&
+		!ip.IsPrivate() &&
+		!ip.IsLinkLocalUnicast() &&
+		!ip.IsMulticast() &&
+		!ip.IsUnspecified()
 }
 
 func extractFilenameFromURL(imageURL string) string {

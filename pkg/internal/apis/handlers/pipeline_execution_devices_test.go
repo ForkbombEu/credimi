@@ -69,12 +69,17 @@ func TestDeviceIDsFromSearchAttributeField(t *testing.T) {
 	t.Parallel()
 	require.Nil(t, deviceIDsFromSearchAttributeField(nil))
 
-	payload, err := temporalcrypto.DataConverter().ToPayload([]string{"org/runner/a", "org/runner/b"})
+	payload, err := temporalcrypto.DataConverter().
+		ToPayload([]string{"org/runner/a", "org/runner/b"})
 	require.NoError(t, err)
 	attrs := &commonpb.SearchAttributes{
 		IndexedFields: map[string]*commonpb.Payload{
 			workflowengine.DeviceIdentifiersSearchAttribute: payload,
 		},
 	}
-	require.Equal(t, []string{"org/runner/a", "org/runner/b"}, deviceIDsFromSearchAttributeField(attrs))
+	require.Equal(
+		t,
+		[]string{"org/runner/a", "org/runner/b"},
+		deviceIDsFromSearchAttributeField(attrs),
+	)
 }

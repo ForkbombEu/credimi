@@ -15,3 +15,4 @@ export { default as FollowUpCard } from './follow-up-card.svelte';
 export { default as InCardFormShell } from './in-card-form-shell.svelte';
 export { default as StepCardDisplay } from './step-card-display.svelte';
 export { default as StepCard } from './step-card.svelte';
+export { default as YamlPreviewPane } from './yaml-preview-pane.svelte';

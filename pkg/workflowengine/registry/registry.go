@@ -25,6 +25,9 @@ type TaskFactory struct {
 	PipelinePayloadType reflect.Type
 	OutputKind          workflowengine.OutputKind
 	CustomTaskQueue     bool
+	// InheritedConfigKeys lists the workflow-level config keys copied into this
+	// activity's input config. Other workflow-level keys stay out of the input.
+	InheritedConfigKeys []string
 }
 
 // Registry maps activity keys to their factory.
@@ -36,10 +39,11 @@ var Registry = map[string]TaskFactory{
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"container-run": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewDockerActivity() },
-		PayloadType: reflect.TypeOf(activities.DockerActivityPayload{}),
-		OutputKind:  workflowengine.OutputMap,
+		Kind:                TaskActivity,
+		NewFunc:             func() any { return activities.NewDockerActivity() },
+		PayloadType:         reflect.TypeOf(activities.DockerActivityPayload{}),
+		OutputKind:          workflowengine.OutputMap,
+		InheritedConfigKeys: []string{"HostIP"},
 	},
 	"email": {
 		Kind:        TaskActivity,
@@ -48,10 +52,11 @@ var Registry = map[string]TaskFactory{
 		OutputKind:  workflowengine.OutputString,
 	},
 	"rest-chain": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewStepCIWorkflowActivity() },
-		PayloadType: reflect.TypeOf(activities.StepCIWorkflowActivityPayload{}),
-		OutputKind:  workflowengine.OutputMap,
+		Kind:                TaskActivity,
+		NewFunc:             func() any { return activities.NewStepCIWorkflowActivity() },
+		PayloadType:         reflect.TypeOf(activities.StepCIWorkflowActivityPayload{}),
+		OutputKind:          workflowengine.OutputMap,
+		InheritedConfigKeys: []string{"template"},
 	},
 	"json-parse": {
 		Kind: TaskActivity,
@@ -119,15 +124,42 @@ var Registry = map[string]TaskFactory{
 	},
 	"fcaf-validation": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewFCAFValidationActivity() },
+		NewFunc:     func() any { return activities.NewFCAFValidationActivity(StepActivityOutputKind) },
 		PayloadType: reflect.TypeOf(activities.FCAFValidationActivityInput{}),
 		OutputKind:  workflowengine.OutputMap,
+		InheritedConfigKeys: []string{
+			"app_url",
+			"internal_app_url",
+			workflowengine.TelemetryRootWorkflowIDKey,
+			workflowengine.TelemetryRootRunIDKey,
+		},
 	},
 	"use-case-verification-deeplink": {
 		Kind:        TaskWorkflow,
 		NewFunc:     func() any { return workflows.NewGetUseCaseVerificationDeeplinkWorkflow() },
 		PayloadType: reflect.TypeOf(workflows.GetUseCaseVerificationDeeplinkWorkflowPayload{}),
 	},
+}
+
+// stepActivityOutputKinds maps every step-usable activity to its output kind. It has no
+// initializer so Registry entries can reference StepActivityOutputKind without an
+// initialization cycle.
+var stepActivityOutputKinds map[string]workflowengine.OutputKind
+
+//nolint:gochecknoinits // Registry and the lookup reference each other; see stepActivityOutputKinds.
+func init() {
+	stepActivityOutputKinds = make(map[string]workflowengine.OutputKind, len(Registry))
+	for use, factory := range Registry {
+		if factory.Kind == TaskActivity {
+			stepActivityOutputKinds[use] = factory.OutputKind
+		}
+	}
+}
+
+// StepActivityOutputKind reports the output kind of the step-usable activity `use`.
+func StepActivityOutputKind(use string) (workflowengine.OutputKind, bool) {
+	kind, ok := stepActivityOutputKinds[use]
+	return kind, ok
 }
 
 var PipelineInternalRegistry = map[string]TaskFactory{
@@ -183,8 +215,10 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"pipeline-report-generation": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewPipelineReportGenerationActivity() },
+		Kind: TaskActivity,
+		NewFunc: func() any {
+			return activities.NewPipelineReportGenerationActivity(StepActivityOutputKind)
+		},
 		PayloadType: reflect.TypeOf(activities.PipelineReportGenerationInput{}),
 		OutputKind:  workflowengine.OutputMap,
 	},

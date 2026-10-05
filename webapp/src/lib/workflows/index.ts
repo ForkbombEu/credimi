@@ -5,6 +5,7 @@
 export * from './memo';
 export * from './queries';
 export * from './queries.types';
+export * from './status';
 export * from './types';
 export * from './utils';
 export { WorkflowQrPoller, WorkflowsTable, WorkflowStatusTag };

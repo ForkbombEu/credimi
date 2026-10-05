@@ -3,33 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { sameUnit, type ActiveUnit } from './active-unit.js';
-import {
-	findNearestUnitToLine,
-	findRangeForUnit,
-	findUnitAtLine,
-	type YamlCardRange
-} from './yaml-ranges.js';
-
-/** Inclusive 0-based line span for CodeDisplay washes. */
-export type LineRange = {
-	start: number;
-	end: number;
-};
 
 export type UnitHighlightInputs = {
 	getIsManual: () => boolean;
 	getEditingIndex: () => number | undefined;
 	/** Section being edited; defaults to steps when omitted. */
 	getEditingSection?: () => ActiveUnit['section'];
-	getRanges: () => YamlCardRange[];
 };
-
-export function linesForUnit(unit: ActiveUnit | null, ranges: YamlCardRange[]): LineRange | null {
-	if (!unit) return null;
-	const range = findRangeForUnit(ranges, unit.section, unit.index);
-	if (!range) return null;
-	return { start: range.startLine, end: range.endLine };
-}
 
 export function resolveSelectedUnit(
 	isManual: boolean,
@@ -40,6 +20,21 @@ export function resolveSelectedUnit(
 	if (isManual) return null;
 	if (editingIndex !== undefined) return { section: editingSection, index: editingIndex };
 	return pinnedUnit;
+}
+
+/**
+ * After an adjacent steps swap (`fromIndex` ↔ `toIndex`), remap a unit so the
+ * wash stays on the same step identity rather than the vacated slot index.
+ */
+export function remapUnitAfterAdjacentSwap(
+	unit: ActiveUnit | null,
+	fromIndex: number,
+	toIndex: number
+): ActiveUnit | null {
+	if (!unit || unit.section !== 'steps') return unit;
+	if (unit.index === fromIndex) return { section: 'steps', index: toIndex };
+	if (unit.index === toIndex) return { section: 'steps', index: fromIndex };
+	return unit;
 }
 
 /**
@@ -59,21 +54,15 @@ export class UnitHighlight {
 		)
 	);
 
-	selectedLines = $derived.by(() => linesForUnit(this.selectedUnit, this.#getRanges()));
-
-	hoverLines = $derived.by(() => linesForUnit(this.hoveredUnit, this.#getRanges()));
-
 	#getIsManual: () => boolean;
 	#getEditingIndex: () => number | undefined;
 	#getEditingSection: () => ActiveUnit['section'];
-	#getRanges: () => YamlCardRange[];
 	#disposed = false;
 
 	constructor(inputs: UnitHighlightInputs) {
 		this.#getIsManual = inputs.getIsManual;
 		this.#getEditingIndex = inputs.getEditingIndex;
 		this.#getEditingSection = inputs.getEditingSection ?? (() => 'steps');
-		this.#getRanges = inputs.getRanges;
 	}
 
 	hoverCard(unit: ActiveUnit) {
@@ -88,30 +77,29 @@ export class UnitHighlight {
 		this.#setHovered(null);
 	}
 
-	hoverYamlLine(line: number | null) {
+	/** Unconditionally clear hover (YAML leave / pointer exit). */
+	clearHover() {
 		if (this.#disposed) return;
-		if (line === null) {
-			this.#setHovered(null);
-			return;
+		this.#setHovered(null);
+	}
+
+	/** Pin selection from a YAML block / card unit (index-aligned preview). */
+	pinUnit(unit: ActiveUnit): ActiveUnit | null {
+		if (this.#disposed) return null;
+		if (!sameUnit(this.pinnedUnit, unit)) {
+			this.pinnedUnit = unit;
 		}
-		const hit = findNearestUnitToLine(this.#getRanges(), line);
-		if (!hit) return;
-		this.#setHovered({ section: hit.section, index: hit.index });
+		return unit;
 	}
 
 	/**
-	 * Pin selection from an exact YAML line hit. Returns the pinned unit, or null
-	 * when the line is outside any step range (caller should not peer-follow).
+	 * Keep pin/hover on the moved steps after an adjacent reorder swap.
+	 * Follow-ups are untouched (shift only moves steps).
 	 */
-	pinYamlLine(line: number): ActiveUnit | null {
-		if (this.#disposed) return null;
-		const hit = findUnitAtLine(this.#getRanges(), line);
-		if (!hit) return null;
-		const next: ActiveUnit = { section: hit.section, index: hit.index };
-		if (!sameUnit(this.pinnedUnit, next)) {
-			this.pinnedUnit = next;
-		}
-		return next;
+	remapStepsAfterAdjacentSwap(fromIndex: number, toIndex: number) {
+		if (this.#disposed) return;
+		this.pinnedUnit = remapUnitAfterAdjacentSwap(this.pinnedUnit, fromIndex, toIndex);
+		this.hoveredUnit = remapUnitAfterAdjacentSwap(this.hoveredUnit, fromIndex, toIndex);
 	}
 
 	isCardHovered(section: ActiveUnit['section'], index: number): boolean {

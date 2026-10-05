@@ -206,7 +206,7 @@ var OrgWorkers = []workerConfig{
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
-			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{
@@ -260,7 +260,7 @@ var DefaultWorkers = []workerConfig{
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
-			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{
@@ -283,6 +283,7 @@ var DefaultWorkers = []workerConfig{
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewHTTPActivity(),
 			activities.NewInternalHTTPActivity(),
+			activities.NewMobileRunnerHTTPActivity(),
 		},
 	},
 	{

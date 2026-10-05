@@ -113,7 +113,6 @@ Important related dependencies:
 - `github.com/ForkbombEu/et-tu-cesr`: CESR tooling and binary integration.
 - `github.com/forkbombeu/avdctl`: Android virtual device support used through the mobile automation stack.
 - `github.com/ForkbombEu/stepci-captured-runner`: external binary downloaded into `.bin/` by `make tools`.
-- `@forkbombeu/temporal-ui`: Svelte Temporal workflow UI package.
 - `github.com/forkbombeu/credimi_plugins`: ecosystem plugins/resources referenced by the product.
 
 Rules:
@@ -204,6 +203,7 @@ Key environment variables:
 - `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL`: how recent a runner heartbeat must be for its devices to be offered in catalog selectors (default 60s).
 - `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for trusted internal HTTP activities, internal result posting, and `POST /api/conformance-catalog/rebuild`.
 - `CREDIMI_INTERNAL_APP_URL`: deployment-local Temporal-worker-to-Credimi base URL; callback consumers prefer it while persisted `app_url` remains public. It must be provisioned wherever workers execute.
+- `CREDIMI_SEED_SUPERUSER_PASSWORD`: password for the `admin@example.org` superuser seeded by `pb_migrations/1685000000_seed_admin.js`. `make dev` defaults it to `adminadmin` and `cmd/testdata-refresh` sets it for `test_pb_data`. Deployments must leave it unset: they create their first superuser through the PocketBase installer link or `credimi superuser upsert`, and `pb_migrations/1790780000_remove_default_seed_admin.js` removes or locks a leftover default-password `admin@example.org`.
 
 Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
 
@@ -230,6 +230,15 @@ Pipeline contract:
 - Other keys under `step.with` are merged into `payload`.
 - `mobile-automation` steps must provide `with.payload.device_id`, or the pipeline must set `runtime.global_device_id`.
 
+Step outputs live in Temporal history, recorded once:
+
+- Main step IDs must be unique, and hook or `finally` step IDs must not reuse a main step ID (`ValidateStepIDs` in `pkg/internal/pipeline/validate.go`); the workflow and the queue path reject violations.
+- Every main step's activity or child-workflow input `config` carries `step_id` (`workflowengine.StepIDConfigKey`). `pkg/workflowengine/pipelinehistory` rebuilds main step outputs from a run's history by that key, mirroring the workflow's `finalOutput` rules.
+- Step activities receive only their own `with.config`, `step_id`, and the workflow config keys listed in `registry.TaskFactory.InheritedConfigKeys`. Child workflows and child pipelines keep the full config.
+- A step whose input exceeds 3 MiB fails before scheduling (`ensureStepInputSize`), because Temporal rejects workflow task messages above 4 MiB.
+- A main step whose inputs reference the output of a step that already failed (`continue_on_error`) fails before running with `CRE228` `step <id> needs the output of step <failed>, which failed` (`failedDependencyError`). References through `| optional` do not count, so `fcaf-validation` still runs.
+- Pipeline results and failure `Details.output` carry non-step entries (warnings, video and screenshot URLs, `finally_errors`) plus only the step outputs listed in `PipelineWorkflowInput.ReturnOutputs`. Top-level runs return none; a parent sets a child pipeline's `return_outputs` from the references in its own definition (`ReferencedStepOutputs`). `POST /api/pipeline/execute` returns all of them.
+
 Direct run path:
 
 - UI calls `POST /api/pipeline/start` with `{ pipeline_identifier, yaml }`.
@@ -255,8 +264,11 @@ Semaphore:
 - Workflow ID: `mobile-device-semaphore/<device_id>`.
 - Types: `pkg/workflowengine/mobiledevicesemaphore/types.go`.
 - Implementation: `pkg/workflowengine/workflows/mobile_device_semaphore.go`.
-- Updates: `EnqueueRun`, `CancelRun`, `RunDone`.
+- Updates: `EnqueueRun`, `CancelRun`, `RunDone`, plus the device lifecycle updates `MobileDeviceSemaphore{Pause,Resume,Shutdown}DeviceUpdate`.
 - Queries: `GetRunStatus`, `GetState`.
+- Temporal caps accepted updates per workflow run (`history.maxTotalUpdates`, default 2000) and then rejects every update, so a stuck semaphore fails every lifecycle call (`failed_to_pause_device_semaphore` / `failed_to_resume_device_semaphore`). Two guards:
+    - The lifecycle heartbeat queries the semaphore state first and sends a pause or resume only when the device's online state disagrees with `Paused`. Heartbeats carry a fresh request ID every 30s, so each update they send is distinct.
+    - The workflow counts repeated pauses toward its continue-as-new budget, and also continues-as-new when the server suggests it. Before continuing it drains in-flight handlers (`AllHandlersFinished`) and snapshots state. This is gated by `workflow.GetVersion("mobile-device-semaphore-count-all-updates")`, so runs started before the change keep their old behavior until their next continue-as-new.
 
 Grant/start path:
 
@@ -282,6 +294,8 @@ Grant/start path:
 - The generated pipeline runs all feasible scenarios with distinct prefixed step IDs, continues after scenario failures, merges exact named evidence sources, and performs one final validation for all catalog tests.
 - `fcaf sync` and `fcaf run` operate on the generated aggregate pipeline only. Do not move scenario sources back into the deployable pipelines directory.
 - Add or change tests in the owning scenario, regenerate the aggregate, and validate direct evidence coverage before removing any scenario.
+- `with.pipeline_outputs` reaches the `fcaf-validation` activity unresolved. The activity resolves it against the step outputs in the run's own history, stores the full report (with evidence values) through `POST /api/pipeline/pipeline-execution-results/fcaf-report` on the root run's `pipeline_results` row, and returns a compact report without evidence values, the stored file's `report_sha256`, and an `evidence_index` of `step_id`, history `event_id` and sha256 per evidence leaf. A storage failure fails the step.
+- `pipeline-report-generation` also reads the run's history and stores the markdown report itself; storage failures become cleanup warnings.
 
 ## CI Wallet APK Runs
 
@@ -356,8 +370,10 @@ Internal lookup:
 
 External runner HTTP contract:
 
-- `POST {runner_url}/fetch-apk-and-action`
-    - Body: `{ instance_url, version_identifier, action_identifier, device_identifier }`
+- `POST {runner_url}/credimi/installer-action`
+    - Body: `{ version_identifier, platform, device_identifier }`
+    - Response: `{ installer_path, version_id }`
+    - Not called for `version_id: installed_from_external_source`. Credimi resolves a stored action's code itself through `POST /api/canonify/internal/resolve`, scoped to the pipeline's organization, and puts it in the step payload; runners never look wallet actions up.
 - `POST {runner_url}/store-pipeline-result`
     - Body: `{ video_path, last_frame_path, logcat_path, run_identifier, device_identifier, instance_url }`
     - Response: `{ result_urls: string[], screenshot_urls: string[] }`

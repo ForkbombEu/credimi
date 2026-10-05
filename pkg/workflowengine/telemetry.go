@@ -47,9 +47,13 @@ func MergeTelemetryConfig(ctx workflow.Context, cfg map[string]any) map[string]a
 }
 
 func ActivityTelemetryConfig(ctx workflow.Context, cfg map[string]any) map[string]string {
-	merged := MergeTelemetryConfig(ctx, cfg)
-	result := make(map[string]string, len(merged))
-	for key, value := range merged {
+	return StringifyConfig(MergeTelemetryConfig(ctx, cfg))
+}
+
+// StringifyConfig converts config values to strings for an ActivityInput, skipping nil values.
+func StringifyConfig(cfg map[string]any) map[string]string {
+	result := make(map[string]string, len(cfg))
+	for key, value := range cfg {
 		if value == nil {
 			continue
 		}

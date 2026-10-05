@@ -3,14 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { ActiveUnit } from './scroll-follow/active-unit.js';
-import type { CardSection } from './scroll-follow/yaml-ranges.js';
 
 /**
  * Structural view of the Steps builder mode — only the fields In-card edit reads.
  * Kept structural so this module stays pure (no import of the builder / its Svelte component).
  */
 export type InCardEditMode =
-	| { id: 'form'; intent: string; stepIndex?: number; section?: CardSection }
+	| { id: 'form'; intent: string; stepIndex?: number; section?: ActiveUnit['section'] }
 	| { id: 'idle' }
 	| { id: 'manual' };
 

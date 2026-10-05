@@ -6,43 +6,61 @@ package activities
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi-conformance-assessment/pkg/conformance"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipelinehistory"
 )
 
-const PipelineReportGenerationActivityName = "Generate pipeline conformance report"
+const (
+	PipelineReportGenerationActivityName = "Generate pipeline conformance report"
+
+	pipelineReportStoreTimeout = 2 * time.Minute
+)
 
 type PipelineReportGenerationActivity struct {
 	workflowengine.BaseActivity
+	outputKind pipelinehistory.OutputKindFunc
 }
 
+// PipelineReportGenerationInput identifies the run whose history holds the definition and
+// step outputs the report is built from.
 type PipelineReportGenerationInput struct {
-	WorkflowDefinition *pipelineinternal.WorkflowDefinition `json:"workflow_definition"`
-	PipelineOutput     map[string]any                       `json:"pipeline_output"`
-	Evidence           PipelineEvidenceExtractionOutput     `json:"evidence"`
-	WorkflowID         string                               `json:"workflow_id"`
-	RunID              string                               `json:"run_id"`
+	Namespace  string `json:"namespace"`
+	WorkflowID string `json:"workflow_id"`
+	RunID      string `json:"run_id"`
+	AppURL     string `json:"app_url"`
+	// PipelineOutputMeta holds the pipeline output keys that are not step outputs, such as
+	// warnings, which exist only in the workflow's memory.
+	PipelineOutputMeta map[string]any                   `json:"pipeline_output_meta,omitempty"`
+	Evidence           PipelineEvidenceExtractionOutput `json:"evidence"`
 }
 
 type PipelineReportGenerationOutput struct {
-	Markdown    string   `json:"markdown"`
-	Filename    string   `json:"filename"`
-	Fixture     string   `json:"fixture"`
-	Slug        string   `json:"slug"`
-	PassedCount int      `json:"passed_count"`
-	Warnings    []string `json:"warnings,omitempty"`
+	MarkdownSHA256 string   `json:"markdown_sha256"`
+	Filename       string   `json:"filename"`
+	Fixture        string   `json:"fixture"`
+	Slug           string   `json:"slug"`
+	PassedCount    int      `json:"passed_count"`
+	Warnings       []string `json:"warnings,omitempty"`
 }
 
-func NewPipelineReportGenerationActivity() *PipelineReportGenerationActivity {
+func NewPipelineReportGenerationActivity(
+	outputKind pipelinehistory.OutputKindFunc,
+) *PipelineReportGenerationActivity {
 	return &PipelineReportGenerationActivity{
 		BaseActivity: workflowengine.BaseActivity{Name: PipelineReportGenerationActivityName},
+		outputKind:   outputKind,
 	}
 }
 
@@ -50,27 +68,44 @@ func (a *PipelineReportGenerationActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
+// Execute builds the conformance report from the definition and step outputs recorded in
+// the run's history and stores its markdown on the pipeline result. A storage failure is
+// reported as a warning.
 func (a *PipelineReportGenerationActivity) Execute(
-	_ context.Context,
+	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	payload, err := workflowengine.DecodePayload[PipelineReportGenerationInput](input.Payload)
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(err)
 	}
-	if payload.WorkflowDefinition == nil {
+	if strings.TrimSpace(payload.WorkflowID) == "" || strings.TrimSpace(payload.RunID) == "" {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
 			workflowengine.ActivityError{
 				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
 				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
-				Message: "workflow_definition is required",
+				Message: "workflow_id and run_id are required",
 			},
 		)
 	}
 
-	pipelineInput, err := marshalRaw(
-		map[string]any{"workflow_definition": payload.WorkflowDefinition},
-	)
+	run, err := a.loadRun(ctx, payload)
+	if err != nil {
+		return workflowengine.ActivityResult{}, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errorcodes.Codes[errorcodes.PipelineExecutionError].Code,
+				Summary: errorcodes.Codes[errorcodes.PipelineExecutionError].Description,
+				Message: fmt.Sprintf("load pipeline history: %v", err),
+			},
+		)
+	}
+	pipelineOutputValue := maps.Clone(payload.PipelineOutputMeta)
+	if pipelineOutputValue == nil {
+		pipelineOutputValue = map[string]any{}
+	}
+	maps.Copy(pipelineOutputValue, run.DataContext())
+
+	pipelineInput, err := marshalRaw(map[string]any{"workflow_definition": run.Definition})
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
 			workflowengine.ActivityError{
@@ -80,7 +115,7 @@ func (a *PipelineReportGenerationActivity) Execute(
 			},
 		)
 	}
-	pipelineOutput, err := marshalRaw(payload.PipelineOutput)
+	pipelineOutput, err := marshalRaw(pipelineOutputValue)
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
 			workflowengine.ActivityError{
@@ -102,12 +137,6 @@ func (a *PipelineReportGenerationActivity) Execute(
 	}
 
 	fixture := strings.TrimSpace(payload.WorkflowID)
-	if fixture == "" {
-		fixture = strings.TrimSpace(payload.WorkflowDefinition.Name)
-	}
-	if fixture == "" {
-		fixture = "pipeline-report"
-	}
 
 	reportResult, err := conformance.Generate(
 		conformance.ReportInput{
@@ -138,18 +167,48 @@ func (a *PipelineReportGenerationActivity) Execute(
 	}
 
 	report := reportResult.Reports[0]
+	sum := sha256.Sum256([]byte(report.Markdown))
 	output := PipelineReportGenerationOutput{
-		Markdown:    report.Markdown,
-		Filename:    sanitizeReportFilename(fixture) + ".md",
-		Fixture:     report.Fixture,
-		Slug:        report.Slug,
-		PassedCount: report.PassedCount,
+		MarkdownSHA256: hex.EncodeToString(sum[:]),
+		Filename:       sanitizeReportFilename(fixture) + ".md",
+		Fixture:        report.Fixture,
+		Slug:           report.Slug,
+		PassedCount:    report.PassedCount,
 	}
-	if strings.TrimSpace(output.Markdown) == "" {
+	if strings.TrimSpace(report.Markdown) == "" {
 		output.Warnings = append(output.Warnings, "generated conformance report markdown is empty")
+		return workflowengine.ActivityResult{Output: output}, nil
+	}
+	if _, err := postInternalJSON(
+		ctx,
+		payload.AppURL,
+		[]string{"api", "pipeline", "pipeline-execution-results", "report"},
+		map[string]any{
+			"workflow_id": payload.WorkflowID,
+			"run_id":      payload.RunID,
+			"filename":    output.Filename,
+			"markdown":    report.Markdown,
+		},
+		pipelineReportStoreTimeout,
+	); err != nil {
+		output.Warnings = append(
+			output.Warnings,
+			fmt.Sprintf("pipeline report storage failed: %v", err),
+		)
 	}
 
 	return workflowengine.ActivityResult{Output: output}, nil
+}
+
+func (a *PipelineReportGenerationActivity) loadRun(
+	ctx context.Context,
+	payload PipelineReportGenerationInput,
+) (*pipelinehistory.Run, error) {
+	c, err := temporalclient.GetTemporalClientWithNamespace(payload.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	return pipelinehistory.Load(ctx, c, payload.WorkflowID, payload.RunID, a.outputKind)
 }
 
 func marshalRaw(value any) (json.RawMessage, error) {

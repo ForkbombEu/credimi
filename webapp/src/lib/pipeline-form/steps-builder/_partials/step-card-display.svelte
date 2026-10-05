@@ -48,7 +48,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		enterComplete?: boolean;
 		/** Fired after exit shrink/crossfade finishes — clear the held form mode. */
 		onExitComplete?: () => void;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		footer?: Snippet | Comp<Component<any>>;
 		readonly?: boolean;
 		editing?: boolean;
@@ -219,10 +218,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class={[
 		'group flex min-h-0 flex-col overflow-hidden rounded-md border bg-card',
 		classes.border,
-		!readonly && 'hover:ring',
-		editing && 'ring-2 ring-primary',
-		selected && !editing && 'ring-1 ring-primary/50',
-		hovered && !editing && !selected && 'ring',
+		!readonly && !selected && !editing && 'hover:border-primary hover:ring-1 hover:ring-primary',
+		editing && 'border-orange-600',
+		selected && !editing && 'border-orange-600 ring-1 ring-orange-600',
+		hovered && !editing && !selected && 'border-primary ring-1 ring-primary',
 		className
 	]}
 >

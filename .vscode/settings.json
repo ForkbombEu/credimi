@@ -1,4 +1,20 @@
 {
+    "mise.configureExtensionsAutomatically": false,
+    "go.lintTool": "golangci-lint-v2",
+    "go.lintFlags": ["--path-mode=abs", "--fast-only"],
+    "go.formatTool": "custom",
+    "go.formatFlags": ["fmt", "--stdin"],
+    "go.alternateTools": {
+        "customFormatter": "golangci-lint",
+        "golangci-lint-v2": "golangci-lint"
+    },
+    "[go]": {
+        "editor.defaultFormatter": "golang.go",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "never"
+        }
+    },
     "tailwindCSS.classAttributes": [
         "class",
         "className",

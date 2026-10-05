@@ -34,12 +34,14 @@ export async function _getWorkflow(workflowId: string, runId: string, options = 
 	const fetched = await fetchWorkflowExecution(workflowId, runId, options);
 	if (fetched instanceof Error) return fetched;
 
-	const memo = getWorkflowMemo(fetched.execution);
+	const memo = getWorkflowMemo(fetched.info.memo);
 	if (memo instanceof Error) return memo;
 
 	return {
-		execution: fetched.execution,
+		info: fetched.info,
+		status: fetched.status,
+		failure_reason: fetched.failure_reason,
 		memo,
-		devices: fetched.devices ?? []
+		devices: fetched.devices
 	};
 }

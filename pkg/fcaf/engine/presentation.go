@@ -97,7 +97,10 @@ func presentationScreenshots(report Report, maestroURLs []string) []Presentation
 				if normalized == "" {
 					continue
 				}
-				visualTestIDs[normalized] = appendUniqueString(visualTestIDs[normalized], test.TestID)
+				visualTestIDs[normalized] = appendUniqueString(
+					visualTestIDs[normalized],
+					test.TestID,
+				)
 			}
 		}
 		for _, evidence := range test.Evidence {
@@ -128,7 +131,11 @@ func presentationScreenshots(report Report, maestroURLs []string) []Presentation
 	return dedupePresentationBursts(screenshots)
 }
 
-func appendPresentationReference(urls *[]string, seen map[string]struct{}, reference string) string {
+func appendPresentationReference(
+	urls *[]string,
+	seen map[string]struct{},
+	reference string,
+) string {
 	normalized := normalizePresentationURL(reference)
 	if normalized == "" {
 		return ""

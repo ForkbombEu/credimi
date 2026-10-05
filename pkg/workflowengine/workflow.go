@@ -26,6 +26,10 @@ var workflowTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 const CollectPipelineStepFailuresConfigKey = "collect_pipeline_step_failures"
 
+// StepIDConfigKey carries the pipeline step ID in a step's activity or child workflow
+// input config, so the run's history identifies which step recorded each result.
+const StepIDConfigKey = "step_id"
+
 // WorkflowInput represents the input data required to start a workflow.
 type WorkflowInput struct {
 	Payload         any                       `json:"payload,omitempty"`
