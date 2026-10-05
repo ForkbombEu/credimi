@@ -355,6 +355,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 		{
 			Name:           "get credential deeplink - rejects non-credential record",
 			Method:         http.MethodGet,
+			Headers:        member,
 			URL:            "/api/credential/deeplink?id=usera-s-organization/test-verifier/test-use-cases",
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
@@ -363,6 +364,19 @@ func TestGetCredentialDeeplink(t *testing.T) {
 				`"message":"id must resolve to a credentials record"`,
 			},
 			TestAppFactory: setupDeeplinkApp(orgID),
+		},
+		{
+			Name:           "get credential deeplink - anonymous cannot probe a hidden record of another type",
+			Method:         http.MethodGet,
+			URL:            "/api/credential/deeplink?id=usera-s-organization/test-verifier/test-use-cases",
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				`"domain":"resolve"`,
+				`"reason":"failed to resolve credential path"`,
+				`"message":"sql: no rows in result set"`,
+			},
+			NotExpectedContent: []string{"invalid record type"},
+			TestAppFactory:     setupDeeplinkApp(orgID),
 		},
 		{
 			Name:           "get credential deeplink - redirect",
@@ -432,7 +446,9 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedContent: []string{
-				`"reason":"record not found"`,
+				`"domain":"resolve"`,
+				`"reason":"failed to resolve credential path"`,
+				`"message":"sql: no rows in result set"`,
 			},
 			NotExpectedContent: []string{"openid-credential-offer://"},
 			TestAppFactory:     setupDeeplinkApp(orgID),
@@ -444,7 +460,9 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			Headers:        nonMember,
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedContent: []string{
-				`"reason":"record not found"`,
+				`"domain":"resolve"`,
+				`"reason":"failed to resolve credential path"`,
+				`"message":"sql: no rows in result set"`,
 			},
 			NotExpectedContent: []string{"openid-credential-offer://"},
 			TestAppFactory:     setupDeeplinkApp(orgID),
@@ -458,7 +476,9 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL:            "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedContent: []string{
-				`"reason":"record not found"`,
+				`"domain":"resolve"`,
+				`"reason":"failed to resolve credential path"`,
+				`"message":"sql: no rows in result set"`,
 			},
 			NotExpectedContent: []string{"openid-credential-offer://"},
 			TestAppFactory:     setupPublishedDeeplinkApp(orgID, false),
@@ -517,6 +537,7 @@ func TestGetVerificationDeeplink(t *testing.T) {
 		{
 			Name:           "get verification deeplink - rejects non-use-case-verification record",
 			Method:         http.MethodGet,
+			Headers:        member,
 			URL:            "/api/verification/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
@@ -525,6 +546,19 @@ func TestGetVerificationDeeplink(t *testing.T) {
 				`"message":"id must resolve to a use_cases_verifications record"`,
 			},
 			TestAppFactory: setupDeeplinkApp(orgID),
+		},
+		{
+			Name:           "get verification deeplink - anonymous cannot probe a hidden record of another type",
+			Method:         http.MethodGet,
+			URL:            "/api/verification/deeplink?id=usera-s-organization/test-issuer-1/test-credential",
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				`"domain":"resolve"`,
+				`"reason":"failed to resolve verification path"`,
+				`"message":"sql: no rows in result set"`,
+			},
+			NotExpectedContent: []string{"invalid record type"},
+			TestAppFactory:     setupDeeplinkApp(orgID),
 		},
 		{
 			Name:           "get verification deeplink with yaml - success",
@@ -567,7 +601,9 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			URL:            "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases",
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedContent: []string{
-				`"reason":"record not found"`,
+				`"domain":"resolve"`,
+				`"reason":"failed to resolve verification path"`,
+				`"message":"sql: no rows in result set"`,
 			},
 			NotExpectedContent: []string{"mock-deeplink-from-yaml"},
 			TestAppFactory:     setupDeeplinkApp(orgID),
@@ -585,7 +621,9 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			Headers:        nonMember,
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedContent: []string{
-				`"reason":"record not found"`,
+				`"domain":"resolve"`,
+				`"reason":"failed to resolve verification path"`,
+				`"message":"sql: no rows in result set"`,
 			},
 			NotExpectedContent: []string{"mock-deeplink-from-yaml"},
 			TestAppFactory:     setupDeeplinkApp(orgID),
@@ -602,7 +640,9 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			URL:            "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases",
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedContent: []string{
-				`"reason":"record not found"`,
+				`"domain":"resolve"`,
+				`"reason":"failed to resolve verification path"`,
+				`"message":"sql: no rows in result set"`,
 			},
 			NotExpectedContent: []string{"mock-deeplink-from-yaml"},
 			TestAppFactory:     setupPublishedDeeplinkApp(orgID, false),
