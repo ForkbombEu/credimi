@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"bytes"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"testing"
@@ -56,6 +57,56 @@ func TestStorePipelineStepScreenshots(t *testing.T) {
 			`scan_credential_checkout_`,
 			`scan_credential_confirmation_`,
 			`"screenshot_urls"`,
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupWalletApp(t)
+			PipelineTemporalInternalRoutes.Add(app)
+			setupWalletPipelineTestRecords(t, app, orgID)
+			reserveStepScreenshotDevice(t, app, orgID)
+			return app
+		},
+	}
+	scenario.Test(t)
+}
+
+// A complete FCAF validation stores a few screenshots for each of ~200 mobile
+// steps on the same run record, so a run must hold well over 99 of them.
+func TestStorePipelineStepScreenshotsBeyondNinetyNinePerRun(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField(
+		"run_identifier",
+		"usera-s-organization/workflow123-run123",
+	))
+	require.NoError(t, writer.WriteField(
+		"device_identifier",
+		"usera-s-organization/test-runner/test-device",
+	))
+	require.NoError(t, writer.WriteField("step_id", "present credential"))
+	for i := range 100 {
+		file, err := writer.CreateFormFile("screenshots", fmt.Sprintf("step-%03d.png", i))
+		require.NoError(t, err)
+		_, err = file.Write([]byte("screenshot"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+
+	scenario := tests.ApiScenario{
+		Name:   "stores the 100th screenshot of a run",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/store-step-screenshots",
+		Body:   bytes.NewReader(body.Bytes()),
+		Headers: map[string]string{
+			"Content-Type":    writer.FormDataContentType(),
+			"Credimi-Api-Key": "internal-test-api-key",
+		},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"status":"success"`,
+			`present_credential_step_099_`,
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupWalletApp(t)
