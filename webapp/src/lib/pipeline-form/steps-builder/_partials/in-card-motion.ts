@@ -10,7 +10,7 @@
  * 2. fade summary out (height unchanged)
  * 3. fade form in (still at locked height)
  * 4. grow the body to the column body max (or form natural height)
- * 5. enter-layout applies settled host/lock, then `settleEnterFormHost` clears overlay
+ * 5. In-card layout applies settled host/lock, then `settleEnterFormHost` clears overlay
  *
  * - One running animation per element: starting a new one cancels the previous
  *   one in place (no revert), so retargeting mid-flight continues from the
@@ -49,27 +49,11 @@ export type InCardEnterOptions = MotionOptions & {
 	form: HTMLElement;
 	/**
 	 * Cap (px) for the grown *body* height (below the type header / color bar).
-	 * Pass `bodyMaxHeightWithinCard(...)` so this matches the card's max-height
-	 * minus chrome. When set, enter grows to fill this height (form scrolls inside);
-	 * when omitted, enter grows to the form's natural height.
+	 * Layout passes chrome-subtracted fill max. When set, enter grows to fill this
+	 * height (form scrolls inside); when omitted, enter grows to the form's natural height.
 	 */
 	maxHeightPx?: number;
 };
-
-/**
- * How tall the form body may grow when the whole card is capped at `cardMaxHeightPx`.
- * Chrome = color bar + type header (everything in the card above `display`/`lock`).
- */
-export function bodyMaxHeightWithinCard(
-	card: HTMLElement,
-	display: HTMLElement,
-	cardMaxHeightPx: number
-): number {
-	const cardHeight = card.getBoundingClientRect().height;
-	const displayHeight = display.getBoundingClientRect().height;
-	const chromePx = Math.max(0, cardHeight - displayHeight);
-	return Math.max(0, cardMaxHeightPx - chromePx);
-}
 
 //
 
@@ -338,15 +322,10 @@ export function playInCardEnter(options: InCardEnterOptions): MotionHandle {
 			completeEnter(toHeight);
 			return;
 		}
-		step = run(
-			lock,
-			{ height: [`${from}px`, `${toHeight}px`] },
-			stepOpts,
-			() => {
-				if (cancelled) return;
-				completeEnter(toHeight);
-			}
-		);
+		step = run(lock, { height: [`${from}px`, `${toHeight}px`] }, stepOpts, () => {
+			if (cancelled) return;
+			completeEnter(toHeight);
+		});
 	};
 
 	const fadeFormIn = () => {

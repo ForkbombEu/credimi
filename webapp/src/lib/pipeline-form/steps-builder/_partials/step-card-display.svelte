@@ -7,12 +7,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Component, Snippet } from 'svelte';
 
-	import { onDestroy, tick, untrack } from 'svelte';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { Comp } from '$lib/renderable';
 	import { showPipelineFormError } from '$pipeline-form/errors.js';
 	import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 	import * as steps from '$pipeline-form/steps';
+	import { onDestroy, tick, untrack } from 'svelte';
 
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
@@ -21,8 +21,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import { inCardFormHostClass, playInCardEnterLayout } from '../in-card-enter-layout.js';
-	import { cancelMotion, playInCardExit, type MotionHandle } from './in-card-motion.js';
+	import {
+		inCardFormHostClass,
+		playInCardEnterLayout,
+		playInCardExitLayout
+	} from '../in-card-layout.js';
+	import { cancelMotion, type MotionHandle } from './in-card-motion.js';
 	import { getStepData, getStepError } from './index.js';
 
 	//
@@ -89,7 +93,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let showDisplayLayer = $state(true);
 	/** Body cap (card max − chrome); kept on the lock so the save bar does not reflow. */
 	let bodyMaxPx = $state<number | undefined>(undefined);
-	let exiting = $state(false);
+	/** Set while exit layout handle is live — form stays inert; not session `exiting`. */
+	let exitMotion = $state<MotionHandle | undefined>(undefined);
 
 	let cardRoot: HTMLElement | null = $state(null);
 	let bodyLock: HTMLElement | null = $state(null);
@@ -106,28 +111,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			motionToken++;
 			motion?.cancel();
 			motion = undefined;
+			exitMotion?.cancel();
+			exitMotion = undefined;
 			showDisplayLayer = true;
 			enterComplete = false;
 			bodyMaxPx = undefined;
-			exiting = false;
 			cancelMotion(bodyLock);
 			cancelMotion(displayRoot);
 			cancelMotion(formHost);
 		});
 	});
 
-	// Hide the form host until enter-layout owns it — avoids a visible flash between
+	// Hide the form host until layout owns it — avoids a visible flash between
 	// showFormBody mount and expandReady (enter previously set these classes itself).
 	$effect(() => {
 		const form = formHost;
 		if (!form || !showFormBody) return;
-		if (enterComplete || exiting) return;
+		if (enterComplete || exitMotion) return;
 		form.className = inCardFormHostClass(false);
 	});
 
 	$effect(() => {
 		if (!showFormBody || !expandReady || !editing) return;
-		if (untrack(() => enterComplete || exiting)) return;
+		if (untrack(() => enterComplete || exitMotion)) return;
 		const card = cardRoot;
 		const lock = bodyLock;
 		const display = displayRoot;
@@ -142,7 +148,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				display,
 				form,
 				card,
-				cardMaxHeightPx: maxHeightPx,
+				cardFillMaxPx: maxHeightPx,
 				onSettled: async ({ bodyMaxPx: settledBodyMax }) => {
 					if (token !== motionToken) return;
 					showDisplayLayer = false;
@@ -156,20 +162,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// Exit: shrink to summary height, then crossfade — do not collapse to zero.
 	$effect(() => {
 		if (editing || !showFormBody) return;
-		if (untrack(() => exiting)) return;
+		if (untrack(() => exitMotion)) return;
 
 		const token = ++motionToken;
 		untrack(() => {
 			motion?.cancel();
-			exiting = true;
 
 			if (!enterComplete) {
-				// Enter never finished — drop straight back to the summary.
 				showDisplayLayer = true;
 				enterComplete = false;
 				bodyMaxPx = undefined;
-				exiting = false;
-				onExitComplete?.();
+				exitMotion = playInCardExitLayout({
+					enterSettled: false,
+					onComplete: () => {
+						if (token !== motionToken) return;
+						exitMotion = undefined;
+						motion = undefined;
+						onExitComplete?.();
+					}
+				});
+				motion = exitMotion;
 				return;
 			}
 
@@ -179,23 +191,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				const lock = bodyLock;
 				const display = displayRoot;
 				const form = formHost;
-				if (!lock || !display || !form) {
-					exiting = false;
-					onExitComplete?.();
-					return;
-				}
-				motion = playInCardExit({
-					lock,
-					display,
-					form,
+				exitMotion = playInCardExitLayout({
+					lock: lock ?? undefined,
+					display: display ?? undefined,
+					form: form ?? undefined,
+					enterSettled: Boolean(lock && display && form),
 					onComplete: () => {
 						if (token !== motionToken) return;
 						enterComplete = false;
 						bodyMaxPx = undefined;
-						exiting = false;
+						exitMotion = undefined;
+						motion = undefined;
 						onExitComplete?.();
 					}
 				});
+				motion = exitMotion;
 			});
 		});
 	});
@@ -203,6 +213,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	onDestroy(() => {
 		motionToken++;
 		motion?.cancel();
+		exitMotion?.cancel();
 		cancelMotion(bodyLock);
 		cancelMotion(displayRoot);
 		cancelMotion(formHost);
@@ -240,17 +251,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				bind:this={bodyLock}
 				class={[
 					'relative min-h-0',
-					enterComplete || exiting ? 'flex min-h-0 grow flex-col' : ''
+					enterComplete || exitMotion ? 'flex min-h-0 grow flex-col' : ''
 				]}
 				style:max-height={bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
 				data-testid="in-card-body-lock"
 				data-enter-complete={enterComplete}
-				data-exiting={exiting}
+				data-exiting={Boolean(exitMotion)}
 			>
 				{#if showDisplayLayer}
 					<div
 						bind:this={displayRoot}
-						class={enterComplete || exiting
+						class={enterComplete || exitMotion
 							? 'pointer-events-none absolute top-0 right-0 left-0 w-full'
 							: undefined}
 						data-testid="in-card-display-body"
@@ -263,7 +274,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div
 					bind:this={formHost}
 					data-testid="in-card-form-host"
-					inert={!enterComplete || exiting}
+					inert={!enterComplete || Boolean(exitMotion)}
 				>
 					{@render formBody()}
 				</div>

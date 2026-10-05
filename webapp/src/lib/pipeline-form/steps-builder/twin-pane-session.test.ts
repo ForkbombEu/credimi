@@ -10,7 +10,12 @@ import type { ActiveUnit } from './scroll-follow/active-unit.js';
 
 import { START_PADDING_PX } from './scroll-follow/active-unit.js';
 import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
-import { createTwinPaneSession, inCardCardsEndPadPx } from './twin-pane-session.svelte.js';
+import {
+	createTwinPaneSession,
+	inCardCardFillMaxPx,
+	inCardCardsEndPadPx,
+	MIN_CARD_FILL_MAX_PX
+} from './twin-pane-session.svelte.js';
 
 function fakeVirtualizer(
 	label: string,
@@ -437,6 +442,12 @@ describe('createTwinPaneSession', () => {
 		session.dispose();
 	});
 
+	it('inCardCardFillMaxPx is at least 240 and subtracts start padding on both ends', () => {
+		expect(inCardCardFillMaxPx(800)).toBe(800 - START_PADDING_PX * 2);
+		expect(inCardCardFillMaxPx(0)).toBe(MIN_CARD_FILL_MAX_PX);
+		expect(inCardCardFillMaxPx(200)).toBe(MIN_CARD_FILL_MAX_PX);
+	});
+
 	it('inCardCardsEndPadPx keeps the 30% observer pad when idle', () => {
 		expect(inCardCardsEndPadPx(240, 800, false)).toBe(240);
 		expect(inCardCardsEndPadPx(0, 800, false)).toBe(0);
@@ -489,6 +500,7 @@ describe('createTwinPaneSession', () => {
 		const cleanup = session.cardsScrollAttach?.(el);
 
 		expect(session.cardsViewportPx).toBe(viewportPx);
+		expect(session.cardFillMaxPx).toBe(inCardCardFillMaxPx(viewportPx));
 		expect(session.cardsEndPadPx).toBe(observerPadPx);
 		expect(session.still).toBe(false);
 

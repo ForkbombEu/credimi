@@ -102,6 +102,11 @@ export type TwinPaneSession = {
 	get cardsEndPadPx(): number;
 	/** Cards scrollport clientHeight from the same ResizeObserver as the end pad. */
 	get cardsViewportPx(): number;
+	/**
+	 * Whole-card max height while In-card filling the pane: at least 240px,
+	 * otherwise viewport − start padding on both ends.
+	 */
+	get cardFillMaxPx(): number;
 	/** Half-viewport end pad for the YAML scrollport (view paints height). */
 	get yamlEndPadPx(): number;
 	/** TanStack scrollMargin for YAML step blocks (header height inside scroller). */
@@ -163,10 +168,21 @@ export function inCardCardsEndPadPx(
 	return Math.max(observerPadPx, Math.max(0, cardsViewportPx - START_PADDING_PX));
 }
 
+/** Floor so a short pane still hosts a usable In-card form. */
+export const MIN_CARD_FILL_MAX_PX = 240;
+
+/**
+ * Whole-card fill max (view paints `maxHeightPx`). Top + bottom inset matches
+ * start-align padding so the open card fills the column with the same gap.
+ */
+export function inCardCardFillMaxPx(cardsViewportPx: number): number {
+	return Math.max(MIN_CARD_FILL_MAX_PX, Math.max(0, cardsViewportPx - START_PADDING_PX * 2));
+}
+
 /**
  * Owns Pipeline Composer twin-pane lifecycle: both virtualizers, PeerScrollFollow,
  * UnitHighlight, multi-list FLIP layout, paired shift (`runPairedShift`),
- * scrollport chrome (end pads + YAML header→scrollMargin), and In-card still-ness
+ * scrollport chrome (end pads + card fill max + YAML header→scrollMargin), and In-card still-ness
  * (overflow lock + YAML→cards mute via phase machine).
  * View binds DOM roots, paints pad heights from session getters, and forwards UI
  * events; raw peerScroll / unitHighlight stay private.
@@ -532,6 +548,9 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		},
 		get cardsViewportPx() {
 			return cardsViewportPx;
+		},
+		get cardFillMaxPx() {
+			return inCardCardFillMaxPx(cardsViewportPx);
 		},
 		get yamlEndPadPx() {
 			return yamlEndPadPx;

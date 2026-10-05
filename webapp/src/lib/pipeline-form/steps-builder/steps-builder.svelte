@@ -40,7 +40,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		YamlPreviewPane
 	} from './_partials/index.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
-	import { START_PADDING_PX } from './scroll-follow/active-unit.js';
 	import { createTwinPaneSession } from './twin-pane-session.svelte.js';
 	import { splitPipelineYamlPreview } from './yaml-preview/index.js';
 
@@ -53,13 +52,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let addStepPane: PaneHandle | null = $state(null);
 	let stepsPane: PaneHandle | null = $state(null);
 	let rightPane: PaneHandle | null = $state(null);
-
-	/**
-	 * Top + bottom inset matching start-align scroll padding so the open card
-	 * fills the column with the same gap you see after scroll-to-top.
-	 */
-	const CARD_VIEWPORT_INSET_PX = START_PADDING_PX * 2;
-	const MIN_CARD_MAX_HEIGHT_PX = 240;
 
 	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
 	const editingSection = $derived(
@@ -111,9 +103,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	$effect(() => () => session.dispose());
 
-	const cardMaxHeightPx = $derived(
-		Math.max(MIN_CARD_MAX_HEIGHT_PX, session.cardsViewportPx - CARD_VIEWPORT_INSET_PX)
-	);
+	const cardMaxHeightPx = $derived(session.cardFillMaxPx);
 
 	const stepsVirt = session.stepsVirt;
 	const yamlVirt = session.yamlVirt;

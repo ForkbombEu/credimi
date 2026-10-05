@@ -10,7 +10,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import '../../../routes/layout.css';
-import { inCardFormHostClass } from './in-card-enter-layout.js';
+import { inCardFormHostClass } from './in-card-layout.js';
 
 /** Tall lock, short form — the Save-bar jump case during absolute-fill enter. */
 const LOCK_HEIGHT_PX = 280;

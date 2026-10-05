@@ -23,8 +23,8 @@ In Pipeline Composer, the optional behaviour that keeps the cards pane and the Y
 _Avoid_: Scroll sync (as the product name), proportional scroll, peer sync (as user-facing copy), active unit
 
 **In-card edit**:
-In Pipeline Composer, the mode where a Step or Follow-up card expands to host the edit form in place. Sibling cards and non-active YAML lines are faded. After the card is brought to the start of the cards pane, that pane stays still until the edit is saved or dismissed. Scroll follow does not peer-sync the panes while the form is open; the YAML preview can still be scrolled by itself.
-_Avoid_: Inline edit, form mode (as product copy), card expand edit, sticky card
+In Pipeline Composer, the mode where a Step or Follow-up card expands to host the edit form in place. Sibling cards and non-active YAML lines are faded. After the card is brought to the start of the cards pane, it fills that pane (start gap kept) and the pane stays still until the edit is saved or dismissed. Scroll follow does not peer-sync the panes while the form is open; the YAML preview can still be scrolled by itself.
+_Avoid_: Inline edit, form mode (as product copy), card expand edit, sticky card, column fill (as product copy)
 
 ## Pipeline editor (wallet version)
 

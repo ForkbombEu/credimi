@@ -14,12 +14,15 @@
  * 4. Dismiss only sets mode idle → same tuple identity → held survives → exit runs.
  *
  * Fix: parallel `stepKeys` / `followUpKeys` as `{#each}` keys — they survive applyEdit
- * and still move with reorder/delete. Unifying exit into enter-layout is orthogonal.
+ * and still move with reorder/delete. Exit layout (`playInCardExitLayout`) is orthogonal.
  */
 import { create } from 'mutative';
 import { describe, expect, it, vi } from 'vitest';
 
-type StepTuple = [{ use: string; id: string; with: Record<string, string> }, Record<string, string>];
+type StepTuple = [
+	{ use: string; id: string; with: Record<string, string> },
+	Record<string, string>
+];
 
 type BuilderSlice = {
 	steps: StepTuple[];

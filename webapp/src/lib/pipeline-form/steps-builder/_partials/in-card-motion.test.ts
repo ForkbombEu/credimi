@@ -11,7 +11,6 @@ vi.mock('animejs', () => ({ animate: animateMock }));
 import {
 	IN_CARD_MOTION_EASE,
 	IN_CARD_MOTION_MS,
-	bodyMaxHeightWithinCard,
 	cancelMotion,
 	playInCardEnter,
 	playInCardExit,
@@ -158,13 +157,6 @@ describe('in-card-motion', () => {
 		paramsAt(1).onComplete(); // form faded
 
 		expect(paramsAt(2).height).toEqual(['80px', '240px']);
-	});
-
-	it('bodyMaxHeightWithinCard subtracts header chrome from the card cap', () => {
-		const card = fakeEl(120, 120);
-		const display = fakeEl(80, 80);
-		expect(bodyMaxHeightWithinCard(card, display, 480)).toBe(440);
-		expect(bodyMaxHeightWithinCard(card, display, 100)).toBe(60);
 	});
 
 	it('playInCardExit shrinks lock to summary height then crossfades', async () => {

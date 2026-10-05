@@ -3,18 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * In-card enter layout protocol: owns form-host class transitions and lock
- * settled sizing around the anime primitive `playInCardEnter`.
+ * In-card enter/exit layout protocol: form-host classes, lock settled sizing,
+ * chrome→body max, and abort when enter never settled. Anime stays in
+ * `playInCardEnter` / `playInCardExit`.
  *
- * Caller's `onSettled` is for domain flags only (e.g. enterComplete) — layout
- * is applied imperatively here before `settleEnterFormHost` clears absolute fill.
+ * Caller's `onSettled` / `onComplete` are domain flags only.
  */
 
-import {
-	bodyMaxHeightWithinCard,
-	playInCardEnter,
-	type MotionHandle
-} from './_partials/in-card-motion.js';
+import { playInCardEnter, playInCardExit, type MotionHandle } from './_partials/in-card-motion.js';
 
 /**
  * Form-host classes for In-card enter vs settled/exit.
@@ -27,6 +23,21 @@ export function inCardFormHostClass(settled: boolean): string {
 	return 'pointer-events-none invisible absolute inset-0 flex min-h-0 flex-col overflow-hidden opacity-0';
 }
 
+/**
+ * How tall the form body may grow when the whole card is capped at `cardFillMaxPx`.
+ * Chrome = color bar + type header (everything in the card above `display`/`lock`).
+ */
+export function bodyMaxHeightWithinCard(
+	card: HTMLElement,
+	display: HTMLElement,
+	cardFillMaxPx: number
+): number {
+	const cardHeight = card.getBoundingClientRect().height;
+	const displayHeight = display.getBoundingClientRect().height;
+	const chromePx = Math.max(0, cardHeight - displayHeight);
+	return Math.max(0, cardFillMaxPx - chromePx);
+}
+
 export type InCardEnterLayoutSettled = {
 	/** Grown body max used for the lock (undefined when enter sized to form natural height). */
 	bodyMaxPx: number | undefined;
@@ -36,11 +47,11 @@ export type InCardEnterLayoutOptions = {
 	lock: HTMLElement;
 	display: HTMLElement;
 	form: HTMLElement;
-	/** Card root — with `cardMaxHeightPx`, computes body max via `bodyMaxHeightWithinCard`. */
+	/** Card root — with `cardFillMaxPx`, computes body max via `bodyMaxHeightWithinCard`. */
 	card?: HTMLElement;
-	/** Whole-card max height (px); chrome is subtracted when `card` is also provided. */
-	cardMaxHeightPx?: number;
-	/** Precomputed body max; wins over card + cardMaxHeightPx when finite. */
+	/** Whole-card fill max (px) from Twin-pane `cardFillMaxPx`. */
+	cardFillMaxPx?: number;
+	/** Precomputed body max; wins over card + cardFillMaxPx when finite (tests). */
 	bodyMaxPx?: number;
 	/** Domain flags only — runs after settled host/lock layout, before absolute fill clears. */
 	onSettled?: (info: InCardEnterLayoutSettled) => void | Promise<void>;
@@ -63,12 +74,12 @@ function applyLockSettledLayout(lock: HTMLElement, bodyMaxPx: number | undefined
 }
 
 function resolveBodyMaxPx(options: InCardEnterLayoutOptions): number | undefined {
-	const { bodyMaxPx, card, cardMaxHeightPx, display } = options;
+	const { bodyMaxPx, card, cardFillMaxPx, display } = options;
 	if (typeof bodyMaxPx === 'number' && Number.isFinite(bodyMaxPx)) {
 		return Math.max(0, bodyMaxPx);
 	}
-	if (card && typeof cardMaxHeightPx === 'number' && Number.isFinite(cardMaxHeightPx)) {
-		return bodyMaxHeightWithinCard(card, display, cardMaxHeightPx);
+	if (card && typeof cardFillMaxPx === 'number' && Number.isFinite(cardFillMaxPx)) {
+		return bodyMaxHeightWithinCard(card, display, cardFillMaxPx);
 	}
 	return undefined;
 }
@@ -94,5 +105,35 @@ export function playInCardEnterLayout(options: InCardEnterLayoutOptions): Motion
 			applyLockSettledLayout(lock, bodyMaxPx);
 			await onSettled?.({ bodyMaxPx });
 		}
+	});
+}
+
+export type InCardExitLayoutOptions = {
+	lock?: HTMLElement;
+	display?: HTMLElement;
+	form?: HTMLElement;
+	/** False when enter never finished — teardown without shrink. */
+	enterSettled: boolean;
+	onComplete?: () => void | Promise<void>;
+	durationMs?: number;
+};
+
+/**
+ * Exit protocol: if enter never settled, complete immediately; else shrink via anime.
+ */
+export function playInCardExitLayout(options: InCardExitLayoutOptions): MotionHandle {
+	const { lock, display, form, enterSettled, onComplete, durationMs } = options;
+	if (!enterSettled || !lock || !display || !form) {
+		const finished = Promise.resolve().then(async () => {
+			await onComplete?.();
+		});
+		return { cancel: () => {}, finished };
+	}
+	return playInCardExit({
+		lock,
+		display,
+		form,
+		onComplete,
+		durationMs
 	});
 }
