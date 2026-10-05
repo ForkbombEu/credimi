@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { WorkflowStatus as Tag } from '@forkbombeu/temporal-ui';
 	import { CircleQuestionMarkIcon } from '@lucide/svelte';
 
 	import FailureText from '@/components/ui-custom/failure-text.svelte';
@@ -13,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { WorkflowStatus } from './types';
 
-	//
+	import WorkflowStatusBadge from './workflow-status.svelte';
 
 	type Props = {
 		status: WorkflowStatus;
@@ -22,12 +21,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { status, failureReason, size = 'md' }: Props = $props();
-
-	//
 </script>
 
 <div class={['flex origin-left gap-1', size === 'sm' && 'scale-75']}>
-	<Tag {status} />
+	<WorkflowStatusBadge {status} />
 	{#if failureReason}
 		<Popover
 			buttonVariants={{ variant: 'outline' }}

@@ -38,6 +38,7 @@ export async function highlightYamlFragment(content: string, theme: BundledTheme
 				pre(node) {
 					this.addClassToHast(node, [
 						'yaml-preview-block-pre',
+						'scrollbar-on-dark',
 						'w-full',
 						'min-w-full',
 						'overflow-x-auto',

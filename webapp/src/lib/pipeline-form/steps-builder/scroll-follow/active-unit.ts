@@ -4,9 +4,9 @@
 
 import { browserClock, type ComposerClock } from '../composer-clock.js';
 import type { AnimatableScroll } from './animatable-scroll.js';
-import type { CardSection } from './card-section.js';
 
-export type { CardSection } from './card-section.js';
+/** Card / YAML twin pane section: top-level steps vs finally follow-ups. */
+export type CardSection = 'steps' | 'follow-ups';
 
 export type ActiveUnit = {
 	section: CardSection;
@@ -55,6 +55,13 @@ export type ScrollUnitIntoViewOptions = {
 	animatableScroll?: AnimatableScroll;
 	/** Per-call Animatable duration override (ms). */
 	durationMs?: number;
+	/**
+	 * When true, skip scrolling if `el` still intersects the scroller (partial
+	 * clip is OK). Used after paired reorder so mid-list downs that leave the
+	 * moved card peeking below the fold do not nearest-scroll and eject the
+	 * swap target above the top.
+	 */
+	onlyIfOutside?: boolean;
 };
 
 /**
@@ -167,7 +174,7 @@ export function resolveViewportUnit(
 					: parseUnit(items[0]!, pane);
 				if (!start) return null;
 				const startEl = findUnit(scrollContainer, start, pane);
-				if (!startEl || !elementIntersectsScroller(startEl, scrollContainer)) return null;
+				if (!startEl || !unitIntersectsScroller(startEl, scrollContainer)) return null;
 				return start;
 			}
 			return (
@@ -202,10 +209,7 @@ export function resolveViewportUnit(
 	}
 	if (!best) return null;
 
-	if (
-		pane.topEdgePolicy === 'intersect' &&
-		!elementIntersectsScroller(best.el, scrollContainer)
-	) {
+	if (pane.topEdgePolicy === 'intersect' && !unitIntersectsScroller(best.el, scrollContainer)) {
 		return null;
 	}
 
@@ -229,6 +233,69 @@ export function resolveViewportUnit(
 	return best.unit;
 }
 
+/** Ignore sub-pixel / border clipping when deciding if a card top is in-port. */
+const TOP_CLIP_EPSILON_PX = 1;
+
+/**
+ * Pick the topmost unit that meaningfully leads the cards viewport for
+ * continuous cards→YAML peer follow (unequal heights). Center hysteresis stays
+ * on `resolveViewportUnit` (YAML→cards).
+ *
+ * Prefers cards whose **top edge is inside** the scroller (not clipped above the
+ * fold). A sliver still intersecting from above must not keep owning follow —
+ * otherwise a barely-peeking card with long YAML stays locked in the peer pane.
+ * Falls back to any intersecting card only when nothing unclipped is visible.
+ *
+ * At absolute scroll top, reuses list-end start policy (`claim` / `intersect` +
+ * optional `lengths`) so virtualization does not pin the first *mounted* card.
+ */
+export function resolveTopmostVisibleUnit(
+	scrollContainer: HTMLElement,
+	pane: PaneAdapter,
+	lengths?: CardListLengths
+): ActiveUnit | null {
+	const items = [...scrollContainer.querySelectorAll<HTMLElement>(pane.listQuery)];
+	if (items.length === 0) return null;
+
+	const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+	if (maxScroll > 0 && scrollContainer.scrollTop <= 2) {
+		if (pane.topEdgePolicy === 'intersect') {
+			const start = lengths
+				? resolveListEndUnit(lengths, 'start')
+				: parseUnit(items[0]!, pane);
+			if (!start) return null;
+			const startEl = findUnit(scrollContainer, start, pane);
+			if (!startEl || !unitIntersectsScroller(startEl, scrollContainer)) return null;
+			return start;
+		}
+		return (
+			(lengths ? resolveListEndUnit(lengths, 'start') : null) ??
+			parseUnit(items[0]!, pane) ??
+			null
+		);
+	}
+
+	const portTop = scrollContainer.getBoundingClientRect().top;
+	let bestUnclipped: { unit: ActiveUnit; top: number } | null = null;
+	let bestAny: { unit: ActiveUnit; top: number } | null = null;
+	for (const el of items) {
+		const unit = parseUnit(el, pane);
+		if (!unit) continue;
+		if (!unitIntersectsScroller(el, scrollContainer)) continue;
+		const top = el.getBoundingClientRect().top;
+		if (!bestAny || top < bestAny.top) {
+			bestAny = { unit, top };
+		}
+		// Top edge still in-port → card actually leads the visible list.
+		if (top >= portTop - TOP_CLIP_EPSILON_PX) {
+			if (!bestUnclipped || top < bestUnclipped.top) {
+				bestUnclipped = { unit, top };
+			}
+		}
+	}
+	return bestUnclipped?.unit ?? bestAny?.unit ?? null;
+}
+
 /**
  * Scroll a pane unit into view. When the unit is not mounted and `ensureMounted` is
  * provided, awaits mount then retries. Without `ensureMounted`, missing units
@@ -248,6 +315,9 @@ export async function scrollUnitIntoView(
 		el = findUnit(scrollContainer, unit, pane);
 	}
 	if (!el) return false;
+	if (options?.onlyIfOutside && unitIntersectsScroller(el, scrollContainer)) {
+		return false;
+	}
 	const align = options?.align ?? 'center';
 	const scrolled = scrollChildIntoScroller(scrollContainer, el, behavior, align, {
 		animatableScroll: options?.animatableScroll,
@@ -357,7 +427,8 @@ export function computeNearestScrollTop(
 	return scrollTop + (elRect.bottom - visibleBottom);
 }
 
-function elementIntersectsScroller(el: HTMLElement, scroller: HTMLElement): boolean {
+/** True when `el` overlaps the scroller's client rect (partial clip counts). */
+export function unitIntersectsScroller(el: HTMLElement, scroller: HTMLElement): boolean {
 	const elRect = el.getBoundingClientRect();
 	const port = scroller.getBoundingClientRect();
 	return elRect.bottom > port.top && elRect.top < port.bottom;

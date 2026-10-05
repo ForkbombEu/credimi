@@ -212,6 +212,9 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 						err.Error(),
 					)
 				}
+				if !heartbeatNeedsSemaphoreUpdate(e.Request.Context(), deviceID, true) {
+					continue
+				}
 				if err := resumeRunnerSemaphore(
 					e.Request.Context(),
 					deviceID,
@@ -225,6 +228,9 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 						err.Error(),
 					)
 				}
+				continue
+			}
+			if !heartbeatNeedsSemaphoreUpdate(e.Request.Context(), deviceID, false) {
 				continue
 			}
 			_, err := updateRunnerSemaphore(
@@ -251,6 +257,23 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, true))
 	}
+}
+
+// heartbeatNeedsSemaphoreUpdate reports whether a heartbeat must change the
+// device semaphore. Heartbeats repeat every interval with a fresh request ID,
+// so each pause or resume they send is a distinct Temporal update; the server
+// caps those per workflow run, and a device that stays offline would otherwise
+// add one every heartbeat until the semaphore rejects all updates. A failed
+// query still sends the update so the semaphore cannot drift from the runner.
+func heartbeatNeedsSemaphoreUpdate(ctx context.Context, deviceID string, online bool) bool {
+	state, err := queryMobileDeviceSemaphoreState(ctx, deviceID)
+	if errors.Is(err, errSemaphoreNotFound) {
+		return false
+	}
+	if err != nil {
+		return true
+	}
+	return state.Paused == online
 }
 
 func applyRunnerHeartbeatDevices(

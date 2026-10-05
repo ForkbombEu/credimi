@@ -283,6 +283,7 @@ var DefaultWorkers = []workerConfig{
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewHTTPActivity(),
 			activities.NewInternalHTTPActivity(),
+			activities.NewMobileRunnerHTTPActivity(),
 		},
 	},
 	{

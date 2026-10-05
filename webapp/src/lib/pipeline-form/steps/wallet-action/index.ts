@@ -16,11 +16,7 @@ import { m } from '@/i18n/index.js';
 import type { WalletActionStepData } from './types.js';
 
 import CardDetailsComponent from './card-details.svelte';
-import {
-	deserializeWalletAction,
-	makeWalletActionId,
-	serializeWalletAction
-} from './codec.js';
+import { deserializeWalletAction, makeWalletActionId, serializeWalletAction } from './codec.js';
 import { InlineWalletActionStepForm } from './inline-wallet-action-step-form.svelte.js';
 import { getDeviceLabel, getVersionLabel } from './labels.js';
 import { isInlineWalletActionStepData } from './types.js';
@@ -32,10 +28,7 @@ export type {
 	WalletActionStepData
 } from './types.js';
 export { isInlineWalletActionStepData, isStoredWalletActionStepData } from './types.js';
-export {
-	applyWalletActionStepVersion,
-	isMatchingMobileStepData
-} from './change-wallet-version.js';
+export { applyWalletActionStepVersion, isMatchingMobileStepData } from './change-wallet-version.js';
 export { InlineWalletActionStepForm } from './inline-wallet-action-step-form.svelte.js';
 export { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 

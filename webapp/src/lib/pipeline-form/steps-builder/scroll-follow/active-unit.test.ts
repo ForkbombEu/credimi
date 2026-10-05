@@ -12,6 +12,7 @@ import {
 	computeNearestScrollTop,
 	ensureMountedForStepsVirtualizer,
 	resolveListEndUnit,
+	resolveTopmostVisibleUnit,
 	resolveViewportUnit,
 	scrollUnitIntoView,
 	watchDrivenScroll,
@@ -49,6 +50,21 @@ describe('computeNearestScrollTop', () => {
 
 	it('scrolls down when below the viewport', () => {
 		expect(computeNearestScrollTop(0, 400, { top: 480, bottom: 560 }, scroller)).toBe(60);
+	});
+
+	it('mid-list double-down nearest reveal would eject the swap target above the fold', () => {
+		// Why single-unit nearest post-reorder was unsafe (ADR-0001 uses pair
+		// framing instead): after two center downs with tall cards, nearest on
+		// the moved card scrolls enough that the upward swap partner sits above
+		// the viewport top.
+		const viewportH = 400;
+		const scrollTop = 340;
+		const port = { top: 100, bottom: 500 };
+		const moved = { top: 100 + (880 - scrollTop), bottom: 100 + (1100 - scrollTop) };
+		const next = computeNearestScrollTop(scrollTop, viewportH, moved, port);
+		expect(next).not.toBeNull();
+		const targetTopInPort = 100 + (660 - next!);
+		expect(targetTopInPort).toBeLessThan(port.top);
 	});
 });
 
@@ -304,6 +320,120 @@ describe('resolveViewportUnit (cards)', () => {
 			section: 'steps',
 			index: 1392
 		});
+	});
+});
+
+describe('resolveTopmostVisibleUnit (cards)', () => {
+	type Rect = { top: number; bottom: number; height: number };
+
+	function makeRect(rect: Rect): DOMRect {
+		return {
+			top: rect.top,
+			bottom: rect.bottom,
+			height: rect.height,
+			left: 0,
+			right: 100,
+			width: 100,
+			x: 0,
+			y: rect.top,
+			toJSON() {
+				return this;
+			}
+		} as DOMRect;
+	}
+
+	type CardStub = {
+		getAttribute(name: string): string | null;
+		getBoundingClientRect(): DOMRect;
+	};
+
+	function createScroller(
+		cards: { section: string; index: number; top: number; bottom: number }[]
+	) {
+		const cardEls: CardStub[] = cards.map((c) => ({
+			getAttribute(name: string) {
+				if (name === 'data-card-section') return c.section;
+				if (name === 'data-card-index') return String(c.index);
+				return null;
+			},
+			getBoundingClientRect: () =>
+				makeRect({ top: c.top, bottom: c.bottom, height: c.bottom - c.top })
+		}));
+
+		return {
+			querySelectorAll() {
+				return cardEls;
+			},
+			getBoundingClientRect: () => makeRect({ top: 0, bottom: 400, height: 400 }),
+			clientHeight: 400,
+			scrollHeight: 2000,
+			scrollTop: 100
+		};
+	}
+
+	it('returns null when no cards are mounted', () => {
+		const scroller = createScroller([]);
+		expect(resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)).toBeNull();
+	});
+
+	it('picks the topmost intersecting card over the vertical center', () => {
+		// Short card at top; tall middle card owns the viewport center (200).
+		const scroller = createScroller([
+			{ section: 'steps', index: 0, top: 10, bottom: 90 },
+			{ section: 'steps', index: 1, top: 90, bottom: 500 },
+			{ section: 'steps', index: 2, top: 500, bottom: 580 }
+		]);
+		expect(resolveViewportUnit(scroller as unknown as HTMLElement, null, CARD_PANE)).toEqual({
+			section: 'steps',
+			index: 1
+		});
+		expect(resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)).toEqual({
+			section: 'steps',
+			index: 0
+		});
+	});
+
+	it('skips a top-clipped sliver so the next in-port card leads follow', () => {
+		// Index 0 barely peeks from above; index 1 has its top inside the port.
+		const scroller = createScroller([
+			{ section: 'steps', index: 0, top: -60, bottom: 20 },
+			{ section: 'steps', index: 1, top: 20, bottom: 400 },
+			{ section: 'steps', index: 2, top: 400, bottom: 480 }
+		]);
+		expect(resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)).toEqual({
+			section: 'steps',
+			index: 1
+		});
+	});
+
+	it('falls back to a top-clipped card when it is the only intersection', () => {
+		const scroller = createScroller([{ section: 'steps', index: 0, top: -40, bottom: 30 }]);
+		expect(resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)).toEqual({
+			section: 'steps',
+			index: 0
+		});
+	});
+
+	it('ignores cards fully below the viewport', () => {
+		const scroller = createScroller([
+			{ section: 'steps', index: 0, top: 500, bottom: 580 },
+			{ section: 'steps', index: 1, top: 600, bottom: 680 }
+		]);
+		expect(resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE)).toBeNull();
+	});
+
+	it('uses length hints at absolute top so true list start wins', () => {
+		const scroller = createScroller([
+			{ section: 'steps', index: 5, top: 20, bottom: 100 },
+			{ section: 'steps', index: 6, top: 100, bottom: 180 }
+		]);
+		scroller.scrollTop = 0;
+		expect(
+			resolveTopmostVisibleUnit(scroller as unknown as HTMLElement, CARD_PANE, {
+				steps: 1400,
+				followUps: 0
+			})
+		).toEqual({ section: 'steps', index: 0 });
 	});
 });
 

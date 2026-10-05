@@ -3,32 +3,43 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EnrichedPipeline } from '$lib/pipeline-form/functions.js';
+import type { PipelinesResponse } from '@/pocketbase/types/index.generated';
 
-import { getEnrichedPipeline } from '$lib/pipeline-form/functions';
+import { getEnrichedPipeline, minimalEnrichedPipeline } from '$lib/pipeline-form/functions';
 
 //
 
-function minimalPipeline(record: EnrichedPipeline['record']): EnrichedPipeline {
-	return { record, steps: [], runtime: undefined };
+export type EditPipelineLoad = {
+	pipeline: EnrichedPipeline;
+	startLockedManual?: true;
+};
+
+async function loadEditPipeline(
+	record: PipelinesResponse,
+	fetchFn: typeof fetch
+): Promise<EditPipelineLoad> {
+	if (!record.manual) {
+		try {
+			return { pipeline: await getEnrichedPipeline(record.id, { fetch: fetchFn }) };
+		} catch {
+			// Enrichment failed — fall back to locked manual edit of the raw YAML.
+		}
+	}
+
+	return {
+		pipeline: minimalEnrichedPipeline(record),
+		startLockedManual: true
+	};
 }
 
+/**
+ * Return enrichment as an unresolved Promise so client-side navigation can
+ * reach the edit page immediately; the page shows a loading overlay via `{#await}`.
+ */
 export const load = async ({ fetch, parent }) => {
 	const { pipeline: record } = await parent();
 
-	if (record.manual) {
-		return {
-			pipeline: minimalPipeline(record),
-			startLockedManual: true as const
-		};
-	}
-
-	try {
-		const enriched = await getEnrichedPipeline(record.id, { fetch });
-		return { pipeline: enriched };
-	} catch {
-		return {
-			pipeline: minimalPipeline(record),
-			startLockedManual: true as const
-		};
-	}
+	return {
+		edit: loadEditPipeline(record, fetch)
+	};
 };

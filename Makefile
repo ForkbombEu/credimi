@@ -202,10 +202,10 @@ lint: devtools ## 📑 lint rules checks
 	$(GOMOD) verify
 	$(GOCMD) vet $(SUBDIRS)
 	$(GOTOOL) govulncheck $(SUBDIRS)
-	$(GOTOOL) golangci-lint run $(SUBDIRS)
+	golangci-lint run $(SUBDIRS)
 
 fmt: devtools ## 🗿 format rules checks
-	$(GOFMT) $(GODIRS)
+	golangci-lint fmt $(SUBDIRS)
 
 tidy: $(GOMOD_FILES)
 	@$(GOMOD) tidy

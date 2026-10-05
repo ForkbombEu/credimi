@@ -6,7 +6,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
-	import type { Attachment } from 'svelte/attachments';
 
 	import {
 		BlocksIcon,
@@ -19,8 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Render, type SelfProp } from '$lib/renderable';
 	import * as steps from '$pipeline-form/steps';
 	import { String as EffectString } from 'effect';
-	import { tick } from 'svelte';
-	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -42,24 +39,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		StepCard,
 		YamlPreviewPane
 	} from './_partials/index.js';
-	import {
-		createComposerVirtualizer,
-		DEFAULT_STEP_ESTIMATE_SIZE,
-		DEFAULT_YAML_STEP_ESTIMATE_SIZE,
-		stepCardSelector,
-		yamlStepBlockSelector
-	} from './composer-virtualizer.svelte.js';
+	import { stableItemKey } from './composer-virtualizer.svelte.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
-	import {
-		ensureMountedForStepsVirtualizer,
-		type ActiveUnit
-	} from './scroll-follow/active-unit.js';
-	import { PeerScrollFollow } from './scroll-follow/peer-scroll-follow.svelte.js';
-	import {
-		composeAttachments,
-		endPadAttach
-	} from './scroll-follow/scrollport-attachments.js';
-	import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
+	import { createTwinPaneSession } from './twin-pane-session.svelte.js';
 	import { splitPipelineYamlPreview } from './yaml-preview/index.js';
 
 	//
@@ -71,22 +53,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let addStepPane: PaneHandle | null = $state(null);
 	let stepsPane: PaneHandle | null = $state(null);
 	let rightPane: PaneHandle | null = $state(null);
-	/** Cards column scrollport — TanStack virtualizer + peer-scroll share this element. */
-	let cardsScrollContainer: HTMLElement | null = $state(null);
-	/** YAML preview column scrollport — virtual step blocks + peer-scroll. */
-	let yamlScrollContainer: HTMLElement | null = $state(null);
-	/** Half-viewport end pad so the last (short) card can scroll to center. */
-	let cardsEndPadPx = $state(0);
-	let yamlEndPadPx = $state(0);
-	/** Header height inside the YAML scroller — TanStack scrollMargin for step blocks. */
-	let yamlScrollMargin = $state(0);
-
-	const cardsEndPadAttach = endPadAttach((px) => {
-		cardsEndPadPx = px;
-	});
-	const yamlEndPadAttach = endPadAttach((px) => {
-		yamlEndPadPx = px;
-	});
 
 	const formMode = $derived(builder.mode.id === 'form' ? builder.mode : null);
 	const editingSection = $derived(
@@ -99,7 +65,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const rightColumnTitle = $derived(builder.isManualMode ? m.manual_edit() : m.YAML_preview());
 
 	let lastAppliedManualMode: boolean | null = null;
-	let lastFocusedCardToken = 0;
 
 	const yamlParts = $derived(
 		builder.isManualMode || EffectString.isEmpty(builder.yamlPreview)
@@ -107,85 +72,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			: splitPipelineYamlPreview(builder.yamlPreview)
 	);
 
-	const stepsVirtualizer = createComposerVirtualizer({
-		getCount: () => builder.steps.length,
-		getScrollElement: () => cardsScrollContainer,
-		itemSelector: stepCardSelector,
-		estimateSize: () => DEFAULT_STEP_ESTIMATE_SIZE
-	});
-	/** Store auto-subscribe target — `$stepsVirt` in markup. */
-	const stepsVirt = stepsVirtualizer.virtualizer;
+	const stepItemKey = (index: number) => stableItemKey(builder.steps[index], index);
 
-	const yamlVirtualizer = createComposerVirtualizer({
-		getCount: () => yamlParts.steps.length,
-		getScrollElement: () => yamlScrollContainer,
-		getScrollMargin: () => yamlScrollMargin,
-		itemSelector: yamlStepBlockSelector,
-		estimateSize: () => DEFAULT_YAML_STEP_ESTIMATE_SIZE
-	});
-
-	const measureStepCard: Attachment = (node) => {
-		stepsVirtualizer.measureElement(node);
-	};
-
-	const listLengths = () => ({
-		steps: builder.steps.length,
-		followUps: builder.followUps.length
-	});
-
-	const peerScroll = new PeerScrollFollow({
-		// Mount with instant scrollToIndex — the peer/reveal path owns the single smooth align.
-		// Competing smooth animations (estimate → measure → realign) read as choppy jumps.
-		ensureMounted: ensureMountedForStepsVirtualizer((index) =>
-			stepsVirtualizer.ensureStepVisible(index, { behavior: 'auto' })
-		),
-		ensureMountedYaml: ensureMountedForStepsVirtualizer((index) =>
-			yamlVirtualizer.ensureStepVisible(index, { behavior: 'auto' })
-		),
-		getCardLengths: listLengths,
-		getYamlLengths: listLengths
-	});
-	const unitHighlight = new UnitHighlight({
+	const session = createTwinPaneSession({
+		getStepsCount: () => builder.steps.length,
+		getYamlStepsCount: () => yamlParts.steps.length,
+		getItemKey: stepItemKey,
 		getIsManual: () => builder.isManualMode,
 		getEditingIndex: () => editingIndex,
-		getEditingSection: () => editingSection ?? 'steps'
+		getEditingSection: () => editingSection ?? 'steps',
+		getYamlPreview: () => builder.yamlPreview,
+		getFollowUpsLength: () => builder.followUps.length,
+		getCreatedCard: () => builder.createdCard,
+		canShiftStep: (index, change) => builder.canShiftStep(index, change),
+		mutateShiftStep: (index, change) => builder.shiftStep(index, change),
+		bindComposerScroll: (handlers) => builder.bindComposerScroll(handlers)
 	});
 
-	builder.bindComposerScroll({
-		onRevealStep: (index) => {
-			if (builder.isManualMode) return;
-			const unit: ActiveUnit = { section: 'steps', index };
-			// Wait for the new card to mount before scrolling.
-			void tick().then(() => peerScroll.onReveal(unit));
-		},
-		onEditFocus: (stepIndex) => {
-			if (builder.isManualMode) return;
-			peerScroll.onEditFocus(stepIndex);
-		}
-	});
+	$effect(() => () => session.dispose());
 
-	const yamlPreviewEmpty = $derived(EffectString.isEmpty(builder.yamlPreview));
-	const yamlScrollAttach = $derived(
-		builder.isManualMode || yamlPreviewEmpty
-			? undefined
-			: composeAttachments(peerScroll.yamlAttach, yamlEndPadAttach)
-	);
+	const stepsVirt = session.stepsVirt;
+	const yamlVirt = session.yamlVirt;
+	const { measureStepCard, measureYamlStep } = session;
 
-	// Compose peer-scroll + end-pad; identity stable unless isManualMode flips.
-	const cardsScrollAttach = $derived(
-		composeAttachments(
-			!builder.isManualMode ? peerScroll.cardsAttach : undefined,
-			cardsEndPadAttach
-		)
-	);
-
-	$effect(() => () => {
-		builder.bindComposerScroll({});
-		peerScroll.dispose();
-		unitHighlight.dispose();
-		stepsVirtualizer.dispose();
-		yamlVirtualizer.dispose();
-	});
+	const yamlScrollAttach = $derived(session.yamlScrollAttach);
+	const cardsScrollAttach = $derived(session.cardsScrollAttach);
 
 	$effect(() => {
 		const isManual = builder.isManualMode;
@@ -205,58 +116,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			rightPane.resize(layout.right);
 		}
 	});
-
-	$effect(() => {
-		const createdCard = builder.createdCard;
-		if (!createdCard || createdCard.token === lastFocusedCardToken) return;
-
-		lastFocusedCardToken = createdCard.token;
-		void tick().then(async () => {
-			if (createdCard.section === 'steps') {
-				await stepsVirtualizer.ensureStepVisible(createdCard.index, {
-					align: 'auto',
-					behavior: 'smooth'
-				});
-			}
-			const scroller = cardsScrollContainer;
-			const selector = `[data-card-section="${createdCard.section}"][data-card-index="${createdCard.index}"]`;
-			const card =
-				scroller?.querySelector<HTMLElement>(selector) ??
-				document.querySelector<HTMLElement>(selector);
-			if (createdCard.section !== 'steps') {
-				card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-			}
-			card?.focus({ preventScroll: true });
-		});
-	});
-
-	// Debounced re-follow when YAML text regenerates (not when activeUnit changes —
-	// that dependency was yanking YAML to start-band ~130ms after each step change).
-	$effect(() => {
-		if (!peerScroll.enabled || builder.isManualMode) return;
-		const yaml = builder.yamlPreview;
-		const parts = yamlParts;
-		if (!yaml || parts.steps.length === 0) return;
-		return peerScroll.onYamlTextChanged();
-	});
-
-	function setScrollFollowEnabled(checked: boolean) {
-		peerScroll.setEnabled(checked, editingSection === 'steps' ? editingIndex : undefined);
-	}
-
-	function onYamlUnitClick(unit: ActiveUnit) {
-		const pinned = unitHighlight.pinUnit(unit);
-		if (!pinned) return;
-		peerScroll.followUnit(pinned, 'yaml');
-	}
-
-	function onYamlUnitHover(unit: ActiveUnit | null) {
-		if (unit === null) {
-			unitHighlight.clearHover();
-			return;
-		}
-		unitHighlight.hoverCard(unit);
-	}
 </script>
 
 <Resizable.PaneGroup direction="horizontal" class="min-h-0 grow gap-2">
@@ -333,10 +192,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Column
 		bind:pane={stepsPane}
-		bind:scrollContainer={cardsScrollContainer}
+		bind:scrollContainer={session.cardsScroller}
 		scrollAttach={cardsScrollAttach}
 		title={m.Steps_sequence()}
-		contentClass="scrollbar-thin scrollbar-thumb-primary scrollbar-track-muted"
 		defaultSize={LAYOUT.blocks.stepsSequence}
 		order={2}
 		disabled={builder.isManualMode}
@@ -363,28 +221,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if builder.steps.length > 0}
 				<!--
 					Virtual window for steps only: absolute rows + measureElement.
-					Use top (not transform) so animate:flip can own transform.
-					pb-3 approximates former space-y-3 gaps inside measured size.
+					Use top (not transform) for TanStack placement; reorder FLIP
+					animates translateY only. pb-3 approximates former space-y-3 gaps.
 				-->
-				<div class="relative w-full" style:height="{$stepsVirt.getTotalSize()}px">
-					{#each $stepsVirt.getVirtualItems() as vItem (builder.steps[vItem.index] ?? vItem.key)}
+				<div
+					bind:this={session.stepsLayoutRoot}
+					class="relative w-full"
+					style:height="{$stepsVirt.getTotalSize()}px"
+				>
+					{#each $stepsVirt.getVirtualItems() as vItem (vItem.key)}
 						{@const step = builder.steps[vItem.index]}
 						{@const index = vItem.index}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
-							animate:flip={{ duration: 300 }}
 							{@attach measureStepCard}
 							data-index={index}
 							data-card-section="steps"
 							data-card-index={index}
-							class="absolute left-0 w-full pb-3"
+							class="absolute left-0 w-full cursor-pointer pb-3"
 							style:top="{vItem.start}px"
 							role="group"
 							tabindex="-1"
+							onclick={() =>
+								session.onUnitClick({ section: 'steps', index }, 'cards')}
 							onmouseenter={() => {
-								unitHighlight.hoverCard({ section: 'steps', index });
+								session.hoverCard({ section: 'steps', index });
 							}}
 							onmouseleave={() => {
-								unitHighlight.clearHoverCard({ section: 'steps', index });
+								session.clearHoverCard({ section: 'steps', index });
 							}}
 						>
 							{#if step}
@@ -393,8 +258,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{step}
 									{index}
 									editing={editingSection === 'steps' && editingIndex === index}
-									selected={unitHighlight.isCardSelected('steps', index)}
-									hovered={unitHighlight.isCardHovered('steps', index)}
+									selected={session.isCardSelected('steps', index)}
+									hovered={session.isCardHovered('steps', index)}
+									onShift={(change) => session.shiftStep(index, change)}
 								/>
 							{/if}
 						</div>
@@ -413,17 +279,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if builder.followUps.length > 0}
 				<div class="space-y-3">
 					{#each builder.followUps as followUp, index (followUp)}
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
-							animate:flip={{ duration: 300 }}
 							data-card-section="follow-ups"
 							data-card-index={index}
+							class="cursor-pointer"
 							role="group"
 							tabindex="-1"
+							onclick={() =>
+								session.onUnitClick({ section: 'follow-ups', index }, 'cards')}
 							onmouseenter={() => {
-								unitHighlight.hoverCard({ section: 'follow-ups', index });
+								session.hoverCard({ section: 'follow-ups', index });
 							}}
 							onmouseleave={() => {
-								unitHighlight.clearHoverCard({ section: 'follow-ups', index });
+								session.clearHoverCard({ section: 'follow-ups', index });
 							}}
 						>
 							<FollowUpCard
@@ -431,8 +301,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{followUp}
 								{index}
 								editing={editingSection === 'follow-ups' && editingIndex === index}
-								selected={unitHighlight.isCardSelected('follow-ups', index)}
-								hovered={unitHighlight.isCardHovered('follow-ups', index)}
+								selected={session.isCardSelected('follow-ups', index)}
+								hovered={session.isCardHovered('follow-ups', index)}
 							/>
 						</div>
 					{/each}
@@ -444,7 +314,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<!-- End pad after all content so peer-follow can center short cards without a gap before Follow-ups. -->
 			<div
 				class="pointer-events-none shrink-0"
-				style:height="{cardsEndPadPx}px"
+				style:height="{session.cardsEndPadPx}px"
 				aria-hidden="true"
 			></div>
 		</div>
@@ -454,10 +324,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Column
 		bind:pane={rightPane}
-		bind:scrollContainer={yamlScrollContainer}
+		bind:scrollContainer={session.yamlScroller}
 		scrollAttach={yamlScrollAttach}
 		title={rightColumnTitle}
 		class="card min-w-0 overflow-hidden"
+		contentClass="scrollbar-on-dark bg-[#303446]"
 		defaultSize={LAYOUT.blocks.right}
 		order={3}
 	>
@@ -469,8 +340,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						title={m.Scroll_follow()}
 					>
 						<Switch
-							checked={peerScroll.enabled}
-							onCheckedChange={setScrollFollowEnabled}
+							checked={session.followEnabled}
+							onCheckedChange={(checked) => session.setFollowEnabled(checked)}
 							class="shrink-0 scale-75"
 						/>
 						<span class="truncate">{m.Scroll_follow()}</span>
@@ -508,17 +379,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<YamlPreviewPane
 				yaml={builder.yamlPreview}
 				parts={yamlParts}
-				{yamlVirtualizer}
-				scrollMargin={yamlScrollMargin}
-				scrollContainer={yamlScrollContainer}
-				isUnitSelected={(section, index) => unitHighlight.isCardSelected(section, index)}
-				isUnitHovered={(section, index) => unitHighlight.isCardHovered(section, index)}
-				onUnitClick={onYamlUnitClick}
-				onUnitHover={onYamlUnitHover}
-				onHeaderHeightChange={(h) => {
-					yamlScrollMargin = h;
-				}}
-				endPadPx={yamlEndPadPx}
+				{yamlVirt}
+				{measureYamlStep}
+				scrollMargin={session.yamlScrollMargin}
+				scrollContainer={session.yamlScroller}
+				bind:stepsListEl={session.yamlStepsLayoutRoot}
+				isUnitSelected={(section, index) => session.isCardSelected(section, index)}
+				isUnitHovered={(section, index) => session.isCardHovered(section, index)}
+				onUnitClick={(unit) => session.onUnitClick(unit, 'yaml')}
+				onUnitHover={(unit) => session.onYamlUnitHover(unit)}
+				onHeaderHeightChange={(h) => session.setYamlHeaderHeight(h)}
+				endPadPx={session.yamlEndPadPx}
 			/>
 		{/if}
 	</Column>

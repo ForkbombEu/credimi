@@ -5,13 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { TemporalI18nProvider } from '$lib/temporal';
-
 	import type { SidebarItemComponentProps } from '../sidebar';
 
 	import { ExtendedStatusTag, isExtendedWorkflowStatus } from '../../tests/runs/_partials';
-
-	//
 
 	let { title }: SidebarItemComponentProps = $props();
 
@@ -22,7 +18,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if status}
-	<TemporalI18nProvider>
-		<ExtendedStatusTag {status} />
-	</TemporalI18nProvider>
+	<ExtendedStatusTag {status} />
 {/if}

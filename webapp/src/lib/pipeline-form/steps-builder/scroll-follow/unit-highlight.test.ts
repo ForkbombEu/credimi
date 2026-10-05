@@ -4,7 +4,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { UnitHighlight, resolveSelectedUnit } from './unit-highlight.svelte.js';
+import {
+	UnitHighlight,
+	remapUnitAfterAdjacentSwap,
+	resolveSelectedUnit
+} from './unit-highlight.svelte.js';
 
 describe('resolveSelectedUnit', () => {
 	it('prefers edit focus over pin; clears in manual', () => {
@@ -69,5 +73,55 @@ describe('UnitHighlight', () => {
 		highlight.clearHover();
 		expect(highlight.hoveredUnit).toBeNull();
 		highlight.dispose();
+	});
+
+	it('remapStepsAfterAdjacentSwap keeps pin and hover on the moved step identity', () => {
+		const highlight = new UnitHighlight({
+			getIsManual: () => false,
+			getEditingIndex: () => undefined
+		});
+
+		highlight.pinUnit({ section: 'steps', index: 1 });
+		highlight.hoverCard({ section: 'steps', index: 2 });
+
+		// Swap 1 ↔ 2: selected step moves to index 2; hovered partner to 1.
+		highlight.remapStepsAfterAdjacentSwap(1, 2);
+		expect(highlight.pinnedUnit).toEqual({ section: 'steps', index: 2 });
+		expect(highlight.hoveredUnit).toEqual({ section: 'steps', index: 1 });
+		expect(highlight.isCardSelected('steps', 2)).toBe(true);
+		expect(highlight.isCardSelected('steps', 1)).toBe(false);
+
+		// Unrelated swap leaves pin alone.
+		highlight.remapStepsAfterAdjacentSwap(3, 4);
+		expect(highlight.pinnedUnit).toEqual({ section: 'steps', index: 2 });
+
+		// Follow-ups pins are not remapped by a steps swap.
+		highlight.pinUnit({ section: 'follow-ups', index: 0 });
+		highlight.remapStepsAfterAdjacentSwap(0, 1);
+		expect(highlight.pinnedUnit).toEqual({ section: 'follow-ups', index: 0 });
+
+		highlight.dispose();
+	});
+});
+
+describe('remapUnitAfterAdjacentSwap', () => {
+	it('swaps the two indices; leaves others and other sections alone', () => {
+		expect(remapUnitAfterAdjacentSwap(null, 1, 2)).toBeNull();
+		expect(remapUnitAfterAdjacentSwap({ section: 'steps', index: 1 }, 1, 2)).toEqual({
+			section: 'steps',
+			index: 2
+		});
+		expect(remapUnitAfterAdjacentSwap({ section: 'steps', index: 2 }, 1, 2)).toEqual({
+			section: 'steps',
+			index: 1
+		});
+		expect(remapUnitAfterAdjacentSwap({ section: 'steps', index: 0 }, 1, 2)).toEqual({
+			section: 'steps',
+			index: 0
+		});
+		expect(remapUnitAfterAdjacentSwap({ section: 'follow-ups', index: 1 }, 1, 2)).toEqual({
+			section: 'follow-ups',
+			index: 1
+		});
 	});
 });

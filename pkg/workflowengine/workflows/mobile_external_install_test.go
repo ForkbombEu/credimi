@@ -47,7 +47,8 @@ func TestMobileAutomationWorkflowChecksExternallyInstalledApp(t *testing.T) {
 		payload := workflowengine.AsMap(input.Payload)
 		return payload["device_id"] == "acme/runner/pixel" && payload["serial"] == "serial-1"
 	})).
-		Return(workflowengine.ActivityResult{Output: map[string]any{"status": "ok"}}, nil).Once()
+		Return(workflowengine.ActivityResult{Output: map[string]any{"status": "ok"}}, nil).
+		Once()
 	for _, apps := range [][]string{
 		{"com.example.old"},
 		{"com.example.installed", "com.example.old"},
@@ -56,7 +57,8 @@ func TestMobileAutomationWorkflowChecksExternallyInstalledApp(t *testing.T) {
 			payload := workflowengine.AsMap(input.Payload)
 			return payload["device_id"] == "acme/runner/pixel" && payload["serial"] == "serial-1"
 		})).
-			Return(workflowengine.ActivityResult{Output: apps}, nil).Once()
+			Return(workflowengine.ActivityResult{Output: apps}, nil).
+			Once()
 	}
 	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 		payload := workflowengine.AsMap(input.Payload)

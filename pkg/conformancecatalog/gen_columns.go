@@ -40,12 +40,24 @@ func main() {
 	checkGrain := conformancecatalog.CheckGrainColumns()
 	suiteGrain := conformancecatalog.SuiteGrainColumns()
 
-	mustWrite(filepath.Join(root, "pkg", "conformancecatalog", "records_gen.go"), formatGoSource(recordsGo(checkGrain, suiteGrain)))
+	mustWrite(
+		filepath.Join(root, "pkg", "conformancecatalog", "records_gen.go"),
+		formatGoSource(recordsGo(checkGrain, suiteGrain)),
+	)
 
 	webapp := filepath.Join(root, "webapp")
-	mustWrite(filepath.Join(webapp, "src", "lib", "conformance", "columns.ts"), columnsTS(checks, suites))
-	mustWrite(filepath.Join(webapp, "src", "lib", "conformance", "record.schemas.ts"), recordSchemasTS(checks, suites))
-	mustWrite(filepath.Join(webapp, "src", "modules", "pocketbase", "types", "catalog-pb-records.ts"), catalogPBRecordsTS(checks, suites))
+	mustWrite(
+		filepath.Join(webapp, "src", "lib", "conformance", "columns.ts"),
+		columnsTS(checks, suites),
+	)
+	mustWrite(
+		filepath.Join(webapp, "src", "lib", "conformance", "record.schemas.ts"),
+		recordSchemasTS(checks, suites),
+	)
+	mustWrite(
+		filepath.Join(webapp, "src", "modules", "pocketbase", "types", "catalog-pb-records.ts"),
+		catalogPBRecordsTS(checks, suites),
+	)
 }
 
 func recordsGo(checks, suites []conformancecatalog.GrainColumn) string {
@@ -63,10 +75,15 @@ package conformancecatalog
 // metadata (name, logo, URLs) lives on the suite projection (ADR-0002).
 // Generated from checkColumns; HTTP list/get wraps it in checkHTTPRecord.`, checks)
 	b.WriteByte('\n')
-	writeGoStruct(&b, "SuiteRecord", `SuiteRecord is one hub-table row: a suite under normalized standard×component×version.
+	writeGoStruct(
+		&b,
+		"SuiteRecord",
+		`SuiteRecord is one hub-table row: a suite under normalized standard×component×version.
 // FS* fields preserve durable path identity for hub links; Standard/Component/Version
 // are the product projection.
-// Generated from suiteColumns; HTTP list/get wraps it in suiteHTTPRecord.`, suites)
+// Generated from suiteColumns; HTTP list/get wraps it in suiteHTTPRecord.`,
+		suites,
+	)
 	return b.String()
 }
 
@@ -159,8 +176,20 @@ export type CatalogColumnKind =
 	| 'stringArray'
 	| 'memberArray';
 `)
-	writeColumnSpecs(&b, "CHECK_CLIENT_COLUMN_SPECS", "CHECK_CLIENT_COLUMNS", "CheckClientColumn", checks)
-	writeColumnSpecs(&b, "SUITE_CLIENT_COLUMN_SPECS", "SUITE_CLIENT_COLUMNS", "SuiteClientColumn", suites)
+	writeColumnSpecs(
+		&b,
+		"CHECK_CLIENT_COLUMN_SPECS",
+		"CHECK_CLIENT_COLUMNS",
+		"CheckClientColumn",
+		checks,
+	)
+	writeColumnSpecs(
+		&b,
+		"SUITE_CLIENT_COLUMN_SPECS",
+		"SUITE_CLIENT_COLUMNS",
+		"SuiteClientColumn",
+		suites,
+	)
 	return b.String()
 }
 
@@ -205,7 +234,11 @@ export type ConformanceSuitesRecord = {
 	return b.String()
 }
 
-func writeColumnSpecs(b *bytes.Buffer, specsName, namesName, typeName string, cols []conformancecatalog.ClientColumn) {
+func writeColumnSpecs(
+	b *bytes.Buffer,
+	specsName, namesName, typeName string,
+	cols []conformancecatalog.ClientColumn,
+) {
 	b.WriteString(fmt.Sprintf("\nexport const %s = [\n", specsName))
 	for _, c := range cols {
 		b.WriteString(fmt.Sprintf(
@@ -214,7 +247,9 @@ func writeColumnSpecs(b *bytes.Buffer, specsName, namesName, typeName string, co
 		))
 	}
 	b.WriteString("] as const;\n\n")
-	b.WriteString(fmt.Sprintf("export type %s = (typeof %s)[number]['name'];\n\n", typeName, specsName))
+	b.WriteString(
+		fmt.Sprintf("export type %s = (typeof %s)[number]['name'];\n\n", typeName, specsName),
+	)
 	b.WriteString(fmt.Sprintf(
 		"export const %s: readonly %s[] = %s.map((c) => c.name);\n",
 		namesName, typeName, specsName,
@@ -235,7 +270,11 @@ func pbType(kind conformancecatalog.ColumnKind) string {
 	}
 }
 
-func writeZodObject(b *bytes.Buffer, schemaName, typeName string, cols []conformancecatalog.ClientColumn) {
+func writeZodObject(
+	b *bytes.Buffer,
+	schemaName, typeName string,
+	cols []conformancecatalog.ClientColumn,
+) {
 	b.WriteString(fmt.Sprintf("export const %s = z.object({\n", schemaName))
 	for _, c := range cols {
 		b.WriteString(fmt.Sprintf("\t%s: %s,\n", c.Name, zodFieldExpr(c)))

@@ -7,7 +7,7 @@ WORKDIR /src
 
 RUN apk update && apk add --no-cache git
 ARG CREDIMI_EXTRA_PAT
-ENV CREDIMI_EXTRA_PAT ${CREDIMI_EXTRA_PAT}
+ENV CREDIMI_EXTRA_PAT=${CREDIMI_EXTRA_PAT}
 RUN git config --global url."${CREDIMI_EXTRA_PAT}".insteadOf "https://github.com/"
 RUN echo 🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥
 RUN echo ${CREDIMI_EXTRA_PAT}
@@ -33,7 +33,7 @@ WORKDIR /app
 COPY --from=builder /src/credimi /usr/local/bin/credimi
 RUN chmod +x /usr/local/bin/credimi
 
-# install mise and mise tools
+# install mise and deployment tools
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV MISE_DATA_DIR="/mise"
 ENV MISE_CONFIG_DIR="/mise"
@@ -41,7 +41,7 @@ ENV MISE_CACHE_DIR="/mise/cache"
 ENV MISE_INSTALL_PATH="/usr/local/bin/mise"
 ENV PATH="/mise/shims:$PATH"
 RUN curl https://mise.run | sh
-COPY .mise.toml ./
+COPY .mise.deploy.toml ./.mise.toml
 RUN mise trust
 RUN --mount=type=cache,target=/mise/cache mise i
 RUN mkdir -p .bin && \
@@ -70,10 +70,10 @@ RUN credimi migrate up
 
 WORKDIR /app/webapp
 ARG PUBLIC_POCKETBASE_URL
-ENV PUBLIC_POCKETBASE_URL ${PUBLIC_POCKETBASE_URL}
+ENV PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL}
 ARG PUBLIC_TURNSTILE_SITE_KEY
-ENV PUBLIC_TURNSTILE_SITE_KEY ${PUBLIC_TURNSTILE_SITE_KEY}
-ENV DATA_DB_PATH /app/pb_data/data.db
+ENV PUBLIC_TURNSTILE_SITE_KEY=${PUBLIC_TURNSTILE_SITE_KEY}
+ENV DATA_DB_PATH=/app/pb_data/data.db
 RUN bun run build
 WORKDIR /app
 

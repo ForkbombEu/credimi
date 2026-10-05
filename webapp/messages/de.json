@@ -613,6 +613,7 @@
 	"Before_adding_a_new_wallet_you_need_to_start_a_conformance_check": "Before adding a new Wallet, you need to start a Konformität check.",
 	"navigation": "Navigation",
 	"Loading_workflow_data_may_take_some_seconds": "Wird geladen workflow data may take some seconds...",
+	"Loading_pipeline": "Pipeline wird geladen...",
 	"Workflow": "Workflow",
 	"View_logs_workflow": "View logs workflow",
 	"Filter_runs_by_status": "Filtern runs by status",
@@ -1048,5 +1049,11 @@
 	"Inline_Maestro": "Inline Maestro",
 	"Custom_wallet_action": "Custom wallet action",
 	"Custom_code": "Custom code",
-	"Inline_action_edit_notice": "This step uses inline Maestro code. Code editing will be available later. Saving keeps the existing code, version, device and parameters."
+	"Inline_action_edit_notice": "This step uses inline Maestro code. Code editing will be available later. Saving keeps the existing code, version, device and parameters.",
+	"Failed": "Fehlgeschlagen",
+	"Timed_Out": "Zeitüberschreitung",
+	"Continued_as_New": "Als neu fortgesetzt",
+	"Canceled": "Abgebrochen",
+	"Terminated": "Beendet",
+	"Unspecified": "Nicht spezifiziert"
 }

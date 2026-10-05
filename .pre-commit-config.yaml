@@ -3,6 +3,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 repos:
+  - repo: local
+    hooks:
+      - id: go-format
+        name: Go formatting
+        entry: golangci-lint fmt
+        language: system
+        types: [go]
+        stages: [pre-commit]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

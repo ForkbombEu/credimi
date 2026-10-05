@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { XIcon } from '@lucide/svelte';
-	import { TemporalI18nProvider } from '$lib/temporal';
 	import { runWithLoading } from '$lib/utils';
 
 	import type { DropdownMenuItem } from '@/components/ui-custom/dropdown-menu.svelte';
@@ -59,56 +58,54 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: Props = $props();
 </script>
 
-<TemporalI18nProvider>
-	<Table.Root class="max-w-full rounded-lg bg-white">
-		<Table.Header>
-			<Table.Row>
-				{@render headerStart?.({ Th: Table.Head })}
-				{#if !hideColumns.includes('type')}
-					<Table.Head>{m.Type()}</Table.Head>
-				{/if}
-				{#if !hideColumns.includes('workflow')}
-					<Table.Head>{m.Workflow()}</Table.Head>
-				{/if}
-				{#if !hideColumns.includes('status')}
-					<Table.Head>{m.Status()}</Table.Head>
-				{/if}
-				{@render header?.({ Th: Table.Head })}
-				{#if !hideColumns.includes('date')}
-					<Table.Head class="text-right">{m.Date()}</Table.Head>
-				{/if}
-				{#if !hideColumns.includes('start')}
-					<Table.Head class="text-right">{m.start()}</Table.Head>
-				{/if}
-				{#if !hideColumns.includes('end')}
-					<Table.Head class="text-right">{m.end()}</Table.Head>
-				{/if}
-				{#if !hideColumns.includes('duration')}
-					<Table.Head class="text-right">{m.Duration()}</Table.Head>
-				{/if}
-				{#if !hideColumns.includes('actions')}
-					<Table.Head class="text-right">{m.Actions()}</Table.Head>
-				{/if}
+<Table.Root class="max-w-full rounded-lg bg-white">
+	<Table.Header>
+		<Table.Row>
+			{@render headerStart?.({ Th: Table.Head })}
+			{#if !hideColumns.includes('type')}
+				<Table.Head>{m.Type()}</Table.Head>
+			{/if}
+			{#if !hideColumns.includes('workflow')}
+				<Table.Head>{m.Workflow()}</Table.Head>
+			{/if}
+			{#if !hideColumns.includes('status')}
+				<Table.Head>{m.Status()}</Table.Head>
+			{/if}
+			{@render header?.({ Th: Table.Head })}
+			{#if !hideColumns.includes('date')}
+				<Table.Head class="text-right">{m.Date()}</Table.Head>
+			{/if}
+			{#if !hideColumns.includes('start')}
+				<Table.Head class="text-right">{m.start()}</Table.Head>
+			{/if}
+			{#if !hideColumns.includes('end')}
+				<Table.Head class="text-right">{m.end()}</Table.Head>
+			{/if}
+			{#if !hideColumns.includes('duration')}
+				<Table.Head class="text-right">{m.Duration()}</Table.Head>
+			{/if}
+			{#if !hideColumns.includes('actions')}
+				<Table.Head class="text-right">{m.Actions()}</Table.Head>
+			{/if}
+		</Table.Row>
+	</Table.Header>
+	<Table.Body>
+		{#each workflows as workflow, index (workflow.execution.runId)}
+			<WorkflowTableRow
+				{workflow}
+				{row}
+				{hideColumns}
+				{actions}
+				{disableLink}
+				{rowStart}
+				defaultExpanded={workflow.status === 'Running' || index === 0}
+			/>
+		{:else}
+			<Table.Row class="hover:bg-transparent">
+				<Table.Cell colspan={6} class="text-center text-gray-300 py-20">
+					{m.Test_runs_will_appear_here()}
+				</Table.Cell>
 			</Table.Row>
-		</Table.Header>
-		<Table.Body>
-			{#each workflows as workflow, index (workflow.execution.runId)}
-				<WorkflowTableRow
-					{workflow}
-					{row}
-					{hideColumns}
-					{actions}
-					{disableLink}
-					{rowStart}
-					defaultExpanded={workflow.status === 'Running' || index === 0}
-				/>
-			{:else}
-				<Table.Row class="hover:bg-transparent">
-					<Table.Cell colspan={6} class="text-center text-gray-300 py-20">
-						{m.Test_runs_will_appear_here()}
-					</Table.Cell>
-				</Table.Row>
-			{/each}
-		</Table.Body>
-	</Table.Root>
-</TemporalI18nProvider>
+		{/each}
+	</Table.Body>
+</Table.Root>
