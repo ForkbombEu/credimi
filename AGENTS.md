@@ -449,14 +449,21 @@ Worker-manager start eligibility:
   only feeds the worker-manager workflow fallback.
 - `RegisterMobileRunnerWorkerManagerHooks`
   (`pkg/internal/pb/mobile_runner_worker_manager.go`) starts workers when a
-  runner update makes the runner startable, and only then; runners that were
-  already startable are not restarted on unrelated field writes.
+  runner update makes the runner startable, or switches a startable runner
+  between admin-managed and tenant, and only then; runners that were already
+  startable are not restarted on unrelated field writes. Workers in namespaces
+  the new kind no longer serves are stopped by the runner, which restarts its
+  workers when its key changes.
     - Non-admin runners are startable when `published`, not `disabled` and
       `online`, and are dispatched to published organization namespaces.
     - `admin_managed` runners ignore runner publication; they are startable
       when not `disabled` and `online`, and are dispatched to `default` plus
       every organization namespace, mirroring the startup hook and the runner's
       own `fetchAdminNamespaces` behavior.
+- The runner's key decides `admin_managed`: `POST /api/mobile-runner`
+  authenticated by `Credimi-Api-Key` alone sets it to `true` for the internal
+  admin key and `false` for a user key, on create and on every re-registration.
+  Token-authenticated calls set it only on create (`true` for superusers).
 - Redundant starts are safe: `POST {runner_url}/worker/{namespace}` is keyed by
   namespace in the runner process store and answers `202 "already running"`,
   so a server-side start that races the runner's own boot cannot create a
