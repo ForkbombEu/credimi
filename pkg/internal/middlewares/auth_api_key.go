@@ -112,6 +112,22 @@ func RequireInternalAdminOrAuth() *hook.Handler[*core.RequestEvent] {
 	}
 }
 
+// APIKeyPrincipal resolves the Credimi-Api-Key of the request, accepting the
+// same internal-admin and user-scoped keys as RequireInternalAdminOrAuth.
+// It returns a nil principal when the request carries no key.
+func APIKeyPrincipal(e *core.RequestEvent) (*core.Record, *apierror.APIError) {
+	apiKey := strings.TrimSpace(e.Request.Header.Get(apiKeyHeaderName))
+	if apiKey == "" {
+		return nil, nil
+	}
+
+	principal, apiErr := authenticateAPIKeyByScope(e.App, apiKey, apiKeyScopeInternalAdmin)
+	if apiErr == nil {
+		return principal, nil
+	}
+	return authenticateAPIKeyByScope(e.App, apiKey, apiKeyScopeUser)
+}
+
 func authenticateAPIKeyByScope(
 	app core.App,
 	apiKey string,
