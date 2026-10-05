@@ -67,6 +67,18 @@ describe('animatable-scroll', () => {
 
 		handle.dispose();
 		expect(revertFn).toHaveBeenCalled();
+		expect(scroller.scrollTop).toBe(42);
+	});
+
+	it('dispose restores DOM scrollTop after revert yanks it to 0', () => {
+		const scroller = { scrollTop: 1600 } as HTMLElement;
+		revertFn.mockImplementation(() => {
+			scroller.scrollTop = 0;
+		});
+		const handle = createAnimatableScroll(scroller);
+		handle.dispose();
+		expect(revertFn).toHaveBeenCalled();
+		expect(scroller.scrollTop).toBe(1600);
 	});
 
 	it('syncs from DOM before scrollTo when Animatable is desynced', () => {

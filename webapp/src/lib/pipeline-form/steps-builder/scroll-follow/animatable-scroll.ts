@@ -90,7 +90,11 @@ export function createAnimatableScroll(
 		},
 		getScrollTop,
 		dispose() {
+			// revert() restores creation-time scrollTop (usually 0). Keep the
+			// live offset so attach teardown / rebind cannot jump the pane.
+			const top = scroller.scrollTop;
 			animatable.revert();
+			scroller.scrollTop = top;
 		}
 	};
 }
