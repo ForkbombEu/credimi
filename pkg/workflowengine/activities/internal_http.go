@@ -71,6 +71,20 @@ func (a *InternalHTTPActivity) Execute(
 		)
 	}
 
+	// The URL is built from workflow config, which pipelines carry across
+	// trust boundaries; only a server-configured Credimi origin may receive
+	// the internal admin key.
+	if err := workflowengine.ValidateInternalAppURLDestination(payload.URL); err != nil {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return result, a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
+	}
+
 	return executeInternalHTTPRequest(ctx, payload, &a.BaseActivity, nil)
 }
 

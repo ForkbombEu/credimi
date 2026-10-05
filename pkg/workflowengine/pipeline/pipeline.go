@@ -1102,7 +1102,8 @@ func isReservedWorkflowInputConfigKey(key string) bool {
 		key == tempUseCaseVerificationsConfigKey ||
 		key == GitHubPRCommentConfigKey ||
 		key == workflowengine.CollectPipelineStepFailuresConfigKey ||
-		key == workflowengine.StepIDConfigKey
+		key == workflowengine.StepIDConfigKey ||
+		workflowengine.IsServerOwnedConfigKey(key)
 }
 
 func ExecuteEventStepsOnError(
