@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
@@ -29,6 +30,9 @@ import (
 // CheckCredentialsIssuerActivity is an activity that checks the credential issuer
 type CheckCredentialsIssuerActivity struct {
 	workflowengine.BaseActivity
+	// httpClient may only reach public addresses: the issuer URL is chosen
+	// by the user who started the check.
+	httpClient *http.Client
 }
 
 type CheckCredentialsIssuerActivityPayload struct {
@@ -40,6 +44,7 @@ func NewCheckCredentialsIssuerActivity() *CheckCredentialsIssuerActivity {
 		BaseActivity: workflowengine.BaseActivity{
 			Name: "Parse the Credential issuer metadata (.well-known/openid-federation or .well-known/openid-credential-issuer)",
 		},
+		httpClient: safehttp.NewClient(safehttp.Config{MaxRedirects: 10}),
 	}
 }
 
@@ -191,7 +196,7 @@ func fetchJSONFromURL(
 		)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := a.httpClient.Do(req)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
 		return "", a.NewActivityError(
