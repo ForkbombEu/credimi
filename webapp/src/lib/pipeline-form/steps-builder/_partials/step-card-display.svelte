@@ -22,11 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n/index.js';
 
 	import { inCardFormHostClass, playInCardEnterLayout } from '../in-card-enter-layout.js';
-	import {
-		cancelMotion,
-		playInCardExit,
-		type MotionHandle
-	} from './in-card-motion.js';
+	import { cancelMotion, playInCardExit, type MotionHandle } from './in-card-motion.js';
 	import { getStepData, getStepError } from './index.js';
 
 	//
@@ -218,9 +214,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class={[
 		'group flex min-h-0 flex-col overflow-hidden rounded-md border bg-card',
 		classes.border,
-		!readonly && !selected && !editing && 'hover:border-primary hover:ring-1 hover:ring-primary',
-		editing && 'border-orange-600',
-		selected && !editing && 'border-orange-600 ring-1 ring-orange-600',
+		!readonly &&
+			!selected &&
+			!editing &&
+			'hover:border-primary hover:ring-1 hover:ring-primary',
+		(editing || selected) && 'border-orange-600 ring-1 ring-orange-600',
 		hovered && !editing && !selected && 'border-primary ring-1 ring-primary',
 		className
 	]}
@@ -240,7 +238,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if showFormBody && formBody}
 			<div
 				bind:this={bodyLock}
-				class={['relative min-h-0', enterComplete || exiting ? 'flex min-h-0 grow flex-col' : '']}
+				class={[
+					'relative min-h-0',
+					enterComplete || exiting ? 'flex min-h-0 grow flex-col' : ''
+				]}
 				style:max-height={bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
 				data-testid="in-card-body-lock"
 				data-enter-complete={enterComplete}
