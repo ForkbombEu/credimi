@@ -52,7 +52,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-exercise-wallet-issue-pid
       use: mobile-automation
@@ -384,7 +384,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-cryptography-1a488a33-exercise-wallet-issue-pid
       use: mobile-automation
@@ -446,7 +446,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-device-binding-f7c71f86-exercise-wallet-issue-pid
       use: mobile-automation
@@ -508,7 +508,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-interaction-metadata-f9737358-exercise-wallet-issue-pid
       use: mobile-automation
@@ -570,7 +570,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-exercise-wallet-issue-pid
       use: mobile-automation
@@ -638,7 +638,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid
       use: mobile-automation
@@ -706,7 +706,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid
       use: mobile-automation
@@ -811,7 +811,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid
       use: mobile-automation
@@ -1094,7 +1094,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid
       use: mobile-automation
@@ -1275,7 +1275,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid
       use: mobile-automation
@@ -1295,7 +1295,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2
       use: mobile-automation
@@ -1395,7 +1395,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-metadata-b66a6319-exercise-wallet-issue-pid
       use: mobile-automation
@@ -1491,7 +1491,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-exercise-wallet-issue-pid
       use: mobile-automation
@@ -1560,7 +1560,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-exercise-wallet-issue-pid
       use: mobile-automation
@@ -1622,7 +1622,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-session-encryption-210827bd-exercise-wallet-issue-pid
       use: mobile-automation
@@ -1684,7 +1684,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid
       use: mobile-automation
@@ -1746,7 +1746,7 @@ steps:
         headers:
             Content-Type: application/json
         method: POST
-        url: ${fixture.issuer_url}/sessions
+        url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid
       use: mobile-automation
