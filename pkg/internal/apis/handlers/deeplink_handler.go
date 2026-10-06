@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -293,6 +294,11 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 	redirect := e.Request.URL.Query().Get("redirect") == RedirectFlagTrue
 
 	rec, err := canonify.Resolve(e.App, id)
+	// A record the caller cannot view answers exactly like a missing path, and
+	// before the type check, so responses cannot reveal that it exists.
+	if err == nil && requireRecordViewAccess(e, rec) != nil {
+		err = sql.ErrNoRows
+	}
 	if err != nil {
 		return apierror.New(
 			http.StatusNotFound,
@@ -301,7 +307,7 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 			err.Error(),
 		)
 	}
-	if rec.Collection() == nil || rec.Collection().Name != opts.ExpectedCollection {
+	if rec.Collection().Name != opts.ExpectedCollection {
 		return apierror.New(
 			http.StatusBadRequest,
 			"record",
