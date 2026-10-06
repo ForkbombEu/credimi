@@ -95,6 +95,13 @@ export class PeerScrollFollow {
 	#peerFollowRaf: number | null = null;
 	#pendingReveal: ActiveUnit | null = null;
 	#disposed = false;
+	/**
+	 * In-card enter hard start: mute peer sync so YAML start-align cannot
+	 * center-yank cards (and clear cards driven) before expand/park.
+	 */
+	#editHardStart = false;
+	/** Bumps each onEditFocus so a deferred mute-clear cannot drop a newer enter. */
+	#editHardStartGen = 0;
 	/** Clock time of last paired card/YAML reorder — suppresses regen follow briefly. */
 	#pairedReorderAt = Number.NEGATIVE_INFINITY;
 
@@ -166,6 +173,7 @@ export class PeerScrollFollow {
 		const onScroll = () => {
 			if (!this.enabled) return;
 			if (this.#isCardsParked?.()) return;
+			if (this.#editHardStart) return;
 			if (this.#drivenSide === side) return;
 			const otherSide = side === 'cards' ? 'yaml' : 'cards';
 			if (this.#scrollLeader === otherSide) return;
@@ -224,14 +232,32 @@ export class PeerScrollFollow {
 	 * park the cards pane (Twin-pane session sequences park after this settles).
 	 * Resolves when the cards pane scroll has settled (or immediately if no
 	 * scroll was needed), so callers can sequence expand-after-scroll.
+	 *
+	 * Peer sync is muted for the whole hard start so YAML's parallel start-align
+	 * cannot center-yank cards. After settle, cards are snapped to start once more
+	 * so expand never opens with the card top still clipped.
 	 */
 	onEditFocus(unit: ActiveUnit): Promise<void> {
 		if (this.#disposed) return Promise.resolve();
+		const hardStartGen = ++this.#editHardStartGen;
+		this.#editHardStart = true;
 		this.#setActiveUnit(unit);
 		this.#lastIntentSide = 'cards';
 		this.#claimScrollLeader('cards');
 		void this.#startAlignYamlForEdit(unit);
-		return this.#startAlignCardsForEdit(unit);
+		return this.#startAlignCardsForEdit(unit)
+			.then(() => {
+				if (this.#disposed) return;
+				this.#snapCardsStartAlign(unit);
+				// Keep cards as leader until Twin-pane parks (next microtask).
+				this.#claimScrollLeader('cards');
+			})
+			.finally(() => {
+				// Clear after awaiter parks so a trailing YAML scroll cannot peer-yank.
+				this.#clock.setTimeout(() => {
+					if (this.#editHardStartGen === hardStartGen) this.#editHardStart = false;
+				}, 0);
+			});
 	}
 
 	async #startAlignCardsForEdit(unit: ActiveUnit): Promise<void> {
@@ -239,6 +265,9 @@ export class PeerScrollFollow {
 		if (!cards) return;
 		const durationMs = DISCRETE_SCROLL_DURATION_MS;
 		const settled = this.#beginDriven('cards', cards, durationMs);
+		// beginDriven claims the opposite pane as leader; keep cards for hard start
+		// so YAML scroll cannot become the continuous-follow source mid-enter.
+		this.#claimScrollLeader('cards');
 		const scrolled = await scrollUnitIntoView(cards, unit, 'auto', CARD_PANE, {
 			align: 'start',
 			focus: false,
@@ -249,9 +278,23 @@ export class PeerScrollFollow {
 		if (this.#disposed) return;
 		if (!scrolled) {
 			this.#clearDriven?.();
+			this.#claimScrollLeader('cards');
 			return;
 		}
 		await settled;
+		this.#claimScrollLeader('cards');
+	}
+
+	/** Instant start-align so expand never opens with a clipped card top. */
+	#snapCardsStartAlign(unit: ActiveUnit): void {
+		const cards = this.#cardsEl;
+		if (!cards) return;
+		void scrollUnitIntoView(cards, unit, 'auto', CARD_PANE, {
+			align: 'start',
+			focus: false,
+			animatableScroll: this.#cardsAnim ?? undefined,
+			durationMs: 0
+		});
 	}
 
 	async #startAlignYamlForEdit(unit: ActiveUnit): Promise<void> {
@@ -343,6 +386,7 @@ export class PeerScrollFollow {
 	dispose() {
 		if (this.#disposed) return;
 		this.#disposed = true;
+		this.#editHardStart = false;
 		this.#clearDriven?.();
 		this.#clearDriven = null;
 		this.#drivenSide = null;

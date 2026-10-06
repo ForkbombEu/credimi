@@ -591,6 +591,57 @@ describe('PeerScrollFollow', () => {
 			follow.dispose();
 		});
 
+		it('does not let YAML start-align peer-center cards before expand/park', async () => {
+			/**
+			 * Repro: beginDriven(cards) flips scroll leader to yaml; YAML hard-start
+			 * scroll then peer-centers cards (clears cards driven early). Expand parks
+			 * with the card mid-viewport → grown card top is cropped.
+			 */
+			const { clock, follow, cards, yaml } = setup(true);
+
+			const focusDone = follow.onEditFocus({ section: 'steps', index: 1 });
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
+			vi.mocked(cards.scrollTo).mockClear();
+
+			// Mid hard-start: YAML viewport center claims a different unit (index 0).
+			const yaml0 = yaml.querySelector('[data-yaml-section="steps"][data-yaml-index="0"]');
+			const yaml1 = yaml.querySelector('[data-yaml-section="steps"][data-yaml-index="1"]');
+			expect(yaml0).not.toBeNull();
+			expect(yaml1).not.toBeNull();
+			yaml0!.getBoundingClientRect = () => makeRect({ top: 120, bottom: 200, height: 80 });
+			yaml1!.getBoundingClientRect = () => makeRect({ top: 320, bottom: 400, height: 80 });
+			yaml.dispatchEvent(new Event('scroll'));
+			clock.flushRaf();
+			await Promise.resolve();
+
+			expect(cards.scrollTo).not.toHaveBeenCalled();
+
+			clock.flushTimeouts(700);
+			await focusDone;
+			follow.dispose();
+		});
+
+		it('snaps cards to start-align before resolve when settle left the card clipped', async () => {
+			const { clock, follow, cards } = setup(true);
+			const card = cards.querySelector('[data-card-section="steps"][data-card-index="1"]');
+			expect(card).not.toBeNull();
+
+			const focusDone = follow.onEditFocus({ section: 'steps', index: 1 });
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
+
+			// Simulate Animatable/settle finishing while the card is still clipped above.
+			cards.scrollTop = 100;
+			card!.getBoundingClientRect = () => makeRect({ top: -40, bottom: 40, height: 80 });
+			vi.mocked(cards.scrollTo).mockClear();
+
+			clock.flushTimeouts(700);
+			await focusDone;
+
+			// Instant snap: scrollTop + (elTop - portTop) - START_PADDING = 100 + (-40) - 16 = 44
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 44, behavior: 'auto' });
+			follow.dispose();
+		});
+
 		it('does not suppress later peer sync after the driven scrolls settle', () => {
 			const { clock, follow, cards } = setup(true);
 			void follow.onEditFocus({ section: 'steps', index: 0 });
