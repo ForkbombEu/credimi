@@ -15,9 +15,11 @@
  *
  * Fix: parallel `stepKeys` / `followUpKeys` as `{#each}` keys — they survive applyEdit
  * and still move with reorder/delete. Exit layout (`playInCardExitLayout`) is orthogonal.
+ *
+ * Mount coverage of display enter/exit lives in `step-card-display.svelte.test.ts`.
  */
 import { create } from 'mutative';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 type StepTuple = [
 	{ use: string; id: string; with: Record<string, string> },
@@ -62,22 +64,6 @@ function dismissPath(state: BuilderSlice): BuilderSlice {
 	});
 }
 
-/**
- * Mirrors step-card-display exit `$effect` entry + early abort.
- * Returns whether `playInCardExit` would be scheduled (after tick, nodes present).
- */
-function wouldSchedulePlayInCardExit(opts: {
-	editing: boolean;
-	showFormBody: boolean;
-	enterComplete: boolean;
-	exiting: boolean;
-}): boolean {
-	if (opts.editing || !opts.showFormBody) return false;
-	if (opts.exiting) return false;
-	if (!opts.enterComplete) return false;
-	return true;
-}
-
 describe('in-card exit vs save remount', () => {
 	it('save replaces the step tuple; dismiss does not', () => {
 		const before = seed();
@@ -90,34 +76,6 @@ describe('in-card exit vs save remount', () => {
 		// Tuple identity still changes under mutative applyEdit — that is why
 		// `{#each}` must not key by `(step)`.
 		expect(afterSave.steps[0]).not.toBe(keyed);
-	});
-
-	it('dismiss-like held survival schedules playInCardExit; remount skips it', () => {
-		const playInCardExit = vi.fn();
-
-		// Settled edit: enter finished, lock height held, form still mounted via held.
-		const dismissExit = {
-			editing: false,
-			showFormBody: true, // held.mode kept after mode→idle
-			enterComplete: true,
-			exiting: false
-		};
-		expect(wouldSchedulePlayInCardExit(dismissExit)).toBe(true);
-		if (wouldSchedulePlayInCardExit(dismissExit)) playInCardExit('dismiss');
-
-		// Remount: new StepCard, held last=null, enterComplete reset.
-		const saveRemount = {
-			editing: false,
-			showFormBody: false, // held wiped by remount
-			enterComplete: false,
-			exiting: false
-		};
-		expect(wouldSchedulePlayInCardExit(saveRemount)).toBe(false);
-		if (wouldSchedulePlayInCardExit(saveRemount)) playInCardExit('save');
-
-		expect(playInCardExit).toHaveBeenCalledTimes(1);
-		expect(playInCardExit).toHaveBeenCalledWith('dismiss');
-		expect(playInCardExit).not.toHaveBeenCalledWith('save');
 	});
 
 	it('save keeps parallel stepKeys identity used as {#each} key', () => {

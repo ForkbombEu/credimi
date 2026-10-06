@@ -60,16 +60,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
 	const isEditIntent = $derived(formMode?.intent === 'edit');
 	const addFormMode = $derived(formMode?.intent === 'add' ? formMode : null);
-	/** Flips true after enter scroll settles so the in-card crossfade can start. */
-	let editExpandReady = $state(false);
 	const stepDocsUrl = $derived(addFormMode?.config.docsUrl);
 	const showFollowUpAddActions = $derived(builder.isFollowUpEligibleForm());
 	const rightColumnTitle = $derived(builder.isManualMode ? m.manual_edit() : m.YAML_preview());
-
-	// Drop a stale expand gate when leaving edit so the next open waits for scroll again.
-	$effect(() => {
-		if (!isEditIntent) editExpandReady = false;
-	});
 
 	let lastAppliedManualMode: boolean | null = null;
 
@@ -91,14 +84,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		getCreatedCard: () => builder.createdCard,
 		canShiftStep: (index, change) => builder.canShiftStep(index, change),
 		mutateShiftStep: (index, change) => builder.shiftStep(index, change),
-		bindComposerScroll: (handlers) => builder.bindComposerScroll(handlers),
-		onEditFocusStart: () => {
-			editExpandReady = false;
-		},
-		onEditFocusSettled: () => {
-			if (!builder.isInCardEdit) return;
-			editExpandReady = true;
-		}
+		bindComposerScroll: (handlers) => builder.bindComposerScroll(handlers)
 	});
 
 	$effect(() => () => session.dispose());
@@ -265,14 +251,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							}}
 						>
 							{#if step}
+								{@const editing =
+									editingSection === 'steps' && editingIndex === index}
 								<StepCard
 									{builder}
 									{step}
 									{index}
-									editing={editingSection === 'steps' && editingIndex === index}
-									expandReady={editingSection === 'steps' &&
-										editingIndex === index &&
-										editExpandReady}
+									{editing}
+									expandReady={editing && session.inCard.phase === 'still'}
 									faded={isCardFaded('steps', index)}
 									maxHeightPx={cardMaxHeightPx}
 									selected={session.isCardSelected('steps', index)}
@@ -297,6 +283,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if builder.followUps.length > 0}
 				<div class="space-y-3">
 					{#each builder.followUps as followUp, index (builder.followUpKeys[index])}
+						{@const editing = editingSection === 'follow-ups' && editingIndex === index}
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
@@ -318,10 +305,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{builder}
 								{followUp}
 								{index}
-								editing={editingSection === 'follow-ups' && editingIndex === index}
-								expandReady={editingSection === 'follow-ups' &&
-									editingIndex === index &&
-									editExpandReady}
+								{editing}
+								expandReady={editing && session.inCard.phase === 'still'}
 								faded={isCardFaded('follow-ups', index)}
 								maxHeightPx={cardMaxHeightPx}
 								selected={session.isCardSelected('follow-ups', index)}

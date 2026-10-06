@@ -9,31 +9,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { EnrichedFollowUp } from '$pipeline-form/functions.js';
 	import type { StepsBuilder } from '$pipeline-form/steps-builder/steps-builder.svelte.js';
 
-	import { HelpCircle, PencilIcon, TrashIcon, XIcon } from '@lucide/svelte';
+	import { PencilIcon, TrashIcon } from '@lucide/svelte';
 	import { Render } from '$lib/renderable';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
-	import { InCardFormShell, isStepEditable, StepCardDisplay } from './index.js';
+	import { isStepEditable, StepCardDisplay } from './index.js';
 	import { useCardShell } from './use-card-shell.svelte.js';
 
 	//
-
-	const DEFAULT_MAX_HEIGHT_PX = 480;
 
 	type Props = {
 		index: number;
 		followUp: EnrichedFollowUp;
 		builder: StepsBuilder;
 		editing?: boolean;
-		/** After enter scroll settles — drives the expand animation. */
+		/** Enter-ready: parent `editing && session.inCard.phase === 'still'`. */
 		expandReady?: boolean;
 		selected?: boolean;
 		hovered?: boolean;
 		/** Sibling of the card being edited in place: dimmed and non-interactive (except the pencil). */
 		faded?: boolean;
-		/** Max height of the card while editing, in px. */
+		/** Max height of the card while editing, in px. Composer passes `session.cardFillMaxPx`. */
 		maxHeightPx?: number;
 		/** Paired with held-form clear — Twin-pane `noteExitComplete`. */
 		onExitUnlock?: () => void;
@@ -48,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		selected = false,
 		hovered = false,
 		faded = false,
-		maxHeightPx = DEFAULT_MAX_HEIGHT_PX,
+		maxHeightPx,
 		onExitUnlock
 	}: Props = $props();
 
@@ -63,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	);
 	const showFormBody = $derived(shell.mode !== null);
-	let enterComplete = $state(false);
+	const canSave = $derived(Boolean(editing && shell.mode?.form.canSave()));
 
 	const conditionOptions: { value: PipelineFinallyCondition; label: () => string }[] = [
 		{ value: 'always', label: () => m.Always() },
@@ -72,133 +70,76 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	];
 </script>
 
-<div
-	class={[
-		'flex min-h-0 flex-col transition-opacity duration-200',
-		faded && 'pointer-events-none opacity-40'
-	]}
-	style:max-height={showFormBody ? `${maxHeightPx}px` : undefined}
+<StepCardDisplay
+	step={followUp.step}
+	{editing}
+	{selected}
+	{hovered}
+	{faded}
+	{showFormBody}
+	{expandReady}
+	{maxHeightPx}
+	{actionsDisabled}
+	docsUrl={shell.mode?.config.docsUrl}
+	{canSave}
+	onSave={() => {
+		shell.mode?.form.commit();
+	}}
+	onDismiss={() => builder.exitFormState()}
+	onExitComplete={() => {
+		shell.completeExit();
+	}}
 >
-	<StepCardDisplay
-		step={followUp.step}
-		{editing}
-		{selected}
-		{hovered}
-		{showFormBody}
-		{expandReady}
-		{maxHeightPx}
-		bind:enterComplete
-		onExitComplete={() => {
-			shell.completeExit();
-		}}
-	>
-		{#snippet topRight()}
-			{#if showFormBody}
-				<!-- svelte-ignore a11y_click_events_have_key_events -->
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div
-					class="flex items-center gap-1 pr-1"
-					onclick={(e) => e.stopPropagation()}
-					onpointerdown={(e) => e.stopPropagation()}
-				>
-					{#if shell.mode?.config.docsUrl}
-						<IconButton
-							variant="ghost"
-							href={shell.mode.config.docsUrl}
-							target="_blank"
-							rel="noopener noreferrer"
-							icon={HelpCircle}
-							size="xs"
-							tooltip={m.Documentation()}
-						/>
-					{/if}
-					<IconButton
-						variant="ghost"
-						icon={XIcon}
-						size="xs"
-						tooltip={m.Close()}
-						onclick={() => builder.exitFormState()}
-						data-testid="in-card-form-dismiss"
-					/>
-				</div>
-			{:else}
-				<!-- Prevent action chrome from selecting the card via bubbled click/pointerdown. -->
-				<!-- svelte-ignore a11y_click_events_have_key_events -->
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div
-					class={[
-						'flex items-center gap-1 pr-1 transition-opacity',
-						faded
-							? 'opacity-100'
-							: actionsDisabled
-								? 'opacity-30'
-								: 'opacity-30 group-hover:opacity-100'
-					]}
-					onclick={(e) => e.stopPropagation()}
-					onpointerdown={(e) => e.stopPropagation()}
-				>
-					{#if editable}
-						<IconButton
-							icon={PencilIcon}
-							variant="ghost"
-							size="xs"
-							class="pointer-events-auto"
-							onclick={() => builder.initEditFollowUp(index)}
-						/>
-					{/if}
-					<IconButton
-						icon={TrashIcon}
-						variant="ghost"
-						size="xs"
+	{#snippet topRight()}
+		{#if editable}
+			<IconButton
+				icon={PencilIcon}
+				variant="ghost"
+				size="xs"
+				class="pointer-events-auto"
+				onclick={() => builder.initEditFollowUp(index)}
+			/>
+		{/if}
+		<IconButton
+			icon={TrashIcon}
+			variant="ghost"
+			size="xs"
+			disabled={actionsDisabled}
+			onclick={() => builder.deleteFollowUp(index)}
+		/>
+	{/snippet}
+
+	{#snippet formBody()}
+		{#if shell.mode}
+			<Render item={shell.mode.form} />
+		{/if}
+	{/snippet}
+
+	{#snippet footer()}
+		<div class="flex flex-wrap items-center gap-x-2 gap-y-1 bg-slate-50 px-3 py-1.5">
+			<div class="inline-flex rounded-md border bg-background p-0.5">
+				{#each conditionOptions as option (option.value)}
+					<button
+						type="button"
+						class={[
+							'rounded-sm px-2 py-1 text-[11px] font-medium transition-colors',
+							option.value === followUp.condition
+								? 'bg-muted text-foreground'
+								: 'text-muted-foreground hover:text-foreground'
+						]}
+						aria-pressed={option.value === followUp.condition}
 						disabled={actionsDisabled}
-						onclick={() => builder.deleteFollowUp(index)}
-					/>
-				</div>
-			{/if}
-		{/snippet}
-
-		{#snippet formBody()}
-			{#if shell.mode}
-				{@const mode = shell.mode}
-				<InCardFormShell
-					expanded={editing}
-					canSave={editing && mode.form.canSave()}
-					onSave={() => mode.form.commit()}
-					onDismiss={() => builder.exitFormState()}
-				>
-					{#snippet form()}
-						<Render item={mode.form} />
-					{/snippet}
-				</InCardFormShell>
-			{/if}
-		{/snippet}
-
-		{#snippet footer()}
-			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 bg-slate-50 px-3 py-1.5">
-				<div class="inline-flex rounded-md border bg-background p-0.5">
-					{#each conditionOptions as option (option.value)}
-						<button
-							type="button"
-							class={[
-								'rounded-sm px-2 py-1 text-[11px] font-medium transition-colors',
-								option.value === followUp.condition
-									? 'bg-muted text-foreground'
-									: 'text-muted-foreground hover:text-foreground'
-							]}
-							aria-pressed={option.value === followUp.condition}
-							disabled={actionsDisabled}
-							onclick={() => builder.setFollowUpCondition(index, option.value)}
-						>
-							{option.label()}
-						</button>
-					{/each}
-				</div>
-				{#if followUp.condition === 'always'}
-					<p class="text-xs text-muted-foreground">
-						{m.follow_up_always_helper()}
-					</p>
-				{/if}
+						onclick={() => builder.setFollowUpCondition(index, option.value)}
+					>
+						{option.label()}
+					</button>
+				{/each}
 			</div>
-		{/snippet}
-	</StepCardDisplay>
-</div>
+			{#if followUp.condition === 'always'}
+				<p class="text-xs text-muted-foreground">
+					{m.follow_up_always_helper()}
+				</p>
+			{/if}
+		</div>
+	{/snippet}
+</StepCardDisplay>

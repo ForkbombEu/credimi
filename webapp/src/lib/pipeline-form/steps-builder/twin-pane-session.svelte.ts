@@ -68,10 +68,6 @@ export type TwinPaneSessionOptions = {
 		onRevealStep?: (index: number) => void;
 		onEditFocus?: (unit: ActiveUnit) => void;
 	}) => void;
-	/** Called before the In-card hard-start scroll (not in manual). */
-	onEditFocusStart?: (unit: ActiveUnit) => void;
-	/** Called after cards pane scroll has settled (or immediately if none). */
-	onEditFocusSettled?: (unit: ActiveUnit) => void;
 	/** Inject for tests. */
 	createComposerVirtualizer?: (options: ComposerVirtualizerOptions) => ComposerVirtualizer;
 	createPeerScrollFollow?: (options?: PeerScrollFollowOptions) => PeerScrollFollow;
@@ -285,7 +281,6 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			// Do not followUnit — onEditFocus already start-aligns.
 			unitHighlight.pinUnit(unit);
 			inCard.noteEnterStart();
-			options.onEditFocusStart?.(unit);
 			void tick().then(async () => {
 				if (disposed) {
 					inCard.noteEnterSettled(false);
@@ -297,7 +292,6 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 					return;
 				}
 				inCard.noteEnterSettled(getIsInCardEdit());
-				options.onEditFocusSettled?.(unit);
 			});
 		}
 	});

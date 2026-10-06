@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Component, Snippet } from 'svelte';
 
-	import { TriangleAlert } from '@lucide/svelte';
+	import { HelpCircle, TriangleAlert, XIcon } from '@lucide/svelte';
 	import { Comp } from '$lib/renderable';
 	import { showPipelineFormError } from '$pipeline-form/errors.js';
 	import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 
@@ -26,6 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		playInCardEnterLayout,
 		playInCardExitLayout
 	} from '../in-card-layout.js';
+	import InCardFormShell from './in-card-form-shell.svelte';
 	import { cancelMotion, type MotionHandle } from './in-card-motion.js';
 	import { getStepData, getStepError } from './index.js';
 
@@ -38,14 +40,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		formBody?: Snippet;
 		showFormBody?: boolean;
 		/**
-		 * After enter scroll settles — starts fade-summary → fade-form → grow.
-		 * Ignored when not showing the form body.
+		 * Enter-ready after start-align settles (`editing && phase === 'still'`).
+		 * Starts fade-summary → fade-form → grow. Ignored when not showing the form body.
 		 */
 		expandReady?: boolean;
 		/** Cap for the *whole card* while editing (px). Body grow subtracts header chrome. */
 		maxHeightPx?: number;
-		/** Becomes true after enter grow finishes; parent uses it for h-full / max-height. */
-		enterComplete?: boolean;
+		/** Sibling of the card being edited in place: dimmed and non-interactive (except the pencil). */
+		faded?: boolean;
+		/**
+		 * When set (Composer idle chrome), fade action buttons until hover.
+		 * Hub omits this so `topRight` is not faded.
+		 */
+		actionsDisabled?: boolean;
+		docsUrl?: string;
+		canSave?: boolean;
+		onSave?: () => void;
+		onDismiss?: () => void;
 		/** Fired after exit shrink/crossfade finishes — clear the held form mode. */
 		onExitComplete?: () => void;
 		footer?: Snippet | Comp<Component<any>>;
@@ -63,7 +74,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		showFormBody = false,
 		expandReady = false,
 		maxHeightPx,
-		enterComplete = $bindable(false),
+		faded = false,
+		actionsDisabled,
+		docsUrl,
+		canSave = false,
+		onSave,
+		onDismiss,
 		onExitComplete,
 		footer,
 		readonly = false,
@@ -72,6 +88,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		hovered = false,
 		class: className
 	}: Props = $props();
+
+	/** True after enter grow finishes; layout/inert only — not bound by parents. */
+	let enterComplete = $state(false);
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
 
@@ -123,7 +142,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	// Hide the form host until layout owns it — avoids a visible flash between
-	// showFormBody mount and expandReady (enter previously set these classes itself).
+	// showFormBody mount and enter-ready (enter previously set these classes itself).
 	$effect(() => {
 		const form = formHost;
 		if (!form || !showFormBody) return;
@@ -221,73 +240,142 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div
-	bind:this={cardRoot}
 	class={[
-		'group flex min-h-0 flex-col overflow-hidden rounded-md border bg-card',
-		classes.border,
-		!readonly &&
-			!selected &&
-			!editing &&
-			'hover:border-primary hover:ring-1 hover:ring-primary',
-		(editing || selected) && 'border-orange-600 ring-1 ring-orange-600',
-		hovered && !editing && !selected && 'border-primary ring-1 ring-primary',
-		className
+		'flex min-h-0 flex-col transition-opacity duration-200',
+		faded && 'pointer-events-none opacity-40'
 	]}
+	style:max-height={showFormBody && maxHeightPx != null ? `${maxHeightPx}px` : undefined}
 >
-	<div class={['h-1 shrink-0', classes?.bg]}></div>
+	<div
+		bind:this={cardRoot}
+		class={[
+			'group flex min-h-0 flex-col overflow-hidden rounded-md border bg-card',
+			classes.border,
+			!readonly &&
+				!selected &&
+				!editing &&
+				'hover:border-primary hover:ring-1 hover:ring-primary',
+			(editing || selected) && 'border-orange-600 ring-1 ring-orange-600',
+			hovered && !editing && !selected && 'border-primary ring-1 ring-primary',
+			className
+		]}
+	>
+		<div class={['h-1 shrink-0', classes?.bg]}></div>
 
-	<div class="flex min-h-0 grow flex-col">
-		<div class="flex shrink-0 items-center justify-between py-1 pr-1 pl-3">
-			<div class={['flex items-center gap-1', classes.text]}>
-				<Icon src={icon} size={12} />
-				<p class="text-xs">{labels.singular}</p>
+		<div class="flex min-h-0 grow flex-col">
+			<div class="flex shrink-0 items-center justify-between py-1 pr-1 pl-3">
+				<div class={['flex items-center gap-1', classes.text]}>
+					<Icon src={icon} size={12} />
+					<p class="text-xs">{labels.singular}</p>
+				</div>
+
+				{@render headerChrome()}
 			</div>
 
-			{@render topRight?.()}
+			{#if showFormBody && formBody}
+				<div
+					bind:this={bodyLock}
+					class={[
+						'relative min-h-0',
+						enterComplete || exitMotion ? 'flex min-h-0 grow flex-col' : ''
+					]}
+					style:max-height={bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
+					data-testid="in-card-body-lock"
+					data-enter-complete={enterComplete}
+					data-exiting={Boolean(exitMotion)}
+				>
+					{#if showDisplayLayer}
+						<div
+							bind:this={displayRoot}
+							class={enterComplete || exitMotion
+								? 'pointer-events-none absolute top-0 right-0 left-0 w-full'
+								: undefined}
+							data-testid="in-card-display-body"
+						>
+							{@render displayDetails()}
+							{@render displayFooter()}
+						</div>
+					{/if}
+
+					<div
+						bind:this={formHost}
+						data-testid="in-card-form-host"
+						inert={!enterComplete || Boolean(exitMotion)}
+					>
+						{#if onSave && onDismiss}
+							<InCardFormShell expanded={editing} {canSave} {onSave} {onDismiss}>
+								{#snippet form()}
+									{@render formBody()}
+								{/snippet}
+							</InCardFormShell>
+						{:else}
+							{@render formBody()}
+						{/if}
+					</div>
+				</div>
+			{:else}
+				{@render displayDetails()}
+			{/if}
 		</div>
 
-		{#if showFormBody && formBody}
-			<div
-				bind:this={bodyLock}
-				class={[
-					'relative min-h-0',
-					enterComplete || exitMotion ? 'flex min-h-0 grow flex-col' : ''
-				]}
-				style:max-height={bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
-				data-testid="in-card-body-lock"
-				data-enter-complete={enterComplete}
-				data-exiting={Boolean(exitMotion)}
-			>
-				{#if showDisplayLayer}
-					<div
-						bind:this={displayRoot}
-						class={enterComplete || exitMotion
-							? 'pointer-events-none absolute top-0 right-0 left-0 w-full'
-							: undefined}
-						data-testid="in-card-display-body"
-					>
-						{@render displayDetails()}
-						{@render displayFooter()}
-					</div>
-				{/if}
-
-				<div
-					bind:this={formHost}
-					data-testid="in-card-form-host"
-					inert={!enterComplete || Boolean(exitMotion)}
-				>
-					{@render formBody()}
-				</div>
-			</div>
-		{:else}
-			{@render displayDetails()}
+		{#if !showFormBody}
+			{@render displayFooter()}
 		{/if}
 	</div>
-
-	{#if !showFormBody}
-		{@render displayFooter()}
-	{/if}
 </div>
+
+{#snippet headerChrome()}
+	{#if showFormBody}
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="flex items-center gap-1 pr-1"
+			onclick={(e) => e.stopPropagation()}
+			onpointerdown={(e) => e.stopPropagation()}
+		>
+			{#if docsUrl}
+				<IconButton
+					variant="ghost"
+					href={docsUrl}
+					target="_blank"
+					rel="noopener noreferrer"
+					icon={HelpCircle}
+					size="xs"
+					tooltip={m.Documentation()}
+				/>
+			{/if}
+			{#if onDismiss}
+				<IconButton
+					variant="ghost"
+					icon={XIcon}
+					size="xs"
+					tooltip={m.Close()}
+					onclick={onDismiss}
+					data-testid="in-card-form-dismiss"
+				/>
+			{/if}
+		</div>
+	{:else if topRight && actionsDisabled !== undefined}
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class={[
+				'flex items-center gap-1 pr-1 transition-opacity',
+				faded
+					? 'opacity-100'
+					: actionsDisabled
+						? 'opacity-30'
+						: 'opacity-30 group-hover:opacity-100'
+			]}
+			onclick={(e) => e.stopPropagation()}
+			onpointerdown={(e) => e.stopPropagation()}
+		>
+			{@render topRight()}
+		</div>
+	{:else}
+		{@render topRight?.()}
+	{/if}
+{/snippet}
 
 {#snippet displayDetails()}
 	<div class="space-y-4 p-3 pt-2">
