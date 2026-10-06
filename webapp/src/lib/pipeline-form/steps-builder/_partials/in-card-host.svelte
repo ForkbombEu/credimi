@@ -11,18 +11,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { HelpCircle, XIcon } from '@lucide/svelte';
 	import { type Comp, Render } from '$lib/renderable';
-	import { onDestroy, tick, untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import {
-		inCardFormHostClass,
-		playInCardEnterLayout,
-		playInCardExitLayout
-	} from '../in-card-layout.js';
+	import { inCardFormHostClass } from '../in-card-layout.js';
+	import { createInCardLayoutMachine } from './in-card-host-machine.svelte.js';
 	import InCardFormShell from './in-card-form-shell.svelte';
-	import { cancelMotion, type MotionHandle } from './in-card-motion.js';
 	import StepCardDisplay from './step-card-display.svelte';
 	import { useCardShell } from './use-card-shell.svelte.js';
 
@@ -71,143 +67,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const canSave = $derived(Boolean(editing && shell.mode?.form.canSave()));
 	const docsUrl = $derived(shell.mode?.config.docsUrl);
 
-	/** True after enter grow finishes; layout/inert only — not bound by parents. */
-	let enterComplete = $state(false);
-
-	/** Keep summary painted until enter crossfade finishes (or during exit). */
-	let showDisplayLayer = $state(true);
-	/** Body cap (card max − chrome); kept on the lock so the save bar does not reflow. */
-	let bodyMaxPx = $state<number | undefined>(undefined);
-	/** Set while exit layout handle is live — form stays inert; not session `exiting`. */
-	let exitMotion = $state<MotionHandle | undefined>(undefined);
-
-	let fadedRoot: HTMLElement | null = $state(null);
+	let cardRoot: HTMLElement | null = $state(null);
 	let bodyLock: HTMLElement | null = $state(null);
 	let displayRoot: HTMLElement | null = $state(null);
 	let formHost: HTMLElement | null = $state(null);
 
-	let motion: MotionHandle | undefined;
-	let motionToken = 0;
-
-	$effect(() => {
-		if (showFormBody) return;
-		// Form fully cleared — restore idle display state.
-		untrack(() => {
-			motionToken++;
-			motion?.cancel();
-			motion = undefined;
-			exitMotion?.cancel();
-			exitMotion = undefined;
-			showDisplayLayer = true;
-			enterComplete = false;
-			bodyMaxPx = undefined;
-			cancelMotion(bodyLock);
-			cancelMotion(displayRoot);
-			cancelMotion(formHost);
-		});
-	});
-
-	// Hide the form host until layout owns it — avoids a visible flash between
-	// showFormBody mount and enter-ready (enter previously set these classes itself).
-	$effect(() => {
-		const form = formHost;
-		if (!form || !showFormBody) return;
-		if (enterComplete || exitMotion) return;
-		form.className = inCardFormHostClass(false);
+	const layout = createInCardLayoutMachine({
+		getEls: () => {
+			const card = cardRoot;
+			const lock = bodyLock;
+			const display = displayRoot;
+			const form = formHost;
+			if (!card || !lock || !display || !form) return null;
+			return { card, lock, display, form };
+		},
+		getCardFillMaxPx: () => maxHeightPx,
+		onDone: () => shell.completeExit()
 	});
 
 	$effect(() => {
-		if (!showFormBody || !expandReady || !editing) return;
-		if (untrack(() => enterComplete || exitMotion)) return;
-		const wrap = fadedRoot;
-		const card = wrap?.firstElementChild instanceof HTMLElement ? wrap.firstElementChild : null;
-		const lock = bodyLock;
-		const display = displayRoot;
-		const form = formHost;
-		if (!card || !lock || !display || !form) return;
-
-		const token = ++motionToken;
-		untrack(() => {
-			motion?.cancel();
-			motion = playInCardEnterLayout({
-				lock,
-				display,
-				form,
-				card,
-				cardFillMaxPx: maxHeightPx,
-				onSettled: async ({ bodyMaxPx: settledBodyMax }) => {
-					if (token !== motionToken) return;
-					showDisplayLayer = false;
-					enterComplete = true;
-					bodyMaxPx = settledBodyMax;
-				}
-			});
-		});
+		void showFormBody;
+		void expandReady;
+		void editing;
+		void bodyLock;
+		void displayRoot;
+		void formHost;
+		void cardRoot;
+		untrack(() => layout.sync({ showFormBody, expandReady, editing }));
 	});
 
-	// Exit: shrink to summary height, then crossfade — do not collapse to zero.
-	$effect(() => {
-		if (editing || !showFormBody) return;
-		if (untrack(() => exitMotion)) return;
+	onDestroy(() => layout.destroy());
 
-		const token = ++motionToken;
-		untrack(() => {
-			motion?.cancel();
-
-			if (!enterComplete) {
-				showDisplayLayer = true;
-				enterComplete = false;
-				bodyMaxPx = undefined;
-				exitMotion = playInCardExitLayout({
-					enterSettled: false,
-					onComplete: () => {
-						if (token !== motionToken) return;
-						exitMotion = undefined;
-						motion = undefined;
-						shell.completeExit();
-					}
-				});
-				motion = exitMotion;
-				return;
-			}
-
-			showDisplayLayer = true;
-			void tick().then(() => {
-				if (token !== motionToken) return;
-				const lock = bodyLock;
-				const display = displayRoot;
-				const form = formHost;
-				exitMotion = playInCardExitLayout({
-					lock: lock ?? undefined,
-					display: display ?? undefined,
-					form: form ?? undefined,
-					enterSettled: Boolean(lock && display && form),
-					onComplete: () => {
-						if (token !== motionToken) return;
-						enterComplete = false;
-						bodyMaxPx = undefined;
-						exitMotion = undefined;
-						motion = undefined;
-						shell.completeExit();
-					}
-				});
-				motion = exitMotion;
-			});
-		});
-	});
-
-	onDestroy(() => {
-		motionToken++;
-		motion?.cancel();
-		exitMotion?.cancel();
-		cancelMotion(bodyLock);
-		cancelMotion(displayRoot);
-		cancelMotion(formHost);
-	});
+	const showDisplayLayer = $derived(layout.current !== 'settled');
+	const lockSettledLayout = $derived(
+		layout.current === 'settled' || layout.current === 'exiting'
+	);
 </script>
 
 <div
-	bind:this={fadedRoot}
 	class={[
 		'flex min-h-0 flex-col transition-opacity duration-200',
 		faded && 'pointer-events-none opacity-40'
@@ -215,6 +112,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	style:max-height={showFormBody && maxHeightPx != null ? `${maxHeightPx}px` : undefined}
 >
 	<StepCardDisplay
+		bind:cardRoot
 		{step}
 		{editing}
 		{selected}
@@ -273,19 +171,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet overlayBody({ details, footer }: { details: Snippet; footer: Snippet })}
 	<div
 		bind:this={bodyLock}
-		class={[
-			'relative min-h-0',
-			enterComplete || exitMotion ? 'flex min-h-0 grow flex-col' : ''
-		]}
-		style:max-height={bodyMaxPx != null ? `${bodyMaxPx}px` : undefined}
+		class={['relative min-h-0', lockSettledLayout && 'flex min-h-0 grow flex-col']}
+		style:max-height={layout.bodyMaxPx != null ? `${layout.bodyMaxPx}px` : undefined}
 		data-testid="in-card-body-lock"
-		data-enter-complete={enterComplete}
-		data-exiting={Boolean(exitMotion)}
+		data-enter-complete={layout.current === 'settled'}
+		data-exiting={layout.current === 'exiting'}
 	>
 		{#if showDisplayLayer}
 			<div
 				bind:this={displayRoot}
-				class={enterComplete || exitMotion
+				class={lockSettledLayout
 					? 'pointer-events-none absolute top-0 right-0 left-0 w-full'
 					: undefined}
 				data-testid="in-card-display-body"
@@ -297,8 +192,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div
 			bind:this={formHost}
+			class={inCardFormHostClass(lockSettledLayout)}
 			data-testid="in-card-form-host"
-			inert={!enterComplete || Boolean(exitMotion)}
+			inert={layout.current !== 'settled'}
 		>
 			<InCardFormShell
 				expanded={editing}

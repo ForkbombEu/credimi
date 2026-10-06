@@ -38,6 +38,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		selected?: boolean;
 		hovered?: boolean;
 		class?: string;
+		/** Bordered card root — In-card host binds this for chrome measure. */
+		cardRoot?: HTMLElement | null;
 	};
 
 	let {
@@ -49,7 +51,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		editing = false,
 		selected = false,
 		hovered = false,
-		class: className
+		class: className,
+		cardRoot = $bindable<HTMLElement | null>(null)
 	}: Props = $props();
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
@@ -70,6 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div
+	bind:this={cardRoot}
 	class={[
 		'group flex min-h-0 flex-col overflow-hidden rounded-md border bg-card',
 		classes.border,
