@@ -241,16 +241,15 @@ Step outputs live in Temporal history, recorded once:
 - A main step whose inputs reference the output of a step that already failed (`continue_on_error`) fails before running with `CRE228` `step <id> needs the output of step <failed>, which failed` (`failedDependencyError`). References through `| optional` do not count, so `fcaf-validation` still runs.
 - Pipeline results and failure `Details.output` carry non-step entries (warnings, video and screenshot URLs, `finally_errors`) plus only the step outputs listed in `PipelineWorkflowInput.ReturnOutputs`. Top-level runs return none; a parent sets a child pipeline's `return_outputs` from the references in its own definition (`ReferencedStepOutputs`). `POST /api/pipeline/execute` returns all of them.
 
-Direct run path:
+Direct run path (no devices):
 
-- UI calls `POST /api/pipeline/start` with `{ pipeline_identifier, yaml }`.
-- Handler: `pkg/internal/apis/handlers/pipeline_handler.go`.
-- The handler resolves the canonified pipeline path and starts the Dynamic Pipeline Workflow on `PipelineTaskQueue` in the organization namespace.
-- The handler creates a `pipeline_results` record with `(owner, pipeline, workflow_id, run_id)`.
+- The UI (`webapp/src/lib/pipeline/queue.ts`) and the CLI always call `POST /api/pipeline/queue` with `{ pipeline_identifier, yaml }`; there is no `POST /api/pipeline/start` route.
+- When the YAML references no device (`resolvePipelineDeviceIDs` returns none and no global device is needed), `enqueuePipelineRun` skips the semaphore and `startPipelineFromQueue` (`pkg/internal/apis/handlers/pipeline_queue_handler.go`) starts the Dynamic Pipeline Workflow on `PipelineTaskQueue` in the organization namespace, answering `status: running`.
+- It then creates the `pipeline_results` record with `(owner, pipeline, workflow_id, run_id)` through `pipelineresults.Create`.
 
 Queued mobile run path:
 
-- UI logic in `webapp/src/lib/pipeline/utils.ts` chooses `/api/pipeline/queue` when the YAML contains a `mobile-automation` step.
+- When the YAML references devices, the same `POST /api/pipeline/queue` call enqueues the run on the mobile-device semaphore.
 - Queue handler: `pkg/internal/apis/handlers/pipeline_queue_handler.go`.
 - Queue endpoints require user auth:
     - `POST /api/pipeline/queue` with `{ pipeline_identifier, yaml }`

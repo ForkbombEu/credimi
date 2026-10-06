@@ -146,12 +146,12 @@ Separate, older substitution: `${fixture.<key>}` (no `${{ }}`), keys `issuer_url
 
 **GUI.** Pipelines page → pick the runner via the gear next to **Run** → **Run**; the run opens as a Temporal timeline with video, screenshots and logs.
 
-There is **no** `POST /api/pipeline/start` route in this worktree (grep over `pkg/internal/apis`); `AGENTS.md` still names it. The GUI always queues, and the queue handler starts device-less pipelines directly.
+There is **no** `POST /api/pipeline/start` route (grep over `pkg/internal/apis`). The GUI always queues, and the queue handler starts device-less pipelines directly.
 
 ## Where runs live
 
 - Collection `pipeline_results`: `owner`, `pipeline`, `workflow_id`, `run_id`, `canonified_identifier`, `type` (`manual|scheduled|CI`), `devices`, files `video_results`, `screenshots`, `logcats`, `ios_logstreams`, `maestro_screenshots`, `report`, `fcaf_report`, `fcaf_report_pdf`, plus `credential_well_knowns`, `presentation_results`. The current unique index is `(canonified_identifier, owner)`; `canonified_identifier` is derived from `workflow_id`.
-- Created and filled by the internal `POST /api/pipeline/pipeline-execution-results` (and `/{evidence,report,fcaf-report}` sub-routes), gated by the internal admin key. Runners append video, screenshot and log files through `POST /api/wallet/store-pipeline-result` (user or internal-admin auth; the device must be one of the record's `devices`).
+- Created in-process by `pipelineresults.Create` (`pkg/internal/pipeline_results`) when the run starts (`POST /api/pipeline/queue` and `StartQueuedPipelineActivity`); evidence, markdown report and FCAF report are stored by the evidence extraction, report generation and `fcaf-validation` activities. No HTTP route writes them. Runners append video, screenshot and log files through `POST /api/wallet/store-pipeline-result` (user or internal-admin auth; the device must be one of the record's `devices`).
 - List/view rules are `null` (superuser-only); users read results through the execution API below. Artifact files are unprotected and downloadable by URL.
 - Listed via `GET /api/pipeline/list-executions`, `/list-executions/{id}`, `/executions/{id}/{workflow_id}/{run_id}`; artifacts are enriched from files.
 - Temporal search attributes: `PipelineIdentifier`, `DeviceIdentifiers`, `ActionsID`, `VersionsID`, `CredentialsID`, `UseCaseID`, `ConformanceCheckID`, `CustomCheckID` (`pkg/workflowengine/search_attributes.go:13-24`).

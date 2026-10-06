@@ -376,8 +376,8 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - question: Update `AGENTS.md` (and the scoreboard doc/comment) to the current routes and header, or treat the documented names as the intended contract and change the code back?
 - options considered: (a) fix the docs/comments to match code; (b) add compatibility aliases for the old runner endpoints and accept `X-Api-Key` as an alias; (c) add a `/api/pipeline/start` alias.
 - default risk: Agents and docs keep describing endpoints that 404, and sibling `credimi-extra` implementers may build against the wrong runner paths.
-- decision:
-- follow-up: Confirm (a) and update `AGENTS.md` "Dynamic Pipeline Workflow", "External runner HTTP contract" and "Routes, DTOs, Auth, Errors" sections.
+- decision: (1) resolved 2026-10-06 by the user: option (a), `AGENTS.md` "Dynamic Pipeline Workflow" now documents `POST /api/pipeline/queue` as the only run entrypoint. (2) and (3) still pending.
+- follow-up: Confirm (a) for (2) and (3), then update the "External runner HTTP contract" and "Routes, DTOs, Auth, Errors" sections.
 
 ### 2026-10-01 - FCAF complete-validation exceeds Temporal 4 MB gRPC message limit
 
