@@ -31,7 +31,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1711)
+	require.Len(t, definition.Steps, 1710)
 	require.NotContains(
 		t,
 		string(data),
@@ -98,7 +98,7 @@ func TestGenerateDemoFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 8)
+	require.Len(t, definition.Steps, 7)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validation := definition.Steps[len(definition.Steps)-1]
@@ -135,7 +135,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 167)
+	require.Len(t, definition.Steps, 166)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validationSteps := make([]map[string]any, 0, 1)
@@ -218,6 +218,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 	actions, err := loadWalletActions(filepath.Join(root, "..", "..", "imports"))
 	require.NoError(t, err)
 	injectedFor := regexp.MustCompile(`^(.+)-issue-pid(?:-[0-9]+)?$`)
+	scenarioOf := regexp.MustCompile(`^(.+?-[0-9a-f]{8})-`)
 
 	for _, pipeline := range []string{
 		"fcaf-wallet-solution-relying-party-complete-validation.yaml",
@@ -231,7 +232,11 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 
 		available := map[credentialFormat]int{}
 		earlier := map[string]map[string]any{}
+		// The first step resets the wallet for the first scenario that drives
+		// it; afterPrelude marks that this scenario is not known yet.
+		const afterPrelude = "*"
 		scenario := ""
+		previousWalletStepResets := false
 		resets := 0
 		shares := 0
 		injected := 0
@@ -239,16 +244,32 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 			id, _ := step["id"].(string)
 			source := deeplinkSourceStep(step, earlier)
 			earlier[id] = step
-			if use, _ := step["use"].(string); use != mobileAutomationTask ||
-				id == "onboard-reference-wallet" {
+			if use, _ := step["use"].(string); use != mobileAutomationTask {
 				continue
 			}
 			with, _ := step["with"].(map[string]any)
 			if action, _ := with["action_id"].(string); action == resetActionID {
+				require.Falsef(
+					t,
+					previousWalletStepResets,
+					"%s: %q resets a wallet that nothing used since the last reset",
+					pipeline,
+					id,
+				)
+				previousWalletStepResets = true
 				scenario = strings.TrimSuffix(id, "-reset-wallet")
+				if id == "onboard-reference-wallet" {
+					scenario = afterPrelude
+				}
 				available = map[credentialFormat]int{}
 				resets++
 				continue
+			}
+			previousWalletStepResets = false
+			if scenario == afterPrelude {
+				match := scenarioOf.FindStringSubmatch(id)
+				require.NotNilf(t, match, "%s: step %q has no scenario prefix", pipeline, id)
+				scenario = match[1]
 			}
 			require.Truef(
 				t,

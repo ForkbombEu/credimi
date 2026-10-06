@@ -2977,7 +2977,11 @@ claim-path scenarios, `interaction-pid-mdoc`, `pid-mdoc-data-model`,
 `dcql-credential-sets-required-true-match`, `dcql-credentials-match`,
 `dcql-standard-all`) are removed, since each ran right after that scenario's
 reset. `engagement-haip-vp` still outputs `onboard-reference-wallet`, which is
-the pipeline's first step. `make fcaf-generate` produces 1711 aggregate steps
-(190 `fcaf-reset-and-onboard` runs) and 167 happy-flow steps.
+the pipeline's first step. The first scenario that drives the Wallet gets no
+`<scenario>-reset-wallet` of its own, because it runs right after that first
+step; `TestAggregateHoldsACredentialForEveryPresentation` fails on two resets
+with no Wallet step between them. `make fcaf-generate` produces 1710 aggregate
+steps (189 `fcaf-reset-and-onboard` runs including the first step), 166
+happy-flow steps and 7 demo steps.
 `launchApp clearState: true` costs about 0.7 s more than `false` on
 `emulator-5554`.

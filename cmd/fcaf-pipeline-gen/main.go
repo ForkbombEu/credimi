@@ -295,8 +295,10 @@ func buildAggregate(
 	seenStepIDs := map[string]string{}
 	// Every scenario that drives the wallet starts from a reset wallet, so the
 	// count of unspent instances starts again from zero there and an issuance
-	// only covers presentations of its own scenario.
+	// only covers presentations of its own scenario. The first one runs right
+	// after onboardingPrelude, which already reset and onboarded the wallet.
 	pidAvailable := map[credentialFormat]int{}
+	walletUsed := false
 	emitted := map[string]map[string]any{}
 
 	for _, path := range paths {
@@ -311,12 +313,15 @@ func buildAggregate(
 			return err
 		}
 		if drivesWallet(definition.Steps) {
-			reset := walletResetStep(prefix)
-			resetID, _ := reset["id"].(string)
-			if err := claimStepID(seenStepIDs, resetID, path); err != nil {
-				return err
+			if walletUsed {
+				reset := walletResetStep(prefix)
+				resetID, _ := reset["id"].(string)
+				if err := claimStepID(seenStepIDs, resetID, path); err != nil {
+					return err
+				}
+				aggregate.Steps = append(aggregate.Steps, reset)
 			}
-			aggregate.Steps = append(aggregate.Steps, reset)
+			walletUsed = true
 			pidAvailable = map[credentialFormat]int{}
 		}
 

@@ -15,12 +15,6 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
-      id: dcql-credential-formats-3cfeac03-reset-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-create-capture-session
       use: http-request
       with:
