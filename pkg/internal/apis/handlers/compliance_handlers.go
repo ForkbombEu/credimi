@@ -46,24 +46,33 @@ var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 			RequestSchema: HandleSendTemporalSignalInput{},
 		},
 		{
-			Method:              http.MethodPost,
-			Path:                "/send-openidnet-log-update",
-			Handler:             HandleSendOpenID4VPWalletLogUpdate,
-			RequestSchema:       HandleSendLogUpdateRequestInput{},
+			Method:        http.MethodPost,
+			Path:          "/send-openidnet-log-update",
+			Handler:       HandleSendOpenID4VPWalletLogUpdate,
+			RequestSchema: HandleSendLogUpdateRequestInput{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
 			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
 		},
 		{
-			Method:              http.MethodPost,
-			Path:                "/send-eudiw-log-update",
-			Handler:             HandleSendEudiwLogUpdate,
-			RequestSchema:       HandleSendLogUpdateRequestInput{},
+			Method:        http.MethodPost,
+			Path:          "/send-eudiw-log-update",
+			Handler:       HandleSendEudiwLogUpdate,
+			RequestSchema: HandleSendLogUpdateRequestInput{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
 			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
 		},
 		{
-			Method:              http.MethodPost,
-			Path:                "/send-ewc-log-update",
-			Handler:             HandleSendEWCLogUpdate,
-			RequestSchema:       HandleSendLogUpdateRequestInput{},
+			Method:        http.MethodPost,
+			Path:          "/send-ewc-log-update",
+			Handler:       HandleSendEWCLogUpdate,
+			RequestSchema: HandleSendLogUpdateRequestInput{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
 			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
 		},
 		{
@@ -123,6 +132,9 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
+		if apiErr := requireCallerNamespace(e.App, e.Auth, req.Namespace); apiErr != nil {
+			return apiErr
+		}
 		c, err := complianceTemporalClient(req.Namespace)
 		if err != nil {
 			return apierror.New(
@@ -158,6 +170,40 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "Signal sent successfully"})
 	}
+}
+
+// requireCallerNamespace allows a request to act on a Temporal namespace only
+// when it is the caller's organization namespace; superusers may act on any.
+func requireCallerNamespace(app core.App, auth *core.Record, namespace string) *apierror.APIError {
+	if auth == nil {
+		return apierror.New(
+			http.StatusUnauthorized,
+			"auth",
+			"authentication required",
+			"user not authenticated",
+		)
+	}
+	if auth.IsSuperuser() {
+		return nil
+	}
+	callerNamespace, err := pbutils.GetUserOrganizationCanonifiedName(app, auth.Id)
+	if err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"unable to get user organization canonified name",
+			err.Error(),
+		)
+	}
+	if callerNamespace == "" || callerNamespace != namespace {
+		return apierror.New(
+			http.StatusForbidden,
+			"namespace",
+			"namespace does not belong to your organization",
+			"namespace mismatch",
+		)
+	}
+	return nil
 }
 
 ///

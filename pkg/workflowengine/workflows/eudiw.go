@@ -365,26 +365,16 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 		events = workflowengine.AsSliceOfMaps(
 			eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"],
 		)
-		triggerLogsInput := workflowengine.ActivityInput{
-			Payload: activities.HTTPActivityPayload{
-				Method: http.MethodPost,
-				URL: utils.JoinURL(
-					workflowengine.InternalAppURLFromConfig(input.Config),
-					"api", "compliance", "send-eudiw-log-update",
-				),
-				Headers: map[string]string{
-					workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
-				},
-				Body: map[string]any{
-					"workflow_id": workflow.GetInfo(ctx).WorkflowExecution.ID,
-					"logs":        events,
-				},
-				ExpectedStatus: 200,
-			},
-		}
-
-		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), triggerLogsInput).
-			Get(ctx, nil)
+		err = sendRealtimeLogsUpdate(
+			ctx,
+			utils.JoinURL(
+				workflowengine.InternalAppURLFromConfig(input.Config),
+				"api", "compliance", "send-eudiw-log-update",
+			),
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			events,
+			"",
+		)
 		if err != nil {
 			logger.Error("Failed to send logs", "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(

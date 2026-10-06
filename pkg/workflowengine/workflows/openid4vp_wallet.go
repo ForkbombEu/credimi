@@ -444,29 +444,16 @@ func (w *OpenID4VPWalletLogsWorkflow) ExecuteWorkflow(
 
 		logs = workflowengine.AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
 
-		triggerLogsInput := workflowengine.ActivityInput{
-			Payload: activities.HTTPActivityPayload{
-				Method: http.MethodPost,
-				URL: utils.JoinURL(
-					input.Config["app_url"].(string),
-					"api", "compliance", "send-openidnet-log-update",
-				),
-				Headers: map[string]string{
-					workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
-				},
-				Body: map[string]any{
-					"workflow_id": strings.TrimSuffix(
-						workflow.GetInfo(subCtx).WorkflowExecution.ID,
-						"-log",
-					),
-					"logs": logs,
-				},
-				ExpectedStatus: 200,
-			},
-		}
-
-		err = workflow.ExecuteActivity(subCtx, HTTPActivity.Name(), triggerLogsInput).
-			Get(subCtx, nil)
+		err = sendRealtimeLogsUpdate(
+			subCtx,
+			utils.JoinURL(
+				input.Config["app_url"].(string),
+				"api", "compliance", "send-openidnet-log-update",
+			),
+			strings.TrimSuffix(workflow.GetInfo(subCtx).WorkflowExecution.ID, "-log"),
+			logs,
+			"",
+		)
 		if err != nil {
 			logger.Error("Failed to send logs", "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(

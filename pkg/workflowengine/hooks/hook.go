@@ -118,6 +118,7 @@ var OrgWorkers = []workerConfig{
 			activities.NewStepCIWorkflowActivity(),
 			activities.NewSendMailActivity(),
 			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{
@@ -128,6 +129,7 @@ var OrgWorkers = []workerConfig{
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
 			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{
@@ -138,6 +140,7 @@ var OrgWorkers = []workerConfig{
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
 			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{
@@ -150,6 +153,7 @@ var OrgWorkers = []workerConfig{
 			activities.NewStepCIWorkflowActivity(),
 			activities.NewSendMailActivity(),
 			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{
@@ -161,6 +165,7 @@ var OrgWorkers = []workerConfig{
 			activities.NewStepCIWorkflowActivity(),
 			activities.NewSendMailActivity(),
 			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{
@@ -274,6 +279,7 @@ var DefaultWorkers = []workerConfig{
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
 			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{

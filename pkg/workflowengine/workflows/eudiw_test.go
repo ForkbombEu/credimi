@@ -43,6 +43,7 @@ func Test_EudiwWorkflow(t *testing.T) {
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
+				registerEudiwLogPushActivity(env, callCount)
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}}, nil)
@@ -74,6 +75,7 @@ func Test_EudiwWorkflow(t *testing.T) {
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
+				registerEudiwLogPushActivity(env, callCount)
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}}, nil)
@@ -105,6 +107,7 @@ func Test_EudiwWorkflow(t *testing.T) {
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
+				registerEudiwLogPushActivity(env, callCount)
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}}, nil)
@@ -170,7 +173,7 @@ func Test_EudiwWorkflow(t *testing.T) {
 						t,
 						3,
 						int(callCount.Load()),
-					) // Only two activity call (no looping)
+					) // Status, events and log push (no looping)
 				}
 			} else {
 				<-done
@@ -185,6 +188,28 @@ func Test_EudiwWorkflow(t *testing.T) {
 			}
 		})
 	}
+}
+
+// registerEudiwLogPushActivity mocks the send-eudiw-log-update push, counting it
+// alongside the status and events polls.
+func registerEudiwLogPushActivity(
+	env *testsuite.TestWorkflowEnvironment,
+	callCount *atomic.Int32,
+) {
+	internalHTTPActivity := activities.NewInternalHTTPActivity()
+	env.RegisterActivityWithOptions(internalHTTPActivity.Execute, activity.RegisterOptions{
+		Name: internalHTTPActivity.Name(),
+	})
+	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		return matchesHTTPPayload(
+			input,
+			"https://test-app.com/api/compliance/send-eudiw-log-update",
+		)
+	})).
+		Run(func(_ mock.Arguments) {
+			callCount.Add(1)
+		}).
+		Return(workflowengine.ActivityResult{}, nil)
 }
 
 func TestEudiwWorkflowStart(t *testing.T) {

@@ -62,6 +62,7 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				httpActivity := activities.NewHTTPActivity()
+				internalHTTPActivity := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
 					stepCI.Execute,
 					activity.RegisterOptions{Name: stepCI.Name()},
@@ -69,6 +70,10 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 				env.RegisterActivityWithOptions(
 					httpActivity.Execute,
 					activity.RegisterOptions{Name: httpActivity.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					internalHTTPActivity.Execute,
+					activity.RegisterOptions{Name: internalHTTPActivity.Name()},
 				)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
@@ -100,7 +105,7 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 					}, nil).
 					Once()
 				env.OnActivity(
-					httpActivity.Name(),
+					internalHTTPActivity.Name(),
 					mock.Anything,
 					mock.MatchedBy(matchHTTPActivityInput(
 						"POST",
@@ -132,6 +137,7 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				httpActivity := activities.NewHTTPActivity()
+				internalHTTPActivity := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
 					stepCI.Execute,
 					activity.RegisterOptions{Name: stepCI.Name()},
@@ -139,6 +145,10 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 				env.RegisterActivityWithOptions(
 					httpActivity.Execute,
 					activity.RegisterOptions{Name: httpActivity.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					internalHTTPActivity.Execute,
+					activity.RegisterOptions{Name: internalHTTPActivity.Name()},
 				)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
@@ -170,7 +180,7 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 					}, nil).
 					Once()
 				env.OnActivity(
-					httpActivity.Name(),
+					internalHTTPActivity.Name(),
 					mock.Anything,
 					mock.MatchedBy(matchHTTPActivityInput(
 						"POST",
