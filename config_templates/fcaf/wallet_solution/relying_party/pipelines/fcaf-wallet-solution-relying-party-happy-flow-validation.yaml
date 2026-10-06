@@ -2106,7 +2106,7 @@ steps:
                     dcql_exchange: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-fetch-capture-session.outputs.body | optional }}
                     fetch-capture-session: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-fetch-capture-session.outputs | optional }}
                     obtain-pid-mdoc: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-obtain-pid-mdoc.outputs | optional }}
-                    pid_mdoc: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    pid_mdoc: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     present-pid-mdoc: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-present-pid-mdoc.outputs | optional }}
                     visual_evidence: ${{ dcql-credential-formats-3cfeac03-credential-formats-035-present-pid-mdoc.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.credential-formats.sdjwt-presentation:
@@ -2116,7 +2116,7 @@ steps:
                     dcql_exchange: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-fetch-capture-session.outputs.body | optional }}
                     fetch-capture-session: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-fetch-capture-session.outputs | optional }}
                     obtain-pid-sdjwt: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-obtain-pid-sdjwt.outputs | optional }}
-                    pid_sdjwt: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    pid_sdjwt: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     present-pid-sdjwt: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-present-pid-sdjwt.outputs | optional }}
                     visual_evidence: ${{ dcql-credential-formats-3cfeac03-credential-formats-036-present-pid-sdjwt.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.credential-formats.unsupported-response-type-code:
@@ -2178,12 +2178,12 @@ steps:
             pipeline.dcql.cryptography:
                 output:
                     dcql_exchange: ${{ dcql-cryptography-1a488a33-fetch-capture-session.outputs.body | optional }}
-                    pid_sdjwt: ${{ dcql-cryptography-1a488a33-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    pid_sdjwt: ${{ dcql-cryptography-1a488a33-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     visual_evidence: ${{ dcql-cryptography-1a488a33-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.device-binding:
                 output:
                     dcql_exchange: ${{ dcql-device-binding-f7c71f86-fetch-capture-session.outputs.body | optional }}
-                    pid_sdjwt_presentations: ${{ dcql-device-binding-f7c71f86-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    pid_sdjwt_presentations: ${{ dcql-device-binding-f7c71f86-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     visual_evidence: ${{ dcql-device-binding-f7c71f86-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.interaction-metadata:
                 output:
@@ -2260,7 +2260,7 @@ steps:
                     invoke-wallet-with-haip-vp: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs | optional }}
                     obtain-pid-mdoc: ${{ pid-mdoc-data-model-8f915369-obtain-pid-mdoc.outputs | optional }}
                     onboard-reference-wallet: ${{ pid-mdoc-data-model-8f915369-onboard-reference-wallet.outputs | optional }}
-                    pid_mdoc: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    pid_mdoc: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     visual_evidence: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.pid.presentation.sdjwt.all-claims:
                 output:
@@ -2270,8 +2270,8 @@ steps:
                     invoke-wallet-with-haip-vp: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs | optional }}
                     obtain-pid-sdjwt: ${{ engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt.outputs | optional }}
                     onboard-reference-wallet: ${{ onboard-reference-wallet.outputs | optional }}
-                    pid_sdjwt: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
-                    pid_sdjwt_presentations: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token | optional }}
+                    pid_sdjwt: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
+                    pid_sdjwt_presentations: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.engagement.haip-vp:
                 output:

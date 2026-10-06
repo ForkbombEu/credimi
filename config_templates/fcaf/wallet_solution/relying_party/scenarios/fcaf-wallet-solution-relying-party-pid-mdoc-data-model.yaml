@@ -188,7 +188,7 @@ steps:
             create-capture-session: ${{ create-capture-session.outputs }}
             invoke-wallet-with-haip-vp: ${{ invoke-wallet-with-haip-vp.outputs }}
             fetch-capture-session: ${{ fetch-capture-session.outputs }}
-            pid_mdoc: ${{ fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token }}
+            pid_mdoc: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token }}
             visual_evidence: ${{ invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls }}
         forkbomb-bv-andrea/fcaf-wallet-solution-relying-party-pid-mdoc-data-model:
           output:
