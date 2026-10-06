@@ -14,40 +14,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
-	import InCardHost from './in-card-host.svelte';
+	import InCardHost, { type InCardHostChrome } from './in-card-host.svelte';
 	import { isStepEditable } from './utils.js';
 
 	//
 
-	type Props = {
+	type Props = InCardHostChrome & {
 		index: number;
 		followUp: EnrichedFollowUp;
 		builder: StepsBuilder;
-		editing?: boolean;
-		/** Enter-ready: parent `editing && session.inCard.phase === 'still'`. */
-		expandReady?: boolean;
-		selected?: boolean;
-		hovered?: boolean;
-		/** Sibling of the card being edited in place: dimmed and non-interactive (except the pencil). */
-		faded?: boolean;
-		/** Max height of the card while editing, in px. Composer passes `session.cardFillMaxPx`. */
-		maxHeightPx?: number;
-		/** Paired with held-form clear — Twin-pane `noteExitComplete`. */
-		onExitUnlock?: () => void;
 	};
 
-	let {
-		builder,
-		followUp,
-		index,
-		editing = false,
-		expandReady = false,
-		selected = false,
-		hovered = false,
-		faded = false,
-		maxHeightPx,
-		onExitUnlock
-	}: Props = $props();
+	let { builder, followUp, index, ...chrome }: Props = $props();
 
 	const editable = $derived(isStepEditable(followUp.step));
 	const actionsDisabled = $derived(builder.isFormMode);
@@ -59,17 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	];
 </script>
 
-<InCardHost
-	{builder}
-	step={followUp.step}
-	{editing}
-	{expandReady}
-	{selected}
-	{hovered}
-	{faded}
-	{maxHeightPx}
-	{onExitUnlock}
->
+<InCardHost {builder} step={followUp.step} {...chrome}>
 	{#snippet topRight()}
 		{#if editable}
 			<IconButton

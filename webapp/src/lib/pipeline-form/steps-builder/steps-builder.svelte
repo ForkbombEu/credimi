@@ -28,6 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Switch from '@/components/ui/switch/switch.svelte';
 	import { m } from '@/i18n';
 
+	import type { InCardHostChrome } from './_partials/in-card-host.svelte';
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
 	import {
@@ -122,6 +123,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const unit = builder.editingUnit;
 		if (!unit) return false;
 		return !(unit.section === section && unit.index === index);
+	}
+
+	/** Packages In-card chrome for both Step and Follow-up loops — Twin-pane stays orchestrator. */
+	function inCardChrome(
+		editing: boolean,
+		section: 'steps' | 'follow-ups',
+		index: number
+	): InCardHostChrome {
+		return {
+			editing,
+			expandReady: editing && session.inCard.phase === 'still',
+			faded: isCardFaded(section, index),
+			maxHeightPx: cardMaxHeightPx,
+			selected: session.isCardSelected(section, index),
+			hovered: session.isCardHovered(section, index),
+			onExitUnlock: () => session.inCard.noteExitComplete()
+		};
 	}
 </script>
 
@@ -257,14 +275,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{builder}
 									{step}
 									{index}
-									{editing}
-									expandReady={editing && session.inCard.phase === 'still'}
-									faded={isCardFaded('steps', index)}
-									maxHeightPx={cardMaxHeightPx}
-									selected={session.isCardSelected('steps', index)}
-									hovered={session.isCardHovered('steps', index)}
+									{...inCardChrome(editing, 'steps', index)}
 									onShift={(change) => session.shiftStep(index, change)}
-									onExitUnlock={() => session.inCard.noteExitComplete()}
 								/>
 							{/if}
 						</div>
@@ -305,13 +317,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{builder}
 								{followUp}
 								{index}
-								{editing}
-								expandReady={editing && session.inCard.phase === 'still'}
-								faded={isCardFaded('follow-ups', index)}
-								maxHeightPx={cardMaxHeightPx}
-								selected={session.isCardSelected('follow-ups', index)}
-								hovered={session.isCardHovered('follow-ups', index)}
-								onExitUnlock={() => session.inCard.noteExitComplete()}
+								{...inCardChrome(editing, 'follow-ups', index)}
 							/>
 						</div>
 					{/each}

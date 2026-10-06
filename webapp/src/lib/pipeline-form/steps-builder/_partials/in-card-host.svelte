@@ -24,9 +24,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Props = {
-		step: EnrichedStep;
-		builder: StepsBuilder;
+	/** Fill/unlock/selection chrome shared by StepCard and FollowUpCard — face stays out. */
+	export type InCardHostChrome = {
 		editing?: boolean;
 		/** Enter-ready: parent `editing && session.inCard.phase === 'still'`. */
 		expandReady?: boolean;
@@ -38,6 +37,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		maxHeightPx?: number;
 		/** Paired with held-form clear — Twin-pane `noteExitComplete`. */
 		onExitUnlock?: () => void;
+	};
+
+	type Props = InCardHostChrome & {
+		step: EnrichedStep;
+		builder: StepsBuilder;
 		topRight: Snippet;
 		footer?: Snippet | Comp<Component<any>>;
 	};

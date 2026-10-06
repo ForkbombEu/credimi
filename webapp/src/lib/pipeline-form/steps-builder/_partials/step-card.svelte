@@ -15,42 +15,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import ContinueOnErrorFooter from './continue-on-error-footer.svelte';
-	import InCardHost from './in-card-host.svelte';
+	import InCardHost, { type InCardHostChrome } from './in-card-host.svelte';
 	import { isStepEditable } from './utils.js';
 
 	//
 
-	type Props = {
+	type Props = InCardHostChrome & {
 		index: number;
 		step: EnrichedStep;
 		builder: StepsBuilder;
-		editing?: boolean;
-		/** Enter-ready: parent `editing && session.inCard.phase === 'still'`. */
-		expandReady?: boolean;
-		selected?: boolean;
-		hovered?: boolean;
-		/** Sibling of the card being edited in place: dimmed and non-interactive (except the pencil). */
-		faded?: boolean;
-		/** Max height of the card while editing, in px. Composer passes `session.cardFillMaxPx`. */
-		maxHeightPx?: number;
 		onShift: (change: number) => void;
-		/** Paired with held-form clear — Twin-pane `noteExitComplete`. */
-		onExitUnlock?: () => void;
 	};
 
-	let {
-		builder,
-		step,
-		index,
-		editing = false,
-		expandReady = false,
-		selected = false,
-		hovered = false,
-		faded = false,
-		maxHeightPx,
-		onShift,
-		onExitUnlock
-	}: Props = $props();
+	let { builder, step, index, onShift, ...chrome }: Props = $props();
 
 	const editable = $derived(isStepEditable(step));
 	const actionsDisabled = $derived(builder.isFormMode);
@@ -59,13 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <InCardHost
 	{builder}
 	{step}
-	{editing}
-	{expandReady}
-	{selected}
-	{hovered}
-	{faded}
-	{maxHeightPx}
-	{onExitUnlock}
+	{...chrome}
 	footer={comp(ContinueOnErrorFooter, {
 		step,
 		onCheckedChange: (checked) => builder.setContinueOnError(index, checked)
