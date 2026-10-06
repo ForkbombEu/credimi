@@ -20,7 +20,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/sdk/temporal"
@@ -222,7 +221,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var body CredentialDeeplinkRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
-			return apis.NewBadRequestError("invalid JSON body", err)
+			return apierror.New(http.StatusBadRequest, "request", "invalid JSON input", err.Error())
 		}
 
 		secrets, apiErr := parseSecretsYAML(body.Secrets)

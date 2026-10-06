@@ -24,7 +24,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -102,7 +101,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		var req IssuerURL
 
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
-			return apis.NewBadRequestError("invalid JSON input", err)
+			return apierror.New(http.StatusBadRequest, "request", "invalid JSON input", err.Error())
 		}
 
 		if err := credentialIssuerCheckWellKnownEndpoints(

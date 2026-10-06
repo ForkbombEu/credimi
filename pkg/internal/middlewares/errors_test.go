@@ -7,6 +7,7 @@ package middlewares
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -14,21 +15,14 @@ import (
 	"unsafe"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
 )
 
-type errorMiddlewareResponse struct {
-	APIVersion string `json:"apiVersion"`
-	Message    string `json:"message"`
-	Error      struct {
-		Code    int    `json:"code"`
-		Domain  string `json:"domain"`
-		Reason  string `json:"reason"`
-		Message string `json:"message"`
-	} `json:"error"`
-}
+// errorMiddlewareResponse decodes the body written by ErrorHandlingMiddleware.
+type errorMiddlewareResponse = apierror.Response
 
 func setNext(e *core.RequestEvent, fn func() error) {
 	eventField := reflect.ValueOf(e).Elem().FieldByName("Event")
@@ -38,58 +32,100 @@ func setNext(e *core.RequestEvent, fn func() error) {
 		Set(reflect.ValueOf(fn))
 }
 
-func TestErrorHandlingMiddlewareAPIError(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-
-	e := &core.RequestEvent{
-		Event: router.Event{
-			Request:  req,
-			Response: rec,
+func TestErrorHandlingMiddleware(t *testing.T) {
+	cases := []struct {
+		name       string
+		err        error
+		wantStatus int
+		wantBody   map[string]any
+	}{
+		{
+			name:       "credimi api error",
+			err:        apierror.New(http.StatusBadRequest, "yaml", "invalid yaml", "line 3"),
+			wantStatus: http.StatusBadRequest,
+			wantBody: map[string]any{
+				"apiVersion": "2.0",
+				"message":    "line 3",
+				"error": map[string]any{
+					"code": float64(http.StatusBadRequest), "domain": "yaml",
+					"reason": "invalid yaml", "message": "line 3",
+				},
+			},
+		},
+		{
+			name: "wrapped credimi api error",
+			err: fmt.Errorf(
+				"start: %w",
+				apierror.New(http.StatusConflict, "ticket", "already queued", "t-1"),
+			),
+			wantStatus: http.StatusConflict,
+			wantBody: map[string]any{
+				"apiVersion": "2.0",
+				"message":    "t-1",
+				"error": map[string]any{
+					"code": float64(http.StatusConflict), "domain": "ticket",
+					"reason": "already queued", "message": "t-1",
+				},
+			},
+		},
+		{
+			name:       "pocketbase error keeps its status",
+			err:        apis.NewForbiddenError("not your record", nil),
+			wantStatus: http.StatusForbidden,
+			wantBody: map[string]any{
+				"apiVersion": "2.0",
+				"message":    "Not your record.",
+				"error": map[string]any{
+					"code": float64(http.StatusForbidden), "domain": "request",
+					"reason": "Forbidden", "message": "Not your record.",
+				},
+			},
+		},
+		{
+			name:       "unhandled error",
+			err:        errors.New("boom"),
+			wantStatus: http.StatusInternalServerError,
+			wantBody: map[string]any{
+				"apiVersion": "2.0",
+				"message":    "Internal Server Error",
+				"error": map[string]any{
+					"code": float64(http.StatusInternalServerError), "domain": "internal",
+					"reason": "UnhandledException", "message": "boom",
+				},
+			},
 		},
 	}
-	setNext(e, func() error {
-		return apierror.New(http.StatusBadRequest, "domain", "message", "reason")
-	})
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			e := &core.RequestEvent{
+				Event: router.Event{
+					Request:  httptest.NewRequest(http.MethodGet, "/", nil),
+					Response: rec,
+				},
+			}
+			setNext(e, func() error { return tc.err })
 
-	err := ErrorHandlingMiddleware(e)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusBadRequest, rec.Code)
+			require.NoError(t, ErrorHandlingMiddleware(e))
+			require.Equal(t, tc.wantStatus, rec.Code)
 
-	var body errorMiddlewareResponse
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
-	require.Equal(t, "2.0", body.APIVersion)
-	require.Equal(t, "reason", body.Message)
-	require.Equal(t, http.StatusBadRequest, body.Error.Code)
-	require.Equal(t, "domain", body.Error.Domain)
-	require.Equal(t, "message", body.Error.Reason)
-	require.Equal(t, "reason", body.Error.Message)
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+			require.Equal(t, tc.wantBody, body)
+		})
+	}
 }
 
-func TestErrorHandlingMiddlewareUnhandledError(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+func TestErrorHandlingMiddlewarePassesSuccess(t *testing.T) {
 	rec := httptest.NewRecorder()
-
 	e := &core.RequestEvent{
 		Event: router.Event{
-			Request:  req,
+			Request:  httptest.NewRequest(http.MethodGet, "/", nil),
 			Response: rec,
 		},
 	}
-	setNext(e, func() error {
-		return errors.New("boom")
-	})
+	setNext(e, func() error { return nil })
 
-	err := ErrorHandlingMiddleware(e)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
-
-	var body errorMiddlewareResponse
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
-	require.Equal(t, "2.0", body.APIVersion)
-	require.Equal(t, "Internal Server Error", body.Message)
-	require.Equal(t, http.StatusInternalServerError, body.Error.Code)
-	require.Equal(t, "internal", body.Error.Domain)
-	require.Equal(t, "UnhandledException", body.Error.Reason)
-	require.Equal(t, "boom", body.Error.Message)
+	require.NoError(t, ErrorHandlingMiddleware(e))
+	require.Zero(t, rec.Body.Len())
 }
