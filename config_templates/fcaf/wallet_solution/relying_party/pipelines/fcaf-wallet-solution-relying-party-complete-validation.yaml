@@ -5276,52 +5276,9 @@ steps:
       id: dcql-credential-sets-options-empty-b28d4071-reject-empty-credential-sets-options
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow } }
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: "Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when:
-                  visible: "EUDI Wallet"
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when:
-                  visible: "Just once"
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when:
-                  visible: "Always"
-                commands:
-                  - tapOn: { text: "Always", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Oups! Something went wrong", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: { text: "123456", waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Error|invalid request|Oups! Something went wrong", timeout: 30000 }
-            - takeScreenshot: fcaf-097
-            - tapOn: "TRY AGAIN"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-sets-options-empty-b28d4071-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-sets-options-empty-b28d4071-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-options-empty-b28d4071-fetch-capture-session
@@ -5449,53 +5406,9 @@ steps:
       id: dcql-credential-sets-options-missing-a6f66784-reject-missing-credential-sets-options
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow } }
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: "Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when:
-                  visible: "EUDI Wallet"
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when:
-                  visible: "Just once"
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when:
-                  visible: "Always"
-                commands:
-                  - tapOn: { text: "Always", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Error|invalid request|Oups! Something went wrong", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: "Error|invalid request|Oups! Something went wrong", timeout: 30000 }
-            - takeScreenshot: fcaf-dcql-credential-sets-options-missing
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ dcql-credential-sets-options-missing-a6f66784-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-credential-sets-options-missing-a6f66784-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-options-missing-a6f66784-fetch-capture-session
@@ -9571,23 +9484,9 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - tapOn: "Share"
-            - takeScreenshot: fcaf-ia-025
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
-            DEEPLINK: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-fetch-result
@@ -9644,22 +9543,9 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-main-interaction-026-exercise-no-match
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
-                timeout: 100000
-            - takeScreenshot: fcaf-ia-026
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-026-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-026-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-026-fetch-result
@@ -9698,22 +9584,9 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
-                timeout: 100000
-            - takeScreenshot: fcaf-ia-027
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-027-fetch-result
@@ -12552,41 +12425,9 @@ steps:
       id: dcql-required-credentials-no-partial-c6dd8f09-reject-partial-presentation
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn:
-                      point: "50%,10%"
-            - extendedWaitUntil:
-                visible: "Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - openLink:
-                link: "${DEEPLINK}"
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|Error|invalid request|Oups! Something went wrong|Home|Documents"
-                timeout: 100000
-            - takeScreenshot: fcaf-ia-034-required-credentials
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ dcql-required-credentials-no-partial-c6dd8f09-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-required-credentials-no-partial-c6dd8f09-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-required-credentials-no-partial-c6dd8f09-fetch-capture-session
@@ -18607,60 +18448,9 @@ steps:
       id: invalid-request-uri-method-f8c49ad9-reject-invalid-request-uri-method
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp: { stopApp: true, clearState: false }
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - tapOn:
-                      point: "11%,40%"
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil:
-                visible: "Home|Documents|Add document|Welcome, .*"
-                timeout: 30000
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when:
-                  visible: "EUDI Wallet"
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when:
-                  visible: "Just once"
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - runFlow:
-                when:
-                  visible: "Always"
-                commands:
-                  - tapOn: { text: "Always", optional: true }
-            - extendedWaitUntil: { visible: "Welcome back|Oups! Something went wrong", timeout: 100000 }
-            - runFlow:
-                when: { visible: "Welcome back" }
-                commands:
-                  - tapOn: { point: "11%,40%" }
-                  - tapOn: { text: "1", retryTapIfNoChange: false }
-                  - tapOn: { text: "2", retryTapIfNoChange: false }
-                  - tapOn: { text: "3", retryTapIfNoChange: false }
-                  - tapOn: { text: "4", retryTapIfNoChange: false }
-                  - tapOn: { text: "5", retryTapIfNoChange: false }
-                  - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
-            - extendedWaitUntil: { visible: "Oups! Something went wrong", timeout: 30000 }
-            - assertNotVisible: "Data sharing request"
-            - assertNotVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - takeScreenshot: fcaf-152-invalid-request-uri-method
-            - tapOn: "Close"
-            - extendedWaitUntil: { visible: "Home|Welcome, .*", timeout: 30000 }
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ invalid-request-uri-method-f8c49ad9-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ invalid-request-uri-method-f8c49ad9-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: invalid-request-uri-method-f8c49ad9-fetch-result
@@ -23808,25 +23598,9 @@ steps:
       id: supportive-signed-request-without-re-042dcbe8-submit-haip-by-value-request
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - stopApp
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - tapOn:
-                text: "EUDI Wallet"
-                optional: true
-            - tapOn:
-                text: "Just once"
-                optional: true
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|invalid request|Oups! Something went wrong|Home|Documents"
-                timeout: 30000
-            - takeScreenshot: fcaf-supportive-signed-request-without-request-uri-rejected
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK: ${{ supportive-signed-request-without-re-042dcbe8-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ supportive-signed-request-without-re-042dcbe8-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: supportive-signed-request-without-re-042dcbe8-get-presentation-result

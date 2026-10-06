@@ -2931,3 +2931,31 @@ Both steps now use `fcaf-expect-no-matching-document`. 031 matches its
 expectation. 043 is a stopgap: the reference Wallet never answers, so the
 validator fails the test on the missing empty `vp_token`; a flow that expects an
 empty answer needs the UI of a Wallet that sends one.
+
+## Eight inline flows replaced by shared actions, 06/10/2026
+
+Bare `Error` was removed from the final waits of `fcaf-exercise-wallet-generic`,
+`fcaf-expect-request-rejected` and `fcaf-expect-credential-rejected`: the
+no-match screen carries an icon whose accessibility text is `Error`, so those
+waits passed on it. `The requested document is not available` needs the
+trailing `.*`, because Maestro matches the whole text.
+
+Inline `action_code` replaced, step IDs unchanged:
+
+| Step | Now | Emulator, 2026.09.42 |
+| --- | --- | --- |
+| `dcql-credential-sets-options-empty` (097) | `fcaf-expect-request-rejected` | passed, `request_retrieved` |
+| `dcql-credential-sets-options-missing` (096) | `fcaf-expect-request-rejected` | passed, `presentation_invalid` |
+| `invalid-request-uri-method` (152, 002e) | `fcaf-expect-request-rejected` | passed, `created` (request not retrieved) |
+| `dcql-required-credentials-no-partial-presentation` (034) | `fcaf-expect-no-matching-document` | passed, `request_retrieved`. The no-match screen is the right outcome for an unsatisfiable required set; the test also requires an error, and the Wallet sends none, not even when `Cancel` dismisses the screen, so the validator fails 034 |
+| `supportive-signed-request-without-request-uri` (Supportive 007) | `fcaf-expect-request-rejected` | fails: with an mdoc PID held, the Wallet opens the consent screen (`Requested data`, the mdoc PID) for the signed Request Object delivered by value, the same screen as for the by-reference control. HAIP requires a rejection. The session stays `created` because nothing is shared, so `request_rejected` passes the test anyway: a false pass until the refusal flow shares on an unexpected consent |
+| `main-interaction-026` | `fcaf-expect-no-matching-document` | passed, `request_retrieved` |
+| `main-interaction-027` | `fcaf-expect-no-matching-document` | passed, `request_retrieved` |
+| `main-interaction-025` | `fcaf-engagement-haip-vp` | passed, `presentation_validated` (the inline flow tapped `Share` and never entered the PIN) |
+
+The inline flow of 034 accepted bare `Error`, so it passed on the no-match
+screen. Still inline: the two-document consent checks (039,
+same-credential-multiple-queries, all-credentials-without-credential-sets,
+claims-union), the malformed-request exercise loops, and the one-off flows
+(user-denied-consent, user-authentication-failed, pid-candidate-selection,
+supportive-redirect-uri, unchecked-claim, allowed-claim-path-components).
