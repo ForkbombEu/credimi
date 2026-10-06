@@ -5279,7 +5279,7 @@ steps:
         action_code: |
             appId: eu.europa.ec.euidi
             ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
+            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow } }
             - extendedWaitUntil:
                 visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
                 timeout: 30000
@@ -5452,7 +5452,7 @@ steps:
         action_code: |
             appId: eu.europa.ec.euidi
             ---
-            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow, all: unset } }
+            - launchApp: { stopApp: true, clearState: false, permissions: { camera: allow, notifications: allow } }
             - extendedWaitUntil:
                 visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
                 timeout: 30000
@@ -10064,7 +10064,6 @@ steps:
                 permissions:
                   camera: allow
                   notifications: allow
-                  all: unset
             - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
             - runFlow:
                 when: { visible: "Welcome back" }
@@ -12582,7 +12581,6 @@ steps:
                 permissions:
                   camera: allow
                   notifications: allow
-                  all: unset
             - extendedWaitUntil:
                 visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
                 timeout: 30000

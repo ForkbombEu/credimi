@@ -2868,3 +2868,25 @@ against the trusted status certificates`. Capture stores no
 `raw.presentation_response_decrypted` in that case, so the SD-JWT status tests
 bound to `pipeline.credential-status.sdjwt` get no evidence until Capture trusts
 its own status-list signer.
+
+## `all: unset` removed from every FCAF flow, 06/10/2026
+
+`launchApp` with `permissions: { ..., all: unset }` resets every permission of
+the app on each launch. Measured on `emulator-5554`: Wallet launch 15 s with it,
+9.5 s with only `camera` + `notifications`; Chrome launch 12 s with
+`all: unset`, 9.7 s with `notifications: allow`. Omitting `permissions` is no
+faster, because Maestro then allows every permission. The line is gone from the
+shared actions, the `obtain-pid-*` helpers and the inline flows of four
+scenarios; `fcaf-dc-api-present` now names `notifications: allow` for Chrome.
+
+Re-run on the emulator after the change, each checked on the Capture session:
+issuance `credential_issued`, `fcaf-expect-no-matching-document` and
+`fcaf-expect-request-rejected` `request_retrieved`, `fcaf-exercise-wallet-generic`
+`presentation_validated`.
+
+`fcaf-dc-api-present` fails with and without the change, in the same place: it
+enters the PIN on `Welcome back`, then waits for `Share|Cancel|Oups! Something
+went wrong` while the platform picker shows `Agree and continue` (`continue_button`)
+and `Share info`. The flow handles the picker before the unlock; the order it
+meets on 2026.09.42 apparently differs (inferred from the failing assertion and
+the final screen, not from a step-by-step trace). Not fixed yet.

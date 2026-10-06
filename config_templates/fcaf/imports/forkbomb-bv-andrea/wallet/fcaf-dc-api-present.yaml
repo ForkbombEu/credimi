@@ -17,8 +17,10 @@ tags:
     appId: com.android.chrome
     stopApp: true
     clearState: false
+    # Naming one permission keeps Maestro from granting or resetting every
+    # Chrome permission on launch, which costs several seconds per step.
     permissions:
-      all: unset
+      notifications: allow
 - openLink:
     link: "${presentation_url}"
     autoVerify: false

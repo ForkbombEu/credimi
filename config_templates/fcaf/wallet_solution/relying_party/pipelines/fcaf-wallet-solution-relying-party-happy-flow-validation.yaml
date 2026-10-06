@@ -1373,7 +1373,6 @@ steps:
                 permissions:
                   camera: allow
                   notifications: allow
-                  all: unset
             - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
             - runFlow:
                 when: { visible: "Welcome back" }
