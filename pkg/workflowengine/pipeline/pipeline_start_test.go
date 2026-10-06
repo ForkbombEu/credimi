@@ -193,6 +193,8 @@ config:
   github_pr_comment:
     repository: attacker/repo
     pull_request_number: 17
+  app_url: https://attacker.example
+  internal_app_url: https://attacker.example
 steps: []
 `,
 		map[string]any{"namespace": "default"},
@@ -205,6 +207,12 @@ steps: []
 	require.NotContains(t, capturedInput.WorkflowInput.Config, tempCredentialsConfigKey)
 	require.NotContains(t, capturedInput.WorkflowInput.Config, tempUseCaseVerificationsConfigKey)
 	require.NotContains(t, capturedInput.WorkflowInput.Config, GitHubPRCommentConfigKey)
+	require.NotContains(t, capturedInput.WorkflowInput.Config, workflowengine.AppURLConfigKey)
+	require.NotContains(
+		t,
+		capturedInput.WorkflowInput.Config,
+		workflowengine.InternalAppURLConfigKey,
+	)
 }
 
 func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {

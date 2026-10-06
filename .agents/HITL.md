@@ -431,3 +431,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: Forcing the factory trio onto domain modules either leaks Effect-cache vocabulary into hub/canonify/device APIs, or paper-over device’s list-then-find shape.
 - decision: Do not unify in the current pipeline-composer work. Revisit later.
 - follow-up: When unifying, pick one error surface (throw vs return `Error`) and decide whether device list cache stays a special case.
+
+### 2026-10-05 - Server App URL reaches `InternalHTTPActivity` through a process-level source
+
+- status: open (agent default; human may revisit)
+- owner: human maintainer
+- context: Finding `credimi/workflowengine/internal-app-url-from-user-config`. `InternalHTTPActivity` attaches `CREDIMI_INTERNAL_ADMIN_KEY` to a URL built from workflow config. The fix strips `app_url`/`internal_app_url` from user-controlled config (`MergeConfigs`, the pipeline YAML fill-in in `PipelineWorkflow.Start` and `StartQueuedPipelineActivity`, the rerun body copy) and makes the activity reject any destination whose origin is not `CREDIMI_INTERNAL_APP_URL` or the PocketBase App URL. The activity has no app handle: `NewInternalHTTPActivity()` takes no arguments and is built in ~30 places, including static worker lists and the step registry.
+- question: Should the server App URL reach the activity by dependency injection instead of `workflowengine.SetServerAppURLSource`, which `hooks.WorkersHook` calls once per process?
+- options considered: (a) process-level source registered at worker startup, read on each call so App URL edits apply without restart (chosen); (b) constructor injection through every `NewInternalHTTPActivity` call site, worker list and registry factory; (c) accept only `CREDIMI_INTERNAL_APP_URL`, which production Compose requires but other deployments may not set.
+- default risk: (a) is a package-level registration, which `AGENTS.md` discourages; a worker process that never calls `WorkersHook` and has no `CREDIMI_INTERNAL_APP_URL` fails closed with `no Credimi base URL is configured`. `credimi-extra` runner workers do not register this activity.
+- decision: pending human.
+- follow-up: The other admin-key senders (`postInternalJSON`, `SendPipelineCompletionNotificationActivity`, `postPipelineExecutionResult`, `CleanupMobileDeviceSemaphoreResourcesActivity`) take their base from the same now-stripped config or from server payloads but do not check the destination origin themselves; decide whether they should call `ValidateInternalAppURLDestination` too.

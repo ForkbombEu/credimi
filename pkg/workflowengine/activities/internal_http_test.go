@@ -9,6 +9,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
@@ -18,6 +19,7 @@ import (
 
 func TestInternalHTTPActivityMissingEnv(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "")
+	t.Setenv(workflowengine.InternalAppURLConfigKeyEnv, "https://example.com")
 	activity := NewInternalHTTPActivity()
 	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
 		Payload: InternalHTTPActivityPayload{Method: http.MethodGet, URL: "https://example.com"},
@@ -34,6 +36,7 @@ func TestInternalHTTPActivityInjectsAPIKey(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer server.Close()
+	t.Setenv(workflowengine.InternalAppURLConfigKeyEnv, server.URL)
 
 	activity := NewInternalHTTPActivity()
 	res, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
@@ -56,6 +59,7 @@ func TestInternalHTTPActivityOmittedExpectedStatusDoesNotExpectZero(t *testing.T
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer server.Close()
+	t.Setenv(workflowengine.InternalAppURLConfigKeyEnv, server.URL)
 
 	activity := NewInternalHTTPActivity()
 	res, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
@@ -68,6 +72,51 @@ func TestInternalHTTPActivityOmittedExpectedStatusDoesNotExpectZero(t *testing.T
 	output, ok := res.Output.(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, http.StatusOK, output["status"])
+}
+
+// The URL reaching the activity is built from workflow config; a destination
+// outside the server-configured Credimi origins must never see the admin key.
+func TestInternalHTTPActivityRejectsNonCredimiDestination(t *testing.T) {
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "secret-key")
+	var received atomic.Int32
+	attacker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		received.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer attacker.Close()
+	t.Setenv(workflowengine.InternalAppURLConfigKeyEnv, "http://credimi.internal:8090")
+
+	_, err := NewInternalHTTPActivity().Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: InternalHTTPActivityPayload{
+			Method: http.MethodGet,
+			URL:    attacker.URL + "/api/credential/get-credential-offer",
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "is not a configured Credimi base URL")
+	require.Zero(t, received.Load())
+}
+
+func TestInternalHTTPActivityAcceptsServerAppURL(t *testing.T) {
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "secret-key")
+	t.Setenv(workflowengine.InternalAppURLConfigKeyEnv, "")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "secret-key", r.Header.Get("Credimi-Api-Key"))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+	workflowengine.SetServerAppURLSource(func() string { return server.URL })
+	t.Cleanup(func() { workflowengine.SetServerAppURLSource(func() string { return "" }) })
+
+	_, err := NewInternalHTTPActivity().Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: InternalHTTPActivityPayload{
+			Method:         http.MethodGet,
+			URL:            server.URL + "/api/pipeline/get-yaml",
+			ExpectedStatus: http.StatusOK,
+		},
+	})
+	require.NoError(t, err)
 }
 
 func TestRedactHeaderMap(t *testing.T) {
