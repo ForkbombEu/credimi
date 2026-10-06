@@ -2790,3 +2790,81 @@ presents.
 
 `make fcaf-generate` produces 1383 aggregate steps, 615 test IDs, and 217
 pipeline outputs; the happy flow drops to 303 test IDs.
+
+## Issuance success and expected-rejection flows, 06/10/2026
+
+`getcredential-generic-credential-without-authentication` used to pass on an
+issuance failure: its only check after `Accept` was `assertNotVisible:
+"Accept"`, which an error screen satisfies too, and `View details` was
+optional. It now waits up to 100 s for `View details` and taps it without
+`optional`, so an issuance passes only on the success screen.
+
+The ten offers in `status-reference-rejection` and
+`mdoc-status-reference-rejection` (084, 086, 087, 089, 090, 092, 094, 096,
+097, 099, 100) expect the Wallet to refuse the credential, so they moved to the
+new `fcaf-expect-credential-rejected` action. It accepts the offer, then waits
+for `View details|Error|invalid request|Oups! Something went wrong|Home|Documents`
+and fails if `View details` is visible. The steps keep `continue_on_error`,
+because the verdict still comes from the issuer session and the DCQL probe; a
+Wallet that stores the token fails the step and the probe.
+
+Side effect in the generator: `issuesCredential` counts only the generic
+issuance action, so the rejected offers no longer count as PIDs that later
+Shares can spend. Before this change, ten later presentations depended on
+credentials a conformant Wallet refuses. The generator now inserts ten more
+issuance pairs. `make fcaf-generate` produces 1419 aggregate steps.
+
+Not yet run on the emulator: the `View details` success screen for PID mdoc,
+degree and the status-list mdoc variant, and the reference Wallet's actual
+screen when it refuses a malformed status reference. PID SD-JWT, with and
+without `status_list_enabled`, passed on `emulator-5554` (2026.09.42).
+
+## Wallet reset between scenarios, 06/10/2026
+
+The generator used to count unspent PIDs per format across the whole
+aggregate. A presentation could therefore spend a leftover from an earlier
+scenario: a fixture trap, a malformed-status token a non-conformant Wallet
+kept, or the PID of a presentation that failed before `Share`. With several
+matching PIDs the Wallet shows `Option 1 of M` and the flows share the default
+card, so content-dependent tests such as the status-list cases could present
+the wrong credential.
+
+`cmd/fcaf-pipeline-gen` now emits `<scenario>-reset-wallet`
+(`fcaf-reset-wallet`: `clearState: true`, PIN `123456` twice, `GO TO HOME`)
+before every scenario that has a `mobile-automation` step, and restarts the
+count there. A presentation can only select credentials its own scenario
+issued.
+
+A reset also removes the leftovers that negative presentations used to
+depend on by accident. `fcaf-expect-request-rejected`,
+`fcaf-expect-no-matching-document`, `dcql-user-denied-consent` and the other
+non-sharing flows need the Wallet to hold a PID of the requested format, or the
+refusal only reflects an empty Wallet. A non-sharing step that opens a Capture
+`/openid4vp/sessions` request therefore gets one injected `pid_default`
+issuance per requested format when its scenario holds none, and that PID stays
+unspent until the next reset. Every no-match query was checked against
+`pid_default` and still cannot match it.
+`TestAggregateHoldsACredentialForEveryPresentation` checks that every wallet
+step runs after its own scenario's reset, that every `Share` has an unspent
+PID, and that every refused presentation finds a held PID.
+
+Emulator measurements on `emulator-5554` (2026.09.42), Maestro CLI wall time
+including its start-up: SD-JWT issuance right after a reset 31 s, with issuer
+session `credential_issued`. Clearing the app state does not break
+`key-attestation-required` issuance. Reset cost depends on `launchApp`
+permissions: `camera` + `notifications` + `all: unset` 25 s, no `permissions`
+block (Maestro then allows every permission) 24-25 s, `camera` + `notifications`
+alone 20 s. The shipped reset uses the last form and runs in 19 s.
+
+`make fcaf-generate` produces 1722 aggregate steps (189 resets), 171 happy-flow
+steps (15 resets) and 8 demo steps.
+
+Probe on the same emulator: a DCQL `claims` path `["status"]` makes the Wallet
+offer only a PID that carries `status`, and answer `not available` when it holds
+none. This was not adopted, because mdoc status sits in the MSO and DCQL cannot
+address it. The share then failed on the Capture verifier with `Status List JWT
+verification failed: The status list certificate chain could not be validated
+against the trusted status certificates`. Capture stores no
+`raw.presentation_response_decrypted` in that case, so the SD-JWT status tests
+bound to `pipeline.credential-status.sdjwt` get no evidence until Capture trusts
+its own status-list signer.

@@ -45,13 +45,15 @@ const (
 // The reference wallet consumes a credential instance per presentation and the
 // Capture issuer advertises no batch issuance, so every presentation that can
 // reach a successful share needs its own freshly issued PID. A presentation
-// that the wallet refuses before consent leaves its instance untouched, so the
-// generator only precedes the consuming presentations with an issuance pair.
+// that the wallet refuses before consent leaves its instance untouched; it only
+// needs the wallet to hold a PID of the requested format, which an earlier
+// issuance of the same scenario or one injected issuance provides.
 const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
 	issuanceActionID      = walletActionNamespace +
 		"getcredential-generic-credential-without-authentication"
 	onboardingActionID   = walletActionNamespace + "onboarding-1"
+	resetActionID        = walletActionNamespace + "fcaf-reset-wallet"
 	pidIssuerConfigID    = "eu-pid-device-bound"
 	pidSDJWTConfigID     = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
 	pidMdocConfigID      = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
@@ -292,9 +294,9 @@ func buildAggregate(
 	pipelineOutputs := map[string]any{}
 	testIDs := map[string]struct{}{}
 	seenStepIDs := map[string]string{}
-	// The wallet keeps unconsumed instances across scenarios, so an issuance a
-	// scenario already performs covers the next presentation that shares a
-	// credential of the same format.
+	// Every scenario that drives the wallet starts from a reset wallet, so the
+	// count of unspent instances starts again from zero there and an issuance
+	// only covers presentations of its own scenario.
 	pidAvailable := map[credentialFormat]int{}
 	emitted := map[string]map[string]any{}
 
@@ -308,6 +310,15 @@ func buildAggregate(
 		stepIDs, err := scenarioStepIDs(path, definition.Steps, prefix)
 		if err != nil {
 			return err
+		}
+		if drivesWallet(definition.Steps) {
+			reset := walletResetStep(prefix)
+			resetID, _ := reset["id"].(string)
+			if err := claimStepID(seenStepIDs, resetID, path); err != nil {
+				return err
+			}
+			aggregate.Steps = append(aggregate.Steps, reset)
+			pidAvailable = map[credentialFormat]int{}
 		}
 
 		for _, step := range definition.Steps {
@@ -330,37 +341,18 @@ func buildAggregate(
 			rewritten := rewriteValue(step, stepIDs, fixture).(map[string]any)
 			rewritten["continue_on_error"] = true
 			id, _ := rewritten["id"].(string)
-			if previous, exists := seenStepIDs[id]; exists {
-				return fmt.Errorf(
-					"generated step id %q collides between %s and %s",
-					id,
-					previous,
-					path,
-				)
+			if err := claimStepID(seenStepIDs, id, path); err != nil {
+				return err
 			}
-			seenStepIDs[id] = path
 			consumed, err := credentialInstancesConsumed(rewritten, walletActions)
 			if err != nil {
 				return fmt.Errorf("FCAF scenario %s step %q: %w", path, id, err)
 			}
 			source := deeplinkSourceStep(rewritten, emitted)
-			if issuesCredential(rewritten) {
-				pidAvailable[issuedCredentialFormat(source)]++
-			}
-			issued := 0
-			for _, format := range presentedCredentialFormats(source, consumed) {
-				for need := consumed; need > 0; need-- {
-					if pidAvailable[format] > 0 {
-						pidAvailable[format]--
-						continue
-					}
-					aggregate.Steps = append(
-						aggregate.Steps,
-						pidIssuanceSteps(id, issued, format, fixture)...,
-					)
-					issued++
-				}
-			}
+			aggregate.Steps = append(
+				aggregate.Steps,
+				pidIssuancesBefore(rewritten, source, consumed, pidAvailable, fixture)...,
+			)
 			aggregate.Steps = append(aggregate.Steps, rewritten)
 			emitted[id] = rewritten
 		}
@@ -417,6 +409,59 @@ func buildAggregate(
 		return fmt.Errorf("write aggregate FCAF pipeline: %w", err)
 	}
 	return nil
+}
+
+// claimStepID records a generated step id, rejecting one an earlier scenario
+// already produced.
+func claimStepID(seen map[string]string, id string, path string) error {
+	if previous, exists := seen[id]; exists {
+		return fmt.Errorf("generated step id %q collides between %s and %s", id, previous, path)
+	}
+	seen[id] = path
+	return nil
+}
+
+// pidIssuancesBefore updates the scenario's unspent PIDs for a step and returns
+// the issuances to insert before it. A presentation that shares spends one
+// instance per Share. A presentation the wallet refuses or cannot satisfy
+// spends nothing, but its evidence only means something when the wallet holds a
+// PID of the requested format: otherwise a rejection or a no-match screen is
+// just the empty wallet. That PID stays unspent until the next reset.
+func pidIssuancesBefore(
+	step map[string]any,
+	source map[string]any,
+	consumed int,
+	available map[credentialFormat]int,
+	fixture map[string]any,
+) []map[string]any {
+	if issuesCredential(step) {
+		available[issuedCredentialFormat(source)]++
+	}
+	id, _ := step["id"].(string)
+	var steps []map[string]any
+	issued := 0
+	for _, format := range presentedCredentialFormats(source, consumed) {
+		for need := consumed; need > 0; need-- {
+			if available[format] > 0 {
+				available[format]--
+				continue
+			}
+			steps = append(steps, pidIssuanceSteps(id, issued, format, fixture)...)
+			issued++
+		}
+	}
+	if consumed > 0 || !opensPresentationRequest(step, source) {
+		return steps
+	}
+	for _, format := range presentedCredentialFormats(source, 1) {
+		if available[format] > 0 {
+			continue
+		}
+		steps = append(steps, pidIssuanceSteps(id, issued, format, fixture)...)
+		issued++
+		available[format]++
+	}
+	return steps
 }
 
 func removeTestsWithoutAvailableEvidence(
@@ -485,6 +530,42 @@ func onboardingPrelude() map[string]any {
 			"version_id": "forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo",
 		},
 	}
+}
+
+// drivesWallet reports whether a scenario runs any step on the wallet, which is
+// when it needs to start from a reset wallet.
+func drivesWallet(steps []map[string]any) bool {
+	for _, step := range steps {
+		if use, _ := step["use"].(string); use == mobileAutomationTask {
+			return true
+		}
+	}
+	return false
+}
+
+// walletResetStep clears the wallet before a scenario, so its presentations
+// cannot select a credential an earlier scenario issued and left unspent.
+func walletResetStep(prefix string) map[string]any {
+	return map[string]any{
+		"id":                prefix + "-reset-wallet",
+		"use":               mobileAutomationTask,
+		"continue_on_error": true,
+		"with": map[string]any{
+			"action_id":  resetActionID,
+			"version_id": "installed_from_external_source",
+		},
+	}
+}
+
+// opensPresentationRequest reports whether a wallet step opens a verifier
+// session created through the Capture OpenID4VP API.
+func opensPresentationRequest(step map[string]any, source map[string]any) bool {
+	if use, _ := step["use"].(string); use != mobileAutomationTask || source == nil {
+		return false
+	}
+	with, _ := source["with"].(map[string]any)
+	url, _ := with["url"].(string)
+	return strings.HasSuffix(url, "/openid4vp/sessions")
 }
 
 // loadWalletActions maps every declared wallet action identifier to its Maestro

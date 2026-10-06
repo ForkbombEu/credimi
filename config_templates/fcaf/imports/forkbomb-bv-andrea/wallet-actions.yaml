@@ -30,6 +30,10 @@ actions:
     category: other
     tags: fcaf, helper
     file: wallet/choose-eudi-wallet.yaml
+  - name: fcaf-reset-wallet
+    category: other
+    tags: fcaf, helper, reset
+    file: wallet/fcaf-reset-wallet.yaml
   - name: fcaf-engagement-haip-vp
     category: verify-credential
     tags: fcaf, engagement, haip-vp

@@ -47,7 +47,7 @@ The public wallet action exports included here are:
 - `choose-eudi-wallet`
 - `fcaf-engagement-haip-vp`
 
-The FCAF scenarios additionally share four flows. They must exist as
+The FCAF scenarios additionally share five flows. They must exist as
 `wallet_actions` records before the aggregate pipeline runs:
 
 - `fcaf-expect-request-rejected`: the Wallet answers with an error screen or
@@ -65,6 +65,10 @@ The FCAF scenarios additionally share four flows. They must exist as
   then either completes the consent screen or records the Wallet's refusal.
   The page reports the outcome to the service either way, so both endings are
   evidence.
+- `fcaf-reset-wallet`: clears the Wallet's app state and sets the PIN to
+  `123456`. `cmd/fcaf-pipeline-gen` runs it before every scenario that drives
+  the Wallet, so a presentation can only select credentials its own scenario
+  issued.
 
 The remaining wallet files are local reusable Maestro helpers. The files are
 not database records and contain no instance-specific PocketBase IDs. Importers
