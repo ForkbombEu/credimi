@@ -40,7 +40,6 @@ database records, API keys, wallet APKs, screenshots, or runner state.
 The public wallet action exports included here are:
 
 - `onboarding`
-- `onboarding-1` (2026.06.38)
 - `getcredential-pid-formeu-issuer-eudiw-dev`
 - `verifycredential-pid-formeu-issuer-eudiw-dev`
 - `unlock-wallet`
@@ -69,10 +68,10 @@ The FCAF scenarios additionally share six flows. They must exist as
   the Wallet must refuse. It fails on the consent screen and on an accepted
   presentation; after the Wallet's error screen it presses Back and closes the
   platform picker, so the page reports the outcome to the service.
-- `fcaf-reset-wallet`: clears the Wallet's app state and sets the PIN to
-  `123456`. `cmd/fcaf-pipeline-gen` runs it before every scenario that drives
-  the Wallet, so a presentation can only select credentials its own scenario
-  issued.
+- `fcaf-reset-and-onboard`: clears the Wallet's app state and onboards it with
+  the PIN `123456`. `cmd/fcaf-pipeline-gen` runs it as the first step of every
+  pipeline and before every scenario that drives the Wallet, so a presentation
+  can only select credentials its own scenario issued.
 
 The remaining wallet files are local reusable Maestro helpers. The files are
 not database records and contain no instance-specific PocketBase IDs. Importers

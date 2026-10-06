@@ -52,8 +52,7 @@ const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
 	issuanceActionID      = walletActionNamespace +
 		"getcredential-generic-credential-without-authentication"
-	onboardingActionID   = walletActionNamespace + "onboarding-1"
-	resetActionID        = walletActionNamespace + "fcaf-reset-wallet"
+	resetActionID        = walletActionNamespace + "fcaf-reset-and-onboard"
 	pidIssuerConfigID    = "eu-pid-device-bound"
 	pidSDJWTConfigID     = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
 	pidMdocConfigID      = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
@@ -521,12 +520,15 @@ func loadPipeline(path string) (pipelineDefinition, error) {
 	return definition, nil
 }
 
+// onboardingPrelude is the pipeline's first step. Its version_id makes the
+// runner install a fresh Wallet, and it is the only Wallet step without
+// continue_on_error, so a broken device stops the run before any scenario.
 func onboardingPrelude() map[string]any {
 	return map[string]any{
 		"id":  "onboard-reference-wallet",
-		"use": "mobile-automation",
+		"use": mobileAutomationTask,
 		"with": map[string]any{
-			"action_id":  "forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1",
+			"action_id":  resetActionID,
 			"version_id": "forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo",
 		},
 	}
@@ -543,8 +545,9 @@ func drivesWallet(steps []map[string]any) bool {
 	return false
 }
 
-// walletResetStep clears the wallet before a scenario, so its presentations
-// cannot select a credential an earlier scenario issued and left unspent.
+// walletResetStep resets and onboards the wallet before a scenario, so its
+// presentations cannot select a credential an earlier scenario issued and left
+// unspent.
 func walletResetStep(prefix string) map[string]any {
 	return map[string]any{
 		"id":                prefix + "-reset-wallet",
@@ -627,7 +630,7 @@ func credentialInstancesConsumed(step map[string]any, actions map[string]string)
 	}
 	with, _ := step["with"].(map[string]any)
 	actionID, _ := with["action_id"].(string)
-	if actionID == issuanceActionID || actionID == onboardingActionID {
+	if actionID == issuanceActionID {
 		return 0, nil
 	}
 	source, _ := with["action_code"].(string)

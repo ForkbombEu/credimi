@@ -12,13 +12,13 @@ steps:
     - id: onboard-reference-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-create-capture-session
@@ -302,14 +302,8 @@ steps:
       id: dcql-credentials-match-cc301c32-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-credentials-match-cc301c32-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: dcql-credentials-match-cc301c32-create-pid-sdjwt-offer
       use: credential-offer
@@ -382,7 +376,7 @@ steps:
       id: dcql-cryptography-1a488a33-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-cryptography-1a488a33-create-capture-session
@@ -450,7 +444,7 @@ steps:
       id: dcql-device-binding-f7c71f86-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-device-binding-f7c71f86-create-capture-session
@@ -518,7 +512,7 @@ steps:
       id: dcql-interaction-metadata-f9737358-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-interaction-metadata-f9737358-create-capture-session
@@ -586,7 +580,7 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-create-capture-session
@@ -1356,7 +1350,7 @@ steps:
       id: dcql-metadata-b66a6319-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-metadata-b66a6319-create-capture-session
@@ -1424,7 +1418,7 @@ steps:
       id: dcql-protocol-messages-a25772b2-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-create-capture-session
@@ -1533,7 +1527,7 @@ steps:
       id: dcql-rp-integrity-3576cc79-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-create-capture-session
@@ -1601,7 +1595,7 @@ steps:
       id: dcql-session-encryption-210827bd-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-session-encryption-210827bd-create-capture-session
@@ -1669,7 +1663,7 @@ steps:
       id: dcql-trust-mechanisms-157d0f39-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-create-capture-session
@@ -1737,7 +1731,7 @@ steps:
       id: direct-post-jwt-response-transport-57ec17f1-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: direct-post-jwt-response-transport-57ec17f1-create-capture-session
@@ -1805,7 +1799,7 @@ steps:
       id: engagement-haip-vp-4bb0f83a-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
@@ -1921,14 +1915,8 @@ steps:
       id: pid-mdoc-data-model-8f915369-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: pid-mdoc-data-model-8f915369-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-create-pid-mdoc-offer
       use: credential-offer
@@ -2060,7 +2048,7 @@ steps:
       id: request-object-by-value-f1c94061-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-by-value-f1c94061-create-presentation
@@ -2137,7 +2125,6 @@ steps:
                     fetch-capture-session: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs | optional }}
                     invoke-wallet-with-haip-vp: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs | optional }}
                     obtain-pid-mdoc: ${{ pid-mdoc-data-model-8f915369-obtain-pid-mdoc.outputs | optional }}
-                    onboard-reference-wallet: ${{ pid-mdoc-data-model-8f915369-onboard-reference-wallet.outputs | optional }}
                     visual_evidence: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
             forkbomb-bv-andrea/fcaf/device-wallet-solution-relying-party-engagement-haip-vp:
                 output:
@@ -2308,7 +2295,6 @@ steps:
                     fetch-capture-session: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs | optional }}
                     invoke-wallet-with-haip-vp: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs | optional }}
                     obtain-pid-mdoc: ${{ pid-mdoc-data-model-8f915369-obtain-pid-mdoc.outputs | optional }}
-                    onboard-reference-wallet: ${{ pid-mdoc-data-model-8f915369-onboard-reference-wallet.outputs | optional }}
                     pid_mdoc: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     visual_evidence: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.pid.presentation.sdjwt.all-claims:

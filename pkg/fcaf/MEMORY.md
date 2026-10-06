@@ -2959,3 +2959,25 @@ same-credential-multiple-queries, all-credentials-without-credential-sets,
 claims-union), the malformed-request exercise loops, and the one-off flows
 (user-denied-consent, user-authentication-failed, pid-candidate-selection,
 supportive-redirect-uri, unchecked-claim, allowed-claim-path-components).
+
+## One reset-and-onboard action, 06/10/2026
+
+`fcaf-reset-wallet` is renamed `fcaf-reset-and-onboard`, and `onboarding-1` is
+removed: after `all: unset` and the `Welcome back` branch were dropped, the two
+flows ran the same steps. The pipeline's first step `onboard-reference-wallet`
+now runs `fcaf-reset-and-onboard` with `version_id`
+`forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo`; that version is what
+makes the runner install a fresh Wallet (`installer-action` is skipped only for
+`installed_from_external_source`). It stays the only Wallet step without
+`continue_on_error`. The per-scenario steps keep their `<scenario>-reset-wallet`
+IDs.
+
+The nine scenario-level `onboard-reference-wallet` steps (four `mdoc-*`
+claim-path scenarios, `interaction-pid-mdoc`, `pid-mdoc-data-model`,
+`dcql-credential-sets-required-true-match`, `dcql-credentials-match`,
+`dcql-standard-all`) are removed, since each ran right after that scenario's
+reset. `engagement-haip-vp` still outputs `onboard-reference-wallet`, which is
+the pipeline's first step. `make fcaf-generate` produces 1711 aggregate steps
+(190 `fcaf-reset-and-onboard` runs) and 167 happy-flow steps.
+`launchApp clearState: true` costs about 0.7 s more than `false` on
+`emulator-5554`.

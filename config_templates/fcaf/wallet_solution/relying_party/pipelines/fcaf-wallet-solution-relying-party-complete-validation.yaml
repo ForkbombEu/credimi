@@ -12,13 +12,13 @@ steps:
     - id: onboard-reference-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: callback-redirect-298d09a0-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: callback-redirect-298d09a0-create-callback-session
@@ -85,7 +85,7 @@ steps:
       id: client-id-binding-controls-616e872a-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: client-id-binding-controls-616e872a-create-san-dns-mismatch
@@ -497,7 +497,7 @@ steps:
       id: client-id-prefix-controls-f49aa8ab-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri
@@ -717,7 +717,7 @@ steps:
       id: credential-digest-algorithm-1354cfc6-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: credential-digest-algorithm-1354cfc6-create-sha384-issuance
@@ -901,7 +901,7 @@ steps:
       id: credential-status-list-13040d21-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: credential-status-list-13040d21-create-status-sdjwt-issuance-session
@@ -1043,7 +1043,7 @@ steps:
       id: dc-api-invalid-signature-32532cf2-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dc-api-invalid-signature-32532cf2-create-dc-api-invalid-signature
@@ -1111,7 +1111,7 @@ steps:
       id: dc-api-signed-encrypted-34d23faf-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dc-api-signed-encrypted-34d23faf-create-dc-api-signed-encrypted
@@ -1177,7 +1177,7 @@ steps:
       id: dc-api-unencrypted-f995d5b2-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dc-api-unencrypted-f995d5b2-create-dc-api-unencrypted
@@ -1243,7 +1243,7 @@ steps:
       id: dc-api-unsigned-a813364d-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dc-api-unsigned-a813364d-create-dc-api-unsigned
@@ -1309,7 +1309,7 @@ steps:
       id: dcql-all-credentials-without-credent-5818b47e-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-all-credentials-without-credent-5818b47e-create-presentation
@@ -1438,7 +1438,7 @@ steps:
       id: dcql-allowed-claim-path-components-ade09609-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-allowed-claim-path-components-ade09609-evidence-request
@@ -1580,7 +1580,7 @@ steps:
       id: dcql-claim-id-missing-with-claim-set-6de0c1eb-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claim-id-missing-with-claim-set-6de0c1eb-create-capture-session
@@ -1646,7 +1646,7 @@ steps:
       id: dcql-claim-path-reversed-e458d519-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claim-path-reversed-e458d519-create
@@ -1714,7 +1714,7 @@ steps:
       id: dcql-claim-sets-empty-2fce8ed5-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claim-sets-empty-2fce8ed5-create-empty-claim-sets-request
@@ -1862,7 +1862,7 @@ steps:
       id: dcql-claim-sets-non-array-1ebdf3bd-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claim-sets-non-array-1ebdf3bd-create-null
@@ -2675,7 +2675,7 @@ steps:
       id: dcql-claims-empty-baf266c3-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-empty-baf266c3-create-empty-claims-request
@@ -2825,7 +2825,7 @@ steps:
       id: dcql-claims-non-array-ed748dc5-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-non-array-ed748dc5-create-null
@@ -3638,7 +3638,7 @@ steps:
       id: dcql-claims-omitted-119046a6-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-omitted-119046a6-evidence-request
@@ -3704,7 +3704,7 @@ steps:
       id: dcql-claims-path-no-match-00a99e11-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-path-no-match-00a99e11-create
@@ -3771,7 +3771,7 @@ steps:
       id: dcql-claims-union-b689aff5-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-union-b689aff5-create-presentation
@@ -3889,7 +3889,7 @@ steps:
       id: dcql-claims-values-no-match-9e05fa90-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-values-no-match-9e05fa90-create
@@ -3955,7 +3955,7 @@ steps:
       id: dcql-claims-without-id-without-claim-939800aa-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-without-id-without-claim-939800aa-create-capture-session
@@ -4019,7 +4019,7 @@ steps:
       id: dcql-claims-without-values-174b98b6-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-claims-without-values-174b98b6-create-presentation
@@ -4083,7 +4083,7 @@ steps:
       id: dcql-combined-value-constraints-6bdb8a96-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-create-full-match-issuance
@@ -4470,7 +4470,7 @@ steps:
       id: dcql-credential-format-disallowed-c8dd9078-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-format-disallowed-c8dd9078-create
@@ -4527,7 +4527,7 @@ steps:
       id: dcql-credential-format-missing-b1b0b25b-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-format-missing-b1b0b25b-create
@@ -4585,7 +4585,7 @@ steps:
       id: dcql-credential-formats-3cfeac03-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-create-capture-session
@@ -4869,7 +4869,7 @@ steps:
       id: dcql-credential-id-duplicate-0ca7fa96-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-duplicate-0ca7fa96-create
@@ -4933,7 +4933,7 @@ steps:
       id: dcql-credential-id-empty-6d3e76ff-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-empty-6d3e76ff-create
@@ -4992,7 +4992,7 @@ steps:
       id: dcql-credential-id-invalid-966ca275-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-invalid-966ca275-create
@@ -5051,7 +5051,7 @@ steps:
       id: dcql-credential-id-missing-b9fe0583-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-missing-b9fe0583-create
@@ -5109,7 +5109,7 @@ steps:
       id: dcql-credential-id-non-string-222522d5-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-non-string-222522d5-create
@@ -5168,7 +5168,7 @@ steps:
       id: dcql-credential-sets-empty-84f34308-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-empty-84f34308-create
@@ -5228,7 +5228,7 @@ steps:
       id: dcql-credential-sets-options-empty-b28d4071-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-options-empty-b28d4071-create-capture-session
@@ -5291,7 +5291,7 @@ steps:
       id: dcql-credential-sets-options-invalid-0dc69b3d-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-options-invalid-0dc69b3d-create-capture-session
@@ -5355,7 +5355,7 @@ steps:
       id: dcql-credential-sets-options-missing-a6f66784-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-options-missing-a6f66784-create-capture-session
@@ -5421,7 +5421,7 @@ steps:
       id: dcql-credential-sets-options-non-arr-da1eeeb3-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-options-non-arr-da1eeeb3-create-capture-session
@@ -5484,7 +5484,7 @@ steps:
       id: dcql-credential-sets-options-valid-r-bea443fd-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-options-valid-r-bea443fd-create-capture-session
@@ -5548,7 +5548,7 @@ steps:
       id: dcql-credential-sets-required-false-88748634-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-required-false-88748634-create-presentation
@@ -5623,7 +5623,7 @@ steps:
       id: dcql-credential-sets-required-omitte-7e234cc1-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-required-omitte-7e234cc1-create-presentation
@@ -5689,14 +5689,8 @@ steps:
       id: dcql-credential-sets-required-true-m-c6f43473-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-credential-sets-required-true-m-c6f43473-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: dcql-credential-sets-required-true-m-c6f43473-create-pid-sdjwt-offer
       use: credential-offer
@@ -5753,7 +5747,7 @@ steps:
       id: dcql-credential-sets-required-true-n-bfc8e293-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-required-true-n-bfc8e293-create-capture-session
@@ -5818,7 +5812,7 @@ steps:
       id: dcql-credentials-empty-8a34dae1-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credentials-empty-8a34dae1-create-capture-session
@@ -5872,7 +5866,7 @@ steps:
       id: dcql-credentials-malformed-e90a2f4e-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credentials-malformed-e90a2f4e-create
@@ -5927,14 +5921,8 @@ steps:
       id: dcql-credentials-match-cc301c32-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-credentials-match-cc301c32-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: dcql-credentials-match-cc301c32-create-pid-sdjwt-offer
       use: credential-offer
@@ -6007,7 +5995,7 @@ steps:
       id: dcql-credentials-missing-377a6829-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credentials-missing-377a6829-create-capture-session
@@ -6060,7 +6048,7 @@ steps:
       id: dcql-credentials-non-array-f11dc532-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credentials-non-array-f11dc532-create-capture-session
@@ -6114,7 +6102,7 @@ steps:
       id: dcql-cryptography-1a488a33-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-cryptography-1a488a33-create-capture-session
@@ -6182,7 +6170,7 @@ steps:
       id: dcql-degree-array-index-4bda57a0-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-degree-array-index-4bda57a0-create-degree-issuance-session
@@ -6254,7 +6242,7 @@ steps:
       id: dcql-degree-array-selector-5794d6e6-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-degree-array-selector-5794d6e6-create-degree-issuance-session
@@ -6327,7 +6315,7 @@ steps:
       id: dcql-degree-index-selector-9bbb109a-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-degree-index-selector-9bbb109a-create-degree-issuance-session
@@ -6400,7 +6388,7 @@ steps:
       id: dcql-device-binding-f7c71f86-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-device-binding-f7c71f86-create-capture-session
@@ -6468,7 +6456,7 @@ steps:
       id: dcql-duplicate-claim-ids-05455537-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-duplicate-claim-ids-05455537-create-capture-session
@@ -6536,7 +6524,7 @@ steps:
       id: dcql-empty-claim-id-30473d71-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-empty-claim-id-30473d71-create-capture-session
@@ -6601,7 +6589,7 @@ steps:
       id: dcql-empty-claim-path-selection-5f7756d6-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-empty-claim-path-selection-5f7756d6-create
@@ -6667,7 +6655,7 @@ steps:
       id: dcql-empty-claim-path-5e517cde-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-empty-claim-path-5e517cde-create-capture-session
@@ -6738,7 +6726,7 @@ steps:
       id: dcql-encoding-93928417-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-encoding-93928417-create-capture-session
@@ -6806,7 +6794,7 @@ steps:
       id: dcql-format-mso-mdoc-fe537db0-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-format-mso-mdoc-fe537db0-create-presentation
@@ -6876,7 +6864,7 @@ steps:
       id: dcql-holder-binding-type-boundary-3ff3e611-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-create-valid-true
@@ -8778,7 +8766,7 @@ steps:
       id: dcql-interaction-engagement-d1f27e9f-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-interaction-engagement-d1f27e9f-create-capture-session
@@ -8846,7 +8834,7 @@ steps:
       id: dcql-interaction-metadata-f9737358-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-interaction-metadata-f9737358-create-capture-session
@@ -8914,7 +8902,7 @@ steps:
       id: dcql-interaction-protocol-flow-8f466d9d-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-interaction-protocol-flow-8f466d9d-create-capture-session
@@ -8989,7 +8977,7 @@ steps:
       id: dcql-interaction-supportive-9a64a7f5-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-interaction-supportive-9a64a7f5-create-capture-session
@@ -9057,7 +9045,7 @@ steps:
       id: dcql-invalid-claim-id-characters-810a5ad8-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-invalid-claim-id-characters-810a5ad8-create-capture-session
@@ -9122,7 +9110,7 @@ steps:
       id: dcql-issuer-integrity-34b33943-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-issuer-integrity-34b33943-create-capture-session
@@ -9190,7 +9178,7 @@ steps:
       id: dcql-main-interaction-eeb8ef1f-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-create-capture-session
@@ -9960,7 +9948,7 @@ steps:
       id: dcql-meta-empty-1fc6aca5-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-meta-empty-1fc6aca5-create
@@ -10029,7 +10017,7 @@ steps:
       id: dcql-meta-format-mismatch-dbb8d5c5-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-meta-format-mismatch-dbb8d5c5-create
@@ -10099,7 +10087,7 @@ steps:
       id: dcql-meta-omitted-3812c5e1-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-meta-omitted-3812c5e1-create
@@ -10167,7 +10155,7 @@ steps:
       id: dcql-meta-vct-mismatch-1d861c4c-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-meta-vct-mismatch-1d861c4c-create-presentation
@@ -10236,7 +10224,7 @@ steps:
       id: dcql-metadata-b66a6319-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-metadata-b66a6319-create-capture-session
@@ -10304,7 +10292,7 @@ steps:
       id: dcql-missing-claim-path-4cb9035a-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-missing-claim-path-4cb9035a-create-capture-session
@@ -10367,7 +10355,7 @@ steps:
       id: dcql-multiple-non-boolean-c494241c-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-multiple-non-boolean-c494241c-create
@@ -10439,7 +10427,7 @@ steps:
       id: dcql-multiple-true-ad438f05-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-multiple-true-ad438f05-create-presentation
@@ -10509,7 +10497,7 @@ steps:
       id: dcql-no-matching-credentials-e35fd34a-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-no-matching-credentials-e35fd34a-create-presentation
@@ -10576,7 +10564,7 @@ steps:
       id: dcql-non-array-claim-path-c23ef0aa-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-non-array-claim-path-c23ef0aa-create-capture-session
@@ -10640,7 +10628,7 @@ steps:
       id: dcql-object-claim-path-array-selecto-611dd5cc-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-object-claim-path-array-selecto-611dd5cc-create
@@ -10709,7 +10697,7 @@ steps:
       id: dcql-presentation-76d882de-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-presentation-76d882de-create-capture-session
@@ -10777,7 +10765,7 @@ steps:
       id: dcql-protocol-messages-120-b6247e8b-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-120-b6247e8b-create-capture-session
@@ -10842,7 +10830,7 @@ steps:
       id: dcql-protocol-messages-121-47c8da6a-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-121-47c8da6a-create-capture-session
@@ -10907,7 +10895,7 @@ steps:
       id: dcql-protocol-messages-122-d80887a4-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-122-d80887a4-create-capture-session
@@ -10971,7 +10959,7 @@ steps:
       id: dcql-protocol-messages-123-dab665e2-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-123-dab665e2-create-capture-session
@@ -11036,7 +11024,7 @@ steps:
       id: dcql-protocol-messages-135-a8f6bf3d-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-135-a8f6bf3d-create-capture-session
@@ -11103,7 +11091,7 @@ steps:
       id: dcql-protocol-messages-136-5cce48a8-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-136-5cce48a8-create-capture-session
@@ -11170,7 +11158,7 @@ steps:
       id: dcql-protocol-messages-137-ba3248bd-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-137-ba3248bd-create-capture-session
@@ -11226,7 +11214,7 @@ steps:
       id: dcql-protocol-messages-138-f0f24bb5-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-138-f0f24bb5-create-capture-session
@@ -11282,7 +11270,7 @@ steps:
       id: dcql-protocol-messages-139-6e481943-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-139-6e481943-create-capture-session
@@ -11338,7 +11326,7 @@ steps:
       id: dcql-protocol-messages-140-f6edc6e1-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-140-f6edc6e1-create-capture-session
@@ -11394,7 +11382,7 @@ steps:
       id: dcql-protocol-messages-141-d9dbf3bc-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-141-d9dbf3bc-create-capture-session
@@ -11459,7 +11447,7 @@ steps:
       id: dcql-protocol-messages-142-f7a51d3c-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-142-f7a51d3c-create-capture-session
@@ -11514,7 +11502,7 @@ steps:
       id: dcql-protocol-messages-145-43efad77-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-145-43efad77-create-capture-session
@@ -11583,7 +11571,7 @@ steps:
       id: dcql-protocol-messages-146-3483d14f-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-146-3483d14f-create-capture-session
@@ -11649,7 +11637,7 @@ steps:
       id: dcql-protocol-messages-150-5b015ca8-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-150-5b015ca8-create-capture-session
@@ -11713,7 +11701,7 @@ steps:
       id: dcql-protocol-messages-151-02b4e313-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-151-02b4e313-create-capture-session
@@ -11777,7 +11765,7 @@ steps:
       id: dcql-protocol-messages-153-0bf70160-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-153-0bf70160-create-capture-session
@@ -11844,7 +11832,7 @@ steps:
       id: dcql-protocol-messages-154-922365b1-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-154-922365b1-create-capture-session
@@ -11912,7 +11900,7 @@ steps:
       id: dcql-protocol-messages-155-dfda78fc-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-155-dfda78fc-create-capture-session
@@ -11979,7 +11967,7 @@ steps:
       id: dcql-protocol-messages-156-244b8949-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-156-244b8949-create-capture-session
@@ -12047,7 +12035,7 @@ steps:
       id: dcql-protocol-messages-157-c7e04b42-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-157-c7e04b42-create-capture-session
@@ -12115,7 +12103,7 @@ steps:
       id: dcql-protocol-messages-158-ae4d2651-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-158-ae4d2651-create-capture-session
@@ -12191,7 +12179,7 @@ steps:
       id: dcql-protocol-messages-159-fd92371b-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-159-fd92371b-create-capture-session
@@ -12260,7 +12248,7 @@ steps:
       id: dcql-protocol-messages-a25772b2-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-create-capture-session
@@ -12369,7 +12357,7 @@ steps:
       id: dcql-required-credentials-no-partial-c6dd8f09-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-required-credentials-no-partial-c6dd8f09-create-capture-session
@@ -12440,7 +12428,7 @@ steps:
       id: dcql-rp-integrity-3576cc79-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-create-capture-session
@@ -12508,7 +12496,7 @@ steps:
       id: dcql-same-credential-multiple-querie-28308591-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-same-credential-multiple-querie-28308591-evidence-request
@@ -12605,7 +12593,7 @@ steps:
       id: dcql-session-encryption-210827bd-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-session-encryption-210827bd-create-capture-session
@@ -12673,14 +12661,8 @@ steps:
       id: dcql-standard-all-28f43ce6-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-standard-all-28f43ce6-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: dcql-standard-all-28f43ce6-create-pid-sdjwt-offer
       use: credential-offer
@@ -12742,7 +12724,7 @@ steps:
       id: dcql-string-claim-path-index-selecto-e72d9b13-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-string-claim-path-index-selecto-e72d9b13-create
@@ -12811,7 +12793,7 @@ steps:
       id: dcql-string-claim-path-segment-189c3530-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-string-claim-path-segment-189c3530-create
@@ -12879,7 +12861,7 @@ steps:
       id: dcql-top-level-claim-path-no-match-07b20d93-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-top-level-claim-path-no-match-07b20d93-create
@@ -12946,7 +12928,7 @@ steps:
       id: dcql-trust-mechanisms-157d0f39-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-create-capture-session
@@ -13014,7 +12996,7 @@ steps:
       id: dcql-trusted-authorities-empty-21a59091-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-empty-21a59091-create
@@ -13086,7 +13068,7 @@ steps:
       id: dcql-trusted-authorities-invalid-obj-72360be6-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-invalid-obj-72360be6-create
@@ -13159,7 +13141,7 @@ steps:
       id: dcql-trusted-authorities-match-a95b9bcc-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-match-a95b9bcc-create-presentation
@@ -13232,7 +13214,7 @@ steps:
       id: dcql-trusted-authorities-missing-typ-64de56cc-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-missing-typ-64de56cc-create
@@ -13306,7 +13288,7 @@ steps:
       id: dcql-trusted-authorities-missing-val-3972fc33-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-missing-val-3972fc33-create-missing-trusted-authorities-values
@@ -13443,7 +13425,7 @@ steps:
       id: dcql-trusted-authorities-no-match-9fc63a53-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-no-match-9fc63a53-create-capture-session
@@ -13511,7 +13493,7 @@ steps:
       id: dcql-trusted-authorities-non-array-b004573c-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-non-array-b004573c-create
@@ -13583,7 +13565,7 @@ steps:
       id: dcql-trusted-authorities-type-non-st-4e26a188-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-type-non-st-4e26a188-create-null
@@ -14498,7 +14480,7 @@ steps:
       id: dcql-trusted-authorities-unsupported-90d3d4bb-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-unsupported-90d3d4bb-create
@@ -14573,7 +14555,7 @@ steps:
       id: dcql-trusted-authorities-values-empt-9ce9e426-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-values-empt-9ce9e426-create-single
@@ -14853,7 +14835,7 @@ steps:
       id: dcql-trusted-authorities-values-item-000a74ab-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-values-item-000a74ab-create-null
@@ -15767,7 +15749,7 @@ steps:
       id: dcql-trusted-authorities-values-non-2ccb8dca-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-trusted-authorities-values-non-2ccb8dca-create-null
@@ -16675,7 +16657,7 @@ steps:
       id: dcql-unchecked-claim-0efe5303-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-unchecked-claim-0efe5303-create-presentation
@@ -16786,7 +16768,7 @@ steps:
       id: dcql-unsupported-claim-path-componen-39ccebe1-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-unsupported-claim-path-componen-39ccebe1-create
@@ -16853,7 +16835,7 @@ steps:
       id: dcql-user-authentication-failed-9c3ae613-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-user-authentication-failed-9c3ae613-create-presentation
@@ -16981,7 +16963,7 @@ steps:
       id: dcql-user-denied-consent-ee29c457-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-user-denied-consent-ee29c457-create-presentation
@@ -17105,7 +17087,7 @@ steps:
       id: dcql-valid-id-alphanumeric-0dd94705-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-valid-id-alphanumeric-0dd94705-create-presentation
@@ -17174,7 +17156,7 @@ steps:
       id: dcql-valid-id-special-4b48cc60-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-valid-id-special-4b48cc60-create-presentation
@@ -17243,7 +17225,7 @@ steps:
       id: default-x509-hash-metadata-6eed4e38-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: default-x509-hash-metadata-6eed4e38-create-presentation
@@ -17311,7 +17293,7 @@ steps:
       id: did-empty-metadata-0b80b79f-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: did-empty-metadata-0b80b79f-create-presentation
@@ -17385,7 +17367,7 @@ steps:
       id: did-metadata-b39af5a1-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: did-metadata-b39af5a1-create-presentation
@@ -17470,7 +17452,7 @@ steps:
       id: direct-post-jwt-response-transport-57ec17f1-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: direct-post-jwt-response-transport-57ec17f1-create-capture-session
@@ -17538,7 +17520,7 @@ steps:
       id: engagement-haip-vp-4bb0f83a-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
@@ -17654,7 +17636,7 @@ steps:
       id: interaction-degree-sdjwt-d51c1dad-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-create-degree-issuance-session
@@ -17990,14 +17972,8 @@ steps:
       id: interaction-pid-mdoc-6b049464-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: interaction-pid-mdoc-6b049464-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: interaction-pid-mdoc-6b049464-create-pid-mdoc-offer
       use: credential-offer
@@ -18187,7 +18163,7 @@ steps:
       id: interaction-pid-sdjwt-ec048f5c-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-pid-sdjwt-ec048f5c-create-pid-issuance-session
@@ -18395,7 +18371,7 @@ steps:
       id: invalid-request-uri-method-f8c49ad9-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: invalid-request-uri-method-f8c49ad9-create-presentation
@@ -18463,7 +18439,7 @@ steps:
       id: malformed-dcql-1e84df7a-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: malformed-dcql-1e84df7a-create
@@ -18525,14 +18501,8 @@ steps:
       id: mdoc-absent-namespace-8c8f84c8-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: mdoc-absent-namespace-8c8f84c8-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: mdoc-absent-namespace-8c8f84c8-create-pid-mdoc-offer
       use: credential-offer
@@ -18592,14 +18562,8 @@ steps:
       id: mdoc-claim-path-absent-element-492e5a68-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: mdoc-claim-path-absent-element-492e5a68-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: mdoc-claim-path-absent-element-492e5a68-create-pid-mdoc-offer
       use: credential-offer
@@ -18658,14 +18622,8 @@ steps:
       id: mdoc-claim-path-component-count-b56f251e-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: mdoc-claim-path-component-count-b56f251e-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: mdoc-claim-path-component-count-b56f251e-create-pid-mdoc-offer
       use: credential-offer
@@ -18723,14 +18681,8 @@ steps:
       id: mdoc-claim-path-non-string-61ff9b89-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: mdoc-claim-path-non-string-61ff9b89-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: mdoc-claim-path-non-string-61ff9b89-create-pid-mdoc-offer
       use: credential-offer
@@ -18789,7 +18741,7 @@ steps:
       id: mdoc-multiple-device-responses-78e404d8-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-multiple-device-responses-78e404d8-create-baseline-mdoc-issuance
@@ -18921,7 +18873,7 @@ steps:
       id: mdoc-status-reference-rejection-46c13b7f-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-status-without-status-list-issuance
@@ -19307,7 +19259,7 @@ steps:
       id: metadata-direct-post-jwt-bf077ae9-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: metadata-direct-post-jwt-bf077ae9-create-presentation
@@ -19377,7 +19329,7 @@ steps:
       id: metadata-request-controls-913fbdc1-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: metadata-request-controls-913fbdc1-create-default-post-retrieval
@@ -19622,7 +19574,7 @@ steps:
       id: pid-candidate-selection-e35c6cf5-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: pid-candidate-selection-e35c6cf5-create-baseline-issuance
@@ -19787,14 +19739,8 @@ steps:
       id: pid-mdoc-data-model-8f915369-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: pid-mdoc-data-model-8f915369-onboard-reference-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-create-pid-mdoc-offer
       use: credential-offer
@@ -19926,7 +19872,7 @@ steps:
       id: pid-multiple-credentials-3e946b72-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: pid-multiple-credentials-3e946b72-create-baseline-issuance
@@ -20195,7 +20141,7 @@ steps:
       id: pid-under-18-constraint-e7f0d444-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: pid-under-18-constraint-e7f0d444-create-under-18-issuance
@@ -20342,7 +20288,7 @@ steps:
       id: plain-redirect-uri-82b46bbe-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: plain-redirect-uri-82b46bbe-create-presentation
@@ -20410,7 +20356,7 @@ steps:
       id: request-object-by-value-f1c94061-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-by-value-f1c94061-create-presentation
@@ -20480,7 +20426,7 @@ steps:
       id: request-object-header-controls-ed82443e-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-header-controls-ed82443e-create-invalid-typ
@@ -20644,7 +20590,7 @@ steps:
       id: request-object-outer-controls-84cfd8b2-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-outer-controls-84cfd8b2-create-conflicting-nonce
@@ -20785,7 +20731,7 @@ steps:
       id: request-object-payload-controls-aefde1c6-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-payload-controls-aefde1c6-create-different-iss
@@ -21083,7 +21029,7 @@ steps:
       id: request-uri-method-default-9bc74bd3-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-method-default-9bc74bd3-create-presentation
@@ -21153,7 +21099,7 @@ steps:
       id: request-uri-method-get-91ef716c-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-method-get-91ef716c-create-presentation
@@ -21224,7 +21170,7 @@ steps:
       id: request-uri-method-post-11b1acd0-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-method-post-11b1acd0-create-presentation
@@ -21295,7 +21241,7 @@ steps:
       id: request-uri-post-8426f040-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-post-8426f040-create-capture-session
@@ -21363,7 +21309,7 @@ steps:
       id: request-uri-response-controls-77a90e75-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-response-controls-77a90e75-create-wrong-content-type
@@ -21477,7 +21423,7 @@ steps:
       id: response-encryption-a128gcm-57bacf6d-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-encryption-a128gcm-57bacf6d-create-capture-session
@@ -21548,7 +21494,7 @@ steps:
       id: response-encryption-a256gcm-a9a43850-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-encryption-a256gcm-a9a43850-create-capture-session
@@ -21619,7 +21565,7 @@ steps:
       id: response-encryption-both-gcm-76a19a08-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-encryption-both-gcm-76a19a08-create-capture-session
@@ -21691,7 +21637,7 @@ steps:
       id: response-encryption-jwk-alg-mismatch-72932517-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-encryption-jwk-alg-mismatch-72932517-create-capture-session
@@ -21770,7 +21716,7 @@ steps:
       id: response-encryption-jwk-without-alg-3e14f10a-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-encryption-jwk-without-alg-3e14f10a-create-capture-session
@@ -21848,7 +21794,7 @@ steps:
       id: response-encryption-metadata-7d34f50e-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-encryption-metadata-7d34f50e-metadata-probe
@@ -21946,7 +21892,7 @@ steps:
       id: response-encryption-no-ecdh-es-jwk-00b10ba8-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-encryption-no-ecdh-es-jwk-00b10ba8-create-capture-session
@@ -22025,7 +21971,7 @@ steps:
       id: response-encryption-per-request-keys-4f12992b-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-encryption-per-request-keys-4f12992b-create-first-capture-session
@@ -22155,7 +22101,7 @@ steps:
       id: response-encryption-reused-jwk-183059b7-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-encryption-reused-jwk-183059b7-create-first-capture-session
@@ -22307,7 +22253,7 @@ steps:
       id: response-uri-controls-48310ca6-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: response-uri-controls-48310ca6-create-missing-response-uri
@@ -22469,7 +22415,7 @@ steps:
       id: rp-integrity-certificate-chain-ed1def1e-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: rp-integrity-certificate-chain-ed1def1e-create-incomplete-chain
@@ -22624,7 +22570,7 @@ steps:
       id: rp-integrity-invalid-signature-4f1ab386-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: rp-integrity-invalid-signature-4f1ab386-create-corrupt-signature
@@ -22693,7 +22639,7 @@ steps:
       id: rp-integrity-unrelated-signing-key-d22d08bc-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: rp-integrity-unrelated-signing-key-d22d08bc-create-unrelated-signing-key
@@ -22762,7 +22708,7 @@ steps:
       id: session-binding-invalid-nonce-0c3e8d16-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: session-binding-invalid-nonce-0c3e8d16-create-capture-session
@@ -22830,7 +22776,7 @@ steps:
       id: session-binding-missing-nonce-2d9d51e7-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: session-binding-missing-nonce-2d9d51e7-create-capture-session
@@ -22898,7 +22844,7 @@ steps:
       id: session-binding-valid-nonce-aa3a1f9c-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: session-binding-valid-nonce-aa3a1f9c-create-presentation
@@ -22969,7 +22915,7 @@ steps:
       id: signed-x509-hash-metadata-ec05d944-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: signed-x509-hash-metadata-ec05d944-create-presentation
@@ -23045,7 +22991,7 @@ steps:
       id: status-reference-rejection-0adf5c5d-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-create-status-without-status-list-issuance
@@ -23431,7 +23377,7 @@ steps:
       id: supportive-redirect-uri-9f399357-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: supportive-redirect-uri-9f399357-create-presentation
@@ -23546,7 +23492,7 @@ steps:
       id: supportive-signed-request-without-re-042dcbe8-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: supportive-signed-request-without-re-042dcbe8-create-presentation
@@ -23613,7 +23559,7 @@ steps:
       id: transaction-data-matching-credential-09aba950-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: transaction-data-matching-credential-09aba950-create-capture-session
@@ -23693,7 +23639,7 @@ steps:
       id: transaction-data-non-array-41ef94bc-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: transaction-data-non-array-41ef94bc-create
@@ -23768,7 +23714,7 @@ steps:
       id: transaction-data-type-non-string-22c10bda-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: transaction-data-type-non-string-22c10bda-create
@@ -23844,7 +23790,7 @@ steps:
       id: unknown-parameter-controls-e7438d99-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: unknown-parameter-controls-e7438d99-create-unknown-request-parameter
@@ -24048,7 +23994,7 @@ steps:
       id: unknown-scope-f9476deb-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: unknown-scope-f9476deb-create-unknown-scope
@@ -24107,7 +24053,7 @@ steps:
       id: verifier-info-all-credentials-039537ba-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: verifier-info-all-credentials-039537ba-create-capture-session
@@ -24186,7 +24132,7 @@ steps:
       id: verifier-response-controls-f1d3d4c9-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: verifier-response-controls-f1d3d4c9-create-non-json-response
@@ -24443,7 +24389,7 @@ steps:
       id: wallet-nonce-controls-5bb1d8ef-reset-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-wallet
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
       id: wallet-nonce-controls-5bb1d8ef-create-protocol-message-nonce-mismatch
@@ -24605,7 +24551,6 @@ steps:
                     fetch-capture-session: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs | optional }}
                     invoke-wallet-with-haip-vp: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs | optional }}
                     obtain-pid-mdoc: ${{ pid-mdoc-data-model-8f915369-obtain-pid-mdoc.outputs | optional }}
-                    onboard-reference-wallet: ${{ pid-mdoc-data-model-8f915369-onboard-reference-wallet.outputs | optional }}
                     visual_evidence: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
             forkbomb-bv-andrea/fcaf/device-wallet-solution-relying-party-engagement-haip-vp:
                 output:
@@ -24933,7 +24878,6 @@ steps:
                     dcql_exchange: ${{ dcql-credential-sets-required-true-m-c6f43473-fetch-capture-session.outputs.body | optional }}
                     fetch-capture-session: ${{ dcql-credential-sets-required-true-m-c6f43473-fetch-capture-session.outputs | optional }}
                     obtain-pid-sdjwt: ${{ dcql-credential-sets-required-true-m-c6f43473-obtain-pid-sdjwt.outputs | optional }}
-                    onboard-reference-wallet: ${{ dcql-credential-sets-required-true-m-c6f43473-onboard-reference-wallet.outputs | optional }}
                     present-required-credential-set: ${{ dcql-credential-sets-required-true-m-c6f43473-present-required-credential-set.outputs | optional }}
                     visual_evidence: ${{ dcql-credential-sets-required-true-m-c6f43473-present-required-credential-set.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.credential-sets-required-true-no-match:
@@ -25673,7 +25617,6 @@ steps:
                     fetch-capture-session: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs | optional }}
                     invoke-wallet-with-haip-vp: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs | optional }}
                     obtain-pid-mdoc: ${{ pid-mdoc-data-model-8f915369-obtain-pid-mdoc.outputs | optional }}
-                    onboard-reference-wallet: ${{ pid-mdoc-data-model-8f915369-onboard-reference-wallet.outputs | optional }}
                     pid_mdoc: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     visual_evidence: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.pid.presentation.sdjwt.all-claims:
