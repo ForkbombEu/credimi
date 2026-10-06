@@ -45,6 +45,7 @@ func Test_OpenID4VPWalletWorkflows(t *testing.T) {
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
+				registerOpenIDNetLogPushActivity(env, func() { callCount++ })
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": "12345", "deeplink": "test"}}}, nil)
@@ -75,6 +76,7 @@ func Test_OpenID4VPWalletWorkflows(t *testing.T) {
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
+				registerOpenIDNetLogPushActivity(env, func() { callCount++ })
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": "12345", "deeplink": "test"}}}, nil)
@@ -104,6 +106,7 @@ func Test_OpenID4VPWalletWorkflows(t *testing.T) {
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
+				registerOpenIDNetLogPushActivity(env, func() { callCount++ })
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": "12345", "deeplink": "test"}}}, nil)
@@ -181,7 +184,7 @@ func Test_OpenID4VPWalletWorkflows(t *testing.T) {
 					<-done
 					var result workflowengine.WorkflowResult
 					require.NoError(t, env.GetWorkflowResult(&result))
-					require.Equal(t, 2, callCount) // Only two activity call (no looping)
+					require.Equal(t, 2, callCount) // Logs poll and log push (no looping)
 				}
 			} else {
 				<-done
@@ -239,6 +242,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 			env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 				Name: HTTPActivity.Name(),
 			})
+			registerOpenIDNetLogPushActivity(env, func() { callCount++ })
 			w := NewOpenID4VPWalletLogsWorkflow()
 			env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
 				Run(func(_ mock.Arguments) {
@@ -284,11 +288,30 @@ func Test_LogSubWorkflow(t *testing.T) {
 					require.NoError(t, err)
 
 					require.NotEmpty(t, result.Log)
-					require.Equal(t, 2, callCount) // Only two activity call (no looping)
+					require.Equal(t, 2, callCount) // Logs poll and log push (no looping)
 				}
 			}
 		})
 	}
+}
+
+// registerOpenIDNetLogPushActivity mocks the send-openidnet-log-update push,
+// invoking onPush for each call.
+func registerOpenIDNetLogPushActivity(env *testsuite.TestWorkflowEnvironment, onPush func()) {
+	internalHTTPActivity := activities.NewInternalHTTPActivity()
+	env.RegisterActivityWithOptions(internalHTTPActivity.Execute, activity.RegisterOptions{
+		Name: internalHTTPActivity.Name(),
+	})
+	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		return matchesHTTPPayload(
+			input,
+			"https://test-app.com/api/compliance/send-openidnet-log-update",
+		)
+	})).
+		Run(func(_ mock.Arguments) {
+			onPush()
+		}).
+		Return(workflowengine.ActivityResult{}, nil)
 }
 
 func TestOpenID4VPWalletWorkflowStart(t *testing.T) {

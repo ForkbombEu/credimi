@@ -218,21 +218,11 @@ func notifyOpenIDConformanceLogs(
 	workflowID string,
 	logs []map[string]any,
 ) error {
-	httpActivity := activities.NewHTTPActivity()
-	request := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
-			Method: http.MethodPost,
-			URL:    utils.JoinURL(appURL, "api", "compliance", "send-openidnet-log-update"),
-			Headers: map[string]string{
-				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
-			},
-			Body: map[string]any{
-				"workflow_id": workflowID,
-				"logs":        logs,
-			},
-			ExpectedStatus: 200,
-			Timeout:        "30",
-		},
-	}
-	return workflow.ExecuteActivity(ctx, httpActivity.Name(), request).Get(ctx, nil)
+	return sendRealtimeLogsUpdate(
+		ctx,
+		utils.JoinURL(appURL, "api", "compliance", "send-openidnet-log-update"),
+		workflowID,
+		logs,
+		"30",
+	)
 }

@@ -16,6 +16,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/apis"
+	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/logo"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
@@ -81,6 +82,7 @@ func Setup(app *pocketbase.PocketBase) {
 	pb.RegisterWalletActionHooks(app)
 	pb.RegisterSchedulesHooks(app)
 	apis.RegisterMyRoutes(app)
+	handlers.RegisterRealtimeLogsAuthorizationHook(app)
 	hooks.WorkersHook(app)
 	canonify.RegisterCanonifyHooks(app)
 	apis.HookAtUserCreation(app)

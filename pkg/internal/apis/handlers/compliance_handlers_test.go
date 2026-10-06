@@ -11,6 +11,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -608,18 +609,22 @@ func TestHandleSendTemporalSignalMissingParams(t *testing.T) {
 		return mockClient, nil
 	}
 
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
 	req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
 	req = req.WithContext(
 		context.WithValue(
 			req.Context(),
 			middlewares.ValidatedInputKey,
-			HandleSendTemporalSignalInput{},
+			HandleSendTemporalSignalInput{Namespace: "usera-s-organization"},
 		),
 	)
 	rec := httptest.NewRecorder()
 
 	err = HandleSendTemporalSignal()(&core.RequestEvent{
-		App: app,
+		App:  app,
+		Auth: authRecord,
 		Event: router.Event{
 			Request:  req,
 			Response: rec,
@@ -648,9 +653,12 @@ func TestHandleSendTemporalSignalNotFound(t *testing.T) {
 		return mockClient, nil
 	}
 
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
 	input := HandleSendTemporalSignalInput{
 		WorkflowID: "wf-1",
-		Namespace:  "ns",
+		Namespace:  "usera-s-organization",
 		Signal:     "sig",
 	}
 	req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
@@ -658,7 +666,8 @@ func TestHandleSendTemporalSignalNotFound(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	err = HandleSendTemporalSignal()(&core.RequestEvent{
-		App: app,
+		App:  app,
+		Auth: authRecord,
 		Event: router.Event{
 			Request:  req,
 			Response: rec,
@@ -687,9 +696,12 @@ func TestHandleSendTemporalSignalSuccess(t *testing.T) {
 		return mockClient, nil
 	}
 
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
 	input := HandleSendTemporalSignalInput{
 		WorkflowID: "wf-2",
-		Namespace:  "ns",
+		Namespace:  "usera-s-organization",
 		Signal:     "sig",
 	}
 	req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
@@ -697,7 +709,8 @@ func TestHandleSendTemporalSignalSuccess(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	err = HandleSendTemporalSignal()(&core.RequestEvent{
-		App: app,
+		App:  app,
+		Auth: authRecord,
 		Event: router.Event{
 			Request:  req,
 			Response: rec,
@@ -705,6 +718,157 @@ func TestHandleSendTemporalSignalSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestHandleSendTemporalSignalNamespaceAuthorization(t *testing.T) {
+	scenarios := []struct {
+		name           string
+		collection     string
+		email          string
+		namespace      string
+		expectedStatus int
+	}{
+		{
+			name:           "other organization namespace is forbidden",
+			collection:     "users",
+			email:          "userA@example.org",
+			namespace:      "userb-s-organization",
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:           "superuser may signal any namespace",
+			collection:     core.CollectionNameSuperusers,
+			email:          "admin@example.org",
+			namespace:      "userb-s-organization",
+			expectedStatus: http.StatusOK,
+		},
+	}
+
+	for _, s := range scenarios {
+		t.Run(s.name, func(t *testing.T) {
+			app, err := tests.NewTestApp(testDataDir)
+			require.NoError(t, err)
+			defer app.Cleanup()
+
+			authRecord, err := app.FindAuthRecordByEmail(s.collection, s.email)
+			require.NoError(t, err)
+
+			origClient := complianceTemporalClient
+			t.Cleanup(func() { complianceTemporalClient = origClient })
+
+			mockClient := &temporalmocks.Client{}
+			mockClient.
+				On("SignalWorkflow", mock.Anything, "wf-b", "", "sig", mock.Anything).
+				Return(nil).
+				Maybe()
+			var requestedNamespaces []string
+			complianceTemporalClient = func(namespace string) (client.Client, error) {
+				requestedNamespaces = append(requestedNamespaces, namespace)
+				return mockClient, nil
+			}
+
+			input := HandleSendTemporalSignalInput{
+				WorkflowID: "wf-b",
+				Namespace:  s.namespace,
+				Signal:     "sig",
+			}
+			req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
+			req = req.WithContext(
+				context.WithValue(req.Context(), middlewares.ValidatedInputKey, input),
+			)
+			rec := httptest.NewRecorder()
+
+			err = HandleSendTemporalSignal()(&core.RequestEvent{
+				App:  app,
+				Auth: authRecord,
+				Event: router.Event{
+					Request:  req,
+					Response: rec,
+				},
+			})
+			if s.expectedStatus == http.StatusOK {
+				require.NoError(t, err)
+				require.Equal(t, []string{s.namespace}, requestedNamespaces)
+				mockClient.AssertCalled(
+					t,
+					"SignalWorkflow",
+					mock.Anything,
+					"wf-b",
+					"",
+					"sig",
+					mock.Anything,
+				)
+			} else {
+				requireHandlerErrorHandled(t, rec, err)
+				require.Empty(t, requestedNamespaces)
+				mockClient.AssertNotCalled(
+					t,
+					"SignalWorkflow",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				)
+			}
+			require.Equal(t, s.expectedStatus, rec.Code)
+		})
+	}
+}
+
+func TestComplianceLogUpdateRoutesRequireInternalAdminKey(t *testing.T) {
+	userToken := realtimeAuthToken(t, "users", "userA@example.org")
+	body := `{"workflow_id":"wf-1","logs":[{"message":"injected"}]}`
+	setup := func(t testing.TB) *tests.TestApp {
+		app, err := tests.NewTestApp(testDataDir)
+		require.NoError(t, err)
+		ConformanceRoutes.Add(app)
+		seedInternalAdminKey(t, app)
+		return app
+	}
+
+	paths := []string{
+		"/api/compliance/send-openidnet-log-update",
+		"/api/compliance/send-eudiw-log-update",
+		"/api/compliance/send-ewc-log-update",
+	}
+	scenarios := make([]tests.ApiScenario, 0, 3*len(paths))
+	for _, path := range paths {
+		scenarios = append(scenarios,
+			tests.ApiScenario{
+				Name:            path + " without credentials",
+				Method:          http.MethodPost,
+				URL:             path,
+				Body:            strings.NewReader(body),
+				ExpectedStatus:  http.StatusUnauthorized,
+				ExpectedContent: []string{"api_key_required"},
+				TestAppFactory:  setup,
+			},
+			tests.ApiScenario{
+				Name:            path + " with a user token",
+				Method:          http.MethodPost,
+				URL:             path,
+				Body:            strings.NewReader(body),
+				Headers:         map[string]string{"Authorization": userToken},
+				ExpectedStatus:  http.StatusUnauthorized,
+				ExpectedContent: []string{"api_key_required"},
+				TestAppFactory:  setup,
+			},
+			tests.ApiScenario{
+				Name:            path + " with the internal admin key",
+				Method:          http.MethodPost,
+				URL:             path,
+				Body:            strings.NewReader(body),
+				Headers:         map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
+				ExpectedStatus:  http.StatusOK,
+				ExpectedContent: []string{"Log update sent successfully"},
+				TestAppFactory:  setup,
+			},
+		)
+	}
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
 }
 
 func TestNotifyLogsUpdateNoSubscribers(t *testing.T) {

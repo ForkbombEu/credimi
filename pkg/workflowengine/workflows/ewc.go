@@ -689,29 +689,13 @@ func notifyEWCLikeLogs(
 		return nil
 	}
 
-	httpActivity := activities.NewHTTPActivity()
-	triggerLogsInput := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				appURL,
-				"api",
-				"compliance",
-				"send-ewc-log-update",
-			),
-			Headers: map[string]string{
-				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
-			},
-			Body: map[string]any{
-				"workflow_id": strings.TrimSuffix(workflowID, "-status"),
-				"logs":        logs,
-			},
-			ExpectedStatus: 200,
-		},
-	}
-
-	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), triggerLogsInput).
-		Get(ctx, nil); err != nil {
+	if err := sendRealtimeLogsUpdate(
+		ctx,
+		utils.JoinURL(appURL, "api", "compliance", "send-ewc-log-update"),
+		strings.TrimSuffix(workflowID, "-status"),
+		logs,
+		"",
+	); err != nil {
 		return workflowengine.NewWorkflowError(err, runMetadata)
 	}
 
