@@ -111,6 +111,10 @@ describe('playInCardEnterLayout', () => {
 		expect(form.className.split(/\s+/)).toEqual(
 			expect.arrayContaining(['absolute', 'inset-0', 'flex', 'flex-col', 'min-h-0'])
 		);
+		expect(form.style.position).toBe('absolute');
+		expect(form.style.opacity).toBe('0');
+		expect(lock.style.height).toBe('80px');
+		expect(lock.style.overflow).toBe('hidden');
 
 		completeEnterSteps();
 		await handle.finished;
@@ -120,6 +124,49 @@ describe('playInCardEnterLayout', () => {
 		expect(form.style.position).toBe('');
 		expect(form.style.height).toBe('');
 		expect(form.className).not.toContain('absolute');
+		expect(display.style.visibility).toBe('hidden');
+		expect(lock.style.height).toBe('480px');
+	});
+
+	it('settleEnterFormHost clears overlay styles without touching the lock', async () => {
+		const lock = fakeEl(80, 80, 'relative min-h-0');
+		const display = fakeEl(80, 80);
+		const form = fakeEl(0, 200);
+
+		const handle = playInCardEnterLayout({
+			lock,
+			display,
+			form,
+			bodyMaxPx: 480
+		});
+
+		completeEnterSteps();
+		await handle.finished;
+
+		expect(form.style.position).toBe('');
+		expect(form.style.height).toBe('');
+		expect(form.style.opacity).toBe('');
+		expect(lock.style.height).toBe('480px');
+	});
+
+	it('grows to form natural height even when inset pins the form', async () => {
+		const lock = fakeEl(80, 80, 'relative min-h-0');
+		const display = fakeEl(80, 80);
+		const form = fakeEl(80, 240);
+		form.style.inset = '0';
+		form.style.top = '0';
+		form.style.bottom = '0';
+		form.style.height = '100%';
+
+		const handle = playInCardEnterLayout({ lock, display, form });
+
+		paramsAt(0).onComplete();
+		paramsAt(1).onComplete();
+		expect(paramsAt(2).height).toEqual(['80px', '240px']);
+		paramsAt(2).onComplete();
+		await handle.finished;
+
+		expect(lock.style.height).toBe('240px');
 	});
 
 	it('computes body max from card + cardFillMaxPx when bodyMaxPx omitted', async () => {
@@ -202,7 +249,37 @@ describe('playInCardExitLayout', () => {
 			enterSettled: true
 		});
 
+		expect(form.style.position).toBe('absolute');
+		expect(display.style.position).toBe('absolute');
 		expect(animateMock).toHaveBeenCalled();
 		expect(paramsAt(0).height).toEqual(['200px', '80px']);
+	});
+
+	it('tears down exit overlay after shrink and crossfade', async () => {
+		const lock = fakeEl(200, 200);
+		lock.style.height = '200px';
+		const display = fakeEl(0, 80);
+		const form = fakeEl(200, 200);
+		const onComplete = vi.fn();
+
+		const handle = playInCardExitLayout({
+			lock,
+			display,
+			form,
+			enterSettled: true,
+			onComplete
+		});
+
+		paramsAt(0).onComplete();
+		paramsAt(1).onComplete();
+		paramsAt(2).onComplete();
+		await handle.finished;
+
+		expect(onComplete).toHaveBeenCalledOnce();
+		expect(display.style.position).toBe('');
+		expect(form.style.position).toBe('');
+		expect(form.style.opacity).toBe('0');
+		expect(form.style.visibility).toBe('hidden');
+		expect(lock.style.height).toBe('');
 	});
 });

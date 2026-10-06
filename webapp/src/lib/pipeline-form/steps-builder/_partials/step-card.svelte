@@ -9,14 +9,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StepsBuilder } from '$pipeline-form/steps-builder/steps-builder.svelte.js';
 
 	import { ArrowDownIcon, ArrowUpIcon, CopyPlus, PencilIcon, TrashIcon } from '@lucide/svelte';
-	import { comp, Render } from '$lib/renderable';
+	import { comp } from '$lib/renderable';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
 	import ContinueOnErrorFooter from './continue-on-error-footer.svelte';
-	import { isStepEditable, StepCardDisplay } from './index.js';
-	import { useCardShell } from './use-card-shell.svelte.js';
+	import InCardHost from './in-card-host.svelte';
+	import { isStepEditable } from './utils.js';
 
 	//
 
@@ -54,37 +54,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const editable = $derived(isStepEditable(step));
 	const actionsDisabled = $derived(builder.isFormMode);
-
-	const shell = useCardShell(
-		() => builder,
-		() => editing,
-		() => {
-			onExitUnlock?.();
-		}
-	);
-	const showFormBody = $derived(shell.mode !== null);
-	const canSave = $derived(Boolean(editing && shell.mode?.form.canSave()));
 </script>
 
-<StepCardDisplay
+<InCardHost
+	{builder}
 	{step}
 	{editing}
+	{expandReady}
 	{selected}
 	{hovered}
 	{faded}
-	{showFormBody}
-	{expandReady}
 	{maxHeightPx}
-	{actionsDisabled}
-	docsUrl={shell.mode?.config.docsUrl}
-	{canSave}
-	onSave={() => {
-		shell.mode?.form.commit();
-	}}
-	onDismiss={() => builder.exitFormState()}
-	onExitComplete={() => {
-		shell.completeExit();
-	}}
+	{onExitUnlock}
 	footer={comp(ContinueOnErrorFooter, {
 		step,
 		onCheckedChange: (checked) => builder.setContinueOnError(index, checked)
@@ -130,10 +111,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			disabled={actionsDisabled || !builder.canShiftStep(index, 1)}
 		/>
 	{/snippet}
-
-	{#snippet formBody()}
-		{#if shell.mode}
-			<Render item={shell.mode.form} />
-		{/if}
-	{/snippet}
-</StepCardDisplay>
+</InCardHost>

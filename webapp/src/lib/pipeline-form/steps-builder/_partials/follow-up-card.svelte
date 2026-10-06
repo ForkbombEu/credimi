@@ -10,13 +10,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StepsBuilder } from '$pipeline-form/steps-builder/steps-builder.svelte.js';
 
 	import { PencilIcon, TrashIcon } from '@lucide/svelte';
-	import { Render } from '$lib/renderable';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
-	import { isStepEditable, StepCardDisplay } from './index.js';
-	import { useCardShell } from './use-card-shell.svelte.js';
+	import InCardHost from './in-card-host.svelte';
+	import { isStepEditable } from './utils.js';
 
 	//
 
@@ -53,16 +52,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const editable = $derived(isStepEditable(followUp.step));
 	const actionsDisabled = $derived(builder.isFormMode);
 
-	const shell = useCardShell(
-		() => builder,
-		() => editing,
-		() => {
-			onExitUnlock?.();
-		}
-	);
-	const showFormBody = $derived(shell.mode !== null);
-	const canSave = $derived(Boolean(editing && shell.mode?.form.canSave()));
-
 	const conditionOptions: { value: PipelineFinallyCondition; label: () => string }[] = [
 		{ value: 'always', label: () => m.Always() },
 		{ value: 'on_success', label: () => m.On_success() },
@@ -70,25 +59,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	];
 </script>
 
-<StepCardDisplay
+<InCardHost
+	{builder}
 	step={followUp.step}
 	{editing}
+	{expandReady}
 	{selected}
 	{hovered}
 	{faded}
-	{showFormBody}
-	{expandReady}
 	{maxHeightPx}
-	{actionsDisabled}
-	docsUrl={shell.mode?.config.docsUrl}
-	{canSave}
-	onSave={() => {
-		shell.mode?.form.commit();
-	}}
-	onDismiss={() => builder.exitFormState()}
-	onExitComplete={() => {
-		shell.completeExit();
-	}}
+	{onExitUnlock}
 >
 	{#snippet topRight()}
 		{#if editable}
@@ -107,12 +87,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			disabled={actionsDisabled}
 			onclick={() => builder.deleteFollowUp(index)}
 		/>
-	{/snippet}
-
-	{#snippet formBody()}
-		{#if shell.mode}
-			<Render item={shell.mode.form} />
-		{/if}
 	{/snippet}
 
 	{#snippet footer()}
@@ -142,4 +116,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		</div>
 	{/snippet}
-</StepCardDisplay>
+</InCardHost>

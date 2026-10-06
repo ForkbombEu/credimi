@@ -12,7 +12,7 @@ type FormMode = Extract<StepsBuilder['mode'], { id: 'form' }>;
  * Exposes the builder's form mode while a card is editing, and keeps the last one around
  * after the card stops editing so the in-card shell can render the form during its exit
  * animation (the builder drops the mode immediately on save / dismiss).
- * Call `clear()` from StepCardDisplay's `onExitComplete` so the held form does not stick.
+ * Call `clear()` from InCardHost's exit-complete (`shell.completeExit`) so the held form does not stick.
  */
 export function useHeldFormMode(getBuilder: () => StepsBuilder, getEditing: () => boolean) {
 	let last = $state.raw<FormMode | null>(null);

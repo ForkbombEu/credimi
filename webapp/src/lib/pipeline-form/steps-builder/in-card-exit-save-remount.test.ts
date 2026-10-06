@@ -9,14 +9,14 @@
  * 1. `{#each ... (step)}` keyed by object identity.
  * 2. Save runs mutative `applyEdit*` which replaces the step tuple → new each key
  *    → StepCard remounts → `useHeldFormMode` last is wiped → `showFormBody=false`.
- * 3. Exit `$effect` in step-card-display requires `!editing && showFormBody`;
+ * 3. Exit `$effect` in InCardHost requires `!editing && showFormBody`;
  *    remount skips it → structural collapse (no `playInCardExit`).
  * 4. Dismiss only sets mode idle → same tuple identity → held survives → exit runs.
  *
  * Fix: parallel `stepKeys` / `followUpKeys` as `{#each}` keys — they survive applyEdit
  * and still move with reorder/delete. Exit layout (`playInCardExitLayout`) is orthogonal.
  *
- * Mount coverage of display enter/exit lives in `step-card-display.svelte.test.ts`.
+ * Mount coverage of host enter/exit lives in `in-card-host.svelte.test.ts`.
  */
 import { create } from 'mutative';
 import { describe, expect, it } from 'vitest';

@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * Enter-ready and save/remount through Step-card display (no duplicated `$effect` predicate).
+ * Enter-ready and save/remount through In-card host (no duplicated `$effect` predicate).
  */
 import type { Snippet } from 'svelte';
 
 import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
+import type { StepsBuilder } from '$pipeline-form/steps-builder/steps-builder.svelte.js';
 
 import { createRawSnippet } from 'svelte';
 import { render } from 'vitest-browser-svelte';
@@ -25,12 +26,13 @@ vi.mock('../in-card-layout.js', async (importOriginal) => {
 	};
 });
 
-import StepCardDisplay from './step-card-display.svelte';
+import StubForm from './in-card-host-form-stub.svelte';
+import InCardHost from './in-card-host.svelte';
 
 const debugStep: EnrichedStep = [{ use: 'debug' }, {} as never];
 
-const formBody = createRawSnippet(() => ({
-	render: () => `<div data-testid="stub-form">form</div>`,
+const topRight = createRawSnippet(() => ({
+	render: () => `<span data-testid="idle-actions">actions</span>`,
 	setup: () => {}
 })) as Snippet;
 
@@ -38,6 +40,18 @@ type Handle = { cancel: ReturnType<typeof vi.fn>; finished: Promise<void> };
 
 function motionHandle(): Handle {
 	return { cancel: vi.fn(), finished: Promise.resolve() };
+}
+
+function stubBuilder(kind: 'form' | 'idle'): StepsBuilder {
+	const form = {
+		canSave: () => true,
+		commit: vi.fn(),
+		Component: StubForm
+	};
+	return {
+		mode: kind === 'form' ? { id: 'form', intent: 'edit', config: {}, form } : { id: 'idle' },
+		exitFormState: vi.fn()
+	} as unknown as StepsBuilder;
 }
 
 beforeEach(() => {
@@ -57,86 +71,84 @@ afterEach(() => {
 	document.body.replaceChildren();
 });
 
-async function renderDisplay(props: {
+async function renderHost(props: {
 	editing: boolean;
-	showFormBody: boolean;
 	expandReady: boolean;
-	onExitComplete: () => void;
+	builder?: StepsBuilder;
+	onExitUnlock?: () => void;
 }) {
-	return render(StepCardDisplay, {
+	return render(InCardHost, {
 		step: debugStep,
-		formBody,
+		builder: props.builder ?? stubBuilder('form'),
 		editing: props.editing,
-		showFormBody: props.showFormBody,
 		expandReady: props.expandReady,
-		onExitComplete: props.onExitComplete,
-		maxHeightPx: 480
+		onExitUnlock: props.onExitUnlock,
+		maxHeightPx: 480,
+		topRight
 	});
 }
 
-describe('step-card-display enter-ready', () => {
+describe('in-card-host enter-ready', () => {
 	it('does not expand while aligning (enter-ready false)', async () => {
-		await renderDisplay({
+		await renderHost({
 			editing: true,
-			showFormBody: true,
 			expandReady: false,
-			onExitComplete: vi.fn()
+			onExitUnlock: vi.fn()
 		});
 		expect(playInCardEnterLayout).not.toHaveBeenCalled();
 		expect(playInCardExitLayout).not.toHaveBeenCalled();
 	});
 
 	it('expands in still while editing (enter-ready true)', async () => {
-		await renderDisplay({
+		await renderHost({
 			editing: true,
-			showFormBody: true,
 			expandReady: true,
-			onExitComplete: vi.fn()
+			onExitUnlock: vi.fn()
 		});
 		await vi.waitFor(() => expect(playInCardEnterLayout).toHaveBeenCalledTimes(1));
 		expect(playInCardExitLayout).not.toHaveBeenCalled();
 	});
 });
 
-describe('step-card-display save vs remount', () => {
-	it('save with stable identity still reaches playInCardExitLayout / onExitComplete', async () => {
-		const onExitComplete = vi.fn();
-		const screen = await renderDisplay({
+describe('in-card-host save vs remount', () => {
+	it('save with stable identity still reaches playInCardExitLayout / onExitUnlock', async () => {
+		const onExitUnlock = vi.fn();
+		const builder = stubBuilder('form');
+		const screen = await renderHost({
 			editing: true,
-			showFormBody: true,
 			expandReady: true,
-			onExitComplete
+			builder,
+			onExitUnlock
 		});
 		await vi.waitFor(() => expect(playInCardEnterLayout).toHaveBeenCalledTimes(1));
 
-		await screen.rerender({ editing: false, showFormBody: true, expandReady: false });
+		await screen.rerender({ editing: false, expandReady: false });
 		await vi.waitFor(() => expect(playInCardExitLayout).toHaveBeenCalledTimes(1));
-		await vi.waitFor(() => expect(onExitComplete).toHaveBeenCalledTimes(1));
+		await vi.waitFor(() => expect(onExitUnlock).toHaveBeenCalledTimes(1));
 	});
 
 	it('remount with wiped held form does not unlock while editing', async () => {
-		const onExitComplete = vi.fn();
-		const screen = await renderDisplay({
+		const onExitUnlock = vi.fn();
+		const screen = await renderHost({
 			editing: true,
-			showFormBody: true,
 			expandReady: true,
-			onExitComplete
+			onExitUnlock
 		});
 		await vi.waitFor(() => expect(playInCardEnterLayout).toHaveBeenCalledTimes(1));
 		await screen.unmount();
 
-		expect(onExitComplete).not.toHaveBeenCalled();
+		expect(onExitUnlock).not.toHaveBeenCalled();
 		expect(playInCardExitLayout).not.toHaveBeenCalled();
 
 		playInCardEnterLayout.mockClear();
-		await renderDisplay({
+		await renderHost({
 			editing: true,
-			showFormBody: false,
 			expandReady: false,
-			onExitComplete
+			builder: stubBuilder('idle'),
+			onExitUnlock
 		});
 		expect(playInCardEnterLayout).not.toHaveBeenCalled();
 		expect(playInCardExitLayout).not.toHaveBeenCalled();
-		expect(onExitComplete).not.toHaveBeenCalled();
+		expect(onExitUnlock).not.toHaveBeenCalled();
 	});
 });

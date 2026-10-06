@@ -30,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let mounted = $state(untrack(() => expanded));
 	let region: HTMLElement | null = $state(null);
 
-	// Mount as soon as edit opens. Enter/exit height motion is owned by StepCardDisplay
+	// Mount as soon as edit opens. Enter/exit height motion is owned by InCardHost
 	// (shrink targets the summary card height, not zero).
 	$effect(() => {
 		if (!expanded) return;

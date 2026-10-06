@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const animateMock = vi.hoisted(() => vi.fn());
 
@@ -13,8 +13,7 @@ import {
 	IN_CARD_MOTION_MS,
 	cancelMotion,
 	playInCardEnter,
-	playInCardExit,
-	settleEnterFormHost
+	playInCardExit
 } from './in-card-motion.js';
 
 type AnimeParams = {
@@ -43,6 +42,21 @@ function fakeEl(height = 0, naturalHeight = 120): HTMLElement {
 	return el as unknown as HTMLElement;
 }
 
+function stubReducedMotion(matches: boolean) {
+	vi.stubGlobal('window', {
+		matchMedia: (query: string) => ({
+			matches: matches && query.includes('prefers-reduced-motion'),
+			media: query,
+			addEventListener: () => {},
+			removeEventListener: () => {},
+			addListener: () => {},
+			removeListener: () => {},
+			dispatchEvent: () => false,
+			onchange: null
+		})
+	});
+}
+
 let cancels: ReturnType<typeof vi.fn>[];
 
 beforeEach(() => {
@@ -55,6 +69,10 @@ beforeEach(() => {
 	});
 });
 
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
+
 function paramsAt(index: number): AnimeParams {
 	return animateMock.mock.calls[index]![1] as AnimeParams;
 }
@@ -64,8 +82,8 @@ describe('in-card-motion', () => {
 		const lock = fakeEl(80, 80);
 		const display = fakeEl(80, 80);
 		const form = fakeEl(0, 200);
-		playInCardEnter({ lock, display, form, maxHeightPx: 480 });
-		playInCardEnter({ lock, display, form, maxHeightPx: 480 });
+		playInCardEnter({ lock, display, form, toHeight: 480 });
+		playInCardEnter({ lock, display, form, toHeight: 480 });
 
 		expect(cancels[0]).toHaveBeenCalledOnce();
 	});
@@ -75,7 +93,7 @@ describe('in-card-motion', () => {
 		const display = fakeEl(80, 80);
 		const form = fakeEl(0, 200);
 		const onComplete = vi.fn();
-		const handle = playInCardEnter({ lock, display, form, maxHeightPx: 480, onComplete });
+		const handle = playInCardEnter({ lock, display, form, toHeight: 480, onComplete });
 
 		handle.cancel();
 		handle.cancel();
@@ -86,37 +104,24 @@ describe('in-card-motion', () => {
 		expect(() => cancelMotion(null)).not.toThrow();
 	});
 
-	it('playInCardEnter fades display, fades form, then grows lock to the column body max', async () => {
+	it('playInCardEnter fades display, fades form, then grows lock to toHeight', async () => {
 		const lock = fakeEl(80, 80);
 		const display = fakeEl(80, 80);
 		const form = fakeEl(0, 200);
-		const onComplete = vi.fn(async () => {
-			// Caller applies settled flex classes before settleEnterFormHost runs.
-			expect(form.style.position).toBe('absolute');
-			expect(form.style.height).toBe('100%');
-			expect(lock.style.height).toBe('480px');
-		});
+		const onComplete = vi.fn();
 
-		const handle = playInCardEnter({ lock, display, form, maxHeightPx: 480, onComplete });
+		const handle = playInCardEnter({ lock, display, form, toHeight: 480, onComplete });
 
-		expect(lock.style.height).toBe('80px');
-		expect(lock.style.overflow).toBe('hidden');
-		expect(form.style.opacity).toBe('0');
-		expect(form.style.position).toBe('absolute');
-
-		// 1) display fade out
 		expect(animateMock).toHaveBeenCalledTimes(1);
 		expect(paramsAt(0).opacity).toBe(0);
 		expect(paramsAt(0).duration).toBe(IN_CARD_MOTION_MS);
 		expect(paramsAt(0).ease).toBe(IN_CARD_MOTION_EASE);
 		paramsAt(0).onComplete();
 
-		// 2) form fade in
 		expect(animateMock).toHaveBeenCalledTimes(2);
 		expect(paramsAt(1).opacity).toBe(1);
 		paramsAt(1).onComplete();
 
-		// 3) grow lock to the provided body max (fill column), not form natural height
 		expect(animateMock).toHaveBeenCalledTimes(3);
 		expect(paramsAt(2).height).toEqual(['80px', '480px']);
 		paramsAt(2).onComplete();
@@ -124,67 +129,70 @@ describe('in-card-motion', () => {
 		await handle.finished;
 		expect(onComplete).toHaveBeenCalledOnce();
 		expect(lock.style.height).toBe('480px');
-		// Absolute fill is cleared only after onComplete resolves (post-tick in UI).
-		expect(form.style.position).toBe('');
-		expect(form.style.height).toBe('');
-		expect(display.style.visibility).toBe('hidden');
+		expect(display.style.opacity).toBe('0');
+		expect(form.style.opacity).toBe('1');
 	});
 
-	it('settleEnterFormHost clears overlay styles without touching the lock', () => {
-		const form = fakeEl(100, 100);
-		form.style.position = 'absolute';
-		form.style.inset = '0';
-		form.style.height = '100%';
-		form.style.opacity = '1';
-		settleEnterFormHost(form);
-		expect(form.style.position).toBe('');
-		expect(form.style.height).toBe('');
-		expect(form.style.opacity).toBe('');
-	});
-
-	it('playInCardEnter grow measures natural height even when inset pins the form', () => {
-		const lock = fakeEl(80, 80);
-		const display = fakeEl(80, 80);
-		const form = fakeEl(80, 240);
-		// Simulate inset:0 pin: height:auto would still report lock height without bottom:auto.
-		form.style.inset = '0';
-		form.style.top = '0';
-		form.style.bottom = '0';
-		form.style.height = '100%';
-
-		playInCardEnter({ lock, display, form });
-		paramsAt(0).onComplete(); // display faded
-		paramsAt(1).onComplete(); // form faded
-
-		expect(paramsAt(2).height).toEqual(['80px', '240px']);
-	});
-
-	it('playInCardExit shrinks lock to summary height then crossfades', async () => {
+	it('playInCardExit shrinks lock to toHeight then crossfades', async () => {
 		const lock = fakeEl(200, 200);
 		lock.style.height = '200px';
 		const display = fakeEl(0, 80);
 		const form = fakeEl(200, 200);
 		const onComplete = vi.fn();
 
-		const handle = playInCardExit({ lock, display, form, onComplete });
+		const handle = playInCardExit({ lock, display, form, toHeight: 80, onComplete });
 
-		// 1) shrink to summary natural height (not zero)
 		expect(animateMock).toHaveBeenCalledTimes(1);
 		expect(paramsAt(0).height).toEqual(['200px', '80px']);
 		paramsAt(0).onComplete();
 
-		// 2) form fade out
 		expect(animateMock).toHaveBeenCalledTimes(2);
 		expect(paramsAt(1).opacity).toBe(0);
 		paramsAt(1).onComplete();
 
-		// 3) display fade in
 		expect(animateMock).toHaveBeenCalledTimes(3);
 		expect(paramsAt(2).opacity).toBe(1);
 		paramsAt(2).onComplete();
 
 		await handle.finished;
 		expect(onComplete).toHaveBeenCalledOnce();
-		expect(lock.style.height).toBe('');
+		expect(lock.style.height).toBe('80px');
+		expect(form.style.opacity).toBe('0');
+		expect(display.style.opacity).toBe('1');
+	});
+
+	it('prefers-reduced-motion skips anime on enter and still reaches onComplete', async () => {
+		stubReducedMotion(true);
+		const lock = fakeEl(80, 80);
+		const display = fakeEl(80, 80);
+		const form = fakeEl(0, 200);
+		const onComplete = vi.fn();
+
+		const handle = playInCardEnter({ lock, display, form, toHeight: 480, onComplete });
+
+		expect(animateMock).not.toHaveBeenCalled();
+		expect(lock.style.height).toBe('480px');
+		expect(display.style.opacity).toBe('0');
+		expect(form.style.opacity).toBe('1');
+		await handle.finished;
+		expect(onComplete).toHaveBeenCalledOnce();
+	});
+
+	it('prefers-reduced-motion skips anime on exit and still reaches onComplete', async () => {
+		stubReducedMotion(true);
+		const lock = fakeEl(200, 200);
+		lock.style.height = '200px';
+		const display = fakeEl(0, 80);
+		const form = fakeEl(200, 200);
+		const onComplete = vi.fn();
+
+		const handle = playInCardExit({ lock, display, form, toHeight: 80, onComplete });
+
+		expect(animateMock).not.toHaveBeenCalled();
+		expect(lock.style.height).toBe('80px');
+		expect(form.style.opacity).toBe('0');
+		expect(display.style.opacity).toBe('1');
+		await handle.finished;
+		expect(onComplete).toHaveBeenCalledOnce();
 	});
 });
