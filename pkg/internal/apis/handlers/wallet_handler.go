@@ -584,24 +584,6 @@ func authorizePipelineResultDeviceStoreAccess(
 	)
 }
 
-func authorizePipelineResultStoreAccess(
-	e *core.RequestEvent,
-	ownerID string,
-	deviceIdentifier string,
-) *apierror.APIError {
-	if isInternalAdminPrincipal(e.Auth) {
-		return nil
-	}
-
-	return authorizePipelineResultOwnerAccess(
-		e,
-		ownerID,
-		func() (*core.Record, *apierror.APIError) {
-			return resolvePipelineResultDevice(e.App, deviceIdentifier)
-		},
-	)
-}
-
 // authorizePipelineResultOwnerAccess allows members of the result owner
 // organization, or owners of a published runner whose device is resolved
 // by resolveDevice when the result owner organization is published.
@@ -704,6 +686,9 @@ func publishedDeviceCanStoreForPublishedOrganization(
 	return false, nil
 }
 
+// authorizeWalletInstallerAccess lets the internal admin and members of the
+// owning organization fetch any installer; other callers only get installers
+// of downloadable versions of published wallets.
 func authorizeWalletInstallerAccess(
 	e *core.RequestEvent,
 	versionRecord *core.Record,
@@ -719,7 +704,8 @@ func authorizeWalletInstallerAccess(
 	if isInternalAdminPrincipal(e.Auth) {
 		return nil
 	}
-	if walletID := versionRecord.GetString("wallet"); walletID != "" {
+	if walletID := versionRecord.GetString("wallet"); walletID != "" &&
+		versionRecord.GetBool("downloadable") {
 		walletRecord, err := e.App.FindRecordById("wallets", walletID)
 		if err != nil {
 			return apierror.New(

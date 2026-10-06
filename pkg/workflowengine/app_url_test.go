@@ -91,3 +91,76 @@ func TestInternalAppURLOverride(t *testing.T) {
 		require.Equal(t, "", InternalAppURLOverride())
 	})
 }
+
+func TestValidateInternalAppURLDestination(t *testing.T) {
+	tests := []struct {
+		name        string
+		internalURL string
+		appURL      string
+		destination string
+		wantErr     string
+	}{
+		{
+			name:        "internal override origin",
+			internalURL: "http://credimi:8090",
+			appURL:      "https://app.example",
+			destination: "http://credimi:8090/api/pipeline/get-yaml",
+		},
+		{
+			name:        "app url origin with explicit default port and case",
+			appURL:      "https://App.Example/",
+			destination: "https://app.example:443/api/credential/get-credential-offer",
+		},
+		{
+			name:        "foreign host",
+			internalURL: "http://credimi:8090",
+			appURL:      "https://app.example",
+			destination: "https://attacker.example/api/credential/get-credential-offer",
+			wantErr:     "is not a configured Credimi base URL",
+		},
+		{
+			name:        "same host other port",
+			appURL:      "https://app.example",
+			destination: "https://app.example:8443/api",
+			wantErr:     "is not a configured Credimi base URL",
+		},
+		{
+			name:        "scheme downgrade",
+			appURL:      "https://app.example",
+			destination: "http://app.example/api",
+			wantErr:     "is not a configured Credimi base URL",
+		},
+		{
+			name:        "userinfo host confusion",
+			appURL:      "https://app.example",
+			destination: "https://app.example@attacker.example/api",
+			wantErr:     "is not a configured Credimi base URL",
+		},
+		{
+			name:        "relative destination",
+			appURL:      "https://app.example",
+			destination: "/api/pipeline/get-yaml",
+			wantErr:     "invalid destination URL",
+		},
+		{
+			name:        "nothing configured",
+			destination: "https://app.example/api",
+			wantErr:     "no Credimi base URL is configured",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(InternalAppURLConfigKeyEnv, tc.internalURL)
+			SetServerAppURLSource(func() string { return tc.appURL })
+			t.Cleanup(func() { SetServerAppURLSource(func() string { return "" }) })
+
+			err := ValidateInternalAppURLDestination(tc.destination)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}

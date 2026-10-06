@@ -17,6 +17,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -358,7 +359,7 @@ func TestDownloadImage_RejectsLoopbackDestination(t *testing.T) {
 
 	file, err := DownloadImage(context.Background(), ts.URL+"/latest/meta-data")
 
-	require.ErrorIs(t, err, errBlockedDestination)
+	require.ErrorIs(t, err, safehttp.ErrBlockedDestination)
 	require.Nil(t, file)
 	require.Zero(t, hits.Load(), "the internal server must never be contacted")
 }
@@ -393,38 +394,6 @@ func testPNG(t testing.TB) []byte {
 
 func allowAllIPs(net.IP) bool { return true }
 
-func TestIsPublicIP(t *testing.T) {
-	tests := []struct {
-		ip     string
-		public bool
-	}{
-		{"127.0.0.1", false},
-		{"10.1.2.3", false},
-		{"172.16.0.1", false},
-		{"192.168.1.1", false},
-		{"169.254.169.254", false},
-		{"0.0.0.0", false},
-		{"224.0.0.1", false},
-		{"::1", false},
-		{"::", false},
-		{"fe80::1", false},
-		{"fc00::1", false},
-		{"ff02::1", false},
-		{"::ffff:127.0.0.1", false},
-		{"::ffff:169.254.169.254", false},
-		{"8.8.8.8", true},
-		{"93.184.216.34", true},
-		{"2606:4700:4700::1111", true},
-	}
-	for _, tc := range tests {
-		t.Run(tc.ip, func(t *testing.T) {
-			ip := net.ParseIP(tc.ip)
-			require.NotNil(t, ip)
-			require.Equal(t, tc.public, isPublicIP(ip))
-		})
-	}
-}
-
 func TestDownloadImage_RejectsLocalHostname(t *testing.T) {
 	var hits atomic.Int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -438,7 +407,7 @@ func TestDownloadImage_RejectsLocalHostname(t *testing.T) {
 
 	file, err := DownloadImage(context.Background(), "http://localhost:"+port+"/logo.png")
 
-	require.ErrorIs(t, err, errBlockedDestination)
+	require.ErrorIs(t, err, safehttp.ErrBlockedDestination)
 	require.Nil(t, file)
 	require.Zero(t, hits.Load())
 }
@@ -471,7 +440,7 @@ func TestDownloadImage_RejectsRedirectToBlockedAddress(t *testing.T) {
 		public.URL+"/logo.png",
 	)
 
-	require.ErrorIs(t, err, errBlockedDestination)
+	require.ErrorIs(t, err, safehttp.ErrBlockedDestination)
 	require.Nil(t, file)
 	require.Zero(t, internalHits.Load())
 }

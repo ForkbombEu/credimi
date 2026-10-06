@@ -38,7 +38,17 @@ func ApplyFixture(workflow *WorkflowDefinition) error {
 	}
 	text := string(data)
 	for key, value := range fixture {
-		text = strings.ReplaceAll(text, fixtureTokenPrefix+key+"}", value)
+		// Tokens only appear inside JSON strings, so the value is inserted
+		// JSON-escaped: it can change string contents, never workflow structure.
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return fmt.Errorf("encode fixture value %q: %w", key, err)
+		}
+		text = strings.ReplaceAll(
+			text,
+			fixtureTokenPrefix+key+"}",
+			string(encoded[1:len(encoded)-1]),
+		)
 	}
 	var substituted WorkflowDefinition
 	if err := json.Unmarshal([]byte(text), &substituted); err != nil {

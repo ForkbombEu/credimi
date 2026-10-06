@@ -376,7 +376,8 @@ func isReservedQueuedWorkflowConfigKey(key string) bool {
 		key == queuedTempUseCaseVerificationsConfigKey ||
 		key == queuedGitHubPRCommentConfigKey ||
 		key == workflowengine.CollectPipelineStepFailuresConfigKey ||
-		key == workflowengine.StepIDConfigKey
+		key == workflowengine.StepIDConfigKey ||
+		workflowengine.IsServerOwnedConfigKey(key)
 }
 
 func parseQueuedWorkflowDefinition(

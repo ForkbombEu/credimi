@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -117,6 +118,88 @@ func TestStorePipelineStepScreenshotsBeyondNinetyNinePerRun(t *testing.T) {
 		},
 	}
 	scenario.Test(t)
+}
+
+func TestStorePipelineStepScreenshotsPublishedRunnerOwner(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	runnerUser, err := getUserRecordFromName("userB")
+	require.NoError(t, err)
+	runnerUserToken, err := runnerUser.NewAuthToken()
+	require.NoError(t, err)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField(
+		"run_identifier",
+		"usera-s-organization/workflow123-run123",
+	))
+	require.NoError(t, writer.WriteField(
+		"device_identifier",
+		"userb-s-organization/public-runner/public-device",
+	))
+	require.NoError(t, writer.WriteField("step_id", "scan credential"))
+	file, err := writer.CreateFormFile("screenshots", "checkout.png")
+	require.NoError(t, err)
+	_, err = file.Write([]byte("checkout screenshot"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	setupApp := func(reserved bool) func(t testing.TB) *tests.TestApp {
+		return func(t testing.TB) *tests.TestApp {
+			app := setupWalletApp(t)
+			PipelineTemporalInternalRoutes.Add(app)
+			setupWalletPipelineTestRecords(t, app, orgID)
+			setOrganizationPublished(t, app, orgID, true)
+			runnerOrgID, err := pbutils.GetUserOrganizationID(app, runnerUser.Id)
+			require.NoError(t, err)
+			runner := createWalletTestMobileRunner(t, app, runnerOrgID, "public-runner", true)
+			device := createWalletTestMobileDevice(t, app, runnerOrgID, runner.Id, "public-device")
+			if reserved {
+				addWalletPipelineResultDevice(t, app, device.Id)
+			}
+			return app
+		}
+	}
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:   "published runner owner stores screenshots from a reserved device",
+			Method: http.MethodPost,
+			URL:    "/api/pipeline/store-step-screenshots",
+			Body:   bytes.NewReader(body.Bytes()),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + runnerUserToken,
+				"Content-Type":  writer.FormDataContentType(),
+			},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"status":"success"`,
+				`scan_credential_checkout_`,
+			},
+			TestAppFactory: setupApp(true),
+		},
+		{
+			Name:   "published runner owner cannot store screenshots from an unreserved device",
+			Method: http.MethodPost,
+			URL:    "/api/pipeline/store-step-screenshots",
+			Body:   bytes.NewReader(body.Bytes()),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + runnerUserToken,
+				"Content-Type":  writer.FormDataContentType(),
+			},
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				`"forbidden"`,
+				`device did not run this pipeline result`,
+			},
+			NotExpectedContent: []string{`"status":"success"`},
+			TestAppFactory:     setupApp(false),
+		},
+	}
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
 }
 
 func reserveStepScreenshotDevice(t testing.TB, app *tests.TestApp, orgID string) {

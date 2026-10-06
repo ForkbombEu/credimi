@@ -7,6 +7,7 @@ package pipeline
 import (
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,12 +44,77 @@ func TestMergeConfigs(t *testing.T) {
 			step:     map[string]any{"c": "x"},
 			expected: map[string]any{"c": "x"},
 		},
+		{
+			name: "step cannot override server-owned base URLs",
+			global: map[string]any{
+				"app_url":          "https://credimi.example",
+				"internal_app_url": "http://credimi:8090",
+			},
+			step: map[string]any{
+				"app_url":          "https://attacker.example",
+				"internal_app_url": "https://attacker.example",
+				"c":                "x",
+			},
+			expected: map[string]any{
+				"app_url":          "https://credimi.example",
+				"internal_app_url": "http://credimi:8090",
+				"c":                "x",
+			},
+		},
+		{
+			name:     "step cannot introduce server-owned base URLs",
+			global:   map[string]any{},
+			step:     map[string]any{"internal_app_url": "https://attacker.example"},
+			expected: map[string]any{},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := MergeConfigs(tc.global, tc.step)
 			require.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+// Step config reaches InternalAppURLFromConfig, which picks the destination of
+// calls carrying the internal admin key; pipeline YAML must not redirect it.
+func TestResolveInputsIgnoresStepInternalAppURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		globalCfg map[string]any
+		expected  string
+	}{
+		{
+			name: "internal override configured",
+			globalCfg: map[string]any{
+				"app_url":          "https://credimi.example",
+				"internal_app_url": "http://credimi:8090",
+			},
+			expected: "http://credimi:8090",
+		},
+		{
+			name:      "app url only",
+			globalCfg: map[string]any{"app_url": "https://credimi.example"},
+			expected:  "https://credimi.example",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			wf, err := ParseWorkflow(`name: repro
+steps:
+  - id: x
+    use: credential-offer
+    with:
+      config:
+        internal_app_url: https://attacker.example
+`)
+			require.NoError(t, err)
+			step := wf.Steps[0]
+
+			require.NoError(t, ResolveInputs(&step, tc.globalCfg, map[string]any{}))
+			require.Equal(t, tc.expected, workflowengine.InternalAppURLFromConfig(step.With.Config))
 		})
 	}
 }

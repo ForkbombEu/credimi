@@ -670,8 +670,12 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			record = core.NewRecord(collection)
 			record.Set("owner", owner.Id)
 		}
-		if creating && isSuperuserAuth(e.Auth) {
-			record.Set("admin_managed", true)
+		// The runner's key decides its kind: the internal admin key registers
+		// an admin-managed runner, a user key a tenant runner. Re-registering
+		// with the other key switches the kind; token-authenticated calls
+		// (users or superusers) only set it on create.
+		if creating || authenticatedByAPIKeyOnly(e) {
+			record.Set("admin_managed", isSuperuserAuth(e.Auth))
 		}
 
 		record.Set("name", strings.TrimSpace(input.Name))
@@ -818,6 +822,16 @@ func isSuperuserAuth(auth *core.Record) bool {
 	}
 
 	return auth.Collection().Name == "_superusers"
+}
+
+// authenticatedByAPIKeyOnly reports whether the caller authenticated with a
+// Credimi-Api-Key alone, as runners do. RequireInternalAdminOrAuth then
+// resolves an internal admin key to a superuser and a user key to its owner;
+// a request that also carries Authorization may have been authenticated by
+// that token instead.
+func authenticatedByAPIKeyOnly(e *core.RequestEvent) bool {
+	return strings.TrimSpace(e.Request.Header.Get(APIKeyHeaderName)) != "" &&
+		strings.TrimSpace(e.Request.Header.Get("Authorization")) == ""
 }
 
 func previewMobileRunnerIdentifier(

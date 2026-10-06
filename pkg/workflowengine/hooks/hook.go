@@ -45,6 +45,7 @@ import (
 // Parameters:
 //   - app: The PocketBase application instance to which the hook is attached.
 func WorkersHook(app *pocketbase.PocketBase) {
+	workflowengine.SetServerAppURLSource(func() string { return app.Settings().Meta.AppURL })
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		if TemporalWorkersDisabled() {
 			log.Printf(

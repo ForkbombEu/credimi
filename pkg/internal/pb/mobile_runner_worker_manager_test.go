@@ -378,3 +378,98 @@ func TestRegisterMobileRunnerWorkerManagerHooks_AdminRunnerStaysSkippedWhileOffl
 	case <-time.After(200 * time.Millisecond):
 	}
 }
+
+func TestRegisterMobileRunnerWorkerManagerHooks_KindSwitchCoversNewNamespaces(t *testing.T) {
+	cases := []struct {
+		name         string
+		adminManaged bool
+		// wantAll expects default plus every organization; otherwise only
+		// the published organization.
+		wantAll bool
+	}{
+		{name: "tenant runner switched to admin-managed", adminManaged: false, wantAll: true},
+		{name: "admin-managed runner switched to tenant", adminManaged: true, wantAll: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app, err := tests.NewTestApp(testDataDir)
+			require.NoError(t, err)
+			defer app.Cleanup()
+
+			ensureWorkerManagerPublicationFields(t, app)
+			canonify.RegisterCanonifyHooks(app)
+
+			orgID, err := getOrgIDfromName(app)
+			require.NoError(t, err)
+			publishedOrg, err := app.FindRecordById("organizations", orgID)
+			require.NoError(t, err)
+			publishedOrg.Set("published", true)
+			require.NoError(t, app.Save(publishedOrg))
+
+			orgsColl, err := app.FindCollectionByNameOrId("organizations")
+			require.NoError(t, err)
+			unpublishedOrg := core.NewRecord(orgsColl)
+			unpublishedOrg.Set("name", "Org B")
+			unpublishedOrg.Set("canonified_name", "org-b")
+			unpublishedOrg.Set("published", false)
+			require.NoError(t, app.Save(unpublishedOrg))
+
+			// published and online: startable as either kind before the switch
+			runner := createWorkerManagerRunnerRecord(
+				t,
+				app,
+				orgID,
+				"switching-runner",
+				"https://switching-runner.example",
+				true,
+				tc.adminManaged,
+			)
+			runner, err = app.FindRecordById("mobile_runners", runner.Id)
+			require.NoError(t, err)
+
+			origStartManager := startWorkerManagerFn
+			t.Cleanup(func() {
+				startWorkerManagerFn = origStartManager
+			})
+			calls := make(chan string, 16)
+			startWorkerManagerFn = func(_ core.App, namespace, _ string, runnerURLs []string) {
+				require.Equal(t, []string{"https://switching-runner.example"}, runnerURLs)
+				calls <- namespace
+			}
+			RegisterMobileRunnerWorkerManagerHooks(app)
+
+			runner.Set("admin_managed", !tc.adminManaged)
+			require.NoError(t, app.Save(runner))
+
+			expected := []string{publishedOrg.GetString("canonified_name")}
+			if tc.wantAll {
+				allOrgs, err := listAllOrganizationRecords(app)
+				require.NoError(t, err)
+				expected = make([]string, 0, 1+len(allOrgs))
+				expected = append(expected, "default")
+				for _, record := range allOrgs {
+					expected = append(expected, record.GetString("canonified_name"))
+				}
+				require.Contains(t, expected, "org-b")
+			}
+
+			got := make([]string, 0, len(expected))
+			for range expected {
+				select {
+				case namespace := <-calls:
+					got = append(got, namespace)
+				case <-time.After(2 * time.Second):
+					t.Fatalf("expected %d worker manager starts, got %v", len(expected), got)
+				}
+			}
+			require.ElementsMatch(t, expected, got)
+
+			select {
+			case namespace := <-calls:
+				t.Fatalf("unexpected extra worker manager start for namespace %q", namespace)
+			case <-time.After(200 * time.Millisecond):
+			}
+		})
+	}
+}

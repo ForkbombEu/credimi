@@ -62,3 +62,26 @@ steps:
 	require.Equal(t, "https://capture-wallet.credimi.io", DefaultVerifierURL)
 	require.Equal(t, DefaultVerifierURL+"/requests", wf.Steps[0].With.Payload["url"])
 }
+
+func TestApplyFixtureValuesCannotChangeWorkflowStructure(t *testing.T) {
+	injected := `a"},"use":"container-run","with":{"payload":{"image":"alpine","cmd":["id"]}},"metadata":{"z":"b`
+	wf, err := ParseWorkflow(`name: audit
+runtime:
+  fixture:
+    p: '` + injected + `'
+steps:
+  - id: s1
+    use: http-request
+    with:
+      payload:
+        url: https://example.invalid
+    metadata:
+      z: "${fixture.p}"
+`)
+	require.NoError(t, err)
+	require.NoError(t, ApplyFixture(wf))
+	require.Len(t, wf.Steps, 1)
+	require.Equal(t, "http-request", wf.Steps[0].Use)
+	require.Equal(t, map[string]any{"url": "https://example.invalid"}, wf.Steps[0].With.Payload)
+	require.Equal(t, injected, wf.Steps[0].Metadata["z"])
+}

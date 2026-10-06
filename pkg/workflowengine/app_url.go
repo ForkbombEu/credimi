@@ -5,8 +5,11 @@
 package workflowengine
 
 import (
+	"fmt"
+	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 )
 
 // AppURLConfigKey holds the public, user-facing base URL of the Credimi
@@ -30,6 +33,75 @@ const InternalAppURLConfigKeyEnv = "CREDIMI_INTERNAL_APP_URL"
 // environment, trimmed and empty when unset.
 func InternalAppURLOverride() string {
 	return strings.TrimSpace(os.Getenv(InternalAppURLConfigKeyEnv))
+}
+
+// IsServerOwnedConfigKey reports whether key holds a Credimi base URL that only
+// the server may set in workflow config. InternalAppURLFromConfig trusts these
+// keys as the destination of calls that carry the internal admin key, so user
+// pipeline YAML, step config, and rerun bodies must never set them.
+func IsServerOwnedConfigKey(key string) bool {
+	return key == AppURLConfigKey || key == InternalAppURLConfigKey
+}
+
+var serverAppURLSource atomic.Pointer[func() string]
+
+// SetServerAppURLSource registers the server's App URL setting (PocketBase
+// Settings → App URL). Workers call ValidateInternalAppURLDestination, which
+// accepts that origin and the CREDIMI_INTERNAL_APP_URL origin only.
+func SetServerAppURLSource(source func() string) {
+	serverAppURLSource.Store(&source)
+}
+
+// ValidateInternalAppURLDestination returns an error unless rawURL has the
+// origin of a server-configured Credimi base URL: CREDIMI_INTERNAL_APP_URL or
+// the App URL registered through SetServerAppURLSource. Callers check it before
+// sending the internal admin key.
+func ValidateInternalAppURLDestination(rawURL string) error {
+	allowed := make([]string, 0, 2)
+	if internalURL := InternalAppURLOverride(); internalURL != "" {
+		allowed = append(allowed, internalURL)
+	}
+	if source := serverAppURLSource.Load(); source != nil {
+		if appURL := strings.TrimSpace((*source)()); appURL != "" {
+			allowed = append(allowed, appURL)
+		}
+	}
+	if len(allowed) == 0 {
+		return fmt.Errorf(
+			"no Credimi base URL is configured: set %s or the App URL",
+			InternalAppURLConfigKeyEnv,
+		)
+	}
+	destination, ok := urlOrigin(rawURL)
+	if !ok {
+		return fmt.Errorf("invalid destination URL %q", rawURL)
+	}
+	for _, base := range allowed {
+		if origin, ok := urlOrigin(base); ok && origin == destination {
+			return nil
+		}
+	}
+	return fmt.Errorf("destination %q is not a configured Credimi base URL", destination)
+}
+
+// urlOrigin returns scheme://host:port for an absolute http(s) URL, with the
+// scheme and host lowercased and the default port made explicit.
+func urlOrigin(rawURL string) (string, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || parsed.Hostname() == "" {
+		return "", false
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	port := parsed.Port()
+	switch {
+	case scheme == "http" && port == "":
+		port = "80"
+	case scheme == "https" && port == "":
+		port = "443"
+	case scheme != "http" && scheme != "https":
+		return "", false
+	}
+	return scheme + "://" + strings.ToLower(parsed.Hostname()) + ":" + port, true
 }
 
 // InternalAppURLFromConfig returns the base URL that workflows and activities

@@ -14,9 +14,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"syscall"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
@@ -28,8 +28,6 @@ const (
 	maxLogoRedirects = 5
 )
 
-var errBlockedDestination = errors.New("logo destination is not a public address")
-
 // allowedLogoContentTypes are the sniffed types the logo file fields accept.
 var allowedLogoContentTypes = map[string]bool{
 	"image/png":  true,
@@ -39,7 +37,7 @@ var allowedLogoContentTypes = map[string]bool{
 }
 
 func LogoHooks(app core.App) {
-	bindLogoHooks(app, newLogoHTTPClient(isPublicIP))
+	bindLogoHooks(app, newLogoHTTPClient(safehttp.IsPublicIP))
 }
 
 func bindLogoHooks(app core.App, client *http.Client) {
@@ -79,7 +77,7 @@ func handleLogo(e *core.RecordEvent, client *http.Client) error {
 // DownloadImage fetches a logo from a public http(s) host and returns it only
 // when it is a bounded image.
 func DownloadImage(ctx context.Context, imageURL string) (*filesystem.File, error) {
-	return downloadImage(ctx, newLogoHTTPClient(isPublicIP), imageURL)
+	return downloadImage(ctx, newLogoHTTPClient(safehttp.IsPublicIP), imageURL)
 }
 
 func downloadImage(
@@ -141,47 +139,14 @@ func checkLogoURL(u *url.URL) error {
 	return nil
 }
 
-// newLogoHTTPClient checks every dialed address after DNS resolution, so
-// redirects and rebinding hostnames cannot reach an address allow rejects.
+// newLogoHTTPClient refuses every dialed address allow rejects, including
+// redirect targets and rebinding hostnames.
 func newLogoHTTPClient(allow func(net.IP) bool) *http.Client {
-	dialer := &net.Dialer{
-		Timeout: logoFetchTimeout,
-		Control: func(_, address string, _ syscall.RawConn) error {
-			host, _, err := net.SplitHostPort(address)
-			if err != nil {
-				return fmt.Errorf("%w: %s", errBlockedDestination, address)
-			}
-			if ip := net.ParseIP(host); ip == nil || !allow(ip) {
-				return fmt.Errorf("%w: %s", errBlockedDestination, host)
-			}
-			return nil
-		},
-	}
-
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	// A proxy would be the dialed address, hiding the real destination.
-	transport.Proxy = nil
-	transport.DialContext = dialer.DialContext
-	transport.DisableKeepAlives = true
-
-	return &http.Client{
-		Timeout:   logoFetchTimeout,
-		Transport: transport,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= maxLogoRedirects {
-				return fmt.Errorf("stopped after %d redirects", maxLogoRedirects)
-			}
-			return checkLogoURL(req.URL)
-		},
-	}
-}
-
-func isPublicIP(ip net.IP) bool {
-	return !ip.IsLoopback() &&
-		!ip.IsPrivate() &&
-		!ip.IsLinkLocalUnicast() &&
-		!ip.IsMulticast() &&
-		!ip.IsUnspecified()
+	return safehttp.NewClient(safehttp.Config{
+		Timeout:      logoFetchTimeout,
+		MaxRedirects: maxLogoRedirects,
+		Allow:        allow,
+	})
 }
 
 func extractFilenameFromURL(imageURL string) string {
