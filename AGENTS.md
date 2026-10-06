@@ -156,8 +156,9 @@ Local dev process:
 - `make dev` starts infrastructure and runs the API/UI through `hivemind`.
 - `make dev.noworkers` is the same stack with `CREDIMI_TEMPORAL_WORKERS_DISABLED=1` so Temporal workers are not registered (faster boot; pipelines/workflows will not run).
 - Classic ports (primary checkout): Temporal gRPC `localhost:7233`, PocketBase `localhost:8090`, webapp `localhost:5100`, Temporal UI `localhost:8280`, embedded Temporal UI `127.0.0.1:8281` (`TEMPORAL_UI_EMBEDDED_PORT`).
-- PocketBase proxies `/{path...}` to `ADDRESS_UI` in `pkg/routes/routes.go`.
-- PocketBase proxies `/temporal-ui/...` to `ADDRESS_TEMPORAL_UI` (see "Embedded Temporal UI"); the Vite dev server forwards `/temporal-ui` to PocketBase so the page and the iframe share one origin.
+- PocketBase proxies `/{path...}` to `ADDRESS_UI` in `pkg/routes/routes.go`; unknown `/api/` paths answer `404` instead, because the Vite dev server proxies `/api` back to PocketBase.
+- PocketBase proxies `/temporal-ui/...` to `ADDRESS_TEMPORAL_UI` (see "Embedded Temporal UI").
+- The webapp talks to PocketBase on its own origin (`new PocketBase()`, base `/`); there is no build-time PocketBase URL. In dev and preview the Vite server forwards `/api`, `/_/` and `/temporal-ui` to `VITE_API`, so the page, the API and the Temporal UI iframe share one origin. Every deployment must serve the webapp through PocketBase's `/{path...}` proxy.
 - Parallel worktrees: require Worktrunk for bootstrap. Cursor sandboxes use `.cursor/worktrees.json` → `make worktree-bootstrap`; CLI worktrees use `.config/wt.toml` pre-start. Ports live in gitignored `.env.worktree`. Checkout path is per-user (not committed). Primary `make dev` keeps classic ports without Worktrunk. See developer-setup “Parallel worktrees”.
 
 Procfile dev processes (classic defaults; runtime Procfile substitutes worktree ports):

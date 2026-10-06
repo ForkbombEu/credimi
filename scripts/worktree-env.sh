@@ -27,7 +27,7 @@ Commands:
                 never overwrites). Requires `wt` unless --classic.
   write --classic
                 Write classic defaults from scripts/dev-ports.env if missing
-  sync-urls     Rewrite PUBLIC_POCKETBASE_URL / VITE_API / PB_TYPEGEN_URL in webapp/.env
+  sync-urls     Rewrite VITE_API / PB_TYPEGEN_URL in webapp/.env
   sync-root-dir Rewrite ROOT_DIR= in checkout .env to this checkout's absolute path
 USAGE
 }
@@ -171,13 +171,11 @@ cmd_sync_urls() {
 	local tmp
 	tmp="$(mktemp)"
 	awk -v api="${api_url}" '
-		BEGIN { done_pb=0; done_vite=0; done_typegen=0 }
-		/^PUBLIC_POCKETBASE_URL=/ { print "PUBLIC_POCKETBASE_URL=" api "/"; done_pb=1; next }
+		BEGIN { done_vite=0; done_typegen=0 }
 		/^VITE_API=/ { print "VITE_API=" api; done_vite=1; next }
 		/^PB_TYPEGEN_URL=/ { print "PB_TYPEGEN_URL=" api; done_typegen=1; next }
 		{ print }
 		END {
-			if (!done_pb) print "PUBLIC_POCKETBASE_URL=" api "/"
 			if (!done_vite) print "VITE_API=" api
 			if (!done_typegen) print "PB_TYPEGEN_URL=" api
 		}

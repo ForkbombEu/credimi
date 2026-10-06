@@ -104,7 +104,6 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-https://demo.credimi.io}
         - PUBLIC_TURNSTILE_SITE_KEY=${PUBLIC_TURNSTILE_SITE_KEY:?PUBLIC_TURNSTILE_SITE_KEY is required}
     environment:
       - ADDRESS_GRAFANA=http://grafana:8085
