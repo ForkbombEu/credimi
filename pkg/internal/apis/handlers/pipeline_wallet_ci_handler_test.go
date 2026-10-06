@@ -8,14 +8,17 @@ import (
 	"context"
 	"errors"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -1298,9 +1301,115 @@ func TestResolvePipelineRunWalletAPKFile(t *testing.T) {
 		require.Equal(t, "abc123.apk", file.OriginalName)
 		require.Equal(t, int64(len("downloaded apk")), file.Size)
 	})
+
+	t.Run("does not echo the download error", func(t *testing.T) {
+		original := walletAPKURLDownloader
+		t.Cleanup(func() { walletAPKURLDownloader = original })
+		walletAPKURLDownloader = func(context.Context, string, string) (*filesystem.File, error) {
+			return nil, errors.New("dial tcp 10.0.0.7:6379: connect: connection refused")
+		}
+
+		_, apiErr := resolvePipelineRunWalletAPKFile(
+			context.Background(),
+			pipelineRunWalletAPKRequest{
+				CommitSHA: "abc123",
+				APKURL:    "http://ci.example.test/wallet.apk",
+			},
+		)
+
+		require.NotNil(t, apiErr)
+		require.Equal(t, http.StatusBadRequest, apiErr.Code)
+		require.Equal(t, "failed to download apk_url", apiErr.Reason)
+		require.Equal(t, "apk_url could not be downloaded", apiErr.Message)
+	})
+}
+
+// allowLoopbackWalletAPKDownloads lets downloadWalletAPKFromURL reach httptest
+// servers, which listen on loopback.
+func allowLoopbackWalletAPKDownloads(t *testing.T) {
+	t.Helper()
+	original := walletAPKHTTPClient
+	t.Cleanup(func() { walletAPKHTTPClient = original })
+	walletAPKHTTPClient = safehttp.NewClient(safehttp.Config{
+		Timeout:      walletAPKDownloadTimeout,
+		MaxRedirects: 10,
+		Allow:        func(net.IP) bool { return true },
+	})
+}
+
+func TestDownloadWalletAPKFromURLRefusesInternalDestinations(t *testing.T) {
+	var internalHits atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("/admin/secret", func(w http.ResponseWriter, _ *http.Request) {
+		internalHits.Add(1)
+		_, _ = w.Write([]byte("DUMMY-INTERNAL-SECRET"))
+	})
+	mux.HandleFunc("/redir", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admin/secret", http.StatusFound)
+	})
+	internal := httptest.NewServer(mux)
+	defer internal.Close()
+	_, port, err := net.SplitHostPort(internal.Listener.Addr().String())
+	require.NoError(t, err)
+
+	for _, apkURL := range []string{
+		internal.URL + "/admin/secret",
+		internal.URL + "/redir",
+		"http://localhost:" + port + "/admin/secret",
+		"http://0.0.0.0:" + port + "/admin/secret",
+	} {
+		t.Run(apkURL, func(t *testing.T) {
+			file, err := downloadWalletAPKFromURL(context.Background(), apkURL, "wallet.apk")
+			require.ErrorIs(t, err, safehttp.ErrBlockedDestination)
+			require.Nil(t, file)
+		})
+	}
+	require.Zero(t, internalHits.Load(), "the internal server must never be contacted")
+}
+
+func TestDownloadWalletAPKFromURLRefusesRedirectToBlockedAddress(t *testing.T) {
+	var internalHits atomic.Int32
+	internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		internalHits.Add(1)
+		_, _ = w.Write([]byte("DUMMY-INTERNAL-SECRET"))
+	}))
+	defer internal.Close()
+
+	redirector := httptest.NewUnstartedServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, internal.URL+"/admin/secret", http.StatusFound)
+		}),
+	)
+	listener, err := net.Listen("tcp", "127.0.0.2:0")
+	if err != nil {
+		t.Skipf("127.0.0.2 not bindable: %v", err)
+	}
+	redirector.Listener = listener
+	redirector.Start()
+	defer redirector.Close()
+
+	// Stand in for a public redirector: only its address may be dialed.
+	original := walletAPKHTTPClient
+	t.Cleanup(func() { walletAPKHTTPClient = original })
+	walletAPKHTTPClient = safehttp.NewClient(safehttp.Config{
+		Timeout:      walletAPKDownloadTimeout,
+		MaxRedirects: 10,
+		Allow:        func(ip net.IP) bool { return ip.Equal(net.IPv4(127, 0, 0, 2)) },
+	})
+
+	file, err := downloadWalletAPKFromURL(
+		context.Background(),
+		redirector.URL+"/wallet.apk",
+		"wallet.apk",
+	)
+	require.ErrorIs(t, err, safehttp.ErrBlockedDestination)
+	require.Nil(t, file)
+	require.Zero(t, internalHits.Load())
 }
 
 func TestDownloadWalletAPKFromURL(t *testing.T) {
+	allowLoopbackWalletAPKDownloads(t)
+
 	t.Run("downloads apk bytes", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Length", "9")

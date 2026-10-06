@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -33,6 +34,13 @@ const walletAPKMaxBytes = int64(1000 << 20)
 const walletAPKDownloadTimeout = 30 * time.Second
 
 var walletAPKURLDownloader = downloadWalletAPKFromURL
+
+// walletAPKHTTPClient may only reach public addresses: apk_url is chosen by
+// the caller.
+var walletAPKHTTPClient = safehttp.NewClient(safehttp.Config{
+	Timeout:      walletAPKDownloadTimeout,
+	MaxRedirects: 10,
+})
 
 var walletAPKAllowedDeviceTypes = map[string]struct{}{
 	"android_emulator": {},
@@ -394,11 +402,13 @@ func resolvePipelineRunWalletAPKFile(
 		walletAPKFilename(input.CommitSHA, path.Base(parsedURL.Path)),
 	)
 	if err != nil {
+		// The upstream error would tell the caller whether an address is
+		// reachable, so it is not echoed.
 		return nil, apierror.New(
 			http.StatusBadRequest,
 			"apk_url",
 			"failed to download apk_url",
-			err.Error(),
+			"apk_url could not be downloaded",
 		)
 	}
 	if file.Size > walletAPKMaxBytes {
@@ -426,8 +436,7 @@ func downloadWalletAPKFromURL(
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: walletAPKDownloadTimeout}
-	resp, err := client.Do(req)
+	resp, err := walletAPKHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
