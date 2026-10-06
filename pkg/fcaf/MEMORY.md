@@ -2917,3 +2917,17 @@ Observed on `emulator-5554` (2026.09.42):
   wasn't found`, so the Wallet does not offer itself for an
   `openid4vp-v1-unsigned` request. RpIntegrity 003 expects a presentation, so it
   now fails instead of passing on any outcome.
+
+## MainInteraction 031 and 043 moved off the share flow, 06/10/2026
+
+`fcaf-engagement-haip-vp` passes only on a completed share and now requires
+`View details`. Of its 33 uses, two expected no share: `main-interaction-031`
+(`credential_sets_combined_option_no_match`, passes on no presentation) and
+`main-interaction-043` (`credential_sets_optional_no_match`, requires a response
+with an empty `vp_token`). On `emulator-5554` (2026.09.42), holding a PID, both
+requests open the no-match consent (`The requested document is not available in
+your EUDI Wallet`, no `Requested data`) and the session stays `request_retrieved`.
+Both steps now use `fcaf-expect-no-matching-document`. 031 matches its
+expectation. 043 is a stopgap: the reference Wallet never answers, so the
+validator fails the test on the missing empty `vp_token`; a flow that expects an
+empty answer needs the UI of a Wallet that sends one.

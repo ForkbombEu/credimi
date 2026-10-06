@@ -453,7 +453,7 @@ steps:
     - id: main-interaction-043-present-optional-no-match
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
             deeplink: ${{ main-interaction-043-create-optional-no-match-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -554,7 +554,7 @@ steps:
     - id: main-interaction-031-present-combined-option
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
             deeplink: ${{ main-interaction-031-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source

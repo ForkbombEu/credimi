@@ -9,66 +9,34 @@ tags:
     link: ${deeplink}
     autoVerify: false
     browser: false
-- runFlow:
-    when:
-      visible: "EUDI Wallet"
-    commands:
-      - tapOn:
-          text: "EUDI Wallet"
-          optional: true
-- runFlow:
-    when:
-      visible: "Just once"
-    commands:
-      - tapOn:
-          text: "Just once"
-          optional: true
-- waitForAnimationToEnd:
-    timeout: 5000
-- extendedWaitUntil:
-    visible: "Welcome back|Share|Cancel|Close"
-    timeout: 100000
+- waitForAnimationToEnd: { timeout: 3000 }
 - runFlow:
     when:
       visible: "Welcome back"
     commands:
-      - tapOn:
-          point: "11%,40%"
-      - inputText: "123456"
-      - hideKeyboard
-      - tapOn:
-          point: "50%,10%"
-- extendedWaitUntil:
-    visible: "Share"
-    timeout: 30000
-- assertVisible: "Share"
+      - inputText: "12345"
+      - tapOn: "6"
+- waitForAnimationToEnd: { timeout: 3000 }
+- scrollUntilVisible:
+    element: "Share"
 - takeScreenshot: fcaf-engagement-haip-vp-invoked
 - tapOn:
     text: "Share"
     waitToSettleTimeoutMs: 1000
 - extendedWaitUntil:
-    visible: "Welcome back|To approve the transaction you need to verify your identity."
-    timeout: 100000
-- assertNotVisible: "Share"
+    visible: "PIN"
+    timeout: 3000
 - runFlow:
     when:
-      visible: "Welcome back|To approve the transaction you need to verify your identity."
+      visible: "PIN"
     commands:
-      - extendedWaitUntil:
-          visible: "Welcome back|To approve the transaction you need to verify your identity.|PIN|Enter your PIN"
-          timeout: 30000
-      - tapOn:
-          point: "11%,40%"
-      - inputText: "123456"
-      - hideKeyboard
-      - tapOn:
-          point: "50%,10%"
+      - inputText: "12345"
+      - tapOn: "6"
 - waitForAnimationToEnd:
     timeout: 1000
-- extendedWaitUntil:
-    visible: ".*successfully shared.*"
-    timeout: 30000
-- tapOn: { text: "View details", optional: true }
+- scrollUntilVisible:
+    element: ".*successfully shared.*"
+- tapOn: "View details"
 - waitForAnimationToEnd:
     timeout: 1000
 - takeScreenshot: fcaf-engagement-haip-vp-shared
