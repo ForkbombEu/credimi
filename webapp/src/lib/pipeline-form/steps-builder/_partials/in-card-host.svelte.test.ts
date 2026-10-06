@@ -57,10 +57,12 @@ function stubBuilder(kind: 'form' | 'idle'): StepsBuilder {
 beforeEach(() => {
 	playInCardEnterLayout.mockReset();
 	playInCardExitLayout.mockReset();
-	playInCardEnterLayout.mockImplementation((opts: { onSettled?: () => void | Promise<void> }) => {
-		void opts.onSettled?.();
-		return motionHandle();
-	});
+	playInCardEnterLayout.mockImplementation(
+		(opts: { onSettled?: (result: { bodyMaxPx: number }) => void | Promise<void> }) => {
+			void opts.onSettled?.({ bodyMaxPx: 480 });
+			return motionHandle();
+		}
+	);
 	playInCardExitLayout.mockImplementation((opts: { onComplete?: () => void | Promise<void> }) => {
 		void opts.onComplete?.();
 		return motionHandle();
