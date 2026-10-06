@@ -5,8 +5,6 @@
 package pipeline
 
 import (
-	"strings"
-
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/log"
@@ -36,16 +34,8 @@ func reportPipelineCompletionNotification(
 	if enabled, _ := config[CompletionNotificationConfigKey].(bool); !enabled {
 		return
 	}
-	appURL, _ := config[workflowengine.AppURLConfigKey].(string)
-	appURL = strings.TrimSpace(appURL)
-	if appURL == "" {
-		return
-	}
 
-	notificationActivity := activities.NewSendPipelineCompletionNotificationActivity()
 	payload := activities.SendPipelineCompletionNotificationInput{
-		AppURL:       appURL,
-		EndpointURL:  workflowengine.InternalAppURLFromConfig(config),
 		WorkflowID:   workflowID,
 		RunID:        runID,
 		Result:       workflowResult,
@@ -54,7 +44,7 @@ func reportPipelineCompletionNotification(
 
 	if err := workflow.ExecuteActivity(
 		ctx,
-		notificationActivity.Name(),
+		activities.SendPipelineCompletionNotificationActivityName,
 		workflowengine.ActivityInput{Payload: payload},
 	).Get(ctx, nil); err != nil {
 		logger.Error(

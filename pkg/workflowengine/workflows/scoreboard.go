@@ -6,20 +6,40 @@ package workflows
 import (
 	"fmt"
 	"math"
-	"net/http"
 	"sort"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
 
 const AggregateScoreboardTaskQueue = "AggregateScoreboardTaskQueue"
+
+// Activity names of the scoreboard activities. The activities live in the
+// handlers package because they reuse its Temporal listing code.
+const (
+	ListScoreboardNamespacesActivityName      = "List organization namespaces for the scoreboard"
+	GetNamespaceScoreboardActivityName        = "Get the pipeline scoreboard of a namespace"
+	GetScoreboardExecutionDetailsActivityName = "Get scoreboard execution details"
+	SaveScoreboardResultsActivityName         = "Save aggregated scoreboard results"
+)
+
+// ScoreboardNamespaceInput is the payload of GetNamespaceScoreboardActivityName.
+type ScoreboardNamespaceInput struct {
+	Namespace string `json:"namespace" validate:"required"`
+}
+
+// ScoreboardExecutionInput is the payload of
+// GetScoreboardExecutionDetailsActivityName.
+type ScoreboardExecutionInput struct {
+	Namespace  string `json:"namespace"   validate:"required"`
+	WorkflowID string `json:"workflow_id" validate:"required"`
+	RunID      string `json:"run_id"      validate:"required"`
+}
 
 var aggregateScoreboardStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
@@ -124,19 +144,8 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 		ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 	}
 
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
-	appURL = workflowengine.InternalAppURLFromConfig(input.Config)
-
-	httpActivity := activities.NewInternalHTTPActivity()
-
 	// 1. Get namespaces
-	namespaces, err := w.getNamespaces(ctx, httpActivity, appURL)
+	namespaces, err := w.getNamespaces(ctx)
 	if err != nil {
 		logger.Error("Failed to get namespaces", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
@@ -156,9 +165,7 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	}
 
 	// 2. Fetch all scoreboards and aggregate
-	aggregatedMap, lastRunMap, failedNamespaces := w.fetchAndAggregateScoreboards(
-		ctx, httpActivity, appURL, namespaces,
-	)
+	aggregatedMap, lastRunMap, failedNamespaces := w.fetchAndAggregateScoreboards(ctx, namespaces)
 
 	// 3. Calculate success rates and sort runners
 	for _, stats := range aggregatedMap {
@@ -172,7 +179,7 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	}
 
 	// 4. Fetch last execution details
-	w.fetchLastExecutionDetails(ctx, httpActivity, appURL, lastRunMap, aggregatedMap)
+	w.fetchLastExecutionDetails(ctx, lastRunMap, aggregatedMap)
 
 	// 5. Build output
 	aggregatedPipelines := make([]AggregatedPipelineStats, 0, len(aggregatedMap))
@@ -191,23 +198,10 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	}
 
 	// 6. Save results
-	saveURL := utils.JoinURL(appURL, "api", "pipeline", "scoreboard", "save-results")
-	savePayload := map[string]interface{}{
-		"aggregated_pipelines": output.AggregatedPipelines,
-	}
-	saveRequest := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method:         http.MethodPost,
-			URL:            saveURL,
-			Body:           savePayload,
-			ExpectedStatus: http.StatusOK,
-			Headers: map[string]string{
-				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
-			},
-		},
-	}
 	var saveResult workflowengine.ActivityResult
-	if err = workflow.ExecuteActivity(ctx, httpActivity.Name(), saveRequest).
+	if err = workflow.ExecuteActivity(ctx, SaveScoreboardResultsActivityName, workflowengine.ActivityInput{
+		Payload: AggregateScoreboardWorkflowOutput{AggregatedPipelines: output.AggregatedPipelines},
+	}).
 		Get(ctx, &saveResult); err != nil {
 		logger.Error("Failed to save results", "error", err)
 	}
@@ -218,36 +212,24 @@ func (w *AggregateScoreboardWorkflow) ExecuteWorkflow(
 	}, nil
 }
 
-// getNamespaces retrieves all namespaces from the API
-func (w *AggregateScoreboardWorkflow) getNamespaces(
-	ctx workflow.Context,
-	httpActivity *activities.InternalHTTPActivity,
-	appURL string,
-) ([]string, error) {
-	var httpResult workflowengine.ActivityResult
-
-	namespacesRequest := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method:         http.MethodGet,
-			URL:            utils.JoinURL(appURL, "api", "organizations", "namespaces"),
-			ExpectedStatus: http.StatusOK,
-		},
-	}
-
-	err := workflow.ExecuteActivity(ctx, httpActivity.Name(), namespacesRequest).
-		Get(ctx, &httpResult)
+// getNamespaces retrieves all organization namespaces.
+func (w *AggregateScoreboardWorkflow) getNamespaces(ctx workflow.Context) ([]string, error) {
+	var result workflowengine.ActivityResult
+	err := workflow.ExecuteActivity(
+		ctx,
+		ListScoreboardNamespacesActivityName,
+		workflowengine.ActivityInput{},
+	).Get(ctx, &result)
 	if err != nil {
 		return nil, err
 	}
 
-	body, ok := httpResult.Output.(map[string]any)["body"].(map[string]any)
+	namespaces, ok := getRequiredStringSlice(
+		map[string]any{"namespaces": result.Output},
+		"namespaces",
+	)
 	if !ok {
-		return nil, fmt.Errorf("response body is not a map")
-	}
-
-	namespaces, ok := getRequiredStringSlice(body, "namespaces")
-	if !ok {
-		return nil, fmt.Errorf("namespaces field missing or invalid")
+		return nil, fmt.Errorf("namespaces output missing or invalid")
 	}
 
 	return uniqueStrings(namespaces), nil
@@ -255,8 +237,6 @@ func (w *AggregateScoreboardWorkflow) getNamespaces(
 
 func (w *AggregateScoreboardWorkflow) fetchAndAggregateScoreboards(
 	ctx workflow.Context,
-	httpActivity *activities.InternalHTTPActivity,
-	appURL string,
 	namespaces []string,
 ) (map[string]*AggregatedPipelineStats, map[string]*pipelineRunRef, []string) {
 	aggregatedMap := make(map[string]*AggregatedPipelineStats)
@@ -268,16 +248,15 @@ func (w *AggregateScoreboardWorkflow) fetchAndAggregateScoreboards(
 	scoreboardNamespaces := make([]string, 0, len(namespaces))
 
 	for _, namespace := range namespaces {
-		scoreboardRequest := workflowengine.ActivityInput{
-			Payload: activities.InternalHTTPActivityPayload{
-				Method:         http.MethodGet,
-				URL:            utils.JoinURL(appURL, "api", "pipeline", "scoreboard", namespace),
-				ExpectedStatus: http.StatusOK,
-			},
-		}
 		scoreboardFutures = append(
 			scoreboardFutures,
-			workflow.ExecuteActivity(ctx, httpActivity.Name(), scoreboardRequest),
+			workflow.ExecuteActivity(
+				ctx,
+				GetNamespaceScoreboardActivityName,
+				workflowengine.ActivityInput{
+					Payload: ScoreboardNamespaceInput{Namespace: namespace},
+				},
+			),
 		)
 		scoreboardNamespaces = append(scoreboardNamespaces, namespace)
 	}
@@ -308,16 +287,9 @@ func (w *AggregateScoreboardWorkflow) processScoreboardResponse(
 		return
 	}
 
-	respBody, ok := result.Output.(map[string]any)["body"]
-	if !ok {
-		logger.Error("Invalid response body", "namespace", namespace)
-		*failedNamespaces = append(*failedNamespaces, namespace)
-		return
-	}
-
-	pipelines, ok := respBody.([]any)
-	if !ok {
-		logger.Error("Response body is not an array", "namespace", namespace)
+	pipelines, ok := result.Output.([]any)
+	if !ok && result.Output != nil {
+		logger.Error("Scoreboard output is not an array", "namespace", namespace)
 		*failedNamespaces = append(*failedNamespaces, namespace)
 		return
 	}
@@ -481,8 +453,6 @@ func (w *AggregateScoreboardWorkflow) trackLastRun(
 // fetchLastExecutionDetails fetches details for the last runs
 func (w *AggregateScoreboardWorkflow) fetchLastExecutionDetails(
 	ctx workflow.Context,
-	httpActivity *activities.InternalHTTPActivity,
-	appURL string,
 	lastRunMap map[string]*pipelineRunRef,
 	aggregatedMap map[string]*AggregatedPipelineStats,
 ) {
@@ -496,7 +466,7 @@ func (w *AggregateScoreboardWorkflow) fetchLastExecutionDetails(
 			continue
 		}
 
-		details, err := fetchExecutionDetails(ctx, httpActivity, appURL, lastRun)
+		details, err := fetchExecutionDetails(ctx, lastRun)
 		if err != nil {
 			logger.Error(
 				"Failed to fetch execution details",
@@ -513,33 +483,24 @@ func (w *AggregateScoreboardWorkflow) fetchLastExecutionDetails(
 
 func fetchExecutionDetails(
 	ctx workflow.Context,
-	httpActivity *activities.InternalHTTPActivity,
-	appURL string,
 	run *pipelineRunRef,
 ) (*LatestExecutionDetails, error) {
-	detailsRequest := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodGet,
-			URL: utils.JoinURL(
-				appURL,
-				"api",
-				"pipeline",
-				"execution-details",
-				run.Namespace,
-				run.WorkflowID,
-				run.RunID,
-			),
-			ExpectedStatus: http.StatusOK,
-		},
-	}
-
 	var detailsResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), detailsRequest).
-		Get(ctx, &detailsResult); err != nil {
+	if err := workflow.ExecuteActivity(
+		ctx,
+		GetScoreboardExecutionDetailsActivityName,
+		workflowengine.ActivityInput{
+			Payload: ScoreboardExecutionInput{
+				Namespace:  run.Namespace,
+				WorkflowID: run.WorkflowID,
+				RunID:      run.RunID,
+			},
+		},
+	).Get(ctx, &detailsResult); err != nil {
 		return nil, err
 	}
 
-	detailsBody, ok := detailsResult.Output.(map[string]any)["body"].(map[string]any)
+	detailsBody, ok := detailsResult.Output.(map[string]any)
 	if !ok {
 		return nil, workflowengine.NewAppError(
 			workflowengine.WorkflowError{

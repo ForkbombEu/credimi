@@ -5,144 +5,88 @@
 package activities
 
 import (
-	"context"
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"sync"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/testsuite"
 )
 
 func TestSendPipelineCompletionNotificationActivityName(t *testing.T) {
 	require.Equal(
 		t,
-		"Send pipeline completion notification",
-		NewSendPipelineCompletionNotificationActivity().Name(),
+		SendPipelineCompletionNotificationActivityName,
+		NewSendPipelineCompletionNotificationActivity(nil).Name(),
 	)
 }
 
-func TestSendPipelineCompletionNotificationActivitySuccess(t *testing.T) {
-	var mu sync.Mutex
-	var gotPath, gotAPIKey, gotContentType, gotBody string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		mu.Lock()
-		defer mu.Unlock()
-		gotPath = r.URL.Path
-		gotAPIKey = r.Header.Get("Credimi-Api-Key")
-		gotContentType = r.Header.Get("Content-Type")
-		gotBody = string(body)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
+func TestSendPipelineCompletionNotificationActivity(t *testing.T) {
+	app := newPipelineResultsTestApp(t)
+	createTestPipelineResult(t, app, "wf-notify", "run-notify")
 
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "internal-admin-key")
-
-	activity := NewSendPipelineCompletionNotificationActivity()
-	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
-		Payload: SendPipelineCompletionNotificationInput{
-			AppURL:     server.URL,
-			WorkflowID: "wf-1",
-			RunID:      "run-1",
-			Result:     "success",
+	tests := []struct {
+		name        string
+		payload     SendPipelineCompletionNotificationInput
+		errContains []string
+		wantSent    int
+	}{
+		{
+			name:        "missing fields",
+			payload:     SendPipelineCompletionNotificationInput{WorkflowID: "wf-notify"},
+			errContains: []string{errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code},
 		},
-	})
-	require.NoError(t, err)
-
-	mu.Lock()
-	defer mu.Unlock()
-	require.Equal(t, "/api/web-push/pipeline-completed", gotPath)
-	require.Equal(t, "internal-admin-key", gotAPIKey)
-	require.Equal(t, workflowengine.MIMEApplicationJSON, gotContentType)
-
-	var body map[string]string
-	require.NoError(t, json.Unmarshal([]byte(gotBody), &body))
-	require.Equal(t, server.URL, body["app_url"])
-	require.Equal(t, "wf-1", body["workflow_id"])
-	require.Equal(t, "run-1", body["run_id"])
-	require.Equal(t, "success", body["result"])
-}
-
-func TestSendPipelineCompletionNotificationActivityUsesEndpointURL(t *testing.T) {
-	var gotBody string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		gotBody = string(body)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "internal-admin-key")
-	publicURL := "https://public.example"
-	activity := NewSendPipelineCompletionNotificationActivity()
-	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
-		Payload: SendPipelineCompletionNotificationInput{
-			AppURL:      publicURL,
-			EndpointURL: server.URL,
-			WorkflowID:  "wf-1",
-			RunID:       "run-1",
-			Result:      "success",
+		{
+			name: "missing pipeline result",
+			payload: SendPipelineCompletionNotificationInput{
+				WorkflowID: "wf-unknown",
+				RunID:      "run-unknown",
+				Result:     "success",
+			},
+			errContains: []string{
+				errorcodes.Codes[errorcodes.RecordNotFound].Code,
+				"pipeline result not found",
+			},
 		},
-	})
-	require.NoError(t, err)
-
-	var body map[string]string
-	require.NoError(t, json.Unmarshal([]byte(gotBody), &body))
-	require.Equal(t, publicURL, body["app_url"])
-}
-
-func TestSendPipelineCompletionNotificationActivityMissingFields(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "internal-admin-key")
-
-	activity := NewSendPipelineCompletionNotificationActivity()
-	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
-		Payload: SendPipelineCompletionNotificationInput{
-			WorkflowID: "wf-1",
-			RunID:      "run-1",
+		{
+			name: "no subscriptions",
+			payload: SendPipelineCompletionNotificationInput{
+				WorkflowID:   "wf-notify",
+				RunID:        "run-notify",
+				Result:       "failure",
+				ErrorMessage: "step failed",
+			},
+			wantSent: 0,
 		},
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code)
-}
+	}
 
-func TestSendPipelineCompletionNotificationActivityMissingAdminKey(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			act := NewSendPipelineCompletionNotificationActivity(app)
+			env := (&testsuite.WorkflowTestSuite{}).NewTestActivityEnvironment()
+			env.RegisterActivityWithOptions(
+				act.Execute,
+				activity.RegisterOptions{Name: act.Name()},
+			)
 
-	activity := NewSendPipelineCompletionNotificationActivity()
-	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
-		Payload: SendPipelineCompletionNotificationInput{
-			AppURL:     "http://127.0.0.1:1",
-			WorkflowID: "wf-1",
-			RunID:      "run-1",
-		},
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "CREDIMI_INTERNAL_ADMIN_KEY is required")
-}
-
-func TestSendPipelineCompletionNotificationActivityNonOKStatus(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "internal-admin-key")
-
-	activity := NewSendPipelineCompletionNotificationActivity()
-	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
-		Payload: SendPipelineCompletionNotificationInput{
-			AppURL:     server.URL,
-			WorkflowID: "wf-1",
-			RunID:      "run-1",
-			Result:     "failed",
-		},
-	})
-	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "pipeline completion notification status"))
+			encoded, err := env.ExecuteActivity(
+				act.Name(),
+				workflowengine.ActivityInput{Payload: tc.payload},
+			)
+			if len(tc.errContains) > 0 {
+				require.Error(t, err)
+				for _, want := range tc.errContains {
+					require.ErrorContains(t, err, want)
+				}
+				return
+			}
+			require.NoError(t, err)
+			var result struct {
+				Output SendPipelineCompletionNotificationOutput `json:"output"`
+			}
+			require.NoError(t, encoded.Get(&result))
+			require.Equal(t, tc.wantSent, result.Output.Sent)
+		})
+	}
 }

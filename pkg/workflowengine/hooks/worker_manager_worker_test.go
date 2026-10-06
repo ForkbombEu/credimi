@@ -24,27 +24,23 @@ func TestWorkerManagerWorkerRegistersWorkflowActivities(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-admin-key")
 
 	var workerStarts atomic.Int32
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/mobile-runner/list-urls":
-			_, _ = w.Write([]byte(`{"runners":["` + server.URL + `"]}`))
-		case r.Method == http.MethodPost && r.URL.Path == "/worker/org-1":
+		if r.Method == http.MethodPost && r.URL.Path == "/worker/org-1" {
 			workerStarts.Add(1)
 			w.WriteHeader(http.StatusAccepted)
 			_, _ = w.Write([]byte(`{}`))
-		default:
-			w.WriteHeader(http.StatusNotFound)
+			return
 		}
+		w.WriteHeader(http.StatusNotFound)
 	}))
 	t.Cleanup(server.Close)
-	t.Setenv(workflowengine.InternalAppURLConfigKeyEnv, server.URL)
 
 	var config *workerConfig
-	for i := range DefaultWorkers {
-		if DefaultWorkers[i].TaskQueue == workflows.WorkerManagerTaskQueue {
-			config = &DefaultWorkers[i]
+	workers := defaultWorkers(nil)
+	for i := range workers {
+		if workers[i].TaskQueue == workflows.WorkerManagerTaskQueue {
+			config = &workers[i]
 		}
 	}
 	require.NotNil(t, config)
@@ -55,8 +51,10 @@ func TestWorkerManagerWorkerRegistersWorkflowActivities(t *testing.T) {
 	}
 
 	env.ExecuteWorkflow(workflows.NewWorkerManagerWorkflow().Workflow, workflowengine.WorkflowInput{
-		Payload: workflows.WorkerManagerWorkflowPayload{Namespace: "org-1"},
-		Config:  map[string]any{"app_url": server.URL},
+		Payload: workflows.WorkerManagerWorkflowPayload{
+			Namespace:  "org-1",
+			RunnerURLs: []string{server.URL},
+		},
 	})
 
 	var result workflowengine.WorkflowResult

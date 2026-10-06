@@ -9,10 +9,7 @@
 package workflows
 
 import (
-	"net/http"
-
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/workflow"
@@ -70,38 +67,23 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
-	act := activities.NewInternalHTTPActivity()
 	var result workflowengine.ActivityResult
 	request := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodGet,
-			URL: utils.JoinURL(
-				input.Config["app_url"].(string),
-				"api", "verifier", "get-use-case-verification-deeplink",
-			),
-			QueryParams: map[string]string{
-				"use_case_identifier": payload.UseCaseIdentifier,
-			},
-			ExpectedStatus: 200,
+		Payload: activities.GetUseCaseVerificationDeeplinkInput{
+			UseCaseIdentifier: payload.UseCaseIdentifier,
 		},
 	}
-	err = workflow.ExecuteActivity(ctx, act.Name(), request).Get(ctx, &result)
+	err = workflow.ExecuteActivity(ctx, activities.GetUseCaseVerificationDeeplinkActivityName, request).
+		Get(ctx, &result)
 	if err != nil {
-		logger.Error("HTTPActivity failed", "error", err)
+		logger.Error(activities.GetUseCaseVerificationDeeplinkActivityName+" failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
 			input.RunMetadata,
 		)
 	}
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-	responseBody, ok := result.Output.(map[string]any)["body"].(map[string]any)
+	responseBody, ok := result.Output.(map[string]any)
 	if !ok {
 		wErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{

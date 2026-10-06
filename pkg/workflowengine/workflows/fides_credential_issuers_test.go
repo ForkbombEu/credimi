@@ -39,7 +39,6 @@ func TestFidesCredentialIssuersWorkflow(t *testing.T) {
 
 				httpAct := activities.NewHTTPActivity()
 				parseAct := activities.NewParseFidesCredentialIssuersActivity()
-				internalAct := activities.NewInternalHTTPActivity()
 				checkAct := activities.NewCheckCredentialsIssuerActivity()
 				jsonAct := activities.NewJSONActivity(nil)
 				validateAct := activities.NewSchemaValidationActivity()
@@ -67,29 +66,22 @@ func TestFidesCredentialIssuersWorkflow(t *testing.T) {
 					}, nil).
 					Once()
 				env.OnActivity(
-					internalAct.Name(),
+					activities.StoreCredentialIssuerActivityName,
 					mock.Anything,
 					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+						payload, err := workflowengine.DecodePayload[activities.StoreCredentialIssuerInput](
 							input.Payload,
 						)
-						if err != nil {
-							return false
+						return err == nil && payload == activities.StoreCredentialIssuerInput{
+							URL:   "https://issuer-1",
+							OrgID: "org123",
+							Name:  "Issuer One",
+							Logo:  "https://issuer-1/logo.png",
 						}
-						body, ok := payload.Body.(map[string]any)
-						if !ok {
-							return false
-						}
-						return body["url"] == "https://issuer-1" &&
-							body["orgID"] == "org123" &&
-							body["name"] == "Issuer One" &&
-							body["logo"] == "https://issuer-1/logo.png"
 					}),
 				).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
-						"body": map[string]any{
-							"record": map[string]any{"id": "issuer123"},
-						},
+						"id": "issuer123",
 					}}, nil).
 					Once()
 				env.OnActivity(checkAct.Name(), mock.Anything, mock.Anything).
@@ -115,9 +107,21 @@ func TestFidesCredentialIssuersWorkflow(t *testing.T) {
 				env.OnActivity(validateAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil).
 					Once()
-				env.OnActivity(internalAct.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(
+					activities.StoreIssuerCredentialActivityName,
+					mock.Anything,
+					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+						payload, err := workflowengine.DecodePayload[activities.StoreIssuerCredentialInput](
+							input.Payload,
+						)
+						return err == nil &&
+							payload.IssuerID == "issuer123" &&
+							payload.CredKey == "cred1" &&
+							payload.OrgID == "org123"
+					}),
+				).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
-						"body": map[string]any{"key": "cred1"},
+						"key": "cred1",
 					}}, nil).
 					Once()
 			},
@@ -148,7 +152,6 @@ func TestFidesCredentialIssuersWorkflow(t *testing.T) {
 
 				httpAct := activities.NewHTTPActivity()
 				parseAct := activities.NewParseFidesCredentialIssuersActivity()
-				internalAct := activities.NewInternalHTTPActivity()
 				checkAct := activities.NewCheckCredentialsIssuerActivity()
 				jsonAct := activities.NewJSONActivity(nil)
 				validateAct := activities.NewSchemaValidationActivity()
@@ -197,22 +200,17 @@ func TestFidesCredentialIssuersWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{}, nil).
 					Once()
 				env.OnActivity(
-					internalAct.Name(),
+					activities.StoreCredentialIssuerActivityName,
 					mock.Anything,
 					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+						payload, err := workflowengine.DecodePayload[activities.StoreCredentialIssuerInput](
 							input.Payload,
 						)
-						if err != nil {
-							return false
-						}
-						return payload.URL == "https://example.com/api/credentials_issuers/store-or-update"
+						return err == nil && payload.URL == "https://issuer-empty"
 					}),
 				).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
-						"body": map[string]any{
-							"record": map[string]any{"id": "issuer-empty-id"},
-						},
+						"id": "issuer-empty-id",
 					}}, nil).
 					Once()
 			},
@@ -231,7 +229,6 @@ func TestFidesCredentialIssuersWorkflow(t *testing.T) {
 
 				httpAct := activities.NewHTTPActivity()
 				parseAct := activities.NewParseFidesCredentialIssuersActivity()
-				internalAct := activities.NewInternalHTTPActivity()
 				checkAct := activities.NewCheckCredentialsIssuerActivity()
 				jsonAct := activities.NewJSONActivity(nil)
 				validateAct := activities.NewSchemaValidationActivity()
@@ -282,16 +279,14 @@ func TestFidesCredentialIssuersWorkflow(t *testing.T) {
 				env.OnActivity(validateAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil).
 					Once()
-				env.OnActivity(internalAct.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(activities.StoreCredentialIssuerActivityName, mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
-						"body": map[string]any{
-							"record": map[string]any{"id": "issuer-good-id"},
-						},
+						"id": "issuer-good-id",
 					}}, nil).
 					Once()
-				env.OnActivity(internalAct.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(activities.StoreIssuerCredentialActivityName, mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
-						"body": map[string]any{"key": "cred1"},
+						"key": "cred1",
 					}}, nil).
 					Once()
 			},
@@ -360,7 +355,6 @@ func TestFidesCredentialIssuersWorkflow(t *testing.T) {
 func registerFidesWorkflowActivities(env *testsuite.TestWorkflowEnvironment) {
 	httpAct := activities.NewHTTPActivity()
 	parseAct := activities.NewParseFidesCredentialIssuersActivity()
-	internalAct := activities.NewInternalHTTPActivity()
 	checkAct := activities.NewCheckCredentialsIssuerActivity()
 	jsonAct := activities.NewJSONActivity(nil)
 	validateAct := activities.NewSchemaValidationActivity()
@@ -371,8 +365,12 @@ func registerFidesWorkflowActivities(env *testsuite.TestWorkflowEnvironment) {
 		activity.RegisterOptions{Name: parseAct.Name()},
 	)
 	env.RegisterActivityWithOptions(
-		internalAct.Execute,
-		activity.RegisterOptions{Name: internalAct.Name()},
+		activities.NewStoreCredentialIssuerActivity(nil).Execute,
+		activity.RegisterOptions{Name: activities.StoreCredentialIssuerActivityName},
+	)
+	env.RegisterActivityWithOptions(
+		activities.NewStoreIssuerCredentialActivity(nil).Execute,
+		activity.RegisterOptions{Name: activities.StoreIssuerCredentialActivityName},
 	)
 	env.RegisterActivityWithOptions(
 		checkAct.Execute,

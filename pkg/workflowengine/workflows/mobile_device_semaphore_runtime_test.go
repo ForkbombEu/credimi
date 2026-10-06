@@ -928,14 +928,13 @@ func TestShutdownDeviceRemovesQueuedTicketAndRunsCleanup(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	cleanupAct := activities.NewCleanupMobileDeviceSemaphoreResourcesActivity()
+	cleanupAct := activities.NewCleanupMobileDeviceSemaphoreResourcesActivity(nil)
 	env.RegisterActivityWithOptions(
 		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 			payload, err := workflowengine.DecodePayload[activities.CleanupMobileDeviceSemaphoreResourcesActivityInput](
 				input.Payload,
 			)
 			require.NoError(t, err)
-			require.Equal(t, "https://example.test", payload.AppURL)
 			require.Equal(t, "wallet-1", payload.Cleanup.TempWalletVersionID)
 			return workflowengine.ActivityResult{
 				Output: activities.CleanupMobileDeviceSemaphoreResourcesActivityOutput{},

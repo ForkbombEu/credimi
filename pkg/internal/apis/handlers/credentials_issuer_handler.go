@@ -82,52 +82,9 @@ var fidesCredentialIssuersScheduleTriggerOptions = client.ScheduleTriggerOptions
 	Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
 }
 
-var IssuerTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
-	BaseURL:                "/api/credentials_issuers",
-	AuthenticationRequired: false,
-	Middlewares: []*hook.Handler[*core.RequestEvent]{
-		{Func: middlewares.ErrorHandlingMiddleware},
-	},
-	Routes: []routing.RouteDefinition{
-		{
-			Method:        http.MethodPost,
-			Path:          "/store-or-update",
-			Handler:       HandleCredentialIssuerStoreOrUpdate,
-			RequestSchema: StoreOrUpdateCredentialIssuerRequest{},
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-		{
-			Method:        http.MethodPost,
-			Path:          "/store-or-update-extracted-credentials",
-			Handler:       HandleCredentialIssuerStoreOrUpdateExtractedCredentials,
-			RequestSchema: StoreOrUpdateCredentialsRequest{},
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-	},
-}
-
 // IssuerURL is a struct that represents the URL of a credential issuer.
 type IssuerURL struct {
 	URL string `json:"credentialIssuerUrl"`
-}
-
-type StoreOrUpdateCredentialsRequest struct {
-	IssuerID   string         `json:"issuerID"`
-	CredKey    string         `json:"credKey"`
-	Credential map[string]any `json:"credential"`
-	Conformant bool           `json:"conformant"`
-	OrgID      string         `json:"orgID"`
-}
-
-type StoreOrUpdateCredentialIssuerRequest struct {
-	URL   string `json:"url"`
-	OrgID string `json:"orgID"`
-	Name  string `json:"name,omitempty"`
-	Logo  string `json:"logo,omitempty"`
 }
 
 type ImportFidesCredentialIssuersRequest struct {
@@ -246,13 +203,11 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
-		appURL := e.App.Settings().Meta.AppURL
 		// Start the workflow
 		opt := workflows.DefaultActivityOptions
 		opt.RetryPolicy.MaximumAttempts = 1
 		workflowInput := workflowengine.WorkflowInput{
-			Config: workflowengine.WithInternalAppURL(map[string]any{
-				"app_url":       appURL,
+			Config: workflowengine.WithAppConfig(e.App, map[string]any{
 				"issuer_schema": credIssuerSchemaStr,
 				"orgID":         organization,
 			}),
@@ -432,8 +387,7 @@ func HandleCredentialIssuerImportFides() func(*core.RequestEvent) error {
 		}
 
 		workflowInput := workflowengine.WorkflowInput{
-			Config: workflowengine.WithInternalAppURL(map[string]any{
-				"app_url":       e.App.Settings().Meta.AppURL,
+			Config: workflowengine.WithAppConfig(e.App, map[string]any{
 				"issuer_schema": issuerSchema,
 				"orgID":         organization,
 			}),
@@ -598,226 +552,6 @@ func buildFidesCredentialIssuersScheduleAction(
 		Args: []interface{}{
 			input,
 		},
-	}
-}
-
-// HandleCredentialIssuerStoreOrUpdateExtractedCredentials is an endpoint that handles
-//
-//	storing or updating an extracted credential from a credential issuer.
-//
-// It takes a StoreOrUpdateCredentialsRequest as input and returns the extracted credential key.
-// If the credential does not exist, a new record is created.
-// If the credential exists, the record is updated.
-func HandleCredentialIssuerStoreOrUpdateExtractedCredentials() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		var body StoreOrUpdateCredentialsRequest
-
-		if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
-			return apis.NewBadRequestError("invalid JSON body", err)
-		}
-		name, locale, logo, description := parseCredentialDisplay(body.Credential)
-		var format string
-		if credFormat, ok := body.Credential["format"].(string); ok {
-			format = credFormat
-		}
-
-		collection, err := e.App.FindCollectionByNameOrId("credentials")
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"credentials",
-				"failed to find credentials collection",
-				err.Error(),
-			)
-		}
-		existing, err := e.App.FindFirstRecordByFilter(collection,
-			"name = {:key} && credential_issuer = {:issuerID}",
-			map[string]any{
-				"key":      body.CredKey,
-				"issuerID": body.IssuerID,
-			},
-		)
-
-		var record *core.Record
-		if err != nil {
-			// Create new record
-			record = core.NewRecord(collection)
-			record.Set("display_name", name)
-			record.Set("logo_url", logo)
-			record.Set("imported", true)
-		} else {
-			// Update existing record
-			record = existing
-			var savedCred map[string]any
-			err := json.Unmarshal([]byte(record.GetString("json")), &savedCred)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"credentials",
-					"failed to unmarshal credentials",
-					err.Error(),
-				)
-			}
-			var orginalName, originalLogo string
-			if displayList, ok := savedCred["display"].([]any); ok &&
-				len(displayList) > 0 {
-				if first, ok := displayList[0].(map[string]any); ok {
-					if credName, ok := first["name"].(string); ok {
-						orginalName = credName
-					}
-					if displayLogo, ok := first["logo"].(map[string]any); ok {
-						// do not broke if URI is nil
-						if uri, ok := displayLogo["uri"].(string); ok {
-							originalLogo = uri
-						}
-					}
-				}
-			}
-
-			savedName := record.GetString("display_name")
-			if savedName == orginalName {
-				record.Set("display_name", name)
-			}
-
-			savedLogo := record.GetString("logo_url")
-			if savedLogo == originalLogo {
-				record.Set("logo_url", logo)
-			}
-		}
-
-		credJSON, err := json.Marshal(body.Credential)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"credentials",
-				"failed to marshal credentials",
-				err.Error(),
-			)
-		}
-		record.Set("format", format)
-		record.Set("locale", locale)
-		record.Set("description", description)
-		record.Set("json", string(credJSON))
-		record.Set("name", body.CredKey)
-		record.Set("credential_issuer", body.IssuerID)
-		record.Set("conformant", body.Conformant)
-		record.Set("owner", body.OrgID)
-
-		if err := e.App.Save(record); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"credentials",
-				"failed to save credentials",
-				err.Error(),
-			)
-		}
-		return e.JSON(http.StatusOK, map[string]any{"key": body.CredKey})
-	}
-}
-
-func parseCredentialDisplay(cred map[string]any) (name, locale, logo, description string) {
-	displayList := credentialDisplayList(cred)
-	if len(displayList) > 0 {
-		if first, ok := displayList[0].(map[string]any); ok {
-			if n, ok := first["name"].(string); ok {
-				name = n
-			}
-			if l, ok := first["locale"].(string); ok {
-				locale = l
-			}
-			if d, ok := first["description"].(string); ok {
-				description = d
-			}
-			if logoMap, ok := first["logo"].(map[string]any); ok {
-				if uri, ok := logoMap["uri"].(string); ok {
-					logo = uri
-				} else if urlValue, ok := logoMap["url"].(string); ok {
-					logo = urlValue
-				}
-			}
-		}
-	}
-	return
-}
-
-func credentialDisplayList(cred map[string]any) []any {
-	if metadata, ok := cred["credential_metadata"].(map[string]any); ok {
-		if displayList, ok := metadata["display"].([]any); ok {
-			return displayList
-		}
-	}
-	if displayList, ok := cred["display"].([]any); ok {
-		return displayList
-	}
-	return nil
-}
-
-func HandleCredentialIssuerStoreOrUpdate() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		var body StoreOrUpdateCredentialIssuerRequest
-		if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
-			return apis.NewBadRequestError("invalid JSON body", err)
-		}
-		if strings.TrimSpace(body.URL) == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"credential_issuers",
-				"missing credential issuer URL",
-				"url is required",
-			)
-		}
-		if strings.TrimSpace(body.OrgID) == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"credential_issuers",
-				"missing organization",
-				"orgID is required",
-			)
-		}
-
-		collection, err := e.App.FindCollectionByNameOrId("credential_issuers")
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"credential_issuers",
-				"failed to find credential issuers collection",
-				err.Error(),
-			)
-		}
-
-		record, err := e.App.FindFirstRecordByFilter(
-			collection,
-			"url = {:url} && owner = {:owner}",
-			map[string]any{
-				"url":   body.URL,
-				"owner": body.OrgID,
-			},
-		)
-		if err != nil {
-			record = core.NewRecord(collection)
-			record.Set("url", body.URL)
-			record.Set("owner", body.OrgID)
-			record.Set("imported", true)
-		}
-		if body.Name != "" {
-			record.Set("name", body.Name)
-		}
-		if body.Logo != "" {
-			record.Set("logo_url", body.Logo)
-		}
-
-		if err := e.App.Save(record); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"credential_issuers",
-				"failed to save credential issuer",
-				err.Error(),
-			)
-		}
-
-		return e.JSON(http.StatusOK, map[string]any{
-			"record": record.FieldsData(),
-		})
 	}
 }
 

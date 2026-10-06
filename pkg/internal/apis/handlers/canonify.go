@@ -20,23 +20,6 @@ type IdentifierValidateRequest struct {
 	CanonifiedName string `json:"canonified_name"`
 }
 
-// IdentifierResolveInternalRequest asks for a record on behalf of the
-// organization that owns a running workflow.
-type IdentifierResolveInternalRequest struct {
-	CanonifiedName string `json:"canonified_name"`
-	Collection     string `json:"collection"`
-	OwnerNamespace string `json:"owner_namespace"`
-}
-
-// canonifyInternalCollections lists the collections Temporal workers resolve
-// through HandleIdentifierResolveInternal. Every one has an `owner` relation
-// and a viewRule of `published = true || <member of owner organization>`.
-var canonifyInternalCollections = map[string]struct{}{
-	"pipelines":      {},
-	"custom_checks":  {},
-	"wallet_actions": {},
-}
-
 var CanonifyRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/canonify",
 	AuthenticationRequired: false,
@@ -56,28 +39,6 @@ var CanonifyRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:        "/identifier/get",
 			Handler:     HandleGetIdentifier,
 			Description: "Get the canonical identifier path of a record by id",
-		},
-	},
-}
-
-// CanonifyTemporalInternalRoutes lets Temporal workers read the records a
-// pipeline references. Workers authenticate with the internal admin key but
-// get only what the pipeline's owner organization could view, because the
-// response lands in Temporal history, which the organization can read.
-var CanonifyTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
-	BaseURL:                "/api/canonify/internal",
-	AuthenticationRequired: false,
-	Middlewares: []*hook.Handler[*core.RequestEvent]{
-		{Func: middlewares.ErrorHandlingMiddleware},
-		middlewares.RequireInternalAdminAPIKey(),
-	},
-	Routes: []routing.RouteDefinition{
-		{
-			Method:        http.MethodPost,
-			Path:          "/resolve",
-			Handler:       HandleIdentifierResolveInternal,
-			RequestSchema: IdentifierResolveInternalRequest{},
-			Description:   "Resolve a record on behalf of the owner organization of a workflow",
 		},
 	},
 }
@@ -109,63 +70,6 @@ func HandleIdentifierValidate() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		record.WithCustomData(true)
-		record.Set("__canonified_path__", canonify.NormalizePath(req.CanonifiedName))
-		return e.JSON(http.StatusOK, map[string]any{
-			"message": "valid identifier",
-			"record":  record,
-		})
-	}
-}
-
-// HandleIdentifierResolveInternal returns a published record of any
-// organization, or an unpublished record of the owner organization.
-func HandleIdentifierResolveInternal() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[IdentifierResolveInternalRequest](e)
-		if err != nil {
-			return err
-		}
-		collection := strings.TrimSpace(req.Collection)
-		if _, ok := canonifyInternalCollections[collection]; !ok {
-			return apierror.New(
-				http.StatusBadRequest,
-				"collection",
-				"unsupported collection",
-				collection,
-			)
-		}
-		ownerNamespace := strings.TrimSpace(req.OwnerNamespace)
-		if ownerNamespace == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"owner_namespace",
-				"owner_namespace_required",
-				"missing owner_namespace",
-			)
-		}
-
-		notFound := apierror.New(
-			http.StatusNotFound,
-			"identifier",
-			"record not found",
-			"the requested record does not exist or the owner organization cannot view it",
-		)
-		record, err := canonify.Validate(e.App, req.CanonifiedName)
-		if err != nil || record.Collection().Name != collection {
-			return notFound
-		}
-		if !record.GetBool("published") {
-			owner, err := e.App.FindFirstRecordByFilter(
-				"organizations",
-				"canonified_name = {:namespace}",
-				map[string]any{"namespace": ownerNamespace},
-			)
-			if err != nil || record.GetString("owner") != owner.Id {
-				return notFound
-			}
-		}
-
 		record.WithCustomData(true)
 		record.Set("__canonified_path__", canonify.NormalizePath(req.CanonifiedName))
 		return e.JSON(http.StatusOK, map[string]any{

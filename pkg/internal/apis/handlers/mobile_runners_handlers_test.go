@@ -40,7 +40,6 @@ func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	MobileRunnersPublicRoutes.Add(app)
 	MobileRunnerRegistrationRoutes.Add(app)
 	MobileRunnerLifecycleRoutes.Add(app)
-	MobileRunnersTemporalInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 
 	return app
@@ -939,72 +938,6 @@ func setMobileRunnerAdminManaged(
 	require.NoError(t, err)
 	record.Set("admin_managed", adminManaged)
 	require.NoError(t, app.Save(record))
-}
-
-func TestListMobileRunnerURLs(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	scenarios := []tests.ApiScenario{
-		{
-			Name:           "empty runners list",
-			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner/list-urls",
-			ExpectedStatus: 200,
-			ExpectedContent: []string{
-				`"runners":[]`,
-			},
-			TestAppFactory: setupMobileRunnerApp,
-		},
-		{
-			Name:           "only enabled online runners",
-			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner/list-urls",
-			ExpectedStatus: 200,
-			ExpectedContent: []string{
-				`"runners"`,
-				`http://192.168.1.10`,
-				`https://192.168.1.11:9000`,
-			},
-			NotExpectedContent: []string{
-				`192.168.1.12`,
-				`192.168.1.13`,
-			},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupMobileRunnerApp(t)
-				coll, err := app.FindCollectionByNameOrId("mobile_runners")
-				require.NoError(t, err)
-
-				newRunner := func(name, ip, port string, disabled, online bool) {
-					record := core.NewRecord(coll)
-					record.Set("owner", orgID)
-					record.Set("name", name)
-					record.Set("serial", strings.ToUpper(name))
-					record.Set("ip", ip)
-					record.Set("port", port)
-					record.Set("type", "android_emulator")
-					record.Set("disabled", disabled)
-					record.Set("online", online)
-					require.NoError(t, app.Save(record))
-				}
-
-				newRunner("runner-1", "http://192.168.1.10", "", false, true)
-				newRunner("runner-2", "https://192.168.1.11", "9000", false, true)
-				newRunner("runner-disabled", "http://192.168.1.12", "", true, true)
-				newRunner("runner-offline", "http://192.168.1.13", "", false, false)
-
-				return app
-			},
-		},
-	}
-
-	for _, scenario := range scenarios {
-		if scenario.Headers == nil {
-			scenario.Headers = map[string]string{}
-		}
-		scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
-		scenario.Test(t)
-	}
 }
 
 func TestPreviewMobileDeviceID(t *testing.T) {

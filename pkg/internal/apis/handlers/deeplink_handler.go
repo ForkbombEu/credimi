@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/apis"
@@ -24,7 +25,6 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
-	"gopkg.in/yaml.v3"
 )
 
 type CredentialDeeplinkRequest struct {
@@ -85,8 +85,6 @@ func getDeeplinkFromYAML(
 	secrets map[string]string,
 	exposeStepCIReport bool,
 ) (deeplinkWorkflowResponse, error) {
-	appURL := app.Settings().Meta.AppURL
-
 	memo := map[string]any{
 		"test": "get-deeplink",
 	}
@@ -104,9 +102,8 @@ func getDeeplinkFromYAML(
 		Payload: workflows.CustomCheckWorkflowPayload{
 			Yaml: yaml,
 		},
-		Config: workflowengine.WithInternalAppURL(map[string]any{
-			"memo":    memo,
-			"app_url": appURL,
+		Config: workflowengine.WithAppConfig(app, map[string]any{
+			"memo": memo,
 		}),
 		Secrets:         secretsToMap(secrets),
 		ActivityOptions: ao,
@@ -373,13 +370,10 @@ func deeplinkFromRecord(
 	return response.Deeplink, nil
 }
 
+// parseSecretsYAML maps utils.ParseSecretsYAML errors to a 400 API error.
 func parseSecretsYAML(secretsYAML string) (map[string]string, *apierror.APIError) {
-	if secretsYAML == "" {
-		return nil, nil
-	}
-
-	var secrets map[string]string
-	if err := yaml.Unmarshal([]byte(secretsYAML), &secrets); err != nil {
+	secrets, err := utils.ParseSecretsYAML(secretsYAML)
+	if err != nil {
 		return nil, apierror.New(
 			http.StatusBadRequest,
 			"secrets",
@@ -387,6 +381,5 @@ func parseSecretsYAML(secretsYAML string) (map[string]string, *apierror.APIError
 			err.Error(),
 		)
 	}
-
 	return secrets, nil
 }

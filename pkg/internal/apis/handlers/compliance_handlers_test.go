@@ -11,7 +11,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -448,77 +447,6 @@ func TestSendEWCLikeLogUpdateStopFallsBackToDirectWorkflow(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
-func TestHandleSendOpenID4VPWalletLogUpdateSuccess(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	origNotify := complianceNotifyLogsUpdate
-	t.Cleanup(func() {
-		complianceNotifyLogsUpdate = origNotify
-	})
-
-	var capturedSubscription string
-	complianceNotifyLogsUpdate = func(_ core.App, subscription string, data []map[string]any) error {
-		capturedSubscription = subscription
-		return nil
-	}
-
-	input := HandleSendLogUpdateRequestInput{
-		WorkflowID: "wf-3",
-		Logs:       []map[string]any{{"step": "ok"}},
-	}
-
-	req := httptest.NewRequest(http.MethodPost, "/api/compliance/send-openidnet-log-update", nil)
-	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, input))
-	rec := httptest.NewRecorder()
-
-	err = HandleSendOpenID4VPWalletLogUpdate()(&core.RequestEvent{
-		App: app,
-		Event: router.Event{
-			Request:  req,
-			Response: rec,
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, "wf-3"+workflows.OpenID4VPWalletSubscription, capturedSubscription)
-}
-
-func TestHandleSendEudiwLogUpdateError(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	origNotify := complianceNotifyLogsUpdate
-	t.Cleanup(func() {
-		complianceNotifyLogsUpdate = origNotify
-	})
-
-	complianceNotifyLogsUpdate = func(_ core.App, subscription string, data []map[string]any) error {
-		return errors.New("boom")
-	}
-
-	input := HandleSendLogUpdateRequestInput{
-		WorkflowID: "wf-1",
-		Logs:       []map[string]any{{"step": "ok"}},
-	}
-
-	req := httptest.NewRequest(http.MethodPost, "/api/compliance/send-eudiw-log-update", nil)
-	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, input))
-	rec := httptest.NewRecorder()
-
-	err = HandleSendEudiwLogUpdate()(&core.RequestEvent{
-		App: app,
-		Event: router.Event{
-			Request:  req,
-			Response: rec,
-		},
-	})
-	requireHandlerErrorHandled(t, rec, err)
-	require.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
 func TestHandleDeeplinkMissingParams(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -814,70 +742,6 @@ func TestHandleSendTemporalSignalNamespaceAuthorization(t *testing.T) {
 			require.Equal(t, s.expectedStatus, rec.Code)
 		})
 	}
-}
-
-func TestComplianceLogUpdateRoutesRequireInternalAdminKey(t *testing.T) {
-	userToken := realtimeAuthToken(t, "users", "userA@example.org")
-	body := `{"workflow_id":"wf-1","logs":[{"message":"injected"}]}`
-	setup := func(t testing.TB) *tests.TestApp {
-		app, err := tests.NewTestApp(testDataDir)
-		require.NoError(t, err)
-		ConformanceRoutes.Add(app)
-		seedInternalAdminKey(t, app)
-		return app
-	}
-
-	paths := []string{
-		"/api/compliance/send-openidnet-log-update",
-		"/api/compliance/send-eudiw-log-update",
-		"/api/compliance/send-ewc-log-update",
-	}
-	scenarios := make([]tests.ApiScenario, 0, 3*len(paths))
-	for _, path := range paths {
-		scenarios = append(scenarios,
-			tests.ApiScenario{
-				Name:            path + " without credentials",
-				Method:          http.MethodPost,
-				URL:             path,
-				Body:            strings.NewReader(body),
-				ExpectedStatus:  http.StatusUnauthorized,
-				ExpectedContent: []string{"api_key_required"},
-				TestAppFactory:  setup,
-			},
-			tests.ApiScenario{
-				Name:            path + " with a user token",
-				Method:          http.MethodPost,
-				URL:             path,
-				Body:            strings.NewReader(body),
-				Headers:         map[string]string{"Authorization": userToken},
-				ExpectedStatus:  http.StatusUnauthorized,
-				ExpectedContent: []string{"api_key_required"},
-				TestAppFactory:  setup,
-			},
-			tests.ApiScenario{
-				Name:            path + " with the internal admin key",
-				Method:          http.MethodPost,
-				URL:             path,
-				Body:            strings.NewReader(body),
-				Headers:         map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
-				ExpectedStatus:  http.StatusOK,
-				ExpectedContent: []string{"Log update sent successfully"},
-				TestAppFactory:  setup,
-			},
-		)
-	}
-	for _, scenario := range scenarios {
-		scenario.Test(t)
-	}
-}
-
-func TestNotifyLogsUpdateNoSubscribers(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	err = notifyLogsUpdate(app, "subscription-1", []map[string]any{{"step": "ok"}})
-	require.NoError(t, err)
 }
 
 func TestGetDeeplinkOpenIDConformanceSuite(t *testing.T) {

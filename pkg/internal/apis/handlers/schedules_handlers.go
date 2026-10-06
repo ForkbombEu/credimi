@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -516,13 +515,6 @@ func startScheduledPipelineWithOptions(
 	globalDeviceID string,
 	maxPipelinesInQueue int,
 ) (SchedulePipelineStartInfo, error) {
-	appURL, ok := config["app_url"].(string)
-	if !ok || strings.TrimSpace(appURL) == "" {
-		return SchedulePipelineStartInfo{}, fmt.Errorf(
-			"schedule config missing app_url",
-		)
-	}
-
 	c, err := scheduleTemporalClient(namespace)
 	if err != nil {
 		return SchedulePipelineStartInfo{}, fmt.Errorf(

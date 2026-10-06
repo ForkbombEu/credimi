@@ -7,7 +7,6 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
@@ -26,12 +25,6 @@ func PipelineReportCleanupHook(
 	finalOutput *map[string]any,
 ) error {
 	if wfDef == nil || !hasPipelineEvidenceStep(wfDef) {
-		return nil
-	}
-
-	appURL, _ := config["app_url"].(string)
-	if strings.TrimSpace(appURL) == "" {
-		appendCleanupWarning(finalOutput, "pipeline report generation skipped: missing app_url")
 		return nil
 	}
 
@@ -56,7 +49,6 @@ func PipelineReportCleanupHook(
 			Namespace:          workflow.GetInfo(ctx).Namespace,
 			WorkflowID:         workflowID,
 			RunID:              runID,
-			AppURL:             workflowengine.InternalAppURLFromConfig(config),
 			PipelineOutputMeta: pipelineOutputMeta(*finalOutput, wfDef),
 			Evidence:           evidence,
 		},

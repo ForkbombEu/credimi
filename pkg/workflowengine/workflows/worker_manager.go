@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -90,81 +89,11 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			runMetadata,
-		)
-	}
-	appURL = workflowengine.InternalAppURLFromConfig(input.Config)
-
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	// Runner-directed calls get their own activity: the destination can be a
 	// quick tunnel, whose hostname only resolves through Cloudflare DNS while
 	// it is propagating.
 	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity()
 	runnerURLs := normalizeWorkerManagerRunnerURLs(payload.RunnerURLs)
-	if payload.RunnerURLs == nil {
-		listReq := workflowengine.ActivityInput{
-			Payload: activities.InternalHTTPActivityPayload{
-				Method: http.MethodGet,
-				URL: utils.JoinURL(
-					appURL,
-					"api",
-					"mobile-runner",
-					"list-urls",
-				),
-				ExpectedStatus: 200,
-			},
-		}
-		var resp workflowengine.ActivityResult
-		err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), listReq).Get(ctx, &resp)
-		if err != nil {
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				err,
-				runMetadata,
-			)
-		}
-
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		body, ok := resp.Output.(map[string]any)["body"].(map[string]any)
-		if !ok {
-			appErr :=
-				workflowengine.NewAppError(
-					workflowengine.WorkflowError{
-						Code:    errCode.Code,
-						Summary: errCode.Description,
-						Message: "invalid HTTP response format",
-						Details: map[string]any{"payload": resp.Output},
-					},
-				)
-
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
-		}
-
-		runnerURLs, ok = parseRunnerURLs(body["runners"])
-		if !ok {
-			appErr :=
-				workflowengine.NewAppError(
-					workflowengine.WorkflowError{
-						Code:    errCode.Code,
-						Summary: errCode.Description,
-						Message: "invalid HTTP response body",
-						Details: map[string]any{"payload": body},
-					},
-				)
-
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
-		}
-		runnerURLs = normalizeWorkerManagerRunnerURLs(runnerURLs)
-	}
 
 	runnerResults := make([]WorkerManagerRunnerResult, 0, len(runnerURLs))
 	successfulRunners := 0
@@ -225,25 +154,6 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 			FailedRunners:     failedRunners,
 		},
 	}, nil
-}
-
-func parseRunnerURLs(rawRunners any) ([]string, bool) {
-	switch runners := rawRunners.(type) {
-	case []string:
-		return runners, true
-	case []any:
-		runnerURLs := make([]string, 0, len(runners))
-		for _, runner := range runners {
-			runnerURL, ok := runner.(string)
-			if !ok {
-				return nil, false
-			}
-			runnerURLs = append(runnerURLs, runnerURL)
-		}
-		return runnerURLs, true
-	default:
-		return nil, false
-	}
 }
 
 func normalizeWorkerManagerRunnerURLs(runnerURLs []string) []string {

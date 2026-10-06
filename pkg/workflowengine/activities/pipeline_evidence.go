@@ -16,21 +16,27 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/credoffer"
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/discovery"
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/presentation"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 const PipelineEvidenceExtractionActivityName = "Extract pipeline conformance evidence"
 
 type PipelineEvidenceExtractionActivity struct {
 	workflowengine.BaseActivity
+	app core.App
 }
 
+// PipelineEvidenceExtractionInput identifies the pipeline definition to extract
+// evidence from and the run whose pipeline result stores it.
 type PipelineEvidenceExtractionInput struct {
 	WorkflowDefinition *pipelineinternal.WorkflowDefinition `json:"workflow_definition"`
-	CredimiBaseURL     string                               `json:"credimi_base_url"`
+	WorkflowID         string                               `json:"workflow_id"`
+	RunID              string                               `json:"run_id"`
 }
 
 type PipelineEvidenceExtractionOutput struct {
@@ -40,9 +46,10 @@ type PipelineEvidenceExtractionOutput struct {
 	Warnings             []string         `json:"warnings,omitempty"`
 }
 
-func NewPipelineEvidenceExtractionActivity() *PipelineEvidenceExtractionActivity {
+func NewPipelineEvidenceExtractionActivity(app core.App) *PipelineEvidenceExtractionActivity {
 	return &PipelineEvidenceExtractionActivity{
 		BaseActivity: workflowengine.BaseActivity{Name: PipelineEvidenceExtractionActivityName},
+		app:          app,
 	}
 }
 
@@ -50,6 +57,10 @@ func (a *PipelineEvidenceExtractionActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
+// Execute resolves the credential offers and presentation results of the
+// pipeline's evidence steps through the local Credimi server and stores the
+// extracted evidence on the run's pipeline result. A storage failure is
+// reported as a warning.
 func (a *PipelineEvidenceExtractionActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
@@ -67,12 +78,13 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 			},
 		)
 	}
-	if strings.TrimSpace(payload.CredimiBaseURL) == "" {
+	baseURL := workflowengine.LocalURL(a.app)
+	if baseURL == "" {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
 			workflowengine.ActivityError{
 				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
 				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
-				Message: "credimi_base_url is required",
+				Message: "Credimi local URL is not set; workers must run inside credimi serve",
 			},
 		)
 	}
@@ -96,7 +108,7 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 		ctx,
 		client,
 		discovered.CredentialOfferSteps,
-		payload,
+		baseURL,
 		&out.Warnings,
 	)
 	if evidenceErr != nil {
@@ -110,7 +122,7 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 		ctx,
 		client,
 		discovered.PresentationRequestSteps,
-		payload,
+		baseURL,
 		timeout,
 		&out.Warnings,
 	)
@@ -119,9 +131,36 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 			out.Warnings,
 			"no credential well-knowns or presentation results were extracted",
 		)
+		return workflowengine.ActivityResult{Output: out}, nil
 	}
+	a.storeEvidence(payload, &out)
 
 	return workflowengine.ActivityResult{Output: out}, nil
+}
+
+func (a *PipelineEvidenceExtractionActivity) storeEvidence(
+	payload PipelineEvidenceExtractionInput,
+	out *PipelineEvidenceExtractionOutput,
+) {
+	if strings.TrimSpace(payload.WorkflowID) == "" || strings.TrimSpace(payload.RunID) == "" {
+		out.Warnings = append(
+			out.Warnings,
+			"pipeline evidence storage skipped: missing workflow_id or run_id",
+		)
+		return
+	}
+	if err := pipelineresults.StoreEvidence(
+		a.app,
+		payload.WorkflowID,
+		payload.RunID,
+		out.CredentialWellKnowns,
+		out.PresentationResults,
+	); err != nil {
+		out.Warnings = append(
+			out.Warnings,
+			fmt.Sprintf("pipeline evidence storage failed: %v", err),
+		)
+	}
 }
 
 func discoverWorkflowDefinition(
@@ -142,7 +181,7 @@ func extractCredentialEvidence(
 	ctx context.Context,
 	client *http.Client,
 	steps []discovery.Step,
-	payload PipelineEvidenceExtractionInput,
+	baseURL string,
 	warnings *[]string,
 ) ([]map[string]any, []map[string]any, error) {
 	offers := make([]map[string]any, 0, len(steps))
@@ -154,7 +193,7 @@ func extractCredentialEvidence(
 		}
 		res := credoffer.Resolve(
 			client,
-			payload.CredimiBaseURL,
+			baseURL,
 			step.CredentialID,
 			"auto",
 			5,
@@ -240,7 +279,7 @@ func extractPresentationResults(
 	ctx context.Context,
 	client *http.Client,
 	steps []discovery.Step,
-	payload PipelineEvidenceExtractionInput,
+	baseURL string,
 	timeout time.Duration,
 	warnings *[]string,
 ) []map[string]any {
@@ -252,7 +291,7 @@ func extractPresentationResults(
 		}
 		res := presentation.Resolve(
 			client,
-			payload.CredimiBaseURL,
+			baseURL,
 			step.UseCaseID,
 			"auto",
 			"auto",

@@ -4,15 +4,14 @@
 package workflows
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
@@ -24,21 +23,17 @@ import (
 func TestAggregateScoreboardWorkflow(t *testing.T) {
 	testCases := []struct {
 		name           string
-		config         map[string]any
 		mockActivities func(env *testsuite.TestWorkflowEnvironment)
 		expectError    bool
 		validateOutput func(t *testing.T, output AggregateScoreboardWorkflowOutput)
 	}{
 		{
 			name: "success aggregates pipelines and execution details",
-			config: map[string]any{
-				"app_url": "https://example.com",
-			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				registerInternalHTTPActivity(env)
+				registerScoreboardActivities(env)
 
 				mockNamespaces(env, []string{"namespace-1", "namespace-2"})
-				mockNamespaceScoreboard(env, []map[string]any{
+				mockNamespaceScoreboard(env, "namespace-1", []map[string]any{
 					{
 						"pipeline_id":                "pipe-1",
 						"pipeline_name":              "Pipeline 1",
@@ -61,7 +56,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						},
 					},
 				})
-				mockNamespaceScoreboard(env, []map[string]any{
+				mockNamespaceScoreboard(env, "namespace-2", []map[string]any{
 					{
 						"pipeline_id":                "pipe-1",
 						"pipeline_name":              "Pipeline 1",
@@ -189,14 +184,11 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 		},
 		{
 			name: "success keeps partial results when one namespace fetch fails",
-			config: map[string]any{
-				"app_url": "https://example.com",
-			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				registerInternalHTTPActivity(env)
+				registerScoreboardActivities(env)
 
 				mockNamespaces(env, []string{"namespace-1", "namespace-2"})
-				mockNamespaceScoreboard(env, []map[string]any{
+				mockNamespaceScoreboard(env, "namespace-1", []map[string]any{
 					{
 						"pipeline_id":                "pipe-1",
 						"pipeline_name":              "Pipeline 1",
@@ -218,49 +210,31 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 						},
 					},
 				})
-				env.OnActivity(activityName(), mock.Anything, mock.Anything).
+				env.OnActivity(
+					GetNamespaceScoreboardActivityName,
+					mock.Anything,
+					scoreboardNamespacePayload("namespace-2"),
+				).
 					Return(workflowengine.ActivityResult{}, errors.New("boom")).
 					Once()
 				mockExecutionDetails(env, map[string]any{
 					"pipeline_name": "Pipeline 1",
 				})
-
-				env.OnActivity(activityName(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-					payload := input.Payload.(map[string]any)
-					url, _ := payload["url"].(string)
-					expectedStatus, _ := payload["expected_status"].(int)
-					return strings.Contains(url, "save-results") && expectedStatus == http.StatusOK
-				})).
-					Return(workflowengine.ActivityResult{
-						Output: map[string]any{
-							"body": map[string]any{
-								"success": true,
-							},
-							"status_code": 200,
-						},
-					}, nil).
-					Once()
+				mockSaveResults(env)
 			},
 			validateOutput: func(t *testing.T, output AggregateScoreboardWorkflowOutput) {
 				require.Equal(t, 1, output.NamespacesProcessed)
 				require.Equal(t, 1, output.NamespacesFailed)
 				require.Len(t, output.FailedNamespaces, 1)
-				require.Contains(
-					t,
-					[]string{"namespace-1", "namespace-2"},
-					output.FailedNamespaces[0],
-				)
+				require.Equal(t, []string{"namespace-2"}, output.FailedNamespaces)
 				require.Len(t, output.AggregatedPipelines, 1)
 				require.NotNil(t, output.AggregatedPipelines[0].LastExecution)
 			},
 		},
 		{
 			name: "success returns empty output when no namespaces are found",
-			config: map[string]any{
-				"app_url": "https://example.com",
-			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				registerInternalHTTPActivity(env)
+				registerScoreboardActivities(env)
 				mockNamespaces(env, []string{})
 			},
 			validateOutput: func(t *testing.T, output AggregateScoreboardWorkflowOutput) {
@@ -270,38 +244,22 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 			},
 		},
 		{
-			name:           "failure when app_url is missing",
-			config:         map[string]any{},
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
-			expectError:    true,
-		},
-		{
 			name: "failure when namespace list activity fails",
-			config: map[string]any{
-				"app_url": "https://example.com",
-			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				registerInternalHTTPActivity(env)
-				env.OnActivity(activityName(), mock.Anything, mock.Anything).
+				registerScoreboardActivities(env)
+				env.OnActivity(ListScoreboardNamespacesActivityName, mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, errors.New("boom")).
 					Once()
 			},
 			expectError: true,
 		},
 		{
-			name: "failure when namespaces response is malformed",
-			config: map[string]any{
-				"app_url": "https://example.com",
-			},
+			name: "failure when namespaces output is malformed",
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				registerInternalHTTPActivity(env)
-				env.OnActivity(activityName(), mock.Anything, mock.Anything).
+				registerScoreboardActivities(env)
+				env.OnActivity(ListScoreboardNamespacesActivityName, mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
-						Output: map[string]any{
-							"body": map[string]any{
-								"namespaces": []any{"namespace-1", 10},
-							},
-						},
+						Output: []any{"namespace-1", 10},
 					}, nil).
 					Once()
 			},
@@ -322,11 +280,13 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 
 			w := NewAggregateScoreboardWorkflow()
 			env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
-				Config:          tc.config,
+				// BuildWorkflow reads app_url to build the Temporal UI link.
+				Config:          map[string]any{"app_url": "https://example.com"},
 				ActivityOptions: &activityOptions,
 			})
 
 			require.True(t, env.IsWorkflowCompleted())
+			env.AssertExpectations(t)
 
 			var result workflowengine.WorkflowResult
 			err := env.GetWorkflowResult(&result)
@@ -434,53 +394,60 @@ func TestAggregateScoreboardWorkflowOrdersMixedTimestampPrecision(t *testing.T) 
 	require.Equal(t, "fractional-second", lastRunMap["pipe-1"].WorkflowID)
 }
 
-func registerInternalHTTPActivity(env *testsuite.TestWorkflowEnvironment) {
-	httpAct := activities.NewInternalHTTPActivity()
-	env.RegisterActivityWithOptions(
-		httpAct.Execute,
-		activity.RegisterOptions{Name: httpAct.Name()},
-	)
+func registerScoreboardActivities(env *testsuite.TestWorkflowEnvironment) {
+	stub := func(context.Context, workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+		return workflowengine.ActivityResult{}, nil
+	}
+	for _, name := range []string{
+		ListScoreboardNamespacesActivityName,
+		GetNamespaceScoreboardActivityName,
+		GetScoreboardExecutionDetailsActivityName,
+		SaveScoreboardResultsActivityName,
+	} {
+		env.RegisterActivityWithOptions(stub, activity.RegisterOptions{Name: name})
+	}
+}
+
+func scoreboardNamespacePayload(namespace string) any {
+	return mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		payload, ok := input.Payload.(map[string]any)
+		return ok && payload["namespace"] == namespace
+	})
 }
 
 func mockNamespaces(env *testsuite.TestWorkflowEnvironment, namespaces []string) {
-	body := make([]any, 0, len(namespaces))
+	output := make([]any, 0, len(namespaces))
 	for _, namespace := range namespaces {
-		body = append(body, namespace)
+		output = append(output, namespace)
 	}
 
-	env.OnActivity(activityName(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{
-			Output: map[string]any{
-				"body": map[string]any{
-					"namespaces": body,
-				},
-			},
-		}, nil).
+	env.OnActivity(ListScoreboardNamespacesActivityName, mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: output}, nil).
 		Once()
 }
 
-func mockNamespaceScoreboard(env *testsuite.TestWorkflowEnvironment, pipelines []map[string]any) {
-	body := make([]any, 0, len(pipelines))
+func mockNamespaceScoreboard(
+	env *testsuite.TestWorkflowEnvironment,
+	namespace string,
+	pipelines []map[string]any,
+) {
+	output := make([]any, 0, len(pipelines))
 	for _, pipeline := range pipelines {
-		body = append(body, pipeline)
+		output = append(output, pipeline)
 	}
 
-	env.OnActivity(activityName(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{
-			Output: map[string]any{
-				"body": body,
-			},
-		}, nil).
+	env.OnActivity(
+		GetNamespaceScoreboardActivityName,
+		mock.Anything,
+		scoreboardNamespacePayload(namespace),
+	).
+		Return(workflowengine.ActivityResult{Output: output}, nil).
 		Once()
 }
 
 func mockExecutionDetails(env *testsuite.TestWorkflowEnvironment, details map[string]any) {
-	env.OnActivity(activityName(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{
-			Output: map[string]any{
-				"body": details,
-			},
-		}, nil).
+	env.OnActivity(GetScoreboardExecutionDetailsActivityName, mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: details}, nil).
 		Once()
 }
 
@@ -491,46 +458,34 @@ func mockExecutionDetailsForRun(
 	details map[string]any,
 ) {
 	env.OnActivity(
-		activityName(),
+		GetScoreboardExecutionDetailsActivityName,
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
 			if !ok {
 				return false
 			}
-			url, _ := payload["url"].(string)
-			return strings.Contains(url, "/"+workflowID+"/"+runID)
+			return payload["workflow_id"] == workflowID && payload["run_id"] == runID &&
+				strings.HasPrefix(workflowengine.AsString(payload["namespace"]), "namespace-")
 		}),
 	).
-		Return(workflowengine.ActivityResult{
-			Output: map[string]any{
-				"body": details,
-			},
-		}, nil).
+		Return(workflowengine.ActivityResult{Output: details}, nil).
 		Once()
 }
 
-func activityName() string {
-	return activities.NewInternalHTTPActivity().Name()
-}
-
 func mockSaveResults(env *testsuite.TestWorkflowEnvironment) {
-	env.OnActivity(activityName(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-		payload, ok := input.Payload.(map[string]any)
-		if !ok {
-			return false
-		}
-		url, _ := payload["url"].(string)
-		expectedStatus, _ := payload["expected_status"].(int)
-		return strings.Contains(url, "save-results") && expectedStatus == http.StatusOK
-	})).
-		Return(workflowengine.ActivityResult{
-			Output: map[string]any{
-				"body": map[string]any{
-					"success": true,
-				},
-				"status_code": 200,
-			},
-		}, nil).
+	env.OnActivity(
+		SaveScoreboardResultsActivityName,
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+			pipelines, ok := payload["aggregated_pipelines"].([]any)
+			return ok && len(pipelines) > 0
+		}),
+	).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"records_count": 1}}, nil).
 		Once()
 }

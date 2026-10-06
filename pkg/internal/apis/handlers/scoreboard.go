@@ -5,10 +5,8 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"sort"
@@ -156,97 +154,36 @@ type LastExecutionDetails struct {
 	CustomChecks         []string `json:"custom_checks,omitempty"`
 }
 
-type SaveScoreboardResultsRequest struct {
-	AggregatedPipelines []workflows.AggregatedPipelineStats `json:"aggregated_pipelines"`
-}
+// errEmptyScoreboardResults reports a save request without aggregated pipelines.
+var errEmptyScoreboardResults = errors.New("aggregated pipelines cannot be empty")
 
-type SaveScoreboardResultsResponse struct {
-	Success      bool   `json:"success"`
-	Message      string `json:"message"`
-	RecordsCount int    `json:"records_count,omitempty"`
-	Error        string `json:"error,omitempty"`
-}
-
-func HandleSaveScoreboardResults() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		bodyBytes, err := io.ReadAll(e.Request.Body)
-		if err != nil {
-			return apierror.New(
-				http.StatusBadRequest,
-				"request",
-				"Failed to read body",
-				err.Error(),
-			)
-		}
-
-		var req SaveScoreboardResultsRequest
-		if err := json.Unmarshal(bodyBytes, &req); err != nil {
-			return apierror.New(
-				http.StatusBadRequest,
-				"request",
-				"Invalid JSON body",
-				err.Error(),
-			)
-		}
-
-		if len(req.AggregatedPipelines) == 0 {
-			return apierror.New(
-				http.StatusBadRequest,
-				"request",
-				"AggregatedPipelines cannot be empty",
-				"Please provide aggregated pipeline stats in the request body",
-			)
-		}
-
-		if err := truncateCollection(e.App, "pipeline_scoreboard_cache"); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"truncate",
-				"Failed to truncate collection",
-				err.Error(),
-			)
-		}
-
-		result := &workflows.AggregateScoreboardWorkflowOutput{
-			AggregatedPipelines: req.AggregatedPipelines,
-			NamespacesProcessed: 0,
-			NamespacesFailed:    0,
-		}
-
-		recordsCount, saveErrors := insertAggregatedResults(e.App, result)
-		if len(saveErrors) > 0 {
-			e.App.Logger().Warn("Errors during save", "errors", saveErrors)
-		}
-
-		if recordsCount == 0 && hasFatalScoreboardSaveErrors(saveErrors) {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"insert",
-				"Failed to insert any results",
-				fmt.Sprintf("Errors: %v", saveErrors),
-			)
-		}
-
-		message := fmt.Sprintf("Results saved successfully (%d records)", recordsCount)
-		errorMessage := ""
-		if len(saveErrors) > 0 {
-			errorStrings := make([]string, len(saveErrors))
-			for i, err := range saveErrors {
-				errorStrings[i] = fmt.Sprintf("- %s", err.Error())
-			}
-			errorMessage = strings.Join(errorStrings, "\n")
-			message = fmt.Sprintf("Results saved partially (%d records)\nErrors:\n%s",
-				recordsCount,
-				errorMessage)
-		}
-
-		return e.JSON(http.StatusOK, SaveScoreboardResultsResponse{
-			Success:      true,
-			Message:      message,
-			RecordsCount: recordsCount,
-			Error:        errorMessage,
-		})
+// saveScoreboardResults replaces the pipeline_scoreboard_cache content with the
+// aggregated pipelines. It returns the number of saved records and the
+// non-fatal per-record errors; it fails when nothing could be saved.
+func saveScoreboardResults(
+	app core.App,
+	out *workflows.AggregateScoreboardWorkflowOutput,
+) (int, []error, error) {
+	if out == nil || len(out.AggregatedPipelines) == 0 {
+		return 0, nil, errEmptyScoreboardResults
 	}
+
+	if err := truncateCollection(app, "pipeline_scoreboard_cache"); err != nil {
+		return 0, nil, fmt.Errorf("truncate scoreboard cache: %w", err)
+	}
+
+	recordsCount, saveErrors := insertAggregatedResults(app, out)
+	if len(saveErrors) > 0 {
+		app.Logger().Warn("Errors during save", "errors", saveErrors)
+	}
+
+	if recordsCount == 0 && hasFatalScoreboardSaveErrors(saveErrors) {
+		return 0, saveErrors, fmt.Errorf(
+			"failed to insert any results: %w",
+			errors.Join(saveErrors...),
+		)
+	}
+	return recordsCount, saveErrors, nil
 }
 
 func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
@@ -264,7 +201,6 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 			}
 
 			namespace := aggregateScoreboardNamespace
-			appURL := e.App.Settings().Meta.AppURL
 
 			c, err := scheduleTemporalClient(namespace)
 			if err != nil {
@@ -297,9 +233,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 					TaskQueue: workflows.AggregateScoreboardTaskQueue,
 					Args: []interface{}{
 						workflowengine.WorkflowInput{
-							Config: workflowengine.WithInternalAppURL(map[string]any{
-								"app_url": appURL,
-							}),
+							Config: workflowengine.WithAppConfig(e.App, map[string]any{}),
 						},
 					},
 				},
@@ -325,9 +259,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 		workflowResult, err := aggregateScoreboardWorkflowStart(
 			aggregateScoreboardNamespace,
 			workflowengine.WorkflowInput{
-				Config: workflowengine.WithInternalAppURL(map[string]any{
-					"app_url": e.App.Settings().Meta.AppURL,
-				}),
+				Config: workflowengine.WithAppConfig(e.App, map[string]any{}),
 			},
 		)
 		if err != nil {
@@ -400,222 +332,185 @@ func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
 	}
 }
 
-func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		namespace := e.Request.PathValue("namespace")
-		if namespace == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"namespace",
-				"namespace is required",
-				"please provide a namespace in the path",
-			)
-		}
-		pipelineRecords := make([]*core.Record, 0)
-		for offset := 0; ; offset += scoreboardPipelineRecordBatchSize {
-			batch, err := e.App.FindRecordsByFilter(
-				"pipelines",
-				"",
-				"",
-				scoreboardPipelineRecordBatchSize,
-				offset,
-				dbx.Params{},
-			)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"pipelines",
-					"failed to fetch pipelines",
-					err.Error(),
-				)
-			}
-			pipelineRecords = append(pipelineRecords, batch...)
-			if len(batch) < scoreboardPipelineRecordBatchSize {
-				break
-			}
-		}
-		if len(pipelineRecords) == 0 {
-			return e.JSON(http.StatusOK, []PipelineStatsResponse{})
-		}
-		pipelineMap := make(map[string]*core.Record)
-		for _, record := range pipelineRecords {
-			pipelineMap[record.Id] = record
-		}
-
-		pipelineIdentifierIndex := buildPipelineIdentifierIndex(e.App, pipelineMap)
-
-		temporalClient, err := pipelineResultsTemporalClient(namespace)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create temporal client",
-				err.Error(),
-			)
-		}
-
-		executions, err := listPipelineWorkflowExecutions(
-			context.Background(),
-			temporalClient,
-			namespace,
-			nil,
+// namespaceScoreboard computes the stats of every published pipeline run in
+// namespace, from the Temporal executions of that namespace.
+func namespaceScoreboard(
+	ctx context.Context,
+	app core.App,
+	namespace string,
+) ([]PipelineStatsResponse, error) {
+	pipelineRecords := make([]*core.Record, 0)
+	for offset := 0; ; offset += scoreboardPipelineRecordBatchSize {
+		batch, err := app.FindRecordsByFilter(
+			"pipelines",
 			"",
-			pipelineListWorkflowsDefaultLimit,
-			0,
+			"",
+			scoreboardPipelineRecordBatchSize,
+			offset,
+			dbx.Params{},
 		)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list workflows",
-				err.Error(),
-			)
+			return nil, fmt.Errorf("fetch pipelines: %w", err)
 		}
-		pipelineIdentifiers := resolvePipelineIdentifiersForExecutions(executions)
-		runTypes := pipelineRunTypesForExecutions(e.App, executions)
-
-		executionsByPipelineID := make(map[string][]*WorkflowExecution)
-
-		for _, exec := range executions {
-			if exec == nil || exec.Execution == nil {
-				continue
-			}
-			ref := workflowExecutionRef{
-				WorkflowID: exec.Execution.WorkflowID,
-				RunID:      exec.Execution.RunID,
-			}
-			pipelineIdentifier := pipelineIdentifiers[ref]
-			if pipelineIdentifier == "" {
-				continue
-			}
-			pipelineRecord := pipelineIdentifierIndex[pipelineIdentifier]
-			if pipelineRecord == nil {
-				continue
-			}
-			if !pipelineRecord.GetBool("published") {
-				continue
-			}
-			executionsByPipelineID[pipelineRecord.Id] = append(
-				executionsByPipelineID[pipelineRecord.Id],
-				exec,
-			)
+		pipelineRecords = append(pipelineRecords, batch...)
+		if len(batch) < scoreboardPipelineRecordBatchSize {
+			break
 		}
-		response := make([]PipelineStatsResponse, 0, len(executionsByPipelineID))
-
-		for pipelineID, pipelineExecutions := range executionsByPipelineID {
-			pipelineRecord := pipelineMap[pipelineID]
-			if pipelineRecord == nil {
-				continue
-			}
-
-			pipelineName := pipelineRecord.GetString("name")
-
-			runnerCache := make(map[string]map[string]any)
-			stats, lastRun := calculateStatsFromExecutions(
-				pipelineExecutions,
-				e.App,
-				runTypes,
-				runnerCache,
-			)
-
-			response = append(response, PipelineStatsResponse{
-				PipelineID:   pipelineID,
-				PipelineName: pipelineName,
-				PipelineIdentifier: fmt.Sprintf(
-					"%s/%s",
-					namespace,
-					pipelineRecord.GetString("canonified_name"),
-				),
-				DeviceTypes:             stats.DeviceTypes,
-				DeviceIDs:               stats.DeviceIDs,
-				TotalRuns:               stats.TotalRuns,
-				TotalSuccesses:          stats.TotalSuccesses,
-				SuccessRate:             stats.SuccessRate,
-				ManualExecutions:        stats.ManualExecutions,
-				ScheduledExecutions:     stats.ScheduledExecutions,
-				CIExecutions:            stats.CIExecutions,
-				MinExecutionTime:        stats.MinExecutionTime,
-				MinExecutionTimeSeconds: stats.MinExecutionTimeSeconds,
-				FirstExecutionDate:      stats.FirstExecutionDate,
-				LastExecutionDate:       stats.LastExecutionDate,
-				LastRun:                 lastRun,
-			})
-		}
-		return e.JSON(http.StatusOK, response)
 	}
+	if len(pipelineRecords) == 0 {
+		return []PipelineStatsResponse{}, nil
+	}
+	pipelineMap := make(map[string]*core.Record)
+	for _, record := range pipelineRecords {
+		pipelineMap[record.Id] = record
+	}
+
+	pipelineIdentifierIndex := buildPipelineIdentifierIndex(app, pipelineMap)
+
+	temporalClient, err := pipelineResultsTemporalClient(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("create temporal client: %w", err)
+	}
+
+	executions, err := listPipelineWorkflowExecutions(
+		ctx,
+		temporalClient,
+		namespace,
+		nil,
+		"",
+		pipelineListWorkflowsDefaultLimit,
+		0,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list workflows: %w", err)
+	}
+	pipelineIdentifiers := resolvePipelineIdentifiersForExecutions(executions)
+	runTypes := pipelineRunTypesForExecutions(app, executions)
+
+	executionsByPipelineID := make(map[string][]*WorkflowExecution)
+
+	for _, exec := range executions {
+		if exec == nil || exec.Execution == nil {
+			continue
+		}
+		ref := workflowExecutionRef{
+			WorkflowID: exec.Execution.WorkflowID,
+			RunID:      exec.Execution.RunID,
+		}
+		pipelineIdentifier := pipelineIdentifiers[ref]
+		if pipelineIdentifier == "" {
+			continue
+		}
+		pipelineRecord := pipelineIdentifierIndex[pipelineIdentifier]
+		if pipelineRecord == nil {
+			continue
+		}
+		if !pipelineRecord.GetBool("published") {
+			continue
+		}
+		executionsByPipelineID[pipelineRecord.Id] = append(
+			executionsByPipelineID[pipelineRecord.Id],
+			exec,
+		)
+	}
+	response := make([]PipelineStatsResponse, 0, len(executionsByPipelineID))
+
+	for pipelineID, pipelineExecutions := range executionsByPipelineID {
+		pipelineRecord := pipelineMap[pipelineID]
+		if pipelineRecord == nil {
+			continue
+		}
+
+		pipelineName := pipelineRecord.GetString("name")
+
+		runnerCache := make(map[string]map[string]any)
+		stats, lastRun := calculateStatsFromExecutions(
+			pipelineExecutions,
+			app,
+			runTypes,
+			runnerCache,
+		)
+
+		response = append(response, PipelineStatsResponse{
+			PipelineID:   pipelineID,
+			PipelineName: pipelineName,
+			PipelineIdentifier: fmt.Sprintf(
+				"%s/%s",
+				namespace,
+				pipelineRecord.GetString("canonified_name"),
+			),
+			DeviceTypes:             stats.DeviceTypes,
+			DeviceIDs:               stats.DeviceIDs,
+			TotalRuns:               stats.TotalRuns,
+			TotalSuccesses:          stats.TotalSuccesses,
+			SuccessRate:             stats.SuccessRate,
+			ManualExecutions:        stats.ManualExecutions,
+			ScheduledExecutions:     stats.ScheduledExecutions,
+			CIExecutions:            stats.CIExecutions,
+			MinExecutionTime:        stats.MinExecutionTime,
+			MinExecutionTimeSeconds: stats.MinExecutionTimeSeconds,
+			FirstExecutionDate:      stats.FirstExecutionDate,
+			LastExecutionDate:       stats.LastExecutionDate,
+			LastRun:                 lastRun,
+		})
+	}
+	return response, nil
 }
 
-func HandleGetExecutionDetails() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		namespace := e.Request.PathValue("namespace")
-		workflowID := e.Request.PathValue("workflow_id")
-		runID := e.Request.PathValue("run_id")
-
-		if namespace == "" || workflowID == "" || runID == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"params",
-				"namespace, workflow_id and run_id are required",
-				"")
-		}
-
-		temporalClient, err := pipelineResultsTemporalClient(namespace)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create temporal client",
-				err.Error())
-		}
-		exec, apiErr := getWorkflowExecutionWithDecodedAttrs(temporalClient, workflowID, runID)
-		if apiErr != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to get workflow execution",
-				apiErr.Error())
-		}
-		pipelineIdentifier := pipelineIdentifierFromSearchAttributes(exec.SearchAttributes)
-
-		parts := strings.SplitN(pipelineIdentifier, "/", 2)
-		pipelineName := ""
-		if len(parts) == 2 {
-			pipelineName = parts[1]
-		}
-
-		resultRecord, _ := e.App.FindFirstRecordByFilter(
-			"pipeline_results",
-			"workflow_id={:workflow_id} && run_id={:run_id}",
-			dbx.Params{
-				"workflow_id": workflowID,
-				"run_id":      runID,
-			},
-		)
-
-		video, screenshot, logs := getPipelineResultFromRecord(e.App, resultRecord)
-		entityDetails := extractEntityDetailsFromExecution(exec)
-
-		response := LastExecutionDetails{
-			PipelineName:         pipelineName,
-			WorkflowID:           workflowID,
-			RunID:                runID,
-			OrgLogo:              getOrgLogo(e.App, namespace),
-			Video:                video,
-			Screenshots:          screenshot,
-			Logs:                 logs,
-			WalletUsed:           entityDetails.WalletUsed,
-			WalletVersionUsed:    entityDetails.WalletVersionUsed,
-			MaestroScripts:       entityDetails.MaestroScripts,
-			Credentials:          entityDetails.Credentials,
-			Issuers:              entityDetails.Issuers,
-			UseCaseVerifications: entityDetails.UseCaseVerifications,
-			Verifiers:            entityDetails.Verifiers,
-			ConformanceTests:     entityDetails.ConformanceTests,
-			CustomChecks:         entityDetails.CustomChecks,
-		}
-
-		return e.JSON(http.StatusOK, response)
+// scoreboardExecutionDetails describes one pipeline execution for the
+// scoreboard: its entities, the org logo and the stored result files.
+func scoreboardExecutionDetails(
+	app core.App,
+	namespace string,
+	workflowID string,
+	runID string,
+) (*LastExecutionDetails, error) {
+	temporalClient, err := pipelineResultsTemporalClient(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("create temporal client: %w", err)
 	}
+	exec, err := getWorkflowExecutionWithDecodedAttrs(temporalClient, workflowID, runID)
+	if err != nil {
+		return nil, fmt.Errorf("describe workflow execution: %w", err)
+	}
+	pipelineIdentifier := pipelineIdentifierFromSearchAttributes(exec.SearchAttributes)
+
+	parts := strings.SplitN(pipelineIdentifier, "/", 2)
+	pipelineName := ""
+	if len(parts) == 2 {
+		pipelineName = parts[1]
+	}
+
+	resultRecord, _ := app.FindFirstRecordByFilter(
+		"pipeline_results",
+		"workflow_id={:workflow_id} && run_id={:run_id}",
+		dbx.Params{
+			"workflow_id": workflowID,
+			"run_id":      runID,
+		},
+	)
+
+	video, screenshot, logs := getPipelineResultFromRecord(app, resultRecord)
+	entityDetails := extractEntityDetailsFromExecution(exec)
+
+	return &LastExecutionDetails{
+		PipelineName:         pipelineName,
+		WorkflowID:           workflowID,
+		RunID:                runID,
+		OrgLogo:              getOrgLogo(app, namespace),
+		Video:                video,
+		Screenshots:          screenshot,
+		Logs:                 logs,
+		WalletUsed:           entityDetails.WalletUsed,
+		WalletVersionUsed:    entityDetails.WalletVersionUsed,
+		MaestroScripts:       entityDetails.MaestroScripts,
+		Credentials:          entityDetails.Credentials,
+		Issuers:              entityDetails.Issuers,
+		UseCaseVerifications: entityDetails.UseCaseVerifications,
+		Verifiers:            entityDetails.Verifiers,
+		ConformanceTests:     entityDetails.ConformanceTests,
+		CustomChecks:         entityDetails.CustomChecks,
+	}, nil
 }
 
 func getWorkflowExecutionWithDecodedAttrs(

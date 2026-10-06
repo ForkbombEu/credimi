@@ -7,12 +7,10 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/log"
@@ -39,17 +37,12 @@ func PipelineEvidenceSetupHook(
 	}
 	baseAO := PrepareWorkflowOptions(wfDef.Runtime).ActivityOptions
 
-	appURL, ok := config["app_url"].(string)
-	if !ok || strings.TrimSpace(appURL) == "" {
-		appendSetupWarning(finalOutput, "pipeline evidence extraction skipped: missing app_url")
-		return nil
-	}
-
-	extractionActivity := activities.NewPipelineEvidenceExtractionActivity()
+	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
 	extractionReq := workflowengine.ActivityInput{
 		Payload: activities.PipelineEvidenceExtractionInput{
 			WorkflowDefinition: evidenceDiscoveryDefinition(wfDef),
-			CredimiBaseURL:     workflowengine.InternalAppURLFromConfig(config),
+			WorkflowID:         workflowID,
+			RunID:              runID,
 		},
 	}
 
@@ -58,8 +51,11 @@ func PipelineEvidenceSetupHook(
 		evidenceActivityOptions(&baseAO, 5*time.Minute, 1),
 	)
 	var extractionResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(extractionCtx, extractionActivity.Name(), extractionReq).
-		Get(extractionCtx, &extractionResult); err != nil {
+	if err := workflow.ExecuteActivity(
+		extractionCtx,
+		activities.PipelineEvidenceExtractionActivityName,
+		extractionReq,
+	).Get(extractionCtx, &extractionResult); err != nil {
 		if temporal.IsCanceledError(err) {
 			return err
 		}
@@ -79,54 +75,6 @@ func PipelineEvidenceSetupHook(
 	}
 	appendSetupWarnings(finalOutput, output.Warnings)
 	SetRunDataValue(runData, pipelineEvidenceRunDataKey, output)
-	if len(output.CredentialWellKnowns) == 0 && len(output.PresentationResults) == 0 {
-		return nil
-	}
-	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
-	if workflowID == "" || runID == "" {
-		appendSetupWarning(
-			finalOutput,
-			"pipeline evidence storage skipped: missing workflow_id or run_id",
-		)
-		return nil
-	}
-
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	updateReq := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				workflowengine.InternalAppURLFromConfig(config),
-				"api",
-				"pipeline",
-				"pipeline-execution-results",
-				"evidence",
-			),
-			ExpectedStatus: http.StatusOK,
-			Timeout:        "30",
-			Body: map[string]any{
-				"workflow_id":            workflowID,
-				"run_id":                 runID,
-				"credential_well_knowns": output.CredentialWellKnowns,
-				"presentation_results":   output.PresentationResults,
-			},
-		},
-	}
-
-	updateCtx := workflow.WithActivityOptions(
-		ctx,
-		evidenceActivityOptions(&baseAO, 2*time.Minute, 5),
-	)
-	var updateResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(updateCtx, internalHTTPActivity.Name(), updateReq).
-		Get(updateCtx, &updateResult); err != nil {
-		if temporal.IsCanceledError(err) {
-			return err
-		}
-		appendSetupWarning(finalOutput, fmt.Sprintf("pipeline evidence storage failed: %v", err))
-		logger.Warn("Pipeline evidence storage failed", "error", err)
-	}
-
 	return nil
 }
 

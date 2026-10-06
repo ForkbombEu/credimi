@@ -338,7 +338,6 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			return pollOpenIDConformanceLogs(
 				ctx,
 				rid,
-				workflowengine.InternalAppURLFromConfig(input.Config),
 				utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				false,
 				input.RunMetadata,
@@ -371,7 +370,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				},
 				Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
-					"app_url":  workflowengine.InternalAppURLFromConfig(input.Config),
+					"app_url":  input.Config[workflowengine.AppURLConfigKey],
 					"interval": time.Second,
 				}),
 			}).GetChildWorkflowExecution().Get(ctx, nil)
@@ -458,7 +457,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				SessionID: ewcSessionID,
 			},
 			Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
-				"app_url":        workflowengine.InternalAppURLFromConfig(input.Config),
+				"app_url":        input.Config[workflowengine.AppURLConfigKey],
 				"interval":       time.Second * 5,
 				"check_endpoint": checkEndpoint,
 				"logs_endpoint":  logsEndpoint,

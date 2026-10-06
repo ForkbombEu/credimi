@@ -6,11 +6,10 @@ package workflows
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -79,49 +78,28 @@ func (w *PipelineRetentionWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
-	appURL = workflowengine.InternalAppURLFromConfig(input.Config)
-
-	httpActivity := activities.NewInternalHTTPActivity()
 	batchSize := payload.BatchSize
 	if batchSize == 0 {
 		batchSize = PipelineRetentionDefaultBatchSize
 	}
 	request := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				appURL,
-				"api", "pipeline", "retention", "delete-files",
-			),
-			Headers: map[string]string{
-				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
-			},
-			Body: map[string]any{
-				"older_than_days": payload.OlderThanDays,
-				"dry_run":         payload.DryRun,
-				"batch_size":      batchSize,
-			},
-			ExpectedStatus: http.StatusOK,
+		Payload: pipelineresults.DeleteFilesOptions{
+			OlderThanDays: payload.OlderThanDays,
+			DryRun:        payload.DryRun,
+			BatchSize:     batchSize,
 		},
 	}
 
-	var httpResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), request).
-		Get(ctx, &httpResult); err != nil {
+	var activityResult workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(ctx, activities.DeletePipelineResultFilesActivityName, request).
+		Get(ctx, &activityResult); err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
 			input.RunMetadata,
 		)
 	}
 
-	output, ok := httpResult.Output.(map[string]any)
+	output, ok := activityResult.Output.(map[string]any)
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
@@ -129,25 +107,7 @@ func (w *PipelineRetentionWorkflow) ExecuteWorkflow(
 				Code:    errCode.Code,
 				Summary: errCode.Description,
 				Message: fmt.Sprintf("%s: invalid output format", errCode.Description),
-				Details: map[string]any{"payload": httpResult.Output},
-			},
-		)
-
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			appErr,
-			input.RunMetadata,
-		)
-	}
-
-	body, ok := output["body"].(map[string]any)
-	if !ok {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		appErr := workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("%s: missing body in output", errCode.Description),
-				Details: map[string]any{"payload": output},
+				Details: map[string]any{"payload": activityResult.Output},
 			},
 		)
 
@@ -164,6 +124,6 @@ func (w *PipelineRetentionWorkflow) ExecuteWorkflow(
 
 	return workflowengine.WorkflowResult{
 		Message: message,
-		Output:  body,
+		Output:  output,
 	}, nil
 }

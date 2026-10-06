@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/dbx"
@@ -697,7 +698,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			)
 		}
 
-		runnerID, err := mobileRunnerIdentifier(e.App, record)
+		runnerID, err := mobilerunner.RunnerIdentifier(e.App, record)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -867,7 +868,7 @@ func previewMobileRunnerIdentifier(
 	}
 
 	record.Set("canonified_name", canonifiedName)
-	runnerID, err := mobileRunnerIdentifier(app, record)
+	runnerID, err := mobilerunner.RunnerIdentifier(app, record)
 	if err != nil {
 		return PreviewMobileRunnerIDResponse{}, apierror.New(
 			http.StatusInternalServerError,
@@ -975,7 +976,7 @@ func previewMobileDeviceIdentifier(
 			err.Error(),
 		)
 	}
-	runnerID, _ := mobileRunnerIdentifier(app, runner)
+	runnerID, _ := mobilerunner.RunnerIdentifier(app, runner)
 	baseCanonifiedName := canonify.CanonifyPlain(strings.TrimSpace(name))
 	baseDeviceID := canonify.NormalizePath(runnerID + "/" + baseCanonifiedName)
 	response := PreviewMobileDeviceIDResponse{

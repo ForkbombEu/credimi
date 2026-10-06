@@ -6,7 +6,6 @@ package pipeline
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
@@ -23,7 +22,7 @@ func TestPipelineEvidenceSetupHookAddsWarningsWithoutFailing(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	evidenceActivity := activities.NewPipelineEvidenceExtractionActivity()
+	evidenceActivity := activities.NewPipelineEvidenceExtractionActivity(nil)
 	env.RegisterActivityWithOptions(
 		func(
 			_ context.Context,
@@ -57,69 +56,42 @@ func TestPipelineEvidenceSetupHookStoresEvidence(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	evidenceActivity := activities.NewPipelineEvidenceExtractionActivity()
+	evidenceActivity := activities.NewPipelineEvidenceExtractionActivity(nil)
 	env.RegisterActivityWithOptions(
-		func(
-			_ context.Context,
-			_ workflowengine.ActivityInput,
-		) (workflowengine.ActivityResult, error) {
-			return workflowengine.ActivityResult{
-				Output: activities.PipelineEvidenceExtractionOutput{
-					CredentialWellKnowns: []map[string]any{
-						{
-							"step_id":       "cred-step",
-							"credential_id": "tenant/credential-1",
-							"well_known":    map[string]any{"credential_issuer": "issuer-1"},
-						},
-					},
-					PresentationResults: []map[string]any{
-						{
-							"step_id":     "vp-step",
-							"use_case_id": "tenant/use-case-1",
-							"result":      map[string]any{"format": "jwt"},
-						},
-					},
-				},
-			}, nil
-		},
+		evidenceActivity.Execute,
 		activity.RegisterOptions{Name: evidenceActivity.Name()},
 	)
-
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	env.RegisterActivityWithOptions(
-		func(
-			_ context.Context,
-			_ workflowengine.ActivityInput,
-		) (workflowengine.ActivityResult, error) {
-			return workflowengine.ActivityResult{
-				Output: map[string]any{"status": http.StatusOK},
-			}, nil
-		},
-		activity.RegisterOptions{Name: internalHTTPActivity.Name()},
-	)
 	env.OnActivity(
-		internalHTTPActivity.Name(),
+		activities.PipelineEvidenceExtractionActivityName,
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+			payload, err := workflowengine.DecodePayload[activities.PipelineEvidenceExtractionInput](
 				input.Payload,
 			)
 			require.NoError(t, err)
-			require.Equal(t, http.MethodPost, payload.Method)
-			require.Equal(
-				t,
-				"https://credimi.test/api/pipeline/pipeline-execution-results/evidence",
-				payload.URL,
-			)
-			body, ok := payload.Body.(map[string]any)
-			require.True(t, ok)
-			require.Equal(t, "default-test-workflow-id", body["workflow_id"])
-			require.Equal(t, "default-test-run-id", body["run_id"])
-			require.Len(t, body["credential_well_knowns"], 1)
-			require.Len(t, body["presentation_results"], 1)
+			require.Equal(t, "default-test-workflow-id", payload.WorkflowID)
+			require.Equal(t, "default-test-run-id", payload.RunID)
+			require.NotNil(t, payload.WorkflowDefinition)
 			return true
 		}),
-	).Return(workflowengine.ActivityResult{Output: map[string]any{"status": http.StatusOK}}, nil).Once()
+	).Return(workflowengine.ActivityResult{
+		Output: activities.PipelineEvidenceExtractionOutput{
+			CredentialWellKnowns: []map[string]any{
+				{
+					"step_id":       "cred-step",
+					"credential_id": "tenant/credential-1",
+					"well_known":    map[string]any{"credential_issuer": "issuer-1"},
+				},
+			},
+			PresentationResults: []map[string]any{
+				{
+					"step_id":     "vp-step",
+					"use_case_id": "tenant/use-case-1",
+					"result":      map[string]any{"format": "jwt"},
+				},
+			},
+		},
+	}, nil).Once()
 
 	env.ExecuteWorkflow(testPipelineEvidenceSetupWorkflow)
 
@@ -137,7 +109,7 @@ func TestPipelineEvidenceSetupHookSendsOnlyDiscoverySteps(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	var definition *pipelineinternal.WorkflowDefinition
-	evidenceActivity := activities.NewPipelineEvidenceExtractionActivity()
+	evidenceActivity := activities.NewPipelineEvidenceExtractionActivity(nil)
 	env.RegisterActivityWithOptions(
 		func(
 			_ context.Context,
@@ -224,7 +196,7 @@ func testPipelineEvidenceSetupWorkflow(ctx workflow.Context) (map[string]any, er
 	err := PipelineEvidenceSetupHook(
 		ctx,
 		wfDef,
-		map[string]any{"app_url": "https://credimi.test"},
+		map[string]any{},
 		&runData,
 		&finalOutput,
 		workflow.GetLogger(ctx),

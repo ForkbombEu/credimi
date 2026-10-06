@@ -4,12 +4,8 @@
 package activities
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -17,10 +13,12 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
+	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
@@ -30,8 +28,8 @@ import (
 
 type StartQueuedPipelineActivity struct {
 	workflowengine.BaseActivity
+	app                   core.App
 	temporalClientFactory func(namespace string) (temporalWorkflowStarter, error)
-	httpDoer              httpDoer
 }
 
 type StartQueuedPipelineActivityInput struct {
@@ -118,19 +116,15 @@ type temporalWorkflowStarter interface {
 	) (client.WorkflowRun, error)
 }
 
-type httpDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
-func NewStartQueuedPipelineActivity() *StartQueuedPipelineActivity {
+func NewStartQueuedPipelineActivity(app core.App) *StartQueuedPipelineActivity {
 	return &StartQueuedPipelineActivity{
 		BaseActivity: workflowengine.BaseActivity{
 			Name: "Start queued pipeline",
 		},
+		app: app,
 		temporalClientFactory: func(namespace string) (temporalWorkflowStarter, error) {
 			return temporalclient.GetTemporalClientWithNamespace(namespace)
 		},
-		httpDoer: &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
@@ -187,20 +181,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 		config["namespace"] = payload.OwnerNamespace
 	}
 
-	appURL, ok := config["app_url"].(string)
-	if !ok || strings.TrimSpace(appURL) == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(
-			workflowengine.ActivityError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: "app_url is required in pipeline_config",
-			},
-		)
-	}
-	if internalURL := workflowengine.InternalAppURLOverride(); internalURL != "" {
-		config[workflowengine.InternalAppURLConfigKey] = internalURL
-	}
+	config = workflowengine.WithAppConfig(a.app, config)
 
 	memo := payload.Memo
 	if memo == nil {
@@ -325,21 +306,11 @@ func (a *StartQueuedPipelineActivity) Execute(
 	}
 	result.Output = output
 
-	httpDoer := a.httpDoer
-	if httpDoer == nil {
-		httpDoer = &http.Client{Timeout: 15 * time.Second}
-	}
-
-	if err := createPipelineExecutionResultWithRetry(
-		ctx,
-		httpDoer,
-		workflowengine.InternalAppURLFromConfig(config),
-		payload.OwnerNamespace,
-		payload.PipelineIdentifier,
+	if err := a.createPipelineResult(
+		payload,
 		workflowID,
 		runID,
 		pipelineRunTypeFromMemo(memo),
-		payload.RequiredDeviceIDs,
 	); err != nil {
 		if activity.IsActivity(ctx) {
 			logger := activity.GetLogger(ctx)
@@ -611,102 +582,36 @@ func parseDurationOrDefault(value, fallback string) time.Duration {
 	return parsed
 }
 
-func createPipelineExecutionResultWithRetry(
-	ctx context.Context,
-	httpDoer httpDoer,
-	appURL string,
-	ownerNamespace string,
-	pipelineID string,
+// createPipelineResult stores the pipeline_results row of a started run.
+func (a *StartQueuedPipelineActivity) createPipelineResult(
+	payload StartQueuedPipelineActivityInput,
 	workflowID string,
 	runID string,
 	runType string,
-	deviceIDs []string,
 ) error {
-	backoffs := []time.Duration{
-		250 * time.Millisecond,
-		1 * time.Second,
-		3 * time.Second,
-	}
-	maxAttempts := len(backoffs) + 1
-	var lastErr error
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		status, err := postPipelineExecutionResult(
-			ctx,
-			httpDoer,
-			appURL,
-			ownerNamespace,
-			pipelineID,
-			workflowID,
-			runID,
-			runType,
-			deviceIDs,
-		)
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-		if status > 0 && status < http.StatusInternalServerError {
-			return err
-		}
-		if attempt < len(backoffs) {
-			if err := sleepWithContext(ctx, backoffs[attempt]); err != nil {
-				return err
-			}
-		}
-	}
-	return lastErr
-}
-
-func postPipelineExecutionResult(
-	ctx context.Context,
-	httpDoer httpDoer,
-	appURL string,
-	ownerNamespace string,
-	pipelineID string,
-	workflowID string,
-	runID string,
-	runType string,
-	deviceIDs []string,
-) (int, error) {
-	payload := map[string]any{
-		"owner":       ownerNamespace,
-		"pipeline_id": pipelineID,
-		"workflow_id": workflowID,
-		"run_id":      runID,
-		"type":        runType,
-		"device_ids":  copyStringSlice(deviceIDs),
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return 0, fmt.Errorf("marshal pipeline result payload: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		utils.JoinURL(appURL, "api", "pipeline", "pipeline-execution-results"),
-		bytes.NewReader(body),
+	owner, err := a.app.FindFirstRecordByFilter(
+		"organizations",
+		"canonified_name = {:name}",
+		dbx.Params{"name": payload.OwnerNamespace},
 	)
 	if err != nil {
-		return 0, fmt.Errorf("build pipeline results request: %w", err)
+		return fmt.Errorf("lookup owner organization %s: %w", payload.OwnerNamespace, err)
 	}
-	req.Header.Set(workflowengine.HTTPHeaderContentType, workflowengine.MIMEApplicationJSON)
-	internalKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
-	if internalKey == "" {
-		return 0, fmt.Errorf("CREDIMI_INTERNAL_ADMIN_KEY is required")
-	}
-	req.Header.Set("Credimi-Api-Key", internalKey)
-
-	resp, err := httpDoer.Do(req)
+	pipelineRecord, err := canonify.Resolve(a.app, payload.PipelineIdentifier)
 	if err != nil {
-		return 0, fmt.Errorf("post pipeline results: %w", err)
+		return fmt.Errorf("resolve pipeline %s: %w", payload.PipelineIdentifier, err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return resp.StatusCode, fmt.Errorf("pipeline results status: %s", resp.Status)
+	if _, err := pipelineresults.Create(a.app, pipelineresults.CreateInput{
+		OwnerID:    owner.Id,
+		PipelineID: pipelineRecord.Id,
+		WorkflowID: workflowID,
+		RunID:      runID,
+		RunType:    runType,
+		DeviceIDs:  payload.RequiredDeviceIDs,
+	}); err != nil {
+		return err
 	}
-	return resp.StatusCode, nil
+	return nil
 }
 
 func pipelineRunTypeFromMemo(memo map[string]any) string {
@@ -716,16 +621,4 @@ func pipelineRunTypeFromMemo(memo map[string]any) string {
 		}
 	}
 	return pipeline.RunTypeManual
-}
-
-func sleepWithContext(ctx context.Context, duration time.Duration) error {
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
 }

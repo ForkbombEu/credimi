@@ -53,17 +53,15 @@ type EudiwInput struct {
 type Author string
 
 type WorkflowStarterParams struct {
+	App       core.App
 	YAMLData  string
 	Email     string
-	AppURL    string
 	Namespace string
 	Memo      map[string]interface{}
 	Author    Author
 	TestName  string
 	Protocol  string
 	Version   string
-	AppName   string
-	LogoUrl   string
 	UserName  string
 }
 
@@ -140,7 +138,6 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			return err
 		}
 
-		appURL := e.App.Settings().Meta.AppURL
 		userID := e.Auth.Id
 		email := e.Auth.GetString("email")
 		namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, userID)
@@ -161,13 +158,6 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		appName := e.App.Settings().Meta.AppName
-		logoURL := utils.JoinURL(
-			appURL,
-			"logos",
-			fmt.Sprintf("%s_logo-transp_emblem.png", strings.ToLower(appName)),
-		)
-
 		userName := e.Auth.GetString("name")
 
 		protocol := e.Request.PathValue("protocol")
@@ -219,17 +209,15 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			}
 
 			results, err := processJSONChecks(
+				e.App,
 				config,
 				email,
-				appURL,
 				namespace,
 				memo,
 				author,
 				testName,
 				protocol,
 				version,
-				logoURL,
-				appName,
 				userName,
 			)
 			if err != nil {
@@ -263,15 +251,12 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				testName,
 				testData,
 				email,
-				appURL,
 				namespace,
 				dirPath,
 				memo,
 				author,
 				protocol,
 				version,
-				logoURL,
-				appName,
 				userName,
 				orgID,
 			)
@@ -361,7 +346,6 @@ func startOpenID4VPWalletWorkflow(i WorkflowStarterParams) (workflowengine.Workf
 
 	yamlData := i.YAMLData
 	email := i.Email
-	appURL := i.AppURL
 	namespace := i.Namespace
 	memo := i.Memo
 	version := i.Version
@@ -442,13 +426,10 @@ func startOpenID4VPWalletWorkflow(i WorkflowStarterParams) (workflowengine.Workf
 			TestName: parsedData.TestName,
 			UserMail: email,
 		},
-		Config: workflowengine.WithInternalAppURL(map[string]any{
-			"app_url":   appURL,
+		Config: workflowengine.WithAppConfig(i.App, map[string]any{
 			"template":  templateStr,
 			"namespace": namespace,
 			"memo":      memo,
-			"app_name":  i.AppName,
-			"app_logo":  i.LogoUrl,
 			"user_name": i.UserName,
 		}),
 	}
@@ -504,13 +485,10 @@ func startOpenIDAutomatedConformanceWorkflow(
 			TestName:   conformanceInputString(rawData, "test"),
 			UserMail:   i.Email,
 		},
-		Config: workflowengine.WithInternalAppURL(map[string]any{
-			"app_url":   i.AppURL,
+		Config: workflowengine.WithAppConfig(i.App, map[string]any{
 			"template":  templateStr,
 			"namespace": i.Namespace,
 			"memo":      i.Memo,
-			"app_name":  i.AppName,
-			"app_logo":  i.LogoUrl,
 			"user_name": i.UserName,
 		}),
 	}
@@ -598,15 +576,12 @@ func startEWCLikeWorkflow(
 			Parameters: conformanceInputParameters(rawData, nil),
 			UserMail:   i.Email,
 		},
-		Config: workflowengine.WithInternalAppURL(map[string]any{
-			"app_url":        i.AppURL,
+		Config: workflowengine.WithAppConfig(i.App, map[string]any{
 			"template":       templateStr,
 			"namespace":      i.Namespace,
 			"memo":           i.Memo,
 			"check_endpoint": checkEndpoint,
 			"logs_endpoint":  logsEndpoint,
-			"app_name":       i.AppName,
-			"app_logo":       i.LogoUrl,
 			"user_name":      i.UserName,
 		}),
 	}
@@ -626,7 +601,6 @@ func startEWCLikeWorkflow(
 func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
 	yamlData := i.YAMLData
 	email := i.Email
-	appURL := i.AppURL
 	namespace := i.Namespace
 	memo := i.Memo
 	testName := i.TestName
@@ -660,13 +634,10 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 			ID:       parsedData.ID,
 			UserMail: email,
 		},
-		Config: workflowengine.WithInternalAppURL(map[string]any{
-			"app_url":   appURL,
+		Config: workflowengine.WithAppConfig(i.App, map[string]any{
 			"template":  templateStr,
 			"namespace": namespace,
 			"memo":      memo,
-			"app_name":  i.AppName,
-			"app_logo":  i.LogoUrl,
 			"user_name": i.UserName,
 		}),
 	}
@@ -684,7 +655,6 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 }
 func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
 	yamlData := i.YAMLData
-	appURL := i.AppURL
 	namespace := i.Namespace
 	memo := i.Memo
 
@@ -730,8 +700,7 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 		)
 	}
 	input := workflowengine.WorkflowInput{
-		Config: workflowengine.WithInternalAppURL(map[string]any{
-			"app_url":    appURL,
+		Config: workflowengine.WithAppConfig(i.App, map[string]any{
 			"server_url": parsedData.ServerURL,
 			"memo":       memo,
 		}),
@@ -754,31 +723,27 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 }
 
 func processJSONChecks(
+	app core.App,
 	testData string,
-	email,
-	appURL string,
+	email string,
 	namespace string,
 	memo map[string]interface{},
 	author Author,
 	testName string,
 	protocol string,
 	version string,
-	logoUrl string,
-	appName string,
 	userName string,
 ) (workflowengine.WorkflowResult, error) {
 	input := WorkflowStarterParams{
+		App:       app,
 		YAMLData:  testData,
 		Email:     email,
-		AppURL:    appURL,
 		Namespace: namespace,
 		Memo:      memo,
 		Author:    author,
 		TestName:  testName,
 		Protocol:  protocol,
 		Version:   version,
-		LogoUrl:   logoUrl,
-		AppName:   appName,
 		UserName:  userName,
 	}
 	if starterFunc, ok := workflowRegistry[author]; ok {
@@ -796,16 +761,13 @@ func processVariablesTest(
 	app core.App,
 	testName string,
 	variables []Variable,
-	email,
-	appURL string,
+	email string,
 	namespace string,
 	dirPath string,
 	memo map[string]interface{},
 	author Author,
 	protocol string,
 	version string,
-	logoUrl string,
-	appName string,
 	userName string,
 	orgID string,
 ) (workflowengine.WorkflowResult, error) {
@@ -860,17 +822,15 @@ func processVariablesTest(
 	}
 
 	input := WorkflowStarterParams{
+		App:       app,
 		YAMLData:  renderedTemplate,
 		Email:     email,
-		AppURL:    appURL,
 		Namespace: namespace,
 		Memo:      memo,
 		Author:    author,
 		TestName:  testName,
 		Protocol:  protocol,
 		Version:   version,
-		LogoUrl:   logoUrl,
-		AppName:   appName,
 		UserName:  userName,
 	}
 

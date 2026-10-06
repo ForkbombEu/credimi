@@ -25,7 +25,6 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 	testCases := []struct {
 		name           string
 		inputPayload   WorkerManagerWorkflowPayload
-		inputConfig    map[string]any
 		inputOptions   *workflow.ActivityOptions
 		mockActivities func(env *testsuite.TestWorkflowEnvironment)
 		expectedErr    bool
@@ -36,51 +35,19 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",
 				OldNamespace: "old-test-namespace",
-			},
-			inputConfig: map[string]any{
-				"app_url": "https://test-server.com",
+				RunnerURLs:   []string{"https://runner1.test", "https://runner2.test"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				internalHTTPAct := activities.NewInternalHTTPActivity()
 				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity()
 				env.RegisterActivityWithOptions(runnerHTTPAct.Execute, activity.RegisterOptions{
 					Name: runnerHTTPAct.Name(),
 				})
-				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
-					Name: internalHTTPAct.Name(),
-				})
-
 				env.OnActivity(runnerHTTPAct.Name(), mock.Anything, mock.Anything).Return(
-					workflowengine.ActivityResult{Output: map[string]any{"status": 202}},
-					nil,
-				).Maybe()
-				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
 					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+						payload, err := workflowengine.DecodePayload[activities.MobileRunnerHTTPActivityPayload](
 							input.Payload,
 						)
 						require.NoError(t, err)
-
-						if payload.Method == http.MethodGet {
-							require.Equal(
-								t,
-								"https://test-server.com/api/mobile-runner/list-urls",
-								payload.URL,
-							)
-							require.Equal(t, 200, payload.ExpectedStatus)
-							return workflowengine.ActivityResult{
-								Output: map[string]any{
-									"status": "ok",
-									"body": map[string]any{
-										"runners": []any{
-											"https://runner1.test",
-											"https://runner2.test",
-										},
-									},
-								},
-							}, nil
-						}
-
 						require.Equal(t, http.MethodPost, payload.Method)
 						require.Contains(t, []string{
 							"https://runner1.test/worker/test-namespace",
@@ -92,7 +59,8 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 						require.Equal(t, "old-test-namespace", body["old_namespace"])
 						return workflowengine.ActivityResult{}, nil
 					},
-				)
+				).
+					Times(2)
 			},
 			assertResult: func(t *testing.T, result workflowengine.WorkflowResult) {
 				require.Equal(
@@ -106,7 +74,7 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			},
 		},
 		{
-			name: "Workflow uses provided runner URLs without calling list endpoint",
+			name: "Workflow normalizes and deduplicates runner URLs",
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",
 				OldNamespace: "old-test-namespace",
@@ -117,37 +85,25 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 					"https://runner2.test",
 				},
 			},
-			inputConfig: map[string]any{
-				"app_url": "https://test-server.com",
-			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				internalHTTPAct := activities.NewInternalHTTPActivity()
 				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity()
 				env.RegisterActivityWithOptions(runnerHTTPAct.Execute, activity.RegisterOptions{
 					Name: runnerHTTPAct.Name(),
 				})
-				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
-					Name: internalHTTPAct.Name(),
-				})
-
 				env.OnActivity(runnerHTTPAct.Name(), mock.Anything, mock.Anything).Return(
-					workflowengine.ActivityResult{Output: map[string]any{"status": 202}},
-					nil,
-				).Maybe()
-				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
 					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+						payload, err := workflowengine.DecodePayload[activities.MobileRunnerHTTPActivityPayload](
 							input.Payload,
 						)
 						require.NoError(t, err)
-						require.Equal(t, http.MethodPost, payload.Method)
 						require.Contains(t, []string{
 							"https://runner1.test/worker/test-namespace",
 							"https://runner2.test/worker/test-namespace",
 						}, payload.URL)
 						return workflowengine.ActivityResult{}, nil
 					},
-				)
+				).
+					Times(2)
 			},
 			assertResult: func(t *testing.T, result workflowengine.WorkflowResult) {
 				require.Equal(
@@ -158,14 +114,27 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			},
 		},
 		{
-			name: "Workflow with explicit empty runner URLs does not call list endpoint",
+			name: "Workflow with explicit empty runner URLs starts no runner",
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",
 				OldNamespace: "old-test-namespace",
 				RunnerURLs:   []string{},
 			},
-			inputConfig: map[string]any{
-				"app_url": "https://test-server.com",
+			mockActivities: func(_ *testsuite.TestWorkflowEnvironment) {},
+			assertResult: func(t *testing.T, result workflowengine.WorkflowResult) {
+				require.Equal(
+					t,
+					"Send namespace 'test-namespace' to start workers finished: 0/0 succeeded (0 failed)",
+					result.Message,
+				)
+				assertWorkerManagerOutput(t, result.Output, 0, 0, 0)
+			},
+		},
+		{
+			name: "Workflow treats nil runner URLs as empty",
+			inputPayload: WorkerManagerWorkflowPayload{
+				Namespace:    "test-namespace",
+				OldNamespace: "old-test-namespace",
 			},
 			mockActivities: func(_ *testsuite.TestWorkflowEnvironment) {},
 			assertResult: func(t *testing.T, result workflowengine.WorkflowResult) {
@@ -182,9 +151,11 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",
 				OldNamespace: "old-test-namespace",
-			},
-			inputConfig: map[string]any{
-				"app_url": "https://test-server.com",
+				RunnerURLs: []string{
+					"https://runner1.test",
+					"https://runner2.test",
+					"https://runner3.test",
+				},
 			},
 			inputOptions: &workflow.ActivityOptions{
 				ScheduleToCloseTimeout: DefaultActivityOptions.ScheduleToCloseTimeout,
@@ -194,45 +165,10 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				internalHTTPAct := activities.NewInternalHTTPActivity()
 				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity()
 				env.RegisterActivityWithOptions(runnerHTTPAct.Execute, activity.RegisterOptions{
 					Name: runnerHTTPAct.Name(),
 				})
-				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
-					Name: internalHTTPAct.Name(),
-				})
-
-				// The list call stays internal; the per-runner starts are the
-				// runner-directed activity, and runner2 is the one that fails.
-				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
-					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
-							input.Payload,
-						)
-						require.NoError(t, err)
-						require.Equal(t, http.MethodGet, payload.Method)
-						require.Equal(
-							t,
-							"https://test-server.com/api/mobile-runner/list-urls",
-							payload.URL,
-						)
-						require.Equal(t, 200, payload.ExpectedStatus)
-
-						return workflowengine.ActivityResult{
-							Output: map[string]any{
-								"status": "ok",
-								"body": map[string]any{
-									"runners": []any{
-										"https://runner1.test",
-										"https://runner2.test",
-										"https://runner3.test",
-									},
-								},
-							},
-						}, nil
-					},
-				)
 				env.OnActivity(runnerHTTPAct.Name(), mock.Anything, mock.Anything).Return(
 					func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 						payload, err := workflowengine.DecodePayload[activities.MobileRunnerHTTPActivityPayload](
@@ -272,47 +208,7 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			inputPayload: WorkerManagerWorkflowPayload{
 				OldNamespace: "old-test-namespace",
 			},
-			inputConfig: map[string]any{
-				"app_url": "https://test-server.com",
-			},
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
-			expectedErr:    true,
-		},
-		{
-			name: "Workflow fails when list API returns invalid response body",
-			inputPayload: WorkerManagerWorkflowPayload{
-				Namespace:    "test-namespace",
-				OldNamespace: "old-test-namespace",
-			},
-			inputConfig: map[string]any{
-				"app_url": "https://test-server.com",
-			},
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				internalHTTPAct := activities.NewInternalHTTPActivity()
-
-				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
-					Name: internalHTTPAct.Name(),
-				})
-				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{
-						Output: map[string]any{
-							"status": "ok",
-							"body": map[string]any{
-								"runners": "not-an-array",
-							},
-						},
-					}, nil)
-			},
-			expectedErr: true,
-		},
-		{
-			name: "Workflow fails when app_url missing in config",
-			inputPayload: WorkerManagerWorkflowPayload{
-				Namespace:    "test-namespace",
-				OldNamespace: "old-test-namespace",
-			},
-			inputConfig:    map[string]any{},
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
+			mockActivities: func(_ *testsuite.TestWorkflowEnvironment) {},
 			expectedErr:    true,
 		},
 	}
@@ -327,20 +223,18 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			w := NewWorkerManagerWorkflow()
 			env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
 				Payload:         tc.inputPayload,
-				Config:          tc.inputConfig,
 				ActivityOptions: tc.inputOptions,
 			})
 
+			var result workflowengine.WorkflowResult
+			err := env.GetWorkflowResult(&result)
 			if tc.expectedErr {
-				var result workflowengine.WorkflowResult
-				err := env.GetWorkflowResult(&result)
 				require.Error(t, err)
-			} else {
-				var result workflowengine.WorkflowResult
-				err := env.GetWorkflowResult(&result)
-				require.NoError(t, err)
-				tc.assertResult(t, result)
+				return
 			}
+			require.NoError(t, err)
+			tc.assertResult(t, result)
+			env.AssertExpectations(t)
 		})
 	}
 }

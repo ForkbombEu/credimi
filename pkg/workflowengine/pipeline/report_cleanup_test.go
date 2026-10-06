@@ -25,6 +25,7 @@ func TestPipelineReportCleanupHookStoresReport(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	reportActivity := activities.NewPipelineReportGenerationActivity(
+		nil,
 		registry.StepActivityOutputKind,
 	)
 	env.RegisterActivityWithOptions(
@@ -64,7 +65,7 @@ func TestPipelineReportCleanupHookStoresReport(t *testing.T) {
 	require.Equal(t, "default-test-namespace", rawInput["namespace"])
 	require.Equal(t, "default-test-workflow-id", rawInput["workflow_id"])
 	require.Equal(t, "default-test-run-id", rawInput["run_id"])
-	require.Equal(t, "https://credimi.test", rawInput["app_url"])
+	require.NotContains(t, rawInput, "app_url")
 	require.NotContains(t, rawInput, "workflow_definition")
 	require.NotContains(t, rawInput, "pipeline_output")
 	require.Equal(t, map[string]any{
@@ -94,28 +95,6 @@ func TestPipelineReportCleanupHookWarnsWhenEvidenceMissing(t *testing.T) {
 	require.Equal(
 		t,
 		[]string{"pipeline report generation skipped: missing pipeline evidence"},
-		finalOutput[cleanupWarningsOutputKey],
-	)
-}
-
-func TestPipelineReportCleanupHookWarnsWhenAppURLMissing(t *testing.T) {
-	finalOutput := map[string]any{"workflow_id": "workflow-1", "run_id": "run-1"}
-	err := PipelineReportCleanupHook(
-		nil,
-		&pipelineinternal.WorkflowDefinition{
-			Steps: []pipelineinternal.StepDefinition{
-				{StepSpec: pipelineinternal.StepSpec{Use: "credential-offer"}},
-			},
-		},
-		nil,
-		map[string]any{},
-		map[string]any{},
-		&finalOutput,
-	)
-	require.NoError(t, err)
-	require.Equal(
-		t,
-		[]string{"pipeline report generation skipped: missing app_url"},
 		finalOutput[cleanupWarningsOutputKey],
 	)
 }

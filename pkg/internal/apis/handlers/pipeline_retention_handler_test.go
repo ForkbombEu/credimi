@@ -7,7 +7,6 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -62,241 +61,6 @@ func ensurePipelineRetentionEvidenceFields(t testing.TB, app *tests.TestApp) {
 		collection.Fields.Add(&core.FileField{Name: "fcaf_report_pdf", MaxSelect: 1})
 	}
 	require.NoError(t, app.Save(collection))
-}
-
-func TestDeletePipelineResultFilesDryRun(t *testing.T) {
-	app := setupPipelineRetentionApp(t)
-	defer app.Cleanup()
-
-	oldRecord := createPipelineRetentionRecord(t, app)
-	require.NoError(t, app.Save(oldRecord))
-	setPipelineResultFiles(
-		t,
-		app,
-		oldRecord.Id,
-		[]string{"old-video.mp4"},
-		[]string{"old-shot.png"},
-		[]string{"old-log.zip"},
-		nil,
-	)
-	setPipelineResultEvidence(t, app, oldRecord.Id)
-	setPipelineResultCreatedAt(t, app, oldRecord.Id, time.Now().UTC().AddDate(0, 0, -40))
-
-	newRecord := createPipelineRetentionRecord(t, app)
-	require.NoError(t, app.Save(newRecord))
-	setPipelineResultFiles(t, app, newRecord.Id, []string{"new-video.mp4"}, nil, nil, nil)
-	setPipelineResultCreatedAt(t, app, newRecord.Id, time.Now().UTC().AddDate(0, 0, -5))
-
-	baseRouter, err := apis.NewRouter(app)
-	require.NoError(t, err)
-
-	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-		mux, err := e.Router.BuildMux()
-		require.NoError(t, err)
-
-		req := httptest.NewRequest(
-			http.MethodPost,
-			"/api/pipeline/retention/delete-files",
-			strings.NewReader(`{"older_than_days":30,"dry_run":true}`),
-		)
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-
-		require.Equal(t, http.StatusOK, rec.Code)
-
-		var response DeletePipelineResultFilesResponse
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-		require.True(t, response.DryRun)
-		require.Equal(t, 2, response.TotalRecords)
-		require.Equal(t, 1, response.MatchedRecords)
-		require.Equal(t, 1, response.RecordsWithFiles)
-		require.Equal(t, 0, response.UpdatedRecords)
-		require.Equal(t, 3, response.DeletedFiles.Total)
-
-		reloadedOld, err := app.FindRecordById("pipeline_results", oldRecord.Id)
-		require.NoError(t, err)
-		require.Equal(t, []string{"old-video.mp4"}, reloadedOld.GetStringSlice("video_results"))
-		require.Equal(t, []string{"old-shot.png"}, reloadedOld.GetStringSlice("screenshots"))
-		require.Equal(t, []string{"old-log.zip"}, reloadedOld.GetStringSlice("logcats"))
-		requirePipelineResultEvidence(t, reloadedOld, true)
-
-		reloadedNew, err := app.FindRecordById("pipeline_results", newRecord.Id)
-		require.NoError(t, err)
-		require.Equal(t, []string{"new-video.mp4"}, reloadedNew.GetStringSlice("video_results"))
-
-		return nil
-	})
-	require.NoError(t, serveErr)
-}
-
-func TestDeletePipelineResultFilesClearsOldFiles(t *testing.T) {
-	app := setupPipelineRetentionApp(t)
-	defer app.Cleanup()
-
-	oldRecord := createPipelineRetentionRecord(t, app)
-	require.NoError(t, app.Save(oldRecord))
-	setPipelineResultFiles(
-		t,
-		app,
-		oldRecord.Id,
-		[]string{"old-video.mp4"},
-		[]string{"old-shot.png"},
-		nil,
-		[]string{"old-ios-log.zip"},
-	)
-	setPipelineResultEvidence(t, app, oldRecord.Id)
-	setPipelineResultCreatedAt(t, app, oldRecord.Id, time.Now().UTC().AddDate(0, 0, -35))
-
-	baseRouter, err := apis.NewRouter(app)
-	require.NoError(t, err)
-
-	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-		mux, err := e.Router.BuildMux()
-		require.NoError(t, err)
-
-		req := httptest.NewRequest(
-			http.MethodPost,
-			"/api/pipeline/retention/delete-files",
-			strings.NewReader(`{"older_than_days":30,"dry_run":false,"batch_size":1}`),
-		)
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-
-		require.Equal(t, http.StatusOK, rec.Code)
-
-		var response DeletePipelineResultFilesResponse
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-		require.False(t, response.DryRun)
-		require.Equal(t, 1, response.BatchSize)
-		require.Equal(t, 1, response.TotalRecords)
-		require.Equal(t, 1, response.MatchedRecords)
-		require.Equal(t, 1, response.UpdatedRecords)
-		require.Equal(t, 3, response.DeletedFiles.Total)
-
-		reloaded, err := app.FindRecordById("pipeline_results", oldRecord.Id)
-		require.NoError(t, err)
-		require.Empty(t, reloaded.GetStringSlice("video_results"))
-		require.Empty(t, reloaded.GetStringSlice("screenshots"))
-		require.Empty(t, reloaded.GetStringSlice("logcats"))
-		require.Empty(t, reloaded.GetStringSlice("ios_logstreams"))
-		requirePipelineResultEvidence(t, reloaded, false)
-
-		return nil
-	})
-	require.NoError(t, serveErr)
-}
-
-func TestDeletePipelineResultFilesClearsReport(t *testing.T) {
-	app := setupPipelineRetentionApp(t)
-	defer app.Cleanup()
-
-	oldRecord := createPipelineRetentionRecord(t, app)
-	require.NoError(t, app.Save(oldRecord))
-	setPipelineResultReport(t, app, oldRecord.Id, "workflow-1.md")
-	setPipelineResultFCAFReports(
-		t,
-		app,
-		oldRecord.Id,
-		"fcaf-assessment.json",
-		"fcaf-assessment.pdf",
-	)
-	setPipelineResultCreatedAt(t, app, oldRecord.Id, time.Now().UTC().AddDate(0, 0, -35))
-
-	response, err := deletePipelineResultFilesOlderThan(
-		app,
-		time.Now().UTC().AddDate(0, 0, -30),
-		30,
-		false,
-		10,
-	)
-	require.NoError(t, err)
-	require.Equal(t, 1, response.UpdatedRecords)
-	require.Equal(t, 1, response.DeletedFiles.Report)
-	require.Equal(t, 1, response.DeletedFiles.FCAFReport)
-	require.Equal(t, 1, response.DeletedFiles.FCAFReportPDF)
-	require.Equal(t, 3, response.DeletedFiles.Total)
-
-	reloaded, err := app.FindRecordById("pipeline_results", oldRecord.Id)
-	require.NoError(t, err)
-	require.Empty(t, reloaded.GetStringSlice("report"))
-	require.Empty(t, reloaded.GetStringSlice("fcaf_report"))
-	require.Empty(t, reloaded.GetStringSlice("fcaf_report_pdf"))
-}
-
-func TestPipelineRetentionEvidenceHelpers(t *testing.T) {
-	app := setupPipelineRetentionApp(t)
-	defer app.Cleanup()
-
-	record := createPipelineRetentionRecord(t, app)
-	require.NoError(t, app.Save(record))
-	setPipelineResultFiles(
-		t,
-		app,
-		record.Id,
-		[]string{"video.mp4"},
-		[]string{"screenshot.png"},
-		[]string{"log.zip"},
-		[]string{"ios-log.zip"},
-	)
-	setPipelineResultEvidence(t, app, record.Id)
-
-	reloaded, err := app.FindRecordById("pipeline_results", record.Id)
-	require.NoError(t, err)
-	reloaded.Set("maestro_screenshots", []string{"maestro-1.png", "maestro-2.png"})
-	require.True(t, hasPipelineResultEvidence(reloaded))
-	require.False(t, hasPipelineResultEvidence(nil))
-
-	clearPipelineResultFiles(reloaded)
-	require.Empty(t, reloaded.GetStringSlice("video_results"))
-	require.Empty(t, reloaded.GetStringSlice("screenshots"))
-	require.Empty(t, reloaded.GetStringSlice("maestro_screenshots"))
-	require.Empty(t, reloaded.GetStringSlice("logcats"))
-	require.Empty(t, reloaded.GetStringSlice("ios_logstreams"))
-	requirePipelineResultEvidence(t, reloaded, false)
-}
-
-func TestCountPipelineResultFilesIncludesMaestroScreenshots(t *testing.T) {
-	app := setupPipelineRetentionApp(t)
-	defer app.Cleanup()
-
-	record := createPipelineRetentionRecord(t, app)
-	record.Set("video_results", []string{"video.mp4"})
-	record.Set("screenshots", []string{"final.png"})
-	record.Set("maestro_screenshots", []string{"step-1.png", "step-2.png"})
-
-	counts := countPipelineResultFiles(record)
-	require.Equal(t, 1, counts.VideoResults)
-	require.Equal(t, 1, counts.Screenshots)
-	require.Equal(t, 2, counts.MaestroScreenshots)
-	require.Equal(t, 4, counts.Total)
-}
-
-func TestDeletePipelineResultFilesValidatesRequest(t *testing.T) {
-	scenario := tests.ApiScenario{
-		Name:           "older_than_days must be positive",
-		Method:         http.MethodPost,
-		URL:            "/api/pipeline/retention/delete-files",
-		Body:           strings.NewReader(`{"older_than_days":0}`),
-		ExpectedStatus: http.StatusBadRequest,
-		ExpectedContent: []string{
-			`"Validation failed"`,
-		},
-		Headers: map[string]string{
-			"Content-Type":    "application/json",
-			"Credimi-Api-Key": "internal-test-api-key",
-		},
-		TestAppFactory: setupPipelineRetentionApp,
-	}
-
-	scenario.Test(t)
 }
 
 // buildAppMux builds the app router and mux exactly once per app instance.
@@ -636,54 +400,6 @@ func TestDeletePipelineRetentionSchedule(t *testing.T) {
 	})
 }
 
-func createPipelineRetentionRecord(t testing.TB, app *tests.TestApp) *core.Record {
-	t.Helper()
-
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
-	require.NoError(t, err)
-	pipelineRecord := core.NewRecord(pipelineColl)
-	pipelineRecord.Set("owner", orgID)
-	pipelineRecord.Set("name", "pipeline-retention-"+testRandString())
-	pipelineRecord.Set("description", "retention test")
-	pipelineRecord.Set(
-		"steps",
-		map[string]any{"rest-chain": map[string]any{"yaml": "name: t\nsteps: []"}},
-	)
-	pipelineRecord.Set("yaml", "name: t\nsteps: []")
-	require.NoError(t, app.Save(pipelineRecord))
-
-	resultColl, err := app.FindCollectionByNameOrId("pipeline_results")
-	require.NoError(t, err)
-	resultRecord := core.NewRecord(resultColl)
-	resultRecord.Set("owner", orgID)
-	resultRecord.Set("pipeline", pipelineRecord.Id)
-	resultRecord.Set("workflow_id", "wf-"+testRandString())
-	resultRecord.Set("run_id", "run-"+testRandString())
-
-	return resultRecord
-}
-
-func setPipelineResultCreatedAt(
-	t testing.TB,
-	app *tests.TestApp,
-	recordID string,
-	createdAt time.Time,
-) {
-	t.Helper()
-
-	_, err := app.DB().NewQuery(
-		`UPDATE pipeline_results SET created = {:created}, updated = {:updated} WHERE id = {:id}`,
-	).Bind(dbx.Params{
-		"created": createdAt.UTC(),
-		"updated": createdAt.UTC(),
-		"id":      recordID,
-	}).Execute()
-	require.NoError(t, err)
-}
-
 func setPipelineResultFiles(
 	t testing.TB,
 	app *tests.TestApp,
@@ -712,22 +428,6 @@ func setPipelineResultFiles(
 	require.NoError(t, err)
 }
 
-func setPipelineResultEvidence(t testing.TB, app *tests.TestApp, recordID string) {
-	t.Helper()
-
-	_, err := app.DB().NewQuery(
-		`UPDATE pipeline_results
-		SET credential_well_knowns = {:credential_well_knowns},
-		    presentation_results = {:presentation_results}
-		WHERE id = {:id}`,
-	).Bind(dbx.Params{
-		"credential_well_knowns": `[{"credential_id":"credential-1"}]`,
-		"presentation_results":   `[{"use_case_id":"use-case-1"}]`,
-		"id":                     recordID,
-	}).Execute()
-	require.NoError(t, err)
-}
-
 func setPipelineResultReport(t testing.TB, app *tests.TestApp, recordID string, report string) {
 	t.Helper()
 
@@ -742,44 +442,6 @@ func setPipelineResultReport(t testing.TB, app *tests.TestApp, recordID string, 
 	require.NoError(t, err)
 }
 
-func setPipelineResultFCAFReports(
-	t testing.TB,
-	app *tests.TestApp,
-	recordID string,
-	jsonReport string,
-	pdfReport string,
-) {
-	t.Helper()
-
-	_, err := app.DB().NewQuery(
-		`UPDATE pipeline_results
-		SET fcaf_report = {:fcaf_report},
-		    fcaf_report_pdf = {:fcaf_report_pdf}
-		WHERE id = {:id}`,
-	).Bind(dbx.Params{
-		"fcaf_report":     mustMarshalJSONStringArray(t, []string{jsonReport}),
-		"fcaf_report_pdf": mustMarshalJSONStringArray(t, []string{pdfReport}),
-		"id":              recordID,
-	}).Execute()
-	require.NoError(t, err)
-}
-
-func requirePipelineResultEvidence(t testing.TB, record *core.Record, wantPresent bool) {
-	t.Helper()
-
-	var credentialWellKnowns []map[string]any
-	var presentationResults []map[string]any
-	require.NoError(t, record.UnmarshalJSONField("credential_well_knowns", &credentialWellKnowns))
-	require.NoError(t, record.UnmarshalJSONField("presentation_results", &presentationResults))
-	if wantPresent {
-		require.NotEmpty(t, credentialWellKnowns)
-		require.NotEmpty(t, presentationResults)
-		return
-	}
-	require.Empty(t, credentialWellKnowns)
-	require.Empty(t, presentationResults)
-}
-
 func mustMarshalJSONStringArray(t testing.TB, values []string) string {
 	t.Helper()
 
@@ -791,8 +453,4 @@ func mustMarshalJSONStringArray(t testing.TB, values []string) string {
 	require.NoError(t, err)
 
 	return string(data)
-}
-
-func testRandString() string {
-	return fmt.Sprintf("%d", time.Now().UTC().UnixNano())
 }

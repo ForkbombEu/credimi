@@ -7,20 +7,19 @@ package activities
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 type CleanupMobileDeviceSemaphoreResourcesActivity struct {
 	workflowengine.BaseActivity
+	app core.App
 }
 
 type CleanupMobileDeviceSemaphoreResourcesActivityInput struct {
-	AppURL  string                                                      `json:"app_url,omitempty"`
 	Cleanup *mobiledevicesemaphore.MobileDeviceSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
 }
 
@@ -28,11 +27,14 @@ type CleanupMobileDeviceSemaphoreResourcesActivityOutput struct {
 	CleanupFailures []string `json:"cleanup_failures,omitempty"`
 }
 
-func NewCleanupMobileDeviceSemaphoreResourcesActivity() *CleanupMobileDeviceSemaphoreResourcesActivity {
+func NewCleanupMobileDeviceSemaphoreResourcesActivity(
+	app core.App,
+) *CleanupMobileDeviceSemaphoreResourcesActivity {
 	return &CleanupMobileDeviceSemaphoreResourcesActivity{
 		BaseActivity: workflowengine.BaseActivity{
 			Name: "Cleanup mobile device semaphore resources",
 		},
+		app: app,
 	}
 }
 
@@ -41,7 +43,7 @@ func (a *CleanupMobileDeviceSemaphoreResourcesActivity) Name() string {
 }
 
 func (a *CleanupMobileDeviceSemaphoreResourcesActivity) Execute(
-	ctx context.Context,
+	_ context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
@@ -58,27 +60,14 @@ func (a *CleanupMobileDeviceSemaphoreResourcesActivity) Execute(
 		return result, nil
 	}
 
-	appURL := strings.TrimSpace(payload.AppURL)
-	if internalURL := workflowengine.InternalAppURLOverride(); internalURL != "" {
-		appURL = internalURL
-	}
-	if appURL == "" {
-		output.CleanupFailures = []string{"app_url missing for queued resource cleanup"}
-		result.Output = output
-		return result, nil
-	}
-
 	if recordID := strings.TrimSpace(payload.Cleanup.TempWalletVersionID); recordID != "" {
-		output.CleanupFailures = append(output.CleanupFailures, a.deleteTempRecord(
-			ctx,
-			utils.JoinURL(appURL, "api", "wallet", "temp-version", recordID),
-			map[string]any{
-				"expected_owner_id":   payload.Cleanup.TempWalletVersionOwnerID,
-				"expected_identifier": payload.Cleanup.TempWalletVersionIdentifier,
-			},
-			"temp wallet version",
+		output.CleanupFailures = a.appendCleanupFailure(
+			output.CleanupFailures,
+			"wallet_versions",
 			recordID,
-		)...)
+			payload.Cleanup.TempWalletVersionOwnerID,
+			payload.Cleanup.TempWalletVersionIdentifier,
+		)
 	}
 
 	for _, credential := range payload.Cleanup.TempCredentials {
@@ -86,16 +75,13 @@ func (a *CleanupMobileDeviceSemaphoreResourcesActivity) Execute(
 		if recordID == "" {
 			continue
 		}
-		output.CleanupFailures = append(output.CleanupFailures, a.deleteTempRecord(
-			ctx,
-			utils.JoinURL(appURL, "api", "credential", "temp", recordID),
-			map[string]any{
-				"expected_owner_id":   credential.OwnerID,
-				"expected_identifier": credential.Identifier,
-			},
-			"temp credential",
+		output.CleanupFailures = a.appendCleanupFailure(
+			output.CleanupFailures,
+			"credentials",
 			recordID,
-		)...)
+			credential.OwnerID,
+			credential.Identifier,
+		)
 	}
 
 	for _, useCase := range payload.Cleanup.TempUseCaseVerifications {
@@ -103,70 +89,25 @@ func (a *CleanupMobileDeviceSemaphoreResourcesActivity) Execute(
 		if recordID == "" {
 			continue
 		}
-		output.CleanupFailures = append(output.CleanupFailures, a.deleteTempRecord(
-			ctx,
-			utils.JoinURL(appURL, "api", "verifier", "temp-use-case", recordID),
-			map[string]any{
-				"expected_owner_id":   useCase.OwnerID,
-				"expected_identifier": useCase.Identifier,
-			},
-			"temp use case verification",
+		output.CleanupFailures = a.appendCleanupFailure(
+			output.CleanupFailures,
+			"use_cases_verifications",
 			recordID,
-		)...)
+			useCase.OwnerID,
+			useCase.Identifier,
+		)
 	}
 
 	result.Output = output
 	return result, nil
 }
 
-func (a *CleanupMobileDeviceSemaphoreResourcesActivity) deleteTempRecord(
-	ctx context.Context,
-	url string,
-	body map[string]any,
-	resourceKind string,
-	recordID string,
+func (a *CleanupMobileDeviceSemaphoreResourcesActivity) appendCleanupFailure(
+	failures []string,
+	collection, recordID, ownerID, identifier string,
 ) []string {
-	result, err := executeInternalHTTPRequest(ctx, InternalHTTPActivityPayload{
-		Method: http.MethodDelete,
-		URL:    url,
-		Body:   body,
-	}, &a.BaseActivity, nil)
-	if err != nil {
-		return []string{fmt.Sprintf("%s %s cleanup failed: %v", resourceKind, recordID, err)}
+	if _, err := deleteTempRecord(a.app, collection, recordID, ownerID, identifier); err != nil {
+		return append(failures, fmt.Sprintf("delete %s %s: %v", collection, recordID, err))
 	}
-
-	status, responseBody := decodeInternalHTTPStatus(result.Output)
-	switch status {
-	case http.StatusOK, http.StatusNotFound:
-		return nil
-	case 0:
-		return []string{fmt.Sprintf("%s %s cleanup returned no status", resourceKind, recordID)}
-	default:
-		return []string{fmt.Sprintf(
-			"%s %s cleanup failed with status %d: %v",
-			resourceKind,
-			recordID,
-			status,
-			responseBody,
-		)}
-	}
-}
-
-func decodeInternalHTTPStatus(output any) (int, any) {
-	resultMap, ok := output.(map[string]any)
-	if !ok {
-		return 0, output
-	}
-	status := 0
-	switch value := resultMap["status"].(type) {
-	case int:
-		status = value
-	case int32:
-		status = int(value)
-	case int64:
-		status = int(value)
-	case float64:
-		status = int(value)
-	}
-	return status, resultMap["body"]
+	return failures
 }

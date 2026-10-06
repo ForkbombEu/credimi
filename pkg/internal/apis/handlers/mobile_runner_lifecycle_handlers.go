@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -497,7 +498,7 @@ func resolveLifecycleRunner(
 		}
 	}
 
-	canonicalDeviceID, err := mobileRunnerIdentifier(app, record)
+	canonicalDeviceID, err := mobilerunner.RunnerIdentifier(app, record)
 	if err != nil {
 		return nil, "", apierror.New(
 			http.StatusInternalServerError,

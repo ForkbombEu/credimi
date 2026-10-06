@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -307,7 +306,6 @@ func executeEWCLikeWorkflow(
 	workflowResult, err := pollEWCCheck(
 		ctx,
 		interval,
-		appURL,
 		checkEndpoint,
 		logsEndpoint,
 		sessionID,
@@ -328,14 +326,6 @@ func executeEWCLikeStatusWorkflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			input.RunMetadata,
-		)
-	}
-
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
 			input.RunMetadata,
 		)
 	}
@@ -363,7 +353,6 @@ func executeEWCLikeStatusWorkflow(
 	result, err := pollEWCCheck(
 		ctx,
 		interval,
-		workflowengine.InternalAppURLFromConfig(input.Config),
 		checkEndpoint,
 		logsEndpoint,
 		payload.SessionID,
@@ -427,7 +416,6 @@ func resolveEWCLikeBaseURL(suite string, standard string) (string, error) {
 func pollEWCCheck(
 	ctx workflow.Context,
 	interval time.Duration,
-	appURL string,
 	checkEndpoint string,
 	logsEndpoint string,
 	sessionID string,
@@ -564,7 +552,6 @@ func pollEWCCheck(
 		if len(logs) > 0 {
 			if err := notifyEWCLikeLogs(
 				ctx,
-				appURL,
 				workflow.GetInfo(ctx).WorkflowExecution.ID,
 				logs,
 				runMetadata,
@@ -680,21 +667,14 @@ func extractEWCLikeLogs(logsResponse any) []map[string]any {
 
 func notifyEWCLikeLogs(
 	ctx workflow.Context,
-	appURL string,
 	workflowID string,
 	logs []map[string]any,
 	runMetadata *workflowengine.WorkflowRunMetadata,
 ) error {
-	if appURL == "" {
-		return nil
-	}
-
 	if err := sendRealtimeLogsUpdate(
 		ctx,
-		utils.JoinURL(appURL, "api", "compliance", "send-ewc-log-update"),
-		strings.TrimSuffix(workflowID, "-status"),
+		strings.TrimSuffix(workflowID, "-status")+EWCSubscription,
 		logs,
-		"",
 	); err != nil {
 		return workflowengine.NewWorkflowError(err, runMetadata)
 	}

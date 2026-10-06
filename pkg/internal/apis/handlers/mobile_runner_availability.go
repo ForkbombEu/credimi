@@ -94,7 +94,7 @@ func mobileDeviceRunnerRecord(app core.App, deviceID string) (*core.Record, *api
 }
 
 func mobileRunnerReachable(ctx context.Context, record *core.Record) (bool, *apierror.APIError) {
-	runnerURL := mobileRunnerURL(record)
+	runnerURL := mobilerunner.RunnerURL(record)
 	if runnerURL == "" {
 		return false, nil
 	}

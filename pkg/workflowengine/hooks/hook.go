@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -45,8 +46,8 @@ import (
 // Parameters:
 //   - app: The PocketBase application instance to which the hook is attached.
 func WorkersHook(app *pocketbase.PocketBase) {
-	workflowengine.SetServerAppURLSource(func() string { return app.Settings().Meta.AppURL })
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		workflowengine.SetLocalURL(se.App, se.Server)
 		if TemporalWorkersDisabled() {
 			log.Printf(
 				"[WorkersHook] Skipping namespaces and workers (%s is set)",
@@ -83,13 +84,13 @@ func WorkersHook(app *pocketbase.PocketBase) {
 				log.Fatalf("[WorkersHook] Failed to connect to namespace %q: %v", ns, err)
 			}
 			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
-			go startAllWorkersByNamespace(ns)
+			go startAllWorkersByNamespace(se.App, ns)
 
 			runnerURLs := adminRunnerURLs
 			if ns == "default" || publishedByNamespace[ns] {
 				runnerURLs = combineWorkerManagerRunnerURLs(adminRunnerURLs, publishedRunnerURLs)
 			}
-			startWorkerManagerWorkflow(app, ns, "", runnerURLs)
+			startWorkerManagerWorkflow(ns, "", runnerURLs)
 		}
 
 		log.Printf("[WorkersHook] All namespaces ready, workers started")
@@ -107,227 +108,221 @@ type workerConfig struct {
 	Activities []workflowengine.ExecutableActivity
 }
 
-var OrgWorkers = []workerConfig{
-	{
-		TaskQueue: workflows.OpenID4VPWalletTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewOpenID4VPWalletWorkflow(),
-			workflows.NewOpenID4VPWalletLogsWorkflow(),
+func orgWorkers(app core.App) []workerConfig {
+	return []workerConfig{
+		{
+			TaskQueue: workflows.OpenID4VPWalletTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewOpenID4VPWalletWorkflow(),
+				workflows.NewOpenID4VPWalletLogsWorkflow(),
+			},
+			Activities: append([]workflowengine.ExecutableActivity{
+				activities.NewStepCIWorkflowActivity(),
+				activities.NewSendMailActivity(),
+				activities.NewHTTPActivity(),
+			}, activities.CredimiActivities(app)...),
 		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewStepCIWorkflowActivity(),
-			activities.NewSendMailActivity(),
-			activities.NewHTTPActivity(),
-			activities.NewInternalHTTPActivity(),
+		{
+			TaskQueue: workflows.OpenID4VCIIssuerTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewOpenID4VCIIssuerWorkflow(),
+			},
+			Activities: append([]workflowengine.ExecutableActivity{
+				activities.NewStepCIWorkflowActivity(),
+				activities.NewHTTPActivity(),
+			}, activities.CredimiActivities(app)...),
 		},
-	},
-	{
-		TaskQueue: workflows.OpenID4VCIIssuerTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewOpenID4VCIIssuerWorkflow(),
+		{
+			TaskQueue: workflows.OpenID4VPVerifierTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewOpenID4VPVerifierWorkflow(),
+			},
+			Activities: append([]workflowengine.ExecutableActivity{
+				activities.NewStepCIWorkflowActivity(),
+				activities.NewHTTPActivity(),
+			}, activities.CredimiActivities(app)...),
 		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewStepCIWorkflowActivity(),
-			activities.NewHTTPActivity(),
-			activities.NewInternalHTTPActivity(),
+		{
+			TaskQueue: workflows.EWCTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewEWCWorkflow(),
+				workflows.NewWebuildWorkflow(),
+			},
+			Activities: append([]workflowengine.ExecutableActivity{
+				activities.NewStepCIWorkflowActivity(),
+				activities.NewSendMailActivity(),
+				activities.NewHTTPActivity(),
+			}, activities.CredimiActivities(app)...),
 		},
-	},
-	{
-		TaskQueue: workflows.OpenID4VPVerifierTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewOpenID4VPVerifierWorkflow(),
+		{
+			TaskQueue: workflows.EudiwTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewEudiwWorkflow(),
+			},
+			Activities: append([]workflowengine.ExecutableActivity{
+				activities.NewStepCIWorkflowActivity(),
+				activities.NewSendMailActivity(),
+				activities.NewHTTPActivity(),
+			}, activities.CredimiActivities(app)...),
 		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewStepCIWorkflowActivity(),
-			activities.NewHTTPActivity(),
-			activities.NewInternalHTTPActivity(),
+		{
+			TaskQueue: workflows.CredentialsTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewCredentialsIssuersWorkflow(),
+			},
+			Activities: append([]workflowengine.ExecutableActivity{
+				activities.NewCheckCredentialsIssuerActivity(),
+				activities.NewJSONActivity(
+					map[string]reflect.Type{
+						"map": reflect.TypeOf(
+							map[string]any{},
+						),
+					},
+				),
+				activities.NewSchemaValidationActivity(),
+				activities.NewHTTPActivity(),
+			}, activities.CredimiActivities(app)...),
 		},
-	},
-	{
-		TaskQueue: workflows.EWCTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewEWCWorkflow(),
-			workflows.NewWebuildWorkflow(),
+		{
+			TaskQueue: workflows.WalletTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewWalletWorkflow(),
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				activities.NewParseWalletURLActivity(),
+				activities.NewDockerActivity(),
+				activities.NewJSONActivity(
+					map[string]reflect.Type{
+						"map": reflect.TypeOf(
+							map[string]any{},
+						),
+					},
+				),
+				activities.NewHTTPActivity(),
+			},
 		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewStepCIWorkflowActivity(),
-			activities.NewSendMailActivity(),
-			activities.NewHTTPActivity(),
-			activities.NewInternalHTTPActivity(),
+		{
+			TaskQueue: workflows.CustomCheckTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewCustomCheckWorkflow(),
+			},
+			Activities: append([]workflowengine.ExecutableActivity{
+				activities.NewStepCIWorkflowActivity(),
+			}, activities.CredimiActivities(app)...),
 		},
-	},
-	{
-		TaskQueue: workflows.EudiwTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewEudiwWorkflow(),
+		{
+			TaskQueue: workflows.VLEIValidationTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewVLEIValidationWorkflow(),
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				activities.NewHTTPActivity(),
+				activities.NewCESRParsingActivity(),
+				activities.NewCESRValidateActivity(),
+			},
 		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewStepCIWorkflowActivity(),
-			activities.NewSendMailActivity(),
-			activities.NewHTTPActivity(),
-			activities.NewInternalHTTPActivity(),
+		{
+			TaskQueue: workflows.VLEIValidationLocalTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewVLEIValidationLocalWorkflow(),
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				activities.NewCESRParsingActivity(),
+				activities.NewCESRValidateActivity(),
+			},
 		},
-	},
-	{
-		TaskQueue: workflows.CredentialsTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewCredentialsIssuersWorkflow(),
+		{
+			TaskQueue: workflows.FidesCredentialIssuersTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewFidesCredentialIssuersWorkflow(),
+			},
+			Activities: append([]workflowengine.ExecutableActivity{
+				activities.NewHTTPActivity(),
+				activities.NewParseFidesCredentialIssuersActivity(),
+				activities.NewCheckCredentialsIssuerActivity(),
+				activities.NewJSONActivity(
+					map[string]reflect.Type{
+						"map": reflect.TypeOf(
+							map[string]any{},
+						),
+					},
+				),
+				activities.NewSchemaValidationActivity(),
+			}, activities.CredimiActivities(app)...),
 		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewCheckCredentialsIssuerActivity(),
-			activities.NewJSONActivity(
-				map[string]reflect.Type{
-					"map": reflect.TypeOf(
-						map[string]any{},
-					),
-				},
-			),
-			activities.NewSchemaValidationActivity(),
-			activities.NewHTTPActivity(),
-			activities.NewInternalHTTPActivity(),
-		},
-	},
-	{
-		TaskQueue: workflows.WalletTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewWalletWorkflow(),
-		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewParseWalletURLActivity(),
-			activities.NewDockerActivity(),
-			activities.NewJSONActivity(
-				map[string]reflect.Type{
-					"map": reflect.TypeOf(
-						map[string]any{},
-					),
-				},
-			),
-			activities.NewHTTPActivity(),
-		},
-	},
-	{
-		TaskQueue: workflows.CustomCheckTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewCustomCheckWorkflow(),
-		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewStepCIWorkflowActivity(),
-			activities.NewInternalHTTPActivity(),
-		},
-	},
-	{
-		TaskQueue: workflows.VLEIValidationTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewVLEIValidationWorkflow(),
-		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewHTTPActivity(),
-			activities.NewCESRParsingActivity(),
-			activities.NewCESRValidateActivity(),
-		},
-	},
-	{
-		TaskQueue: workflows.VLEIValidationLocalTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewVLEIValidationLocalWorkflow(),
-		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewCESRParsingActivity(),
-			activities.NewCESRValidateActivity(),
-		},
-	},
-	{
-		TaskQueue: workflows.FidesCredentialIssuersTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewFidesCredentialIssuersWorkflow(),
-		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewHTTPActivity(),
-			activities.NewParseFidesCredentialIssuersActivity(),
-			activities.NewCheckCredentialsIssuerActivity(),
-			activities.NewJSONActivity(
-				map[string]reflect.Type{
-					"map": reflect.TypeOf(
-						map[string]any{},
-					),
-				},
-			),
-			activities.NewSchemaValidationActivity(),
-			activities.NewInternalHTTPActivity(),
-		},
-	},
+	}
 }
 
-var DefaultWorkers = []workerConfig{
-	{
-		TaskQueue: workflows.CustomCheckTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewCustomCheckWorkflow(),
+func defaultWorkers(app core.App) []workerConfig {
+	return []workerConfig{
+		{
+			TaskQueue: workflows.CustomCheckTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewCustomCheckWorkflow(),
+			},
+			Activities: append([]workflowengine.ExecutableActivity{
+				activities.NewStepCIWorkflowActivity(),
+			}, activities.CredimiActivities(app)...),
 		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewStepCIWorkflowActivity(),
-			activities.NewInternalHTTPActivity(),
+		{
+			TaskQueue: workflows.ConformanceCheckTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewStartCheckWorkflow(),
+				workflows.NewEWCStatusWorkflow(),
+				workflows.NewWebuildStatusWorkflow(),
+			},
+			Activities: append([]workflowengine.ExecutableActivity{
+				activities.NewStepCIWorkflowActivity(),
+				activities.NewHTTPActivity(),
+			}, activities.CredimiActivities(app)...),
 		},
-	},
-	{
-		TaskQueue: workflows.ConformanceCheckTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewStartCheckWorkflow(),
-			workflows.NewEWCStatusWorkflow(),
-			workflows.NewWebuildStatusWorkflow(),
+		{
+			TaskQueue: workflows.WorkerManagerTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewWorkerManagerWorkflow(),
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				activities.NewHTTPActivity(),
+				activities.NewMobileRunnerHTTPActivity(),
+			},
 		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewStepCIWorkflowActivity(),
-			activities.NewHTTPActivity(),
-			activities.NewInternalHTTPActivity(),
+		{
+			TaskQueue: workflows.MobileDeviceSemaphoreTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewMobileDeviceSemaphoreWorkflow(),
+				workflows.NewGitHubPRCommentWorkflow(),
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				activities.NewStartQueuedPipelineActivity(app),
+				activities.NewCheckWorkflowClosedActivity(),
+				activities.NewSignalWorkflowActivity(),
+				activities.NewCancelWorkflowActivity(),
+				activities.NewCleanupMobileDeviceSemaphoreResourcesActivity(app),
+				activities.NewQueryMobileDeviceSemaphoreRunStatusActivity(),
+				activities.NewUpdateGitHubPRCommentActivity(),
+				activities.NewPatchGitHubPRCommentActivity(),
+			},
 		},
-	},
-	{
-		TaskQueue: workflows.WorkerManagerTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewWorkerManagerWorkflow(),
+		{
+			TaskQueue: workflows.AggregateScoreboardTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewAggregateScoreboardWorkflow(),
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				handlers.NewListScoreboardNamespacesActivity(app),
+				handlers.NewGetNamespaceScoreboardActivity(app),
+				handlers.NewGetScoreboardExecutionDetailsActivity(app),
+				handlers.NewSaveScoreboardResultsActivity(app),
+			},
 		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewHTTPActivity(),
-			activities.NewInternalHTTPActivity(),
-			activities.NewMobileRunnerHTTPActivity(),
+		{
+			TaskQueue: workflows.PipelineRetentionTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				workflows.NewPipelineRetentionWorkflow(),
+			},
+			Activities: activities.CredimiActivities(app),
 		},
-	},
-	{
-		TaskQueue: workflows.MobileDeviceSemaphoreTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewMobileDeviceSemaphoreWorkflow(),
-			workflows.NewGitHubPRCommentWorkflow(),
-		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewStartQueuedPipelineActivity(),
-			activities.NewCheckWorkflowClosedActivity(),
-			activities.NewSignalWorkflowActivity(),
-			activities.NewCancelWorkflowActivity(),
-			activities.NewCleanupMobileDeviceSemaphoreResourcesActivity(),
-			activities.NewQueryMobileDeviceSemaphoreRunStatusActivity(),
-			activities.NewUpdateGitHubPRCommentActivity(),
-			activities.NewPatchGitHubPRCommentActivity(),
-		},
-	},
-	{
-		TaskQueue: workflows.AggregateScoreboardTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewAggregateScoreboardWorkflow(),
-		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewInternalHTTPActivity(),
-		},
-	},
-	{
-		TaskQueue: workflows.PipelineRetentionTaskQueue,
-		Workflows: []workflowengine.Workflow{
-			workflows.NewPipelineRetentionWorkflow(),
-		},
-		Activities: []workflowengine.ExecutableActivity{
-			activities.NewInternalHTTPActivity(),
-		},
-	},
+	}
 }
 
 var (
@@ -379,7 +374,7 @@ func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *
 	})
 }
 
-func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
+func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg *sync.WaitGroup) {
 	defer wg.Done()
 	runWorkerWithRetry(ctx, pipeline.PipelineTaskQueue, func() worker.Worker {
 		w := newWorkerFn(c, pipeline.PipelineTaskQueue, worker.Options{})
@@ -403,13 +398,13 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 		for _, step := range registry.Registry {
 			switch step.Kind {
 			case registry.TaskActivity:
-				act := step.NewFunc().(workflowengine.ExecutableActivity)
+				act := step.NewFunc(app).(workflowengine.ExecutableActivity)
 				w.RegisterActivityWithOptions(
 					act.Execute,
 					activity.RegisterOptions{Name: act.Name()},
 				)
 			case registry.TaskWorkflow:
-				wf := step.NewFunc().(workflowengine.Workflow)
+				wf := step.NewFunc(app).(workflowengine.Workflow)
 				w.RegisterWorkflowWithOptions(
 					wf.Workflow,
 					workflow.RegisterOptions{Name: wf.Name()},
@@ -420,18 +415,22 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 		for _, step := range registry.PipelineInternalRegistry {
 			switch step.Kind {
 			case registry.TaskActivity:
-				act := step.NewFunc().(workflowengine.ExecutableActivity)
+				act := step.NewFunc(app).(workflowengine.ExecutableActivity)
 				w.RegisterActivityWithOptions(
 					act.Execute,
 					activity.RegisterOptions{Name: act.Name()},
 				)
 			case registry.TaskWorkflow:
-				wf := step.NewFunc().(workflowengine.Workflow)
+				wf := step.NewFunc(app).(workflowengine.Workflow)
 				w.RegisterWorkflowWithOptions(
 					wf.Workflow,
 					workflow.RegisterOptions{Name: wf.Name()},
 				)
 			}
+		}
+
+		for _, act := range activities.CredimiActivities(app) {
+			w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
 		}
 
 		return w
@@ -532,7 +531,7 @@ func growBackoff(current, maxDuration time.Duration) time.Duration {
 
 var workerCancels sync.Map
 
-func StartAllWorkersByNamespace(namespace string) {
+func StartAllWorkersByNamespace(app core.App, namespace string) {
 	if TemporalWorkersDisabled() {
 		log.Printf(
 			"Skipping workers for namespace %s (%s is set)",
@@ -555,9 +554,9 @@ func StartAllWorkersByNamespace(namespace string) {
 	var workers []workerConfig
 
 	if namespace == "default" {
-		workers = DefaultWorkers
+		workers = defaultWorkers(app)
 	} else {
-		workers = OrgWorkers
+		workers = orgWorkers(app)
 	}
 
 	for _, config := range workers {
@@ -566,7 +565,7 @@ func StartAllWorkersByNamespace(namespace string) {
 	}
 
 	wg.Add(1)
-	go startPipelineWorkerFn(ctx, c, &wg)
+	go startPipelineWorkerFn(ctx, app, c, &wg)
 
 	go func() {
 		wg.Wait()
@@ -672,7 +671,7 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 	}
 }
 
-func StartWorkerManagerWorkflow(app core.App, namespace, oldNamespace string, runnerURLs []string) {
+func StartWorkerManagerWorkflow(namespace, oldNamespace string, runnerURLs []string) {
 	if TemporalWorkersDisabled() {
 		log.Printf(
 			"[WorkerManagerWorkflow] Skipping for namespace %s (%s is set)",
@@ -686,7 +685,6 @@ func StartWorkerManagerWorkflow(app core.App, namespace, oldNamespace string, ru
 		if err := executeWorkerManagerWorkflowFn(
 			namespace,
 			oldNamespace,
-			app.Settings().Meta.AppURL,
 			runnerURLs,
 		); err != nil {
 			log.Printf("[WorkerManagerWorkflow] Failed for namespace %s: %v", namespace, err)
@@ -698,8 +696,7 @@ func StartWorkerManagerWorkflow(app core.App, namespace, oldNamespace string, ru
 
 func executeWorkerManagerWorkflow(
 	namespace,
-	oldNamespace,
-	appURL string,
+	oldNamespace string,
 	runnerURLs []string,
 ) error {
 	ao := &workflow.ActivityOptions{
@@ -719,9 +716,6 @@ func executeWorkerManagerWorkflow(
 			OldNamespace: oldNamespace,
 			RunnerURLs:   uniqueWorkerManagerURLs(runnerURLs),
 		},
-		Config: workflowengine.WithInternalAppURL(map[string]any{
-			"app_url": appURL,
-		}),
 		ActivityOptions: ao,
 	}
 

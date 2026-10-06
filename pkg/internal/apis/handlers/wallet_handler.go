@@ -91,14 +91,6 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 				apis.BodyLimit(500 << 20),
 			},
 		},
-		{
-			Method:  http.MethodDelete,
-			Path:    "/temp-version/{record}",
-			Handler: HandleWalletDeleteTempVersion,
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
 	},
 }
 
@@ -114,10 +106,6 @@ type WalletApkRequest struct {
 type WalletStoreResult struct {
 	ResultPath       string `json:"result_path"`
 	ActionIdentifier string `json:"action_identifier"`
-}
-
-func HandleWalletDeleteTempVersion() func(*core.RequestEvent) error {
-	return handleTempRecordDelete("wallet_versions", "wallet version")
 }
 
 func HandleWalletStartCheck() func(*core.RequestEvent) error {
@@ -147,9 +135,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 		}
 		// Start the workflow
 		workflowInput := workflowengine.WorkflowInput{
-			Config: workflowengine.WithInternalAppURL(map[string]any{
-				"app_url": e.App.Settings().Meta.AppURL,
-			}),
+			Config: workflowengine.WithAppConfig(e.App, map[string]any{}),
 			Payload: workflows.WalletWorkflowPayload{
 				URL: req.URL,
 			},

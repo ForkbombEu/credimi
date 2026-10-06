@@ -11,16 +11,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
-	"sync"
 	"testing"
-	"time"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	commonpb "go.temporal.io/api/common/v1"
@@ -55,36 +52,8 @@ func (f *fcafHistoryIterator) Next() (*historypb.HistoryEvent, error) {
 	return event, nil
 }
 
-type fcafStoreServer struct {
-	*httptest.Server
-	mu       sync.Mutex
-	requests []map[string]string
-	apiKeys  []string
-}
-
-func newFCAFStoreServer(t *testing.T, status int, body string) *fcafStoreServer {
-	t.Helper()
-	store := &fcafStoreServer{}
-	store.Server = httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			require.Equal(t, "/api/pipeline/pipeline-execution-results/fcaf-report", r.URL.Path)
-			var request map[string]string
-			require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
-			store.mu.Lock()
-			store.requests = append(store.requests, request)
-			store.apiKeys = append(store.apiKeys, r.Header.Get("Credimi-Api-Key"))
-			store.mu.Unlock()
-			w.WriteHeader(status)
-			_, _ = w.Write([]byte(body))
-		}),
-	)
-	t.Cleanup(store.Close)
-	return store
-}
-
 func setFCAFTestEnv(t *testing.T) {
 	t.Helper()
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-key")
 	t.Setenv(
 		temporalcrypto.SecretsEncryptionKeyEnv,
 		"MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
@@ -168,10 +137,11 @@ func mockFCAFHistory(t *testing.T, events []*historypb.HistoryEvent) *temporalmo
 
 func executeFCAFValidation(
 	t *testing.T,
+	app core.App,
 	input workflowengine.ActivityInput,
 ) (FCAFValidationActivityOutput, error) {
 	t.Helper()
-	act := NewFCAFValidationActivity(fcafTestOutputKind)
+	act := NewFCAFValidationActivity(app, fcafTestOutputKind)
 	env := (&testsuite.WorkflowTestSuite{}).NewTestActivityEnvironment()
 	env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
 
@@ -190,9 +160,11 @@ func TestFCAFValidationActivityResolvesFromHistoryAndStoresFullReport(t *testing
 	setFCAFTestEnv(t)
 	pidSDJWT := `{"query_0":["` + testPIDSDJWTPresentation(t) + `"]}`
 	historyClient := mockFCAFHistory(t, fcafHistory(t, pidSDJWT))
-	store := newFCAFStoreServer(t, http.StatusOK, `{"fcaf_report_sha256":"abc"}`)
+	app := newPipelineResultsTestApp(t)
+	ensureFCAFReportFields(t, app)
+	record := createTestPipelineResult(t, app, fcafTestWorkflowID, fcafTestRunID)
 
-	output, err := executeFCAFValidation(t, workflowengine.ActivityInput{
+	output, err := executeFCAFValidation(t, app, workflowengine.ActivityInput{
 		Payload: FCAFValidationActivityInput{
 			TestIDs: []string{fcafTestTestID},
 			Pipeline: map[string]any{
@@ -203,23 +175,19 @@ func TestFCAFValidationActivityResolvesFromHistoryAndStoresFullReport(t *testing
 				},
 			},
 		},
-		Config: map[string]string{
-			"app_url":          "https://public.example",
-			"internal_app_url": store.URL,
-		},
 	})
 	require.NoError(t, err)
 	historyClient.AssertExpectations(t)
 
-	require.Len(t, store.requests, 1)
-	stored := store.requests[0]
-	require.Equal(t, "test-key", store.apiKeys[0])
-	require.Equal(t, fcafTestWorkflowID, stored["workflow_id"])
-	require.Equal(t, fcafTestRunID, stored["run_id"])
+	reloaded, err := app.FindRecordById("pipeline_results", record.Id)
+	require.NoError(t, err)
+	storedJSON := readPipelineResultFile(t, app, reloaded, "fcaf_report")
 	var storedReport map[string]any
-	require.NoError(t, json.Unmarshal([]byte(stored["json"]), &storedReport))
+	require.NoError(t, json.Unmarshal(storedJSON, &storedReport))
 	storedEvidence := storedReport["evidence"].(map[string]any)["pid_sdjwt"].(map[string]any)
 	require.NotNil(t, storedEvidence["value"])
+	storedSum := sha256.Sum256(storedJSON)
+	require.Equal(t, hex.EncodeToString(storedSum[:]), output.ReportSHA256)
 
 	require.Equal(t, "passed", output.Report.Status)
 	require.Len(t, output.Report.ExecutedTests, 1)
@@ -228,7 +196,6 @@ func TestFCAFValidationActivityResolvesFromHistoryAndStoresFullReport(t *testing
 	require.NoError(t, err)
 	require.NotContains(t, string(compact), `"value"`)
 	require.NotContains(t, string(compact), `"tests"`)
-	require.Equal(t, "abc", output.ReportSHA256)
 
 	leafJSON, err := json.Marshal(pidSDJWT)
 	require.NoError(t, err)
@@ -247,9 +214,11 @@ func TestFCAFValidationActivityStoresChildPipelineReportOnRootRun(t *testing.T) 
 	setFCAFTestEnv(t)
 	historyClient := &temporalmocks.Client{}
 	temporalclient.SetClientForTests(fcafTestNamespace, historyClient)
-	store := newFCAFStoreServer(t, http.StatusOK, `{"fcaf_report_sha256":"abc"}`)
+	app := newPipelineResultsTestApp(t)
+	ensureFCAFReportFields(t, app)
+	root := createTestPipelineResult(t, app, "root-wf", "root-run")
 
-	output, err := executeFCAFValidation(t, workflowengine.ActivityInput{
+	output, err := executeFCAFValidation(t, app, workflowengine.ActivityInput{
 		Payload: FCAFValidationActivityInput{
 			TestIDs: []string{fcafTestTestID},
 			Pipeline: map[string]any{
@@ -261,7 +230,6 @@ func TestFCAFValidationActivityStoresChildPipelineReportOnRootRun(t *testing.T) 
 			},
 		},
 		Config: map[string]string{
-			"app_url": store.URL,
 			workflowengine.TelemetryRootWorkflowIDKey: "root-wf",
 			workflowengine.TelemetryRootRunIDKey:      "root-run",
 		},
@@ -269,40 +237,24 @@ func TestFCAFValidationActivityStoresChildPipelineReportOnRootRun(t *testing.T) 
 	require.NoError(t, err)
 	historyClient.AssertNotCalled(t, "GetWorkflowHistory")
 	require.Empty(t, output.EvidenceIndex)
-	require.Len(t, store.requests, 1)
-	require.Equal(t, "root-wf", store.requests[0]["workflow_id"])
-	require.Equal(t, "root-run", store.requests[0]["run_id"])
+	reloaded, err := app.FindRecordById("pipeline_results", root.Id)
+	require.NoError(t, err)
+	require.Len(t, reloaded.GetStringSlice("fcaf_report"), 1)
 }
 
 func TestFCAFValidationActivityFailsWhenReportStorageFails(t *testing.T) {
 	setFCAFTestEnv(t)
-	previousWaits := internalStoreRetryWaits
-	internalStoreRetryWaits = []time.Duration{0, 0}
-	t.Cleanup(func() { internalStoreRetryWaits = previousWaits })
 	temporalclient.SetClientForTests(fcafTestNamespace, &temporalmocks.Client{})
-	store := newFCAFStoreServer(t, http.StatusInternalServerError, `{"message":"boom"}`)
 
-	_, err := executeFCAFValidation(t, workflowengine.ActivityInput{
+	_, err := executeFCAFValidation(t, newPipelineResultsTestApp(t), workflowengine.ActivityInput{
 		Payload: FCAFValidationActivityInput{
 			TestIDs:  []string{fcafTestTestID},
 			Pipeline: map[string]any{fcafTestSource: map[string]any{"output": map[string]any{}}},
 		},
-		Config: map[string]string{"app_url": store.URL},
 	})
 	require.ErrorContains(t, err, "store FCAF report")
-	require.ErrorContains(t, err, "status 500")
-	require.Len(t, store.requests, 3)
-}
-
-func TestFCAFValidationActivityRequiresAppURL(t *testing.T) {
-	setFCAFTestEnv(t)
-	_, err := executeFCAFValidation(t, workflowengine.ActivityInput{
-		Payload: FCAFValidationActivityInput{
-			TestIDs:  []string{fcafTestTestID},
-			Pipeline: map[string]any{fcafTestSource: map[string]any{}},
-		},
-	})
-	require.ErrorContains(t, err, "app_url or internal_app_url is required")
+	require.ErrorContains(t, err, "pipeline result not found")
+	require.ErrorContains(t, err, "CRE235")
 }
 
 func TestNormalizeValidationTestIDsSupportsBatchAndLegacyInputs(t *testing.T) {
@@ -319,7 +271,7 @@ func TestNormalizeValidationTestIDsRejectsEmptyInputs(t *testing.T) {
 }
 
 func TestFCAFValidationActivityRequiresAggregateOutput(t *testing.T) {
-	act := NewFCAFValidationActivity(fcafTestOutputKind)
+	act := NewFCAFValidationActivity(nil, fcafTestOutputKind)
 
 	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
 		Payload: FCAFValidationActivityInput{TestID: "test-one"},

@@ -6,16 +6,19 @@ package activities
 
 import (
 	"context"
+	"net/http"
+	"os"
+	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
-// MobileRunnerHTTPActivity carries the internal admin credential exactly like
-// InternalHTTPActivity, and additionally resolves quick-tunnel runner hostnames
-// through Cloudflare DNS. It is a separate activity rather than a branch inside
-// the internal one so a run's Temporal history names the calls that leave
-// Credimi for a runner.
+// MobileRunnerHTTPActivity calls a mobile runner with the internal admin
+// credential and resolves quick-tunnel runner hostnames through Cloudflare
+// DNS, so a run's Temporal history names the calls that leave Credimi for a
+// runner.
 type MobileRunnerHTTPActivity struct {
 	workflowengine.BaseActivity
 }
@@ -50,13 +53,45 @@ func (a *MobileRunnerHTTPActivity) Execute(
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
-	return executeInternalHTTPRequest(ctx, InternalHTTPActivityPayload{
-		Method:         payload.Method,
-		URL:            payload.URL,
-		QueryParams:    payload.QueryParams,
-		Timeout:        payload.Timeout,
-		Headers:        payload.Headers,
-		Body:           payload.Body,
-		ExpectedStatus: payload.ExpectedStatus,
-	}, &a.BaseActivity, mobilerunner.Transport(payload.URL))
+	return executeMobileRunnerHTTPRequest(
+		ctx,
+		payload,
+		&a.BaseActivity,
+		mobilerunner.Transport(payload.URL),
+	)
+}
+
+func executeMobileRunnerHTTPRequest(
+	ctx context.Context,
+	payload MobileRunnerHTTPActivityPayload,
+	act *workflowengine.BaseActivity,
+	transport http.RoundTripper,
+) (workflowengine.ActivityResult, error) {
+	apiKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
+	if apiKey == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+		return workflowengine.ActivityResult{}, act.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "CREDIMI_INTERNAL_ADMIN_KEY is required",
+			},
+		)
+	}
+
+	return executeHTTPRequest(
+		ctx,
+		HTTPActivityPayload{
+			Method:         payload.Method,
+			URL:            payload.URL,
+			QueryParams:    payload.QueryParams,
+			Timeout:        payload.Timeout,
+			Headers:        payload.Headers,
+			Body:           payload.Body,
+			ExpectedStatus: payload.ExpectedStatus,
+		},
+		map[string]string{"Credimi-Api-Key": apiKey},
+		act,
+		transport,
+	)
 }

@@ -110,9 +110,7 @@ $(DATA):
 dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mode
 	$(call require_tools,$(DEPS) $(DEV_DEPS))
 	@bash -c 'set -euo pipefail; \
-		_user_internal="$${CREDIMI_INTERNAL_APP_URL-}"; \
 		eval "$$(./scripts/worktree-env.sh export)"; \
-		if [ -n "$${_user_internal}" ]; then export CREDIMI_INTERNAL_APP_URL="$${_user_internal}"; fi; \
 		unset PORT; \
 		export PUBLIC_TURNSTILE_SITE_KEY="$${PUBLIC_TURNSTILE_SITE_KEY:-1x00000000000000000000AA}"; \
 		export TURNSTILE_SECRET_KEY="$${TURNSTILE_SECRET_KEY:-1x0000000000000000000000000000000AA}"; \
@@ -258,9 +256,6 @@ docker-tunnel: $(DATA) submodules ## 🌐 run docker (detached, logs hidden) and
 		printf "\n$(GREEN)🌍 Public URL will appear in the cloudflared banner below:$(RESET)\n\n"; \
 		cloudflared tunnel --url http://localhost:8090 \
 	'
-
-waf-emulator: ## 🛡  emulate a Cloudflare-proxied deployment (challenges non-browser callers) on :8091
-	$(GOCMD) run ./scripts/waf-emulator
 
 ## Misc
 

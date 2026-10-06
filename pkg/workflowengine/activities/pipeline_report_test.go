@@ -8,8 +8,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
@@ -115,22 +113,15 @@ func TestPipelineReportGenerationActivityBuildsFromHistoryAndStoresMarkdown(t *t
 	).Return(&fcafHistoryIterator{events: reportTestHistory(t)})
 	temporalclient.SetClientForTests("tenant", historyClient)
 
-	var stored map[string]string
-	store := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/api/pipeline/pipeline-execution-results/report", r.URL.Path)
-		require.Equal(t, "test-key", r.Header.Get("Credimi-Api-Key"))
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&stored))
-		_, _ = w.Write([]byte(`{}`))
-	}))
-	t.Cleanup(store.Close)
+	app := newPipelineResultsTestApp(t)
+	record := createTestPipelineResult(t, app, "workflow-1", "run-1")
 
-	act := NewPipelineReportGenerationActivity(fcafTestOutputKind)
+	act := NewPipelineReportGenerationActivity(app, fcafTestOutputKind)
 	res, err := act.Execute(t.Context(), workflowengine.ActivityInput{
 		Payload: PipelineReportGenerationInput{
 			Namespace:          "tenant",
 			WorkflowID:         "workflow-1",
 			RunID:              "run-1",
-			AppURL:             store.URL,
 			PipelineOutputMeta: map[string]any{"setup_warnings": []string{"warning"}},
 			Evidence:           reportTestEvidence(),
 		},
@@ -144,11 +135,12 @@ func TestPipelineReportGenerationActivityBuildsFromHistoryAndStoresMarkdown(t *t
 	require.Equal(t, "workflow-1.md", out.Filename)
 	require.Equal(t, "workflow-1", out.Fixture)
 
-	require.Equal(t, "workflow-1", stored["workflow_id"])
-	require.Equal(t, "run-1", stored["run_id"])
-	require.Equal(t, "workflow-1.md", stored["filename"])
-	require.Contains(t, stored["markdown"], "Credimi Conformance Assessment")
-	sum := sha256.Sum256([]byte(stored["markdown"]))
+	reloaded, err := app.FindRecordById("pipeline_results", record.Id)
+	require.NoError(t, err)
+	require.NotEmpty(t, reloaded.GetString("report"))
+	markdown := readPipelineResultFile(t, app, reloaded, "report")
+	require.Contains(t, string(markdown), "Credimi Conformance Assessment")
+	sum := sha256.Sum256(markdown)
 	require.Equal(t, hex.EncodeToString(sum[:]), out.MarkdownSHA256)
 
 	encoded, err := json.Marshal(out)
@@ -162,18 +154,13 @@ func TestPipelineReportGenerationActivityWarnsWhenStorageFails(t *testing.T) {
 	historyClient.On("GetWorkflowHistory", mock.Anything, "workflow-1", "run-1", false, mock.Anything).
 		Return(&fcafHistoryIterator{events: reportTestHistory(t)})
 	temporalclient.SetClientForTests("tenant", historyClient)
-	store := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	t.Cleanup(store.Close)
 
-	act := NewPipelineReportGenerationActivity(fcafTestOutputKind)
+	act := NewPipelineReportGenerationActivity(newPipelineResultsTestApp(t), fcafTestOutputKind)
 	res, err := act.Execute(t.Context(), workflowengine.ActivityInput{
 		Payload: PipelineReportGenerationInput{
 			Namespace:  "tenant",
 			WorkflowID: "workflow-1",
 			RunID:      "run-1",
-			AppURL:     store.URL,
 			Evidence:   reportTestEvidence(),
 		},
 	})
@@ -182,7 +169,7 @@ func TestPipelineReportGenerationActivityWarnsWhenStorageFails(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, out.Warnings, 1)
 	require.Contains(t, out.Warnings[0], "pipeline report storage failed")
-	require.Contains(t, out.Warnings[0], "status 404")
+	require.Contains(t, out.Warnings[0], "pipeline result not found")
 }
 
 func TestSanitizeReportFilename(t *testing.T) {
@@ -191,7 +178,7 @@ func TestSanitizeReportFilename(t *testing.T) {
 }
 
 func TestPipelineReportGenerationActivityValidation(t *testing.T) {
-	act := NewPipelineReportGenerationActivity(fcafTestOutputKind)
+	act := NewPipelineReportGenerationActivity(nil, fcafTestOutputKind)
 	_, err := act.Execute(
 		t.Context(),
 		workflowengine.ActivityInput{Payload: PipelineReportGenerationInput{}},

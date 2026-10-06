@@ -7,13 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"net/http"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -79,7 +77,7 @@ func ExecuteStep(
 			return nil, appErr
 		}
 		ctx = workflow.WithActivityOptions(ctx, ao)
-		act := step.NewFunc().(workflowengine.Activity)
+		act := step.NewFunc(nil).(workflowengine.Activity)
 		input := workflowengine.ActivityInput{
 			Payload: payload,
 			Config:  workflowengine.StringifyConfig(s.With.Config),
@@ -159,7 +157,7 @@ func ExecuteStep(
 			}
 			taskqueue = configuredTaskQueue
 		}
-		w := step.NewFunc().(workflowengine.Workflow)
+		w := step.NewFunc(nil).(workflowengine.Workflow)
 		appURL, ok := s.With.Config["app_url"].(string)
 		if ok && appURL == "" {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
@@ -366,7 +364,7 @@ func runChildPipeline(
 	return childResult.Output, nil
 }
 
-// fetchChildPipelineYAML fetches the pipeline YAML from an internal API route.
+// fetchChildPipelineYAML resolves the child pipeline record and returns its YAML.
 func fetchChildPipelineYAML(
 	ctx workflow.Context,
 	step pipeline.StepDefinition,
@@ -381,42 +379,37 @@ func fetchChildPipelineYAML(
 		)
 	}
 
-	appURL, ok := input.WorkflowInput.Config["app_url"].(string)
-	if !ok || appURL == "" {
+	namespace, ok := input.WorkflowInput.Config["namespace"].(string)
+	if !ok || namespace == "" {
 		return "", workflowengine.NewWorkflowError(
-			workflowengine.NewMissingConfigError("app_url", meta),
+			workflowengine.NewMissingConfigError("namespace", meta),
 			meta,
 		)
 	}
 
-	act := activities.NewInternalHTTPActivity()
 	var response workflowengine.ActivityResult
 	req := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodGet,
-			URL: utils.JoinURL(
-				workflowengine.InternalAppURLFromConfig(input.WorkflowInput.Config),
-				"api", "pipeline", "get-yaml",
-			),
-			QueryParams: map[string]string{
-				"pipeline_identifier": pipelineID,
-			},
-			ExpectedStatus: 200,
+		Payload: activities.ResolveRecordInput{
+			CanonifiedName: pipelineID,
+			Collection:     "pipelines",
+			OwnerNamespace: namespace,
 		},
 	}
 
-	if err := workflow.ExecuteActivity(ctx, act.Name(), req).Get(ctx, &response); err != nil {
+	if err := workflow.ExecuteActivity(ctx, activities.ResolveRecordActivityName, req).
+		Get(ctx, &response); err != nil {
 		return "", workflowengine.NewWorkflowError(err, meta)
 	}
 
-	body, ok := response.Output.(map[string]any)["body"].(string)
+	record, _ := response.Output.(map[string]any)
+	yaml, ok := record["yaml"].(string)
 	if !ok {
 		return "", workflowengine.NewWorkflowError(
 			workflowengine.NewAppError(
 				workflowengine.WorkflowError{
 					Code:    errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Code,
 					Summary: errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Description,
-					Message: "invalid HTTP output",
+					Message: "invalid resolved pipeline output",
 					Details: map[string]any{"payload": response.Output},
 				},
 			),
@@ -424,7 +417,7 @@ func fetchChildPipelineYAML(
 		)
 	}
 
-	return body, nil
+	return yaml, nil
 }
 
 func ExtractPipelineOutput(dataCtx map[string]any) map[string]any {

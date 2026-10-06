@@ -419,7 +419,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	internalHTTPActivity := registerInternalHTTPActivity(env)
+	registerStubActivity(env, activities.GetMobileDeviceActivityName)
 	setupMobileDeviceActivity := activities.NewSetupMobileDeviceActivity()
 	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
 	env.RegisterActivityWithOptions(
@@ -442,7 +442,6 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 				mobileCtx:     ctx,
 				payload:       payload,
 				settedDevices: map[string]any{},
-				appURL:        "http://localhost:8090",
 				stepID:        "step-1",
 			})
 		},
@@ -450,16 +449,14 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	)
 
 	env.OnActivity(
-		internalHTTPActivity.Name(),
+		activities.GetMobileDeviceActivityName,
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{
-			"runner_id":  "tenant/runner-1",
-			"runner_url": "http://runner",
-			"type":       "physical",
-			"serial":     "serial-1",
-		},
+		"runner_id":  "tenant/runner-1",
+		"runner_url": "http://runner",
+		"type":       "physical",
+		"serial":     "serial-1",
 	}}, nil)
 	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: []string{"com.android.settings"}}, nil)
@@ -479,7 +476,7 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	internalHTTPActivity := registerInternalHTTPActivity(env)
+	registerStubActivity(env, activities.GetMobileDeviceActivityName)
 	setupMobileDeviceActivity := activities.NewSetupMobileDeviceActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
 	env.RegisterActivityWithOptions(
@@ -502,7 +499,6 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 				mobileCtx:     ctx,
 				payload:       payload,
 				settedDevices: map[string]any{},
-				appURL:        "http://localhost:8090",
 				stepID:        "step-1",
 			})
 		},
@@ -510,16 +506,14 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	)
 
 	env.OnActivity(
-		internalHTTPActivity.Name(),
+		activities.GetMobileDeviceActivityName,
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{
-			"runner_id":  "tenant/runner-1",
-			"runner_url": "http://runner",
-			"type":       "android_emulator",
-			"serial":     "serial-from-runner",
-		},
+		"runner_id":  "tenant/runner-1",
+		"runner_url": "http://runner",
+		"type":       "android_emulator",
+		"serial":     "serial-from-runner",
 	}}, nil)
 
 	env.OnActivity(
@@ -601,7 +595,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	internalHTTPActivity := registerInternalHTTPActivity(env)
+	registerStubActivity(env, activities.GetMobileDeviceActivityName)
 
 	workflowName := "fetch-runner-info"
 	env.RegisterWorkflowWithOptions(
@@ -612,7 +606,6 @@ func TestFetchRunnerInfo(t *testing.T) {
 			runnerID, runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
 				ctx:     ctx,
 				payload: payload,
-				appURL:  "http://localhost:8090",
 				stepID:  "step-1",
 			})
 			if err != nil {
@@ -629,16 +622,19 @@ func TestFetchRunnerInfo(t *testing.T) {
 	)
 
 	env.OnActivity(
-		internalHTTPActivity.Name(),
+		activities.GetMobileDeviceActivityName,
 		mock.Anything,
-		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, err := workflowengine.DecodePayload[activities.GetMobileDeviceInput](
+				input.Payload,
+			)
+			return err == nil && payload.DeviceIdentifier == "runner-1"
+		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"body": map[string]any{
-			"runner_id":  "organization/runner-1",
-			"runner_url": "http://runner",
-			"type":       "physical",
-			"serial":     "serial-1",
-		},
+		"runner_id":  "organization/runner-1",
+		"runner_url": "http://runner",
+		"type":       "physical",
+		"serial":     "serial-1",
 	}}, nil)
 
 	env.ExecuteWorkflow(workflowName)
@@ -660,9 +656,9 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 		errSubstr string
 	}{
 		{
-			name:      "invalid body type",
+			name:      "invalid output type",
 			body:      "bad",
-			errSubstr: "invalid HTTP response format",
+			errSubstr: "invalid mobile device output",
 		},
 		{
 			name: "missing runner url",
@@ -696,7 +692,7 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 			suite := testsuite.WorkflowTestSuite{}
 			env := suite.NewTestWorkflowEnvironment()
 
-			internalHTTPActivity := registerInternalHTTPActivity(env)
+			registerStubActivity(env, activities.GetMobileDeviceActivityName)
 
 			workflowName := "fetch-runner-info-error"
 			env.RegisterWorkflowWithOptions(
@@ -709,7 +705,6 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 					_, _, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 						ctx:     ctx,
 						payload: payload,
-						appURL:  "http://localhost:8090",
 						stepID:  "step-1",
 					})
 					return err
@@ -718,10 +713,10 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 			)
 
 			env.OnActivity(
-				internalHTTPActivity.Name(),
+				activities.GetMobileDeviceActivityName,
 				mock.Anything,
 				mock.Anything,
-			).Return(workflowengine.ActivityResult{Output: map[string]any{"body": tc.body}}, nil)
+			).Return(workflowengine.ActivityResult{Output: tc.body}, nil)
 
 			env.ExecuteWorkflow(workflowName)
 			require.True(t, env.IsWorkflowCompleted())

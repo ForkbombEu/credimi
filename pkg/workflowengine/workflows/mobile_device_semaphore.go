@@ -998,7 +998,7 @@ func (r *mobileDeviceSemaphoreRuntime) startPipelineForTicket(
 	ticketID string,
 	state MobileDeviceSemaphoreRunTicketState,
 ) error {
-	startActivity := activities.NewStartQueuedPipelineActivity()
+	startActivity := activities.NewStartQueuedPipelineActivity(nil)
 	activityOptions := DefaultActivityOptions
 	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
 	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
@@ -1565,7 +1565,7 @@ func (r *mobileDeviceSemaphoreRuntime) cleanupRunTicketResources(
 		return nil
 	}
 
-	cleanupActivity := activities.NewCleanupMobileDeviceSemaphoreResourcesActivity()
+	cleanupActivity := activities.NewCleanupMobileDeviceSemaphoreResourcesActivity(nil)
 	activityOptions := DefaultActivityOptions
 	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
 	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
@@ -1573,7 +1573,6 @@ func (r *mobileDeviceSemaphoreRuntime) cleanupRunTicketResources(
 	var result workflowengine.ActivityResult
 	err := workflow.ExecuteActivity(activityCtx, cleanupActivity.Name(), workflowengine.ActivityInput{
 		Payload: activities.CleanupMobileDeviceSemaphoreResourcesActivityInput{
-			AppURL:  runTicketInternalAppURL(state),
 			Cleanup: state.Request.Cleanup,
 		},
 	}).
@@ -1829,20 +1828,6 @@ func (r *mobileDeviceSemaphoreRuntime) sortedRunTicketIDs() []string {
 func ticketHasStartedWorkflow(state MobileDeviceSemaphoreRunTicketState) bool {
 	return strings.TrimSpace(state.WorkflowID) != "" &&
 		strings.TrimSpace(state.WorkflowNamespace) != ""
-}
-
-func runTicketAppURL(state MobileDeviceSemaphoreRunTicketState) string {
-	if appURL, ok := state.Request.PipelineConfig["app_url"].(string); ok {
-		return strings.TrimSpace(appURL)
-	}
-	if state.Request.Notification != nil && state.Request.Notification.GitHubPR != nil {
-		return strings.TrimSpace(state.Request.Notification.GitHubPR.AppURL)
-	}
-	return ""
-}
-
-func runTicketInternalAppURL(state MobileDeviceSemaphoreRunTicketState) string {
-	return workflowengine.InternalAppURLFromConfig(state.Request.PipelineConfig)
 }
 
 func sortedDeviceIDs(deviceIDs []string) []string {

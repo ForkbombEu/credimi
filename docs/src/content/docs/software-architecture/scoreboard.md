@@ -11,18 +11,6 @@ The Scoreboard shows aggregated pipeline execution results across the platform. 
 
 ## API Endpoints
 
-### `GET /api/pipeline/scoreboard/{namespace}`
-
-Returns aggregated pipeline statistics for a single Temporal namespace (organization).
-
-**Authentication:** Internal / trusted callers (used by the aggregation workflow)
-
-### `POST /api/pipeline/scoreboard/save-results`
-
-Accepts merged aggregation output and refreshes `pipeline_scoreboard_cache`.
-
-**Authentication:** Internal admin API key
-
 ### `POST /api/pipeline/scoreboard/aggregate/start`
 
 Starts the `AggregateScoreboardWorkflow`. Optional `?schedule=<seconds>` creates a recurring schedule.
@@ -82,12 +70,12 @@ Scoreboard.EntityDisplay;
 
 `AggregateScoreboardWorkflow` (`pkg/workflowengine/workflows/scoreboard.go`):
 
-1. Enumerate organization namespaces
-2. Fetch per-namespace stats from `/api/pipeline/scoreboard/{namespace}`
+1. Enumerate organization namespaces (`List organization namespaces for the scoreboard` activity)
+2. Fetch per-namespace stats (`Get the pipeline scoreboard of a namespace` activity)
 3. Merge results across tenants
-4. Persist via `/api/pipeline/scoreboard/save-results`
+4. Persist into `pipeline_scoreboard_cache` (`Save aggregated scoreboard results` activity)
 
-Handlers live in `pkg/internal/apis/handlers/scoreboard.go`.
+The activities receive `core.App` and read Temporal and PocketBase directly; they live in `pkg/internal/apis/handlers/scoreboard_activities.go`, and the aggregation helpers in `pkg/internal/apis/handlers/scoreboard.go`.
 
 ## Usage Examples
 
