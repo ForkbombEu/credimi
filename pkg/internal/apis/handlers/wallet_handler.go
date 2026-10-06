@@ -113,7 +113,12 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 		var req WalletURL
 
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
-			return apis.NewBadRequestError("invalid JSON input", err)
+			return apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"invalid JSON input",
+				err.Error(),
+			)
 		}
 		organization, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
 		if err != nil {
@@ -238,7 +243,12 @@ func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var req WalletInstallerMD5OrETagRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
-			return apis.NewBadRequestError("invalid JSON input", err)
+			return apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"invalid JSON input",
+				err.Error(),
+			)
 		}
 
 		// Validate that at least one identifier is provided
@@ -351,8 +361,11 @@ func getVersionRecord(
 		0,
 		map[string]any{"walletID": walletRecord.Id},
 	)
-	if err != nil || len(versionRecords) == 0 {
+	if err != nil {
 		return nil, err
+	}
+	if len(versionRecords) == 0 {
+		return nil, fmt.Errorf("wallet %s has no versions", walletIdentifier)
 	}
 
 	return versionRecords[0], nil
@@ -679,14 +692,6 @@ func authorizeWalletInstallerAccess(
 	e *core.RequestEvent,
 	versionRecord *core.Record,
 ) *apierror.APIError {
-	if versionRecord == nil {
-		return apierror.New(
-			http.StatusInternalServerError,
-			"wallet_version",
-			"wallet version missing",
-			"wallet version is required",
-		)
-	}
 	if isInternalAdminPrincipal(e.Auth) {
 		return nil
 	}

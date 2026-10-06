@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -396,6 +397,30 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 				`"wallet version not found"`,
 			},
 			TestAppFactory: setupWalletApp,
+		},
+		{
+			Name:   "get installer MD5 for a wallet without versions",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_identifier": "usera-s-organization/empty-wallet",
+				"platform":          "android",
+			}),
+			ExpectedStatus: 404,
+			ExpectedContent: []string{
+				`"wallet version not found"`,
+				`has no versions`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+				walletColl, err := app.FindCollectionByNameOrId("wallets")
+				require.NoError(t, err)
+				walletRecord := core.NewRecord(walletColl)
+				walletRecord.Set("name", "empty-wallet")
+				walletRecord.Set("owner", orgID)
+				require.NoError(t, app.Save(walletRecord))
+				return app
+			},
 		},
 		{
 			Name:   "get installer MD5 with invalid platform",
@@ -786,7 +811,10 @@ func TestHandleWalletStartCheckInvalidJSON(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.Error(t, err)
+	var apiErr *apierror.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "invalid JSON input", apiErr.Reason)
 }
 
 func TestHandleWalletStartCheckWorkflowStartError(t *testing.T) {
