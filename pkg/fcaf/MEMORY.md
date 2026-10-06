@@ -2884,9 +2884,36 @@ issuance `credential_issued`, `fcaf-expect-no-matching-document` and
 `fcaf-expect-request-rejected` `request_retrieved`, `fcaf-exercise-wallet-generic`
 `presentation_validated`.
 
-`fcaf-dc-api-present` fails with and without the change, in the same place: it
-enters the PIN on `Welcome back`, then waits for `Share|Cancel|Oups! Something
-went wrong` while the platform picker shows `Agree and continue` (`continue_button`)
-and `Share info`. The flow handles the picker before the unlock; the order it
-meets on 2026.09.42 apparently differs (inferred from the failing assertion and
-the final screen, not from a step-by-step trace). Not fixed yet.
+`fcaf-dc-api-present` failed with and without that change. A timed trace showed
+the screen order is right (Chrome `Continue`, picker `Agree and continue`, then
+the Wallet's `Welcome back`); the cause was `hideKeyboard` after the PIN, which
+leaves the Wallet inside the credential-manager window and drops back to the
+picker.
+
+## DC API flows split by expected outcome, 06/10/2026
+
+`fcaf-dc-api-present` used to pass on every terminal state, so a case that must
+succeed was green on a refusal and the other way round. It now serves only the
+cases that must succeed (`dc-api-signed-encrypted`, `dc-api-unsigned`), and the
+new `fcaf-dc-api-expect-rejected` serves `dc-api-invalid-signature` and
+`dc-api-unencrypted`. Both type the PIN on the keypad.
+
+Observed on `emulator-5554` (2026.09.42):
+
+- The Wallet returns the response to Chrome only when its result screen closes.
+  With the flow ending on `View details`, the session stayed `created`; after
+  `Close` it reached `presentation_validated`. The success flow taps `Close` and
+  requires the page's `Presentation accepted`.
+- On a refused request the Wallet shows `Oups! Something went wrong`.
+  `TRY AGAIN` repeats the same request. Back returns to the platform picker,
+  and closing the picker makes the page report `outcome: rejected`
+  (`NotAllowedError`, `Request is cancelled.`). That outcome comes from closing
+  the picker, so the refusal itself is proven by the flow failing on a consent
+  screen and by the `dc-api-wallet-outcome` screenshot.
+- Results: invalid-signature and unencrypted pass the refusal flow
+  (`dc_api_invocation_reported`, `rejected`, no `vp_token`); signed-encrypted
+  passes the success flow (`presentation_validated`). Unsigned fails it: with a
+  freshly issued PID in the Wallet, the platform picker answers `Your info
+  wasn't found`, so the Wallet does not offer itself for an
+  `openid4vp-v1-unsigned` request. RpIntegrity 003 expects a presentation, so it
+  now fails instead of passing on any outcome.

@@ -1096,7 +1096,7 @@ steps:
       id: dc-api-invalid-signature-32532cf2-invoke-dc-api-invalid-signature
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-present
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-expect-rejected
         parameters:
             presentation_url: ${{ dc-api-invalid-signature-32532cf2-create-dc-api-invalid-signature.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1228,7 +1228,7 @@ steps:
       id: dc-api-unencrypted-f995d5b2-invoke-dc-api-unencrypted
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-present
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-expect-rejected
         parameters:
             presentation_url: ${{ dc-api-unencrypted-f995d5b2-create-dc-api-unencrypted.outputs.body.deeplink }}
         version_id: installed_from_external_source

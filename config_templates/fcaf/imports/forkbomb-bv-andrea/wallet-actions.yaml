@@ -54,6 +54,10 @@ actions:
     category: verify-credential
     tags: fcaf, dc-api, present
     file: wallet/fcaf-dc-api-present.yaml
+  - name: fcaf-dc-api-expect-rejected
+    category: verify-credential
+    tags: fcaf, dc-api, expect, rejected
+    file: wallet/fcaf-dc-api-expect-rejected.yaml
   - name: fcaf-submit-request-object-by-value
     category: verify-credential
     tags: fcaf, request-object, by-value
