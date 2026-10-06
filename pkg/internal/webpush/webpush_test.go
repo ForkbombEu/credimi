@@ -11,10 +11,12 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -235,4 +237,95 @@ func TestNotifyPipelineRunCompletionCollectsFailures(t *testing.T) {
 
 	_, err = app.FindRecordById(pushSubscriptionsCollection, subscription.Id)
 	require.NoError(t, err)
+}
+
+func buildRecordsMux(t *testing.T, app *tests.TestApp) http.Handler {
+	t.Helper()
+
+	router, err := apis.NewRouter(app)
+	require.NoError(t, err)
+	var mux http.Handler
+	serveEvent := &core.ServeEvent{App: app, Router: router}
+	require.NoError(t, app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+		var err error
+		mux, err = e.Router.BuildMux()
+		return err
+	}))
+	require.NotNil(t, mux)
+	return mux
+}
+
+func patchPushSubscription(
+	mux http.Handler,
+	token string,
+	subscriptionID string,
+	body string,
+) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(
+		http.MethodPatch,
+		"/api/collections/"+pushSubscriptionsCollection+"/records/"+subscriptionID,
+		strings.NewReader(body),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", token)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestPushSubscriptionUserCannotBeReassigned(t *testing.T) {
+	app := setupWebPushApp(t)
+	defer app.Cleanup()
+
+	t.Setenv(EnvVAPIDPublicKey, "")
+	t.Setenv(EnvVAPIDPrivateKey, "")
+
+	orgID, victimID := firstOrgMember(t, app)
+	attackerID := firstNonMemberUser(t, app, victimID)
+	attacker, err := app.FindRecordById("users", attackerID)
+	require.NoError(t, err)
+	attackerToken, err := attacker.NewAuthToken()
+	require.NoError(t, err)
+
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	subscription := createPushSubscription(t, app, attackerID, server.URL+"/attacker")
+	mux := buildRecordsMux(t, app)
+
+	rec := patchPushSubscription(mux, attackerToken, subscription.Id, `{"user":"`+victimID+`"}`)
+	require.NotEqual(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	stored, err := app.FindRecordById(pushSubscriptionsCollection, subscription.Id)
+	require.NoError(t, err)
+	require.Equal(t, attackerID, stored.GetString("user"))
+
+	sent, err := NotifyPipelineRunCompletion(context.Background(), app, CompletionRequest{
+		OrgID:        orgID,
+		PipelineName: "my-pipeline",
+		WorkflowID:   "wf-1",
+		RunID:        "run-1",
+		Result:       "success",
+		AppURL:       "https://credimi.test",
+	})
+	require.NoError(t, err)
+	require.Equal(t, 0, sent)
+	require.Equal(t, int32(0), requests.Load())
+
+	t.Run("owner can still update own subscription", func(t *testing.T) {
+		rec := patchPushSubscription(
+			mux, attackerToken, subscription.Id,
+			`{"user":"`+attackerID+`","endpoint":"`+server.URL+`/renewed"}`,
+		)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		rec = patchPushSubscription(
+			mux, attackerToken, subscription.Id, `{"endpoint":"`+server.URL+`/renewed-again"}`,
+		)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	})
 }
