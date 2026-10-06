@@ -14,27 +14,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
-	import { isStepEditable, StepCardDisplay } from './index.js';
+	import type { InCardHostChrome } from '../in-card/in-card-host-chrome.js';
 
-	//
+	import InCardHost from '../in-card/in-card-host.svelte';
 
-	type Props = {
+	import { isStepEditable } from './utils.js';
+
+	type Props = InCardHostChrome & {
 		index: number;
 		followUp: EnrichedFollowUp;
 		builder: StepsBuilder;
-		editing?: boolean;
-		selected?: boolean;
-		hovered?: boolean;
 	};
 
-	let {
-		builder,
-		followUp,
-		index,
-		editing = false,
-		selected = false,
-		hovered = false
-	}: Props = $props();
+	let { builder, followUp, index, ...chrome }: Props = $props();
 
 	const editable = $derived(isStepEditable(followUp.step));
 	const actionsDisabled = $derived(builder.isFormMode);
@@ -46,35 +38,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	];
 </script>
 
-<StepCardDisplay step={followUp.step} {editing} {selected} {hovered}>
+<InCardHost {builder} step={followUp.step} {...chrome}>
 	{#snippet topRight()}
-		<!-- Prevent action chrome from selecting the card via bubbled click/pointerdown. -->
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class={[
-				'flex items-center gap-1 pr-1 transition-opacity',
-				actionsDisabled ? 'opacity-30' : 'opacity-30 group-hover:opacity-100'
-			]}
-			onclick={(e) => e.stopPropagation()}
-			onpointerdown={(e) => e.stopPropagation()}
-		>
-			{#if editable}
-				<IconButton
-					icon={PencilIcon}
-					variant="ghost"
-					size="xs"
-					onclick={() => builder.initEditFollowUp(index)}
-				/>
-			{/if}
+		{#if editable}
 			<IconButton
-				icon={TrashIcon}
+				icon={PencilIcon}
 				variant="ghost"
 				size="xs"
-				disabled={actionsDisabled}
-				onclick={() => builder.deleteFollowUp(index)}
+				class="pointer-events-auto"
+				onclick={() => builder.initEditFollowUp(index)}
 			/>
-		</div>
+		{/if}
+		<IconButton
+			icon={TrashIcon}
+			variant="ghost"
+			size="xs"
+			disabled={actionsDisabled}
+			onclick={() => builder.deleteFollowUp(index)}
+		/>
 	{/snippet}
 
 	{#snippet footer()}
@@ -104,4 +85,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		</div>
 	{/snippet}
-</StepCardDisplay>
+</InCardHost>

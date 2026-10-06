@@ -26,30 +26,18 @@ import {
 } from './animatable-scroll.js';
 import { scrollFollowPreference } from './preference.js';
 
-/** Continuous retarget vs intentional reveal/edit/click (duration only; both use Animatable). */
 export type PeerScrollKind = 'follow' | 'discrete';
 
 export type PeerScrollFollowOptions = {
 	clock?: ComposerClock;
-	/**
-	 * Optional mount hook for unmounted (virtualized) cards.
-	 * Behavior-compatible when absent — missing cards still no-op scroll.
-	 */
 	ensureMounted?: EnsureMounted;
-	/**
-	 * Optional mount hook for unmounted (virtualized) YAML step blocks.
-	 * Follow-ups in the YAML pane stay fully mounted.
-	 */
 	ensureMountedYaml?: EnsureMounted;
-	/** Optional true list lengths for list-end viewport resolution under virtualization. */
 	getCardLengths?: () => CardListLengths | undefined;
-	/** Optional true YAML list lengths (usually same as cards). */
 	getYamlLengths?: () => CardListLengths | undefined;
-	/** Injectable Animatable factory (tests). Defaults to animejs `createAnimatable`. */
 	createAnimatableScroll?: typeof createAnimatableScroll;
+	isCardsParked?: () => boolean;
 };
 
-/** Debounce before cards→YAML discrete follow after preview text regenerates. */
 export const YAML_REGEN_DEBOUNCE_MS = 130;
 /** Slack past debounce so paired-reorder regen does not schedule a competing follow. */
 const PAIRED_REORDER_SUPPRESS_MS = YAML_REGEN_DEBOUNCE_MS + 50;
@@ -60,11 +48,8 @@ function durationFor(kind: PeerScrollKind): number {
 }
 
 /**
- * Viewport peer sync for Pipeline Composer cards ↔ YAML (index-aligned).
  * Does not select or highlight a step (see UnitHighlight).
- *
- * Smoothness comes from one persistent Anime.js Animatable per scrollport —
- * continuous follow retargets `scrollTop` instead of stacking native smooth scrolls.
+ * Continuous follow retargets Animatable `scrollTop` instead of stacking native smooth scrolls.
  */
 export class PeerScrollFollow {
 	activeUnit = $state.raw<ActiveUnit | null>(null);
@@ -75,6 +60,7 @@ export class PeerScrollFollow {
 	#getCardLengths: (() => CardListLengths | undefined) | undefined;
 	#getYamlLengths: (() => CardListLengths | undefined) | undefined;
 	#createAnimatableScroll: typeof createAnimatableScroll;
+	#isCardsParked: (() => boolean) | undefined;
 	#cardsEl: HTMLElement | null = null;
 	#yamlEl: HTMLElement | null = null;
 	#cardsAnim: AnimatableScroll | null = null;
@@ -88,7 +74,13 @@ export class PeerScrollFollow {
 	#peerFollowRaf: number | null = null;
 	#pendingReveal: ActiveUnit | null = null;
 	#disposed = false;
-	/** Clock time of last paired card/YAML reorder — suppresses regen follow briefly. */
+	/**
+	 * In-card enter hard start: mute peer sync so YAML start-align cannot
+	 * center-yank cards (and clear cards driven) before expand/park.
+	 */
+	#editHardStart = false;
+	/** Bumps each onEditFocus so a deferred mute-clear cannot drop a newer enter. */
+	#editHardStartGen = 0;
 	#pairedReorderAt = Number.NEGATIVE_INFINITY;
 
 	constructor(options?: PeerScrollFollowOptions) {
@@ -98,9 +90,9 @@ export class PeerScrollFollow {
 		this.#getCardLengths = options?.getCardLengths;
 		this.#getYamlLengths = options?.getYamlLengths ?? options?.getCardLengths;
 		this.#createAnimatableScroll = options?.createAnimatableScroll ?? createAnimatableScroll;
+		this.#isCardsParked = options?.isCardsParked;
 	}
 
-	/** Shared persisted preference (rune-sync / localStorage). */
 	get enabled(): boolean {
 		return scrollFollowPreference.enabled;
 	}
@@ -114,24 +106,15 @@ export class PeerScrollFollow {
 		}
 		if (editingIndex !== undefined) {
 			this.#setActiveUnit({ section: 'steps', index: editingIndex });
-			this.#followPeerFromCards('discrete');
+			if (!this.#isCardsParked?.()) this.#followPeerFromCards('discrete');
 		}
 	}
 
-	/** Attachment for the cards scrollport (Column). Safe while follow is off — handlers no-op. */
 	cardsAttach: Attachment = (node) => this.#bindScrollport('cards', node);
 
-	/**
-	 * Attachment for the YAML preview scroller (virtual step blocks + static header/follow-ups).
-	 * Resolves active unit from `data-yaml-section` / `data-yaml-index` (index peer-follow).
-	 */
 	yamlAttach: Attachment = (node) => this.#bindScrollport('yaml', node);
 
-	/**
-	 * Shared scrollport binding for cards ↔ YAML.
-	 * Cards flush a queued reveal on attach; YAML clears activeUnit when no unit is in view.
-	 * Leadership / start-band vs center live elsewhere (ADR-0001).
-	 */
+	/** Leadership / start-band vs center live elsewhere (ADR-0001). */
 	#bindScrollport(side: 'cards' | 'yaml', node: Element): (() => void) | void {
 		const el = node as HTMLElement;
 		if (side === 'cards') {
@@ -149,6 +132,7 @@ export class PeerScrollFollow {
 
 		const onUserIntent = () => {
 			if (!this.enabled) return;
+			if (this.#isCardsParked?.()) return;
 			if (this.#drivenSide === side) this.#clearDriven?.();
 			this.#lastIntentSide = side;
 			this.#claimScrollLeader(side);
@@ -156,6 +140,8 @@ export class PeerScrollFollow {
 
 		const onScroll = () => {
 			if (!this.enabled) return;
+			if (this.#isCardsParked?.()) return;
+			if (this.#editHardStart) return;
 			if (this.#drivenSide === side) return;
 			const otherSide = side === 'cards' ? 'yaml' : 'cards';
 			if (this.#scrollLeader === otherSide) return;
@@ -208,16 +194,79 @@ export class PeerScrollFollow {
 		};
 	}
 
-	onEditFocus(stepIndex: number | undefined) {
-		if (this.#disposed) return;
-		if (stepIndex === undefined) return;
-		const next: ActiveUnit = { section: 'steps', index: stepIndex };
-		if (sameUnit(this.activeUnit, next)) return;
-		this.#setActiveUnit(next);
-		if (this.enabled) this.#followPeerFromCards('discrete');
+	onEditFocus(unit: ActiveUnit): Promise<void> {
+		if (this.#disposed) return Promise.resolve();
+		const hardStartGen = ++this.#editHardStartGen;
+		this.#editHardStart = true;
+		this.#setActiveUnit(unit);
+		this.#lastIntentSide = 'cards';
+		this.#claimScrollLeader('cards');
+		void this.#startAlignYamlForEdit(unit);
+		return this.#startAlignCardsForEdit(unit)
+			.then(() => {
+				if (this.#disposed) return;
+				this.#snapCardsStartAlign(unit);
+				// Keep cards as leader until Twin-pane parks (next microtask).
+				this.#claimScrollLeader('cards');
+			})
+			.finally(() => {
+				// Clear after awaiter parks so a trailing YAML scroll cannot peer-yank.
+				this.#clock.setTimeout(() => {
+					if (this.#editHardStartGen === hardStartGen) this.#editHardStart = false;
+				}, 0);
+			});
 	}
 
-	/** Center-scroll card; if enabled also peer-follow YAML. Queues if cards not bound yet. */
+	async #startAlignCardsForEdit(unit: ActiveUnit): Promise<void> {
+		const cards = this.#cardsEl;
+		if (!cards) return;
+		const durationMs = DISCRETE_SCROLL_DURATION_MS;
+		const settled = this.#beginDriven('cards', cards, durationMs);
+		// beginDriven claims the opposite pane as leader; keep cards for hard start
+		// so YAML scroll cannot become the continuous-follow source mid-enter.
+		this.#claimScrollLeader('cards');
+		const scrolled = await scrollUnitIntoView(cards, unit, 'auto', CARD_PANE, {
+			align: 'start',
+			focus: false,
+			ensureMounted: this.#ensureMounted,
+			animatableScroll: this.#cardsAnim ?? undefined,
+			durationMs
+		});
+		if (this.#disposed) return;
+		if (!scrolled) {
+			this.#clearDriven?.();
+			this.#claimScrollLeader('cards');
+			return;
+		}
+		await settled;
+		this.#claimScrollLeader('cards');
+	}
+
+	/** Instant start-align so the card top is not still clipped. */
+	#snapCardsStartAlign(unit: ActiveUnit): void {
+		const cards = this.#cardsEl;
+		if (!cards) return;
+		void scrollUnitIntoView(cards, unit, 'auto', CARD_PANE, {
+			align: 'start',
+			focus: false,
+			animatableScroll: this.#cardsAnim ?? undefined,
+			durationMs: 0
+		});
+	}
+
+	async #startAlignYamlForEdit(unit: ActiveUnit): Promise<void> {
+		const yaml = this.#yamlEl;
+		if (!yaml) return;
+		const durationMs = DISCRETE_SCROLL_DURATION_MS;
+		await scrollUnitIntoView(yaml, unit, 'auto', YAML_PANE, {
+			align: 'start',
+			focus: false,
+			ensureMounted: this.#ensureMountedYaml,
+			animatableScroll: this.#yamlAnim ?? undefined,
+			durationMs
+		});
+	}
+
 	onReveal(unit: ActiveUnit) {
 		if (this.#disposed) return;
 		if (!this.#cardsEl) {
@@ -235,7 +284,7 @@ export class PeerScrollFollow {
 		const cards = this.#cardsEl;
 		if (!cards) return;
 		const durationMs = DISCRETE_SCROLL_DURATION_MS;
-		this.#beginDriven('cards', cards, durationMs);
+		void this.#beginDriven('cards', cards, durationMs);
 		const scrolled = await scrollUnitIntoView(cards, unit, 'auto', CARD_PANE, {
 			align: 'center',
 			focus: false,
@@ -259,9 +308,8 @@ export class PeerScrollFollow {
 		this.#pairedReorderAt = this.#clock.now();
 	}
 
-	/** Debounced re-follow from cards; returns cancel cleanup. */
 	onYamlTextChanged(): () => void {
-		if (this.#disposed || !this.enabled) return () => {};
+		if (this.#disposed || !this.enabled || this.#isCardsParked?.()) return () => {};
 		const now = this.#clock.now();
 		if (now - this.#pairedReorderAt < PAIRED_REORDER_SUPPRESS_MS) {
 			return () => {};
@@ -273,11 +321,11 @@ export class PeerScrollFollow {
 		return () => this.#clock.clearTimeout(timer);
 	}
 
-	/** After view pins selection from a card or YAML click. */
 	followUnit(unit: ActiveUnit, from: 'cards' | 'yaml') {
 		if (this.#disposed) return;
 		this.#setActiveUnit(unit);
 		if (!this.enabled) return;
+		if (this.#isCardsParked?.()) return;
 		if (from === 'yaml') {
 			this.#lastIntentSide = 'yaml';
 			this.#claimScrollLeader('yaml');
@@ -292,6 +340,7 @@ export class PeerScrollFollow {
 	dispose() {
 		if (this.#disposed) return;
 		this.#disposed = true;
+		this.#editHardStart = false;
 		this.#clearDriven?.();
 		this.#clearDriven = null;
 		this.#drivenSide = null;
@@ -328,36 +377,40 @@ export class PeerScrollFollow {
 		}, LEADER_IDLE_MS);
 	}
 
-	#beginDriven(side: 'cards' | 'yaml', el: HTMLElement, durationMs: number) {
+	#beginDriven(side: 'cards' | 'yaml', el: HTMLElement, durationMs: number): Promise<void> {
 		this.#clearDriven?.();
 		this.#drivenSide = side;
 		const leader: 'cards' | 'yaml' = side === 'cards' ? 'yaml' : 'cards';
 		this.#claimScrollLeader(leader);
-		// Mute peer scroll handlers until Animatable settles (scrollend or duration+pad).
-		this.#clearDriven = watchDrivenScroll(
-			el,
-			'auto',
-			() => {
-				if (this.#drivenSide === side) this.#drivenSide = null;
-				this.#clearDriven = null;
-				this.#claimScrollLeader(leader);
-			},
-			this.#clock,
-			{ idleTimeoutMs: animatableDrivenIdleMs(durationMs) }
-		);
+		return new Promise((resolve) => {
+			this.#clearDriven = watchDrivenScroll(
+				el,
+				'auto',
+				() => {
+					if (this.#drivenSide === side) this.#drivenSide = null;
+					this.#clearDriven = null;
+					this.#claimScrollLeader(leader);
+					resolve();
+				},
+				this.#clock,
+				{ idleTimeoutMs: animatableDrivenIdleMs(durationMs) }
+			);
+		});
 	}
 
 	#followPeerFromCards(kind: PeerScrollKind) {
+		if (this.#isCardsParked?.()) return;
 		void this.#followPeerFromCardsAsync(kind);
 	}
 
 	async #followPeerFromCardsAsync(kind: PeerScrollKind) {
+		if (this.#isCardsParked?.()) return;
 		if (this.#scrollLeader === 'yaml') return;
 		const unit = this.activeUnit;
 		const yaml = this.#yamlEl;
 		if (!unit || !yaml) return;
 		const durationMs = durationFor(kind);
-		this.#beginDriven('yaml', yaml, durationMs);
+		void this.#beginDriven('yaml', yaml, durationMs);
 		// Discrete click/reveal centers like yaml→cards; continuous scroll keeps start-band.
 		// Do not focus YAML on discrete — card action buttons (edit etc.) bubble through the
 		// click handler and must keep focus for the form.
@@ -381,15 +434,17 @@ export class PeerScrollFollow {
 	}
 
 	#followPeerFromYaml(kind: PeerScrollKind) {
+		if (this.#isCardsParked?.()) return;
 		void this.#followPeerFromYamlAsync(kind);
 	}
 
 	async #followPeerFromYamlAsync(kind: PeerScrollKind) {
+		if (this.#isCardsParked?.()) return;
 		const unit = this.activeUnit;
 		const cards = this.#cardsEl;
 		if (!unit || !cards) return;
 		const durationMs = durationFor(kind);
-		this.#beginDriven('cards', cards, durationMs);
+		void this.#beginDriven('cards', cards, durationMs);
 		const scrolled = await scrollUnitIntoView(cards, unit, 'auto', CARD_PANE, {
 			align: 'center',
 			focus: kind === 'discrete',

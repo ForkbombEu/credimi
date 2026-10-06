@@ -565,6 +565,41 @@ describe('scrollUnitIntoView (cards)', () => {
 		expect(ensureMounted).not.toHaveBeenCalled();
 		expect(scroller.scrollTo).toHaveBeenCalled();
 	});
+
+	it('onlyIfOutside skips scroll when the card still intersects (paired-reorder peek)', async () => {
+		const scroller = createCardsScroller([1]);
+		const card = scroller.querySelector(
+			'[data-card-section="steps"][data-card-index="1"]'
+		) as { getBoundingClientRect: () => DOMRect; focus: ReturnType<typeof vi.fn> };
+		// Peeking mid-viewport — intersects, so nearest must not yank the swap target.
+		card.getBoundingClientRect = () => makeRect({ top: 100, bottom: 180, height: 80 });
+
+		await expect(
+			scrollUnitIntoView(
+				scroller as unknown as HTMLElement,
+				{ section: 'steps', index: 1 },
+				'auto',
+				CARD_PANE,
+				{ onlyIfOutside: true, focus: false }
+			)
+		).resolves.toBe(false);
+		expect(scroller.scrollTo).not.toHaveBeenCalled();
+	});
+
+	it('onlyIfOutside still scrolls when the card is fully outside', async () => {
+		const scroller = createCardsScroller([1]);
+
+		await expect(
+			scrollUnitIntoView(
+				scroller as unknown as HTMLElement,
+				{ section: 'steps', index: 1 },
+				'auto',
+				CARD_PANE,
+				{ onlyIfOutside: true, focus: false }
+			)
+		).resolves.toBe(true);
+		expect(scroller.scrollTo).toHaveBeenCalled();
+	});
 });
 
 describe('watchDrivenScroll', () => {

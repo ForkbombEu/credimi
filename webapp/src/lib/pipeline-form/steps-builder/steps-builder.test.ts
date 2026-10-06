@@ -224,6 +224,29 @@ describe('StepsBuilder form mode', () => {
 		expect(builder.isFormMode).toBe(true);
 	});
 
+	it('exposes isInCardEdit and editingUnit for edit intent only', () => {
+		const builder = createBuilder();
+		const internal = builder as unknown as BuilderInternal;
+
+		expect(builder.isInCardEdit).toBe(false);
+		expect(builder.editingUnit).toBeNull();
+
+		setFormMode(builder);
+		expect(builder.isInCardEdit).toBe(false);
+		expect(builder.editingUnit).toBeNull();
+
+		internal.state.mode = {
+			id: 'form',
+			intent: 'edit',
+			stepIndex: 1,
+			section: 'follow-ups',
+			config: {} as never,
+			form: { onSubmit: vi.fn() } as never
+		};
+		expect(builder.isInCardEdit).toBe(true);
+		expect(builder.editingUnit).toEqual({ section: 'follow-ups', index: 1 });
+	});
+
 	it('blocks clone, delete, and reorder while in form mode', () => {
 		const builder = createBuilder();
 		builder.addDebugStep();
@@ -237,6 +260,30 @@ describe('StepsBuilder form mode', () => {
 		builder.shiftStep(0, 1);
 
 		expect(builder.steps).toHaveLength(initialLength);
+	});
+
+	it('keeps stepKeys aligned and stable across insert, reorder, delete, and mutative edit', () => {
+		const builder = createBuilder();
+		builder.addDebugStep();
+		builder.addDebugStep();
+		expect(builder.stepKeys).toHaveLength(2);
+		const [key0, key1] = builder.stepKeys;
+		expect(key0).toBeTruthy();
+		expect(key1).toBeTruthy();
+		expect(key0).not.toBe(key1);
+
+		builder.shiftStep(0, 1);
+		expect(builder.stepKeys).toEqual([key1, key0]);
+
+		builder.cloneStep(0);
+		expect(builder.stepKeys).toHaveLength(3);
+		expect(builder.stepKeys[0]).toBe(key1);
+		expect(builder.stepKeys[2]).toBe(key0);
+		expect(builder.stepKeys[1]).not.toBe(key0);
+		expect(builder.stepKeys[1]).not.toBe(key1);
+
+		builder.deleteStep(1);
+		expect(builder.stepKeys).toEqual([key1, key0]);
 	});
 });
 
@@ -344,10 +391,12 @@ describe('StepsBuilder bulk wallet version sync', () => {
 			steps: original,
 			yamlPreview: () => VALID_YAML
 		});
+		const keysBefore = [...builder.stepKeys];
 
 		builder.applyBulkWalletVersion(newVersion);
 
 		const result = builder.steps;
+		expect(builder.stepKeys).toEqual(keysBefore);
 		expect(result[0]![1]).toMatchObject({ version: newVersion });
 		expect(result[1]![1]).toMatchObject({ version: newVersion });
 		expect((result[0]![0] as MobileAutomationStep).with).toEqual({

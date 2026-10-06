@@ -9,7 +9,6 @@ import type { AnimatableScroll } from './animatable-scroll.js';
 import { createFakeClock, type FakeClock } from '../test-support/fake-clock.js';
 import { PeerScrollFollow } from './peer-scroll-follow.svelte.js';
 
-/** Test double: records Animatable retargets and mirrors onto scroller.scrollTo for assertions. */
 function fakeCreateAnimatableScroll(scroller: HTMLElement): AnimatableScroll {
 	const scrollTo = vi.fn((top: number, _durationMs?: number) => {
 		(scroller as { scrollTop: number }).scrollTop = top;
@@ -148,7 +147,7 @@ function createElementStub(attrs: Record<string, string> = {}): ElementStub {
 	return el;
 }
 
-function createCardsScroller(cardCenters: number[]) {
+function createCardsScroller(cardCenters: number[], followUpCenters: number[] = []) {
 	const scroller = createElementStub();
 	stubScrollerGeometry(scroller, { top: 0, bottom: 400, height: 400 });
 
@@ -162,16 +161,36 @@ function createCardsScroller(cardCenters: number[]) {
 		scroller.appendChild(card);
 	}
 
+	for (const [index, center] of followUpCenters.entries()) {
+		const card = createElementStub({
+			'data-card-section': 'follow-ups',
+			'data-card-index': String(index)
+		});
+		card.getBoundingClientRect = () =>
+			makeRect({ top: center - 40, bottom: center + 40, height: 80 });
+		scroller.appendChild(card);
+	}
+
 	return scroller;
 }
 
-function createYamlScroller(blockCenters: number[]) {
+function createYamlScroller(blockCenters: number[], followUpCenters: number[] = []) {
 	const scroller = createElementStub();
 	stubScrollerGeometry(scroller, { top: 0, bottom: 400, height: 400 });
 
 	for (const [index, center] of blockCenters.entries()) {
 		const block = createElementStub({
 			'data-yaml-section': 'steps',
+			'data-yaml-index': String(index)
+		});
+		block.getBoundingClientRect = () =>
+			makeRect({ top: center - 40, bottom: center + 40, height: 80 });
+		scroller.appendChild(block);
+	}
+
+	for (const [index, center] of followUpCenters.entries()) {
+		const block = createElementStub({
+			'data-yaml-section': 'follow-ups',
 			'data-yaml-index': String(index)
 		});
 		block.getBoundingClientRect = () =>
@@ -235,7 +254,6 @@ describe('PeerScrollFollow', () => {
 		scroller.dispatchEvent(new Event('pointerdown'));
 		scroller.dispatchEvent(new Event('scroll'));
 
-		// Topmost intersecting (index 0 at center 50) — not vertical center (index 1).
 		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
 		follow.dispose();
 	});
@@ -248,7 +266,6 @@ describe('PeerScrollFollow', () => {
 		const cards = createElementStub();
 		stubScrollerGeometry(cards, { top: 0, bottom: 400, height: 400 });
 		cards.scrollTop = 100;
-		// Short top card + tall middle (owns center) + third below fold.
 		const geometries = [
 			{ index: 0, top: 10, bottom: 90 },
 			{ index: 1, top: 90, bottom: 500 },
@@ -271,7 +288,6 @@ describe('PeerScrollFollow', () => {
 		cards.dispatchEvent(new Event('pointerdown'));
 		cards.dispatchEvent(new Event('scroll'));
 
-		// Topmost card (0), not the tall center-owning card (1).
 		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
 		clock.flushRaf();
 		await vi.waitFor(() => {
@@ -465,7 +481,6 @@ describe('PeerScrollFollow', () => {
 
 		// Mounted window is mid-list indices only — without hints we'd get index 10.
 		const scroller = createCardsScroller([100, 200, 300]);
-		// Rewrite indices to look like a virtual mid-window
 		const mounted = scroller.querySelectorAll('[data-card-section]');
 		mounted[0]!.setAttribute('data-card-index', '10');
 		mounted[1]!.setAttribute('data-card-index', '11');
@@ -478,5 +493,244 @@ describe('PeerScrollFollow', () => {
 
 		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
 		follow.dispose();
+	});
+
+	describe('onEditFocus (In-card edit hard start)', () => {
+		function setup(enabled: boolean) {
+			const clock = createFakeClock();
+			const follow = createFollow(clock);
+			follow.setEnabled(enabled);
+			const cards = createCardsScroller([100, 300], [500]);
+			const yaml = createYamlScroller([100, 300], [500]);
+			follow.cardsAttach(cards as unknown as HTMLElement);
+			follow.yamlAttach(yaml as unknown as HTMLElement);
+			return { clock, follow, cards, yaml };
+		}
+
+		it('start-aligns the card and its yaml peer, keeping scroll follow on', () => {
+			const { follow, cards, yaml } = setup(true);
+
+			void follow.onEditFocus({ section: 'steps', index: 1 });
+
+			expect(follow.activeUnit).toEqual({ section: 'steps', index: 1 });
+			expect(follow.enabled).toBe(true);
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
+			expect(yaml.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
+			expect(cards.focus).not.toHaveBeenCalled();
+			follow.dispose();
+		});
+
+		it('supports follow-up units', () => {
+			const { follow, cards, yaml } = setup(true);
+
+			void follow.onEditFocus({ section: 'follow-ups', index: 0 });
+
+			expect(follow.activeUnit).toEqual({ section: 'follow-ups', index: 0 });
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 444, behavior: 'auto' });
+			expect(yaml.scrollTo).toHaveBeenCalledWith({ top: 444, behavior: 'auto' });
+			follow.dispose();
+		});
+
+		it('hard-starts again even when the unit is already active', () => {
+			const { follow, cards, yaml } = setup(true);
+			follow.followUnit({ section: 'steps', index: 1 }, 'cards');
+			vi.mocked(cards.scrollTo).mockClear();
+			vi.mocked(yaml.scrollTo).mockClear();
+
+			void follow.onEditFocus({ section: 'steps', index: 1 });
+
+			expect(cards.scrollTo).toHaveBeenCalledTimes(1);
+			expect(yaml.scrollTo).toHaveBeenCalledTimes(1);
+			follow.dispose();
+		});
+
+		it('still start-aligns yaml when scroll follow is off, without enabling it', () => {
+			const { follow, cards, yaml } = setup(false);
+
+			void follow.onEditFocus({ section: 'steps', index: 1 });
+
+			expect(follow.enabled).toBe(false);
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
+			expect(yaml.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
+			follow.dispose();
+		});
+
+		it('resolves after the cards scroll settles so expand can wait', async () => {
+			const { clock, follow, cards } = setup(true);
+
+			let settled = false;
+			const done = follow.onEditFocus({ section: 'steps', index: 1 }).then(() => {
+				settled = true;
+			});
+
+			expect(settled).toBe(false);
+			expect(cards.scrollTo).toHaveBeenCalled();
+			clock.flushTimeouts(700);
+			await done;
+			expect(settled).toBe(true);
+			follow.dispose();
+		});
+
+		it('resolves immediately when the card is already start-aligned', async () => {
+			const { follow, cards } = setup(true);
+			cards.scrollTop = 244;
+			const card = cards.querySelector('[data-card-section="steps"][data-card-index="1"]');
+			expect(card).not.toBeNull();
+			card!.getBoundingClientRect = () => makeRect({ top: 16, bottom: 96, height: 80 });
+
+			vi.mocked(cards.scrollTo).mockClear();
+			await follow.onEditFocus({ section: 'steps', index: 1 });
+			expect(cards.scrollTo).not.toHaveBeenCalled();
+			follow.dispose();
+		});
+
+		it('does not let YAML start-align peer-center cards before expand/park', async () => {
+			/**
+			 * Repro: beginDriven(cards) flips scroll leader to yaml; YAML hard-start
+			 * scroll then peer-centers cards (clears cards driven early). Expand parks
+			 * with the card mid-viewport → grown card top is cropped.
+			 */
+			const { clock, follow, cards, yaml } = setup(true);
+
+			const focusDone = follow.onEditFocus({ section: 'steps', index: 1 });
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
+			vi.mocked(cards.scrollTo).mockClear();
+
+			const yaml0 = yaml.querySelector('[data-yaml-section="steps"][data-yaml-index="0"]');
+			const yaml1 = yaml.querySelector('[data-yaml-section="steps"][data-yaml-index="1"]');
+			expect(yaml0).not.toBeNull();
+			expect(yaml1).not.toBeNull();
+			yaml0!.getBoundingClientRect = () => makeRect({ top: 120, bottom: 200, height: 80 });
+			yaml1!.getBoundingClientRect = () => makeRect({ top: 320, bottom: 400, height: 80 });
+			yaml.dispatchEvent(new Event('scroll'));
+			clock.flushRaf();
+			await Promise.resolve();
+
+			expect(cards.scrollTo).not.toHaveBeenCalled();
+
+			clock.flushTimeouts(700);
+			await focusDone;
+			follow.dispose();
+		});
+
+		it('snaps cards to start-align before resolve when settle left the card clipped', async () => {
+			const { clock, follow, cards } = setup(true);
+			const card = cards.querySelector('[data-card-section="steps"][data-card-index="1"]');
+			expect(card).not.toBeNull();
+
+			const focusDone = follow.onEditFocus({ section: 'steps', index: 1 });
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
+
+			cards.scrollTop = 100;
+			card!.getBoundingClientRect = () => makeRect({ top: -40, bottom: 40, height: 80 });
+			vi.mocked(cards.scrollTo).mockClear();
+
+			clock.flushTimeouts(700);
+			await focusDone;
+
+			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 44, behavior: 'auto' });
+			follow.dispose();
+		});
+
+		it('does not suppress later peer sync after the driven scrolls settle', () => {
+			const { clock, follow, cards } = setup(true);
+			void follow.onEditFocus({ section: 'steps', index: 0 });
+			clock.flushTimeouts(700);
+
+			cards.scrollTop = 100;
+			cards.dispatchEvent(new Event('pointerdown'));
+			cards.dispatchEvent(new Event('scroll'));
+
+			expect(follow.enabled).toBe(true);
+			expect(follow.activeUnit).not.toBeNull();
+			follow.dispose();
+		});
+	});
+
+	describe('isCardsParked (YAML→cards mute)', () => {
+		it('no-ops YAML→cards follow while parked; preference stays on; resumes when unparked', async () => {
+			const clock = createFakeClock();
+			let parked = true;
+			const cards = createCardsScroller([]);
+			const ensureMounted = vi.fn(async (unit: { section: string; index: number }) => {
+				const card = createElementStub({
+					'data-card-section': unit.section,
+					'data-card-index': String(unit.index)
+				});
+				card.getBoundingClientRect = () => makeRect({ top: 800, bottom: 880, height: 80 });
+				cards.appendChild(card);
+				return true;
+			});
+			const follow = createFollow(clock, {
+				ensureMounted,
+				isCardsParked: () => parked
+			});
+			follow.setEnabled(true);
+
+			const yaml = createYamlScroller([100, 300]);
+			follow.cardsAttach(cards as unknown as HTMLElement);
+			follow.yamlAttach(yaml as unknown as HTMLElement);
+
+			follow.followUnit({ section: 'steps', index: 1 }, 'yaml');
+			expect(ensureMounted).not.toHaveBeenCalled();
+			expect(cards.scrollTo).not.toHaveBeenCalled();
+			expect(follow.enabled).toBe(true);
+
+			parked = false;
+			follow.followUnit({ section: 'steps', index: 1 }, 'yaml');
+			await vi.waitFor(() => {
+				expect(ensureMounted).toHaveBeenCalledWith({ section: 'steps', index: 1 });
+			});
+			expect(cards.scrollTo).toHaveBeenCalled();
+			follow.dispose();
+		});
+
+		it('yaml scroll does not move cards while parked', () => {
+			const clock = createFakeClock();
+			const follow = createFollow(clock, { isCardsParked: () => true });
+			follow.setEnabled(true);
+
+			const cards = createCardsScroller([100, 300]);
+			const yaml = createYamlScroller([50, 200, 450]);
+			follow.cardsAttach(cards as unknown as HTMLElement);
+			follow.yamlAttach(yaml as unknown as HTMLElement);
+
+			yaml.dispatchEvent(new Event('pointerdown'));
+			yaml.dispatchEvent(new Event('scroll'));
+			clock.flushRaf();
+
+			expect(cards.scrollTo).not.toHaveBeenCalled();
+			expect(follow.enabled).toBe(true);
+			follow.dispose();
+		});
+
+		it('no-ops cards→YAML follow while parked', async () => {
+			const clock = createFakeClock();
+			const cards = createCardsScroller([100]);
+			const yaml = createYamlScroller([]);
+			const ensureMountedYaml = vi.fn(async (unit: { section: string; index: number }) => {
+				const block = createElementStub({
+					'data-yaml-section': unit.section,
+					'data-yaml-index': String(unit.index)
+				});
+				block.getBoundingClientRect = () => makeRect({ top: 800, bottom: 880, height: 80 });
+				yaml.appendChild(block);
+				return true;
+			});
+			const follow = createFollow(clock, {
+				ensureMountedYaml,
+				isCardsParked: () => true
+			});
+			follow.setEnabled(true);
+			follow.cardsAttach(cards as unknown as HTMLElement);
+			follow.yamlAttach(yaml as unknown as HTMLElement);
+
+			follow.followUnit({ section: 'steps', index: 0 }, 'cards');
+			await Promise.resolve();
+			expect(ensureMountedYaml).not.toHaveBeenCalled();
+			expect(yaml.scrollTo).not.toHaveBeenCalled();
+			expect(follow.enabled).toBe(true);
+			follow.dispose();
+		});
 	});
 });

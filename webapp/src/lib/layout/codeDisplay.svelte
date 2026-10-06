@@ -14,8 +14,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from '@/components/ui/button/button.svelte';
 
-	//
-
 	type LineRange = {
 		/** Inclusive 0-based */
 		start: number;
@@ -31,16 +29,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		theme?: BundledTheme;
 		containerClass?: string;
 		contentClass?: ClassValue;
-		/** Stronger wash over these lines (0-based inclusive). */
 		selectedLines?: LineRange | null;
 		/** Lighter wash over these lines (0-based inclusive). Selected wins when both apply. */
 		hoverLines?: LineRange | null;
+		focusLines?: LineRange | null;
 		onLineClick?: (line: number) => void;
 		onLineHover?: (line: number | null) => void;
 		/** Fraction of scroller height as bottom padding so the last block can center. */
 		endPadRatio?: number;
 		scroller?: HTMLElement | null;
-		/** Optional attachment for the Shiki `<pre>` scroller (e.g. peer scroll-follow). */
 		scrollerAttach?: Attachment;
 	};
 
@@ -54,14 +51,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		contentClass = '',
 		selectedLines = null,
 		hoverLines = null,
+		focusLines = null,
 		onLineClick,
 		onLineHover,
 		endPadRatio = 0,
 		scroller = $bindable<HTMLElement | null>(null),
 		scrollerAttach
 	}: Props = $props();
-
-	//
 
 	let isCopied = $state(false);
 	let highlighted = $state('');
@@ -118,7 +114,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function applyWashClasses(
 		pre: HTMLElement,
 		selected: LineRange | null,
-		hover: LineRange | null
+		hover: LineRange | null,
+		focus: LineRange | null
 	) {
 		for (const el of pre.querySelectorAll<HTMLElement>('[data-line]')) {
 			const idx = Number(el.getAttribute('data-line'));
@@ -126,6 +123,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			const isSelected = inRange(idx, selected);
 			el.classList.toggle('code-display-line-wash-selected', isSelected);
 			el.classList.toggle('code-display-line-wash-hover', !isSelected && inRange(idx, hover));
+			el.classList.toggle('code-display-line-dim', focus != null && !inRange(idx, focus));
 		}
 	}
 
@@ -138,7 +136,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return Number.isInteger(line) ? line : null;
 	}
 
-	/** Shiki `<pre>` from `{@html}`; null when unhighlighted or not yet in the DOM. */
 	function findHighlightedPre(): HTMLElement | null {
 		if (!highlighted) return null;
 		return containerEl?.querySelector('pre') ?? null;
@@ -216,12 +213,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => {
 		const selected = selectedLines;
 		const hover = hoverLines;
+		const focus = focusLines;
 		const pre = scroller;
 		if (!(pre instanceof HTMLElement)) return;
-		applyWashClasses(pre, selected, hover);
+		applyWashClasses(pre, selected, hover, focus);
 	});
 
-	// Bottom pad so the last block can scroll to viewport center.
 	$effect(() => {
 		const ratio = endPadRatio;
 		// Prefer bindable scroller; fallback covers the unhighlighted plain `<pre>` branch.
@@ -336,6 +333,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	:global(.code-display-line-wash-selected) {
 		background-color: rgb(255 255 255 / 0.16);
+	}
+
+	/* Outside the focus range; opacity avoids touching Shiki token colors or the wash background. */
+	:global(.code-display-line-dim) {
+		opacity: 0.4;
+		transition: opacity 150ms ease-out;
 	}
 
 	:global(.code-display-clickable .code-display-line) {
