@@ -5,7 +5,7 @@
 import { tick } from 'svelte';
 import { FiniteStateMachine } from 'runed';
 
-import { playInCardEnterLayout, playInCardExitLayout } from '../in-card-layout.js';
+import { playInCardEnterLayout, playInCardExitLayout } from './in-card-layout.js';
 import { cancelMotion, type MotionHandle } from './in-card-motion.js';
 
 export type InCardLayoutState = 'idle' | 'waiting' | 'entering' | 'settled' | 'exiting';

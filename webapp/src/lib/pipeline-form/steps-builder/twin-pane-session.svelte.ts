@@ -22,7 +22,7 @@ import {
 	createInCardSession,
 	type InCardPhase,
 	type InCardSession
-} from './in-card-session.svelte.js';
+} from './in-card/in-card-session.svelte.js';
 import {
 	createMultiListLayout,
 	DEFAULT_YAML_LAYOUT_CHILDREN,

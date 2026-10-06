@@ -17,8 +17,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const playInCardEnterLayout = vi.hoisted(() => vi.fn());
 const playInCardExitLayout = vi.hoisted(() => vi.fn());
 
-vi.mock('../in-card-layout.js', async (importOriginal) => {
-	const orig = await importOriginal<typeof import('../in-card-layout.js')>();
+vi.mock('./in-card-layout.js', async (importOriginal) => {
+	const orig = await importOriginal<typeof import('./in-card-layout.js')>();
 	return {
 		...orig,
 		playInCardEnterLayout,

@@ -8,7 +8,7 @@
  * prepare/finish/teardown stay here.
  */
 
-import { playInCardEnter, playInCardExit, type MotionHandle } from './_partials/in-card-motion.js';
+import { playInCardEnter, playInCardExit, type MotionHandle } from './in-card-motion.js';
 
 /**
  * Form-host classes for In-card enter vs settled/exit.

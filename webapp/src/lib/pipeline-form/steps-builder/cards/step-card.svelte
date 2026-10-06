@@ -14,10 +14,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
-	import type { InCardHostChrome } from './in-card-host-chrome.js';
+	import type { InCardHostChrome } from '../in-card/in-card-host-chrome.js';
+
+	import InCardHost from '../in-card/in-card-host.svelte';
 
 	import ContinueOnErrorFooter from './continue-on-error-footer.svelte';
-	import InCardHost from './in-card-host.svelte';
 	import { isStepEditable } from './utils.js';
 
 	type Props = InCardHostChrome & {

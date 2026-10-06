@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import { getStepData, getStepError } from './index.js';
+	import { getStepData, getStepError } from './utils.js';
 
 	type Props = {
 		step: EnrichedStep;

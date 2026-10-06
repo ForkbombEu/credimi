@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { ActiveUnit } from './scroll-follow/active-unit.js';
+import type { ActiveUnit } from '../scroll-follow/active-unit.js';
 
 /**
  * Structural view of the Steps builder mode — only the fields In-card edit reads.

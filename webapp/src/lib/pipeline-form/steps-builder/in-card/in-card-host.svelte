@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Component, Snippet } from 'svelte';
 	import type { EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 	import type { StepsBuilder } from '$pipeline-form/steps-builder/steps-builder.svelte.js';
+	import type { Component, Snippet } from 'svelte';
 
 	import { HelpCircle, XIcon } from '@lucide/svelte';
 	import { type Comp, Render } from '$lib/renderable';
@@ -18,10 +18,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { InCardHostChrome } from './in-card-host-chrome.js';
 
-	import { inCardFormHostClass } from '../in-card-layout.js';
+	import StepCardDisplay from '../cards/step-card-display.svelte';
 	import InCardFormShell from './in-card-form-shell.svelte';
 	import { createInCardLayoutMachine } from './in-card-host-machine.svelte.js';
-	import StepCardDisplay from './step-card-display.svelte';
+	import { inCardFormHostClass } from './in-card-layout.js';
 	import { useCardShell } from './use-card-shell.svelte.js';
 
 	export type { InCardHostChrome };

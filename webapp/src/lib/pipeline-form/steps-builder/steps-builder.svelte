@@ -29,19 +29,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Switch from '@/components/ui/switch/switch.svelte';
 	import { m } from '@/i18n';
 
+	import type { InCardHostChrome } from './in-card/in-card-host-chrome.js';
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
 	import {
 		BulkWalletVersionChange,
 		Column,
 		EmptyState,
-		FollowUpCard,
-		type InCardHostChrome,
 		ManualEditorColumn,
-		StepCard,
 		YamlPreviewPane
 	} from './_partials/index.js';
-	import { isInCardExpandReady } from './in-card-session.svelte.js';
+	import { FollowUpCard, StepCard } from './cards/index.js';
+	import { isInCardExpandReady } from './in-card/in-card-session.svelte.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 	import { createTwinPaneSession } from './twin-pane-session.svelte.js';
 	import { splitPipelineYamlPreview } from './yaml-preview/index.js';

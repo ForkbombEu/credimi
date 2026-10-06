@@ -28,12 +28,11 @@ import type { ActiveUnit } from './scroll-follow/active-unit.js';
 
 import {
 	getBulkWalletVersionContext,
-	getStepData,
-	isChangeWalletVersionAvailable,
-	isStepEditable
-} from './_partials/index.js';
+	isChangeWalletVersionAvailable
+} from './_partials/bulk-wallet-version-context.js';
+import { getStepData, isStepEditable } from './cards/utils.js';
 import { isExecutionTargetLocked } from './execution-target-lock.js';
-import { editingUnit, isInCardEdit } from './in-card-edit.js';
+import { editingUnit, isInCardEdit } from './in-card/in-card-edit.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
 import Component from './steps-builder.svelte';
 
