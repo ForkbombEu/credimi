@@ -38,6 +38,6 @@ tags:
     autoVerify: false
     browser: false
 - extendedWaitUntil:
-    visible: "Error|invalid request|Oups! Something went wrong|Home|Documents"
+    visible: "invalid request|Oups! Something went wrong|Home|Documents"
     timeout: 100000
 - takeScreenshot: expect-request-rejected
