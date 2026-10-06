@@ -13,12 +13,10 @@ export type InCardEditMode =
 	| { id: 'idle' }
 	| { id: 'manual' };
 
-/** True while a Step or Follow-up card hosts its edit form (form mode, edit intent). */
 export function isInCardEdit(mode: InCardEditMode): boolean {
 	return mode.id === 'form' && mode.intent === 'edit';
 }
 
-/** The unit being edited in place, or null when not in In-card edit (or no index yet). */
 export function editingUnit(mode: InCardEditMode): ActiveUnit | null {
 	if (mode.id !== 'form' || mode.intent !== 'edit') return null;
 	if (mode.stepIndex === undefined) return null;

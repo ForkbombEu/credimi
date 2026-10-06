@@ -22,8 +22,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { getStepData, getStepError } from './index.js';
 
-	//
-
 	type Props = {
 		step: EnrichedStep;
 		topRight?: Snippet;

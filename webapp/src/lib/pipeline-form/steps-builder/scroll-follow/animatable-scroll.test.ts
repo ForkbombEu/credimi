@@ -88,11 +88,7 @@ describe('animatable-scroll', () => {
 
 		handle.scrollTo(500);
 
-		expect(scrollTopFn.mock.calls).toEqual([
-			[], // getScrollTop() probe
-			[200, 0], // syncFromDom
-			[500] // tween
-		]);
+		expect(scrollTopFn.mock.calls).toEqual([[], [200, 0], [500]]);
 		expect(Math.abs(200 - 800)).toBeGreaterThan(ANIMATABLE_SCROLL_SYNC_EPSILON);
 	});
 
@@ -103,10 +99,7 @@ describe('animatable-scroll', () => {
 
 		handle.scrollTo(500);
 
-		expect(scrollTopFn.mock.calls).toEqual([
-			[], // getScrollTop() probe
-			[500]
-		]);
+		expect(scrollTopFn.mock.calls).toEqual([[], [500]]);
 	});
 
 	it('syncFromDom instantly writes current DOM scrollTop', () => {

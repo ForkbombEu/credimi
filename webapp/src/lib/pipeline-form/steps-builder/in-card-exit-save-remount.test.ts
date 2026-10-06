@@ -47,7 +47,6 @@ function seed(): BuilderSlice {
 	};
 }
 
-/** Mirrors `applyEditStep` + `mode = idle` inside `form.onSubmit` (keys untouched). */
 function savePath(state: BuilderSlice): BuilderSlice {
 	return create(state, (draft) => {
 		const tuple = draft.steps[0];
@@ -58,7 +57,6 @@ function savePath(state: BuilderSlice): BuilderSlice {
 	});
 }
 
-/** Mirrors `exitFormState` (dismiss) — mode only. */
 function dismissPath(state: BuilderSlice): BuilderSlice {
 	return create(state, (draft) => {
 		draft.mode = { id: 'idle' };
@@ -74,8 +72,6 @@ describe('in-card exit vs save remount', () => {
 		expect(afterDismiss.steps[0]).toBe(keyed);
 
 		const afterSave = savePath(before);
-		// Tuple identity still changes under mutative applyEdit — that is why
-		// `{#each}` must not key by `(step)`.
 		expect(afterSave.steps[0]).not.toBe(keyed);
 	});
 
@@ -84,7 +80,6 @@ describe('in-card exit vs save remount', () => {
 		const eachKey = before.stepKeys[0];
 		const afterSave = savePath(before);
 
-		// `{#each builder.steps as step, index (builder.stepKeys[index])}`
 		expect(afterSave.stepKeys[0]).toBe(eachKey);
 		expect(afterSave.steps[0]).not.toBe(before.steps[0]);
 	});

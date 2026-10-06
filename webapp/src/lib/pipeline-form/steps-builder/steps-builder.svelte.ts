@@ -37,8 +37,6 @@ import { editingUnit, isInCardEdit } from './in-card-edit.js';
 import { InlineManualEditor } from './inline-manual-editor.svelte.js';
 import Component from './steps-builder.svelte';
 
-//
-
 type Props = {
 	steps: EnrichedStep[];
 	followUps?: EnrichedFollowUp[];
@@ -143,8 +141,6 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		this.#composerScroll.onEditFocus?.(unit);
 	}
 
-	// Shortcuts
-
 	get mode() {
 		return this.state.mode;
 	}
@@ -157,12 +153,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		return this.state.followUps;
 	}
 
-	/** Parallel to `steps` — `{#each}` key that survives applyEdit remount. */
 	get stepKeys() {
 		return this.state.stepKeys;
 	}
 
-	/** Parallel to `followUps` — `{#each}` key that survives applyEdit remount. */
 	get followUpKeys() {
 		return this.state.followUpKeys;
 	}
@@ -178,12 +172,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		}
 	});
 
-	/** True while a Step or Follow-up card hosts its edit form (In-card edit). */
 	get isInCardEdit() {
 		return isInCardEdit(this.state.mode);
 	}
 
-	/** The Step / Follow-up unit being edited in place, or null. */
 	get editingUnit(): ActiveUnit | null {
 		return editingUnit(this.state.mode);
 	}
@@ -211,8 +203,6 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	redo() {
 		this.stateManager.redo();
 	}
-
-	// Core functionality
 
 	initAddStep(type: string) {
 		if (this.state.mode.id === 'form') {
@@ -518,8 +508,6 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		this.formEffectCleanup = null;
 	}
 
-	// Ordering
-
 	shiftStep(index: number, change: number) {
 		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
@@ -541,8 +529,6 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		if (newIndex < 0 || newIndex >= state.steps.length || newIndex === index) return null;
 		return { index, newIndex };
 	}
-
-	//
 
 	canOfferChangeWalletVersion() {
 		const mode = this.state.mode;

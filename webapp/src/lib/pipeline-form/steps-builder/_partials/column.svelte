@@ -24,7 +24,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		pane?: PaneHandle | null;
 		scrollAttach?: Attachment;
 		scrollContainer?: HTMLElement | null;
-		/** In-card park: no wheel/trackpad scrolling of this pane. */
 		scrollLocked?: boolean;
 		title: string;
 		titleRight?: Snippet;

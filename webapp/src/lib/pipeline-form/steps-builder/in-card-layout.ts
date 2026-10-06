@@ -3,31 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * In-card enter/exit layout protocol (deep seam for Composer/Host).
- *
- * Phase order (enter):
- *   1. prepare — lock to summary height; absolute form overlay (inline styles)
- *   2. tween — `playInCardEnter` (opacity/height only; see `in-card-motion.ts`)
- *   3. finish — hide display; re-pin form absolute fill; lock height; lock settled flex
- *   4. domain `onSettled` — Host machine flags (body max, FSM → settled); Host paints
- *      settled form-host classes from `lockSettledLayout`
- *   5. clear fill — drop absolute overlay styles so settled flex host owns geometry
- *
- * Sizing:
- *   - `cardFillMaxPx` — whole-card fill cap from Twin-pane (production path, with `card`)
- *   - `bodyMaxPx` — lock/body max after chrome; test override on enter options, and the
- *     settled output on `InCardEnterLayoutSettled`
- *
- * Form-host classes (`inCardFormHostClass`):
- *   Host owns them reactively via `lockSettledLayout` (enter while `entering`/`waiting`;
- *   settled while `settled`/`exiting`). This module does not assign `form.className`.
- *
- * Opacity / pointer-events:
- *   Discrete overlay prepare/finish/teardown set them here as inline styles; motion only
- *   tweens opacity during enter/exit. Do not move overlay settle into motion.
- *
- * Public Composer seam: `playInCardEnterLayout` / `playInCardExitLayout`.
- * Caller's `onSettled` / `onComplete` are domain flags only.
+ * Host owns form-host classes via `lockSettledLayout` — this module does not
+ * assign `form.className`. Motion only tweens opacity; discrete overlay
+ * prepare/finish/teardown stay here.
  */
 
 import { playInCardEnter, playInCardExit, type MotionHandle } from './_partials/in-card-motion.js';
@@ -43,10 +21,6 @@ export function inCardFormHostClass(settled: boolean): string {
 	return 'pointer-events-none invisible absolute inset-0 flex min-h-0 flex-col overflow-hidden opacity-0';
 }
 
-/**
- * How tall the form body may grow when the whole card is capped at `cardFillMaxPx`.
- * Chrome = color bar + type header (everything in the card above `display`/`lock`).
- */
 function bodyMaxHeightWithinCard(
 	card: HTMLElement,
 	display: HTMLElement,
@@ -59,10 +33,6 @@ function bodyMaxHeightWithinCard(
 }
 
 export type InCardEnterLayoutSettled = {
-	/**
-	 * Lock/body max after chrome (undefined when enter sized to form natural height).
-	 * Production resolves this from `card` + `cardFillMaxPx`.
-	 */
 	bodyMaxPx: number | undefined;
 };
 
@@ -70,17 +40,8 @@ export type InCardEnterLayoutOptions = {
 	lock: HTMLElement;
 	display: HTMLElement;
 	form: HTMLElement;
-	/** Card root — with production `cardFillMaxPx`, computes body max after chrome. */
 	card?: HTMLElement;
-	/**
-	 * Whole-card fill max (px) from Twin-pane. Production path with `card`.
-	 * Not the lock/body max — that is derived (or passed as `bodyMaxPx` in tests).
-	 */
 	cardFillMaxPx?: number;
-	/**
-	 * Precomputed lock/body max; wins over card + cardFillMaxPx when finite.
-	 * Test override / settled-output naming — not the Twin-pane card fill.
-	 */
 	bodyMaxPx?: number;
 	/**
 	 * Domain flags only — runs after lock settled layout, before absolute fill clears.
@@ -100,7 +61,6 @@ export type InCardExitLayoutOptions = {
 	durationMs?: number;
 };
 
-/** Ensure lock is a flex grow column; keep `relative` / existing `min-h-0` tokens. */
 function applyLockSettledLayout(lock: HTMLElement, bodyMaxPx: number | undefined): void {
 	const tokens = new Set(lock.className.split(/\s+/).filter(Boolean));
 	tokens.add('flex');
@@ -270,10 +230,6 @@ function teardownExitOverlay(lock: HTMLElement, display: HTMLElement, form: HTML
 	lock.style.opacity = '';
 }
 
-/**
- * Enter protocol: prepare overlay → tweens → finish lock/host → domain `onSettled`
- * (Host paints settled form-host class) → clear absolute fill.
- */
 export function playInCardEnterLayout(options: InCardEnterLayoutOptions): MotionHandle {
 	const { lock, display, form, onSettled, durationMs } = options;
 	const bodyMaxPx = resolveBodyMaxPx(options);

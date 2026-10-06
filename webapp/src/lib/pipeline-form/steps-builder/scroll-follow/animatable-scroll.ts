@@ -4,19 +4,10 @@
 
 import { createAnimatable, type AnimatableObject } from 'animejs';
 
-/**
- * Duration / ease defaults for composer peer-scroll.
- *
- * Continuous follow (~280ms): short so rapid active-unit retargets replace the
- * in-flight tween instead of stacking native `behavior: 'smooth'` animations.
- * Discrete reveal / edit / click (~350ms): slightly longer settle for intentional jumps.
- * Ease `out(3)`: snappy deceleration without overshoot.
- */
 export const FOLLOW_SCROLL_DURATION_MS = 280;
 export const DISCRETE_SCROLL_DURATION_MS = 350;
 export const SCROLL_EASE = 'out(3)';
 
-/** Extra ms past the tween duration before driven-scroll idle fallback clears. */
 export const ANIMATABLE_DRIVEN_IDLE_PAD_MS = 80;
 
 /**
@@ -28,22 +19,14 @@ export const ANIMATABLE_DRIVEN_IDLE_PAD_MS = 80;
 export const ANIMATABLE_SCROLL_SYNC_EPSILON = 0.5;
 
 export type AnimatableScroll = {
-	/** Retarget scrollTop; optional per-call duration override (ms). */
 	scrollTo(top: number, durationMs?: number): void;
-	/** Current scrollTop from the Animatable getter. */
 	getScrollTop(): number;
-	/**
-	 * Instantly align Animatable's internal scrollTop with the DOM.
-	 * Prefer letting `scrollTo` auto-sync; expose for explicit callers/tests.
-	 */
 	syncFromDom(): void;
-	/** Tear down the persistent Animatable (attach cleanup / dispose). */
 	dispose(): void;
 	readonly animatable: AnimatableObject;
 };
 
 export type CreateAnimatableScrollOptions = {
-	/** Default duration for `scrollTo` when no override is passed. */
 	durationMs?: number;
 	ease?: string;
 	/** Fires when the Animatable callbacks animation completes (may lag retargets). */
@@ -99,7 +82,6 @@ export function createAnimatableScroll(
 	};
 }
 
-/** Idle timeout for watchDrivenScroll when Animatable drives the scroller. */
 export function animatableDrivenIdleMs(durationMs: number): number {
 	return Math.max(0, durationMs) + ANIMATABLE_DRIVEN_IDLE_PAD_MS;
 }

@@ -23,7 +23,6 @@ type Fixture = {
 
 function mountSavePinFixture(settled: boolean): Fixture {
 	const root = document.createElement('div');
-	// Lock mirrors step-card-display: relative; settled lock is a flex column so grow works.
 	const lock = document.createElement('div');
 	lock.dataset.testid = 'in-card-body-lock';
 	lock.className = settled ? 'relative flex min-h-0 flex-col' : 'relative';
@@ -34,7 +33,6 @@ function mountSavePinFixture(settled: boolean): Fixture {
 	host.dataset.testid = 'in-card-form-host';
 	host.className = inCardFormHostClass(settled);
 
-	// Shell classes match in-card-form-shell.svelte (region / body / save row).
 	const shell = document.createElement('div');
 	shell.dataset.testid = 'in-card-form-shell';
 	shell.className = 'flex min-h-0 grow flex-col';
@@ -76,11 +74,9 @@ describe('in-card Save pin (layout)', () => {
 			const saveBottom = save.getBoundingClientRect().bottom;
 			const hostHeight = host.getBoundingClientRect().height;
 
-			// Host fills the tall lock (enter: absolute inset-0; settled: grow in flex lock).
 			expect(hostHeight).toBeGreaterThan(120);
 			expect(Math.abs(hostHeight - LOCK_HEIGHT_PX)).toBeLessThan(1);
 
-			// Column pin: Save sits on the form-host bottom, not under short content mid-lock.
 			expect(Math.abs(hostBottom - saveBottom)).toBeLessThan(1);
 		}
 	);

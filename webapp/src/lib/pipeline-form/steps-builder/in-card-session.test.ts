@@ -4,7 +4,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { createInCardSession, isInCardStill, type InCardPhase } from './in-card-session.svelte.js';
+import {
+	createInCardSession,
+	isInCardExpandReady,
+	isInCardStill,
+	type InCardPhase
+} from './in-card-session.svelte.js';
 
 describe('isInCardStill', () => {
 	it.each<[InCardPhase, boolean]>([
@@ -14,6 +19,16 @@ describe('isInCardStill', () => {
 		['exiting', true]
 	])('%s → still=%s', (phase, expected) => {
 		expect(isInCardStill(phase)).toBe(expected);
+	});
+});
+
+describe('isInCardExpandReady', () => {
+	it('is true only while editing in still (not aligning / exiting / idle)', () => {
+		expect(isInCardExpandReady(true, 'still')).toBe(true);
+		expect(isInCardExpandReady(true, 'aligning')).toBe(false);
+		expect(isInCardExpandReady(true, 'exiting')).toBe(false);
+		expect(isInCardExpandReady(true, 'idle')).toBe(false);
+		expect(isInCardExpandReady(false, 'still')).toBe(false);
 	});
 });
 

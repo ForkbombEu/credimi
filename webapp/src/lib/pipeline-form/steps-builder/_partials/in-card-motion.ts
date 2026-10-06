@@ -5,25 +5,19 @@
 /**
  * animejs v4 tweens for the in-card form shell (Pipeline Composer).
  *
- * Layout prepares overlay, lock height, and measurements. This module only:
- * - enter: fade summary → fade form → grow lock height
- * - exit: shrink lock → fade form → fade summary
- *
- * - One running animation per element: starting a new one cancels the previous
- *   one in place (no revert), so retargeting mid-flight continues from the
- *   current height/opacity instead of jumping.
- * - `cancel()` and `cancelMotion()` are idempotent and never throw.
- * - Honors `prefers-reduced-motion` by applying tween end values synchronously.
+ * One running animation per element: starting a new one cancels the previous
+ * one in place (no revert), so retargeting mid-flight continues from the
+ * current height/opacity instead of jumping.
+ * `cancel()` and `cancelMotion()` are idempotent and never throw.
+ * Honors `prefers-reduced-motion` by applying tween end values synchronously.
  */
 
 import { animate, type JSAnimation } from 'animejs';
 
-/** Per-step duration for enter/exit (fade ×2 + grow/shrink). Keep ≤ product motion budget. */
 export const IN_CARD_MOTION_MS = 150;
 export const IN_CARD_MOTION_EASE = 'outQuad';
 
 export type MotionHandle = {
-	/** Stops the animation, keeping the current visual state. Safe to call repeatedly. */
 	cancel: () => void;
 	/** Resolves when the animation completes or is cancelled. Never rejects. */
 	finished: Promise<void>;
@@ -36,13 +30,9 @@ export type MotionOptions = {
 };
 
 export type InCardEnterOptions = MotionOptions & {
-	/** Height-locked wrapper around summary + form. */
 	lock: HTMLElement;
-	/** Summary / details layer that fades out first. */
 	display: HTMLElement;
-	/** Form host that fades in at the locked height, then grows with the lock. */
 	form: HTMLElement;
-	/** Target lock height (px) resolved by layout (body max or form natural height). */
 	toHeight: number;
 };
 
@@ -50,7 +40,6 @@ export type InCardExitOptions = MotionOptions & {
 	lock: HTMLElement;
 	display: HTMLElement;
 	form: HTMLElement;
-	/** Target lock height (px) resolved by layout (summary natural height). */
 	toHeight: number;
 };
 
@@ -146,10 +135,6 @@ function reducedMotionHandle(onComplete?: () => void | Promise<void>): MotionHan
 	};
 }
 
-/**
- * Enter tweens after layout has locked summary height and overlaid the form:
- * fade summary → fade form in → grow lock to `toHeight`.
- */
 export function playInCardEnter(options: InCardEnterOptions): MotionHandle {
 	const { lock, display, form, toHeight, onComplete, durationMs } = options;
 
@@ -221,10 +206,6 @@ export function playInCardEnter(options: InCardEnterOptions): MotionHandle {
 	return handle;
 }
 
-/**
- * Exit tweens after layout has overlaid both layers and measured `toHeight`:
- * shrink lock → fade form out → fade summary in.
- */
 export function playInCardExit(options: InCardExitOptions): MotionHandle {
 	const { lock, display, form, toHeight, onComplete, durationMs } = options;
 

@@ -68,7 +68,6 @@ export type TwinPaneSessionOptions = {
 		onRevealStep?: (index: number) => void;
 		onEditFocus?: (unit: ActiveUnit) => void;
 	}) => void;
-	/** Inject for tests. */
 	createComposerVirtualizer?: (options: ComposerVirtualizerOptions) => ComposerVirtualizer;
 	createPeerScrollFollow?: (options?: PeerScrollFollowOptions) => PeerScrollFollow;
 	createUnitHighlight?: (inputs: UnitHighlightInputs) => UnitHighlight;
@@ -90,29 +89,14 @@ export type TwinPaneSession = {
 	set stepsLayoutRoot(el: HTMLElement | null);
 	get yamlStepsLayoutRoot(): HTMLElement | null;
 	set yamlStepsLayoutRoot(el: HTMLElement | null);
-	/**
-	 * Cards scrollport end pad (view paints height). Idle: ~30% viewport from
-	 * the observer. While In-card (aligning / still / exiting): at least
-	 * viewport − start padding so the last card can start-align then expand.
-	 */
 	get cardsEndPadPx(): number;
-	/** Cards scrollport clientHeight from the same ResizeObserver as the end pad. */
 	get cardsViewportPx(): number;
-	/**
-	 * Whole-card max height while In-card filling the pane: at least 240px,
-	 * otherwise viewport − start padding on both ends.
-	 */
 	get cardFillMaxPx(): number;
-	/** Half-viewport end pad for the YAML scrollport (view paints height). */
 	get yamlEndPadPx(): number;
-	/** TanStack scrollMargin for YAML step blocks (header height inside scroller). */
 	get yamlScrollMargin(): number;
-	/** TanStack Readable — `$stepsVirt` in markup. */
 	stepsVirt: ComposerVirtualizer['virtualizer'];
-	/** TanStack Readable — `$yamlVirt` in markup (virtual items / totalSize). */
 	yamlVirt: ComposerVirtualizer['virtualizer'];
 	measureStepCard: Attachment;
-	/** Measure YAML step blocks — mirrors `measureStepCard`. */
 	measureYamlStep: Attachment;
 	/**
 	 * Peer-scroll + wheel lock + endPad for cards.
@@ -125,7 +109,6 @@ export type TwinPaneSession = {
 	 * follow is off / preview empty); do not mint a new identity from mode.
 	 */
 	get yamlScrollAttach(): Attachment | undefined;
-	/** YAML header → TanStack scrollMargin (view forwards from YamlPreviewPane). */
 	setYamlHeaderHeight(height: number): void;
 	isCardSelected(section: ActiveUnit['section'], index: number): boolean;
 	isCardHovered(section: ActiveUnit['section'], index: number): boolean;
@@ -136,25 +119,14 @@ export type TwinPaneSession = {
 	onUnitClick(unit: ActiveUnit, from: 'cards' | 'yaml'): void;
 	onYamlUnitHover(unit: ActiveUnit | null): void;
 	setFollowEnabled(checked: boolean): void;
-	/**
-	 * In-card still-ness phase machine (ADR 0012). Public: `phase` + `noteExitComplete`.
-	 * Cards unlock via `inCard.noteExitComplete()` on exit-complete and onDestroy.
-	 */
 	readonly inCard: Pick<InCardSession, 'phase' | 'noteExitComplete'>;
 	/**
-	 * True while phase is `still` or `exiting` — Column scrollLocked + Switch disabled.
-	 * Enter start-align (`aligning`) is not still yet.
+	 * True while `still` or `exiting`. Enter start-align (`aligning`) is not still yet.
 	 */
 	get still(): boolean;
 	dispose(): void;
 };
 
-/**
- * Cards end-pad for In-card start-align. Idle keeps the observer's ~30% pad.
- * While In-card is active (`aligning` so enter can scroll, then `still` /
- * `exiting`), pad is at least `cardsViewportPx - START_PADDING_PX` so a last
- * (near-viewport-tall) card can sit at the pane start with room below.
- */
 export function inCardCardsEndPadPx(
 	observerPadPx: number,
 	cardsViewportPx: number,
@@ -175,14 +147,6 @@ export function inCardCardFillMaxPx(cardsViewportPx: number): number {
 	return Math.max(MIN_CARD_FILL_MAX_PX, Math.max(0, cardsViewportPx - START_PADDING_PX * 2));
 }
 
-/**
- * Owns Pipeline Composer twin-pane lifecycle: both virtualizers, PeerScrollFollow,
- * UnitHighlight, multi-list FLIP layout, paired shift (`runPairedShift`),
- * scrollport chrome (end pads + card fill max + YAML header→scrollMargin), and In-card still-ness
- * (overflow lock + YAML→cards mute via phase machine).
- * View binds DOM roots, paints pad heights from session getters, and forwards UI
- * events; raw peerScroll / unitHighlight stay private.
- */
 export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPaneSession {
 	const createVirt = options.createComposerVirtualizer ?? createComposerVirtualizer;
 	const createPeer = options.createPeerScrollFollow ?? ((opts) => new PeerScrollFollow(opts));
@@ -196,17 +160,14 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 	let yamlScroller = $state.raw<HTMLElement | null>(null);
 	let stepsLayoutRoot = $state.raw<HTMLElement | null>(null);
 	let yamlStepsLayoutRoot = $state.raw<HTMLElement | null>(null);
-	/** Observer ~30% viewport pad; getter may raise it while In-card. */
 	let cardsEndPadPx = $state(0);
 	let cardsViewportPx = $state(0);
 	let yamlEndPadPx = $state(0);
-	/** Header height inside the YAML scroller — TanStack scrollMargin for step blocks. */
 	let yamlScrollMargin = $state(0);
 	let layout: CardListLayout | null = null;
 	let lastFocusedCardToken = 0;
 	let disposed = false;
 	const inCard = createInCardSession();
-	/** Public In-card surface — phase observation + sole unlock. */
 	const inCardPublic: Pick<InCardSession, 'phase' | 'noteExitComplete'> = {
 		get phase() {
 			return inCard.phase;
@@ -214,7 +175,6 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		noteExitComplete: () => inCard.noteExitComplete()
 	};
 
-	/** Derive In-card edit from editing index (set only for form + edit intent). */
 	const getIsInCardEdit = () => options.getEditingIndex() !== undefined;
 	const cardsEndPadAttach = endPadAttach(
 		(px) => {
@@ -370,7 +330,6 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		await tick();
 	}
 
-	/** DOM+TanStack pin for both panes — shared by mount-swap and paired-shift FLIP. */
 	function pinBothAt(cardsTop: number, yamlTop: number) {
 		pinBothScrollports(
 			{
@@ -488,7 +447,6 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			return peerScroll.onYamlTextChanged();
 		});
 
-		/** Form mode left while still → exiting; unlock waits for noteExitComplete. */
 		$effect(() => {
 			const phase = inCard.phase;
 			const editing = options.getEditingIndex();

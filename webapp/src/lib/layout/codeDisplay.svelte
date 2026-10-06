@@ -14,8 +14,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from '@/components/ui/button/button.svelte';
 
-	//
-
 	type LineRange = {
 		/** Inclusive 0-based */
 		start: number;
@@ -31,18 +29,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		theme?: BundledTheme;
 		containerClass?: string;
 		contentClass?: ClassValue;
-		/** Stronger wash over these lines (0-based inclusive). */
 		selectedLines?: LineRange | null;
 		/** Lighter wash over these lines (0-based inclusive). Selected wins when both apply. */
 		hoverLines?: LineRange | null;
-		/** When set, lines outside this range (0-based inclusive) are dimmed. Null disables dimming. */
 		focusLines?: LineRange | null;
 		onLineClick?: (line: number) => void;
 		onLineHover?: (line: number | null) => void;
 		/** Fraction of scroller height as bottom padding so the last block can center. */
 		endPadRatio?: number;
 		scroller?: HTMLElement | null;
-		/** Optional attachment for the Shiki `<pre>` scroller (e.g. peer scroll-follow). */
 		scrollerAttach?: Attachment;
 	};
 
@@ -63,8 +58,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		scroller = $bindable<HTMLElement | null>(null),
 		scrollerAttach
 	}: Props = $props();
-
-	//
 
 	let isCopied = $state(false);
 	let highlighted = $state('');
@@ -143,7 +136,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return Number.isInteger(line) ? line : null;
 	}
 
-	/** Shiki `<pre>` from `{@html}`; null when unhighlighted or not yet in the DOM. */
 	function findHighlightedPre(): HTMLElement | null {
 		if (!highlighted) return null;
 		return containerEl?.querySelector('pre') ?? null;
@@ -227,7 +219,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		applyWashClasses(pre, selected, hover, focus);
 	});
 
-	// Bottom pad so the last block can scroll to viewport center.
 	$effect(() => {
 		const ratio = endPadRatio;
 		// Prefer bindable scroller; fallback covers the unhighlighted plain `<pre>` branch.

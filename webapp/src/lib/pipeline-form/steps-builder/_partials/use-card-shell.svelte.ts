@@ -26,9 +26,6 @@ export function shouldCompleteExitOnDestroy(holdingForm: boolean, editing: boole
 	return holdingForm && !editing;
 }
 
-/**
- * Held form + paired unlock for Step / Follow-up cards.
- */
 export function useCardShell(
 	getBuilder: () => StepsBuilder,
 	getEditing: () => boolean,

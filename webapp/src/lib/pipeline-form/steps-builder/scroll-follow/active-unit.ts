@@ -5,7 +5,6 @@
 import { browserClock, type ComposerClock } from '../composer-clock.js';
 import type { AnimatableScroll } from './animatable-scroll.js';
 
-/** Card / YAML twin pane section: top-level steps vs finally follow-ups. */
 export type CardSection = 'steps' | 'follow-ups';
 
 export type ActiveUnit = {
@@ -15,19 +14,13 @@ export type ActiveUnit = {
 
 export type ScrollAlign = 'nearest' | 'start' | 'center' | 'start-band';
 
-/**
- * True list lengths for cards sequence (steps then follow-ups).
- * Under virtualization, first/last *mounted* cards may not be the true ends.
- */
+/** Under virtualization, first/last *mounted* cards may not be the true ends. */
 export type CardListLengths = {
 	steps: number;
 	followUps: number;
 };
 
-/**
- * Mount (or scroll-to-index) a card that is not yet in the DOM; resolves true when ready.
- * Always async so PeerScrollFollow / scrollUnitIntoView can await uniformly.
- */
+/** Always async so PeerScrollFollow / scrollUnitIntoView can await uniformly. */
 export type EnsureMounted = (unit: ActiveUnit) => Promise<boolean>;
 
 /**
@@ -46,21 +39,10 @@ export function ensureMountedForStepsVirtualizer(
 export type ScrollUnitIntoViewOptions = {
 	focus?: boolean;
 	align?: ScrollAlign;
-	/** When the unit is missing, call this before retrying the DOM query. */
 	ensureMounted?: EnsureMounted;
-	/**
-	 * When set, eases via Anime.js Animatable (retargetable) instead of native
-	 * `scrollTo({ behavior })`. Mount helpers should still use `behavior: 'auto'`.
-	 */
+	/** Mount helpers should still use `behavior: 'auto'`. */
 	animatableScroll?: AnimatableScroll;
-	/** Per-call Animatable duration override (ms). */
 	durationMs?: number;
-	/**
-	 * When true, skip scrolling if `el` still intersects the scroller (partial
-	 * clip is OK). Used after paired reorder so mid-list downs that leave the
-	 * moved card peeking below the fold do not nearest-scroll and eject the
-	 * swap target above the top.
-	 */
 	onlyIfOutside?: boolean;
 };
 
@@ -71,7 +53,6 @@ export type ScrollUnitIntoViewOptions = {
  */
 export type TopEdgePolicy = 'claim' | 'intersect';
 
-/** DOM attribute / query adapter for a cards or YAML twin pane. */
 export type PaneAdapter = {
 	sectionAttr: string;
 	indexAttr: string;
@@ -95,7 +76,6 @@ export const YAML_PANE: PaneAdapter = {
 
 const HYSTERESIS = 0.22;
 const ALIGN_EPSILON_PX = 1;
-/** Inset from scroller top when start-aligning a card / YAML range. */
 export const START_PADDING_PX = 16;
 /** Fraction of viewport height — start-band only scrolls if the line is outside this zone. */
 const START_BAND_RATIO = 0.35;
@@ -120,10 +100,6 @@ function findUnit(
 	);
 }
 
-/**
- * Logical first/last unit from injected lengths (steps then follow-ups).
- * Returns null when both counts are zero or lengths are invalid.
- */
 export function resolveListEndUnit(
 	lengths: CardListLengths,
 	edge: 'start' | 'end'
@@ -145,17 +121,6 @@ export function sameUnit(a: ActiveUnit | null, b: ActiveUnit | null): boolean {
 	return a.section === b.section && a.index === b.index;
 }
 
-/**
- * Pick the unit nearest the scrollport vertical center, with sticky hysteresis so
- * the active unit does not flicker at boundaries. At scroll edges, prefer the
- * first/last unit so the ends of the list remain reachable.
- *
- * When `lengths` is provided, list-end edges use the true sequence ends instead of
- * the first/last *mounted* unit (needed under virtualization).
- *
- * YAML (`topEdgePolicy: 'intersect'`) refuses to claim when only the header is
- * visible (no block intersects the viewport).
- */
 export function resolveViewportUnit(
 	scrollContainer: HTMLElement,
 	previous: ActiveUnit | null,
@@ -237,19 +202,6 @@ export function resolveViewportUnit(
 /** Ignore sub-pixel / border clipping when deciding if a card top is in-port. */
 const TOP_CLIP_EPSILON_PX = 1;
 
-/**
- * Pick the topmost unit that meaningfully leads the cards viewport for
- * continuous cards→YAML peer follow (unequal heights). Center hysteresis stays
- * on `resolveViewportUnit` (YAML→cards).
- *
- * Prefers cards whose **top edge is inside** the scroller (not clipped above the
- * fold). A sliver still intersecting from above must not keep owning follow —
- * otherwise a barely-peeking card with long YAML stays locked in the peer pane.
- * Falls back to any intersecting card only when nothing unclipped is visible.
- *
- * At absolute scroll top, reuses list-end start policy (`claim` / `intersect` +
- * optional `lengths`) so virtualization does not pin the first *mounted* card.
- */
 export function resolveTopmostVisibleUnit(
 	scrollContainer: HTMLElement,
 	pane: PaneAdapter,
@@ -287,7 +239,6 @@ export function resolveTopmostVisibleUnit(
 		if (!bestAny || top < bestAny.top) {
 			bestAny = { unit, top };
 		}
-		// Top edge still in-port → card actually leads the visible list.
 		if (top >= portTop - TOP_CLIP_EPSILON_PX) {
 			if (!bestUnclipped || top < bestUnclipped.top) {
 				bestUnclipped = { unit, top };
@@ -297,11 +248,6 @@ export function resolveTopmostVisibleUnit(
 	return bestUnclipped?.unit ?? bestAny?.unit ?? null;
 }
 
-/**
- * Scroll a pane unit into view. When the unit is not mounted and `ensureMounted` is
- * provided, awaits mount then retries. Without `ensureMounted`, missing units
- * still return false (today's non-virtual path).
- */
 export async function scrollUnitIntoView(
 	scrollContainer: HTMLElement,
 	unit: ActiveUnit,
@@ -361,13 +307,6 @@ export function scrollChildIntoScroller(
 	return true;
 }
 
-/**
- * Returns the scroller's next scrollTop for `align`, or null if already within epsilon.
- * - nearest: only move when not fully visible (minimal delta)
- * - start: place element top near scroller top (with padding)
- * - start-band: like start, but skip when the line already sits in the upper band
- * - center: place element center on scroller center
- */
 export function computeAlignedScrollTop(
 	scrollTop: number,
 	clientHeight: number,
@@ -403,10 +342,6 @@ export function computeAlignedScrollTop(
 	return target;
 }
 
-/**
- * Returns the scroller's next scrollTop so `elRect` is fully visible inside `scrollerRect`,
- * or null if already fully visible (nearest semantics).
- */
 export function computeNearestScrollTop(
 	scrollTop: number,
 	clientHeight: number,
@@ -424,11 +359,9 @@ export function computeNearestScrollTop(
 		return scrollTop + (elRect.top - visibleTop);
 	}
 
-	// el extends past the bottom
 	return scrollTop + (elRect.bottom - visibleBottom);
 }
 
-/** True when `el` overlaps the scroller's client rect (partial clip counts). */
 export function unitIntersectsScroller(el: HTMLElement, scroller: HTMLElement): boolean {
 	const elRect = el.getBoundingClientRect();
 	const port = scroller.getBoundingClientRect();

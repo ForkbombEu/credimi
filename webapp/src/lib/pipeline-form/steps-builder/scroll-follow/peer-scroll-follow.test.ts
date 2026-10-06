@@ -9,7 +9,6 @@ import type { AnimatableScroll } from './animatable-scroll.js';
 import { createFakeClock, type FakeClock } from '../test-support/fake-clock.js';
 import { PeerScrollFollow } from './peer-scroll-follow.svelte.js';
 
-/** Test double: records Animatable retargets and mirrors onto scroller.scrollTo for assertions. */
 function fakeCreateAnimatableScroll(scroller: HTMLElement): AnimatableScroll {
 	const scrollTo = vi.fn((top: number, _durationMs?: number) => {
 		(scroller as { scrollTop: number }).scrollTop = top;
@@ -255,7 +254,6 @@ describe('PeerScrollFollow', () => {
 		scroller.dispatchEvent(new Event('pointerdown'));
 		scroller.dispatchEvent(new Event('scroll'));
 
-		// Topmost intersecting (index 0 at center 50) — not vertical center (index 1).
 		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
 		follow.dispose();
 	});
@@ -268,7 +266,6 @@ describe('PeerScrollFollow', () => {
 		const cards = createElementStub();
 		stubScrollerGeometry(cards, { top: 0, bottom: 400, height: 400 });
 		cards.scrollTop = 100;
-		// Short top card + tall middle (owns center) + third below fold.
 		const geometries = [
 			{ index: 0, top: 10, bottom: 90 },
 			{ index: 1, top: 90, bottom: 500 },
@@ -291,7 +288,6 @@ describe('PeerScrollFollow', () => {
 		cards.dispatchEvent(new Event('pointerdown'));
 		cards.dispatchEvent(new Event('scroll'));
 
-		// Topmost card (0), not the tall center-owning card (1).
 		expect(follow.activeUnit).toEqual({ section: 'steps', index: 0 });
 		clock.flushRaf();
 		await vi.waitFor(() => {
@@ -485,7 +481,6 @@ describe('PeerScrollFollow', () => {
 
 		// Mounted window is mid-list indices only — without hints we'd get index 10.
 		const scroller = createCardsScroller([100, 200, 300]);
-		// Rewrite indices to look like a virtual mid-window
 		const mounted = scroller.querySelectorAll('[data-card-section]');
 		mounted[0]!.setAttribute('data-card-index', '10');
 		mounted[1]!.setAttribute('data-card-index', '11');
@@ -519,7 +514,6 @@ describe('PeerScrollFollow', () => {
 
 			expect(follow.activeUnit).toEqual({ section: 'steps', index: 1 });
 			expect(follow.enabled).toBe(true);
-			// card/block top 260 − scroller top 0 − 16px padding
 			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
 			expect(yaml.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
 			expect(cards.focus).not.toHaveBeenCalled();
@@ -579,7 +573,6 @@ describe('PeerScrollFollow', () => {
 
 		it('resolves immediately when the card is already start-aligned', async () => {
 			const { follow, cards } = setup(true);
-			// Place card 1 already at the start-align target (top ≈ 16 with 16px padding).
 			cards.scrollTop = 244;
 			const card = cards.querySelector('[data-card-section="steps"][data-card-index="1"]');
 			expect(card).not.toBeNull();
@@ -603,7 +596,6 @@ describe('PeerScrollFollow', () => {
 			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
 			vi.mocked(cards.scrollTo).mockClear();
 
-			// Mid hard-start: YAML viewport center claims a different unit (index 0).
 			const yaml0 = yaml.querySelector('[data-yaml-section="steps"][data-yaml-index="0"]');
 			const yaml1 = yaml.querySelector('[data-yaml-section="steps"][data-yaml-index="1"]');
 			expect(yaml0).not.toBeNull();
@@ -629,7 +621,6 @@ describe('PeerScrollFollow', () => {
 			const focusDone = follow.onEditFocus({ section: 'steps', index: 1 });
 			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 244, behavior: 'auto' });
 
-			// Simulate Animatable/settle finishing while the card is still clipped above.
 			cards.scrollTop = 100;
 			card!.getBoundingClientRect = () => makeRect({ top: -40, bottom: 40, height: 80 });
 			vi.mocked(cards.scrollTo).mockClear();
@@ -637,7 +628,6 @@ describe('PeerScrollFollow', () => {
 			clock.flushTimeouts(700);
 			await focusDone;
 
-			// Instant snap: scrollTop + (elTop - portTop) - START_PADDING = 100 + (-40) - 16 = 44
 			expect(cards.scrollTo).toHaveBeenCalledWith({ top: 44, behavior: 'auto' });
 			follow.dispose();
 		});

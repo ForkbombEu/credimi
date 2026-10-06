@@ -333,7 +333,6 @@ describe('createTwinPaneSession', () => {
 		expect(order).toContain('dispose:highlight');
 		expect(order).toContain('dispose:cards');
 		expect(order).toContain('dispose:yaml');
-		// layout may be null until roots attach — dispose is still safe
 		session.dispose(); // idempotent
 	});
 

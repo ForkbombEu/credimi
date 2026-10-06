@@ -78,6 +78,8 @@ async function renderHost(props: {
 	expandReady: boolean;
 	builder?: StepsBuilder;
 	onExitUnlock?: () => void;
+	faded?: boolean;
+	topRight?: Snippet;
 }) {
 	return render(InCardHost, {
 		step: debugStep,
@@ -85,8 +87,9 @@ async function renderHost(props: {
 		editing: props.editing,
 		expandReady: props.expandReady,
 		onExitUnlock: props.onExitUnlock,
+		faded: props.faded,
 		cardFillMaxPx: 480,
-		topRight
+		topRight: props.topRight ?? topRight
 	});
 }
 
@@ -109,6 +112,29 @@ describe('in-card-host enter-ready', () => {
 		});
 		await vi.waitFor(() => expect(playInCardEnterLayout).toHaveBeenCalledTimes(1));
 		expect(playInCardExitLayout).not.toHaveBeenCalled();
+	});
+});
+
+describe('in-card-host faded chrome', () => {
+	it('dims the card with pointer-events-none but keeps topRight pointer-events-auto', async () => {
+		const pencilTopRight = createRawSnippet(() => ({
+			render: () =>
+				`<button type="button" data-testid="pencil" class="pointer-events-auto">edit</button>`,
+			setup: () => {}
+		})) as Snippet;
+
+		const screen = await renderHost({
+			editing: false,
+			expandReady: false,
+			faded: true,
+			topRight: pencilTopRight
+		});
+
+		const root = screen.container.firstElementChild;
+		expect(root?.className).toMatch(/pointer-events-none/);
+		expect(root?.className).toMatch(/opacity-40/);
+		const pencil = screen.container.querySelector('[data-testid="pencil"]');
+		expect(pencil?.className).toMatch(/pointer-events-auto/);
 	});
 });
 

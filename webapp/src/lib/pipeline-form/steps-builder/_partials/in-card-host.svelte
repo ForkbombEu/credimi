@@ -24,8 +24,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import StepCardDisplay from './step-card-display.svelte';
 	import { useCardShell } from './use-card-shell.svelte.js';
 
-	//
-
 	export type { InCardHostChrome };
 
 	type Props = InCardHostChrome & {

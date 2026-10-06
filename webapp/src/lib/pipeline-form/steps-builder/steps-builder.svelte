@@ -41,11 +41,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		StepCard,
 		YamlPreviewPane
 	} from './_partials/index.js';
+	import { isInCardExpandReady } from './in-card-session.svelte.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 	import { createTwinPaneSession } from './twin-pane-session.svelte.js';
 	import { splitPipelineYamlPreview } from './yaml-preview/index.js';
-
-	//
 
 	let { self: builder }: SelfProp<StepsBuilder> = $props();
 
@@ -117,14 +116,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	/** Siblings of the card being edited in place are dimmed. */
 	function isCardFaded(section: 'steps' | 'follow-ups', index: number): boolean {
 		const unit = builder.editingUnit;
 		if (!unit) return false;
 		return !(unit.section === section && unit.index === index);
 	}
 
-	/** Packages In-card chrome for both Step and Follow-up loops — Twin-pane stays orchestrator. */
 	function inCardChrome(
 		editing: boolean,
 		section: 'steps' | 'follow-ups',
@@ -132,7 +129,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	): InCardHostChrome {
 		return {
 			editing,
-			expandReady: editing && session.inCard.phase === 'still',
+			expandReady: isInCardExpandReady(editing, session.inCard.phase),
 			faded: isCardFaded(section, index),
 			cardFillMaxPx: session.cardFillMaxPx,
 			selected: session.isCardSelected(section, index),
@@ -390,8 +387,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </Resizable.PaneGroup>
 
 <BulkWalletVersionChange {builder} bind:open={builder.changeWalletVersionDialogOpen} />
-
-<!--  -->
 
 {#snippet stepButtons()}
 	<div class="flex flex-col gap-2 p-4" in:fly>

@@ -12,14 +12,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n/index.js';
 
-	//
-
 	type Props = {
 		expanded: boolean;
 		canSave: boolean;
 		onSave: () => void;
 		onDismiss: () => void;
-		/** Scrollable form fields inside the card body. */
 		form: Snippet;
 	};
 
@@ -27,8 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let mounted = $state(untrack(() => expanded));
 
-	// Mount as soon as edit opens. Enter/exit height motion is owned by InCardHost
-	// (shrink targets the summary card height, not zero).
+	// Shrink targets the summary card height, not zero.
 	$effect(() => {
 		if (!expanded) return;
 		if (untrack(() => mounted)) return;
@@ -36,9 +32,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			mounted = true;
 		});
 	});
-
-	// Stay mounted while the parent holds the form for the exit animation.
-	// Parent clears the held mode after playInCardExit completes.
 
 	function onWindowKeydown(event: KeyboardEvent) {
 		if (!expanded || event.key !== 'Escape') return;

@@ -4,8 +4,6 @@
 
 import type { StepsBuilder } from '../steps-builder.svelte.js';
 
-//
-
 type FormMode = Extract<StepsBuilder['mode'], { id: 'form' }>;
 
 /**

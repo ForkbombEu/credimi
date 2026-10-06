@@ -51,7 +51,6 @@ function paramsAt(index: number): AnimeParams {
 	return animateMock.mock.calls[index]![1] as AnimeParams;
 }
 
-/** Drive enter through display fade → form fade → grow complete. */
 function completeEnterSteps() {
 	paramsAt(0).onComplete();
 	paramsAt(1).onComplete();
@@ -78,7 +77,6 @@ describe('playInCardEnterLayout', () => {
 		const display = fakeEl(80, 80);
 		const form = fakeEl(0, 200);
 		const onSettled = vi.fn(async () => {
-			// Host owns form-host className; layout keeps absolute fill until after onSettled.
 			expect(form.style.position).toBe('absolute');
 			expect(form.style.height).toBe('100%');
 			expect(lock.style.height).toBe('480px');

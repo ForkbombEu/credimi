@@ -20,8 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import InCardHost from './in-card-host.svelte';
 	import { isStepEditable } from './utils.js';
 
-	//
-
 	type Props = InCardHostChrome & {
 		index: number;
 		step: EnrichedStep;
