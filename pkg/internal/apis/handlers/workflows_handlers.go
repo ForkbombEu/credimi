@@ -802,10 +802,11 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		if req.Config != nil {
-			for k, v := range req.Config {
-				workflowInput.Config[k] = v
+		for k, v := range req.Config {
+			if workflowengine.IsServerOwnedConfigKey(k) {
+				continue
 			}
+			workflowInput.Config[k] = v
 		}
 
 		result, err := workflowStartWithOptions(

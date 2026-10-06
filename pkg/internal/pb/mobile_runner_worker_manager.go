@@ -16,7 +16,8 @@ import (
 const workerManagerDefaultNamespace = "default"
 
 // RegisterMobileRunnerWorkerManagerHooks starts worker managers for a mobile
-// runner when a record update is what made that runner able to take workers.
+// runner when a record update is what made that runner able to take workers,
+// or switched a startable runner between admin-managed and tenant.
 func RegisterMobileRunnerWorkerManagerHooks(app core.App) {
 	app.OnRecordAfterUpdateSuccess("mobile_runners").BindFunc(func(e *core.RecordEvent) error {
 		startable := workerManagerRunnerStartable
@@ -31,10 +32,15 @@ func RegisterMobileRunnerWorkerManagerHooks(app core.App) {
 			namespaces = append(namespaces, workerManagerDefaultNamespace)
 		}
 
-		// Start only when this update is what made the runner startable.
-		// Runners that still cannot take workers get nothing, and runners that
-		// were already startable are not restarted on unrelated field writes.
-		if !startable(e.Record) || startable(e.Record.Original()) {
+		// Start only when this update is what made the runner startable, or
+		// changed its kind and with it the namespaces it serves. Runners that
+		// still cannot take workers get nothing, and runners that were
+		// already startable are not restarted on unrelated field writes.
+		// Workers in namespaces the new kind no longer serves are the
+		// runner's to stop: it restarts its workers when its key changes.
+		kindChanged := e.Record.GetBool("admin_managed") !=
+			e.Record.Original().GetBool("admin_managed")
+		if !startable(e.Record) || (startable(e.Record.Original()) && !kindChanged) {
 			return e.Next()
 		}
 

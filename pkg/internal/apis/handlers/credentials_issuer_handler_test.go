@@ -13,12 +13,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -1236,11 +1238,73 @@ func TestHandleCredentialIssuerStoreOrUpdateUpdatesExistingRecord(t *testing.T) 
 	require.Equal(t, "https://new.logo", updated.GetString("logo_url"))
 }
 
-func TestIsPrivateIP(t *testing.T) {
-	require.True(t, isPrivateIP(net.IPv4(10, 0, 0, 1)))
-	require.True(t, isPrivateIP(net.IPv4(192, 168, 1, 1)))
-	require.True(t, isPrivateIP(net.ParseIP("::1")))
-	require.False(t, isPrivateIP(net.IPv4(8, 8, 8, 8)))
+func TestCheckEndpointExistsRefusesInternalDestinations(t *testing.T) {
+	var internalHits atomic.Int32
+	internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		internalHits.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer internal.Close()
+	_, port, err := net.SplitHostPort(internal.Listener.Addr().String())
+	require.NoError(t, err)
+	wellKnown := "/.well-known/openid-credential-issuer"
+
+	redirector := httptest.NewUnstartedServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, internal.URL+wellKnown, http.StatusFound)
+		}),
+	)
+	listener, err := net.Listen("tcp", "127.0.0.2:0")
+	if err != nil {
+		t.Skipf("127.0.0.2 not bindable: %v", err)
+	}
+	redirector.Listener = listener
+	redirector.Start()
+	defer redirector.Close()
+
+	// Stand in for a public redirector: only its address may be dialed.
+	origClient := credentialIssuerHTTPClient
+	t.Cleanup(func() { credentialIssuerHTTPClient = origClient })
+	redirectorIP := net.IPv4(127, 0, 0, 2)
+	allowRedirector := func(ip net.IP) bool {
+		return ip.Equal(redirectorIP) || safehttp.IsPublicIP(ip)
+	}
+
+	tests := []struct {
+		name  string
+		url   string
+		allow func(net.IP) bool
+	}{
+		{name: "loopback", url: internal.URL + wellKnown},
+		{name: "unspecified dials the local host", url: "http://0.0.0.0:" + port + wellKnown},
+		{name: "localhost name", url: "http://localhost:" + port + wellKnown},
+		{
+			name:  "redirect to loopback",
+			url:   redirector.URL + wellKnown,
+			allow: allowRedirector,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			credentialIssuerHTTPClient = safehttp.NewClient(safehttp.Config{
+				Timeout:      5 * time.Second,
+				MaxRedirects: 10,
+				Allow:        tc.allow,
+			})
+			err := checkEndpointExists(context.Background(), tc.url)
+			require.ErrorIs(t, err, safehttp.ErrBlockedDestination)
+		})
+	}
+	require.Zero(t, internalHits.Load(), "the internal server must never be contacted")
+
+	credentialIssuerHTTPClient = safehttp.NewClient(safehttp.Config{
+		Timeout:      5 * time.Second,
+		MaxRedirects: 10,
+		Allow:        func(net.IP) bool { return true },
+	})
+	require.NoError(t, checkEndpointExists(context.Background(), redirector.URL+wellKnown),
+		"an allowed destination must still be reachable through a redirect")
+	require.Equal(t, int32(1), internalHits.Load())
 }
 
 func TestCheckEndpointExistsInvalidURL(t *testing.T) {

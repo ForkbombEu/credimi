@@ -12,15 +12,21 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
-// mergeConfigs merges global config with step-level config
+// MergeConfigs merges global config with step-level config. Step keys win,
+// except the server-owned Credimi base URL keys, which keep their global value.
 func MergeConfigs(global, step map[string]any) map[string]any {
 	res := make(map[string]any)
 	for k, v := range global {
 		res[k] = v
 	}
 	for k, v := range step {
+		if workflowengine.IsServerOwnedConfigKey(k) {
+			continue
+		}
 		res[k] = v
 	}
 	return res

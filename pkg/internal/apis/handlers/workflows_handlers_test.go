@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/dbx"
@@ -1457,12 +1458,14 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 			Config:  map[string]any{"app_url": "https://app"},
 		}, nil
 	}
+	var started workflowengine.WorkflowInput
 	workflowStartWithOptions = func(
 		namespace string,
 		options client.StartWorkflowOptions,
 		workflowName string,
 		input workflowengine.WorkflowInput,
 	) (workflowengine.WorkflowResult, error) {
+		started = input
 		return workflowengine.WorkflowResult{
 			WorkflowID:    "wf-new",
 			WorkflowRunID: "run-new",
@@ -1470,6 +1473,15 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-5/runs/run-5/rerun", nil)
+	req = req.WithContext(context.WithValue(
+		req.Context(),
+		middlewares.ValidatedInputKey,
+		ReRunWorkflowRequest{Config: map[string]any{
+			"keep":             "value",
+			"app_url":          "https://attacker.example",
+			"internal_app_url": "https://attacker.example",
+		}},
+	))
 	req.SetPathValue("workflowId", "check-5")
 	req.SetPathValue("runId", "run-5")
 	rec := httptest.NewRecorder()
@@ -1486,6 +1498,9 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "\"workflow_id\":\"wf-new\"")
 	require.Contains(t, rec.Body.String(), "\"run_id\":\"run-new\"")
+	require.Equal(t, "value", started.Config["keep"])
+	require.Equal(t, "https://app", started.Config["app_url"])
+	require.NotContains(t, started.Config, "internal_app_url")
 }
 
 func TestGetWorkflowInputSuccess(t *testing.T) {

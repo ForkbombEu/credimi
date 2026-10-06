@@ -265,7 +265,14 @@ func TestHandleMobileRunnerLifecycleHeartbeatSkipsPauseForPausedSemaphore(t *tes
 	require.NoError(t, err)
 	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
 	require.NoError(t, err)
-	createMobileRunnerRecord(t, app, orgID, "offline-device-runner", "https://runner.example", false)
+	createMobileRunnerRecord(
+		t,
+		app,
+		orgID,
+		"offline-device-runner",
+		"https://runner.example",
+		false,
+	)
 	runner, err := canonify.Resolve(app, "/usera-s-organization/offline-device-runner")
 	require.NoError(t, err)
 	offlineID := createMobileDeviceForLifecycleTest(t, app, runner, "offline-device")

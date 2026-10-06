@@ -6,22 +6,67 @@ package activities
 import (
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 )
 
+// newLoopbackCheckCredentialsIssuerActivity may reach httptest servers, which
+// listen on loopback.
+func newLoopbackCheckCredentialsIssuerActivity() *CheckCredentialsIssuerActivity {
+	act := NewCheckCredentialsIssuerActivity()
+	act.httpClient = safehttp.NewClient(safehttp.Config{
+		MaxRedirects: 10,
+		Allow:        func(net.IP) bool { return true },
+	})
+	return act
+}
+
+func TestCheckCredentialsIssuerActivityRefusesInternalDestinations(t *testing.T) {
+	var hits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		fmt.Fprint(w, `{"issuer":"internal"}`)
+	}))
+	defer server.Close()
+	_, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	require.NoError(t, err)
+
+	var ts testsuite.WorkflowTestSuite
+	env := ts.NewTestActivityEnvironment()
+	act := NewCheckCredentialsIssuerActivity()
+	env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+
+	for _, baseURL := range []string{
+		server.URL,
+		"http://0.0.0.0:" + port,
+		server.URL + "/.well-known/openid-federation",
+	} {
+		t.Run(baseURL, func(t *testing.T) {
+			_, err := env.ExecuteActivity(act.Execute, workflowengine.ActivityInput{
+				Payload: CheckCredentialsIssuerActivityPayload{BaseURL: baseURL},
+			})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), safehttp.ErrBlockedDestination.Error())
+		})
+	}
+	require.Zero(t, hits.Load(), "the internal server must never be contacted")
+}
+
 func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
 
-	act := NewCheckCredentialsIssuerActivity()
+	act := newLoopbackCheckCredentialsIssuerActivity()
 	env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{
 		Name: act.Name(),
 	})
@@ -157,7 +202,7 @@ func TestCheckCredentialsIssuerActivity_Federation(t *testing.T) {
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
 
-	act := NewCheckCredentialsIssuerActivity()
+	act := newLoopbackCheckCredentialsIssuerActivity()
 	env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{
 		Name: act.Name(),
 	})

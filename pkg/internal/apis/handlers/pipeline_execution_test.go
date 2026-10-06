@@ -12,6 +12,7 @@ import (
 
 	InternalPipeline "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	pip "github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -174,6 +175,131 @@ func TestHandlePipelineExecute_MixedStepTypes(t *testing.T) {
 		},
 		ExpectedStatus: http.StatusBadRequest,
 		TestAppFactory: setupPipelineExecuteApp,
+	}
+	scenario.Test(t)
+}
+
+func TestHandlePipelineExecute_NonHTTPRequestHookAndFinallySteps(t *testing.T) {
+	cases := []struct {
+		name string
+		yaml string
+		use  string
+	}{
+		{
+			name: "on_success hook",
+			yaml: `
+name: t
+steps:
+  - id: s1
+    use: http-request
+    with: {method: GET, url: "http://127.0.0.1/"}
+    on_success:
+      - id: h
+        use: container-run
+        with: {image: alpine, cmd: [id]}
+`,
+			use: "container-run",
+		},
+		{
+			name: "on_error hook",
+			yaml: `
+name: t
+steps:
+  - id: s1
+    use: http-request
+    with: {method: GET, url: "http://127.0.0.1/"}
+    on_error:
+      - id: e
+        use: rest-chain
+        with: {yaml: "x"}
+`,
+			use: "rest-chain",
+		},
+		{
+			name: "finally step",
+			yaml: `
+name: t
+steps:
+  - id: s1
+    use: http-request
+    with: {method: GET, url: "http://127.0.0.1/"}
+finally:
+  always:
+    - id: f
+      use: container-run
+      with: {image: alpine, cmd: [id]}
+`,
+			use: "container-run",
+		},
+		{
+			name: "null on_success hook",
+			yaml: `
+name: t
+steps:
+  - id: s1
+    use: http-request
+    with: {method: GET, url: "http://127.0.0.1/"}
+    on_success:
+      - ~
+`,
+			use: "''",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			scenario := tests.ApiScenario{
+				Name:   tc.name + " with non http-request step returns 400",
+				Method: http.MethodPost,
+				URL:    "/api/pipeline/execute",
+				Body:   rawBody(tc.yaml),
+				ExpectedContent: []string{
+					"yaml",
+					tc.use,
+					"Only 'http-request' steps are allowed",
+				},
+				ExpectedStatus: http.StatusBadRequest,
+				TestAppFactory: setupPipelineExecuteApp,
+			}
+			scenario.Test(t)
+		})
+	}
+}
+
+func TestHandlePipelineExecute_HTTPRequestHookAndFinallySteps(t *testing.T) {
+	mockTemporalClient(t, workflowengine.WorkflowResult{
+		WorkflowID:    "wf-test-123",
+		WorkflowRunID: "run-test-456",
+		Output:        map[string]any{"s1": map[string]any{"outputs": map[string]any{}}},
+	}, nil)
+
+	scenario := tests.ApiScenario{
+		Name:   "http-request hooks and finally steps return 200",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/execute",
+		Body: rawBody(`
+name: t
+steps:
+  - id: s1
+    use: http-request
+    with: {method: GET, url: "http://127.0.0.1/"}
+    on_success:
+      - id: h
+        use: http-request
+        with: {method: GET, url: "http://127.0.0.1/ok"}
+    on_error:
+      - id: e
+        use: http-request
+        with: {method: GET, url: "http://127.0.0.1/err"}
+finally:
+  always:
+    - id: f
+      use: http-request
+      with: {method: GET, url: "http://127.0.0.1/done"}
+`),
+		ExpectedContent: []string{"\"workflow_id\"", "\"run_id\""},
+		ExpectedStatus:  http.StatusOK,
+		TestAppFactory:  setupPipelineExecuteApp,
 	}
 	scenario.Test(t)
 }
@@ -545,6 +671,70 @@ func TestHandlePipelineExecute_WithoutAuthUsesDefaultNamespace(t *testing.T) {
 	scenario.Test(t)
 
 	require.Equal(t, "default", capturedNamespace)
+}
+
+func TestHandlePipelineExecute_FixtureCannotChangeStepType(t *testing.T) {
+	injected := `a"},"use":"container-run","with":{"payload":{"image":"alpine","cmd":["id"]}},"metadata":{"z":"b`
+	var captured pip.PipelineWorkflowInput
+	orig := pipelineTemporalClient
+	t.Cleanup(func() { pipelineTemporalClient = orig })
+
+	mockClient := temporalmocks.NewClient(t)
+	workflowRun := temporalmocks.NewWorkflowRun(t)
+	workflowRun.On("GetID").Return("wf-test-123").Maybe()
+	workflowRun.On("GetRunID").Return("run-test-456").Maybe()
+	workflowRun.On("Get", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			if out, ok := args.Get(1).(*workflowengine.WorkflowResult); ok {
+				*out = workflowengine.WorkflowResult{WorkflowID: "wf-test-123"}
+			}
+		}).
+		Return(nil)
+	mockClient.On(
+		"ExecuteWorkflow",
+		mock.Anything,
+		mock.Anything,
+		"Dynamic Pipeline Workflow",
+		mock.Anything,
+	).Run(func(args mock.Arguments) {
+		captured = args.Get(3).(pip.PipelineWorkflowInput)
+	}).Return(workflowRun, nil)
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	scenario := tests.ApiScenario{
+		Name:   "fixture value stays inside its string",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/execute",
+		Body: rawBody(`name: audit
+runtime:
+  fixture:
+    p: '` + injected + `'
+steps:
+  - id: s1
+    use: http-request
+    with:
+      payload:
+        url: https://example.invalid
+    metadata:
+      z: "${fixture.p}"
+`),
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{"\"workflow_id\""},
+		TestAppFactory:  setupPipelineExecuteApp,
+	}
+	scenario.Test(t)
+
+	// The workflow applies the fixture before dispatching steps; what it runs
+	// must still be the http-request step the handler validated.
+	require.NotNil(t, captured.WorkflowDefinition)
+	require.NoError(t, InternalPipeline.ApplyFixture(captured.WorkflowDefinition))
+	require.Len(t, captured.WorkflowDefinition.Steps, 1)
+	step := captured.WorkflowDefinition.Steps[0]
+	require.Equal(t, "http-request", step.Use)
+	require.Equal(t, map[string]any{"url": "https://example.invalid"}, step.With.Payload)
+	require.Equal(t, injected, step.Metadata["z"])
 }
 
 func TestExtractDeeplink(t *testing.T) {
