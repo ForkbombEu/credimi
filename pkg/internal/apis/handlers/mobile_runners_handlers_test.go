@@ -1379,4 +1379,72 @@ func TestUpsertMobileRunner(t *testing.T) {
 		require.False(t, runner.GetBool("admin_managed"))
 		require.Equal(t, "https://runner-mutable-updated.example", runner.GetString("ip"))
 	})
+
+	t.Run("runner key switch sets admin_managed from the key", func(t *testing.T) {
+		cases := []struct {
+			name      string
+			firstKey  string
+			secondKey string
+			wantAdmin bool
+		}{
+			{
+				name:      "user key to admin key",
+				firstKey:  "users",
+				secondKey: "_superusers",
+				wantAdmin: true,
+			},
+			{
+				name:      "admin key to user key",
+				firstKey:  "_superusers",
+				secondKey: "users",
+				wantAdmin: false,
+			},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				app := setupMobileRunnerApp(t)
+				defer app.Cleanup()
+
+				principals := map[string]*core.Record{}
+				var err error
+				principals["users"], err = app.FindAuthRecordByEmail("users", "userA@example.org")
+				require.NoError(t, err)
+				principals["_superusers"], err = app.FindAuthRecordByEmail(
+					"_superusers",
+					"admin@example.org",
+				)
+				require.NoError(t, err)
+
+				register := func(principal, runnerID string) {
+					event := performMobileRunnerRequest(
+						t,
+						app,
+						principals[principal],
+						"/api/mobile-runner",
+						UpsertMobileRunnerRequest{
+							Organization: "usera-s-organization",
+							RunnerID:     runnerID,
+							Name:         "Switching Phone",
+							IP:           "https://runner-switching.example",
+							Type:         "android_emulator",
+						},
+					)
+					// runners authenticate with Credimi-Api-Key alone
+					event.Request.Header.Set(APIKeyHeaderName, "runner-key")
+					require.NoError(t, HandleUpsertMobileRunner()(event))
+				}
+
+				register(tc.firstKey, "")
+				runner, err := canonify.Resolve(app, "/usera-s-organization/switching-phone")
+				require.NoError(t, err)
+				require.Equal(t, !tc.wantAdmin, runner.GetBool("admin_managed"))
+
+				register(tc.secondKey, "/usera-s-organization/switching-phone")
+				switched, err := canonify.Resolve(app, "/usera-s-organization/switching-phone")
+				require.NoError(t, err)
+				require.Equal(t, runner.Id, switched.Id)
+				require.Equal(t, tc.wantAdmin, switched.GetBool("admin_managed"))
+			})
+		}
+	})
 }

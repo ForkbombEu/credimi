@@ -573,7 +573,6 @@ func TestExecuteStepWorkflow(t *testing.T) {
 				With: pipeline.StepInputs{
 					Config: map[string]any{
 						"taskqueue": "custom-queue",
-						"app_url":   "https://example.test",
 					},
 					Payload: map[string]any{
 						"runner_id": "runner-1",
@@ -588,7 +587,7 @@ func TestExecuteStepWorkflow(t *testing.T) {
 			step.With,
 			step.ActivityOptions,
 			ctx,
-			map[string]any{},
+			map[string]any{"app_url": "https://example.test"},
 			map[string]any{},
 			ao,
 		)

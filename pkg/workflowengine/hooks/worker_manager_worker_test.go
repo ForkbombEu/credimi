@@ -39,6 +39,7 @@ func TestWorkerManagerWorkerRegistersWorkflowActivities(t *testing.T) {
 		}
 	}))
 	t.Cleanup(server.Close)
+	t.Setenv(workflowengine.InternalAppURLConfigKeyEnv, server.URL)
 
 	var config *workerConfig
 	for i := range DefaultWorkers {

@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -70,6 +70,13 @@ var (
 	credentialIssuerTemporalClient       = temporalclient.GetTemporalClientWithNamespace
 	credentialIssuerWaitForPartialResult = workflowengine.WaitForPartialResult[map[string]any]
 )
+
+// credentialIssuerHTTPClient may only reach public addresses: the issuer URL
+// is chosen by the caller.
+var credentialIssuerHTTPClient = safehttp.NewClient(safehttp.Config{
+	Timeout:      5 * time.Second,
+	MaxRedirects: 10,
+})
 
 var fidesCredentialIssuersScheduleTriggerOptions = client.ScheduleTriggerOptions{
 	Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
@@ -861,24 +868,6 @@ func isCredentialIssuerWellKnownURL(rawURL string) bool {
 		strings.HasSuffix(rawURL, wellKnownPath)
 }
 
-func isPrivateIP(ip net.IP) bool {
-	privateBlocks := []*net.IPNet{
-		// IPv4 private ranges
-		{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
-		{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
-		{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
-		// IPv6 loopback and link-local
-		{IP: net.ParseIP("::1"), Mask: net.CIDRMask(128, 128)},
-		{IP: net.ParseIP("fe80::"), Mask: net.CIDRMask(10, 128)},
-	}
-	for _, block := range privateBlocks {
-		if block.Contains(ip) {
-			return true
-		}
-	}
-	return ip.IsLoopback()
-}
-
 func checkEndpointExists(ctx context.Context, urlToCheck string) error {
 	parsedURL, err := url.Parse(urlToCheck)
 	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
@@ -888,27 +877,13 @@ func checkEndpointExists(ctx context.Context, urlToCheck string) error {
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 		return fmt.Errorf("unsupported URL scheme")
 	}
-	resolver := net.Resolver{}
-	ips, err := resolver.LookupIPAddr(ctx, parsedURL.Hostname())
-	if err != nil {
-		return fmt.Errorf("could not resolve host: %w", err)
-	}
-	for _, addr := range ips {
-		if isPrivateIP(addr.IP) {
-			return fmt.Errorf("refusing to connect to private/internal IP: %s", addr.IP)
-		}
-	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-
-	resp, err := client.Do(req)
+	resp, err := credentialIssuerHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
 	}

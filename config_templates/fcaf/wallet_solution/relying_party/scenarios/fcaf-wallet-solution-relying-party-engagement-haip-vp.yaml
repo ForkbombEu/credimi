@@ -138,8 +138,8 @@ steps:
                     invoke-wallet-with-haip-vp: ${{ invoke-wallet-with-haip-vp.outputs }}
                     obtain-pid-sdjwt: ${{ obtain-pid-sdjwt.outputs }}
                     onboard-reference-wallet: ${{ onboard-reference-wallet.outputs }}
-                    pid_sdjwt: ${{ fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token }}
-                    pid_sdjwt_presentations: ${{ fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token }}
+                    pid_sdjwt: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token }}
+                    pid_sdjwt_presentations: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token }}
                     visual_evidence: ${{ invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls }}
             pipeline.wallet.engagement.haip-vp:
                 output:

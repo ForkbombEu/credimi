@@ -476,6 +476,13 @@ source test permits it.
   capture. They are parsed evidence, not byte-for-byte plaintext; a validator
   requiring JWT serialization details must pair them with the captured compact
   response and JOSE header evidence.
+- On 05/10/2026, production sessions with `response_mode: direct_post.jwt`
+  (SD-JWT VC and mdoc) and `dc_api.jwt` (SD-JWT VC) recorded only the
+  compact JWE in `observed.wallet_response.value.response`; that object has no
+  `vp_token`. The encoded `{ <query_id>: [<presentation>] }` map is at
+  `raw.presentation_response_decrypted.vp_token`, and its decoded form at
+  `raw.decoded_presentations`. Scenarios with an encrypted response mode bind
+  presentation evidence to `raw.presentation_response_decrypted.vp_token`.
 
 - Resynced from upstream master on 25/09/2026 (`5b03750`). Since the 22/09/2026
   sync (`6b94fa4`) the contract adds the SD-JWT VC `digest_algorithm` issuance

@@ -84,5 +84,5 @@ steps:
           fetch-capture-session: ${{ fetch-capture-session.outputs }}
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
           trusted_authority: ${{ fetch-capture-session.outputs.body }}
-          pid_sdjwt_presentations: ${{ fetch-capture-session.outputs.body.observed.wallet_response.value.vp_token }}
+          pid_sdjwt_presentations: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

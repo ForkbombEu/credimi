@@ -332,6 +332,7 @@ steps: []
 
 func TestStartQueuedPipelineActivitySkipsReservedYAMLConfig(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
+	t.Setenv(workflowengine.InternalAppURLConfigKeyEnv, "")
 	captured := &capturingTemporalClient{
 		run: fakeWorkflowRun{
 			id:    "wf-5",
@@ -361,6 +362,8 @@ config:
   github_pr_comment:
     repository: attacker/repo
     pull_request_number: 17
+  app_url: https://attacker.example
+  internal_app_url: https://attacker.example
 steps: []
 `,
 			PipelineConfig: map[string]any{
@@ -381,6 +384,8 @@ steps: []
 	require.NotContains(t, rawInput.Config, queuedTempCredentialsConfigKey)
 	require.NotContains(t, rawInput.Config, queuedTempUseCaseVerificationsConfigKey)
 	require.NotContains(t, rawInput.Config, queuedGitHubPRCommentConfigKey)
+	require.Equal(t, "https://example.com", rawInput.Config[workflowengine.AppURLConfigKey])
+	require.NotContains(t, rawInput.Config, workflowengine.InternalAppURLConfigKey)
 }
 
 func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
