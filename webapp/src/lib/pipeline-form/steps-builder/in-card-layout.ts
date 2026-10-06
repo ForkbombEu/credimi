@@ -3,10 +3,30 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * In-card enter/exit layout protocol: form-host classes, lock settled sizing,
- * chrome→body max, overlay prepare/finish, natural-height measure, and abort
- * when enter never settled. Tweens stay in `playInCardEnter` / `playInCardExit`.
+ * In-card enter/exit layout protocol (deep seam for Composer/Host).
  *
+ * Phase order (enter):
+ *   1. prepare — lock to summary height; absolute form overlay (inline styles)
+ *   2. tween — `playInCardEnter` (opacity/height only; see `in-card-motion.ts`)
+ *   3. finish — hide display; re-pin form absolute fill; lock height; lock settled flex
+ *   4. domain `onSettled` — Host machine flags (body max, FSM → settled); Host paints
+ *      settled form-host classes from `lockSettledLayout`
+ *   5. clear fill — drop absolute overlay styles so settled flex host owns geometry
+ *
+ * Sizing:
+ *   - `cardFillMaxPx` — whole-card fill cap from Twin-pane (production path, with `card`)
+ *   - `bodyMaxPx` — lock/body max after chrome; test override on enter options, and the
+ *     settled output on `InCardEnterLayoutSettled`
+ *
+ * Form-host classes (`inCardFormHostClass`):
+ *   Host owns them reactively via `lockSettledLayout` (enter while `entering`/`waiting`;
+ *   settled while `settled`/`exiting`). This module does not assign `form.className`.
+ *
+ * Opacity / pointer-events:
+ *   Discrete overlay prepare/finish/teardown set them here as inline styles; motion only
+ *   tweens opacity during enter/exit. Do not move overlay settle into motion.
+ *
+ * Public Composer seam: `playInCardEnterLayout` / `playInCardExitLayout`.
  * Caller's `onSettled` / `onComplete` are domain flags only.
  */
 
@@ -16,7 +36,7 @@ import { playInCardEnter, playInCardExit, type MotionHandle } from './_partials/
  * Form-host classes for In-card enter vs settled/exit.
  * Enter keeps absolute fill over the growing lock, but must still be a flex column
  * so the shell's grow pushes Save to the column bottom during the grow (not only
- * after settle).
+ * after settle). Host binds these; layout does not write `form.className`.
  */
 export function inCardFormHostClass(settled: boolean): string {
 	if (settled) return 'flex min-h-0 grow flex-col overflow-hidden';
@@ -27,7 +47,7 @@ export function inCardFormHostClass(settled: boolean): string {
  * How tall the form body may grow when the whole card is capped at `cardFillMaxPx`.
  * Chrome = color bar + type header (everything in the card above `display`/`lock`).
  */
-export function bodyMaxHeightWithinCard(
+function bodyMaxHeightWithinCard(
 	card: HTMLElement,
 	display: HTMLElement,
 	cardFillMaxPx: number
@@ -39,7 +59,10 @@ export function bodyMaxHeightWithinCard(
 }
 
 export type InCardEnterLayoutSettled = {
-	/** Grown body max used for the lock (undefined when enter sized to form natural height). */
+	/**
+	 * Lock/body max after chrome (undefined when enter sized to form natural height).
+	 * Production resolves this from `card` + `cardFillMaxPx`.
+	 */
 	bodyMaxPx: number | undefined;
 };
 
@@ -47,13 +70,22 @@ export type InCardEnterLayoutOptions = {
 	lock: HTMLElement;
 	display: HTMLElement;
 	form: HTMLElement;
-	/** Card root — with `cardFillMaxPx`, computes body max via `bodyMaxHeightWithinCard`. */
+	/** Card root — with production `cardFillMaxPx`, computes body max after chrome. */
 	card?: HTMLElement;
-	/** Whole-card fill max (px) from Twin-pane `cardFillMaxPx`. */
+	/**
+	 * Whole-card fill max (px) from Twin-pane. Production path with `card`.
+	 * Not the lock/body max — that is derived (or passed as `bodyMaxPx` in tests).
+	 */
 	cardFillMaxPx?: number;
-	/** Precomputed body max; wins over card + cardFillMaxPx when finite (tests). */
+	/**
+	 * Precomputed lock/body max; wins over card + cardFillMaxPx when finite.
+	 * Test override / settled-output naming — not the Twin-pane card fill.
+	 */
 	bodyMaxPx?: number;
-	/** Domain flags only — runs after settled host/lock layout, before absolute fill clears. */
+	/**
+	 * Domain flags only — runs after lock settled layout, before absolute fill clears.
+	 * Host should paint settled form-host classes during this await (e.g. FSM + tick).
+	 */
 	onSettled?: (info: InCardEnterLayoutSettled) => void | Promise<void>;
 	durationMs?: number;
 };
@@ -137,6 +169,7 @@ function measureNaturalHeight(el: HTMLElement): number {
 	return natural;
 }
 
+/** Discrete overlay styles (layout). Motion only tweens opacity afterward. */
 function applyEnterOverlay(form: HTMLElement) {
 	form.style.position = 'absolute';
 	form.style.inset = '0';
@@ -174,7 +207,7 @@ function finishEnterLayout(
 	hideEnterDisplay(display);
 
 	// Keep the form absolutely filling the lock until `settleEnterFormHost` runs.
-	// Clearing absolute before settled flex host classes paint would collapse the
+	// Clearing absolute before Host paints settled flex host classes would collapse the
 	// overlay for a frame and jump the save footer.
 	applyEnterOverlay(form);
 	form.style.opacity = '1';
@@ -238,14 +271,13 @@ function teardownExitOverlay(lock: HTMLElement, display: HTMLElement, form: HTML
 }
 
 /**
- * Enter protocol: overlay form + lock to summary → tweens → settled flex host +
- * lock height, then domain `onSettled`, then clear absolute fill.
+ * Enter protocol: prepare overlay → tweens → finish lock/host → domain `onSettled`
+ * (Host paints settled form-host class) → clear absolute fill.
  */
 export function playInCardEnterLayout(options: InCardEnterLayoutOptions): MotionHandle {
 	const { lock, display, form, onSettled, durationMs } = options;
 	const bodyMaxPx = resolveBodyMaxPx(options);
 
-	form.className = inCardFormHostClass(false);
 	lockToSummaryHeight(lock, display);
 	applyEnterOverlay(form);
 
@@ -262,7 +294,6 @@ export function playInCardEnterLayout(options: InCardEnterLayoutOptions): Motion
 		durationMs,
 		onComplete: async () => {
 			finishEnterLayout(lock, display, form, toHeight);
-			form.className = inCardFormHostClass(true);
 			applyLockSettledLayout(lock, bodyMaxPx);
 			await onSettled?.({ bodyMaxPx });
 			settleEnterFormHost(form);

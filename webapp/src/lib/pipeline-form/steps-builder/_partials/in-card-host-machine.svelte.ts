@@ -97,10 +97,13 @@ export function createInCardLayoutMachine(options: {
 				handle = playInCardEnterLayout({
 					...els,
 					cardFillMaxPx: getCardFillMaxPx(),
-					onSettled: ({ bodyMaxPx: settled }) => {
+					onSettled: async ({ bodyMaxPx: settled }) => {
 						if (fsm.current !== 'entering') return;
 						bodyMax = settled;
 						fsm.send('settled');
+						// Host owns form-host classes via `lockSettledLayout`; flush so
+						// settled class paints before layout clears absolute fill.
+						await tick();
 					}
 				});
 			},

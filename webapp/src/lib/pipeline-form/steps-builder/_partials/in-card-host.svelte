@@ -92,6 +92,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	onDestroy(() => layout.destroy());
 
 	const showDisplayLayer = $derived(layout.current !== 'settled');
+	/** Sole writer of form-host classes (`inCardFormHostClass`); layout never sets className. */
 	const lockSettledLayout = $derived(
 		layout.current === 'settled' || layout.current === 'exiting'
 	);

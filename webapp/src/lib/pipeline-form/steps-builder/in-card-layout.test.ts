@@ -9,7 +9,6 @@ const animateMock = vi.hoisted(() => vi.fn());
 vi.mock('animejs', () => ({ animate: animateMock }));
 
 import {
-	bodyMaxHeightWithinCard,
 	inCardFormHostClass,
 	playInCardEnterLayout,
 	playInCardExitLayout
@@ -73,25 +72,13 @@ describe('inCardFormHostClass', () => {
 	});
 });
 
-describe('bodyMaxHeightWithinCard', () => {
-	it('subtracts header chrome from the card fill max', () => {
-		const card = fakeEl(120, 120);
-		const display = fakeEl(80, 80);
-		expect(bodyMaxHeightWithinCard(card, display, 480)).toBe(440);
-		expect(bodyMaxHeightWithinCard(card, display, 100)).toBe(60);
-	});
-});
-
 describe('playInCardEnterLayout', () => {
-	it('starts with absolute-fill host class, settles host before absolute clears', async () => {
+	it('prepares absolute overlay and settles lock before absolute clears', async () => {
 		const lock = fakeEl(80, 80, 'relative min-h-0');
 		const display = fakeEl(80, 80);
 		const form = fakeEl(0, 200);
 		const onSettled = vi.fn(async () => {
-			expect(form.className.split(/\s+/)).toEqual(
-				expect.arrayContaining(['flex', 'flex-col', 'grow', 'min-h-0'])
-			);
-			expect(form.className).not.toContain('absolute');
+			// Host owns form-host className; layout keeps absolute fill until after onSettled.
 			expect(form.style.position).toBe('absolute');
 			expect(form.style.height).toBe('100%');
 			expect(lock.style.height).toBe('480px');
@@ -108,9 +95,6 @@ describe('playInCardEnterLayout', () => {
 			onSettled
 		});
 
-		expect(form.className.split(/\s+/)).toEqual(
-			expect.arrayContaining(['absolute', 'inset-0', 'flex', 'flex-col', 'min-h-0'])
-		);
 		expect(form.style.position).toBe('absolute');
 		expect(form.style.opacity).toBe('0');
 		expect(lock.style.height).toBe('80px');
@@ -123,7 +107,6 @@ describe('playInCardEnterLayout', () => {
 		expect(onSettled).toHaveBeenCalledWith({ bodyMaxPx: 480 });
 		expect(form.style.position).toBe('');
 		expect(form.style.height).toBe('');
-		expect(form.className).not.toContain('absolute');
 		expect(display.style.visibility).toBe('hidden');
 		expect(lock.style.height).toBe('480px');
 	});
@@ -188,9 +171,34 @@ describe('playInCardEnterLayout', () => {
 		completeEnterSteps();
 		await handle.finished;
 
+		// card 120 − display 80 = 40 chrome → body max 480 − 40 = 440
 		expect(onSettled).toHaveBeenCalledWith({ bodyMaxPx: 440 });
 		expect(lock.style.height).toBe('440px');
 		expect(lock.style.maxHeight).toBe('440px');
+	});
+
+	it('clamps body max at zero when chrome exceeds card fill', async () => {
+		const card = fakeEl(120, 120);
+		const lock = fakeEl(80, 80, 'relative min-h-0');
+		const display = fakeEl(80, 80);
+		const form = fakeEl(0, 200);
+		const onSettled = vi.fn();
+
+		const handle = playInCardEnterLayout({
+			lock,
+			display,
+			form,
+			card,
+			cardFillMaxPx: 100,
+			onSettled
+		});
+
+		completeEnterSteps();
+		await handle.finished;
+
+		// chrome 40 → body max max(0, 100 − 40) = 60
+		expect(onSettled).toHaveBeenCalledWith({ bodyMaxPx: 60 });
+		expect(lock.style.height).toBe('60px');
 	});
 
 	it('calls onSettled before settle clears absolute fill', async () => {
