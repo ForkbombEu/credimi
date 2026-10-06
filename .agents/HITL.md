@@ -432,6 +432,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision: Do not unify in the current pipeline-composer work. Revisit later.
 - follow-up: When unifying, pick one error surface (throw vs return `Error`) and decide whether device list cache stays a special case.
 
+### 2026-10-05 - Owner-only record fields: hidden fields, owner writes, installer downloads
+
+- status: open (agent default applied; human may revisit)
+- owner: human maintainer
+- context: Finding `credimi/recordsecrets/hide-only-filter-and-file-leak`. `credentials.secrets` and `use_cases_verifications.secrets` (text) and `wallet_versions.android_installer`/`ios_installer` (file) were `hidden: false`, so non-owners could filter and sort on them (`secrets~'DUMMY%'`), and non-downloadable installers downloaded without a token. `Record.Hide` in the enrich hooks only runs after the query. `pb_migrations/1791213262_protect_owner_only_fields.js` makes the four fields `hidden` and the installers `protected`; the enrich hooks `Unhide` them for owners; `HandleInstallerDownload` (`OnFileDownloadRequest`) gates non-downloadable installers.
+- question: (1) PocketBase drops hidden fields from non-superuser create/update bodies, including `@request.body` in rules. Is restoring them in `OnRecordCreateRequest`/`OnRecordUpdateRequest` (`pbutils.LoadHiddenRequestFields`, after the collection rule passed) and moving the `wallet_versions` "at least one installer" check from the create rule into `HandleWalletVersionCreate` acceptable? (2) Installer downloads of non-downloadable versions now require a superuser, the internal admin key, or a member of the owner org (file token, auth token or user-scoped `Credimi-Api-Key`). A runner that downloads with a user key of another organization, for a published wallet's non-downloadable version, now gets `404`.
+- options considered: (a) hidden fields plus owner-checked hooks (applied); (b) move secrets to an owner-only collection; (c) keep fields visible and reject filters by string matching (misses relation and back-relation paths).
+- default risk: (2) can fail mobile runs that previously worked through `get-installer-md5-or-etag`, which still authorizes any caller when the wallet is published, independent of `downloadable`.
+- decision: (a). (2) confirmed by the user: runners using another organization's user key must not get non-downloadable installers; admin-managed runners using the internal admin key keep access.
+- follow-up: Resolved: `get-installer-md5-or-etag` (`authorizeWalletInstallerAccess`) now allows other organizations only for `downloadable` versions of published wallets; the internal admin key and owner members keep access.
+
 ### 2026-10-05 - Server App URL reaches `InternalHTTPActivity` through a process-level source
 
 - status: open (agent default; human may revisit)

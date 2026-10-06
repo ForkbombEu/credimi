@@ -686,6 +686,9 @@ func publishedDeviceCanStoreForPublishedOrganization(
 	return false, nil
 }
 
+// authorizeWalletInstallerAccess lets the internal admin and members of the
+// owning organization fetch any installer; other callers only get installers
+// of downloadable versions of published wallets.
 func authorizeWalletInstallerAccess(
 	e *core.RequestEvent,
 	versionRecord *core.Record,
@@ -701,7 +704,8 @@ func authorizeWalletInstallerAccess(
 	if isInternalAdminPrincipal(e.Auth) {
 		return nil
 	}
-	if walletID := versionRecord.GetString("wallet"); walletID != "" {
+	if walletID := versionRecord.GetString("wallet"); walletID != "" &&
+		versionRecord.GetBool("downloadable") {
 		walletRecord, err := e.App.FindRecordById("wallets", walletID)
 		if err != nil {
 			return apierror.New(
