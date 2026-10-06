@@ -47,7 +47,7 @@ The public wallet action exports included here are:
 - `choose-eudi-wallet`
 - `fcaf-engagement-haip-vp`
 
-The FCAF scenarios additionally share three flows. They must exist as
+The FCAF scenarios additionally share four flows. They must exist as
 `wallet_actions` records before the aggregate pipeline runs:
 
 - `fcaf-expect-request-rejected`: the Wallet answers with an error screen or
@@ -56,6 +56,10 @@ The FCAF scenarios additionally share three flows. They must exist as
   so that a positive flow cannot skip the consent screen.
 - `fcaf-expect-no-matching-document`: the Wallet reports that it holds no
   credential satisfying the request.
+- `fcaf-expect-credential-rejected`: the Wallet accepts a credential offer and
+  then refuses to store the credential, showing an error screen or returning to
+  Home. It fails on the `View details` success screen that
+  `getcredential-generic-credential-without-authentication` requires.
 - `fcaf-dc-api-present`: the Digital Credentials API flow. There is no link to
   open, so this taps the presentation page's "Present credential" button and
   then either completes the consent screen or records the Wallet's refusal.

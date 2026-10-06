@@ -14,6 +14,10 @@ actions:
     category: get-credential-generic
     tags: fcaf, credential, generic
     file: wallet/getcredential-generic-credential-without-authentication.yaml
+  - name: fcaf-expect-credential-rejected
+    category: get-credential-generic
+    tags: fcaf, expect, rejected, credential
+    file: wallet/fcaf-expect-credential-rejected.yaml
   - name: verifycredential-pid-formeu-issuer-eudiw-dev
     category: verify-credential
     tags: fcaf, pid, formeu

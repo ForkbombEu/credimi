@@ -6,40 +6,32 @@ tags:
   - onboarding
 ---
 - launchApp:
+    stopApp: true
     clearState: false
     permissions:
       camera: allow
       notifications: allow
-      all: unset
 - extendedWaitUntil:
     visible: "Welcome to your Wallet|Welcome back|Home|Documents|Add document"
     timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
 - runFlow:
     when:
       visible: "Welcome to your Wallet"
     commands:
-      - tapOn:
-          point: "11%,42%"
       - inputText: "123456"
-      - hideKeyboard
       - extendedWaitUntil:
           visible: "Confirm PIN"
           timeout: 15000
-      - tapOn:
-          point: "11%,42%"
       - inputText: "123456"
-      - hideKeyboard
 - runFlow:
     when:
       visible: "Welcome back"
     commands:
-      - tapOn:
-          point: "11%,40%"
       - inputText: "123456"
-      - hideKeyboard
-- extendedWaitUntil:
-    visible: "GO TO HOME|Home|Documents|Add document"
-    timeout: 30000
+- scrollUntilVisible:
+    element: "GO TO HOME|Home|Documents|Add document"
 - runFlow:
     when:
       visible: "GO TO HOME"
