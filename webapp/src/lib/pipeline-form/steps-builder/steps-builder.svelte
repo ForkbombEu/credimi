@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
+	import type { Snippet } from 'svelte';
 
 	import {
 		BlocksIcon,
@@ -28,7 +29,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Switch from '@/components/ui/switch/switch.svelte';
 	import { m } from '@/i18n';
 
-	import type { InCardHostChrome } from './_partials/in-card-host.svelte';
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
 	import {
@@ -36,6 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		Column,
 		EmptyState,
 		FollowUpCard,
+		type InCardHostChrome,
 		ManualEditorColumn,
 		StepCard,
 		YamlPreviewPane
@@ -90,8 +91,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	$effect(() => () => session.dispose());
 
-	const cardMaxHeightPx = $derived(session.cardFillMaxPx);
-
 	const stepsVirt = session.stepsVirt;
 	const yamlVirt = session.yamlVirt;
 	const { measureStepCard, measureYamlStep } = session;
@@ -135,7 +134,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			editing,
 			expandReady: editing && session.inCard.phase === 'still',
 			faded: isCardFaded(section, index),
-			maxHeightPx: cardMaxHeightPx,
+			cardFillMaxPx: session.cardFillMaxPx,
 			selected: session.isCardSelected(section, index),
 			hovered: session.isCardHovered(section, index),
 			onExitUnlock: () => session.inCard.noteExitComplete()
@@ -248,37 +247,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#each $stepsVirt.getVirtualItems() as vItem (vItem.key)}
 						{@const step = builder.steps[vItem.index]}
 						{@const index = vItem.index}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
 							{@attach measureStepCard}
 							data-index={index}
-							data-card-section="steps"
-							data-card-index={index}
-							class="absolute left-0 w-full cursor-pointer pb-3"
+							class="absolute left-0 w-full pb-3"
 							style:top="{vItem.start}px"
-							role="group"
-							tabindex="-1"
-							onclick={() =>
-								session.onUnitClick({ section: 'steps', index }, 'cards')}
-							onmouseenter={() => {
-								session.hoverCard({ section: 'steps', index });
-							}}
-							onmouseleave={() => {
-								session.clearHoverCard({ section: 'steps', index });
-							}}
 						>
-							{#if step}
-								{@const editing =
-									editingSection === 'steps' && editingIndex === index}
-								<StepCard
-									{builder}
-									{step}
-									{index}
-									{...inCardChrome(editing, 'steps', index)}
-									onShift={(change) => session.shiftStep(index, change)}
-								/>
-							{/if}
+							{#snippet stepCardBody()}
+								{#if step}
+									{@const editing =
+										editingSection === 'steps' && editingIndex === index}
+									<StepCard
+										{builder}
+										{step}
+										{index}
+										{...inCardChrome(editing, 'steps', index)}
+										onShift={(change) => session.shiftStep(index, change)}
+									/>
+								{/if}
+							{/snippet}
+							{@render cardUnitInteractive('steps', index, stepCardBody)}
 						</div>
 					{/each}
 				</div>
@@ -296,30 +284,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="space-y-3">
 					{#each builder.followUps as followUp, index (builder.followUpKeys[index])}
 						{@const editing = editingSection === 'follow-ups' && editingIndex === index}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-						<div
-							data-card-section="follow-ups"
-							data-card-index={index}
-							class="cursor-pointer"
-							role="group"
-							tabindex="-1"
-							onclick={() =>
-								session.onUnitClick({ section: 'follow-ups', index }, 'cards')}
-							onmouseenter={() => {
-								session.hoverCard({ section: 'follow-ups', index });
-							}}
-							onmouseleave={() => {
-								session.clearHoverCard({ section: 'follow-ups', index });
-							}}
-						>
+						{#snippet followUpCardBody()}
 							<FollowUpCard
 								{builder}
 								{followUp}
 								{index}
 								{...inCardChrome(editing, 'follow-ups', index)}
 							/>
-						</div>
+						{/snippet}
+						{@render cardUnitInteractive('follow-ups', index, followUpCardBody)}
 					{/each}
 				</div>
 			{:else}
@@ -453,4 +426,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{displayData.labels.singular}
 		</span>
 	</Button>
+{/snippet}
+
+{#snippet cardUnitInteractive(section: 'steps' | 'follow-ups', index: number, children: Snippet)}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<div
+		data-card-section={section}
+		data-card-index={index}
+		class="cursor-pointer"
+		role="group"
+		tabindex="-1"
+		onclick={() => session.onUnitClick({ section, index }, 'cards')}
+		onmouseenter={() => session.hoverCard({ section, index })}
+		onmouseleave={() => session.clearHoverCard({ section, index })}
+	>
+		{@render children()}
+	</div>
 {/snippet}

@@ -168,7 +168,7 @@ export function inCardCardsEndPadPx(
 export const MIN_CARD_FILL_MAX_PX = 240;
 
 /**
- * Whole-card fill max (view paints `maxHeightPx`). Top + bottom inset matches
+ * Whole-card fill max (view paints `cardFillMaxPx`). Top + bottom inset matches
  * start-align padding so the open card fills the column with the same gap.
  */
 export function inCardCardFillMaxPx(cardsViewportPx: number): number {

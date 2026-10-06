@@ -85,7 +85,7 @@ async function renderHost(props: {
 		editing: props.editing,
 		expandReady: props.expandReady,
 		onExitUnlock: props.onExitUnlock,
-		maxHeightPx: 480,
+		cardFillMaxPx: 480,
 		topRight
 	});
 }

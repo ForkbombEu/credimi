@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 export * from './bulk-wallet-version-context.js';
-export * from './in-card-motion.js';
 export * from './utils.js';
+
+export type { InCardHostChrome } from './in-card-host-chrome.js';
 
 export { default as BulkWalletVersionChange } from './bulk-wallet-version-change.svelte';
 export { default as Column } from './column.svelte';
@@ -12,7 +13,6 @@ export { default as ContinueOnErrorFooter } from './continue-on-error-footer.sve
 export { default as EmptyState } from './empty-state.svelte';
 export { default as ManualEditorColumn } from './manual-editor-column.svelte';
 export { default as FollowUpCard } from './follow-up-card.svelte';
-export { default as InCardFormShell } from './in-card-form-shell.svelte';
 export { default as InCardHost } from './in-card-host.svelte';
 export { default as StepCardDisplay } from './step-card-display.svelte';
 export { default as StepCard } from './step-card.svelte';

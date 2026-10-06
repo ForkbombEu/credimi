@@ -14,14 +14,6 @@ export function isInCardStill(phase: InCardPhase): boolean {
 	return phase === 'still' || phase === 'exiting';
 }
 
-/**
- * Enter-settled phases — expand/crossfade may run (same set as still-ness today;
- * kept separate so a later deepen can diverge if needed).
- */
-export function isInCardEnterSettled(phase: InCardPhase): boolean {
-	return phase === 'still' || phase === 'exiting';
-}
-
 export type InCardSession = {
 	get phase(): InCardPhase;
 	/** Derived still-ness — `still | exiting`. */

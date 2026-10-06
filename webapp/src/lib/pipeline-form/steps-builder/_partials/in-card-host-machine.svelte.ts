@@ -41,7 +41,6 @@ export function createInCardLayoutMachine(options: {
 } {
 	const { getEls, getCardFillMaxPx, onDone } = options;
 
-	let phase = $state<InCardLayoutState>('idle');
 	let bodyMax = $state<number | undefined>(undefined);
 	let handle: MotionHandle | undefined;
 
@@ -76,7 +75,6 @@ export function createInCardLayoutMachine(options: {
 	const fsm = new FiniteStateMachine<InCardLayoutState, InCardLayoutEvent>('idle', {
 		idle: {
 			_enter(meta) {
-				phase = 'idle';
 				if (meta.from === null) return;
 				bodyMax = undefined;
 				cancelHandle();
@@ -87,9 +85,6 @@ export function createInCardLayoutMachine(options: {
 			release: noop
 		},
 		waiting: {
-			_enter() {
-				phase = 'waiting';
-			},
 			hold: noop,
 			ready: () => (completeEls(getEls) ? 'entering' : undefined),
 			release: 'exiting',
@@ -97,7 +92,6 @@ export function createInCardLayoutMachine(options: {
 		},
 		entering: {
 			_enter() {
-				phase = 'entering';
 				const els = completeEls(getEls);
 				if (!els) return;
 				handle = playInCardEnterLayout({
@@ -121,9 +115,6 @@ export function createInCardLayoutMachine(options: {
 			drop: 'idle'
 		},
 		settled: {
-			_enter() {
-				phase = 'settled';
-			},
 			hold: noop,
 			ready: noop,
 			release: 'exiting',
@@ -131,7 +122,6 @@ export function createInCardLayoutMachine(options: {
 		},
 		exiting: {
 			_enter(meta) {
-				phase = 'exiting';
 				const fromSettled = meta.from === 'settled';
 				if (!fromSettled) {
 					playExit(false, completeEls(getEls));
@@ -160,7 +150,7 @@ export function createInCardLayoutMachine(options: {
 
 	return {
 		get current() {
-			return phase;
+			return fsm.current;
 		},
 		get bodyMaxPx() {
 			return bodyMax;

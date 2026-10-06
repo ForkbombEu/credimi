@@ -16,28 +16,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n/index.js';
 
+	import type { InCardHostChrome } from './in-card-host-chrome.js';
+
 	import { inCardFormHostClass } from '../in-card-layout.js';
-	import { createInCardLayoutMachine } from './in-card-host-machine.svelte.js';
 	import InCardFormShell from './in-card-form-shell.svelte';
+	import { createInCardLayoutMachine } from './in-card-host-machine.svelte.js';
 	import StepCardDisplay from './step-card-display.svelte';
 	import { useCardShell } from './use-card-shell.svelte.js';
 
 	//
 
-	/** Fill/unlock/selection chrome shared by StepCard and FollowUpCard — face stays out. */
-	export type InCardHostChrome = {
-		editing?: boolean;
-		/** Enter-ready: parent `editing && session.inCard.phase === 'still'`. */
-		expandReady?: boolean;
-		selected?: boolean;
-		hovered?: boolean;
-		/** Sibling of the card being edited in place: dimmed and non-interactive (except the pencil). */
-		faded?: boolean;
-		/** Max height of the card while editing, in px. Composer passes `session.cardFillMaxPx`. */
-		maxHeightPx?: number;
-		/** Paired with held-form clear — Twin-pane `noteExitComplete`. */
-		onExitUnlock?: () => void;
-	};
+	export type { InCardHostChrome };
 
 	type Props = InCardHostChrome & {
 		step: EnrichedStep;
@@ -54,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		selected = false,
 		hovered = false,
 		faded = false,
-		maxHeightPx,
+		cardFillMaxPx,
 		onExitUnlock,
 		topRight,
 		footer
@@ -85,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			if (!card || !lock || !display || !form) return null;
 			return { card, lock, display, form };
 		},
-		getCardFillMaxPx: () => maxHeightPx,
+		getCardFillMaxPx: () => cardFillMaxPx,
 		onDone: () => shell.completeExit()
 	});
 
@@ -106,6 +95,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const lockSettledLayout = $derived(
 		layout.current === 'settled' || layout.current === 'exiting'
 	);
+
+	function stopHeaderBubble(e: Event) {
+		e.stopPropagation();
+	}
 </script>
 
 <div
@@ -113,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		'flex min-h-0 flex-col transition-opacity duration-200',
 		faded && 'pointer-events-none opacity-40'
 	]}
-	style:max-height={showFormBody && maxHeightPx != null ? `${maxHeightPx}px` : undefined}
+	style:max-height={showFormBody && cardFillMaxPx != null ? `${cardFillMaxPx}px` : undefined}
 >
 	<StepCardDisplay
 		bind:cardRoot
@@ -127,49 +120,52 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/>
 </div>
 
+{#snippet headerToolbar(className: string | Array<string | false | undefined>, children: Snippet)}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class={className} onclick={stopHeaderBubble} onpointerdown={stopHeaderBubble}>
+		{@render children()}
+	</div>
+{/snippet}
+
 {#snippet hostHeader()}
 	{#if showFormBody}
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class="flex items-center gap-1 pr-1"
-			onclick={(e) => e.stopPropagation()}
-			onpointerdown={(e) => e.stopPropagation()}
-		>
-			{#if docsUrl}
-				<IconButton
-					variant="ghost"
-					href={docsUrl}
-					target="_blank"
-					rel="noopener noreferrer"
-					icon={HelpCircle}
-					size="xs"
-					tooltip={m.Documentation()}
-				/>
-			{/if}
-			<IconButton
-				variant="ghost"
-				icon={XIcon}
-				size="xs"
-				tooltip={m.Close()}
-				onclick={() => builder.exitFormState()}
-				data-testid="in-card-form-dismiss"
-			/>
-		</div>
+		{@render headerToolbar('flex items-center gap-1 pr-1', editToolbar)}
 	{:else}
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class={[
+		{@render headerToolbar(
+			[
 				'flex items-center gap-1 pr-1 transition-opacity',
 				faded ? 'opacity-100' : 'opacity-30 group-hover:opacity-100'
-			]}
-			onclick={(e) => e.stopPropagation()}
-			onpointerdown={(e) => e.stopPropagation()}
-		>
-			{@render topRight()}
-		</div>
+			],
+			idleToolbar
+		)}
 	{/if}
+{/snippet}
+
+{#snippet editToolbar()}
+	{#if docsUrl}
+		<IconButton
+			variant="ghost"
+			href={docsUrl}
+			target="_blank"
+			rel="noopener noreferrer"
+			icon={HelpCircle}
+			size="xs"
+			tooltip={m.Documentation()}
+		/>
+	{/if}
+	<IconButton
+		variant="ghost"
+		icon={XIcon}
+		size="xs"
+		tooltip={m.Close()}
+		onclick={() => builder.exitFormState()}
+		data-testid="in-card-form-dismiss"
+	/>
+{/snippet}
+
+{#snippet idleToolbar()}
+	{@render topRight()}
 {/snippet}
 
 {#snippet overlayBody({ details, footer }: { details: Snippet; footer: Snippet })}

@@ -9,8 +9,9 @@
  * 1. `{#each ... (step)}` keyed by object identity.
  * 2. Save runs mutative `applyEdit*` which replaces the step tuple → new each key
  *    → StepCard remounts → `useHeldFormMode` last is wiped → `showFormBody=false`.
- * 3. Exit `$effect` in InCardHost requires `!editing && showFormBody`;
- *    remount skips it → structural collapse (no `playInCardExit`).
+ * 3. Host layout FSM (`layout.sync` → `in-card-host-machine`) needs a continuous
+ *    mount for exit (`release` while the held form is still shown); remount skips
+ *    it → structural collapse (no `playInCardExitLayout`).
  * 4. Dismiss only sets mode idle → same tuple identity → held survives → exit runs.
  *
  * Fix: parallel `stepKeys` / `followUpKeys` as `{#each}` keys — they survive applyEdit

@@ -4,14 +4,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-	createInCardSession,
-	isInCardEnterSettled,
-	isInCardStill,
-	type InCardPhase
-} from './in-card-session.svelte.js';
+import { createInCardSession, isInCardStill, type InCardPhase } from './in-card-session.svelte.js';
 
-describe('isInCardStill / isInCardEnterSettled', () => {
+describe('isInCardStill', () => {
 	it.each<[InCardPhase, boolean]>([
 		['idle', false],
 		['aligning', false],
@@ -19,7 +14,6 @@ describe('isInCardStill / isInCardEnterSettled', () => {
 		['exiting', true]
 	])('%s → still=%s', (phase, expected) => {
 		expect(isInCardStill(phase)).toBe(expected);
-		expect(isInCardEnterSettled(phase)).toBe(expected);
 	});
 });
 

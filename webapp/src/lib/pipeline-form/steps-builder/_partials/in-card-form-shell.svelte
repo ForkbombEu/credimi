@@ -7,12 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { onDestroy, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n/index.js';
-
-	import { cancelMotion } from './in-card-motion.js';
 
 	//
 
@@ -28,7 +26,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { expanded, canSave, onSave, onDismiss, form }: Props = $props();
 
 	let mounted = $state(untrack(() => expanded));
-	let region: HTMLElement | null = $state(null);
 
 	// Mount as soon as edit opens. Enter/exit height motion is owned by InCardHost
 	// (shrink targets the summary card height, not zero).
@@ -43,10 +40,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// Stay mounted while the parent holds the form for the exit animation.
 	// Parent clears the held mode after playInCardExit completes.
 
-	onDestroy(() => {
-		cancelMotion(region);
-	});
-
 	function onWindowKeydown(event: KeyboardEvent) {
 		if (!expanded || event.key !== 'Escape') return;
 		if (event.defaultPrevented || event.isComposing) return;
@@ -59,7 +52,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if mounted}
 	<div
-		bind:this={region}
 		class="flex min-h-0 grow flex-col"
 		inert={!expanded}
 		data-testid="in-card-form-shell"
