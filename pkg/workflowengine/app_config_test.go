@@ -5,8 +5,6 @@
 package workflowengine
 
 import (
-	"crypto/tls"
-	"net/http"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/tests"
@@ -87,54 +85,4 @@ func TestIsServerOwnedConfigKey(t *testing.T) {
 			require.Equal(t, tc.want, IsServerOwnedConfigKey(tc.key))
 		})
 	}
-}
-
-func TestSetLocalURL(t *testing.T) {
-	tests := []struct {
-		name   string
-		server *http.Server
-		want   string
-	}{
-		{
-			name:   "unspecified IPv4",
-			server: &http.Server{Addr: "0.0.0.0:8090"},
-			want:   "http://127.0.0.1:8090",
-		},
-		{
-			name:   "unspecified IPv6",
-			server: &http.Server{Addr: "[::]:9000"},
-			want:   "http://127.0.0.1:9000",
-		},
-		{
-			name:   "empty host",
-			server: &http.Server{Addr: ":8092"},
-			want:   "http://127.0.0.1:8092",
-		},
-		{
-			name:   "loopback",
-			server: &http.Server{Addr: "127.0.0.1:8091"},
-			want:   "http://127.0.0.1:8091",
-		},
-		{
-			name: "TLS server",
-			server: &http.Server{
-				Addr:      "0.0.0.0:443",
-				TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12},
-			},
-			want: "https://127.0.0.1:443",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			app := newAppConfigTestApp(t)
-			SetLocalURL(app, tc.server)
-			require.Equal(t, tc.want, LocalURL(app))
-		})
-	}
-}
-
-func TestLocalURLUnset(t *testing.T) {
-	app := newAppConfigTestApp(t)
-	require.Empty(t, LocalURL(app))
 }

@@ -7,6 +7,7 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -36,11 +37,25 @@ func PipelineEvidenceSetupHook(
 		return nil
 	}
 	baseAO := PrepareWorkflowOptions(wfDef.Runtime).ActivityOptions
+	discoveryDef := evidenceDiscoveryDefinition(wfDef)
+
+	deeplinks, deeplinkErrors, err := resolveEvidenceDeeplinks(
+		ctx,
+		discoveryDef,
+		config,
+		runData,
+		baseAO,
+	)
+	if err != nil {
+		return err
+	}
 
 	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
 	extractionReq := workflowengine.ActivityInput{
 		Payload: activities.PipelineEvidenceExtractionInput{
-			WorkflowDefinition: evidenceDiscoveryDefinition(wfDef),
+			WorkflowDefinition: discoveryDef,
+			Deeplinks:          deeplinks,
+			DeeplinkErrors:     deeplinkErrors,
 			WorkflowID:         workflowID,
 			RunID:              runID,
 		},
@@ -76,6 +91,62 @@ func PipelineEvidenceSetupHook(
 	appendSetupWarnings(finalOutput, output.Warnings)
 	SetRunDataValue(runData, pipelineEvidenceRunDataKey, output)
 	return nil
+}
+
+// evidenceDeeplinkStepPrefix keeps the child workflow that resolves an evidence
+// deeplink apart from the child workflow of the pipeline step itself.
+const evidenceDeeplinkStepPrefix = "evidence-"
+
+// resolveEvidenceDeeplinks resolves the deeplink of every evidence step through
+// the same registry child workflow the step runs (credential offer or use case
+// verification deeplink), so evidence extraction never calls Credimi over HTTP.
+// A step that fails to resolve is reported by step ID instead of failing the
+// pipeline; only cancellation is returned.
+func resolveEvidenceDeeplinks(
+	ctx workflow.Context,
+	def *pipelineinternal.WorkflowDefinition,
+	config map[string]any,
+	runData *map[string]any,
+	ao workflow.ActivityOptions,
+) (map[string]string, map[string]string, error) {
+	dataCtx := map[string]any{}
+	if runData != nil && *runData != nil {
+		dataCtx = *runData
+	}
+	deeplinks := map[string]string{}
+	deeplinkErrors := map[string]string{}
+	for _, step := range def.Steps {
+		// ResolveInputs writes resolved values back into the maps it receives;
+		// clone them so the pipeline step itself still resolves its own inputs.
+		with := pipelineinternal.StepInputs{
+			Config:  maps.Clone(step.With.Config),
+			Payload: maps.Clone(step.With.Payload),
+		}
+		output, err := ExecuteStep(
+			evidenceDeeplinkStepPrefix+step.ID,
+			step.Use,
+			with,
+			step.ActivityOptions,
+			ctx,
+			config,
+			dataCtx,
+			ao,
+		)
+		if err != nil {
+			if temporal.IsCanceledError(err) {
+				return nil, nil, err
+			}
+			deeplinkErrors[step.ID] = err.Error()
+			continue
+		}
+		deeplink, ok := output.(string)
+		if !ok || strings.TrimSpace(deeplink) == "" {
+			deeplinkErrors[step.ID] = fmt.Sprintf("%s returned no deeplink", step.Use)
+			continue
+		}
+		deeplinks[step.ID] = deeplink
+	}
+	return deeplinks, deeplinkErrors, nil
 }
 
 func hasPipelineEvidenceStep(wfDef *pipelineinternal.WorkflowDefinition) bool {

@@ -47,7 +47,6 @@ import (
 //   - app: The PocketBase application instance to which the hook is attached.
 func WorkersHook(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		workflowengine.SetLocalURL(se.App, se.Server)
 		if TemporalWorkersDisabled() {
 			log.Printf(
 				"[WorkersHook] Skipping namespaces and workers (%s is set)",

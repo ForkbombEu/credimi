@@ -7,6 +7,7 @@ package pipeline
 import (
 	"context"
 	"testing"
+	"time"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -14,13 +15,54 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
 
+// evidenceDeeplinkStubs registers stand-ins for the registry child workflows
+// that resolve evidence deeplinks and records how they were started.
+type evidenceDeeplinkStubs struct {
+	credentialErr error
+	childIDs      []string
+	payloads      []map[string]any
+}
+
+func (s *evidenceDeeplinkStubs) register(env *testsuite.TestWorkflowEnvironment) {
+	stub := func(deeplink string, err func() error) func(
+		workflow.Context, workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		return func(
+			ctx workflow.Context,
+			input workflowengine.WorkflowInput,
+		) (workflowengine.WorkflowResult, error) {
+			s.childIDs = append(s.childIDs, workflow.GetInfo(ctx).WorkflowExecution.ID)
+			payload, _ := input.Payload.(map[string]any)
+			s.payloads = append(s.payloads, payload)
+			if e := err(); e != nil {
+				return workflowengine.WorkflowResult{}, e
+			}
+			return workflowengine.WorkflowResult{Output: deeplink}, nil
+		}
+	}
+	env.RegisterWorkflowWithOptions(
+		stub("openid-credential-offer://?credential_offer=%7B%7D", func() error {
+			return s.credentialErr
+		}),
+		workflow.RegisterOptions{Name: "Get a credential offer"},
+	)
+	env.RegisterWorkflowWithOptions(
+		stub("haip-vp://?request_uri=https%3A%2F%2Fverifier.example%2Frequest", func() error {
+			return nil
+		}),
+		workflow.RegisterOptions{Name: "Get use case verification deeplink"},
+	)
+}
+
 func TestPipelineEvidenceSetupHookAddsWarningsWithoutFailing(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
+	(&evidenceDeeplinkStubs{}).register(env)
 
 	evidenceActivity := activities.NewPipelineEvidenceExtractionActivity(nil)
 	env.RegisterActivityWithOptions(
@@ -55,6 +97,8 @@ func TestPipelineEvidenceSetupHookAddsWarningsWithoutFailing(t *testing.T) {
 func TestPipelineEvidenceSetupHookStoresEvidence(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
+	stubs := &evidenceDeeplinkStubs{}
+	stubs.register(env)
 
 	evidenceActivity := activities.NewPipelineEvidenceExtractionActivity(nil)
 	env.RegisterActivityWithOptions(
@@ -72,6 +116,11 @@ func TestPipelineEvidenceSetupHookStoresEvidence(t *testing.T) {
 			require.Equal(t, "default-test-workflow-id", payload.WorkflowID)
 			require.Equal(t, "default-test-run-id", payload.RunID)
 			require.NotNil(t, payload.WorkflowDefinition)
+			require.Equal(t, map[string]string{
+				"cred-step": "openid-credential-offer://?credential_offer=%7B%7D",
+				"vp-step":   "haip-vp://?request_uri=https%3A%2F%2Fverifier.example%2Frequest",
+			}, payload.Deeplinks)
+			require.Empty(t, payload.DeeplinkErrors)
 			return true
 		}),
 	).Return(workflowengine.ActivityResult{
@@ -98,6 +147,12 @@ func TestPipelineEvidenceSetupHookStoresEvidence(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
 	env.AssertExpectations(t)
+	require.Equal(t, []string{
+		"default-test-workflow-id-evidence-cred-step",
+		"default-test-workflow-id-evidence-vp-step",
+	}, stubs.childIDs)
+	require.Equal(t, "tenant/credential-1", stubs.payloads[0]["credential_id"])
+	require.Equal(t, "tenant/use-case-1", stubs.payloads[1]["use_case_id"])
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, true, result["run_data_has_evidence"])
@@ -107,6 +162,7 @@ func TestPipelineEvidenceSetupHookStoresEvidence(t *testing.T) {
 func TestPipelineEvidenceSetupHookSendsOnlyDiscoverySteps(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
+	(&evidenceDeeplinkStubs{}).register(env)
 
 	var definition *pipelineinternal.WorkflowDefinition
 	evidenceActivity := activities.NewPipelineEvidenceExtractionActivity(nil)
@@ -138,6 +194,84 @@ func TestPipelineEvidenceSetupHookSendsOnlyDiscoverySteps(t *testing.T) {
 	}
 	require.Equal(t, []string{"cred-step", "vp-step"}, stepIDs)
 	require.Equal(t, "tenant/credential-1", definition.Steps[0].With.Payload["credential_id"])
+}
+
+func TestPipelineEvidenceSetupHookReportsDeeplinkFailures(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	stubs := &evidenceDeeplinkStubs{
+		credentialErr: temporal.NewNonRetryableApplicationError(
+			"credentials record tenant/credential-1 not found", "CRE233", nil,
+		),
+	}
+	stubs.register(env)
+
+	var input activities.PipelineEvidenceExtractionInput
+	env.RegisterActivityWithOptions(
+		func(
+			_ context.Context,
+			activityInput workflowengine.ActivityInput,
+		) (workflowengine.ActivityResult, error) {
+			payload, err := workflowengine.DecodePayload[activities.PipelineEvidenceExtractionInput](
+				activityInput.Payload,
+			)
+			require.NoError(t, err)
+			input = payload
+			return workflowengine.ActivityResult{
+				Output: activities.PipelineEvidenceExtractionOutput{},
+			}, nil
+		},
+		activity.RegisterOptions{Name: activities.PipelineEvidenceExtractionActivityName},
+	)
+
+	env.ExecuteWorkflow(testPipelineEvidenceSetupWorkflow)
+	require.NoError(t, env.GetWorkflowError())
+
+	require.Equal(t, map[string]string{
+		"vp-step": "haip-vp://?request_uri=https%3A%2F%2Fverifier.example%2Frequest",
+	}, input.Deeplinks)
+	require.Contains(
+		t,
+		input.DeeplinkErrors["cred-step"],
+		"credentials record tenant/credential-1 not found",
+	)
+}
+
+func TestResolveEvidenceDeeplinksKeepsStepInputs(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	stubs := &evidenceDeeplinkStubs{}
+	stubs.register(env)
+
+	env.ExecuteWorkflow(testResolveTemplatedEvidenceDeeplinkWorkflow)
+	require.NoError(t, env.GetWorkflowError())
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+
+	require.Empty(t, result["deeplink_errors"])
+	require.Equal(t, []string{"default-test-workflow-id-evidence-cred-step"}, stubs.childIDs)
+	require.Equal(t, "tenant/credential-9", stubs.payloads[0]["credential_id"])
+	require.Equal(t, "${{ credential.path }}", result["step_credential_id"])
+}
+
+// testResolveTemplatedEvidenceDeeplinkWorkflow resolves the deeplink of a step
+// whose input is a template and reports the step's input afterwards.
+func testResolveTemplatedEvidenceDeeplinkWorkflow(ctx workflow.Context) (map[string]any, error) {
+	payload := map[string]any{"credential_id": "${{ credential.path }}"}
+	def := &pipelineinternal.WorkflowDefinition{
+		Steps: []pipelineinternal.StepDefinition{{StepSpec: pipelineinternal.StepSpec{
+			ID:   "cred-step",
+			Use:  "credential-offer",
+			With: pipelineinternal.StepInputs{Payload: payload},
+		}}},
+	}
+	runData := map[string]any{"credential": map[string]any{"path": "tenant/credential-9"}}
+	ao := workflow.ActivityOptions{StartToCloseTimeout: time.Minute}
+	_, deeplinkErrors, err := resolveEvidenceDeeplinks(ctx, def, map[string]any{}, &runData, ao)
+	return map[string]any{
+		"deeplink_errors":    deeplinkErrors,
+		"step_credential_id": payload["credential_id"],
+	}, err
 }
 
 func TestPipelineEvidenceSetupHelpers(t *testing.T) {

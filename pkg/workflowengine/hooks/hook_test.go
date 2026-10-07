@@ -7,7 +7,6 @@ package hooks
 import (
 	"context"
 	"errors"
-	"net/http"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -291,7 +290,7 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 
 	WorkersHook(app)
 
-	serveEvent := &core.ServeEvent{App: app, Server: &http.Server{Addr: "127.0.0.1:8090"}}
+	serveEvent := &core.ServeEvent{App: app}
 	serveErr := app.OnServe().Trigger(serveEvent, func(_ *core.ServeEvent) error {
 		return nil
 	})
@@ -369,11 +368,10 @@ func TestWorkersHookSkipsWhenTemporalWorkersDisabled(t *testing.T) {
 	WorkersHook(app)
 
 	serveErr := app.OnServe().Trigger(
-		&core.ServeEvent{App: app, Server: &http.Server{Addr: "0.0.0.0:8090"}},
+		&core.ServeEvent{App: app},
 		func(_ *core.ServeEvent) error { return nil },
 	)
 	require.NoError(t, serveErr)
-	require.Equal(t, "http://127.0.0.1:8090", workflowengine.LocalURL(app))
 }
 
 func TestStartAllWorkersByNamespaceDefault(t *testing.T) {

@@ -170,7 +170,7 @@ Workers and Credimi URLs:
 
 - Temporal workers run inside the `credimi serve` process and reach Credimi data through typed activities that receive `core.App` (`activities.CredimiActivities(app)`, registered in `pkg/workflowengine/hooks/hook.go`); they never call Credimi over HTTP with the internal admin key.
 - The public URL comes only from PocketBase Settings (Application URL). `workflowengine.WithAppConfig(app, config)` copies `app_url`, `app_name` and `app_logo` into workflow and schedule config at start; workflows read `app_url` only to build user-facing links. Activities that hold `app` read `workflowengine.AppURL(app)`.
-- `workflowengine.LocalURL(app)` (set by `WorkersHook` from the serve address) is the loopback URL used only by pipeline evidence extraction, whose external module still calls Credimi deeplink routes over HTTP.
+- Pipeline evidence extraction makes no call to Credimi either: `PipelineEvidenceSetupHook` resolves each evidence step's deeplink through the step's own registry child workflow (`credential-offer` / `use-case-verification-deeplink`, child ID `<run>-evidence-<step>`), and the extraction activity passes those deeplinks to `credoffer.ResolveDeeplink` / `presentation.ResolveDeeplink` of `eudi-conformance-evidence`, which only contact the external issuer and verifier.
 
 Persistence:
 
@@ -191,10 +191,10 @@ Conformance catalog refresh:
 - Filesystem under `config_templates` is the durable SoT.
 - Query cache is a process-private `:memory:` SQLite DB (not rows in `pb_data`).
 - Clients use the PocketBase URL shapes `/api/collections/conformance_checks/records` (check grain) and `/api/collections/conformance_suites/records` (suite grain; display metadata lives here — title/`suite_name`, optional `suite_subtitle`, logo/URLs; provider short labels from `config_templates/providers.yaml` as `provider_label` — see `docs/adr/0002-suite-grain-owns-catalog-display-metadata.md` and `docs/adr/0011-suite-title-subtitle-and-provider-labels.md`). Credimi owns those routes and runs filter/sort/pagination via `pocketbase/tools/search`. There is no durable `conformance_checks` or `conformance_suites` collection shell in `data.db` (and no migration that creates one).
-- Auth posture: list/get on both fake collection URLs are public (`AuthenticationRequired: false`), matching the former public blueprints/hub listing. Writes are rejected. Rebuild requires `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY`.
+- Auth posture: list/get on both fake collection URLs are public (`AuthenticationRequired: false`), matching the former public blueprints/hub listing. Writes are rejected. Rebuild requires `Credimi-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY`.
 - Boot rebuild: starting the API process rebuilds the ephemeral `:memory:` query cache (sole live projection; see `docs/adr/0001-ephemeral-catalog-sole-projection.md`).
 - Webapp typegen: `generate:collections-models` injects synthetic collection stubs from Go-emitted `columns.ts` (`pbType` included; no Kind remap); after `pocketbase-typegen`, `generate:catalog-pb-types` injects/upserts `conformance_checks` / `conformance_suites` into `CollectionRecords` / `CollectionResponses` (they are not in `data.db`). Client-column FE wire refresh: `make generate-catalog-wire` (see `docs/adr/0005-catalog-client-column-emit-owns-pb-type.md`).
-- Manual refresh after local template edits: `POST /api/conformance-catalog/rebuild` with `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` (same internal admin key as other Temporal-trusted routes). Package entrypoint: `pkg/conformancecatalog`.
+- Manual refresh after local template edits: `POST /api/conformance-catalog/rebuild` with `Credimi-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` (same internal admin key as the other runner/operator routes). Package entrypoint: `pkg/conformancecatalog`.
 
 Key environment variables:
 
@@ -295,7 +295,7 @@ Grant/start path:
 - The generated pipeline runs all feasible scenarios with distinct prefixed step IDs, continues after scenario failures, merges exact named evidence sources, and performs one final validation for all catalog tests.
 - `fcaf sync` and `fcaf run` operate on the generated aggregate pipeline only. Do not move scenario sources back into the deployable pipelines directory.
 - Add or change tests in the owning scenario, regenerate the aggregate, and validate direct evidence coverage before removing any scenario.
-- `with.pipeline_outputs` reaches the `fcaf-validation` activity unresolved. The activity resolves it against the step outputs in the run's own history, stores the full report (with evidence values) directly on the root run's `pipeline_results` row (`activities.StoreFCAFReport`), and returns a compact report without evidence values, the stored file's `report_sha256`, and an `evidence_index` of `step_id`, history `event_id` and sha256 per evidence leaf. A storage failure fails the step.
+- `with.pipeline_outputs` reaches the `fcaf-validation` activity unresolved. The activity resolves it against the step outputs in the run's own history, stores the full report (with evidence values) directly on the root run's `pipeline_results` row (`storeFCAFReport` in `pkg/workflowengine/activities/fcaf_report_store.go`), and returns a compact report without evidence values, the stored file's `report_sha256`, and an `evidence_index` of `step_id`, history `event_id` and sha256 per evidence leaf. A storage failure fails the step.
 - `pipeline-report-generation` also reads the run's history and stores the markdown report itself; storage failures become cleanup warnings.
 
 ## CI Wallet APK Runs
@@ -483,8 +483,8 @@ Route wiring:
 
 Auth:
 
-- Route groups with `AuthenticationRequired=true` accept either `Authorization` token or `X-Api-Key`.
-- Temporal-internal routes enforce `X-Api-Key` via `RequireInternalAdminAPIKey`.
+- Route groups with `AuthenticationRequired=true` accept either `Authorization` token or `Credimi-Api-Key`.
+- Runner/operator routes guarded by the internal admin key enforce `Credimi-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` via `RequireInternalAdminAPIKey`.
 - Internal admin key surfaces are sensitive. Do not log keys or include them in test snapshots.
 
 Errors:

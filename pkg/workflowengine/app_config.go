@@ -5,8 +5,6 @@
 package workflowengine
 
 import (
-	"net"
-	"net/http"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -23,8 +21,6 @@ const AppNameConfigKey = "app_name"
 
 // AppLogoConfigKey holds the URL of the application logo.
 const AppLogoConfigKey = "app_logo"
-
-const localURLStoreKey = "credimi.workflowengine.local_url"
 
 // AppURL returns the public application URL from PocketBase Settings.
 func AppURL(app core.App) string {
@@ -69,27 +65,4 @@ func IsServerOwnedConfigKey(key string) bool {
 	default:
 		return false
 	}
-}
-
-// SetLocalURL stores the loopback base URL of the HTTP server the app is
-// serving on, so in-process workers can reach it.
-func SetLocalURL(app core.App, server *http.Server) {
-	host, port, err := net.SplitHostPort(server.Addr)
-	if err != nil {
-		return
-	}
-	if ip := net.ParseIP(host); host == "" || (ip != nil && ip.IsUnspecified()) {
-		host = "127.0.0.1"
-	}
-	scheme := "http"
-	if server.TLSConfig != nil {
-		scheme = "https"
-	}
-	app.Store().Set(localURLStoreKey, scheme+"://"+net.JoinHostPort(host, port))
-}
-
-// LocalURL returns the URL stored by SetLocalURL, or "" when unset.
-func LocalURL(app core.App) string {
-	value, _ := app.Store().Get(localURLStoreKey).(string)
-	return value
 }
