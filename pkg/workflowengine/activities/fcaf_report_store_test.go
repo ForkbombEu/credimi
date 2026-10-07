@@ -6,13 +6,17 @@ package activities
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
 	"github.com/forkbombeu/credimi/pkg/fcaf/reportgeneration"
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -152,6 +156,53 @@ func TestStoreFCAFReportErrors(t *testing.T) {
 			if tc.errIs != nil {
 				require.ErrorIs(t, err, tc.errIs)
 			}
+		})
+	}
+}
+
+func TestFCAFReportStoreError(t *testing.T) {
+	cases := []struct {
+		name         string
+		err          error
+		wantCode     string
+		nonRetryable bool
+	}{
+		{
+			name:         "missing pipeline result",
+			err:          fmt.Errorf("%w: workflow_id wf run_id run", pipelineresults.ErrNotFound),
+			wantCode:     errorcodes.RecordNotFound,
+			nonRetryable: true,
+		},
+		{
+			name:         "no rows",
+			err:          fmt.Errorf("find pipeline result: %w", sql.ErrNoRows),
+			wantCode:     errorcodes.RecordNotFound,
+			nonRetryable: true,
+		},
+		{
+			name:         "report encode failure",
+			err:          fmt.Errorf("%w: unsupported value", errFCAFReportEncode),
+			wantCode:     errorcodes.JSONMarshalFailed,
+			nonRetryable: true,
+		},
+		{
+			name:         "report enrichment failure",
+			err:          fmt.Errorf("%w: decode FCAF report", errFCAFReportEnrich),
+			wantCode:     errorcodes.DecodeFailed,
+			nonRetryable: true,
+		},
+		{
+			name:     "save failure",
+			err:      errors.New("save FCAF report: database is locked"),
+			wantCode: errorcodes.DatabaseOperationFailed,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			act := NewFCAFValidationActivity(nil, nil)
+			err := fcafReportStoreError(&act.BaseActivity, tc.err)
+			requireActivityError(t, err, tc.wantCode, tc.nonRetryable)
+			require.ErrorContains(t, err, "store FCAF report")
 		})
 	}
 }

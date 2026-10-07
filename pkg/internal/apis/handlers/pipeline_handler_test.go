@@ -1245,3 +1245,81 @@ func TestBuildChildWorkflowParentQuery(t *testing.T) {
 		query,
 	)
 }
+
+func ensurePipelineRetentionEvidenceFields(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+
+	collection, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	if collection.Fields.GetByName("credential_well_knowns") == nil {
+		collection.Fields.Add(&core.JSONField{Name: "credential_well_knowns"})
+	}
+	if collection.Fields.GetByName("presentation_results") == nil {
+		collection.Fields.Add(&core.JSONField{Name: "presentation_results"})
+	}
+	if collection.Fields.GetByName("report") == nil {
+		collection.Fields.Add(&core.FileField{Name: "report", MaxSelect: 1})
+	}
+	if collection.Fields.GetByName("fcaf_report") == nil {
+		collection.Fields.Add(&core.FileField{Name: "fcaf_report", MaxSelect: 1})
+	}
+	if collection.Fields.GetByName("fcaf_report_pdf") == nil {
+		collection.Fields.Add(&core.FileField{Name: "fcaf_report_pdf", MaxSelect: 1})
+	}
+	require.NoError(t, app.Save(collection))
+}
+
+func setPipelineResultFiles(
+	t testing.TB,
+	app *tests.TestApp,
+	recordID string,
+	videoResults []string,
+	screenshots []string,
+	logcats []string,
+	iosLogstreams []string,
+) {
+	t.Helper()
+
+	_, err := app.DB().NewQuery(
+		`UPDATE pipeline_results
+		SET video_results = {:video_results},
+		    screenshots = {:screenshots},
+		    logcats = {:logcats},
+		    ios_logstreams = {:ios_logstreams}
+		WHERE id = {:id}`,
+	).Bind(dbx.Params{
+		"video_results":  mustMarshalJSONStringArray(t, videoResults),
+		"screenshots":    mustMarshalJSONStringArray(t, screenshots),
+		"logcats":        mustMarshalJSONStringArray(t, logcats),
+		"ios_logstreams": mustMarshalJSONStringArray(t, iosLogstreams),
+		"id":             recordID,
+	}).Execute()
+	require.NoError(t, err)
+}
+
+func setPipelineResultReport(t testing.TB, app *tests.TestApp, recordID string, report string) {
+	t.Helper()
+
+	_, err := app.DB().NewQuery(
+		`UPDATE pipeline_results
+		SET report = {:report}
+		WHERE id = {:id}`,
+	).Bind(dbx.Params{
+		"report": mustMarshalJSONStringArray(t, []string{report}),
+		"id":     recordID,
+	}).Execute()
+	require.NoError(t, err)
+}
+
+func mustMarshalJSONStringArray(t testing.TB, values []string) string {
+	t.Helper()
+
+	if values == nil {
+		values = []string{}
+	}
+
+	data, err := json.Marshal(values)
+	require.NoError(t, err)
+
+	return string(data)
+}

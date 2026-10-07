@@ -750,11 +750,7 @@ func resolveMobileRunnerOwner(
 			)
 		}
 
-		record, err := app.FindFirstRecordByFilter(
-			"organizations",
-			"canonified_name={:canonified_name}",
-			dbx.Params{"canonified_name": orgCanon},
-		)
+		record, err := pbutils.FindOrganizationByNamespace(app, orgCanon)
 		if err != nil {
 			status := http.StatusInternalServerError
 			reason := "failed_to_find_organization"

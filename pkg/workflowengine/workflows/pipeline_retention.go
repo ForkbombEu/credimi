@@ -99,14 +99,16 @@ func (w *PipelineRetentionWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	output, ok := activityResult.Output.(map[string]any)
-	if !ok {
+	output, err := workflowengine.DecodeOutput[pipelineresults.DeleteFilesResult](
+		activityResult.Output,
+	)
+	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: fmt.Sprintf("%s: invalid output format", errCode.Description),
+				Message: fmt.Sprintf("%s: invalid output format: %v", errCode.Description, err),
 				Details: map[string]any{"payload": activityResult.Output},
 			},
 		)

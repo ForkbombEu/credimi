@@ -191,12 +191,7 @@ func (a *FCAFValidationActivity) Execute(
 
 	reportSHA256, err := a.storeReport(ctx, input.Config, full)
 	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.DatabaseOperationFailed]
-		return workflowengine.ActivityResult{}, a.NewActivityError(workflowengine.ActivityError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: fmt.Sprintf("store FCAF report: %v", err),
-		})
+		return workflowengine.ActivityResult{}, fcafReportStoreError(&a.BaseActivity, err)
 	}
 
 	return workflowengine.ActivityResult{
@@ -233,7 +228,7 @@ func (a *FCAFValidationActivity) storeReport(
 ) (string, error) {
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("encode report: %w", err)
+		return "", fmt.Errorf("%w: %w", errFCAFReportEncode, err)
 	}
 	workflowID := config[workflowengine.TelemetryRootWorkflowIDKey]
 	runID := config[workflowengine.TelemetryRootRunIDKey]

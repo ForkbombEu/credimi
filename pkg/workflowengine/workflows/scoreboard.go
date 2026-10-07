@@ -4,7 +4,6 @@
 package workflows
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -250,7 +249,7 @@ func (w *AggregateScoreboardWorkflow) getNamespaces(ctx workflow.Context) ([]str
 	if result.Output == nil {
 		return nil, errors.New("namespaces output missing")
 	}
-	namespaces, err := decodeActivityOutput[[]string](result.Output)
+	namespaces, err := workflowengine.DecodeOutput[[]string](result.Output)
 	if err != nil {
 		return nil, fmt.Errorf("namespaces output invalid: %w", err)
 	}
@@ -310,7 +309,7 @@ func (w *AggregateScoreboardWorkflow) processScoreboardResponse(
 		return
 	}
 
-	pipelines, err := decodeActivityOutput[[]namespacePipelineStats](result.Output)
+	pipelines, err := workflowengine.DecodeOutput[[]namespacePipelineStats](result.Output)
 	if err != nil {
 		logger.Error("Invalid scoreboard output", "namespace", namespace, "error", err)
 		*failedNamespaces = append(*failedNamespaces, namespace)
@@ -492,7 +491,7 @@ func fetchExecutionDetails(
 	if detailsResult.Output == nil {
 		return nil, unexpectedExecutionDetailsError("execution details output is missing", nil)
 	}
-	details, err := decodeActivityOutput[LatestExecutionDetails](detailsResult.Output)
+	details, err := workflowengine.DecodeOutput[LatestExecutionDetails](detailsResult.Output)
 	if err != nil {
 		return nil, unexpectedExecutionDetailsError(
 			"decode execution details: "+err.Error(),
@@ -513,21 +512,6 @@ func unexpectedExecutionDetailsError(message string, output any) error {
 			Details: map[string]any{"payload": output},
 		},
 	)
-}
-
-// decodeActivityOutput decodes a JSON-shaped activity output into T. Unlike
-// workflowengine.DecodePayload it also accepts non-struct targets such as
-// slices.
-func decodeActivityOutput[T any](output any) (T, error) {
-	var decoded T
-	raw, err := json.Marshal(output)
-	if err != nil {
-		return decoded, fmt.Errorf("marshal activity output: %w", err)
-	}
-	if err := json.Unmarshal(raw, &decoded); err != nil {
-		return decoded, fmt.Errorf("unmarshal activity output: %w", err)
-	}
-	return decoded, nil
 }
 
 func appendUnique(values []string, item string) []string {

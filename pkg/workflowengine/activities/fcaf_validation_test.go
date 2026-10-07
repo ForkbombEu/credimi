@@ -13,6 +13,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
@@ -254,7 +255,7 @@ func TestFCAFValidationActivityFailsWhenReportStorageFails(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "store FCAF report")
 	require.ErrorContains(t, err, "pipeline result not found")
-	require.ErrorContains(t, err, "CRE235")
+	requireActivityError(t, err, errorcodes.RecordNotFound, true)
 }
 
 func TestNormalizeValidationTestIDsSupportsBatchAndLegacyInputs(t *testing.T) {

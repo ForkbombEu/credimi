@@ -231,33 +231,15 @@ func setPipelineResultFiles(
 ) {
 	t.Helper()
 
-	_, err := app.DB().NewQuery(
-		`UPDATE pipeline_results
-		SET video_results = {:video_results},
-		    screenshots = {:screenshots},
-		    logcats = {:logcats}
-		WHERE id = {:id}`,
-	).Bind(dbx.Params{
-		"video_results": mustMarshalJSONStringArray(t, videoResults),
-		"screenshots":   mustMarshalJSONStringArray(t, screenshots),
-		"logcats":       mustMarshalJSONStringArray(t, logcats),
-		"id":            recordID,
-	}).Execute()
-	require.NoError(t, err)
+	setPipelineResultFileField(t, app, recordID, "video_results", videoResults)
+	setPipelineResultFileField(t, app, recordID, "screenshots", screenshots)
+	setPipelineResultFileField(t, app, recordID, "logcats", logcats)
 }
 
 func setPipelineResultReport(t testing.TB, app *tests.TestApp, recordID string, report string) {
 	t.Helper()
 
-	_, err := app.DB().NewQuery(
-		`UPDATE pipeline_results
-		SET report = {:report}
-		WHERE id = {:id}`,
-	).Bind(dbx.Params{
-		"report": mustMarshalJSONStringArray(t, []string{report}),
-		"id":     recordID,
-	}).Execute()
-	require.NoError(t, err)
+	setPipelineResultFileField(t, app, recordID, "report", []string{report})
 }
 
 func setPipelineResultFCAFReport(
@@ -268,14 +250,25 @@ func setPipelineResultFCAFReport(
 ) {
 	t.Helper()
 
-	_, err := app.DB().NewQuery(
-		`UPDATE pipeline_results
-		SET fcaf_report = {:fcaf_report}
-		WHERE id = {:id}`,
-	).Bind(dbx.Params{
-		"fcaf_report": mustMarshalJSONStringArray(t, []string{fcafReport}),
-		"id":          recordID,
-	}).Execute()
+	setPipelineResultFileField(t, app, recordID, "fcaf_report", []string{fcafReport})
+}
+
+// setPipelineResultFileField writes file names straight into the table,
+// bypassing the file upload pipeline.
+func setPipelineResultFileField(
+	t testing.TB,
+	app *tests.TestApp,
+	recordID string,
+	field string,
+	values []string,
+) {
+	t.Helper()
+
+	_, err := app.DB().Update(
+		"pipeline_results",
+		dbx.Params{field: mustMarshalJSONStringArray(t, values)},
+		dbx.HashExp{"id": recordID},
+	).Execute()
 	require.NoError(t, err)
 }
 

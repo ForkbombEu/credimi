@@ -27,12 +27,16 @@ type CleanupMobileDeviceSemaphoreResourcesActivityOutput struct {
 	CleanupFailures []string `json:"cleanup_failures,omitempty"`
 }
 
+// CleanupMobileDeviceSemaphoreResourcesActivityName is the registered name of
+// CleanupMobileDeviceSemaphoreResourcesActivity.
+const CleanupMobileDeviceSemaphoreResourcesActivityName = "Cleanup mobile device semaphore resources"
+
 func NewCleanupMobileDeviceSemaphoreResourcesActivity(
 	app core.App,
 ) *CleanupMobileDeviceSemaphoreResourcesActivity {
 	return &CleanupMobileDeviceSemaphoreResourcesActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Cleanup mobile device semaphore resources",
+			Name: CleanupMobileDeviceSemaphoreResourcesActivityName,
 		},
 		app: app,
 	}

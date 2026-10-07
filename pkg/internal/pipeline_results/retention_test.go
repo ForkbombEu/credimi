@@ -8,21 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
 )
-
-func newRetentionTestApp(t *testing.T) *tests.TestApp {
-	t.Helper()
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
-	canonify.RegisterCanonifyHooks(app)
-	return app
-}
 
 func createSavedRetentionRecord(t *testing.T, app *tests.TestApp) *core.Record {
 	t.Helper()
@@ -34,7 +24,7 @@ func createSavedRetentionRecord(t *testing.T, app *tests.TestApp) *core.Record {
 }
 
 func TestDeleteFilesOlderThanDryRun(t *testing.T) {
-	app := newRetentionTestApp(t)
+	app := newStoreTestApp(t)
 
 	oldRecord := createSavedRetentionRecord(t, app)
 	setPipelineResultFiles(
@@ -76,7 +66,7 @@ func TestDeleteFilesOlderThanDryRun(t *testing.T) {
 }
 
 func TestDeleteFilesOlderThanClearsOldFiles(t *testing.T) {
-	app := newRetentionTestApp(t)
+	app := newStoreTestApp(t)
 
 	oldRecord := createSavedRetentionRecord(t, app)
 	setPipelineResultFiles(
@@ -110,7 +100,7 @@ func TestDeleteFilesOlderThanClearsOldFiles(t *testing.T) {
 }
 
 func TestDeleteFilesOlderThanClearsReport(t *testing.T) {
-	app := newRetentionTestApp(t)
+	app := newStoreTestApp(t)
 
 	oldRecord := createSavedRetentionRecord(t, app)
 	setPipelineResultReport(t, app, oldRecord.Id, "workflow-1.md")
@@ -146,7 +136,7 @@ func TestDeleteFilesOlderThanClearsReport(t *testing.T) {
 }
 
 func TestRetentionEvidenceHelpers(t *testing.T) {
-	app := newRetentionTestApp(t)
+	app := newStoreTestApp(t)
 
 	record := createSavedRetentionRecord(t, app)
 	setPipelineResultFiles(
@@ -176,7 +166,7 @@ func TestRetentionEvidenceHelpers(t *testing.T) {
 }
 
 func TestCountFilesIncludesMaestroScreenshots(t *testing.T) {
-	app := newRetentionTestApp(t)
+	app := newStoreTestApp(t)
 	coll, err := app.FindCollectionByNameOrId("pipeline_results")
 	require.NoError(t, err)
 
@@ -208,25 +198,6 @@ func setPipelineResultCreatedAt(
 		"updated": createdAt.UTC(),
 		"id":      recordID,
 	}).Execute()
-	require.NoError(t, err)
-}
-
-// setPipelineResultFileField writes file names straight into the table,
-// bypassing the file upload pipeline.
-func setPipelineResultFileField(
-	t testing.TB,
-	app *tests.TestApp,
-	recordID string,
-	field string,
-	values []string,
-) {
-	t.Helper()
-
-	_, err := app.DB().Update(
-		"pipeline_results",
-		dbx.Params{field: mustMarshalJSONStringArray(t, values)},
-		dbx.HashExp{"id": recordID},
-	).Execute()
 	require.NoError(t, err)
 }
 

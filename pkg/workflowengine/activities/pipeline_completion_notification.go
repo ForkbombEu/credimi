@@ -6,6 +6,7 @@ package activities
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -74,12 +75,12 @@ func (a *SendPipelineCompletionNotificationActivity) Execute(
 // notifications of a finished pipeline run.
 var errPipelineNotificationSend = errors.New("send pipeline completion notifications")
 
-// pipelineCompletionNotificationError maps a missing pipeline result to a
+// pipelineCompletionNotificationError maps a missing record to a
 // non-retryable CRE233, a send failure to a retryable CRE209 and any other
 // (database lookup) failure to a retryable CRE235.
 func pipelineCompletionNotificationError(a *workflowengine.BaseActivity, err error) error {
 	switch {
-	case errors.Is(err, pipelineresults.ErrNotFound):
+	case errors.Is(err, pipelineresults.ErrNotFound), errors.Is(err, sql.ErrNoRows):
 		return a.NewCodedError(errorcodes.RecordNotFound, false, err)
 	case errors.Is(err, errPipelineNotificationSend):
 		return a.NewCodedError(errorcodes.ExecuteHTTPRequestFailed, true, err)

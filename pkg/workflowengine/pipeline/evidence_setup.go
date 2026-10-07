@@ -5,7 +5,6 @@
 package pipeline
 
 import (
-	"encoding/json"
 	"fmt"
 	"maps"
 	"strings"
@@ -79,7 +78,9 @@ func PipelineEvidenceSetupHook(
 		return nil
 	}
 
-	output, err := decodePipelineEvidenceOutput(extractionResult)
+	output, err := workflowengine.DecodeOutput[activities.PipelineEvidenceExtractionOutput](
+		extractionResult.Output,
+	)
 	if err != nil {
 		appendSetupWarning(
 			finalOutput,
@@ -173,20 +174,6 @@ func evidenceDiscoveryDefinition(
 		}
 	}
 	return discovery
-}
-
-func decodePipelineEvidenceOutput(
-	result workflowengine.ActivityResult,
-) (activities.PipelineEvidenceExtractionOutput, error) {
-	var out activities.PipelineEvidenceExtractionOutput
-	raw, err := json.Marshal(result.Output)
-	if err != nil {
-		return out, fmt.Errorf("marshal output: %w", err)
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return out, fmt.Errorf("decode output: %w", err)
-	}
-	return out, nil
 }
 
 func evidenceActivityOptions(

@@ -27,9 +27,9 @@ func AppURL(app core.App) string {
 	return app.Settings().Meta.AppURL
 }
 
-// AppConfig returns the server-owned app config keys derived from PocketBase
+// appConfig returns the server-owned app config keys derived from PocketBase
 // Settings.
-func AppConfig(app core.App) map[string]any {
+func appConfig(app core.App) map[string]any {
 	appURL := AppURL(app)
 	appName := app.Settings().Meta.AppName
 	return map[string]any{
@@ -49,7 +49,7 @@ func WithAppConfig(app core.App, config map[string]any) map[string]any {
 	if config == nil {
 		config = make(map[string]any, 3)
 	}
-	for key, value := range AppConfig(app) {
+	for key, value := range appConfig(app) {
 		config[key] = value
 	}
 	return config

@@ -114,7 +114,7 @@ func TestStartAggregateScoreboard(t *testing.T) {
 		require.Equal(t, "default", capturedNamespace)
 		require.Equal(
 			t,
-			workflowengine.WorkflowInput{Config: workflowengine.AppConfig(app)},
+			workflowengine.WorkflowInput{Config: workflowengine.WithAppConfig(app, nil)},
 			capturedInput,
 		)
 		require.Equal(t, "https://credimi.test", capturedInput.Config["app_url"])

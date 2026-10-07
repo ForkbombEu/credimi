@@ -110,19 +110,6 @@ func TestPipelineEvidenceFromRunDataDecodesMap(t *testing.T) {
 }
 
 func TestPipelineReportCleanupHelpers(t *testing.T) {
-	result, err := decodePipelineReportOutput(workflowengine.ActivityResult{
-		Output: map[string]any{
-			"markdown_sha256": "abc",
-			"filename":        "workflow-1.md",
-			"fixture":         "workflow-1",
-			"slug":            "workflow-1",
-			"passed_count":    float64(3),
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, "abc", result.MarkdownSHA256)
-	require.Equal(t, "workflow-1.md", result.Filename)
-
 	finalOutput := map[string]any{"workflow_id": "workflow-1"}
 	require.Equal(t, "workflow-1", stringFinalOutputValue(&finalOutput, "workflow_id"))
 	require.Empty(t, stringFinalOutputValue(nil, "workflow_id"))

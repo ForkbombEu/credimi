@@ -72,7 +72,9 @@ func PipelineReportCleanupHook(
 		return nil
 	}
 
-	reportOutput, err := decodePipelineReportOutput(reportResult)
+	reportOutput, err := workflowengine.DecodeOutput[activities.PipelineReportGenerationOutput](
+		reportResult.Output,
+	)
 	if err != nil {
 		appendCleanupWarning(
 			finalOutput,
@@ -128,20 +130,6 @@ func pipelineEvidenceFromRunData(raw any) (activities.PipelineEvidenceExtraction
 		}
 		return out, true
 	}
-}
-
-func decodePipelineReportOutput(
-	result workflowengine.ActivityResult,
-) (activities.PipelineReportGenerationOutput, error) {
-	var out activities.PipelineReportGenerationOutput
-	raw, err := json.Marshal(result.Output)
-	if err != nil {
-		return out, fmt.Errorf("marshal output: %w", err)
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return out, fmt.Errorf("decode output: %w", err)
-	}
-	return out, nil
 }
 
 func pipelineWorkflowIDs(ctx workflow.Context, finalOutput *map[string]any) (string, string) {

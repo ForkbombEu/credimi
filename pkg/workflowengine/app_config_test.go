@@ -29,7 +29,7 @@ func TestAppConfig(t *testing.T) {
 		AppURLConfigKey:  "https://x.test",
 		AppNameConfigKey: "Credimi",
 		AppLogoConfigKey: "https://x.test/logos/credimi_logo-transp_emblem.png",
-	}, AppConfig(app))
+	}, appConfig(app))
 }
 
 func TestWithAppConfig(t *testing.T) {
@@ -43,7 +43,7 @@ func TestWithAppConfig(t *testing.T) {
 		{
 			name:   "allocates nil map",
 			config: nil,
-			want:   AppConfig(app),
+			want:   appConfig(app),
 		},
 		{
 			name: "overwrites user values and keeps other keys",

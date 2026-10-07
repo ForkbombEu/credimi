@@ -5,6 +5,7 @@
 package activities
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"testing"
@@ -123,6 +124,12 @@ func TestPipelineCompletionNotificationError(t *testing.T) {
 		{
 			name:         "missing pipeline result",
 			err:          fmt.Errorf("%w: workflow_id wf run_id run", pipelineresults.ErrNotFound),
+			wantCode:     errorcodes.RecordNotFound,
+			nonRetryable: true,
+		},
+		{
+			name:         "missing record",
+			err:          fmt.Errorf("find pipeline: %w", sql.ErrNoRows),
 			wantCode:     errorcodes.RecordNotFound,
 			nonRetryable: true,
 		},

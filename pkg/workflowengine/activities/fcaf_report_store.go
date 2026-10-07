@@ -7,15 +7,44 @@ package activities
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/reportgeneration"
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
+
+var (
+	// errFCAFReportEncode reports a failure to encode the FCAF report as JSON.
+	errFCAFReportEncode = errors.New("encode report")
+	// errFCAFReportEnrich reports a failure to decode the FCAF report JSON and
+	// enrich it with its presentation.
+	errFCAFReportEnrich = errors.New("enrich FCAF report")
+)
+
+// fcafReportStoreError maps a missing pipeline result to a non-retryable
+// CRE233, a report encode or enrichment failure to a non-retryable CRE203 or
+// CRE225 and any other (database) failure to a retryable CRE235.
+func fcafReportStoreError(a *workflowengine.BaseActivity, err error) error {
+	err = fmt.Errorf("store FCAF report: %w", err)
+	switch {
+	case errors.Is(err, pipelineresults.ErrNotFound), errors.Is(err, sql.ErrNoRows):
+		return a.NewCodedError(errorcodes.RecordNotFound, false, err)
+	case errors.Is(err, errFCAFReportEncode):
+		return a.NewCodedError(errorcodes.JSONMarshalFailed, false, err)
+	case errors.Is(err, errFCAFReportEnrich):
+		return a.NewCodedError(errorcodes.DecodeFailed, false, err)
+	default:
+		return a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
+	}
+}
 
 // storeFCAFReport enriches the FCAF report JSON, stores it on the run's
 // pipeline result as fcaf_report together with its PDF rendering and returns
@@ -32,7 +61,7 @@ func storeFCAFReport(
 	}
 	enrichedJSON, _, err := reportgeneration.EnrichReportJSON(app, record, reportJSON)
 	if err != nil {
-		return "", fmt.Errorf("enrich FCAF report: %w", err)
+		return "", fmt.Errorf("%w: %w", errFCAFReportEnrich, err)
 	}
 	file, err := filesystem.NewFileFromBytes(enrichedJSON, "fcaf-assessment.json")
 	if err != nil {

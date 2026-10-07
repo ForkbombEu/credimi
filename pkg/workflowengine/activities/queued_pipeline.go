@@ -116,10 +116,14 @@ type temporalWorkflowStarter interface {
 	) (client.WorkflowRun, error)
 }
 
+// StartQueuedPipelineActivityName is the registered name of
+// StartQueuedPipelineActivity.
+const StartQueuedPipelineActivityName = "Start queued pipeline"
+
 func NewStartQueuedPipelineActivity(app core.App) *StartQueuedPipelineActivity {
 	return &StartQueuedPipelineActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Start queued pipeline",
+			Name: StartQueuedPipelineActivityName,
 		},
 		app: app,
 		temporalClientFactory: func(namespace string) (temporalWorkflowStarter, error) {

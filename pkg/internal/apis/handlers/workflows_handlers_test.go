@@ -1499,7 +1499,7 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "\"workflow_id\":\"wf-new\"")
 	require.Contains(t, rec.Body.String(), "\"run_id\":\"run-new\"")
 	require.Equal(t, "value", started.Config["keep"])
-	appConfig := workflowengine.AppConfig(app)
+	appConfig := workflowengine.WithAppConfig(app, nil)
 	require.Equal(t, appConfig[workflowengine.AppURLConfigKey], started.Config["app_url"])
 	require.Equal(t, appConfig[workflowengine.AppNameConfigKey], started.Config["app_name"])
 	require.Equal(t, appConfig[workflowengine.AppLogoConfigKey], started.Config["app_logo"])

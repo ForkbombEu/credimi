@@ -40,7 +40,9 @@ var OrganizationRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 }
 
-// OrganizationInternalRoutes are operator routes guarded by the internal admin key.
+// OrganizationInternalRoutes are guarded by the internal admin key.
+// GET /api/organizations/namespaces is called by admin-managed runners
+// (credimi-runner) to list the namespaces they serve.
 var OrganizationInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/organizations",
 	AuthenticationRequired: false,

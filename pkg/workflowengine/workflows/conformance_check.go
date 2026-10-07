@@ -268,10 +268,10 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	appURL := input.Config["app_url"].(string)
+	appURL := input.Config[workflowengine.AppURLConfigKey].(string)
 	if appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
+			workflowengine.AppURLConfigKey,
 			input.RunMetadata,
 		)
 	}
@@ -370,8 +370,8 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				},
 				Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
-					"app_url":  input.Config[workflowengine.AppURLConfigKey],
-					"interval": time.Second,
+					workflowengine.AppURLConfigKey: appURL,
+					"interval":                     time.Second,
 				}),
 			}).GetChildWorkflowExecution().Get(ctx, nil)
 		if err != nil {
@@ -457,10 +457,10 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				SessionID: ewcSessionID,
 			},
 			Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
-				"app_url":        input.Config[workflowengine.AppURLConfigKey],
-				"interval":       time.Second * 5,
-				"check_endpoint": checkEndpoint,
-				"logs_endpoint":  logsEndpoint,
+				workflowengine.AppURLConfigKey: appURL,
+				"interval":                     time.Second * 5,
+				"check_endpoint":               checkEndpoint,
+				"logs_endpoint":                logsEndpoint,
 			}),
 		}
 
