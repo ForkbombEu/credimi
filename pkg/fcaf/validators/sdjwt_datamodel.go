@@ -250,9 +250,13 @@ func (SDJWTClaimObjectKeysValidator) Validate(_ context.Context, input Input) Re
 	}
 	if len(object) < params.MinProperties ||
 		params.MaxProperties > 0 && len(object) > params.MaxProperties {
+		expected := fmt.Sprintf("at least %d", params.MinProperties)
+		if params.MaxProperties > 0 {
+			expected = fmt.Sprintf("between %d and %d", params.MinProperties, params.MaxProperties)
+		}
 		return invalidClaim(params.Claim, fmt.Errorf(
-			"object has %d properties, expected between %d and %d",
-			len(object), params.MinProperties, params.MaxProperties,
+			"object has %d properties, expected %s",
+			len(object), expected,
 		))
 	}
 	for key := range object {
