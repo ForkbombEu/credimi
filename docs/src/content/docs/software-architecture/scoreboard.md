@@ -94,7 +94,7 @@ export const load = async ({ fetch }) => {
 
 ```bash
 curl -X POST "https://your-domain/api/pipeline/scoreboard/aggregate/start" \
-  -H "X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY"
+  -H "Credimi-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY"
 ```
 
 ## Future Enhancements

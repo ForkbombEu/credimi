@@ -49,7 +49,7 @@ All of it goes through the `mobile-runner-http-request` activity (it injects the
 
 Runner URLs for the worker manager come only from its workflow payload: the starters compute them in-process (`pkg/workflowengine/hooks/worker_manager_runners.go`), keeping only runners eligible for worker start. Device/emulator activities (`ListInstalledApps`, `StartRecording`, `StopRecording`) live in the closed `credimi-extra` module, so their concrete runner paths are not visible here.
 
-**Doc drift:** `AGENTS.md` documents `POST {runner_url}/store-pipeline-result`; the code calls `/credimi/pipeline-result`.
+**Doc drift:** `AGENTS.md` documents `POST {runner_url}/store-pipeline-result` with `logcat_path`/`instance_url`; the code calls `/credimi/pipeline-result` with `log_path` and `platform`.
 
 ## Live view
 
@@ -62,7 +62,7 @@ Runner URLs for the worker manager come only from its workflow payload: the star
 
 ## Auth
 
-- The API-key header is **`Credimi-Api-Key`** (not `X-Api-Key`, which several docs still say).
+- The API-key header is **`Credimi-Api-Key`**.
 - Keys are bcrypt hashes in the `api_keys` collection with `key_type` = `user` or `internal_admin`, plus `revoked` / `expires_at`.
 - Generate: `POST /api/apikey/generate` `{name}` (logged-in users on the `users` or `_superusers` collection); the key is shown once. UI: `/my/profile/api-keys`.
 - Authenticate: `GET /api/apikey/authenticate` (user key → PocketBase auth token); `GET /api/apikey/authenticate-internal-admin` (internal key).
@@ -124,7 +124,5 @@ Feature flags can hide sidebar sections (`ORGANIZATIONS`, `DID`).
 
 ## Doc drift to ignore
 
-1. Runner HTTP endpoints: `AGENTS.md` says `store-pipeline-result`; the code calls `/credimi/pipeline-result`.
-2. The internal-admin header is `Credimi-Api-Key`, not `X-Api-Key` (wrong in `AGENTS.md`, `docs/.../scoreboard.md`, and a comment in `pkg/conformancecatalog/store.go`).
-3. `POST /api/pipeline/start` does not exist in this worktree; the GUI and CLI both use `POST /api/pipeline/queue`.
-4. The two legacy scoreboard routes are not registered.
+1. Runner result endpoint: `AGENTS.md` documents `POST {runner_url}/store-pipeline-result` with `{video_path, last_frame_path, logcat_path, run_identifier, device_identifier, instance_url}`; the code and `credimi-runner` use `/credimi/pipeline-result` with `log_path` and `platform` (table above).
+2. The two legacy scoreboard routes are not registered.

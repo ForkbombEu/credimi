@@ -307,7 +307,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-09-10 — Temporal callbacks behind Cloudflare WAF
 
-- status: resolved
+- status: resolved (superseded)
 - owner: human maintainer
 - context: Temporal activities used the persisted public `app_url`, causing Cloudflare WAF/browser challenges to block server-to-server callbacks. Public links must remain on `app_url`, while callbacks need an origin-reachable URL.
 - question: How should deployments provide a callback URL without making persisted workflow links private?
@@ -376,8 +376,8 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - question: Update `AGENTS.md` (and the scoreboard doc/comment) to the current routes and header, or treat the documented names as the intended contract and change the code back?
 - options considered: (a) fix the docs/comments to match code; (b) add compatibility aliases for the old runner endpoints and accept `X-Api-Key` as an alias; (c) add a `/api/pipeline/start` alias.
 - default risk: Agents and docs keep describing endpoints that 404, and sibling `credimi-extra` implementers may build against the wrong runner paths.
-- decision: (1) resolved 2026-10-06 by the user: option (a), `AGENTS.md` "Dynamic Pipeline Workflow" now documents `POST /api/pipeline/queue` as the only run entrypoint. (2) and (3) still pending.
-- follow-up: Confirm (a) for (2) and (3), then update the "External runner HTTP contract" and "Routes, DTOs, Auth, Errors" sections.
+- decision: (1) resolved 2026-10-06 by the user: option (a), `AGENTS.md` "Dynamic Pipeline Workflow" now documents `POST /api/pipeline/queue` as the only run entrypoint. (3) applied: `AGENTS.md`, the scoreboard doc and the `pkg/conformancecatalog/store.go` comment now name `Credimi-Api-Key`. (2) still pending: `AGENTS.md` now lists `POST {runner_url}/credimi/installer-action`, but still documents `POST {runner_url}/store-pipeline-result` with `logcat_path`/`instance_url`, while the code and `credimi-runner` use `/credimi/pipeline-result` with `log_path` and `platform`.
+- follow-up: Confirm (a) for (2), then update the result endpoint in the "External runner HTTP contract" section.
 
 ### 2026-10-01 - FCAF complete-validation exceeds Temporal 4 MB gRPC message limit
 
@@ -452,4 +452,4 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (a) process-level source registered at worker startup, read on each call so App URL edits apply without restart (chosen); (b) constructor injection through every `NewInternalHTTPActivity` call site, worker list and registry factory; (c) accept only `CREDIMI_INTERNAL_APP_URL`, which production Compose requires but other deployments may not set.
 - default risk: (a) is a package-level registration, which `AGENTS.md` discourages; a worker process that never calls `WorkersHook` and has no `CREDIMI_INTERNAL_APP_URL` fails closed with `no Credimi base URL is configured`. `credimi-extra` runner workers do not register this activity.
 - decision: Superseded on 2026-10-06 by the approved plan that removed worker-to-Credimi HTTP: `InternalHTTPActivity`, `SetServerAppURLSource`, `CREDIMI_INTERNAL_APP_URL` and `internal_app_url` no longer exist. Workers reach Credimi data through typed activities that receive `core.App` (`activities.CredimiActivities(app)`), and `app_url` is written only by `workflowengine.WithAppConfig` from PocketBase Settings.
-- follow-up: None. No admin-key sender targets Credimi anymore; the internal admin key is only sent to runners through `mobile-runner-http-request`.
+- follow-up: None. No admin-key sender targets Credimi anymore; the internal admin key is sent to runners through `mobile-runner-http-request` and, as the approved exception (2026-09-25), by the direct `POST {runner_url}/credimi/live-view` call in `pkg/internal/apis/handlers/pipeline_live_view_handler.go`.
