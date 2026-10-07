@@ -158,19 +158,6 @@ func ExecuteStep(
 			taskqueue = configuredTaskQueue
 		}
 		w := step.NewFunc(nil).(workflowengine.Workflow)
-		appURL, ok := s.With.Config["app_url"].(string)
-		if ok && appURL == "" {
-			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-			appErr := workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf("missing or invalid app_url for step %s", s.ID),
-				},
-			)
-
-			return nil, appErr
-		}
 		input := workflowengine.WorkflowInput{
 			Payload:         payload,
 			Config:          workflowengine.MergeTelemetryConfig(ctx, s.With.Config),
