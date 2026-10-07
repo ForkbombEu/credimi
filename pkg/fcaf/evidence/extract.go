@@ -7,6 +7,7 @@ package evidence
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -260,6 +261,9 @@ func extractPresentationTokensFromVPTokenJSON(raw string, preferredKey string) (
 	}
 
 	if key == "" {
+		if preferredKey == "" {
+			return nil, errors.New("vp_token json must contain exactly one credential entry")
+		}
 		return nil, fmt.Errorf(
 			"vp_token json must contain %q or exactly one credential entry",
 			preferredKey,

@@ -85,8 +85,6 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPX509ClientIDLeafMismatchValidator{},
 		OID4VPDIDSigningKeyUnlistedValidator{},
 		OID4VPSessionEventCountValidator{},
-		OID4VPDeviceBindingValidator{},
-		OID4VPNonceStateBindingValidator{},
 		OID4VPClientIDMatchValidator{},
 		OID4VPX509HashClientIDValidator{},
 		OID4VPDIDSignedRequestValidator{},

@@ -432,6 +432,54 @@ func TestParseMDocPresentationDoesNotAliasCallerBytes(t *testing.T) {
 	require.Equal(t, original, presentation.Raw)
 }
 
+// A map with non-text keys is valid CBOR with no JSON shape: it must not reject
+// the presentation, only lose its decoded Value.
+func TestParseMDocPresentationKeepsElementWithNonTextMapKeys(t *testing.T) {
+	raw := testMDocDeviceResponse(t, map[string]any{
+		"family_name": "Trotter",
+		"status":      map[uint64]any{1: "valid"},
+	})
+
+	presentation, err := ParseMDocPresentation(raw)
+
+	require.NoError(t, err)
+	status, found := presentation.Element(pidMDocTestDocType, "status")
+	require.True(t, found)
+	require.Equal(t, uint8(5), status.MajorType)
+	require.Nil(t, status.Value)
+	require.NotEmpty(t, status.Raw)
+	familyName, found := presentation.Element(pidMDocTestDocType, "family_name")
+	require.True(t, found)
+	require.Equal(t, "Trotter", familyName.Value)
+}
+
+func TestDecodeMDocCBORValueNonTextMapKeys(t *testing.T) {
+	raw, err := cbor.Marshal(map[string]any{
+		"status_list": map[uint64]any{1: "valid"},
+		"uri":         "https://issuer.example/status",
+	})
+	require.NoError(t, err)
+
+	status, err := decodeMDocCBORValue(raw)
+
+	require.NoError(t, err)
+	list, found := status.Member("status_list")
+	require.True(t, found)
+	require.Equal(t, uint8(5), list.ContentMajorType)
+	require.Nil(t, list.Value)
+	require.Empty(t, list.Members)
+	uri, found := status.Member("uri")
+	require.True(t, found)
+	require.Equal(t, "https://issuer.example/status", uri.Value)
+}
+
+func TestDecodeMDocCBORValueRejectsInvalidUTF8UnderNonTextKey(t *testing.T) {
+	// {1: "\xff"}: the non-text key must not hide the invalid text string.
+	_, err := decodeMDocCBORValue(cbor.RawMessage{0xa1, 0x01, 0x61, 0xff})
+
+	require.Error(t, err)
+}
+
 const pidMDocTestDocType = "eu.europa.ec.eudi.pid.1"
 
 func testMDocDeviceResponse(t *testing.T, elements map[string]any) []byte {
