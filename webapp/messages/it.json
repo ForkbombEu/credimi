@@ -812,6 +812,7 @@
 	"public_wallets_description": "Here you can add wallet actions to public wallet.",
 	"Checks": "Checks",
 	"conformance_check_qr_code_login_cta": "[Log in]({link}) to start the conformità check",
+	"suite_has_qr_tooltip": "This suite's checks show a QR for the wallet to scan.",
 	"View_check_status": "View check status",
 	"Pipeline_form_invalid_state": "Invalid pipeline form state",
 	"Pipeline_form_invalid_step_data": "Invalid pipeline step data",
