@@ -64,13 +64,8 @@ type AggregatedPipelineStats struct {
 }
 
 type LatestExecutionDetails struct {
-	PipelineName         string   `json:"pipeline_name"`
 	WorkflowID           string   `json:"workflow_id,omitempty"`
 	RunID                string   `json:"run_id,omitempty"`
-	OrgLogo              string   `json:"org_logo,omitempty"`
-	Video                string   `json:"video,omitempty"`
-	Screenshot           string   `json:"screenshots,omitempty"`
-	Logs                 string   `json:"logs,omitempty"`
 	WalletUsed           []string `json:"wallet_used,omitempty"`
 	WalletVersionUsed    []string `json:"wallet_version_used,omitempty"`
 	MaestroScripts       []string `json:"maestro_scripts,omitempty"`

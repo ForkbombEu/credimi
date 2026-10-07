@@ -59,12 +59,7 @@ func (a *StoreCredentialIssuerActivity) Execute(
 	}
 	record, err := storeCredentialIssuer(a.app, payload)
 	if err != nil {
-		return result, credimiActivityError(
-			&a.BaseActivity,
-			errorcodes.DatabaseOperationFailed,
-			true,
-			err,
-		)
+		return result, a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
 	}
 	result.Output = StoreCredentialIssuerOutput{ID: record.Id}
 	return result, nil
@@ -142,19 +137,13 @@ func (a *StoreIssuerCredentialActivity) Execute(
 	}
 	if err := storeIssuerCredential(a.app, payload); err != nil {
 		if errors.Is(err, errInvalidStoredCredential) {
-			return result, credimiActivityError(
-				&a.BaseActivity,
+			return result, a.NewCodedError(
 				errorcodes.MissingOrInvalidPayload,
 				false,
 				err,
 			)
 		}
-		return result, credimiActivityError(
-			&a.BaseActivity,
-			errorcodes.DatabaseOperationFailed,
-			true,
-			err,
-		)
+		return result, a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
 	}
 	result.Output = StoreIssuerCredentialOutput{Key: payload.CredKey}
 	return result, nil

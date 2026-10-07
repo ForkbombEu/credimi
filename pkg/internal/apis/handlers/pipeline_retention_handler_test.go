@@ -33,7 +33,7 @@ func setupPipelineRetentionApp(t testing.TB) *tests.TestApp {
 	require.NoError(t, err)
 
 	canonify.RegisterCanonifyHooks(app)
-	PipelineTemporalInternalRoutes.Add(app)
+	PipelineInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 	ensurePipelineRetentionEvidenceFields(t, app)
 

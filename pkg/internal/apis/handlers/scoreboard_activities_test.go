@@ -438,7 +438,7 @@ func TestGetScoreboardExecutionDetailsActivity(t *testing.T) {
 	t.Run("execution details for exec2", func(t *testing.T) {
 		details, err := runScoreboardActivity[LastExecutionDetails](
 			t,
-			NewGetScoreboardExecutionDetailsActivity(app),
+			NewGetScoreboardExecutionDetailsActivity(),
 			workflows.ScoreboardExecutionInput{
 				Namespace:  namespace,
 				WorkflowID: "wf-2",
@@ -447,13 +447,8 @@ func TestGetScoreboardExecutionDetailsActivity(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		require.Equal(t, "android-e2e-tests", details.PipelineName)
 		require.Equal(t, "wf-2", details.WorkflowID)
 		require.Equal(t, "run-2", details.RunID)
-		require.Empty(t, details.OrgLogo)
-		require.Empty(t, details.Video)
-		require.Empty(t, details.Screenshots)
-		require.Empty(t, details.Logs)
 		require.ElementsMatch(t, []string{"org/wallet", "org/action"}, details.WalletUsed)
 		require.Empty(t, details.WalletVersionUsed)
 		require.ElementsMatch(
@@ -480,7 +475,7 @@ func TestGetScoreboardExecutionDetailsActivity(t *testing.T) {
 	t.Run("execution details for exec4", func(t *testing.T) {
 		details, err := runScoreboardActivity[LastExecutionDetails](
 			t,
-			NewGetScoreboardExecutionDetailsActivity(app),
+			NewGetScoreboardExecutionDetailsActivity(),
 			workflows.ScoreboardExecutionInput{
 				Namespace:  namespace,
 				WorkflowID: "Pipeline-Sched-wf-4",
@@ -489,7 +484,7 @@ func TestGetScoreboardExecutionDetailsActivity(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		require.Equal(t, "ios-e2e-tests", details.PipelineName)
+		require.Equal(t, "Pipeline-Sched-wf-4", details.WorkflowID)
 		require.ElementsMatch(t, []string{"org/wallet"}, details.WalletUsed)
 		require.ElementsMatch(
 			t,
@@ -503,7 +498,7 @@ func TestGetScoreboardExecutionDetailsActivity(t *testing.T) {
 	t.Run("missing run id", func(t *testing.T) {
 		_, err := runScoreboardActivity[LastExecutionDetails](
 			t,
-			NewGetScoreboardExecutionDetailsActivity(app),
+			NewGetScoreboardExecutionDetailsActivity(),
 			map[string]any{"namespace": namespace, "workflow_id": "wf-2"},
 		)
 		requireActivityErrorCode(t, err, errorcodes.MissingOrInvalidPayload)
@@ -512,7 +507,7 @@ func TestGetScoreboardExecutionDetailsActivity(t *testing.T) {
 	t.Run("workflow not found", func(t *testing.T) {
 		_, err := runScoreboardActivity[LastExecutionDetails](
 			t,
-			NewGetScoreboardExecutionDetailsActivity(app),
+			NewGetScoreboardExecutionDetailsActivity(),
 			workflows.ScoreboardExecutionInput{
 				Namespace:  namespace,
 				WorkflowID: "non-existent",
@@ -582,9 +577,8 @@ func TestSaveScoreboardResults(t *testing.T) {
 						FirstExecutionDate:      "2024-01-01T00:00:00Z",
 						LastExecutionDate:       "2024-01-02T00:00:00Z",
 						LastExecution: &workflows.LatestExecutionDetails{
-							PipelineName: "Test Pipeline",
-							WorkflowID:   "wf-new",
-							RunID:        "run-new",
+							WorkflowID: "wf-new",
+							RunID:      "run-new",
 							WalletUsed: []string{
 								"usera-s-organization/my-wallet",
 								"usera-s-organization/private-wallet",
@@ -755,9 +749,8 @@ func TestSaveScoreboardResults(t *testing.T) {
 					ManualExecutions:    5,
 					ScheduledExecutions: 5,
 					LastExecution: &workflows.LatestExecutionDetails{
-						PipelineName: "Test Pipeline",
-						WorkflowID:   "wf-new",
-						RunID:        "run-new",
+						WorkflowID: "wf-new",
+						RunID:      "run-new",
 						WalletUsed: []string{
 							"usera-s-organization/my-wallet",
 							"usera-s-organization/missing-wallet",

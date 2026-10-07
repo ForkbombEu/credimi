@@ -38,7 +38,7 @@ func setupPipelineApp(t testing.TB) *tests.TestApp {
 	ensureScoreboardExpandedDataField(t, app)
 	ensureScoreboardMinRunningTimeSecondsField(t, app)
 	canonify.RegisterCanonifyHooks(app)
-	PipelineTemporalInternalRoutes.Add(app)
+	PipelineInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 
 	return app

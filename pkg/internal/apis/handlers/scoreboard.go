@@ -136,13 +136,8 @@ type ScoreboardExpandedPipelineResult struct {
 }
 
 type LastExecutionDetails struct {
-	PipelineName         string   `json:"pipeline_name"`
 	WorkflowID           string   `json:"workflow_id,omitempty"`
 	RunID                string   `json:"run_id,omitempty"`
-	OrgLogo              string   `json:"org_logo,omitempty"`
-	Video                string   `json:"video_results,omitempty"`
-	Screenshots          string   `json:"screenshots,omitempty"`
-	Logs                 string   `json:"logs,omitempty"`
 	WalletUsed           []string `json:"wallet_used,omitempty"`
 	WalletVersionUsed    []string `json:"wallet_version_used,omitempty"`
 	MaestroScripts       []string `json:"maestro_scripts,omitempty"`
@@ -458,9 +453,8 @@ func namespaceScoreboard(
 }
 
 // scoreboardExecutionDetails describes one pipeline execution for the
-// scoreboard: its entities, the org logo and the stored result files.
+// scoreboard: the entities recorded in its search attributes.
 func scoreboardExecutionDetails(
-	app core.App,
 	namespace string,
 	workflowID string,
 	runID string,
@@ -473,44 +467,11 @@ func scoreboardExecutionDetails(
 	if err != nil {
 		return nil, fmt.Errorf("describe workflow execution: %w", err)
 	}
-	pipelineIdentifier := pipelineIdentifierFromSearchAttributes(exec.SearchAttributes)
 
-	parts := strings.SplitN(pipelineIdentifier, "/", 2)
-	pipelineName := ""
-	if len(parts) == 2 {
-		pipelineName = parts[1]
-	}
-
-	resultRecord, _ := app.FindFirstRecordByFilter(
-		"pipeline_results",
-		"workflow_id={:workflow_id} && run_id={:run_id}",
-		dbx.Params{
-			"workflow_id": workflowID,
-			"run_id":      runID,
-		},
-	)
-
-	video, screenshot, logs := getPipelineResultFromRecord(app, resultRecord)
-	entityDetails := extractEntityDetailsFromExecution(exec)
-
-	return &LastExecutionDetails{
-		PipelineName:         pipelineName,
-		WorkflowID:           workflowID,
-		RunID:                runID,
-		OrgLogo:              getOrgLogo(app, namespace),
-		Video:                video,
-		Screenshots:          screenshot,
-		Logs:                 logs,
-		WalletUsed:           entityDetails.WalletUsed,
-		WalletVersionUsed:    entityDetails.WalletVersionUsed,
-		MaestroScripts:       entityDetails.MaestroScripts,
-		Credentials:          entityDetails.Credentials,
-		Issuers:              entityDetails.Issuers,
-		UseCaseVerifications: entityDetails.UseCaseVerifications,
-		Verifiers:            entityDetails.Verifiers,
-		ConformanceTests:     entityDetails.ConformanceTests,
-		CustomChecks:         entityDetails.CustomChecks,
-	}, nil
+	details := extractEntityDetailsFromExecution(exec)
+	details.WorkflowID = workflowID
+	details.RunID = runID
+	return details, nil
 }
 
 func getWorkflowExecutionWithDecodedAttrs(
@@ -837,23 +798,6 @@ func extractFirstTwoParts(fullPath string) string {
 	return fullPath
 }
 
-func getPipelineResultFromRecord(
-	app core.App,
-	record *core.Record,
-) (video, screenshot, logs string) {
-	if record == nil {
-		return "", "", ""
-	}
-
-	results := pipelineresults.ComputePipelineResultsFromRecord(app, record)
-	if len(results) == 0 {
-		return "", "", ""
-	}
-
-	first := results[0]
-	return first.Video, first.Screenshot, first.Log
-}
-
 func extractEntityDetailsFromExecution(exec *WorkflowExecution) *LastExecutionDetails {
 	if exec == nil || exec.SearchAttributes == nil {
 		return &LastExecutionDetails{}
@@ -934,32 +878,6 @@ func appendUnique(slice []string, item string) []string {
 		}
 	}
 	return append(slice, item)
-}
-
-func getOrgLogo(app core.App, namespace string) string {
-	if namespace == "" {
-		return ""
-	}
-
-	org, err := app.FindFirstRecordByFilter(
-		"organizations",
-		"canonified_name = {:canonified_name}",
-		dbx.Params{"canonified_name": namespace},
-	)
-	if err != nil {
-		return ""
-	}
-
-	logo := org.GetString("logo")
-	if logo == "" {
-		return ""
-	}
-
-	return utils.JoinURL(
-		app.Settings().Meta.AppURL,
-		"api", "files", "organizations",
-		org.Id, "logo", logo,
-	)
 }
 
 func truncateCollection(app core.App, collectionName string) error {

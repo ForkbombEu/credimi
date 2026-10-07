@@ -112,7 +112,9 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 }
 
-var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
+// PipelineInternalRoutes hold runner routes (step screenshots, mobile flow) and
+// operator routes for the scoreboard and retention schedules.
+var PipelineInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/pipeline",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{

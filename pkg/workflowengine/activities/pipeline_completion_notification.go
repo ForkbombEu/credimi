@@ -80,11 +80,11 @@ var errPipelineNotificationSend = errors.New("send pipeline completion notificat
 func pipelineCompletionNotificationError(a *workflowengine.BaseActivity, err error) error {
 	switch {
 	case errors.Is(err, pipelineresults.ErrNotFound):
-		return credimiActivityError(a, errorcodes.RecordNotFound, false, err)
+		return a.NewCodedError(errorcodes.RecordNotFound, false, err)
 	case errors.Is(err, errPipelineNotificationSend):
-		return credimiActivityError(a, errorcodes.ExecuteHTTPRequestFailed, true, err)
+		return a.NewCodedError(errorcodes.ExecuteHTTPRequestFailed, true, err)
 	default:
-		return credimiActivityError(a, errorcodes.DatabaseOperationFailed, true, err)
+		return a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
 	}
 }
 

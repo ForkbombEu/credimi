@@ -39,7 +39,9 @@ var OrganizationRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 	},
 }
-var OrganizationTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
+
+// OrganizationInternalRoutes are operator routes guarded by the internal admin key.
+var OrganizationInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/organizations",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{

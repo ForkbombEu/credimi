@@ -49,25 +49,6 @@ func CredimiActivities(app core.App) []workflowengine.ExecutableActivity {
 	}
 }
 
-// credimiActivityError builds an activity error for errorcodes key code.
-func credimiActivityError(
-	a *workflowengine.BaseActivity,
-	code string,
-	retryable bool,
-	err error,
-) error {
-	errCode := errorcodes.Codes[code]
-	failure := workflowengine.ActivityError{
-		Code:    errCode.Code,
-		Summary: errCode.Description,
-		Message: err.Error(),
-	}
-	if retryable {
-		return a.NewActivityError(failure)
-	}
-	return a.NewNonRetryableActivityError(failure)
-}
-
 // recordLookupError maps a Credimi record lookup failure to an activity error:
 // missing records (errRecordNotFound, sql.ErrNoRows, missing mobile devices or
 // runners) are a non-retryable CRE233, inaccessible mobile devices a
@@ -79,12 +60,12 @@ func recordLookupError(a *workflowengine.BaseActivity, err error) error {
 		errors.Is(err, sql.ErrNoRows),
 		errors.Is(err, mobilerunner.ErrDeviceNotFound),
 		errors.Is(err, mobilerunner.ErrDeviceRunnerNotFound):
-		return credimiActivityError(a, errorcodes.RecordNotFound, false, err)
+		return a.NewCodedError(errorcodes.RecordNotFound, false, err)
 	case errors.Is(err, mobilerunner.ErrDeviceNotAccessible):
-		return credimiActivityError(a, errorcodes.RecordNotAccessible, false, err)
+		return a.NewCodedError(errorcodes.RecordNotAccessible, false, err)
 	case errors.Is(err, errInvalidSecrets):
-		return credimiActivityError(a, errorcodes.DecodeFailed, false, err)
+		return a.NewCodedError(errorcodes.DecodeFailed, false, err)
 	default:
-		return credimiActivityError(a, errorcodes.DatabaseOperationFailed, true, err)
+		return a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
 	}
 }

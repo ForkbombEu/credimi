@@ -66,19 +66,9 @@ func (a *DeleteTempRecordActivity) Execute(
 	)
 	if err != nil {
 		if errors.Is(err, errTempRecordMismatch) {
-			return result, credimiActivityError(
-				&a.BaseActivity,
-				errorcodes.RecordNotAccessible,
-				false,
-				err,
-			)
+			return result, a.NewCodedError(errorcodes.RecordNotAccessible, false, err)
 		}
-		return result, credimiActivityError(
-			&a.BaseActivity,
-			errorcodes.DatabaseOperationFailed,
-			true,
-			err,
-		)
+		return result, a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
 	}
 	result.Output = DeleteTempRecordOutput{Deleted: deleted}
 	return result, nil

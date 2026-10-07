@@ -33,7 +33,7 @@ func setupWalletApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	canonify.RegisterCanonifyHooks(app)
-	WalletTemporalInternalRoutes.Add(app)
+	WalletInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 	return app
 }

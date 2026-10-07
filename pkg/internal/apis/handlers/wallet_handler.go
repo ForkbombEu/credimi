@@ -65,7 +65,10 @@ var WalletRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 	},
 }
-var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
+
+// WalletInternalRoutes are called by mobile runners: each route accepts the
+// internal admin key or a user token.
+var WalletInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/wallet",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{

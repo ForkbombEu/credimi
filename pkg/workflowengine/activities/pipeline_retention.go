@@ -41,12 +41,7 @@ func (a *DeletePipelineResultFilesActivity) Execute(
 	}
 	output, err := pipelineresults.DeleteFilesOlderThan(a.app, payload)
 	if err != nil {
-		return result, credimiActivityError(
-			&a.BaseActivity,
-			errorcodes.DatabaseOperationFailed,
-			true,
-			err,
-		)
+		return result, a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
 	}
 	result.Output = output
 	return result, nil

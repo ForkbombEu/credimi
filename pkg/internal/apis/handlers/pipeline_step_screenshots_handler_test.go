@@ -61,7 +61,7 @@ func TestStorePipelineStepScreenshots(t *testing.T) {
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupWalletApp(t)
-			PipelineTemporalInternalRoutes.Add(app)
+			PipelineInternalRoutes.Add(app)
 			setupWalletPipelineTestRecords(t, app, orgID)
 			reserveStepScreenshotDevice(t, app, orgID)
 			return app
@@ -111,7 +111,7 @@ func TestStorePipelineStepScreenshotsBeyondNinetyNinePerRun(t *testing.T) {
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupWalletApp(t)
-			PipelineTemporalInternalRoutes.Add(app)
+			PipelineInternalRoutes.Add(app)
 			setupWalletPipelineTestRecords(t, app, orgID)
 			reserveStepScreenshotDevice(t, app, orgID)
 			return app
@@ -148,7 +148,7 @@ func TestStorePipelineStepScreenshotsPublishedRunnerOwner(t *testing.T) {
 	setupApp := func(reserved bool) func(t testing.TB) *tests.TestApp {
 		return func(t testing.TB) *tests.TestApp {
 			app := setupWalletApp(t)
-			PipelineTemporalInternalRoutes.Add(app)
+			PipelineInternalRoutes.Add(app)
 			setupWalletPipelineTestRecords(t, app, orgID)
 			setOrganizationPublished(t, app, orgID, true)
 			runnerOrgID, err := pbutils.GetUserOrganizationID(app, runnerUser.Id)

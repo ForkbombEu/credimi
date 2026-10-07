@@ -101,11 +101,8 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 					},
 				})
 				mockExecutionDetailsForRun(env, "wf-2", "run-2", map[string]any{
-					"pipeline_name": "Pipeline 1",
-					"org_logo":      "https://example.com/logo.png",
-					"video":         "https://example.com/video.mp4",
-					"screenshots":   "https://example.com/screenshot.png",
-					"logs":          "https://example.com/logs.txt",
+					"workflow_id": "wf-2",
+					"run_id":      "run-2",
 					"wallet_used": []any{
 						"org/wallet-a",
 						"org/wallet-b",
@@ -132,7 +129,8 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 					"custom_checks":     []any{"custom/check-1"},
 				})
 				mockExecutionDetailsForRun(env, "wf-3", "run-3", map[string]any{
-					"pipeline_name": "Pipeline 2",
+					"workflow_id": "wf-3",
+					"run_id":      "run-3",
 				})
 				mockSaveResults(env)
 			},
@@ -169,9 +167,13 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				)
 				require.ElementsMatch(t, []string{"android", "ios"}, pipeline1.DeviceTypes)
 				require.NotNil(t, pipeline1.LastExecution)
-				require.Equal(t, "Pipeline 1", pipeline1.LastExecution.PipelineName)
-				require.Equal(t, "https://example.com/logo.png", pipeline1.LastExecution.OrgLogo)
-				require.Equal(t, "https://example.com/video.mp4", pipeline1.LastExecution.Video)
+				require.Equal(t, "wf-2", pipeline1.LastExecution.WorkflowID)
+				require.Equal(t, "run-2", pipeline1.LastExecution.RunID)
+				require.Equal(
+					t,
+					[]string{"org/wallet-a", "org/wallet-b"},
+					pipeline1.LastExecution.WalletUsed,
+				)
 
 				require.NotNil(t, pipeline2)
 				require.Equal(t, 5, pipeline2.TotalRuns)
@@ -179,7 +181,7 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 				require.Equal(t, 5, pipeline2.CIExecutions)
 				require.ElementsMatch(t, []string{"runner-3"}, pipeline2.DeviceIDs)
 				require.NotNil(t, pipeline2.LastExecution)
-				require.Equal(t, "Pipeline 2", pipeline2.LastExecution.PipelineName)
+				require.Equal(t, "wf-3", pipeline2.LastExecution.WorkflowID)
 			},
 		},
 		{
@@ -218,7 +220,8 @@ func TestAggregateScoreboardWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{}, errors.New("boom")).
 					Once()
 				mockExecutionDetails(env, map[string]any{
-					"pipeline_name": "Pipeline 1",
+					"workflow_id": "wf-1",
+					"run_id":      "run-1",
 				})
 				mockSaveResults(env)
 			},

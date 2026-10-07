@@ -108,6 +108,21 @@ func (a *BaseActivity) NewMissingOrInvalidPayloadError(err error) error {
 	)
 }
 
+// NewCodedError builds an activity error for the errorcodes key code with
+// err as its message; it is non-retryable unless retryable is true.
+func (a *BaseActivity) NewCodedError(code string, retryable bool, err error) error {
+	errCode := errorcodes.Codes[code]
+	failure := ActivityError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: err.Error(),
+	}
+	if retryable {
+		return a.NewActivityError(failure)
+	}
+	return a.NewNonRetryableActivityError(failure)
+}
+
 func RunCommandWithCancellation(
 	ctx context.Context,
 	cmd *exec.Cmd,

@@ -310,7 +310,7 @@ func defaultWorkers(app core.App) []workerConfig {
 			Activities: []workflowengine.ExecutableActivity{
 				handlers.NewListScoreboardNamespacesActivity(app),
 				handlers.NewGetNamespaceScoreboardActivity(app),
-				handlers.NewGetScoreboardExecutionDetailsActivity(app),
+				handlers.NewGetScoreboardExecutionDetailsActivity(),
 				handlers.NewSaveScoreboardResultsActivity(app),
 			},
 		},

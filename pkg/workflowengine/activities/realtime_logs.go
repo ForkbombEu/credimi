@@ -45,12 +45,7 @@ func (a *SendRealtimeLogsActivity) Execute(
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 	if err := realtimelogs.Notify(a.app, payload.Subscription, payload.Logs); err != nil {
-		return result, credimiActivityError(
-			&a.BaseActivity,
-			errorcodes.JSONMarshalFailed,
-			false,
-			err,
-		)
+		return result, a.NewCodedError(errorcodes.JSONMarshalFailed, false, err)
 	}
 	return result, nil
 }

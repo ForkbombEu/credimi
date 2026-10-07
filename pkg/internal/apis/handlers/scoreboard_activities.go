@@ -45,7 +45,11 @@ func (a *ListScoreboardNamespacesActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	namespaces, err := allOrganizationNamespaces(a.app)
 	if err != nil {
-		return workflowengine.ActivityResult{}, newScoreboardDatabaseError(&a.BaseActivity, err)
+		return workflowengine.ActivityResult{}, a.NewCodedError(
+			errorcodes.DatabaseOperationFailed,
+			true,
+			err,
+		)
 	}
 	return workflowengine.ActivityResult{Output: namespaces}, nil
 }
@@ -79,7 +83,11 @@ func (a *GetNamespaceScoreboardActivity) Execute(
 	}
 	stats, err := namespaceScoreboard(ctx, a.app, payload.Namespace)
 	if err != nil {
-		return workflowengine.ActivityResult{}, newScoreboardDatabaseError(&a.BaseActivity, err)
+		return workflowengine.ActivityResult{}, a.NewCodedError(
+			errorcodes.DatabaseOperationFailed,
+			true,
+			err,
+		)
 	}
 	return workflowengine.ActivityResult{Output: stats}, nil
 }
@@ -88,17 +96,13 @@ func (a *GetNamespaceScoreboardActivity) Execute(
 // the scoreboard.
 type GetScoreboardExecutionDetailsActivity struct {
 	workflowengine.BaseActivity
-	app core.App
 }
 
-func NewGetScoreboardExecutionDetailsActivity(
-	app core.App,
-) *GetScoreboardExecutionDetailsActivity {
+func NewGetScoreboardExecutionDetailsActivity() *GetScoreboardExecutionDetailsActivity {
 	return &GetScoreboardExecutionDetailsActivity{
 		BaseActivity: workflowengine.BaseActivity{
 			Name: workflows.GetScoreboardExecutionDetailsActivityName,
 		},
-		app: app,
 	}
 }
 
@@ -115,13 +119,16 @@ func (a *GetScoreboardExecutionDetailsActivity) Execute(
 		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(err)
 	}
 	details, err := scoreboardExecutionDetails(
-		a.app,
 		payload.Namespace,
 		payload.WorkflowID,
 		payload.RunID,
 	)
 	if err != nil {
-		return workflowengine.ActivityResult{}, newScoreboardDatabaseError(&a.BaseActivity, err)
+		return workflowengine.ActivityResult{}, a.NewCodedError(
+			errorcodes.DatabaseOperationFailed,
+			true,
+			err,
+		)
 	}
 	return workflowengine.ActivityResult{Output: details}, nil
 }
@@ -161,7 +168,11 @@ func (a *SaveScoreboardResultsActivity) Execute(
 		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(err)
 	}
 	if err != nil {
-		return workflowengine.ActivityResult{}, newScoreboardDatabaseError(&a.BaseActivity, err)
+		return workflowengine.ActivityResult{}, a.NewCodedError(
+			errorcodes.DatabaseOperationFailed,
+			true,
+			err,
+		)
 	}
 
 	output := ScoreboardSaveOutput{RecordsCount: recordsCount}
@@ -169,13 +180,4 @@ func (a *SaveScoreboardResultsActivity) Execute(
 		output.Errors = append(output.Errors, saveErr.Error())
 	}
 	return workflowengine.ActivityResult{Output: output}, nil
-}
-
-func newScoreboardDatabaseError(a *workflowengine.BaseActivity, err error) error {
-	errCode := errorcodes.Codes[errorcodes.DatabaseOperationFailed]
-	return a.NewActivityError(workflowengine.ActivityError{
-		Code:    errCode.Code,
-		Summary: errCode.Description,
-		Message: err.Error(),
-	})
 }
