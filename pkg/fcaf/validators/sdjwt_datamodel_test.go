@@ -253,3 +253,430 @@ func TestSDJWTDataModelValidatorsRejectMissingConfiguration(t *testing.T) {
 		})
 	}
 }
+
+func TestSDJWTDataModelValidatorOutcomes(t *testing.T) {
+	claims := map[string]any{
+		"family_name":          "Trotter",
+		"empty_name":           "",
+		"age":                  float64(36),
+		"birthdate":            float64(20000229),
+		"given_names":          []any{"Ada", "Augusta"},
+		"mixed_names":          []any{"Ada", float64(1)},
+		"place_of_birth":       map[string]any{"country": "IT", "locality": "Forlì"},
+		"address":              map[string]any{"street": float64(12), "region": "Lazio"},
+		"issuing_country":      "IT",
+		"numeric_country":      float64(380),
+		"issuing_jurisdiction": "IT-RM",
+		"foreign_jurisdiction": "FR-75",
+		"bad_jurisdiction":     "ITRM",
+		"numeric_jurisdiction": float64(1),
+	}
+
+	tests := []struct {
+		name      string
+		validator Validator
+		params    map[string]any
+		status    Status
+		message   string
+	}{
+		{
+			name:      "non-empty string accepts text",
+			validator: SDJWTClaimNonEmptyUTF8StringValidator{},
+			params:    map[string]any{"claim": "family_name"},
+			status:    StatusPass,
+		},
+		{
+			name:      "non-empty string rejects empty text",
+			validator: SDJWTClaimNonEmptyUTF8StringValidator{},
+			params:    map[string]any{"claim": "empty_name"},
+			status:    StatusFail,
+			message:   `claim "empty_name" is invalid: value must contain at least one character`,
+		},
+		{
+			name:      "non-empty string rejects number",
+			validator: SDJWTClaimNonEmptyUTF8StringValidator{},
+			params:    map[string]any{"claim": "age"},
+			status:    StatusFail,
+			message:   `claim "age" is invalid: value is float64, expected string`,
+		},
+		{
+			name:      "non-empty string reports missing claim",
+			validator: SDJWTClaimNonEmptyUTF8StringValidator{},
+			params:    map[string]any{"claim": "given_name"},
+			status:    StatusFail,
+			message:   `claim "given_name" is missing`,
+		},
+		{
+			name:      "phone requires positive min_length",
+			validator: SDJWTClaimInternationalPhoneValidator{},
+			params:    map[string]any{"claim": "phone_number"},
+			status:    StatusError,
+			message:   "min_length must be greater than zero",
+		},
+		{
+			name:      "phone reports missing claim",
+			validator: SDJWTClaimInternationalPhoneValidator{},
+			params:    map[string]any{"claim": "phone_number", "min_length": 8},
+			status:    StatusFail,
+			message:   `claim "phone_number" is missing`,
+		},
+		{
+			name:      "country code reports missing claim",
+			validator: SDJWTClaimCountryCodeValidator{},
+			params:    map[string]any{"claim": "nationality"},
+			status:    StatusFail,
+			message:   `claim "nationality" is missing`,
+		},
+		{
+			name:      "country code rejects numeric code",
+			validator: SDJWTClaimCountryCodeValidator{},
+			params:    map[string]any{"claim": "numeric_country"},
+			status:    StatusFail,
+			message:   "value is float64, expected string",
+		},
+		{
+			name:      "date format rejects numeric date",
+			validator: SDJWTClaimDateFormatValidator{},
+			params:    map[string]any{"claim": "birthdate"},
+			status:    StatusFail,
+			message:   `claim "birthdate" is invalid: value is float64, expected string`,
+		},
+		{
+			name:      "valid date reports missing claim",
+			validator: SDJWTClaimValidDateValidator{},
+			params:    map[string]any{"claim": "expiry_date"},
+			status:    StatusFail,
+			message:   `claim "expiry_date" is missing`,
+		},
+		{
+			name:      "string array accepts text items at min_items",
+			validator: SDJWTClaimStringArrayValidator{},
+			params:    map[string]any{"claim": "given_names", "min_items": 2},
+			status:    StatusPass,
+		},
+		{
+			name:      "string array rejects fewer items than min_items",
+			validator: SDJWTClaimStringArrayValidator{},
+			params:    map[string]any{"claim": "given_names", "min_items": 3},
+			status:    StatusFail,
+			message:   "array must contain at least 3 item(s)",
+		},
+		{
+			name:      "string array reports non-text item index",
+			validator: SDJWTClaimStringArrayValidator{},
+			params:    map[string]any{"claim": "mixed_names", "min_items": 1},
+			status:    StatusFail,
+			message:   "item 1: value is float64, expected string",
+		},
+		{
+			name:      "string array rejects scalar claim",
+			validator: SDJWTClaimStringArrayValidator{},
+			params:    map[string]any{"claim": "family_name", "min_items": 1},
+			status:    StatusFail,
+			message:   `claim "family_name" is invalid: value is string, expected array`,
+		},
+		{
+			name:      "string array reports missing claim",
+			validator: SDJWTClaimStringArrayValidator{},
+			params:    map[string]any{"claim": "nicknames", "min_items": 1},
+			status:    StatusFail,
+			message:   `claim "nicknames" is missing`,
+		},
+		{
+			name:      "string array requires positive min_items",
+			validator: SDJWTClaimStringArrayValidator{},
+			params:    map[string]any{"claim": "given_names", "min_items": 0},
+			status:    StatusError,
+			message:   "min_items must be greater than zero",
+		},
+		{
+			name:      "country array reports missing claim",
+			validator: SDJWTClaimCountryCodeArrayValidator{},
+			params:    map[string]any{"claim": "nationalities", "min_items": 1},
+			status:    StatusFail,
+			message:   `claim "nationalities" is missing`,
+		},
+		{
+			name:      "object accepts object claim",
+			validator: SDJWTClaimObjectValidator{},
+			params:    map[string]any{"claim": "place_of_birth"},
+			status:    StatusPass,
+		},
+		{
+			name:      "object rejects array claim",
+			validator: SDJWTClaimObjectValidator{},
+			params:    map[string]any{"claim": "given_names"},
+			status:    StatusFail,
+			message:   "value is []interface {}, expected object",
+		},
+		{
+			name:      "object reports missing claim",
+			validator: SDJWTClaimObjectValidator{},
+			params:    map[string]any{"claim": "residence"},
+			status:    StatusFail,
+			message:   `claim "residence" is missing`,
+		},
+		{
+			name:      "object keys rejects too many properties",
+			validator: SDJWTClaimObjectKeysValidator{},
+			params: map[string]any{
+				"claim":          "place_of_birth",
+				"allowed":        []string{"country", "locality"},
+				"max_properties": 1,
+			},
+			status:  StatusFail,
+			message: "object has 2 properties, expected between 0 and 1",
+		},
+		{
+			name:      "object keys rejects too few properties",
+			validator: SDJWTClaimObjectKeysValidator{},
+			params: map[string]any{
+				"claim":          "place_of_birth",
+				"allowed":        []string{"country", "locality"},
+				"min_properties": 3,
+			},
+			status:  StatusFail,
+			message: "object has 2 properties",
+		},
+		{
+			name:      "object keys treats zero max_properties as unbounded",
+			validator: SDJWTClaimObjectKeysValidator{},
+			params: map[string]any{
+				"claim":   "place_of_birth",
+				"allowed": []string{"country", "locality"},
+			},
+			status: StatusPass,
+		},
+		{
+			name:      "object keys rejects scalar claim",
+			validator: SDJWTClaimObjectKeysValidator{},
+			params: map[string]any{
+				"claim":   "family_name",
+				"allowed": []string{"country"},
+			},
+			status:  StatusFail,
+			message: "value is string, expected object",
+		},
+		{
+			name:      "object string values reject numeric listed property",
+			validator: SDJWTClaimObjectStringValuesValidator{},
+			params: map[string]any{
+				"claim": "address",
+				"keys":  []string{"street", "region"},
+			},
+			status:  StatusFail,
+			message: `claim "address" is invalid: property "street": value is float64, expected string`,
+		},
+		{
+			name:      "object string values ignore unlisted properties",
+			validator: SDJWTClaimObjectStringValuesValidator{},
+			params:    map[string]any{"claim": "address", "keys": []string{"region", "locality"}},
+			status:    StatusPass,
+		},
+		{
+			name:      "object string values report missing claim",
+			validator: SDJWTClaimObjectStringValuesValidator{},
+			params:    map[string]any{"claim": "residence", "keys": []string{"region"}},
+			status:    StatusFail,
+			message:   `claim "residence" is missing`,
+		},
+		{
+			name:      "nested max length counts characters at boundary",
+			validator: SDJWTClaimNestedStringMaxLengthValidator{},
+			params: map[string]any{
+				"claim":      "place_of_birth",
+				"member":     "locality",
+				"max_length": 5,
+			},
+			status: StatusPass,
+		},
+		{
+			name:      "nested max length rejects longer value",
+			validator: SDJWTClaimNestedStringMaxLengthValidator{},
+			params: map[string]any{
+				"claim":      "place_of_birth",
+				"member":     "locality",
+				"max_length": 4,
+			},
+			status:  StatusFail,
+			message: `claim "place_of_birth.locality" is invalid: value exceeds 4 characters`,
+		},
+		{
+			name:      "nested max length rejects numeric member",
+			validator: SDJWTClaimNestedStringMaxLengthValidator{},
+			params: map[string]any{
+				"claim":      "address",
+				"member":     "street",
+				"max_length": 10,
+			},
+			status:  StatusFail,
+			message: `claim "address.street" is invalid: value is float64, expected string`,
+		},
+		{
+			name:      "nested max length reports missing member",
+			validator: SDJWTClaimNestedStringMaxLengthValidator{},
+			params: map[string]any{
+				"claim":      "place_of_birth",
+				"member":     "region",
+				"max_length": 10,
+			},
+			status:  StatusFail,
+			message: `claim "place_of_birth.region" is missing`,
+		},
+		{
+			name:      "integer allowed reports missing claim",
+			validator: SDJWTClaimIntegerAllowedValidator{},
+			params:    map[string]any{"claim": "sex", "allowed": []int{0, 1}},
+			status:    StatusFail,
+			message:   `claim "sex" is missing`,
+		},
+		{
+			name:      "jpeg data URL reports missing claim",
+			validator: SDJWTClaimJPEGDataURLValidator{},
+			params:    map[string]any{"claim": "picture"},
+			status:    StatusFail,
+			message:   `claim "picture" is missing`,
+		},
+		{
+			name:      "subdivision rejects other country prefix",
+			validator: SDJWTClaimCountrySubdivisionValidator{},
+			params: map[string]any{
+				"claim":         "foreign_jurisdiction",
+				"country_claim": "issuing_country",
+			},
+			status:  StatusFail,
+			message: `subdivision country prefix "FR" does not match issuing country "IT"`,
+		},
+		{
+			name:      "subdivision rejects malformed code",
+			validator: SDJWTClaimCountrySubdivisionValidator{},
+			params: map[string]any{
+				"claim":         "bad_jurisdiction",
+				"country_claim": "issuing_country",
+			},
+			status:  StatusFail,
+			message: "ISO 3166-2 country-subdivision shape",
+		},
+		{
+			name:      "subdivision rejects numeric code",
+			validator: SDJWTClaimCountrySubdivisionValidator{},
+			params: map[string]any{
+				"claim":         "numeric_jurisdiction",
+				"country_claim": "issuing_country",
+			},
+			status:  StatusFail,
+			message: `claim "numeric_jurisdiction" is invalid`,
+		},
+		{
+			name:      "subdivision reports missing claim",
+			validator: SDJWTClaimCountrySubdivisionValidator{},
+			params: map[string]any{
+				"claim":         "resident_state",
+				"country_claim": "issuing_country",
+			},
+			status:  StatusFail,
+			message: `claim "resident_state" is missing`,
+		},
+		{
+			name:      "subdivision reports missing country claim",
+			validator: SDJWTClaimCountrySubdivisionValidator{},
+			params: map[string]any{
+				"claim":         "issuing_jurisdiction",
+				"country_claim": "resident_country",
+			},
+			status:  StatusFail,
+			message: `claim "resident_country" is missing`,
+		},
+		{
+			name:      "subdivision rejects numeric country claim",
+			validator: SDJWTClaimCountrySubdivisionValidator{},
+			params: map[string]any{
+				"claim":         "issuing_jurisdiction",
+				"country_claim": "numeric_country",
+			},
+			status:  StatusFail,
+			message: `claim "numeric_country" is invalid: value is float64, expected string`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := test.validator.Validate(context.Background(), Input{
+				Value:  claims,
+				Params: test.params,
+			})
+
+			require.Equal(t, test.status, result.Status, result.Message)
+			require.Contains(t, result.Message, test.message)
+		})
+	}
+}
+
+func TestSDJWTDomesticNamespaceValidator(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   any
+		status  Status
+		message string
+	}{
+		{
+			name: "accepts non-empty domestic namespace",
+			value: map[string]any{
+				"given_name":                 "Ada",
+				"eu.europa.ec.eudi.pid.IT.1": map[string]any{"tax_id": "RSSMRA"},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "accepts domestic namespace disclosed in compact presentation",
+			value: testSDJWTPresentation(map[string]any{
+				"eu.europa.ec.eudi.pid.DE-BY": map[string]any{"tax_id": "123"},
+			}),
+			status: StatusPass,
+		},
+		{
+			name: "rejects unassigned country code",
+			value: map[string]any{
+				"eu.europa.ec.eudi.pid.OO.1": map[string]any{"tax_id": "RSSMRA"},
+			},
+			status:  StatusFail,
+			message: `domestic namespace "eu.europa.ec.eudi.pid.OO.1" has an invalid country code`,
+		},
+		{
+			name:    "rejects empty domestic namespace",
+			value:   map[string]any{"eu.europa.ec.eudi.pid.IT.1": map[string]any{}},
+			status:  StatusFail,
+			message: "contains no claims",
+		},
+		{
+			name:    "rejects scalar domestic namespace",
+			value:   map[string]any{"eu.europa.ec.eudi.pid.IT.1": "RSSMRA"},
+			status:  StatusFail,
+			message: "contains no claims",
+		},
+		{
+			name:    "rejects claims without domestic namespace",
+			value:   map[string]any{"given_name": "Ada", "eu.europa.ec.eudi.pid.it.1": "x"},
+			status:  StatusFail,
+			message: "no valid non-empty PID domestic namespace is present",
+		},
+		{
+			name:    "rejects non SD-JWT input",
+			value:   42,
+			status:  StatusFail,
+			message: "input is int, expected SD-JWT claims",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := SDJWTDomesticNamespaceValidator{}.Validate(
+				context.Background(),
+				Input{Value: test.value},
+			)
+
+			require.Equal(t, test.status, result.Status, result.Message)
+			require.Contains(t, result.Message, test.message)
+		})
+	}
+}

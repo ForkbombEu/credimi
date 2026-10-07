@@ -71,3 +71,9 @@ func TestParseTestID(t *testing.T) {
 		})
 	}
 }
+
+func TestHumanizeSplitsCamelCase(t *testing.T) {
+	require.Equal(t, "", humanize(""))
+	require.Equal(t, "New Subgroup", humanize("NewSubgroup"))
+	require.Equal(t, "Single", humanize("single"))
+}

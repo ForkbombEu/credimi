@@ -117,3 +117,37 @@ func TestHandleGetConformanceCheckDeeplinkUnsupportedSuite(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, body.Error.Code)
 	require.Equal(t, "unsupported suite", body.Error.Reason)
 }
+
+func TestHandleGetConformanceCheckDeeplinkMissingTemplate(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	// No template exists under ROOT_DIR, so no workflow may be started.
+	t.Setenv("ROOT_DIR", t.TempDir())
+
+	for _, suite := range []string{"ewc", "webuild"} {
+		t.Run(suite, func(t *testing.T) {
+			req := httptest.NewRequest(
+				http.MethodGet,
+				"/api/conformance-check/deeplink?id=openid4vp_wallet/"+suite+"/missing-check",
+				nil,
+			)
+			rec := httptest.NewRecorder()
+
+			err := HandleGetConformanceCheckDeeplink()(&core.RequestEvent{
+				App: app,
+				Event: router.Event{
+					Request:  req,
+					Response: rec,
+				},
+			})
+			requireHandlerErrorHandled(t, rec, err)
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+
+			body := decodeHandlerErrorResponse(t, rec)
+			require.Equal(t, "file", body.Error.Domain)
+			require.Equal(t, "failed to read template file", body.Error.Reason)
+			require.Contains(t, body.Error.Message, "missing-check.yaml")
+		})
+	}
+}
