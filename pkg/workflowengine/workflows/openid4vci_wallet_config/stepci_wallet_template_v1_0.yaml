@@ -22,6 +22,10 @@ tests:
         http:
           url: https://capture-wallet.credimi.io/sessions
           method: POST
+          json:
+            issuer_configuration_id: eu-pid-device-bound
+            flow: authorization_code
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
           check:
             status: 201
           captures:
@@ -57,10 +61,6 @@ tests:
                 - isDefined: true
                 - isString: true
                 - isNull: false
-              $.observed.wallet_jwks.jwks:
-                - isDefined: true
-                - isObject: true
-                - isNull: false
               $.checks.pkce_present:
                 - eq: true
               $.checks.pkce_valid:
@@ -80,20 +80,31 @@ tests:
               jsonpath: $.observed.client_id.value
             redirect_uri:
               jsonpath: $.observed.redirect_uri.value
+      - name: Get wallet holder-binding JWKS
+        http:
+          url: https://capture-wallet.credimi.io/sessions/${{ captures.session_id }}/jwks
+          method: GET
+          check:
+            status: 200
+            jsonpath:
+              $.keys[0].kty:
+                - isDefined: true
+                - isString: true
+          captures:
             jwks_kty:
-              jsonpath: $.observed.wallet_jwks.jwks.keys[0].kty
+              jsonpath: $.keys[0].kty
             jwks_crv:
-              jsonpath: $.observed.wallet_jwks.jwks.keys[0].crv
+              jsonpath: $.keys[0].crv
             jwks_alg:
-              jsonpath: $.observed.wallet_jwks.jwks.keys[0].alg
+              jsonpath: $.keys[0].alg
             jwks_use:
-              jsonpath: $.observed.wallet_jwks.jwks.keys[0].use
+              jsonpath: $.keys[0].use
             jwks_kid:
-              jsonpath: $.observed.wallet_jwks.jwks.keys[0].kid
+              jsonpath: $.keys[0].kid
             jwks_x:
-              jsonpath: $.observed.wallet_jwks.jwks.keys[0].x
+              jsonpath: $.keys[0].x
             jwks_y:
-              jsonpath: $.observed.wallet_jwks.jwks.keys[0].y
+              jsonpath: $.keys[0].y
       - name: Create OpenID certification test plan
         http:
           url: https://www.certification.openid.net/api/plan
