@@ -2749,7 +2749,7 @@ func TestDCQLResponseConstraintsValidatorRejectsMalformedEvidence(t *testing.T) 
 			value:   map[string]any{"dcql_query": map[string]any{}},
 			params:  map[string]any{"mode": "unsupported_mode"},
 			status:  StatusError,
-			message: "mode must be",
+			message: "unsupported mode",
 		},
 		{
 			name:    "evidence is not an object",
