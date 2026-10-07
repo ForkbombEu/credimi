@@ -71,7 +71,6 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				"checkName may only contain letters, numbers, dash and underscore",
 			)
 		}
-		appURL := e.App.Settings().Meta.AppURL
 		memo := map[string]any{
 			"author":   suite,
 			"standard": standard,
@@ -134,9 +133,8 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				CheckID:    id,
 				Parameters: map[string]any{"session_id": uuid.NewString()},
 			},
-			Config: workflowengine.WithInternalAppURL(map[string]any{
+			Config: workflowengine.WithAppConfig(e.App, map[string]any{
 				"memo":      memo,
-				"app_url":   appURL,
 				"template":  string(templateData),
 				"namespace": "default",
 			}),

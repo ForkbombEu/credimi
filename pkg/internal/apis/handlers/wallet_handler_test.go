@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -33,7 +33,7 @@ func setupWalletApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	canonify.RegisterCanonifyHooks(app)
-	WalletTemporalInternalRoutes.Add(app)
+	WalletInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 	return app
 }
@@ -59,160 +59,6 @@ func NewTestFile(name string, content []byte) *filesystem.File {
 		OriginalName: name,
 		Size:         int64(len(content)),
 	}
-}
-
-func TestWalletDeleteTempVersion(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	t.Run("requires internal admin key", func(t *testing.T) {
-		scenario := tests.ApiScenario{
-			Name:           "missing key",
-			Method:         http.MethodDelete,
-			URL:            "/api/wallet/temp-version/missing",
-			ExpectedStatus: http.StatusUnauthorized,
-			ExpectedContent: []string{
-				"api_key_required",
-			},
-			TestAppFactory: setupWalletApp,
-		}
-		scenario.Test(t)
-	})
-
-	t.Run("deletes existing wallet version", func(t *testing.T) {
-		app := setupWalletApp(t)
-		defer app.Cleanup()
-
-		versionID := createWalletAPKVersion(t, app, orgID, "wallet-temp-delete", "abc123")
-		versionRecord, err := canonify.Resolve(app, versionID)
-		require.NoError(t, err)
-
-		baseRouter, err := apis.NewRouter(app)
-		require.NoError(t, err)
-		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-			mux, err := e.Router.BuildMux()
-			require.NoError(t, err)
-
-			req := httptest.NewRequest(
-				http.MethodDelete,
-				"/api/wallet/temp-version/"+versionRecord.Id,
-				jsonBody(map[string]any{
-					"expected_owner_id":   orgID,
-					"expected_identifier": versionID,
-				}),
-			)
-			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusOK, rec.Code)
-			require.Contains(t, rec.Body.String(), `"deleted":true`)
-			return nil
-		})
-		require.NoError(t, serveErr)
-
-		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
-		require.Error(t, err)
-	})
-
-	t.Run("rejects existing wallet version without validation payload", func(t *testing.T) {
-		app := setupWalletApp(t)
-		defer app.Cleanup()
-
-		versionID := createWalletAPKVersion(t, app, orgID, "wallet-temp-no-payload", "abc123")
-		versionRecord, err := canonify.Resolve(app, versionID)
-		require.NoError(t, err)
-
-		baseRouter, err := apis.NewRouter(app)
-		require.NoError(t, err)
-		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-			mux, err := e.Router.BuildMux()
-			require.NoError(t, err)
-
-			req := httptest.NewRequest(
-				http.MethodDelete,
-				"/api/wallet/temp-version/"+versionRecord.Id,
-				nil,
-			)
-			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusBadRequest, rec.Code)
-			require.Contains(t, rec.Body.String(), "delete validation payload is required")
-			return nil
-		})
-		require.NoError(t, serveErr)
-
-		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
-		require.NoError(t, err)
-	})
-
-	t.Run("rejects owner mismatch", func(t *testing.T) {
-		app := setupWalletApp(t)
-		defer app.Cleanup()
-
-		versionID := createWalletAPKVersion(t, app, orgID, "wallet-temp-owner-mismatch", "abc123")
-		versionRecord, err := canonify.Resolve(app, versionID)
-		require.NoError(t, err)
-
-		baseRouter, err := apis.NewRouter(app)
-		require.NoError(t, err)
-		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-			mux, err := e.Router.BuildMux()
-			require.NoError(t, err)
-
-			req := httptest.NewRequest(
-				http.MethodDelete,
-				"/api/wallet/temp-version/"+versionRecord.Id,
-				jsonBody(map[string]any{
-					"expected_owner_id":   "other-owner",
-					"expected_identifier": versionID,
-				}),
-			)
-			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusForbidden, rec.Code)
-			require.Contains(t, rec.Body.String(), "owner mismatch")
-			return nil
-		})
-		require.NoError(t, serveErr)
-
-		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
-		require.NoError(t, err)
-	})
-
-	t.Run("missing record is idempotent success", func(t *testing.T) {
-		app := setupWalletApp(t)
-		defer app.Cleanup()
-
-		baseRouter, err := apis.NewRouter(app)
-		require.NoError(t, err)
-		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-			mux, err := e.Router.BuildMux()
-			require.NoError(t, err)
-
-			req := httptest.NewRequest(
-				http.MethodDelete,
-				"/api/wallet/temp-version/missingrecord12",
-				nil,
-			)
-			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusOK, rec.Code)
-			require.Contains(t, rec.Body.String(), `"deleted":false`)
-			return nil
-		})
-		require.NoError(t, serveErr)
-	})
 }
 
 type walletWorkflowStub struct {
@@ -551,6 +397,30 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 				`"wallet version not found"`,
 			},
 			TestAppFactory: setupWalletApp,
+		},
+		{
+			Name:   "get installer MD5 for a wallet without versions",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_identifier": "usera-s-organization/empty-wallet",
+				"platform":          "android",
+			}),
+			ExpectedStatus: 404,
+			ExpectedContent: []string{
+				`"wallet version not found"`,
+				`has no versions`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+				walletColl, err := app.FindCollectionByNameOrId("wallets")
+				require.NoError(t, err)
+				walletRecord := core.NewRecord(walletColl)
+				walletRecord.Set("name", "empty-wallet")
+				walletRecord.Set("owner", orgID)
+				require.NoError(t, app.Save(walletRecord))
+				return app
+			},
 		},
 		{
 			Name:   "get installer MD5 with invalid platform",
@@ -941,7 +811,10 @@ func TestHandleWalletStartCheckInvalidJSON(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.Error(t, err)
+	var apiErr *apierror.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "invalid JSON input", apiErr.Reason)
 }
 
 func TestHandleWalletStartCheckWorkflowStartError(t *testing.T) {

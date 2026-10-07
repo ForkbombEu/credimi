@@ -15,9 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// A runner call carries the same internal credential as any other internal
-// call; the separate activity exists for its name and its resolver, not for a
-// different contract.
+// A runner call carries the internal admin credential.
 func TestMobileRunnerHTTPActivityInjectsAPIKey(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "secret-key")
 	var calls int
@@ -63,22 +61,22 @@ func TestMobileRunnerHTTPActivityUsesQuickTunnelTransport(t *testing.T) {
 	require.Nil(t, mobilerunner.Transport("https://runner.example"))
 }
 
-func TestMobileRunnerHTTPActivityNameIsDistinct(t *testing.T) {
-	require.NotEqual(t, NewInternalHTTPActivity().Name(), NewMobileRunnerHTTPActivity().Name())
-}
-
-// Every runner-directed call must go through the dedicated activity. Routing
-// one through the internal activity resolves it with the host resolver, which
-// fails while a quick-tunnel hostname is still propagating - and that failure
-// used to surface only mid-pipeline.
-func TestInternalHTTPActivityRejectsRunnerDestinations(t *testing.T) {
+func TestMobileRunnerHTTPActivityOmittedExpectedStatusDoesNotExpectZero(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "secret-key")
-	_, err := NewInternalHTTPActivity().Execute(context.Background(), workflowengine.ActivityInput{
-		Payload: InternalHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL:    "https://demo.trycloudflare.com/credimi/execution-screenshots",
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	res, err := NewMobileRunnerHTTPActivity().Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: MobileRunnerHTTPActivityPayload{
+			Method: http.MethodGet,
+			URL:    server.URL,
 		},
 	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "mobile runner HTTP activity")
+	require.NoError(t, err)
+	output, ok := res.Output.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, http.StatusOK, output["status"])
 }

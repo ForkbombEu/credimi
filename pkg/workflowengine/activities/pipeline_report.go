@@ -11,25 +11,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"regexp"
 	"strings"
-	"time"
 
 	"github.com/forkbombeu/credimi-conformance-assessment/pkg/conformance"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipelinehistory"
+	"github.com/pocketbase/pocketbase/core"
 )
 
-const (
-	PipelineReportGenerationActivityName = "Generate pipeline conformance report"
-
-	pipelineReportStoreTimeout = 2 * time.Minute
-)
+const PipelineReportGenerationActivityName = "Generate pipeline conformance report"
 
 type PipelineReportGenerationActivity struct {
 	workflowengine.BaseActivity
+	app        core.App
 	outputKind pipelinehistory.OutputKindFunc
 }
 
@@ -39,7 +36,6 @@ type PipelineReportGenerationInput struct {
 	Namespace  string `json:"namespace"`
 	WorkflowID string `json:"workflow_id"`
 	RunID      string `json:"run_id"`
-	AppURL     string `json:"app_url"`
 	// PipelineOutputMeta holds the pipeline output keys that are not step outputs, such as
 	// warnings, which exist only in the workflow's memory.
 	PipelineOutputMeta map[string]any                   `json:"pipeline_output_meta,omitempty"`
@@ -56,10 +52,12 @@ type PipelineReportGenerationOutput struct {
 }
 
 func NewPipelineReportGenerationActivity(
+	app core.App,
 	outputKind pipelinehistory.OutputKindFunc,
 ) *PipelineReportGenerationActivity {
 	return &PipelineReportGenerationActivity{
 		BaseActivity: workflowengine.BaseActivity{Name: PipelineReportGenerationActivityName},
+		app:          app,
 		outputKind:   outputKind,
 	}
 }
@@ -170,7 +168,7 @@ func (a *PipelineReportGenerationActivity) Execute(
 	sum := sha256.Sum256([]byte(report.Markdown))
 	output := PipelineReportGenerationOutput{
 		MarkdownSHA256: hex.EncodeToString(sum[:]),
-		Filename:       sanitizeReportFilename(fixture) + ".md",
+		Filename:       pipelineresults.SanitizeReportFilename(fixture),
 		Fixture:        report.Fixture,
 		Slug:           report.Slug,
 		PassedCount:    report.PassedCount,
@@ -179,17 +177,12 @@ func (a *PipelineReportGenerationActivity) Execute(
 		output.Warnings = append(output.Warnings, "generated conformance report markdown is empty")
 		return workflowengine.ActivityResult{Output: output}, nil
 	}
-	if _, err := postInternalJSON(
-		ctx,
-		payload.AppURL,
-		[]string{"api", "pipeline", "pipeline-execution-results", "report"},
-		map[string]any{
-			"workflow_id": payload.WorkflowID,
-			"run_id":      payload.RunID,
-			"filename":    output.Filename,
-			"markdown":    report.Markdown,
-		},
-		pipelineReportStoreTimeout,
+	if err := pipelineresults.StoreReport(
+		a.app,
+		payload.WorkflowID,
+		payload.RunID,
+		output.Filename,
+		report.Markdown,
 	); err != nil {
 		output.Warnings = append(
 			output.Warnings,
@@ -220,16 +213,4 @@ func marshalRaw(value any) (json.RawMessage, error) {
 		return nil, err
 	}
 	return json.RawMessage(raw), nil
-}
-
-var unsafeReportFilenameChars = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
-
-func sanitizeReportFilename(name string) string {
-	name = strings.TrimSpace(name)
-	name = unsafeReportFilenameChars.ReplaceAllString(name, "-")
-	name = strings.Trim(name, ".-_")
-	if name == "" {
-		return "pipeline-report"
-	}
-	return name
 }

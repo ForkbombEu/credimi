@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -455,7 +456,7 @@ func TestCollectionListGetFilterAndWriteRejection(t *testing.T) {
 	require.Contains(t, rec.Body.String(), `"title":"Named Check One"`)
 
 	rec = serve(http.MethodGet, "/api/collections/conformance_checks/records/zzzzzzzzzzzzzzz", "")
-	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
 
 	rec = serve(http.MethodPost, "/api/collections/conformance_checks/records",
 		`{"path":"x","title":"y","fs_standard":"a","fs_version":"b","suite":"c","file":"d.yaml"}`)
@@ -512,6 +513,7 @@ func catalogTestMux(t *testing.T, app core.App) http.Handler {
 	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
 	require.NoError(t, app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
 		rg := e.Router.Group("/api/collections/conformance_checks")
+		rg.BindFunc(middlewares.ErrorHandlingMiddleware)
 		rg.GET("/records", RecordsListHTTP())
 		rg.GET("/records/{id}", RecordViewHTTP())
 		rg.POST("/records", RecordsWriteRejectHTTP())
@@ -519,6 +521,7 @@ func catalogTestMux(t *testing.T, app core.App) http.Handler {
 		rg.DELETE("/records/{id}", RecordsWriteRejectHTTP())
 
 		sg := e.Router.Group("/api/collections/conformance_suites")
+		sg.BindFunc(middlewares.ErrorHandlingMiddleware)
 		sg.GET("/records", SuitesListHTTP())
 		sg.GET("/records/{id}", SuiteViewHTTP())
 		sg.POST("/records", SuitesWriteRejectHTTP())

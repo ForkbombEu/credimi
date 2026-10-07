@@ -65,7 +65,10 @@ var WalletRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 	},
 }
-var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
+
+// WalletInternalRoutes are called by mobile runners: each route accepts the
+// internal admin key or a user token.
+var WalletInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/wallet",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
@@ -91,14 +94,6 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 				apis.BodyLimit(500 << 20),
 			},
 		},
-		{
-			Method:  http.MethodDelete,
-			Path:    "/temp-version/{record}",
-			Handler: HandleWalletDeleteTempVersion,
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
 	},
 }
 
@@ -116,16 +111,17 @@ type WalletStoreResult struct {
 	ActionIdentifier string `json:"action_identifier"`
 }
 
-func HandleWalletDeleteTempVersion() func(*core.RequestEvent) error {
-	return handleTempRecordDelete("wallet_versions", "wallet version")
-}
-
 func HandleWalletStartCheck() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var req WalletURL
 
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
-			return apis.NewBadRequestError("invalid JSON input", err)
+			return apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"invalid JSON input",
+				err.Error(),
+			)
 		}
 		organization, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
 		if err != nil {
@@ -147,9 +143,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 		}
 		// Start the workflow
 		workflowInput := workflowengine.WorkflowInput{
-			Config: workflowengine.WithInternalAppURL(map[string]any{
-				"app_url": e.App.Settings().Meta.AppURL,
-			}),
+			Config: workflowengine.WithAppConfig(e.App, map[string]any{}),
 			Payload: workflows.WalletWorkflowPayload{
 				URL: req.URL,
 			},
@@ -252,7 +246,12 @@ func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var req WalletInstallerMD5OrETagRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
-			return apis.NewBadRequestError("invalid JSON input", err)
+			return apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"invalid JSON input",
+				err.Error(),
+			)
 		}
 
 		// Validate that at least one identifier is provided
@@ -365,8 +364,11 @@ func getVersionRecord(
 		0,
 		map[string]any{"walletID": walletRecord.Id},
 	)
-	if err != nil || len(versionRecords) == 0 {
+	if err != nil {
 		return nil, err
+	}
+	if len(versionRecords) == 0 {
+		return nil, fmt.Errorf("wallet %s has no versions", walletIdentifier)
 	}
 
 	return versionRecords[0], nil
@@ -693,14 +695,6 @@ func authorizeWalletInstallerAccess(
 	e *core.RequestEvent,
 	versionRecord *core.Record,
 ) *apierror.APIError {
-	if versionRecord == nil {
-		return apierror.New(
-			http.StatusInternalServerError,
-			"wallet_version",
-			"wallet version missing",
-			"wallet version is required",
-		)
-	}
 	if isInternalAdminPrincipal(e.Auth) {
 		return nil
 	}

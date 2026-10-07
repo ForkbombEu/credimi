@@ -27,7 +27,6 @@ const (
 )
 
 type canonifyFixture struct {
-	ownerNamespace        string
 	privatePipelinePath   string
 	privatePipelineID     string
 	publicPipelinePath    string
@@ -48,8 +47,6 @@ func setupCanonifyApp(t *testing.T) (*tests.TestApp, canonifyFixture) {
 	canonify.RegisterCanonifyHooks(app)
 	recordsecrets.RegisterHooks(app)
 	CanonifyRoutes.Add(app)
-	CanonifyTemporalInternalRoutes.Add(app)
-	seedInternalAdminKey(t, app)
 
 	org, err := app.FindFirstRecordByFilter("organizations", `name="userB's organization"`)
 	require.NoError(t, err)
@@ -104,7 +101,6 @@ func setupCanonifyApp(t *testing.T) (*tests.TestApp, canonifyFixture) {
 	require.NoError(t, err)
 
 	return app, canonifyFixture{
-		ownerNamespace:        orgPath,
 		privatePipelinePath:   orgPath + "/" + pipeline.GetString("canonified_name"),
 		privatePipelineID:     pipeline.Id,
 		publicPipelinePath:    orgPath + "/" + publicPipeline.GetString("canonified_name"),
@@ -210,122 +206,6 @@ func TestHandleIdentifierValidateEnforcesViewRules(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := validate(tc.path, tc.headers)
-			require.Equal(t, tc.wantStatus, rec.Code, rec.Body.String())
-			for _, want := range tc.want {
-				require.Contains(t, rec.Body.String(), want)
-			}
-			for _, notWant := range tc.notWant {
-				require.NotContains(t, rec.Body.String(), notWant)
-			}
-		})
-	}
-}
-
-func TestHandleIdentifierResolveInternalScopesToOwnerOrganization(t *testing.T) {
-	app, fx := setupCanonifyApp(t)
-	defer app.Cleanup()
-	mux := buildAppMux(t, app)
-
-	const otherNamespace = "usera-s-organization"
-	resolve := func(path, collection, namespace, apiKey string) *httptest.ResponseRecorder {
-		req := httptest.NewRequest(
-			http.MethodPost,
-			"/api/canonify/internal/resolve",
-			strings.NewReader(`{"canonified_name":"`+path+`","collection":"`+collection+
-				`","owner_namespace":"`+namespace+`"}`),
-		)
-		req.Header.Set("Content-Type", "application/json")
-		if apiKey != "" {
-			req.Header.Set("Credimi-Api-Key", apiKey)
-		}
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-		return rec
-	}
-
-	cases := []struct {
-		name       string
-		path       string
-		collection string
-		namespace  string
-		apiKey     string
-		wantStatus int
-		want       []string
-		notWant    []string
-	}{
-		{
-			name:       "owner organization reads its unpublished pipeline",
-			path:       fx.privatePipelinePath,
-			collection: "pipelines",
-			namespace:  fx.ownerNamespace,
-			wantStatus: http.StatusOK,
-			want:       []string{canonifyPrivateYAML},
-		},
-		{
-			name:       "another organization reads a published pipeline",
-			path:       fx.publicPipelinePath,
-			collection: "pipelines",
-			namespace:  otherNamespace,
-			wantStatus: http.StatusOK,
-			want:       []string{`"__canonified_path__":"` + fx.publicPipelinePath + `"`},
-		},
-		{
-			name:       "another organization cannot read an unpublished pipeline",
-			path:       fx.privatePipelinePath,
-			collection: "pipelines",
-			namespace:  otherNamespace,
-			wantStatus: http.StatusNotFound,
-			notWant:    []string{canonifyPrivateYAML},
-		},
-		{
-			name:       "unknown owner namespace cannot read an unpublished pipeline",
-			path:       fx.privatePipelinePath,
-			collection: "pipelines",
-			namespace:  "missing-org",
-			wantStatus: http.StatusNotFound,
-			notWant:    []string{canonifyPrivateYAML},
-		},
-		{
-			name:       "a credential path never resolves as a wallet action",
-			path:       fx.privateCredentialPath,
-			collection: "wallet_actions",
-			namespace:  fx.ownerNamespace,
-			wantStatus: http.StatusNotFound,
-			notWant:    []string{canonifyPrivateSecret},
-		},
-		{
-			name:       "a published credential path never resolves as a wallet action",
-			path:       fx.publicCredentialPath,
-			collection: "wallet_actions",
-			namespace:  otherNamespace,
-			wantStatus: http.StatusNotFound,
-			notWant:    []string{canonifyPublicSecret},
-		},
-		{
-			name:       "credentials cannot be requested",
-			path:       fx.privateCredentialPath,
-			collection: "credentials",
-			namespace:  fx.ownerNamespace,
-			wantStatus: http.StatusBadRequest,
-			notWant:    []string{canonifyPrivateSecret},
-		},
-		{
-			name:       "requires the internal admin key",
-			path:       fx.publicPipelinePath,
-			collection: "pipelines",
-			namespace:  fx.ownerNamespace,
-			apiKey:     "-",
-			wantStatus: http.StatusUnauthorized,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			apiKey := "internal-test-api-key"
-			if tc.apiKey == "-" {
-				apiKey = ""
-			}
-			rec := resolve(tc.path, tc.collection, tc.namespace, apiKey)
 			require.Equal(t, tc.wantStatus, rec.Code, rec.Body.String())
 			for _, want := range tc.want {
 				require.Contains(t, rec.Body.String(), want)

@@ -9,9 +9,6 @@ RUN apk update && apk add --no-cache git
 ARG CREDIMI_EXTRA_PAT
 ENV CREDIMI_EXTRA_PAT=${CREDIMI_EXTRA_PAT}
 RUN git config --global url."${CREDIMI_EXTRA_PAT}".insteadOf "https://github.com/"
-RUN echo 🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥
-RUN echo ${CREDIMI_EXTRA_PAT}
-RUN echo 🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥
 COPY go.mod go.sum .
 RUN go mod download
 COPY . ./
@@ -69,8 +66,6 @@ RUN credimi migrate up
 
 
 WORKDIR /app/webapp
-ARG PUBLIC_POCKETBASE_URL
-ENV PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL}
 ARG PUBLIC_TURNSTILE_SITE_KEY
 ENV PUBLIC_TURNSTILE_SITE_KEY=${PUBLIC_TURNSTILE_SITE_KEY}
 ENV DATA_DB_PATH=/app/pb_data/data.db

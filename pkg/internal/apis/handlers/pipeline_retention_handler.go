@@ -23,62 +23,13 @@ import (
 )
 
 const (
-	pipelineRetentionDefaultBatchSize = 100
-	pipelineRetentionDefaultDays      = 30
-	pipelineRetentionDefaultInterval  = 1
-	pipelineRetentionScheduleID       = "pipeline-retention-schedule"
+	pipelineRetentionDefaultDays     = 30
+	pipelineRetentionDefaultInterval = 1
+	pipelineRetentionScheduleID      = "pipeline-retention-schedule"
 )
-
-var pipelineRetentionFileFields = []string{
-	"video_results",
-	"screenshots",
-	"maestro_screenshots",
-	"logcats",
-	"ios_logstreams",
-	"report",
-	"fcaf_report",
-	"fcaf_report_pdf",
-}
-
-var pipelineRetentionEvidenceFields = []string{
-	"credential_well_knowns",
-	"presentation_results",
-}
 
 var pipelineRetentionImmediateTriggerOptions = client.ScheduleTriggerOptions{
 	Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
-}
-
-type DeletePipelineResultFilesRequest struct {
-	OlderThanDays int  `json:"older_than_days" validate:"required,min=1"`
-	DryRun        bool `json:"dry_run"`
-	BatchSize     int  `json:"batch_size"      validate:"omitempty,min=1,max=500"`
-}
-
-type PipelineResultFileCounts struct {
-	VideoResults       int `json:"video_results"`
-	Screenshots        int `json:"screenshots"`
-	MaestroScreenshots int `json:"maestro_screenshots"`
-	Logcats            int `json:"logcats"`
-	IOSLogstreams      int `json:"ios_logstreams"`
-	Report             int `json:"report"`
-	FCAFReport         int `json:"fcaf_report"`
-	FCAFReportPDF      int `json:"fcaf_report_pdf"`
-	Total              int `json:"total"`
-}
-
-type DeletePipelineResultFilesResponse struct {
-	OlderThanDays    int                      `json:"older_than_days"`
-	DryRun           bool                     `json:"dry_run"`
-	BatchSize        int                      `json:"batch_size"`
-	CutoffField      string                   `json:"cutoff_field"`
-	Cutoff           string                   `json:"cutoff"`
-	TotalRecords     int                      `json:"total_records"`
-	ScannedRecords   int                      `json:"scanned_records"`
-	MatchedRecords   int                      `json:"matched_records"`
-	RecordsWithFiles int                      `json:"records_with_files"`
-	UpdatedRecords   int                      `json:"updated_records"`
-	DeletedFiles     PipelineResultFileCounts `json:"deleted_files"`
 }
 
 type SchedulePipelineRetentionRequest struct {
@@ -97,44 +48,6 @@ type DeletePipelineRetentionScheduleResponse struct {
 	Message           string `json:"message"`
 	ScheduleID        string `json:"schedule_id"`
 	WorkflowNamespace string `json:"workflowNamespace"`
-}
-
-func HandleDeletePipelineResultFiles() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		input, err := routing.GetValidatedInput[DeletePipelineResultFilesRequest](e)
-		if err != nil {
-			return apierror.New(
-				http.StatusBadRequest,
-				"request.validation",
-				"invalid_request",
-				err.Error(),
-			)
-		}
-
-		batchSize := input.BatchSize
-		if batchSize == 0 {
-			batchSize = pipelineRetentionDefaultBatchSize
-		}
-
-		cutoff := time.Now().UTC().AddDate(0, 0, -input.OlderThanDays)
-		response, err := deletePipelineResultFilesOlderThan(
-			e.App,
-			cutoff,
-			input.OlderThanDays,
-			input.DryRun,
-			batchSize,
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline_results",
-				"failed to delete retained files",
-				err.Error(),
-			)
-		}
-
-		return e.JSON(http.StatusOK, response)
-	}
 }
 
 func HandleSchedulePipelineRetentionWorkflow() func(*core.RequestEvent) error {
@@ -160,7 +73,6 @@ func HandleSchedulePipelineRetentionWorkflow() func(*core.RequestEvent) error {
 		}
 
 		namespace := workflows.DefaultNamespace
-		appURL := e.App.Settings().Meta.AppURL
 
 		c, err := scheduleTemporalClient(namespace)
 		if err != nil {
@@ -176,7 +88,7 @@ func HandleSchedulePipelineRetentionWorkflow() func(*core.RequestEvent) error {
 		scheduleID := pipelineRetentionScheduleID
 		options := buildPipelineRetentionScheduleOptions(
 			scheduleID,
-			appURL,
+			e.App,
 			olderThanDays,
 			intervalDays,
 		)
@@ -188,7 +100,7 @@ func HandleSchedulePipelineRetentionWorkflow() func(*core.RequestEvent) error {
 				err = handle.Update(ctx, client.ScheduleUpdateOptions{
 					DoUpdate: func(client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
 						return &client.ScheduleUpdate{Schedule: buildPipelineRetentionSchedule(
-							appURL,
+							e.App,
 							olderThanDays,
 							intervalDays,
 						)}, nil
@@ -269,7 +181,7 @@ func HandleDeletePipelineRetentionSchedule() func(*core.RequestEvent) error {
 
 func buildPipelineRetentionScheduleOptions(
 	scheduleID string,
-	appURL string,
+	app core.App,
 	olderThanDays int,
 	intervalDays int,
 ) client.ScheduleOptions {
@@ -277,12 +189,12 @@ func buildPipelineRetentionScheduleOptions(
 		ID:      scheduleID,
 		Spec:    buildPipelineRetentionScheduleSpec(intervalDays),
 		Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
-		Action:  buildPipelineRetentionScheduleAction(appURL, olderThanDays),
+		Action:  buildPipelineRetentionScheduleAction(app, olderThanDays),
 	}
 }
 
 func buildPipelineRetentionSchedule(
-	appURL string,
+	app core.App,
 	olderThanDays int,
 	intervalDays int,
 ) *client.Schedule {
@@ -294,7 +206,7 @@ func buildPipelineRetentionSchedule(
 		},
 		Policy: buildPipelineRetentionSchedulePolicy(),
 		State:  buildPipelineRetentionScheduleState(),
-		Action: buildPipelineRetentionScheduleAction(appURL, olderThanDays),
+		Action: buildPipelineRetentionScheduleAction(app, olderThanDays),
 	}
 }
 
@@ -317,7 +229,7 @@ func buildPipelineRetentionScheduleState() *client.ScheduleState {
 }
 
 func buildPipelineRetentionScheduleAction(
-	appURL string,
+	app core.App,
 	olderThanDays int,
 ) *client.ScheduleWorkflowAction {
 	workflowName := workflows.NewPipelineRetentionWorkflow().Name()
@@ -332,9 +244,7 @@ func buildPipelineRetentionScheduleAction(
 					OlderThanDays: olderThanDays,
 					DryRun:        false,
 				},
-				Config: workflowengine.WithInternalAppURL(map[string]any{
-					"app_url": appURL,
-				}),
+				Config: workflowengine.WithAppConfig(app, map[string]any{}),
 			},
 		},
 	}
@@ -353,157 +263,4 @@ func isScheduleAlreadyExistsError(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "already registered") ||
 		strings.Contains(msg, "already exists")
-}
-
-func deletePipelineResultFilesOlderThan(
-	app core.App,
-	cutoff time.Time,
-	olderThanDays int,
-	dryRun bool,
-	batchSize int,
-) (DeletePipelineResultFilesResponse, error) {
-	response := DeletePipelineResultFilesResponse{
-		OlderThanDays: olderThanDays,
-		DryRun:        dryRun,
-		BatchSize:     batchSize,
-		CutoffField:   "created",
-		Cutoff:        cutoff.Format(time.RFC3339),
-	}
-
-	totalRecords, err := countPipelineResultRecords(app)
-	if err != nil {
-		return response, fmt.Errorf("count pipeline_results: %w", err)
-	}
-	response.TotalRecords = totalRecords
-
-	offset := 0
-
-	for {
-		records, err := app.FindRecordsByFilter(
-			"pipeline_results",
-			"",
-			"created",
-			batchSize,
-			offset,
-		)
-		if err != nil {
-			return response, fmt.Errorf("list pipeline_results: %w", err)
-		}
-		if len(records) == 0 {
-			return response, nil
-		}
-
-		stop := false
-
-		for _, record := range records {
-			response.ScannedRecords++
-
-			created := record.GetDateTime("created").Time().UTC()
-			if created.After(cutoff) {
-				stop = true
-				break
-			}
-
-			response.MatchedRecords++
-			counts := countPipelineResultFiles(record)
-			hasFiles := counts.Total > 0
-			if !hasFiles && !hasPipelineResultEvidence(record) {
-				continue
-			}
-
-			if hasFiles {
-				response.RecordsWithFiles++
-			}
-			response.DeletedFiles = addPipelineResultFileCounts(response.DeletedFiles, counts)
-
-			if dryRun {
-				continue
-			}
-
-			clearPipelineResultFiles(record)
-			if err := app.Save(record); err != nil {
-				return response, fmt.Errorf("save pipeline_result %s: %w", record.Id, err)
-			}
-			response.UpdatedRecords++
-		}
-
-		if stop {
-			return response, nil
-		}
-
-		offset += len(records)
-	}
-}
-
-func countPipelineResultRecords(app core.App) (int, error) {
-	var total int
-
-	if err := app.RecordQuery("pipeline_results").
-		Select("count(*)").
-		Limit(1).
-		Row(&total); err != nil {
-		return 0, err
-	}
-
-	return total, nil
-}
-
-func countPipelineResultFiles(record *core.Record) PipelineResultFileCounts {
-	if record == nil {
-		return PipelineResultFileCounts{}
-	}
-
-	counts := PipelineResultFileCounts{
-		VideoResults:       len(record.GetStringSlice("video_results")),
-		Screenshots:        len(record.GetStringSlice("screenshots")),
-		MaestroScreenshots: len(record.GetStringSlice("maestro_screenshots")),
-		Logcats:            len(record.GetStringSlice("logcats")),
-		IOSLogstreams:      len(record.GetStringSlice("ios_logstreams")),
-		Report:             len(record.GetStringSlice("report")),
-		FCAFReport:         len(record.GetStringSlice("fcaf_report")),
-		FCAFReportPDF:      len(record.GetStringSlice("fcaf_report_pdf")),
-	}
-	counts.Total = counts.VideoResults + counts.Screenshots + counts.MaestroScreenshots +
-		counts.Logcats + counts.IOSLogstreams + counts.Report + counts.FCAFReport +
-		counts.FCAFReportPDF
-
-	return counts
-}
-
-func addPipelineResultFileCounts(
-	left PipelineResultFileCounts,
-	right PipelineResultFileCounts,
-) PipelineResultFileCounts {
-	left.VideoResults += right.VideoResults
-	left.Screenshots += right.Screenshots
-	left.MaestroScreenshots += right.MaestroScreenshots
-	left.Logcats += right.Logcats
-	left.IOSLogstreams += right.IOSLogstreams
-	left.Report += right.Report
-	left.FCAFReport += right.FCAFReport
-	left.FCAFReportPDF += right.FCAFReportPDF
-	left.Total += right.Total
-
-	return left
-}
-
-func clearPipelineResultFiles(record *core.Record) {
-	for _, field := range pipelineRetentionFileFields {
-		record.Set(field, []string{})
-	}
-	for _, field := range pipelineRetentionEvidenceFields {
-		record.Set(field, []any{})
-	}
-}
-
-func hasPipelineResultEvidence(record *core.Record) bool {
-	if record == nil {
-		return false
-	}
-	for _, field := range pipelineRetentionEvidenceFields {
-		if len(strings.TrimSpace(record.GetString(field))) > 0 {
-			return true
-		}
-	}
-	return false
 }

@@ -688,7 +688,7 @@ func TestMobileDeviceSemaphoreWorkflowQueueLimitIgnoresFailedTickets(t *testing.
 	w := NewMobileDeviceSemaphoreWorkflow()
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
-	startAct := activities.NewStartQueuedPipelineActivity()
+	startAct := activities.NewStartQueuedPipelineActivity(nil)
 	env.RegisterActivityWithOptions(
 		startAct.Execute,
 		activity.RegisterOptions{Name: startAct.Name()},
@@ -937,7 +937,7 @@ func TestMobileDeviceSemaphoreWorkflowRunStartsWhenCapacityAvailable(t *testing.
 	w := NewMobileDeviceSemaphoreWorkflow()
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
-	startAct := activities.NewStartQueuedPipelineActivity()
+	startAct := activities.NewStartQueuedPipelineActivity(nil)
 	env.RegisterActivityWithOptions(
 		startAct.Execute,
 		activity.RegisterOptions{Name: startAct.Name()},
@@ -1022,7 +1022,7 @@ func TestMobileDeviceSemaphoreWorkflowRunStartedSignalFailureDoesNotAbort(t *tes
 	w := NewMobileDeviceSemaphoreWorkflow()
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
-	startAct := activities.NewStartQueuedPipelineActivity()
+	startAct := activities.NewStartQueuedPipelineActivity(nil)
 	env.RegisterActivityWithOptions(
 		startAct.Execute,
 		activity.RegisterOptions{Name: startAct.Name()},
@@ -1216,7 +1216,7 @@ func TestMobileDeviceSemaphoreWorkflowRunStartFailureAdvancesQueue(t *testing.T)
 	w := NewMobileDeviceSemaphoreWorkflow()
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
-	startAct := activities.NewStartQueuedPipelineActivity()
+	startAct := activities.NewStartQueuedPipelineActivity(nil)
 	env.RegisterActivityWithOptions(
 		startAct.Execute,
 		activity.RegisterOptions{Name: startAct.Name()},
@@ -1339,7 +1339,7 @@ func TestMobileDeviceSemaphoreWorkflowRunStartFailureContinuesQueue(t *testing.T
 	w := NewMobileDeviceSemaphoreWorkflow()
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
-	startAct := activities.NewStartQueuedPipelineActivity()
+	startAct := activities.NewStartQueuedPipelineActivity(nil)
 	env.RegisterActivityWithOptions(
 		startAct.Execute,
 		activity.RegisterOptions{Name: startAct.Name()},
@@ -1456,7 +1456,7 @@ func TestMobileDeviceSemaphoreWorkflowRunDoneAdvancesQueue(t *testing.T) {
 	w := NewMobileDeviceSemaphoreWorkflow()
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
-	startAct := activities.NewStartQueuedPipelineActivity()
+	startAct := activities.NewStartQueuedPipelineActivity(nil)
 	env.RegisterActivityWithOptions(
 		startAct.Execute,
 		activity.RegisterOptions{Name: startAct.Name()},
@@ -1583,7 +1583,7 @@ func TestMobileDeviceSemaphoreWorkflowSafetyNetAdvancesQueue(t *testing.T) {
 	w := NewMobileDeviceSemaphoreWorkflow()
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
-	startAct := activities.NewStartQueuedPipelineActivity()
+	startAct := activities.NewStartQueuedPipelineActivity(nil)
 	env.RegisterActivityWithOptions(
 		startAct.Execute,
 		activity.RegisterOptions{Name: startAct.Name()},

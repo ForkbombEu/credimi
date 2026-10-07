@@ -532,7 +532,40 @@ func TestBuildWorkflowMetadataAndErrors(t *testing.T) {
 		require.Equal(t, "test-workflow", wf.metadata.WorkflowName)
 		require.NotEmpty(t, wf.metadata.WorkflowID)
 		require.NotEmpty(t, wf.metadata.Namespace)
-		require.Contains(t, wf.metadata.TemporalUI, "https://app.example.com")
+		require.Equal(
+			t,
+			"https://app.example.com/my/tests/runs/"+wf.metadata.WorkflowID+"/"+wf.metadata.RunID,
+			wf.metadata.TemporalUI,
+		)
+	})
+
+	t.Run("runs without app_url and leaves the run link empty", func(t *testing.T) {
+		for name, config := range map[string]map[string]any{
+			"no config":     nil,
+			"no app_url":    {"namespace": "default"},
+			"blank app_url": {"app_url": "  "},
+		} {
+			t.Run(name, func(t *testing.T) {
+				env := (&testsuite.WorkflowTestSuite{}).NewTestWorkflowEnvironment()
+				wf := &testWorkflow{
+					name:    "internal-workflow",
+					options: workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+					execute: func(_ workflow.Context, _ WorkflowInput) (WorkflowResult, error) {
+						return WorkflowResult{}, temporal.NewApplicationError("boom", "CRE-1")
+					},
+				}
+
+				wfFn := BuildWorkflow(wf)
+				env.RegisterWorkflow(wfFn)
+				env.ExecuteWorkflow(wfFn, WorkflowInput{Config: config})
+
+				var appErr *temporal.ApplicationError
+				require.ErrorAs(t, env.GetWorkflowError(), &appErr)
+				require.Equal(t, "CRE-1", appErr.Type())
+				require.NotNil(t, wf.metadata)
+				require.Empty(t, wf.metadata.TemporalUI)
+			})
+		}
 	})
 
 	t.Run("returns timeout error without wrapping", func(t *testing.T) {

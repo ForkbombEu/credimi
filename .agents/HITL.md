@@ -307,14 +307,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-09-10 — Temporal callbacks behind Cloudflare WAF
 
-- status: resolved
+- status: resolved (superseded)
 - owner: human maintainer
 - context: Temporal activities used the persisted public `app_url`, causing Cloudflare WAF/browser challenges to block server-to-server callbacks. Public links must remain on `app_url`, while callbacks need an origin-reachable URL.
 - question: How should deployments provide a callback URL without making persisted workflow links private?
 - options considered: Replace `app_url` globally with a compose hostname; add a separate optional internal URL with public fallback; add Cloudflare allow rules for every worker egress IP.
 - default risk: A private hostname in `app_url` breaks browsers, external runners, schedules, and cross-instance workers; WAF allowlists are operationally brittle.
 - decision: Use `CREDIMI_INTERNAL_APP_URL`, injected as separate workflow config `internal_app_url`; callback consumers prefer it and fall back to public `app_url`. Production deployments must provision all required credentials explicitly; Docker Compose does not add development host aliases.
-- follow-up: Non-Compose deployments must set `CREDIMI_INTERNAL_APP_URL` to a DNS name reachable from every Temporal worker that executes these workflows.
+- follow-up: Superseded on 2026-10-06: workers no longer call Credimi over HTTP (typed activities with `core.App`), so `CREDIMI_INTERNAL_APP_URL` and `internal_app_url` were removed. Deployments no longer need to set it.
 
 ## 2026-09-10 — Test app lifecycle: per-test `tests.NewTestApp` retained
 
@@ -370,14 +370,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-09-30 - AGENTS.md names pipeline/runner surfaces that no longer exist
 
-- status: open
+- status: resolved
 - owner: human maintainer
 - context: While writing the `credimi` skill, three `AGENTS.md` claims were checked against code and do not hold in this worktree: (1) "UI calls `POST /api/pipeline/start`" — no such route exists under `/api/pipeline` (`pkg/internal/apis/handlers/pipeline_handler.go`); the GUI (`webapp/src/lib/pipeline/queue.ts`) and the CLI both use `POST /api/pipeline/queue`, which starts device-less pipelines directly. (2) The external runner HTTP contract lists `POST {runner_url}/fetch-apk-and-action` and `/store-pipeline-result`; the code calls `/credimi/installer-action` and `/credimi/pipeline-result` (`pkg/workflowengine/pipeline/mobile_automation_hooks.go`). (3) `X-Api-Key` is documented for internal-admin routes; the middleware reads `Credimi-Api-Key` (`pkg/internal/middlewares/auth_api_key.go`, `pkg/internal/apis/handlers/api_key_service.go`); the same stale header appears in `docs/src/content/docs/software-architecture/scoreboard.md` and a comment in `pkg/conformancecatalog/store.go`.
 - question: Update `AGENTS.md` (and the scoreboard doc/comment) to the current routes and header, or treat the documented names as the intended contract and change the code back?
 - options considered: (a) fix the docs/comments to match code; (b) add compatibility aliases for the old runner endpoints and accept `X-Api-Key` as an alias; (c) add a `/api/pipeline/start` alias.
 - default risk: Agents and docs keep describing endpoints that 404, and sibling `credimi-extra` implementers may build against the wrong runner paths.
-- decision:
-- follow-up: Confirm (a) and update `AGENTS.md` "Dynamic Pipeline Workflow", "External runner HTTP contract" and "Routes, DTOs, Auth, Errors" sections.
+- decision: (1) resolved 2026-10-06 by the user: option (a), `AGENTS.md` "Dynamic Pipeline Workflow" now documents `POST /api/pipeline/queue` as the only run entrypoint. (3) applied: `AGENTS.md`, the scoreboard doc and the `pkg/conformancecatalog/store.go` comment now name `Credimi-Api-Key`. (2) resolved 2026-10-07 by the user: option (a), the "External runner HTTP contract" in `AGENTS.md` now documents `POST {runner_url}/credimi/installer-action` and `POST {runner_url}/credimi/pipeline-result` with `log_path` and `platform`, matching `mobile_automation_hooks.go` and `credimi-runner` (`pkg/design/runner_server.go`).
+- follow-up: None.
 
 ### 2026-10-01 - FCAF complete-validation exceeds Temporal 4 MB gRPC message limit
 
@@ -445,11 +445,11 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-10-05 - Server App URL reaches `InternalHTTPActivity` through a process-level source
 
-- status: open (agent default; human may revisit)
+- status: resolved (superseded)
 - owner: human maintainer
 - context: Finding `credimi/workflowengine/internal-app-url-from-user-config`. `InternalHTTPActivity` attaches `CREDIMI_INTERNAL_ADMIN_KEY` to a URL built from workflow config. The fix strips `app_url`/`internal_app_url` from user-controlled config (`MergeConfigs`, the pipeline YAML fill-in in `PipelineWorkflow.Start` and `StartQueuedPipelineActivity`, the rerun body copy) and makes the activity reject any destination whose origin is not `CREDIMI_INTERNAL_APP_URL` or the PocketBase App URL. The activity has no app handle: `NewInternalHTTPActivity()` takes no arguments and is built in ~30 places, including static worker lists and the step registry.
 - question: Should the server App URL reach the activity by dependency injection instead of `workflowengine.SetServerAppURLSource`, which `hooks.WorkersHook` calls once per process?
 - options considered: (a) process-level source registered at worker startup, read on each call so App URL edits apply without restart (chosen); (b) constructor injection through every `NewInternalHTTPActivity` call site, worker list and registry factory; (c) accept only `CREDIMI_INTERNAL_APP_URL`, which production Compose requires but other deployments may not set.
 - default risk: (a) is a package-level registration, which `AGENTS.md` discourages; a worker process that never calls `WorkersHook` and has no `CREDIMI_INTERNAL_APP_URL` fails closed with `no Credimi base URL is configured`. `credimi-extra` runner workers do not register this activity.
-- decision: pending human.
-- follow-up: The other admin-key senders (`postInternalJSON`, `SendPipelineCompletionNotificationActivity`, `postPipelineExecutionResult`, `CleanupMobileDeviceSemaphoreResourcesActivity`) take their base from the same now-stripped config or from server payloads but do not check the destination origin themselves; decide whether they should call `ValidateInternalAppURLDestination` too.
+- decision: Superseded on 2026-10-06 by the approved plan that removed worker-to-Credimi HTTP: `InternalHTTPActivity`, `SetServerAppURLSource`, `CREDIMI_INTERNAL_APP_URL` and `internal_app_url` no longer exist. Workers reach Credimi data through typed activities that receive `core.App` (`activities.CredimiActivities(app)`), and `app_url` is written only by `workflowengine.WithAppConfig` from PocketBase Settings.
+- follow-up: None. No admin-key sender targets Credimi anymore; the internal admin key is sent to runners through `mobile-runner-http-request` and, as the approved exception (2026-09-25), by the direct `POST {runner_url}/credimi/live-view` call in `pkg/internal/apis/handlers/pipeline_live_view_handler.go`.

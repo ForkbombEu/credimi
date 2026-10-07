@@ -190,26 +190,16 @@ func Test_EudiwWorkflow(t *testing.T) {
 	}
 }
 
-// registerEudiwLogPushActivity mocks the send-eudiw-log-update push, counting it
+// registerEudiwLogPushActivity mocks the eudiw realtime logs push, counting it
 // alongside the status and events polls.
 func registerEudiwLogPushActivity(
 	env *testsuite.TestWorkflowEnvironment,
 	callCount *atomic.Int32,
 ) {
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	env.RegisterActivityWithOptions(internalHTTPActivity.Execute, activity.RegisterOptions{
-		Name: internalHTTPActivity.Name(),
+	registerRealtimeLogsActivity(env)
+	onRealtimeLogsActivity(env, testWorkflowID+EudiwSubscription, func() {
+		callCount.Add(1)
 	})
-	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-		return matchesHTTPPayload(
-			input,
-			"https://test-app.com/api/compliance/send-eudiw-log-update",
-		)
-	})).
-		Run(func(_ mock.Arguments) {
-			callCount.Add(1)
-		}).
-		Return(workflowengine.ActivityResult{}, nil)
 }
 
 func TestEudiwWorkflowStart(t *testing.T) {

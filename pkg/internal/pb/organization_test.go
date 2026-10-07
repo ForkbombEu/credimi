@@ -113,11 +113,11 @@ func TestEnsureNamespaceAndWorkersCreatesNamespace(t *testing.T) {
 	}
 
 	started := make(chan string, 1)
-	startWorkersByNamespaceFn = func(namespace string) {
+	startWorkersByNamespaceFn = func(_ core.App, namespace string) {
 		started <- namespace
 	}
 
-	ensureNamespaceAndWorkers("tenant")
+	ensureNamespaceAndWorkers(nil, "tenant")
 
 	select {
 	case <-waitCalled:
@@ -159,11 +159,11 @@ func TestEnsureNamespaceAndWorkersSkipsExisting(t *testing.T) {
 		return nil
 	}
 
-	startWorkersByNamespaceFn = func(_ string) {
+	startWorkersByNamespaceFn = func(_ core.App, _ string) {
 		require.Fail(t, "startWorkersByNamespace should not be called")
 	}
 
-	ensureNamespaceAndWorkers("tenant")
+	ensureNamespaceAndWorkers(nil, "tenant")
 }
 
 func TestEnsureNamespaceAndWorkersSkipsWhenTemporalWorkersDisabled(t *testing.T) {
@@ -180,11 +180,11 @@ func TestEnsureNamespaceAndWorkersSkipsWhenTemporalWorkersDisabled(t *testing.T)
 		require.Fail(t, "newNamespaceClient should not be called")
 		return nil, nil
 	}
-	startWorkersByNamespaceFn = func(_ string) {
+	startWorkersByNamespaceFn = func(_ core.App, _ string) {
 		require.Fail(t, "startWorkersByNamespace should not be called")
 	}
 
-	ensureNamespaceAndWorkers("tenant")
+	ensureNamespaceAndWorkers(nil, "tenant")
 }
 
 func TestHookNamespaceOrgsAfterCreate(t *testing.T) {
@@ -200,7 +200,7 @@ func TestHookNamespaceOrgsAfterCreate(t *testing.T) {
 	})
 
 	var ensured string
-	ensureNamespaceAndWorkersFn = func(namespace string) {
+	ensureNamespaceAndWorkersFn = func(_ core.App, namespace string) {
 		ensured = namespace
 	}
 
@@ -213,7 +213,7 @@ func TestHookNamespaceOrgsAfterCreate(t *testing.T) {
 		oldNamespace string
 		runnerURLs   []string
 	}
-	startWorkerManagerFn = func(_ core.App, namespace, oldNamespace string, runnerURLs []string) {
+	startWorkerManagerFn = func(namespace, oldNamespace string, runnerURLs []string) {
 		started.namespace = namespace
 		started.oldNamespace = oldNamespace
 		started.runnerURLs = runnerURLs
@@ -557,7 +557,7 @@ func TestHookOrganizations_OrganizationPublishesToNonAdminRunners(t *testing.T) 
 		runnerURLs []string
 	}
 	calls := make(chan call, 1)
-	startWorkerManagerFn = func(_ core.App, namespace, oldNamespace string, runnerURLs []string) {
+	startWorkerManagerFn = func(namespace, oldNamespace string, runnerURLs []string) {
 		require.Empty(t, oldNamespace)
 		calls <- call{namespace: namespace, runnerURLs: runnerURLs}
 	}

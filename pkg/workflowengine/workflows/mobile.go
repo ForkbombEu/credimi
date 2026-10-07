@@ -112,15 +112,6 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
-	_ = appURL
-
 	taskqueue, ok := input.Config["taskqueue"].(string)
 	if !ok || strings.TrimSpace(taskqueue) == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(

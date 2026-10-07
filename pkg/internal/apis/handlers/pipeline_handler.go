@@ -5,22 +5,14 @@ package handlers
 
 import (
 	"context"
-	"crypto/sha256"
-	"database/sql"
-	"encoding/hex"
-	"errors"
-	"fmt"
 	"net/http"
-	"regexp"
 	"sort"
 	"strings"
 
-	"github.com/forkbombeu/credimi/pkg/fcaf/reportgeneration"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
-	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -28,7 +20,6 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
 
@@ -121,7 +112,9 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 }
 
-var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
+// PipelineInternalRoutes hold runner routes (step screenshots, mobile flow) and
+// operator routes for the scoreboard and retention schedules.
+var PipelineInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/pipeline",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
@@ -139,69 +132,12 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			},
 		},
 		{
-			Method:      http.MethodGet,
-			Path:        "/get-yaml",
-			Handler:     HandleGetPipelineYAML,
-			Description: "Get a pipeline YAML from a pipeline ID",
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-		{
 			Method:         http.MethodPost,
 			Path:           "/mobile-flow",
 			Handler:        HandlePipelineMobileFlow,
 			RequestSchema:  PipelineMobileFlowInput{},
 			ResponseSchema: PipelineMobileFlowResponse{},
 			Description:    "Run a wallet mobile action on the initialized device reserved by a running pipeline",
-		},
-		{
-			Method:        http.MethodPost,
-			Path:          "/pipeline-execution-results",
-			Handler:       HandleSetPipelineExecutionResults,
-			RequestSchema: PipelineResultInput{},
-			Description:   "Create pipeline execution results record",
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-		{
-			Method:        http.MethodPost,
-			Path:          "/pipeline-execution-results/evidence",
-			Handler:       HandleUpdatePipelineExecutionEvidence,
-			RequestSchema: PipelineResultEvidenceInput{},
-			Description:   "Update pipeline execution evidence fields",
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-		{
-			Method:        http.MethodPost,
-			Path:          "/pipeline-execution-results/report",
-			Handler:       HandleUpdatePipelineExecutionReport,
-			RequestSchema: PipelineResultReportInput{},
-			Description:   "Update pipeline execution markdown report file",
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-		{
-			Method:        http.MethodPost,
-			Path:          "/pipeline-execution-results/fcaf-report",
-			Handler:       HandleUpdatePipelineExecutionFCAFReport,
-			RequestSchema: PipelineResultFCAFReportInput{},
-			Description:   "Update the FCAF assessment JSON and PDF report files",
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-		{
-			Method:  http.MethodGet,
-			Path:    "/scoreboard/{namespace}",
-			Handler: HandleGetPipelineScoreboard,
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
 		},
 		{
 			Method:         http.MethodPost,
@@ -218,34 +154,6 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:        "/scoreboard/aggregate/schedule/{schedule_id}",
 			Handler:     HandleCancelAggregateScoreboardSchedule,
 			Description: "Cancel a scheduled aggregate scoreboard workflow",
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-		{
-			Method:      http.MethodGet,
-			Path:        "/execution-details/{namespace}/{workflow_id}/{run_id}",
-			Handler:     HandleGetExecutionDetails,
-			Description: "Get detailed information about a specific execution",
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-		{
-			Method:      http.MethodPost,
-			Path:        "/scoreboard/save-results",
-			Handler:     HandleSaveScoreboardResults,
-			Description: "Refresh the aggregate scoreboard",
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-		},
-		{
-			Method:        http.MethodPost,
-			Path:          "/retention/delete-files",
-			Handler:       HandleDeletePipelineResultFiles,
-			RequestSchema: DeletePipelineResultFilesRequest{},
-			Description:   "Delete retained pipeline result files older than the requested number of days",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
@@ -278,434 +186,6 @@ var pipelineTemporalClient = temporalclient.GetTemporalClientWithNamespace
 var pipelineListQueuedRuns = listQueuedPipelineRuns
 
 const pipelineListWorkflowsDefaultLimit = 1000
-
-func HandleGetPipelineYAML() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		pipelineIdentifier := e.Request.URL.Query().Get("pipeline_identifier")
-		if pipelineIdentifier == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"pipeline_identifier",
-				"pipeline_identifier is required",
-				"missing pipeline_identifier",
-			)
-		}
-
-		record, err := canonify.Resolve(e.App, pipelineIdentifier)
-		if err != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"pipeline_identifier",
-				"pipeline not found",
-				err.Error(),
-			)
-		}
-		yaml := record.GetString("yaml")
-		return e.String(http.StatusOK, yaml)
-	}
-}
-
-type PipelineResultInput struct {
-	Owner      string   `json:"owner"`
-	PipelineID string   `json:"pipeline_id"`
-	WorkflowID string   `json:"workflow_id"`
-	RunID      string   `json:"run_id"`
-	Type       string   `json:"type,omitempty"`
-	DeviceIDs  []string `json:"device_ids,omitempty"`
-}
-
-type PipelineResultEvidenceInput struct {
-	WorkflowID           string           `json:"workflow_id"`
-	RunID                string           `json:"run_id"`
-	CredentialWellKnowns []map[string]any `json:"credential_well_knowns"`
-	PresentationResults  []map[string]any `json:"presentation_results"`
-}
-
-type PipelineResultReportInput struct {
-	WorkflowID string `json:"workflow_id"`
-	RunID      string `json:"run_id"`
-	Filename   string `json:"filename"`
-	Markdown   string `json:"markdown"`
-}
-
-type PipelineResultFCAFReportInput struct {
-	WorkflowID string `json:"workflow_id"`
-	RunID      string `json:"run_id"`
-	JSON       string `json:"json"`
-}
-
-func pipelineRunType(input string) string {
-	input = strings.TrimSpace(input)
-	if input == "" {
-		return pipelineinternal.RunTypeManual
-	}
-	return input
-}
-
-func setPipelineRunType(record *core.Record, coll *core.Collection, runType string) {
-	if coll.Fields.GetByName("type") == nil {
-		return
-	}
-	record.Set("type", pipelineRunType(runType))
-}
-
-func HandleUpdatePipelineExecutionReport() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		input, err := routing.GetValidatedInput[PipelineResultReportInput](e)
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(input.WorkflowID) == "" || strings.TrimSpace(input.RunID) == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"workflow",
-				"workflow_id and run_id are required",
-				"missing workflow_id or run_id",
-			)
-		}
-		if strings.TrimSpace(input.Markdown) == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"report",
-				"markdown is required",
-				"missing markdown",
-			)
-		}
-
-		record, apiErr := findPipelineResultByWorkflowRun(e, input.WorkflowID, input.RunID)
-		if apiErr != nil {
-			return apiErr
-		}
-
-		filename := sanitizePipelineReportFilename(input.Filename)
-		file, err := filesystem.NewFileFromBytes([]byte(input.Markdown), filename)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"report",
-				"failed to create report file",
-				err.Error(),
-			)
-		}
-		record.Set("report", []*filesystem.File{file})
-		if err := e.App.Save(record); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline",
-				"failed to save pipeline report",
-				err.Error(),
-			)
-		}
-		return e.JSON(http.StatusOK, record.FieldsData())
-	}
-}
-
-func HandleUpdatePipelineExecutionFCAFReport() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		input, err := routing.GetValidatedInput[PipelineResultFCAFReportInput](e)
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(input.WorkflowID) == "" || strings.TrimSpace(input.RunID) == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"workflow",
-				"workflow_id and run_id are required",
-				"missing workflow_id or run_id",
-			)
-		}
-		if strings.TrimSpace(input.JSON) == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"report",
-				"json is required",
-				"missing FCAF report JSON",
-			)
-		}
-		record, apiErr := findPipelineResultByWorkflowRun(e, input.WorkflowID, input.RunID)
-		if apiErr != nil {
-			return apiErr
-		}
-		enrichedJSON, _, err := reportgeneration.EnrichReportJSON(e.App, record, []byte(input.JSON))
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"report",
-				"failed to enrich FCAF report",
-				err.Error(),
-			)
-		}
-		file, err := filesystem.NewFileFromBytes(enrichedJSON, "fcaf-assessment.json")
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"report",
-				"failed to create FCAF report file",
-				err.Error(),
-			)
-		}
-		record.Set("fcaf_report", []*filesystem.File{file})
-		if err := e.App.Save(record); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline",
-				"failed to save FCAF report",
-				err.Error(),
-			)
-		}
-
-		pdfData, err := generatePipelineFCAFReportPDF(
-			e.Request.Context(),
-			e.App,
-			record,
-			enrichedJSON,
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"report",
-				"failed to generate FCAF report PDF",
-				err.Error(),
-			)
-		}
-		pdfFile, err := filesystem.NewFileFromBytes(pdfData, "fcaf-assessment.pdf")
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"report",
-				"failed to create FCAF report PDF file",
-				err.Error(),
-			)
-		}
-		record.Set("fcaf_report_pdf", []*filesystem.File{pdfFile})
-		if err := e.App.Save(record); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline",
-				"failed to save FCAF report PDF",
-				err.Error(),
-			)
-		}
-		sum := sha256.Sum256(enrichedJSON)
-		fields := record.FieldsData()
-		fields["fcaf_report_sha256"] = hex.EncodeToString(sum[:])
-		return e.JSON(http.StatusOK, fields)
-	}
-}
-
-func HandleUpdatePipelineExecutionEvidence() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		input, err := routing.GetValidatedInput[PipelineResultEvidenceInput](e)
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(input.WorkflowID) == "" || strings.TrimSpace(input.RunID) == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"workflow",
-				"workflow_id and run_id are required",
-				"missing workflow_id or run_id",
-			)
-		}
-
-		record, apiErr := findPipelineResultByWorkflowRun(e, input.WorkflowID, input.RunID)
-		if apiErr != nil {
-			return apiErr
-		}
-
-		record.Set("credential_well_knowns", input.CredentialWellKnowns)
-		record.Set("presentation_results", input.PresentationResults)
-		if err := e.App.Save(record); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline",
-				"failed to save pipeline evidence",
-				err.Error(),
-			)
-		}
-		return e.JSON(http.StatusOK, record.FieldsData())
-	}
-}
-
-func findPipelineResultByWorkflowRun(
-	e *core.RequestEvent,
-	workflowID string,
-	runID string,
-) (*core.Record, *apierror.APIError) {
-	coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
-	if err != nil {
-		return nil, apierror.New(
-			http.StatusInternalServerError,
-			"collection",
-			"failed to get collection",
-			err.Error(),
-		)
-	}
-
-	record, err := e.App.FindFirstRecordByFilter(
-		coll,
-		"workflow_id = {:workflow_id} && run_id = {:run_id}",
-		dbx.Params{
-			"workflow_id": workflowID,
-			"run_id":      runID,
-		},
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, apierror.New(
-				http.StatusNotFound,
-				"pipeline",
-				"pipeline execution result not found",
-				"pipeline execution result not found for workflow_id and run_id",
-			)
-		}
-		return nil, apierror.New(
-			http.StatusInternalServerError,
-			"pipeline",
-			"failed to lookup pipeline execution result",
-			err.Error(),
-		)
-	}
-
-	return record, nil
-}
-
-var unsafePipelineReportFilenameChars = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
-
-func sanitizePipelineReportFilename(filename string) string {
-	filename = strings.TrimSpace(filename)
-	if filename == "" {
-		filename = "pipeline-report.md"
-	}
-	filename = unsafePipelineReportFilenameChars.ReplaceAllString(filename, "-")
-	filename = strings.Trim(filename, ".-_")
-	if filename == "" {
-		return "pipeline-report.md"
-	}
-	if !strings.HasSuffix(strings.ToLower(filename), ".md") {
-		filename += ".md"
-	}
-	return filename
-}
-
-func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		input, err := routing.GetValidatedInput[PipelineResultInput](e)
-		if err != nil {
-			return err
-		}
-
-		pipeline, err := canonify.Resolve(e.App, input.PipelineID)
-		if err != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"pipeline",
-				"pipeline not found",
-				err.Error(),
-			)
-		}
-
-		owner, err := canonify.Resolve(e.App, input.Owner)
-		if err != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"owner",
-				"owner not found",
-				err.Error(),
-			)
-		}
-
-		coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"collection",
-				"failed to get collection",
-				err.Error(),
-			)
-		}
-		runType := pipelineRunType(input.Type)
-		if !pipelineinternal.ValidRunType(runType) {
-			return apierror.New(
-				http.StatusBadRequest,
-				"type",
-				"invalid pipeline result type",
-				fmt.Sprintf("type must be one of %q, %q, or %q",
-					pipelineinternal.RunTypeManual,
-					pipelineinternal.RunTypeScheduled,
-					pipelineinternal.RunTypeCI,
-				),
-			)
-		}
-		deviceIDs := normalizeDeviceIDs(input.DeviceIDs)
-		if len(deviceIDs) > 0 {
-			if apiErr := validatePipelineRunnerAccess(e.App, owner.Id, deviceIDs); apiErr != nil {
-				return apiErr
-			}
-		}
-
-		existing, err := e.App.FindFirstRecordByFilter(
-			coll,
-			"workflow_id = {:workflow_id} && run_id = {:run_id}",
-			dbx.Params{
-				"workflow_id": input.WorkflowID,
-				"run_id":      input.RunID,
-			},
-		)
-		if err == nil {
-			if existing.GetString("owner") == owner.Id &&
-				existing.GetString("pipeline") == pipeline.Id {
-				return e.JSON(http.StatusOK, existing.FieldsData())
-			}
-			return apierror.New(
-				http.StatusConflict,
-				"pipeline",
-				"pipeline execution result already exists",
-				"pipeline execution result owner or pipeline mismatch",
-			)
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline",
-				"failed to lookup pipeline execution result",
-				err.Error(),
-			)
-		}
-
-		record := core.NewRecord(coll)
-		record.Set("owner", owner.Id)
-		record.Set("pipeline", pipeline.Id)
-		record.Set("workflow_id", input.WorkflowID)
-		record.Set("run_id", input.RunID)
-		if len(deviceIDs) > 0 {
-			deviceRecordIDs := make([]string, 0, len(deviceIDs))
-			for _, deviceID := range deviceIDs {
-				device, resolveErr := canonify.Resolve(e.App, deviceID)
-				if resolveErr != nil {
-					return apierror.New(
-						http.StatusNotFound,
-						"device_id",
-						"device not found",
-						resolveErr.Error(),
-					)
-				}
-				deviceRecordIDs = append(deviceRecordIDs, device.Id)
-			}
-			record.Set("devices", deviceRecordIDs)
-		}
-		setPipelineRunType(record, coll, runType)
-		if err := e.App.Save(record); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline",
-				"failed to save pipeline record",
-				err.Error(),
-			)
-		}
-		return e.JSON(http.StatusOK, record.FieldsData())
-	}
-}
 
 type pipelineExecutionScope struct {
 	Auth               *core.Record

@@ -7,41 +7,39 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// MakeExistsFunc reports whether candidateName is already used by another
+// record of collectionName under the same parent path. It returns an error
+// when the path cannot be built (for example a missing parent record) or the
+// lookup fails, because no other candidate name can succeed then.
 func MakeExistsFunc(
 	app core.App,
 	collectionName string,
 	rec *core.Record,
 	excludeID string,
-) func(candidateName string) bool {
-	return func(candidateName string) bool {
+) ExistsFunc {
+	return func(candidateName string) (bool, error) {
 		tpl, ok := CanonifyPaths[collectionName]
 		if !ok {
-			return true
+			return false, fmt.Errorf("canonify: no path template for collection %q", collectionName)
 		}
 		path, err := BuildPath(app, rec, tpl, candidateName)
 		if err != nil {
-			log.Printf("failed to build path: %s", err)
-			// if we cannot build path, assume it exists to prevent collision
-			return true
+			return false, fmt.Errorf("canonify: build path for %s: %w", collectionName, err)
 		}
 
 		existingRec, err := Resolve(app, path)
 		if err != nil {
-			if !errors.Is(err, sql.ErrNoRows) {
-				log.Printf("failed to resolve path: %s", err)
+			if errors.Is(err, sql.ErrNoRows) {
+				return false, nil
 			}
-			return !errors.Is(err, sql.ErrNoRows)
+			return false, fmt.Errorf("canonify: resolve path %s: %w", path, err)
 		}
-		if excludeID != "" && existingRec.Id == excludeID {
-			return false
-		}
-		return true
+		return excludeID == "" || existingRec.Id != excludeID, nil
 	}
 }
 

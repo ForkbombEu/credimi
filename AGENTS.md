@@ -156,8 +156,9 @@ Local dev process:
 - `make dev` starts infrastructure and runs the API/UI through `hivemind`.
 - `make dev.noworkers` is the same stack with `CREDIMI_TEMPORAL_WORKERS_DISABLED=1` so Temporal workers are not registered (faster boot; pipelines/workflows will not run).
 - Classic ports (primary checkout): Temporal gRPC `localhost:7233`, PocketBase `localhost:8090`, webapp `localhost:5100`, Temporal UI `localhost:8280`, embedded Temporal UI `127.0.0.1:8281` (`TEMPORAL_UI_EMBEDDED_PORT`).
-- PocketBase proxies `/{path...}` to `ADDRESS_UI` in `pkg/routes/routes.go`.
-- PocketBase proxies `/temporal-ui/...` to `ADDRESS_TEMPORAL_UI` (see "Embedded Temporal UI"); the Vite dev server forwards `/temporal-ui` to PocketBase so the page and the iframe share one origin.
+- PocketBase proxies `/{path...}` to `ADDRESS_UI` in `pkg/routes/routes.go`; unknown `/api/` paths answer `404` instead, because the Vite dev server proxies `/api` back to PocketBase.
+- PocketBase proxies `/temporal-ui/...` to `ADDRESS_TEMPORAL_UI` (see "Embedded Temporal UI").
+- The webapp talks to PocketBase on its own origin (`new PocketBase()`, base `/`); there is no build-time PocketBase URL. In dev and preview the Vite server forwards `/api`, `/_/` and `/temporal-ui` to `VITE_API`, so the page, the API and the Temporal UI iframe share one origin. Every deployment must serve the webapp through PocketBase's `/{path...}` proxy.
 - Parallel worktrees: require Worktrunk for bootstrap. Cursor sandboxes use `.cursor/worktrees.json` → `make worktree-bootstrap`; CLI worktrees use `.config/wt.toml` pre-start. Ports live in gitignored `.env.worktree`. Checkout path is per-user (not committed). Primary `make dev` keeps classic ports without Worktrunk. See developer-setup “Parallel worktrees”.
 
 Procfile dev processes (classic defaults; runtime Procfile substitutes worktree ports):
@@ -165,9 +166,11 @@ Procfile dev processes (classic defaults; runtime Procfile substitutes worktree 
 - `API`: waits for Temporal, then runs `go tool gow run -tags=credimi_extra main.go serve`.
 - `UI`: waits for PocketBase, then runs `cd webapp && bun i && bun dev`.
 
-WAF emulation:
+Workers and Credimi URLs:
 
-- Use `make waf-emulator` to reproduce the public proxy challenge from the host. Production Compose intentionally does not add host-gateway aliases.
+- Temporal workers run inside the `credimi serve` process and reach Credimi data through typed activities that receive `core.App` (`activities.CredimiActivities(app)`, registered in `pkg/workflowengine/hooks/hook.go`); they never call Credimi over HTTP with the internal admin key.
+- The public URL comes only from PocketBase Settings (Application URL). `workflowengine.WithAppConfig(app, config)` copies `app_url`, `app_name` and `app_logo` into workflow and schedule config at start; workflows read `app_url` only to build user-facing links. Workflow code never reads Settings itself: it must stay deterministic on replay, and runner workers have no PocketBase. `BuildWorkflow` builds the run link of workflow errors with `workflowengine.RunPageURL`, which is empty without `app_url`, so only workflows that build links require it. Activities that hold `app` read `workflowengine.AppURL(app)`.
+- Pipeline evidence extraction makes no call to Credimi either: `PipelineEvidenceSetupHook` resolves each evidence step's deeplink through the step's own registry child workflow (`credential-offer` / `use-case-verification-deeplink`, child ID `<run>-evidence-<step>`), and the extraction activity passes those deeplinks to `credoffer.ResolveDeeplink` / `presentation.ResolveDeeplink` of `eudi-conformance-evidence`, which only contact the external issuer and verifier.
 
 Persistence:
 
@@ -188,10 +191,10 @@ Conformance catalog refresh:
 - Filesystem under `config_templates` is the durable SoT.
 - Query cache is a process-private `:memory:` SQLite DB (not rows in `pb_data`).
 - Clients use the PocketBase URL shapes `/api/collections/conformance_checks/records` (check grain) and `/api/collections/conformance_suites/records` (suite grain; display metadata lives here — title/`suite_name`, optional `suite_subtitle`, logo/URLs; provider short labels from `config_templates/providers.yaml` as `provider_label` — see `docs/adr/0002-suite-grain-owns-catalog-display-metadata.md` and `docs/adr/0011-suite-title-subtitle-and-provider-labels.md`). Credimi owns those routes and runs filter/sort/pagination via `pocketbase/tools/search`. There is no durable `conformance_checks` or `conformance_suites` collection shell in `data.db` (and no migration that creates one).
-- Auth posture: list/get on both fake collection URLs are public (`AuthenticationRequired: false`), matching the former public blueprints/hub listing. Writes are rejected. Rebuild requires `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY`.
+- Auth posture: list/get on both fake collection URLs are public (`AuthenticationRequired: false`), matching the former public blueprints/hub listing. Writes are rejected. Rebuild requires `Credimi-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY`.
 - Boot rebuild: starting the API process rebuilds the ephemeral `:memory:` query cache (sole live projection; see `docs/adr/0001-ephemeral-catalog-sole-projection.md`).
 - Webapp typegen: `generate:collections-models` injects synthetic collection stubs from Go-emitted `columns.ts` (`pbType` included; no Kind remap); after `pocketbase-typegen`, `generate:catalog-pb-types` injects/upserts `conformance_checks` / `conformance_suites` into `CollectionRecords` / `CollectionResponses` (they are not in `data.db`). Client-column FE wire refresh: `make generate-catalog-wire` (see `docs/adr/0005-catalog-client-column-emit-owns-pb-type.md`).
-- Manual refresh after local template edits: `POST /api/conformance-catalog/rebuild` with `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` (same internal admin key as other Temporal-trusted routes). Package entrypoint: `pkg/conformancecatalog`.
+- Manual refresh after local template edits: `POST /api/conformance-catalog/rebuild` with `Credimi-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` (same internal admin key as the other runner/operator routes). Package entrypoint: `pkg/conformancecatalog`.
 
 Key environment variables:
 
@@ -201,8 +204,7 @@ Key environment variables:
 - `MOBILE_RUNNER_SEMAPHORE_DISABLED`: disables the mobile-runner semaphore path when configured.
 - `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`: mobile-runner queue wait timeout.
 - `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL`: how recent a runner heartbeat must be for its devices to be offered in catalog selectors (default 60s).
-- `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for trusted internal HTTP activities, internal result posting, and `POST /api/conformance-catalog/rebuild`.
-- `CREDIMI_INTERNAL_APP_URL`: deployment-local Temporal-worker-to-Credimi base URL; callback consumers prefer it while persisted `app_url` remains public. It must be provisioned wherever workers execute.
+- `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for Credimi-to-runner HTTP calls, the runner-facing and operator internal routes, and `POST /api/conformance-catalog/rebuild`.
 - `CREDIMI_SEED_SUPERUSER_PASSWORD`: password for the `admin@example.org` superuser seeded by `pb_migrations/1685000000_seed_admin.js`. `make dev` defaults it to `adminadmin` and `cmd/testdata-refresh` sets it for `test_pb_data`. Deployments must leave it unset: they create their first superuser through the PocketBase installer link or `credimi superuser upsert`, and `pb_migrations/1790780000_remove_default_seed_admin.js` removes or locks a leftover default-password `admin@example.org`.
 
 Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
@@ -239,16 +241,15 @@ Step outputs live in Temporal history, recorded once:
 - A main step whose inputs reference the output of a step that already failed (`continue_on_error`) fails before running with `CRE228` `step <id> needs the output of step <failed>, which failed` (`failedDependencyError`). References through `| optional` do not count, so `fcaf-validation` still runs.
 - Pipeline results and failure `Details.output` carry non-step entries (warnings, video and screenshot URLs, `finally_errors`) plus only the step outputs listed in `PipelineWorkflowInput.ReturnOutputs`. Top-level runs return none; a parent sets a child pipeline's `return_outputs` from the references in its own definition (`ReferencedStepOutputs`). `POST /api/pipeline/execute` returns all of them.
 
-Direct run path:
+Direct run path (no devices):
 
-- UI calls `POST /api/pipeline/start` with `{ pipeline_identifier, yaml }`.
-- Handler: `pkg/internal/apis/handlers/pipeline_handler.go`.
-- The handler resolves the canonified pipeline path and starts the Dynamic Pipeline Workflow on `PipelineTaskQueue` in the organization namespace.
-- The handler creates a `pipeline_results` record with `(owner, pipeline, workflow_id, run_id)`.
+- The UI (`webapp/src/lib/pipeline/queue.ts`) and the CLI always call `POST /api/pipeline/queue` with `{ pipeline_identifier, yaml }`; there is no `POST /api/pipeline/start` route.
+- When the YAML references no device (`resolvePipelineDeviceIDs` returns none and no global device is needed), `enqueuePipelineRun` skips the semaphore and `startPipelineFromQueue` (`pkg/internal/apis/handlers/pipeline_queue_handler.go`) starts the Dynamic Pipeline Workflow on `PipelineTaskQueue` in the organization namespace, answering `status: running`.
+- It then creates the `pipeline_results` record with `(owner, pipeline, workflow_id, run_id)` through `pipelineresults.Create`.
 
 Queued mobile run path:
 
-- UI logic in `webapp/src/lib/pipeline/utils.ts` chooses `/api/pipeline/queue` when the YAML contains a `mobile-automation` step.
+- When the YAML references devices, the same `POST /api/pipeline/queue` call enqueues the run on the mobile-device semaphore.
 - Queue handler: `pkg/internal/apis/handlers/pipeline_queue_handler.go`.
 - Queue endpoints require user auth:
     - `POST /api/pipeline/queue` with `{ pipeline_identifier, yaml }`
@@ -280,8 +281,8 @@ Grant/start path:
     - `mobile_device_semaphore_leader_device_id`
     - `mobile_device_semaphore_owner_namespace`
 - The pipeline reports completion to the leader semaphore through `ReportMobileDeviceSemaphoreDoneActivity` in `pkg/workflowengine/pipeline/semaphore_done.go`.
-- `pipeline_results` creation after Temporal start is best-effort and retried.
-- The internal result handler is idempotent on `(workflow_id, run_id)`.
+- `pipeline_results` creation after Temporal start is best-effort: `StartQueuedPipelineActivity` writes the row directly through `pipelineresults.Create`, and a failure is reported in the activity output without failing the start.
+- `pipelineresults.Create` is idempotent on `(workflow_id, run_id)`.
 - PocketBase uniqueness constraint: `(owner, workflow_id, run_id)` in `pb_migrations/1765364510_created_pipeline_results.js`.
 
 ## FCAF Embedded Validation
@@ -294,7 +295,7 @@ Grant/start path:
 - The generated pipeline runs all feasible scenarios with distinct prefixed step IDs, continues after scenario failures, merges exact named evidence sources, and performs one final validation for all catalog tests.
 - `fcaf sync` and `fcaf run` operate on the generated aggregate pipeline only. Do not move scenario sources back into the deployable pipelines directory.
 - Add or change tests in the owning scenario, regenerate the aggregate, and validate direct evidence coverage before removing any scenario.
-- `with.pipeline_outputs` reaches the `fcaf-validation` activity unresolved. The activity resolves it against the step outputs in the run's own history, stores the full report (with evidence values) through `POST /api/pipeline/pipeline-execution-results/fcaf-report` on the root run's `pipeline_results` row, and returns a compact report without evidence values, the stored file's `report_sha256`, and an `evidence_index` of `step_id`, history `event_id` and sha256 per evidence leaf. A storage failure fails the step.
+- `with.pipeline_outputs` reaches the `fcaf-validation` activity unresolved. The activity resolves it against the step outputs in the run's own history, stores the full report (with evidence values) directly on the root run's `pipeline_results` row (`storeFCAFReport` in `pkg/workflowengine/activities/fcaf_report_store.go`), and returns a compact report without evidence values, the stored file's `report_sha256`, and an `evidence_index` of `step_id`, history `event_id` and sha256 per evidence leaf. A storage failure fails the step.
 - `pipeline-report-generation` also reads the run's history and stores the markdown report itself; storage failures become cleanup warnings.
 
 ## CI Wallet APK Runs
@@ -319,8 +320,8 @@ Behavior:
 - It does not mutate the stored pipeline record.
 - Runtime cleanup is driven by server workflow input config `temp_wallet_version = { record_id, identifier, owner_id, cleanup: true }`.
 - `PipelineWorkflow.Start` ignores YAML-provided `config.temp_wallet_version`; that key is reserved for internal server input.
-- Cleanup calls internal `DELETE /api/wallet/temp-version/{record_id}` once per run with expected owner/identifier metadata.
-- The internal route rejects deletes that do not match the wallet version record.
+- Cleanup runs the `Delete a temporary record` activity once per run with expected owner/identifier metadata.
+- The activity rejects deletes that do not match the wallet version record (`CRE234`).
 - Canceling a not-yet-running wallet APK ticket deletes the temp `wallet_versions` record after semaphore cancellation succeeds.
 
 Known risk:
@@ -362,20 +363,18 @@ Runner host list shape:
 
 Internal lookup:
 
-- `GET /api/mobile-device?device_identifier=<canonified>` returns the selected
-  device's `{ device_id, runner_id, type, serial, runner_url }`.
-- `GET /api/mobile-device/semaphore?device_identifier=...` returns the selected
-  device semaphore state.
-- Handler: `pkg/internal/apis/handlers/mobile_runners_handlers.go`.
+- The `Get a mobile device` activity (`pkg/workflowengine/activities/credimi_mobile_devices.go`) returns the selected
+  device's `{ device_id, runner_id, type, serial, runner_url }` to the pipeline.
 
 External runner HTTP contract:
 
 - `POST {runner_url}/credimi/installer-action`
     - Body: `{ version_identifier, platform, device_identifier }`
     - Response: `{ installer_path, version_id }`
-    - Not called for `version_id: installed_from_external_source`. Credimi resolves a stored action's code itself through `POST /api/canonify/internal/resolve`, scoped to the pipeline's organization, and puts it in the step payload; runners never look wallet actions up.
-- `POST {runner_url}/store-pipeline-result`
-    - Body: `{ video_path, last_frame_path, logcat_path, run_identifier, device_identifier, instance_url }`
+    - Not called for `version_id: installed_from_external_source`. Credimi resolves a stored action's code itself through the `Resolve a Credimi record` activity, scoped to the pipeline's organization, and puts it in the step payload; runners never look wallet actions up.
+- `POST {runner_url}/credimi/pipeline-result`
+    - Header: `Credimi-Api-Key: <CREDIMI_INTERNAL_ADMIN_KEY>` (injected by `mobile-runner-http-request`)
+    - Body: `{ video_path, last_frame_path, log_path?, run_identifier, device_identifier, platform }`; `run_identifier` and `platform` are required, `log_path` is sent only when a log was recorded.
     - Response: `{ result_urls: string[], screenshot_urls: string[] }`
 - `POST {runner_url}/credimi/live-view`
     - Header: `Credimi-Api-Key: <CREDIMI_INTERNAL_ADMIN_KEY>`
@@ -412,10 +411,10 @@ Catalog availability and run-path health:
   `503 device runner is offline`. The helpers live in
   `pkg/internal/apis/handlers/mobile_runner_availability.go`.
 - Every Credimi-to-runner HTTP call goes through the `mobile-runner-http-request`
-  activity (`activities.NewMobileRunnerHTTPActivity`), never the generic
-  `internal-http-request`: `installer-action` and `pipeline-result` in
-  `mobile_automation_hooks.go`, and the worker-manager `POST {runner_url}/worker/{namespace}`.
-  It injects the same `CREDIMI_INTERNAL_ADMIN_KEY` credential and additionally
+  activity (`activities.NewMobileRunnerHTTPActivity`): `installer-action` and
+  `pipeline-result` in `mobile_automation_hooks.go`, and the worker-manager
+  `POST {runner_url}/worker/{namespace}`.
+  It injects the `CREDIMI_INTERNAL_ADMIN_KEY` credential and additionally
   resolves `*.trycloudflare.com` through Cloudflare DNS, and it keeps
   runner-directed calls identifiable in a run's Temporal history.
 - Runner availability rules and the runner HTTP client live in
@@ -445,8 +444,7 @@ Worker-manager start eligibility:
   `online`. The rule lives in `mobilerunnerlifecycle.EligibleForWorkerStart`
   (`pkg/internal/mobilerunnerlifecycle/worker_start.go`) and is applied by
   `pkg/workflowengine/hooks/worker_manager_runners.go` (server startup and
-  organization create/update) and by `GET /api/mobile-runner/list-urls`, which
-  only feeds the worker-manager workflow fallback.
+  organization create/update).
 - `RegisterMobileRunnerWorkerManagerHooks`
   (`pkg/internal/pb/mobile_runner_worker_manager.go`) starts workers when a
   runner update makes the runner startable, or switches a startable runner
@@ -486,8 +484,8 @@ Route wiring:
 
 Auth:
 
-- Route groups with `AuthenticationRequired=true` accept either `Authorization` token or `X-Api-Key`.
-- Temporal-internal routes enforce `X-Api-Key` via `RequireInternalAdminAPIKey`.
+- Route groups with `AuthenticationRequired=true` accept either `Authorization` token or `Credimi-Api-Key`.
+- Runner/operator routes guarded by the internal admin key enforce `Credimi-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` via `RequireInternalAdminAPIKey`.
 - Internal admin key surfaces are sensitive. Do not log keys or include them in test snapshots.
 
 Errors:
@@ -497,12 +495,13 @@ Errors:
 - Workflows wrap app errors with `workflowengine.NewWorkflowError`, adding metadata such as Temporal UI links.
 - API endpoints sometimes parse workflow errors through `workflowengine.ParseWorkflowError`.
 
-HTTP error response shapes are mixed:
+HTTP errors have two families, split by surface:
 
-- Direct `apierror.APIError`: `{status, error, reason, message}`.
-- Middleware-wrapped errors: `{ apiVersion:"2.0", error:{ code, message, errors:[{domain, reason, message}] } }`.
+- Credimi route groups (`routing.RouteGroup`, every group binds `middlewares.ErrorHandlingMiddleware`): handlers return only `apierror.New(code, domain, reason, message)`. The middleware renders `apierror.Response`: `{ apiVersion:"2.0", message, error:{ code, domain, reason, message } }`. The OpenAPI spec (`docs/public/API/openapi.yml`, `go generate ./pkg/gen.go`) documents that envelope.
+- PocketBase-native surfaces (record and auth hooks such as `OnRecordCreateRequest`, `turnstile.go`, the PocketBase collection API): use `apis.New*Error` / `e.*Error`, rendered by PocketBase as `{ status, message, data }`, which the PocketBase JS SDK parses.
+- Do not use PocketBase errors on Credimi route groups. As a backstop, `ErrorHandlingMiddleware` renders a stray `*router.ApiError` with its own status (domain `request`, reason = HTTP status text); any other error is a `500` with domain `internal` and reason `UnhandledException`.
 
-Follow the endpoint contract you are modifying. Do not normalize all error shapes opportunistically.
+An endpoint's status codes and reasons are part of its contract. Follow the contract you are modifying, and ask before changing them on endpoints you are not otherwise touching.
 
 ## Build, Test, Validate
 

@@ -298,7 +298,7 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			}),
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedContent: []string{
-				"runner not found",
+				"device not found",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				return setupPipelineQueueAppWithPipeline(t, orgID, unknownRunnerYaml)
@@ -1019,16 +1019,6 @@ func TestPipelineQueueHelpers(t *testing.T) {
 		require.Equal(t, []string{"runner-3/device-1"}, parseDeviceIDs(req))
 	})
 
-	t.Run("normalizeDeviceIDs dedupes and trims", func(t *testing.T) {
-		values := []string{" runner-2 , runner-1", "runner-2", "  ", "runner-3"}
-		require.Equal(t, []string{"runner-1", "runner-2", "runner-3"}, normalizeDeviceIDs(values))
-	})
-
-	t.Run("normalizeDeviceIDs trims leading slash", func(t *testing.T) {
-		values := []string{" /tenant/runner-2 , /tenant/runner-1", "tenant/runner-2"}
-		require.Equal(t, []string{"tenant/runner-1", "tenant/runner-2"}, normalizeDeviceIDs(values))
-	})
-
 	t.Run("runTicketNotFoundView sets status", func(t *testing.T) {
 		view := runTicketNotFoundView("ticket-123")
 		require.Equal(t, "ticket-123", view.TicketID)
@@ -1662,4 +1652,24 @@ func TestPipelineQueueTemporalHelpers(t *testing.T) {
 			runQueueUpdateID("enqueue", "/tenant/runner-1", "ticket-1"),
 		)
 	})
+}
+
+func TestBuildPipelineQueueConfigUsesSettingsAppConfig(t *testing.T) {
+	app := newStarterTestApp(t)
+
+	config := buildPipelineQueueConfig(
+		&core.RequestEvent{App: app},
+		"acme",
+		"Ada",
+		"ada@example.test",
+	)
+
+	require.Equal(t, map[string]any{
+		"namespace": "acme",
+		"user_name": "Ada",
+		"user_mail": "ada@example.test",
+		"app_url":   "https://app.example.com",
+		"app_name":  "Credimi",
+		"app_logo":  "https://app.example.com/logos/credimi_logo-transp_emblem.png",
+	}, config)
 }

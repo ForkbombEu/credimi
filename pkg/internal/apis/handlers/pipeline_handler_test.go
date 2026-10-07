@@ -16,9 +16,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
-	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -40,7 +38,7 @@ func setupPipelineApp(t testing.TB) *tests.TestApp {
 	ensureScoreboardExpandedDataField(t, app)
 	ensureScoreboardMinRunningTimeSecondsField(t, app)
 	canonify.RegisterCanonifyHooks(app)
-	PipelineTemporalInternalRoutes.Add(app)
+	PipelineInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 
 	return app
@@ -79,426 +77,6 @@ func setupPipelineStartApp(t testing.TB) *tests.TestApp {
 	PipelineRoutes.Add(app)
 
 	return app
-}
-
-func TestGetPipelineYAML(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	scenarios := []tests.ApiScenario{
-		{
-			Name:           "missing pipeline_identifier parameter",
-			Method:         http.MethodGet,
-			URL:            "/api/pipeline/get-yaml",
-			ExpectedStatus: 400,
-			ExpectedContent: []string{
-				`"pipeline_identifier"`,
-				`"pipeline_identifier is required"`,
-			},
-			Headers:        map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
-			TestAppFactory: setupPipelineApp,
-		},
-		{
-			Name:           "nonexistent pipeline identifier",
-			Method:         http.MethodGet,
-			URL:            "/api/pipeline/get-yaml?pipeline_identifier=does-not-exist",
-			ExpectedStatus: 404,
-			ExpectedContent: []string{
-				`"pipeline not found"`,
-			},
-			Headers:        map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
-			TestAppFactory: setupPipelineApp,
-		},
-		{
-			Name:           "valid pipeline identifier",
-			Method:         http.MethodGet,
-			URL:            "/api/pipeline/get-yaml?pipeline_identifier=usera-s-organization/pipeline123",
-			ExpectedStatus: 200,
-			ExpectedContent: []string{
-				`example-yaml-content`,
-			},
-			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupPipelineApp(t)
-
-				coll, err := app.FindCollectionByNameOrId("pipelines")
-				require.NoError(t, err)
-
-				record := core.NewRecord(coll)
-				record.Set("owner", orgID)
-				record.Set("name", "pipeline123")
-				record.Set("description", "test-description")
-				record.Set(
-					"steps",
-					map[string]any{"rest-chain": map[string]any{"yaml": "example-yaml-content"}},
-				)
-				record.Set("yaml", "example-yaml-content")
-				require.NoError(t, app.Save(record))
-
-				return app
-			},
-		},
-	}
-
-	for _, scenario := range scenarios {
-		scenario.Test(t)
-	}
-}
-
-func TestSetPipelineExecutionResults(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	scenarios := []tests.ApiScenario{
-		{
-			Name:           "missing request body",
-			Method:         http.MethodPost,
-			URL:            "/api/pipeline/pipeline-execution-results",
-			ExpectedStatus: 404,
-			ExpectedContent: []string{
-				"pipeline not found",
-			},
-			Headers:        map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
-			TestAppFactory: setupPipelineApp,
-		},
-		{
-			Name:   "valid pipeline execution result",
-			Method: http.MethodPost,
-			URL:    "/api/pipeline/pipeline-execution-results",
-			Body: jsonBody(map[string]any{
-				"owner":       "usera-s-organization",
-				"pipeline_id": "usera-s-organization/pipeline123",
-				"workflow_id": "workflow-xyz",
-				"run_id":      "run-001",
-				"type":        pipelineinternal.RunTypeCI,
-			}),
-			ExpectedStatus: 200,
-			ExpectedContent: []string{
-				`"owner"`,
-				`"pipeline"`,
-				`"workflow_id"`,
-				`"run_id"`,
-				`"type":"CI"`,
-			},
-			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
-				app := setupPipelineApp(t)
-
-				coll, err := app.FindCollectionByNameOrId("pipelines")
-				require.NoError(t, err)
-
-				record := core.NewRecord(coll)
-				record.Set("id", "pipeline1234567")
-				record.Set("owner", orgID)
-				record.Set("name", "pipeline123")
-				record.Set("description", "test-description")
-				record.Set(
-					"steps",
-					map[string]any{"rest-chain": map[string]any{"yaml": "example-yaml-content"}},
-				)
-				record.Set("yaml", "example-yaml-content")
-				require.NoError(t, app.Save(record))
-
-				return app
-			},
-		},
-	}
-
-	for _, scenario := range scenarios {
-		scenario.Test(t)
-	}
-}
-
-func TestSetPipelineExecutionResultsIdempotent(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	app := setupPipelineApp(t)
-	defer app.Cleanup()
-
-	coll, err := app.FindCollectionByNameOrId("pipelines")
-	require.NoError(t, err)
-
-	record := core.NewRecord(coll)
-	record.Set("id", "pipeline1234567")
-	record.Set("owner", orgID)
-	record.Set("name", "pipeline123")
-	record.Set("description", "test-description")
-	record.Set(
-		"steps",
-		map[string]any{"rest-chain": map[string]any{"yaml": "example-yaml-content"}},
-	)
-	record.Set("yaml", "example-yaml-content")
-	require.NoError(t, app.Save(record))
-
-	baseRouter, err := apis.NewRouter(app)
-	require.NoError(t, err)
-
-	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-		mux, err := e.Router.BuildMux()
-		require.NoError(t, err)
-
-		body := `{"owner":"usera-s-organization","pipeline_id":"usera-s-organization/pipeline123","workflow_id":"workflow-xyz","run_id":"run-001"}`
-		for i := 0; i < 2; i++ {
-			req := httptest.NewRequest(
-				http.MethodPost,
-				"/api/pipeline/pipeline-execution-results",
-				strings.NewReader(body),
-			)
-			req.Header.Set("content-type", "application/json")
-			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, req)
-			require.Equal(t, http.StatusOK, rec.Code)
-		}
-
-		records, err := app.FindRecordsByFilter(
-			"pipeline_results",
-			"workflow_id = {:workflow_id} && run_id = {:run_id}",
-			"",
-			-1,
-			0,
-			dbx.Params{
-				"workflow_id": "workflow-xyz",
-				"run_id":      "run-001",
-			},
-		)
-		require.NoError(t, err)
-		require.Len(t, records, 1)
-
-		return nil
-	})
-	require.NoError(t, serveErr)
-}
-
-func TestUpdatePipelineExecutionEvidence(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	app := setupPipelineApp(t)
-	defer app.Cleanup()
-
-	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
-	require.NoError(t, err)
-	pipelineRecord := core.NewRecord(pipelineColl)
-	pipelineRecord.Set("owner", orgID)
-	pipelineRecord.Set("name", "pipeline123")
-	pipelineRecord.Set("description", "test-description")
-	pipelineRecord.Set("yaml", "example-yaml-content")
-	require.NoError(t, app.Save(pipelineRecord))
-
-	resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
-	require.NoError(t, err)
-	if resultsColl.Fields.GetByName("credential_well_knowns") == nil {
-		resultsColl.Fields.Add(&core.JSONField{Name: "credential_well_knowns"})
-	}
-	if resultsColl.Fields.GetByName("presentation_results") == nil {
-		resultsColl.Fields.Add(&core.JSONField{Name: "presentation_results"})
-	}
-	require.NoError(t, app.Save(resultsColl))
-
-	resultRecord := core.NewRecord(resultsColl)
-	resultRecord.Set("owner", orgID)
-	resultRecord.Set("pipeline", pipelineRecord.Id)
-	resultRecord.Set("workflow_id", "workflow-evidence")
-	resultRecord.Set("run_id", "run-evidence")
-	require.NoError(t, app.Save(resultRecord))
-
-	baseRouter, err := apis.NewRouter(app)
-	require.NoError(t, err)
-
-	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-		mux, err := e.Router.BuildMux()
-		require.NoError(t, err)
-
-		req := httptest.NewRequest(
-			http.MethodPost,
-			"/api/pipeline/pipeline-execution-results/evidence",
-			jsonBody(map[string]any{
-				"workflow_id": "workflow-evidence",
-				"run_id":      "run-evidence",
-				"credential_well_knowns": []map[string]any{
-					{
-						"step_id":       "cred-step",
-						"credential_id": "tenant/credential-1",
-						"well_known":    map[string]any{"credential_issuer": "issuer-1"},
-					},
-				},
-				"presentation_results": []map[string]any{
-					{
-						"step_id":     "vp-step",
-						"use_case_id": "tenant/use-case-1",
-						"result":      map[string]any{"format": "jwt"},
-					},
-				},
-			}),
-		)
-		req.Header.Set("content-type", "application/json")
-		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-		require.Equal(t, http.StatusOK, rec.Code)
-
-		reloaded, err := app.FindRecordById("pipeline_results", resultRecord.Id)
-		require.NoError(t, err)
-		var credentialWellKnowns []map[string]any
-		var presentationResults []map[string]any
-		require.NoError(
-			t,
-			reloaded.UnmarshalJSONField("credential_well_knowns", &credentialWellKnowns),
-		)
-		require.NoError(
-			t,
-			reloaded.UnmarshalJSONField("presentation_results", &presentationResults),
-		)
-		require.Len(t, credentialWellKnowns, 1)
-		require.Len(t, presentationResults, 1)
-
-		return nil
-	})
-	require.NoError(t, serveErr)
-}
-
-func TestUpdatePipelineExecutionReport(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	app := setupPipelineApp(t)
-	defer app.Cleanup()
-
-	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
-	require.NoError(t, err)
-	pipelineRecord := core.NewRecord(pipelineColl)
-	pipelineRecord.Set("owner", orgID)
-	pipelineRecord.Set("name", "pipeline123")
-	pipelineRecord.Set("description", "test-description")
-	pipelineRecord.Set("yaml", "example-yaml-content")
-	require.NoError(t, app.Save(pipelineRecord))
-
-	resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
-	require.NoError(t, err)
-	if resultsColl.Fields.GetByName("report") == nil {
-		resultsColl.Fields.Add(&core.FileField{Name: "report", MaxSelect: 1})
-	}
-	require.NoError(t, app.Save(resultsColl))
-
-	resultRecord := core.NewRecord(resultsColl)
-	resultRecord.Set("owner", orgID)
-	resultRecord.Set("pipeline", pipelineRecord.Id)
-	resultRecord.Set("workflow_id", "workflow-report")
-	resultRecord.Set("run_id", "run-report")
-	require.NoError(t, app.Save(resultRecord))
-
-	baseRouter, err := apis.NewRouter(app)
-	require.NoError(t, err)
-
-	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-		mux, err := e.Router.BuildMux()
-		require.NoError(t, err)
-
-		req := httptest.NewRequest(
-			http.MethodPost,
-			"/api/pipeline/pipeline-execution-results/report",
-			jsonBody(map[string]any{
-				"workflow_id": "workflow-report",
-				"run_id":      "run-report",
-				"filename":    "../workflow report",
-				"markdown":    "# Report\n\nBody",
-			}),
-		)
-		req.Header.Set("content-type", "application/json")
-		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-		require.Equal(t, http.StatusOK, rec.Code)
-
-		reloaded, err := app.FindRecordById("pipeline_results", resultRecord.Id)
-		require.NoError(t, err)
-		files := reloaded.GetStringSlice("report")
-		require.Len(t, files, 1)
-		require.Contains(t, files[0], "workflow_report")
-		require.True(t, strings.HasSuffix(files[0], ".md"))
-
-		return nil
-	})
-	require.NoError(t, serveErr)
-}
-
-func TestUpdatePipelineExecutionReportValidationErrors(t *testing.T) {
-	scenarios := []struct {
-		name string
-		body map[string]any
-		want int
-	}{
-		{
-			name: "missing workflow identifiers",
-			body: map[string]any{"markdown": "# Report"},
-			want: http.StatusBadRequest,
-		},
-		{
-			name: "missing markdown",
-			body: map[string]any{
-				"workflow_id": "workflow-missing",
-				"run_id":      "run-missing",
-			},
-			want: http.StatusBadRequest,
-		},
-		{
-			name: "missing record",
-			body: map[string]any{
-				"workflow_id": "workflow-missing",
-				"run_id":      "run-missing",
-				"markdown":    "# Report",
-			},
-			want: http.StatusNotFound,
-		},
-	}
-
-	for _, scenario := range scenarios {
-		t.Run(scenario.name, func(t *testing.T) {
-			app := setupPipelineApp(t)
-			defer app.Cleanup()
-
-			resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
-			require.NoError(t, err)
-			if resultsColl.Fields.GetByName("report") == nil {
-				resultsColl.Fields.Add(&core.FileField{Name: "report", MaxSelect: 1})
-			}
-			require.NoError(t, app.Save(resultsColl))
-
-			baseRouter, err := apis.NewRouter(app)
-			require.NoError(t, err)
-
-			serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-			serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-				mux, err := e.Router.BuildMux()
-				require.NoError(t, err)
-
-				req := httptest.NewRequest(
-					http.MethodPost,
-					"/api/pipeline/pipeline-execution-results/report",
-					jsonBody(scenario.body),
-				)
-				req.Header.Set("content-type", "application/json")
-				req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-				rec := httptest.NewRecorder()
-				mux.ServeHTTP(rec, req)
-				require.Equal(t, scenario.want, rec.Code)
-				return nil
-			})
-			require.NoError(t, serveErr)
-		})
-	}
-}
-
-func TestSanitizePipelineReportFilename(t *testing.T) {
-	require.Equal(t, "pipeline-report.md", sanitizePipelineReportFilename(""))
-	require.Equal(t, "workflow-report.md", sanitizePipelineReportFilename("../workflow report"))
-	require.Equal(t, "workflow.md", sanitizePipelineReportFilename("workflow.md"))
-	require.Equal(t, "pipeline-report.md", sanitizePipelineReportFilename("///"))
 }
 
 func TestHandleListPipelineExecutionOverviewReturnsResults(t *testing.T) {
@@ -1666,4 +1244,82 @@ func TestBuildChildWorkflowParentQuery(t *testing.T) {
 			`(ParentWorkflowId="parent\"workflow\\2" AND ParentRunId="run\"2\\")`,
 		query,
 	)
+}
+
+func ensurePipelineRetentionEvidenceFields(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+
+	collection, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	if collection.Fields.GetByName("credential_well_knowns") == nil {
+		collection.Fields.Add(&core.JSONField{Name: "credential_well_knowns"})
+	}
+	if collection.Fields.GetByName("presentation_results") == nil {
+		collection.Fields.Add(&core.JSONField{Name: "presentation_results"})
+	}
+	if collection.Fields.GetByName("report") == nil {
+		collection.Fields.Add(&core.FileField{Name: "report", MaxSelect: 1})
+	}
+	if collection.Fields.GetByName("fcaf_report") == nil {
+		collection.Fields.Add(&core.FileField{Name: "fcaf_report", MaxSelect: 1})
+	}
+	if collection.Fields.GetByName("fcaf_report_pdf") == nil {
+		collection.Fields.Add(&core.FileField{Name: "fcaf_report_pdf", MaxSelect: 1})
+	}
+	require.NoError(t, app.Save(collection))
+}
+
+func setPipelineResultFiles(
+	t testing.TB,
+	app *tests.TestApp,
+	recordID string,
+	videoResults []string,
+	screenshots []string,
+	logcats []string,
+	iosLogstreams []string,
+) {
+	t.Helper()
+
+	_, err := app.DB().NewQuery(
+		`UPDATE pipeline_results
+		SET video_results = {:video_results},
+		    screenshots = {:screenshots},
+		    logcats = {:logcats},
+		    ios_logstreams = {:ios_logstreams}
+		WHERE id = {:id}`,
+	).Bind(dbx.Params{
+		"video_results":  mustMarshalJSONStringArray(t, videoResults),
+		"screenshots":    mustMarshalJSONStringArray(t, screenshots),
+		"logcats":        mustMarshalJSONStringArray(t, logcats),
+		"ios_logstreams": mustMarshalJSONStringArray(t, iosLogstreams),
+		"id":             recordID,
+	}).Execute()
+	require.NoError(t, err)
+}
+
+func setPipelineResultReport(t testing.TB, app *tests.TestApp, recordID string, report string) {
+	t.Helper()
+
+	_, err := app.DB().NewQuery(
+		`UPDATE pipeline_results
+		SET report = {:report}
+		WHERE id = {:id}`,
+	).Bind(dbx.Params{
+		"report": mustMarshalJSONStringArray(t, []string{report}),
+		"id":     recordID,
+	}).Execute()
+	require.NoError(t, err)
+}
+
+func mustMarshalJSONStringArray(t testing.TB, values []string) string {
+	t.Helper()
+
+	if values == nil {
+		values = []string{}
+	}
+
+	data, err := json.Marshal(values)
+	require.NoError(t, err)
+
+	return string(data)
 }

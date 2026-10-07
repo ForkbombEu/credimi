@@ -6,14 +6,12 @@ package workflows
 
 import (
 	"fmt"
-	"net/http"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/temporal"
@@ -92,7 +90,6 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	if ownerNamespace != "" {
 		config["namespace"] = ownerNamespace
 	}
-	appURL, _ := config["app_url"].(string)
 
 	if pipelineIdentifier == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
@@ -106,17 +103,10 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	if strings.TrimSpace(appURL) == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
 
 	// Resolve on behalf of the schedule's organization: the response is stored
 	// in Temporal history, which that organization can read.
-	httpActivity := activities.NewInternalHTTPActivity()
-	httpCtx := workflow.WithActivityOptions(
+	resolveCtx := workflow.WithActivityOptions(
 		ctx,
 		workflow.ActivityOptions{
 			ScheduleToCloseTimeout: time.Minute,
@@ -131,27 +121,16 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	)
 
 	request := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				appURL,
-				"api", "canonify", "internal", "resolve",
-			),
-			Headers: map[string]string{
-				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
-			},
-			Body: map[string]any{
-				"canonified_name": pipelineIdentifier,
-				"collection":      "pipelines",
-				"owner_namespace": ownerNamespace,
-			},
-			ExpectedStatus: 200,
+		Payload: activities.ResolveRecordInput{
+			CanonifiedName: pipelineIdentifier,
+			Collection:     "pipelines",
+			OwnerNamespace: ownerNamespace,
 		},
 	}
 
-	var httpResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(httpCtx, httpActivity.Name(), request).
-		Get(httpCtx, &httpResult); err != nil {
+	var resolveResult workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(resolveCtx, activities.ResolveRecordActivityName, request).
+		Get(resolveCtx, &resolveResult); err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
 			input.RunMetadata,
@@ -159,48 +138,15 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	}
 
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-	output, ok := httpResult.Output.(map[string]any)
+
+	record, ok := resolveResult.Output.(map[string]any)
 	if !ok {
 		appErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
 				Message: fmt.Sprintf("%s: invalid output format", errCode.Description),
-				Details: map[string]any{"payload": httpResult.Output},
-			},
-		)
-
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			appErr,
-			input.RunMetadata,
-		)
-	}
-
-	body, ok := output["body"].(map[string]any)
-	if !ok {
-		appErr := workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("%s: missing body in output", errCode.Description),
-				Details: map[string]any{"payload": output},
-			},
-		)
-
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			appErr,
-			input.RunMetadata,
-		)
-	}
-
-	record, ok := body["record"].(map[string]any)
-	if !ok {
-		appErr := workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("%s: missing record in body", errCode.Description),
-				Details: map[string]any{"payload": body},
+				Details: map[string]any{"payload": resolveResult.Output},
 			},
 		)
 
@@ -279,7 +225,6 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	}
 	if err := validateScheduledPipelineRunnerAccess(
 		ctx,
-		appURL,
 		ownerNamespace,
 		deviceIDs,
 		input.RunMetadata,
@@ -347,24 +292,14 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 
 func validateScheduledPipelineRunnerAccess(
 	ctx workflow.Context,
-	appURL string,
 	ownerNamespace string,
 	deviceIDs []string,
 	runMetadata *workflowengine.WorkflowRunMetadata,
 ) error {
-	httpActivity := activities.NewInternalHTTPActivity()
 	request := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				appURL,
-				"api", "mobile-runner", "validate-access",
-			),
-			Body: map[string]any{
-				"owner_namespace": ownerNamespace,
-				"device_ids":      deviceIDs,
-			},
-			ExpectedStatus: http.StatusOK,
+		Payload: activities.ValidateDeviceAccessInput{
+			OwnerNamespace: ownerNamespace,
+			DeviceIDs:      deviceIDs,
 		},
 	}
 
@@ -382,7 +317,7 @@ func validateScheduledPipelineRunnerAccess(
 		},
 	)
 	var result workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(accessCtx, httpActivity.Name(), request).
+	if err := workflow.ExecuteActivity(accessCtx, activities.ValidateDeviceAccessActivityName, request).
 		Get(accessCtx, &result); err != nil {
 		return workflowengine.NewWorkflowError(err, runMetadata)
 	}

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -23,7 +22,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/api/serviceerror"
@@ -105,7 +103,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var req StartScheduleRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
-			return apis.NewBadRequestError("invalid JSON input", err)
+			return apierror.New(http.StatusBadRequest, "request", "invalid JSON input", err.Error())
 		}
 
 		// Validate schedule mode
@@ -516,13 +514,6 @@ func startScheduledPipelineWithOptions(
 	globalDeviceID string,
 	maxPipelinesInQueue int,
 ) (SchedulePipelineStartInfo, error) {
-	appURL, ok := config["app_url"].(string)
-	if !ok || strings.TrimSpace(appURL) == "" {
-		return SchedulePipelineStartInfo{}, fmt.Errorf(
-			"schedule config missing app_url",
-		)
-	}
-
 	c, err := scheduleTemporalClient(namespace)
 	if err != nil {
 		return SchedulePipelineStartInfo{}, fmt.Errorf(

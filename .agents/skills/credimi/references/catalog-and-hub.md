@@ -35,7 +35,7 @@ Read-only PocketBase-shaped routes (public, `AuthenticationRequired: false`):
 
 Writes on those paths are rejected with HTTP 400 and a collection-specific `<collection> is a read-only catalog projection of config_templates` message. List/get run through `pocketbase/tools/search`, so `filter`, `sort`, `page`, `perPage`, `skipTotal` and the PocketBase ListResult shape apply.
 
-Refresh after editing templates: restart, or `POST /api/conformance-catalog/rebuild` → `{ok, count, source}`. That route is gated by the **internal admin API key in the `Credimi-Api-Key` header** (`key_type=internal_admin`, backed by the `api_keys` collection). A code comment in `pkg/conformancecatalog/store.go:127-129` still says `X-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY` — stale, ignore it. Boot rebuild skips a missing templates directory and fails bootstrap on any other error.
+Refresh after editing templates: restart, or `POST /api/conformance-catalog/rebuild` → `{ok, count, source}`. That route is gated by the **internal admin API key in the `Credimi-Api-Key` header** (`key_type=internal_admin`, backed by the `api_keys` collection). Boot rebuild skips a missing templates directory and fails bootstrap on any other error.
 
 ## Manual check files → GUI form
 
@@ -79,7 +79,7 @@ A wallet needs `published=true` and a `name`. The wallet page expands its action
 
 - The StepCI YAML for a credential lives on the `credentials` record (`yaml` + `secrets`); for a verifier flow on its **use case verification** record (`use_cases_verifications.yaml` + `.secrets`). Verifiers themselves have no StepCI YAML.
 - Static vs dynamic: a record with `yaml` is dynamic (re-executed for each offer/deeplink); a record with only `deeplink` is static.
-- Offer resolution: `GET /api/credential/get-credential-offer?credential_identifier=<path>` returns `{credential_offer, dynamic, code, secrets}` — dynamic records return the YAML to run, static ones their stored deeplink, and a record with neither gets a synthesised `openid-credential-offer://?credential_offer=<...>`.
+- Offer resolution: the `Get a credential offer` activity (`credential_identifier`) returns `{credential_offer, dynamic, code}` plus the parsed `secrets` in the activity result — dynamic records return the YAML to run, static ones their stored deeplink, and a record with neither gets a synthesised `openid-credential-offer://?credential_offer=<...>`.
 - Execution reads the StepCI capture named **`deeplink`** (`captures.deeplink`), which is the convention across credential offers, use case verifications, and conformance checks.
 - Preview: `POST /api/get-deeplink` `{yaml, secrets?}` runs the YAML and returns `{deeplink, steps, output}` with the full StepCI report.
 - CI runs rewrite a StepCI YAML's top-level `env.host` to the temporary record host; records without `env.host` are skipped. No `env.body` convention exists in code or templates.

@@ -8,12 +8,14 @@ import (
 	"strings"
 	"testing"
 
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 )
 
@@ -33,37 +35,33 @@ func TestPipelineRetentionWorkflow(t *testing.T) {
 					DryRun:        true,
 					BatchSize:     100,
 				},
-				Config: map[string]any{
-					"app_url": "https://credimi.test",
-				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				act := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
-					act.Execute,
-					activity.RegisterOptions{Name: act.Name()},
+					activities.NewDeletePipelineResultFilesActivity(nil).Execute,
+					activity.RegisterOptions{
+						Name: activities.DeletePipelineResultFilesActivityName,
+					},
 				)
 				env.OnActivity(
-					act.Name(),
+					activities.DeletePipelineResultFilesActivityName,
 					mock.Anything,
 					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-						payload, ok := input.Payload.(map[string]any)
-						if !ok {
-							return false
+						payload, err := workflowengine.DecodePayload[pipelineresults.DeleteFilesOptions](
+							input.Payload,
+						)
+						return err == nil && payload == pipelineresults.DeleteFilesOptions{
+							OlderThanDays: 30,
+							DryRun:        true,
+							BatchSize:     PipelineRetentionDefaultBatchSize,
 						}
-						url, _ := payload["url"].(string)
-						body, _ := payload["body"].(map[string]any)
-						return strings.Contains(url, "/api/pipeline/retention/delete-files") &&
-							body["batch_size"] == float64(PipelineRetentionDefaultBatchSize)
 					}),
 				).Return(
 					workflowengine.ActivityResult{
 						Output: map[string]any{
-							"body": map[string]any{
-								"older_than_days": 30.0,
-								"matched_records": 12.0,
-								"updated_records": 0.0,
-							},
+							"older_than_days": 30.0,
+							"matched_records": 12.0,
+							"updated_records": 0.0,
 						},
 					},
 					nil,
@@ -78,15 +76,29 @@ func TestPipelineRetentionWorkflow(t *testing.T) {
 			},
 		},
 		{
-			name: "missing app_url",
+			name: "activity error",
 			input: workflowengine.WorkflowInput{
 				Payload: PipelineRetentionWorkflowInput{
 					OlderThanDays: 30,
 				},
-				Config: map[string]any{},
 			},
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
-			expectError:    true,
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				env.RegisterActivityWithOptions(
+					activities.NewDeletePipelineResultFilesActivity(nil).Execute,
+					activity.RegisterOptions{
+						Name: activities.DeletePipelineResultFilesActivityName,
+					},
+				)
+				env.OnActivity(
+					activities.DeletePipelineResultFilesActivityName,
+					mock.Anything,
+					mock.Anything,
+				).Return(
+					workflowengine.ActivityResult{},
+					temporal.NewNonRetryableApplicationError("db failed", "CRE235", nil),
+				).Once()
+			},
+			expectError: true,
 		},
 		{
 			name: "invalid activity output",
@@ -94,26 +106,22 @@ func TestPipelineRetentionWorkflow(t *testing.T) {
 				Payload: PipelineRetentionWorkflowInput{
 					OlderThanDays: 30,
 				},
-				Config: map[string]any{
-					"app_url": "https://credimi.test",
-				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				act := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
-					act.Execute,
-					activity.RegisterOptions{Name: act.Name()},
+					activities.NewDeletePipelineResultFilesActivity(nil).Execute,
+					activity.RegisterOptions{
+						Name: activities.DeletePipelineResultFilesActivityName,
+					},
 				)
 				env.OnActivity(
-					act.Name(),
+					activities.DeletePipelineResultFilesActivityName,
 					mock.Anything,
 					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-						payload, ok := input.Payload.(map[string]any)
-						if !ok {
-							return false
-						}
-						body, _ := payload["body"].(map[string]any)
-						return body["batch_size"] == float64(PipelineRetentionDefaultBatchSize)
+						payload, err := workflowengine.DecodePayload[pipelineresults.DeleteFilesOptions](
+							input.Payload,
+						)
+						return err == nil && payload.BatchSize == PipelineRetentionDefaultBatchSize
 					}),
 				).Return(
 					workflowengine.ActivityResult{Output: "bad-output"},
@@ -131,6 +139,7 @@ func TestPipelineRetentionWorkflow(t *testing.T) {
 			tc.mockActivities(env)
 
 			w := NewPipelineRetentionWorkflow()
+			tc.input.Config = map[string]any{"app_url": "https://credimi.test"}
 			env.ExecuteWorkflow(w.Workflow, tc.input)
 
 			var result workflowengine.WorkflowResult

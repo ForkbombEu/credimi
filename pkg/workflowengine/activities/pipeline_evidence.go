@@ -16,21 +16,33 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/credoffer"
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/discovery"
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/presentation"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 const PipelineEvidenceExtractionActivityName = "Extract pipeline conformance evidence"
 
 type PipelineEvidenceExtractionActivity struct {
 	workflowengine.BaseActivity
+	app core.App
+	// storeRetrySleep waits d between evidence storage attempts and returns
+	// ctx.Err() when ctx ends first.
+	storeRetrySleep func(ctx context.Context, d time.Duration) error
 }
 
+// PipelineEvidenceExtractionInput carries the pipeline's evidence steps, the
+// deeplink the pipeline resolved in-process for each step (keyed by step ID, or
+// the resolution error), and the run whose pipeline result stores the evidence.
 type PipelineEvidenceExtractionInput struct {
 	WorkflowDefinition *pipelineinternal.WorkflowDefinition `json:"workflow_definition"`
-	CredimiBaseURL     string                               `json:"credimi_base_url"`
+	Deeplinks          map[string]string                    `json:"deeplinks,omitempty"`
+	DeeplinkErrors     map[string]string                    `json:"deeplink_errors,omitempty"`
+	WorkflowID         string                               `json:"workflow_id"`
+	RunID              string                               `json:"run_id"`
 }
 
 type PipelineEvidenceExtractionOutput struct {
@@ -40,9 +52,11 @@ type PipelineEvidenceExtractionOutput struct {
 	Warnings             []string         `json:"warnings,omitempty"`
 }
 
-func NewPipelineEvidenceExtractionActivity() *PipelineEvidenceExtractionActivity {
+func NewPipelineEvidenceExtractionActivity(app core.App) *PipelineEvidenceExtractionActivity {
 	return &PipelineEvidenceExtractionActivity{
-		BaseActivity: workflowengine.BaseActivity{Name: PipelineEvidenceExtractionActivityName},
+		BaseActivity:    workflowengine.BaseActivity{Name: PipelineEvidenceExtractionActivityName},
+		app:             app,
+		storeRetrySleep: sleepContext,
 	}
 }
 
@@ -50,6 +64,11 @@ func (a *PipelineEvidenceExtractionActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
+// Execute resolves the credential offers and presentation results of the
+// pipeline's evidence steps from the deeplinks the pipeline resolved in-process and stores the
+// extracted evidence on the run's pipeline result. Storage is retried while
+// the pipeline result is not yet created or the database fails; a final
+// storage failure is reported as a warning.
 func (a *PipelineEvidenceExtractionActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
@@ -67,18 +86,8 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 			},
 		)
 	}
-	if strings.TrimSpace(payload.CredimiBaseURL) == "" {
-		return workflowengine.ActivityResult{}, a.NewActivityError(
-			workflowengine.ActivityError{
-				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
-				Message: "credimi_base_url is required",
-			},
-		)
-	}
 
-	timeout := 30 * time.Second
-	client := &http.Client{Timeout: timeout}
+	client := &http.Client{Timeout: 30 * time.Second}
 	discovered, err := discoverWorkflowDefinition(payload.WorkflowDefinition)
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewActivityError(
@@ -111,7 +120,6 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 		client,
 		discovered.PresentationRequestSteps,
 		payload,
-		timeout,
 		&out.Warnings,
 	)
 	if len(out.CredentialWellKnowns) == 0 && len(out.PresentationResults) == 0 {
@@ -119,9 +127,78 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 			out.Warnings,
 			"no credential well-knowns or presentation results were extracted",
 		)
+		return workflowengine.ActivityResult{Output: out}, nil
 	}
+	a.storeEvidence(ctx, payload, &out)
 
 	return workflowengine.ActivityResult{Output: out}, nil
+}
+
+// evidenceStoreRetryWaits are the default waits between evidence storage
+// attempts. The pipeline result may be created after the evidence setup hook
+// starts, so a missing result or a database failure is retried.
+var evidenceStoreRetryWaits = []time.Duration{
+	1 * time.Second,
+	2 * time.Second,
+	4 * time.Second,
+	5 * time.Second,
+}
+
+func (a *PipelineEvidenceExtractionActivity) storeEvidence(
+	ctx context.Context,
+	payload PipelineEvidenceExtractionInput,
+	out *PipelineEvidenceExtractionOutput,
+) {
+	if strings.TrimSpace(payload.WorkflowID) == "" || strings.TrimSpace(payload.RunID) == "" {
+		out.Warnings = append(
+			out.Warnings,
+			"pipeline evidence storage skipped: missing workflow_id or run_id",
+		)
+		return
+	}
+	if err := a.storeEvidenceWithRetry(ctx, payload, out); err != nil {
+		out.Warnings = append(
+			out.Warnings,
+			fmt.Sprintf("pipeline evidence storage failed: %v", err),
+		)
+	}
+}
+
+func (a *PipelineEvidenceExtractionActivity) storeEvidenceWithRetry(
+	ctx context.Context,
+	payload PipelineEvidenceExtractionInput,
+	out *PipelineEvidenceExtractionOutput,
+) error {
+	attempts := len(evidenceStoreRetryWaits) + 1
+	for attempt := 1; ; attempt++ {
+		err := pipelineresults.StoreEvidence(
+			a.app,
+			payload.WorkflowID,
+			payload.RunID,
+			out.CredentialWellKnowns,
+			out.PresentationResults,
+		)
+		if err == nil || errors.Is(err, pipelineresults.ErrInvalidInput) {
+			return err
+		}
+		if attempt == attempts {
+			return fmt.Errorf("after %d attempts: %w", attempts, err)
+		}
+		if sleepErr := a.storeRetrySleep(ctx, evidenceStoreRetryWaits[attempt-1]); sleepErr != nil {
+			return fmt.Errorf("%w (retry canceled: %w)", err, sleepErr)
+		}
+	}
+}
+
+func sleepContext(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func discoverWorkflowDefinition(
@@ -152,13 +229,11 @@ func extractCredentialEvidence(
 			*warnings = append(*warnings, ctx.Err().Error())
 			return offers, wellKnowns, ctx.Err()
 		}
-		res := credoffer.Resolve(
-			client,
-			payload.CredimiBaseURL,
-			step.CredentialID,
-			"auto",
-			5,
-		)
+		deeplink, ok := stepDeeplink(payload, step, "credential", warnings)
+		if !ok {
+			continue
+		}
+		res := credoffer.ResolveDeeplink(client, step.CredentialID, deeplink, 5)
 		res.StepID = step.StepID
 		if res.Status != "ok" || res.CredentialOffer == nil {
 			appendCredentialWarning(warnings, step, res)
@@ -241,7 +316,6 @@ func extractPresentationResults(
 	client *http.Client,
 	steps []discovery.Step,
 	payload PipelineEvidenceExtractionInput,
-	timeout time.Duration,
 	warnings *[]string,
 ) []map[string]any {
 	results := make([]map[string]any, 0, len(steps))
@@ -250,14 +324,11 @@ func extractPresentationResults(
 			*warnings = append(*warnings, ctx.Err().Error())
 			return results
 		}
-		res := presentation.Resolve(
-			client,
-			payload.CredimiBaseURL,
-			step.UseCaseID,
-			"auto",
-			"auto",
-			timeout,
-		)
+		deeplink, ok := stepDeeplink(payload, step, "verification", warnings)
+		if !ok {
+			continue
+		}
+		res := presentation.ResolveDeeplink(client, step.UseCaseID, deeplink, "auto")
 		res.StepID = step.StepID
 		if res.Status != "ok" {
 			appendPresentationWarning(warnings, step, res)
@@ -270,6 +341,30 @@ func extractPresentationResults(
 		})
 	}
 	return results
+}
+
+// stepDeeplink returns the deeplink the pipeline resolved for step, or records
+// why it is missing as a warning.
+func stepDeeplink(
+	payload PipelineEvidenceExtractionInput,
+	step discovery.Step,
+	kind string,
+	warnings *[]string,
+) (string, bool) {
+	if reason, failed := payload.DeeplinkErrors[step.StepID]; failed {
+		*warnings = append(*warnings, fmt.Sprintf(
+			"failed to resolve %s deeplink for step %s: %s", kind, step.StepID, reason,
+		))
+		return "", false
+	}
+	deeplink := strings.TrimSpace(payload.Deeplinks[step.StepID])
+	if deeplink == "" {
+		*warnings = append(*warnings, fmt.Sprintf(
+			"no %s deeplink was resolved for step %s", kind, step.StepID,
+		))
+		return "", false
+	}
+	return deeplink, true
 }
 
 func buildPresentationResult(res *presentation.Result) map[string]any {

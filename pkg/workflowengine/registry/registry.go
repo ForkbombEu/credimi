@@ -9,6 +9,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 type TaskKind int
@@ -20,7 +21,7 @@ const (
 
 type TaskFactory struct {
 	Kind                TaskKind
-	NewFunc             func() any
+	NewFunc             func(app core.App) any
 	PayloadType         reflect.Type
 	PipelinePayloadType reflect.Type
 	OutputKind          workflowengine.OutputKind
@@ -34,33 +35,33 @@ type TaskFactory struct {
 var Registry = map[string]TaskFactory{
 	"http-request": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewHTTPActivity() },
+		NewFunc:     func(core.App) any { return activities.NewHTTPActivity() },
 		PayloadType: reflect.TypeOf(activities.HTTPActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"container-run": {
 		Kind:                TaskActivity,
-		NewFunc:             func() any { return activities.NewDockerActivity() },
+		NewFunc:             func(core.App) any { return activities.NewDockerActivity() },
 		PayloadType:         reflect.TypeOf(activities.DockerActivityPayload{}),
 		OutputKind:          workflowengine.OutputMap,
 		InheritedConfigKeys: []string{"HostIP"},
 	},
 	"email": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewSendMailActivity() },
+		NewFunc:     func(core.App) any { return activities.NewSendMailActivity() },
 		PayloadType: reflect.TypeOf(activities.SendMailActivityPayload{}),
 		OutputKind:  workflowengine.OutputString,
 	},
 	"rest-chain": {
 		Kind:                TaskActivity,
-		NewFunc:             func() any { return activities.NewStepCIWorkflowActivity() },
+		NewFunc:             func(core.App) any { return activities.NewStepCIWorkflowActivity() },
 		PayloadType:         reflect.TypeOf(activities.StepCIWorkflowActivityPayload{}),
 		OutputKind:          workflowengine.OutputMap,
 		InheritedConfigKeys: []string{"template"},
 	},
 	"json-parse": {
 		Kind: TaskActivity,
-		NewFunc: func() any {
+		NewFunc: func(core.App) any {
 			return activities.NewJSONActivity(map[string]reflect.Type{
 				"map": reflect.TypeOf(
 					map[string]any{},
@@ -72,71 +73,71 @@ var Registry = map[string]TaskFactory{
 	},
 	"jsonschema-validation": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewSchemaValidationActivity() },
+		NewFunc:     func(core.App) any { return activities.NewSchemaValidationActivity() },
 		PayloadType: reflect.TypeOf(activities.SchemaValidationActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"credential-issuer-validation": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewCheckCredentialsIssuerActivity() },
+		NewFunc:     func(core.App) any { return activities.NewCheckCredentialsIssuerActivity() },
 		PayloadType: reflect.TypeOf(activities.CheckCredentialsIssuerActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"cesr-parse": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewCESRParsingActivity() },
+		NewFunc:     func(core.App) any { return activities.NewCESRParsingActivity() },
 		PayloadType: reflect.TypeOf(activities.CESRParsingActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"cesr-validate": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewCESRValidateActivity() },
+		NewFunc:     func(core.App) any { return activities.NewCESRValidateActivity() },
 		PayloadType: reflect.TypeOf(activities.CesrValidateActivityPayload{}),
 		OutputKind:  workflowengine.OutputAny,
 	},
 	"appstore-url-validation": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewParseWalletURLActivity() },
+		NewFunc:     func(core.App) any { return activities.NewParseWalletURLActivity() },
 		PayloadType: reflect.TypeOf(activities.ParseWalletURLActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"mobile-automation": {
 		Kind:                TaskWorkflow,
-		NewFunc:             func() any { return workflows.NewMobileAutomationWorkflow() },
+		NewFunc:             func(core.App) any { return workflows.NewMobileAutomationWorkflow() },
 		PayloadType:         reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
 		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPipelinePayload{}),
 	},
 	"custom-check": {
 		Kind:        TaskWorkflow,
-		NewFunc:     func() any { return workflows.NewCustomCheckWorkflow() },
+		NewFunc:     func(core.App) any { return workflows.NewCustomCheckWorkflow() },
 		PayloadType: reflect.TypeOf(workflows.CustomCheckWorkflowPayload{}),
 	},
 	"credential-offer": {
 		Kind:        TaskWorkflow,
-		NewFunc:     func() any { return workflows.NewGetCredentialOfferWorkflow() },
+		NewFunc:     func(core.App) any { return workflows.NewGetCredentialOfferWorkflow() },
 		PayloadType: reflect.TypeOf(workflows.GetCredentialOfferWorkflowPayload{}),
 	},
 	"conformance-check": {
 		Kind:                TaskWorkflow,
-		NewFunc:             func() any { return workflows.NewStartCheckWorkflow() },
+		NewFunc:             func(core.App) any { return workflows.NewStartCheckWorkflow() },
 		PayloadType:         reflect.TypeOf(workflows.StartCheckWorkflowPayload{}),
 		PipelinePayloadType: reflect.TypeOf(workflows.StartCheckWorkflowPipelinePayload{}),
 	},
 	"fcaf-validation": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewFCAFValidationActivity(StepActivityOutputKind) },
+		Kind: TaskActivity,
+		NewFunc: func(app core.App) any {
+			return activities.NewFCAFValidationActivity(app, StepActivityOutputKind)
+		},
 		PayloadType: reflect.TypeOf(activities.FCAFValidationActivityInput{}),
 		OutputKind:  workflowengine.OutputMap,
 		InheritedConfigKeys: []string{
-			"app_url",
-			"internal_app_url",
 			workflowengine.TelemetryRootWorkflowIDKey,
 			workflowengine.TelemetryRootRunIDKey,
 		},
 	},
 	"use-case-verification-deeplink": {
 		Kind:        TaskWorkflow,
-		NewFunc:     func() any { return workflows.NewGetUseCaseVerificationDeeplinkWorkflow() },
+		NewFunc:     func(core.App) any { return workflows.NewGetUseCaseVerificationDeeplinkWorkflow() },
 		PayloadType: reflect.TypeOf(workflows.GetUseCaseVerificationDeeplinkWorkflowPayload{}),
 	},
 }
@@ -165,66 +166,62 @@ func StepActivityOutputKind(use string) (workflowengine.OutputKind, bool) {
 var PipelineInternalRegistry = map[string]TaskFactory{
 	"openidnet-logs": {
 		Kind:    TaskWorkflow,
-		NewFunc: func() any { return workflows.NewOpenID4VPWalletLogsWorkflow() },
+		NewFunc: func(core.App) any { return workflows.NewOpenID4VPWalletLogsWorkflow() },
 	},
 	"ewc-status": {
 		Kind:    TaskWorkflow,
-		NewFunc: func() any { return workflows.NewEWCStatusWorkflow() },
+		NewFunc: func(core.App) any { return workflows.NewEWCStatusWorkflow() },
 	},
 	"webuild-status": {
 		Kind:    TaskWorkflow,
-		NewFunc: func() any { return workflows.NewWebuildStatusWorkflow() },
+		NewFunc: func(core.App) any { return workflows.NewWebuildStatusWorkflow() },
 	},
 	"check-file-exists": {
 		Kind:       TaskActivity,
-		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },
+		NewFunc:    func(core.App) any { return activities.NewCheckFileExistsActivity() },
 		OutputKind: workflowengine.OutputBool,
 	},
 	"scheduled-pipeline-enqueue": {
 		Kind:    TaskWorkflow,
-		NewFunc: func() any { return workflows.NewScheduledPipelineEnqueueWorkflow() },
+		NewFunc: func(core.App) any { return workflows.NewScheduledPipelineEnqueueWorkflow() },
 	},
 	"mobile-device-semaphore-done": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewReportMobileDeviceSemaphoreDoneActivity() },
+		NewFunc:     func(core.App) any { return activities.NewReportMobileDeviceSemaphoreDoneActivity() },
 		PayloadType: reflect.TypeOf(activities.ReportMobileDeviceSemaphoreDoneInput{}),
 		OutputKind:  workflowengine.OutputAny,
 	},
 	"pipeline-run-ticket-enqueue": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewEnqueuePipelineRunTicketActivity() },
+		NewFunc:     func(core.App) any { return activities.NewEnqueuePipelineRunTicketActivity() },
 		PayloadType: reflect.TypeOf(activities.EnqueuePipelineRunTicketActivityInput{}),
 		OutputKind:  workflowengine.OutputAny,
 	},
-	"internal-http-request": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewInternalHTTPActivity() },
-		PayloadType: reflect.TypeOf(activities.InternalHTTPActivityPayload{}),
-		OutputKind:  workflowengine.OutputMap,
-	},
 	"mobile-runner-http-request": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewMobileRunnerHTTPActivity() },
+		NewFunc:     func(core.App) any { return activities.NewMobileRunnerHTTPActivity() },
 		PayloadType: reflect.TypeOf(activities.MobileRunnerHTTPActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"pipeline-evidence-extraction": {
 		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewPipelineEvidenceExtractionActivity() },
+		NewFunc:     func(app core.App) any { return activities.NewPipelineEvidenceExtractionActivity(app) },
 		PayloadType: reflect.TypeOf(activities.PipelineEvidenceExtractionInput{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"pipeline-report-generation": {
 		Kind: TaskActivity,
-		NewFunc: func() any {
-			return activities.NewPipelineReportGenerationActivity(StepActivityOutputKind)
+		NewFunc: func(app core.App) any {
+			return activities.NewPipelineReportGenerationActivity(app, StepActivityOutputKind)
 		},
 		PayloadType: reflect.TypeOf(activities.PipelineReportGenerationInput{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"pipeline-completion-notification": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewSendPipelineCompletionNotificationActivity() },
+		Kind: TaskActivity,
+		NewFunc: func(app core.App) any {
+			return activities.NewSendPipelineCompletionNotificationActivity(app)
+		},
 		PayloadType: reflect.TypeOf(activities.SendPipelineCompletionNotificationInput{}),
 		OutputKind:  workflowengine.OutputAny,
 	},

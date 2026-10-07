@@ -14,7 +14,7 @@ Shipped matrix under `config_templates/` (a suite directory must have `version.y
 | `openid4vp_verifier/1.0/openid_conformance_suite`                                                                                  | OpenID Foundation | OpenID certification API                                                                                          |
 | `openid4vci_wallet/1.0/webuild`, `openid4vp_wallet/1.0/webuild`, `openid4vci_issuer/1.0/webuild`, `openid4vp_verifier/1.0/webuild` | WEBUILD           | `webuild.api.forkbomb.eu` (wallet standards) / `webuild.wallet-client.forkbomb.eu` (verifier, issuer)             |
 | `openid4vci_wallet/draft-15/ewc`, `openid4vp_wallet/draft-23/ewc`                                                                  | EWC               | `ewc.api.forkbomb.eu` (`/verificationStatus`, `/issueStatus`, `/session-status/{sessionId}`, `/logs/{sessionId}`) |
-| `openid4vp_verifier/draft-23/eudiw`                                                                                                | EUDIW             | `verifier-backend.eudiw.dev/ui/presentations` + internal callback                                                 |
+| `openid4vp_verifier/draft-23/eudiw`                                                                                                | EUDIW             | `verifier-backend.eudiw.dev/ui/presentations` + Credimi callback page `/tests/wallet/eudiw`                        |
 | `vlei/version/vlei`                                                                                                                | vLEI              | Local Go CESR validation                                                                                          |
 | `fcaf/wallet_solution/relying_party`                                                                                               | FCAF              | Local Go engine (`pkg/fcaf/engine`) via the `fcaf-validation` pipeline step                                       |
 
@@ -22,7 +22,7 @@ Provider slugs are constants in `pkg/workflowengine/workflows/conformance_check.
 
 `visible_in` decides where a suite/check shows up (`manual`, `pipeline`; empty = both). eudiw and vlei are `manual`-only; FCAF and most OpenID suites are `pipeline`-only (`pkg/conformancecatalog/catalog.go:178-198`).
 
-Prerequisites: the `stepci-captured-runner` binary for every classic provider (env `BIN`, default `.bin/`), `OPENIDNET_TOKEN` for the OpenID certification API, and a configured internal app URL for callbacks.
+Prerequisites: the `stepci-captured-runner` binary for every classic provider (env `BIN`, default `.bin/`), `OPENIDNET_TOKEN` for the OpenID certification API, and the PocketBase Settings **Application URL**: starters copy it into workflow config as `app_url` (`workflowengine.WithAppConfig`), and workflows use it only to build links (Temporal UI, emails, the EUDIW callback page). Live check logs reach the webapp through the `Send realtime logs` activity on the PocketBase realtime topic `<workflowID>{openidnet,eudiw,ewc}-logs`.
 
 ## How a check runs
 
@@ -40,14 +40,14 @@ The per-check collections were **deleted**: `conformance_checks_results` (`pb_mi
 
 Results are now `pipeline_results` rows (see the pipelines reference for the full field list): `workflow_id`, `run_id`, `pipeline`, `type` (`manual|scheduled|CI`), device relations, and the artifact files `video_results`, `screenshots`, `maestro_screenshots`, `logcats`, `ios_logstreams`, `report`, `fcaf_report`, `fcaf_report_pdf`.
 
-Records are created and filled only through internal-admin routes (`Credimi-Api-Key` with the internal-admin scope): `POST /api/pipeline/pipeline-execution-results` plus `/{evidence,report,fcaf-report}`. The results handler is idempotent on `(workflow_id, run_id)` and validates the run type and device access.
+Records are written in-process by `pkg/internal/pipeline_results` (no HTTP route): `Create` (from `POST /api/pipeline/queue` and the `StartQueuedPipelineActivity`; idempotent on `(workflow_id, run_id)`, `ErrConflict` for another owner/pipeline, validates the run type; device access is checked before the run is queued), `StoreEvidence` (the `Extract pipeline conformance evidence` activity), `StoreReport` (the `Generate pipeline conformance report` activity). The FCAF assessment is stored by the `fcaf-validation` activity (`pkg/workflowengine/activities/fcaf_report_store.go`).
 
 Runner artifacts are appended to an existing record by `POST /api/wallet/store-pipeline-result` (`RequireInternalAdminOrAuth`): `credimi-runner` sends its `CREDIMI_USER_API_KEY`, falling back to the internal admin key. It uploads `result_video`, `last_frame` and `logfile` into `video_results`, `screenshots` and `logcats`/`ios_logstreams`. This route and `POST /api/pipeline/store-step-screenshots` share `authorizePipelineResultDeviceStoreAccess`: every caller, internal admin included, must name a device listed in the record's `devices` (otherwise 403 `device did not run this pipeline result`); a non-admin caller must also belong to the record's organization or own that device's published runner while the record's organization is published.
 
 ## Scoreboard
 
-- Aggregation: `AggregateScoreboardWorkflow` (queue `AggregateScoreboardTaskQueue`) enumerates org namespaces via `GET /api/organizations/namespaces`, fetches `GET /api/pipeline/scoreboard/{namespace}` per namespace, recomputes rates, enriches with `GET /api/pipeline/execution-details/{namespace}/{workflow_id}/{run_id}`, then posts the merged result to `POST /api/pipeline/scoreboard/save-results` (which truncates and rewrites the cache). It runs in the Temporal `default` namespace and can be scheduled with `POST /api/pipeline/scoreboard/aggregate/start?schedule=<seconds>`.
-- All scoreboard routes are in the internal group (`AuthenticationRequired: false`) but each is guarded by the internal admin API key.
+- Aggregation: `AggregateScoreboardWorkflow` (queue `AggregateScoreboardTaskQueue`) runs four activities that read and write the database directly (`pkg/internal/apis/handlers/scoreboard_activities.go`; names in `pkg/workflowengine/workflows/scoreboard.go`): `List organization namespaces for the scoreboard`, `Get the pipeline scoreboard of a namespace` per namespace, recomputes rates, enriches with `Get scoreboard execution details`, then `Save aggregated scoreboard results` (truncates and rewrites the cache). It runs in the Temporal `default` namespace and can be started/scheduled with `POST /api/pipeline/scoreboard/aggregate/start?schedule=<seconds>` (cancel: `DELETE /api/pipeline/scoreboard/aggregate/schedule/{schedule_id}`).
+- The two remaining scoreboard routes are in the internal group (`AuthenticationRequired: false`) but each is guarded by the internal admin API key.
 - Cache collection `pipeline_scoreboard_cache`: unique `pipeline` relation, `mobile_devices`, `total_runs`, `total_successes`, `manually_executed_runs`, `scheduled_runs`, `minimum_running_time_seconds`, `first_execution`, `latest_execution`, related entity relations, and `expanded_data` — a deliberately narrow display snapshot (pipeline, devices, wallets, versions, issuers, verifiers, credentials, use case verifications, custom integrations, `latest_execution{created, artifacts}`).
 - The cache is **public-read** (`listRule`/`viewRule` = `""`); writes stay internal.
 - Only `published` pipelines are aggregated or returned.
@@ -56,10 +56,10 @@ Runner artifacts are appended to an existing record by `POST /api/wallet/store-p
 
 ## Reports
 
-- Markdown conformance report: generated by the activity `Generate pipeline conformance report` through the external module `credimi-conformance-assessment`, only when the run has an evidence step; produced in a cleanup hook on a disconnected context and uploaded to `POST /api/pipeline/pipeline-execution-results/report`, stored as `pipeline_results.report`.
-- FCAF assessment: `POST /api/pipeline/pipeline-execution-results/fcaf-report` writes `fcaf_report` as `fcaf-assessment.json` (enriched with the presentation projection) and renders `fcaf_report_pdf` as `fcaf-assessment.pdf` (renderer in `pkg/fcaf/reportpdf`). 50 MiB PDF limit; JSON falls back to the PocketBase default (5 MiB).
+- Markdown conformance report: generated by the activity `Generate pipeline conformance report` through the external module `credimi-conformance-assessment`, only when the run has an evidence step; produced in a cleanup hook on a disconnected context and stored by the same activity as `pipeline_results.report` (`pipelineresults.StoreReport`).
+- FCAF assessment: the `fcaf-validation` activity writes `fcaf_report` as `fcaf-assessment.json` (enriched with the presentation projection) and renders `fcaf_report_pdf` as `fcaf-assessment.pdf` (renderer in `pkg/fcaf/reportpdf`; a PDF failure keeps the JSON). 50 MiB PDF limit; JSON falls back to the PocketBase default (5 MiB).
 - Files are served from `GET /api/files/pipeline_results/{recordId}/{filename}`; the webapp exposes JSON and PDF downloads from the FCAF report sheet. The file fields are not `protected`, so anyone holding a file URL can download it; the public scoreboard relies on this through the URLs stored in its cache.
-- Retention: `POST /api/pipeline/retention/delete-files` and `POST|DELETE /api/pipeline/retention/schedule` delete `video_results, screenshots, maestro_screenshots, logcats, ios_logstreams, report, fcaf_report, fcaf_report_pdf`; defaults 30 days, batch 100, interval 1.
+- Retention: `POST|DELETE /api/pipeline/retention/schedule` (internal admin) manage the retention workflow, whose `Delete old pipeline result files` activity (`pipelineresults.DeleteFilesOlderThan`) clears `video_results, screenshots, maestro_screenshots, logcats, ios_logstreams, report, fcaf_report, fcaf_report_pdf`; defaults 30 days, batch 100, interval 1.
 
 ## FCAF artifacts
 
@@ -84,6 +84,6 @@ For authoring FCAF tests use the dedicated skill `fcaf-definitions`.
 
 1. `manual/compliance-checks.md` advertises W3C-VC (VC-API) issuer/verifier suites and "OpenID4CI" — no such suite directories exist; the real providers are listed above.
 2. `manual/conformance/index.md` advertises a "PagoPA Wallet Conformance Test" — no PagoPA suite exists under `config_templates/`.
-3. Scoreboard docs cite `$lib/scoreboard/functions.ts` / `loadData()` and describe the per-namespace GET as "internal/trusted" — the helper is `Records.loadPage` in `webapp/src/lib/scoreboard/records/index.ts`, and the GET requires the internal admin API key like its siblings.
+3. Scoreboard docs cite `$lib/scoreboard/functions.ts` / `loadData()` and describe a per-namespace GET as "internal/trusted" — the helper is `Records.loadPage` in `webapp/src/lib/scoreboard/records/index.ts`, and the per-namespace scoreboard is now an activity, not an HTTP route.
 4. `migrations/pb_schema.json` is stale (lists `conformance_checks_results`, `reports`, `standards`, `test_suites`; lacks `pipeline_results`, `pipeline_scoreboard_cache`, `custom_checks`, `mobile_devices`).
 5. `pipeline_scoreboard_cache.last_execution_date` is written by `setBasicFields` but no migration defines the field — present in the API response, possibly not persisted.

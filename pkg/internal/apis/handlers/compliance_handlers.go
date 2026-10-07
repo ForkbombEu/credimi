@@ -17,13 +17,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/internal/realtimelogs"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/subscriptions"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
@@ -46,36 +46,6 @@ var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 			RequestSchema: HandleSendTemporalSignalInput{},
 		},
 		{
-			Method:        http.MethodPost,
-			Path:          "/send-openidnet-log-update",
-			Handler:       HandleSendOpenID4VPWalletLogUpdate,
-			RequestSchema: HandleSendLogUpdateRequestInput{},
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
-		},
-		{
-			Method:        http.MethodPost,
-			Path:          "/send-eudiw-log-update",
-			Handler:       HandleSendEudiwLogUpdate,
-			RequestSchema: HandleSendLogUpdateRequestInput{},
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
-		},
-		{
-			Method:        http.MethodPost,
-			Path:          "/send-ewc-log-update",
-			Handler:       HandleSendEWCLogUpdate,
-			RequestSchema: HandleSendLogUpdateRequestInput{},
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminAPIKey(),
-			},
-			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
-		},
-		{
 			Method:  http.MethodGet,
 			Path:    "/deeplink/{workflowId}/{runId}",
 			Handler: HandleDeeplink,
@@ -91,34 +61,9 @@ var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 var complianceTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 // complianceNotifyLogsUpdate allows tests to bypass realtime notifications.
-var complianceNotifyLogsUpdate = notifyLogsUpdate
+var complianceNotifyLogsUpdate = realtimelogs.Notify
 
 type Execution = map[string]any
-
-//
-
-type HandleNotifyFailureRequestInput struct {
-	WorkflowID string `json:"workflow_id" validate:"required"`
-	Namespace  string `json:"namespace"   validate:"required"`
-	Reason     string `json:"reason"      validate:"required"`
-}
-
-type HandleSendLogUpdateRequestInput struct {
-	WorkflowID string           `json:"workflow_id"`
-	Logs       []map[string]any `json:"logs"`
-}
-
-func HandleSendOpenID4VPWalletLogUpdate() func(*core.RequestEvent) error {
-	return sendRealtimeLogs(workflows.OpenID4VPWalletSubscription)
-}
-
-func HandleSendEudiwLogUpdate() func(*core.RequestEvent) error {
-	return sendRealtimeLogs(workflows.EudiwSubscription)
-}
-
-func HandleSendEWCLogUpdate() func(*core.RequestEvent) error {
-	return sendRealtimeLogs(workflows.EWCSubscription)
-}
 
 type HandleSendTemporalSignalInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
@@ -202,48 +147,6 @@ func requireCallerNamespace(app core.App, auth *core.Record, namespace string) *
 			"namespace does not belong to your organization",
 			"namespace mismatch",
 		)
-	}
-	return nil
-}
-
-///
-
-func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[HandleSendLogUpdateRequestInput](e)
-		if err != nil {
-			return err
-		}
-		if err := complianceNotifyLogsUpdate(
-			e.App,
-			req.WorkflowID+suiteSubscription,
-			req.Logs,
-		); err != nil {
-			return apierror.New(
-				http.StatusBadRequest,
-				"workflow",
-				"failed to send realtime logs update",
-				err.Error(),
-			)
-		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
-	}
-}
-
-func notifyLogsUpdate(app core.App, subscription string, data []map[string]any) error {
-	rawData, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	message := subscriptions.Message{
-		Name: subscription,
-		Data: rawData,
-	}
-	clients := app.SubscriptionsBroker().Clients()
-	for _, client := range clients {
-		if client.HasSubscription(subscription) {
-			client.Send(message)
-		}
 	}
 	return nil
 }

@@ -367,13 +367,8 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 		)
 		err = sendRealtimeLogsUpdate(
 			ctx,
-			utils.JoinURL(
-				workflowengine.InternalAppURLFromConfig(input.Config),
-				"api", "compliance", "send-eudiw-log-update",
-			),
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			workflow.GetInfo(ctx).WorkflowExecution.ID+EudiwSubscription,
 			events,
-			"",
 		)
 		if err != nil {
 			logger.Error("Failed to send logs", "error", err)

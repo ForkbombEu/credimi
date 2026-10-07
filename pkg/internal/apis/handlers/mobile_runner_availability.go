@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"time"
@@ -70,31 +71,36 @@ func requireMobileDeviceRunnerOnline(
 }
 
 func mobileDeviceRunnerRecord(app core.App, deviceID string) (*core.Record, *apierror.APIError) {
-	record, err := canonify.Resolve(app, canonify.NormalizePath(deviceID))
-	if err != nil || record == nil || record.Collection() == nil ||
-		record.Collection().Name != mobileDevicesCollection {
+	_, runner, err := mobilerunner.ResolveDevice(app, canonify.NormalizePath(deviceID))
+	switch {
+	case err == nil:
+		return runner, nil
+	case errors.Is(err, mobilerunner.ErrDeviceNotFound):
 		return nil, apierror.New(
 			http.StatusNotFound,
 			"device_id",
 			"mobile_device_not_found",
 			"mobile device "+deviceID+" not found",
 		)
-	}
-	runner, err := app.FindRecordById("mobile_runners", record.GetString("runner"))
-	if err != nil {
+	case errors.Is(err, mobilerunner.ErrDeviceRunnerNotFound):
 		return nil, apierror.New(
 			http.StatusNotFound,
 			"device_id",
 			"mobile_runner_not_found",
 			"mobile device runner not found",
 		)
+	default:
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"device_id",
+			"failed to resolve mobile device",
+			err.Error(),
+		)
 	}
-
-	return runner, nil
 }
 
 func mobileRunnerReachable(ctx context.Context, record *core.Record) (bool, *apierror.APIError) {
-	runnerURL := mobileRunnerURL(record)
+	runnerURL := mobilerunner.RunnerURL(record)
 	if runnerURL == "" {
 		return false, nil
 	}

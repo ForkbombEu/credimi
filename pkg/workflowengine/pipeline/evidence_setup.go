@@ -5,14 +5,12 @@
 package pipeline
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
+	"maps"
 	"strings"
 	"time"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/log"
@@ -38,18 +36,27 @@ func PipelineEvidenceSetupHook(
 		return nil
 	}
 	baseAO := PrepareWorkflowOptions(wfDef.Runtime).ActivityOptions
+	discoveryDef := evidenceDiscoveryDefinition(wfDef)
 
-	appURL, ok := config["app_url"].(string)
-	if !ok || strings.TrimSpace(appURL) == "" {
-		appendSetupWarning(finalOutput, "pipeline evidence extraction skipped: missing app_url")
-		return nil
+	deeplinks, deeplinkErrors, err := resolveEvidenceDeeplinks(
+		ctx,
+		discoveryDef,
+		config,
+		runData,
+		baseAO,
+	)
+	if err != nil {
+		return err
 	}
 
-	extractionActivity := activities.NewPipelineEvidenceExtractionActivity()
+	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
 	extractionReq := workflowengine.ActivityInput{
 		Payload: activities.PipelineEvidenceExtractionInput{
-			WorkflowDefinition: evidenceDiscoveryDefinition(wfDef),
-			CredimiBaseURL:     workflowengine.InternalAppURLFromConfig(config),
+			WorkflowDefinition: discoveryDef,
+			Deeplinks:          deeplinks,
+			DeeplinkErrors:     deeplinkErrors,
+			WorkflowID:         workflowID,
+			RunID:              runID,
 		},
 	}
 
@@ -58,8 +65,11 @@ func PipelineEvidenceSetupHook(
 		evidenceActivityOptions(&baseAO, 5*time.Minute, 1),
 	)
 	var extractionResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(extractionCtx, extractionActivity.Name(), extractionReq).
-		Get(extractionCtx, &extractionResult); err != nil {
+	if err := workflow.ExecuteActivity(
+		extractionCtx,
+		activities.PipelineEvidenceExtractionActivityName,
+		extractionReq,
+	).Get(extractionCtx, &extractionResult); err != nil {
 		if temporal.IsCanceledError(err) {
 			return err
 		}
@@ -68,7 +78,9 @@ func PipelineEvidenceSetupHook(
 		return nil
 	}
 
-	output, err := decodePipelineEvidenceOutput(extractionResult)
+	output, err := workflowengine.DecodeOutput[activities.PipelineEvidenceExtractionOutput](
+		extractionResult.Output,
+	)
 	if err != nil {
 		appendSetupWarning(
 			finalOutput,
@@ -79,55 +91,63 @@ func PipelineEvidenceSetupHook(
 	}
 	appendSetupWarnings(finalOutput, output.Warnings)
 	SetRunDataValue(runData, pipelineEvidenceRunDataKey, output)
-	if len(output.CredentialWellKnowns) == 0 && len(output.PresentationResults) == 0 {
-		return nil
-	}
-	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
-	if workflowID == "" || runID == "" {
-		appendSetupWarning(
-			finalOutput,
-			"pipeline evidence storage skipped: missing workflow_id or run_id",
-		)
-		return nil
-	}
-
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	updateReq := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				workflowengine.InternalAppURLFromConfig(config),
-				"api",
-				"pipeline",
-				"pipeline-execution-results",
-				"evidence",
-			),
-			ExpectedStatus: http.StatusOK,
-			Timeout:        "30",
-			Body: map[string]any{
-				"workflow_id":            workflowID,
-				"run_id":                 runID,
-				"credential_well_knowns": output.CredentialWellKnowns,
-				"presentation_results":   output.PresentationResults,
-			},
-		},
-	}
-
-	updateCtx := workflow.WithActivityOptions(
-		ctx,
-		evidenceActivityOptions(&baseAO, 2*time.Minute, 5),
-	)
-	var updateResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(updateCtx, internalHTTPActivity.Name(), updateReq).
-		Get(updateCtx, &updateResult); err != nil {
-		if temporal.IsCanceledError(err) {
-			return err
-		}
-		appendSetupWarning(finalOutput, fmt.Sprintf("pipeline evidence storage failed: %v", err))
-		logger.Warn("Pipeline evidence storage failed", "error", err)
-	}
-
 	return nil
+}
+
+// evidenceDeeplinkStepPrefix keeps the child workflow that resolves an evidence
+// deeplink apart from the child workflow of the pipeline step itself.
+const evidenceDeeplinkStepPrefix = "evidence-"
+
+// resolveEvidenceDeeplinks resolves the deeplink of every evidence step through
+// the same registry child workflow the step runs (credential offer or use case
+// verification deeplink), so evidence extraction never calls Credimi over HTTP.
+// A step that fails to resolve is reported by step ID instead of failing the
+// pipeline; only cancellation is returned.
+func resolveEvidenceDeeplinks(
+	ctx workflow.Context,
+	def *pipelineinternal.WorkflowDefinition,
+	config map[string]any,
+	runData *map[string]any,
+	ao workflow.ActivityOptions,
+) (map[string]string, map[string]string, error) {
+	dataCtx := map[string]any{}
+	if runData != nil && *runData != nil {
+		dataCtx = *runData
+	}
+	deeplinks := map[string]string{}
+	deeplinkErrors := map[string]string{}
+	for _, step := range def.Steps {
+		// ResolveInputs writes resolved values back into the maps it receives;
+		// clone them so the pipeline step itself still resolves its own inputs.
+		with := pipelineinternal.StepInputs{
+			Config:  maps.Clone(step.With.Config),
+			Payload: maps.Clone(step.With.Payload),
+		}
+		output, err := ExecuteStep(
+			evidenceDeeplinkStepPrefix+step.ID,
+			step.Use,
+			with,
+			step.ActivityOptions,
+			ctx,
+			config,
+			dataCtx,
+			ao,
+		)
+		if err != nil {
+			if temporal.IsCanceledError(err) {
+				return nil, nil, err
+			}
+			deeplinkErrors[step.ID] = err.Error()
+			continue
+		}
+		deeplink, ok := output.(string)
+		if !ok || strings.TrimSpace(deeplink) == "" {
+			deeplinkErrors[step.ID] = fmt.Sprintf("%s returned no deeplink", step.Use)
+			continue
+		}
+		deeplinks[step.ID] = deeplink
+	}
+	return deeplinks, deeplinkErrors, nil
 }
 
 func hasPipelineEvidenceStep(wfDef *pipelineinternal.WorkflowDefinition) bool {
@@ -154,20 +174,6 @@ func evidenceDiscoveryDefinition(
 		}
 	}
 	return discovery
-}
-
-func decodePipelineEvidenceOutput(
-	result workflowengine.ActivityResult,
-) (activities.PipelineEvidenceExtractionOutput, error) {
-	var out activities.PipelineEvidenceExtractionOutput
-	raw, err := json.Marshal(result.Output)
-	if err != nil {
-		return out, fmt.Errorf("marshal output: %w", err)
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return out, fmt.Errorf("decode output: %w", err)
-	}
-	return out, nil
 }
 
 func evidenceActivityOptions(
