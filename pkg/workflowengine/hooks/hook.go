@@ -63,13 +63,13 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		if err != nil {
 			log.Fatalf("Failed to fetch organization records: %v", err)
 		}
-		adminRunnerURLs, err := adminRunnerURLsFn(app)
+		adminRunnerIDs, err := adminRunnerIDsFn(app)
 		if err != nil {
-			log.Fatalf("Failed to fetch admin-managed runner URLs: %v", err)
+			log.Fatalf("Failed to fetch admin-managed runner IDs: %v", err)
 		}
-		publishedRunnerURLs, err := publishedRunnerURLsFn(app)
+		publishedRunnerIDs, err := publishedRunnerIDsFn(app)
 		if err != nil {
-			log.Fatalf("Failed to fetch published runner URLs: %v", err)
+			log.Fatalf("Failed to fetch published runner IDs: %v", err)
 		}
 		publishedByNamespace := make(map[string]bool, len(orgRecords))
 		for _, org := range orgRecords {
@@ -85,11 +85,11 @@ func WorkersHook(app *pocketbase.PocketBase) {
 			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
 			go startAllWorkersByNamespace(se.App, ns)
 
-			runnerURLs := adminRunnerURLs
+			runnerIDs := adminRunnerIDs
 			if ns == "default" || publishedByNamespace[ns] {
-				runnerURLs = combineWorkerManagerRunnerURLs(adminRunnerURLs, publishedRunnerURLs)
+				runnerIDs = combineWorkerManagerRunnerIDs(adminRunnerIDs, publishedRunnerIDs)
 			}
-			startWorkerManagerWorkflow(ns, "", runnerURLs)
+			startWorkerManagerWorkflow(ns, "", runnerIDs)
 		}
 
 		log.Printf("[WorkersHook] All namespaces ready, workers started")
@@ -282,7 +282,7 @@ func defaultWorkers(app core.App) []workerConfig {
 			},
 			Activities: []workflowengine.ExecutableActivity{
 				activities.NewHTTPActivity(),
-				activities.NewMobileRunnerHTTPActivity(),
+				activities.NewMobileRunnerHTTPActivity(app),
 			},
 		},
 		{
@@ -335,8 +335,8 @@ var (
 	startPipelineWorkerFn      = startPipelineWorker
 	fetchNamespacesFn          = FetchNamespaces
 	workerManagerOrgRecordsFn  = workerManagerAllOrganizationRecords
-	adminRunnerURLsFn          = WorkerManagerAdminRunnerURLs
-	publishedRunnerURLsFn      = WorkerManagerPublishedNonAdminRunnerURLs
+	adminRunnerIDsFn           = WorkerManagerAdminRunnerIDs
+	publishedRunnerIDsFn       = WorkerManagerPublishedNonAdminRunnerIDs
 	ensureNamespaceReadyFn     = ensureNamespaceReadyWithRetry
 	startAllWorkersByNamespace = StartAllWorkersByNamespace
 	startWorkerManagerWorkflow = StartWorkerManagerWorkflow
@@ -670,7 +670,7 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 	}
 }
 
-func StartWorkerManagerWorkflow(namespace, oldNamespace string, runnerURLs []string) {
+func StartWorkerManagerWorkflow(namespace, oldNamespace string, runnerIDs []string) {
 	if TemporalWorkersDisabled() {
 		log.Printf(
 			"[WorkerManagerWorkflow] Skipping for namespace %s (%s is set)",
@@ -684,7 +684,7 @@ func StartWorkerManagerWorkflow(namespace, oldNamespace string, runnerURLs []str
 		if err := executeWorkerManagerWorkflowFn(
 			namespace,
 			oldNamespace,
-			runnerURLs,
+			runnerIDs,
 		); err != nil {
 			log.Printf("[WorkerManagerWorkflow] Failed for namespace %s: %v", namespace, err)
 		} else {
@@ -696,7 +696,7 @@ func StartWorkerManagerWorkflow(namespace, oldNamespace string, runnerURLs []str
 func executeWorkerManagerWorkflow(
 	namespace,
 	oldNamespace string,
-	runnerURLs []string,
+	runnerIDs []string,
 ) error {
 	ao := &workflow.ActivityOptions{
 		ScheduleToCloseTimeout: time.Minute,
@@ -713,7 +713,7 @@ func executeWorkerManagerWorkflow(
 		Payload: workflows.WorkerManagerWorkflowPayload{
 			Namespace:    namespace,
 			OldNamespace: oldNamespace,
-			RunnerURLs:   uniqueWorkerManagerURLs(runnerURLs),
+			RunnerIDs:    uniqueWorkerManagerRunnerIDs(runnerIDs),
 		},
 		ActivityOptions: ao,
 	}

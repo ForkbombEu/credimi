@@ -109,7 +109,7 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 	w := NewMobileAutomationWorkflow()
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 	mobileActivity := activities.NewRunMobileFlowActivity()
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	env.RegisterActivityWithOptions(
 		mobileActivity.Execute,
 		activity.RegisterOptions{Name: mobileActivity.Name()},
@@ -138,7 +138,8 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 				return false
 			}
 			body := workflowengine.AsMap(request.Body)
-			return request.URL == "https://runner.example/credimi/execution-screenshots" &&
+			return request.RunnerID == "org/runner-host" &&
+				request.Path == "/credimi/execution-screenshots" &&
 				workflowengine.AsString(body["step_id"]) == "scan-credential" &&
 				workflowengine.AsString(body["run_identifier"]) == "org/workflow-run" &&
 				workflowengine.AsString(body["device_identifier"]) == "org/runner" &&
@@ -183,7 +184,7 @@ func TestMobileAutomationWorkflowSkipsScreenshotAPIWithoutPaths(t *testing.T) {
 	require.NoError(t, env.GetWorkflowError())
 	env.AssertNotCalled(
 		t,
-		activities.NewMobileRunnerHTTPActivity().Name(),
+		activities.NewMobileRunnerHTTPActivity(nil).Name(),
 		mock.Anything,
 		mock.Anything,
 	)
@@ -199,7 +200,7 @@ func mobileScreenshotWorkflowInput() workflowengine.WorkflowInput {
 		Config: map[string]any{
 			"app_url":        "https://app.example",
 			"taskqueue":      "org-runner-TaskQueue",
-			"runner_url":     "https://runner.example",
+			"runner_id":      "org/runner-host",
 			"step_id":        "scan-credential",
 			"run_identifier": "org/workflow-run",
 		},

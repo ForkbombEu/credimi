@@ -7,51 +7,54 @@ package hooks
 import (
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/pocketbase/pocketbase/core"
 )
 
-func WorkerManagerAdminRunnerURLs(app core.App) ([]string, error) {
-	return listWorkerManagerRunnerURLs(app, "admin_managed = true")
+func WorkerManagerAdminRunnerIDs(app core.App) ([]string, error) {
+	return listWorkerManagerRunnerIDs(app, "admin_managed = true")
 }
 
-func WorkerManagerPublishedNonAdminRunnerURLs(app core.App) ([]string, error) {
-	return listWorkerManagerRunnerURLs(app, "published = true && admin_managed = false")
+func WorkerManagerPublishedNonAdminRunnerIDs(app core.App) ([]string, error) {
+	return listWorkerManagerRunnerIDs(app, "published = true && admin_managed = false")
 }
 
 func workerManagerAllOrganizationRecords(app core.App) ([]*core.Record, error) {
 	return app.FindRecordsByFilter("organizations", "", "name", -1, 0)
 }
 
-func listWorkerManagerRunnerURLs(app core.App, filter string) ([]string, error) {
+// listWorkerManagerRunnerIDs returns the identifiers of the startable runners
+// matching filter that have an address to be called at.
+func listWorkerManagerRunnerIDs(app core.App, filter string) ([]string, error) {
 	records, err := app.FindRecordsByFilter("mobile_runners", filter, "name", -1, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	runnerURLs := make([]string, 0, len(records))
+	runnerIDs := make([]string, 0, len(records))
 	for _, record := range records {
 		if !mobilerunnerlifecycle.EligibleForWorkerStart(record) {
 			continue
 		}
-		runnerURL := strings.TrimSpace(record.GetString("ip"))
-		if runnerURL == "" {
+		if mobilerunner.RunnerURL(record) == "" {
 			continue
 		}
-		if port := strings.TrimSpace(record.GetString("port")); port != "" {
-			runnerURL = strings.TrimRight(runnerURL, "/") + ":" + port
+		runnerID, err := mobilerunner.RunnerIdentifier(app, record)
+		if err != nil {
+			return nil, err
 		}
-		runnerURLs = append(runnerURLs, runnerURL)
+		runnerIDs = append(runnerIDs, runnerID)
 	}
 
-	return uniqueWorkerManagerURLs(runnerURLs), nil
+	return uniqueWorkerManagerRunnerIDs(runnerIDs), nil
 }
 
-func uniqueWorkerManagerURLs(runnerURLs []string) []string {
-	seen := make(map[string]struct{}, len(runnerURLs))
-	result := make([]string, 0, len(runnerURLs))
-	for _, runnerURL := range runnerURLs {
-		trimmed := strings.TrimSpace(runnerURL)
+func uniqueWorkerManagerRunnerIDs(runnerIDs []string) []string {
+	seen := make(map[string]struct{}, len(runnerIDs))
+	result := make([]string, 0, len(runnerIDs))
+	for _, runnerID := range runnerIDs {
+		trimmed := strings.TrimSpace(runnerID)
 		if trimmed == "" {
 			continue
 		}
@@ -66,11 +69,11 @@ func uniqueWorkerManagerURLs(runnerURLs []string) []string {
 	return result
 }
 
-func combineWorkerManagerRunnerURLs(groups ...[]string) []string {
+func combineWorkerManagerRunnerIDs(groups ...[]string) []string {
 	combined := make([]string, 0)
 	for _, group := range groups {
 		combined = append(combined, group...)
 	}
 
-	return uniqueWorkerManagerURLs(combined)
+	return uniqueWorkerManagerRunnerIDs(combined)
 }

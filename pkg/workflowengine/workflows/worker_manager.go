@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -28,13 +27,13 @@ var workerManagerStartWorkflowWithOptions = workflowengine.StartWorkflowWithOpti
 type WorkerManagerWorkflowPayload struct {
 	Namespace    string   `json:"namespace"               yaml:"namespace"               validate:"required"`
 	OldNamespace string   `json:"old_namespace,omitempty" yaml:"old_namespace,omitempty"`
-	RunnerURLs   []string `json:"runner_urls"             yaml:"runner_urls"`
+	RunnerIDs    []string `json:"runner_ids"              yaml:"runner_ids"`
 }
 
 type WorkerManagerRunnerResult struct {
-	RunnerURL string `json:"runner_url"`
-	Success   bool   `json:"success"`
-	Error     string `json:"error,omitempty"`
+	RunnerID string `json:"runner_id"`
+	Success  bool   `json:"success"`
+	Error    string `json:"error,omitempty"`
 }
 
 type WorkerManagerWorkflowOutput struct {
@@ -89,28 +88,24 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	// Runner-directed calls get their own activity: the destination can be a
-	// quick tunnel, whose hostname only resolves through Cloudflare DNS while
-	// it is propagating.
-	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity()
-	runnerURLs := normalizeWorkerManagerRunnerURLs(payload.RunnerURLs)
+	// Runner-directed calls get their own activity: it reaches the runner at
+	// its stored address with the runner's own credential.
+	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity(nil)
+	runnerIDs := normalizeWorkerManagerRunnerIDs(payload.RunnerIDs)
 
-	runnerResults := make([]WorkerManagerRunnerResult, 0, len(runnerURLs))
+	runnerResults := make([]WorkerManagerRunnerResult, 0, len(runnerIDs))
 	successfulRunners := 0
 
-	for _, runnerURL := range runnerURLs {
+	for _, runnerID := range runnerIDs {
 		runnerResult := WorkerManagerRunnerResult{
-			RunnerURL: runnerURL,
+			RunnerID: runnerID,
 		}
 
 		err = workflow.ExecuteActivity(ctx, runnerHTTPActivity.Name(), workflowengine.ActivityInput{
 			Payload: activities.MobileRunnerHTTPActivityPayload{
-				Method: http.MethodPost,
-				URL: utils.JoinURL(
-					runnerURL,
-					"worker",
-					payload.Namespace,
-				),
+				Method:   http.MethodPost,
+				RunnerID: runnerID,
+				Path:     "/worker/" + payload.Namespace,
 				Body: map[string]string{
 					"old_namespace": payload.OldNamespace,
 				},
@@ -122,8 +117,8 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		if err != nil {
 			logger.Error(
 				"Send namespaces names to start workers failed for runner",
-				"runner_url",
-				runnerURL,
+				"runner_id",
+				runnerID,
 				"error",
 				err,
 			)
@@ -156,11 +151,11 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	}, nil
 }
 
-func normalizeWorkerManagerRunnerURLs(runnerURLs []string) []string {
-	seen := make(map[string]struct{}, len(runnerURLs))
-	result := make([]string, 0, len(runnerURLs))
-	for _, runnerURL := range runnerURLs {
-		trimmed := strings.TrimSpace(runnerURL)
+func normalizeWorkerManagerRunnerIDs(runnerIDs []string) []string {
+	seen := make(map[string]struct{}, len(runnerIDs))
+	result := make([]string, 0, len(runnerIDs))
+	for _, runnerID := range runnerIDs {
+		trimmed := strings.TrimSpace(runnerID)
 		if trimmed == "" {
 			continue
 		}

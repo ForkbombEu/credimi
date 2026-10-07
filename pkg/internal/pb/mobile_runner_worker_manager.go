@@ -43,9 +43,12 @@ func RegisterMobileRunnerWorkerManagerHooks(app core.App) {
 			return e.Next()
 		}
 
-		runnerURL := mobilerunner.RunnerURL(e.Record)
-		if runnerURL == "" {
+		if mobilerunner.RunnerURL(e.Record) == "" {
 			return e.Next()
+		}
+		runnerID, err := mobilerunner.RunnerIdentifier(e.App, e.Record)
+		if err != nil {
+			return err
 		}
 
 		orgs, err := listOrganizations(e.App)
@@ -62,7 +65,7 @@ func RegisterMobileRunnerWorkerManagerHooks(app core.App) {
 		}
 
 		for _, namespace := range namespaces {
-			startWorkerManagerFn(namespace, "", []string{runnerURL})
+			startWorkerManagerFn(namespace, "", []string{runnerID})
 		}
 
 		return e.Next()

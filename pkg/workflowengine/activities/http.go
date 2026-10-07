@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/antchfx/htmlquery"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"go.temporal.io/sdk/activity"
 	"golang.org/x/net/html"
@@ -94,7 +96,8 @@ func (a *HTTPActivity) Execute(
 
 // executeHTTPRequest performs one request. transport is nil for every caller
 // that wants the default resolver and connection pool; a runner-directed call
-// passes its own so a quick-tunnel hostname is resolved where it exists.
+// passes mobilerunner.Transport, which applies the runner destination policy
+// and resolves quick-tunnel hostnames where they exist.
 func executeHTTPRequest(
 	ctx context.Context,
 	payload HTTPActivityPayload,
@@ -194,14 +197,17 @@ func executeHTTPRequest(
 	resp, err := client.Do(req)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
-		return result, act.NewActivityError(
-			workflowengine.ActivityError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: err.Error(),
-				Details: map[string]any{"request": reqSnap},
-			},
-		)
+		failure := workflowengine.ActivityError{
+			Code:    errCode.Code,
+			Summary: errCode.Description,
+			Message: err.Error(),
+			Details: map[string]any{"request": reqSnap},
+		}
+		// A refused destination stays refused: retrying only repeats it.
+		if errors.Is(err, safehttp.ErrBlockedDestination) {
+			return result, act.NewNonRetryableActivityErrorWithCause(failure, err)
+		}
+		return result, act.NewActivityError(failure)
 	}
 	defer resp.Body.Close()
 

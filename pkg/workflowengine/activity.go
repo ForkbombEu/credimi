@@ -81,11 +81,20 @@ func (a *BaseActivity) NewActivityError(
 func (a *BaseActivity) NewNonRetryableActivityError(
 	failure ActivityError,
 ) error {
+	return a.NewNonRetryableActivityErrorWithCause(failure, nil)
+}
+
+// NewNonRetryableActivityErrorWithCause is NewNonRetryableActivityError with a
+// cause that errors.Is and errors.As can match.
+func (a *BaseActivity) NewNonRetryableActivityErrorWithCause(
+	failure ActivityError,
+	cause error,
+) error {
 	failure = a.withActivityName(failure)
 	return temporal.NewNonRetryableApplicationError(
 		errorMessage(failure.Summary, failure.Message),
 		failure.Code,
-		nil,
+		cause,
 		failure,
 	)
 }

@@ -15,12 +15,16 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-const mobileDevicesCollection = "mobile_devices"
+const (
+	mobileDevicesCollection = "mobile_devices"
+	mobileRunnersCollection = "mobile_runners"
+)
 
 var (
 	ErrDeviceNotFound       = errors.New("mobile device not found")
 	ErrDeviceRunnerNotFound = errors.New("mobile device runner not found")
 	ErrDeviceNotAccessible  = errors.New("mobile device is not accessible")
+	ErrRunnerNotFound       = errors.New("mobile runner not found")
 )
 
 // RunnerURL returns the runner base URL built from its ip and optional port.
@@ -95,6 +99,23 @@ func OrganizationPublishedLoader(app core.App, orgID string) func() (bool, error
 		published = org.GetBool("published")
 		return published, nil
 	}
+}
+
+// ResolveRunner returns the mobile runner at the canonified path id. It
+// returns an error wrapping ErrRunnerNotFound when id is not a mobile runner;
+// any other error is a lookup failure.
+func ResolveRunner(app core.App, id string) (*core.Record, error) {
+	runner, err := canonify.Resolve(app, canonify.NormalizePath(id))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%w: %s", ErrRunnerNotFound, id)
+		}
+		return nil, fmt.Errorf("resolve mobile runner %s: %w", id, err)
+	}
+	if runner.Collection() == nil || runner.Collection().Name != mobileRunnersCollection {
+		return nil, fmt.Errorf("%w: %s", ErrRunnerNotFound, id)
+	}
+	return runner, nil
 }
 
 // ResolveDevice returns the mobile device at the canonified path id and its
