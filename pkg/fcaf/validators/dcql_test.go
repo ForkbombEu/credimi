@@ -2307,3 +2307,482 @@ func TestMatchesJSONType(t *testing.T) {
 		})
 	}
 }
+
+func TestDCQLClaimsSubset(t *testing.T) {
+	forbidden := [][]any{{"family_name"}}
+	evidenceWith := func(credential map[string]any, vpToken any) map[string]any {
+		evidence := map[string]any{
+			"dcql_query": map[string]any{"credentials": []any{credential}},
+		}
+		if vpToken != nil {
+			evidence["vp_token"] = vpToken
+		}
+		return evidence
+	}
+	presentations := func(tokens ...any) map[string]any {
+		return map[string]any{"pid": tokens}
+	}
+	requested := validSDJWTCredentialQuery("pid")
+	givenName := testSDJWTPresentation(map[string]any{"given_name": "Ada"})
+	overDisclosed := testSDJWTPresentation(map[string]any{
+		"given_name":  "Ada",
+		"family_name": "Lovelace",
+	})
+
+	tests := []struct {
+		name      string
+		evidence  map[string]any
+		forbidden [][]any
+		status    Status
+		message   string
+	}{
+		{
+			name:      "discloses requested and omits unchecked claims",
+			evidence:  evidenceWith(requested, presentations(givenName)),
+			forbidden: forbidden,
+			status:    StatusPass,
+		},
+		{
+			name:      "discloses unchecked claim",
+			evidence:  evidenceWith(requested, presentations(overDisclosed)),
+			forbidden: forbidden,
+			status:    StatusFail,
+			message:   `vp_token["pid"][0] discloses unchecked forbidden_paths[0]`,
+		},
+		{
+			name:      "second presentation discloses unchecked claim",
+			evidence:  evidenceWith(requested, presentations(givenName, overDisclosed)),
+			forbidden: forbidden,
+			status:    StatusFail,
+			message:   `vp_token["pid"][1] discloses unchecked forbidden_paths[0]`,
+		},
+		{
+			name: "omits requested claim",
+			evidence: evidenceWith(requested, presentations(
+				testSDJWTPresentation(map[string]any{"birthdate": "1815-12-10"}),
+			)),
+			forbidden: forbidden,
+			status:    StatusFail,
+			message:   `vp_token["pid"][0] does not disclose requested claims[0].path`,
+		},
+		{
+			name:      "requires a presentation for the query",
+			evidence:  evidenceWith(requested, map[string]any{"other": []any{givenName}}),
+			forbidden: forbidden,
+			status:    StatusFail,
+			message:   `vp_token has no presentation for credential query "pid"`,
+		},
+		{
+			name:      "rejects non-string presentation",
+			evidence:  evidenceWith(requested, presentations(map[string]any{"given_name": "Ada"})),
+			forbidden: forbidden,
+			status:    StatusFail,
+			message:   `vp_token["pid"][0] is not an SD-JWT presentation`,
+		},
+		{
+			name:      "rejects malformed SD-JWT",
+			evidence:  evidenceWith(requested, presentations("not-an-sd-jwt")),
+			forbidden: forbidden,
+			status:    StatusFail,
+			message:   `vp_token["pid"][0] is not a valid SD-JWT presentation`,
+		},
+		{
+			name:      "rejects vp_token that is not keyed by query ID",
+			evidence:  evidenceWith(requested, []any{givenName}),
+			forbidden: forbidden,
+			status:    StatusFail,
+			message:   "wallet vp_token is not an object keyed by credential query ID",
+		},
+		{
+			name: "requires claims in the query",
+			evidence: evidenceWith(func() map[string]any {
+				credential := validSDJWTCredentialQuery("pid")
+				delete(credential, "claims")
+				return credential
+			}(), presentations(givenName)),
+			forbidden: forbidden,
+			status:    StatusFail,
+			message:   "credentials[0].claims is not a non-empty array",
+		},
+		{
+			name: "requires credential id",
+			evidence: evidenceWith(func() map[string]any {
+				credential := validSDJWTCredentialQuery("pid")
+				credential["id"] = ""
+				return credential
+			}(), presentations(givenName)),
+			forbidden: forbidden,
+			status:    StatusFail,
+			message:   "credentials[0].id is not a non-empty string",
+		},
+		{
+			name: "rejects non-object claim",
+			evidence: evidenceWith(func() map[string]any {
+				credential := validSDJWTCredentialQuery("pid")
+				credential["claims"] = []any{"given_name"}
+				return credential
+			}(), presentations(givenName)),
+			forbidden: forbidden,
+			status:    StatusFail,
+			message:   "credentials[0].claims[0] is not an object",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			params := map[string]any{"mode": "claims_subset"}
+			if test.forbidden != nil {
+				params["forbidden_paths"] = test.forbidden
+			}
+			result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+				Value:  test.evidence,
+				Params: params,
+			})
+
+			require.Equal(t, test.status, result.Status, result.Message)
+			require.Contains(t, result.Message, test.message)
+		})
+	}
+}
+
+func TestDCQLClaimsUnion(t *testing.T) {
+	queryFor := func(id, claim string) map[string]any {
+		credential := validSDJWTCredentialQuery(id)
+		credential["claims"] = []any{map[string]any{"path": []any{claim}}}
+		return credential
+	}
+	evidenceWith := func(credentials []any, vpToken any) map[string]any {
+		return map[string]any{
+			"dcql_query": map[string]any{"credentials": credentials},
+			"vp_token":   vpToken,
+		}
+	}
+	twoQueries := []any{queryFor("pid", "given_name"), queryFor("mdl", "family_name")}
+	givenName := testSDJWTPresentation(map[string]any{"given_name": "Ada"})
+	familyName := testSDJWTPresentation(map[string]any{"family_name": "Lovelace"})
+
+	tests := []struct {
+		name     string
+		evidence map[string]any
+		status   Status
+		message  string
+	}{
+		{
+			name: "each query returns its requested claim",
+			evidence: evidenceWith(twoQueries, map[string]any{
+				"pid": []any{givenName},
+				"mdl": []any{familyName},
+			}),
+			status: StatusPass,
+		},
+		{
+			name: "requested claim may come from another query's presentation",
+			evidence: evidenceWith(twoQueries, map[string]any{
+				"pid": []any{testSDJWTPresentation(map[string]any{
+					"given_name":  "Ada",
+					"family_name": "Lovelace",
+				})},
+				"mdl": []any{testSDJWTPresentation(map[string]any{})},
+			}),
+			status: StatusPass,
+		},
+		{
+			name: "union misses a requested claim",
+			evidence: evidenceWith(twoQueries, map[string]any{
+				"pid": []any{givenName},
+				"mdl": []any{givenName},
+			}),
+			status:  StatusFail,
+			message: "union response does not disclose requested claims[1].path",
+		},
+		{
+			name: "union discloses forbidden claim",
+			evidence: evidenceWith(twoQueries, map[string]any{
+				"pid": []any{givenName},
+				"mdl": []any{testSDJWTPresentation(map[string]any{
+					"family_name": "Lovelace",
+					"birthdate":   "1815-12-10",
+				})},
+			}),
+			status:  StatusFail,
+			message: "union response discloses forbidden_paths[0]",
+		},
+		{
+			name: "requires at least two queries",
+			evidence: evidenceWith(
+				[]any{queryFor("pid", "given_name")},
+				map[string]any{"pid": []any{givenName}},
+			),
+			status:  StatusFail,
+			message: "claims_union requires at least two credential queries",
+		},
+		{
+			name:     "requires a presentation for every query",
+			evidence: evidenceWith(twoQueries, map[string]any{"pid": []any{givenName}}),
+			status:   StatusFail,
+			message:  `vp_token has no presentation for credential query "mdl"`,
+		},
+		{
+			name: "rejects empty claim path",
+			evidence: evidenceWith(
+				[]any{queryFor("pid", "given_name"), map[string]any{
+					"id":     "mdl",
+					"claims": []any{map[string]any{"path": []any{}}},
+				}},
+				map[string]any{"pid": []any{givenName}, "mdl": []any{familyName}},
+			),
+			status:  StatusFail,
+			message: "credentials[1].claims[0].path is not a non-empty array",
+		},
+		{
+			name: "rejects query without claims",
+			evidence: evidenceWith(
+				[]any{queryFor("pid", "given_name"), map[string]any{"id": "mdl"}},
+				map[string]any{"pid": []any{givenName}, "mdl": []any{familyName}},
+			),
+			status:  StatusFail,
+			message: "credentials[1].claims is not a non-empty array",
+		},
+		{
+			name: "rejects malformed SD-JWT",
+			evidence: evidenceWith(twoQueries, map[string]any{
+				"pid": []any{givenName},
+				"mdl": []any{"not-an-sd-jwt"},
+			}),
+			status:  StatusFail,
+			message: `vp_token["mdl"][0] is not a valid SD-JWT presentation`,
+		},
+		{
+			name: "rejects empty presentation string",
+			evidence: evidenceWith(twoQueries, map[string]any{
+				"pid": []any{""},
+				"mdl": []any{familyName},
+			}),
+			status:  StatusFail,
+			message: `vp_token["pid"][0] is not an SD-JWT presentation`,
+		},
+		{
+			name:     "rejects vp_token that is not keyed by query ID",
+			evidence: evidenceWith(twoQueries, []any{givenName, familyName}),
+			status:   StatusFail,
+			message:  "wallet vp_token is not an object keyed by credential query ID",
+		},
+		{
+			name: "rejects non-object credential query",
+			evidence: evidenceWith(
+				[]any{queryFor("pid", "given_name"), "mdl"},
+				map[string]any{"pid": []any{givenName}},
+			),
+			status:  StatusFail,
+			message: "credentials[1] is not an object",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+				Value: test.evidence,
+				Params: map[string]any{
+					"mode":            "claims_union",
+					"forbidden_paths": [][]any{{"birthdate"}},
+				},
+			})
+
+			require.Equal(t, test.status, result.Status, result.Message)
+			require.Contains(t, result.Message, test.message)
+		})
+	}
+}
+
+func TestDCQLClaimSetsWithoutClaims(t *testing.T) {
+	credential := func(mutate func(map[string]any)) map[string]any {
+		query := map[string]any{
+			"id":         "pid",
+			"format":     "dc+sd-jwt",
+			"claim_sets": []any{[]any{"given_name"}},
+		}
+		if mutate != nil {
+			mutate(query)
+		}
+		return query
+	}
+
+	tests := []struct {
+		name     string
+		evidence map[string]any
+		status   Status
+		message  string
+	}{
+		{
+			name: "wallet rejects claim_sets without claims",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{credential(nil)}},
+				"error":      "invalid_request",
+			},
+			status: StatusPass,
+		},
+		{
+			name: "wallet returns a credential",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{credential(nil)}},
+				"vp_token":   map[string]any{"pid": []any{"presentation"}},
+			},
+			status:  StatusFail,
+			message: "wallet returned a credential for claim_sets without claims",
+		},
+		{
+			name: "request unexpectedly contains claims",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credential(func(query map[string]any) {
+						query["claims"] = []any{
+							map[string]any{"id": "given_name", "path": []any{"given_name"}},
+						}
+					})},
+				},
+			},
+			status:  StatusFail,
+			message: "invalid request unexpectedly contains claims",
+		},
+		{
+			name: "request contains no claim_sets",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{credential(func(query map[string]any) {
+						query["claim_sets"] = []any{}
+					})},
+				},
+			},
+			status:  StatusFail,
+			message: "invalid request contains no claim_sets",
+		},
+		{
+			name: "request contains no credential queries",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{}},
+			},
+			status:  StatusFail,
+			message: "request contains no credential query",
+		},
+		{
+			name: "credential query is not an object",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{"pid"}},
+			},
+			status:  StatusFail,
+			message: "credential query is not an object",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+				Value:  test.evidence,
+				Params: map[string]any{"mode": "claim_sets_without_claims"},
+			})
+
+			require.Equal(t, test.status, result.Status, result.Message)
+			require.Contains(t, result.Message, test.message)
+		})
+	}
+}
+
+func TestClaimPathResolvesArraySelectors(t *testing.T) {
+	claims := map[string]any{
+		"nationalities": []any{"IT", "GR"},
+		"degrees": []any{
+			map[string]any{"type": "BSc"},
+			map[string]any{"type": "MSc", "honours": true},
+		},
+		"address": map[string]any{"country": "IT"},
+	}
+
+	tests := []struct {
+		name     string
+		path     []any
+		resolves bool
+	}{
+		{name: "JSON number index", path: []any{"nationalities", float64(1)}, resolves: true},
+		{name: "Go int index", path: []any{"nationalities", 0}, resolves: true},
+		{name: "unsigned index", path: []any{"nationalities", uint8(1)}, resolves: true},
+		{name: "int64 index", path: []any{"nationalities", int64(1)}, resolves: true},
+		{name: "float32 index", path: []any{"nationalities", float32(0)}, resolves: true},
+		{name: "index equal to length", path: []any{"nationalities", float64(2)}, resolves: false},
+		{name: "negative index", path: []any{"nationalities", -1}, resolves: false},
+		{name: "negative int8 index", path: []any{"nationalities", int8(-1)}, resolves: false},
+		{name: "fractional index", path: []any{"nationalities", 0.5}, resolves: false},
+		{name: "boolean selector", path: []any{"nationalities", true}, resolves: false},
+		{name: "wildcard then member", path: []any{"degrees", nil, "type"}, resolves: true},
+		{
+			name:     "wildcard member present in one element",
+			path:     []any{"degrees", nil, "honours"},
+			resolves: true,
+		},
+		{
+			name:     "wildcard member absent everywhere",
+			path:     []any{"degrees", nil, "year"},
+			resolves: false,
+		},
+		{name: "wildcard over object", path: []any{"address", nil}, resolves: false},
+		{name: "index over object", path: []any{"address", 0}, resolves: false},
+		{name: "member over array", path: []any{"nationalities", "IT"}, resolves: false},
+		{name: "missing member", path: []any{"birthdate"}, resolves: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.resolves, claimPathResolves(claims, test.path))
+		})
+	}
+}
+
+func TestDCQLResponseConstraintsValidatorRejectsMalformedEvidence(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   any
+		params  map[string]any
+		status  Status
+		message string
+	}{
+		{
+			name:    "unknown mode",
+			value:   map[string]any{"dcql_query": map[string]any{}},
+			params:  map[string]any{"mode": "unsupported_mode"},
+			status:  StatusError,
+			message: "mode must be",
+		},
+		{
+			name:    "evidence is not an object",
+			value:   "dcql_query",
+			params:  map[string]any{"mode": "no_match"},
+			status:  StatusFail,
+			message: "DCQL evidence is string, expected object",
+		},
+		{
+			name:    "evidence has no dcql_query",
+			value:   map[string]any{"vp_token": map[string]any{}},
+			params:  map[string]any{"mode": "no_match"},
+			status:  StatusFail,
+			message: "captured evidence does not contain dcql_query",
+		},
+		{
+			name:    "dcql_query is not an object",
+			value:   map[string]any{"dcql_query": "credentials"},
+			params:  map[string]any{"mode": "no_match"},
+			status:  StatusFail,
+			message: "captured dcql_query is not an object",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+				Value:  test.value,
+				Params: test.params,
+			})
+
+			require.Equal(t, test.status, result.Status, result.Message)
+			require.Contains(t, result.Message, test.message)
+		})
+	}
+}
