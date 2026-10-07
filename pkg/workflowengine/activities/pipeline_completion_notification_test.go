@@ -5,9 +5,12 @@
 package activities
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
@@ -87,6 +90,58 @@ func TestSendPipelineCompletionNotificationActivity(t *testing.T) {
 			}
 			require.NoError(t, encoded.Get(&result))
 			require.Equal(t, tc.wantSent, result.Output.Sent)
+		})
+	}
+}
+
+func TestSendPipelineCompletionNotificationActivityLookupFailure(t *testing.T) {
+	app := newPipelineResultsTestApp(t)
+	createTestPipelineResult(t, app, "wf-notify", "run-notify")
+	_, err := app.DB().NewQuery("DROP TABLE pipelines").Execute()
+	require.NoError(t, err)
+
+	_, err = executeActivity(
+		t,
+		NewSendPipelineCompletionNotificationActivity(app),
+		SendPipelineCompletionNotificationInput{
+			WorkflowID: "wf-notify",
+			RunID:      "run-notify",
+			Result:     "success",
+		},
+	)
+	requireActivityError(t, err, errorcodes.DatabaseOperationFailed, false)
+	require.ErrorContains(t, err, "lookup pipeline")
+}
+
+func TestPipelineCompletionNotificationError(t *testing.T) {
+	cases := []struct {
+		name         string
+		err          error
+		wantCode     string
+		nonRetryable bool
+	}{
+		{
+			name:         "missing pipeline result",
+			err:          fmt.Errorf("%w: workflow_id wf run_id run", pipelineresults.ErrNotFound),
+			wantCode:     errorcodes.RecordNotFound,
+			nonRetryable: true,
+		},
+		{
+			name:     "send failure",
+			err:      fmt.Errorf("%w: push service down", errPipelineNotificationSend),
+			wantCode: errorcodes.ExecuteHTTPRequestFailed,
+		},
+		{
+			name:     "lookup failure",
+			err:      errors.New("lookup organization: database is locked"),
+			wantCode: errorcodes.DatabaseOperationFailed,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			act := NewSendPipelineCompletionNotificationActivity(nil)
+			err := pipelineCompletionNotificationError(&act.BaseActivity, tc.err)
+			requireActivityError(t, err, tc.wantCode, tc.nonRetryable)
 		})
 	}
 }

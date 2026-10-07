@@ -146,18 +146,18 @@ historical data (see Temporal admin tooling docs for your deployment).
 - Default acquire wait timeout: 45m.
 - Override timeout: `MOBILE_DEVICE_SEMAPHORE_WAIT_TIMEOUT=30m` (or any valid `time.ParseDuration` value).
 - Disable semaphore (no-op acquire/release): `MOBILE_DEVICE_SEMAPHORE_DISABLED=1`.
-- Internal Temporal API auth key: `CREDIMI_INTERNAL_ADMIN_KEY=<plaintext key>` (required for Credimi-to-runner HTTP calls and the internal operator routes).
+- Internal admin key: `CREDIMI_INTERNAL_ADMIN_KEY=<plaintext key>` (authenticates Credimi-to-runner HTTP calls and the runner/operator routes guarded by the internal admin key).
 
 ### Internal admin API key rollout
 
 1. Run DB migrations so `api_keys` supports `key_type`, `superuser`, `revoked`, `expires_at`.
 2. Provision an internal admin key (hash stored in DB, plaintext returned once).
-3. Set `CREDIMI_INTERNAL_ADMIN_KEY` in backend and worker runtime secrets.
-4. Deploy backend/workers with the internal admin key middleware enabled.
-5. Smoke-check one authenticated user route and one internal Temporal route.
+3. Set `CREDIMI_INTERNAL_ADMIN_KEY` in the backend runtime secrets and on the mobile runners.
+4. Deploy the backend with the internal admin key middleware enabled.
+5. Smoke-check one authenticated user route and one runner/operator route guarded by the internal admin key.
 
 ### Emergency procedures
 
 - Semaphore workflows live in the Temporal `default` namespace with IDs: `mobile-device-semaphore/<device_id>`.
-- Query current state via Temporal UI (`GetState`) or `GET /api/mobile-runner/semaphore?device_identifier=...`.
+- Query current state via Temporal UI (`GetState` query).
 - To unstick a runner, terminate the semaphore workflow in Temporal; it will be recreated on the next acquire.

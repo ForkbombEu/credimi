@@ -894,6 +894,36 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			expectedErr: true,
 			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
 		},
+		{
+			name: "Failure: static offer without credential_offer",
+			input: workflowengine.WorkflowInput{
+				Payload: GetCredentialOfferWorkflowPayload{CredentialID: "test_cred"},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				registerGetCredentialOfferActivity(env)
+				env.OnActivity(activities.GetCredentialOfferActivityName, mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: activities.CredentialOfferOutput{Dynamic: false},
+					}, nil)
+			},
+			expectedErr: true,
+			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
+		},
+		{
+			name: "Failure: dynamic offer without code",
+			input: workflowengine.WorkflowInput{
+				Payload: GetCredentialOfferWorkflowPayload{CredentialID: "test_cred"},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				registerGetCredentialOfferActivity(env)
+				env.OnActivity(activities.GetCredentialOfferActivityName, mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: activities.CredentialOfferOutput{Dynamic: true},
+					}, nil)
+			},
+			expectedErr: true,
+			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
+		},
 	}
 
 	for _, tc := range testCases {

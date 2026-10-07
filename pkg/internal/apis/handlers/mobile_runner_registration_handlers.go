@@ -859,11 +859,9 @@ func previewMobileRunnerIdentifier(
 		canonify.MakeExistsFunc(app, "mobile_runners", record, ""),
 	)
 	if err != nil {
-		return PreviewMobileRunnerIDResponse{}, apierror.New(
-			http.StatusInternalServerError,
-			"name",
+		return PreviewMobileRunnerIDResponse{}, canonifyPreviewError(
 			"failed_to_canonify_runner_name",
-			err.Error(),
+			err,
 		)
 	}
 
@@ -937,6 +935,17 @@ func resolveExistingMobileRunner(
 	return record, nil
 }
 
+// canonifyPreviewError maps a name canonification failure of an identifier
+// preview: running out of unique name suffixes is a 409 conflict, any other
+// failure (such as a database error) a 500.
+func canonifyPreviewError(reason string, err error) *apierror.APIError {
+	status := http.StatusInternalServerError
+	if errors.Is(err, canonify.ErrExhaustedAttempts) {
+		status = http.StatusConflict
+	}
+	return apierror.New(status, "name", reason, err.Error())
+}
+
 func previewMobileDeviceIdentifier(
 	app core.App,
 	runner *core.Record,
@@ -959,11 +968,9 @@ func previewMobileDeviceIdentifier(
 		canonify.MakeExistsFunc(app, mobileDevicesCollection, record, ""),
 	)
 	if err != nil {
-		return PreviewMobileDeviceIDResponse{}, apierror.New(
-			http.StatusConflict,
-			"name",
+		return PreviewMobileDeviceIDResponse{}, canonifyPreviewError(
 			"failed_to_canonify_device_name",
-			err.Error(),
+			err,
 		)
 	}
 	record.Set("canonified_name", canonifiedName)

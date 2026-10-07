@@ -11,10 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
-	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
@@ -98,16 +97,12 @@ func resolveRecord(
 	if record.GetBool("published") {
 		return record, nil
 	}
-	owner, err := app.FindFirstRecordByFilter(
-		"organizations",
-		"canonified_name = {:namespace}",
-		map[string]any{"namespace": strings.TrimSpace(ownerNamespace)},
-	)
+	owner, err := pbutils.FindOrganizationByNamespace(app, ownerNamespace)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, notFound
 		}
-		return nil, fmt.Errorf("find organization %s: %w", ownerNamespace, err)
+		return nil, err
 	}
 	if record.GetString("owner") != owner.Id {
 		return nil, notFound
@@ -155,18 +150,10 @@ func (a *GetCredentialOfferActivity) Execute(
 	}
 	offer, secrets, err := credentialOffer(a.app, payload.CredentialIdentifier)
 	if err != nil {
-		if errors.Is(err, errInvalidSecrets) {
-			return result, credimiActivityError(
-				&a.BaseActivity,
-				errorcodes.DecodeFailed,
-				false,
-				err,
-			)
-		}
 		return result, recordLookupError(&a.BaseActivity, err)
 	}
 	result.Output = offer
-	result.Secrets = secretsOutput(secrets)
+	result.Secrets = utils.SecretsToAny(secrets)
 	return result, nil
 }
 
@@ -261,18 +248,10 @@ func (a *GetUseCaseVerificationDeeplinkActivity) Execute(
 	}
 	code, secrets, err := useCaseVerificationDeeplink(a.app, payload.UseCaseIdentifier)
 	if err != nil {
-		if errors.Is(err, errInvalidSecrets) {
-			return result, credimiActivityError(
-				&a.BaseActivity,
-				errorcodes.DecodeFailed,
-				false,
-				err,
-			)
-		}
 		return result, recordLookupError(&a.BaseActivity, err)
 	}
 	result.Output = UseCaseVerificationDeeplinkOutput{Code: code}
-	result.Secrets = secretsOutput(secrets)
+	result.Secrets = utils.SecretsToAny(secrets)
 	return result, nil
 }
 
@@ -310,15 +289,4 @@ func parseRecordSecrets(record *core.Record) (map[string]string, error) {
 		return nil, fmt.Errorf("%w: %w", errInvalidSecrets, err)
 	}
 	return secrets, nil
-}
-
-func secretsOutput(secrets map[string]string) map[string]any {
-	if len(secrets) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(secrets))
-	for key, value := range secrets {
-		out[key] = value
-	}
-	return out
 }

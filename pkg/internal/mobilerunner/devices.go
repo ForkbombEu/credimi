@@ -97,24 +97,45 @@ func OrganizationPublishedLoader(app core.App, orgID string) func() (bool, error
 	}
 }
 
+// ResolveDevice returns the mobile device at the canonified path id and its
+// runner. It returns an error wrapping ErrDeviceNotFound when id is not a
+// mobile device and ErrDeviceRunnerNotFound when its runner record is missing;
+// any other error is a lookup failure.
+func ResolveDevice(app core.App, id string) (device, runner *core.Record, err error) {
+	device, err = canonify.Resolve(app, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil, fmt.Errorf("%w: mobile device %s was not found", ErrDeviceNotFound, id)
+		}
+		return nil, nil, fmt.Errorf("resolve mobile device %s: %w", id, err)
+	}
+	if device.Collection() == nil || device.Collection().Name != mobileDevicesCollection {
+		return nil, nil, fmt.Errorf("%w: mobile device %s was not found", ErrDeviceNotFound, id)
+	}
+	runnerID := device.GetString("runner")
+	runner, err = app.FindRecordById("mobile_runners", runnerID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil, fmt.Errorf(
+				"%w: runner %s of mobile device %s",
+				ErrDeviceRunnerNotFound,
+				runnerID,
+				id,
+			)
+		}
+		return nil, nil, fmt.Errorf("find runner %s of mobile device %s: %w", runnerID, id, err)
+	}
+	return device, runner, nil
+}
+
 // ValidateDeviceAccess checks that every device exists, has a runner and is
 // either owned by ownerID or shared with that organization.
 func ValidateDeviceAccess(app core.App, ownerID string, deviceIDs []string) error {
 	ownerPublished := OrganizationPublishedLoader(app, ownerID)
 	for _, deviceID := range NormalizeDeviceIDs(deviceIDs) {
-		record, err := canonify.Resolve(app, deviceID)
+		record, runner, err := ResolveDevice(app, deviceID)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("%w: mobile device %s was not found", ErrDeviceNotFound, deviceID)
-			}
-			return fmt.Errorf("resolve mobile device %s: %w", deviceID, err)
-		}
-		if record.Collection() == nil || record.Collection().Name != mobileDevicesCollection {
-			return fmt.Errorf("%w: mobile device %s was not found", ErrDeviceNotFound, deviceID)
-		}
-		runner, err := app.FindRecordById("mobile_runners", record.GetString("runner"))
-		if err != nil {
-			return fmt.Errorf("%w: %w", ErrDeviceRunnerNotFound, err)
+			return err
 		}
 		if record.GetString("owner") == ownerID {
 			continue

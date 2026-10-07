@@ -397,9 +397,10 @@ func storeCredentialIssuerCredentials(
 			Get(ctx, &storeResponse); err != nil {
 			return credentialIssuerCredentialStoreResult{Logs: logs}, err
 		}
-		output, _ := storeResponse.Output.(map[string]any)
-		key, ok := output["key"]
-		if !ok {
+		stored, err := workflowengine.DecodePayload[activities.StoreIssuerCredentialOutput](
+			storeResponse.Output,
+		)
+		if err != nil || stored.Key == "" {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			appErr := workflowengine.NewAppError(
 				workflowengine.WorkflowError{
@@ -416,7 +417,7 @@ func storeCredentialIssuerCredentials(
 
 		logs["StoredCredentials"] = append(
 			logs["StoredCredentials"],
-			key,
+			stored.Key,
 		)
 	}
 
@@ -523,13 +524,17 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 		)
 	}
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-	responseBody, ok := result.Output.(map[string]any)
-	if !ok {
+	offer, err := workflowengine.DecodePayload[activities.CredentialOfferOutput](result.Output)
+	if err != nil {
 		wErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: "output is not a map",
+				Message: fmt.Sprintf(
+					"decode %s output: %v",
+					activities.GetCredentialOfferActivityName,
+					err,
+				),
 				Details: map[string]any{"payload": result.Output},
 			},
 		)
@@ -539,30 +544,13 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	dynamic, ok := responseBody["dynamic"].(bool)
-	if !ok {
-		wErr := workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: "dynamic is not a bool",
-				Details: map[string]any{"payload": result.Output},
-			},
-		)
-
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			wErr,
-			input.RunMetadata,
-		)
-	}
-	if !dynamic {
-		credentialOffer, ok := responseBody["credential_offer"].(string)
-		if !ok {
+	if !offer.Dynamic {
+		if offer.CredentialOffer == "" {
 			wErr := workflowengine.NewAppError(
 				workflowengine.WorkflowError{
 					Code:    errCode.Code,
 					Summary: errCode.Description,
-					Message: "credential_offer is not a string",
+					Message: "credential_offer is empty",
 					Details: map[string]any{"payload": result.Output},
 				},
 			)
@@ -575,16 +563,15 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 
 		return workflowengine.WorkflowResult{
 			Message: "Successfully retrieved credential offer",
-			Output:  credentialOffer,
+			Output:  offer.CredentialOffer,
 		}, nil
 	}
-	code, ok := responseBody["code"].(string)
-	if !ok {
+	if offer.Code == "" {
 		wErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: "yaml code is not a string",
+				Message: "yaml code is empty",
 				Details: map[string]any{"payload": result.Output},
 			},
 		)
@@ -598,7 +585,7 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	var stepCIResult workflowengine.ActivityResult
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: activities.StepCIWorkflowActivityPayload{
-			Yaml: code,
+			Yaml: offer.Code,
 		},
 		Secrets: result.Secrets,
 	}

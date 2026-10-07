@@ -95,15 +95,15 @@ func TestStartQueuedPipelineActivityNonFatalResultFailure(t *testing.T) {
 	}{
 		{
 			name:           "unknown pipeline",
-			ownerNamespace: pipelineResultsTestOrgNamespace,
-			pipelineID:     pipelineResultsTestOrgNamespace + "/unknown-pipeline",
+			ownerNamespace: testOrgANamespace,
+			pipelineID:     testOrgANamespace + "/unknown-pipeline",
 			errContains:    "resolve pipeline",
 		},
 		{
 			name:           "unknown owner",
 			ownerNamespace: "missing-org",
 			pipelineID:     "missing-org/pipeline",
-			errContains:    "lookup owner organization missing-org",
+			errContains:    "lookup owner organization: organization missing-org not found",
 		},
 	}
 	for _, tc := range tests {
@@ -140,7 +140,7 @@ func TestStartQueuedPipelineActivityCreatesPipelineResult(t *testing.T) {
 
 	payload := StartQueuedPipelineActivityInput{
 		TicketID:           "ticket-ci",
-		OwnerNamespace:     pipelineResultsTestOrgNamespace,
+		OwnerNamespace:     testOrgANamespace,
 		PipelineIdentifier: identifier,
 		YAML:               "name: test\nsteps: []\n",
 		Memo: map[string]any{
@@ -167,7 +167,7 @@ func TestStartQueuedPipelineActivityCreatesPipelineResult(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, records, 1)
 	require.Equal(t, pipeline.Id, records[0].GetString("pipeline"))
-	require.Equal(t, pipelineResultsTestOrgID, records[0].GetString("owner"))
+	require.Equal(t, testOrgAID, records[0].GetString("owner"))
 	require.Equal(t, pipelineinternal.RunTypeCI, records[0].GetString("type"))
 }
 

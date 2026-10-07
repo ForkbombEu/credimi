@@ -113,7 +113,8 @@ description: ""
 ```
 credimi/
 ├── pkg/internal/apis/handlers/
-│   ├── scoreboard.go                    (active aggregation + save handlers)
+│   ├── scoreboard.go                    (aggregation logic, schedule start/cancel handlers)
+│   ├── scoreboard_activities.go         (scoreboard aggregation activities)
 │   ├── scoreboard_handler.go            (legacy OTel handler, commented out)
 │   └── scoreboard_test.go
 ├── pkg/workflowengine/workflows/

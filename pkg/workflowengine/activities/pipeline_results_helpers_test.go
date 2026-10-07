@@ -15,20 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	pipelineResultsTestOrgID        = "co35481b68u3zj3"
-	pipelineResultsTestOrgNamespace = "usera-s-organization"
-	pipelineResultsTestAppURL       = "https://credimi.test"
-)
+const pipelineResultsTestAppURL = "https://credimi.test"
 
 // newPipelineResultsTestApp returns a test app with canonify hooks and the
 // Settings app URL set.
 func newPipelineResultsTestApp(t *testing.T) *tests.TestApp {
 	t.Helper()
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	t.Cleanup(app.Cleanup)
-	canonify.RegisterCanonifyHooks(app)
+	app := newCredimiTestApp(t)
 	app.Settings().Meta.AppURL = pipelineResultsTestAppURL
 	app.Settings().Meta.AppName = "Credimi"
 	return app
@@ -41,7 +34,7 @@ func createTestPipeline(t *testing.T, app core.App, name string) (*core.Record, 
 	coll, err := app.FindCollectionByNameOrId("pipelines")
 	require.NoError(t, err)
 	record := core.NewRecord(coll)
-	record.Set("owner", pipelineResultsTestOrgID)
+	record.Set("owner", testOrgAID)
 	record.Set("name", name)
 	record.Set("description", "test-description")
 	record.Set("yaml", "name: "+name+"\nsteps: []\n")
@@ -62,7 +55,7 @@ func createTestPipelineResult(
 	t.Helper()
 	pipeline, _ := createTestPipeline(t, app, "pipeline-"+workflowID)
 	record, err := pipelineresults.Create(app, pipelineresults.CreateInput{
-		OwnerID:    pipelineResultsTestOrgID,
+		OwnerID:    testOrgAID,
 		PipelineID: pipeline.Id,
 		WorkflowID: workflowID,
 		RunID:      runID,

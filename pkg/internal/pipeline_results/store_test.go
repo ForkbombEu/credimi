@@ -297,9 +297,10 @@ func TestSanitizeReportFilename(t *testing.T) {
 	for input, want := range map[string]string{
 		"":                   "pipeline-report.md",
 		"../workflow report": "workflow-report.md",
+		" workflow/1 ":       "workflow-1.md",
 		"workflow.md":        "workflow.md",
 		"///":                "pipeline-report.md",
 	} {
-		require.Equal(t, want, sanitizeReportFilename(input), input)
+		require.Equal(t, want, SanitizeReportFilename(input), input)
 	}
 }

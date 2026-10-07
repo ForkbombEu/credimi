@@ -5,9 +5,11 @@
 package activities
 
 import (
+	"database/sql"
 	"errors"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -66,11 +68,23 @@ func credimiActivityError(
 	return a.NewNonRetryableActivityError(failure)
 }
 
-// recordLookupError maps ErrRecordNotFound to a non-retryable CRE233 and any
-// other error to a retryable CRE235.
+// recordLookupError maps a Credimi record lookup failure to an activity error:
+// missing records (errRecordNotFound, sql.ErrNoRows, missing mobile devices or
+// runners) are a non-retryable CRE233, inaccessible mobile devices a
+// non-retryable CRE234, invalid secrets a non-retryable decode failure, and any
+// other error a retryable CRE235.
 func recordLookupError(a *workflowengine.BaseActivity, err error) error {
-	if errors.Is(err, errRecordNotFound) {
+	switch {
+	case errors.Is(err, errRecordNotFound),
+		errors.Is(err, sql.ErrNoRows),
+		errors.Is(err, mobilerunner.ErrDeviceNotFound),
+		errors.Is(err, mobilerunner.ErrDeviceRunnerNotFound):
 		return credimiActivityError(a, errorcodes.RecordNotFound, false, err)
+	case errors.Is(err, mobilerunner.ErrDeviceNotAccessible):
+		return credimiActivityError(a, errorcodes.RecordNotAccessible, false, err)
+	case errors.Is(err, errInvalidSecrets):
+		return credimiActivityError(a, errorcodes.DecodeFailed, false, err)
+	default:
+		return credimiActivityError(a, errorcodes.DatabaseOperationFailed, true, err)
 	}
-	return credimiActivityError(a, errorcodes.DatabaseOperationFailed, true, err)
 }

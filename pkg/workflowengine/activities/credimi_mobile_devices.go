@@ -6,13 +6,11 @@ package activities
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
-	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -58,21 +56,7 @@ func (a *GetMobileDeviceActivity) Execute(
 	}
 	info, err := mobileDevice(a.app, payload.DeviceIdentifier)
 	if err != nil {
-		if errors.Is(err, mobilerunner.ErrDeviceNotFound) ||
-			errors.Is(err, mobilerunner.ErrDeviceRunnerNotFound) {
-			return result, credimiActivityError(
-				&a.BaseActivity,
-				errorcodes.RecordNotFound,
-				false,
-				err,
-			)
-		}
-		return result, credimiActivityError(
-			&a.BaseActivity,
-			errorcodes.DatabaseOperationFailed,
-			true,
-			err,
-		)
+		return result, recordLookupError(&a.BaseActivity, err)
 	}
 	result.Output = info
 	return result, nil
@@ -83,29 +67,9 @@ func (a *GetMobileDeviceActivity) Execute(
 // mobilerunner.ErrDeviceRunnerNotFound when its runner is missing.
 func mobileDevice(app core.App, identifier string) (MobileDeviceInfo, error) {
 	deviceID := canonify.NormalizePath(identifier)
-	device, err := canonify.Resolve(app, deviceID)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return MobileDeviceInfo{}, fmt.Errorf("resolve mobile device %s: %w", deviceID, err)
-	}
-	if err != nil || device.Collection().Name != "mobile_devices" {
-		return MobileDeviceInfo{}, fmt.Errorf(
-			"%w: mobile device %s was not found",
-			mobilerunner.ErrDeviceNotFound,
-			deviceID,
-		)
-	}
-	runnerID := device.GetString("runner")
-	runner, err := app.FindRecordById("mobile_runners", runnerID)
+	device, runner, err := mobilerunner.ResolveDevice(app, deviceID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return MobileDeviceInfo{}, fmt.Errorf(
-				"%w: runner %s of mobile device %s",
-				mobilerunner.ErrDeviceRunnerNotFound,
-				runnerID,
-				deviceID,
-			)
-		}
-		return MobileDeviceInfo{}, fmt.Errorf("find mobile runner %s: %w", runnerID, err)
+		return MobileDeviceInfo{}, err
 	}
 	runnerIdentifier, err := mobilerunner.RunnerIdentifier(app, runner)
 	if err != nil {
@@ -152,47 +116,12 @@ func (a *ValidateDeviceAccessActivity) Execute(
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
-	org, err := a.app.FindFirstRecordByFilter(
-		"organizations",
-		"canonified_name = {:namespace}",
-		map[string]any{"namespace": payload.OwnerNamespace},
-	)
+	org, err := pbutils.FindOrganizationByNamespace(a.app, payload.OwnerNamespace)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return result, credimiActivityError(
-				&a.BaseActivity,
-				errorcodes.RecordNotFound,
-				false,
-				fmt.Errorf("organization %s not found", payload.OwnerNamespace),
-			)
-		}
-		return result, credimiActivityError(
-			&a.BaseActivity,
-			errorcodes.DatabaseOperationFailed,
-			true,
-			fmt.Errorf("find organization %s: %w", payload.OwnerNamespace, err),
-		)
+		return result, recordLookupError(&a.BaseActivity, err)
 	}
-	err = mobilerunner.ValidateDeviceAccess(a.app, org.Id, payload.DeviceIDs)
-	switch {
-	case err == nil:
-		return result, nil
-	case errors.Is(err, mobilerunner.ErrDeviceNotFound),
-		errors.Is(err, mobilerunner.ErrDeviceRunnerNotFound):
-		return result, credimiActivityError(&a.BaseActivity, errorcodes.RecordNotFound, false, err)
-	case errors.Is(err, mobilerunner.ErrDeviceNotAccessible):
-		return result, credimiActivityError(
-			&a.BaseActivity,
-			errorcodes.RecordNotAccessible,
-			false,
-			err,
-		)
-	default:
-		return result, credimiActivityError(
-			&a.BaseActivity,
-			errorcodes.DatabaseOperationFailed,
-			true,
-			err,
-		)
+	if err := mobilerunner.ValidateDeviceAccess(a.app, org.Id, payload.DeviceIDs); err != nil {
+		return result, recordLookupError(&a.BaseActivity, err)
 	}
+	return result, nil
 }

@@ -793,82 +793,61 @@ func fetchRunnerInfo(
 		return "", "", "", "", err
 	}
 
-	body, ok := runnerRes.Output.(map[string]any)
-	if !ok {
+	device, err := workflowengine.DecodePayload[activities.MobileDeviceInfo](runnerRes.Output)
+	if err != nil {
 		return "", "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: fmt.Sprintf("invalid mobile device output for step %s", input.stepID),
+				Message: fmt.Sprintf(
+					"invalid mobile device output for step %s: %v",
+					input.stepID,
+					err,
+				),
 				Details: map[string]any{"payload": runnerRes.Output},
 			},
 		)
 	}
 
-	runnerURL, ok := body["runner_url"].(string)
-	if !ok || runnerURL == "" {
+	if device.RunnerURL == "" {
 		return "", "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
 				Message: fmt.Sprintf("missing or invalid runner_url for step %s", input.stepID),
-				Details: map[string]any{"payload": body},
+				Details: map[string]any{"payload": device},
 			},
 		)
 	}
-	if err := validateRunnerURL(runnerURL, input.stepID, body); err != nil {
+	if err := validateRunnerURL(device.RunnerURL, input.stepID, device); err != nil {
 		return "", "", "", "", err
 	}
 
-	rawDeviceType, ok := body["type"].(string)
-	if !ok {
-		return "", "", "", "", workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
-				Details: map[string]any{"payload": body},
-			},
-		)
-	}
-	deviceType := normalizeDeviceType(rawDeviceType)
+	deviceType := normalizeDeviceType(device.Type)
 	if deviceType == "" {
 		return "", "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
 				Message: fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
-				Details: map[string]any{"payload": body},
+				Details: map[string]any{"payload": device},
 			},
 		)
 	}
 
-	serial, ok := body["serial"].(string)
-	if !ok {
-		return "", "", "", "", workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("invalid device serial for step %s", input.stepID),
-				Details: map[string]any{"payload": body},
-			},
-		)
-	}
-
-	runnerID, ok := body["runner_id"].(string)
-	runnerID = canonify.NormalizePath(runnerID)
-	if !ok || runnerID == "" {
+	runnerID := canonify.NormalizePath(device.RunnerID)
+	if runnerID == "" {
 		return "", "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
 				Message: fmt.Sprintf("missing or invalid host runner_id for step %s", input.stepID),
-				Details: map[string]any{"payload": body},
+				Details: map[string]any{"payload": device},
 			},
 		)
 	}
 
-	return runnerID, runnerURL, deviceType, serial, nil
+	return runnerID, device.RunnerURL, deviceType, device.Serial, nil
 }
 
 func validateRunnerURL(runnerURL string, stepID string, details any) error {

@@ -12,12 +12,12 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
@@ -589,13 +589,9 @@ func (a *StartQueuedPipelineActivity) createPipelineResult(
 	runID string,
 	runType string,
 ) error {
-	owner, err := a.app.FindFirstRecordByFilter(
-		"organizations",
-		"canonified_name = {:name}",
-		dbx.Params{"name": payload.OwnerNamespace},
-	)
+	owner, err := pbutils.FindOrganizationByNamespace(a.app, payload.OwnerNamespace)
 	if err != nil {
-		return fmt.Errorf("lookup owner organization %s: %w", payload.OwnerNamespace, err)
+		return fmt.Errorf("lookup owner organization: %w", err)
 	}
 	pipelineRecord, err := canonify.Resolve(a.app, payload.PipelineIdentifier)
 	if err != nil {

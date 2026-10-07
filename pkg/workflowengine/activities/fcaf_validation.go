@@ -242,7 +242,7 @@ func (a *FCAFValidationActivity) storeReport(
 		workflowID = info.WorkflowExecution.ID
 		runID = info.WorkflowExecution.RunID
 	}
-	return storeFCAFReport(ctx, a.app, workflowID, runID, string(data))
+	return storeFCAFReport(ctx, a.app, workflowID, runID, data)
 }
 
 // compactFCAFReport returns report with every evidence value removed.

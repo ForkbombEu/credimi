@@ -171,6 +171,61 @@ func TestValidateDeviceAccess(t *testing.T) {
 	}
 }
 
+func TestResolveDevice(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		breakDB   string
+		wantErr   error
+		wantOther bool
+	}{
+		{name: "device and runner found"},
+		{
+			name:    "device record deleted",
+			breakDB: "DELETE FROM mobile_devices",
+			wantErr: ErrDeviceNotFound,
+		},
+		{
+			name:      "device lookup fails",
+			breakDB:   "DROP TABLE mobile_devices",
+			wantOther: true,
+		},
+		{
+			name:      "runner lookup fails",
+			breakDB:   "DROP TABLE mobile_runners",
+			wantOther: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app := newDevicesTestApp(t)
+			runner := createRunner(t, app, orgAID, "Runner One", false, false)
+			device := createDevice(t, app, orgAID, runner.Id, "Device One")
+			deviceID := devicePath(t, app, device)
+			if tc.breakDB != "" {
+				_, err := app.DB().NewQuery(tc.breakDB).Execute()
+				require.NoError(t, err)
+			}
+
+			gotDevice, gotRunner, err := ResolveDevice(app, deviceID)
+			switch {
+			case tc.wantErr != nil:
+				require.ErrorIs(t, err, tc.wantErr)
+			case tc.wantOther:
+				require.Error(t, err)
+				require.NotErrorIs(t, err, ErrDeviceNotFound)
+				require.NotErrorIs(t, err, ErrDeviceRunnerNotFound)
+				// ValidateDeviceAccess must not report a lookup failure as not found.
+				accessErr := ValidateDeviceAccess(app, orgAID, []string{deviceID})
+				require.Error(t, accessErr)
+				require.NotErrorIs(t, accessErr, ErrDeviceRunnerNotFound)
+			default:
+				require.NoError(t, err)
+				require.Equal(t, device.Id, gotDevice.Id)
+				require.Equal(t, runner.Id, gotRunner.Id)
+			}
+		})
+	}
+}
+
 func newDevicesTestApp(t *testing.T) *tests.TestApp {
 	t.Helper()
 	app, err := tests.NewTestApp(testDataDir)

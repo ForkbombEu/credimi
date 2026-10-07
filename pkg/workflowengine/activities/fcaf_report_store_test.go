@@ -70,7 +70,7 @@ func TestStoreFCAFReportStoresJSONAndPDF(t *testing.T) {
 		app,
 		"workflow-fcaf",
 		"run-fcaf",
-		string(reportJSON),
+		reportJSON,
 	)
 	require.NoError(t, err)
 
@@ -104,7 +104,7 @@ func TestStoreFCAFReportPreservesJSONWhenPDFGenerationFails(t *testing.T) {
 		app,
 		"workflow-fcaf-failure",
 		"run-fcaf-failure",
-		`{"status":"failed","summary":{}}`,
+		[]byte(`{"status":"failed","summary":{}}`),
 	)
 	require.NoError(t, err)
 	require.NotEmpty(t, reportSHA256)
@@ -121,21 +121,21 @@ func TestStoreFCAFReportErrors(t *testing.T) {
 	tests := []struct {
 		name        string
 		workflowID  string
-		reportJSON  string
+		reportJSON  []byte
 		errIs       error
 		errContains string
 	}{
 		{
 			name:        "missing pipeline result",
 			workflowID:  "workflow-unknown",
-			reportJSON:  `{}`,
+			reportJSON:  []byte(`{}`),
 			errIs:       pipelineresults.ErrNotFound,
 			errContains: "pipeline result not found",
 		},
 		{
 			name:        "invalid report json",
 			workflowID:  "workflow-fcaf-errors",
-			reportJSON:  `{`,
+			reportJSON:  []byte(`{`),
 			errContains: "enrich FCAF report",
 		},
 	}

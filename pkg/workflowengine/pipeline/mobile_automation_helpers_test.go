@@ -677,13 +677,13 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 			errSubstr: "device type",
 		},
 		{
-			name: "invalid serial",
+			name: "invalid serial type",
 			body: map[string]any{
 				"runner_url": "http://runner",
 				"type":       "physical",
 				"serial":     123,
 			},
-			errSubstr: "invalid device serial",
+			errSubstr: "invalid mobile device output",
 		},
 	}
 

@@ -22,3 +22,16 @@ func ParseSecretsYAML(s string) (map[string]string, error) {
 	}
 	return secrets, nil
 }
+
+// SecretsToAny converts parsed secrets to the map[string]any form carried by
+// activity results and API responses. Empty secrets return nil.
+func SecretsToAny(secrets map[string]string) map[string]any {
+	if len(secrets) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(secrets))
+	for key, value := range secrets {
+		out[key] = value
+	}
+	return out
+}

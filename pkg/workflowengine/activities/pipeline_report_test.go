@@ -172,11 +172,6 @@ func TestPipelineReportGenerationActivityWarnsWhenStorageFails(t *testing.T) {
 	require.Contains(t, out.Warnings[0], "pipeline result not found")
 }
 
-func TestSanitizeReportFilename(t *testing.T) {
-	require.Equal(t, "workflow-1.md", sanitizeReportFilename(" workflow/1 ")+".md")
-	require.Equal(t, "pipeline-report", sanitizeReportFilename("///"))
-}
-
 func TestPipelineReportGenerationActivityValidation(t *testing.T) {
 	act := NewPipelineReportGenerationActivity(nil, fcafTestOutputKind)
 	_, err := act.Execute(

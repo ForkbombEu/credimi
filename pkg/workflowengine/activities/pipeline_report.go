@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"regexp"
 	"strings"
 
 	"github.com/forkbombeu/credimi-conformance-assessment/pkg/conformance"
@@ -169,7 +168,7 @@ func (a *PipelineReportGenerationActivity) Execute(
 	sum := sha256.Sum256([]byte(report.Markdown))
 	output := PipelineReportGenerationOutput{
 		MarkdownSHA256: hex.EncodeToString(sum[:]),
-		Filename:       sanitizeReportFilename(fixture) + ".md",
+		Filename:       pipelineresults.SanitizeReportFilename(fixture),
 		Fixture:        report.Fixture,
 		Slug:           report.Slug,
 		PassedCount:    report.PassedCount,
@@ -214,16 +213,4 @@ func marshalRaw(value any) (json.RawMessage, error) {
 		return nil, err
 	}
 	return json.RawMessage(raw), nil
-}
-
-var unsafeReportFilenameChars = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
-
-func sanitizeReportFilename(name string) string {
-	name = strings.TrimSpace(name)
-	name = unsafeReportFilenameChars.ReplaceAllString(name, "-")
-	name = strings.Trim(name, ".-_")
-	if name == "" {
-		return "pipeline-report"
-	}
-	return name
 }

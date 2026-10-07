@@ -106,7 +106,9 @@ func TestValidateDeviceAccessActivity(t *testing.T) {
 		name      string
 		owner     string
 		namespace string
+		breakDB   string
 		wantErr   string
+		retryable bool
 	}{
 		{
 			name:      "owned device",
@@ -125,6 +127,22 @@ func TestValidateDeviceAccessActivity(t *testing.T) {
 			namespace: "missing-org",
 			wantErr:   errorcodes.RecordNotFound,
 		},
+		{
+			name:      "device runner lookup fails",
+			owner:     testOrgAID,
+			namespace: testOrgANamespace,
+			breakDB:   "DROP TABLE mobile_runners",
+			wantErr:   errorcodes.DatabaseOperationFailed,
+			retryable: true,
+		},
+		{
+			name:      "organization lookup fails",
+			owner:     testOrgAID,
+			namespace: testOrgANamespace,
+			breakDB:   "DROP TABLE organizations",
+			wantErr:   errorcodes.DatabaseOperationFailed,
+			retryable: true,
+		},
 	}
 
 	for _, tc := range cases {
@@ -132,6 +150,10 @@ func TestValidateDeviceAccessActivity(t *testing.T) {
 			app := newCredimiTestApp(t)
 			runner := createTestRunner(t, app, tc.owner, "Runner One", "")
 			deviceID := createTestDevice(t, app, tc.owner, runner.Id, "Device One")
+			if tc.breakDB != "" {
+				_, err := app.DB().NewQuery(tc.breakDB).Execute()
+				require.NoError(t, err)
+			}
 
 			_, err := executeActivity(
 				t,
@@ -142,7 +164,7 @@ func TestValidateDeviceAccessActivity(t *testing.T) {
 				},
 			)
 			if tc.wantErr != "" {
-				requireActivityError(t, err, tc.wantErr, true)
+				requireActivityError(t, err, tc.wantErr, !tc.retryable)
 				return
 			}
 			require.NoError(t, err)

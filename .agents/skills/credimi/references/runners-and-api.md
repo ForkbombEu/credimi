@@ -88,9 +88,9 @@ Runner URLs for the worker manager come only from its workflow payload: the star
 
 **Deeplinks.** `POST /api/get-deeplink`, `GET /api/credential/deeplink`, `GET /api/verification/deeplink` (P).
 
-**Issuers / credentials.** `POST /api/credentials_issuers/start-check`, `POST /api/credentials_issuers/import-fides` (U). Workers use the activities `Store a credential issuer`, `Store an issuer credential` (`credential_issuer_store.go`), `Get a credential offer` and `Delete a temporary record` (`temp_records.go`).
+**Issuers / credentials.** `POST /api/credentials_issuers/start-check`, `POST /api/credentials_issuers/import-fides` (U). Workers use the activities `Store a credential issuer`, `Store an issuer credential` (`credential_issuer_store.go`), `Get a credential offer` (`credimi_records.go`) and `Delete a temporary record` (`temp_records.go`).
 
-**Verifiers.** No verifier routes; workers use the activities `Get a use case verification deeplink` and `Delete a temporary record`.
+**Verifiers.** No verifier routes; workers use the activities `Get a use case verification deeplink` (`credimi_records.go`) and `Delete a temporary record` (`temp_records.go`).
 
 **Wallets.** `POST /api/wallet/start-check` (U); `POST /api/wallet/get-installer-md5-or-etag` (I); `POST /api/wallet/store-pipeline-result` (internal-or-auth). Temporary wallet versions are deleted by the `Delete a temporary record` activity.
 

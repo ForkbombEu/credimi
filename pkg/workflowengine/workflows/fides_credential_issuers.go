@@ -262,9 +262,10 @@ func storeOrUpdateCredentialIssuerRecord(
 		return "", workflowengine.NewWorkflowError(err, input.RunMetadata)
 	}
 
-	output, _ := storeResult.Output.(map[string]any)
-	id, ok := output["id"].(string)
-	if !ok || id == "" {
+	stored, err := workflowengine.DecodePayload[activities.StoreCredentialIssuerOutput](
+		storeResult.Output,
+	)
+	if err != nil || stored.ID == "" {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
@@ -276,7 +277,7 @@ func storeOrUpdateCredentialIssuerRecord(
 		return "", workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 	}
 
-	return id, nil
+	return stored.ID, nil
 }
 
 func fidesCredentialIssuersFromActivityOutput(

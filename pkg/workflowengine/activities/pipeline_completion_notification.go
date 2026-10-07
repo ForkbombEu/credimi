@@ -64,23 +64,28 @@ func (a *SendPipelineCompletionNotificationActivity) Execute(
 
 	sent, err := sendPipelineCompletionNotification(ctx, a.app, payload)
 	if err != nil {
-		if errors.Is(err, pipelineresults.ErrNotFound) {
-			errCode := errorcodes.Codes[errorcodes.RecordNotFound]
-			return result, a.NewNonRetryableActivityError(workflowengine.ActivityError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: err.Error(),
-			})
-		}
-		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
-		return result, a.NewActivityError(workflowengine.ActivityError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: err.Error(),
-		})
+		return result, pipelineCompletionNotificationError(&a.BaseActivity, err)
 	}
 	result.Output = SendPipelineCompletionNotificationOutput{Sent: sent}
 	return result, nil
+}
+
+// errPipelineNotificationSend reports a failure to send the web push
+// notifications of a finished pipeline run.
+var errPipelineNotificationSend = errors.New("send pipeline completion notifications")
+
+// pipelineCompletionNotificationError maps a missing pipeline result to a
+// non-retryable CRE233, a send failure to a retryable CRE209 and any other
+// (database lookup) failure to a retryable CRE235.
+func pipelineCompletionNotificationError(a *workflowengine.BaseActivity, err error) error {
+	switch {
+	case errors.Is(err, pipelineresults.ErrNotFound):
+		return credimiActivityError(a, errorcodes.RecordNotFound, false, err)
+	case errors.Is(err, errPipelineNotificationSend):
+		return credimiActivityError(a, errorcodes.ExecuteHTTPRequestFailed, true, err)
+	default:
+		return credimiActivityError(a, errorcodes.DatabaseOperationFailed, true, err)
+	}
 }
 
 // sendPipelineCompletionNotification sends the web push notification of a
@@ -120,7 +125,7 @@ func sendPipelineCompletionNotification(
 		AppURL:       workflowengine.AppURL(app),
 	})
 	if err != nil {
-		return 0, fmt.Errorf("send pipeline completion notifications: %w", err)
+		return 0, fmt.Errorf("%w: %w", errPipelineNotificationSend, err)
 	}
 	return sent, nil
 }

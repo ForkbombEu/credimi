@@ -83,30 +83,16 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 		)
 	}
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-	responseBody, ok := result.Output.(map[string]any)
-	if !ok {
+	verification, err := workflowengine.DecodePayload[activities.UseCaseVerificationDeeplinkOutput](
+		result.Output,
+	)
+	if err != nil {
 		wErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: "output is not a map",
-				Details: map[string]any{"payload": result.Output},
-			},
-		)
-
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			wErr,
-			input.RunMetadata,
-		)
-	}
-
-	code, ok := responseBody["code"].(string)
-	if !ok {
-		wErr := workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: "yaml code is not a string",
+				Message: "decode " + activities.GetUseCaseVerificationDeeplinkActivityName +
+					" output: " + err.Error(),
 				Details: map[string]any{"payload": result.Output},
 			},
 		)
@@ -120,7 +106,7 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 	var stepCIResult workflowengine.ActivityResult
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: activities.StepCIWorkflowActivityPayload{
-			Yaml: code,
+			Yaml: verification.Code,
 		},
 		Secrets: result.Secrets,
 	}

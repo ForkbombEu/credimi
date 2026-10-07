@@ -80,6 +80,17 @@ func TestBindAppHooks_CatchAllProxiesUIButNotAPI(t *testing.T) {
 			path:     "/api/unknown/route",
 			wantCode: http.StatusNotFound,
 		},
+		{
+			name:     "bare api path is not proxied",
+			path:     "/api",
+			wantCode: http.StatusNotFound,
+		},
+		{
+			name:        "api-prefixed ui path is proxied",
+			path:        "/apix",
+			wantCode:    http.StatusAccepted,
+			wantProxied: true,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

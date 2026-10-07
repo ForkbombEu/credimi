@@ -13,7 +13,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig(({ mode }) => {
 	const pocketbaseUrl = loadEnv(mode, process.cwd(), '').VITE_API;
 	const proxy = pocketbaseUrl
-		? { '/api': pocketbaseUrl, '/_/': pocketbaseUrl, '/temporal-ui': pocketbaseUrl }
+		? { '/api/': pocketbaseUrl, '/_/': pocketbaseUrl, '/temporal-ui': pocketbaseUrl }
 		: undefined;
 	return {
 		plugins: [
@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
 
 		server: {
 			port: Number(process.env.PORT) || 5100,
-			// The webapp talks to PocketBase on its own origin: /api, the admin assets under /_/
+			// The webapp talks to PocketBase on its own origin: /api/, the admin assets under /_/
 			// and the embedded Temporal UI (pkg/internal/temporalui) are proxied to VITE_API.
 			proxy
 		},

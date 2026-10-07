@@ -153,7 +153,7 @@ func StoreReport(app core.App, workflowID, runID, filename, markdown string) err
 	if err != nil {
 		return err
 	}
-	file, err := filesystem.NewFileFromBytes([]byte(markdown), sanitizeReportFilename(filename))
+	file, err := filesystem.NewFileFromBytes([]byte(markdown), SanitizeReportFilename(filename))
 	if err != nil {
 		return fmt.Errorf("create report file: %w", err)
 	}
@@ -173,7 +173,9 @@ func requireWorkflowRun(workflowID, runID string) error {
 
 var unsafeReportFilenameChars = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
-func sanitizeReportFilename(filename string) string {
+// SanitizeReportFilename returns a safe markdown filename for a run report:
+// unsafe characters become "-", and the result always ends in ".md".
+func SanitizeReportFilename(filename string) string {
 	filename = strings.TrimSpace(filename)
 	if filename == "" {
 		filename = "pipeline-report.md"

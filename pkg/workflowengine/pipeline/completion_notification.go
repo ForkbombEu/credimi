@@ -30,7 +30,8 @@ func reportPipelineCompletionNotification(
 	}
 
 	// The queue start path injects this key when it also creates the
-	// pipeline_results record the notification handler resolves.
+	// pipeline_results record the SendPipelineCompletionNotification activity
+	// resolves.
 	if enabled, _ := config[CompletionNotificationConfigKey].(bool); !enabled {
 		return
 	}

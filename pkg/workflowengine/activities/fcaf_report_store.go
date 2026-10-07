@@ -24,13 +24,13 @@ func storeFCAFReport(
 	ctx context.Context,
 	app core.App,
 	workflowID, runID string,
-	reportJSON string,
+	reportJSON []byte,
 ) (string, error) {
 	record, err := pipelineresults.FindByWorkflowRun(app, workflowID, runID)
 	if err != nil {
 		return "", err
 	}
-	enrichedJSON, _, err := reportgeneration.EnrichReportJSON(app, record, []byte(reportJSON))
+	enrichedJSON, _, err := reportgeneration.EnrichReportJSON(app, record, reportJSON)
 	if err != nil {
 		return "", fmt.Errorf("enrich FCAF report: %w", err)
 	}
