@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -160,7 +161,10 @@ func startEWCLikeWorkflow(
 ) (result workflowengine.WorkflowResult, err error) {
 	input = workflowengine.WithCredimiCapabilities(
 		input,
-		workflowengine.CredimiCapabilities{Logs: true},
+		workflowengine.CredimiCapabilities{
+			Logs: true,
+			QR:   ewcLikeSuiteHasQR(input),
+		},
 	)
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       workflowPrefix + uuid.NewString(),
@@ -172,6 +176,20 @@ func startEWCLikeWorkflow(
 		namespace = input.Config["namespace"].(string)
 	}
 	return startFn(namespace, workflowOptions, name, input)
+}
+
+// ewcLikeSuiteHasQR reads suite path axes from memo/config and looks up catalog has_qr.
+func ewcLikeSuiteHasQR(input workflowengine.WorkflowInput) bool {
+	memo, _ := input.Config["memo"].(map[string]any)
+	standard, _ := memo["standard"].(string)
+	suite, _ := memo["author"].(string)
+	version, _ := input.Config["version"].(string)
+	if standard == "" || version == "" || suite == "" {
+		return false
+	}
+	return conformancecatalog.SuiteHasQR(
+		conformancecatalog.SuitePathPrefix(standard, version, suite),
+	)
 }
 
 // EWCStatusWorkflow is a workflow that checks the status of an EWC check.

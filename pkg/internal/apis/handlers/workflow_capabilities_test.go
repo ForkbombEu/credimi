@@ -26,14 +26,19 @@ func temporalMemoWithLogsCapability(t *testing.T, logs bool) *commonpb.Memo {
 	}}
 }
 
-func localMemoWithLogsCapability(t *testing.T, logs bool) *Memo {
+func localMemoWithCapabilities(t *testing.T, caps workflowengine.CredimiCapabilities) *Memo {
 	t.Helper()
-	data, err := json.Marshal(workflowengine.CredimiCapabilities{Logs: logs})
+	data, err := json.Marshal(caps)
 	require.NoError(t, err)
 	encoded := base64.StdEncoding.EncodeToString(data)
 	return &Memo{Fields: map[string]*Payload{
 		workflowengine.CredimiCapabilitiesMemoKey: {Data: &encoded},
 	}}
+}
+
+func localMemoWithLogsCapability(t *testing.T, logs bool) *Memo {
+	t.Helper()
+	return localMemoWithCapabilities(t, workflowengine.CredimiCapabilities{Logs: logs})
 }
 
 func TestWorkflowExecutionHasLogs(t *testing.T) {
@@ -47,6 +52,23 @@ func TestWorkflowExecutionHasLogs(t *testing.T) {
 
 	invalid := "not-base64"
 	require.False(t, workflowExecutionHasLogs(&WorkflowExecution{Memo: &Memo{
+		Fields: map[string]*Payload{
+			workflowengine.CredimiCapabilitiesMemoKey: {Data: &invalid},
+		},
+	}}))
+}
+
+func TestWorkflowExecutionHasQR(t *testing.T) {
+	require.True(t, workflowExecutionHasQR(&WorkflowExecution{
+		Memo: localMemoWithCapabilities(t, workflowengine.CredimiCapabilities{QR: true}),
+	}))
+	require.False(t, workflowExecutionHasQR(&WorkflowExecution{
+		Memo: localMemoWithCapabilities(t, workflowengine.CredimiCapabilities{QR: false}),
+	}))
+	require.False(t, workflowExecutionHasQR(&WorkflowExecution{}))
+
+	invalid := "not-base64"
+	require.False(t, workflowExecutionHasQR(&WorkflowExecution{Memo: &Memo{
 		Fields: map[string]*Payload{
 			workflowengine.CredimiCapabilitiesMemoKey: {Data: &invalid},
 		},

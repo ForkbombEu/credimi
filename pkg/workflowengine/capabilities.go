@@ -10,6 +10,7 @@ const CredimiCapabilitiesMemoKey = "credimi_capabilities"
 // CredimiCapabilities describes optional product capabilities of one workflow execution.
 type CredimiCapabilities struct {
 	Logs bool `json:"logs"`
+	QR   bool `json:"qr"`
 }
 
 // WithCredimiCapabilities returns an input with authoritative capabilities merged into its memo.

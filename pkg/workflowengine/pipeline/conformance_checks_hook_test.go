@@ -9,9 +9,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -160,6 +162,7 @@ test: "alpha"
 		capabilities, ok := memo[workflowengine.CredimiCapabilitiesMemoKey].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, true, capabilities["logs"])
+		require.Equal(t, false, capabilities["qr"])
 		require.Equal(t, "openid template", result.Config["template"])
 	})
 
@@ -192,6 +195,39 @@ test: "alpha"
 		require.True(t, ok)
 		require.Equal(t, "session-123", parameters["session_id"])
 		require.Equal(t, "ewc template", result.Config["template"])
+	})
+
+	t.Run("ewc wallet check sets qr from catalog suite grain", func(t *testing.T) {
+		require.NoError(t, conformancecatalog.Rebuild(testConfigTemplatesDir(t)))
+
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "openid4vci_wallet/draft-15/ewc/check2"
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			`session_id: "session-123"`,
+		)
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join(workflows.EWCTemplateFolderPath, "check2.yaml"),
+			"ewc template",
+		)
+
+		result := runConformanceHookWorkflow(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+
+		memo, ok := result.Config["memo"].(map[string]any)
+		require.True(t, ok)
+		capabilities, ok := memo[workflowengine.CredimiCapabilitiesMemoKey].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, true, capabilities["logs"])
+		require.Equal(t, true, capabilities["qr"])
 	})
 
 	t.Run("webuild suite populates session id", func(t *testing.T) {
@@ -340,6 +376,7 @@ test: "issuer-test"`
 		capabilities, ok := memo[workflowengine.CredimiCapabilitiesMemoKey].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, true, capabilities["logs"])
+		require.Equal(t, false, capabilities["qr"])
 	})
 
 	t.Run("openid4vp verifier suite uses verifier StepCI template", func(t *testing.T) {
@@ -626,6 +663,13 @@ func runConformanceHookWorkflowError(t *testing.T, input conformanceHookInput) e
 
 	env.ExecuteWorkflow("test-conformance-hook", input)
 	return env.GetWorkflowError()
+}
+
+func testConfigTemplatesDir(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "config_templates"))
 }
 
 func conformanceHookWorkflow(

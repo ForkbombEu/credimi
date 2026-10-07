@@ -638,6 +638,7 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 		}
 		childSummary.DisplayName = computeChildDisplayName(childExecution.Execution.WorkflowID)
 		childSummary.HasLogs = workflowExecutionHasLogs(childExecution)
+		childSummary.HasQR = workflowExecutionHasQR(childExecution)
 		rootSummary.Children = append(rootSummary.Children, childSummary)
 	}
 	sortWorkflowExecutionSummaries(rootSummary.Children, true)
@@ -684,22 +685,34 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 }
 
 func workflowExecutionHasLogs(exec *WorkflowExecution) bool {
+	caps, ok := workflowExecutionCapabilities(exec)
+	return ok && caps.Logs
+}
+
+func workflowExecutionHasQR(exec *WorkflowExecution) bool {
+	caps, ok := workflowExecutionCapabilities(exec)
+	return ok && caps.QR
+}
+
+func workflowExecutionCapabilities(
+	exec *WorkflowExecution,
+) (workflowengine.CredimiCapabilities, bool) {
 	if exec == nil || exec.Memo == nil {
-		return false
+		return workflowengine.CredimiCapabilities{}, false
 	}
 	payload := exec.Memo.Fields[workflowengine.CredimiCapabilitiesMemoKey]
 	if payload == nil || payload.Data == nil {
-		return false
+		return workflowengine.CredimiCapabilities{}, false
 	}
 	data, err := base64.StdEncoding.DecodeString(*payload.Data)
 	if err != nil {
-		return false
+		return workflowengine.CredimiCapabilities{}, false
 	}
 	var capabilities workflowengine.CredimiCapabilities
 	if err := json.Unmarshal(data, &capabilities); err != nil {
-		return false
+		return workflowengine.CredimiCapabilities{}, false
 	}
-	return capabilities.Logs
+	return capabilities, true
 }
 
 func (b *pipelineExecutionSummaryBuilder) pipelineRunnerInfo(
@@ -732,6 +745,8 @@ func buildWorkflowExecutionSummary(
 		EndTime:   exec.CloseTime,
 		Duration:  calculateDuration(exec.StartTime, exec.CloseTime),
 		Status:    normalizeTemporalStatus(exec.Status),
+		HasLogs:   workflowExecutionHasLogs(exec),
+		HasQR:     workflowExecutionHasQR(exec),
 	}
 
 	if c != nil && summary.Status == string(WorkflowStatusFailed) {

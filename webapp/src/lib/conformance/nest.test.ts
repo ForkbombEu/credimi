@@ -31,6 +31,7 @@ function suite(
 		suite_help: partial.suite_help ?? '',
 		suite_description: partial.suite_description ?? '',
 		suite_logo: partial.suite_logo ?? '',
+		has_qr: partial.has_qr ?? false,
 		check_count: partial.check_count ?? partial.members.length,
 		members: partial.members,
 		visible_in: partial.visible_in ?? ['manual', 'pipeline'],
@@ -128,7 +129,8 @@ describe('nestSuites', () => {
 				suite_repository: 'https://github.com/EWC-consortium',
 				suite_help: 'https://example.test/help',
 				suite_description: 'EWC ITB',
-				suite_logo: 'https://example.test/ewc.png'
+				suite_logo: 'https://example.test/ewc.png',
+				has_qr: true
 			})
 		]);
 		const nestedSuite = nested[0]?.versions[0]?.suites[0];
@@ -139,6 +141,26 @@ describe('nestSuites', () => {
 		expect(nestedSuite?.help).toBe('https://example.test/help');
 		expect(nestedSuite?.description).toBe('EWC ITB');
 		expect(nestedSuite?.logo).toBe('https://example.test/ewc.png');
+		expect(nestedSuite?.has_qr).toBe(true);
+	});
+
+	it('lifts has_qr onto Suite and defaults absent to false', () => {
+		const nested = nestSuites([
+			suite({
+				fs_standard: 'openid4vp_wallet',
+				fs_version: '1.0',
+				suite: 'openid_conformance_suite',
+				path_prefix: 'openid4vp_wallet/1.0/openid_conformance_suite',
+				members: [
+					{
+						path: 'openid4vp_wallet/1.0/openid_conformance_suite/a',
+						title: 'A',
+						file: 'a.yaml'
+					}
+				]
+			})
+		]);
+		expect(nested[0]?.versions[0]?.suites[0]?.has_qr).toBe(false);
 	});
 
 	it('preserves check path strings used by pipeline serialize', () => {

@@ -132,6 +132,46 @@ func TestProjectSuitesGroupsByNormalizedAxes(t *testing.T) {
 	require.Equal(t, "Functional Conformance Assessment", fcaf.SuiteSubtitle)
 }
 
+func TestProjectSuitesProjectsHasQRFromDisplay(t *testing.T) {
+	t.Parallel()
+
+	checks := []Check{
+		{
+			Path: "openid4vci_wallet/draft-15/ewc/a", Title: "A",
+			FSStandard: "openid4vci_wallet", FSVersion: "draft-15", Suite: "ewc", File: "a.yaml",
+			Standard: "openid4vci", Component: "wallet", Version: "draft-15",
+			VisibleIn: stringArray{"manual"},
+		},
+		{
+			Path: "openid4vci_issuer/1.0/webuild/a", Title: "A",
+			FSStandard: "openid4vci_issuer", FSVersion: "1.0", Suite: "webuild", File: "a.yaml",
+			Standard: "openid4vci", Component: "issuer", Version: "1.0",
+			VisibleIn: stringArray{"manual"},
+		},
+		{
+			Path: "openid4vp_wallet/1.0/openid_conformance_suite/a", Title: "A",
+			FSStandard: "openid4vp_wallet", FSVersion: "1.0", Suite: "openid_conformance_suite",
+			File: "a.yaml", Standard: "openid4vp", Component: "wallet", Version: "1.0",
+			VisibleIn: stringArray{"manual"},
+		},
+	}
+	display := map[string]suiteDisplayFields{
+		"openid4vci_wallet/draft-15/ewc":                {Name: "EWC", HasQR: true},
+		"openid4vci_issuer/1.0/webuild":                 {Name: "WEBUILD"},
+		"openid4vp_wallet/1.0/openid_conformance_suite": {Name: "OpenID"},
+	}
+
+	suites := projectSuites(checks, display, nil)
+	byPrefix := map[string]SuiteRecord{}
+	for _, s := range suites {
+		byPrefix[s.PathPrefix] = s
+	}
+
+	require.True(t, byPrefix["openid4vci_wallet/draft-15/ewc"].HasQR)
+	require.False(t, byPrefix["openid4vci_issuer/1.0/webuild"].HasQR)
+	require.False(t, byPrefix["openid4vp_wallet/1.0/openid_conformance_suite"].HasQR)
+}
+
 func TestComponentRankOrder(t *testing.T) {
 	t.Parallel()
 

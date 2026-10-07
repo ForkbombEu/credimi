@@ -10,12 +10,13 @@
  * stubs (generate.collections-models.ts stitches; it does not re-map Kind).
  */
 
-export type CatalogColumnPbType = 'text' | 'number' | 'json';
+export type CatalogColumnPbType = 'text' | 'number' | 'bool' | 'json';
 
 export type CatalogColumnKind =
 	| 'string'
 	| 'int'
 	| 'nonNegInt'
+	| 'bool'
 	| 'stringArray'
 	| 'memberArray';
 
@@ -57,6 +58,7 @@ export const SUITE_CLIENT_COLUMN_SPECS = [
 	{ name: 'suite_help', kind: 'string', optional: true, pbType: 'text' },
 	{ name: 'suite_description', kind: 'string', optional: true, pbType: 'text' },
 	{ name: 'suite_logo', kind: 'string', optional: true, pbType: 'text' },
+	{ name: 'has_qr', kind: 'bool', optional: true, pbType: 'bool' },
 	{ name: 'check_count', kind: 'nonNegInt', optional: false, pbType: 'number' },
 	{ name: 'members', kind: 'memberArray', optional: true, pbType: 'json' },
 	{ name: 'visible_in', kind: 'stringArray', optional: true, pbType: 'json' },

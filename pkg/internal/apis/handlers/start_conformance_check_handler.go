@@ -580,6 +580,7 @@ func startEWCLikeWorkflow(
 			"template":       templateStr,
 			"namespace":      i.Namespace,
 			"memo":           i.Memo,
+			"version":        i.Version,
 			"check_endpoint": checkEndpoint,
 			"logs_endpoint":  logsEndpoint,
 			"user_name":      i.UserName,
