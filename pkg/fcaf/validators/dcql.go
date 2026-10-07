@@ -2219,12 +2219,15 @@ func validateClaimsPresent(query map[string]any, responseValue any) Result {
 // validateClaimsSubset proves both sides of a user-controlled claim selection:
 // requested claims are disclosed, while explicitly unchecked paths are absent.
 func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPaths [][]any) Result {
+	if len(forbiddenPaths) == 0 {
+		return Result{Status: StatusError, Message: "claims_subset requires forbidden_paths"}
+	}
+	if result := checkForbiddenPaths(forbiddenPaths); result != nil {
+		return *result
+	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
 		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
-	}
-	if len(forbiddenPaths) == 0 {
-		return Result{Status: StatusFail, Message: "claims_subset requires forbidden_paths"}
 	}
 	response, ok := normalizeJSONObject(responseValue)
 	if !ok {
@@ -2318,12 +2321,6 @@ func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPath
 				}
 			}
 			for pathIndex, path := range forbiddenPaths {
-				if len(path) == 0 {
-					return Result{
-						Status:  StatusFail,
-						Message: fmt.Sprintf("forbidden_paths[%d] is empty", pathIndex),
-					}
-				}
 				if claimPathResolves(presentation.Claims, path) {
 					return Result{
 						Status: StatusFail,
@@ -2502,6 +2499,9 @@ func validateClaimSetsWithoutClaims(query map[string]any, responseValue any) Res
 }
 
 func validateClaimsUnion(query map[string]any, responseValue any, forbiddenPaths [][]any) Result {
+	if result := checkForbiddenPaths(forbiddenPaths); result != nil {
+		return *result
+	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) < 2 {
 		return Result{
@@ -2631,6 +2631,20 @@ func validateClaimsUnion(query map[string]any, responseValue any, forbiddenPaths
 		Status:  StatusPass,
 		Message: "wallet returned the union of claims requested by multiple queries",
 	}
+}
+
+// checkForbiddenPaths rejects an empty forbidden path as a definition error:
+// it would match the presentation root and blame the wallet for disclosing it.
+func checkForbiddenPaths(paths [][]any) *Result {
+	for index, path := range paths {
+		if len(path) == 0 {
+			return &Result{
+				Status:  StatusError,
+				Message: fmt.Sprintf("forbidden_paths[%d] is empty", index),
+			}
+		}
+	}
+	return nil
 }
 
 func validateClaimsPathNoMatch(

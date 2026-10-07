@@ -1632,6 +1632,54 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	}
 }
 
+// A broken forbidden_paths param is the definition's fault, so it must not be
+// reported as the wallet's non-conformance.
+func TestDCQLForbiddenPathsConfigurationErrors(t *testing.T) {
+	evidence := map[string]any{
+		"dcql_query": map[string]any{
+			"credentials": []any{
+				validSDJWTCredentialQuery("pid"),
+				validSDJWTCredentialQuery("pid_2"),
+			},
+		},
+		"vp_token": map[string]any{"pid": []any{"presentation"}},
+	}
+	tests := []struct {
+		name   string
+		params map[string]any
+	}{
+		{
+			name:   "claims_subset without forbidden_paths",
+			params: map[string]any{"mode": "claims_subset"},
+		},
+		{
+			name: "claims_subset with an empty forbidden path",
+			params: map[string]any{
+				"mode":            "claims_subset",
+				"forbidden_paths": []any{[]any{"family_name"}, []any{}},
+			},
+		},
+		{
+			name: "claims_union with an empty forbidden path",
+			params: map[string]any{
+				"mode":            "claims_union",
+				"forbidden_paths": []any{[]any{}},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+				Value:  evidence,
+				Params: test.params,
+			})
+
+			require.Equal(t, StatusError, result.Status, result.Message)
+		})
+	}
+}
+
 func TestDCQLClaimsPathNoMatchRequiresExpectedClaimPath(t *testing.T) {
 	result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
 		Value: map[string]any{
