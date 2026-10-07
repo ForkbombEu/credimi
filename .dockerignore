@@ -4,6 +4,9 @@
 
 # Host tool symlinks from `make tools`; the image creates its own in /app/.bin.
 .bin
+# Local PocketBase data (gitignored). The build runs `credimi migrate up` on a
+# fresh database; at runtime /app/pb_data is a mounted volume.
+/pb_data*
 .air.toml
 .cruft.*
 .dockerignore
