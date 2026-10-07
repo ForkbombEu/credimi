@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+# Host tool symlinks from `make tools`; the image creates its own in /app/.bin.
+.bin
 .air.toml
 .cruft.*
 .dockerignore
