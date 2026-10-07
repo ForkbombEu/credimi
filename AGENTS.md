@@ -372,8 +372,9 @@ External runner HTTP contract:
     - Body: `{ version_identifier, platform, device_identifier }`
     - Response: `{ installer_path, version_id }`
     - Not called for `version_id: installed_from_external_source`. Credimi resolves a stored action's code itself through the `Resolve a Credimi record` activity, scoped to the pipeline's organization, and puts it in the step payload; runners never look wallet actions up.
-- `POST {runner_url}/store-pipeline-result`
-    - Body: `{ video_path, last_frame_path, logcat_path, run_identifier, device_identifier, instance_url }`
+- `POST {runner_url}/credimi/pipeline-result`
+    - Header: `Credimi-Api-Key: <CREDIMI_INTERNAL_ADMIN_KEY>` (injected by `mobile-runner-http-request`)
+    - Body: `{ video_path, last_frame_path, log_path?, run_identifier, device_identifier, platform }`; `run_identifier` and `platform` are required, `log_path` is sent only when a log was recorded.
     - Response: `{ result_urls: string[], screenshot_urls: string[] }`
 - `POST {runner_url}/credimi/live-view`
     - Header: `Credimi-Api-Key: <CREDIMI_INTERNAL_ADMIN_KEY>`

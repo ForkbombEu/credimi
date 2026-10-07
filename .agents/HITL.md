@@ -370,14 +370,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-09-30 - AGENTS.md names pipeline/runner surfaces that no longer exist
 
-- status: open
+- status: resolved
 - owner: human maintainer
 - context: While writing the `credimi` skill, three `AGENTS.md` claims were checked against code and do not hold in this worktree: (1) "UI calls `POST /api/pipeline/start`" — no such route exists under `/api/pipeline` (`pkg/internal/apis/handlers/pipeline_handler.go`); the GUI (`webapp/src/lib/pipeline/queue.ts`) and the CLI both use `POST /api/pipeline/queue`, which starts device-less pipelines directly. (2) The external runner HTTP contract lists `POST {runner_url}/fetch-apk-and-action` and `/store-pipeline-result`; the code calls `/credimi/installer-action` and `/credimi/pipeline-result` (`pkg/workflowengine/pipeline/mobile_automation_hooks.go`). (3) `X-Api-Key` is documented for internal-admin routes; the middleware reads `Credimi-Api-Key` (`pkg/internal/middlewares/auth_api_key.go`, `pkg/internal/apis/handlers/api_key_service.go`); the same stale header appears in `docs/src/content/docs/software-architecture/scoreboard.md` and a comment in `pkg/conformancecatalog/store.go`.
 - question: Update `AGENTS.md` (and the scoreboard doc/comment) to the current routes and header, or treat the documented names as the intended contract and change the code back?
 - options considered: (a) fix the docs/comments to match code; (b) add compatibility aliases for the old runner endpoints and accept `X-Api-Key` as an alias; (c) add a `/api/pipeline/start` alias.
 - default risk: Agents and docs keep describing endpoints that 404, and sibling `credimi-extra` implementers may build against the wrong runner paths.
-- decision: (1) resolved 2026-10-06 by the user: option (a), `AGENTS.md` "Dynamic Pipeline Workflow" now documents `POST /api/pipeline/queue` as the only run entrypoint. (3) applied: `AGENTS.md`, the scoreboard doc and the `pkg/conformancecatalog/store.go` comment now name `Credimi-Api-Key`. (2) still pending: `AGENTS.md` now lists `POST {runner_url}/credimi/installer-action`, but still documents `POST {runner_url}/store-pipeline-result` with `logcat_path`/`instance_url`, while the code and `credimi-runner` use `/credimi/pipeline-result` with `log_path` and `platform`.
-- follow-up: Confirm (a) for (2), then update the result endpoint in the "External runner HTTP contract" section.
+- decision: (1) resolved 2026-10-06 by the user: option (a), `AGENTS.md` "Dynamic Pipeline Workflow" now documents `POST /api/pipeline/queue` as the only run entrypoint. (3) applied: `AGENTS.md`, the scoreboard doc and the `pkg/conformancecatalog/store.go` comment now name `Credimi-Api-Key`. (2) resolved 2026-10-07 by the user: option (a), the "External runner HTTP contract" in `AGENTS.md` now documents `POST {runner_url}/credimi/installer-action` and `POST {runner_url}/credimi/pipeline-result` with `log_path` and `platform`, matching `mobile_automation_hooks.go` and `credimi-runner` (`pkg/design/runner_server.go`).
+- follow-up: None.
 
 ### 2026-10-01 - FCAF complete-validation exceeds Temporal 4 MB gRPC message limit
 

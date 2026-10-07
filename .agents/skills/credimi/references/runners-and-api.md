@@ -49,8 +49,6 @@ All of it goes through the `mobile-runner-http-request` activity (it injects the
 
 Runner URLs for the worker manager come only from its workflow payload: the starters compute them in-process (`pkg/workflowengine/hooks/worker_manager_runners.go`), keeping only runners eligible for worker start. Device/emulator activities (`ListInstalledApps`, `StartRecording`, `StopRecording`) live in the closed `credimi-extra` module, so their concrete runner paths are not visible here.
 
-**Doc drift:** `AGENTS.md` documents `POST {runner_url}/store-pipeline-result` with `logcat_path`/`instance_url`; the code calls `/credimi/pipeline-result` with `log_path` and `platform`.
-
 ## Live view
 
 `POST /api/pipeline/live-view` `{workflow_id, run_id, device_id?}` (user auth):
@@ -124,5 +122,4 @@ Feature flags can hide sidebar sections (`ORGANIZATIONS`, `DID`).
 
 ## Doc drift to ignore
 
-1. Runner result endpoint: `AGENTS.md` documents `POST {runner_url}/store-pipeline-result` with `{video_path, last_frame_path, logcat_path, run_identifier, device_identifier, instance_url}`; the code and `credimi-runner` use `/credimi/pipeline-result` with `log_path` and `platform` (table above).
-2. The two legacy scoreboard routes are not registered.
+1. The two legacy scoreboard routes are not registered.
