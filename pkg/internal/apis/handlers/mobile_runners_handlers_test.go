@@ -1513,4 +1513,73 @@ func TestUpsertMobileRunnerIssuesRunnerCredential(t *testing.T) {
 		_, err = canonify.Resolve(app, "/usera-s-organization/rotating-phone")
 		require.Error(t, err)
 	})
+
+	// An admin-managed runner serves every namespace and skips the tenant
+	// destination policy: members of its owner organization must neither
+	// repoint it nor learn the credential Credimi presents to it.
+	t.Run("admin-managed runner is out of reach of its organization", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+		superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
+		require.NoError(t, err)
+		orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+		require.NoError(t, err)
+		const runnerPath = "/usera-s-organization/admin-phone"
+		createMobileRunnerRecord(t, app, orgID, "Admin Phone", "http://10.0.0.5", false)
+		record, err := canonify.Resolve(app, runnerPath)
+		require.NoError(t, err)
+		record.Set("admin_managed", true)
+		require.NoError(t, app.Save(record))
+
+		upsert := func(auth *core.Record, organization string) *core.RequestEvent {
+			event := performMobileRunnerRequest(
+				t,
+				app,
+				auth,
+				"/api/mobile-runner",
+				UpsertMobileRunnerRequest{
+					RunnerID:     runnerPath,
+					Organization: organization,
+					Name:         "Admin Phone",
+					IP:           "http://127.0.0.1:8090",
+					Type:         "android_emulator",
+				},
+			)
+			err := HandleUpsertMobileRunner()(event)
+			requireHandlerErrorHandled(t, responseRecorder(t, event), err)
+			return event
+		}
+
+		require.Equal(t, http.StatusForbidden, responseRecorder(t, upsert(user, "")).Code)
+		record, err = canonify.Resolve(app, runnerPath)
+		require.NoError(t, err)
+		require.Equal(t, "http://10.0.0.5", record.GetString("ip"))
+		require.Zero(t, record.GetInt("credential_generation"))
+
+		heartbeat := performMobileRunnerRequest(
+			t,
+			app,
+			user,
+			"/api/mobile-runner/lifecycle/heartbeat",
+			MobileRunnerLifecycleRequest{RunnerID: runnerPath},
+		)
+		require.NoError(t, HandleMobileRunnerLifecycleHeartbeat()(heartbeat))
+		require.Empty(t, decodeJSONBody(t, responseRecorder(t, heartbeat))["runner_credential"])
+
+		event := upsert(superuser, "usera-s-organization")
+		require.Equal(t, http.StatusOK, responseRecorder(t, event).Code)
+		record, err = canonify.Resolve(app, runnerPath)
+		require.NoError(t, err)
+		require.True(t, record.GetBool("admin_managed"))
+		credential, err := mobilerunner.Credential(record)
+		require.NoError(t, err)
+		require.Equal(
+			t,
+			credential,
+			decodeJSONBody(t, responseRecorder(t, event))["runner_credential"],
+		)
+	})
 }

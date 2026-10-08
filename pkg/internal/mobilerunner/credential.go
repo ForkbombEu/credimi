@@ -17,8 +17,8 @@ import (
 )
 
 // CredentialSecretEnvVar names the secret every runner credential is derived
-// from. Rotating it invalidates every runner credential until the runners
-// register again.
+// from. Rotating it invalidates every runner credential until each runner's
+// next registration or heartbeat delivers the new one.
 const CredentialSecretEnvVar = "CREDIMI_RUNNER_CREDENTIAL_SECRET"
 
 // ErrCredentialSecretMissing reports that CredentialSecretEnvVar is not set.

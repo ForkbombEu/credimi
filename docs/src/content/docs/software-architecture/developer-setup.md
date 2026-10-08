@@ -147,7 +147,7 @@ historical data (see Temporal admin tooling docs for your deployment).
 - Override timeout: `MOBILE_DEVICE_SEMAPHORE_WAIT_TIMEOUT=30m` (or any valid `time.ParseDuration` value).
 - Disable semaphore (no-op acquire/release): `MOBILE_DEVICE_SEMAPHORE_DISABLED=1`.
 - Internal admin key: an `internal_admin` key in `api_keys`. The Credimi server needs no env var for it; admin-managed runners and operators hold its plaintext (conventionally `CREDIMI_INTERNAL_ADMIN_KEY` in their own environment) to call the runner/operator routes guarded by it. Credimi never sends it to runners.
-- Runner credential secret: `CREDIMI_RUNNER_CREDENTIAL_SECRET=<random secret>` (required in deployments, e.g. `openssl rand -hex 32`; `make dev` sets a dev default). Per-runner credentials sent to runners as `Credimi-Api-Key` are derived from it and delivered to each runner on registration and lifecycle responses; rotating it invalidates runner credentials until runners re-register.
+- Runner credential secret: `CREDIMI_RUNNER_CREDENTIAL_SECRET=<random secret>` (required in deployments, e.g. `openssl rand -hex 32`; `make dev` sets a dev default). Per-runner credentials sent to runners as `Credimi-Api-Key` are derived from it and delivered to each runner on registration and lifecycle responses; rotating it invalidates runner credentials until each runner's next registration or heartbeat.
 
 ### Internal admin API key rollout
 

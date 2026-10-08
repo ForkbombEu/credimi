@@ -108,6 +108,17 @@ func TestWorkerManagerRecordQueries(t *testing.T) {
 	newRunner("published-disabled", "https://published-disabled.test", "", true, false, true, true)
 	newRunner("published-offline", "https://published-offline.test", "", true, false, false, false)
 	newRunner("empty-runner", " ", "", true, false, false, true)
+	// A runner whose owner organization is gone has no identifier; it must be
+	// skipped instead of failing the startup and organization hooks.
+	orphan := core.NewRecord(collection)
+	orphan.Set("owner", "missingorg00000")
+	orphan.Set("name", "orphan-runner")
+	orphan.Set("canonified_name", "orphan-runner")
+	orphan.Set("type", "android_emulator")
+	orphan.Set("ip", "https://orphan.test")
+	orphan.Set("admin_managed", true)
+	orphan.Set("online", true)
+	require.NoError(t, app.SaveNoValidate(orphan))
 
 	orgName := organizations[0].GetString("canonified_name")
 

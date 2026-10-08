@@ -36,7 +36,7 @@ Canonical `<org>/<runner>/<device>`: `mobile_runners` path length 2 under `organ
 
 ## Credimi → runner HTTP contract
 
-All of it goes through the `mobile-runner-http-request` activity (it injects the internal admin credential and resolves `*.trycloudflare.com` via Cloudflare DNS):
+All of it goes through the `mobile-runner-http-request` activity, except the `/health` probes and live view, which use the same `mobilerunner.HTTPClient(record)`. The activity takes `runner_id` + `path` (never a URL), builds the address from the runner record's `ip`/`port`, sends the runner's own credential as `Credimi-Api-Key` (`mobilerunner.Credential`; never the internal admin key), and resolves `*.trycloudflare.com` via Cloudflare DNS. Tenant runners are reached only over https at public addresses, checked at dial time; admin-managed runners are exempt.
 
 | Method | Path                                         | Body                                                                                    | Notes                                                                                                                |
 | ------ | -------------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -47,7 +47,7 @@ All of it goes through the `mobile-runner-http-request` activity (it injects the
 | POST   | `{runner_url}/credimi/live-view`             | `{device_identifier, serial, namespace, workflow_id, run_id}`                           | **called directly**, not via the activity; header `Credimi-Api-Key`; expected `{path: "/live/<token>"}`, 15s timeout |
 | POST   | `{runner_url}/worker/{namespace}`            | `{old_namespace}`                                                                       | worker-manager start; expected **202** (idempotent — "already running" is fine)                                      |
 
-Runner URLs for the worker manager come only from its workflow payload: the starters compute them in-process (`pkg/workflowengine/hooks/worker_manager_runners.go`), keeping only runners eligible for worker start. Device/emulator activities (`ListInstalledApps`, `StartRecording`, `StopRecording`) live in the closed `credimi-extra` module, so their concrete runner paths are not visible here.
+The worker manager receives runner identifiers (`runner_ids`) in its workflow payload: the starters compute them in-process (`pkg/workflowengine/hooks/worker_manager_runners.go`), keeping only runners eligible for worker start and skipping (with a log line) runners whose identifier cannot be built. Device/emulator activities (`ListInstalledApps`, `StartRecording`, `StopRecording`) live in the closed `credimi-extra` module, so their concrete runner paths are not visible here.
 
 ## Live view
 

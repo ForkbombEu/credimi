@@ -5,6 +5,7 @@
 package hooks
 
 import (
+	"log"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
@@ -25,7 +26,10 @@ func workerManagerAllOrganizationRecords(app core.App) ([]*core.Record, error) {
 }
 
 // listWorkerManagerRunnerIDs returns the identifiers of the startable runners
-// matching filter that have an address to be called at.
+// matching filter that have an address to be called at. A runner whose
+// identifier cannot be built (for example, its owner organization is gone) is
+// skipped and logged: one broken record must not stop server startup or fail
+// an organization save.
 func listWorkerManagerRunnerIDs(app core.App, filter string) ([]string, error) {
 	records, err := app.FindRecordsByFilter("mobile_runners", filter, "name", -1, 0)
 	if err != nil {
@@ -42,7 +46,8 @@ func listWorkerManagerRunnerIDs(app core.App, filter string) ([]string, error) {
 		}
 		runnerID, err := mobilerunner.RunnerIdentifier(app, record)
 		if err != nil {
-			return nil, err
+			log.Printf("[WorkersHook] Skipping mobile runner %s: %v", record.Id, err)
+			continue
 		}
 		runnerIDs = append(runnerIDs, runnerID)
 	}

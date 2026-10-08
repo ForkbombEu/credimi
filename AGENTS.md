@@ -205,7 +205,7 @@ Key environment variables:
 - `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`: mobile-runner queue wait timeout.
 - `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL`: how recent a runner heartbeat must be for its devices to be offered in catalog selectors (default 60s).
 - `CREDIMI_INTERNAL_ADMIN_KEY` is not a Credimi server variable. The internal admin key is an `internal_admin` key in the `api_keys` collection (owned by a superuser, checked by `RequireInternalAdminAPIKey` / `RequireInternalAdminOrAuth`) that authenticates the runner-facing and operator internal routes and `POST /api/conformance-catalog/rebuild`. Its callers (admin-managed runners, operators, scripts) hold the plaintext, conventionally as `CREDIMI_INTERNAL_ADMIN_KEY` in their own environment. Credimi never sends it to runners.
-- `CREDIMI_RUNNER_CREDENTIAL_SECRET`: required secret the per-runner credentials (`mobilerunner.Credential`) are derived from. Rotating it invalidates every runner credential until the runners re-register. `make dev` sets a dev default.
+- `CREDIMI_RUNNER_CREDENTIAL_SECRET`: required secret the per-runner credentials (`mobilerunner.Credential`) are derived from. Rotating it invalidates every runner credential until each runner's next registration or heartbeat, whose response carries the new one. `make dev` sets a dev default.
 - `CREDIMI_SEED_SUPERUSER_PASSWORD`: password for the `admin@example.org` superuser seeded by `pb_migrations/1685000000_seed_admin.js`. `make dev` defaults it to `adminadmin` and `cmd/testdata-refresh` sets it for `test_pb_data`. Deployments must leave it unset: they create their first superuser through the PocketBase installer link or `credimi superuser upsert`, and `pb_migrations/1790780000_remove_default_seed_admin.js` removes or locks a leftover default-password `admin@example.org`.
 
 Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
@@ -473,6 +473,11 @@ Worker-manager start eligibility:
   authenticated by `Credimi-Api-Key` alone sets it to `true` for the internal
   admin key and `false` for a user key, on create and on every re-registration.
   Token-authenticated calls set it only on create (`true` for superusers).
+  While a runner is admin-managed, only superusers and the internal admin key
+  may update it through a token session (others get `403 admin_managed_runner`)
+  or receive its `runner_credential`; lifecycle responses to other callers
+  carry an empty one. A user key alone may still re-register it, which turns it
+  into a tenant runner.
 - Redundant starts are safe: `POST {runner_url}/worker/{namespace}` is keyed by
   namespace in the runner process store and answers `202 "already running"`,
   so a server-side start that races the runner's own boot cannot create a
