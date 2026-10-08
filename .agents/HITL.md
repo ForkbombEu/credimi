@@ -464,3 +464,12 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: rule syntax is not validated on save; `TestOrgAuthorizationsReadRulesScopeToMembers` exercises the rules through the records API, so a broken rule fails the suite.
 - decision: (a).
 - follow-up: None unless the maintainer prefers another approach.
+
+### 2026-10-08 - `z_test_collection` accepts anonymous writes
+
+- status: open
+- owner: human maintainer
+- context: Finding `credimi/pb-rules/news-public-create`. `news` was fixed by `pb_migrations/1791464765_restrict_news_create.js` (`createRule` null). `z_test_collection` (`migrations/pb_schema.json`, id `ktjgpqf146ss2ia`) has the same root pattern: `createRule`, `updateRule` and `deleteRule` are `""`, so anyone can create, edit or delete its rows. It is a fixture collection used only by the unguarded webapp `/ui-tests/*` pages and `webapp/e2e/nru/collection-manager.spec.ts` (userA creates a record). It is `system: true`, so PocketBase rejects any rule change through `app.save` (`System collection API rule cannot be changed`).
+- question: Restrict `z_test_collection` writes, and how?
+- options considered: (a) superuser-only rules saved with `app.saveNoValidate` (new migration pattern; breaks the `/ui-tests` write pages and the e2e create); (b) logged-in create plus the owner/authorization expression of `listRule` for update/delete, saved with `app.saveNoValidate`; (c) remove the collection and `/ui-tests` from production builds; (d) leave as is.
+- default risk: Anonymous writes stay open on a fixture collection that exists in every deployment; impact limited to junk test rows.
