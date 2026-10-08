@@ -381,6 +381,14 @@ func TestPrepareQueuedWorkflowOptionsOverrides(t *testing.T) {
 	require.Equal(t, 1.5, opts.ActivityOptions.RetryPolicy.BackoffCoefficient)
 }
 
+func TestPrepareQueuedWorkflowOptionsHeartbeatOverride(t *testing.T) {
+	rc := queuedRuntime{}
+	rc.Temporal.ActivityOptions.HeartbeatTimeout = "2m"
+
+	opts := prepareQueuedWorkflowOptions(rc)
+	require.Equal(t, 2*time.Minute, opts.ActivityOptions.HeartbeatTimeout)
+}
+
 func TestApplySemaphoreTicketMetadata(t *testing.T) {
 	payload := StartQueuedPipelineActivityInput{
 		TicketID:          "ticket-1",

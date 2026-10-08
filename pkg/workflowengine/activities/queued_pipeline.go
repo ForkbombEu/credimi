@@ -92,6 +92,7 @@ type queuedRuntime struct {
 type queuedActivityOptions struct {
 	ScheduleToCloseTimeout string            `yaml:"schedule_to_close_timeout,omitempty"`
 	StartToCloseTimeout    string            `yaml:"start_to_close_timeout,omitempty"`
+	HeartbeatTimeout       string            `yaml:"heartbeat_timeout,omitempty"`
 	RetryPolicy            queuedRetryPolicy `yaml:"retry_policy,omitempty"`
 }
 
@@ -538,8 +539,11 @@ func prepareQueuedWorkflowOptions(rc queuedRuntime) queuedWorkflowOptions {
 			rc.Temporal.ActivityOptions.StartToCloseTimeout,
 			defaultActivityStartTimeout,
 		),
-		HeartbeatTimeout: parseDurationOrDefault("", defaultActivityHeartbeat),
-		RetryPolicy:      rp,
+		HeartbeatTimeout: parseDurationOrDefault(
+			rc.Temporal.ActivityOptions.HeartbeatTimeout,
+			defaultActivityHeartbeat,
+		),
+		RetryPolicy: rp,
 	}
 
 	return queuedWorkflowOptions{
