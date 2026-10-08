@@ -32,6 +32,11 @@ func (f enqueueFakeWorkflowRun) GetRunID() string {
 	return f.runID
 }
 
+// GetFirstExecutionRunID returns the first execution run ID for the fake run.
+func (f enqueueFakeWorkflowRun) GetFirstExecutionRunID() string {
+	return f.runID
+}
+
 // Get is a no-op workflow run getter for tests.
 func (f enqueueFakeWorkflowRun) Get(ctx context.Context, valuePtr interface{}) error {
 	return nil

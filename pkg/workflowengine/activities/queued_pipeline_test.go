@@ -30,6 +30,10 @@ func (f fakeWorkflowRun) GetRunID() string {
 	return f.runID
 }
 
+func (f fakeWorkflowRun) GetFirstExecutionRunID() string {
+	return f.runID
+}
+
 func (f fakeWorkflowRun) Get(ctx context.Context, valuePtr interface{}) error {
 	return nil
 }
