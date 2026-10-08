@@ -384,7 +384,7 @@ func TestWorkersHookSkipsWhenTemporalWorkersDisabled(t *testing.T) {
 }
 
 func TestStartAllWorkersByNamespaceDefault(t *testing.T) {
-	workerCancels = sync.Map{}
+	workerSets = sync.Map{}
 
 	originalGetTemporalClient := getTemporalClient
 	originalStartWorker := startWorkerFn
@@ -394,7 +394,7 @@ func TestStartAllWorkersByNamespaceDefault(t *testing.T) {
 		getTemporalClient = originalGetTemporalClient
 		startWorkerFn = originalStartWorker
 		startPipelineWorkerFn = originalStartPipelineWorker
-		workerCancels = sync.Map{}
+		workerSets = sync.Map{}
 	})
 
 	getTemporalClient = func(namespace string) (client.Client, error) {
@@ -420,22 +420,22 @@ func TestStartAllWorkersByNamespaceDefault(t *testing.T) {
 	}
 	<-pipelineCh
 
-	_, ok := workerCancels.Load("default")
+	_, ok := workerSets.Load("default")
 	require.True(t, ok)
 
 	StopAllWorkersByNamespace("default")
-	_, ok = workerCancels.Load("default")
+	_, ok = workerSets.Load("default")
 	require.False(t, ok)
 }
 
 func TestStartAllWorkersByNamespaceSkipsWhenTemporalWorkersDisabled(t *testing.T) {
 	t.Setenv(TemporalWorkersDisabledEnv, "1")
-	workerCancels = sync.Map{}
+	workerSets = sync.Map{}
 
 	originalGetTemporalClient := getTemporalClient
 	t.Cleanup(func() {
 		getTemporalClient = originalGetTemporalClient
-		workerCancels = sync.Map{}
+		workerSets = sync.Map{}
 	})
 
 	getTemporalClient = func(_ string) (client.Client, error) {
@@ -445,12 +445,12 @@ func TestStartAllWorkersByNamespaceSkipsWhenTemporalWorkersDisabled(t *testing.T
 
 	StartAllWorkersByNamespace(nil, "default")
 
-	_, ok := workerCancels.Load("default")
+	_, ok := workerSets.Load("default")
 	require.False(t, ok)
 }
 
 func TestStartAllWorkersByNamespaceOrg(t *testing.T) {
-	workerCancels = sync.Map{}
+	workerSets = sync.Map{}
 
 	originalGetTemporalClient := getTemporalClient
 	originalStartWorker := startWorkerFn
@@ -460,7 +460,7 @@ func TestStartAllWorkersByNamespaceOrg(t *testing.T) {
 		getTemporalClient = originalGetTemporalClient
 		startWorkerFn = originalStartWorker
 		startPipelineWorkerFn = originalStartPipelineWorker
-		workerCancels = sync.Map{}
+		workerSets = sync.Map{}
 	})
 
 	getTemporalClient = func(namespace string) (client.Client, error) {
@@ -491,12 +491,88 @@ func TestStartAllWorkersByNamespaceOrg(t *testing.T) {
 	}
 	require.Equal(t, expectedWorkers, gotWorkers)
 	<-pipelineCh
-	_, ok := workerCancels.Load("acme-org")
+	_, ok := workerSets.Load("acme-org")
 	require.True(t, ok)
 
 	StopAllWorkersByNamespace("acme-org")
-	_, ok = workerCancels.Load("acme-org")
+	_, ok = workerSets.Load("acme-org")
 	require.False(t, ok)
+}
+
+func TestStartAllWorkersByNamespaceTwiceStopsFirstSet(t *testing.T) {
+	workerSets = sync.Map{}
+
+	originalGetTemporalClient := getTemporalClient
+	originalStartWorker := startWorkerFn
+	originalStartPipelineWorker := startPipelineWorkerFn
+	t.Cleanup(func() {
+		getTemporalClient = originalGetTemporalClient
+		startWorkerFn = originalStartWorker
+		startPipelineWorkerFn = originalStartPipelineWorker
+		StopAllWorkers()
+		workerSets = sync.Map{}
+	})
+
+	getTemporalClient = func(string) (client.Client, error) {
+		return nil, nil
+	}
+
+	var mu sync.Mutex
+	var ctxs []context.Context
+	runUntilCancelled := func(ctx context.Context, wg *sync.WaitGroup) {
+		mu.Lock()
+		ctxs = append(ctxs, ctx)
+		mu.Unlock()
+		go func() {
+			<-ctx.Done()
+			wg.Done()
+		}()
+	}
+	startWorkerFn = func(ctx context.Context, _ client.Client, _ workerConfig, wg *sync.WaitGroup) {
+		runUntilCancelled(ctx, wg)
+	}
+	startPipelineWorkerFn = func(ctx context.Context, _ core.App, _ client.Client, wg *sync.WaitGroup) {
+		runUntilCancelled(ctx, wg)
+	}
+
+	StartAllWorkersByNamespace(nil, "acme-org")
+	first, ok := workerSets.Load("acme-org")
+	require.True(t, ok)
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(ctxs) == len(orgWorkers(nil))+1
+	}, time.Second, 5*time.Millisecond)
+
+	StartAllWorkersByNamespace(nil, "acme-org")
+
+	// The first set is cancelled and fully drained before the second starts.
+	select {
+	case <-first.(*namespaceWorkers).done:
+	default:
+		t.Fatal("first worker set must be drained before restarting")
+	}
+	second, ok := workerSets.Load("acme-org")
+	require.True(t, ok)
+	require.NotSame(t, first, second)
+
+	mu.Lock()
+	firstCount := len(orgWorkers(nil)) + 1
+	for i, ctx := range ctxs[:firstCount] {
+		require.Error(t, ctx.Err(), "first set worker %d must be cancelled", i)
+	}
+	mu.Unlock()
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(ctxs) == 2*firstCount
+	}, time.Second, 5*time.Millisecond)
+	mu.Lock()
+	for _, ctx := range ctxs[firstCount:] {
+		require.NoError(t, ctx.Err())
+	}
+	mu.Unlock()
 }
 
 // stubNamespaceSetup replaces the namespace client, sleep and search-attribute
@@ -928,38 +1004,36 @@ func TestRunWorkerWithRetryStopsOnNonRetryableError(t *testing.T) {
 	require.Equal(t, int32(0), sleepCalls.Load())
 }
 
-func TestRunWorkerWithRetryStopsAfterMaxRetryTime(t *testing.T) {
+func TestRunWorkerWithRetryRetriesUntilContextCancelled(t *testing.T) {
 	origSleepWithContext := sleepWithContextFn
-	origNowFn := nowFn
 	t.Cleanup(func() {
 		sleepWithContextFn = origSleepWithContext
-		nowFn = origNowFn
 	})
 
-	sleepWithContextFn = func(_ context.Context, _ time.Duration) bool {
-		return true
+	var backoffs []time.Duration
+	sleepWithContextFn = func(ctx context.Context, d time.Duration) bool {
+		backoffs = append(backoffs, d)
+		return ctx.Err() == nil
 	}
 
-	start := time.Now()
-	var nowCalls atomic.Int32
-	nowFn = func() time.Time {
-		if nowCalls.Add(1) == 1 {
-			return start
-		}
-		return start.Add(workerStartMaxRetryTime + time.Second)
-	}
-
+	const failuresBeforeCancel = 20
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	var runCalls atomic.Int32
-	runWorkerWithRetry(context.Background(), "queue-a", func() worker.Worker {
+	runWorkerWithRetry(ctx, "queue-a", func() worker.Worker {
 		return &retryTestWorker{
 			runFn: func(_ <-chan interface{}) error {
-				runCalls.Add(1)
+				if runCalls.Add(1) == failuresBeforeCancel {
+					cancel()
+				}
 				return context.DeadlineExceeded
 			},
 		}
 	})
 
-	require.Equal(t, int32(1), runCalls.Load())
+	require.Equal(t, int32(failuresBeforeCancel), runCalls.Load())
+	require.Len(t, backoffs, failuresBeforeCancel-1)
+	require.Equal(t, workerStartMaxBackoff, backoffs[len(backoffs)-1])
 }
 
 func TestStartWorkerManagerWorkflowInvokesExecute(t *testing.T) {

@@ -96,6 +96,7 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		return se.Next()
 	})
 	app.OnTerminate().BindFunc(func(te *core.TerminateEvent) error {
+		StopAllWorkers()
 		shutdownTemporalClientsFn()
 		return te.Next()
 	})
@@ -354,13 +355,16 @@ var (
 const (
 	workerStartInitialBackoff = time.Second
 	workerStartMaxBackoff     = 30 * time.Second
-	workerStartMaxRetryTime   = 2 * time.Minute
+	// workerStopTimeout lets in-flight activities finish when a worker stops.
+	workerStopTimeout = 20 * time.Second
+	// workerStopWait bounds how long a stop waits for a namespace's workers.
+	workerStopWait = 30 * time.Second
 )
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
 	runWorkerWithRetry(ctx, config.TaskQueue, func() worker.Worker {
-		w := newWorkerFn(c, config.TaskQueue, worker.Options{})
+		w := newWorkerFn(c, config.TaskQueue, worker.Options{WorkerStopTimeout: workerStopTimeout})
 
 		for _, wf := range config.Workflows {
 			w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
@@ -377,7 +381,11 @@ func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *
 func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg *sync.WaitGroup) {
 	defer wg.Done()
 	runWorkerWithRetry(ctx, pipeline.PipelineTaskQueue, func() worker.Worker {
-		w := newWorkerFn(c, pipeline.PipelineTaskQueue, worker.Options{})
+		w := newWorkerFn(
+			c,
+			pipeline.PipelineTaskQueue,
+			worker.Options{WorkerStopTimeout: workerStopTimeout},
+		)
 
 		pipelineWf := pipeline.NewPipelineWorkflow()
 		w.RegisterWorkflowWithOptions(
@@ -439,7 +447,6 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 
 func runWorkerWithRetry(ctx context.Context, taskQueue string, build func() worker.Worker) {
 	backoff := workerStartInitialBackoff
-	deadline := nowFn().Add(workerStartMaxRetryTime)
 
 	for {
 		if ctx.Err() != nil {
@@ -462,15 +469,6 @@ func runWorkerWithRetry(ctx context.Context, taskQueue string, build func() work
 		}
 		if !shouldRetryWorkerStartError(err) {
 			log.Printf("Worker for %s stopped with non-retryable error: %v", taskQueue, err)
-			return
-		}
-		if nowFn().After(deadline) {
-			log.Printf(
-				"Worker for %s stopped retrying after %s: last error: %v",
-				taskQueue,
-				workerStartMaxRetryTime,
-				err,
-			)
 			return
 		}
 
@@ -529,7 +527,14 @@ func growBackoff(current, maxDuration time.Duration) time.Duration {
 	return next
 }
 
-var workerCancels sync.Map
+// namespaceWorkers is the running worker set of one namespace: cancel stops
+// it and done closes once every worker of the set has returned.
+type namespaceWorkers struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+var workerSets sync.Map // map[string]*namespaceWorkers
 
 func StartAllWorkersByNamespace(app core.App, namespace string) {
 	if TemporalWorkersDisabled() {
@@ -541,13 +546,21 @@ func StartAllWorkersByNamespace(app core.App, namespace string) {
 		return
 	}
 
+	if _, ok := workerSets.Load(namespace); ok {
+		StopAllWorkersByNamespace(namespace)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
-	workerCancels.Store(namespace, cancel)
 
 	c, err := getTemporalClient(namespace)
 	if err != nil {
-		log.Fatalf("Failed to connect to Temporal: %v", err)
+		log.Printf("Failed to connect to Temporal for namespace %s: %v", namespace, err)
+		cancel()
+		return
 	}
+
+	set := &namespaceWorkers{cancel: cancel, done: make(chan struct{})}
+	workerSets.Store(namespace, set)
 
 	var wg sync.WaitGroup
 
@@ -569,17 +582,49 @@ func StartAllWorkersByNamespace(app core.App, namespace string) {
 
 	go func() {
 		wg.Wait()
-		<-ctx.Done()
+		close(set.done)
 		log.Printf("Workers for namespace %s stopped", namespace)
 	}()
 }
 
+// StopAllWorkersByNamespace cancels the namespace's workers and waits up to
+// workerStopWait for them to drain.
 func StopAllWorkersByNamespace(namespace string) {
-	if cancel, ok := workerCancels.Load(namespace); ok {
-		cancel.(context.CancelFunc)()
-		workerCancels.Delete(namespace)
-		log.Printf("Stopped workers for namespace %s", namespace)
+	value, ok := workerSets.LoadAndDelete(namespace)
+	if !ok {
+		return
 	}
+	set := value.(*namespaceWorkers)
+	set.cancel()
+
+	timer := time.NewTimer(workerStopWait)
+	defer timer.Stop()
+	select {
+	case <-set.done:
+		log.Printf("Stopped workers for namespace %s", namespace)
+	case <-timer.C:
+		log.Printf(
+			"Timed out after %s waiting for workers of namespace %s to stop",
+			workerStopWait,
+			namespace,
+		)
+	}
+}
+
+// StopAllWorkers stops the workers of every namespace concurrently and waits
+// for them to drain.
+func StopAllWorkers() {
+	var wg sync.WaitGroup
+	workerSets.Range(func(key, _ any) bool {
+		namespace := key.(string)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			StopAllWorkersByNamespace(namespace)
+		}()
+		return true
+	})
+	wg.Wait()
 }
 
 func FetchNamespaces(app core.App) ([]string, error) {
