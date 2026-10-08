@@ -976,6 +976,7 @@ func (w *PipelineWorkflow) Start(
 	memo["test"] = wfDef.Name
 	options := PrepareWorkflowOptions(wfDef.Runtime)
 	options.Options.Memo = memo
+	options.Options.StaticSummary = summaryLine(wfDef.Name)
 	options.Options.ID = fmt.Sprintf(
 		"Pipeline-%s-%s",
 		canonify.CanonifyPlain(wfDef.Name),
@@ -1053,6 +1054,7 @@ func (w *PipelineWorkflow) Start(
 				TaskQueue:             options.Options.TaskQueue,
 				Args:                  []any{input},
 				Memo:                  memo,
+				StaticSummary:         options.Options.StaticSummary,
 				TypedSearchAttributes: searchAttributes,
 			},
 		})

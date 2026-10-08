@@ -104,6 +104,7 @@ steps:
 		expectedSearchAttrs,
 		capturedAction.TypedSearchAttributes,
 	)
+	require.Equal(t, "scheduled-pipeline", capturedAction.StaticSummary)
 }
 
 func TestPipelineStartImmediate(t *testing.T) {
@@ -149,6 +150,7 @@ func TestPipelineStartImmediate(t *testing.T) {
 	value, ok := capturedOptions.TypedSearchAttributes.GetKeyword(key)
 	require.True(t, ok)
 	require.Equal(t, "tenant-1/immediate-pipeline", value)
+	require.Equal(t, "immediate-pipeline", capturedOptions.StaticSummary)
 	require.NotContains(t, capturedInput.WorkflowInput.Config, tempWalletVersionConfigKey)
 }
 

@@ -981,3 +981,8 @@ func TestEnsureStepInputSizeAcceptsSmallInput(t *testing.T) {
 
 	require.NoError(t, ensureStepInputSize("small-step", input))
 }
+
+func TestSummaryLineStripsLineBreaks(t *testing.T) {
+	require.Equal(t, "step-1 (http-request)", summaryLine("step-1 (http-request)"))
+	require.Equal(t, "step-1 (http-request)", summaryLine("step-1\r\n (http-\nrequest)\r"))
+}

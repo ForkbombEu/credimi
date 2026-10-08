@@ -547,6 +547,7 @@ func startScheduledPipelineWithOptions(
 			Memo: map[string]any{
 				"test": pipelineName,
 			},
+			StaticSummary: pipelineName,
 		},
 		Memo: map[string]any{
 			"test":       pipelineName,

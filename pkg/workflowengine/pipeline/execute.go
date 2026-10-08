@@ -77,7 +77,9 @@ func ExecuteStep(
 
 			return nil, appErr
 		}
-		ctx = workflow.WithActivityOptions(ctx, ao)
+		actAO := ao
+		actAO.Summary = summaryLine(s.ID + " (" + s.Use + ")")
+		ctx = workflow.WithActivityOptions(ctx, actAO)
 		act := step.NewFunc(nil).(workflowengine.Activity)
 		input := workflowengine.ActivityInput{
 			Payload: payload,
@@ -178,6 +180,7 @@ func ExecuteStep(
 			TaskQueue:         taskqueue,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 			Memo:              memo,
+			StaticSummary:     summaryLine(s.ID),
 		}
 		ctxChild := workflow.WithChildOptions(ctx, opts)
 		if err := ensureStepInputSize(s.ID, input); err != nil {
@@ -241,6 +244,11 @@ func ensureStepInputSize(stepID string, input any) error {
 			maxStepInputBytes,
 		),
 	})
+}
+
+// summaryLine flattens text to a single line for Temporal UI summaries.
+func summaryLine(text string) string {
+	return strings.NewReplacer("\r", "", "\n", "").Replace(text)
 }
 
 // selectConfigKeys copies the listed keys that are present in cfg.
@@ -319,6 +327,7 @@ func runChildPipeline(
 		),
 		TaskQueue:         PipelineTaskQueue,
 		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
+		StaticSummary:     summaryLine(step.ID + ": " + wfDef.Name),
 	}
 
 	ao := PrepareActivityOptions(options.ActivityOptions, step.ActivityOptions)

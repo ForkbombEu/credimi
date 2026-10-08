@@ -258,6 +258,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 	options.Options.WorkflowIDConflictPolicy = enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING
 	options.Options.TaskQueue = pipelineTaskQueue
 	options.Options.Memo = memo
+	options.Options.StaticSummary = workflowDef.Name
 	entityIDs, err := pipeline.ParseEntityIDs(payload.YAML)
 	if err != nil {
 		return result, fmt.Errorf("failed to parse entity IDs: %w", err)

@@ -377,6 +377,7 @@ func TestStartScheduledPipelineUsesScheduledEnqueueWorkflow(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, workflows.ScheduledPipelineEnqueueWorkflowName, action.Workflow)
 	require.Equal(t, pipeline.PipelineTaskQueue, action.TaskQueue)
+	require.Equal(t, "Pipeline Name", action.StaticSummary)
 	require.Len(t, action.Args, 1)
 
 	arg, ok := action.Args[0].(workflowengine.WorkflowInput)

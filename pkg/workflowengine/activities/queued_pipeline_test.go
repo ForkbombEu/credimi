@@ -242,6 +242,7 @@ func TestStartQueuedPipelineActivityWorkflowID(t *testing.T) {
 				enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
 				captured.lastOptions.WorkflowIDConflictPolicy,
 			)
+			require.Equal(t, "test", captured.lastOptions.StaticSummary)
 			key := temporal.NewSearchAttributeKeyKeyword(
 				workflowengine.PipelineIdentifierSearchAttribute,
 			)
