@@ -55,7 +55,7 @@ func resolveRecordInputMatcher(want activities.ResolveRecordInput) any {
 func registerMobileRunnerHTTPActivity(
 	env *testsuite.TestWorkflowEnvironment,
 ) *activities.MobileRunnerHTTPActivity {
-	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity()
+	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	env.RegisterActivityWithOptions(
 		runnerHTTPActivity.Execute,
 		activity.RegisterOptions{Name: runnerHTTPActivity.Name()},

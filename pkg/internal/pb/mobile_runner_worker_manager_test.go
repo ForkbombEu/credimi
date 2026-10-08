@@ -54,10 +54,11 @@ func TestRegisterMobileRunnerWorkerManagerHooks_RunnerPublishDispatchesToPublish
 		startWorkerManagerFn = origStartManager
 	})
 
+	runnerID := workerManagerRunnerID(t, app, runner)
 	calls := make(chan string, 2)
-	startWorkerManagerFn = func(namespace, oldNamespace string, runnerURLs []string) {
+	startWorkerManagerFn = func(namespace, oldNamespace string, runnerIDs []string) {
 		require.Empty(t, oldNamespace)
-		require.Equal(t, []string{"https://runner.example"}, runnerURLs)
+		require.Equal(t, []string{runnerID}, runnerIDs)
 		calls <- namespace
 	}
 	RegisterMobileRunnerWorkerManagerHooks(app)
@@ -151,9 +152,10 @@ func TestRegisterMobileRunnerWorkerManagerHooks_RunnerEligibilityGating(t *testi
 				startWorkerManagerFn = origStartManager
 			})
 
+			runnerID := workerManagerRunnerID(t, app, runner)
 			calls := make(chan string, 4)
-			startWorkerManagerFn = func(namespace, _ string, runnerURLs []string) {
-				require.Equal(t, []string{"https://runner.example"}, runnerURLs)
+			startWorkerManagerFn = func(namespace, _ string, runnerIDs []string) {
+				require.Equal(t, []string{runnerID}, runnerIDs)
 				calls <- namespace
 			}
 			RegisterMobileRunnerWorkerManagerHooks(app)
@@ -215,9 +217,10 @@ func TestRegisterMobileRunnerWorkerManagerHooks_OnlineAgainInsideTransaction(t *
 		startWorkerManagerFn = origStartManager
 	})
 
+	runnerID := workerManagerRunnerID(t, app, runner)
 	calls := make(chan string, 2)
-	startWorkerManagerFn = func(namespace, _ string, runnerURLs []string) {
-		require.Equal(t, []string{"https://runner.example"}, runnerURLs)
+	startWorkerManagerFn = func(namespace, _ string, runnerIDs []string) {
+		require.Equal(t, []string{runnerID}, runnerIDs)
 		calls <- namespace
 	}
 	RegisterMobileRunnerWorkerManagerHooks(app)
@@ -284,9 +287,10 @@ func TestRegisterMobileRunnerWorkerManagerHooks_AdminRunnerReEnabledCoversAllNam
 		startWorkerManagerFn = origStartManager
 	})
 
+	runnerID := workerManagerRunnerID(t, app, runner)
 	calls := make(chan string, 8)
-	startWorkerManagerFn = func(namespace, _ string, runnerURLs []string) {
-		require.Equal(t, []string{"https://admin-runner.example"}, runnerURLs)
+	startWorkerManagerFn = func(namespace, _ string, runnerIDs []string) {
+		require.Equal(t, []string{runnerID}, runnerIDs)
 		calls <- namespace
 	}
 	RegisterMobileRunnerWorkerManagerHooks(app)
@@ -432,9 +436,10 @@ func TestRegisterMobileRunnerWorkerManagerHooks_KindSwitchCoversNewNamespaces(t 
 			t.Cleanup(func() {
 				startWorkerManagerFn = origStartManager
 			})
+			runnerID := workerManagerRunnerID(t, app, runner)
 			calls := make(chan string, 16)
-			startWorkerManagerFn = func(namespace, _ string, runnerURLs []string) {
-				require.Equal(t, []string{"https://switching-runner.example"}, runnerURLs)
+			startWorkerManagerFn = func(namespace, _ string, runnerIDs []string) {
+				require.Equal(t, []string{runnerID}, runnerIDs)
 				calls <- namespace
 			}
 			RegisterMobileRunnerWorkerManagerHooks(app)

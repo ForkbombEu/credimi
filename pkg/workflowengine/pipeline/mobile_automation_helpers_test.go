@@ -469,7 +469,8 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "serial-1", result["serial"])
 	require.Equal(t, "android_phone", result["type"])
-	require.Equal(t, "http://runner", result["runner_url"])
+	require.Equal(t, "tenant/runner-1", result["runner_id"])
+	require.NotContains(t, result, "runner_url")
 }
 
 func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
@@ -603,7 +604,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{DeviceID: "runner-1"}
-			runnerID, runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
+			runnerID, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
 				ctx:     ctx,
 				payload: payload,
 				stepID:  "step-1",
@@ -612,10 +613,9 @@ func TestFetchRunnerInfo(t *testing.T) {
 				return nil, err
 			}
 			return map[string]any{
-				"runner_id":  runnerID,
-				"runner_url": runnerURL,
-				"type":       deviceType.String(),
-				"serial":     serial,
+				"runner_id": runnerID,
+				"type":      deviceType.String(),
+				"serial":    serial,
 			}, nil
 		},
 		workflow.RegisterOptions{Name: workflowName},
@@ -644,7 +644,6 @@ func TestFetchRunnerInfo(t *testing.T) {
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "organization/runner-1", result["runner_id"])
-	require.Equal(t, "http://runner", result["runner_url"])
 	require.Equal(t, "android_phone", result["type"])
 	require.Equal(t, "serial-1", result["serial"])
 }
@@ -702,7 +701,7 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 					payload := &workflows.MobileAutomationWorkflowPipelinePayload{
 						DeviceID: "runner-1",
 					}
-					_, _, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
+					_, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 						ctx:     ctx,
 						payload: payload,
 						stepID:  "step-1",

@@ -57,6 +57,8 @@ type MobileRunnerLifecycleResponse struct {
 	SemaphoreWorkflowID     string `json:"semaphore_workflow_id"`
 	HeartbeatTimeoutSeconds int    `json:"heartbeat_timeout_seconds"`
 	ShutdownAfterSeconds    int    `json:"shutdown_after_seconds"`
+	// RunnerCredential is the key Credimi currently presents to this runner.
+	RunnerCredential string `json:"runner_credential"`
 }
 
 var MobileRunnerLifecycleRoutes = routing.RouteGroup{
@@ -165,7 +167,7 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 			}
 		}
 
-		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, true))
+		return lifecycleResponse(e, record, runnerID, true)
 	}
 }
 
@@ -256,7 +258,7 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 			}
 		}
 
-		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, true))
+		return lifecycleResponse(e, record, runnerID, true)
 	}
 }
 
@@ -394,7 +396,7 @@ func HandleMobileRunnerLifecyclePause() func(*core.RequestEvent) error {
 			}
 		}
 
-		return e.JSON(http.StatusOK, lifecycleResponse(runnerID, false))
+		return lifecycleResponse(e, record, runnerID, false)
 	}
 }
 
@@ -569,17 +571,47 @@ func setRunnerHeartbeat(record *core.Record, online bool, now time.Time) {
 	record.Set("last_heartbeat_at", now.UTC().Format("2006-01-02 15:04:05.000Z"))
 }
 
+// lifecycleResponse writes the lifecycle response for runner, carrying the
+// credential Credimi currently presents to it when the caller may hold it.
 func lifecycleResponse(
+	e *core.RequestEvent,
+	runner *core.Record,
 	runnerID string,
 	online bool,
-) MobileRunnerLifecycleResponse {
-	return MobileRunnerLifecycleResponse{
+) error {
+	credential, apiErr := mobileRunnerCredential(e.Auth, runner)
+	if apiErr != nil {
+		return apiErr
+	}
+	return e.JSON(http.StatusOK, MobileRunnerLifecycleResponse{
 		RunnerID:                runnerID,
 		Online:                  online,
 		SemaphoreWorkflowID:     workflows.MobileDeviceSemaphoreWorkflowID(runnerID),
 		HeartbeatTimeoutSeconds: int(mobilerunnerlifecycle.HeartbeatTimeout() / time.Second),
 		ShutdownAfterSeconds:    int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
+		RunnerCredential:        credential,
+	})
+}
+
+// mobileRunnerCredential returns the credential Credimi presents to runner;
+// runners learn it from registration and lifecycle responses. An
+// admin-managed runner serves every namespace, so its credential goes only to
+// superusers and the internal admin key it registers with, never to the
+// members of the organization that owns the record; they get an empty value.
+func mobileRunnerCredential(auth *core.Record, runner *core.Record) (string, *apierror.APIError) {
+	if runner.GetBool("admin_managed") && !isSuperuserAuth(auth) {
+		return "", nil
 	}
+	credential, err := mobilerunner.Credential(runner)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"mobile_runner",
+			"runner_credential_unavailable",
+			err.Error(),
+		)
+	}
+	return credential, nil
 }
 
 func lifecycleReason(reason string, fallback string) string {

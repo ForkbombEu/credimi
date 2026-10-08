@@ -577,6 +577,9 @@ type UpsertMobileRunnerResponse struct {
 	Serial         string `json:"serial,omitempty"`
 	Published      bool   `json:"published"`
 	AdminManaged   bool   `json:"admin_managed"`
+	// RunnerCredential is the key Credimi presents to this runner from now
+	// on; every upsert rotates it.
+	RunnerCredential string `json:"runner_credential"`
 }
 
 func HandlePreviewMobileRunnerID() func(*core.RequestEvent) error {
@@ -658,6 +661,22 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			)
 		}
 
+		// An admin-managed runner is operator infrastructure: it serves every
+		// namespace and is exempt from the tenant destination policy, so a
+		// non-superuser may not change its address while it stays
+		// admin-managed. A runner re-registering with a user key alone is
+		// still allowed: below, that turns it into a tenant runner, which the
+		// tenant policy and a tenant credential then cover.
+		if record != nil && record.GetBool("admin_managed") &&
+			!isSuperuserAuth(e.Auth) && !authenticatedByAPIKeyOnly(e) {
+			return apierror.New(
+				http.StatusForbidden,
+				"mobile_runner",
+				"admin_managed_runner",
+				"only superusers can update an admin-managed runner",
+			)
+		}
+
 		if record == nil {
 			collection, err := e.App.FindCollectionByNameOrId("mobile_runners")
 			if err != nil {
@@ -669,6 +688,8 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 				)
 			}
 			record = core.NewRecord(collection)
+			// The credential derives from the id, and is issued before saving.
+			record.Id = core.GenerateDefaultRandomId()
 			record.Set("owner", owner.Id)
 		}
 		// The runner's key decides its kind: the internal admin key registers
@@ -687,6 +708,11 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		record.Set("serial", strings.TrimSpace(input.Serial))
 		if input.Published != nil {
 			record.Set("published", *input.Published)
+		}
+		record.Set("credential_generation", record.GetInt("credential_generation")+1)
+		credential, apiErr := mobileRunnerCredential(e.Auth, record)
+		if apiErr != nil {
+			return apiErr
 		}
 
 		if err := e.App.Save(record); err != nil {
@@ -709,18 +735,19 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, UpsertMobileRunnerResponse{
-			ID:             record.Id,
-			Organization:   owner.GetString("canonified_name"),
-			Name:           record.GetString("name"),
-			CanonifiedName: record.GetString("canonified_name"),
-			RunnerID:       runnerID,
-			IP:             record.GetString("ip"),
-			Description:    record.GetString("description"),
-			Type:           record.GetString("type"),
-			Port:           record.GetString("port"),
-			Serial:         record.GetString("serial"),
-			Published:      record.GetBool("published"),
-			AdminManaged:   record.GetBool("admin_managed"),
+			ID:               record.Id,
+			Organization:     owner.GetString("canonified_name"),
+			Name:             record.GetString("name"),
+			CanonifiedName:   record.GetString("canonified_name"),
+			RunnerID:         runnerID,
+			IP:               record.GetString("ip"),
+			Description:      record.GetString("description"),
+			Type:             record.GetString("type"),
+			Port:             record.GetString("port"),
+			Serial:           record.GetString("serial"),
+			Published:        record.GetBool("published"),
+			AdminManaged:     record.GetBool("admin_managed"),
+			RunnerCredential: credential,
 		})
 	}
 }

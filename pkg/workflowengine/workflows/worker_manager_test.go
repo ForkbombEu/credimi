@@ -35,10 +35,10 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",
 				OldNamespace: "old-test-namespace",
-				RunnerURLs:   []string{"https://runner1.test", "https://runner2.test"},
+				RunnerIDs:    []string{"org/runner-1", "org/runner-2"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity()
+				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity(nil)
 				env.RegisterActivityWithOptions(runnerHTTPAct.Execute, activity.RegisterOptions{
 					Name: runnerHTTPAct.Name(),
 				})
@@ -49,10 +49,12 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 						)
 						require.NoError(t, err)
 						require.Equal(t, http.MethodPost, payload.Method)
-						require.Contains(t, []string{
-							"https://runner1.test/worker/test-namespace",
-							"https://runner2.test/worker/test-namespace",
-						}, payload.URL)
+						require.Contains(
+							t,
+							[]string{"org/runner-1", "org/runner-2"},
+							payload.RunnerID,
+						)
+						require.Equal(t, "/worker/test-namespace", payload.Path)
 						require.Equal(t, 202, payload.ExpectedStatus)
 						body, ok := payload.Body.(map[string]any)
 						require.True(t, ok)
@@ -70,23 +72,25 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 				)
 				runnerResults := assertWorkerManagerOutput(t, result.Output, 2, 2, 0)
 				require.Equal(t, true, runnerResults[0]["success"])
+				require.Equal(t, "org/runner-1", runnerResults[0]["runner_id"])
 				require.Equal(t, true, runnerResults[1]["success"])
+				require.Equal(t, "org/runner-2", runnerResults[1]["runner_id"])
 			},
 		},
 		{
-			name: "Workflow normalizes and deduplicates runner URLs",
+			name: "Workflow normalizes and deduplicates runner IDs",
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",
 				OldNamespace: "old-test-namespace",
-				RunnerURLs: []string{
-					" https://runner1.test ",
+				RunnerIDs: []string{
+					" org/runner-1 ",
 					"",
-					"https://runner1.test",
-					"https://runner2.test",
+					"org/runner-1",
+					"org/runner-2",
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity()
+				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity(nil)
 				env.RegisterActivityWithOptions(runnerHTTPAct.Execute, activity.RegisterOptions{
 					Name: runnerHTTPAct.Name(),
 				})
@@ -96,10 +100,11 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 							input.Payload,
 						)
 						require.NoError(t, err)
-						require.Contains(t, []string{
-							"https://runner1.test/worker/test-namespace",
-							"https://runner2.test/worker/test-namespace",
-						}, payload.URL)
+						require.Contains(
+							t,
+							[]string{"org/runner-1", "org/runner-2"},
+							payload.RunnerID,
+						)
 						return workflowengine.ActivityResult{}, nil
 					},
 				).
@@ -114,11 +119,11 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			},
 		},
 		{
-			name: "Workflow with explicit empty runner URLs starts no runner",
+			name: "Workflow with explicit empty runner IDs starts no runner",
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",
 				OldNamespace: "old-test-namespace",
-				RunnerURLs:   []string{},
+				RunnerIDs:    []string{},
 			},
 			mockActivities: func(_ *testsuite.TestWorkflowEnvironment) {},
 			assertResult: func(t *testing.T, result workflowengine.WorkflowResult) {
@@ -131,7 +136,7 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			},
 		},
 		{
-			name: "Workflow treats nil runner URLs as empty",
+			name: "Workflow treats nil runner IDs as empty",
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",
 				OldNamespace: "old-test-namespace",
@@ -151,10 +156,10 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",
 				OldNamespace: "old-test-namespace",
-				RunnerURLs: []string{
-					"https://runner1.test",
-					"https://runner2.test",
-					"https://runner3.test",
+				RunnerIDs: []string{
+					"org/runner-1",
+					"org/runner-2",
+					"org/runner-3",
 				},
 			},
 			inputOptions: &workflow.ActivityOptions{
@@ -165,7 +170,7 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity()
+				runnerHTTPAct := activities.NewMobileRunnerHTTPActivity(nil)
 				env.RegisterActivityWithOptions(runnerHTTPAct.Execute, activity.RegisterOptions{
 					Name: runnerHTTPAct.Name(),
 				})
@@ -181,7 +186,7 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 						require.True(t, ok)
 						require.Equal(t, "old-test-namespace", body["old_namespace"])
 
-						if payload.URL == "https://runner2.test/worker/test-namespace" {
+						if payload.RunnerID == "org/runner-2" {
 							return workflowengine.ActivityResult{}, errors.New("runner timeout")
 						}
 
