@@ -101,6 +101,26 @@ func (EvidencePresentValidator) Validate(_ context.Context, input Input) Result 
 	return Result{Status: StatusPass, Message: "evidence value is present"}
 }
 
+// FCAFBlockedValidator records that the setup a test requires cannot be built
+// with the available verifier or infrastructure, so the test reports blocked
+// with the missing prerequisite instead of asserting on unrelated evidence.
+type FCAFBlockedValidator struct{}
+
+func (FCAFBlockedValidator) ID() string { return "fcaf.blocked" }
+
+func (FCAFBlockedValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Reason string `json:"reason"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Reason == "" {
+		return Result{Status: StatusError, Message: "reason param is required"}
+	}
+	return Result{Status: StatusBlocked, Message: params.Reason}
+}
+
 type JSONFieldRequiredValidator struct{}
 
 func (JSONFieldRequiredValidator) ID() string {

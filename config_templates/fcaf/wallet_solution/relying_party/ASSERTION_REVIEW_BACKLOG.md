@@ -54,6 +54,13 @@ the Wallet received the property or answered as the source requires.
   response. Open limitation: 125 and 126 can only evidence the Wallet's own
   error visually, because the Wallet has already submitted its Authorization
   Response when the malformed reply arrives.
+- **Implemented; Capture evidence pending:** `WS_RP_IA_Metadata__011`, `012`,
+  and `013`. The interaction-metadata scenario keeps its default session,
+  whose Request Object carries `aud: https://self-issued.me/v2`, for 012, and
+  adds an aud-mismatch session that sets `/aud` through `request_mutation` for
+  011 and 013. `oid4vp.request_audience` reads the Wallet's discovery mode from
+  the POSTed `wallet_metadata` (`issuer` present means dynamic): 011 is
+  `not_applicable` for a static-discovery Wallet such as 2026.09.42.
 - **Implemented; Capture evidence pending:** `WS_RP_IA_MainInteraction__032`,
   `040`, `041`, `WS_RP_MS_CredentialFormats__033`, `044`, and
   `WS_RP_SH_Encoding_TextualEncoding_002`, `003`. Each case now issues the
@@ -210,8 +217,6 @@ Constructible from existing controls:
 - [ ] `WS_RP_MS_Metadata__113` (`request_mutation` sets an `openid_federation:`
   `client_id` and a malformed `trust_chain` JOSE header; the source expects
   rejection)
-- [ ] `WS_RP_IA_Metadata__012` (the default Request Object already carries
-  `aud: https://self-issued.me/v2`) and `013` (`request_mutation` on `/aud`)
 - [ ] `WS_RP_SM_RpIntegrity__033`, `034` and
   `WS_RP_SM_RpIntegrity_CryptographicSignature_003`, `004` (the default
   Request Object is `ES256`, ECDSA P-256 with SHA-256. For `-9` too the
@@ -251,8 +256,6 @@ or behaviour shows it has it.
 - [ ] `WS_RP_SH_Cryptography_CryptographicHash_008` (Wallet supporting SHA-256
   only; a presented SHA-384 credential, as in `CryptographicHash_010`, shows
   otherwise)
-- [ ] `WS_RP_IA_Metadata__011` (dynamic discovery; applies only when
-  `wallet_metadata` carries `issuer`, which wallet 2026.09.42 omits)
 
 Published in the Capture contract at `3d40a8d`, not yet deployed: on
 30/09/2026 production and beta both answered `request_delivery: "multisigned"`
@@ -447,7 +450,7 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
   definitions; WRPAC certificate fixtures; upstream 5.6)
 - [ ] `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__112`, `114`, `115`
   (OpenID Federation entity statements, trust chain, and authority; upstream
-  5.7)
+  5.7). 014 reports `blocked` through `fcaf.blocked` until these exist
 - [ ] `WS_RP_SM_TrustMechanisms__002`–`013`, `015`, `021`,
   `WS_RP_MS_ProtocolMessages__095`, and `WS_RP_IA_MainInteraction__065`
   (issuer chains with controlled Authority Key Identifiers and ETSI trusted-list

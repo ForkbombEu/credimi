@@ -3017,3 +3017,33 @@ domestic element, so only the domestic mdoc satisfies it.
 `make fcaf-generate` produces 1723 aggregate steps (each wallet scenario now
 starts with a reset step), 615 test IDs and 219 pipeline outputs; the happy
 flow has 179 steps, 303 test IDs and 36 outputs.
+
+## Request aud: IA Metadata 011, 012, 013; 014 blocked
+
+08/10/2026. All four were placeholders asserting a top-level `vp_token` on the
+whole session record, so they failed with `required field "vp_token" is
+missing`; a binding fix alone would have passed 011 and 013, which require
+rejection.
+
+- The interaction-metadata default session serves `aud:
+  https://self-issued.me/v2` (012). A second session sets `/aud` to
+  `https://capture-wallet.credimi.io/fcaf-not-the-wallet-audience` through
+  `request_mutation` and runs `fcaf-expect-request-rejected` (011, 013).
+- New `oid4vp.request_audience` reads the discovery mode from the POSTed
+  `wallet_metadata`: `issuer` present means dynamic (aud must equal it),
+  otherwise static (aud must be the self-issued identifier). A test for the
+  other mode is `not_applicable`; an aud that does not set up the case is
+  `inconclusive`. 013 requires `invalid_request`; 011 accepts any error, as
+  its source says "e.g. invalid_request".
+- New `fcaf.blocked` returns `blocked` with a stated reason; 014 uses it
+  because Capture has no OpenID Federation entity.
+
+Probed on production: both sessions accepted POST retrieval, the served JWS
+carried the mutated aud with a valid signature, and a posted `invalid_request`
+error was recorded. With those sessions the engine gives 011
+`not_applicable`, 012 pass (synthetic presentation added), 013 pass and 014
+`blocked`. Reference Wallet run pending.
+
+`make fcaf-generate` produces 1728 aggregate steps; the happy flow has 184.
+The generator issues a PID before the rejection step as well, so the aud
+mismatch session adds five steps: its own three plus the PID issuance.

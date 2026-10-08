@@ -8893,6 +8893,73 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-interaction-metadata-f9737358-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-create-aud-mismatch-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: interaction-metadata-aud-mismatch
+            request_delivery: by_reference
+            request_mutation:
+                request_object:
+                    set:
+                        /aud: https://capture-wallet.credimi.io/fcaf-not-the-wallet-audience
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-reject-aud-mismatch-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-reject-aud-mismatch-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-interaction-metadata-f9737358-reject-aud-mismatch-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-reject-aud-mismatch
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ dcql-interaction-metadata-f9737358-create-aud-mismatch-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-interaction-metadata-f9737358-fetch-aud-mismatch-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-interaction-metadata-f9737358-create-aud-mismatch-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-interaction-protocol-flow-8f466d9d-reset-wallet
       use: mobile-automation
       with:
@@ -25212,7 +25279,11 @@ steps:
                     visual_evidence: ${{ dcql-interaction-engagement-d1f27e9f-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.interaction-metadata:
                 output:
+                    aud_mismatch_request_object: ${{ dcql-interaction-metadata-f9737358-fetch-aud-mismatch-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    aud_mismatch_session: ${{ dcql-interaction-metadata-f9737358-fetch-aud-mismatch-session.outputs.body | optional }}
+                    aud_mismatch_visual_evidence: ${{ dcql-interaction-metadata-f9737358-reject-aud-mismatch.outputs.flow_output.maestro_screenshot_urls | optional }}
                     dcql_exchange: ${{ dcql-interaction-metadata-f9737358-fetch-capture-session.outputs.body | optional }}
+                    request_object: ${{ dcql-interaction-metadata-f9737358-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ dcql-interaction-metadata-f9737358-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.interaction-protocol-flow:
                 output:
