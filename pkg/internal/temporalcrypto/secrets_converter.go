@@ -5,12 +5,15 @@
 package temporalcrypto
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"strings"
@@ -74,8 +77,8 @@ func (c *SecretsJSONPayloadConverter) ToPayload(value any) (*commonpb.Payload, e
 		return nil, fmt.Errorf("%w: %w", converter.ErrUnableToEncode, err)
 	}
 
-	var generic any
-	if err := json.Unmarshal(data, &generic); err != nil {
+	generic, err := decodeGenericJSON(data)
+	if err != nil {
 		return nil, fmt.Errorf("%w: %w", converter.ErrUnableToEncode, err)
 	}
 
@@ -98,8 +101,8 @@ func (c *SecretsJSONPayloadConverter) ToPayload(value any) (*commonpb.Payload, e
 }
 
 func (c *SecretsJSONPayloadConverter) FromPayload(payload *commonpb.Payload, valuePtr any) error {
-	var generic any
-	if err := json.Unmarshal(payload.GetData(), &generic); err != nil {
+	generic, err := decodeGenericJSON(payload.GetData())
+	if err != nil {
 		return fmt.Errorf("%w: %w", converter.ErrUnableToDecode, err)
 	}
 
@@ -118,6 +121,22 @@ func (c *SecretsJSONPayloadConverter) FromPayload(payload *commonpb.Payload, val
 	}
 
 	return nil
+}
+
+// decodeGenericJSON decodes data keeping numbers as json.Number, so integers
+// beyond float64 precision survive the generic round-trip unchanged.
+func decodeGenericJSON(data []byte) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var generic any
+	if err := dec.Decode(&generic); err != nil {
+		return nil, err
+	}
+	// Match json.Unmarshal, which rejects data after the first value.
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("invalid character after top-level JSON value")
+	}
+	return generic, nil
 }
 
 func (c *SecretsJSONPayloadConverter) ToString(payload *commonpb.Payload) string {
@@ -285,8 +304,7 @@ func decryptJSONValue(key []byte, value any) (any, error) {
 		return nil, fmt.Errorf("unsupported secrets algorithm")
 	}
 
-	version, ok := envelope["version"].(float64)
-	if !ok || version != 1 {
+	if !isEnvelopeVersion1(envelope["version"]) {
 		return nil, fmt.Errorf("unsupported secrets envelope version")
 	}
 
@@ -326,12 +344,25 @@ func decryptJSONValue(key []byte, value any) (any, error) {
 		return nil, fmt.Errorf("decrypt secrets: %w", err)
 	}
 
-	var decoded any
-	if err := json.Unmarshal(plaintext, &decoded); err != nil {
+	decoded, err := decodeGenericJSON(plaintext)
+	if err != nil {
 		return nil, fmt.Errorf("unmarshal decrypted secrets: %w", err)
 	}
 
 	return decoded, nil
+}
+
+// isEnvelopeVersion1 accepts the version both as decoded with UseNumber and as
+// built by encryptJSONValue.
+func isEnvelopeVersion1(value any) bool {
+	switch typed := value.(type) {
+	case json.Number:
+		return typed.String() == "1"
+	case float64:
+		return typed == 1
+	default:
+		return false
+	}
 }
 
 func isEncryptedSecretsEnvelope(value any) bool {
