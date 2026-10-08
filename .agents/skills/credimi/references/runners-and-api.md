@@ -55,8 +55,8 @@ Runner URLs for the worker manager come only from its workflow payload: the star
 
 - Only for a **running** dynamic-pipeline execution, and only after the mobile setup has populated its device map, else a not-ready error; `ios_simulator` is rejected with `422 live view is not supported for ios_simulator devices`.
 - Response `{streams: [{device_id, device_name, url}]}` where `url` is `{runner_url}/live/<token>`.
-- Error mapping: transport failure → `503 device runner is offline`; runner `503` → `503 live view is unavailable on the device runner`; runner `400` → `422 runner refused live view`; runner `401`/`403` → `502` with "Check that both use the same internal admin key."; other non-2xx → `502` forwarding the runner's `message`; a missing or malformed `/live/` path → `502 invalid live view address`.
-- Requires `CREDIMI_INTERNAL_ADMIN_KEY` on both sides.
+- Error mapping: transport failure → `503 device runner is offline`; runner `503` → `503 live view is unavailable on the device runner`; runner `400` → `422 runner refused live view`; runner `401`/`403` → `502 runner refused live view` (runner credential mismatch: the runner must re-register with this Credimi instance); other non-2xx → `502` forwarding the runner's `message`; a missing or malformed `/live/` path → `502 invalid live view address`.
+- Credimi authenticates to the runner with the runner's own credential (`mobilerunner.Credential`, derived from `CREDIMI_RUNNER_CREDENTIAL_SECRET`), never with an internal admin key.
 
 ## Auth
 
@@ -65,7 +65,7 @@ Runner URLs for the worker manager come only from its workflow payload: the star
 - Generate: `POST /api/apikey/generate` `{name}` (logged-in users on the `users` or `_superusers` collection); the key is shown once. UI: `/my/profile/api-keys`.
 - Authenticate: `GET /api/apikey/authenticate` (user key → PocketBase auth token); `GET /api/apikey/authenticate-internal-admin` (internal key).
 - Middlewares: `RequireAuthOrAPIKey` (Bearer token **or** user API key — applied to every route group with `AuthenticationRequired: true`), `RequireInternalAdminAPIKey` (internal-admin scope), `RequireInternalAdminOrAuth` (internal key first, else user auth), `OptionalAuthOrAPIKey` (never blocks).
-- `CREDIMI_INTERNAL_ADMIN_KEY` is the runtime internal credential sent to runners as `Credimi-Api-Key`.
+- The internal admin key is an `internal_admin` record in `api_keys`; the Credimi server reads no env var for it. Admin-managed runners and operators hold its plaintext (conventionally `CREDIMI_INTERNAL_ADMIN_KEY`) to call Credimi. Credimi never sends it to runners: every Credimi→runner call carries the per-runner credential.
 - A user-scoped key hitting an internal-admin route gets `403 insufficient_api_key_scope`.
 
 ## Endpoint catalog

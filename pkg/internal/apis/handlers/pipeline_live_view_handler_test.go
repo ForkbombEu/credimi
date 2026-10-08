@@ -166,7 +166,8 @@ func createLiveViewDevice(
 }
 
 func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
-	t.Setenv(InternalAdminAPIKeyEnvVar, "internal-admin-key")
+	// Set to prove Credimi never forwards an internal admin key to a runner.
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "internal-admin-key")
 	t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
 	app, authRecord, namespace := pipelineLiveViewTestApp(t)
 	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
