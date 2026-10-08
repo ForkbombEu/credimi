@@ -15,18 +15,16 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.rp-integrity
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+  session:
+    from: pipeline.dcql.rp-integrity.outputs.session
 assertions:
-- id: ws_rp_sm_rpintegrity__009_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+- id: verifier_attestation_session_is_unavailable
+  validator: fcaf.blocked
+  input: evidence.session
   params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__009_visual_evidence
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      needs a verifier_attestation Request Object; Capture answers
+      client_id_scheme verifier_attestation with 500 (no SAN DNS name in the
+      deployed certificate, re-checked 08/10/2026)
 verdict:
   pass_when: all_assertions_pass

@@ -509,6 +509,13 @@ source test permits it.
   among the SD-JWT VC claims, and `POST /sessions` created `201`
   pre-authorized sessions for both `key-attestation-required`
   configurations.
+- On 08/10/2026, production created a `dc_api.jwt` session with
+  `request_delivery: "multisigned"` (`openid4vp-v1-multisigned`). Its
+  `dc_api.request.data.request` is a JWS JSON Serialization whose payload omits
+  `client_id`, with two `ES256` signatures: one with `x5c` and an `x509_hash`
+  Client Identifier, one with the DID `kid` and a `decentralized_identifier`
+  Client Identifier. `client_id_scheme: "verifier_attestation"` still returned
+  `500 internal_error` (`there are no SAN-DNS names`).
 
 - Resynced from upstream master on 25/09/2026 (`5b03750`). Since the 22/09/2026
   sync (`6b94fa4`) the contract adds the SD-JWT VC `digest_algorithm` issuance

@@ -3047,3 +3047,31 @@ error was recorded. With those sessions the engine gives 011
 `make fcaf-generate` produces 1728 aggregate steps; the happy flow has 184.
 The generator issues a PID before the rejection step as well, so the aud
 mismatch session adds five steps: its own three plus the PID issuance.
+
+## RpIntegrity placeholders: six implemented, nine blocked
+
+08/10/2026. Fifteen RpIntegrity tests ran `jwt.payload_field_presence` with no
+`present` param on the whole session record, so they all errored with
+`present param is required`. That assertion had nothing to do with the sources.
+
+- 033, 034, `CryptographicSignature_003`, `004`: the rp-integrity default
+  session; signature, `alg: ES256`, POST retrieval, and a presentation in
+  `raw.presentation_response_decrypted`. The `-9` sources name JOSE `ES256` in
+  their expected results, and production refuses `ESP256`.
+- 024: a `decentralized_identifier` session (DID key, no `x5c`) checked with
+  `oid4vp.did_signed_request` against `/openid4vp/did.json`, then
+  `request_rejected`, since the source accepts an error or a discontinuation.
+- 030: new `dc-api-multisigned` scenario; production deployed `multisigned`
+  delivery since the 30/09 probe. Asserts the protocol, two signatures, and a
+  presentation. `vp_token_present` of `oid4vp.dc_api_invocation` describes a
+  reported failure outcome, so a successful invocation omits it.
+- 001, 002, 008–012, 025, 032: `fcaf.blocked` with the missing prerequisite
+  from `ASSERTION_REVIEW_BACKLOG.md`; verifier attestation was re-probed and
+  still answers 500.
+
+Verified through the engine on production sessions (presentations synthetic):
+the six pass and the nine report `blocked`. Reference Wallet run pending.
+
+`make fcaf-generate` produces 1740 aggregate steps and 220 pipeline outputs;
+the happy flow has 190 steps and 302 test IDs, since 030 moved to a DC API
+scenario, which the happy flow excludes.

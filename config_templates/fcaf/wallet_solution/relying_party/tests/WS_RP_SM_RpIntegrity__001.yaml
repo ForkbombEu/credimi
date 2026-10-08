@@ -15,18 +15,16 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.rp-integrity
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+  session:
+    from: pipeline.dcql.rp-integrity.outputs.session
 assertions:
-- id: ws_rp_sm_rpintegrity__001_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+- id: verifier_info_use_is_not_observable
+  validator: fcaf.blocked
+  input: evidence.session
   params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__001_visual_evidence
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      applies only when the Wallet chooses to use verifier_info, and no evidence
+      shows whether the reference Wallet does; a presentation cannot distinguish
+      ignoring a badly signed attestation from accepting it
 verdict:
   pass_when: all_assertions_pass

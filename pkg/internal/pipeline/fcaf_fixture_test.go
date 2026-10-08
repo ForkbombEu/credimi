@@ -34,7 +34,7 @@ func TestCompleteFCAFPipelineResolvesValidationAfterScenarioFailures(t *testing.
 	require.NoError(t, err)
 	require.NoError(t, ResolveInputs(&validation, nil, context))
 	pipelineOutputs := validation.With.Payload["pipeline_outputs"]
-	require.Len(t, pipelineOutputs, 219)
+	require.Len(t, pipelineOutputs, 220)
 	unresolved, err := json.Marshal(pipelineOutputs)
 	require.NoError(t, err)
 	require.JSONEq(t, string(authored), string(unresolved))
@@ -42,7 +42,7 @@ func TestCompleteFCAFPipelineResolvesValidationAfterScenarioFailures(t *testing.
 
 	resolved, err := ResolveExpressions(pipelineOutputs, context)
 	require.NoError(t, err)
-	require.Len(t, resolved, 219)
+	require.Len(t, resolved, 220)
 	resolvedJSON, err := json.Marshal(resolved)
 	require.NoError(t, err)
 	require.NotContains(t, string(resolvedJSON), "${{")
