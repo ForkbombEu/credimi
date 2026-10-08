@@ -10,6 +10,11 @@ import { m } from '@/i18n';
 
 export type ExtraLink = Link & { description: string };
 
+export type ExtraGroup = {
+	label: string;
+	items: ExtraLink[];
+};
+
 export const leftItems: Link[] = [
 	{
 		href: '/hub',
@@ -21,7 +26,7 @@ export const leftItems: Link[] = [
 	}
 ];
 
-export const extras: ExtraLink[] = [
+const tools: ExtraLink[] = [
 	{
 		href: 'https://capture-wallet.credimi.io/',
 		title: m.extra_wallet_metadata_extractor(),
@@ -38,11 +43,6 @@ export const extras: ExtraLink[] = [
 		description: m.extra_trust_inspector_description()
 	},
 	{
-		href: 'https://atlas.credimi.io/',
-		title: m.extra_eudi_atlas(),
-		description: m.extra_eudi_atlas_description()
-	},
-	{
 		href: 'https://lote.credimi.io/',
 		title: m.extra_tl_lote_onboarding_catalogue(),
 		description: m.extra_tl_lote_onboarding_catalogue_description()
@@ -53,3 +53,18 @@ export const extras: ExtraLink[] = [
 		description: m.extra_token_status_list_console_description()
 	}
 ];
+
+const docs: ExtraLink[] = [
+	{
+		href: 'https://atlas.credimi.io/',
+		title: m.extra_eudi_atlas(),
+		description: m.extra_eudi_atlas_description()
+	}
+];
+
+export const extraGroups: ExtraGroup[] = [
+	{ label: m.tools(), items: tools },
+	{ label: m.Docs(), items: docs }
+];
+
+export const extras: ExtraLink[] = extraGroups.flatMap((group) => group.items);

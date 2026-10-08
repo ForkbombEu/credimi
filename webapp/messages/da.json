@@ -1029,6 +1029,7 @@
 	"extra_tl_lote_onboarding_catalogue_description": "Onboard EUDI-komponenter på TL/LoTE udelukkende til test og fejlfinding; ikke til produktion",
 	"extra_token_status_list_console": "Token Status List Console",
 	"extra_token_status_list_console_description": "Inspicér EUDI Token Status List-tokens og credential-statuser",
+	"Docs": "Docs",
 	"Pipeline_notifications": "Pipeline-notifikationer",
 	"Pipeline_notifications_description": "Modtag en push-notifikation, når en pipelinekørsel er afsluttet.",
 	"Pipeline_notifications_enabled": "Pipeline-notifikationer aktiveret",

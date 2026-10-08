@@ -16,17 +16,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Sheet from '@/components/ui/sheet';
 	import { m } from '@/i18n';
 
-	import type { ExtraLink } from './topbar-links';
-
 	import NavExtrasGroup from './nav-extras-group.svelte';
 	import NavLink from './nav-link.svelte';
 
 	interface Props {
 		items: LinkWithIcon[];
-		extras: ExtraLink[];
 	}
 
-	const { items, extras }: Props = $props();
+	const { items }: Props = $props();
 
 	let open = $state(false);
 
@@ -61,7 +58,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/each}
 			<div class="mt-2 border-t pt-2">
 				<NavExtrasGroup
-					{extras}
 					onNavigate={() => {
 						open = false;
 					}}
