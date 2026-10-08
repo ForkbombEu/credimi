@@ -53,7 +53,6 @@ var allCodes = []string{
 	EWCCheckFailed,
 	EudiwCheckFailed,
 	UnexpectedDockerOutput,
-	ZenroomExecutionFailed,
 	OpenIDnetCheckFailed,
 	UnexpectedHTTPStatusCode,
 	DockerCommandExecutionFailed,
