@@ -27,6 +27,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type OrganizationsResponse
 	} from '@/pocketbase/types';
 
+	let { data } = $props();
+
+	const joinableFilter = $derived(
+		(data?.memberOrganizationIds ?? [])
+			.map((id) => pb.filter('id != {:id}', { id }))
+			.join(' && ')
+	);
+
 	//
 
 	async function sendJoinRequest(org: OrganizationsResponse) {
@@ -53,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<CollectionManager
 			collection="organizations"
 			queryOptions={{
-				filter: `(id = orgAuthorizations_via_organization.organization.id && orgAuthorizations_via_organization.user.id != '${$currentUser?.id}')`,
+				filter: joinableFilter,
 				expand: ['orgJoinRequests_via_organization'],
 				perPage: 20
 			}}
