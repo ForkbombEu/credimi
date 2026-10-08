@@ -74,6 +74,42 @@ func TestSDJWTPresentationDigestAlgorithmValidator(t *testing.T) {
 			params:  map[string]any{},
 			want:    StatusError,
 		},
+		{
+			name: "require_error: wallet answered with an error",
+			session: func() map[string]any {
+				session := digestSession("presentation_invalid")
+				session["observed"] = map[string]any{"wallet_response": map[string]any{
+					"value": map[string]any{"error": "invalid_request"},
+				}}
+				return session
+			}(),
+			params: map[string]any{"digest_algorithm": "sha-384", "require_error": true},
+			want:   StatusPass,
+		},
+		{
+			name:    "require_error: wallet returned nothing",
+			session: digestSession("request_retrieved"),
+			params:  map[string]any{"digest_algorithm": "sha-384", "require_error": true},
+			want:    StatusFail,
+		},
+		{
+			name: "require_error: wallet presented a sha-256 credential instead",
+			session: func() map[string]any {
+				session := digestSession("presentation_validated", "sha-256")
+				session["raw"] = map[string]any{"presentation_response_decrypted": map[string]any{
+					"vp_token": map[string]any{"pid_sha384": []any{"token"}},
+				}}
+				return session
+			}(),
+			params: map[string]any{"digest_algorithm": "sha-384", "require_error": true},
+			want:   StatusFail,
+		},
+		{
+			name:    "require_error: wallet presented the sha-384 credential",
+			session: digestSession("presentation_validated", "sha-384"),
+			params:  map[string]any{"digest_algorithm": "sha-384", "require_error": true},
+			want:    StatusNotApplicable,
+		},
 	}
 
 	validator := SDJWTPresentationDigestAlgorithmValidator{}

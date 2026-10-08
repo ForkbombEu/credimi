@@ -3075,3 +3075,29 @@ the six pass and the nine report `blocked`. Reference Wallet run pending.
 `make fcaf-generate` produces 1740 aggregate steps and 220 pipeline outputs;
 the happy flow has 190 steps and 302 test IDs, since 030 moved to a DC API
 scenario, which the happy flow excludes.
+
+## CryptographicHash 008, SHA-256-only Wallet error
+
+08/10/2026. The last test running `jwt.payload_field_presence` without
+`present`: it asserted a nonexistent `hash` field of the session record.
+
+- It now reuses the `CryptographicHash_010` exchange in the
+  credential-digest-algorithm scenario, which also exposes that session's
+  request object. Assertions: the SHA-384 issuance reached the Wallet, the
+  verifier client metadata names no hash algorithm besides SHA-256, and
+  `sdjwt.presentation_digest_algorithm_unsupported` with the new
+  `require_error` param. It reports `not_applicable` when the SHA-384 credential
+  is presented, and otherwise requires an error and no `vp_token`.
+  Without the param, 010 behaves as before.
+- Capture records decoded presentations both at the top level and under
+  `raw` (`captureVpResponse` sets both), so the validator's top-level read is
+  correct.
+
+Verified through the engine on a production session that was retrieved by
+POST and answered with a posted `invalid_request`: pass. With a synthetic
+SHA-384 presentation it is `not_applicable`; with no response it fails.
+Wallet 2026.09.42 presented the SHA-384 PID for 010, so 008 is expected to be
+`not_applicable` there.
+
+The happy flow drops to 301 test IDs; the credential-digest-algorithm scenario
+is not in it.

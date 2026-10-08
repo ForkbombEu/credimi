@@ -72,6 +72,13 @@ the Wallet received the property or answered as the source requires.
   created `request_delivery: multisigned` sessions on 08/10/2026, with two
   `ES256` signatures for the `x509_hash` and `decentralized_identifier` Client
   Identifiers.
+- **Implemented; Capture evidence pending:**
+  `WS_RP_SH_Cryptography_CryptographicHash_008`. It reuses the
+  `CryptographicHash_010` session: a SHA-384-digested `pid_person_b` requested
+  under client metadata naming only SHA-256. A Wallet that presents it supports
+  SHA-384 and is `not_applicable` (wallet 2026.09.42 did for 010); otherwise
+  `sdjwt.presentation_digest_algorithm_unsupported` with `require_error` needs
+  an error and no presentation.
 - **Implemented; Capture evidence pending:** `WS_RP_IA_MainInteraction__032`,
   `040`, `041`, `WS_RP_MS_CredentialFormats__033`, `044`, and
   `WS_RP_SH_Encoding_TextualEncoding_002`, `003`. Each case now issues the
@@ -251,9 +258,6 @@ or behaviour shows it has it.
   applies only when `wallet_metadata` publishes `jwks`, which wallet 2026.09.42
   does not. For a Wallet that does, see the Request Object encryption entry
   below)
-- [ ] `WS_RP_SH_Cryptography_CryptographicHash_008` (Wallet supporting SHA-256
-  only; a presented SHA-384 credential, as in `CryptographicHash_010`, shows
-  otherwise)
 
 Published in the Capture contract at `3d40a8d`, not yet deployed: on
 30/09/2026 production and beta both refused `request_behavior:
@@ -482,5 +486,5 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
   (a scope the Wallet resolves to a DCQL query; the service defines no scope
   values)
 - [ ] `WS_RP_MS_ProtocolMessages__018`, `135`, `154`–`159` (a transaction-data
-  type the reference Wallet supports; `017` and
-  `WS_RP_SH_Cryptography_CryptographicHash_008` were reclassified above)
+  type the reference Wallet supports; `017` was reclassified above and
+  `WS_RP_SH_Cryptography_CryptographicHash_008` is implemented)

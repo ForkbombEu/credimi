@@ -24994,6 +24994,7 @@ steps:
             pipeline.cryptography.digest-algorithm:
                 output:
                     issuance_capture: ${{ credential-digest-algorithm-1354cfc6-fetch-sha384-issuance.outputs.body | optional }}
+                    presentation_request_object: ${{ credential-digest-algorithm-1354cfc6-fetch-sha384-presentation.outputs.body.raw.authorization_request_jwt | optional }}
                     presentation_session: ${{ credential-digest-algorithm-1354cfc6-fetch-sha384-presentation.outputs.body | optional }}
                     sha256_only_request_object: ${{ credential-digest-algorithm-1354cfc6-fetch-sha256-only-presentation.outputs.body.raw.authorization_request_jwt | optional }}
                     sha256_only_session: ${{ credential-digest-algorithm-1354cfc6-fetch-sha256-only-presentation.outputs.body | optional }}

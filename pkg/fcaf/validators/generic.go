@@ -751,7 +751,9 @@ func (OID4VPNoPresentationValidator) Validate(_ context.Context, input Input) Re
 // Wallet must not present a credential digested with an algorithm it does not
 // support. A Wallet that presents it has demonstrated support, which puts it
 // outside the source's profile applicability instead of in breach of it, so
-// that case is reported as not applicable rather than as a failure.
+// that case is reported as not applicable rather than as a failure. With
+// require_error, a Wallet inside the applicability must also have answered
+// with an error and no presentation.
 type SDJWTPresentationDigestAlgorithmValidator struct{}
 
 func (SDJWTPresentationDigestAlgorithmValidator) ID() string {
@@ -761,6 +763,7 @@ func (SDJWTPresentationDigestAlgorithmValidator) ID() string {
 func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
 		DigestAlgorithm string `json:"digest_algorithm"`
+		RequireError    bool   `json:"require_error"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -778,16 +781,7 @@ func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, inp
 	if _, recorded := session["status"]; !recorded {
 		return Result{Status: StatusFail, Message: "session evidence does not contain status"}
 	}
-	decoded, present := session["decoded_presentations"].(map[string]any)
-	if !present {
-		return Result{
-			Status: StatusPass,
-			Message: fmt.Sprintf(
-				"wallet returned no presentation digested with %q",
-				params.DigestAlgorithm,
-			),
-		}
-	}
+	decoded, _ := session["decoded_presentations"].(map[string]any)
 	for queryID, raw := range decoded {
 		entries, ok := raw.([]any)
 		if !ok {
@@ -823,6 +817,29 @@ func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, inp
 					),
 				}
 			}
+		}
+	}
+	if params.RequireError {
+		if presentation, _ := findObjectKey(session, "vp_token"); !isEmptyDCQLValue(presentation) {
+			return Result{
+				Status:  StatusFail,
+				Message: "wallet returned vp_token instead of an error",
+			}
+		}
+		errorValue, _ := findObjectKey(session, "error")
+		if code := normalizeString(errorValue); code != "" {
+			return Result{
+				Status: StatusPass,
+				Message: fmt.Sprintf(
+					"wallet answered the %q-digested credential request with error %q",
+					params.DigestAlgorithm,
+					code,
+				),
+			}
+		}
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet returned neither a presentation nor an error",
 		}
 	}
 	return Result{
