@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
@@ -130,7 +131,7 @@ func registerRuntimeCaptureActivity(
 
 	registry.Registry[name] = registry.TaskFactory{
 		Kind:        registry.TaskActivity,
-		NewFunc:     func() any { return captureAct },
+		NewFunc:     func(core.App) any { return captureAct },
 		PayloadType: reflect.TypeOf(runtimeCapturePayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	}
@@ -162,7 +163,7 @@ func registerFailingWorkflow(
 
 	registry.Registry[use] = registry.TaskFactory{
 		Kind:        registry.TaskWorkflow,
-		NewFunc:     func() any { return wf },
+		NewFunc:     func(core.App) any { return wf },
 		PayloadType: reflect.TypeOf(failingWorkflowPayload{}),
 	}
 }
@@ -962,11 +963,7 @@ func TestPipelineWorkflowChildPipelineResolvesRuntimeContext(t *testing.T) {
 	captured := []string{}
 	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
 
-	internalHTTPAct := activities.NewInternalHTTPActivity()
-	env.RegisterActivityWithOptions(
-		internalHTTPAct.Execute,
-		activity.RegisterOptions{Name: internalHTTPAct.Name()},
-	)
+	registerStubActivity(env, activities.ResolveRecordActivityName)
 
 	childYAML := `
 name: Child Pipeline
@@ -979,19 +976,14 @@ steps:
 `
 
 	env.OnActivity(
-		internalHTTPAct.Name(),
+		activities.ResolveRecordActivityName,
 		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
-				input.Payload,
-			)
-			if err != nil {
-				return false
-			}
-			return payload.URL == "https://example.test/api/pipeline/get-yaml" &&
-				payload.QueryParams["pipeline_identifier"] == "child-pipeline"
+		resolveRecordInputMatcher(activities.ResolveRecordInput{
+			CanonifiedName: "child-pipeline",
+			Collection:     "pipelines",
+			OwnerNamespace: "tenant",
 		}),
-	).Return(workflowengine.ActivityResult{Output: map[string]any{"body": childYAML}}, nil).Once()
+	).Return(workflowengine.ActivityResult{Output: map[string]any{"yaml": childYAML}}, nil).Once()
 
 	env.ExecuteWorkflow(
 		pipelineWf.Name(),
@@ -1026,7 +1018,8 @@ steps:
 			},
 			WorkflowInput: workflowengine.WorkflowInput{
 				Config: map[string]any{
-					"app_url": "https://example.test",
+					"app_url":   "https://example.test",
+					"namespace": "tenant",
 				},
 				ActivityOptions: &workflow.ActivityOptions{
 					StartToCloseTimeout: time.Second,
@@ -1131,14 +1124,16 @@ func TestPipelineWorkflowWrapsSetupHookCancellation(t *testing.T) {
 
 		registry.Registry[mobileExternalInstallStepUse] = registry.TaskFactory{
 			Kind:        registry.TaskWorkflow,
-			NewFunc:     func() any { return &orderedWorkflow{name: "ordered-external-install"} },
+
+
+			NewFunc:     func(core.App) any { return &orderedWorkflow{name: "ordered-external-install"} },
 			PayloadType: reflect.TypeOf(map[string]any{}),
 		}
 
 		var order []string
 		registry.Registry["order-step"] = registry.TaskFactory{
 			Kind: registry.TaskActivity,
-			NewFunc: func() any {
+			NewFunc: func(core.App) any {
 				return &orderedActivity{name: "order-activity", order: &order}
 			},
 			PayloadType: reflect.TypeOf(map[string]any{}),
@@ -1818,9 +1813,9 @@ func TestPipelineWorkflowChildPipelineReturnsOnlyReferencedOutputs(t *testing.T)
 	)
 	captured := []string{}
 	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
-	internalHTTPAct := registerInternalHTTPActivity(env)
-	env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{"body": `
+	registerStubActivity(env, activities.ResolveRecordActivityName)
+	env.OnActivity(activities.ResolveRecordActivityName, mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"yaml": `
 name: Child Pipeline
 steps:
   - id: inner
@@ -1870,7 +1865,7 @@ steps:
 				},
 			},
 			WorkflowInput: workflowengine.WorkflowInput{
-				Config: map[string]any{"app_url": "https://example.test"},
+				Config: map[string]any{"app_url": "https://example.test", "namespace": "tenant"},
 				ActivityOptions: &workflow.ActivityOptions{
 					StartToCloseTimeout: time.Second,
 				},

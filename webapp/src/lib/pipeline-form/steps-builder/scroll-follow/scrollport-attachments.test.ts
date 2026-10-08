@@ -61,4 +61,23 @@ describe('endPadAttach', () => {
 		expect(setPx).toHaveBeenLastCalledWith(0);
 		vi.unstubAllGlobals();
 	});
+
+	it('reports clientHeight on the optional viewport setter', () => {
+		const setPx = vi.fn();
+		const setViewportPx = vi.fn();
+		const el = { clientHeight: 1000 } as unknown as HTMLElement;
+		vi.stubGlobal(
+			'ResizeObserver',
+			class {
+				observe() {}
+				disconnect() {}
+			}
+		);
+
+		const cleanup = endPadAttach(setPx, setViewportPx)(el);
+		expect(setViewportPx).toHaveBeenCalledWith(1000);
+		cleanup?.();
+		expect(setViewportPx).toHaveBeenLastCalledWith(0);
+		vi.unstubAllGlobals();
+	});
 });

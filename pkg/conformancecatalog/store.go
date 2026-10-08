@@ -125,7 +125,7 @@ func countEphemeralChecks() (int, error) {
 // default handle (ADR-0001).
 //
 // Refresh path for local template edits: call Rebuild, or POST
-// /api/conformance-catalog/rebuild with X-Api-Key = CREDIMI_INTERNAL_ADMIN_KEY,
+// /api/conformance-catalog/rebuild with Credimi-Api-Key = CREDIMI_INTERNAL_ADMIN_KEY,
 // or restart the process (Register hooks rebuild on bootstrap).
 func Rebuild(templatesDir string) error {
 	if templatesDir == "" {

@@ -30,7 +30,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Authenticate API Key
   /api/apikey/authenticate-internal-admin:
@@ -56,7 +56,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Authenticate Internal Admin API Key
   /api/apikey/generate:
@@ -93,7 +93,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Generate API Key
   /api/custom-integrations/run:
@@ -126,7 +126,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Run a custom integration
   /api/mobile-devices:
@@ -158,7 +158,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: List available mobile devices
   /api/mobile-runners:
@@ -198,7 +198,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: List available mobile runners
   /api/my/schedules:
@@ -229,7 +229,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Get a list of all schedules for the authenticated user
   /api/my/schedules/{scheduleId}/cancel:
@@ -267,7 +267,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Cancel a specific schedule
   /api/my/schedules/{scheduleId}/pause:
@@ -305,7 +305,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Pause a specific schedule
   /api/my/schedules/{scheduleId}/resume:
@@ -343,7 +343,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Resume a specific schedule
   /api/my/schedules/start:
@@ -380,7 +380,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Start a new schedule from an existing workflow
   /api/my/workflows/{workflowId}/runs:
@@ -418,7 +418,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Get a list of all runs for a specific workflow
   /api/my/workflows/{workflowId}/runs/{runId}:
@@ -463,7 +463,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Get details of a specific run for a workflow
   /api/my/workflows/{workflowId}/runs/{runId}/cancel:
@@ -508,7 +508,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Cancel a specific workflow run
   /api/my/workflows/{workflowId}/runs/{runId}/export:
@@ -553,7 +553,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Export a specific workflow run
   /api/my/workflows/{workflowId}/runs/{runId}/history:
@@ -598,7 +598,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Get the history of events for a specific run of a workflow
   /api/my/workflows/{workflowId}/runs/{runId}/logs:
@@ -652,7 +652,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Start or Stop logs for a specific workflow run
   /api/my/workflows/{workflowId}/runs/{runId}/rerun:
@@ -703,7 +703,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Re-run a specific workflow run
   /api/my/workflows/{workflowId}/runs/{runId}/terminate:
@@ -748,21 +748,30 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApierrorAPIError'
+                $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Terminate a specific workflow run
 components:
   schemas:
     ApierrorAPIError:
       properties:
-        error:
+        code:
+          type: integer
+        domain:
           type: string
         message:
           type: string
         reason:
           type: string
-        status:
-          type: integer
+      type: object
+    ApierrorResponse:
+      properties:
+        apiVersion:
+          type: string
+        error:
+          $ref: '#/components/schemas/ApierrorAPIError'
+        message:
+          type: string
       type: object
     HandlersActivityType:
       properties:

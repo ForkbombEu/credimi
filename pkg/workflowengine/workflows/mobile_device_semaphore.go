@@ -998,7 +998,6 @@ func (r *mobileDeviceSemaphoreRuntime) startPipelineForTicket(
 	ticketID string,
 	state MobileDeviceSemaphoreRunTicketState,
 ) error {
-	startActivity := activities.NewStartQueuedPipelineActivity()
 	activityOptions := DefaultActivityOptions
 	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
 	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
@@ -1016,7 +1015,7 @@ func (r *mobileDeviceSemaphoreRuntime) startPipelineForTicket(
 		},
 	}
 
-	if err := workflow.ExecuteActivity(activityCtx, startActivity.Name(), input).
+	if err := workflow.ExecuteActivity(activityCtx, activities.StartQueuedPipelineActivityName, input).
 		Get(activityCtx, &result); err != nil {
 		r.markRunTicketFailed(ticketID, state, err)
 		r.signalRunDone(ctx, ticketID, state.Request.RequiredDeviceIDs, "", "", "failed")
@@ -1565,19 +1564,20 @@ func (r *mobileDeviceSemaphoreRuntime) cleanupRunTicketResources(
 		return nil
 	}
 
-	cleanupActivity := activities.NewCleanupMobileDeviceSemaphoreResourcesActivity()
 	activityOptions := DefaultActivityOptions
 	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
 	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
 
 	var result workflowengine.ActivityResult
-	err := workflow.ExecuteActivity(activityCtx, cleanupActivity.Name(), workflowengine.ActivityInput{
-		Payload: activities.CleanupMobileDeviceSemaphoreResourcesActivityInput{
-			AppURL:  runTicketInternalAppURL(state),
-			Cleanup: state.Request.Cleanup,
+	err := workflow.ExecuteActivity(
+		activityCtx,
+		activities.CleanupMobileDeviceSemaphoreResourcesActivityName,
+		workflowengine.ActivityInput{
+			Payload: activities.CleanupMobileDeviceSemaphoreResourcesActivityInput{
+				Cleanup: state.Request.Cleanup,
+			},
 		},
-	}).
-		Get(activityCtx, &result)
+	).Get(activityCtx, &result)
 	if err != nil {
 		return []string{err.Error()}
 	}
@@ -1829,20 +1829,6 @@ func (r *mobileDeviceSemaphoreRuntime) sortedRunTicketIDs() []string {
 func ticketHasStartedWorkflow(state MobileDeviceSemaphoreRunTicketState) bool {
 	return strings.TrimSpace(state.WorkflowID) != "" &&
 		strings.TrimSpace(state.WorkflowNamespace) != ""
-}
-
-func runTicketAppURL(state MobileDeviceSemaphoreRunTicketState) string {
-	if appURL, ok := state.Request.PipelineConfig["app_url"].(string); ok {
-		return strings.TrimSpace(appURL)
-	}
-	if state.Request.Notification != nil && state.Request.Notification.GitHubPR != nil {
-		return strings.TrimSpace(state.Request.Notification.GitHubPR.AppURL)
-	}
-	return ""
-}
-
-func runTicketInternalAppURL(state MobileDeviceSemaphoreRunTicketState) string {
-	return workflowengine.InternalAppURLFromConfig(state.Request.PipelineConfig)
 }
 
 func sortedDeviceIDs(deviceIDs []string) []string {

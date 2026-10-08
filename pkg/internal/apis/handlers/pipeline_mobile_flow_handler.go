@@ -112,8 +112,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 			},
 			mobileWorkflow.Name(),
 			workflowengine.WorkflowInput{
-				Config: workflowengine.WithInternalAppURL(map[string]any{
-					"app_url": e.App.Settings().Meta.AppURL,
+				Config: workflowengine.WithAppConfig(e.App, map[string]any{
 					"taskqueue": fmt.Sprintf(
 						"%s-TaskQueue",
 						canonify.NormalizePath(workflowengine.AsString(device["runner_id"])),

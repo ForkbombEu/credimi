@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${PUBLIC_POCKETBASE_URL:=http://127.0.0.1:8090}"
-export PUBLIC_POCKETBASE_URL
+: "${VITE_API:=http://127.0.0.1:8090}"
+export VITE_API
 
 bun run build
 bun run preview --port 5100 &

@@ -112,15 +112,6 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
-	_ = appURL
-
 	taskqueue, ok := input.Config["taskqueue"].(string)
 	if !ok || strings.TrimSpace(taskqueue) == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -301,30 +292,27 @@ func storeMobileFlowScreenshots(
 		return flowOutput, nil
 	}
 
-	runnerURL := workflowengine.AsString(input.Config["runner_url"])
+	runnerID := workflowengine.AsString(input.Config["runner_id"])
 	stepID := workflowengine.AsString(input.Config[workflowengine.StepIDConfigKey])
 	runIdentifier := workflowengine.AsString(input.Config["run_identifier"])
-	if runnerURL == "" || stepID == "" || runIdentifier == "" || payload.DeviceID == "" {
+	if runnerID == "" || stepID == "" || runIdentifier == "" || payload.DeviceID == "" {
 		return nil, workflowengine.NewMissingConfigError(
-			"runner_url, step_id, run_identifier, or device_id",
+			"runner_id, step_id, run_identifier, or device_id",
 			input.RunMetadata,
 		)
 	}
 
 	activityOptions := mobileActivityOptions(input.ActivityOptions, pipelineTaskQueue)
 	storageCtx := workflow.WithActivityOptions(ctx, activityOptions)
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	var storeResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(
 		storageCtx,
 		httpActivity.Name(),
 		workflowengine.ActivityInput{Payload: activities.MobileRunnerHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				runnerURL,
-				"credimi",
-				"execution-screenshots",
-			),
+			Method:   http.MethodPost,
+			RunnerID: runnerID,
+			Path:     "/credimi/execution-screenshots",
 			Headers: map[string]string{
 				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},

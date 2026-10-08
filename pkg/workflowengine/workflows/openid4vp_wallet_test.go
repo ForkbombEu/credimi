@@ -295,23 +295,11 @@ func Test_LogSubWorkflow(t *testing.T) {
 	}
 }
 
-// registerOpenIDNetLogPushActivity mocks the send-openidnet-log-update push,
+// registerOpenIDNetLogPushActivity mocks the openidnet realtime logs push,
 // invoking onPush for each call.
 func registerOpenIDNetLogPushActivity(env *testsuite.TestWorkflowEnvironment, onPush func()) {
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	env.RegisterActivityWithOptions(internalHTTPActivity.Execute, activity.RegisterOptions{
-		Name: internalHTTPActivity.Name(),
-	})
-	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-		return matchesHTTPPayload(
-			input,
-			"https://test-app.com/api/compliance/send-openidnet-log-update",
-		)
-	})).
-		Run(func(_ mock.Arguments) {
-			onPush()
-		}).
-		Return(workflowengine.ActivityResult{}, nil)
+	registerRealtimeLogsActivity(env)
+	onRealtimeLogsActivity(env, testWorkflowID+OpenID4VPWalletSubscription, onPush)
 }
 
 func TestOpenID4VPWalletWorkflowStart(t *testing.T) {

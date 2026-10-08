@@ -1477,9 +1477,9 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 		req.Context(),
 		middlewares.ValidatedInputKey,
 		ReRunWorkflowRequest{Config: map[string]any{
-			"keep":             "value",
-			"app_url":          "https://attacker.example",
-			"internal_app_url": "https://attacker.example",
+			"keep":     "value",
+			"app_url":  "https://attacker.example",
+			"app_name": "Attacker",
 		}},
 	))
 	req.SetPathValue("workflowId", "check-5")
@@ -1499,8 +1499,11 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "\"workflow_id\":\"wf-new\"")
 	require.Contains(t, rec.Body.String(), "\"run_id\":\"run-new\"")
 	require.Equal(t, "value", started.Config["keep"])
-	require.Equal(t, "https://app", started.Config["app_url"])
-	require.NotContains(t, started.Config, "internal_app_url")
+	appConfig := workflowengine.WithAppConfig(app, nil)
+	require.Equal(t, appConfig[workflowengine.AppURLConfigKey], started.Config["app_url"])
+	require.Equal(t, appConfig[workflowengine.AppNameConfigKey], started.Config["app_name"])
+	require.Equal(t, appConfig[workflowengine.AppLogoConfigKey], started.Config["app_logo"])
+	require.NotEqual(t, "https://app", started.Config["app_url"])
 }
 
 func TestGetWorkflowInputSuccess(t *testing.T) {

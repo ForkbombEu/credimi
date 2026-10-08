@@ -487,10 +487,7 @@ func TestEWCStatusWorkflowUsesTemplatedStatusAndLogsEndpoints(t *testing.T) {
 	env.RegisterActivityWithOptions(httpActivity.Execute, activity.RegisterOptions{
 		Name: httpActivity.Name(),
 	})
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	env.RegisterActivityWithOptions(internalHTTPActivity.Execute, activity.RegisterOptions{
-		Name: internalHTTPActivity.Name(),
-	})
+	registerRealtimeLogsActivity(env)
 
 	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 		return matchesHTTPPayload(
@@ -515,11 +512,7 @@ func TestEWCStatusWorkflowUsesTemplatedStatusAndLogsEndpoints(t *testing.T) {
 			},
 		}}, nil).
 		Once()
-	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-		return matchesHTTPPayload(input, "https://test-app.com/api/compliance/send-ewc-log-update")
-	})).
-		Return(workflowengine.ActivityResult{}, nil).
-		Once()
+	onRealtimeLogsActivity(env, testWorkflowID+EWCSubscription, func() {}).Once()
 
 	w := NewWebuildStatusWorkflow()
 	env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
@@ -547,8 +540,6 @@ func TestEWCStatusWorkflowUsesTemplatedStatusAndLogsEndpoints(t *testing.T) {
 func matchesHTTPPayload(input workflowengine.ActivityInput, wantURL string) bool {
 	switch payload := input.Payload.(type) {
 	case activities.HTTPActivityPayload:
-		return payload.URL == wantURL && payload.QueryParams == nil
-	case activities.InternalHTTPActivityPayload:
 		return payload.URL == wantURL && payload.QueryParams == nil
 	case map[string]any:
 		_, hasQueryParams := payload["query_params"]

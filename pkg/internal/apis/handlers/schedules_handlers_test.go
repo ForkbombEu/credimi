@@ -93,11 +93,10 @@ func TestHandleStartScheduleInvalidJSON(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.Error(t, err)
-
-	var apiErr *router.ApiError
-	require.True(t, errors.As(err, &apiErr))
-	require.Equal(t, http.StatusBadRequest, apiErr.Status)
+	var apiErr *apierror.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "invalid JSON input", apiErr.Reason)
 }
 
 func TestHandleStartScheduleInvalidMode(t *testing.T) {

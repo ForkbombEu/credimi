@@ -44,6 +44,9 @@ var Codes = map[string]Code{
 	ChildWorkflowExecutionError:    {"CRE230", "Failed to execute child workflow"},
 	WorkflowCancellationError:      {"CRE231", "Workflow was cancelled"},
 	UnexpectedWorkflowError:        {"CRE232", "Unexpected workflow error"},
+	RecordNotFound:                 {"CRE233", "Credimi record not found"},
+	RecordNotAccessible:            {"CRE234", "Credimi record is not accessible"},
+	DatabaseOperationFailed:        {"CRE235", "Credimi database operation failed"},
 	CommandExecutionFailed:         {"CRE301", "Command execution failed"},
 	StepCIRunFailed:                {"CRE302", "StepCI run failed"},
 	UnexpectedStepCIOutput:         {"CRE303", "Unexpected output from StepCI run"},
@@ -98,6 +101,9 @@ const (
 	ChildWorkflowExecutionError    = "CRE230"
 	WorkflowCancellationError      = "CRE231"
 	UnexpectedWorkflowError        = "CRE232"
+	RecordNotFound                 = "CRE233"
+	RecordNotAccessible            = "CRE234"
+	DatabaseOperationFailed        = "CRE235"
 	CommandExecutionFailed         = "CRE301"
 	StepCIRunFailed                = "CRE302"
 	UnexpectedStepCIOutput         = "CRE303"

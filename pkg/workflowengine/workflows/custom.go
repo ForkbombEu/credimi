@@ -7,10 +7,8 @@ package workflows
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -84,74 +82,31 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 		// Resolve on behalf of the run's organization: the response is stored in
 		// Temporal history, which that organization can read.
 		ownerNamespace, _ := input.Config["namespace"].(string)
-		internalHTTPActivity := activities.NewInternalHTTPActivity()
-		var HTTPResponse workflowengine.ActivityResult
-		err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), workflowengine.ActivityInput{
-			Payload: activities.InternalHTTPActivityPayload{
-				Method: http.MethodPost,
-				URL: utils.JoinURL(
-					workflowengine.InternalAppURLFromConfig(input.Config),
-					"api", "canonify", "internal", "resolve",
-				),
-				Body: map[string]any{
-					"canonified_name": payload.CheckID,
-					"collection":      "custom_checks",
-					"owner_namespace": ownerNamespace,
-				},
-				ExpectedStatus: 200,
+		var resolveResult workflowengine.ActivityResult
+		err := workflow.ExecuteActivity(ctx, activities.ResolveRecordActivityName, workflowengine.ActivityInput{
+			Payload: activities.ResolveRecordInput{
+				CanonifiedName: payload.CheckID,
+				Collection:     "custom_checks",
+				OwnerNamespace: ownerNamespace,
 			},
 		}).
-			Get(ctx, &HTTPResponse)
+			Get(ctx, &resolveResult)
 		if err != nil {
-			logger.Error(internalHTTPActivity.Name(), "error", err)
+			logger.Error(activities.ResolveRecordActivityName, "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
 				input.RunMetadata,
 			)
 		}
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		output, ok := HTTPResponse.Output.(map[string]any)
+		record, ok := resolveResult.Output.(map[string]any)
 		if !ok {
 			appErr := workflowengine.NewAppError(
 				workflowengine.WorkflowError{
 					Code:    errCode.Code,
 					Summary: errCode.Description,
 					Message: fmt.Sprintf("%s: invalid output format", errCode.Description),
-					Details: map[string]any{"payload": HTTPResponse.Output},
-				},
-			)
-
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				input.RunMetadata,
-			)
-		}
-
-		body, ok := output["body"].(map[string]any)
-		if !ok {
-			appErr := workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf("%s: missing body in output", errCode.Description),
-					Details: map[string]any{"payload": output},
-				},
-			)
-
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				input.RunMetadata,
-			)
-		}
-
-		record, ok := body["record"].(map[string]any)
-		if !ok {
-			appErr := workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf("%s: missing record in body", errCode.Description),
-					Details: map[string]any{"payload": body},
+					Details: map[string]any{"payload": resolveResult.Output},
 				},
 			)
 

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -113,11 +114,11 @@ func TestEnsureNamespaceAndWorkersCreatesNamespace(t *testing.T) {
 	}
 
 	started := make(chan string, 1)
-	startWorkersByNamespaceFn = func(namespace string) {
+	startWorkersByNamespaceFn = func(_ core.App, namespace string) {
 		started <- namespace
 	}
 
-	ensureNamespaceAndWorkers("tenant")
+	ensureNamespaceAndWorkers(nil, "tenant")
 
 	select {
 	case <-waitCalled:
@@ -159,11 +160,11 @@ func TestEnsureNamespaceAndWorkersSkipsExisting(t *testing.T) {
 		return nil
 	}
 
-	startWorkersByNamespaceFn = func(_ string) {
+	startWorkersByNamespaceFn = func(_ core.App, _ string) {
 		require.Fail(t, "startWorkersByNamespace should not be called")
 	}
 
-	ensureNamespaceAndWorkers("tenant")
+	ensureNamespaceAndWorkers(nil, "tenant")
 }
 
 func TestEnsureNamespaceAndWorkersSkipsWhenTemporalWorkersDisabled(t *testing.T) {
@@ -180,11 +181,11 @@ func TestEnsureNamespaceAndWorkersSkipsWhenTemporalWorkersDisabled(t *testing.T)
 		require.Fail(t, "newNamespaceClient should not be called")
 		return nil, nil
 	}
-	startWorkersByNamespaceFn = func(_ string) {
+	startWorkersByNamespaceFn = func(_ core.App, _ string) {
 		require.Fail(t, "startWorkersByNamespace should not be called")
 	}
 
-	ensureNamespaceAndWorkers("tenant")
+	ensureNamespaceAndWorkers(nil, "tenant")
 }
 
 func TestHookNamespaceOrgsAfterCreate(t *testing.T) {
@@ -192,31 +193,31 @@ func TestHookNamespaceOrgsAfterCreate(t *testing.T) {
 
 	origEnsure := ensureNamespaceAndWorkersFn
 	origStartManager := startWorkerManagerFn
-	origAdminRunnerURLs := adminRunnerURLsFn
+	origAdminRunnerIDs := adminRunnerIDsFn
 	t.Cleanup(func() {
 		ensureNamespaceAndWorkersFn = origEnsure
 		startWorkerManagerFn = origStartManager
-		adminRunnerURLsFn = origAdminRunnerURLs
+		adminRunnerIDsFn = origAdminRunnerIDs
 	})
 
 	var ensured string
-	ensureNamespaceAndWorkersFn = func(namespace string) {
+	ensureNamespaceAndWorkersFn = func(_ core.App, namespace string) {
 		ensured = namespace
 	}
 
-	adminRunnerURLsFn = func(_ core.App) ([]string, error) {
-		return []string{"https://admin.runner"}, nil
+	adminRunnerIDsFn = func(_ core.App) ([]string, error) {
+		return []string{"admin/runner"}, nil
 	}
 
 	var started struct {
 		namespace    string
 		oldNamespace string
-		runnerURLs   []string
+		runnerIDs    []string
 	}
-	startWorkerManagerFn = func(_ core.App, namespace, oldNamespace string, runnerURLs []string) {
+	startWorkerManagerFn = func(namespace, oldNamespace string, runnerIDs []string) {
 		started.namespace = namespace
 		started.oldNamespace = oldNamespace
-		started.runnerURLs = runnerURLs
+		started.runnerIDs = runnerIDs
 	}
 
 	HookNamespaceOrgs(app)
@@ -235,7 +236,7 @@ func TestHookNamespaceOrgsAfterCreate(t *testing.T) {
 	require.Equal(t, "org-1", ensured)
 	require.Equal(t, "org-1", started.namespace)
 	require.Equal(t, "", started.oldNamespace)
-	require.Equal(t, []string{"https://admin.runner"}, started.runnerURLs)
+	require.Equal(t, []string{"admin/runner"}, started.runnerIDs)
 }
 
 func TestHookNamespaceOrgsCreateDefaults(t *testing.T) {
@@ -537,7 +538,7 @@ func TestHookOrganizations_OrganizationPublishesToNonAdminRunners(t *testing.T) 
 		false,
 		true,
 	)
-	createWorkerManagerRunnerRecord(
+	publicRunner := createWorkerManagerRunnerRecord(
 		t,
 		app,
 		orgID,
@@ -553,13 +554,13 @@ func TestHookOrganizations_OrganizationPublishesToNonAdminRunners(t *testing.T) 
 	})
 
 	type call struct {
-		namespace  string
-		runnerURLs []string
+		namespace string
+		runnerIDs []string
 	}
 	calls := make(chan call, 1)
-	startWorkerManagerFn = func(_ core.App, namespace, oldNamespace string, runnerURLs []string) {
+	startWorkerManagerFn = func(namespace, oldNamespace string, runnerIDs []string) {
 		require.Empty(t, oldNamespace)
-		calls <- call{namespace: namespace, runnerURLs: runnerURLs}
+		calls <- call{namespace: namespace, runnerIDs: runnerIDs}
 	}
 	HookOrganizations(app)
 
@@ -569,7 +570,7 @@ func TestHookOrganizations_OrganizationPublishesToNonAdminRunners(t *testing.T) 
 	select {
 	case got := <-calls:
 		require.Equal(t, org.GetString("canonified_name"), got.namespace)
-		require.Equal(t, []string{"https://public.example"}, got.runnerURLs)
+		require.Equal(t, []string{workerManagerRunnerID(t, app, publicRunner)}, got.runnerIDs)
 	default:
 		t.Fatal("expected worker manager call")
 	}
@@ -656,4 +657,12 @@ func createWorkerManagerRunnerRecord(
 	require.NoError(t, app.Save(record))
 
 	return record
+}
+
+func workerManagerRunnerID(t testing.TB, app core.App, runner *core.Record) string {
+	t.Helper()
+
+	runnerID, err := mobilerunner.RunnerIdentifier(app, runner)
+	require.NoError(t, err)
+	return runnerID
 }

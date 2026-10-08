@@ -91,14 +91,6 @@ func (w *WalletWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
-
 	urlParser := activities.NewParseWalletURLActivity()
 	var parsedResult workflowengine.ActivityResult
 	err = workflow.ExecuteActivity(ctx, urlParser.Name(), workflowengine.ActivityInput{

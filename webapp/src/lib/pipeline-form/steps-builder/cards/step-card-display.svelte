@@ -1,0 +1,191 @@
+<!--
+SPDX-FileCopyrightText: 2025 Forkbomb BV
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+<script lang="ts">
+	import type { Component, Snippet } from 'svelte';
+
+	import { TriangleAlert } from '@lucide/svelte';
+	import { Comp } from '$lib/renderable';
+	import { showPipelineFormError } from '$pipeline-form/errors.js';
+	import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
+	import * as steps from '$pipeline-form/steps';
+
+	import A from '@/components/ui-custom/a.svelte';
+	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n/index.js';
+
+	import { getStepData, getStepError } from './utils.js';
+
+	type Props = {
+		step: EnrichedStep;
+		topRight?: Snippet;
+		/**
+		 * Composer overlay: host paints form + display layer. Idle Hub/Composer omit this
+		 * so the face paints `details` and the idle footer itself.
+		 */
+		body?: Snippet<[{ details: Snippet; footer: Snippet }]>;
+		footer?: Snippet | Comp<Component<any>>;
+		readonly?: boolean;
+		editing?: boolean;
+		selected?: boolean;
+		hovered?: boolean;
+		class?: string;
+		/** Bordered card root — In-card host binds this for chrome measure. */
+		cardRoot?: HTMLElement | null;
+	};
+
+	let {
+		step,
+		topRight,
+		body,
+		footer,
+		readonly = false,
+		editing = false,
+		selected = false,
+		hovered = false,
+		class: className,
+		cardRoot = $bindable<HTMLElement | null>(null)
+	}: Props = $props();
+
+	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
+
+	const config = $derived(steps.getConfigByType(step[0].use));
+	const stepError = $derived(getStepError(step));
+	const stepData = $derived(getStepData(step));
+	const cardData = $derived.by(() => {
+		if (!stepData) return undefined;
+		try {
+			return config?.cardData(stepData);
+		} catch (e) {
+			showPipelineFormError(e);
+			return e instanceof Error ? e : new Error(String(e));
+		}
+	});
+	const CardDetailsComponent = $derived(config?.CardDetailsComponent);
+</script>
+
+<div
+	bind:this={cardRoot}
+	class={[
+		'group flex min-h-0 flex-col overflow-hidden rounded-md border bg-card',
+		classes.border,
+		!readonly &&
+			!selected &&
+			!editing &&
+			'hover:border-primary hover:ring-1 hover:ring-primary',
+		(editing || selected) && 'border-orange-600 ring-1 ring-orange-600',
+		hovered && !editing && !selected && 'border-primary ring-1 ring-primary',
+		className
+	]}
+>
+	<div class={['h-1 shrink-0', classes?.bg]}></div>
+
+	<div class="flex min-h-0 grow flex-col">
+		<div class="flex shrink-0 items-center justify-between py-1 pr-1 pl-3">
+			<div class={['flex items-center gap-1', classes.text]}>
+				<Icon src={icon} size={12} />
+				<p class="text-xs">{labels.singular}</p>
+			</div>
+
+			{@render topRight?.()}
+		</div>
+
+		{#if body}
+			{@render body({ details, footer: footerSnippet })}
+		{:else}
+			{@render details()}
+		{/if}
+	</div>
+
+	{#if !body}
+		{@render footerSnippet()}
+	{/if}
+</div>
+
+{#snippet details()}
+	<div class="space-y-4 p-3 pt-2">
+		<div>
+			{#if stepError}
+				<div class="rounded-md bg-red-700 p-3 text-white">
+					<div class="flex items-center gap-2">
+						<TriangleAlert size={12} />
+						<p class="text-xs">{stepError.message}</p>
+					</div>
+					{#if stepError instanceof Enrich404Error}
+						<p class="pt-2 text-xs opacity-60">{stepError.description}</p>
+					{/if}
+				</div>
+			{:else if cardData instanceof Error}
+				<div class="rounded-md bg-red-700 p-3 text-white">
+					<div class="flex items-center gap-2">
+						<TriangleAlert size={12} />
+						<p class="text-xs">{cardData.message}</p>
+					</div>
+				</div>
+			{:else if step[0].use === 'debug'}
+				<div class="text-xs text-gray-500">{m.debug_step_description()}</div>
+			{:else if cardData}
+				{@const { title, copyText, avatar } = cardData}
+				<div class="flex items-center gap-3">
+					<Avatar src={avatar} fallback={title} class="size-10 rounded-sm border" />
+					<div class="space-y-1">
+						{#if cardData.beforeTitle}
+							<T class="mb-0! text-xs text-muted-foreground">
+								{cardData.beforeTitle}
+							</T>
+						{/if}
+						<div class="flex items-center gap-1 leading-snug">
+							<p class="text-balance">
+								{#if cardData.publicUrl}
+									<A href={cardData.publicUrl} target="_blank">
+										{title}
+									</A>
+								{:else}
+									{title}
+								{/if}
+
+								{#if copyText}
+									<CopyButtonSmall
+										textToCopy={copyText}
+										size="mini"
+										class="inline-flex"
+									/>
+								{/if}
+							</p>
+						</div>
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		{#if cardData && !(cardData instanceof Error) && cardData.meta}
+			<div class="space-y-0.5">
+				{#each Object.entries(cardData.meta) as [key, value] (key)}
+					<p class="text-xs text-muted-foreground">
+						<span class="font-medium capitalize">{key}:</span>
+						{value}
+					</p>
+				{/each}
+			</div>
+		{/if}
+
+		{#if CardDetailsComponent && stepData}
+			<CardDetailsComponent data={stepData} />
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet footerSnippet()}
+	{#if footer instanceof Comp}
+		{@const Footer = footer.component}
+		<Footer {...footer.props} />
+	{:else if footer}
+		{@render footer()}
+	{/if}
+{/snippet}

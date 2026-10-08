@@ -8,7 +8,14 @@ import type { ComposerVirtualizer } from './composer-virtualizer.svelte.js';
 import type { PairedShiftArgs } from './paired-shift.js';
 import type { ActiveUnit } from './scroll-follow/active-unit.js';
 
-import { createTwinPaneSession } from './twin-pane-session.svelte.js';
+import { START_PADDING_PX } from './scroll-follow/active-unit.js';
+import { UnitHighlight } from './scroll-follow/unit-highlight.svelte.js';
+import {
+	createTwinPaneSession,
+	inCardCardFillMaxPx,
+	inCardCardsEndPadPx,
+	MIN_CARD_FILL_MAX_PX
+} from './twin-pane-session.svelte.js';
 
 function fakeVirtualizer(
 	label: string,
@@ -53,7 +60,7 @@ function baseOptions(order: string[], extras: Record<string, unknown> = {}) {
 	});
 	let boundHandlers: {
 		onRevealStep?: (index: number) => void;
-		onEditFocus?: (stepIndex: number) => void;
+		onEditFocus?: (unit: ActiveUnit) => void;
 	} = {};
 	let virtCalls = 0;
 
@@ -326,7 +333,6 @@ describe('createTwinPaneSession', () => {
 		expect(order).toContain('dispose:highlight');
 		expect(order).toContain('dispose:cards');
 		expect(order).toContain('dispose:yaml');
-		// layout may be null until roots attach — dispose is still safe
 		session.dispose(); // idempotent
 	});
 
@@ -410,7 +416,7 @@ describe('createTwinPaneSession', () => {
 		session.dispose();
 	});
 
-	it('cardsScrollAttach stays defined in manual mode; yamlScrollAttach gates manual/empty', () => {
+	it('cardsScrollAttach and yamlScrollAttach keep identity across mode and preview changes', () => {
 		let isManual = false;
 		let yamlPreview = 'steps:\n  - id: a\n';
 		const order: string[] = [];
@@ -420,19 +426,223 @@ describe('createTwinPaneSession', () => {
 		});
 		const session = createTwinPaneSession(options);
 
-		expect(session.cardsScrollAttach).toBeTypeOf('function');
-		expect(session.yamlScrollAttach).toBeTypeOf('function');
+		const cards = session.cardsScrollAttach;
+		const yaml = session.yamlScrollAttach;
+		expect(cards).toBeTypeOf('function');
+		expect(yaml).toBeTypeOf('function');
 
 		isManual = true;
-		expect(session.cardsScrollAttach).toBeTypeOf('function');
-		expect(session.yamlScrollAttach).toBeUndefined();
-
-		isManual = false;
 		yamlPreview = '';
-		expect(session.yamlScrollAttach).toBeUndefined();
+		expect(session.cardsScrollAttach).toBe(cards);
+		expect(session.yamlScrollAttach).toBe(yaml);
 
 		expect(session.cardsEndPadPx).toBe(0);
 		expect(session.yamlEndPadPx).toBe(0);
+		session.dispose();
+	});
+
+	it('inCardCardFillMaxPx is at least 240 and subtracts start padding on both ends', () => {
+		expect(inCardCardFillMaxPx(800)).toBe(800 - START_PADDING_PX * 2);
+		expect(inCardCardFillMaxPx(0)).toBe(MIN_CARD_FILL_MAX_PX);
+		expect(inCardCardFillMaxPx(200)).toBe(MIN_CARD_FILL_MAX_PX);
+	});
+
+	it('inCardCardsEndPadPx keeps the 30% observer pad when idle', () => {
+		expect(inCardCardsEndPadPx(240, 800, false)).toBe(240);
+		expect(inCardCardsEndPadPx(0, 800, false)).toBe(0);
+	});
+
+	it('inCardCardsEndPadPx while still is at least viewport minus start padding', () => {
+		const viewportPx = 800;
+		const observerPadPx = Math.round(viewportPx * 0.3);
+		const pad = inCardCardsEndPadPx(observerPadPx, viewportPx, true);
+		expect(observerPadPx).toBe(240);
+		expect(pad).toBeGreaterThanOrEqual(viewportPx - START_PADDING_PX);
+		expect(pad).toBe(784);
+	});
+
+	it('cardsEndPadPx grows for start-align while In-card, then returns to 30% when idle', async () => {
+		vi.stubGlobal(
+			'ResizeObserver',
+			class {
+				observe() {}
+				disconnect() {}
+			}
+		);
+		const viewportPx = 800;
+		const observerPadPx = 240;
+		const el = {
+			clientHeight: viewportPx,
+			addEventListener() {},
+			removeEventListener() {}
+		} as unknown as HTMLElement;
+
+		let editingIndex: number | undefined = 1;
+		const onEditFocus = vi.fn(async () => {});
+		const { options, getBoundHandlers } = baseOptions([], {
+			getEditingIndex: () => editingIndex,
+			createPeerScrollFollow: () =>
+				({
+					enabled: true,
+					notePairedReorder: vi.fn(),
+					dispose: vi.fn(),
+					setEnabled: vi.fn(),
+					onEditFocus,
+					onReveal: vi.fn(),
+					followUnit: vi.fn(),
+					onYamlTextChanged: vi.fn(() => () => {}),
+					cardsAttach: () => {},
+					yamlAttach: () => {}
+				}) as never
+		});
+		const session = createTwinPaneSession(options);
+		const cleanup = session.cardsScrollAttach?.(el);
+
+		expect(session.cardsViewportPx).toBe(viewportPx);
+		expect(session.cardFillMaxPx).toBe(inCardCardFillMaxPx(viewportPx));
+		expect(session.cardsEndPadPx).toBe(observerPadPx);
+		expect(session.still).toBe(false);
+
+		getBoundHandlers().onEditFocus?.({ section: 'steps', index: 1 });
+		expect(session.inCard.phase).toBe('aligning');
+		expect(session.cardsEndPadPx).toBeGreaterThanOrEqual(viewportPx - START_PADDING_PX);
+
+		await vi.waitFor(() => expect(session.still).toBe(true));
+		expect(session.cardsEndPadPx).toBeGreaterThanOrEqual(viewportPx - START_PADDING_PX);
+		expect(session.cardsScrollAttach).toBeTypeOf('function');
+
+		session.inCard.noteExitComplete();
+		expect(session.still).toBe(false);
+		expect(session.cardsEndPadPx).toBe(observerPadPx);
+
+		cleanup?.();
+		session.dispose();
+		vi.unstubAllGlobals();
+	});
+
+	it('In-card edit-focus settle arms still and mutes peer; noteExitComplete unlocks', async () => {
+		const order: string[] = [];
+		let editingIndex: number | undefined = 1;
+		let isCardsParked: (() => boolean) | undefined;
+		const onEditFocus = vi.fn(async () => {
+			order.push('editFocus');
+		});
+		const { options, getBoundHandlers } = baseOptions(order, {
+			getEditingIndex: () => editingIndex,
+			createPeerScrollFollow: (opts?: { isCardsParked?: () => boolean }) => {
+				isCardsParked = opts?.isCardsParked;
+				return {
+					enabled: true,
+					notePairedReorder: vi.fn(),
+					dispose: vi.fn(),
+					setEnabled: vi.fn(),
+					onEditFocus,
+					onReveal: vi.fn(),
+					followUnit: vi.fn(),
+					onYamlTextChanged: vi.fn(() => () => {}),
+					cardsAttach: () => {},
+					yamlAttach: () => {}
+				} as never;
+			}
+		});
+		const session = createTwinPaneSession(options);
+
+		expect(session.still).toBe(false);
+		expect(session.inCard.phase).toBe('idle');
+		expect(isCardsParked?.()).toBe(false);
+
+		getBoundHandlers().onEditFocus?.({ section: 'steps', index: 1 });
+		expect(session.inCard.phase).toBe('aligning');
+		expect(session.still).toBe(false);
+
+		await vi.waitFor(() => expect(onEditFocus).toHaveBeenCalled());
+		expect(session.inCard.phase).toBe('still');
+		expect(session.still).toBe(true);
+		expect(isCardsParked?.()).toBe(true);
+
+		session.inCard.noteExitComplete();
+		expect(session.inCard.phase).toBe('idle');
+		expect(session.still).toBe(false);
+		expect(isCardsParked?.()).toBe(false);
+
+		session.inCard.noteExitComplete();
+		expect(session.inCard.phase).toBe('idle');
+
+		editingIndex = 1;
+		getBoundHandlers().onEditFocus?.({ section: 'steps', index: 1 });
+		await vi.waitFor(() => expect(session.inCard.phase).toBe('still'));
+		session.dispose();
+		expect(session.inCard.phase).toBe('idle');
+		expect(session.still).toBe(false);
+	});
+
+	it('edit-focus pins the unit for card and YAML wash; pin survives dismiss', async () => {
+		const order: string[] = [];
+		let editingIndex: number | undefined = 1;
+		let editingSection: ActiveUnit['section'] = 'steps';
+		const followUnit = vi.fn();
+		const { options, getBoundHandlers } = baseOptions(order, {
+			getEditingIndex: () => editingIndex,
+			getEditingSection: () => editingSection,
+			createPeerScrollFollow: () =>
+				({
+					enabled: true,
+					notePairedReorder: vi.fn(),
+					dispose: vi.fn(),
+					setEnabled: vi.fn(),
+					onEditFocus: vi.fn(async () => {}),
+					onReveal: vi.fn(),
+					followUnit,
+					onYamlTextChanged: vi.fn(() => () => {}),
+					cardsAttach: () => {},
+					yamlAttach: () => {}
+				}) as never,
+			createUnitHighlight: (inputs: ConstructorParameters<typeof UnitHighlight>[0]) =>
+				new UnitHighlight(inputs)
+		});
+		const session = createTwinPaneSession(options);
+
+		getBoundHandlers().onEditFocus?.({ section: 'steps', index: 1 });
+		expect(session.isCardSelected('steps', 1)).toBe(true);
+		expect(followUnit).not.toHaveBeenCalled();
+
+		editingIndex = undefined;
+		expect(session.isCardSelected('steps', 1)).toBe(true);
+
+		editingSection = 'follow-ups';
+		getBoundHandlers().onEditFocus?.({ section: 'follow-ups', index: 0 });
+		expect(session.isCardSelected('follow-ups', 0)).toBe(true);
+		expect(session.isCardSelected('steps', 1)).toBe(false);
+		expect(followUnit).not.toHaveBeenCalled();
+
+		session.dispose();
+	});
+
+	it('settle without In-card edit leaves phase idle', async () => {
+		const order: string[] = [];
+		const onEditFocus = vi.fn(async () => {});
+		const { options, getBoundHandlers } = baseOptions(order, {
+			getEditingIndex: () => undefined,
+			createPeerScrollFollow: () =>
+				({
+					enabled: true,
+					notePairedReorder: vi.fn(),
+					dispose: vi.fn(),
+					setEnabled: vi.fn(),
+					onEditFocus,
+					onReveal: vi.fn(),
+					followUnit: vi.fn(),
+					onYamlTextChanged: vi.fn(() => () => {}),
+					cardsAttach: () => {},
+					yamlAttach: () => {}
+				}) as never
+		});
+		const session = createTwinPaneSession(options);
+		getBoundHandlers().onEditFocus?.({ section: 'steps', index: 0 });
+		expect(session.inCard.phase).toBe('aligning');
+		await vi.waitFor(() => expect(onEditFocus).toHaveBeenCalled());
+		expect(session.inCard.phase).toBe('idle');
+		expect(session.still).toBe(false);
 		session.dispose();
 	});
 });

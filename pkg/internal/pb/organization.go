@@ -36,7 +36,7 @@ var (
 	startWorkersByNamespaceFn   = hooks.StartAllWorkersByNamespace
 	ensureNamespaceAndWorkersFn = ensureNamespaceAndWorkers
 	startWorkerManagerFn        = hooks.StartWorkerManagerWorkflow
-	adminRunnerURLsFn           = hooks.WorkerManagerAdminRunnerURLs
+	adminRunnerIDsFn            = hooks.WorkerManagerAdminRunnerIDs
 )
 
 var organizationPublicationCollections = []organizationPublicationCollection{
@@ -77,12 +77,12 @@ func registerOrganizationNamespaceHooks(app core.App) {
 	app.OnRecordAfterCreateSuccess("organizations").BindFunc(func(e *core.RecordEvent) error {
 		orgName := e.Record.GetString("canonified_name")
 		if orgName != "" {
-			ensureNamespaceAndWorkersFn(orgName)
-			runnerURLs, err := adminRunnerURLsFn(e.App)
+			ensureNamespaceAndWorkersFn(e.App, orgName)
+			runnerIDs, err := adminRunnerIDsFn(e.App)
 			if err != nil {
 				return err
 			}
-			startWorkerManagerFn(e.App, orgName, "", runnerURLs)
+			startWorkerManagerFn(orgName, "", runnerIDs)
 		}
 
 		return e.Next()
@@ -98,12 +98,12 @@ func registerOrganizationNamespaceHooks(app core.App) {
 
 		go hooks.StopAllWorkersByNamespace(oldName)
 
-		ensureNamespaceAndWorkersFn(newName)
-		runnerURLs, err := adminRunnerURLsFn(e.App)
+		ensureNamespaceAndWorkersFn(e.App, newName)
+		runnerIDs, err := adminRunnerIDsFn(e.App)
 		if err != nil {
 			return err
 		}
-		startWorkerManagerFn(e.App, newName, oldName, runnerURLs)
+		startWorkerManagerFn(newName, oldName, runnerIDs)
 		log.Printf("Moved workers from namespace %s to %s", oldName, newName)
 		return e.Next()
 	})
@@ -203,12 +203,12 @@ func registerOrganizationWorkerManagerPublicationHooks(app core.App) {
 			return e.Next()
 		}
 
-		runnerURLs, err := hooks.WorkerManagerPublishedNonAdminRunnerURLs(e.App)
+		runnerIDs, err := hooks.WorkerManagerPublishedNonAdminRunnerIDs(e.App)
 		if err != nil {
 			return err
 		}
 
-		startWorkerManagerFn(e.App, namespace, "", runnerURLs)
+		startWorkerManagerFn(namespace, "", runnerIDs)
 		return e.Next()
 	})
 }
@@ -297,7 +297,7 @@ func organizationPublicationCollectionByName(
 // ensureNamespaceAndWorkers ensures the given namespace exists in Temporal.
 // If not, it creates it.
 // It then starts all workers for that namespace in a goroutine.
-func ensureNamespaceAndWorkers(namespace string) {
+func ensureNamespaceAndWorkers(app core.App, namespace string) {
 	if hooks.TemporalWorkersDisabled() {
 		log.Printf(
 			"Skipping namespace %s (%s is set)",
@@ -346,7 +346,7 @@ func ensureNamespaceAndWorkers(namespace string) {
 		return
 	}
 
-	go startWorkersByNamespaceFn(namespace)
+	go startWorkersByNamespaceFn(app, namespace)
 }
 
 func waitForNamespaceReady(

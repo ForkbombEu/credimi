@@ -11,7 +11,10 @@ import devtoolsJson from 'vite-plugin-devtools-json';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig(({ mode }) => {
-	const pocketbaseUrl = loadEnv(mode, process.cwd(), '').PUBLIC_POCKETBASE_URL;
+	const pocketbaseUrl = loadEnv(mode, process.cwd(), '').VITE_API;
+	const proxy = pocketbaseUrl
+		? { '/api/': pocketbaseUrl, '/_/': pocketbaseUrl, '/temporal-ui': pocketbaseUrl }
+		: undefined;
 	return {
 		plugins: [
 			tailwindcss(),
@@ -26,12 +29,13 @@ export default defineConfig(({ mode }) => {
 
 		server: {
 			port: Number(process.env.PORT) || 5100,
-			// The embedded Temporal UI sends X-Frame-Options: SAMEORIGIN, so in dev it is served from
-			// the webapp origin; PocketBase owns /temporal-ui (pkg/internal/temporalui).
-			proxy: pocketbaseUrl ? { '/temporal-ui': new URL(pocketbaseUrl).origin } : undefined
+			// The webapp talks to PocketBase on its own origin: /api/, the admin assets under /_/
+			// and the embedded Temporal UI (pkg/internal/temporalui) are proxied to VITE_API.
+			proxy
 		},
 		preview: {
-			allowedHosts: true
+			allowedHosts: true,
+			proxy
 		},
 
 		test: {

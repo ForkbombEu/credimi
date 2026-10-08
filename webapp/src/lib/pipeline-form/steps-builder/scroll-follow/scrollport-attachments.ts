@@ -4,7 +4,6 @@
 
 import type { Attachment } from 'svelte/attachments';
 
-/** Compose zero-or-more Attachments into one (undefined when none active). */
 export function composeAttachments(
 	...parts: Array<Attachment | undefined>
 ): Attachment | undefined {
@@ -23,13 +22,17 @@ export function composeAttachments(
 }
 
 /**
- * ResizeObserver attachment that reports ~30% of the scrollport height as end pad
- * so the last short card/block can scroll to center.
+ * ResizeObserver reports ~30% of scrollport height as end pad so the last short
+ * card/block can scroll to center.
  */
-export function endPadAttach(setPx: (px: number) => void): Attachment {
+export function endPadAttach(
+	setPx: (px: number) => void,
+	setViewportPx?: (px: number) => void
+): Attachment {
 	return (el) => {
 		const update = () => {
 			setPx(Math.round(el.clientHeight * 0.3));
+			setViewportPx?.(el.clientHeight);
 		};
 		update();
 		const ro = new ResizeObserver(update);
@@ -37,6 +40,7 @@ export function endPadAttach(setPx: (px: number) => void): Attachment {
 		return () => {
 			ro.disconnect();
 			setPx(0);
+			setViewportPx?.(0);
 		};
 	};
 }

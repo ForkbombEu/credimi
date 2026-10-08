@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
+	import type { Snippet } from 'svelte';
 
 	import {
 		BlocksIcon,
@@ -28,23 +29,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Switch from '@/components/ui/switch/switch.svelte';
 	import { m } from '@/i18n';
 
+	import type { InCardHostChrome } from './in-card/in-card-host-chrome.js';
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
 	import {
 		BulkWalletVersionChange,
 		Column,
 		EmptyState,
-		FollowUpCard,
 		ManualEditorColumn,
-		StepCard,
 		YamlPreviewPane
 	} from './_partials/index.js';
-	import { stableItemKey } from './composer-virtualizer.svelte.js';
+	import { FollowUpCard, StepCard } from './cards/index.js';
+	import { isInCardExpandReady } from './in-card/in-card-session.svelte.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 	import { createTwinPaneSession } from './twin-pane-session.svelte.js';
 	import { splitPipelineYamlPreview } from './yaml-preview/index.js';
-
-	//
 
 	let { self: builder }: SelfProp<StepsBuilder> = $props();
 
@@ -59,8 +58,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		formMode?.intent === 'edit' ? (formMode.section ?? 'steps') : undefined
 	);
 	const editingIndex = $derived(formMode?.intent === 'edit' ? formMode.stepIndex : undefined);
-	const columnTitle = $derived(formMode?.intent === 'edit' ? m.Edit_step() : m.Add_step());
-	const stepDocsUrl = $derived(formMode?.config.docsUrl);
+	const isEditIntent = $derived(formMode?.intent === 'edit');
+	const addFormMode = $derived(formMode?.intent === 'add' ? formMode : null);
+	const stepDocsUrl = $derived(addFormMode?.config.docsUrl);
 	const showFollowUpAddActions = $derived(builder.isFollowUpEligibleForm());
 	const rightColumnTitle = $derived(builder.isManualMode ? m.manual_edit() : m.YAML_preview());
 
@@ -72,12 +72,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			: splitPipelineYamlPreview(builder.yamlPreview)
 	);
 
-	const stepItemKey = (index: number) => stableItemKey(builder.steps[index], index);
-
 	const session = createTwinPaneSession({
 		getStepsCount: () => builder.steps.length,
 		getYamlStepsCount: () => yamlParts.steps.length,
-		getItemKey: stepItemKey,
+		getItemKey: (index) => builder.stepKeys[index] ?? index,
 		getIsManual: () => builder.isManualMode,
 		getEditingIndex: () => editingIndex,
 		getEditingSection: () => editingSection ?? 'steps',
@@ -95,8 +93,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const yamlVirt = session.yamlVirt;
 	const { measureStepCard, measureYamlStep } = session;
 
-	const yamlScrollAttach = $derived(session.yamlScrollAttach);
-	const cardsScrollAttach = $derived(session.cardsScrollAttach);
+	const yamlScrollAttach = session.yamlScrollAttach;
+	const cardsScrollAttach = session.cardsScrollAttach;
 
 	$effect(() => {
 		const isManual = builder.isManualMode;
@@ -116,42 +114,54 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			rightPane.resize(layout.right);
 		}
 	});
+
+	function isCardFaded(section: 'steps' | 'follow-ups', index: number): boolean {
+		const unit = builder.editingUnit;
+		if (!unit) return false;
+		return !(unit.section === section && unit.index === index);
+	}
+
+	function inCardChrome(
+		editing: boolean,
+		section: 'steps' | 'follow-ups',
+		index: number
+	): InCardHostChrome {
+		return {
+			editing,
+			expandReady: isInCardExpandReady(editing, session.inCard.phase),
+			faded: isCardFaded(section, index),
+			cardFillMaxPx: session.cardFillMaxPx,
+			selected: session.isCardSelected(section, index),
+			hovered: session.isCardHovered(section, index),
+			onExitUnlock: () => session.inCard.noteExitComplete()
+		};
+	}
 </script>
 
 <Resizable.PaneGroup direction="horizontal" class="min-h-0 grow gap-2">
 	<Column
 		bind:pane={addStepPane}
-		title={columnTitle}
+		title={m.Add_step()}
 		defaultSize={LAYOUT.blocks.addStep}
 		order={1}
-		disabled={builder.isManualMode}
+		disabled={builder.isManualMode || isEditIntent}
 	>
-		{#if builder.mode.id == 'form'}
+		{#if addFormMode}
 			<div class="flex grow flex-col" in:fly>
-				<Render item={builder.mode.form} />
-				{#if formMode?.intent === 'edit'}
-					<div class="mt-auto border-t p-4">
-						<Button
-							class="w-full"
-							disabled={!formMode.form.canSave()}
-							onclick={() => formMode.form.commit()}
-						>
-							{m.Save()}
-						</Button>
-					</div>
-				{:else if showFollowUpAddActions && formMode}
+				<Render item={addFormMode.form} />
+				{#if showFollowUpAddActions}
 					<div class="mt-auto space-y-2 border-t p-4">
 						<Button
 							class="w-full"
-							disabled={!formMode.form.canSave()}
-							onclick={() => formMode.form.commit()}
+							disabled={!addFormMode.form.canSave()}
+							onclick={() => addFormMode.form.commit()}
 						>
 							{m.Add_step()}
 						</Button>
 						<Button
 							variant="outline"
 							class="w-full"
-							disabled={!formMode.form.canSave()}
+							disabled={!addFormMode.form.canSave()}
 							onclick={() => builder.addAsFollowUp()}
 						>
 							{m.Add_as_follow_up()}
@@ -164,7 +174,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		{#snippet titleRight()}
-			{#if builder.mode.id == 'form'}
+			{#if addFormMode}
 				<div class="flex items-center gap-1">
 					{#if stepDocsUrl}
 						<IconButton
@@ -194,6 +204,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		bind:pane={stepsPane}
 		bind:scrollContainer={session.cardsScroller}
 		scrollAttach={cardsScrollAttach}
+		scrollLocked={session.still}
 		title={m.Steps_sequence()}
 		defaultSize={LAYOUT.blocks.stepsSequence}
 		order={2}
@@ -232,37 +243,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#each $stepsVirt.getVirtualItems() as vItem (vItem.key)}
 						{@const step = builder.steps[vItem.index]}
 						{@const index = vItem.index}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
 							{@attach measureStepCard}
 							data-index={index}
-							data-card-section="steps"
-							data-card-index={index}
-							class="absolute left-0 w-full cursor-pointer pb-3"
+							class="absolute left-0 w-full pb-3"
 							style:top="{vItem.start}px"
-							role="group"
-							tabindex="-1"
-							onclick={() =>
-								session.onUnitClick({ section: 'steps', index }, 'cards')}
-							onmouseenter={() => {
-								session.hoverCard({ section: 'steps', index });
-							}}
-							onmouseleave={() => {
-								session.clearHoverCard({ section: 'steps', index });
-							}}
 						>
-							{#if step}
-								<StepCard
-									{builder}
-									{step}
-									{index}
-									editing={editingSection === 'steps' && editingIndex === index}
-									selected={session.isCardSelected('steps', index)}
-									hovered={session.isCardHovered('steps', index)}
-									onShift={(change) => session.shiftStep(index, change)}
-								/>
-							{/if}
+							{#snippet stepCardBody()}
+								{#if step}
+									{@const editing =
+										editingSection === 'steps' && editingIndex === index}
+									<StepCard
+										{builder}
+										{step}
+										{index}
+										{...inCardChrome(editing, 'steps', index)}
+										onShift={(change) => session.shiftStep(index, change)}
+									/>
+								{/if}
+							{/snippet}
+							{@render cardUnitInteractive('steps', index, stepCardBody)}
 						</div>
 					{/each}
 				</div>
@@ -278,33 +278,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#if builder.followUps.length > 0}
 				<div class="space-y-3">
-					{#each builder.followUps as followUp, index (followUp)}
-						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-						<div
-							data-card-section="follow-ups"
-							data-card-index={index}
-							class="cursor-pointer"
-							role="group"
-							tabindex="-1"
-							onclick={() =>
-								session.onUnitClick({ section: 'follow-ups', index }, 'cards')}
-							onmouseenter={() => {
-								session.hoverCard({ section: 'follow-ups', index });
-							}}
-							onmouseleave={() => {
-								session.clearHoverCard({ section: 'follow-ups', index });
-							}}
-						>
+					{#each builder.followUps as followUp, index (builder.followUpKeys[index])}
+						{@const editing = editingSection === 'follow-ups' && editingIndex === index}
+						{#snippet followUpCardBody()}
 							<FollowUpCard
 								{builder}
 								{followUp}
 								{index}
-								editing={editingSection === 'follow-ups' && editingIndex === index}
-								selected={session.isCardSelected('follow-ups', index)}
-								hovered={session.isCardHovered('follow-ups', index)}
+								{...inCardChrome(editing, 'follow-ups', index)}
 							/>
-						</div>
+						{/snippet}
+						{@render cardUnitInteractive('follow-ups', index, followUpCardBody)}
 					{/each}
 				</div>
 			{:else}
@@ -336,11 +320,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="flex min-w-0 items-center gap-1">
 				{#if !builder.isManualMode}
 					<label
-						class="flex min-w-0 shrink items-center gap-0.5 text-xs font-medium text-primary hover:cursor-pointer hover:underline"
+						class={[
+							'flex min-w-0 shrink items-center gap-0.5 text-xs font-medium',
+							session.still
+								? 'pointer-events-none text-muted-foreground'
+								: 'text-primary hover:cursor-pointer hover:underline'
+						]}
 						title={m.Scroll_follow()}
 					>
 						<Switch
 							checked={session.followEnabled}
+							disabled={session.still}
 							onCheckedChange={(checked) => session.setFollowEnabled(checked)}
 							class="shrink-0 scale-75"
 						/>
@@ -397,8 +387,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <BulkWalletVersionChange {builder} bind:open={builder.changeWalletVersionDialogOpen} />
 
-<!--  -->
-
 {#snippet stepButtons()}
 	<div class="flex flex-col gap-2 p-4" in:fly>
 		{#each steps.coreConfigs as config (config.use)}
@@ -432,4 +420,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{displayData.labels.singular}
 		</span>
 	</Button>
+{/snippet}
+
+{#snippet cardUnitInteractive(section: 'steps' | 'follow-ups', index: number, children: Snippet)}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<div
+		data-card-section={section}
+		data-card-index={index}
+		class="cursor-pointer"
+		role="group"
+		tabindex="-1"
+		onclick={() => session.onUnitClick({ section, index }, 'cards')}
+		onmouseenter={() => session.hoverCard({ section, index })}
+		onmouseleave={() => session.clearHoverCard({ section, index })}
+	>
+		{@render children()}
+	</div>
 {/snippet}

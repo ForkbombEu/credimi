@@ -538,8 +538,7 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 	env.OnActivity(
 		httpActivity.Name(),
 		mock.Anything,
-		mock.MatchedBy(matchHTTPActivityInput(
-			"GET",
+		mock.MatchedBy(matchHTTPGetActivityInput(
 			"https://www.certification.openid.net/api/log/runner-123",
 		)),
 	).
@@ -660,8 +659,7 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 	env.OnActivity(
 		httpActivity.Name(),
 		mock.Anything,
-		mock.MatchedBy(matchHTTPActivityInput(
-			"GET",
+		mock.MatchedBy(matchHTTPGetActivityInput(
 			"https://www.certification.openid.net/api/log/runner-123",
 		)),
 	).
@@ -749,8 +747,7 @@ func TestStartCheckWorkflowOpenID4VPVerifier(t *testing.T) {
 	env.OnActivity(
 		httpActivity.Name(),
 		mock.Anything,
-		mock.MatchedBy(matchHTTPActivityInput(
-			"GET",
+		mock.MatchedBy(matchHTTPGetActivityInput(
 			"https://www.certification.openid.net/api/log/runner-456",
 		)),
 	).

@@ -101,12 +101,7 @@ func BuildWorkflow(
 			WorkflowID:   info.WorkflowExecution.ID,
 			RunID:        info.WorkflowExecution.RunID,
 			Namespace:    info.Namespace,
-			TemporalUI: utils.JoinURL(
-				input.Config["app_url"].(string),
-				"my", "tests", "runs",
-				info.WorkflowExecution.ID,
-				info.WorkflowExecution.RunID,
-			),
+			TemporalUI:   RunPageURL(input.Config, info.WorkflowExecution),
 		}
 
 		// ---- activity options composition ----
@@ -135,6 +130,18 @@ func BuildWorkflow(
 		}
 		return result, nil
 	}
+}
+
+// RunPageURL returns the Credimi page of a run, linked from workflow errors
+// and pipeline notifications. It is empty when the config carries no app_url:
+// workflows that build user-facing links check app_url themselves, the others
+// do not need it.
+func RunPageURL(config map[string]any, execution workflow.Execution) string {
+	appURL, _ := config[AppURLConfigKey].(string)
+	if strings.TrimSpace(appURL) == "" {
+		return ""
+	}
+	return utils.JoinURL(appURL, "my", "tests", "runs", execution.ID, execution.RunID)
 }
 
 func NewWorkflowError(err error, metadata *WorkflowRunMetadata) error {

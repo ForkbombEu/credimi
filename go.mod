@@ -13,7 +13,7 @@ require (
 	github.com/antchfx/htmlquery v1.3.6
 	github.com/forkbombeu/credimi-conformance-assessment v1.3.1
 	github.com/forkbombeu/credimi-extra v1.17.2
-	github.com/forkbombeu/eudi-conformance-evidence v1.0.2
+	github.com/forkbombeu/eudi-conformance-evidence v1.7.0
 	github.com/fxamacker/cbor/v2 v2.9.0
 	github.com/go-pdf/fpdf v0.9.0
 	github.com/go-playground/validator/v10 v10.26.0

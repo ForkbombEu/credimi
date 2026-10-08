@@ -19,6 +19,11 @@ import {
 	type ComposerVirtualizerOptions
 } from './composer-virtualizer.svelte.js';
 import {
+	createInCardSession,
+	type InCardPhase,
+	type InCardSession
+} from './in-card/in-card-session.svelte.js';
+import {
 	createMultiListLayout,
 	DEFAULT_YAML_LAYOUT_CHILDREN,
 	type CardListLayout,
@@ -26,13 +31,20 @@ import {
 	type MultiListLayoutEntry
 } from './layout-swap.js';
 import { runPairedShift as defaultRunPairedShift, type PairedShiftArgs } from './paired-shift.js';
-import { ensureMountedForStepsVirtualizer, type ActiveUnit } from './scroll-follow/active-unit.js';
+import {
+	ensureMountedForStepsVirtualizer,
+	START_PADDING_PX,
+	type ActiveUnit
+} from './scroll-follow/active-unit.js';
+import { nestedScrollerConsumesWheel } from './scroll-follow/nested-scroller-wheel.js';
 import {
 	PeerScrollFollow,
 	type PeerScrollFollowOptions
 } from './scroll-follow/peer-scroll-follow.svelte.js';
 import { composeAttachments, endPadAttach } from './scroll-follow/scrollport-attachments.js';
 import { UnitHighlight, type UnitHighlightInputs } from './scroll-follow/unit-highlight.svelte.js';
+
+export type { InCardPhase };
 
 export type TwinPaneCreatedCard = {
 	section: 'steps' | 'follow-ups';
@@ -54,9 +66,8 @@ export type TwinPaneSessionOptions = {
 	mutateShiftStep: (index: number, change: number) => void;
 	bindComposerScroll: (handlers: {
 		onRevealStep?: (index: number) => void;
-		onEditFocus?: (stepIndex: number) => void;
+		onEditFocus?: (unit: ActiveUnit) => void;
 	}) => void;
-	/** Inject for tests. */
 	createComposerVirtualizer?: (options: ComposerVirtualizerOptions) => ComposerVirtualizer;
 	createPeerScrollFollow?: (options?: PeerScrollFollowOptions) => PeerScrollFollow;
 	createUnitHighlight?: (inputs: UnitHighlightInputs) => UnitHighlight;
@@ -78,30 +89,26 @@ export type TwinPaneSession = {
 	set stepsLayoutRoot(el: HTMLElement | null);
 	get yamlStepsLayoutRoot(): HTMLElement | null;
 	set yamlStepsLayoutRoot(el: HTMLElement | null);
-	/** Half-viewport end pad for the cards scrollport (view paints height). */
 	get cardsEndPadPx(): number;
-	/** Half-viewport end pad for the YAML scrollport (view paints height). */
+	get cardsViewportPx(): number;
+	get cardFillMaxPx(): number;
 	get yamlEndPadPx(): number;
-	/** TanStack scrollMargin for YAML step blocks (header height inside scroller). */
 	get yamlScrollMargin(): number;
-	/** TanStack Readable — `$stepsVirt` in markup. */
 	stepsVirt: ComposerVirtualizer['virtualizer'];
-	/** TanStack Readable — `$yamlVirt` in markup (virtual items / totalSize). */
 	yamlVirt: ComposerVirtualizer['virtualizer'];
 	measureStepCard: Attachment;
-	/** Measure YAML step blocks — mirrors `measureStepCard`. */
 	measureYamlStep: Attachment;
 	/**
-	 * Peer-scroll + session-owned endPad for cards.
-	 * Manual mode omits the peer attach; endPad still applies.
+	 * Peer-scroll + wheel lock + endPad for cards.
+	 * Referentially stable for the session lifetime — `{@attach}` must not rebind
+	 * when form mode goes idle (that would revert scrollTop to 0).
 	 */
 	get cardsScrollAttach(): Attachment | undefined;
 	/**
-	 * Peer-scroll + session-owned endPad for YAML. Undefined when manual or preview empty
-	 * (no peer bind and no endPad).
+	 * Peer-scroll + endPad for YAML. Referentially stable (handlers no-op when
+	 * follow is off / preview empty); do not mint a new identity from mode.
 	 */
 	get yamlScrollAttach(): Attachment | undefined;
-	/** YAML header → TanStack scrollMargin (view forwards from YamlPreviewPane). */
 	setYamlHeaderHeight(height: number): void;
 	isCardSelected(section: ActiveUnit['section'], index: number): boolean;
 	isCardHovered(section: ActiveUnit['section'], index: number): boolean;
@@ -112,16 +119,34 @@ export type TwinPaneSession = {
 	onUnitClick(unit: ActiveUnit, from: 'cards' | 'yaml'): void;
 	onYamlUnitHover(unit: ActiveUnit | null): void;
 	setFollowEnabled(checked: boolean): void;
+	readonly inCard: Pick<InCardSession, 'phase' | 'noteExitComplete'>;
+	/**
+	 * True while `still` or `exiting`. Enter start-align (`aligning`) is not still yet.
+	 */
+	get still(): boolean;
 	dispose(): void;
 };
 
+export function inCardCardsEndPadPx(
+	observerPadPx: number,
+	cardsViewportPx: number,
+	inCardActive: boolean
+): number {
+	if (!inCardActive) return observerPadPx;
+	return Math.max(observerPadPx, Math.max(0, cardsViewportPx - START_PADDING_PX));
+}
+
+/** Floor so a short pane still hosts a usable In-card form. */
+export const MIN_CARD_FILL_MAX_PX = 240;
+
 /**
- * Owns Pipeline Composer twin-pane lifecycle: both virtualizers, PeerScrollFollow,
- * UnitHighlight, multi-list FLIP layout, paired shift (`runPairedShift`), and
- * scrollport chrome (end pads + YAML header→scrollMargin).
- * View binds DOM roots, paints pad heights from session getters, and forwards UI
- * events; raw peerScroll / unitHighlight stay private.
+ * Whole-card fill max (view paints `cardFillMaxPx`). Top + bottom inset matches
+ * start-align padding so the open card fills the column with the same gap.
  */
+export function inCardCardFillMaxPx(cardsViewportPx: number): number {
+	return Math.max(MIN_CARD_FILL_MAX_PX, Math.max(0, cardsViewportPx - START_PADDING_PX * 2));
+}
+
 export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPaneSession {
 	const createVirt = options.createComposerVirtualizer ?? createComposerVirtualizer;
 	const createPeer = options.createPeerScrollFollow ?? ((opts) => new PeerScrollFollow(opts));
@@ -135,18 +160,30 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 	let yamlScroller = $state.raw<HTMLElement | null>(null);
 	let stepsLayoutRoot = $state.raw<HTMLElement | null>(null);
 	let yamlStepsLayoutRoot = $state.raw<HTMLElement | null>(null);
-	/** Half-viewport end pad so the last (short) card can scroll to center. */
 	let cardsEndPadPx = $state(0);
+	let cardsViewportPx = $state(0);
 	let yamlEndPadPx = $state(0);
-	/** Header height inside the YAML scroller — TanStack scrollMargin for step blocks. */
 	let yamlScrollMargin = $state(0);
 	let layout: CardListLayout | null = null;
 	let lastFocusedCardToken = 0;
 	let disposed = false;
+	const inCard = createInCardSession();
+	const inCardPublic: Pick<InCardSession, 'phase' | 'noteExitComplete'> = {
+		get phase() {
+			return inCard.phase;
+		},
+		noteExitComplete: () => inCard.noteExitComplete()
+	};
 
-	const cardsEndPadAttach = endPadAttach((px) => {
-		cardsEndPadPx = px;
-	});
+	const getIsInCardEdit = () => options.getEditingIndex() !== undefined;
+	const cardsEndPadAttach = endPadAttach(
+		(px) => {
+			cardsEndPadPx = px;
+		},
+		(viewportPx) => {
+			cardsViewportPx = viewportPx;
+		}
+	);
 	const yamlEndPadAttach = endPadAttach((px) => {
 		yamlEndPadPx = px;
 	});
@@ -181,7 +218,8 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			yamlVirtualizer.ensureStepVisible(index, { behavior: 'auto' })
 		),
 		getCardLengths: listLengths,
-		getYamlLengths: listLengths
+		getYamlLengths: listLengths,
+		isCardsParked: () => inCard.still
 	});
 
 	const unitHighlight = createHighlight({
@@ -196,9 +234,25 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			const unit: ActiveUnit = { section: 'steps', index };
 			void tick().then(() => peerScroll.onReveal(unit));
 		},
-		onEditFocus: (stepIndex) => {
+		onEditFocus: (unit) => {
 			if (options.getIsManual()) return;
-			peerScroll.onEditFocus(stepIndex);
+			// Pencil chrome stops card onclick; pin here so YAML + card wash
+			// stick after Save/dismiss (editingIndex clears, pin remains).
+			// Do not followUnit — onEditFocus already start-aligns.
+			unitHighlight.pinUnit(unit);
+			inCard.noteEnterStart();
+			void tick().then(async () => {
+				if (disposed) {
+					inCard.noteEnterSettled(false);
+					return;
+				}
+				await peerScroll.onEditFocus(unit);
+				if (disposed) {
+					inCard.noteEnterSettled(false);
+					return;
+				}
+				inCard.noteEnterSettled(getIsInCardEdit());
+			});
 		}
 	});
 
@@ -210,17 +264,23 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		yamlVirtualizer.measureElement(node);
 	};
 
-	function cardsScrollAttach(): Attachment | undefined {
-		return composeAttachments(
-			!options.getIsManual() ? peerScroll.cardsAttach : undefined,
-			cardsEndPadAttach
-		);
-	}
+	const cardsParkWheelAttach: Attachment = (el) => {
+		const onWheel = (event: WheelEvent) => {
+			if (!inCard.still) return;
+			if (nestedScrollerConsumesWheel(event, el)) return;
+			event.preventDefault();
+		};
+		el.addEventListener('wheel', onWheel, { passive: false });
+		return () => el.removeEventListener('wheel', onWheel);
+	};
 
-	function yamlScrollAttach(): Attachment | undefined {
-		if (options.getIsManual() || !options.getYamlPreview()) return undefined;
-		return composeAttachments(peerScroll.yamlAttach, yamlEndPadAttach);
-	}
+	/** Compose once — getters must not read mode or they invalidate `{@attach}`. */
+	const cardsScrollAttach = composeAttachments(
+		peerScroll.cardsAttach,
+		cardsParkWheelAttach,
+		cardsEndPadAttach
+	);
+	const yamlScrollAttach = composeAttachments(peerScroll.yamlAttach, yamlEndPadAttach);
 
 	function setYamlHeaderHeight(height: number) {
 		yamlScrollMargin = height;
@@ -270,7 +330,6 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		await tick();
 	}
 
-	/** DOM+TanStack pin for both panes — shared by mount-swap and paired-shift FLIP. */
 	function pinBothAt(cardsTop: number, yamlTop: number) {
 		pinBothScrollports(
 			{
@@ -387,11 +446,20 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			if (!yaml || yamlSteps === 0) return;
 			return peerScroll.onYamlTextChanged();
 		});
+
+		$effect(() => {
+			const phase = inCard.phase;
+			const editing = options.getEditingIndex();
+			if (phase !== 'still') return;
+			if (editing !== undefined) return;
+			inCard.noteEditingEnded();
+		});
 	});
 
 	function dispose() {
 		if (disposed) return;
 		disposed = true;
+		inCard.dispose();
 		destroyEffects();
 		options.bindComposerScroll({});
 		peerScroll.dispose();
@@ -428,7 +496,13 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 			yamlStepsLayoutRoot = el;
 		},
 		get cardsEndPadPx() {
-			return cardsEndPadPx;
+			return inCardCardsEndPadPx(cardsEndPadPx, cardsViewportPx, inCard.phase !== 'idle');
+		},
+		get cardsViewportPx() {
+			return cardsViewportPx;
+		},
+		get cardFillMaxPx() {
+			return inCardCardFillMaxPx(cardsViewportPx);
 		},
 		get yamlEndPadPx() {
 			return yamlEndPadPx;
@@ -441,10 +515,10 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		measureStepCard,
 		measureYamlStep,
 		get cardsScrollAttach() {
-			return cardsScrollAttach();
+			return cardsScrollAttach;
 		},
 		get yamlScrollAttach() {
-			return yamlScrollAttach();
+			return yamlScrollAttach;
 		},
 		setYamlHeaderHeight,
 		isCardSelected,
@@ -453,6 +527,10 @@ export function createTwinPaneSession(options: TwinPaneSessionOptions): TwinPane
 		clearHoverCard,
 		get followEnabled() {
 			return peerScroll.enabled;
+		},
+		inCard: inCardPublic,
+		get still() {
+			return inCard.still;
 		},
 		shiftStep,
 		onUnitClick,

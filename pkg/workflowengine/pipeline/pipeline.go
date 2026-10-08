@@ -13,7 +13,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
@@ -107,18 +106,12 @@ func (w *PipelineWorkflow) Workflow(
 
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
-	appURL, _ := config["app_url"].(string)
 	runMetadata := &workflowengine.WorkflowRunMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflowID,
 		RunID:        runID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			appURL,
-			"my", "tests", "runs",
-			workflowID,
-			runID,
-		),
+		TemporalUI:   workflowengine.RunPageURL(config, workflow.GetInfo(ctx).WorkflowExecution),
 	}
 
 	defer func() {

@@ -110,7 +110,6 @@ func runOpenIDConformanceWorkflow(
 	return pollOpenIDConformanceLogs(
 		ctx,
 		rid,
-		workflowengine.InternalAppURLFromConfig(input.Config),
 		utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 		notifyLogs,
 		input.RunMetadata,
@@ -128,7 +127,6 @@ func openIDConformanceDeviceID(captures map[string]any) string {
 func pollOpenIDConformanceLogs(
 	ctx workflow.Context,
 	deviceID string,
-	appURL string,
 	token string,
 	notifyLogs bool,
 	metadata *workflowengine.WorkflowRunMetadata,
@@ -163,7 +161,7 @@ func pollOpenIDConformanceLogs(
 
 		logs := workflowengine.AsSliceOfMaps(workflowengine.AsMap(httpResponse.Output)["body"])
 		if notifyLogs {
-			if err := notifyOpenIDConformanceLogs(pollCtx, appURL, workflowID, logs); err != nil {
+			if err := notifyOpenIDConformanceLogs(pollCtx, workflowID, logs); err != nil {
 				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 					err,
 					metadata,
@@ -214,15 +212,8 @@ func pollOpenIDConformanceLogs(
 
 func notifyOpenIDConformanceLogs(
 	ctx workflow.Context,
-	appURL string,
 	workflowID string,
 	logs []map[string]any,
 ) error {
-	return sendRealtimeLogsUpdate(
-		ctx,
-		utils.JoinURL(appURL, "api", "compliance", "send-openidnet-log-update"),
-		workflowID,
-		logs,
-		"30",
-	)
+	return sendRealtimeLogsUpdate(ctx, workflowID+OpenID4VPWalletSubscription, logs)
 }

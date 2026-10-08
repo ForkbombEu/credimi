@@ -81,11 +81,20 @@ func (a *BaseActivity) NewActivityError(
 func (a *BaseActivity) NewNonRetryableActivityError(
 	failure ActivityError,
 ) error {
+	return a.NewNonRetryableActivityErrorWithCause(failure, nil)
+}
+
+// NewNonRetryableActivityErrorWithCause is NewNonRetryableActivityError with a
+// cause that errors.Is and errors.As can match.
+func (a *BaseActivity) NewNonRetryableActivityErrorWithCause(
+	failure ActivityError,
+	cause error,
+) error {
 	failure = a.withActivityName(failure)
 	return temporal.NewNonRetryableApplicationError(
 		errorMessage(failure.Summary, failure.Message),
 		failure.Code,
-		nil,
+		cause,
 		failure,
 	)
 }
@@ -106,6 +115,21 @@ func (a *BaseActivity) NewMissingOrInvalidPayloadError(err error) error {
 			Message: err.Error(),
 		},
 	)
+}
+
+// NewCodedError builds an activity error for the errorcodes key code with
+// err as its message; it is non-retryable unless retryable is true.
+func (a *BaseActivity) NewCodedError(code string, retryable bool, err error) error {
+	errCode := errorcodes.Codes[code]
+	failure := ActivityError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: err.Error(),
+	}
+	if retryable {
+		return a.NewActivityError(failure)
+	}
+	return a.NewNonRetryableActivityError(failure)
 }
 
 func RunCommandWithCancellation(

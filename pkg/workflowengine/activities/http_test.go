@@ -5,6 +5,7 @@
 package activities
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
@@ -606,4 +608,37 @@ func TestValidateExpectedStatus(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRedactHeaderMap(t *testing.T) {
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer token")
+	headers.Set("Credimi-Api-Key", "abc")
+	headers.Set("Cookie", "secret")
+	headers.Set("X-Test", "value")
+
+	redacted := redactHeaderMap(headers)
+	require.Equal(t, []string{"[REDACTED]"}, redacted["Authorization"])
+	require.Equal(t, []string{"[REDACTED]"}, redacted["Credimi-Api-Key"])
+	require.Equal(t, []string{"[REDACTED]"}, redacted["Cookie"])
+	require.Equal(t, []string{"value"}, redacted["X-Test"])
+}
+
+func TestSplitSecretsFromOutput(t *testing.T) {
+	output, secrets, err := splitSecretsFromOutput(map[string]any{
+		"code":    "steps: []",
+		"secrets": map[string]any{"token": "secret-value"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"code": "steps: []"}, output)
+	require.Equal(t, map[string]any{"token": "secret-value"}, secrets)
+
+	dc := temporalcrypto.NewDataConverter(bytes.Repeat([]byte{1}, 32))
+	payload, err := dc.ToPayload(workflowengine.ActivityResult{
+		Output:  output,
+		Secrets: secrets,
+	})
+	require.NoError(t, err)
+	require.Contains(t, string(payload.GetData()), `"code":"steps: []"`)
+	require.NotContains(t, string(payload.GetData()), "secret-value")
 }

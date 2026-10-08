@@ -31,7 +31,7 @@ func setupOrganizationPublicApp(t testing.TB) *tests.TestApp {
 	require.NoError(t, err)
 	ensureOrganizationPublishedField(t, app)
 	canonify.RegisterCanonifyHooks(app)
-	OrganizationTemporalInternalRoutes.Add(app)
+	OrganizationInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 	return app
 }

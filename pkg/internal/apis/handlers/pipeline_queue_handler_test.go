@@ -127,7 +127,7 @@ func installQueueStubs(t *testing.T, stub *queueStub) {
 		checkRunnerReachable = origReachable
 	})
 
-	checkRunnerReachable = func(context.Context, string) (bool, error) { return true, nil }
+	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) { return true, nil }
 
 	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, deviceID string) error {
 		return nil
@@ -298,7 +298,7 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			}),
 			ExpectedStatus: http.StatusNotFound,
 			ExpectedContent: []string{
-				"runner not found",
+				"device not found",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				return setupPipelineQueueAppWithPipeline(t, orgID, unknownRunnerYaml)
@@ -477,7 +477,7 @@ func TestPipelineQueueEnqueueRejectsUnreachableRunner(t *testing.T) {
 
 	stub := &queueStub{}
 	installQueueStubs(t, stub)
-	checkRunnerReachable = func(context.Context, string) (bool, error) { return false, nil }
+	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) { return false, nil }
 
 	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n"
 	scenario := tests.ApiScenario{
@@ -516,8 +516,8 @@ func TestPipelineQueueEnqueueProbesEveryRunnerOnce(t *testing.T) {
 	stub := &queueStub{}
 	installQueueStubs(t, stub)
 	var probed []string
-	checkRunnerReachable = func(_ context.Context, runnerURL string) (bool, error) {
-		probed = append(probed, runnerURL)
+	checkRunnerReachable = func(_ context.Context, runner *core.Record) (bool, error) {
+		probed = append(probed, runner.Id)
 		return len(probed) < 2, nil
 	}
 
@@ -892,7 +892,7 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 		checkRunnerReachable = origReachable
 	})
 
-	checkRunnerReachable = func(context.Context, string) (bool, error) { return true, nil }
+	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) { return true, nil }
 	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, deviceID string) error {
 		return nil
 	}
@@ -1017,16 +1017,6 @@ func TestPipelineQueueHelpers(t *testing.T) {
 	t.Run("parseDeviceIDs falls back to singular param", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/?device_ids=runner-3/device-1", nil)
 		require.Equal(t, []string{"runner-3/device-1"}, parseDeviceIDs(req))
-	})
-
-	t.Run("normalizeDeviceIDs dedupes and trims", func(t *testing.T) {
-		values := []string{" runner-2 , runner-1", "runner-2", "  ", "runner-3"}
-		require.Equal(t, []string{"runner-1", "runner-2", "runner-3"}, normalizeDeviceIDs(values))
-	})
-
-	t.Run("normalizeDeviceIDs trims leading slash", func(t *testing.T) {
-		values := []string{" /tenant/runner-2 , /tenant/runner-1", "tenant/runner-2"}
-		require.Equal(t, []string{"tenant/runner-1", "tenant/runner-2"}, normalizeDeviceIDs(values))
 	})
 
 	t.Run("runTicketNotFoundView sets status", func(t *testing.T) {
@@ -1199,7 +1189,7 @@ func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 		checkRunnerReachable = origReachable
 	})
 
-	checkRunnerReachable = func(context.Context, string) (bool, error) { return true, nil }
+	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) { return true, nil }
 	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, deviceID string) error {
 		return nil
 	}
@@ -1662,4 +1652,24 @@ func TestPipelineQueueTemporalHelpers(t *testing.T) {
 			runQueueUpdateID("enqueue", "/tenant/runner-1", "ticket-1"),
 		)
 	})
+}
+
+func TestBuildPipelineQueueConfigUsesSettingsAppConfig(t *testing.T) {
+	app := newStarterTestApp(t)
+
+	config := buildPipelineQueueConfig(
+		&core.RequestEvent{App: app},
+		"acme",
+		"Ada",
+		"ada@example.test",
+	)
+
+	require.Equal(t, map[string]any{
+		"namespace": "acme",
+		"user_name": "Ada",
+		"user_mail": "ada@example.test",
+		"app_url":   "https://app.example.com",
+		"app_name":  "Credimi",
+		"app_logo":  "https://app.example.com/logos/credimi_logo-transp_emblem.png",
+	}, config)
 }

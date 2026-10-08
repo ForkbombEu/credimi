@@ -446,13 +446,9 @@ func (w *OpenID4VPWalletLogsWorkflow) ExecuteWorkflow(
 
 		err = sendRealtimeLogsUpdate(
 			subCtx,
-			utils.JoinURL(
-				input.Config["app_url"].(string),
-				"api", "compliance", "send-openidnet-log-update",
-			),
-			strings.TrimSuffix(workflow.GetInfo(subCtx).WorkflowExecution.ID, "-log"),
+			strings.TrimSuffix(workflow.GetInfo(subCtx).WorkflowExecution.ID, "-log")+
+				OpenID4VPWalletSubscription,
 			logs,
-			"",
 		)
 		if err != nil {
 			logger.Error("Failed to send logs", "error", err)

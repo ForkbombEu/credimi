@@ -98,7 +98,8 @@ func RegisterRoutesWithValidation(
 	// Route auth contract:
 	// 1) Public routes: needsAuth=false and no auth middleware.
 	// 2) User-auth routes: needsAuth=true, accepts Bearer or Credimi-Api-Key.
-	// 3) Temporal-internal routes: explicit route middleware RequireInternalAdminAPIKey().
+	// 3) Runner/operator routes guarded by the internal admin key: explicit route
+	//    middleware RequireInternalAdminAPIKey().
 	for _, route := range routes {
 		log.Printf("ADD [V] %s", route.Path)
 		inputType := reflect.TypeOf(route.RequestSchema)

@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
@@ -30,23 +31,31 @@ type fakeActivity struct {
 	name string
 }
 
-func registerInternalHTTPActivity(
-	env *testsuite.TestWorkflowEnvironment,
-) *activities.InternalHTTPActivity {
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
+// registerStubActivity registers a no-op activity under name so tests can mock
+// it with env.OnActivity.
+func registerStubActivity(env *testsuite.TestWorkflowEnvironment, name string) {
 	env.RegisterActivityWithOptions(
-		internalHTTPActivity.Execute,
-		activity.RegisterOptions{Name: internalHTTPActivity.Name()},
+		func(context.Context, workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			return workflowengine.ActivityResult{}, nil
+		},
+		activity.RegisterOptions{Name: name},
 	)
-	return internalHTTPActivity
+}
+
+// resolveRecordInputMatcher matches a ResolveRecord activity call with want.
+func resolveRecordInputMatcher(want activities.ResolveRecordInput) any {
+	return mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		payload, err := workflowengine.DecodePayload[activities.ResolveRecordInput](input.Payload)
+		return err == nil && payload == want
+	})
 }
 
 // Runner-directed HTTP is its own activity, so a test that drives a step which
-// talks to a runner has to register it alongside the internal one.
+// talks to a runner has to register it.
 func registerMobileRunnerHTTPActivity(
 	env *testsuite.TestWorkflowEnvironment,
 ) *activities.MobileRunnerHTTPActivity {
-	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity()
+	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	env.RegisterActivityWithOptions(
 		runnerHTTPActivity.Execute,
 		activity.RegisterOptions{Name: runnerHTTPActivity.Name()},
@@ -236,10 +245,9 @@ steps:
 
 func TestExecuteStepActivity(t *testing.T) {
 	globalCfg := map[string]any{
-		"app_url":          "https://app.example",
-		"internal_app_url": "http://credimi.internal",
-		"namespace":        "tenant",
-		"app_logo":         "https://app.example/logo.png",
+		"app_url":   "https://app.example",
+		"namespace": "tenant",
+		"app_logo":  "https://app.example/logo.png",
 		workflowengine.TelemetryRootWorkflowIDKey: "root-wf",
 		workflowengine.TelemetryRootRunIDKey:      "root-run",
 	}
@@ -263,8 +271,8 @@ func TestExecuteStepActivity(t *testing.T) {
 			wantConfig: map[string]string{"timeout": "5s", "step_id": "step-1"},
 		},
 		{
-			name:     "fcaf-validation inherits app URLs and root run IDs",
-			activity: activities.NewFCAFValidationActivity(registry.StepActivityOutputKind),
+			name:     "fcaf-validation inherits root run IDs",
+			activity: activities.NewFCAFValidationActivity(nil, registry.StepActivityOutputKind),
 			step: pipeline.StepDefinition{StepSpec: pipeline.StepSpec{
 				ID:  "validate",
 				Use: "fcaf-validation",
@@ -276,8 +284,6 @@ func TestExecuteStepActivity(t *testing.T) {
 				},
 			}},
 			wantConfig: map[string]string{
-				"app_url":          "https://app.example",
-				"internal_app_url": "http://credimi.internal",
 				workflowengine.TelemetryRootWorkflowIDKey: "root-wf",
 				workflowengine.TelemetryRootRunIDKey:      "root-run",
 				"step_id":                                 "validate",
@@ -402,7 +408,7 @@ steps: []
 			}
 			input := PipelineWorkflowInput{
 				WorkflowInput: workflowengine.WorkflowInput{
-					Config: map[string]any{"app_url": "https://example.test"},
+					Config: map[string]any{"namespace": "tenant"},
 				},
 			}
 
@@ -435,9 +441,17 @@ steps: []
 		workflow.RegisterOptions{Name: "child-workflow"},
 	)
 
-	internalHTTPActivity := registerInternalHTTPActivity(env)
-	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{"body": childYAML}}, nil).
+	registerStubActivity(env, activities.ResolveRecordActivityName)
+	env.OnActivity(
+		activities.ResolveRecordActivityName,
+		mock.Anything,
+		resolveRecordInputMatcher(activities.ResolveRecordInput{
+			CanonifiedName: "tenant/child",
+			Collection:     "pipelines",
+			OwnerNamespace: "tenant",
+		}),
+	).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"yaml": childYAML}}, nil).
 		Once()
 
 	env.ExecuteWorkflow("parent-workflow")
@@ -470,7 +484,7 @@ func TestFetchChildPipelineYAMLValidationErrors(t *testing.T) {
 			}
 			input := PipelineWorkflowInput{
 				WorkflowInput: workflowengine.WorkflowInput{
-					Config: map[string]any{"app_url": "https://example.test"},
+					Config: map[string]any{"namespace": "tenant"},
 				},
 			}
 			_, err := fetchChildPipelineYAML(
@@ -514,7 +528,7 @@ func TestFetchChildPipelineYAMLInvalidOutput(t *testing.T) {
 			}
 			input := PipelineWorkflowInput{
 				WorkflowInput: workflowengine.WorkflowInput{
-					Config: map[string]any{"app_url": "https://example.test"},
+					Config: map[string]any{"namespace": "tenant"},
 				},
 			}
 			_, err := fetchChildPipelineYAML(
@@ -531,16 +545,16 @@ func TestFetchChildPipelineYAMLInvalidOutput(t *testing.T) {
 		workflow.RegisterOptions{Name: "fetch-invalid-output"},
 	)
 
-	internalHTTPActivity := registerInternalHTTPActivity(env)
-	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{"body": 123}}, nil).
+	registerStubActivity(env, activities.ResolveRecordActivityName)
+	env.OnActivity(activities.ResolveRecordActivityName, mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"yaml": 123}}, nil).
 		Once()
 
 	env.ExecuteWorkflow("fetch-invalid-output")
 	require.NoError(t, env.GetWorkflowError())
 	var errMsg string
 	require.NoError(t, env.GetWorkflowResult(&errMsg))
-	require.Contains(t, errMsg, "invalid HTTP output")
+	require.Contains(t, errMsg, "invalid resolved pipeline output")
 }
 
 func TestExecuteStepWorkflow(t *testing.T) {
@@ -652,7 +666,7 @@ func TestFetchChildPipelineYAML(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	internalHTTPActivity := registerInternalHTTPActivity(env)
+	registerStubActivity(env, activities.ResolveRecordActivityName)
 
 	workflowName := "fetch-child-yaml"
 	fetchChildPipelineYAMLWorkflow := func(
@@ -671,10 +685,14 @@ func TestFetchChildPipelineYAML(t *testing.T) {
 	)
 
 	env.OnActivity(
-		internalHTTPActivity.Name(),
+		activities.ResolveRecordActivityName,
 		mock.Anything,
-		mock.Anything,
-	).Return(workflowengine.ActivityResult{Output: map[string]any{"body": "yaml-body"}}, nil)
+		resolveRecordInputMatcher(activities.ResolveRecordInput{
+			CanonifiedName: "pipeline-1",
+			Collection:     "pipelines",
+			OwnerNamespace: "tenant",
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{"yaml": "yaml-body"}}, nil)
 
 	step := pipeline.StepDefinition{
 		StepSpec: pipeline.StepSpec{
@@ -689,7 +707,7 @@ func TestFetchChildPipelineYAML(t *testing.T) {
 	}
 	input := PipelineWorkflowInput{
 		WorkflowInput: workflowengine.WorkflowInput{
-			Config: map[string]any{"app_url": "http://localhost:8090"},
+			Config: map[string]any{"namespace": "tenant"},
 		},
 	}
 
@@ -713,21 +731,21 @@ func TestFetchChildPipelineYAMLErrors(t *testing.T) {
 		{
 			name:          "missing pipeline id",
 			stepPayload:   map[string]any{},
-			config:        map[string]any{"app_url": "http://localhost:8090"},
+			config:        map[string]any{"namespace": "tenant"},
 			expectMessage: "missing pipeline_id",
 		},
 		{
-			name:          "missing app url",
+			name:          "missing namespace",
 			stepPayload:   map[string]any{"pipeline_id": "pipeline-1"},
 			config:        map[string]any{},
-			expectMessage: "app_url",
+			expectMessage: "namespace",
 		},
 		{
-			name:          "invalid http output",
+			name:          "invalid resolved output",
 			stepPayload:   map[string]any{"pipeline_id": "pipeline-1"},
-			config:        map[string]any{"app_url": "http://localhost:8090"},
+			config:        map[string]any{"namespace": "tenant"},
 			activityBody:  123,
-			expectMessage: "invalid HTTP output",
+			expectMessage: "invalid resolved pipeline output",
 		},
 	}
 
@@ -736,9 +754,8 @@ func TestFetchChildPipelineYAMLErrors(t *testing.T) {
 			suite := testsuite.WorkflowTestSuite{}
 			env := suite.NewTestWorkflowEnvironment()
 
-			var internalHTTPActivity *activities.InternalHTTPActivity
 			if tc.activityBody != nil {
-				internalHTTPActivity = registerInternalHTTPActivity(env)
+				registerStubActivity(env, activities.ResolveRecordActivityName)
 			}
 
 			workflowName := "fetch-child-yaml-errors"
@@ -759,11 +776,11 @@ func TestFetchChildPipelineYAMLErrors(t *testing.T) {
 
 			if tc.activityBody != nil {
 				env.OnActivity(
-					internalHTTPActivity.Name(),
+					activities.ResolveRecordActivityName,
 					mock.Anything,
 					mock.Anything,
 				).Return(
-					workflowengine.ActivityResult{Output: map[string]any{"body": tc.activityBody}},
+					workflowengine.ActivityResult{Output: map[string]any{"yaml": tc.activityBody}},
 					nil,
 				)
 			}
@@ -842,7 +859,7 @@ func TestExecuteStepNonExecutableActivity(t *testing.T) {
 
 	registry.Registry["non-exec"] = registry.TaskFactory{
 		Kind:        registry.TaskActivity,
-		NewFunc:     func() any { return &fakeActivity{name: "non-exec"} },
+		NewFunc:     func(core.App) any { return &fakeActivity{name: "non-exec"} },
 		PayloadType: reflect.TypeOf(map[string]any{}),
 		OutputKind:  workflowengine.OutputMap,
 	}
@@ -890,7 +907,7 @@ func TestExecuteStepEmailConfigureError(t *testing.T) {
 
 	registry.Registry["email"] = registry.TaskFactory{
 		Kind: registry.TaskActivity,
-		NewFunc: func() any {
+		NewFunc: func(core.App) any {
 			return &fakeConfigActivity{
 				fakeActivity: fakeActivity{name: "email"},
 				configErr:    errors.New("bad config"),

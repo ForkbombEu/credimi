@@ -15,8 +15,10 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/runqueue"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -541,22 +543,11 @@ func buildPipelineQueueConfig(
 	userName string,
 	userMail string,
 ) map[string]any {
-	appURL := e.App.Settings().Meta.AppURL
-	appName := e.App.Settings().Meta.AppName
-	logoURL := utils.JoinURL(
-		appURL,
-		"logos",
-		strings.ToLower(appName)+"_logo-transp_emblem.png",
-	)
-	config := map[string]any{
+	return workflowengine.WithAppConfig(e.App, map[string]any{
 		"namespace": namespace,
-		"app_url":   appURL,
-		"app_name":  appName,
-		"app_logo":  logoURL,
 		"user_name": userName,
 		"user_mail": userMail,
-	}
-	return workflowengine.WithInternalAppURL(config)
+	})
 }
 
 func applyPipelineQueueCleanupConfig(
@@ -625,24 +616,7 @@ func startPipelineFromQueue(
 	memo map[string]any,
 	runType string,
 ) (workflowengine.WorkflowResult, *apierror.APIError) {
-	var result workflowengine.WorkflowResult
-
-	coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
-	if err != nil {
-		return result, apierror.New(
-			http.StatusInternalServerError,
-			"collection",
-			"failed to get collection",
-			err.Error(),
-		)
-	}
-
-	record := core.NewRecord(coll)
-	record.Set("owner", ownerID)
-	record.Set("pipeline", pipelineRecord.Id)
-	setPipelineRunType(record, coll, runType)
-
-	result, err = startPipelineWorkflow(yaml, config, memo, pipelineIdentifier)
+	result, err := startPipelineWorkflow(yaml, config, memo, pipelineIdentifier)
 	if err != nil {
 		return result, apierror.New(
 			http.StatusInternalServerError,
@@ -652,10 +626,13 @@ func startPipelineFromQueue(
 		)
 	}
 
-	record.Set("workflow_id", result.WorkflowID)
-	record.Set("run_id", result.WorkflowRunID)
-
-	if err := e.App.Save(record); err != nil {
+	if _, err := pipelineresults.Create(e.App, pipelineresults.CreateInput{
+		OwnerID:    ownerID,
+		PipelineID: pipelineRecord.Id,
+		WorkflowID: result.WorkflowID,
+		RunID:      result.WorkflowRunID,
+		RunType:    runType,
+	}); err != nil {
 		return result, apierror.New(
 			http.StatusInternalServerError,
 			"pipeline",
@@ -681,96 +658,39 @@ func resolvePipelineDeviceIDs(yaml string, info pipeline.PipelineDeviceInfo) ([]
 	return deviceIDs, nil
 }
 
-// mobileRunnerSharedWith reports whether another organization's runner may be
-// used by an organization, mirroring listMobileRunnerRecords: only published
-// runners are shared, and unpublished organizations only get admin-managed ones.
-func mobileRunnerSharedWith(runner *core.Record, orgPublished bool) bool {
-	return runner.GetBool("published") && (orgPublished || runner.GetBool("admin_managed"))
-}
-
-// organizationPublishedLoader returns a function that reads the organization's
-// published flag on first use and reuses it afterwards.
-func organizationPublishedLoader(app core.App, orgID string) func() (bool, error) {
-	loaded := false
-	published := false
-	return func() (bool, error) {
-		if loaded {
-			return published, nil
-		}
-		org, err := app.FindRecordById("organizations", orgID)
-		if err != nil {
-			return false, err
-		}
-		loaded = true
-		published = org.GetBool("published")
-		return published, nil
-	}
-}
-
 func validatePipelineRunnerAccess(
 	app core.App,
 	ownerID string,
 	deviceIDs []string,
 ) *apierror.APIError {
-	ownerPublished := organizationPublishedLoader(app, ownerID)
-	for _, deviceID := range normalizeDeviceIDs(deviceIDs) {
-		record, err := canonify.Resolve(app, deviceID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return apierror.New(
-					http.StatusNotFound,
-					"device_id",
-					"runner not found",
-					"mobile runner "+deviceID+" was not found",
-				)
-			}
-			return apierror.New(
-				http.StatusInternalServerError,
-				"device_id",
-				"failed to resolve device_id",
-				err.Error(),
-			)
-		}
-		if record.Collection() == nil || record.Collection().Name != mobileDevicesCollection {
-			return apierror.New(
-				http.StatusNotFound,
-				"device_id",
-				"device not found",
-				"mobile device "+deviceID+" was not found",
-			)
-		}
-		runner, runnerErr := app.FindRecordById("mobile_runners", record.GetString("runner"))
-		if runnerErr != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"device_id",
-				"device runner not found",
-				runnerErr.Error(),
-			)
-		}
-		if record.GetString("owner") == ownerID {
-			continue
-		}
-		orgPublished, orgErr := ownerPublished()
-		if orgErr != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"failed to load organization",
-				orgErr.Error(),
-			)
-		}
-		if mobileRunnerSharedWith(runner, orgPublished) {
-			continue
-		}
+	err := mobilerunner.ValidateDeviceAccess(app, ownerID, deviceIDs)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, mobilerunner.ErrDeviceNotFound):
+		return apierror.New(http.StatusNotFound, "device_id", "device not found", err.Error())
+	case errors.Is(err, mobilerunner.ErrDeviceRunnerNotFound):
+		return apierror.New(
+			http.StatusNotFound,
+			"device_id",
+			"device runner not found",
+			err.Error(),
+		)
+	case errors.Is(err, mobilerunner.ErrDeviceNotAccessible):
 		return apierror.New(
 			http.StatusForbidden,
 			"device_id",
 			"device_id is not accessible",
-			"mobile device "+deviceID+" is private and does not belong to the caller organization",
+			err.Error(),
+		)
+	default:
+		return apierror.New(
+			http.StatusInternalServerError,
+			"device_id",
+			"failed to validate device access",
+			err.Error(),
 		)
 	}
-	return nil
 }
 
 func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apierror.APIError) {
@@ -793,7 +713,7 @@ func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apie
 		)
 	}
 
-	deviceIDs := normalizeDeviceIDs(parseDeviceIDs(e.Request))
+	deviceIDs := mobilerunner.NormalizeDeviceIDs(parseDeviceIDs(e.Request))
 	if len(deviceIDs) == 0 {
 		return nil, apierror.New(
 			http.StatusBadRequest,
@@ -927,25 +847,6 @@ func parseDeviceIDs(req *http.Request) []string {
 		values = req.URL.Query()["device_ids"]
 	}
 	return values
-}
-
-func normalizeDeviceIDs(values []string) []string {
-	unique := map[string]struct{}{}
-	for _, value := range values {
-		for _, part := range strings.Split(value, ",") {
-			candidate := canonify.NormalizePath(part)
-			if candidate == "" {
-				continue
-			}
-			unique[candidate] = struct{}{}
-		}
-	}
-	out := make([]string, 0, len(unique))
-	for candidate := range unique {
-		out = append(out, candidate)
-	}
-	sort.Strings(out)
-	return out
 }
 
 func runnerStatusFromView(
@@ -1187,7 +1088,7 @@ func enqueueRunTicketTemporal(
 ) (workflows.MobileDeviceSemaphoreEnqueueRunResponse, error) {
 	deviceID = canonify.NormalizePath(deviceID)
 	req.DeviceID = canonify.NormalizePath(req.DeviceID)
-	req.RequiredDeviceIDs = normalizeDeviceIDs(req.RequiredDeviceIDs)
+	req.RequiredDeviceIDs = mobilerunner.NormalizeDeviceIDs(req.RequiredDeviceIDs)
 	req.LeaderDeviceID = canonify.NormalizePath(req.LeaderDeviceID)
 
 	client, err := queueTemporalClient(

@@ -15,7 +15,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -92,8 +91,7 @@ type fetchAndInstallAPKInput struct {
 	deviceMap     map[string]any
 	deviceType    mobileDeviceType
 	activities    platformActivities
-	appURL        string
-	runnerURL     string
+	runnerID      string
 	serial        string
 	skipInstaller bool
 }
@@ -104,7 +102,6 @@ type getOrCreateDeviceMapInput struct {
 	ao            *workflow.ActivityOptions
 	payload       *workflows.MobileAutomationWorkflowPipelinePayload
 	settedDevices map[string]any
-	appURL        string
 	stepID        string
 }
 
@@ -114,14 +111,12 @@ type setupNewDeviceInput struct {
 	ao        *workflow.ActivityOptions
 	payload   *workflows.MobileAutomationWorkflowPipelinePayload
 	deviceMap map[string]any
-	appURL    string
 	stepID    string
 }
 
 type fetchRunnerInfoInput struct {
 	ctx     workflow.Context
 	payload *workflows.MobileAutomationWorkflowPipelinePayload
-	appURL  string
 	stepID  string
 }
 
@@ -173,7 +168,6 @@ type cleanupDeviceInput struct {
 	raw           any
 	mobileAo      *workflow.ActivityOptions
 	runIdentifier string
-	appURL        string
 	output        *map[string]any
 	cleanupErrs   *[]error
 	logger        log.Logger
@@ -187,19 +181,17 @@ type cleanupRecordingInput struct {
 	runID       string
 	output      *map[string]any
 	cleanupErrs *[]error
-	appURL      string
 }
 
 type storeRecordingResultsInput struct {
 	ctx        workflow.Context
-	runnerURL  string
+	runnerID   string
 	videoPath  string
 	lastFrame  string
 	logPath    string
 	deviceType mobileDeviceType
 	runID      string
 	deviceID   string
-	appURL     string
 	output     *map[string]any
 	logger     log.Logger
 }
@@ -304,10 +296,6 @@ func resolveStoredMobileActions(
 	steps *[]pipeline.StepDefinition,
 	config map[string]any,
 ) error {
-	appURL, _ := config["app_url"].(string)
-	if appURL == "" {
-		return nil
-	}
 	ownerNamespace, _ := config["namespace"].(string)
 
 	return walkMutableStepSpecs(*steps, func(step *pipeline.StepSpec) error {
@@ -321,12 +309,7 @@ func resolveStoredMobileActions(
 			return nil
 		}
 
-		action, err := fetchMobileAction(
-			ctx,
-			workflowengine.InternalAppURLFromConfig(config),
-			ownerNamespace,
-			actionID,
-		)
+		action, err := fetchMobileAction(ctx, ownerNamespace, actionID)
 		if err != nil {
 			return err
 		}
@@ -365,28 +348,21 @@ func resolveStoredMobileActions(
 // organization can read.
 func fetchMobileAction(
 	ctx workflow.Context,
-	appURL, ownerNamespace, actionID string,
+	ownerNamespace, actionID string,
 ) (map[string]any, error) {
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	var result workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method:         http.MethodPost,
-			URL:            utils.JoinURL(appURL, "api", "canonify", "internal", "resolve"),
-			ExpectedStatus: http.StatusOK,
-			Body: map[string]any{
-				"canonified_name": actionID,
-				"collection":      "wallet_actions",
-				"owner_namespace": ownerNamespace,
-			},
+	if err := workflow.ExecuteActivity(ctx, activities.ResolveRecordActivityName, workflowengine.ActivityInput{
+		Payload: activities.ResolveRecordInput{
+			CanonifiedName: actionID,
+			Collection:     "wallet_actions",
+			OwnerNamespace: ownerNamespace,
 		},
 	}).
 		Get(ctx, &result); err != nil {
 		return nil, err
 	}
 
-	body := workflowengine.AsMap(workflowengine.AsMap(result.Output)["body"])
-	return workflowengine.AsMap(body["record"]), nil
+	return workflowengine.AsMap(result.Output), nil
 }
 
 func getOrCreateSettedDevices(runData *map[string]any) map[string]any {
@@ -465,25 +441,12 @@ func processStep(
 
 	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.ao)
 
-	appURL, ok := input.config["app_url"].(string)
-	if !ok {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-		return workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("missing or invalid app_url for step %s", input.step.ID),
-			},
-		)
-	}
-
 	deviceMap, err := getOrCreateDeviceMap(getOrCreateDeviceMapInput{
 		ctx:           input.ctx,
 		mobileCtx:     mobileCtx,
 		ao:            input.ao,
 		payload:       payload,
 		settedDevices: input.settedDevices,
-		appURL:        workflowengine.InternalAppURLFromConfig(input.config),
 		stepID:        input.step.ID,
 	})
 	if err != nil {
@@ -530,22 +493,8 @@ func processStep(
 		SetPayloadValue(&input.step.With.Payload, "type", deviceType.String())
 	}
 
-	runnerURL, ok := deviceMap["runner_url"].(string)
-	if !ok || runnerURL == "" {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		return workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("missing or invalid runner_url for step %s", input.step.ID),
-				Details: map[string]any{"payload": deviceMap},
-			},
-		)
-	}
-	if err := validateRunnerURL(runnerURL, input.step.ID, deviceMap); err != nil {
-		return err
-	}
-	SetConfigValue(&input.step.With.Config, "runner_url", runnerURL)
+	runnerID := canonify.NormalizePath(hostRunnerID)
+	SetConfigValue(&input.step.With.Config, "runner_id", runnerID)
 	SetConfigValue(&input.step.With.Config, workflowengine.StepIDConfigKey, input.step.ID)
 	SetConfigValue(
 		&input.step.With.Config,
@@ -574,8 +523,7 @@ func processStep(
 		deviceMap:     deviceMap,
 		deviceType:    deviceType,
 		activities:    deviceActivities,
-		appURL:        appURL,
-		runnerURL:     runnerURL,
+		runnerID:      runnerID,
 		serial:        serial,
 		skipInstaller: payload.VersionID == mobileExternalSourceVersionID,
 	}); err != nil {
@@ -739,7 +687,6 @@ func getOrCreateDeviceMap(
 		ao:        input.ao,
 		payload:   input.payload,
 		deviceMap: deviceMap,
-		appURL:    input.appURL,
 		stepID:    input.stepID,
 	}); err != nil {
 		return nil, err
@@ -751,10 +698,9 @@ func getOrCreateDeviceMap(
 func setupNewDevice(
 	input setupNewDeviceInput,
 ) error {
-	runnerID, runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
+	runnerID, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
 		ctx:     input.ctx,
 		payload: input.payload,
-		appURL:  input.appURL,
 		stepID:  input.stepID,
 	})
 	if err != nil {
@@ -789,7 +735,6 @@ func setupNewDevice(
 
 	input.deviceMap["type"] = deviceType.String()
 	input.deviceMap["runner_id"] = runnerID
-	input.deviceMap["runner_url"] = runnerURL
 	input.deviceMap["serial"] = serial
 
 	var initialInstalledApps []string
@@ -817,103 +762,78 @@ func setupNewDevice(
 
 func fetchRunnerInfo(
 	input fetchRunnerInfoInput,
-) (string, string, mobileDeviceType, string, error) {
+) (string, mobileDeviceType, string, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
 	runnerReq := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method:         http.MethodGet,
-			URL:            utils.JoinURL(input.appURL, "api", "mobile-device"),
-			ExpectedStatus: 200,
-			QueryParams: map[string]string{
-				"device_identifier": input.payload.DeviceID,
-			},
+		Payload: activities.GetMobileDeviceInput{
+			DeviceIdentifier: input.payload.DeviceID,
 		},
 	}
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
 
 	var runnerRes workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(input.ctx, internalHTTPActivity.Name(), runnerReq).
+	if err := workflow.ExecuteActivity(input.ctx, activities.GetMobileDeviceActivityName, runnerReq).
 		Get(input.ctx, &runnerRes); err != nil {
-		return "", "", "", "", err
+		return "", "", "", err
 	}
 
-	body, ok := runnerRes.Output.(map[string]any)["body"].(map[string]any)
-	if !ok {
-		return "", "", "", "", workflowengine.NewAppError(
+	device, err := workflowengine.DecodePayload[activities.MobileDeviceInfo](runnerRes.Output)
+	if err != nil {
+		return "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: fmt.Sprintf("invalid HTTP response format for step %s", input.stepID),
+				Message: fmt.Sprintf(
+					"invalid mobile device output for step %s: %v",
+					input.stepID,
+					err,
+				),
 				Details: map[string]any{"payload": runnerRes.Output},
 			},
 		)
 	}
 
-	runnerURL, ok := body["runner_url"].(string)
-	if !ok || runnerURL == "" {
-		return "", "", "", "", workflowengine.NewAppError(
+	// The address is only checked here, so a misconfigured runner fails the
+	// step before any device work; runner calls resolve it from the record.
+	if device.RunnerURL == "" {
+		return "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
 				Message: fmt.Sprintf("missing or invalid runner_url for step %s", input.stepID),
-				Details: map[string]any{"payload": body},
+				Details: map[string]any{"payload": device},
 			},
 		)
 	}
-	if err := validateRunnerURL(runnerURL, input.stepID, body); err != nil {
-		return "", "", "", "", err
+	if err := validateRunnerURL(device.RunnerURL, input.stepID, device); err != nil {
+		return "", "", "", err
 	}
 
-	rawDeviceType, ok := body["type"].(string)
-	if !ok {
-		return "", "", "", "", workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
-				Details: map[string]any{"payload": body},
-			},
-		)
-	}
-	deviceType := normalizeDeviceType(rawDeviceType)
+	deviceType := normalizeDeviceType(device.Type)
 	if deviceType == "" {
-		return "", "", "", "", workflowengine.NewAppError(
+		return "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
 				Message: fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
-				Details: map[string]any{"payload": body},
+				Details: map[string]any{"payload": device},
 			},
 		)
 	}
 
-	serial, ok := body["serial"].(string)
-	if !ok {
-		return "", "", "", "", workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("invalid device serial for step %s", input.stepID),
-				Details: map[string]any{"payload": body},
-			},
-		)
-	}
-
-	runnerID, ok := body["runner_id"].(string)
-	runnerID = canonify.NormalizePath(runnerID)
-	if !ok || runnerID == "" {
-		return "", "", "", "", workflowengine.NewAppError(
+	runnerID := canonify.NormalizePath(device.RunnerID)
+	if runnerID == "" {
+		return "", "", "", workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
 				Message: fmt.Sprintf("missing or invalid host runner_id for step %s", input.stepID),
-				Details: map[string]any{"payload": body},
+				Details: map[string]any{"payload": device},
 			},
 		)
 	}
 
-	return runnerID, runnerURL, deviceType, serial, nil
+	return runnerID, deviceType, device.Serial, nil
 }
 
 func validateRunnerURL(runnerURL string, stepID string, details any) error {
@@ -1098,12 +1018,9 @@ func fetchAndInstallAPK(
 
 	req := workflowengine.ActivityInput{
 		Payload: activities.MobileRunnerHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				input.runnerURL,
-				"credimi",
-				"installer-action",
-			),
+			Method:   http.MethodPost,
+			RunnerID: input.runnerID,
+			Path:     "/credimi/installer-action",
 			Headers: map[string]string{
 				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},
@@ -1114,7 +1031,7 @@ func fetchAndInstallAPK(
 	}
 
 	var res workflowengine.ActivityResult
-	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity()
+	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	if err := workflow.ExecuteActivity(input.ctx, runnerHTTPActivity.Name(), req).
 		Get(input.ctx, &res); err != nil {
 		return err
@@ -1528,17 +1445,6 @@ func MobileAutomationCleanupHook(
 	logger := workflow.GetLogger(ctx)
 	mobileAo := *ao
 
-	appURL, ok := config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
-				Message: "missing or invalid app_url in workflow input config",
-			},
-		)
-	}
-
 	var cleanupErrs []error
 
 	devices, _ := runData["setted_devices"].(map[string]any)
@@ -1574,7 +1480,6 @@ func MobileAutomationCleanupHook(
 			raw:           raw,
 			mobileAo:      &mobileAo,
 			runIdentifier: runIdentifier,
-			appURL:        appURL,
 			output:        output,
 			cleanupErrs:   &cleanupErrs,
 			logger:        logger,
@@ -1693,7 +1598,6 @@ func cleanupDevice(
 		runID:       input.runIdentifier,
 		output:      input.output,
 		cleanupErrs: input.cleanupErrs,
-		appURL:      input.appURL,
 	})
 
 	cleanupPayload := map[string]any{
@@ -1921,15 +1825,15 @@ func cleanupRecording(
 ) {
 	logger := workflow.GetLogger(input.ctx)
 
-	runner_url, ok := input.deviceInfo["runner_url"].(string)
-	if !ok || runner_url == "" {
+	runnerID, ok := input.deviceInfo["runner_id"].(string)
+	if !ok || canonify.NormalizePath(runnerID) == "" {
 		*input.cleanupErrs = append(
 			*input.cleanupErrs,
 			workflowengine.NewAppError(
 				workflowengine.WorkflowError{
 					Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
 					Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
-					Message: "missing runner_url for device " + input.deviceID,
+					Message: "missing runner_id for device " + input.deviceID,
 				},
 			),
 		)
@@ -1958,14 +1862,13 @@ func cleanupRecording(
 
 	if err := storeRecordingResults(storeRecordingResultsInput{
 		ctx:        input.ctx,
-		runnerURL:  runner_url,
+		runnerID:   canonify.NormalizePath(runnerID),
 		videoPath:  recordingInfo.videoPath,
 		lastFrame:  lastFramePath,
 		logPath:    recordingInfo.logPath,
 		deviceType: recordingInfo.deviceType,
 		runID:      input.runID,
 		deviceID:   input.deviceID,
-		appURL:     input.appURL,
 		output:     input.output,
 		logger:     logger,
 	}); err != nil {
@@ -2152,7 +2055,7 @@ func heartbeatAwareCleanupContext(ctx workflow.Context) workflow.Context {
 func storeRecordingResults(
 	input storeRecordingResultsInput,
 ) error {
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	var storeResult workflowengine.ActivityResult
 	body := map[string]any{
 		"video_path":        input.videoPath,
@@ -2170,12 +2073,9 @@ func storeRecordingResults(
 		httpActivity.Name(),
 		workflowengine.ActivityInput{
 			Payload: activities.MobileRunnerHTTPActivityPayload{
-				Method: http.MethodPost,
-				URL: utils.JoinURL(
-					input.runnerURL,
-					"credimi",
-					"pipeline-result",
-				),
+				Method:   http.MethodPost,
+				RunnerID: input.runnerID,
+				Path:     "/credimi/pipeline-result",
 				Headers: map[string]string{
 					workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 				},

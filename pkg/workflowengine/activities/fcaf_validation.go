@@ -16,7 +16,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
@@ -26,14 +25,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipelinehistory"
+	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/sdk/activity"
 )
 
 const (
 	FCAFValidationActivityName       = "Run FCAF validation"
 	DefaultFCAFValidationCatalogRoot = "config_templates/fcaf/wallet_solution/relying_party"
-
-	fcafReportStoreTimeout = 5 * time.Minute
 )
 
 type FCAFValidationActivityInput struct {
@@ -74,13 +72,18 @@ type FCAFEvidenceReference struct {
 
 type FCAFValidationActivity struct {
 	workflowengine.BaseActivity
+	app           core.App
 	catalogLoader func(root string) (*catalog.Catalog, error)
 	outputKind    pipelinehistory.OutputKindFunc
 }
 
-func NewFCAFValidationActivity(outputKind pipelinehistory.OutputKindFunc) *FCAFValidationActivity {
+func NewFCAFValidationActivity(
+	app core.App,
+	outputKind pipelinehistory.OutputKindFunc,
+) *FCAFValidationActivity {
 	return &FCAFValidationActivity{
 		BaseActivity:  workflowengine.BaseActivity{Name: FCAFValidationActivityName},
+		app:           app,
 		catalogLoader: catalog.Load,
 		outputKind:    outputKind,
 	}
@@ -112,19 +115,6 @@ func (a *FCAFValidationActivity) Execute(
 			fmt.Errorf("pipeline_outputs is required"),
 		)
 	}
-	baseURL := strings.TrimSpace(input.Config[workflowengine.InternalAppURLConfigKey])
-	if baseURL == "" {
-		baseURL = strings.TrimSpace(input.Config[workflowengine.AppURLConfigKey])
-	}
-	if baseURL == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-		return workflowengine.ActivityResult{}, a.NewActivityError(workflowengine.ActivityError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: "app_url or internal_app_url is required to store the FCAF report",
-		})
-	}
-
 	leaves := collectFCAFEvidenceLeaves(payload.Pipeline)
 	dataCtx := map[string]any{}
 	eventIDs := map[string]int64{}
@@ -199,14 +189,9 @@ func (a *FCAFValidationActivity) Execute(
 	report.PopulateDerivedViews()
 	full := report.PublicReport()
 
-	reportSHA256, err := storeFCAFReport(ctx, baseURL, input.Config, full)
+	reportSHA256, err := a.storeReport(ctx, input.Config, full)
 	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return workflowengine.ActivityResult{}, a.NewActivityError(workflowengine.ActivityError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: fmt.Sprintf("store FCAF report: %v", err),
-		})
+		return workflowengine.ActivityResult{}, fcafReportStoreError(&a.BaseActivity, err)
 	}
 
 	return workflowengine.ActivityResult{
@@ -233,18 +218,17 @@ func (a *FCAFValidationActivity) loadRun(ctx context.Context) (*pipelinehistory.
 	)
 }
 
-// storeFCAFReport stores the full report on the top-level run's pipeline result and returns
+// storeReport stores the full report on the top-level run's pipeline result and returns
 // the sha256 of the stored file. A child pipeline stores it on its root run, which owns the
 // pipeline_results row.
-func storeFCAFReport(
+func (a *FCAFValidationActivity) storeReport(
 	ctx context.Context,
-	baseURL string,
 	config map[string]string,
 	report engine.Report,
 ) (string, error) {
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("encode report: %w", err)
+		return "", fmt.Errorf("%w: %w", errFCAFReportEncode, err)
 	}
 	workflowID := config[workflowengine.TelemetryRootWorkflowIDKey]
 	runID := config[workflowengine.TelemetryRootRunIDKey]
@@ -253,23 +237,7 @@ func storeFCAFReport(
 		workflowID = info.WorkflowExecution.ID
 		runID = info.WorkflowExecution.RunID
 	}
-	respBody, err := postInternalJSON(
-		ctx,
-		baseURL,
-		[]string{"api", "pipeline", "pipeline-execution-results", "fcaf-report"},
-		map[string]string{"workflow_id": workflowID, "run_id": runID, "json": string(data)},
-		fcafReportStoreTimeout,
-	)
-	if err != nil {
-		return "", err
-	}
-	var stored struct {
-		SHA string `json:"fcaf_report_sha256"`
-	}
-	if err := json.Unmarshal(respBody, &stored); err != nil {
-		return "", fmt.Errorf("decode response: %w", err)
-	}
-	return stored.SHA, nil
+	return storeFCAFReport(ctx, a.app, workflowID, runID, data)
 }
 
 // compactFCAFReport returns report with every evidence value removed.

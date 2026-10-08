@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/dbx"
@@ -576,6 +577,9 @@ type UpsertMobileRunnerResponse struct {
 	Serial         string `json:"serial,omitempty"`
 	Published      bool   `json:"published"`
 	AdminManaged   bool   `json:"admin_managed"`
+	// RunnerCredential is the key Credimi presents to this runner from now
+	// on; every upsert rotates it.
+	RunnerCredential string `json:"runner_credential"`
 }
 
 func HandlePreviewMobileRunnerID() func(*core.RequestEvent) error {
@@ -657,6 +661,22 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			)
 		}
 
+		// An admin-managed runner is operator infrastructure: it serves every
+		// namespace and is exempt from the tenant destination policy, so a
+		// non-superuser may not change its address while it stays
+		// admin-managed. A runner re-registering with a user key alone is
+		// still allowed: below, that turns it into a tenant runner, which the
+		// tenant policy and a tenant credential then cover.
+		if record != nil && record.GetBool("admin_managed") &&
+			!isSuperuserAuth(e.Auth) && !authenticatedByAPIKeyOnly(e) {
+			return apierror.New(
+				http.StatusForbidden,
+				"mobile_runner",
+				"admin_managed_runner",
+				"only superusers can update an admin-managed runner",
+			)
+		}
+
 		if record == nil {
 			collection, err := e.App.FindCollectionByNameOrId("mobile_runners")
 			if err != nil {
@@ -668,6 +688,8 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 				)
 			}
 			record = core.NewRecord(collection)
+			// The credential derives from the id, and is issued before saving.
+			record.Id = core.GenerateDefaultRandomId()
 			record.Set("owner", owner.Id)
 		}
 		// The runner's key decides its kind: the internal admin key registers
@@ -687,6 +709,11 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		if input.Published != nil {
 			record.Set("published", *input.Published)
 		}
+		record.Set("credential_generation", record.GetInt("credential_generation")+1)
+		credential, apiErr := mobileRunnerCredential(e.Auth, record)
+		if apiErr != nil {
+			return apiErr
+		}
 
 		if err := e.App.Save(record); err != nil {
 			return apierror.New(
@@ -697,7 +724,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			)
 		}
 
-		runnerID, err := mobileRunnerIdentifier(e.App, record)
+		runnerID, err := mobilerunner.RunnerIdentifier(e.App, record)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -708,18 +735,19 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, UpsertMobileRunnerResponse{
-			ID:             record.Id,
-			Organization:   owner.GetString("canonified_name"),
-			Name:           record.GetString("name"),
-			CanonifiedName: record.GetString("canonified_name"),
-			RunnerID:       runnerID,
-			IP:             record.GetString("ip"),
-			Description:    record.GetString("description"),
-			Type:           record.GetString("type"),
-			Port:           record.GetString("port"),
-			Serial:         record.GetString("serial"),
-			Published:      record.GetBool("published"),
-			AdminManaged:   record.GetBool("admin_managed"),
+			ID:               record.Id,
+			Organization:     owner.GetString("canonified_name"),
+			Name:             record.GetString("name"),
+			CanonifiedName:   record.GetString("canonified_name"),
+			RunnerID:         runnerID,
+			IP:               record.GetString("ip"),
+			Description:      record.GetString("description"),
+			Type:             record.GetString("type"),
+			Port:             record.GetString("port"),
+			Serial:           record.GetString("serial"),
+			Published:        record.GetBool("published"),
+			AdminManaged:     record.GetBool("admin_managed"),
+			RunnerCredential: credential,
 		})
 	}
 }
@@ -749,11 +777,7 @@ func resolveMobileRunnerOwner(
 			)
 		}
 
-		record, err := app.FindFirstRecordByFilter(
-			"organizations",
-			"canonified_name={:canonified_name}",
-			dbx.Params{"canonified_name": orgCanon},
-		)
+		record, err := pbutils.FindOrganizationByNamespace(app, orgCanon)
 		if err != nil {
 			status := http.StatusInternalServerError
 			reason := "failed_to_find_organization"
@@ -858,16 +882,14 @@ func previewMobileRunnerIdentifier(
 		canonify.MakeExistsFunc(app, "mobile_runners", record, ""),
 	)
 	if err != nil {
-		return PreviewMobileRunnerIDResponse{}, apierror.New(
-			http.StatusInternalServerError,
-			"name",
+		return PreviewMobileRunnerIDResponse{}, canonifyPreviewError(
 			"failed_to_canonify_runner_name",
-			err.Error(),
+			err,
 		)
 	}
 
 	record.Set("canonified_name", canonifiedName)
-	runnerID, err := mobileRunnerIdentifier(app, record)
+	runnerID, err := mobilerunner.RunnerIdentifier(app, record)
 	if err != nil {
 		return PreviewMobileRunnerIDResponse{}, apierror.New(
 			http.StatusInternalServerError,
@@ -936,6 +958,17 @@ func resolveExistingMobileRunner(
 	return record, nil
 }
 
+// canonifyPreviewError maps a name canonification failure of an identifier
+// preview: running out of unique name suffixes is a 409 conflict, any other
+// failure (such as a database error) a 500.
+func canonifyPreviewError(reason string, err error) *apierror.APIError {
+	status := http.StatusInternalServerError
+	if errors.Is(err, canonify.ErrExhaustedAttempts) {
+		status = http.StatusConflict
+	}
+	return apierror.New(status, "name", reason, err.Error())
+}
+
 func previewMobileDeviceIdentifier(
 	app core.App,
 	runner *core.Record,
@@ -958,11 +991,9 @@ func previewMobileDeviceIdentifier(
 		canonify.MakeExistsFunc(app, mobileDevicesCollection, record, ""),
 	)
 	if err != nil {
-		return PreviewMobileDeviceIDResponse{}, apierror.New(
-			http.StatusConflict,
-			"name",
+		return PreviewMobileDeviceIDResponse{}, canonifyPreviewError(
 			"failed_to_canonify_device_name",
-			err.Error(),
+			err,
 		)
 	}
 	record.Set("canonified_name", canonifiedName)
@@ -975,7 +1006,7 @@ func previewMobileDeviceIdentifier(
 			err.Error(),
 		)
 	}
-	runnerID, _ := mobileRunnerIdentifier(app, runner)
+	runnerID, _ := mobilerunner.RunnerIdentifier(app, runner)
 	baseCanonifiedName := canonify.CanonifyPlain(strings.TrimSpace(name))
 	baseDeviceID := canonify.NormalizePath(runnerID + "/" + baseCanonifiedName)
 	response := PreviewMobileDeviceIDResponse{

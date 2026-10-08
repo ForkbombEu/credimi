@@ -36,7 +36,7 @@ Canonical `<org>/<runner>/<device>`: `mobile_runners` path length 2 under `organ
 
 ## Credimi → runner HTTP contract
 
-All of it goes through the `mobile-runner-http-request` activity (it injects the internal admin credential and resolves `*.trycloudflare.com` via Cloudflare DNS):
+All of it goes through the `mobile-runner-http-request` activity, except the `/health` probes and live view, which use the same `mobilerunner.HTTPClient(record)`. The activity takes `runner_id` + `path` (never a URL), builds the address from the runner record's `ip`/`port`, sends the runner's own credential as `Credimi-Api-Key` (`mobilerunner.Credential`; never the internal admin key), and resolves `*.trycloudflare.com` via Cloudflare DNS. Tenant runners are reached only over https at public addresses, checked at dial time; admin-managed runners are exempt.
 
 | Method | Path                                         | Body                                                                                    | Notes                                                                                                                |
 | ------ | -------------------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -47,9 +47,7 @@ All of it goes through the `mobile-runner-http-request` activity (it injects the
 | POST   | `{runner_url}/credimi/live-view`             | `{device_identifier, serial, namespace, workflow_id, run_id}`                           | **called directly**, not via the activity; header `Credimi-Api-Key`; expected `{path: "/live/<token>"}`, 15s timeout |
 | POST   | `{runner_url}/worker/{namespace}`            | `{old_namespace}`                                                                       | worker-manager start; expected **202** (idempotent — "already running" is fine)                                      |
 
-Runner URLs for the worker manager come from `GET /api/mobile-runner/list-urls`, which only returns runners eligible for worker start. Device/emulator activities (`ListInstalledApps`, `StartRecording`, `StopRecording`) live in the closed `credimi-extra` module, so their concrete runner paths are not visible here.
-
-**Doc drift:** `AGENTS.md` documents `POST {runner_url}/store-pipeline-result`; the code calls `/credimi/pipeline-result`.
+The worker manager receives runner identifiers (`runner_ids`) in its workflow payload: the starters compute them in-process (`pkg/workflowengine/hooks/worker_manager_runners.go`), keeping only runners eligible for worker start and skipping (with a log line) runners whose identifier cannot be built. Device/emulator activities (`ListInstalledApps`, `StartRecording`, `StopRecording`) live in the closed `credimi-extra` module, so their concrete runner paths are not visible here.
 
 ## Live view
 
@@ -57,17 +55,17 @@ Runner URLs for the worker manager come from `GET /api/mobile-runner/list-urls`,
 
 - Only for a **running** dynamic-pipeline execution, and only after the mobile setup has populated its device map, else a not-ready error; `ios_simulator` is rejected with `422 live view is not supported for ios_simulator devices`.
 - Response `{streams: [{device_id, device_name, url}]}` where `url` is `{runner_url}/live/<token>`.
-- Error mapping: transport failure → `503 device runner is offline`; runner `503` → `503 live view is unavailable on the device runner`; runner `400` → `422 runner refused live view`; runner `401`/`403` → `502` with "Check that both use the same internal admin key."; other non-2xx → `502` forwarding the runner's `message`; a missing or malformed `/live/` path → `502 invalid live view address`.
-- Requires `CREDIMI_INTERNAL_ADMIN_KEY` on both sides.
+- Error mapping: transport failure → `503 device runner is offline`; runner `503` → `503 live view is unavailable on the device runner`; runner `400` → `422 runner refused live view`; runner `401`/`403` → `502 runner refused live view` (runner credential mismatch: the runner must re-register with this Credimi instance); other non-2xx → `502` forwarding the runner's `message`; a missing or malformed `/live/` path → `502 invalid live view address`.
+- Credimi authenticates to the runner with the runner's own credential (`mobilerunner.Credential`, derived from `CREDIMI_RUNNER_CREDENTIAL_SECRET`), never with an internal admin key.
 
 ## Auth
 
-- The API-key header is **`Credimi-Api-Key`** (not `X-Api-Key`, which several docs still say).
+- The API-key header is **`Credimi-Api-Key`**.
 - Keys are bcrypt hashes in the `api_keys` collection with `key_type` = `user` or `internal_admin`, plus `revoked` / `expires_at`.
 - Generate: `POST /api/apikey/generate` `{name}` (logged-in users on the `users` or `_superusers` collection); the key is shown once. UI: `/my/profile/api-keys`.
 - Authenticate: `GET /api/apikey/authenticate` (user key → PocketBase auth token); `GET /api/apikey/authenticate-internal-admin` (internal key).
 - Middlewares: `RequireAuthOrAPIKey` (Bearer token **or** user API key — applied to every route group with `AuthenticationRequired: true`), `RequireInternalAdminAPIKey` (internal-admin scope), `RequireInternalAdminOrAuth` (internal key first, else user auth), `OptionalAuthOrAPIKey` (never blocks).
-- `CREDIMI_INTERNAL_ADMIN_KEY` is the runtime internal credential sent to runners as `Credimi-Api-Key`.
+- The internal admin key is an `internal_admin` record in `api_keys`; the Credimi server reads no env var for it. Admin-managed runners and operators hold its plaintext (conventionally `CREDIMI_INTERNAL_ADMIN_KEY`) to call Credimi. Credimi never sends it to runners: every Credimi→runner call carries the per-runner credential.
 - A user-scoped key hitting an internal-admin route gets `403 insufficient_api_key_scope`.
 
 ## Endpoint catalog
@@ -78,33 +76,33 @@ Runner URLs for the worker manager come from `GET /api/mobile-runner/list-urls`,
 
 **API keys.** `POST /api/apikey/generate` (needs `e.Auth`), `GET /api/apikey/authenticate` (reads the key header), `GET /api/apikey/authenticate-internal-admin` (I).
 
-**Canonify.** `POST /api/canonify/identifier/validate`, `GET /api/canonify/identifier/get` (P; return only records the caller's view rules allow, 404 otherwise, with enrich-based field hiding such as credential `secrets`). `POST /api/canonify/internal/resolve` (I; body `{canonified_name, collection, owner_namespace}`, `collection` one of `pipelines`/`custom_checks`/`wallet_actions`; returns a published record of any org or an unpublished record of the owner org — Temporal workers use it because responses land in the org-readable run history).
+**Canonify.** `POST /api/canonify/identifier/validate`, `GET /api/canonify/identifier/get` (P; return only records the caller's view rules allow, 404 otherwise, with enrich-based field hiding such as credential `secrets`). Temporal workers do not call Credimi over HTTP: they use typed activities with direct database access (`activities.CredimiActivities(app)` in `pkg/workflowengine/activities/credimi_activities.go`). `Resolve a Credimi record` (`credimi_records.go`; `{canonified_name, collection, owner_namespace}`, `collection` one of `pipelines`/`custom_checks`/`wallet_actions`) returns a published record of any org or an unpublished record of the owner org — scoped because outputs land in the org-readable run history.
 
 **Templates / organizations.** `POST /api/clone-record` (P), `POST /api/template/placeholders` (U), `GET /api/organizations/my`, `GET /api/organizations/visible-namespaces` (U), `GET /api/organizations/namespaces` (I).
 
 **Catalog.** `POST /api/conformance-catalog/rebuild` (I); `GET /api/collections/conformance_checks/records[/{id}]` and `GET /api/collections/conformance_suites/records[/{id}]` (P, writes rejected).
 
-**Conformance runs.** `GET /api/conformance-check/deeplink` (P); `POST /api/compliance/{protocol}/{version}/save-variables-and-start`, `POST /api/compliance/send-temporal-signal`, `POST /api/compliance/send-{openidnet,eudiw,ewc}-log-update`, `GET /api/compliance/deeplink/{workflowId}/{runId}` (U).
+**Conformance runs.** `GET /api/conformance-check/deeplink` (P); `POST /api/compliance/{protocol}/{version}/save-variables-and-start`, `POST /api/compliance/send-temporal-signal`, `GET /api/compliance/deeplink/{workflowId}/{runId}` (U). Live logs are pushed by the `Send realtime logs` activity.
 
 **Deeplinks.** `POST /api/get-deeplink`, `GET /api/credential/deeplink`, `GET /api/verification/deeplink` (P).
 
-**Issuers / credentials.** `POST /api/credentials_issuers/start-check`, `POST /api/credentials_issuers/import-fides` (U); `POST /api/credentials_issuers/store-or-update`, `…/store-or-update-extracted-credentials` (I); `GET /api/credential/get-credential-offer`, `DELETE /api/credential/temp/{record}` (I).
+**Issuers / credentials.** `POST /api/credentials_issuers/start-check`, `POST /api/credentials_issuers/import-fides` (U). Workers use the activities `Store a credential issuer`, `Store an issuer credential` (`credential_issuer_store.go`), `Get a credential offer` (`credimi_records.go`) and `Delete a temporary record` (`temp_records.go`).
 
-**Verifiers.** `GET /api/verifier/get-use-case-verification-deeplink`, `DELETE /api/verifier/temp-use-case/{record}` (I).
+**Verifiers.** No verifier routes; workers use the activities `Get a use case verification deeplink` (`credimi_records.go`) and `Delete a temporary record` (`temp_records.go`).
 
-**Wallets.** `POST /api/wallet/start-check` (U); `POST /api/wallet/get-installer-md5-or-etag` (I); `POST /api/wallet/store-pipeline-result` (internal-or-auth); `DELETE /api/wallet/temp-version/{record}` (I).
+**Wallets.** `POST /api/wallet/start-check` (U); `POST /api/wallet/get-installer-md5-or-etag` (I); `POST /api/wallet/store-pipeline-result` (internal-or-auth). Temporary wallet versions are deleted by the `Delete a temporary record` activity.
 
 **Pipelines (user).** `POST /api/pipeline/queue`, `POST /api/pipeline/run-wallet-apk`, `/run-issuer`, `/run-verifier`, `GET|DELETE /api/pipeline/queue/{ticket}`, `GET /api/pipeline/list-executions[/{id}]`, `GET /api/pipeline/executions/{id}/{workflow_id}/{run_id}`, `POST /api/pipeline/live-view` (U); `POST /api/pipeline/execute` (group auth excluded; effectively public, `http-request` steps only).
 
-**Pipelines (internal).** `/api/pipeline/store-step-screenshots`, `/get-yaml`, `/mobile-flow`, `/pipeline-execution-results` (+ `/evidence`, `/report`, `/fcaf-report`), `/scoreboard/{namespace}`, `/scoreboard/aggregate/start`, `/scoreboard/aggregate/schedule/{schedule_id}`, `/execution-details/{namespace}/{workflow_id}/{run_id}`, `/scoreboard/save-results`, `/retention/delete-files`, `/retention/schedule` — internal-admin, except `store-step-screenshots` (internal-or-auth) and `mobile-flow`, which currently has **no auth middleware** (flagged as a likely oversight).
+**Pipelines (internal).** `/api/pipeline/store-step-screenshots`, `/mobile-flow`, `/scoreboard/aggregate/start`, `DELETE /scoreboard/aggregate/schedule/{schedule_id}`, `POST|DELETE /retention/schedule` — internal-admin, except `store-step-screenshots` (internal-or-auth) and `mobile-flow`, which currently has **no auth middleware** (flagged as a likely oversight). Pipeline results, evidence, reports, scoreboard and retention file deletion are written in-process by activities (see the conformance reference).
 
 **Workflows.** `GET /api/my/workflows/{workflowId}/runs[/{runId}]` (+ `/history`, `/export`, `/logs?action=start|stop`), `POST …/rerun`, `…/cancel`, `…/terminate`, `GET /api/list-workflows` (U; non-pipeline trees only).
 
 **Schedules.** `POST /api/my/schedules/start`, `GET /api/my/schedules`, `POST /api/my/schedules/{scheduleId}/{cancel,pause,resume}` (U).
 
-**Runners / devices.** `GET /api/mobile-runners`, `GET /api/mobile-devices` (internal-or-auth); `GET /api/mobile-runner/list-urls`, `GET /api/mobile-device`, `GET /api/mobile-device/semaphore`, `POST /api/mobile-device/validate-access` (I); registration and lifecycle routes (`/api/mobile-runner[...]`, `/api/mobile-device[...]`, `…/lifecycle/{resume,heartbeat,pause}`) are internal-or-auth.
+**Runners / devices.** `GET /api/mobile-runners`, `GET /api/mobile-devices` (internal-or-auth); registration and lifecycle routes (`/api/mobile-runner[...]`, `POST|DELETE /api/mobile-device`, `/api/mobile-device/{preview-id,reconcile}`, `…/lifecycle/{resume,heartbeat,pause}`) are internal-or-auth. Workers look devices up with the `Get a mobile device` and `Validate mobile device access` activities (`credimi_mobile_devices.go`).
 
-**Web push.** `GET /api/web-push/vapid-public-key` (P), `POST /api/web-push/pipeline-completed` (I).
+**Web push.** `GET /api/web-push/vapid-public-key` (P). Pipeline completion pushes are sent by the `Send pipeline completion notification` activity.
 
 **UI proxy.** Any other path is reverse-proxied by PocketBase to `ADDRESS_UI` (default `http://localhost:5100`), preserving `Origin`/`Referer`.
 
@@ -124,7 +122,4 @@ Feature flags can hide sidebar sections (`ORGANIZATIONS`, `DID`).
 
 ## Doc drift to ignore
 
-1. Runner HTTP endpoints: `AGENTS.md` says `store-pipeline-result`; the code calls `/credimi/pipeline-result`.
-2. The internal-admin header is `Credimi-Api-Key`, not `X-Api-Key` (wrong in `AGENTS.md`, `docs/.../scoreboard.md`, and a comment in `pkg/conformancecatalog/store.go`).
-3. `POST /api/pipeline/start` does not exist in this worktree; the GUI and CLI both use `POST /api/pipeline/queue`.
-4. The two legacy scoreboard routes are not registered.
+1. The two legacy scoreboard routes are not registered.

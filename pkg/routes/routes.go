@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/apis"
@@ -33,17 +34,22 @@ import (
 )
 
 func bindAppHooks(app core.App) {
-	routes := map[string]string{
-		"/{path...}": utils.GetEnvironmentVariable("ADDRESS_UI", "http://localhost:5100"),
-	}
+	uiProxy := createReverseProxy(
+		utils.GetEnvironmentVariable("ADDRESS_UI", "http://localhost:5100"),
+	)
 	temporalUITarget := utils.GetEnvironmentVariable(
 		"ADDRESS_TEMPORAL_UI",
 		"http://localhost:8281",
 	)
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		for path, target := range routes {
-			se.Router.Any(path, createReverseProxy(target))
-		}
+		se.Router.Any("/{path...}", func(e *core.RequestEvent) error {
+			// Unknown API paths answer 404 here: the Vite dev server proxies /api/
+			// back to PocketBase, so forwarding them to the UI would loop.
+			if p := e.Request.URL.Path; p == "/api" || strings.HasPrefix(p, "/api/") {
+				return e.NotFoundError("", nil)
+			}
+			return uiProxy(e)
+		})
 		target, err := url.Parse(temporalUITarget)
 		if err != nil {
 			return fmt.Errorf("parse ADDRESS_TEMPORAL_UI: %w", err)

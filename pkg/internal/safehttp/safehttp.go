@@ -49,27 +49,33 @@ type Config struct {
 	Allow func(net.IP) bool
 }
 
-// NewClient returns a client that checks every dialed address after DNS
-// resolution, so redirects and rebinding hostnames cannot reach an address
-// Allow rejects. Redirects may only use http or https.
-func NewClient(cfg Config) *http.Client {
-	allow := cfg.Allow
+// DialControl returns a net.Dialer Control function that refuses, after DNS
+// resolution, every address allow rejects. Nil allow means IsPublicIP.
+// Rejections wrap ErrBlockedDestination.
+func DialControl(allow func(net.IP) bool) func(network, address string, c syscall.RawConn) error {
 	if allow == nil {
 		allow = IsPublicIP
 	}
 
+	return func(_, address string, _ syscall.RawConn) error {
+		host, _, err := net.SplitHostPort(address)
+		if err != nil {
+			return fmt.Errorf("%w: %s", ErrBlockedDestination, address)
+		}
+		if ip := net.ParseIP(host); ip == nil || !allow(ip) {
+			return fmt.Errorf("%w: %s", ErrBlockedDestination, host)
+		}
+		return nil
+	}
+}
+
+// NewClient returns a client that checks every dialed address after DNS
+// resolution, so redirects and rebinding hostnames cannot reach an address
+// Allow rejects. Redirects may only use http or https.
+func NewClient(cfg Config) *http.Client {
 	dialer := &net.Dialer{
 		Timeout: cfg.Timeout,
-		Control: func(_, address string, _ syscall.RawConn) error {
-			host, _, err := net.SplitHostPort(address)
-			if err != nil {
-				return fmt.Errorf("%w: %s", ErrBlockedDestination, address)
-			}
-			if ip := net.ParseIP(host); ip == nil || !allow(ip) {
-				return fmt.Errorf("%w: %s", ErrBlockedDestination, host)
-			}
-			return nil
-		},
+		Control: DialControl(cfg.Allow),
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()

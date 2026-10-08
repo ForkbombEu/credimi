@@ -5,37 +5,45 @@
 package activities
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"database/sql"
+	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
+	"github.com/forkbombeu/credimi/pkg/internal/webpush"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/pocketbase/pocketbase/core"
 )
 
+const SendPipelineCompletionNotificationActivityName = "Send pipeline completion notification"
+
 type SendPipelineCompletionNotificationInput struct {
-	AppURL       string `json:"app_url"`
-	EndpointURL  string `json:"endpoint_url,omitempty"`
-	WorkflowID   string `json:"workflow_id"`
-	RunID        string `json:"run_id"`
-	Result       string `json:"result"`
+	WorkflowID   string `json:"workflow_id"             validate:"required"`
+	RunID        string `json:"run_id"                  validate:"required"`
+	Result       string `json:"result"                  validate:"required"`
 	ErrorMessage string `json:"error_message,omitempty"`
+}
+
+type SendPipelineCompletionNotificationOutput struct {
+	Sent int `json:"sent"`
 }
 
 type SendPipelineCompletionNotificationActivity struct {
 	workflowengine.BaseActivity
+	app core.App
 }
 
-func NewSendPipelineCompletionNotificationActivity() *SendPipelineCompletionNotificationActivity {
+func NewSendPipelineCompletionNotificationActivity(
+	app core.App,
+) *SendPipelineCompletionNotificationActivity {
 	return &SendPipelineCompletionNotificationActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Send pipeline completion notification",
+			Name: SendPipelineCompletionNotificationActivityName,
 		},
+		app: app,
 	}
 }
 
@@ -55,73 +63,70 @@ func (a *SendPipelineCompletionNotificationActivity) Execute(
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
-	appURL := strings.TrimSpace(payload.AppURL)
-	workflowID := strings.TrimSpace(payload.WorkflowID)
-	runID := strings.TrimSpace(payload.RunID)
-	if appURL == "" || workflowID == "" || runID == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(workflowengine.ActivityError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: "app_url, workflow_id, and run_id are required",
-		})
+	sent, err := sendPipelineCompletionNotification(ctx, a.app, payload)
+	if err != nil {
+		return result, pipelineCompletionNotificationError(&a.BaseActivity, err)
+	}
+	result.Output = SendPipelineCompletionNotificationOutput{Sent: sent}
+	return result, nil
+}
+
+// errPipelineNotificationSend reports a failure to send the web push
+// notifications of a finished pipeline run.
+var errPipelineNotificationSend = errors.New("send pipeline completion notifications")
+
+// pipelineCompletionNotificationError maps a missing record to a
+// non-retryable CRE233, a send failure to a retryable CRE209 and any other
+// (database lookup) failure to a retryable CRE235.
+func pipelineCompletionNotificationError(a *workflowengine.BaseActivity, err error) error {
+	switch {
+	case errors.Is(err, pipelineresults.ErrNotFound), errors.Is(err, sql.ErrNoRows):
+		return a.NewCodedError(errorcodes.RecordNotFound, false, err)
+	case errors.Is(err, errPipelineNotificationSend):
+		return a.NewCodedError(errorcodes.ExecuteHTTPRequestFailed, true, err)
+	default:
+		return a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
+	}
+}
+
+// sendPipelineCompletionNotification sends the web push notification of a
+// finished pipeline run to the subscriptions of the run's organization and
+// returns how many were sent.
+func sendPipelineCompletionNotification(
+	ctx context.Context,
+	app core.App,
+	in SendPipelineCompletionNotificationInput,
+) (int, error) {
+	record, err := pipelineresults.FindByWorkflowRun(app, in.WorkflowID, in.RunID)
+	if err != nil {
+		return 0, err
+	}
+	pipeline, err := app.FindRecordById("pipelines", record.GetString("pipeline"))
+	if err != nil {
+		return 0, fmt.Errorf("lookup pipeline: %w", err)
+	}
+	organization, err := app.FindRecordById("organizations", record.GetString("owner"))
+	if err != nil {
+		return 0, fmt.Errorf("lookup organization: %w", err)
+	}
+	duration := ""
+	if startedAt := record.GetDateTime("created"); !startedAt.IsZero() {
+		duration = time.Since(startedAt.Time()).Round(time.Second).String()
 	}
 
-	apiKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
-	if apiKey == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-		return result, a.NewActivityError(workflowengine.ActivityError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: "CREDIMI_INTERNAL_ADMIN_KEY is required",
-		})
-	}
-	body, err := json.Marshal(struct {
-		AppURL       string `json:"app_url"`
-		WorkflowID   string `json:"workflow_id"`
-		RunID        string `json:"run_id"`
-		Result       string `json:"result"`
-		ErrorMessage string `json:"error_message,omitempty"`
-	}{
-		AppURL:       appURL,
-		WorkflowID:   workflowID,
-		RunID:        runID,
-		Result:       strings.TrimSpace(payload.Result),
-		ErrorMessage: strings.TrimSpace(payload.ErrorMessage),
+	sent, err := webpush.NotifyPipelineRunCompletion(ctx, app, webpush.CompletionRequest{
+		OrgID:        record.GetString("owner"),
+		PipelineName: pipeline.GetString("name"),
+		Organization: organization.GetString("name"),
+		WorkflowID:   in.WorkflowID,
+		RunID:        in.RunID,
+		Result:       in.Result,
+		Duration:     duration,
+		Error:        in.ErrorMessage,
+		AppURL:       workflowengine.AppURL(app),
 	})
 	if err != nil {
-		return result, fmt.Errorf("marshal pipeline completion notification payload: %w", err)
+		return 0, fmt.Errorf("%w: %w", errPipelineNotificationSend, err)
 	}
-	endpointURL := strings.TrimSpace(payload.EndpointURL)
-	if endpointURL == "" {
-		endpointURL = workflowengine.InternalAppURLOverride()
-	}
-	if endpointURL == "" {
-		endpointURL = appURL
-	}
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		utils.JoinURL(endpointURL, "api", "web-push", "pipeline-completed"),
-		bytes.NewReader(body),
-	)
-	if err != nil {
-		return result, fmt.Errorf("build pipeline completion notification request: %w", err)
-	}
-	req.Header.Set(workflowengine.HTTPHeaderContentType, workflowengine.MIMEApplicationJSON)
-	req.Header.Set("Credimi-Api-Key", apiKey)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return result, fmt.Errorf("post pipeline completion notification: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return result, fmt.Errorf(
-			"pipeline completion notification status: %s",
-			resp.Status,
-		)
-	}
-	return result, nil
+	return sent, nil
 }
