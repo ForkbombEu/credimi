@@ -417,6 +417,61 @@ func TestEWCWorkflowStartSetsQRFromCatalog(t *testing.T) {
 	requireWorkflowQRCapability(t, capturedInput, false)
 }
 
+// marketplaceMemoAuthor mirrors handlers.Author: a named string put into memo by
+// save-variables-and-start. Plain string constants (see TestEWCWorkflowStartSetsQRFromCatalog)
+// do not reproduce the marketplace Start path.
+type marketplaceMemoAuthor string
+
+func TestEWCWorkflowStartSetsQRMemoForMarketplaceAuthorType(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	templatesDir := filepath.Clean(
+		filepath.Join(filepath.Dir(file), "..", "..", "..", "config_templates"),
+	)
+	require.NoError(t, conformancecatalog.Rebuild(templatesDir))
+
+	prev := ewcStartWorkflowWithOptions
+	t.Cleanup(func() { ewcStartWorkflowWithOptions = prev })
+
+	var capturedOptions client.StartWorkflowOptions
+	ewcStartWorkflowWithOptions = func(
+		_ string,
+		options client.StartWorkflowOptions,
+		_ string,
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		// Mirror StartWorkflowWithOptions: Temporal memo comes from input.Config["memo"].
+		if input.Config["memo"] != nil {
+			options.Memo = input.Config["memo"].(map[string]any)
+		}
+		capturedOptions = options
+		return workflowengine.WorkflowResult{}, nil
+	}
+
+	input := workflowengine.WorkflowInput{
+		Config: map[string]any{
+			"namespace": "ns-1",
+			"version":   "draft-15",
+			"memo": map[string]any{
+				"test":     "ewc/RFC001-authorization_code_flow-kid_jwk-sd_jwt.yaml",
+				"standard": "openid4vci_wallet",
+				"author":   marketplaceMemoAuthor(EWCSuite),
+			},
+		},
+	}
+	_, err := NewEWCWorkflow().Start(input)
+	require.NoError(t, err)
+
+	require.NotNil(t, capturedOptions.Memo)
+	caps, ok := capturedOptions.Memo[workflowengine.CredimiCapabilitiesMemoKey].(workflowengine.CredimiCapabilities)
+	require.True(t, ok, "StartWorkflowOptions.Memo must carry credimi_capabilities")
+	require.True(
+		t,
+		caps.QR,
+		"marketplace/manual Start must write credimi_capabilities.qr=true for wallet suites with has_qr",
+	)
+}
+
 func TestResolveEWCLikeCheckEndpoint(t *testing.T) {
 	testCases := []struct {
 		name      string

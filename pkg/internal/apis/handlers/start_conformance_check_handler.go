@@ -205,7 +205,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			memo := map[string]interface{}{
 				"test":     testName,
 				"standard": protocol,
-				"author":   author,
+				"author":   string(author),
 			}
 
 			results, err := processJSONChecks(
@@ -244,7 +244,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			memo := map[string]interface{}{
 				"test":     testName,
 				"standard": protocol,
-				"author":   author,
+				"author":   string(author),
 			}
 			results, err := processVariablesTest(
 				e.App,
