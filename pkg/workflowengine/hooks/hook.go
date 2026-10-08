@@ -410,6 +410,11 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 			debugAct.Execute,
 			activity.RegisterOptions{Name: debugAct.Name()},
 		)
+		conformanceTemplateAct := pipeline.NewConformanceTemplateActivity()
+		w.RegisterActivityWithOptions(
+			conformanceTemplateAct.Execute,
+			activity.RegisterOptions{Name: conformanceTemplateAct.Name()},
+		)
 		githubPRCommentAct := activities.NewUpdateGitHubPRCommentActivity()
 		w.RegisterActivityWithOptions(
 			githubPRCommentAct.Execute,
