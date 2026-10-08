@@ -453,3 +453,12 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: (a) is a package-level registration, which `AGENTS.md` discourages; a worker process that never calls `WorkersHook` and has no `CREDIMI_INTERNAL_APP_URL` fails closed with `no Credimi base URL is configured`. `credimi-extra` runner workers do not register this activity.
 - decision: Superseded on 2026-10-06 by the approved plan that removed worker-to-Credimi HTTP: `InternalHTTPActivity`, `SetServerAppURLSource`, `CREDIMI_INTERNAL_APP_URL` and `internal_app_url` no longer exist. Workers reach Credimi data through typed activities that receive `core.App` (`activities.CredimiActivities(app)`), and `app_url` is written only by `workflowengine.WithAppConfig` from PocketBase Settings.
 - follow-up: None. No admin-key sender targets Credimi anymore; the internal admin key is sent to runners through `mobile-runner-http-request` and, as the approved exception (2026-09-25), by the direct `POST {runner_url}/credimi/live-view` call in `pkg/internal/apis/handlers/pipeline_live_view_handler.go`.
+
+### 2026-10-08 - `z_test_collection` accepts anonymous writes
+
+- status: open
+- owner: human maintainer
+- context: Finding `credimi/pb-rules/news-public-create`. `news` was fixed by `pb_migrations/1791464765_restrict_news_create.js` (`createRule` null). `z_test_collection` (`migrations/pb_schema.json`, id `ktjgpqf146ss2ia`) has the same root pattern: `createRule`, `updateRule` and `deleteRule` are `""`, so anyone can create, edit or delete its rows. It is a fixture collection used only by the unguarded webapp `/ui-tests/*` pages and `webapp/e2e/nru/collection-manager.spec.ts` (userA creates a record). It is `system: true`, so PocketBase rejects any rule change through `app.save` (`System collection API rule cannot be changed`).
+- question: Restrict `z_test_collection` writes, and how?
+- options considered: (a) superuser-only rules saved with `app.saveNoValidate` (new migration pattern; breaks the `/ui-tests` write pages and the e2e create); (b) logged-in create plus the owner/authorization expression of `listRule` for update/delete, saved with `app.saveNoValidate`; (c) remove the collection and `/ui-tests` from production builds; (d) leave as is.
+- default risk: Anonymous writes stay open on a fixture collection that exists in every deployment; impact limited to junk test rows.
