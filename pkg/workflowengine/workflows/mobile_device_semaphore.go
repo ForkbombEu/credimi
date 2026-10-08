@@ -26,6 +26,9 @@ const (
 	// honor the server's continue-as-new suggestion; replaying them with
 	// either would diverge from their recorded history.
 	mobileDeviceSemaphoreCountAllUpdatesChange = "mobile-device-semaphore-count-all-updates"
+	// Runs that continued-as-new before this change did not drain buffered
+	// run signals first; draining adds commands their history lacks.
+	mobileDeviceSemaphoreDrainSignalsChange = "credimi-2026-10-semaphore-drain-signals"
 )
 
 type MobileDeviceSemaphoreWorkflow struct {
@@ -170,6 +173,10 @@ type mobileDeviceSemaphoreRuntime struct {
 	queuePositionsDirty  bool
 	shutdownRequested    bool
 	shutdownCompleted    bool
+	// signalDrains handle signals still buffered in each run signal channel.
+	signalDrains []func(workflow.Context) bool
+	// signalHandlersRunning counts run signal handlers currently executing.
+	signalHandlersRunning int
 }
 
 func newMobileDeviceSemaphoreRuntime(
@@ -277,12 +284,13 @@ func (r *mobileDeviceSemaphoreRuntime) registerListQueuedRunsHandler() error {
 }
 
 func (r *mobileDeviceSemaphoreRuntime) registerEnqueueRunHandler() error {
-	return workflow.SetUpdateHandler(
+	return workflow.SetUpdateHandlerWithOptions(
 		r.ctx,
 		MobileDeviceSemaphoreEnqueueRunUpdate,
 		func(_ workflow.Context, req MobileDeviceSemaphoreEnqueueRunRequest) (MobileDeviceSemaphoreEnqueueRunResponse, error) {
 			return r.handleEnqueueRun(req)
 		},
+		workflow.UpdateHandlerOptions{Validator: r.validateEnqueueRun},
 	)
 }
 
@@ -351,39 +359,86 @@ func (r *mobileDeviceSemaphoreRuntime) registerResumeDeviceHandler() error {
 
 func (r *mobileDeviceSemaphoreRuntime) startRunSignalHandlers() {
 	startRunSignalHandler(
-		r.ctx,
+		r,
 		MobileDeviceSemaphoreRunGrantedSignalName,
 		func(ctx workflow.Context, signal MobileDeviceSemaphoreRunGrantedSignal) {
 			r.handleRunGrantedSignal(signal)
 		},
 	)
 	startRunSignalHandler(
-		r.ctx,
+		r,
 		MobileDeviceSemaphoreRunStartedSignalName,
 		r.handleRunStartedSignal,
 	)
 	startRunSignalHandler(
-		r.ctx,
+		r,
 		MobileDeviceSemaphoreRunDoneSignalName,
 		r.handleRunDoneSignal,
 	)
 }
 
 func startRunSignalHandler[T any](
-	ctx workflow.Context,
+	r *mobileDeviceSemaphoreRuntime,
 	signalName string,
 	handler func(workflow.Context, T),
 ) {
-	signalChan := workflow.GetSignalChannel(ctx, signalName)
-	workflow.Go(ctx, func(ctx workflow.Context) {
+	signalChan := workflow.GetSignalChannel(r.ctx, signalName)
+	r.signalDrains = append(r.signalDrains, func(ctx workflow.Context) bool {
+		drained := false
+		for {
+			var signal T
+			if !signalChan.ReceiveAsync(&signal) {
+				return drained
+			}
+			drained = true
+			handler(ctx, signal)
+		}
+	})
+	workflow.Go(r.ctx, func(ctx workflow.Context) {
 		for {
 			var signal T
 			if ok := signalChan.Receive(ctx, &signal); !ok {
 				return
 			}
+			r.signalHandlersRunning++
 			handler(ctx, signal)
+			r.signalHandlersRunning--
 		}
 	})
+}
+
+// drainRunSignals finishes running signal handlers and handles every signal
+// still buffered, so continue-as-new does not drop them.
+func (r *mobileDeviceSemaphoreRuntime) drainRunSignals() error {
+	for {
+		// A signal sent to a receiver blocked in Receive is handed to it
+		// directly instead of being buffered; let those receivers run first.
+		if err := yieldToCoroutines(r.ctx); err != nil {
+			return err
+		}
+		if err := workflow.Await(r.ctx, func() bool {
+			return r.signalHandlersRunning == 0
+		}); err != nil {
+			return err
+		}
+		drained := false
+		for _, drain := range r.signalDrains {
+			if drain(r.ctx) {
+				drained = true
+			}
+		}
+		if !drained && r.signalHandlersRunning == 0 {
+			return nil
+		}
+	}
+}
+
+// yieldToCoroutines blocks until every other ready coroutine has run once.
+// It adds no commands to history.
+func yieldToCoroutines(ctx workflow.Context) error {
+	resumed := false
+	workflow.Go(ctx, func(workflow.Context) { resumed = true })
+	return workflow.Await(ctx, func() bool { return resumed })
 }
 
 func (r *mobileDeviceSemaphoreRuntime) startRunStarter() {
@@ -492,41 +547,43 @@ func (r *mobileDeviceSemaphoreRuntime) requestRunStart() {
 	r.runStarterRequested = true
 }
 
-func (r *mobileDeviceSemaphoreRuntime) handleEnqueueRun(
+// validateEnqueueRun rejects an enqueue before it is written to history. It
+// must stay read-only: Temporal skips validators on replay.
+func (r *mobileDeviceSemaphoreRuntime) validateEnqueueRun(
 	req MobileDeviceSemaphoreEnqueueRunRequest,
-) (MobileDeviceSemaphoreEnqueueRunResponse, error) {
+) error {
 	if r.shutdownRequested {
-		return MobileDeviceSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
+		return newSemaphoreApplicationError(
 			"runner shutdown in progress",
 			MobileDeviceSemaphoreErrInvalidRequest,
 		)
 	}
 	if req.TicketID == "" || req.OwnerNamespace == "" {
-		return MobileDeviceSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
+		return newSemaphoreApplicationError(
 			"ticket_id and owner_namespace are required",
 			MobileDeviceSemaphoreErrInvalidRequest,
 		)
 	}
 	if req.DeviceID == "" || req.DeviceID != r.deviceID {
-		return MobileDeviceSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
+		return newSemaphoreApplicationError(
 			"device_id must match semaphore runner",
 			MobileDeviceSemaphoreErrInvalidRequest,
 		)
 	}
 	if req.EnqueuedAt.IsZero() {
-		return MobileDeviceSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
+		return newSemaphoreApplicationError(
 			"enqueued_at is required",
 			MobileDeviceSemaphoreErrInvalidRequest,
 		)
 	}
 	if len(req.RequiredDeviceIDs) == 0 || req.LeaderDeviceID == "" {
-		return MobileDeviceSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
+		return newSemaphoreApplicationError(
 			"required_device_ids and leader_device_id are required",
 			MobileDeviceSemaphoreErrInvalidRequest,
 		)
 	}
 	if !containsString(req.RequiredDeviceIDs, req.LeaderDeviceID) {
-		return MobileDeviceSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
+		return newSemaphoreApplicationError(
 			"leader_device_id must be included in required_device_ids",
 			MobileDeviceSemaphoreErrInvalidRequest,
 		)
@@ -534,11 +591,41 @@ func (r *mobileDeviceSemaphoreRuntime) handleEnqueueRun(
 
 	if existing, ok := r.runTickets[req.TicketID]; ok {
 		if existing.Request.OwnerNamespace != req.OwnerNamespace {
-			return MobileDeviceSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
+			return newSemaphoreApplicationError(
 				"ticket owner mismatch",
 				MobileDeviceSemaphoreErrInvalidRequest,
 			)
 		}
+		// A repeated enqueue of a known ticket is an idempotent success.
+		return nil
+	}
+
+	if req.MaxPipelinesInQueue > 0 {
+		inFlight := r.inFlightRunCount(req.OwnerNamespace)
+		if inFlight >= req.MaxPipelinesInQueue {
+			return newSemaphoreApplicationError(
+				fmt.Sprintf(
+					"queue limit exceeded for runner %s: %d of %d",
+					r.deviceID,
+					inFlight,
+					req.MaxPipelinesInQueue,
+				),
+				MobileDeviceSemaphoreErrQueueLimitExceeded,
+			)
+		}
+	}
+	return nil
+}
+
+func (r *mobileDeviceSemaphoreRuntime) handleEnqueueRun(
+	req MobileDeviceSemaphoreEnqueueRunRequest,
+) (MobileDeviceSemaphoreEnqueueRunResponse, error) {
+	// Validators do not run on replay, so the handler validates again.
+	if err := r.validateEnqueueRun(req); err != nil {
+		return MobileDeviceSemaphoreEnqueueRunResponse{}, err
+	}
+
+	if existing, ok := r.runTickets[req.TicketID]; ok {
 		view := r.buildRunStatusView(req.TicketID, existing)
 		if view.Status == mobileDeviceSemaphoreRunQueued {
 			position, lineLen := r.runQueuePosition(req.TicketID)
@@ -551,21 +638,6 @@ func (r *mobileDeviceSemaphoreRuntime) handleEnqueueRun(
 			Position: view.Position,
 			LineLen:  view.LineLen,
 		}, nil
-	}
-
-	if req.MaxPipelinesInQueue > 0 {
-		inFlight := r.inFlightRunCount(req.OwnerNamespace)
-		if inFlight >= req.MaxPipelinesInQueue {
-			return MobileDeviceSemaphoreEnqueueRunResponse{}, newSemaphoreApplicationError(
-				fmt.Sprintf(
-					"queue limit exceeded for runner %s: %d of %d",
-					r.deviceID,
-					inFlight,
-					req.MaxPipelinesInQueue,
-				),
-				MobileDeviceSemaphoreErrQueueLimitExceeded,
-			)
-		}
 	}
 
 	r.runTickets[req.TicketID] = MobileDeviceSemaphoreRunTicketState{
@@ -899,6 +971,20 @@ func (r *mobileDeviceSemaphoreRuntime) awaitContinue() error {
 		if !r.shouldContinue {
 			// A shutdown canceled the continue while handlers drained.
 			continue
+		}
+		if workflow.GetVersion(
+			r.ctx,
+			mobileDeviceSemaphoreDrainSignalsChange,
+			workflow.DefaultVersion,
+			1,
+		) == 1 {
+			// Run signals buffered or in flight would be lost by continue-as-new.
+			if err := r.drainRunSignals(); err != nil {
+				return err
+			}
+			if !r.shouldContinue {
+				continue
+			}
 		}
 		return workflow.NewContinueAsNewError(
 			r.ctx,

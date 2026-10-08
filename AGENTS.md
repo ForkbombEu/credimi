@@ -271,10 +271,12 @@ Semaphore:
 - Implementation: `pkg/workflowengine/workflows/mobile_device_semaphore.go`.
 - Client side: `pkg/workflowengine/semaphoreclient`, shared by the queue handlers and `EnqueuePipelineRunTicketActivity`. `EnqueueRun` uses update-with-start (`USE_EXISTING` conflict policy), so enqueueing starts the device semaphore when it is not running; update IDs are `<enqueue|cancel>/<device_id>/<ticket>`.
 - Updates: `EnqueueRun`, `CancelRun`, `RunDone`, plus the device lifecycle updates `MobileDeviceSemaphore{Pause,Resume,Shutdown}DeviceUpdate`.
+- `EnqueueRun` has a validator (`validateEnqueueRun`): invalid and over-limit enqueues are rejected before they are written to history and do not count toward the update limit. The handler repeats the checks, because validators are skipped on replay.
 - Queries: `GetRunStatus`, `GetState`.
 - Temporal caps accepted updates per workflow run (`history.maxTotalUpdates`, default 2000) and then rejects every update, so a stuck semaphore fails every lifecycle call (`failed_to_pause_device_semaphore` / `failed_to_resume_device_semaphore`). Two guards:
     - The lifecycle heartbeat queries the semaphore state first and sends a pause or resume only when the device's online state disagrees with `Paused`. Heartbeats carry a fresh request ID every 30s, so each update they send is distinct.
     - The workflow counts repeated pauses toward its continue-as-new budget, and also continues-as-new when the server suggests it. Before continuing it drains in-flight handlers (`AllHandlersFinished`) and snapshots state. This is gated by `workflow.GetVersion("mobile-device-semaphore-count-all-updates")`, so runs started before the change keep their old behavior until their next continue-as-new.
+    - Before that snapshot it also waits for running `RunGranted`/`RunStarted`/`RunDoneSignal` handlers and handles every signal still pending, gated by `workflow.GetVersion("credimi-2026-10-semaphore-drain-signals")`.
 
 Grant/start path:
 
