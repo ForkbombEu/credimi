@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"maps"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi-conformance-assessment/pkg/conformance"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -73,6 +74,8 @@ func (a *PipelineReportGenerationActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	defer workflowengine.StartHeartbeat(ctx, 5*time.Second, "generating pipeline report")()
+
 	payload, err := workflowengine.DecodePayload[PipelineReportGenerationInput](input.Payload)
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(err)

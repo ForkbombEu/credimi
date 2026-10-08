@@ -23,7 +23,6 @@ import (
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/discovery"
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/presentation"
 	"github.com/pocketbase/pocketbase/core"
-	"go.temporal.io/sdk/activity"
 )
 
 const PipelineEvidenceExtractionActivityName = "Extract pipeline conformance evidence"
@@ -117,7 +116,13 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 		)
 	}
 
-	stopHeartbeat := startEvidenceHeartbeat(ctx)
+	// Heartbeat while waiting on StepCI or on an issuer or verifier, so the
+	// heartbeat timeout does not end the activity.
+	stopHeartbeat := workflowengine.StartHeartbeat(
+		ctx,
+		evidenceHeartbeatInterval,
+		"extracting pipeline evidence",
+	)
 	defer stopHeartbeat()
 
 	out := PipelineEvidenceExtractionOutput{}
@@ -234,31 +239,6 @@ func discoverWorkflowDefinition(
 		return nil, fmt.Errorf("discover evidence steps: %w", err)
 	}
 	return discovered, nil
-}
-
-// startEvidenceHeartbeat heartbeats until the returned stop is called, so the
-// heartbeat timeout does not end the activity while it waits on StepCI or on
-// an issuer or verifier.
-func startEvidenceHeartbeat(ctx context.Context) func() {
-	if !activity.IsActivity(ctx) {
-		return func() {}
-	}
-	done := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(evidenceHeartbeatInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				activity.RecordHeartbeat(ctx, "extracting pipeline evidence")
-			}
-		}
-	}()
-	return func() { close(done) }
 }
 
 // credentialDeeplink generates a credential offer deeplink for the credential

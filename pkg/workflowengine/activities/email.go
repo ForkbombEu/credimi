@@ -9,6 +9,7 @@ import (
 	"context"
 	"html/template"
 	"strconv"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -65,7 +66,7 @@ func (a *SendMailActivity) Configure(
 }
 
 func (a *SendMailActivity) Execute(
-	_ context.Context,
+	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
@@ -147,7 +148,7 @@ func (a *SendMailActivity) Execute(
 		utils.GetEnvironmentVariable("MAIL_PASSWORD"),
 	)
 
-	if err := d.DialAndSend(m); err != nil {
+	if err := dialAndSend(ctx, d, m); err != nil {
 		errCode := errorcodes.Codes[errorcodes.EmailSendFailed]
 		return workflowengine.ActivityResult{}, a.NewActivityError(
 			workflowengine.ActivityError{
@@ -160,4 +161,29 @@ func (a *SendMailActivity) Execute(
 
 	result.Output = "Email sent successfully"
 	return result, nil
+}
+
+// emailHeartbeatInterval keeps the activity alive while the SMTP exchange runs.
+const emailHeartbeatInterval = 5 * time.Second
+
+// dialAndSend sends m while heartbeating, and returns ctx.Err() as soon as the
+// activity is cancelled instead of waiting for the SMTP exchange to finish.
+func dialAndSend(
+	ctx context.Context,
+	d *gomail.Dialer,
+	m *gomail.Message,
+) error {
+	defer workflowengine.StartHeartbeat(ctx, emailHeartbeatInterval, "sending email")()
+
+	sent := make(chan error, 1)
+	go func() {
+		sent <- d.DialAndSend(m)
+	}()
+
+	select {
+	case err := <-sent:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
