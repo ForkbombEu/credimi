@@ -17,5 +17,5 @@ golangci-lint = "latest"
 "npm:@nanonets/graft" = { version = "0.18.0", allow_builds = true }
 
 [tools."github:temporalio/cli"]
-version = "1.8.1"
+version = "1.9.1"
 
