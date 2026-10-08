@@ -24,9 +24,9 @@ import (
 
 // WalletTaskQueue is the task queue for the wallet workflow.
 const (
-	WalletTaskQueue  = "WalletTaskQueue"
-	AppleStoreAPIURL = "https://itunes.apple.com/lookup"
-	AppMetadataQuery = "getAppMetadata"
+	WalletTaskQueue   = "WalletTaskQueue"
+	AppleStoreAPIURL  = "https://itunes.apple.com/lookup"
+	AppMetadataUpdate = "getAppMetadata"
 )
 
 // Wallet is a workflow that imports wallet metadata from app stores urls.
@@ -74,15 +74,29 @@ func (w *WalletWorkflow) ExecuteWorkflow(
 	var storeType string
 	metadataReady := false
 
-	workflow.SetQueryHandler(ctx, AppMetadataQuery, func() (map[string]any, error) {
-		if !metadataReady {
-			return nil, workflowengine.NotReadyError{}
-		}
-		return map[string]any{
-			"metadata":  metadata,
-			"storeType": storeType,
-		}, nil
-	})
+	// The update blocks until the metadata is ready, so the handler gets it in
+	// one round trip; it fails fast if the workflow ends first.
+	err := workflow.SetUpdateHandlerWithOptions(
+		ctx,
+		AppMetadataUpdate,
+		func(ctx workflow.Context) (map[string]any, error) {
+			if err := workflow.Await(ctx, func() bool { return metadataReady }); err != nil {
+				return nil, err
+			}
+			return map[string]any{
+				"metadata":  metadata,
+				"storeType": storeType,
+			}, nil
+		},
+		workflow.UpdateHandlerOptions{UnfinishedPolicy: workflow.HandlerUnfinishedPolicyAbandon},
+	)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, fmt.Errorf(
+			"register %s update: %w",
+			AppMetadataUpdate,
+			err,
+		)
+	}
 
 	payload, err := workflowengine.DecodePayload[WalletWorkflowPayload](input.Payload)
 	if err != nil {
@@ -245,6 +259,8 @@ func (w *WalletWorkflow) ExecuteWorkflow(
 	}
 
 	metadataReady = true
+	// Let a pending metadata update reply before the workflow completes.
+	_ = workflow.Await(ctx, func() bool { return workflow.AllHandlersFinished(ctx) })
 	return workflowengine.WorkflowResult{
 		Message: "Worflow completed successfully",
 	}, nil

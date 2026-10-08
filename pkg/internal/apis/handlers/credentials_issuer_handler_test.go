@@ -142,13 +142,13 @@ func TestHandleCredentialIssuerStartCheckSuccess(t *testing.T) {
 	origRead := credentialIssuerReadSchemaFile
 	origStart := credentialIssuerStartWorkflow
 	origClient := credentialIssuerTemporalClient
-	origWait := credentialIssuerWaitForPartialResult
+	origWait := credentialIssuerWaitForUpdateResult
 	t.Cleanup(func() {
 		credentialIssuerCheckWellKnownEndpoints = origCheck
 		credentialIssuerReadSchemaFile = origRead
 		credentialIssuerStartWorkflow = origStart
 		credentialIssuerTemporalClient = origClient
-		credentialIssuerWaitForPartialResult = origWait
+		credentialIssuerWaitForUpdateResult = origWait
 	})
 
 	credentialIssuerCheckWellKnownEndpoints = func(context.Context, string) error { return nil }
@@ -162,13 +162,12 @@ func TestHandleCredentialIssuerStartCheckSuccess(t *testing.T) {
 	credentialIssuerTemporalClient = func(string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	credentialIssuerWaitForPartialResult = func(
+	credentialIssuerWaitForUpdateResult = func(
+		context.Context,
 		client.Client,
 		string,
 		string,
 		string,
-		time.Duration,
-		time.Duration,
 	) (map[string]any, error) {
 		return map[string]any{
 			"issuerName":        "Issuer Name",
@@ -302,13 +301,13 @@ func TestHandleCredentialIssuerStartCheckUsesHostnameFallbackAdditional(t *testi
 	origRead := credentialIssuerReadSchemaFile
 	origStart := credentialIssuerStartWorkflow
 	origClient := credentialIssuerTemporalClient
-	origWait := credentialIssuerWaitForPartialResult
+	origWait := credentialIssuerWaitForUpdateResult
 	t.Cleanup(func() {
 		credentialIssuerCheckWellKnownEndpoints = origCheck
 		credentialIssuerReadSchemaFile = origRead
 		credentialIssuerStartWorkflow = origStart
 		credentialIssuerTemporalClient = origClient
-		credentialIssuerWaitForPartialResult = origWait
+		credentialIssuerWaitForUpdateResult = origWait
 	})
 
 	credentialIssuerCheckWellKnownEndpoints = func(context.Context, string) error { return nil }
@@ -319,13 +318,12 @@ func TestHandleCredentialIssuerStartCheckUsesHostnameFallbackAdditional(t *testi
 	credentialIssuerTemporalClient = func(string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	credentialIssuerWaitForPartialResult = func(
+	credentialIssuerWaitForUpdateResult = func(
+		context.Context,
 		client.Client,
 		string,
 		string,
 		string,
-		time.Duration,
-		time.Duration,
 	) (map[string]any, error) {
 		return map[string]any{
 			"issuerName":        "",
@@ -637,13 +635,13 @@ func TestHandleCredentialIssuerStartCheckWaitErrorDeletesNewRecord(t *testing.T)
 	origRead := credentialIssuerReadSchemaFile
 	origStart := credentialIssuerStartWorkflow
 	origClient := credentialIssuerTemporalClient
-	origWait := credentialIssuerWaitForPartialResult
+	origWait := credentialIssuerWaitForUpdateResult
 	t.Cleanup(func() {
 		credentialIssuerCheckWellKnownEndpoints = origCheck
 		credentialIssuerReadSchemaFile = origRead
 		credentialIssuerStartWorkflow = origStart
 		credentialIssuerTemporalClient = origClient
-		credentialIssuerWaitForPartialResult = origWait
+		credentialIssuerWaitForUpdateResult = origWait
 	})
 
 	credentialIssuerCheckWellKnownEndpoints = func(context.Context, string) error { return nil }
@@ -657,13 +655,12 @@ func TestHandleCredentialIssuerStartCheckWaitErrorDeletesNewRecord(t *testing.T)
 	credentialIssuerTemporalClient = func(string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	credentialIssuerWaitForPartialResult = func(
+	credentialIssuerWaitForUpdateResult = func(
+		context.Context,
 		client.Client,
 		string,
 		string,
 		string,
-		time.Duration,
-		time.Duration,
 	) (map[string]any, error) {
 		return nil, fmt.Errorf("wait failed")
 	}
@@ -712,13 +709,13 @@ func TestHandleCredentialIssuerStartCheckInvalidCredentialsNumber(t *testing.T) 
 	origRead := credentialIssuerReadSchemaFile
 	origStart := credentialIssuerStartWorkflow
 	origClient := credentialIssuerTemporalClient
-	origWait := credentialIssuerWaitForPartialResult
+	origWait := credentialIssuerWaitForUpdateResult
 	t.Cleanup(func() {
 		credentialIssuerCheckWellKnownEndpoints = origCheck
 		credentialIssuerReadSchemaFile = origRead
 		credentialIssuerStartWorkflow = origStart
 		credentialIssuerTemporalClient = origClient
-		credentialIssuerWaitForPartialResult = origWait
+		credentialIssuerWaitForUpdateResult = origWait
 	})
 
 	credentialIssuerCheckWellKnownEndpoints = func(context.Context, string) error { return nil }
@@ -732,13 +729,12 @@ func TestHandleCredentialIssuerStartCheckInvalidCredentialsNumber(t *testing.T) 
 	credentialIssuerTemporalClient = func(string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	credentialIssuerWaitForPartialResult = func(
+	credentialIssuerWaitForUpdateResult = func(
+		context.Context,
 		client.Client,
 		string,
 		string,
 		string,
-		time.Duration,
-		time.Duration,
 	) (map[string]any, error) {
 		return map[string]any{"issuerName": "Issuer", "credentialsNumber": "bad"}, nil
 	}

@@ -67,7 +67,7 @@ var (
 	}
 	fidesCredentialIssuersTemporalClient = temporalclient.GetTemporalClientWithNamespace
 	credentialIssuerTemporalClient       = temporalclient.GetTemporalClientWithNamespace
-	credentialIssuerWaitForPartialResult = workflowengine.WaitForPartialResult[map[string]any]
+	credentialIssuerWaitForUpdateResult  = workflowengine.WaitForUpdateResult[map[string]any]
 )
 
 // credentialIssuerHTTPClient may only reach public addresses: the issuer URL
@@ -263,13 +263,14 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		issuerResult, err := credentialIssuerWaitForPartialResult(
+		updateCtx, cancel := context.WithTimeout(e.Request.Context(), time.Minute)
+		defer cancel()
+		issuerResult, err := credentialIssuerWaitForUpdateResult(
+			updateCtx,
 			c,
 			result.WorkflowID,
 			result.WorkflowRunID,
-			workflows.CredentialsIssuerDataQuery,
-			100*time.Millisecond,
-			1*time.Minute,
+			workflows.CredentialsIssuerDataUpdate,
 		)
 
 		if err != nil {
