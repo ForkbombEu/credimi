@@ -19,7 +19,6 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -27,6 +26,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
+	"go.temporal.io/api/operatorservice/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/activity"
@@ -326,7 +326,7 @@ func defaultWorkers(app core.App) []workerConfig {
 
 var (
 	getTemporalClient          = temporalclient.GetTemporalClientWithNamespace
-	newNamespaceClientFn       = client.NewNamespaceClient
+	newNamespaceClientFn       = temporalclient.NewNamespaceClient
 	newWorkerFn                = worker.New
 	sleepFn                    = time.Sleep
 	sleepWithContextFn         = sleepWithContext
@@ -337,7 +337,8 @@ var (
 	workerManagerOrgRecordsFn  = workerManagerAllOrganizationRecords
 	adminRunnerIDsFn           = WorkerManagerAdminRunnerIDs
 	publishedRunnerIDsFn       = WorkerManagerPublishedNonAdminRunnerIDs
-	ensureNamespaceReadyFn     = ensureNamespaceReadyWithRetry
+	ensureNamespaceReadyFn     = EnsureNamespaceReady
+	addSearchAttributesFn      = addSearchAttributes
 	startAllWorkersByNamespace = StartAllWorkersByNamespace
 	startWorkerManagerWorkflow = StartWorkerManagerWorkflow
 	shutdownTemporalClientsFn  = temporalclient.ShutdownClients
@@ -600,19 +601,18 @@ func FetchNamespaces(app core.App) ([]string, error) {
 	return namespaces, nil
 }
 
-func ensureNamespaceReadyWithRetry(namespace string) error {
-	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
-	log.Printf("[WorkersHook] Connecting to Temporal at %s for namespace %q", hostPort, namespace)
+const namespaceRetention = 365 * 24 * time.Hour
+
+// EnsureNamespaceReady registers the namespace when missing, waits until Temporal
+// describes it and registers Credimi's custom search attributes on it. It retries
+// with backoff for up to 90 seconds.
+func EnsureNamespaceReady(namespace string) error {
+	log.Printf("[WorkersHook] Ensuring Temporal namespace %q", namespace)
 
 	deadline := nowFn().Add(90 * time.Second)
 	attempt := 0
 
-	nc, err := newNamespaceClientFn(client.Options{
-		HostPort: hostPort,
-		ConnectionOptions: client.ConnectionOptions{
-			TLS: nil,
-		},
-	})
+	nc, err := newNamespaceClientFn()
 	if err != nil {
 		return err
 	}
@@ -622,37 +622,44 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 		attempt++
 		start := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 		_, err = nc.Describe(ctx, namespace)
 		cancel()
-		elapsed := time.Since(start)
 
 		if err == nil {
-			log.Printf(
-				"[WorkersHook] Namespace %q ready after %d attempt(s) in %v",
-				namespace,
-				attempt,
-				elapsed,
-			)
-			return nil
-		}
-
-		var notFound *serviceerror.NamespaceNotFound
-		if errors.As(err, &notFound) {
-			err = nc.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{
-				Namespace:                        namespace,
-				WorkflowExecutionRetentionPeriod: durationpb.New(365 * 24 * time.Hour),
-			})
-			if err != nil {
+			saCtx, saCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			err = addSearchAttributesFn(saCtx, namespace)
+			saCancel()
+			if err == nil {
+				log.Printf(
+					"[WorkersHook] Namespace %q ready after %d attempt(s) in %v",
+					namespace,
+					attempt,
+					time.Since(start),
+				)
+				return nil
+			}
+			err = fmt.Errorf("add search attributes: %w", err)
+		} else {
+			var notFound *serviceerror.NamespaceNotFound
+			if errors.As(err, &notFound) {
+				regCtx, regCancel := context.WithTimeout(context.Background(), 10*time.Second)
+				err = nc.Register(regCtx, &workflowservice.RegisterNamespaceRequest{
+					Namespace:                        namespace,
+					WorkflowExecutionRetentionPeriod: durationpb.New(namespaceRetention),
+				})
+				regCancel()
+				if err == nil {
+					log.Printf("[WorkersHook] Created namespace %s", namespace)
+					continue
+				}
 				log.Printf("[WorkersHook] Unable to create namespace %s: %v", namespace, err)
 			}
-			log.Printf("[WorkersHook] Created namespace %s", namespace)
 		}
 
 		log.Printf(
 			"[WorkersHook] Attempt %d failed in %v: namespace=%s err=%v",
 			attempt,
-			elapsed,
+			time.Since(start),
 			namespace,
 			err,
 		)
@@ -668,6 +675,19 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 		log.Printf("[WorkersHook] Sleeping %v before retry...", backoff)
 		sleepFn(backoff)
 	}
+}
+
+func addSearchAttributes(ctx context.Context, namespace string) error {
+	c, err := getTemporalClient(namespace)
+	if err != nil {
+		return err
+	}
+	_, err = c.OperatorService().
+		AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{
+			Namespace:        namespace,
+			SearchAttributes: workflowengine.CustomSearchAttributeTypes(),
+		})
+	return err
 }
 
 func StartWorkerManagerWorkflow(namespace, oldNamespace string, runnerIDs []string) {

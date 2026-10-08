@@ -129,15 +129,24 @@ Primary checkout does not need Worktrunk for `make dev` (classic ports). Worktru
 
 ## Temporal Visibility Search Attributes
 
-Pipeline listings rely on a Temporal visibility search attribute named `PipelineIdentifier` (type `Keyword`).
-Register it once per Temporal cluster:
+Pipeline listings and filters rely on custom Temporal visibility search attributes. Credimi registers them
+itself on every namespace it sets up (`hooks.EnsureNamespaceReady`, at server start and on organization
+create/rename), so no manual `temporal operator search-attribute create` step is needed:
 
-```bash
-temporal operator search-attributes create --name PipelineIdentifier --type Keyword
-```
+| Name | Type |
+| --- | --- |
+| `PipelineIdentifier` | `Keyword` |
+| `DeviceIdentifiers` | `KeywordList` |
+| `ActionsID` | `KeywordList` |
+| `VersionsID` | `KeywordList` |
+| `CredentialsID` | `KeywordList` |
+| `UseCaseID` | `KeywordList` |
+| `ConformanceCheckID` | `KeywordList` |
+| `CustomCheckID` | `KeywordList` |
 
-If the attribute is added after workflows already exist, trigger a Temporal visibility reindex to backfill
-historical data (see Temporal admin tooling docs for your deployment).
+The list lives in `workflowengine.CustomSearchAttributeTypes`. If an attribute is added after workflows already
+exist, trigger a Temporal visibility reindex to backfill historical data (see Temporal admin tooling docs for
+your deployment).
 
 ## mobile device semaphore Ops (Internal)
 

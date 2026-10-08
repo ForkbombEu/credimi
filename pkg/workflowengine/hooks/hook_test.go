@@ -499,40 +499,99 @@ func TestStartAllWorkersByNamespaceOrg(t *testing.T) {
 	require.False(t, ok)
 }
 
-func TestEnsureNamespaceReadyWithRetrySuccess(t *testing.T) {
+// stubNamespaceSetup replaces the namespace client, sleep and search-attribute
+// seams; it returns the namespaces passed to addSearchAttributesFn.
+func stubNamespaceSetup(
+	t *testing.T,
+	nc client.NamespaceClient,
+	addErr error,
+) *[]string {
+	t.Helper()
 	originalNewNamespaceClient := newNamespaceClientFn
 	originalSleep := sleepFn
 	originalNow := nowFn
+	originalAddSearchAttributes := addSearchAttributesFn
+	t.Cleanup(func() {
+		newNamespaceClientFn = originalNewNamespaceClient
+		sleepFn = originalSleep
+		nowFn = originalNow
+		addSearchAttributesFn = originalAddSearchAttributes
+	})
 
+	var added []string
+	newNamespaceClientFn = func() (client.NamespaceClient, error) {
+		return nc, nil
+	}
+	sleepFn = func(time.Duration) {}
+	nowFn = time.Now
+	addSearchAttributesFn = func(_ context.Context, namespace string) error {
+		added = append(added, namespace)
+		return addErr
+	}
+	return &added
+}
+
+func TestEnsureNamespaceReadySuccess(t *testing.T) {
 	mockClient := mocks.NewNamespaceClient(t)
 	mockClient.On("Describe", mock.Anything, "default").Return(
 		&workflowservice.DescribeNamespaceResponse{},
 		nil,
 	)
 	mockClient.On("Close").Return()
+	stubNamespaceSetup(t, mockClient, nil)
 
-	newNamespaceClientFn = func(_ client.Options) (client.NamespaceClient, error) {
-		return mockClient, nil
-	}
-	sleepFn = func(time.Duration) {}
-	nowFn = time.Now
-
-	t.Cleanup(func() {
-		newNamespaceClientFn = originalNewNamespaceClient
-		sleepFn = originalSleep
-		nowFn = originalNow
-	})
-
-	err := ensureNamespaceReadyWithRetry("default")
+	err := EnsureNamespaceReady("default")
 	require.NoError(t, err)
 	mockClient.AssertNotCalled(t, "Register", mock.Anything, mock.Anything)
 }
 
-func TestEnsureNamespaceReadyWithRetryRegistersOnNotFound(t *testing.T) {
-	originalNewNamespaceClient := newNamespaceClientFn
-	originalSleep := sleepFn
-	originalNow := nowFn
+func TestEnsureNamespaceReadyAddsSearchAttributesAfterDescribe(t *testing.T) {
+	mockClient := mocks.NewNamespaceClient(t)
+	describeCalls := 0
+	mockClient.On("Describe", mock.Anything, "tenant").Return(
+		func(_ context.Context, _ string) *workflowservice.DescribeNamespaceResponse {
+			describeCalls++
+			return &workflowservice.DescribeNamespaceResponse{}
+		},
+		nil,
+	)
+	mockClient.On("Close").Return()
+	added := stubNamespaceSetup(t, mockClient, nil)
+	addSearchAttributes := addSearchAttributesFn
+	addSearchAttributesFn = func(ctx context.Context, namespace string) error {
+		require.Equal(t, 1, describeCalls, "search attributes must be added after Describe")
+		return addSearchAttributes(ctx, namespace)
+	}
 
+	err := EnsureNamespaceReady("tenant")
+	require.NoError(t, err)
+	require.Equal(t, []string{"tenant"}, *added)
+}
+
+func TestEnsureNamespaceReadyRetriesSearchAttributeErrors(t *testing.T) {
+	mockClient := mocks.NewNamespaceClient(t)
+	mockClient.On("Describe", mock.Anything, "tenant").Return(
+		&workflowservice.DescribeNamespaceResponse{},
+		nil,
+	)
+	mockClient.On("Close").Return()
+	added := stubNamespaceSetup(t, mockClient, errors.New("boom"))
+	start := time.Now()
+	nowCalls := 0
+	nowFn = func() time.Time {
+		nowCalls++
+		if nowCalls == 1 {
+			return start
+		}
+		return start.Add(91 * time.Second)
+	}
+
+	err := EnsureNamespaceReady("tenant")
+	require.ErrorContains(t, err, "boom")
+	require.Equal(t, []string{"tenant"}, *added)
+}
+
+func TestEnsureNamespaceReadyRegistersOnNotFound(t *testing.T) {
 	mockClient := mocks.NewNamespaceClient(t)
 	callCount := 0
 	mockClient.On("Describe", mock.Anything, "tenant").Return(
@@ -551,46 +610,34 @@ func TestEnsureNamespaceReadyWithRetryRegistersOnNotFound(t *testing.T) {
 		},
 	)
 	mockClient.On("Register", mock.Anything, mock.MatchedBy(func(req *workflowservice.RegisterNamespaceRequest) bool {
-		return req.GetNamespace() == "tenant"
+		return req.GetNamespace() == "tenant" &&
+			req.GetWorkflowExecutionRetentionPeriod().AsDuration() == namespaceRetention
 	})).
-		Return(nil)
+		Return(nil).
+		Once()
 	mockClient.On("Close").Return()
+	slept := false
+	added := stubNamespaceSetup(t, mockClient, nil)
+	sleepFn = func(time.Duration) { slept = true }
 
-	newNamespaceClientFn = func(_ client.Options) (client.NamespaceClient, error) {
-		return mockClient, nil
-	}
-	sleepFn = func(time.Duration) {}
-	nowFn = time.Now
-
-	t.Cleanup(func() {
-		newNamespaceClientFn = originalNewNamespaceClient
-		sleepFn = originalSleep
-		nowFn = originalNow
-	})
-
-	err := ensureNamespaceReadyWithRetry("tenant")
+	err := EnsureNamespaceReady("tenant")
 	require.NoError(t, err)
-	mockClient.AssertCalled(t, "Register", mock.Anything, mock.Anything)
+	require.False(t, slept, "a successful Register must describe again without sleeping")
+	require.Equal(t, 2, callCount)
+	require.Equal(t, []string{"tenant"}, *added)
 }
 
-func TestEnsureNamespaceReadyWithRetryTimeout(t *testing.T) {
-	originalNewNamespaceClient := newNamespaceClientFn
-	originalSleep := sleepFn
-	originalNow := nowFn
-
+func TestEnsureNamespaceReadyTimeout(t *testing.T) {
 	mockClient := mocks.NewNamespaceClient(t)
 	mockClient.On("Describe", mock.Anything, "timeout").Return(
 		(*workflowservice.DescribeNamespaceResponse)(nil),
 		errors.New("boom"),
 	)
 	mockClient.On("Close").Return()
+	added := stubNamespaceSetup(t, mockClient, nil)
 
 	start := time.Now()
 	nowCalls := 0
-	newNamespaceClientFn = func(_ client.Options) (client.NamespaceClient, error) {
-		return mockClient, nil
-	}
-	sleepFn = func(time.Duration) {}
 	nowFn = func() time.Time {
 		nowCalls++
 		if nowCalls == 1 {
@@ -599,14 +646,9 @@ func TestEnsureNamespaceReadyWithRetryTimeout(t *testing.T) {
 		return start.Add(91 * time.Second)
 	}
 
-	t.Cleanup(func() {
-		newNamespaceClientFn = originalNewNamespaceClient
-		sleepFn = originalSleep
-		nowFn = originalNow
-	})
-
-	err := ensureNamespaceReadyWithRetry("timeout")
+	err := EnsureNamespaceReady("timeout")
 	require.Error(t, err)
+	require.Empty(t, *added)
 }
 
 func TestExecuteWorkerManagerWorkflowSuccess(t *testing.T) {

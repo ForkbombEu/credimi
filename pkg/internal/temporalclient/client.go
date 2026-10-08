@@ -55,6 +55,14 @@ func GetTemporalClientWithNamespace(namespace string) (client.Client, error) {
 	return getTemporalClient(namespace)
 }
 
+// NewNamespaceClient returns a new Temporal namespace client for TEMPORAL_ADDRESS.
+// Callers own the returned client and must close it.
+func NewNamespaceClient() (client.NamespaceClient, error) {
+	return client.NewNamespaceClient(client.Options{
+		HostPort: utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort),
+	})
+}
+
 func ShutdownClients() {
 	clientCache.Range(func(key, value any) bool {
 		if c, ok := value.(client.Client); ok {

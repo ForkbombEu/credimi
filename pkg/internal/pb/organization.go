@@ -5,23 +5,15 @@
 package pb
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"log"
-	"time"
 
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 	"github.com/pocketbase/dbx"
 	validation "github.com/pocketbase/ozzo-validation/v4"
-	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
-	"go.temporal.io/api/serviceerror"
-	"go.temporal.io/api/workflowservice/v1"
-	"go.temporal.io/sdk/client"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type organizationPublicationCollection struct {
@@ -31,8 +23,7 @@ type organizationPublicationCollection struct {
 }
 
 var (
-	newNamespaceClient          = client.NewNamespaceClient
-	waitForNamespaceReadyFn     = waitForNamespaceReady
+	ensureNamespaceReadyFn      = hooks.EnsureNamespaceReady
 	startWorkersByNamespaceFn   = hooks.StartAllWorkersByNamespace
 	ensureNamespaceAndWorkersFn = ensureNamespaceAndWorkers
 	startWorkerManagerFn        = hooks.StartWorkerManagerWorkflow
@@ -54,11 +45,6 @@ func HookOrganizations(app core.App) {
 	registerOrganizationPublicationHooks(app)
 	registerOrganizationWorkerManagerPublicationHooks(app)
 	registerOrganizationProtectedFieldsHooks(app)
-}
-
-// HookNamespaceOrgs is kept as a compatibility wrapper for tests and existing call sites.
-func HookNamespaceOrgs(app *pocketbase.PocketBase) {
-	registerOrganizationNamespaceHooks(app)
 }
 
 // RegisterOrganizationPublicationHooks is kept as a compatibility wrapper for tests.
@@ -294,9 +280,9 @@ func organizationPublicationCollectionByName(
 	return nil
 }
 
-// ensureNamespaceAndWorkers ensures the given namespace exists in Temporal.
-// If not, it creates it.
-// It then starts all workers for that namespace in a goroutine.
+// ensureNamespaceAndWorkers ensures the given namespace exists in Temporal,
+// creating it and its search attributes when missing, then starts all workers
+// for that namespace in a goroutine.
 func ensureNamespaceAndWorkers(app core.App, namespace string) {
 	if hooks.TemporalWorkersDisabled() {
 		log.Printf(
@@ -307,80 +293,10 @@ func ensureNamespaceAndWorkers(app core.App, namespace string) {
 		return
 	}
 
-	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
-	c, err := newNamespaceClient(client.Options{
-		HostPort: hostPort,
-		ConnectionOptions: client.ConnectionOptions{
-			TLS: nil,
-		},
-	})
-	if err != nil {
-		log.Printf("Unable to create namespace client: %v", err)
-		return
-	}
-	defer c.Close()
-
-	var created bool
-
-	_, err = c.Describe(context.Background(), namespace)
-	if err != nil {
-		var notFound *serviceerror.NamespaceNotFound
-		if errors.As(err, &notFound) {
-			err = c.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{
-				Namespace:                        namespace,
-				WorkflowExecutionRetentionPeriod: durationpb.New(365 * 24 * time.Hour),
-			})
-			if err != nil {
-				log.Printf("Unable to create namespace %s: %v", namespace, err)
-				return
-			}
-			log.Printf("Created namespace %s", namespace)
-			created = true
-		}
-	}
-	if !created {
-		return
-	}
-	if err := waitForNamespaceReadyFn(c, namespace, 90*time.Second); err != nil {
+	if err := ensureNamespaceReadyFn(namespace); err != nil {
 		log.Printf("Namespace %s not ready after retries: %v", namespace, err)
 		return
 	}
 
 	go startWorkersByNamespaceFn(app, namespace)
-}
-
-func waitForNamespaceReady(
-	c client.NamespaceClient,
-	namespace string,
-	timeout time.Duration,
-) error {
-	deadline := time.Now().Add(timeout)
-	attempt := 0
-
-	for {
-		attempt++
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		_, err := c.Describe(ctx, namespace)
-		cancel()
-
-		if err == nil {
-			log.Printf("Namespace %q ready after %d attempt(s)", namespace, attempt)
-			return nil
-		}
-
-		if time.Now().After(deadline) {
-			return err
-		}
-
-		backoff := time.Duration(attempt) * time.Second
-		if backoff > 5*time.Second {
-			backoff = 5 * time.Second
-		}
-		log.Printf(
-			"Waiting %v before retrying namespace readiness (attempt %d)...",
-			backoff,
-			attempt,
-		)
-		time.Sleep(backoff)
-	}
 }

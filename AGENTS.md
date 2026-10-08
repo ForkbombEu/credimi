@@ -213,8 +213,9 @@ Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databas
 ## Tenancy And Temporal
 
 - `organizations.canonified_name` is the Temporal namespace for that tenant.
-- Organization create/update ensures the namespace exists and starts workers in `pkg/internal/pb/namespaces.go`.
+- Organization create/update ensures the namespace exists and starts workers in `pkg/internal/pb/organization.go`.
 - Server startup starts workers for `default` and all organization namespaces in `pkg/workflowengine/hooks/hook.go`.
+- Both paths use `hooks.EnsureNamespaceReady`, which registers missing namespaces and the custom search attributes from `workflowengine.CustomSearchAttributeTypes`.
 - Mobile-device semaphore workflows run in the Temporal `default` namespace.
 - Pipeline workflows run in the owner organization namespace.
 - The `mobile-automation` child workflow runs in the same namespace as the pipeline and uses a runner-specific task queue.
