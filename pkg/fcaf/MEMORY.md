@@ -3128,3 +3128,14 @@ nine report `blocked`. Reference Wallet run pending.
 
 `make fcaf-generate` produces 1745 aggregate steps; the happy flow has 195. The
 no-match session adds its three steps and a PID issuance.
+
+## SessionEncryption 001b: reference wallet chooses A128CBC-HS256
+
+08/10/2026. 001b failed with `enc` `A128CBC-HS256`, expected `A256GCM` or
+`A128GCM`. The harness is correct: Capture advertises `[A128GCM, A256GCM,
+A128CBC-HS256]` (probed on production), and the wallet picked the CBC value. The
+source requires GCM, and HAIP 1.0 Section 5 says a Wallet supporting both GCM
+lengths SHOULD use `A256GCM`. Narrowing the advertised list was considered and
+rejected: it would test obedience to a HAIP verifier's list, which 007–009
+already cover, rather than the wallet's default choice. Recorded as
+`RI-WALLET-004`; no harness change.
