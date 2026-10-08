@@ -18,6 +18,11 @@ services:
       - 9200
     volumes:
       - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsu elastic:$$ELASTIC_PASSWORD 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
   postgresql:
     container_name: temporal-postgresql
     environment:
@@ -27,11 +32,38 @@ services:
     expose:
       - 5432
     volumes:
-      - /var/lib/postgresql/data
+      - temporal-postgresql-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+  # One-shot job: creates or upgrades the Postgres and Elasticsearch schemas
+  # (scripts/temporal-schema.sh). Search attributes are registered by Credimi.
+  temporal_schema:
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - SQL_HOST=postgresql
+      - SQL_PORT=5432
+      - SQL_USER=temporal
+      - SQL_PASSWORD=temporal
+      - ES_SERVER=http://elasticsearch:9200
+      - ES_USER=elastic
+      - ES_PWD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
+      - ES_VISIBILITY_INDEX=temporal_visibility_v1_dev
+    image: temporalio/admin-tools:${TEMPORAL_ADMIN_TOOLS_VERSION}
+    entrypoint: ["/bin/sh", "/scripts/temporal-schema.sh"]
+    restart: "no"
+    volumes:
+      - ./scripts:/scripts:ro
   temporal:
     depends_on:
-      - postgresql
-      - elasticsearch
+      temporal_schema:
+        condition: service_completed_successfully
     environment:
       - DB=postgres12
       - DB_PORT=5432
@@ -44,12 +76,22 @@ services:
       - ES_VERSION=v7
       - ES_USER=elastic
       - ES_PWD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      - ES_VIS_INDEX=temporal_visibility_v1_dev
+      - BIND_ON_IP=0.0.0.0
+      - NUM_HISTORY_SHARDS=4
+      # Read only by temporalio/auto-setup (temporal-upgrade hop to 1.29.7).
+      - SKIP_DEFAULT_NAMESPACE_CREATION=true
+      - SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES=true
       - LOG_LEVEL=info
-    image: temporalio/auto-setup:${TEMPORAL_VERSION}
+    image: ${TEMPORAL_SERVER_IMAGE:-temporalio/server}:${TEMPORAL_VERSION}
     ports:
       - ${TEMPORAL_PORT:-7233}:7233
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "7233"]
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 60
     volumes:
       - ./deployment/dynamicconfig:/etc/temporal/config/dynamicconfig
     logging:
@@ -60,7 +102,8 @@ services:
   temporal_ui:
     container_name: temporal-ui
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
@@ -72,7 +115,8 @@ services:
   # Credimi reaches it, through the org-scoped proxy at /temporal-ui (pkg/internal/temporalui).
   temporal_ui_embedded:
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_UI_PORT=8080
@@ -81,25 +125,13 @@ services:
       - TEMPORAL_DISABLE_NEWS_FETCH=true
       - TEMPORAL_NAV_COLLAPSED_BY_DEFAULT=true
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
-  temporal_setup:
-    depends_on:
-      - temporal
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-    image: temporalio/admin-tools:${TEMPORAL_ADMIN_TOOLS_VERSION}
-    entrypoint:
-      [
-        "/bin/bash",
-        "-lc",
-        "set -euo pipefail; /scripts/wait-for-it.sh -s -t 0 temporal:7233; /scripts/temporal-search-attributes.sh",
-      ]
-    restart: "no"
-    volumes:
-      - ./scripts:/scripts:ro
   credimi:
     depends_on:
-      - temporal
-      - temporal_ui_embedded
+      temporal:
+        condition: service_healthy
+      temporal_ui_embedded:
+        condition: service_started
+    stop_grace_period: 30s
     build:
       context: .
       dockerfile: Dockerfile
@@ -126,3 +158,4 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 volumes:
   esdata:
+  temporal-postgresql-data:

@@ -239,6 +239,7 @@ docker: $(DATA) submodules ## 🐳 run docker with all the infrastructure servic
 	if [ -z "$${CREDIMI_EXTRA_PAT-}" ] && command -v gh >/dev/null 2>&1; then CREDIMI_EXTRA_PAT="$$(gh auth token 2>/dev/null || true)"; fi; \
 	EXTRA_BUILD_ARGS=""; [ -n "$${CREDIMI_EXTRA_PAT-}" ] && EXTRA_BUILD_ARGS="--build-arg CREDIMI_EXTRA_PAT=$$CREDIMI_EXTRA_PAT"; \
 	export COMPOSE_PROJECT_NAME="$(COMPOSE_PROJECT_NAME)" CREDIMI_ELASTIC_PASSWORD="$${CREDIMI_ELASTIC_PASSWORD:-devpassword}"; \
+	WORKTREE_COMPOSE_MODE=docker ./scripts/worktree-compose.sh temporal-check; \
 	docker compose build --build-arg PUBLIC_TURNSTILE_SITE_KEY="$${PUBLIC_TURNSTILE_SITE_KEY:?PUBLIC_TURNSTILE_SITE_KEY is required}" $$EXTRA_BUILD_ARGS; \
 	docker compose up'
 
@@ -248,6 +249,7 @@ docker-tunnel: $(DATA) submodules ## 🌐 run docker (detached, logs hidden) and
 	if [ -z "$${CREDIMI_EXTRA_PAT-}" ] && command -v gh >/dev/null 2>&1; then CREDIMI_EXTRA_PAT="$$(gh auth token 2>/dev/null || true)"; fi; \
 	EXTRA_BUILD_ARGS=""; [ -n "$${CREDIMI_EXTRA_PAT-}" ] && EXTRA_BUILD_ARGS="--build-arg CREDIMI_EXTRA_PAT=$$CREDIMI_EXTRA_PAT"; \
 	export COMPOSE_PROJECT_NAME="$(COMPOSE_PROJECT_NAME)" CREDIMI_ELASTIC_PASSWORD="$${CREDIMI_ELASTIC_PASSWORD:-devpassword}"; \
+	WORKTREE_COMPOSE_MODE=docker ./scripts/worktree-compose.sh temporal-check; \
 	docker compose build --build-arg PUBLIC_TURNSTILE_SITE_KEY="$${PUBLIC_TURNSTILE_SITE_KEY:?PUBLIC_TURNSTILE_SITE_KEY is required}" $$EXTRA_BUILD_ARGS; \
 	printf "$(CYAN)🐳 Starting docker compose detached (runtime logs hidden — run \`docker compose logs -f\` to view)...$(RESET)\n"; \
 	docker compose up -d --remove-orphans; \
