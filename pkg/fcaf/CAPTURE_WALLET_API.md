@@ -483,6 +483,13 @@ source test permits it.
   `raw.presentation_response_decrypted.vp_token`, and its decoded form at
   `raw.decoded_presentations`. Scenarios with an encrypted response mode bind
   presentation evidence to `raw.presentation_response_decrypted.vp_token`.
+- On 08/10/2026, a production `request_delivery: by_value` session returned
+  no `request` member at `201`, and its session record had no
+  `raw.authorization_request_jwt`, since no Request URI is retrieved. The
+  signed Request Object the Wallet receives is the deeplink `request`
+  parameter, recorded at `raw.outer_request_delivered.request`. Scenarios
+  bind by-value request evidence there, and the Authorization Response
+  parameters of an encrypted response to `raw.presentation_response_decrypted`.
 
 - Resynced from upstream master on 25/09/2026 (`5b03750`). Since the 22/09/2026
   sync (`6b94fa4`) the contract adds the SD-JWT VC `digest_algorithm` issuance

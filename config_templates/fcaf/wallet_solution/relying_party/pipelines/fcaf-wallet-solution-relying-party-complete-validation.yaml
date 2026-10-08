@@ -25969,10 +25969,10 @@ steps:
                     create-presentation: ${{ request-object-by-value-f1c94061-create-presentation.outputs | optional }}
                     dcql_exchange: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs.body | optional }}
                     get-presentation-result: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs | optional }}
-                    request_object: ${{ request-object-by-value-f1c94061-create-presentation.outputs.body.request | optional }}
+                    request_object: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs.body.raw.outer_request_delivered.request | optional }}
                     submit-request-object-by-value: ${{ request-object-by-value-f1c94061-submit-request-object-by-value.outputs | optional }}
                     visual_evidence: ${{ request-object-by-value-f1c94061-submit-request-object-by-value.outputs.flow_output.maestro_screenshot_urls | optional }}
-                    wallet_response: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs.body | optional }}
+                    wallet_response: ${{ request-object-by-value-f1c94061-get-presentation-result.outputs.body.raw.presentation_response_decrypted | optional }}
             pipeline.wallet.protocol.request-uri-method-default:
                 output:
                     capture_session: ${{ request-uri-method-default-9bc74bd3-get-presentation-result.outputs.body | optional }}
