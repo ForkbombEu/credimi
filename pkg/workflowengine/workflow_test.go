@@ -232,7 +232,7 @@ func TestWaitForWorkflowResult(t *testing.T) {
 			Once()
 		mockClient.On("GetWorkflow", mock.Anything, "wf-id", "run-id").Return(mockRun).Once()
 
-		got, err := WaitForWorkflowResult(mockClient, "wf-id", "run-id")
+		got, err := WaitForWorkflowResult(context.Background(), mockClient, "wf-id", "run-id")
 		require.NoError(t, err)
 		require.Equal(t, "ok", got.Message)
 
@@ -249,7 +249,7 @@ func TestWaitForWorkflowResult(t *testing.T) {
 			Once()
 		mockClient.On("GetWorkflow", mock.Anything, "wf-id", "run-id").Return(mockRun).Once()
 
-		_, err := WaitForWorkflowResult(mockClient, "wf-id", "run-id")
+		_, err := WaitForWorkflowResult(context.Background(), mockClient, "wf-id", "run-id")
 		require.ErrorContains(t, err, "get failed")
 
 		mockClient.AssertExpectations(t)

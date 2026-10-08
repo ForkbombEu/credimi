@@ -755,7 +755,9 @@ func TestExecuteWorkerManagerWorkflowSuccess(t *testing.T) {
 		return &mocks.Client{}, nil
 	}
 
-	workerManagerWaitForWorkflowResult = func(c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+	workerManagerWaitForWorkflowResult = func(ctx context.Context, c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+		_, hasDeadline := ctx.Deadline()
+		require.True(t, hasDeadline)
 		require.NotNil(t, c)
 		require.Equal(t, "wf-1", workflowID)
 		require.Equal(t, "run-1", runID)
@@ -833,7 +835,7 @@ func TestExecuteWorkerManagerWorkflowWaitError(t *testing.T) {
 	workerManagerTemporalClient = func(_ string) (client.Client, error) {
 		return &mocks.Client{}, nil
 	}
-	workerManagerWaitForWorkflowResult = func(_ client.Client, _ string, _ string) (workflowengine.WorkflowResult, error) {
+	workerManagerWaitForWorkflowResult = func(_ context.Context, _ client.Client, _ string, _ string) (workflowengine.WorkflowResult, error) {
 		return workflowengine.WorkflowResult{}, errors.New("wait failed")
 	}
 

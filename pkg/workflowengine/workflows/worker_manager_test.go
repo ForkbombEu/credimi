@@ -7,13 +7,13 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
@@ -299,7 +299,11 @@ func TestWorkerManagerWorkflowStart(t *testing.T) {
 
 	w := NewWorkerManagerWorkflow()
 	input := workflowengine.WorkflowInput{
-		Payload: WorkerManagerWorkflowPayload{Namespace: "org-1"},
+		Payload: WorkerManagerWorkflowPayload{
+			Namespace:    "org-1",
+			OldNamespace: "old-org",
+			RunnerIDs:    []string{"runner-b", "runner-a"},
+		},
 	}
 	result, err := w.Start("ns-1", input)
 	require.NoError(t, err)
@@ -309,5 +313,11 @@ func TestWorkerManagerWorkflowStart(t *testing.T) {
 	require.Equal(t, w.Name(), capturedName)
 	require.Equal(t, input, capturedInput)
 	require.Equal(t, WorkerManagerTaskQueue, capturedOptions.TaskQueue)
-	require.True(t, strings.HasPrefix(capturedOptions.ID, "worker-manager-"))
+	// sha256("old-org|runner-a,runner-b")[:12]: runner order does not matter.
+	require.Equal(t, "worker-manager-org-1-d814d2e8bd3b", capturedOptions.ID)
+	require.Equal(
+		t,
+		enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
+		capturedOptions.WorkflowIDConflictPolicy,
+	)
 }

@@ -359,6 +359,8 @@ const (
 	workerStopTimeout = 20 * time.Second
 	// workerStopWait bounds how long a stop waits for a namespace's workers.
 	workerStopWait = 30 * time.Second
+	// workerManagerWaitTimeout bounds how long a worker-manager run is awaited.
+	workerManagerWaitTimeout = 5 * time.Minute
 )
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
@@ -793,7 +795,10 @@ func executeWorkerManagerWorkflow(
 		return fmt.Errorf("unable to create client: %w", err)
 	}
 
+	waitCtx, cancel := context.WithTimeout(context.Background(), workerManagerWaitTimeout)
+	defer cancel()
 	_, err = workerManagerWaitForWorkflowResult(
+		waitCtx,
 		c,
 		resStart.WorkflowID,
 		resStart.WorkflowRunID,

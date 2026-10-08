@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -446,8 +447,8 @@ func StartWorkflowWithOptions(
 		return WorkflowResult{}, fmt.Errorf("unable to create client: %w", err)
 	}
 
-	if input.Config["memo"] != nil {
-		options.Memo = input.Config["memo"].(map[string]any)
+	if m, ok := input.Config["memo"].(map[string]any); ok {
+		options.Memo = maps.Clone(m)
 	}
 
 	if options.Memo == nil {
@@ -472,10 +473,14 @@ func StartWorkflowWithOptions(
 }
 
 // Wait for final workflow result
-func WaitForWorkflowResult(c client.Client, workflowID, runID string) (WorkflowResult, error) {
+func WaitForWorkflowResult(
+	ctx context.Context,
+	c client.Client,
+	workflowID, runID string,
+) (WorkflowResult, error) {
 	var result WorkflowResult
-	we := c.GetWorkflow(context.Background(), workflowID, runID)
-	if err := we.Get(context.Background(), &result); err != nil {
+	we := c.GetWorkflow(ctx, workflowID, runID)
+	if err := we.Get(ctx, &result); err != nil {
 		return result, err
 	}
 	return result, nil

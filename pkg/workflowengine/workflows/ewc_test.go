@@ -5,6 +5,7 @@
 package workflows
 
 import (
+	"maps"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -441,8 +442,8 @@ func TestEWCWorkflowStartSetsQRMemoForMarketplaceAuthorType(t *testing.T) {
 		input workflowengine.WorkflowInput,
 	) (workflowengine.WorkflowResult, error) {
 		// Mirror StartWorkflowWithOptions: Temporal memo comes from input.Config["memo"].
-		if input.Config["memo"] != nil {
-			options.Memo = input.Config["memo"].(map[string]any)
+		if m, ok := input.Config["memo"].(map[string]any); ok {
+			options.Memo = maps.Clone(m)
 		}
 		capturedOptions = options
 		return workflowengine.WorkflowResult{}, nil
