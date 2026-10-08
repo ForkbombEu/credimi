@@ -24,10 +24,20 @@ const (
 	pipelineEvidenceRunDataKey = "pipeline_evidence"
 )
 
+// evidenceExtractionTimeout bounds the extraction activity, which generates a
+// deeplink (running StepCI for dynamic records) and contacts the issuer or
+// verifier for every evidence step of the pipeline.
+const evidenceExtractionTimeout = 30 * time.Minute
+
+// PipelineEvidenceSetupHook extracts issuer and verifier evidence for the
+// pipeline's credential-offer and use-case-verification-deeplink steps in a
+// single activity, before the steps run. The activity generates its own
+// deeplinks: a verifier serves a request object only once, so evidence cannot
+// reuse the deeplink the wallet receives.
 func PipelineEvidenceSetupHook(
 	ctx workflow.Context,
 	wfDef *pipelineinternal.WorkflowDefinition,
-	config map[string]any,
+	_ map[string]any,
 	runData *map[string]any,
 	finalOutput *map[string]any,
 	logger log.Logger,
@@ -36,34 +46,22 @@ func PipelineEvidenceSetupHook(
 		return nil
 	}
 	baseAO := PrepareWorkflowOptions(wfDef.Runtime).ActivityOptions
-	discoveryDef := evidenceDiscoveryDefinition(wfDef)
-
-	deeplinks, deeplinkErrors, err := resolveEvidenceDeeplinks(
-		ctx,
-		discoveryDef,
-		config,
-		runData,
-		baseAO,
-	)
-	if err != nil {
-		return err
-	}
+	discoveryDef, inputErrors := resolveEvidenceInputs(wfDef, runData)
 
 	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
 	extractionReq := workflowengine.ActivityInput{
 		Payload: activities.PipelineEvidenceExtractionInput{
 			WorkflowDefinition: discoveryDef,
-			Deeplinks:          deeplinks,
-			DeeplinkErrors:     deeplinkErrors,
+			InputErrors:        inputErrors,
 			WorkflowID:         workflowID,
 			RunID:              runID,
 		},
 	}
 
-	extractionCtx := workflow.WithActivityOptions(
-		ctx,
-		evidenceActivityOptions(&baseAO, 5*time.Minute, 1),
-	)
+	extractionAO := evidenceActivityOptions(&baseAO, evidenceExtractionTimeout, 1)
+	extractionAO.StartToCloseTimeout = evidenceExtractionTimeout
+	extractionAO.ScheduleToCloseTimeout = 0
+	extractionCtx := workflow.WithActivityOptions(ctx, extractionAO)
 	var extractionResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(
 		extractionCtx,
@@ -94,60 +92,43 @@ func PipelineEvidenceSetupHook(
 	return nil
 }
 
-// evidenceDeeplinkStepPrefix keeps the child workflow that resolves an evidence
-// deeplink apart from the child workflow of the pipeline step itself.
-const evidenceDeeplinkStepPrefix = "evidence-"
-
-// resolveEvidenceDeeplinks resolves the deeplink of every evidence step through
-// the same registry child workflow the step runs (credential offer or use case
-// verification deeplink), so evidence extraction never calls Credimi over HTTP.
-// A step that fails to resolve is reported by step ID instead of failing the
-// pipeline; only cancellation is returned.
-func resolveEvidenceDeeplinks(
-	ctx workflow.Context,
-	def *pipelineinternal.WorkflowDefinition,
-	config map[string]any,
+// resolveEvidenceInputs returns the pipeline's evidence steps with their inputs
+// resolved against the run data available at setup, so the extraction activity
+// input does not copy the whole definition. A step whose inputs cannot be
+// resolved yet, such as one that reads an earlier step's output, keeps its raw
+// inputs and is reported by step ID instead of failing the pipeline.
+func resolveEvidenceInputs(
+	wfDef *pipelineinternal.WorkflowDefinition,
 	runData *map[string]any,
-	ao workflow.ActivityOptions,
-) (map[string]string, map[string]string, error) {
+) (*pipelineinternal.WorkflowDefinition, map[string]string) {
 	dataCtx := map[string]any{}
 	if runData != nil && *runData != nil {
 		dataCtx = *runData
 	}
-	deeplinks := map[string]string{}
-	deeplinkErrors := map[string]string{}
-	for _, step := range def.Steps {
+	def := &pipelineinternal.WorkflowDefinition{Name: wfDef.Name}
+	inputErrors := map[string]string{}
+	for _, step := range wfDef.Steps {
+		if !isPipelineEvidenceStep(step.Use) {
+			continue
+		}
+		resolved := step
 		// ResolveInputs writes resolved values back into the maps it receives;
 		// clone them so the pipeline step itself still resolves its own inputs.
-		with := pipelineinternal.StepInputs{
+		resolved.With = pipelineinternal.StepInputs{
 			Config:  maps.Clone(step.With.Config),
 			Payload: maps.Clone(step.With.Payload),
 		}
-		output, err := ExecuteStep(
-			evidenceDeeplinkStepPrefix+step.ID,
-			step.Use,
-			with,
-			step.ActivityOptions,
-			ctx,
-			config,
-			dataCtx,
-			ao,
-		)
-		if err != nil {
-			if temporal.IsCanceledError(err) {
-				return nil, nil, err
-			}
-			deeplinkErrors[step.ID] = err.Error()
-			continue
+		if err := pipelineinternal.ResolveInputs(&resolved, nil, dataCtx); err != nil {
+			inputErrors[step.ID] = err.Error()
+			resolved.With = step.With
 		}
-		deeplink, ok := output.(string)
-		if !ok || strings.TrimSpace(deeplink) == "" {
-			deeplinkErrors[step.ID] = fmt.Sprintf("%s returned no deeplink", step.Use)
-			continue
-		}
-		deeplinks[step.ID] = deeplink
+		def.Steps = append(def.Steps, resolved)
 	}
-	return deeplinks, deeplinkErrors, nil
+	return def, inputErrors
+}
+
+func isPipelineEvidenceStep(use string) bool {
+	return use == "credential-offer" || use == "use-case-verification-deeplink"
 }
 
 func hasPipelineEvidenceStep(wfDef *pipelineinternal.WorkflowDefinition) bool {
@@ -155,25 +136,11 @@ func hasPipelineEvidenceStep(wfDef *pipelineinternal.WorkflowDefinition) bool {
 		return false
 	}
 	for _, step := range wfDef.Steps {
-		if step.Use == "credential-offer" || step.Use == "use-case-verification-deeplink" {
+		if isPipelineEvidenceStep(step.Use) {
 			return true
 		}
 	}
 	return false
-}
-
-// evidenceDiscoveryDefinition keeps only the steps evidence discovery reads, so the
-// extraction activity input does not copy the whole definition.
-func evidenceDiscoveryDefinition(
-	wfDef *pipelineinternal.WorkflowDefinition,
-) *pipelineinternal.WorkflowDefinition {
-	discovery := &pipelineinternal.WorkflowDefinition{Name: wfDef.Name}
-	for _, step := range wfDef.Steps {
-		if step.Use == "credential-offer" || step.Use == "use-case-verification-deeplink" {
-			discovery.Steps = append(discovery.Steps, step)
-		}
-	}
-	return discovery
 }
 
 func evidenceActivityOptions(
