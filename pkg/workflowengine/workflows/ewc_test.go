@@ -655,3 +655,88 @@ func matchesHTTPPayload(input workflowengine.ActivityInput, wantURL string) bool
 		return false
 	}
 }
+
+func httpPayloadURL(input workflowengine.ActivityInput) string {
+	switch payload := input.Payload.(type) {
+	case activities.HTTPActivityPayload:
+		return payload.URL
+	case map[string]any:
+		return workflowengine.AsString(payload["url"])
+	default:
+		return ""
+	}
+}
+
+// runPendingEWCStatusWorkflow runs an EWC status workflow whose check stays
+// pending with identical logs, applying signals before cancelling at cancelAt.
+// It returns the number of status checks and realtime log pushes.
+func runPendingEWCStatusWorkflow(
+	t *testing.T,
+	signals func(env *testsuite.TestWorkflowEnvironment),
+	cancelAt time.Duration,
+) (checks int, pushes int) {
+	t.Helper()
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(httpActivity.Execute, activity.RegisterOptions{
+		Name: httpActivity.Name(),
+	})
+	registerRealtimeLogsActivity(env)
+
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		return httpPayloadURL(input) == "https://api.test/ewc"
+	})).
+		Run(func(_ mock.Arguments) { checks++ }).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{"status": "pending", "reason": "ok"},
+		}}, nil)
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		return httpPayloadURL(input) == "https://api.test/ewc/logs/12345"
+	})).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{"logs": []any{map[string]any{"message": "same"}}},
+		}}, nil)
+	onRealtimeLogsActivity(env, testWorkflowID+EWCSubscription, func() { pushes++ })
+
+	signals(env)
+	env.RegisterDelayedCallback(env.CancelWorkflow, cancelAt)
+	env.ExecuteWorkflow(NewEWCStatusWorkflow().Workflow, workflowengine.WorkflowInput{
+		Payload: EWCStatusWorkflowPayload{SessionID: "12345"},
+		Config: map[string]any{
+			"app_url":        "https://test-app.com",
+			"check_endpoint": "https://api.test/ewc",
+			"logs_endpoint":  "https://api.test/ewc/logs/{{ sessionId }}",
+			"interval":       float64(10 * time.Second),
+		},
+	})
+	require.True(t, env.IsWorkflowCompleted())
+	return checks, pushes
+}
+
+func TestEWCPollRestartWithinIntervalKeepsOneTimerChain(t *testing.T) {
+	checks, _ := runPendingEWCStatusWorkflow(t, func(env *testsuite.TestWorkflowEnvironment) {
+		env.RegisterDelayedCallback(func() {
+			env.SignalWorkflow(EwcStopCheckSignal, nil)
+		}, 2*time.Second)
+		env.RegisterDelayedCallback(func() {
+			env.SignalWorkflow(EwcStartCheckSignal, nil)
+		}, 5*time.Second)
+	}, 34*time.Second)
+
+	// Polls at 5s (start signal), 15s and 25s; a leaked timer from before the
+	// stop would add polls at 10s, 20s and 30s.
+	require.Equal(t, 3, checks)
+}
+
+func TestEWCPollSendsUnchangedLogsOnce(t *testing.T) {
+	checks, pushes := runPendingEWCStatusWorkflow(
+		t,
+		func(_ *testsuite.TestWorkflowEnvironment) {},
+		25*time.Second,
+	)
+
+	require.Equal(t, 2, checks)
+	require.Equal(t, 1, pushes)
+}

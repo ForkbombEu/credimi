@@ -254,36 +254,31 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 	startSignalChan := workflow.GetSignalChannel(ctx, EudiwStartCheckSignal)
 	stopSignalChan := workflow.GetSignalChannel(ctx, EudiwStopCheckSignal)
 	selector := workflow.NewSelector(ctx)
-	var isPolling bool
-	var timerFuture workflow.Future
-	var startTimer func()
-	startTimer = func() {
-		timerCtx, _ := workflow.WithCancel(ctx)
-		timerFuture = workflow.NewTimer(timerCtx, time.Second)
-		selector.AddFuture(timerFuture, func(_ workflow.Future) {
-			if isPolling {
-				startTimer()
-			}
-		})
-	}
+	timer := newPollTimer(ctx, selector, time.Second)
+	var logsTracker realtimeLogsTracker
+
+	selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+		var signalData struct{}
+		c.Receive(ctx, &signalData)
+		timer.start(true)
+	})
+
+	selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+		var signalData struct{}
+		c.Receive(ctx, &signalData)
+		timer.stop()
+	})
 
 	for {
-		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalData struct{}
-			c.Receive(ctx, &signalData)
-			isPolling = true
-			startTimer()
-		})
-
-		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalData struct{}
-			c.Receive(ctx, &signalData)
-			isPolling = false
-		})
-
 		selector.Select(ctx)
 
-		if !isPolling {
+		if ctx.Err() != nil {
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+				input.RunMetadata,
+			)
+		}
+
+		if !timer.takeTick() {
 			continue
 		}
 
@@ -365,17 +360,19 @@ func (w *EudiwWorkflow) ExecuteWorkflow(
 		events = workflowengine.AsSliceOfMaps(
 			eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"],
 		)
-		err = sendRealtimeLogsUpdate(
-			ctx,
-			workflow.GetInfo(ctx).WorkflowExecution.ID+EudiwSubscription,
-			events,
-		)
-		if err != nil {
-			logger.Error("Failed to send logs", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				err,
-				input.RunMetadata,
+		if logsTracker.changed(events) {
+			err = sendRealtimeLogsUpdate(
+				ctx,
+				workflow.GetInfo(ctx).WorkflowExecution.ID+EudiwSubscription,
+				events,
 			)
+			if err != nil {
+				logger.Error("Failed to send logs", "error", err)
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+					err,
+					input.RunMetadata,
+				)
+			}
 		}
 		errCode = errorcodes.Codes[errorcodes.EudiwCheckFailed]
 		switch int(statusCode) {

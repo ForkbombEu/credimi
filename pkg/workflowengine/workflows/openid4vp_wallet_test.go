@@ -344,3 +344,72 @@ func TestOpenID4VPWalletWorkflowStart(t *testing.T) {
 	require.True(t, strings.HasPrefix(capturedOptions.ID, "OpenID4VPWalletCheckWorkflow"))
 	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
 }
+
+// runRunningOpenID4VPLogsWorkflow runs the logs workflow against a run that
+// stays RUNNING with identical logs, applying signals before cancelling at
+// cancelAt. It returns the number of log polls and realtime log pushes.
+func runRunningOpenID4VPLogsWorkflow(
+	t *testing.T,
+	signals func(env *testsuite.TestWorkflowEnvironment),
+	cancelAt time.Duration,
+) (polls int, pushes int) {
+	t.Helper()
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(httpActivity.Execute, activity.RegisterOptions{
+		Name: httpActivity.Name(),
+	})
+	registerOpenIDNetLogPushActivity(env, func() { pushes++ })
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Run(func(_ mock.Arguments) { polls++ }).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": []map[string]any{{"result": "RUNNING"}},
+		}}, nil)
+
+	signals(env)
+	env.RegisterDelayedCallback(env.CancelWorkflow, cancelAt)
+	env.ExecuteWorkflow(NewOpenID4VPWalletLogsWorkflow().Workflow, workflowengine.WorkflowInput{
+		Payload: OpenID4VPWalletLogsWorkflowPayload{Rid: "12345", Token: "test-token"},
+		Config: map[string]any{
+			"app_url":  "https://test-app.com",
+			"interval": 10 * time.Second,
+		},
+	})
+	require.True(t, env.IsWorkflowCompleted())
+	return polls, pushes
+}
+
+func TestOpenID4VPLogsRestartWithinIntervalKeepsOneTimerChain(t *testing.T) {
+	polls, _ := runRunningOpenID4VPLogsWorkflow(t, func(env *testsuite.TestWorkflowEnvironment) {
+		env.RegisterDelayedCallback(func() {
+			env.SignalWorkflow(OpenID4VPWalletStartCheckSignal, nil)
+		}, time.Second)
+		env.RegisterDelayedCallback(func() {
+			env.SignalWorkflow(OpenID4VPWalletStopCheckSignal, nil)
+		}, 2*time.Second)
+		env.RegisterDelayedCallback(func() {
+			env.SignalWorkflow(OpenID4VPWalletStartCheckSignal, nil)
+		}, 5*time.Second)
+	}, 34*time.Second)
+
+	// Polls at 1s and 5s (start signals), then 15s and 25s; a leaked timer
+	// from the first start would add polls at 11s, 21s and 31s.
+	require.Equal(t, 4, polls)
+}
+
+func TestOpenID4VPLogsSendsUnchangedLogsOnce(t *testing.T) {
+	polls, pushes := runRunningOpenID4VPLogsWorkflow(
+		t,
+		func(env *testsuite.TestWorkflowEnvironment) {
+			env.RegisterDelayedCallback(func() {
+				env.SignalWorkflow(OpenID4VPWalletStartCheckSignal, nil)
+			}, time.Second)
+		},
+		15*time.Second,
+	)
+
+	require.Equal(t, 2, polls)
+	require.Equal(t, 1, pushes)
+}

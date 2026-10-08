@@ -151,6 +151,7 @@ func pollOpenIDConformanceLogs(
 			Timeout:        "30",
 		},
 	}
+	var logsTracker realtimeLogsTracker
 
 	for {
 		var httpResponse workflowengine.ActivityResult
@@ -160,7 +161,7 @@ func pollOpenIDConformanceLogs(
 		}
 
 		logs := workflowengine.AsSliceOfMaps(workflowengine.AsMap(httpResponse.Output)["body"])
-		if notifyLogs {
+		if notifyLogs && logsTracker.changed(logs) {
 			if err := notifyOpenIDConformanceLogs(pollCtx, workflowID, logs); err != nil {
 				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 					err,
