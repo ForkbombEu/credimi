@@ -1509,17 +1509,12 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 func TestGetWorkflowInputSuccess(t *testing.T) {
 	mockClient := &temporalmocks.Client{}
 
-	inputData := map[string]any{
-		"Payload": map[string]any{"foo": "bar"},
-		"Config":  map[string]any{"app_url": "https://app"},
-	}
-	raw, err := json.Marshal(inputData)
+	payloads, err := temporalcrypto.DataConverter().ToPayloads(workflowengine.WorkflowInput{
+		Payload: map[string]any{"foo": "bar"},
+		Config:  map[string]any{"app_url": "https://app"},
+		Secrets: map[string]any{"token": "secret"},
+	})
 	require.NoError(t, err)
-	payloads := &common.Payloads{
-		Payloads: []*common.Payload{
-			{Data: raw},
-		},
-	}
 
 	iter := &fakeHistoryIterator{
 		events: []*historypb.HistoryEvent{
@@ -1552,6 +1547,7 @@ func TestGetWorkflowInputSuccess(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "bar", payload["foo"])
 	require.Equal(t, "https://app", got.Config["app_url"])
+	require.Equal(t, "secret", got.Secrets["token"])
 }
 
 func TestHandleListMyWorkflowsStatusFilterQuery(t *testing.T) {

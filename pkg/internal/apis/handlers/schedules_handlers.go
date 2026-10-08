@@ -296,36 +296,28 @@ func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to list schedules: %w", err)
 		}
-		schedJSON, err := json.Marshal(sched)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal schedule: %w", err)
+		memo := sched.Memo.GetFields()
+		var calendars []client.ScheduleCalendarSpec
+		if sched.Spec != nil {
+			calendars = sched.Spec.Calendars
 		}
-		var schedInfo ScheduleInfo
-		if err := json.Unmarshal(schedJSON, &schedInfo); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal schedule: %w", err)
+		var workflowType *WorkflowType
+		if sched.WorkflowType.Name != "" {
+			workflowType = &WorkflowType{Name: sched.WorkflowType.Name}
 		}
-		var displayName string
-		if schedInfo.Memo != nil {
-			if field, ok := schedInfo.Memo.Fields["test"]; ok {
-				displayName = DecodeFromTemporalPayload(*field.Data)
-			}
+		nextActionTime := ""
+		if len(sched.NextActionTimes) > 0 {
+			nextActionTime = sched.NextActionTimes[0].UTC().Format(time.RFC3339)
 		}
-		var pipelineID string
-		if schedInfo.Memo != nil {
-			if field, ok := schedInfo.Memo.Fields["pipeline_id"]; ok {
-				pipelineID = DecodeFromTemporalPayload(*field.Data)
-			}
-		}
-		scheduleMode := workflowengine.ParseScheduleMode(schedInfo.Spec.Calendars)
 
 		schedInfoSummary := ScheduleInfoSummary{
-			ID:             schedInfo.ID,
-			ScheduleMode:   scheduleMode,
-			WorkflowType:   schedInfo.WorkflowType,
-			DisplayName:    displayName,
-			PipelineID:     pipelineID,
-			NextActionTime: schedInfo.NextActionTimes[0].UTC().Format(time.RFC3339),
-			Paused:         schedInfo.Paused,
+			ID:             sched.ID,
+			ScheduleMode:   workflowengine.ParseScheduleMode(calendars),
+			WorkflowType:   workflowType,
+			DisplayName:    workflowengine.DecodeStringPayload(memo["test"]),
+			PipelineID:     workflowengine.DecodeStringPayload(memo["pipelineID"]),
+			NextActionTime: nextActionTime,
+			Paused:         sched.Paused,
 		}
 
 		schedules = append(schedules, &schedInfoSummary)

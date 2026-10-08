@@ -5,7 +5,6 @@
 package pb
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -313,7 +312,8 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 
 	nextAction := time.Date(2026, time.February, 18, 16, 30, 45, 0, time.UTC)
 	displayName := "nightly-check"
-	encodedDisplay := base64.StdEncoding.EncodeToString([]byte(`"` + displayName + `"`))
+	displayPayload, err := converter.GetDefaultDataConverter().ToPayload(displayName)
+	require.NoError(t, err)
 
 	desc := &client.ScheduleDescription{
 		Schedule: client.Schedule{
@@ -333,9 +333,7 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 		},
 		Memo: &commonpb.Memo{
 			Fields: map[string]*commonpb.Payload{
-				"test": {
-					Data: []byte(encodedDisplay),
-				},
+				"test": displayPayload,
 			},
 		},
 	}

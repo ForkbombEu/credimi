@@ -525,8 +525,8 @@ func TestHandleListMySchedules(t *testing.T) {
 		},
 		Memo: &commonpb.Memo{
 			Fields: map[string]*commonpb.Payload{
-				"test":        displayPayload,
-				"pipeline_id": pipelinePayload,
+				"test":       displayPayload,
+				"pipelineID": pipelinePayload,
 			},
 		},
 		Paused: true,

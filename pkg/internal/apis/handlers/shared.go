@@ -14,6 +14,7 @@ import (
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 )
@@ -508,16 +509,6 @@ type WorkflowIdentifier struct {
 	RunID      string `json:"runId,omitempty"`
 }
 
-type ScheduleInfo struct {
-	ID string `json:"ID" validate:"required"`
-
-	Spec            *client.ScheduleSpec `json:"Spec,omitempty"`
-	WorkflowType    *WorkflowType        `json:"WorkflowType,omitempty"`
-	NextActionTimes []time.Time          `json:"NextActionTimes,omitempty"`
-	Paused          bool                 `json:"Paused,omitempty"`
-	Memo            *Memo                `json:"Memo,omitempty"`
-}
-
 type ScheduleInfoSummary struct {
 	ID string `json:"id" validate:"required"`
 
@@ -575,20 +566,28 @@ func getStringFromMap(m map[string]any, key string) string {
 	return ""
 }
 
-func DecodeFromTemporalPayload(encoded string) string {
-	if encoded == "" {
-		return ""
+// temporalPayload converts a protojson-decoded payload back into the Temporal
+// payload it was marshalled from, so it can go through the data converter.
+func (p *Payload) temporalPayload() *commonpb.Payload {
+	if p == nil {
+		return nil
 	}
-
-	decoded, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		// fallback: return original string if decode fails
-		decoded = []byte(encoded)
+	out := &commonpb.Payload{Metadata: make(map[string][]byte, len(p.Metadata))}
+	for k, v := range p.Metadata {
+		decoded, err := base64.StdEncoding.DecodeString(v)
+		if err != nil {
+			decoded = []byte(v)
+		}
+		out.Metadata[k] = decoded
 	}
-
-	clean := strings.Trim(string(decoded), `"`)
-
-	return clean
+	if p.Data != nil {
+		decoded, err := base64.StdEncoding.DecodeString(*p.Data)
+		if err != nil {
+			decoded = []byte(*p.Data)
+		}
+		out.Data = decoded
+	}
+	return out
 }
 
 func fetchWorkflowFailure(

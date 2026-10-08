@@ -6,11 +6,9 @@ package handlers
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"path/filepath"
 	"regexp"
@@ -26,6 +24,7 @@ import (
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -989,87 +988,25 @@ func getWorkflowInput(
 		false,
 		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 	)
-
-	for historyIterator.HasNext() {
-		event, err := historyIterator.Next()
-		if err != nil {
-			return workflowengine.WorkflowInput{}, fmt.Errorf(
-				"failed to get workflow history: %w",
-				err,
-			)
-		}
-
-		if event.GetEventType() == enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
-			startedAttributes := event.GetWorkflowExecutionStartedEventAttributes()
-			if startedAttributes.GetInput() != nil {
-				// Unmarshal the input payload
-				inputJSON, err := protojson.Marshal(startedAttributes.GetInput())
-				if err != nil {
-					return workflowengine.WorkflowInput{}, fmt.Errorf(
-						"failed to marshal workflow input: %w",
-						err,
-					)
-				}
-				var inputMap map[string]interface{}
-				err = json.Unmarshal(inputJSON, &inputMap)
-				if err != nil {
-					return workflowengine.WorkflowInput{}, fmt.Errorf(
-						"failed to unmarshal workflow input: %w",
-						err,
-					)
-				}
-				if payloads, ok := inputMap["payloads"]; ok {
-					if payloadsSlice, ok := payloads.([]interface{}); ok && len(payloadsSlice) > 0 {
-						if payloadMap, ok := payloadsSlice[0].(map[string]interface{}); ok {
-							if data, ok := payloadMap["data"]; ok {
-								if dataStr, ok := data.(string); ok {
-									decodedData, err := base64.StdEncoding.DecodeString(dataStr)
-									if err != nil {
-										return workflowengine.WorkflowInput{}, fmt.Errorf(
-											"failed to decode workflow input payload: %w", err,
-										)
-									}
-									var payloadData map[string]interface{}
-									err = json.Unmarshal(decodedData, &payloadData)
-									if err != nil {
-										return workflowengine.WorkflowInput{}, fmt.Errorf(
-											"failed to unmarshal workflow input payload: %w", err,
-										)
-									}
-									if payload, ok := payloadData["Payload"]; ok {
-										if payloadMap, ok := payload.(map[string]interface{}); ok {
-											workflowInput.Payload = payloadMap
-										} else {
-											return workflowengine.WorkflowInput{}, fmt.Errorf(
-												"invalid workflow input payload format: payload is not a map",
-											)
-										}
-									} else {
-										return workflowengine.WorkflowInput{}, fmt.Errorf(
-											"missing workflow input payload: payload field is missing in input data",
-										)
-									}
-									if config, ok := payloadData["Config"]; ok {
-										log.Println("Rerun workflow input config:", config)
-										if configMap, ok := config.(map[string]interface{}); ok {
-											workflowInput.Config = configMap
-										} else {
-											return workflowengine.WorkflowInput{}, fmt.Errorf(
-												"invalid workflow input config format: config is not a map",
-											)
-										}
-									} else {
-										return workflowengine.WorkflowInput{}, fmt.Errorf(
-											"missing workflow input config: config field is missing in input data",
-										)
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
+	if !historyIterator.HasNext() {
+		return workflowInput, nil
+	}
+	event, err := historyIterator.Next()
+	if err != nil {
+		return workflowengine.WorkflowInput{}, fmt.Errorf(
+			"failed to get workflow history: %w",
+			err,
+		)
+	}
+	input := event.GetWorkflowExecutionStartedEventAttributes().GetInput()
+	if input == nil {
+		return workflowInput, nil
+	}
+	if err := temporalcrypto.DataConverter().FromPayloads(input, &workflowInput); err != nil {
+		return workflowengine.WorkflowInput{}, fmt.Errorf(
+			"failed to decode workflow input: %w",
+			err,
+		)
 	}
 	return workflowInput, nil
 }
@@ -1325,7 +1262,7 @@ func buildWorkflowExecutionHierarchy(
 		var parentDisplay string
 		if exec.Memo != nil {
 			if field, ok := exec.Memo.Fields["test"]; ok && field != nil && field.Data != nil {
-				parentDisplay = DecodeFromTemporalPayload(*field.Data)
+				parentDisplay = workflowengine.DecodeStringPayload(field.temporalPayload())
 			}
 		}
 

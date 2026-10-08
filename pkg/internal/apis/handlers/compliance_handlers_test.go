@@ -6,7 +6,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -29,7 +29,6 @@ import (
 	"go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
@@ -749,9 +748,7 @@ func TestGetDeeplinkOpenIDConformanceSuite(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	payload := base64.StdEncoding.EncodeToString(
-		[]byte(`{"Output":{"captures":{"deeplink":"link-1"}}}`),
-	)
+	captures := map[string]any{"deeplink": "link-1"}
 	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink", nil)
 	rec := httptest.NewRecorder()
 
@@ -761,7 +758,7 @@ func TestGetDeeplinkOpenIDConformanceSuite(t *testing.T) {
 			Request:  req,
 			Response: rec,
 		},
-	}, map[string]any{"data": payload})
+	}, captures)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "link-1")
@@ -772,11 +769,10 @@ func TestGetDeeplinkEudiw(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	payload := base64.StdEncoding.EncodeToString(
-		[]byte(
-			`{"Output":{"captures":{"client_id":"client-1","request_uri":"https://example.com/req"}}}`,
-		),
-	)
+	captures := map[string]any{
+		"client_id":   "client-1",
+		"request_uri": "https://example.com/req",
+	}
 	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink", nil)
 	rec := httptest.NewRecorder()
 
@@ -786,7 +782,7 @@ func TestGetDeeplinkEudiw(t *testing.T) {
 			Request:  req,
 			Response: rec,
 		},
-	}, map[string]any{"data": payload})
+	}, captures)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 
@@ -798,7 +794,7 @@ func TestGetDeeplinkEudiw(t *testing.T) {
 }
 
 func TestGetWorkflowAuthorFromMemo(t *testing.T) {
-	payload, err := converter.GetDefaultDataConverter().ToPayload("ewc")
+	payload, err := temporalcrypto.DataConverter().ToPayload("ewc")
 	require.NoError(t, err)
 
 	mockClient := &temporalmocks.Client{}
@@ -825,19 +821,14 @@ func TestHandleDeeplinkFromHistoryEWC(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	payloadData, err := json.Marshal(map[string]any{
-		"Output": map[string]any{
-			"Captures": map[string]any{
+	payloads, err := temporalcrypto.DataConverter().ToPayloads(workflowengine.ActivityResult{
+		Output: map[string]any{
+			"captures": map[string]any{
 				"deeplink": "ewc://link",
 			},
 		},
 	})
 	require.NoError(t, err)
-	payloads := &common.Payloads{
-		Payloads: []*common.Payload{
-			{Data: payloadData},
-		},
-	}
 
 	iter := &fakeHistoryIterator{
 		events: []*historypb.HistoryEvent{
@@ -879,10 +870,13 @@ func TestHandleDeeplinkFromHistoryEWC(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "ewc://link")
 }
 
-func deeplinkHistoryIterator(t *testing.T, result map[string]any) *fakeHistoryIterator {
+func deeplinkHistoryIterator(
+	t *testing.T,
+	result workflowengine.ActivityResult,
+) *fakeHistoryIterator {
 	t.Helper()
 
-	data, err := json.Marshal(result)
+	payloads, err := temporalcrypto.DataConverter().ToPayloads(result)
 	require.NoError(t, err)
 	return &fakeHistoryIterator{
 		events: []*historypb.HistoryEvent{
@@ -892,7 +886,7 @@ func deeplinkHistoryIterator(t *testing.T, result map[string]any) *fakeHistoryIt
 				EventType: enums.EVENT_TYPE_ACTIVITY_TASK_COMPLETED,
 				Attributes: &historypb.HistoryEvent_ActivityTaskCompletedEventAttributes{
 					ActivityTaskCompletedEventAttributes: &historypb.ActivityTaskCompletedEventAttributes{
-						Result: &common.Payloads{Payloads: []*common.Payload{{Data: data}}},
+						Result: payloads,
 					},
 				},
 			},
@@ -906,7 +900,7 @@ func describeWithAuthor(
 ) *workflowservice.DescribeWorkflowExecutionResponse {
 	t.Helper()
 
-	payload, err := converter.GetDefaultDataConverter().ToPayload(author)
+	payload, err := temporalcrypto.DataConverter().ToPayload(author)
 	require.NoError(t, err)
 	return &workflowservice.DescribeWorkflowExecutionResponse{
 		WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
@@ -916,8 +910,8 @@ func describeWithAuthor(
 }
 
 func TestHandleDeeplink(t *testing.T) {
-	openIDResult := map[string]any{
-		"Output": map[string]any{"captures": map[string]any{"deeplink": "openid://link"}},
+	openIDResult := workflowengine.ActivityResult{
+		Output: map[string]any{"captures": map[string]any{"deeplink": "openid://link"}},
 	}
 
 	cases := []struct {
