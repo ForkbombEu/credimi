@@ -103,15 +103,21 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"request_rejected",
 		"trusted_authorities_match",
 		"trusted_authorities_no_match",
+		"access_denied",
 		"access_denied_required",
+		"invalid_client",
+		"invalid_request_generic",
+		"invalid_scope",
 		"wallet_error_required",
+		"transaction_data_error",
 		"transaction_data_error_required",
 		"invalid_request_required",
+		"unknown_field_stripped",
 		"claim_sets":
 	default:
 		return Result{
 			Status:  StatusError,
-			Message: "mode must be credential_sets, credential_format_presentation, mdoc_claim_path_presentation, mdoc_claim_path_no_match, mdoc_claim_path_error, credentials_match, without_credential_sets, without_trusted_authorities, without_claims, empty_claims, empty_array, property_type, property_equals, trusted_authority_property_type, trusted_authority_array_item_type, trusted_authority_empty_string_item, multiple_default_false, multiple_true, no_match, request_rejected, trusted_authorities_match, trusted_authorities_no_match, claim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
+			Message: fmt.Sprintf("unsupported mode %q", params.Mode),
 		}
 	}
 
@@ -1022,7 +1028,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		if isEmptyDCQLValue(responseValue) {
 			return Result{
 				Status:  StatusFail,
-				Message: "wallet response contains no vp_token fclaim_sets, claim_path_member_type_error, wallet_error_expected, invalid_scope, unknown_field_stripped, vp_formats_not_supported, transaction_data_error, invalid_client, invalid_request_generic, access_denied, or jwe_enc_verified",
+				Message: "wallet response contains no vp_token for claim_sets",
 			}
 		}
 	case "claim_sets_preferred_option":
@@ -2213,12 +2219,15 @@ func validateClaimsPresent(query map[string]any, responseValue any) Result {
 // validateClaimsSubset proves both sides of a user-controlled claim selection:
 // requested claims are disclosed, while explicitly unchecked paths are absent.
 func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPaths [][]any) Result {
+	if len(forbiddenPaths) == 0 {
+		return Result{Status: StatusError, Message: "claims_subset requires forbidden_paths"}
+	}
+	if result := checkForbiddenPaths(forbiddenPaths); result != nil {
+		return *result
+	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) == 0 {
 		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
-	}
-	if len(forbiddenPaths) == 0 {
-		return Result{Status: StatusFail, Message: "claims_subset requires forbidden_paths"}
 	}
 	response, ok := normalizeJSONObject(responseValue)
 	if !ok {
@@ -2312,12 +2321,6 @@ func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPath
 				}
 			}
 			for pathIndex, path := range forbiddenPaths {
-				if len(path) == 0 {
-					return Result{
-						Status:  StatusFail,
-						Message: fmt.Sprintf("forbidden_paths[%d] is empty", pathIndex),
-					}
-				}
 				if claimPathResolves(presentation.Claims, path) {
 					return Result{
 						Status: StatusFail,
@@ -2496,6 +2499,9 @@ func validateClaimSetsWithoutClaims(query map[string]any, responseValue any) Res
 }
 
 func validateClaimsUnion(query map[string]any, responseValue any, forbiddenPaths [][]any) Result {
+	if result := checkForbiddenPaths(forbiddenPaths); result != nil {
+		return *result
+	}
 	credentials, ok := query["credentials"].([]any)
 	if !ok || len(credentials) < 2 {
 		return Result{
@@ -2625,6 +2631,20 @@ func validateClaimsUnion(query map[string]any, responseValue any, forbiddenPaths
 		Status:  StatusPass,
 		Message: "wallet returned the union of claims requested by multiple queries",
 	}
+}
+
+// checkForbiddenPaths rejects an empty forbidden path as a definition error:
+// it would match the presentation root and blame the wallet for disclosing it.
+func checkForbiddenPaths(paths [][]any) *Result {
+	for index, path := range paths {
+		if len(path) == 0 {
+			return &Result{
+				Status:  StatusError,
+				Message: fmt.Sprintf("forbidden_paths[%d] is empty", index),
+			}
+		}
+	}
+	return nil
 }
 
 func validateClaimsPathNoMatch(

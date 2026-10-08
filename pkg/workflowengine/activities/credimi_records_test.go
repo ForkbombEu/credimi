@@ -93,6 +93,40 @@ func createTestCredential(
 	return credential
 }
 
+// createTestUseCaseVerification stores the use case verification name with
+// code and secrets under a new "Verifier 123" of organization A.
+func createTestUseCaseVerification(
+	t *testing.T,
+	app *tests.TestApp,
+	name string,
+	code string,
+	secrets string,
+) {
+	t.Helper()
+	verifierColl, err := app.FindCollectionByNameOrId("verifiers")
+	require.NoError(t, err)
+	verifier := core.NewRecord(verifierColl)
+	verifier.Set("owner", testOrgAID)
+	verifier.Set("name", "Verifier 123")
+	verifier.Set("url", "https://verifier.example")
+	verifier.Set("standard_and_version", "testsuite/draft-01")
+	verifier.Set("format", []string{"SD-JWT"})
+	verifier.Set("signing_algorithms", []string{"ES256"})
+	verifier.Set("cryptographic_binding_methods", []string{"jwk"})
+	verifier.Set("description", "example description")
+	require.NoError(t, app.Save(verifier))
+
+	coll, err := app.FindCollectionByNameOrId("use_cases_verifications")
+	require.NoError(t, err)
+	record := core.NewRecord(coll)
+	record.Set("name", name)
+	record.Set("owner", testOrgAID)
+	record.Set("verifier", verifier.Id)
+	record.Set("yaml", code)
+	record.Set("secrets", secrets)
+	require.NoError(t, app.Save(record))
+}
+
 func TestResolveRecordActivity(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -329,32 +363,6 @@ func TestGetCredentialOfferActivityRequiresIdentifier(t *testing.T) {
 }
 
 func TestGetUseCaseVerificationDeeplinkActivity(t *testing.T) {
-	seedUseCase := func(t *testing.T, app *tests.TestApp, name, secrets string) {
-		t.Helper()
-		verifierColl, err := app.FindCollectionByNameOrId("verifiers")
-		require.NoError(t, err)
-		verifier := core.NewRecord(verifierColl)
-		verifier.Set("owner", testOrgAID)
-		verifier.Set("name", "Verifier 123")
-		verifier.Set("url", "https://verifier.example")
-		verifier.Set("standard_and_version", "testsuite/draft-01")
-		verifier.Set("format", []string{"SD-JWT"})
-		verifier.Set("signing_algorithms", []string{"ES256"})
-		verifier.Set("cryptographic_binding_methods", []string{"jwk"})
-		verifier.Set("description", "example description")
-		require.NoError(t, app.Save(verifier))
-
-		coll, err := app.FindCollectionByNameOrId("use_cases_verifications")
-		require.NoError(t, err)
-		record := core.NewRecord(coll)
-		record.Set("name", name)
-		record.Set("owner", testOrgAID)
-		record.Set("verifier", verifier.Id)
-		record.Set("yaml", "example code")
-		record.Set("secrets", secrets)
-		require.NoError(t, app.Save(record))
-	}
-
 	cases := []struct {
 		name        string
 		secrets     string
@@ -384,7 +392,7 @@ func TestGetUseCaseVerificationDeeplinkActivity(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			app := newCredimiTestApp(t)
-			seedUseCase(t, app, "usecase123", tc.secrets)
+			createTestUseCaseVerification(t, app, "usecase123", "example code", tc.secrets)
 
 			result, err := executeActivity(
 				t,

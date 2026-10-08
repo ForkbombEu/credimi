@@ -17,30 +17,46 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/credoffer"
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/discovery"
 	"github.com/forkbombeu/eudi-conformance-evidence/pkg/presentation"
 	"github.com/pocketbase/pocketbase/core"
+	"go.temporal.io/sdk/activity"
 )
 
 const PipelineEvidenceExtractionActivityName = "Extract pipeline conformance evidence"
 
+// evidenceHeartbeatInterval keeps the extraction activity alive while it waits
+// on StepCI and on issuer and verifier endpoints, which can each take longer
+// than a heartbeat timeout.
+const evidenceHeartbeatInterval = 10 * time.Second
+
+// stepCIDeeplinkFunc runs the StepCI code of a dynamic credential or use case
+// verification and returns the deeplink it captures.
+type stepCIDeeplinkFunc func(
+	ctx context.Context,
+	code string,
+	secrets map[string]string,
+) (string, error)
+
 type PipelineEvidenceExtractionActivity struct {
 	workflowengine.BaseActivity
 	app core.App
+	// runStepCI generates the deeplink of dynamic records.
+	runStepCI stepCIDeeplinkFunc
 	// storeRetrySleep waits d between evidence storage attempts and returns
 	// ctx.Err() when ctx ends first.
 	storeRetrySleep func(ctx context.Context, d time.Duration) error
 }
 
-// PipelineEvidenceExtractionInput carries the pipeline's evidence steps, the
-// deeplink the pipeline resolved in-process for each step (keyed by step ID, or
-// the resolution error), and the run whose pipeline result stores the evidence.
+// PipelineEvidenceExtractionInput carries the pipeline's evidence steps with
+// their inputs resolved, the steps whose inputs could not be resolved (keyed by
+// step ID), and the run whose pipeline result stores the evidence.
 type PipelineEvidenceExtractionInput struct {
 	WorkflowDefinition *pipelineinternal.WorkflowDefinition `json:"workflow_definition"`
-	Deeplinks          map[string]string                    `json:"deeplinks,omitempty"`
-	DeeplinkErrors     map[string]string                    `json:"deeplink_errors,omitempty"`
+	InputErrors        map[string]string                    `json:"input_errors,omitempty"`
 	WorkflowID         string                               `json:"workflow_id"`
 	RunID              string                               `json:"run_id"`
 }
@@ -56,6 +72,7 @@ func NewPipelineEvidenceExtractionActivity(app core.App) *PipelineEvidenceExtrac
 	return &PipelineEvidenceExtractionActivity{
 		BaseActivity:    workflowengine.BaseActivity{Name: PipelineEvidenceExtractionActivityName},
 		app:             app,
+		runStepCI:       runStepCIDeeplink,
 		storeRetrySleep: sleepContext,
 	}
 }
@@ -64,11 +81,12 @@ func (a *PipelineEvidenceExtractionActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
-// Execute resolves the credential offers and presentation results of the
-// pipeline's evidence steps from the deeplinks the pipeline resolved in-process and stores the
-// extracted evidence on the run's pipeline result. Storage is retried while
-// the pipeline result is not yet created or the database fails; a final
-// storage failure is reported as a warning.
+// Execute generates a fresh deeplink for each evidence step from its Credimi
+// record (running the record's StepCI code for dynamic records), resolves the
+// credential offers and presentation requests behind those deeplinks, and
+// stores the extracted evidence on the run's pipeline result. Storage is
+// retried while the pipeline result is not yet created or the database fails;
+// a final storage failure is reported as a warning.
 func (a *PipelineEvidenceExtractionActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
@@ -99,9 +117,12 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 		)
 	}
 
+	stopHeartbeat := startEvidenceHeartbeat(ctx)
+	defer stopHeartbeat()
+
 	out := PipelineEvidenceExtractionOutput{}
 	var evidenceErr error
-	out.CredentialOffers, out.CredentialWellKnowns, evidenceErr = extractCredentialEvidence(
+	out.CredentialOffers, out.CredentialWellKnowns, evidenceErr = a.extractCredentialEvidence(
 		ctx,
 		client,
 		discovered.CredentialOfferSteps,
@@ -115,7 +136,7 @@ func (a *PipelineEvidenceExtractionActivity) Execute(
 			Message: evidenceErr.Error(),
 		})
 	}
-	out.PresentationResults = extractPresentationResults(
+	out.PresentationResults = a.extractPresentationResults(
 		ctx,
 		client,
 		discovered.PresentationRequestSteps,
@@ -215,7 +236,85 @@ func discoverWorkflowDefinition(
 	return discovered, nil
 }
 
-func extractCredentialEvidence(
+// startEvidenceHeartbeat heartbeats until the returned stop is called, so the
+// heartbeat timeout does not end the activity while it waits on StepCI or on
+// an issuer or verifier.
+func startEvidenceHeartbeat(ctx context.Context) func() {
+	if !activity.IsActivity(ctx) {
+		return func() {}
+	}
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(evidenceHeartbeatInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				activity.RecordHeartbeat(ctx, "extracting pipeline evidence")
+			}
+		}
+	}()
+	return func() { close(done) }
+}
+
+// credentialDeeplink generates a credential offer deeplink for the credential
+// at identifier, as the credential-offer step does.
+func (a *PipelineEvidenceExtractionActivity) credentialDeeplink(
+	ctx context.Context,
+	identifier string,
+) (string, error) {
+	offer, secrets, err := credentialOffer(a.app, identifier)
+	if err != nil {
+		return "", err
+	}
+	if !offer.Dynamic {
+		return offer.CredentialOffer, nil
+	}
+	return a.runStepCI(ctx, offer.Code, secrets)
+}
+
+// verificationDeeplink generates a verification deeplink for the use case
+// verification at identifier, as the use-case-verification-deeplink step does.
+func (a *PipelineEvidenceExtractionActivity) verificationDeeplink(
+	ctx context.Context,
+	identifier string,
+) (string, error) {
+	code, secrets, err := useCaseVerificationDeeplink(a.app, identifier)
+	if err != nil {
+		return "", err
+	}
+	return a.runStepCI(ctx, code, secrets)
+}
+
+// runStepCIDeeplink runs code with StepCI and returns its deeplink capture.
+func runStepCIDeeplink(
+	ctx context.Context,
+	code string,
+	secrets map[string]string,
+) (string, error) {
+	result, err := NewStepCIWorkflowActivity().Execute(ctx, workflowengine.ActivityInput{
+		Payload: StepCIWorkflowActivityPayload{Yaml: code},
+		Secrets: utils.SecretsToAny(secrets),
+	})
+	if err != nil {
+		return "", err
+	}
+	output, ok := result.Output.(StepCICliReturns)
+	if !ok {
+		return "", errors.New("stepci output is not valid JSON")
+	}
+	deeplink, _ := output.Captures["deeplink"].(string)
+	if strings.TrimSpace(deeplink) == "" {
+		return "", errors.New("deeplink missing or invalid from captures")
+	}
+	return deeplink, nil
+}
+
+func (a *PipelineEvidenceExtractionActivity) extractCredentialEvidence(
 	ctx context.Context,
 	client *http.Client,
 	steps []discovery.Step,
@@ -229,7 +328,15 @@ func extractCredentialEvidence(
 			*warnings = append(*warnings, ctx.Err().Error())
 			return offers, wellKnowns, ctx.Err()
 		}
-		deeplink, ok := stepDeeplink(payload, step, "credential", warnings)
+		deeplink, ok := stepDeeplink(
+			ctx,
+			payload,
+			step,
+			"credential",
+			step.CredentialID,
+			a.credentialDeeplink,
+			warnings,
+		)
 		if !ok {
 			continue
 		}
@@ -311,7 +418,7 @@ func fetchIssuerMetadataWithRetry(
 	)
 }
 
-func extractPresentationResults(
+func (a *PipelineEvidenceExtractionActivity) extractPresentationResults(
 	ctx context.Context,
 	client *http.Client,
 	steps []discovery.Step,
@@ -324,7 +431,15 @@ func extractPresentationResults(
 			*warnings = append(*warnings, ctx.Err().Error())
 			return results
 		}
-		deeplink, ok := stepDeeplink(payload, step, "verification", warnings)
+		deeplink, ok := stepDeeplink(
+			ctx,
+			payload,
+			step,
+			"verification",
+			step.UseCaseID,
+			a.verificationDeeplink,
+			warnings,
+		)
 		if !ok {
 			continue
 		}
@@ -343,28 +458,32 @@ func extractPresentationResults(
 	return results
 }
 
-// stepDeeplink returns the deeplink the pipeline resolved for step, or records
-// why it is missing as a warning.
+// stepDeeplink generates the deeplink of step from the record at identifier,
+// or records why step has none as a warning.
 func stepDeeplink(
+	ctx context.Context,
 	payload PipelineEvidenceExtractionInput,
 	step discovery.Step,
 	kind string,
+	identifier string,
+	generate func(ctx context.Context, identifier string) (string, error),
 	warnings *[]string,
 ) (string, bool) {
-	if reason, failed := payload.DeeplinkErrors[step.StepID]; failed {
-		*warnings = append(*warnings, fmt.Sprintf(
-			"failed to resolve %s deeplink for step %s: %s", kind, step.StepID, reason,
-		))
-		return "", false
+	reason, failed := payload.InputErrors[step.StepID]
+	if !failed {
+		deeplink, err := generate(ctx, identifier)
+		if err == nil && strings.TrimSpace(deeplink) != "" {
+			return deeplink, true
+		}
+		reason = "no deeplink was generated"
+		if err != nil {
+			reason = err.Error()
+		}
 	}
-	deeplink := strings.TrimSpace(payload.Deeplinks[step.StepID])
-	if deeplink == "" {
-		*warnings = append(*warnings, fmt.Sprintf(
-			"no %s deeplink was resolved for step %s", kind, step.StepID,
-		))
-		return "", false
-	}
-	return deeplink, true
+	*warnings = append(*warnings, fmt.Sprintf(
+		"failed to resolve %s deeplink for step %s: %s", kind, step.StepID, reason,
+	))
+	return "", false
 }
 
 func buildPresentationResult(res *presentation.Result) map[string]any {
