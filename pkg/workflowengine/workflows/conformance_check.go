@@ -367,8 +367,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			child.Name(),
 			workflowengine.WorkflowInput{
 				Payload: OpenID4VPWalletLogsWorkflowPayload{
-					Rid:   rid,
-					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+					Rid: rid,
 				},
 				Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
 					workflowengine.AppURLConfigKey: appURL,

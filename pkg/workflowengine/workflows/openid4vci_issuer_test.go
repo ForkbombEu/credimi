@@ -21,11 +21,9 @@ import (
 	"go.temporal.io/sdk/testsuite"
 )
 
-func matchHTTPGetActivityInput(url string) func(workflowengine.ActivityInput) bool {
+func matchOpenIDNetLogsInput(rid string) func(workflowengine.ActivityInput) bool {
 	return func(input workflowengine.ActivityInput) bool {
-		payload := workflowengine.AsMap(input.Payload)
-		return workflowengine.AsString(payload["method"]) == "GET" &&
-			workflowengine.AsString(payload["url"]) == url
+		return workflowengine.AsString(workflowengine.AsMap(input.Payload)["rid"]) == rid
 	}
 }
 
@@ -61,14 +59,14 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
-				httpActivity := activities.NewHTTPActivity()
+				logsActivity := activities.NewOpenIDNetLogsActivity()
 				env.RegisterActivityWithOptions(
 					stepCI.Execute,
 					activity.RegisterOptions{Name: stepCI.Name()},
 				)
 				env.RegisterActivityWithOptions(
-					httpActivity.Execute,
-					activity.RegisterOptions{Name: httpActivity.Name()},
+					logsActivity.Execute,
+					activity.RegisterOptions{Name: logsActivity.Name()},
 				)
 				registerRealtimeLogsActivity(env)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
@@ -81,11 +79,9 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 					}, nil).
 					Once()
 				env.OnActivity(
-					httpActivity.Name(),
+					logsActivity.Name(),
 					mock.Anything,
-					mock.MatchedBy(matchHTTPGetActivityInput(
-						"https://www.certification.openid.net/api/log/runner-123",
-					)),
+					mock.MatchedBy(matchOpenIDNetLogsInput("runner-123")),
 				).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
@@ -128,14 +124,14 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
-				httpActivity := activities.NewHTTPActivity()
+				logsActivity := activities.NewOpenIDNetLogsActivity()
 				env.RegisterActivityWithOptions(
 					stepCI.Execute,
 					activity.RegisterOptions{Name: stepCI.Name()},
 				)
 				env.RegisterActivityWithOptions(
-					httpActivity.Execute,
-					activity.RegisterOptions{Name: httpActivity.Name()},
+					logsActivity.Execute,
+					activity.RegisterOptions{Name: logsActivity.Name()},
 				)
 				registerRealtimeLogsActivity(env)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
@@ -148,11 +144,9 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 					}, nil).
 					Once()
 				env.OnActivity(
-					httpActivity.Name(),
+					logsActivity.Name(),
 					mock.Anything,
-					mock.MatchedBy(matchHTTPGetActivityInput(
-						"https://www.certification.openid.net/api/log/runner-123",
-					)),
+					mock.MatchedBy(matchOpenIDNetLogsInput("runner-123")),
 				).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
@@ -206,14 +200,14 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 			config: baseConfig,
 			mockActivity: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
-				httpActivity := activities.NewHTTPActivity()
+				logsActivity := activities.NewOpenIDNetLogsActivity()
 				env.RegisterActivityWithOptions(
 					stepCI.Execute,
 					activity.RegisterOptions{Name: stepCI.Name()},
 				)
 				env.RegisterActivityWithOptions(
-					httpActivity.Execute,
-					activity.RegisterOptions{Name: httpActivity.Name()},
+					logsActivity.Execute,
+					activity.RegisterOptions{Name: logsActivity.Name()},
 				)
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
@@ -225,11 +219,9 @@ func Test_OpenID4VCIIssuerWorkflow(t *testing.T) {
 					}, nil).
 					Once()
 				env.OnActivity(
-					httpActivity.Name(),
+					logsActivity.Name(),
 					mock.Anything,
-					mock.MatchedBy(matchHTTPGetActivityInput(
-						"https://www.certification.openid.net/api/log/runner-123",
-					)),
+					mock.MatchedBy(matchOpenIDNetLogsInput("runner-123")),
 				).
 					Return(workflowengine.ActivityResult{}, errors.New("log polling failed")).
 					Once()

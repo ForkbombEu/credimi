@@ -9,8 +9,6 @@ package workflows
 
 import (
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -202,8 +200,7 @@ func (w *OpenID4VPWalletWorkflow) ExecuteWorkflow(
 		child.Name(),
 		workflowengine.WorkflowInput{
 			Payload: OpenID4VPWalletLogsWorkflowPayload{
-				Rid:   rid,
-				Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+				Rid: rid,
 			},
 			Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
 				"app_url":  appURL,
@@ -292,8 +289,10 @@ type OpenID4VPWalletLogsWorkflow struct {
 }
 
 type OpenID4VPWalletLogsWorkflowPayload struct {
-	Rid   string `json:"rid"   yaml:"rid"   validate:"required"`
-	Token string `json:"token" yaml:"token" validate:"required"`
+	Rid string `json:"rid" yaml:"rid" validate:"required"`
+	// Token is only read by runs recorded before the logs activity fetched the
+	// token on the worker; new runs leave it empty.
+	Token string `json:"token" yaml:"token"`
 }
 
 func NewOpenID4VPWalletLogsWorkflow() *OpenID4VPWalletLogsWorkflow {
@@ -357,22 +356,7 @@ func (w *OpenID4VPWalletLogsWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	getLogsInput := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
-			Method: http.MethodGet,
-			URL: utils.JoinURL(
-				"https://www.certification.openid.net/api/log",
-				url.PathEscape(payload.Rid),
-			),
-			Headers: map[string]string{
-				"Authorization": fmt.Sprintf("Bearer %s", payload.Token),
-			},
-			QueryParams: map[string]string{
-				"public": "false",
-			},
-			ExpectedStatus: 200,
-		},
-	}
+	logsActivityName, getLogsInput := openIDNetLogsRequest(subCtx, payload.Rid, payload.Token, "")
 	interval := openID4VPWalletLogsDefaultInterval
 	if configured, ok := input.Config["interval"].(float64); ok && configured > 0 {
 		interval = time.Duration(configured)
@@ -423,10 +407,9 @@ func (w *OpenID4VPWalletLogsWorkflow) ExecuteWorkflow(
 		}
 
 		// Perform activity to fetch logs
-		var HTTPActivity = activities.NewHTTPActivity()
 		var HTTPResponse workflowengine.ActivityResult
 
-		err := workflow.ExecuteActivity(subCtx, HTTPActivity.Name(), getLogsInput).
+		err := workflow.ExecuteActivity(subCtx, logsActivityName, getLogsInput).
 			Get(subCtx, &HTTPResponse)
 		if err != nil {
 			logger.Error("Failed to get logs", "error", err)

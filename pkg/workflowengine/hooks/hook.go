@@ -120,6 +120,7 @@ func orgWorkers(app core.App) []workerConfig {
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewSendMailActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -130,6 +131,7 @@ func orgWorkers(app core.App) []workerConfig {
 			Activities: append([]workflowengine.ExecutableActivity{
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -140,6 +142,7 @@ func orgWorkers(app core.App) []workerConfig {
 			Activities: append([]workflowengine.ExecutableActivity{
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -152,6 +155,7 @@ func orgWorkers(app core.App) []workerConfig {
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewSendMailActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -163,6 +167,7 @@ func orgWorkers(app core.App) []workerConfig {
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewSendMailActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -181,6 +186,7 @@ func orgWorkers(app core.App) []workerConfig {
 				),
 				activities.NewSchemaValidationActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -199,6 +205,7 @@ func orgWorkers(app core.App) []workerConfig {
 					},
 				),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			},
 		},
 		{
@@ -217,6 +224,7 @@ func orgWorkers(app core.App) []workerConfig {
 			},
 			Activities: []workflowengine.ExecutableActivity{
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 				activities.NewCESRParsingActivity(),
 				activities.NewCESRValidateActivity(),
 			},
@@ -238,6 +246,7 @@ func orgWorkers(app core.App) []workerConfig {
 			},
 			Activities: append([]workflowengine.ExecutableActivity{
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 				activities.NewParseFidesCredentialIssuersActivity(),
 				activities.NewCheckCredentialsIssuerActivity(),
 				activities.NewJSONActivity(
@@ -274,6 +283,7 @@ func defaultWorkers(app core.App) []workerConfig {
 			Activities: append([]workflowengine.ExecutableActivity{
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -283,6 +293,7 @@ func defaultWorkers(app core.App) []workerConfig {
 			},
 			Activities: []workflowengine.ExecutableActivity{
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 				activities.NewMobileRunnerHTTPActivity(app),
 			},
 		},

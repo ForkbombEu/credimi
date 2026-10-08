@@ -20,6 +20,45 @@ import (
 
 const openIDConformancePollInterval = 5 * time.Second
 
+// openIDNetLogsActivityChangeID gates fetching OpenID certification logs
+// through the activity that reads the token on the worker.
+const openIDNetLogsActivityChangeID = "credimi-2026-10-openidnet-logs-activity"
+
+// openIDNetLogsRequest returns the activity name and input that poll the
+// certification logs of rid. Call it once before the polling loop. Runs
+// recorded before the change keep the HTTP activity with the bearer token,
+// sent with the given HTTP timeout.
+func openIDNetLogsRequest(
+	ctx workflow.Context,
+	rid string,
+	token string,
+	httpTimeout string,
+) (string, workflowengine.ActivityInput) {
+	if workflow.GetVersion(ctx, openIDNetLogsActivityChangeID, workflow.DefaultVersion, 1) == 1 {
+		return activities.NewOpenIDNetLogsActivity().Name(), workflowengine.ActivityInput{
+			Payload: activities.OpenIDNetLogsPayload{Rid: rid},
+		}
+	}
+
+	return activities.NewHTTPActivity().Name(), workflowengine.ActivityInput{
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodGet,
+			URL: utils.JoinURL(
+				"https://www.certification.openid.net/api/log",
+				url.PathEscape(rid),
+			),
+			Headers: map[string]string{
+				"Authorization": fmt.Sprintf("Bearer %s", token),
+			},
+			QueryParams: map[string]string{
+				"public": "false",
+			},
+			ExpectedStatus: 200,
+			Timeout:        httpTimeout,
+		},
+	}
+}
+
 // openIDConformanceActivityOptions extends DefaultActivityOptions with longer
 // timeouts to accommodate StepCI setup and follow-up log polling.
 var openIDConformanceActivityOptions = workflow.ActivityOptions{
@@ -131,31 +170,14 @@ func pollOpenIDConformanceLogs(
 	notifyLogs bool,
 	metadata *workflowengine.WorkflowRunMetadata,
 ) (workflowengine.WorkflowResult, error) {
-	httpActivity := activities.NewHTTPActivity()
 	pollCtx := workflow.WithActivityOptions(ctx, openIDConformancePollingActivityOptions)
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
-	request := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
-			Method: http.MethodGet,
-			URL: utils.JoinURL(
-				"https://www.certification.openid.net/api/log",
-				url.PathEscape(deviceID),
-			),
-			Headers: map[string]string{
-				"Authorization": fmt.Sprintf("Bearer %s", token),
-			},
-			QueryParams: map[string]string{
-				"public": "false",
-			},
-			ExpectedStatus: 200,
-			Timeout:        "30",
-		},
-	}
+	activityName, request := openIDNetLogsRequest(ctx, deviceID, token, "30")
 	var logsTracker realtimeLogsTracker
 
 	for {
 		var httpResponse workflowengine.ActivityResult
-		if err := workflow.ExecuteActivity(pollCtx, httpActivity.Name(), request).
+		if err := workflow.ExecuteActivity(pollCtx, activityName, request).
 			Get(pollCtx, &httpResponse); err != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, metadata)
 		}
