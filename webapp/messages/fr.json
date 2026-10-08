@@ -1029,6 +1029,7 @@
 	"extra_tl_lote_onboarding_catalogue_description": "Intégrer des composants EUDI aux TL/LoTE uniquement pour les tests et le débogage ; pas pour la production",
 	"extra_token_status_list_console": "Token Status List Console",
 	"extra_token_status_list_console_description": "Inspecter les jetons de Token Status List EUDI et les statuts des credentials",
+	"Docs": "Docs",
 	"Pipeline_notifications": "Notifications de pipeline",
 	"Pipeline_notifications_description": "Recevez une notification push lorsqu’une exécution de pipeline se termine.",
 	"Pipeline_notifications_enabled": "Notifications de pipeline activées",

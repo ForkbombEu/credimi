@@ -1068,6 +1068,7 @@
 	"extra_token_status_list_console": "Token Status List Console",
 	"extra_token_status_list_console_description": "Inspect EUDI Token Status List tokens and credential statuses",
 	"Extras": "Extras",
+	"Docs": "Docs",
 	"executions_CI": "CI/CD",
 	"Pipeline_notifications": "Pipeline notifications",
 	"Pipeline_notifications_description": "Receive a push notification when a pipeline run finishes.",
