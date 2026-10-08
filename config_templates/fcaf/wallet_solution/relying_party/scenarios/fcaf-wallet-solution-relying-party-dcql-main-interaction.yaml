@@ -209,23 +209,9 @@ steps:
     - id: main-interaction-025-present-partial-fallback
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - tapOn: "Share"
-            - takeScreenshot: fcaf-ia-025
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
-            DEEPLINK: ${{ main-interaction-025-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ main-interaction-025-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: main-interaction-025-fetch-result
       use: http-request
@@ -259,22 +245,9 @@ steps:
     - id: main-interaction-026-exercise-no-match
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
-                timeout: 100000
-            - takeScreenshot: fcaf-ia-026
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ main-interaction-026-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ main-interaction-026-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: main-interaction-026-fetch-result
       use: http-request
@@ -310,22 +283,9 @@ steps:
     - id: main-interaction-027-exercise-no-match
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - openLink:
-                link: ${DEEPLINK}
-                autoVerify: false
-                browser: false
-            - extendedWaitUntil:
-                visible: "Error|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Home|Documents"
-                timeout: 100000
-            - takeScreenshot: fcaf-ia-027
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
-            DEEPLINK: ${{ main-interaction-027-create-presentation.outputs.body.deeplink }}
+            deeplink: ${{ main-interaction-027-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: main-interaction-027-fetch-result
       use: http-request
@@ -453,7 +413,7 @@ steps:
     - id: main-interaction-043-present-optional-no-match
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
             deeplink: ${{ main-interaction-043-create-optional-no-match-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -554,7 +514,7 @@ steps:
     - id: main-interaction-031-present-combined-option
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
         parameters:
             deeplink: ${{ main-interaction-031-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -610,7 +570,6 @@ steps:
                 permissions:
                   camera: allow
                   notifications: allow
-                  all: unset
             - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
             - runFlow:
                 when: { visible: "Welcome back" }

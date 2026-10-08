@@ -12,11 +12,6 @@ runtime:
       retry_policy:
         maximum_attempts: 1
 steps:
-- id: onboard-reference-wallet
-  use: mobile-automation
-  with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-    version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
 - id: create-pid-sdjwt-offer
   use: credential-offer
   with:

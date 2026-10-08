@@ -1,0 +1,96 @@
+appId: com.android.chrome
+name: FCAF DC API expect the Wallet to refuse the request
+tags:
+  - fcaf
+  - dc-api
+  - expect
+  - rejected
+---
+# Terminal flow for DC API cases whose expected outcome is a refusal. It is
+# separate from fcaf-dc-api-present, which passes only on a completed
+# presentation, so neither flow is green on the other outcome. It fails when
+# the Wallet reaches its consent screen, when the page reports an accepted
+# presentation, and when the browser exposes no Digital Credentials API.
+#
+# The page reports the outcome to the verifier through
+# POST /openid4vp/sessions/{id}/dc_api_invocation only once the credential
+# request ends. On the Wallet's error screen, TRY AGAIN repeats the same
+# request, so the flow presses Back, which returns to the platform picker, and
+# closes the picker. The page then reports `rejected` (NotAllowedError). That
+# outcome comes from closing the picker, so the Wallet's refusal itself is
+# proven by this flow failing on a consent screen and by the
+# dc-api-wallet-outcome screenshot.
+- launchApp:
+    appId: com.android.chrome
+    stopApp: true
+    clearState: false
+    # Naming one permission keeps Maestro from granting or resetting every
+    # Chrome permission on launch, which costs several seconds per step.
+    permissions:
+      notifications: allow
+- openLink:
+    link: "${presentation_url}"
+    autoVerify: false
+    browser: true
+- extendedWaitUntil:
+    visible: "Present credential"
+    timeout: 60000
+- tapOn: "Present credential"
+- extendedWaitUntil:
+    visible: "Continue|Agree and continue|Welcome back|Share|Oups! Something went wrong|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|Presentation accepted).*"
+    timeout: 120000
+# Chrome asks once per origin whether the site may read the wallet.
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+      - extendedWaitUntil:
+          visible: "Agree and continue|Welcome back|Share|Oups! Something went wrong|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation).*"
+          timeout: 60000
+# Platform credential picker listing the matching wallet documents.
+- runFlow:
+    when:
+      visible: "Agree and continue"
+    commands:
+      - tapOn: "Agree and continue"
+      - extendedWaitUntil:
+          visible: "Welcome back|Share|Oups! Something went wrong|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation).*"
+          timeout: 60000
+# The Wallet runs inside the credential-manager window, where hideKeyboard
+# leaves the Wallet, so the PIN is typed on the keypad.
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
+- extendedWaitUntil:
+    visible: "Share|Oups! Something went wrong|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|Presentation accepted).*"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: dc-api-wallet-outcome
+# A consent screen means the Wallet accepted the request.
+- assertNotVisible: "Share"
+- runFlow:
+    when:
+      visible: "Oups! Something went wrong"
+    commands:
+      - back
+      - extendedWaitUntil:
+          visible: "Agree and continue|.*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|Presentation accepted).*"
+          timeout: 30000
+      - runFlow:
+          when:
+            visible: "Agree and continue"
+          commands:
+            - tapOn: "Close"
+- extendedWaitUntil:
+    visible: ".*(did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|Presentation accepted).*"
+    timeout: 120000
+- assertNotVisible: ".*Presentation accepted.*"
+- takeScreenshot: dc-api-invocation-outcome

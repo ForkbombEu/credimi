@@ -37,26 +37,10 @@ steps:
   - id: submit-haip-by-value-request
     use: mobile-automation
     with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
       version_id: installed_from_external_source
       parameters:
-        DEEPLINK: ${{ create-presentation.outputs.body.deeplink }}
-      action_code: |
-        appId: eu.europa.ec.euidi
-        ---
-        - stopApp
-        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-        - waitForAnimationToEnd:
-            timeout: 5000
-        - tapOn:
-            text: "EUDI Wallet"
-            optional: true
-        - tapOn:
-            text: "Just once"
-            optional: true
-        - extendedWaitUntil:
-            visible: "Oups! Something went wrong|invalid request|Oups! Something went wrong|Home|Documents"
-            timeout: 30000
-        - takeScreenshot: fcaf-supportive-signed-request-without-request-uri-rejected
+        deeplink: ${{ create-presentation.outputs.body.deeplink }}
   - id: get-presentation-result
     use: http-request
     with:

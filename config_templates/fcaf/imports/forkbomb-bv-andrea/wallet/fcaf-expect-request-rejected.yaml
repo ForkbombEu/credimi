@@ -16,7 +16,6 @@ tags:
     permissions:
       camera: allow
       notifications: allow
-      all: unset
 - extendedWaitUntil:
     visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
     timeout: 30000
@@ -39,6 +38,6 @@ tags:
     autoVerify: false
     browser: false
 - extendedWaitUntil:
-    visible: "Error|invalid request|Oups! Something went wrong|Home|Documents"
+    visible: "invalid request|Oups! Something went wrong|Home|Documents"
     timeout: 100000
 - takeScreenshot: expect-request-rejected

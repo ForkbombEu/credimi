@@ -41,7 +41,7 @@ steps:
 - id: invoke-dc-api-invalid-signature
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-present
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-expect-rejected
     version_id: installed_from_external_source
     parameters:
       presentation_url: "${{ create-dc-api-invalid-signature.outputs.body.deeplink }}"

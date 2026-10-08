@@ -9,108 +9,93 @@ tags:
 # service serves an HTTPS page and the wallet is invoked only from a button
 # press on it, through navigator.credentials.get({ digital: ... }).
 #
-# Every terminal state below is also reported to the verifier by the page
-# itself, through POST /openid4vp/sessions/{id}/dc_api_invocation, so the
-# assertions read dc_api.invocation rather than this screen. The waits exist to
-# keep the step deterministic and to capture the screenshot.
+# This flow passes only on a completed presentation that the page reports as
+# accepted. Cases whose expected outcome is a refusal use
+# fcaf-dc-api-expect-rejected instead, so neither flow is green on the other
+# outcome.
 - launchApp:
     appId: com.android.chrome
     stopApp: true
     clearState: false
+    # Naming one permission keeps Maestro from granting or resetting every
+    # Chrome permission on launch, which costs several seconds per step.
     permissions:
-      all: unset
+      notifications: allow
 - openLink:
     link: "${presentation_url}"
     autoVerify: false
     browser: true
-# A cleared Chrome shows several first-run prompts in sequence, so one pass is
-# not enough to reach the presentation page.
-- repeat:
-    times: 4
-    commands:
-      - runFlow:
-          when:
-            visible: "Accept & continue|Use without an account|No thanks|Got it"
-          commands:
-            - tapOn:
-                text: "Accept & continue|Use without an account|No thanks|Got it"
-                optional: true
-            - waitForAnimationToEnd:
-                timeout: 3000
 - extendedWaitUntil:
-    visible: "Present credential|.*does not expose the Digital Credentials API.*"
+    visible: "Present credential"
     timeout: 60000
-- takeScreenshot: dc-api-presentation-page
+- tapOn: "Present credential"
+- extendedWaitUntil:
+    visible: "Continue|Agree and continue|Welcome back|Share|Cancel|.*(did not complete|answered without a presentation|Presentation accepted).*"
+    timeout: 120000
+# Chrome asks once per origin whether the site may read the wallet.
 - runFlow:
     when:
-      visible: "Present credential"
+      visible: "Continue"
     commands:
       - tapOn:
-          text: "Present credential"
-      # The platform credential sheet and the wallet take over here. Every step
-      # is optional: a wallet that refuses the request never reaches the next
-      # screen, and that refusal is the expected result of several cases.
+          text: "Continue"
+          optional: true
       - extendedWaitUntil:
-          visible: "Continue|Agree and continue|Welcome back|Share|Cancel|.*(did not complete|answered without a presentation|Presentation accepted).*"
-          timeout: 120000
-      # Chrome asks once per origin whether the site may read the wallet.
-      - runFlow:
-          when:
-            visible: "Continue"
-          commands:
-            - tapOn:
-                text: "Continue"
-                optional: true
-            - extendedWaitUntil:
-                visible: "Agree and continue|Welcome back|Share|Cancel"
-                timeout: 60000
-      # Platform credential picker listing the matching wallet documents.
-      - runFlow:
-          when:
-            visible: "Agree and continue"
-          commands:
-            - tapOn:
-                text: "Agree and continue"
-                optional: true
-            - extendedWaitUntil:
-                visible: "Welcome back|Share|Cancel"
-                timeout: 60000
-      # The wallet is launched inside the credential-manager window, where a
-      # keyboard left open after PIN entry covers the consent action bar.
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-            - tapOn:
-                id: eu.europa.ec.euidi:id/pin_text_field_0
-            - inputText: "123456"
-            - hideKeyboard
-            - extendedWaitUntil:
-                visible: "Share|Cancel|Oups! Something went wrong"
-                timeout: 60000
-      - runFlow:
-          when:
-            visible: "Share"
-          commands:
-            - tapOn:
-                text: "Share"
-                optional: true
-            - runFlow:
-                when:
-                  visible: "PIN|verify your identity"
-                commands:
-                  - tapOn:
-                      id: eu.europa.ec.euidi:id/pin_text_field_0
-                  - inputText: "123456"
-                  - hideKeyboard
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*|Oups! Something went wrong"
-                timeout: 60000
-            - takeScreenshot: dc-api-wallet-outcome
-            - tapOn:
-                text: "Close|TRY AGAIN"
-                optional: true
+          visible: "Agree and continue|Welcome back|Share|Cancel"
+          timeout: 60000
+# Platform credential picker listing the matching wallet documents.
+- runFlow:
+    when:
+      visible: "Agree and continue"
+    commands:
+      - tapOn:
+          text: "Agree and continue"
+          optional: true
+      - extendedWaitUntil:
+          visible: "Welcome back|Share|Cancel"
+          timeout: 60000
+# The Wallet runs inside the credential-manager window, where hideKeyboard
+# leaves the Wallet, so the PIN is typed on the keypad.
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
 - extendedWaitUntil:
-    visible: ".*(Presentation accepted|did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation|does not expose the Digital Credentials API).*"
+    visible: "Share"
+    timeout: 30000
+- assertVisible: "Share"
+- tapOn:
+    text: "Share"
+    waitToSettleTimeoutMs: 1000
+- extendedWaitUntil:
+    visible: "PIN"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "PIN"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
+- waitForAnimationToEnd:
+    timeout: 1000
+- extendedWaitUntil:
+    visible: ".*successfully shared.*"
+    timeout: 30000
+- tapOn: "View details"
+- takeScreenshot: dc-api-wallet-outcome
+# The Wallet hands the response back to Chrome only when its result screen
+# closes; until then the verifier has received nothing.
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: ".*(Presentation accepted|did not complete the presentation|answered without a presentation|could not be submitted|rejected the presentation).*"
     timeout: 120000
+- assertVisible: ".*Presentation accepted.*"
 - takeScreenshot: dc-api-invocation-outcome

@@ -7,6 +7,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1399)
+	require.Len(t, definition.Steps, 1710)
 	require.NotContains(
 		t,
 		string(data),
@@ -134,7 +135,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 154)
+	require.Len(t, definition.Steps, 166)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validationSteps := make([]map[string]any, 0, 1)
@@ -199,11 +200,13 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.Equal(t, committed, data, "generated happy flow pipeline is stale")
 }
 
-// TestAggregateHoldsACredentialForEveryConsumingPresentation guards the
-// reference wallet's single-use credential instances: a presentation that can
-// reach Share must always be preceded by an issuance of the format it requests
-// that has not already been spent by an earlier presentation.
-func TestAggregateHoldsACredentialForEveryConsumingPresentation(t *testing.T) {
+// TestAggregateHoldsACredentialForEveryPresentation guards the reference
+// wallet's single-use credential instances and the per-scenario wallet reset:
+// every wallet step runs after its own scenario's reset, a presentation that can
+// reach Share is preceded by an unspent issuance of the format it requests from
+// the same scenario, and a presentation the wallet refuses still finds a PID of
+// that format, so the refusal is not just an empty wallet.
+func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 	root := filepath.Join(
 		"..",
 		"..",
@@ -214,6 +217,8 @@ func TestAggregateHoldsACredentialForEveryConsumingPresentation(t *testing.T) {
 	)
 	actions, err := loadWalletActions(filepath.Join(root, "..", "..", "imports"))
 	require.NoError(t, err)
+	injectedFor := regexp.MustCompile(`^(.+)-issue-pid(?:-[0-9]+)?$`)
+	scenarioOf := regexp.MustCompile(`^(.+?-[0-9a-f]{8})-`)
 
 	for _, pipeline := range []string{
 		"fcaf-wallet-solution-relying-party-complete-validation.yaml",
@@ -227,26 +232,62 @@ func TestAggregateHoldsACredentialForEveryConsumingPresentation(t *testing.T) {
 
 		available := map[credentialFormat]int{}
 		earlier := map[string]map[string]any{}
+		// The first step resets the wallet for the first scenario that drives
+		// it; afterPrelude marks that this scenario is not known yet.
+		const afterPrelude = "*"
+		scenario := ""
+		previousWalletStepResets := false
+		resets := 0
 		shares := 0
 		injected := 0
 		for index, step := range definition.Steps {
+			id, _ := step["id"].(string)
 			source := deeplinkSourceStep(step, earlier)
-			if id, ok := step["id"].(string); ok {
-				earlier[id] = step
+			earlier[id] = step
+			if use, _ := step["use"].(string); use != mobileAutomationTask {
+				continue
 			}
+			with, _ := step["with"].(map[string]any)
+			if action, _ := with["action_id"].(string); action == resetActionID {
+				require.Falsef(
+					t,
+					previousWalletStepResets,
+					"%s: %q resets a wallet that nothing used since the last reset",
+					pipeline,
+					id,
+				)
+				previousWalletStepResets = true
+				scenario = strings.TrimSuffix(id, "-reset-wallet")
+				if id == "onboard-reference-wallet" {
+					scenario = afterPrelude
+				}
+				available = map[credentialFormat]int{}
+				resets++
+				continue
+			}
+			previousWalletStepResets = false
+			if scenario == afterPrelude {
+				match := scenarioOf.FindStringSubmatch(id)
+				require.NotNilf(t, match, "%s: step %q has no scenario prefix", pipeline, id)
+				scenario = match[1]
+			}
+			require.Truef(
+				t,
+				scenario != "" && strings.HasPrefix(id, scenario+"-"),
+				"%s: wallet step %q runs without its scenario's wallet reset",
+				pipeline,
+				id,
+			)
 			if issuesCredential(step) {
 				available[issuedCredentialFormat(source)]++
-				id, _ := step["id"].(string)
-				if strings.Contains(id, "-issue-pid") {
+				if match := injectedFor.FindStringSubmatch(id); match != nil {
 					injected++
-					// An injected issuance exists only to feed a later
-					// presentation in the same scenario; it must be followed by
-					// one, otherwise it would be left unspent in the wallet.
+					// An injected issuance exists only for the presentation it
+					// is named after, which must follow in the same scenario.
 					followed := false
 					for _, later := range definition.Steps[index+1:] {
-						consumed, err := credentialInstancesConsumed(later, actions)
-						require.NoError(t, err)
-						if consumed > 0 {
+						laterID, _ := later["id"].(string)
+						if laterID == match[1] {
 							followed = true
 							break
 						}
@@ -254,7 +295,7 @@ func TestAggregateHoldsACredentialForEveryConsumingPresentation(t *testing.T) {
 					require.Truef(
 						t,
 						followed,
-						"%s: injected issuance %q is never followed by a presentation",
+						"%s: injected issuance %q is never followed by its presentation",
 						pipeline,
 						id,
 					)
@@ -274,15 +315,34 @@ func TestAggregateHoldsACredentialForEveryConsumingPresentation(t *testing.T) {
 					consumed,
 					"%s: presentation %q shares %d %s instances with %d unspent",
 					pipeline,
-					step["id"],
+					id,
 					consumed,
 					format,
 					available[format],
 				)
 				available[format] -= consumed
 			}
+			if consumed == 0 && opensPresentationRequest(step, source) {
+				for _, format := range presentedCredentialFormats(source, 1) {
+					require.Positivef(
+						t,
+						available[format],
+						"%s: presentation %q runs on a wallet holding no %s PID",
+						pipeline,
+						id,
+						format,
+					)
+				}
+			}
 		}
+		require.Positivef(t, resets, "%s: no scenario resets the wallet", pipeline)
 		require.Positivef(t, shares, "%s: no presentation shares a credential", pipeline)
-		t.Logf("%s: %d shares, %d injected issuances", pipeline, shares, injected)
+		t.Logf(
+			"%s: %d resets, %d shares, %d injected issuances",
+			pipeline,
+			resets,
+			shares,
+			injected,
+		)
 	}
 }
