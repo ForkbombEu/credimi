@@ -169,10 +169,7 @@ func probeMobileRunnerHealths(
 			probeCtx, cancel := context.WithTimeout(ctx, mobileRunnerListHealthTimeout)
 			defer cancel()
 
-			online, devices, err := checkMobileRunnerHealth(
-				probeCtx,
-				mobilerunner.RunnerURL(record),
-			)
+			online, devices, err := checkMobileRunnerHealth(probeCtx, record)
 			results[i] = mobileRunnerHealth{online: online, devices: devices, err: err}
 		}()
 	}
@@ -500,8 +497,9 @@ func mobileRunnerListItem(
 
 func checkMobileRunnerHealthHTTP(
 	ctx context.Context,
-	runnerURL string,
+	runner *core.Record,
 ) (bool, []MobileRunnerHealthDevice, error) {
+	runnerURL := mobilerunner.RunnerURL(runner)
 	if strings.TrimSpace(runnerURL) == "" {
 		return false, nil, errMalformedMobileRunnerURL
 	}
@@ -519,7 +517,7 @@ func checkMobileRunnerHealthHTTP(
 		return false, nil, errMalformedMobileRunnerURL
 	}
 
-	resp, err := mobilerunner.HTTPClient(runnerURL).Do(req)
+	resp, err := mobilerunner.HTTPClient(runner).Do(req)
 	if err != nil {
 		return false, nil, nil
 	}

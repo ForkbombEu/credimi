@@ -115,6 +115,7 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 		export PUBLIC_TURNSTILE_SITE_KEY="$${PUBLIC_TURNSTILE_SITE_KEY:-1x00000000000000000000AA}"; \
 		export TURNSTILE_SECRET_KEY="$${TURNSTILE_SECRET_KEY:-1x0000000000000000000000000000000AA}"; \
 		export CREDIMI_SEED_SUPERUSER_PASSWORD="$${CREDIMI_SEED_SUPERUSER_PASSWORD:-adminadmin}"; \
+		export CREDIMI_RUNNER_CREDENTIAL_SECRET="$${CREDIMI_RUNNER_CREDENTIAL_SECRET:-dev-runner-credential-secret}"; \
 		./scripts/worktree-compose.sh prepare; \
 		trap "./scripts/worktree-compose.sh stop" EXIT; \
 		./scripts/worktree-compose.sh up; \

@@ -36,7 +36,7 @@ var (
 	startWorkersByNamespaceFn   = hooks.StartAllWorkersByNamespace
 	ensureNamespaceAndWorkersFn = ensureNamespaceAndWorkers
 	startWorkerManagerFn        = hooks.StartWorkerManagerWorkflow
-	adminRunnerURLsFn           = hooks.WorkerManagerAdminRunnerURLs
+	adminRunnerIDsFn            = hooks.WorkerManagerAdminRunnerIDs
 )
 
 var organizationPublicationCollections = []organizationPublicationCollection{
@@ -78,11 +78,11 @@ func registerOrganizationNamespaceHooks(app core.App) {
 		orgName := e.Record.GetString("canonified_name")
 		if orgName != "" {
 			ensureNamespaceAndWorkersFn(e.App, orgName)
-			runnerURLs, err := adminRunnerURLsFn(e.App)
+			runnerIDs, err := adminRunnerIDsFn(e.App)
 			if err != nil {
 				return err
 			}
-			startWorkerManagerFn(orgName, "", runnerURLs)
+			startWorkerManagerFn(orgName, "", runnerIDs)
 		}
 
 		return e.Next()
@@ -99,11 +99,11 @@ func registerOrganizationNamespaceHooks(app core.App) {
 		go hooks.StopAllWorkersByNamespace(oldName)
 
 		ensureNamespaceAndWorkersFn(e.App, newName)
-		runnerURLs, err := adminRunnerURLsFn(e.App)
+		runnerIDs, err := adminRunnerIDsFn(e.App)
 		if err != nil {
 			return err
 		}
-		startWorkerManagerFn(newName, oldName, runnerURLs)
+		startWorkerManagerFn(newName, oldName, runnerIDs)
 		log.Printf("Moved workers from namespace %s to %s", oldName, newName)
 		return e.Next()
 	})
@@ -203,12 +203,12 @@ func registerOrganizationWorkerManagerPublicationHooks(app core.App) {
 			return e.Next()
 		}
 
-		runnerURLs, err := hooks.WorkerManagerPublishedNonAdminRunnerURLs(e.App)
+		runnerIDs, err := hooks.WorkerManagerPublishedNonAdminRunnerIDs(e.App)
 		if err != nil {
 			return err
 		}
 
-		startWorkerManagerFn(namespace, "", runnerURLs)
+		startWorkerManagerFn(namespace, "", runnerIDs)
 		return e.Next()
 	})
 }

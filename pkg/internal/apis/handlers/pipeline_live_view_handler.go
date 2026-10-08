@@ -10,7 +10,6 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -126,6 +125,7 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 		for _, deviceID := range deviceIDs {
 			stream, apiErr := openPipelineDeviceLiveView(
 				ctx,
+				e.App,
 				deviceID,
 				devices[deviceID],
 				runnerLiveViewRequest{
@@ -290,12 +290,16 @@ func liveViewDevicesNotReady() *apierror.APIError {
 
 func openPipelineDeviceLiveView(
 	ctx context.Context,
+	app core.App,
 	deviceID string,
 	device map[string]any,
 	body runnerLiveViewRequest,
 ) (PipelineLiveViewStream, *apierror.APIError) {
-	runnerURL := workflowengine.AsString(device["runner_url"])
-	if !mobilerunner.URLUsable(runnerURL) {
+	runner, apiErr := mobileDeviceRunnerRecord(app, deviceID)
+	if apiErr != nil {
+		return PipelineLiveViewStream{}, apiErr
+	}
+	if !mobilerunner.URLUsable(mobilerunner.RunnerURL(runner)) {
 		return PipelineLiveViewStream{}, apierror.New(
 			http.StatusConflict,
 			"runner_url",
@@ -307,7 +311,7 @@ func openPipelineDeviceLiveView(
 
 	body.DeviceIdentifier = deviceID
 	body.Serial = workflowengine.AsString(device["serial"])
-	streamURL, apiErr := openRunnerLiveView(ctx, runnerURL, body)
+	streamURL, apiErr := openRunnerLiveView(ctx, runner, body)
 	if apiErr != nil {
 		return PipelineLiveViewStream{}, apiErr
 	}
@@ -322,20 +326,21 @@ func openPipelineDeviceLiveView(
 
 func openRunnerLiveViewHTTP(
 	ctx context.Context,
-	runnerURL string,
+	runner *core.Record,
 	body runnerLiveViewRequest,
 ) (string, *apierror.APIError) {
-	apiKey := strings.TrimSpace(os.Getenv(InternalAdminAPIKeyEnvVar))
-	if apiKey == "" {
+	credential, err := mobilerunner.Credential(runner)
+	if err != nil {
 		return "", apierror.New(
 			http.StatusInternalServerError,
 			"live_view",
-			"internal admin key is not configured",
+			"runner credential secret is not configured",
 			"Live view is not configured on this Credimi instance: "+
-				InternalAdminAPIKeyEnvVar+" is empty.",
+				mobilerunner.CredentialSecretEnvVar+" is empty.",
 		)
 	}
 
+	runnerURL := mobilerunner.RunnerURL(runner)
 	endpoint, err := url.JoinPath(runnerURL, "credimi", "live-view")
 	if err != nil {
 		return "", apierror.New(
@@ -373,9 +378,9 @@ func openRunnerLiveViewHTTP(
 		)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(APIKeyHeaderName, apiKey)
+	req.Header.Set(APIKeyHeaderName, credential)
 
-	resp, err := mobilerunner.HTTPClient(runnerURL).Do(req)
+	resp, err := mobilerunner.HTTPClient(runner).Do(req)
 	if err != nil {
 		return "", apierror.New(
 			http.StatusServiceUnavailable,
@@ -416,7 +421,8 @@ func openRunnerLiveViewHTTP(
 				"live_view",
 				"runner refused live view",
 				"Credimi is not authorized on the runner that holds this device. "+
-					"Check that both use the same internal admin key.",
+					"Check that the runner registered with this Credimi instance "+
+					"and uses its current runner credential.",
 			)
 		}
 		return "", apierror.New(

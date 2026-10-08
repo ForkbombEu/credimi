@@ -108,14 +108,27 @@ func TestWorkerManagerRecordQueries(t *testing.T) {
 	newRunner("published-disabled", "https://published-disabled.test", "", true, false, true, true)
 	newRunner("published-offline", "https://published-offline.test", "", true, false, false, false)
 	newRunner("empty-runner", " ", "", true, false, false, true)
+	// A runner whose owner organization is gone has no identifier; it must be
+	// skipped instead of failing the startup and organization hooks.
+	orphan := core.NewRecord(collection)
+	orphan.Set("owner", "missingorg00000")
+	orphan.Set("name", "orphan-runner")
+	orphan.Set("canonified_name", "orphan-runner")
+	orphan.Set("type", "android_emulator")
+	orphan.Set("ip", "https://orphan.test")
+	orphan.Set("admin_managed", true)
+	orphan.Set("online", true)
+	require.NoError(t, app.SaveNoValidate(orphan))
 
-	adminURLs, err := WorkerManagerAdminRunnerURLs(app)
-	require.NoError(t, err)
-	require.Equal(t, []string{"https://admin.test:8080"}, adminURLs)
+	orgName := organizations[0].GetString("canonified_name")
 
-	publishedURLs, err := WorkerManagerPublishedNonAdminRunnerURLs(app)
+	adminIDs, err := WorkerManagerAdminRunnerIDs(app)
 	require.NoError(t, err)
-	require.Equal(t, []string{"https://published.test"}, publishedURLs)
+	require.Equal(t, []string{orgName + "/admin-runner"}, adminIDs)
+
+	publishedIDs, err := WorkerManagerPublishedNonAdminRunnerIDs(app)
+	require.NoError(t, err)
+	require.Equal(t, []string{orgName + "/published-runner"}, publishedIDs)
 }
 
 type fakeActivity struct {
@@ -228,8 +241,8 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 
 	origFetch := fetchNamespacesFn
 	origOrgRecords := workerManagerOrgRecordsFn
-	origAdminURLs := adminRunnerURLsFn
-	origPublishedURLs := publishedRunnerURLsFn
+	origAdminIDs := adminRunnerIDsFn
+	origPublishedIDs := publishedRunnerIDsFn
 	origEnsure := ensureNamespaceReadyFn
 	origStartAll := startAllWorkersByNamespace
 	origStartWorkerManager := startWorkerManagerWorkflow
@@ -238,8 +251,8 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	t.Cleanup(func() {
 		fetchNamespacesFn = origFetch
 		workerManagerOrgRecordsFn = origOrgRecords
-		adminRunnerURLsFn = origAdminURLs
-		publishedRunnerURLsFn = origPublishedURLs
+		adminRunnerIDsFn = origAdminIDs
+		publishedRunnerIDsFn = origPublishedIDs
 		ensureNamespaceReadyFn = origEnsure
 		startAllWorkersByNamespace = origStartAll
 		startWorkerManagerWorkflow = origStartWorkerManager
@@ -256,11 +269,11 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 		record.Set("published", false)
 		return []*core.Record{record}, nil
 	}
-	adminRunnerURLsFn = func(_ core.App) ([]string, error) {
-		return []string{"https://admin.runner"}, nil
+	adminRunnerIDsFn = func(_ core.App) ([]string, error) {
+		return []string{"admin/runner"}, nil
 	}
-	publishedRunnerURLsFn = func(_ core.App) ([]string, error) {
-		return []string{"https://published.runner"}, nil
+	publishedRunnerIDsFn = func(_ core.App) ([]string, error) {
+		return []string{"tenant/runner"}, nil
 	}
 
 	ensureCalls := make(chan string, 2)
@@ -275,12 +288,12 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	}
 
 	type workerManagerCall struct {
-		namespace  string
-		runnerURLs []string
+		namespace string
+		runnerIDs []string
 	}
 	managerCalls := make(chan workerManagerCall, 2)
-	startWorkerManagerWorkflow = func(ns, _ string, runnerURLs []string) {
-		managerCalls <- workerManagerCall{namespace: ns, runnerURLs: runnerURLs}
+	startWorkerManagerWorkflow = func(ns, _ string, runnerIDs []string) {
+		managerCalls <- workerManagerCall{namespace: ns, runnerIDs: runnerIDs}
 	}
 
 	shutdownCalled := make(chan struct{}, 1)
@@ -324,17 +337,13 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		select {
 		case call := <-managerCalls:
-			gotManagers[call.namespace] = call.runnerURLs
+			gotManagers[call.namespace] = call.runnerIDs
 		case <-time.After(time.Second):
 			t.Fatal("timeout waiting for start worker manager call")
 		}
 	}
-	require.Equal(
-		t,
-		[]string{"https://admin.runner", "https://published.runner"},
-		gotManagers["default"],
-	)
-	require.Equal(t, []string{"https://admin.runner"}, gotManagers["org-1"])
+	require.Equal(t, []string{"admin/runner", "tenant/runner"}, gotManagers["default"])
+	require.Equal(t, []string{"admin/runner"}, gotManagers["org-1"])
 
 	terminateErr := app.OnTerminate().Trigger(
 		&core.TerminateEvent{App: app},
@@ -638,7 +647,7 @@ func TestExecuteWorkerManagerWorkflowSuccess(t *testing.T) {
 	err := executeWorkerManagerWorkflow(
 		"org-1",
 		"org-0",
-		[]string{" https://runner-1 ", "", "https://runner-1", "https://runner-2"},
+		[]string{" org/runner-1 ", "", "org/runner-1", "org/runner-2"},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "default", gotNamespace)
@@ -648,7 +657,7 @@ func TestExecuteWorkerManagerWorkflowSuccess(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "org-1", payload.Namespace)
 	require.Equal(t, "org-0", payload.OldNamespace)
-	require.Equal(t, []string{"https://runner-1", "https://runner-2"}, payload.RunnerURLs)
+	require.Equal(t, []string{"org/runner-1", "org/runner-2"}, payload.RunnerIDs)
 	require.Nil(t, gotInput.Config)
 }
 
@@ -922,16 +931,16 @@ func TestStartWorkerManagerWorkflowInvokesExecute(t *testing.T) {
 	executeWorkerManagerWorkflowFn = func(
 		namespace,
 		oldNamespace string,
-		runnerURLs []string,
+		runnerIDs []string,
 	) error {
 		require.Equal(t, "org-1", namespace)
 		require.Equal(t, "org-0", oldNamespace)
-		require.Equal(t, []string{"https://runner-1"}, runnerURLs)
+		require.Equal(t, []string{"org/runner-1"}, runnerIDs)
 		called <- struct{}{}
 		return nil
 	}
 
-	StartWorkerManagerWorkflow("org-1", "org-0", []string{"https://runner-1"})
+	StartWorkerManagerWorkflow("org-1", "org-0", []string{"org/runner-1"})
 
 	select {
 	case <-called:
@@ -954,7 +963,7 @@ func TestStartWorkerManagerWorkflowSkipsWhenTemporalWorkersDisabled(t *testing.T
 		return nil
 	}
 
-	StartWorkerManagerWorkflow("org-1", "", []string{"https://runner-1"})
+	StartWorkerManagerWorkflow("org-1", "", []string{"org/runner-1"})
 
 	select {
 	case <-called:

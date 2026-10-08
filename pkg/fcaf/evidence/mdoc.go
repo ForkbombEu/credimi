@@ -94,9 +94,13 @@ type rawIssuerSignedItem struct {
 	ElementValue      cbor.RawMessage `cbor:"elementValue"`
 }
 
-var mdocDecMode = mustMDocDecMode()
+var (
+	mdocDecMode = mustMDocDecMode(reflect.TypeFor[map[string]any]())
+	// mdocAnyKeyDecMode differs only in accepting maps with non-text keys.
+	mdocAnyKeyDecMode = mustMDocDecMode(reflect.TypeFor[map[any]any]())
+)
 
-func mustMDocDecMode() cbor.DecMode {
+func mustMDocDecMode(defaultMapType reflect.Type) cbor.DecMode {
 	mode, err := cbor.DecOptions{
 		DupMapKey:            cbor.DupMapKeyEnforcedAPF,
 		MaxNestedLevels:      32,
@@ -105,7 +109,7 @@ func mustMDocDecMode() cbor.DecMode {
 		IndefLength:          cbor.IndefLengthAllowed,
 		TagsMd:               cbor.TagsAllowed,
 		IntDec:               cbor.IntDecConvertNone,
-		DefaultMapType:       reflect.TypeFor[map[string]any](),
+		DefaultMapType:       defaultMapType,
 		UTF8:                 cbor.UTF8RejectInvalid,
 		UnrecognizedTagToAny: cbor.UnrecognizedTagContentToAny,
 		TimeTagToAny:         cbor.TimeTagToRFC3339Nano,
@@ -339,7 +343,7 @@ func decodeMDocCBORValue(raw cbor.RawMessage) (MDocCBORValue, error) {
 		value.ContentMajorType = tagged.Content[0] >> 5
 		content = tagged.Content
 	}
-	if err := mdocDecMode.Unmarshal(content, &value.Value); err != nil {
+	if err := decodeMDocValue(content, &value.Value); err != nil {
 		return MDocCBORValue{}, fmt.Errorf("decode CBOR value: %w", err)
 	}
 	if value.ContentMajorType != 5 {
@@ -371,6 +375,23 @@ func decodeMDocCBORMapMembers(
 	return members, true
 }
 
+// decodeMDocValue decodes a value into its JSON-shaped form. A value that is
+// valid CBOR but contains a map with non-text keys has no such form: it is left
+// nil, and callers keep its encoding in Raw, instead of rejecting the whole
+// presentation.
+func decodeMDocValue(content cbor.RawMessage, value *any) error {
+	err := mdocDecMode.Unmarshal(content, value)
+	if err == nil {
+		return nil
+	}
+	var anyKeyed any
+	if mdocAnyKeyDecMode.Unmarshal(content, &anyKeyed) != nil {
+		return err
+	}
+	*value = nil
+	return nil
+}
+
 func decodeMDocElement(identifier string, raw cbor.RawMessage) (MDocElement, error) {
 	if len(raw) == 0 {
 		return MDocElement{}, fmt.Errorf("empty element value")
@@ -391,12 +412,12 @@ func decodeMDocElement(identifier string, raw cbor.RawMessage) (MDocElement, err
 			return MDocElement{}, fmt.Errorf("tagged element has empty content")
 		}
 		element.ContentMajorType = tagged.Content[0] >> 5
-		if err := mdocDecMode.Unmarshal(tagged.Content, &element.Value); err != nil {
+		if err := decodeMDocValue(tagged.Content, &element.Value); err != nil {
 			return MDocElement{}, fmt.Errorf("decode tagged element content: %w", err)
 		}
 		return element, nil
 	}
-	if err := mdocDecMode.Unmarshal(raw, &element.Value); err != nil {
+	if err := decodeMDocValue(raw, &element.Value); err != nil {
 		return MDocElement{}, fmt.Errorf("decode element value: %w", err)
 	}
 	return element, nil

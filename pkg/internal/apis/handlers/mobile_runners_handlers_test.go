@@ -11,7 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -26,12 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
-func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req)
-}
-
 func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -41,6 +35,7 @@ func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 	MobileRunnerRegistrationRoutes.Add(app)
 	MobileRunnerLifecycleRoutes.Add(app)
 	seedInternalAdminKey(t, app)
+	t.Setenv(mobilerunner.CredentialSecretEnvVar, "test-runner-credential-secret")
 
 	return app
 }
@@ -97,38 +92,49 @@ func responseRecorder(t testing.TB, event *core.RequestEvent) *httptest.Response
 	return recorder
 }
 
+func mobileRunnerProbeRecord(runnerURL string, adminManaged bool) *core.Record {
+	record := core.NewRecord(core.NewBaseCollection("mobile_runners"))
+	record.Set("ip", runnerURL)
+	record.Set("admin_managed", adminManaged)
+	return record
+}
+
 func TestCheckMobileRunnerHealthHTTP(t *testing.T) {
 	t.Run("empty url is classified as malformed", func(t *testing.T) {
-		online, devices, err := checkMobileRunnerHealthHTTP(t.Context(), " ")
+		online, devices, err := checkMobileRunnerHealthHTTP(
+			t.Context(),
+			mobileRunnerProbeRecord(" ", false),
+		)
 		require.ErrorIs(t, err, errMalformedMobileRunnerURL)
 		require.False(t, online)
 		require.Nil(t, devices)
 	})
 
 	t.Run("url without a scheme is classified as malformed", func(t *testing.T) {
-		online, devices, err := checkMobileRunnerHealthHTTP(t.Context(), "192.168.1.10:8050")
+		online, devices, err := checkMobileRunnerHealthHTTP(
+			t.Context(),
+			mobileRunnerProbeRecord("192.168.1.10:8050", false),
+		)
 		require.ErrorIs(t, err, errMalformedMobileRunnerURL)
 		require.False(t, online)
 		require.Nil(t, devices)
 	})
 
-	t.Run("healthy runner returns devices", func(t *testing.T) {
-		origClient := http.DefaultClient
-		t.Cleanup(func() { http.DefaultClient = origClient })
+	t.Run("healthy runner returns devices without credentials", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, "/health", r.URL.Path)
+			require.Empty(t, r.Header.Get(APIKeyHeaderName))
+			_, _ = io.WriteString(
+				w,
+				`{"devices":[{"serial":"ABC123","state":"device","model":"Pixel 8"}]}`,
+			)
+		}))
+		t.Cleanup(server.Close)
 
-		http.DefaultClient = &http.Client{
-			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-				require.Equal(t, "/health", req.URL.Path)
-				return &http.Response{
-					StatusCode: http.StatusOK,
-					Body: io.NopCloser(strings.NewReader(
-						`{"devices":[{"serial":"ABC123","state":"device","model":"Pixel 8"}]}`,
-					)),
-				}, nil
-			}),
-		}
-
-		online, devices, err := checkMobileRunnerHealthHTTP(t.Context(), "https://runner.example")
+		online, devices, err := checkMobileRunnerHealthHTTP(
+			t.Context(),
+			mobileRunnerProbeRecord(server.URL, true),
+		)
 		require.NoError(t, err)
 		require.True(t, online)
 		require.Len(t, devices, 1)
@@ -136,6 +142,46 @@ func TestCheckMobileRunnerHealthHTTP(t *testing.T) {
 		require.Equal(t, "device", devices[0].State)
 		require.Equal(t, "Pixel 8", devices[0].Model)
 	})
+}
+
+// A tenant chooses its runner's address, so probes must never reach a
+// loopback or private destination on its behalf; admin-managed runners may.
+func TestRunnerHealthProbesBlockTenantLoopbackRunners(t *testing.T) {
+	probes := []struct {
+		name  string
+		probe func(context.Context, *core.Record) (bool, error)
+	}{
+		{
+			name: "runner list probe",
+			probe: func(ctx context.Context, runner *core.Record) (bool, error) {
+				online, _, err := checkMobileRunnerHealthHTTP(ctx, runner)
+				return online, err
+			},
+		},
+		{name: "run path probe", probe: checkRunnerReachableHTTP},
+	}
+	for _, tc := range probes {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests atomic.Int32
+			server := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					requests.Add(1)
+					_, _ = io.WriteString(w, `{"devices":[]}`)
+				}),
+			)
+			t.Cleanup(server.Close)
+
+			online, err := tc.probe(t.Context(), mobileRunnerProbeRecord(server.URL, false))
+			require.NoError(t, err)
+			require.False(t, online)
+			require.Zero(t, requests.Load())
+
+			online, err = tc.probe(t.Context(), mobileRunnerProbeRecord(server.URL, true))
+			require.NoError(t, err)
+			require.True(t, online)
+			require.Equal(t, int32(1), requests.Load())
+		})
+	}
 }
 
 func TestListMobileRunners(t *testing.T) {
@@ -190,8 +236,8 @@ func TestListMobileRunners(t *testing.T) {
 		createMobileRunnerRecord(t, app, otherOrg.Id, "other-public", "online-public", true)
 
 		originalHealth := checkMobileRunnerHealth
-		checkMobileRunnerHealth = func(_ context.Context, runnerURL string) (bool, []MobileRunnerHealthDevice, error) {
-			if runnerURL == "offline-runner" {
+		checkMobileRunnerHealth = func(_ context.Context, runner *core.Record) (bool, []MobileRunnerHealthDevice, error) {
+			if mobilerunner.RunnerURL(runner) == "offline-runner" {
 				return false, nil, nil
 			}
 			return true, []MobileRunnerHealthDevice{
@@ -276,7 +322,7 @@ func TestListMobileRunners(t *testing.T) {
 		createMobileRunnerRecord(t, app, otherOrg.Id, "other-private", "http://127.0.0.1:1", false)
 
 		originalHealth := checkMobileRunnerHealth
-		checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+		checkMobileRunnerHealth = func(context.Context, *core.Record) (bool, []MobileRunnerHealthDevice, error) {
 			return false, nil, nil
 		}
 		t.Cleanup(func() {
@@ -370,7 +416,7 @@ func TestListMobileRunners(t *testing.T) {
 			setMobileRunnerAdminManaged(t, app, "other-org/admin-private", true)
 
 			originalHealth := checkMobileRunnerHealth
-			checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+			checkMobileRunnerHealth = func(context.Context, *core.Record) (bool, []MobileRunnerHealthDevice, error) {
 				return false, nil, nil
 			}
 			t.Cleanup(func() {
@@ -446,7 +492,7 @@ func TestListMobileRunners(t *testing.T) {
 			setMobileRunnerAdminManaged(t, app, "other-org/admin-published", true)
 
 			originalHealth := checkMobileRunnerHealth
-			checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+			checkMobileRunnerHealth = func(context.Context, *core.Record) (bool, []MobileRunnerHealthDevice, error) {
 				return false, nil, nil
 			}
 			t.Cleanup(func() {
@@ -493,7 +539,7 @@ func TestListMobileRunners(t *testing.T) {
 		createMobileRunnerRecord(t, app, userOrgID, "owned-online", "online-owned", false)
 
 		originalHealth := checkMobileRunnerHealth
-		checkMobileRunnerHealth = func(_ context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+		checkMobileRunnerHealth = func(context.Context, *core.Record) (bool, []MobileRunnerHealthDevice, error) {
 			return true, []MobileRunnerHealthDevice{
 				{Serial: "ABC123", State: "device", Model: "Pixel_8"},
 			}, nil
@@ -574,7 +620,7 @@ func TestListMobileDevices(t *testing.T) {
 	require.NoError(t, app.Save(device))
 	markRunnerHeartbeat(t, app, runner, time.Now())
 	originalHealth := checkMobileRunnerHealth
-	checkMobileRunnerHealth = func(context.Context, string) (bool, []MobileRunnerHealthDevice, error) {
+	checkMobileRunnerHealth = func(context.Context, *core.Record) (bool, []MobileRunnerHealthDevice, error) {
 		t.Fatal("the device selector must not probe runners")
 		return false, nil, nil
 	}
@@ -679,8 +725,8 @@ func TestListMobileDevicesSkipsDisabledRunnersWithoutProbing(t *testing.T) {
 	require.NoError(t, app.Save(device))
 
 	originalHealth := checkMobileRunnerHealth
-	checkMobileRunnerHealth = func(_ context.Context, runnerURL string) (bool, []MobileRunnerHealthDevice, error) {
-		t.Fatalf("unexpected health probe for disabled runner %q", runnerURL)
+	checkMobileRunnerHealth = func(_ context.Context, runner *core.Record) (bool, []MobileRunnerHealthDevice, error) {
+		t.Fatalf("unexpected health probe for disabled runner %q", mobilerunner.RunnerURL(runner))
 
 		return false, nil, nil
 	}
@@ -726,7 +772,7 @@ func TestProbeMobileRunnerHealthsRunsConcurrentlyWithShortDeadline(t *testing.T)
 	deadlines := make(chan time.Duration, runnerCount)
 
 	originalHealth := checkMobileRunnerHealth
-	checkMobileRunnerHealth = func(ctx context.Context, _ string) (bool, []MobileRunnerHealthDevice, error) {
+	checkMobileRunnerHealth = func(ctx context.Context, _ *core.Record) (bool, []MobileRunnerHealthDevice, error) {
 		deadline, ok := ctx.Deadline()
 		require.True(t, ok, "list probes must carry a deadline")
 		deadlines <- time.Until(deadline)
@@ -844,23 +890,6 @@ func TestRecentlyAliveTracksHeartbeatFreshness(t *testing.T) {
 	stale, err := app.FindRecordById("mobile_runners", runner.Id)
 	require.NoError(t, err)
 	require.False(t, mobilerunner.RecentlyAlive(stale, now))
-}
-
-// A quick tunnel hostname is minted seconds before the first lookup, so a
-// resolver queried too early caches NXDOMAIN for half an hour and every later
-// runner call through it fails while the tunnel serves traffic.
-func TestMobileRunnerHTTPClientResolvesQuickTunnelsThroughCloudflare(t *testing.T) {
-	require.True(t, mobilerunner.IsQuickTunnelURL("https://demo.trycloudflare.com"))
-	require.False(t, mobilerunner.IsQuickTunnelURL("https://trycloudflare.com"))
-	require.False(t, mobilerunner.IsQuickTunnelURL("https://runner.example"))
-	require.False(t, mobilerunner.IsQuickTunnelURL("https://trycloudflare.com.attacker.example"))
-
-	require.NotSame(
-		t,
-		http.DefaultClient,
-		mobilerunner.HTTPClient("https://demo.trycloudflare.com"),
-	)
-	require.Same(t, http.DefaultClient, mobilerunner.HTTPClient("https://runner.example"))
 }
 
 func TestListMobileRunnersWithMalformedURL(t *testing.T) {
@@ -1379,5 +1408,178 @@ func TestUpsertMobileRunner(t *testing.T) {
 				require.Equal(t, tc.wantAdmin, switched.GetBool("admin_managed"))
 			})
 		}
+	})
+}
+
+func upsertRotatingPhone(
+	t *testing.T,
+	app *tests.TestApp,
+	user *core.Record,
+	runnerID string,
+) (*core.RequestEvent, error) {
+	t.Helper()
+
+	published := true
+	event := performMobileRunnerRequest(
+		t,
+		app,
+		user,
+		"/api/mobile-runner",
+		UpsertMobileRunnerRequest{
+			RunnerID:  runnerID,
+			Name:      "Rotating Phone",
+			IP:        "https://runner-rotating.example",
+			Type:      "android_emulator",
+			Published: &published,
+		},
+	)
+	return event, HandleUpsertMobileRunner()(event)
+}
+
+func TestUpsertMobileRunnerIssuesRunnerCredential(t *testing.T) {
+	t.Run("every upsert rotates the credential the lifecycle then returns", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+
+		credentials := make([]any, 0, 2)
+		for generation, runnerID := range []string{"", "/usera-s-organization/rotating-phone"} {
+			event, err := upsertRotatingPhone(t, app, user, runnerID)
+			require.NoError(t, err)
+			body := decodeJSONBody(t, responseRecorder(t, event))
+
+			record, err := canonify.Resolve(app, "/usera-s-organization/rotating-phone")
+			require.NoError(t, err)
+			require.Equal(t, generation+1, record.GetInt("credential_generation"))
+			credential, err := mobilerunner.Credential(record)
+			require.NoError(t, err)
+			require.Equal(t, credential, body["runner_credential"])
+			credentials = append(credentials, body["runner_credential"])
+		}
+		require.NotEqual(t, credentials[0], credentials[1])
+
+		heartbeat := performMobileRunnerRequest(
+			t,
+			app,
+			user,
+			"/api/mobile-runner/lifecycle/heartbeat",
+			MobileRunnerLifecycleRequest{RunnerID: "/usera-s-organization/rotating-phone"},
+		)
+		require.NoError(t, HandleMobileRunnerLifecycleHeartbeat()(heartbeat))
+		require.Equal(
+			t,
+			credentials[1],
+			decodeJSONBody(t, responseRecorder(t, heartbeat))["runner_credential"],
+		)
+	})
+
+	t.Run("an organization member publishes its runner", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+		memberRole, err := app.FindFirstRecordByData("orgRoles", "name", "member")
+		require.NoError(t, err)
+		authorization, err := app.FindFirstRecordByData("orgAuthorizations", "user", user.Id)
+		require.NoError(t, err)
+		authorization.Set("role", memberRole.Id)
+		require.NoError(t, app.Save(authorization))
+
+		event, err := upsertRotatingPhone(t, app, user, "")
+		require.NoError(t, err)
+		require.Equal(t, true, decodeJSONBody(t, responseRecorder(t, event))["published"])
+
+		record, err := canonify.Resolve(app, "/usera-s-organization/rotating-phone")
+		require.NoError(t, err)
+		require.True(t, record.GetBool("published"))
+	})
+
+	t.Run("missing secret saves nothing", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+		t.Setenv(mobilerunner.CredentialSecretEnvVar, "")
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+
+		event, err := upsertRotatingPhone(t, app, user, "")
+		recorder := responseRecorder(t, event)
+		requireHandlerErrorHandled(t, recorder, err)
+		require.Equal(t, http.StatusInternalServerError, recorder.Code)
+
+		_, err = canonify.Resolve(app, "/usera-s-organization/rotating-phone")
+		require.Error(t, err)
+	})
+
+	// An admin-managed runner serves every namespace and skips the tenant
+	// destination policy: members of its owner organization must neither
+	// repoint it nor learn the credential Credimi presents to it.
+	t.Run("admin-managed runner is out of reach of its organization", func(t *testing.T) {
+		app := setupMobileRunnerApp(t)
+		defer app.Cleanup()
+
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+		superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
+		require.NoError(t, err)
+		orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+		require.NoError(t, err)
+		const runnerPath = "/usera-s-organization/admin-phone"
+		createMobileRunnerRecord(t, app, orgID, "Admin Phone", "http://10.0.0.5", false)
+		record, err := canonify.Resolve(app, runnerPath)
+		require.NoError(t, err)
+		record.Set("admin_managed", true)
+		require.NoError(t, app.Save(record))
+
+		upsert := func(auth *core.Record, organization string) *core.RequestEvent {
+			event := performMobileRunnerRequest(
+				t,
+				app,
+				auth,
+				"/api/mobile-runner",
+				UpsertMobileRunnerRequest{
+					RunnerID:     runnerPath,
+					Organization: organization,
+					Name:         "Admin Phone",
+					IP:           "http://127.0.0.1:8090",
+					Type:         "android_emulator",
+				},
+			)
+			err := HandleUpsertMobileRunner()(event)
+			requireHandlerErrorHandled(t, responseRecorder(t, event), err)
+			return event
+		}
+
+		require.Equal(t, http.StatusForbidden, responseRecorder(t, upsert(user, "")).Code)
+		record, err = canonify.Resolve(app, runnerPath)
+		require.NoError(t, err)
+		require.Equal(t, "http://10.0.0.5", record.GetString("ip"))
+		require.Zero(t, record.GetInt("credential_generation"))
+
+		heartbeat := performMobileRunnerRequest(
+			t,
+			app,
+			user,
+			"/api/mobile-runner/lifecycle/heartbeat",
+			MobileRunnerLifecycleRequest{RunnerID: runnerPath},
+		)
+		require.NoError(t, HandleMobileRunnerLifecycleHeartbeat()(heartbeat))
+		require.Empty(t, decodeJSONBody(t, responseRecorder(t, heartbeat))["runner_credential"])
+
+		event := upsert(superuser, "usera-s-organization")
+		require.Equal(t, http.StatusOK, responseRecorder(t, event).Code)
+		record, err = canonify.Resolve(app, runnerPath)
+		require.NoError(t, err)
+		require.True(t, record.GetBool("admin_managed"))
+		credential, err := mobilerunner.Credential(record)
+		require.NoError(t, err)
+		require.Equal(
+			t,
+			credential,
+			decodeJSONBody(t, responseRecorder(t, event))["runner_credential"],
+		)
 	})
 }

@@ -12,7 +12,6 @@ tags:
     permissions:
       camera: allow
       notifications: allow
-      all: unset
 - openLink:
     link: "${PID_MDOC_DEEPLINK_URL}"
     autoVerify: false

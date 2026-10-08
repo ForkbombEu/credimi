@@ -146,13 +146,14 @@ historical data (see Temporal admin tooling docs for your deployment).
 - Default acquire wait timeout: 45m.
 - Override timeout: `MOBILE_DEVICE_SEMAPHORE_WAIT_TIMEOUT=30m` (or any valid `time.ParseDuration` value).
 - Disable semaphore (no-op acquire/release): `MOBILE_DEVICE_SEMAPHORE_DISABLED=1`.
-- Internal admin key: `CREDIMI_INTERNAL_ADMIN_KEY=<plaintext key>` (authenticates Credimi-to-runner HTTP calls and the runner/operator routes guarded by the internal admin key).
+- Internal admin key: an `internal_admin` key in `api_keys`. The Credimi server needs no env var for it; admin-managed runners and operators hold its plaintext (conventionally `CREDIMI_INTERNAL_ADMIN_KEY` in their own environment) to call the runner/operator routes guarded by it. Credimi never sends it to runners.
+- Runner credential secret: `CREDIMI_RUNNER_CREDENTIAL_SECRET=<random secret>` (required in deployments, e.g. `openssl rand -hex 32`; `make dev` sets a dev default). Per-runner credentials sent to runners as `Credimi-Api-Key` are derived from it and delivered to each runner on registration and lifecycle responses; rotating it invalidates runner credentials until each runner's next registration or heartbeat.
 
 ### Internal admin API key rollout
 
 1. Run DB migrations so `api_keys` supports `key_type`, `superuser`, `revoked`, `expires_at`.
 2. Provision an internal admin key (hash stored in DB, plaintext returned once).
-3. Set `CREDIMI_INTERNAL_ADMIN_KEY` in the backend runtime secrets and on the mobile runners.
+3. Set `CREDIMI_RUNNER_CREDENTIAL_SECRET` in the backend runtime secrets, and the internal admin key's plaintext as `CREDIMI_INTERNAL_ADMIN_KEY` on admin-managed mobile runners.
 4. Deploy the backend with the internal admin key middleware enabled.
 5. Smoke-check one authenticated user route and one runner/operator route guarded by the internal admin key.
 

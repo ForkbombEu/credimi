@@ -1,0 +1,37 @@
+appId: eu.europa.ec.euidi
+name: FCAF reset and onboard the wallet - clear state and set the PIN
+tags:
+  - fcaf
+  - helper
+  - reset
+  - onboarding
+---
+# Runs as the first step of every FCAF pipeline, on the freshly installed
+# Wallet, and again before every FCAF scenario that drives the Wallet. Clearing
+# the app state removes every credential earlier scenarios left behind, so a
+# presentation can only select credentials its own scenario issued; the
+# onboarding then sets the PIN to the 123456 the other FCAF flows enter on
+# "Welcome back".
+- launchApp:
+    clearState: true
+    permissions:
+      camera: allow
+      notifications: allow
+- extendedWaitUntil:
+    visible: "Welcome to your Wallet"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 3000
+- inputText: "123456"
+- extendedWaitUntil:
+    visible: "Confirm PIN"
+    timeout: 15000
+- inputText: "123456"
+- extendedWaitUntil:
+    visible: "GO TO HOME"
+    timeout: 60000
+- tapOn: "GO TO HOME"
+- extendedWaitUntil:
+    visible: "Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+- takeScreenshot: fcaf-reset-and-onboard

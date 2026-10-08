@@ -2790,3 +2790,198 @@ presents.
 
 `make fcaf-generate` produces 1383 aggregate steps, 615 test IDs, and 217
 pipeline outputs; the happy flow drops to 303 test IDs.
+
+## Issuance success and expected-rejection flows, 06/10/2026
+
+`getcredential-generic-credential-without-authentication` used to pass on an
+issuance failure: its only check after `Accept` was `assertNotVisible:
+"Accept"`, which an error screen satisfies too, and `View details` was
+optional. It now waits up to 100 s for `View details` and taps it without
+`optional`, so an issuance passes only on the success screen.
+
+The ten offers in `status-reference-rejection` and
+`mdoc-status-reference-rejection` (084, 086, 087, 089, 090, 092, 094, 096,
+097, 099, 100) expect the Wallet to refuse the credential, so they moved to the
+new `fcaf-expect-credential-rejected` action. It accepts the offer, then waits
+for `View details|Error|invalid request|Oups! Something went wrong|Home|Documents`
+and fails if `View details` is visible. The steps keep `continue_on_error`,
+because the verdict still comes from the issuer session and the DCQL probe; a
+Wallet that stores the token fails the step and the probe.
+
+Side effect in the generator: `issuesCredential` counts only the generic
+issuance action, so the rejected offers no longer count as PIDs that later
+Shares can spend. Before this change, ten later presentations depended on
+credentials a conformant Wallet refuses. The generator now inserts ten more
+issuance pairs. `make fcaf-generate` produces 1419 aggregate steps.
+
+Not yet run on the emulator: the `View details` success screen for PID mdoc,
+degree and the status-list mdoc variant, and the reference Wallet's actual
+screen when it refuses a malformed status reference. PID SD-JWT, with and
+without `status_list_enabled`, passed on `emulator-5554` (2026.09.42).
+
+## Wallet reset between scenarios, 06/10/2026
+
+The generator used to count unspent PIDs per format across the whole
+aggregate. A presentation could therefore spend a leftover from an earlier
+scenario: a fixture trap, a malformed-status token a non-conformant Wallet
+kept, or the PID of a presentation that failed before `Share`. With several
+matching PIDs the Wallet shows `Option 1 of M` and the flows share the default
+card, so content-dependent tests such as the status-list cases could present
+the wrong credential.
+
+`cmd/fcaf-pipeline-gen` now emits `<scenario>-reset-wallet`
+(`fcaf-reset-wallet`: `clearState: true`, PIN `123456` twice, `GO TO HOME`)
+before every scenario that has a `mobile-automation` step, and restarts the
+count there. A presentation can only select credentials its own scenario
+issued.
+
+A reset also removes the leftovers that negative presentations used to
+depend on by accident. `fcaf-expect-request-rejected`,
+`fcaf-expect-no-matching-document`, `dcql-user-denied-consent` and the other
+non-sharing flows need the Wallet to hold a PID of the requested format, or the
+refusal only reflects an empty Wallet. A non-sharing step that opens a Capture
+`/openid4vp/sessions` request therefore gets one injected `pid_default`
+issuance per requested format when its scenario holds none, and that PID stays
+unspent until the next reset. Every no-match query was checked against
+`pid_default` and still cannot match it.
+`TestAggregateHoldsACredentialForEveryPresentation` checks that every wallet
+step runs after its own scenario's reset, that every `Share` has an unspent
+PID, and that every refused presentation finds a held PID.
+
+Emulator measurements on `emulator-5554` (2026.09.42), Maestro CLI wall time
+including its start-up: SD-JWT issuance right after a reset 31 s, with issuer
+session `credential_issued`. Clearing the app state does not break
+`key-attestation-required` issuance. Reset cost depends on `launchApp`
+permissions: `camera` + `notifications` + `all: unset` 25 s, no `permissions`
+block (Maestro then allows every permission) 24-25 s, `camera` + `notifications`
+alone 20 s. The shipped reset uses the last form and runs in 19 s.
+
+`make fcaf-generate` produces 1722 aggregate steps (189 resets), 171 happy-flow
+steps (15 resets) and 8 demo steps.
+
+Probe on the same emulator: a DCQL `claims` path `["status"]` makes the Wallet
+offer only a PID that carries `status`, and answer `not available` when it holds
+none. This was not adopted, because mdoc status sits in the MSO and DCQL cannot
+address it. The share then failed on the Capture verifier with `Status List JWT
+verification failed: The status list certificate chain could not be validated
+against the trusted status certificates`. Capture stores no
+`raw.presentation_response_decrypted` in that case, so the SD-JWT status tests
+bound to `pipeline.credential-status.sdjwt` get no evidence until Capture trusts
+its own status-list signer.
+
+## `all: unset` removed from every FCAF flow, 06/10/2026
+
+`launchApp` with `permissions: { ..., all: unset }` resets every permission of
+the app on each launch. Measured on `emulator-5554`: Wallet launch 15 s with it,
+9.5 s with only `camera` + `notifications`; Chrome launch 12 s with
+`all: unset`, 9.7 s with `notifications: allow`. Omitting `permissions` is no
+faster, because Maestro then allows every permission. The line is gone from the
+shared actions, the `obtain-pid-*` helpers and the inline flows of four
+scenarios; `fcaf-dc-api-present` now names `notifications: allow` for Chrome.
+
+Re-run on the emulator after the change, each checked on the Capture session:
+issuance `credential_issued`, `fcaf-expect-no-matching-document` and
+`fcaf-expect-request-rejected` `request_retrieved`, `fcaf-exercise-wallet-generic`
+`presentation_validated`.
+
+`fcaf-dc-api-present` failed with and without that change. A timed trace showed
+the screen order is right (Chrome `Continue`, picker `Agree and continue`, then
+the Wallet's `Welcome back`); the cause was `hideKeyboard` after the PIN, which
+leaves the Wallet inside the credential-manager window and drops back to the
+picker.
+
+## DC API flows split by expected outcome, 06/10/2026
+
+`fcaf-dc-api-present` used to pass on every terminal state, so a case that must
+succeed was green on a refusal and the other way round. It now serves only the
+cases that must succeed (`dc-api-signed-encrypted`, `dc-api-unsigned`), and the
+new `fcaf-dc-api-expect-rejected` serves `dc-api-invalid-signature` and
+`dc-api-unencrypted`. Both type the PIN on the keypad.
+
+Observed on `emulator-5554` (2026.09.42):
+
+- The Wallet returns the response to Chrome only when its result screen closes.
+  With the flow ending on `View details`, the session stayed `created`; after
+  `Close` it reached `presentation_validated`. The success flow taps `Close` and
+  requires the page's `Presentation accepted`.
+- On a refused request the Wallet shows `Oups! Something went wrong`.
+  `TRY AGAIN` repeats the same request. Back returns to the platform picker,
+  and closing the picker makes the page report `outcome: rejected`
+  (`NotAllowedError`, `Request is cancelled.`). That outcome comes from closing
+  the picker, so the refusal itself is proven by the flow failing on a consent
+  screen and by the `dc-api-wallet-outcome` screenshot.
+- Results: invalid-signature and unencrypted pass the refusal flow
+  (`dc_api_invocation_reported`, `rejected`, no `vp_token`); signed-encrypted
+  passes the success flow (`presentation_validated`). Unsigned fails it: with a
+  freshly issued PID in the Wallet, the platform picker answers `Your info
+  wasn't found`, so the Wallet does not offer itself for an
+  `openid4vp-v1-unsigned` request. RpIntegrity 003 expects a presentation, so it
+  now fails instead of passing on any outcome.
+
+## MainInteraction 031 and 043 moved off the share flow, 06/10/2026
+
+`fcaf-engagement-haip-vp` passes only on a completed share and now requires
+`View details`. Of its 33 uses, two expected no share: `main-interaction-031`
+(`credential_sets_combined_option_no_match`, passes on no presentation) and
+`main-interaction-043` (`credential_sets_optional_no_match`, requires a response
+with an empty `vp_token`). On `emulator-5554` (2026.09.42), holding a PID, both
+requests open the no-match consent (`The requested document is not available in
+your EUDI Wallet`, no `Requested data`) and the session stays `request_retrieved`.
+Both steps now use `fcaf-expect-no-matching-document`. 031 matches its
+expectation. 043 is a stopgap: the reference Wallet never answers, so the
+validator fails the test on the missing empty `vp_token`; a flow that expects an
+empty answer needs the UI of a Wallet that sends one.
+
+## Eight inline flows replaced by shared actions, 06/10/2026
+
+Bare `Error` was removed from the final waits of `fcaf-exercise-wallet-generic`,
+`fcaf-expect-request-rejected` and `fcaf-expect-credential-rejected`: the
+no-match screen carries an icon whose accessibility text is `Error`, so those
+waits passed on it. `The requested document is not available` needs the
+trailing `.*`, because Maestro matches the whole text.
+
+Inline `action_code` replaced, step IDs unchanged:
+
+| Step | Now | Emulator, 2026.09.42 |
+| --- | --- | --- |
+| `dcql-credential-sets-options-empty` (097) | `fcaf-expect-request-rejected` | passed, `request_retrieved` |
+| `dcql-credential-sets-options-missing` (096) | `fcaf-expect-request-rejected` | passed, `presentation_invalid` |
+| `invalid-request-uri-method` (152, 002e) | `fcaf-expect-request-rejected` | passed, `created` (request not retrieved) |
+| `dcql-required-credentials-no-partial-presentation` (034) | `fcaf-expect-no-matching-document` | passed, `request_retrieved`. The no-match screen is the right outcome for an unsatisfiable required set; the test also requires an error, and the Wallet sends none, not even when `Cancel` dismisses the screen, so the validator fails 034 |
+| `supportive-signed-request-without-request-uri` (Supportive 007) | `fcaf-expect-request-rejected` | fails: with an mdoc PID held, the Wallet opens the consent screen (`Requested data`, the mdoc PID) for the signed Request Object delivered by value, the same screen as for the by-reference control. HAIP requires a rejection. The session stays `created` because nothing is shared, so `request_rejected` passes the test anyway: a false pass until the refusal flow shares on an unexpected consent |
+| `main-interaction-026` | `fcaf-expect-no-matching-document` | passed, `request_retrieved` |
+| `main-interaction-027` | `fcaf-expect-no-matching-document` | passed, `request_retrieved` |
+| `main-interaction-025` | `fcaf-engagement-haip-vp` | passed, `presentation_validated` (the inline flow tapped `Share` and never entered the PIN) |
+
+The inline flow of 034 accepted bare `Error`, so it passed on the no-match
+screen. Still inline: the two-document consent checks (039,
+same-credential-multiple-queries, all-credentials-without-credential-sets,
+claims-union), the malformed-request exercise loops, and the one-off flows
+(user-denied-consent, user-authentication-failed, pid-candidate-selection,
+supportive-redirect-uri, unchecked-claim, allowed-claim-path-components).
+
+## One reset-and-onboard action, 06/10/2026
+
+`fcaf-reset-wallet` is renamed `fcaf-reset-and-onboard`, and `onboarding-1` is
+removed: after `all: unset` and the `Welcome back` branch were dropped, the two
+flows ran the same steps. The pipeline's first step `onboard-reference-wallet`
+now runs `fcaf-reset-and-onboard` with `version_id`
+`forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo`; that version is what
+makes the runner install a fresh Wallet (`installer-action` is skipped only for
+`installed_from_external_source`). It stays the only Wallet step without
+`continue_on_error`. The per-scenario steps keep their `<scenario>-reset-wallet`
+IDs.
+
+The nine scenario-level `onboard-reference-wallet` steps (four `mdoc-*`
+claim-path scenarios, `interaction-pid-mdoc`, `pid-mdoc-data-model`,
+`dcql-credential-sets-required-true-match`, `dcql-credentials-match`,
+`dcql-standard-all`) are removed, since each ran right after that scenario's
+reset. `engagement-haip-vp` still outputs `onboard-reference-wallet`, which is
+the pipeline's first step. The first scenario that drives the Wallet gets no
+`<scenario>-reset-wallet` of its own, because it runs right after that first
+step; `TestAggregateHoldsACredentialForEveryPresentation` fails on two resets
+with no Wallet step between them. `make fcaf-generate` produces 1710 aggregate
+steps (189 `fcaf-reset-and-onboard` runs including the first step), 166
+happy-flow steps and 7 demo steps.
+`launchApp clearState: true` costs about 0.7 s more than `false` on
+`emulator-5554`.

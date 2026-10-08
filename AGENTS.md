@@ -170,7 +170,7 @@ Workers and Credimi URLs:
 
 - Temporal workers run inside the `credimi serve` process and reach Credimi data through typed activities that receive `core.App` (`activities.CredimiActivities(app)`, registered in `pkg/workflowengine/hooks/hook.go`); they never call Credimi over HTTP with the internal admin key.
 - The public URL comes only from PocketBase Settings (Application URL). `workflowengine.WithAppConfig(app, config)` copies `app_url`, `app_name` and `app_logo` into workflow and schedule config at start; workflows read `app_url` only to build user-facing links. Workflow code never reads Settings itself: it must stay deterministic on replay, and runner workers have no PocketBase. `BuildWorkflow` builds the run link of workflow errors with `workflowengine.RunPageURL`, which is empty without `app_url`, so only workflows that build links require it. Activities that hold `app` read `workflowengine.AppURL(app)`.
-- Pipeline evidence extraction makes no call to Credimi either: `PipelineEvidenceSetupHook` resolves each evidence step's deeplink through the step's own registry child workflow (`credential-offer` / `use-case-verification-deeplink`, child ID `<run>-evidence-<step>`), and the extraction activity passes those deeplinks to `credoffer.ResolveDeeplink` / `presentation.ResolveDeeplink` of `eudi-conformance-evidence`, which only contact the external issuer and verifier.
+- Pipeline evidence extraction makes no call to Credimi either, and starts no child workflow: `PipelineEvidenceSetupHook` resolves each evidence step's inputs in the workflow (steps whose inputs need an earlier step's output become setup warnings) and runs one `Extract pipeline conformance evidence` activity. The activity generates a fresh deeplink per `credential-offer` / `use-case-verification-deeplink` step from the Credimi record (running the record's StepCI code for dynamic records), then passes it to `credoffer.ResolveDeeplink` / `presentation.ResolveDeeplink` of `eudi-conformance-evidence`, which only contact the external issuer and verifier. Evidence never reuses the deeplink sent to the wallet: verifiers serve a request object only once.
 
 Persistence:
 
@@ -204,7 +204,8 @@ Key environment variables:
 - `MOBILE_RUNNER_SEMAPHORE_DISABLED`: disables the mobile-runner semaphore path when configured.
 - `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`: mobile-runner queue wait timeout.
 - `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL`: how recent a runner heartbeat must be for its devices to be offered in catalog selectors (default 60s).
-- `CREDIMI_INTERNAL_ADMIN_KEY`: plaintext runtime key for Credimi-to-runner HTTP calls, the runner-facing and operator internal routes, and `POST /api/conformance-catalog/rebuild`.
+- `CREDIMI_INTERNAL_ADMIN_KEY` is not a Credimi server variable. The internal admin key is an `internal_admin` key in the `api_keys` collection (owned by a superuser, checked by `RequireInternalAdminAPIKey` / `RequireInternalAdminOrAuth`) that authenticates the runner-facing and operator internal routes and `POST /api/conformance-catalog/rebuild`. Its callers (admin-managed runners, operators, scripts) hold the plaintext, conventionally as `CREDIMI_INTERNAL_ADMIN_KEY` in their own environment. Credimi never sends it to runners.
+- `CREDIMI_RUNNER_CREDENTIAL_SECRET`: required secret the per-runner credentials (`mobilerunner.Credential`) are derived from. Rotating it invalidates every runner credential until each runner's next registration or heartbeat, whose response carries the new one. `make dev` sets a dev default.
 - `CREDIMI_SEED_SUPERUSER_PASSWORD`: password for the `admin@example.org` superuser seeded by `pb_migrations/1685000000_seed_admin.js`. `make dev` defaults it to `adminadmin` and `cmd/testdata-refresh` sets it for `test_pb_data`. Deployments must leave it unset: they create their first superuser through the PocketBase installer link or `credimi superuser upsert`, and `pb_migrations/1790780000_remove_default_seed_admin.js` removes or locks a leftover default-password `admin@example.org`.
 
 Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
@@ -368,19 +369,21 @@ Internal lookup:
 
 External runner HTTP contract:
 
+- Every call below carries `Credimi-Api-Key: <runner credential>`: `lowercase_hex(HMAC-SHA256(CREDIMI_RUNNER_CREDENTIAL_SECRET, "<runner record id>:<credential_generation>"))`. `GET {runner_url}/health` stays unauthenticated.
+- Delivery: `POST /api/mobile-runner` (upsert) increments `credential_generation` and returns the new value as `runner_credential`; lifecycle `heartbeat`/`pause`/`resume` responses return the current value as `runner_credential`. Runners accept the current or the previous credential. Tenants cannot write `credential_generation`.
+- `POST {runner_url}/worker/{namespace}`
+    - Body: `{ old_namespace }`; expected `202`.
 - `POST {runner_url}/credimi/installer-action`
     - Body: `{ version_identifier, platform, device_identifier }`
     - Response: `{ installer_path, version_id }`
     - Not called for `version_id: installed_from_external_source`. Credimi resolves a stored action's code itself through the `Resolve a Credimi record` activity, scoped to the pipeline's organization, and puts it in the step payload; runners never look wallet actions up.
 - `POST {runner_url}/credimi/pipeline-result`
-    - Header: `Credimi-Api-Key: <CREDIMI_INTERNAL_ADMIN_KEY>` (injected by `mobile-runner-http-request`)
     - Body: `{ video_path, last_frame_path, log_path?, run_identifier, device_identifier, platform }`; `run_identifier` and `platform` are required, `log_path` is sent only when a log was recorded.
     - Response: `{ result_urls: string[], screenshot_urls: string[] }`
 - `POST {runner_url}/credimi/live-view`
-    - Header: `Credimi-Api-Key: <CREDIMI_INTERNAL_ADMIN_KEY>`
     - Body: `{ device_identifier, serial, namespace, workflow_id, run_id }`
-    - Response: `{ path: "/live/<token>" }`; errors use the runner `APIError` JSON (`400`, `401`, `403`, `500`, `503`). The runner writes `message` for users; Credimi forwards it unchanged, as `422` for `400`, `503` for `503` and `502` otherwise, except `401`/`403`, which it reports as an admin key mismatch.
-    - Called directly over HTTP by `POST /api/pipeline/live-view` (see `.agents/HITL.md`), not through `mobile-runner-http-request`.
+    - Response: `{ path: "/live/<token>" }`; errors use the runner `APIError` JSON (`400`, `401`, `403`, `500`, `503`). The runner writes `message` for users; Credimi forwards it unchanged, as `422` for `400`, `503` for `503` and `502` otherwise, except `401`/`403`, which it reports as a runner credential mismatch.
+    - Called directly over HTTP by `POST /api/pipeline/live-view` (see `.agents/HITL.md`) through `mobilerunner.HTTPClient(record)`, not through `mobile-runner-http-request`.
 
 The external runner service is implemented in `github.com/forkbombeu/credimi-extra`. If the contract changes, ask whether the sibling repository must change.
 
@@ -413,10 +416,18 @@ Catalog availability and run-path health:
 - Every Credimi-to-runner HTTP call goes through the `mobile-runner-http-request`
   activity (`activities.NewMobileRunnerHTTPActivity`): `installer-action` and
   `pipeline-result` in `mobile_automation_hooks.go`, and the worker-manager
-  `POST {runner_url}/worker/{namespace}`.
-  It injects the `CREDIMI_INTERNAL_ADMIN_KEY` credential and additionally
-  resolves `*.trycloudflare.com` through Cloudflare DNS, and it keeps
-  runner-directed calls identifiable in a run's Temporal history.
+  `POST {runner_url}/worker/{namespace}` (its payload carries `runner_ids`).
+  The activity takes `runner_id` + `path`, never a URL: it builds the URL from
+  the runner record's stored `ip`/`port`, injects the runner credential (never
+  `CREDIMI_INTERNAL_ADMIN_KEY`), and keeps runner-directed calls identifiable
+  in a run's Temporal history.
+- Destination policy (`mobilerunner.HTTPClient(record)`): tenant
+  (non-`admin_managed`) runners are reached only over https at public
+  addresses, checked at dial time for every connection (redirects, DNS
+  rebinding and the quick-tunnel resolver included), with no proxy;
+  blocked dials wrap `safehttp.ErrBlockedDestination`. Admin-managed runners
+  are unchanged. `*.trycloudflare.com` resolves through Cloudflare DNS. Health
+  probes and live view use the same client.
 - Runner availability rules and the runner HTTP client live in
   `pkg/internal/mobilerunner` (heartbeat freshness, URL usability, quick-tunnel
   transport). `pkg/internal/mobilerunnerlifecycle` keeps the worker-start
@@ -462,6 +473,11 @@ Worker-manager start eligibility:
   authenticated by `Credimi-Api-Key` alone sets it to `true` for the internal
   admin key and `false` for a user key, on create and on every re-registration.
   Token-authenticated calls set it only on create (`true` for superusers).
+  While a runner is admin-managed, only superusers and the internal admin key
+  may update it through a token session (others get `403 admin_managed_runner`)
+  or receive its `runner_credential`; lifecycle responses to other callers
+  carry an empty one. A user key alone may still re-register it, which turns it
+  into a tenant runner.
 - Redundant starts are safe: `POST {runner_url}/worker/{namespace}` is keyed by
   namespace in the runner process store and answers `202 "already running"`,
   so a server-side start that races the runner's own boot cannot create a

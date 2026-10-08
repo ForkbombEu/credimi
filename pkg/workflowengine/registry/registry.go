@@ -199,7 +199,7 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 	},
 	"mobile-runner-http-request": {
 		Kind:        TaskActivity,
-		NewFunc:     func(core.App) any { return activities.NewMobileRunnerHTTPActivity() },
+		NewFunc:     func(app core.App) any { return activities.NewMobileRunnerHTTPActivity(app) },
 		PayloadType: reflect.TypeOf(activities.MobileRunnerHTTPActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},

@@ -10,7 +10,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
@@ -122,6 +124,7 @@ func pipelineLiveViewTestApp(t *testing.T) (*tests.TestApp, *core.Record, string
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	t.Cleanup(app.Cleanup)
+	canonify.RegisterCanonifyHooks(app)
 
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
@@ -131,15 +134,48 @@ func pipelineLiveViewTestApp(t *testing.T) (*tests.TestApp, *core.Record, string
 	return app, authRecord, namespace
 }
 
+// createLiveViewDevice stores a runner at runnerURL holding an emulator and
+// returns the emulator device ID with its runner.
+func createLiveViewDevice(
+	t *testing.T,
+	app *tests.TestApp,
+	authRecord *core.Record,
+	runnerURL string,
+	adminManaged bool,
+) (string, *core.Record) {
+	t.Helper()
+
+	orgID, err := pbutils.GetUserOrganizationID(app, authRecord.Id)
+	require.NoError(t, err)
+	runner := createRunnerRecord(t, app, orgID, "live-runner")
+	runner.Set("ip", runnerURL)
+	runner.Set("admin_managed", adminManaged)
+	require.NoError(t, app.Save(runner))
+	createDeviceRecord(t, app, orgID, runner.Id, "pixel")
+
+	device, err := app.FindFirstRecordByFilter(
+		"mobile_devices",
+		"runner = {:runner}",
+		map[string]any{"runner": runner.Id},
+	)
+	require.NoError(t, err)
+	deviceID, err := mobileDeviceIdentifier(app, device)
+	require.NoError(t, err)
+
+	return deviceID, runner
+}
+
 func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
-	t.Setenv(InternalAdminAPIKeyEnvVar, "k")
+	// Set to prove Credimi never forwards an internal admin key to a runner.
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "internal-admin-key")
+	t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
 	app, authRecord, namespace := pipelineLiveViewTestApp(t)
-	runner, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
+	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
+	deviceID, runner := createLiveViewDevice(t, app, authRecord, server.URL, true)
 	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-		"tenant/runner-1/pixel": map[string]any{
-			"serial":     "emulator-5554",
-			"type":       "android_emulator",
-			"runner_url": runner.URL,
+		deviceID: map[string]any{
+			"serial": "emulator-5554",
+			"type":   "android_emulator",
 		},
 	})
 
@@ -152,21 +188,66 @@ func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
 	var resp PipelineLiveViewResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 	require.Equal(t, []PipelineLiveViewStream{{
-		DeviceID:   "tenant/runner-1/pixel",
+		DeviceID:   deviceID,
 		DeviceName: "pixel",
-		URL:        runner.URL + "/live/tok",
+		URL:        server.URL + "/live/tok",
 	}}, resp.Streams)
 
+	credential, err := mobilerunner.Credential(runner)
+	require.NoError(t, err)
 	require.Len(t, *calls, 1)
 	call := (*calls)[0]
-	require.Equal(t, "k", call.apiKey)
+	require.Equal(t, credential, call.apiKey)
+	require.NotEqual(t, "internal-admin-key", call.apiKey)
 	require.Equal(t, map[string]any{
-		"device_identifier": "tenant/runner-1/pixel",
+		"device_identifier": deviceID,
 		"serial":            "emulator-5554",
 		"namespace":         namespace,
 		"workflow_id":       "pipeline-1",
 		"run_id":            "run-1",
 	}, call.body)
+}
+
+// A tenant chooses its runner's address, so Credimi must never connect to a
+// loopback or private one on its behalf.
+func TestPipelineLiveViewNeverContactsTenantLoopbackRunner(t *testing.T) {
+	t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
+	app, authRecord, _ := pipelineLiveViewTestApp(t)
+	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
+	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, false)
+	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
+		deviceID: map[string]any{"serial": "emulator-5554", "type": "android_emulator"},
+	})
+
+	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
+		WorkflowID: "pipeline-1",
+		RunID:      "run-1",
+		DeviceID:   deviceID,
+	})
+
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	require.Equal(t, "device runner is offline", decodeAPIError(t, rec).Reason)
+	require.Empty(t, *calls)
+}
+
+func TestPipelineLiveViewRequiresRunnerCredentialSecret(t *testing.T) {
+	t.Setenv(mobilerunner.CredentialSecretEnvVar, "")
+	app, authRecord, _ := pipelineLiveViewTestApp(t)
+	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
+	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
+	stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
+		deviceID: map[string]any{"serial": "emulator-5554", "type": "android_emulator"},
+	})
+
+	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
+		WorkflowID: "pipeline-1",
+		RunID:      "run-1",
+		DeviceID:   deviceID,
+	})
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Contains(t, decodeAPIError(t, rec).Message, mobilerunner.CredentialSecretEnvVar)
+	require.Empty(t, *calls)
 }
 
 func TestPipelineLiveViewRejectsCompletedRun(t *testing.T) {
@@ -276,33 +357,31 @@ func TestPipelineLiveViewForwardsRunnerRefusals(t *testing.T) {
 			runnerStatus: http.StatusUnauthorized,
 			message:      "invalid api key",
 			wantMessage: "Credimi is not authorized on the runner that holds this device. " +
-				"Check that both use the same internal admin key.",
+				"Check that the runner registered with this Credimi instance " +
+				"and uses its current runner credential.",
 			wantStatus: http.StatusBadGateway,
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv(InternalAdminAPIKeyEnvVar, "k")
+			t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
 			app, authRecord, _ := pipelineLiveViewTestApp(t)
-			runner, _ := newLiveViewRunner(t, tc.runnerStatus, map[string]any{
+			server, _ := newLiveViewRunner(t, tc.runnerStatus, map[string]any{
 				"name":    "runner_error",
 				"code":    tc.runnerStatus,
 				"domain":  "live_view",
 				"reason":  tc.message,
 				"message": tc.message,
 			})
+			deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
 			stubPipelineLiveViewTemporal(t, enums.WORKFLOW_EXECUTION_STATUS_RUNNING, map[string]any{
-				"tenant/runner-1/pixel": map[string]any{
-					"serial":     "emulator-5554",
-					"type":       "android_emulator",
-					"runner_url": runner.URL,
-				},
+				deviceID: map[string]any{"serial": "emulator-5554", "type": "android_emulator"},
 			})
 
 			rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
 				WorkflowID: "pipeline-1",
 				RunID:      "run-1",
-				DeviceID:   "tenant/runner-1/pixel",
+				DeviceID:   deviceID,
 			})
 
 			require.Equal(t, tc.wantStatus, rec.Code)

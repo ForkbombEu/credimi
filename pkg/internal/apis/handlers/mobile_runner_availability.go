@@ -100,12 +100,11 @@ func mobileDeviceRunnerRecord(app core.App, deviceID string) (*core.Record, *api
 }
 
 func mobileRunnerReachable(ctx context.Context, record *core.Record) (bool, *apierror.APIError) {
-	runnerURL := mobilerunner.RunnerURL(record)
-	if runnerURL == "" {
+	if mobilerunner.RunnerURL(record) == "" {
 		return false, nil
 	}
 
-	online, err := checkRunnerReachable(ctx, runnerURL)
+	online, err := checkRunnerReachable(ctx, record)
 	if err != nil {
 		return false, apierror.New(
 			http.StatusInternalServerError,
@@ -118,8 +117,8 @@ func mobileRunnerReachable(ctx context.Context, record *core.Record) (bool, *api
 	return online, nil
 }
 
-func checkRunnerReachableHTTP(ctx context.Context, runnerURL string) (bool, error) {
-	healthURL, err := url.JoinPath(runnerURL, "health")
+func checkRunnerReachableHTTP(ctx context.Context, runner *core.Record) (bool, error) {
+	healthURL, err := url.JoinPath(mobilerunner.RunnerURL(runner), "health")
 	if err != nil {
 		return false, err
 	}
@@ -132,7 +131,7 @@ func checkRunnerReachableHTTP(ctx context.Context, runnerURL string) (bool, erro
 		return false, err
 	}
 
-	resp, err := mobilerunner.HTTPClient(runnerURL).Do(req)
+	resp, err := mobilerunner.HTTPClient(runner).Do(req)
 	if err != nil {
 		return false, nil
 	}

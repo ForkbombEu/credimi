@@ -226,6 +226,36 @@ func TestResolveDevice(t *testing.T) {
 	}
 }
 
+func TestResolveRunner(t *testing.T) {
+	app := newDevicesTestApp(t)
+	runner := createRunner(t, app, orgAID, "Resolved Runner", false, false)
+	device := createDevice(t, app, orgAID, runner.Id, "Device One")
+	runnerID, err := RunnerIdentifier(app, runner)
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name    string
+		id      string
+		wantErr error
+	}{
+		{name: "runner", id: runnerID},
+		{name: "leading slash", id: "/" + runnerID},
+		{name: "unknown path", id: runnerID + "-missing", wantErr: ErrRunnerNotFound},
+		{name: "device path", id: devicePath(t, app, device), wantErr: ErrRunnerNotFound},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ResolveRunner(app, tc.id)
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				require.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, runner.Id, got.Id)
+		})
+	}
+}
+
 func newDevicesTestApp(t *testing.T) *tests.TestApp {
 	t.Helper()
 	app, err := tests.NewTestApp(testDataDir)

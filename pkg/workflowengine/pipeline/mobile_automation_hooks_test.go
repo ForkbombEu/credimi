@@ -191,7 +191,7 @@ func TestCleanupRecordingSuccess(t *testing.T) {
 	)
 
 	stopActivity := activities.NewStopRecordingActivity()
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	env.RegisterActivityWithOptions(
 		stopActivity.Execute,
 		activity.RegisterOptions{Name: stopActivity.Name()},
@@ -221,7 +221,7 @@ func TestCleanupRecordingSuccess(t *testing.T) {
 	require.Contains(t, workflowengine.AsSliceOfStrings(out["result_video_urls"]), "url1")
 }
 
-func TestCleanupRecordingMissingRunnerURL(t *testing.T) {
+func TestCleanupRecordingMissingRunnerID(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -491,7 +491,7 @@ func TestFetchAndInstallAPKRequestsInstallerWithoutActionIdentifier(t *testing.T
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	installActivity := activities.NewApkInstallActivity()
 	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	listAppsActivity := activities.NewListInstalledAppsActivity()
@@ -551,7 +551,7 @@ func TestFetchAndInstallAPKRequestsInstallerWithoutActionIdentifier(t *testing.T
 				deviceMap:  deviceMap,
 				deviceType: deviceTypeAndroidPhone,
 				activities: activitiesForDeviceType(deviceTypeAndroidPhone),
-				runnerURL:  "https://runner.example",
+				runnerID:   "tenant/runner-1",
 				serial:     "serial-1",
 			})
 			if err != nil {
@@ -580,9 +580,8 @@ func TestFetchAndInstallAPKRequestsInstallerWithoutActionIdentifier(t *testing.T
 			}
 			_, hasActionIdentifier := body["action_identifier"]
 			return !hasActionIdentifier &&
-				workflowengine.AsString(
-					payload["url"],
-				) == "https://runner.example/credimi/installer-action" &&
+				workflowengine.AsString(payload["runner_id"]) == "tenant/runner-1" &&
+				workflowengine.AsString(payload["path"]) == "/credimi/installer-action" &&
 				workflowengine.AsString(body["version_identifier"]) == "tenant/wallet/v1" &&
 				workflowengine.AsString(body["device_identifier"]) == "tenant/runner-1/device-1" &&
 				workflowengine.AsString(body["platform"]) == "android"
@@ -636,7 +635,7 @@ func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -690,7 +689,7 @@ func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
 				deviceMap:     deviceMap,
 				deviceType:    deviceTypeAndroidPhone,
 				activities:    activitiesForDeviceType(deviceTypeAndroidPhone),
-				runnerURL:     "https://runner.example",
+				runnerID:      "tenant/runner-1",
 				serial:        "serial-1",
 				skipInstaller: true,
 			})
@@ -838,9 +837,8 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 			}
 			body, ok := payload["body"].(map[string]any)
 			return ok &&
-				workflowengine.AsString(
-					payload["url"],
-				) == "https://runner.example/credimi/installer-action" &&
+				workflowengine.AsString(payload["runner_id"]) == "tenant/runner-1" &&
+				workflowengine.AsString(payload["path"]) == "/credimi/installer-action" &&
 				workflowengine.AsString(body["platform"]) == "android"
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -909,11 +907,10 @@ func TestCleanupDeviceMarksDeviceCleaned(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 
 			deviceMap := map[string]any{
-				"type":       "android_phone",
-				"runner_id":  "tenant/runner-1",
-				"serial":     "serial-1",
-				"runner_url": "https://runner.example",
-				"recording":  false,
+				"type":      "android_phone",
+				"runner_id": "tenant/runner-1",
+				"serial":    "serial-1",
+				"recording": false,
 				"installed": map[string]string{
 					"ver-1": "pkg-1",
 				},
@@ -987,12 +984,11 @@ func TestCleanupDeviceSkipsPhysicalDeviceWithoutCleanupWork(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 
 			deviceMap := map[string]any{
-				"type":       "android_phone",
-				"runner_id":  "tenant/runner-1",
-				"serial":     "serial-1",
-				"runner_url": "https://runner.example",
-				"recording":  false,
-				"installed":  map[string]string{},
+				"type":      "android_phone",
+				"runner_id": "tenant/runner-1",
+				"serial":    "serial-1",
+				"recording": false,
+				"installed": map[string]string{},
 			}
 			output := map[string]any{}
 			cleanupErrs := []error{}
@@ -1050,7 +1046,6 @@ func TestCleanupDeviceRunsForPreparedPhysicalDevice(t *testing.T) {
 				"type":                "android_phone",
 				"serial":              "serial-1",
 				"runner_id":           "tenant/runner-1",
-				"runner_url":          "https://runner.example",
 				"recording":           false,
 				"installed":           map[string]string{},
 				"screen_prepared":     true,
@@ -1124,7 +1119,7 @@ func TestStoreRecordingResultsSuccess(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -1143,7 +1138,7 @@ func TestStoreRecordingResultsSuccess(t *testing.T) {
 			}
 			err := storeRecordingResults(storeRecordingResultsInput{
 				ctx:        ctx,
-				runnerURL:  "https://runner.example",
+				runnerID:   "tenant/runner-1",
 				videoPath:  "/tmp/video.mp4",
 				lastFrame:  "/tmp/frame.png",
 				logPath:    "/tmp/log.txt",
@@ -1174,9 +1169,8 @@ func TestStoreRecordingResultsSuccess(t *testing.T) {
 			if !ok {
 				return false
 			}
-			return workflowengine.AsString(
-				payload["url"],
-			) == "https://runner.example/credimi/pipeline-result" &&
+			return workflowengine.AsString(payload["runner_id"]) == "tenant/runner-1" &&
+				workflowengine.AsString(payload["path"]) == "/credimi/pipeline-result" &&
 				workflowengine.AsString(body["platform"]) == "android" &&
 				workflowengine.AsString(body["log_path"]) == "/tmp/log.txt"
 		}),
@@ -1201,7 +1195,7 @@ func TestStoreRecordingResultsInitializesMissingOutputSlices(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -1217,7 +1211,7 @@ func TestStoreRecordingResultsInitializesMissingOutputSlices(t *testing.T) {
 			output := map[string]any{}
 			err := storeRecordingResults(storeRecordingResultsInput{
 				ctx:        ctx,
-				runnerURL:  "https://runner.example",
+				runnerID:   "tenant/runner-1",
 				videoPath:  "/tmp/video.mp4",
 				lastFrame:  "/tmp/frame.png",
 				logPath:    "/tmp/log.txt",
@@ -1257,7 +1251,7 @@ func TestStoreRecordingResultsIOSSendsLogPath(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -1276,7 +1270,7 @@ func TestStoreRecordingResultsIOSSendsLogPath(t *testing.T) {
 			}
 			return storeRecordingResults(storeRecordingResultsInput{
 				ctx:        ctx,
-				runnerURL:  "https://runner.example",
+				runnerID:   "tenant/runner-1",
 				videoPath:  "/tmp/video.mp4",
 				lastFrame:  "/tmp/frame.png",
 				logPath:    "/tmp/log.txt",
@@ -1302,9 +1296,8 @@ func TestStoreRecordingResultsIOSSendsLogPath(t *testing.T) {
 			if !ok {
 				return false
 			}
-			return workflowengine.AsString(
-				payload["url"],
-			) == "https://runner.example/credimi/pipeline-result" &&
+			return workflowengine.AsString(payload["runner_id"]) == "tenant/runner-1" &&
+				workflowengine.AsString(payload["path"]) == "/credimi/pipeline-result" &&
 				workflowengine.AsString(body["platform"]) == "ios" &&
 				workflowengine.AsString(body["log_path"]) == "/tmp/log.txt"
 		}),
@@ -1335,12 +1328,11 @@ func TestMobileAutomationCleanupHookSuccess(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 
 			deviceMap := map[string]any{
-				"type":       "android_phone",
-				"runner_id":  "tenant/runner-1",
-				"serial":     "serial-1",
-				"runner_url": "https://runner.example",
-				"recording":  false,
-				"installed":  map[string]string{"ver-1": "pkg-1"},
+				"type":      "android_phone",
+				"runner_id": "tenant/runner-1",
+				"serial":    "serial-1",
+				"recording": false,
+				"installed": map[string]string{"ver-1": "pkg-1"},
 			}
 
 			err := MobileAutomationCleanupHook(
@@ -1455,7 +1447,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 				"action_code":    steps[0].With.Payload["action_code"],
 				"stored_code":    steps[0].With.Payload["stored_action_code"],
 				"taskqueue":      steps[0].With.Config["taskqueue"],
-				"runner_url":     steps[0].With.Config["runner_url"],
+				"runner_id":      steps[0].With.Config["runner_id"],
 				"step_id":        steps[0].With.Config["step_id"],
 				"run_identifier": steps[0].With.Config["run_identifier"],
 				"recording":      deviceMap["recording"],
@@ -1493,9 +1485,8 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 			}
 			body, ok := payload["body"].(map[string]any)
 			return ok &&
-				workflowengine.AsString(
-					payload["url"],
-				) == "https://runner.example/credimi/installer-action" &&
+				workflowengine.AsString(payload["runner_id"]) == "tenant/runner-1" &&
+				workflowengine.AsString(payload["path"]) == "/credimi/installer-action" &&
 				workflowengine.AsString(body["platform"]) == "android"
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -1536,7 +1527,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	require.Equal(t, "code-1", result["action_code"])
 	require.Equal(t, true, result["stored_code"])
 	require.Equal(t, "tenant/runner-1-TaskQueue", result["taskqueue"])
-	require.Equal(t, "https://runner.example", result["runner_url"])
+	require.Equal(t, "tenant/runner-1", result["runner_id"])
 	require.Equal(t, "step-1", result["step_id"])
 	require.Equal(t, "tenant/workflow-run", result["run_identifier"])
 	require.Equal(t, true, result["recording"])
@@ -1595,7 +1586,6 @@ func TestMobileAutomationSetupHookPreparesNestedSteps(t *testing.T) {
 					}}
 					deviceMap := map[string]any{
 						"runner_id":              "tenant/runner-1",
-						"runner_url":             "https://runner.example",
 						"type":                   "android_phone",
 						"serial":                 "serial-1",
 						"recording":              true,
@@ -1645,7 +1635,7 @@ func TestMobileAutomationSetupHookPreparesNestedSteps(t *testing.T) {
 				stepResult := result[key].(map[string]any)
 				require.Equal(t, "tenant/runner-1/device-1", stepResult["device_id"])
 				require.Equal(t, "tenant/runner-1-TaskQueue", stepResult["taskqueue"])
-				require.Equal(t, "https://runner.example", stepResult["runner_url"])
+				require.Equal(t, "tenant/runner-1", stepResult["runner_id"])
 				require.Equal(t, "tenant/workflow-run", stepResult["run_identifier"])
 				require.Equal(t, "android_phone", stepResult["type"])
 			}
@@ -1744,7 +1734,7 @@ func nestedStepPreparationResult(step pipeline.StepSpec) map[string]any {
 	return map[string]any{
 		"device_id":      step.With.Payload["device_id"],
 		"taskqueue":      step.With.Config["taskqueue"],
-		"runner_url":     step.With.Config["runner_url"],
+		"runner_id":      step.With.Config["runner_id"],
 		"run_identifier": step.With.Config["run_identifier"],
 		"type":           step.With.Payload["type"],
 	}
@@ -1865,9 +1855,8 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 			}
 			body, ok := payload["body"].(map[string]any)
 			return ok &&
-				workflowengine.AsString(
-					payload["url"],
-				) == "https://runner.example/credimi/installer-action" &&
+				workflowengine.AsString(payload["runner_id"]) == "tenant/runner-1" &&
+				workflowengine.AsString(payload["path"]) == "/credimi/installer-action" &&
 				workflowengine.AsString(body["platform"]) == "android"
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -1946,18 +1935,16 @@ func TestMobileAutomationCleanupHookReenablesDisabledPlayStore(t *testing.T) {
 							"type":                "android_phone",
 							"runner_id":           "tenant/disabled-host",
 							"serial":              "serial-disabled",
-							"runner_url":          "https://runner-disabled.example",
 							"recording":           false,
 							"installed":           map[string]string{},
 							"play_store_disabled": true,
 						},
 						"tenant/plain": map[string]any{
-							"type":       "android_phone",
-							"runner_id":  "tenant/plain-host",
-							"serial":     "serial-plain",
-							"runner_url": "https://runner-plain.example",
-							"recording":  false,
-							"installed":  map[string]string{"ver-1": "pkg-plain"},
+							"type":      "android_phone",
+							"runner_id": "tenant/plain-host",
+							"serial":    "serial-plain",
+							"recording": false,
+							"installed": map[string]string{"ver-1": "pkg-plain"},
 						},
 					},
 				},
@@ -1979,7 +1966,7 @@ func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	stopActivity := activities.NewStopRecordingActivity()
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	cleanupActivity := activities.NewCleanupDeviceActivity()
 	env.RegisterActivityWithOptions(
 		stopActivity.Execute,
@@ -2003,7 +1990,6 @@ func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 				"type":                  "android_phone",
 				"serial":                "serial-1",
 				"runner_id":             "tenant/runner-1",
-				"runner_url":            "https://runner.example",
 				"recording":             true,
 				"video_path":            "/tmp/video.mp4",
 				"log_path":              "/tmp/log.txt",
@@ -2073,7 +2059,7 @@ func TestStoreRecordingResultsReturnsActivityError(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -2092,7 +2078,7 @@ func TestStoreRecordingResultsReturnsActivityError(t *testing.T) {
 			}
 			return storeRecordingResults(storeRecordingResultsInput{
 				ctx:        ctx,
-				runnerURL:  "https://runner.example",
+				runnerID:   "tenant/runner-1",
 				videoPath:  "/tmp/video.mp4",
 				lastFrame:  "/tmp/frame.png",
 				logPath:    "/tmp/log.txt",
@@ -2138,11 +2124,11 @@ func TestMobileAutomationCleanupHookMissingRunIdentifier(t *testing.T) {
 				map[string]any{
 					"setted_devices": map[string]any{
 						"tenant/runner-1": map[string]any{
-							"type":       "android_phone",
-							"serial":     "serial-1",
-							"runner_url": "https://runner.example",
-							"recording":  false,
-							"installed":  map[string]string{"ver-1": "pkg-1"},
+							"type":      "android_phone",
+							"serial":    "serial-1",
+							"runner_id": "tenant/runner-1",
+							"recording": false,
+							"installed": map[string]string{"ver-1": "pkg-1"},
 						},
 					},
 				},
@@ -2185,20 +2171,18 @@ func TestMobileAutomationCleanupHookSkipsOnlyPolicyRunnerCleanup(t *testing.T) {
 				"run_identifier": "run-1",
 				"setted_devices": map[string]any{
 					"tenant/runner-a": map[string]any{
-						"type":       "android_phone",
-						"runner_id":  "tenant/runner-a-host",
-						"serial":     "serial-a",
-						"runner_url": "https://runner-a.example",
-						"recording":  false,
-						"installed":  map[string]string{"ver-1": "pkg-a"},
+						"type":      "android_phone",
+						"runner_id": "tenant/runner-a-host",
+						"serial":    "serial-a",
+						"recording": false,
+						"installed": map[string]string{"ver-1": "pkg-a"},
 					},
 					"tenant/runner-b": map[string]any{
-						"type":       "android_phone",
-						"runner_id":  "tenant/runner-b-host",
-						"serial":     "serial-b",
-						"runner_url": "https://runner-b.example",
-						"recording":  false,
-						"installed":  map[string]string{"ver-1": "pkg-b"},
+						"type":      "android_phone",
+						"runner_id": "tenant/runner-b-host",
+						"serial":    "serial-b",
+						"recording": false,
+						"installed": map[string]string{"ver-1": "pkg-b"},
 					},
 				},
 				pipelineCancellationPolicyRunDataKey: pipeline.PipelineCancellationPolicy{
@@ -2263,20 +2247,18 @@ func TestMobileAutomationCleanupHookRunsRunnerCleanupWithoutPolicy(t *testing.T)
 					"run_identifier": "run-1",
 					"setted_devices": map[string]any{
 						"tenant/runner-a": map[string]any{
-							"type":       "android_phone",
-							"runner_id":  "tenant/runner-a-host",
-							"serial":     "serial-a",
-							"runner_url": "https://runner-a.example",
-							"recording":  false,
-							"installed":  map[string]string{"ver-1": "pkg-a"},
+							"type":      "android_phone",
+							"runner_id": "tenant/runner-a-host",
+							"serial":    "serial-a",
+							"recording": false,
+							"installed": map[string]string{"ver-1": "pkg-a"},
 						},
 						"tenant/runner-b": map[string]any{
-							"type":       "android_phone",
-							"runner_id":  "tenant/runner-b-host",
-							"serial":     "serial-b",
-							"runner_url": "https://runner-b.example",
-							"recording":  false,
-							"installed":  map[string]string{"ver-1": "pkg-b"},
+							"type":      "android_phone",
+							"runner_id": "tenant/runner-b-host",
+							"serial":    "serial-b",
+							"recording": false,
+							"installed": map[string]string{"ver-1": "pkg-b"},
 						},
 					},
 				},
@@ -2372,64 +2354,6 @@ func TestMobileAutomationSetupHookProcessStepError(t *testing.T) {
 	require.Contains(t, err.Error(), "missing or invalid action_id")
 }
 
-func TestProcessStepMissingRunnerURL(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
-	env.RegisterActivityWithOptions(
-		listAppsActivity.Execute,
-		activity.RegisterOptions{Name: listAppsActivity.Name()},
-	)
-
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) error {
-			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			ctx = workflow.WithActivityOptions(ctx, ao)
-			step := &pipeline.StepDefinition{
-				StepSpec: pipeline.StepSpec{
-					ID:  "step-1",
-					Use: mobileAutomationStepUse,
-					With: pipeline.StepInputs{
-						Payload: map[string]any{
-							"action_id":  "action-1",
-							"version_id": "tenant/wallet/v1",
-							"device_id":  "runner-1/device-1",
-						},
-					},
-				},
-			}
-			runData := map[string]any{}
-
-			return processStep(processStepInput{
-				ctx:  ctx,
-				step: &step.StepSpec,
-				config: map[string]any{
-					"app_url": "https://app.example",
-				},
-				ao: &ao,
-				settedDevices: map[string]any{
-					"runner-1/device-1": map[string]any{
-						"runner_id": "runner-1",
-						"type":      "android_phone",
-						"serial":    "serial-1",
-					},
-				},
-				runData:        &runData,
-				logger:         workflow.GetLogger(ctx),
-				globalDeviceID: "",
-			})
-		},
-		workflow.RegisterOptions{Name: "test-process-step-missing-runner-url"},
-	)
-	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: []string{}}, nil)
-
-	env.ExecuteWorkflow("test-process-step-missing-runner-url")
-	err := env.GetWorkflowError()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "missing or invalid runner_url")
-}
-
 func TestFetchRunnerInfoRejectsEmptyDeviceType(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -2442,7 +2366,7 @@ func TestFetchRunnerInfoRejectsEmptyDeviceType(t *testing.T) {
 				ctx,
 				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 			)
-			_, _, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
+			_, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 				ctx: ctx,
 				payload: &workflows.MobileAutomationWorkflowPipelinePayload{
 					DeviceID: "runner-1",
@@ -2478,7 +2402,7 @@ func TestFetchRunnerInfoRejectsMalformedRunnerURL(t *testing.T) {
 				ctx,
 				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 			)
-			_, _, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
+			_, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 				ctx: ctx,
 				payload: &workflows.MobileAutomationWorkflowPipelinePayload{
 					DeviceID: "runner-1",
@@ -2718,12 +2642,11 @@ func TestCleanupDeviceReturnsCleanupActivityError(t *testing.T) {
 				ctx:      ctx,
 				deviceID: "runner-1",
 				raw: map[string]any{
-					"type":       "android_phone",
-					"serial":     "serial-1",
-					"runner_id":  "runner-1",
-					"runner_url": "https://runner",
-					"recording":  false,
-					"installed":  map[string]string{"ver-1": "pkg-1"},
+					"type":      "android_phone",
+					"serial":    "serial-1",
+					"runner_id": "runner-1",
+					"recording": false,
+					"installed": map[string]string{"ver-1": "pkg-1"},
 				},
 				mobileAo:      &ao,
 				runIdentifier: "run-1",
@@ -2817,7 +2740,7 @@ func testCleanupRecordingWorkflow(ctx workflow.Context) (map[string]any, error) 
 	}
 	errs := []error{}
 	deviceInfo := map[string]any{
-		"runner_url":            "https://runner",
+		"runner_id":             "tenant/runner-1",
 		"recording":             true,
 		"video_path":            "/tmp/video.mp4",
 		"log_path":              "/tmp/log.txt",
