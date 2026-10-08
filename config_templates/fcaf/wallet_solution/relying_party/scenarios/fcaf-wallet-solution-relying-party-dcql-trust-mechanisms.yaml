@@ -37,6 +37,12 @@ steps:
             claims:
             - path:
               - given_name
+            trusted_authorities:
+            # AuthorityKeyIdentifier of the Capture issuer certificate, i.e. the
+            # key of PID Issuer CA 02, which also issues the onboarding PID.
+            - type: aki
+              values:
+              - QlBQvhC4EPCdRFyNv6sQCO4n3Ek
 - id: exercise-wallet
   use: mobile-automation
   with:
@@ -49,6 +55,50 @@ steps:
   with:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    expected_status: 200
+- id: create-no-match-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: trust-mechanisms-no-match
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+            trusted_authorities:
+            # A valid base64url key identifier no certificate in the chain carries.
+            - type: aki
+              values:
+              - AAAAAAAAAAAAAAAAAAAAAAAAAAA
+- id: expect-no-matching-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-no-match-session.outputs.body.deeplink }}
+- id: fetch-no-match-session
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-no-match-session.outputs.body.session_id }}
     expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
@@ -74,3 +124,5 @@ steps:
         output:
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+          no_match_exchange: ${{ fetch-no-match-session.outputs.body }}
+          no_match_visual_evidence: ${{ expect-no-matching-credential.outputs.flow_output.maestro_screenshot_urls }}

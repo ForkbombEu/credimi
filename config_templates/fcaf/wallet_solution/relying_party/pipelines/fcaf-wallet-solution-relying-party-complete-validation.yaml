@@ -13143,6 +13143,10 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
+                          trusted_authorities:
+                            - type: aki
+                              values:
+                                - QlBQvhC4EPCdRFyNv6sQCO4n3Ek
                 nonce: trust-mechanisms
             request_delivery: by_reference
             request_uri_method: post
@@ -13189,6 +13193,72 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trust-mechanisms-157d0f39-create-capture-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-create-no-match-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          trusted_authorities:
+                            - type: aki
+                              values:
+                                - AAAAAAAAAAAAAAAAAAAAAAAAAAA
+                nonce: trust-mechanisms-no-match
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-expect-no-matching-credential-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-expect-no-matching-credential-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-trust-mechanisms-157d0f39-expect-no-matching-credential-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-expect-no-matching-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+        parameters:
+            deeplink: ${{ dcql-trust-mechanisms-157d0f39-create-no-match-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trust-mechanisms-157d0f39-fetch-no-match-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trust-mechanisms-157d0f39-create-no-match-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-trusted-authorities-empty-21a59091-reset-wallet
       use: mobile-automation
@@ -25717,6 +25787,8 @@ steps:
             pipeline.dcql.trust-mechanisms:
                 output:
                     dcql_exchange: ${{ dcql-trust-mechanisms-157d0f39-fetch-capture-session.outputs.body | optional }}
+                    no_match_exchange: ${{ dcql-trust-mechanisms-157d0f39-fetch-no-match-session.outputs.body | optional }}
+                    no_match_visual_evidence: ${{ dcql-trust-mechanisms-157d0f39-expect-no-matching-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
                     visual_evidence: ${{ dcql-trust-mechanisms-157d0f39-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.trusted-authorities-empty:
                 output:

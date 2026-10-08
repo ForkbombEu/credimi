@@ -17,16 +17,14 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.trust-mechanisms.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.trust-mechanisms.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_trustmechanisms__006_trust_mechanism_valid
-  validator: dcql.response_satisfies_constraints
+- id: three_level_issuer_chain_is_unavailable
+  validator: fcaf.blocked
   input: evidence.dcql_exchange
   params:
-    mode: trusted_authorities_match
-- id: ws_rp_sm_trustmechanisms__006_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      needs a credential issued under a certificate chain of depth 3 or more
+      with the queried AuthorityKeyIdentifier in a sub-CA certificate; the
+      Capture issuer chain is the issuer leaf plus PID Issuer CA 02 only
 verdict:
   pass_when: all_assertions_pass

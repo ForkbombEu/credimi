@@ -3101,3 +3101,30 @@ Wallet 2026.09.42 presented the SHA-384 PID for 010, so 008 is expected to be
 
 The happy flow drops to 301 test IDs; the credential-digest-algorithm scenario
 is not in it.
+
+## TrustMechanisms: five aki tests implemented, nine blocked
+
+08/10/2026. All 14 asserted `trusted_authorities_match` on a session whose
+query had no `trusted_authorities`, so they failed with `credentials[0] does
+not contain trusted_authorities`.
+
+- The backlog had filed all of them as needing controlled issuer chains, but
+  002, 003, 004, 008 and 021 need no control. The Capture issuer leaf
+  (`Credimi Test Issuer`) has AuthorityKeyIdentifier
+  `QlBQvhC4EPCdRFyNv6sQCO4n3Ek`, the key of PID Issuer CA 02, which also
+  issues the onboarding PID. The trust-mechanisms query now carries that `aki`.
+  002, 003 and 021 keep `trusted_authorities_match`, which checks the AKI of
+  each returned SD-JWT's `x5c` leaf. A second session with `aki`
+  `AAAAAAAAAAAAAAAAAAAAAAAAAAA` and `fcaf-expect-no-matching-document` serves
+  004 and 008 (`trusted_authorities_no_match`).
+- 005–007 need a chain of depth 3 or more; the Capture chain has two
+  certificates. 009–013 and 015 need a mock ETSI Trusted List. All use
+  `fcaf.blocked`.
+
+Verified through the engine: production sessions delivered both `aki` queries
+unchanged. A presentation carrying the real Capture issuer certificate passes
+002, 003 and 021, an empty no-match session passes 004 and 008, and the other
+nine report `blocked`. Reference Wallet run pending.
+
+`make fcaf-generate` produces 1745 aggregate steps; the happy flow has 195. The
+no-match session adds its three steps and a PID issuance.

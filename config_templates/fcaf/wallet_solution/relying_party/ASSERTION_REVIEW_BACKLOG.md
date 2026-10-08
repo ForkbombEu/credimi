@@ -79,6 +79,14 @@ the Wallet received the property or answered as the source requires.
   SHA-384 and is `not_applicable` (wallet 2026.09.42 did for 010); otherwise
   `sdjwt.presentation_digest_algorithm_unsupported` with `require_error` needs
   an error and no presentation.
+- **Implemented; Capture evidence pending:** `WS_RP_SM_TrustMechanisms__002`,
+  `003`, `004`, `008`, and `021`. The issuer chain needs no control: the Capture
+  issuer certificate's AuthorityKeyIdentifier is
+  `QlBQvhC4EPCdRFyNv6sQCO4n3Ek` (PID Issuer CA 02, probed 08/10/2026), which
+  also covers the onboarding PID. The trust-mechanisms query carries it for
+  002, 003 and 021 (`trusted_authorities_match`). A second session with an
+  `aki` no certificate carries serves 004 and 008 (`trusted_authorities_no_match`,
+  `fcaf-expect-no-matching-document`).
 - **Implemented; Capture evidence pending:** `WS_RP_IA_MainInteraction__032`,
   `040`, `041`, `WS_RP_MS_CredentialFormats__033`, `044`, and
   `WS_RP_SH_Encoding_TextualEncoding_002`, `003`. Each case now issues the
@@ -454,10 +462,12 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
 - [ ] `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__112`, `114`, `115`
   (OpenID Federation entity statements, trust chain, and authority; upstream
   5.7). 014 reports `blocked` through `fcaf.blocked` until these exist
-- [ ] `WS_RP_SM_TrustMechanisms__002`–`013`, `015`, `021`,
-  `WS_RP_MS_ProtocolMessages__095`, and `WS_RP_IA_MainInteraction__065`
-  (issuer chains with controlled Authority Key Identifiers and ETSI trusted-list
-  fixtures; upstream 5.8)
+- [ ] `WS_RP_SM_TrustMechanisms__005`–`007` (an issuer chain of depth 3 or
+  more with a controlled Authority Key Identifier in the leaf, a sub-CA or the
+  CA; Capture's chain is the issuer leaf plus PID Issuer CA 02), `009`–`013`,
+  `015` (a mock ETSI Trusted List), `WS_RP_MS_ProtocolMessages__095`, and
+  `WS_RP_IA_MainInteraction__065` (upstream 5.8). The TrustMechanisms tests
+  report `blocked` through `fcaf.blocked`
 - [ ] `WS_RP_MS_ProtocolMessages__145`, `146` (Wallet-local or trusted-registry
   verifier metadata and the required `invalid_client` conflict)
 
