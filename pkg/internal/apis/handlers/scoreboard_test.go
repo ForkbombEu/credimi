@@ -28,6 +28,7 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
+	"go.temporal.io/sdk/temporal"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -585,15 +586,72 @@ func TestHandleScheduleAggregateScoreboard(t *testing.T) {
 		var response map[string]interface{}
 		require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
 		require.Contains(t, response["message"].(string), "scheduled every 300 seconds")
-		require.NotEmpty(t, response["schedule_id"])
+		require.Equal(t, "aggregate-scoreboard-schedule", response["schedule_id"])
 
 		require.Len(t, mockScheduleClient.createdOptions, 1)
 		opts := mockScheduleClient.createdOptions[0]
+		require.Equal(t, "aggregate-scoreboard-schedule", opts.ID)
+		require.Equal(t, enums.SCHEDULE_OVERLAP_POLICY_SKIP, opts.Overlap)
 		require.Len(t, opts.Spec.Intervals, 1)
 		require.Equal(t, 300*time.Second, opts.Spec.Intervals[0].Every)
 		action, ok := opts.Action.(*client.ScheduleWorkflowAction)
 		require.True(t, ok)
 		require.True(t, strings.HasPrefix(action.ID, "aggregate-scoreboard-"))
+		require.Equal(t, "AggregateScoreboardWorkflow", action.Workflow)
+	})
+
+	t.Run("success - existing schedule is updated", func(t *testing.T) {
+		var update client.ScheduleUpdateOptions
+		mockHandle := &temporalmocks.ScheduleHandle{}
+		mockHandle.On("Update", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				update = args.Get(1).(client.ScheduleUpdateOptions)
+			}).
+			Return(nil).
+			Once()
+		mockScheduleClient := &fakeScheduleClient{
+			createErr: temporal.ErrScheduleAlreadyRunning,
+			handle:    mockHandle,
+		}
+		mockClient := &temporalmocks.Client{}
+		mockClient.On("ScheduleClient").Return(mockScheduleClient)
+
+		scheduleTemporalClient = func(namespace string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/scoreboard/aggregate/start?schedule=600",
+			nil,
+		)
+		req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+		rec := httptest.NewRecorder()
+
+		err := HandleStartAggregateScoreboard()(&core.RequestEvent{
+			App: app,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+		mockHandle.AssertExpectations(t)
+
+		state := &client.ScheduleState{Paused: true, Note: "paused by operator"}
+		updated, err := update.DoUpdate(client.ScheduleUpdateInput{
+			Description: client.ScheduleDescription{
+				Schedule: client.Schedule{State: state},
+			},
+		})
+		require.NoError(t, err)
+		require.Same(t, state, updated.Schedule.State)
+		require.Len(t, updated.Schedule.Spec.Intervals, 1)
+		require.Equal(t, 600*time.Second, updated.Schedule.Spec.Intervals[0].Every)
+		action, ok := updated.Schedule.Action.(*client.ScheduleWorkflowAction)
+		require.True(t, ok)
+		require.Equal(t, "AggregateScoreboardWorkflow", action.Workflow)
 	})
 
 	t.Run("fail - invalid schedule parameter (negative)", func(t *testing.T) {

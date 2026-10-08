@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
+	"go.temporal.io/sdk/temporal"
 )
 
 func getOrgIDfromName(name string) (string, error) { //nolint
@@ -566,6 +567,48 @@ func TestHandleCredentialIssuerImportFidesSchedule(t *testing.T) {
 	require.Equal(t, `{"type":"object"}`, workflowInput.Config["issuer_schema"])
 	require.Equal(t, "https://credimi.test", workflowInput.Config["app_url"])
 	mockHandle.AssertExpectations(t)
+}
+
+func TestScheduleFidesCredentialIssuersImportUpdateKeepsState(t *testing.T) {
+	origTemporalClient := fidesCredentialIssuersTemporalClient
+	t.Cleanup(func() { fidesCredentialIssuersTemporalClient = origTemporalClient })
+
+	var update client.ScheduleUpdateOptions
+	mockHandle := &temporalmocks.ScheduleHandle{}
+	mockHandle.On("Update", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			update = args.Get(1).(client.ScheduleUpdateOptions)
+		}).
+		Return(nil).
+		Once()
+	mockHandle.On("Trigger", mock.Anything, fidesCredentialIssuersScheduleTriggerOptions).
+		Return(nil).
+		Once()
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(&fakeScheduleClient{
+		createErr: temporal.ErrScheduleAlreadyRunning,
+		handle:    mockHandle,
+	})
+	fidesCredentialIssuersTemporalClient = func(string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	_, err := scheduleFidesCredentialIssuersImport(
+		context.Background(),
+		"acme",
+		workflowengine.WorkflowInput{},
+		2,
+	)
+	require.NoError(t, err)
+	mockHandle.AssertExpectations(t)
+
+	state := &client.ScheduleState{Paused: true, Note: "paused by operator"}
+	updated, err := update.DoUpdate(client.ScheduleUpdateInput{
+		Description: client.ScheduleDescription{Schedule: client.Schedule{State: state}},
+	})
+	require.NoError(t, err)
+	require.Same(t, state, updated.Schedule.State)
+	require.Equal(t, 48*time.Hour, updated.Schedule.Spec.Intervals[0].Every)
 }
 
 func TestHandleCredentialIssuerStartCheckWorkflowErrorDeletesNewRecord(t *testing.T) {

@@ -475,9 +475,13 @@ func scheduleFidesCredentialIssuersImport(
 		if isScheduleAlreadyExistsError(err) {
 			handle := c.ScheduleClient().GetHandle(ctx, fidesCredentialIssuersScheduleID)
 			err = handle.Update(ctx, client.ScheduleUpdateOptions{
-				DoUpdate: func(client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
+				DoUpdate: func(update client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
 					return &client.ScheduleUpdate{
-						Schedule: buildFidesCredentialIssuersSchedule(input, intervalDays),
+						Schedule: buildFidesCredentialIssuersSchedule(
+							input,
+							intervalDays,
+							update.Description.Schedule.State,
+						),
 					}, nil
 				},
 			})
@@ -516,9 +520,12 @@ func buildFidesCredentialIssuersScheduleOptions(
 	}
 }
 
+// buildFidesCredentialIssuersSchedule builds the updated schedule, keeping the
+// existing state so pause status and notes survive an upsert.
 func buildFidesCredentialIssuersSchedule(
 	input workflowengine.WorkflowInput,
 	intervalDays int,
+	state *client.ScheduleState,
 ) *client.Schedule {
 	return &client.Schedule{
 		Spec: &client.ScheduleSpec{
@@ -529,7 +536,7 @@ func buildFidesCredentialIssuersSchedule(
 		Policy: &client.SchedulePolicies{
 			Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
 		},
-		State:  &client.ScheduleState{},
+		State:  state,
 		Action: buildFidesCredentialIssuersScheduleAction(input),
 	}
 }
