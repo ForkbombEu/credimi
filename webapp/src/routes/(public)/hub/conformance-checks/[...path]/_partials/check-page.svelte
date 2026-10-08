@@ -35,22 +35,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { standard, version, suite, file, basePath, namespace }: Props = $props();
 
 	const checkTitle = $derived(titleForCheckPath(suite, file));
+	const showQr = $derived(suite.has_qr === true);
 
 	//
 
-	const tocSections: IndexItem[] = [s.description, s.qr_code];
+	const tocSections: IndexItem[] = $derived(
+		showQr ? [s.description, s.qr_code] : [s.description]
+	);
 
 	let qrWorkflow = $state<StartCheckResult>();
 	let loading = $state(true);
 	onMount(async () => {
-		if (!$currentUser) return;
+		if (!$currentUser || !showQr) {
+			loading = false;
+			return;
+		}
 		qrWorkflow = await startCheck(standard.uid, version.uid, suite.uid, file);
 		loading = false;
 	});
 
 	setupEWCConnections(
 		() => {
-			if (!qrWorkflow) return undefined;
+			if (!showQr || !qrWorkflow) return undefined;
 			if (qrWorkflow instanceof Error) return undefined;
 			return qrWorkflow.workflowId;
 		},
@@ -72,13 +78,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<p>{suite.description}</p>
 			</PageSection>
 
-			<PageSection
-				indexItem={s.qr_code}
-				class="flex w-full min-w-60 shrink-0 flex-col items-stretch space-y-0 md:w-auto"
-			>
-				{@render nruQrCode()}
-				{@render loggedQr()}
-			</PageSection>
+			{#if showQr}
+				<PageSection
+					indexItem={s.qr_code}
+					class="flex w-full min-w-60 shrink-0 flex-col items-stretch space-y-0 md:w-auto"
+				>
+					{@render nruQrCode()}
+					{@render loggedQr()}
+				</PageSection>
+			{/if}
 		</div>
 	{/snippet}
 </PageLayout>

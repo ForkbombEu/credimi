@@ -25,6 +25,7 @@ const nest: Standard[] = [
 						help: '',
 						description: '',
 						logo: 'logo.svg',
+						has_qr: false,
 						members: [{ path: 'fcaf/v1/rp/t1.yaml', title: 'T1', file: 't1.yaml' }]
 					}
 				]

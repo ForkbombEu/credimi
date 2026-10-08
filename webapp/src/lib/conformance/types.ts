@@ -24,7 +24,8 @@ const suiteMetadataSchema = z.object({
 	repository: z.string(),
 	help: z.string(),
 	description: z.string(),
-	logo: z.string().optional()
+	logo: z.string().optional(),
+	has_qr: z.boolean().optional().default(false)
 });
 
 export const suiteMemberSchema = z.object({

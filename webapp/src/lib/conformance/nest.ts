@@ -61,6 +61,7 @@ export function nestSuites(records: ConformanceSuiteRecord[]): Standard[] {
 					help: suiteHelp,
 					description: suiteDescription,
 					...(logo ? { logo } : {}),
+					has_qr: row.has_qr ?? false,
 					members: row.members.map((m) => ({ ...m }))
 				};
 			});

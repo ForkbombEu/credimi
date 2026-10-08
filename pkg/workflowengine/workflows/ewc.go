@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -160,7 +162,10 @@ func startEWCLikeWorkflow(
 ) (result workflowengine.WorkflowResult, err error) {
 	input = workflowengine.WithCredimiCapabilities(
 		input,
-		workflowengine.CredimiCapabilities{Logs: true},
+		workflowengine.CredimiCapabilities{
+			Logs: true,
+			QR:   ewcLikeSuiteHasQR(input),
+		},
 	)
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       workflowPrefix + uuid.NewString(),
@@ -172,6 +177,36 @@ func startEWCLikeWorkflow(
 		namespace = input.Config["namespace"].(string)
 	}
 	return startFn(namespace, workflowOptions, name, input)
+}
+
+// ewcLikeSuiteHasQR reads suite path axes from memo/config and looks up catalog has_qr.
+func ewcLikeSuiteHasQR(input workflowengine.WorkflowInput) bool {
+	memo, _ := input.Config["memo"].(map[string]any)
+	standard := ewcLikeMemoString(memo["standard"])
+	suite := ewcLikeMemoString(memo["author"])
+	version := ewcLikeMemoString(input.Config["version"])
+	if standard == "" || version == "" || suite == "" {
+		return false
+	}
+	return conformancecatalog.SuiteHasQR(
+		conformancecatalog.SuitePathPrefix(standard, version, suite),
+	)
+}
+
+// ewcLikeMemoString returns the string value of v when it is a string or a named
+// string type (reflect.String). Non-string kinds yield "" — no fmt.Sprint.
+func ewcLikeMemoString(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.String {
+		return rv.String()
+	}
+	return ""
 }
 
 // EWCStatusWorkflow is a workflow that checks the status of an EWC check.

@@ -89,6 +89,7 @@ type WorkflowExecutionSummary struct {
 	FCAFReportPDF      string                            `json:"fcaf_report_pdf,omitempty"`
 	FailureReason      *string                           `json:"failure_reason,omitempty"`
 	HasLogs            bool                              `json:"has_logs,omitempty"`
+	HasQR              bool                              `json:"has_qr,omitempty"`
 }
 
 type WorkflowQueueSummary struct {

@@ -205,7 +205,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			memo := map[string]interface{}{
 				"test":     testName,
 				"standard": protocol,
-				"author":   author,
+				"author":   string(author),
 			}
 
 			results, err := processJSONChecks(
@@ -244,7 +244,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			memo := map[string]interface{}{
 				"test":     testName,
 				"standard": protocol,
-				"author":   author,
+				"author":   string(author),
 			}
 			results, err := processVariablesTest(
 				e.App,
@@ -580,6 +580,7 @@ func startEWCLikeWorkflow(
 			"template":       templateStr,
 			"namespace":      i.Namespace,
 			"memo":           i.Memo,
+			"version":        i.Version,
 			"check_endpoint": checkEndpoint,
 			"logs_endpoint":  logsEndpoint,
 			"user_name":      i.UserName,

@@ -1335,6 +1335,8 @@ components:
           type: string
         has_logs:
           type: boolean
+        has_qr:
+          type: boolean
         maestro_screenshots:
           items:
             type: string

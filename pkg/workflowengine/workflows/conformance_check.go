@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -527,10 +528,17 @@ func (w *StartCheckWorkflow) Start(
 ) (workflowengine.WorkflowResult, error) {
 	memo, _ := input.Config["memo"].(map[string]any)
 	suite, _ := memo["author"].(string)
+	pathPrefix := ""
+	if payload, err := workflowengine.DecodePayload[StartCheckWorkflowPayload](
+		input.Payload,
+	); err == nil {
+		pathPrefix = conformancecatalog.SuitePathPrefixFromCheckID(payload.CheckID)
+	}
 	input = workflowengine.WithCredimiCapabilities(
 		input,
 		workflowengine.CredimiCapabilities{
 			Logs: ConformanceSuiteHasLogs(suite),
+			QR:   conformancecatalog.SuiteHasQR(pathPrefix),
 		},
 	)
 	workflowOptions := client.StartWorkflowOptions{

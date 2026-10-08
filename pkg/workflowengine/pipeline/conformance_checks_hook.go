@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -151,6 +152,9 @@ func ConformanceCheckSetupHook(
 			"test":     checkName,
 			workflowengine.CredimiCapabilitiesMemoKey: workflowengine.CredimiCapabilities{
 				Logs: workflows.ConformanceSuiteHasLogs(suite),
+				QR: conformancecatalog.SuiteHasQR(
+					conformancecatalog.SuitePathPrefixFromCheckID(payload.CheckID),
+				),
 			},
 		}
 		SetConfigValue(&step.With.Config, "memo", memo)

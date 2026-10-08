@@ -2,7 +2,7 @@
 
 Go `columnSpec` (`schema.go`) remains the sole SoT for Client-visible catalog
 columns. `go generate ./pkg/conformancecatalog` emits `columns.ts` specs that
-include `pbType` (`text` / `number` / `json`) derived from Kind, plus Zod and PB
+include `pbType` (`text` / `number` / `bool` / `json`) derived from Kind, plus Zod and PB
 record bodies. Bun injectors (`generate.collections-models.ts`,
 `generate.catalog-pb-types.ts`) only stitch those artifacts into PocketBase
 codegen outputs; they do not re-map Kind. The catalog-pb-types inject upserts

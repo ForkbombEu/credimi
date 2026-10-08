@@ -51,6 +51,7 @@ type SuiteRecord struct {
 	SuiteHelp        string      `db:"suite_help" json:"suite_help"`
 	SuiteDescription string      `db:"suite_description" json:"suite_description"`
 	SuiteLogo        string      `db:"suite_logo" json:"suite_logo"`
+	HasQR            bool        `db:"has_qr" json:"has_qr"`
 	CheckCount       int         `db:"check_count" json:"check_count"`
 	Members          memberArray `db:"members" json:"members"`
 	VisibleIn        stringArray `db:"visible_in" json:"visible_in"`

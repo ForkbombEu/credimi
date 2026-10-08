@@ -54,4 +54,5 @@ export interface WorkflowExecutionSummary {
 	fcaf_report_pdf?: string;
 	failure_reason?: string;
 	has_logs?: boolean;
+	has_qr?: boolean;
 }
