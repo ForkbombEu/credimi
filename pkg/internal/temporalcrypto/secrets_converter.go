@@ -42,6 +42,13 @@ func DataConverter() converter.DataConverter {
 	return NewDataConverter(key)
 }
 
+// ValidateEnv reports whether the secrets encryption key in the environment is
+// usable. It returns nil when encryption is disabled.
+func ValidateEnv() error {
+	_, _, err := loadKeyFromEnv()
+	return err
+}
+
 func NewDataConverter(key []byte) converter.DataConverter {
 	return converter.NewCompositeDataConverter(
 		converter.NewNilPayloadConverter(),
