@@ -6,6 +6,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -952,4 +953,31 @@ func TestExecuteStepEmailConfigureError(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "error configuring activity")
+}
+
+func TestEnsureStepInputSizeCountsEncryptedSecrets(t *testing.T) {
+	const secretsBytes = 200 << 10
+	input := workflowengine.ActivityInput{
+		Payload: map[string]any{
+			"data": strings.Repeat("a", maxStepInputBytes-secretsBytes-(16<<10)),
+		},
+		Secrets: map[string]any{"token": strings.Repeat("s", secretsBytes)},
+	}
+
+	plain, err := json.Marshal(input)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(plain), maxStepInputBytes)
+
+	err = ensureStepInputSize("big-step", input)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "step big-step input is")
+}
+
+func TestEnsureStepInputSizeAcceptsSmallInput(t *testing.T) {
+	input := workflowengine.ActivityInput{
+		Payload: map[string]any{"data": "small"},
+		Secrets: map[string]any{"token": "secret"},
+	}
+
+	require.NoError(t, ensureStepInputSize("small-step", input))
 }

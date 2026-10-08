@@ -4,7 +4,6 @@
 package pipeline
 
 import (
-	"encoding/json"
 	"fmt"
 	"maps"
 	"strings"
@@ -12,11 +11,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/workflow"
+	"google.golang.org/protobuf/proto"
 )
 
 func ExecuteStep(
@@ -217,12 +218,17 @@ func Execute(
 const maxStepInputBytes = 3 << 20
 
 // ensureStepInputSize rejects a step input that would make the workflow task completion
-// exceed the Temporal gRPC message limit, which would otherwise wedge the run.
+// exceed the Temporal gRPC message limit, which would otherwise wedge the run. The size is
+// measured on the payload the data converter produces, including encrypted secrets.
 func ensureStepInputSize(stepID string, input any) error {
-	// A marshal error is left to the SDK, which reports it when it encodes the input.
-	data, marshalErr := json.Marshal(input)
-	if marshalErr != nil || len(data) <= maxStepInputBytes {
+	// An encoding error is left to the SDK, which reports it when it encodes the input.
+	payloads, encodeErr := temporalcrypto.DataConverter().ToPayloads(input)
+	if encodeErr != nil {
 		return nil //nolint:nilerr // the SDK reports encoding errors itself
+	}
+	size := proto.Size(payloads)
+	if size <= maxStepInputBytes {
+		return nil
 	}
 	errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 	return workflowengine.NewAppError(workflowengine.WorkflowError{
@@ -231,7 +237,7 @@ func ensureStepInputSize(stepID string, input any) error {
 		Message: fmt.Sprintf(
 			"step %s input is %d bytes; the limit is %d bytes because Temporal rejects workflow task messages above 4 MiB",
 			stepID,
-			len(data),
+			size,
 			maxStepInputBytes,
 		),
 	})
