@@ -269,6 +269,7 @@ Semaphore:
 - Workflow ID: `mobile-device-semaphore/<device_id>`.
 - Types: `pkg/workflowengine/mobiledevicesemaphore/types.go`.
 - Implementation: `pkg/workflowengine/workflows/mobile_device_semaphore.go`.
+- Client side: `pkg/workflowengine/semaphoreclient`, shared by the queue handlers and `EnqueuePipelineRunTicketActivity`. `EnqueueRun` uses update-with-start (`USE_EXISTING` conflict policy), so enqueueing starts the device semaphore when it is not running; update IDs are `<enqueue|cancel>/<device_id>/<ticket>`.
 - Updates: `EnqueueRun`, `CancelRun`, `RunDone`, plus the device lifecycle updates `MobileDeviceSemaphore{Pause,Resume,Shutdown}DeviceUpdate`.
 - Queries: `GetRunStatus`, `GetState`.
 - Temporal caps accepted updates per workflow run (`history.maxTotalUpdates`, default 2000) and then rejects every update, so a stuck semaphore fails every lifecycle call (`failed_to_pause_device_semaphore` / `failed_to_resume_device_semaphore`). Two guards:

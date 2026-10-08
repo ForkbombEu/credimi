@@ -136,7 +136,7 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 			if !online {
 				continue
 			}
-			if err := ensureRunQueueSemaphoreWorkflowTemporal(
+			if err := ensureRunQueueSemaphoreWorkflow(
 				e.Request.Context(),
 				deviceID,
 			); err != nil {
@@ -204,7 +204,7 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 		}
 		for deviceID, online := range deviceStates {
 			if online {
-				if err := ensureRunQueueSemaphoreWorkflowTemporal(
+				if err := ensureRunQueueSemaphoreWorkflow(
 					e.Request.Context(),
 					deviceID,
 				); err != nil {

@@ -71,7 +71,7 @@ func TestHandleMobileRunnerLifecycleResume(t *testing.T) {
 	mobileRunnerLifecycleNow = func() time.Time { return fixedNow }
 	mockClient := temporalmocks.NewClient(t)
 	mockClient.On("ExecuteWorkflow", mock.Anything, mock.Anything, workflows.MobileDeviceSemaphoreWorkflowName, mock.Anything).
-		Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
+		Return(&temporalmocks.WorkflowRun{}, nil)
 	handle := temporalmocks.NewWorkflowUpdateHandle(t)
 	mockClient.
 		On(
@@ -213,7 +213,7 @@ func TestHandleMobileRunnerLifecycleHeartbeatResumesHeartbeatTimeoutPause(t *tes
 	mobileRunnerLifecycleNow = func() time.Time { return fixedNow }
 	mockClient := temporalmocks.NewClient(t)
 	mockClient.On("ExecuteWorkflow", mock.Anything, mock.Anything, workflows.MobileDeviceSemaphoreWorkflowName, mock.Anything).
-		Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
+		Return(&temporalmocks.WorkflowRun{}, nil)
 	handle := temporalmocks.NewWorkflowUpdateHandle(t)
 	mockClient.
 		On(
@@ -611,7 +611,7 @@ func stubLifecycleTemporal(t *testing.T, stubs lifecycleStubs) {
 	}
 }
 
-func semaphoreAlreadyStartedClient(t *testing.T) *temporalmocks.Client {
+func semaphoreRunningClient(t *testing.T) *temporalmocks.Client {
 	t.Helper()
 
 	mockClient := temporalmocks.NewClient(t)
@@ -623,7 +623,7 @@ func semaphoreAlreadyStartedClient(t *testing.T) *temporalmocks.Client {
 			workflows.MobileDeviceSemaphoreWorkflowName,
 			mock.Anything,
 		).
-		Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
+		Return(&temporalmocks.WorkflowRun{}, nil)
 	return mockClient
 }
 
@@ -793,7 +793,7 @@ func TestHandleMobileRunnerLifecycleResumeOnlyResumesReportedOnlineDevices(t *te
 	unreported.Set("online", true)
 	require.NoError(t, app.Save(unreported))
 
-	mockClient := semaphoreAlreadyStartedClient(t)
+	mockClient := semaphoreRunningClient(t)
 	mockClient.
 		On(
 			"UpdateWorkflow",
@@ -884,7 +884,7 @@ func TestMobileRunnerLifecycleSemaphoreFailures(t *testing.T) {
 						t,
 						workflows.MobileDeviceSemaphoreResumeDeviceUpdate,
 					),
-					queueClient: semaphoreAlreadyStartedClient(t),
+					queueClient: semaphoreRunningClient(t),
 				}
 			},
 			wantStatus: http.StatusInternalServerError,
@@ -910,7 +910,7 @@ func TestMobileRunnerLifecycleSemaphoreFailures(t *testing.T) {
 						t,
 						workflows.MobileDeviceSemaphoreResumeDeviceUpdate,
 					),
-					queueClient: semaphoreAlreadyStartedClient(t),
+					queueClient: semaphoreRunningClient(t),
 					query:       pausedState(false, errors.New("query timeout")),
 				}
 			},
@@ -940,7 +940,7 @@ func TestMobileRunnerLifecycleSemaphoreFailures(t *testing.T) {
 			stubs: func(t *testing.T) lifecycleStubs {
 				// Only the idempotent workflow start is expected; no update.
 				return lifecycleStubs{
-					queueClient: semaphoreAlreadyStartedClient(t),
+					queueClient: semaphoreRunningClient(t),
 					query:       pausedState(false, nil),
 				}
 			},

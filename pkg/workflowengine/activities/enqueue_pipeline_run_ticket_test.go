@@ -11,148 +11,72 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
 )
 
-// enqueueFakeWorkflowRun is a lightweight workflow run stub for enqueue tests.
-type enqueueFakeWorkflowRun struct {
-	id    string
-	runID string
-}
-
-// GetID returns the workflow ID for the fake run.
-func (f enqueueFakeWorkflowRun) GetID() string {
-	return f.id
-}
-
-// GetRunID returns the workflow run ID for the fake run.
-func (f enqueueFakeWorkflowRun) GetRunID() string {
-	return f.runID
-}
-
-// GetFirstExecutionRunID returns the first execution run ID for the fake run.
-func (f enqueueFakeWorkflowRun) GetFirstExecutionRunID() string {
-	return f.runID
-}
-
-// Get is a no-op workflow run getter for tests.
-func (f enqueueFakeWorkflowRun) Get(ctx context.Context, valuePtr interface{}) error {
-	return nil
-}
-
-// GetWithOptions is a no-op workflow run getter for tests.
-func (f enqueueFakeWorkflowRun) GetWithOptions(
-	ctx context.Context,
-	valuePtr interface{},
-	options client.WorkflowRunGetOptions,
-) error {
-	return nil
-}
-
-// fakeUpdateHandle returns a predefined enqueue response.
-type fakeUpdateHandle struct {
-	response   mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse
-	err        error
-	workflowID string
-	runID      string
-	updateID   string
-}
-
-// Get writes the predefined response into the provided pointer.
-func (f fakeUpdateHandle) Get(ctx context.Context, valuePtr interface{}) error {
-	if f.err != nil {
-		return f.err
-	}
-	respPtr, ok := valuePtr.(*mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse)
-	if !ok {
-		return errors.New("unexpected response type")
-	}
-	*respPtr = f.response
-	return nil
-}
-
-// WorkflowID returns the workflow ID for the update handle.
-func (f fakeUpdateHandle) WorkflowID() string {
-	return f.workflowID
-}
-
-// RunID returns the run ID for the update handle.
-func (f fakeUpdateHandle) RunID() string {
-	return f.runID
-}
-
-// UpdateID returns the update ID for the update handle.
-func (f fakeUpdateHandle) UpdateID() string {
-	return f.updateID
-}
-
-// executeCall captures arguments sent to ExecuteWorkflow.
-type executeCall struct {
-	options  client.StartWorkflowOptions
-	workflow interface{}
-}
-
-// fakeEnqueueClient captures Temporal client calls for assertions.
-type fakeEnqueueClient struct {
-	executeCalls    []executeCall
-	updateCalls     []client.UpdateWorkflowOptions
-	updateResponses map[string]mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse
-	updateErr       error
-}
-
-// ExecuteWorkflow records workflow start calls for assertions.
-func (f *fakeEnqueueClient) ExecuteWorkflow(
-	ctx context.Context,
-	options client.StartWorkflowOptions,
-	workflow interface{},
-	args ...interface{},
-) (client.WorkflowRun, error) {
-	f.executeCalls = append(f.executeCalls, executeCall{options: options, workflow: workflow})
-	return enqueueFakeWorkflowRun{id: options.ID, runID: options.ID + "-run"}, nil
-}
-
-// UpdateWorkflow records update calls and returns preset responses.
-func (f *fakeEnqueueClient) UpdateWorkflow(
-	ctx context.Context,
-	options client.UpdateWorkflowOptions,
-) (client.WorkflowUpdateHandle, error) {
-	f.updateCalls = append(f.updateCalls, options)
-	if f.updateErr != nil {
-		return nil, f.updateErr
-	}
-	resp := f.updateResponses[options.WorkflowID]
-	return fakeUpdateHandle{
-		response:   resp,
-		workflowID: options.WorkflowID,
-		updateID:   options.UpdateID,
-	}, nil
-}
-
-// TestEnqueuePipelineRunTicketActivityCallsTemporalUpdates asserts workflow IDs and update names.
+// TestEnqueuePipelineRunTicketActivityCallsTemporalUpdates asserts each runner gets an
+// update-with-start enqueue and the runner statuses are aggregated.
 func TestEnqueuePipelineRunTicketActivityCallsTemporalUpdates(t *testing.T) {
-	act := NewEnqueuePipelineRunTicketActivity()
-	fakeClient := &fakeEnqueueClient{
-		updateResponses: map[string]mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse{
-			mobiledevicesemaphore.WorkflowID("runner-b"): {
-				TicketID: "ticket-1",
-				Status:   mobiledevicesemaphore.MobileDeviceSemaphoreRunQueued,
-				Position: 2,
-				LineLen:  3,
-			},
-			mobiledevicesemaphore.WorkflowID("runner-a"): {
-				TicketID: "ticket-1",
-				Status:   mobiledevicesemaphore.MobileDeviceSemaphoreRunRunning,
-				Position: 1,
-				LineLen:  2,
-			},
+	responses := map[string]mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse{
+		"runner-b": {
+			TicketID: "ticket-1",
+			Status:   mobiledevicesemaphore.MobileDeviceSemaphoreRunQueued,
+			Position: 2,
+			LineLen:  3,
+		},
+		"runner-a": {
+			TicketID: "ticket-1",
+			Status:   mobiledevicesemaphore.MobileDeviceSemaphoreRunRunning,
+			Position: 1,
+			LineLen:  2,
 		},
 	}
 
-	act.temporalClientFactory = func(namespace string) (temporalWorkflowUpdater, error) {
+	mockClient := temporalmocks.NewClient(t)
+	var startIDs []string
+	mockClient.
+		On(
+			"NewWithStartWorkflowOperation",
+			mock.Anything,
+			mobiledevicesemaphore.WorkflowName,
+			mock.Anything,
+		).
+		Run(func(args mock.Arguments) {
+			opts := args.Get(0).(client.StartWorkflowOptions)
+			require.Equal(t, mobiledevicesemaphore.TaskQueue, opts.TaskQueue)
+			startIDs = append(startIDs, opts.ID)
+		}).
+		Return(nil).
+		Times(2)
+
+	var updates []client.UpdateWorkflowOptions
+	for _, deviceID := range []string{"runner-b", "runner-a"} {
+		resp := responses[deviceID]
+		handle := temporalmocks.NewWorkflowUpdateHandle(t)
+		handle.On("Get", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				*args.Get(1).(*mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunResponse) = resp
+			}).
+			Return(nil).
+			Once()
+		mockClient.
+			On("UpdateWithStartWorkflow", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				opts := args.Get(1).(client.UpdateWithStartWorkflowOptions)
+				updates = append(updates, opts.UpdateOptions)
+			}).
+			Return(handle, nil).
+			Once()
+	}
+
+	act := NewEnqueuePipelineRunTicketActivity()
+	act.temporalClientFactory = func(namespace string) (client.Client, error) {
 		require.Equal(t, workflowengine.MobileDeviceSemaphoreDefaultNamespace, namespace)
-		return fakeClient, nil
+		return mockClient, nil
 	}
 
 	payload := EnqueuePipelineRunTicketActivityInput{
@@ -181,46 +105,41 @@ func TestEnqueuePipelineRunTicketActivityCallsTemporalUpdates(t *testing.T) {
 	require.Equal(t, 3, output.LineLen)
 	require.Len(t, output.Runners, 2)
 
-	require.Len(t, fakeClient.executeCalls, 2)
-	require.Equal(t, mobiledevicesemaphore.WorkflowName, fakeClient.executeCalls[0].workflow)
-	require.Equal(
-		t,
+	require.Equal(t, []string{
 		mobiledevicesemaphore.WorkflowID("runner-b"),
-		fakeClient.executeCalls[0].options.ID,
-	)
-	require.Equal(t, mobiledevicesemaphore.TaskQueue, fakeClient.executeCalls[0].options.TaskQueue)
+		mobiledevicesemaphore.WorkflowID("runner-a"),
+	}, startIDs)
 
-	require.Len(t, fakeClient.updateCalls, 2)
-	require.Equal(
-		t,
-		mobiledevicesemaphore.WorkflowID("runner-b"),
-		fakeClient.updateCalls[0].WorkflowID,
-	)
-	require.Equal(t, mobiledevicesemaphore.EnqueueRunUpdate, fakeClient.updateCalls[0].UpdateName)
-	require.Equal(
-		t,
-		"enqueue/runner-b/ticket-1",
-		fakeClient.updateCalls[0].UpdateID,
-	)
-	require.Len(t, fakeClient.updateCalls[0].Args, 1)
-	req, ok := fakeClient.updateCalls[0].Args[0].(mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunRequest)
+	require.Len(t, updates, 2)
+	require.Equal(t, mobiledevicesemaphore.EnqueueRunUpdate, updates[0].UpdateName)
+	require.Equal(t, "enqueue/runner-b/ticket-1", updates[0].UpdateID)
+	require.Len(t, updates[0].Args, 1)
+	req, ok := updates[0].Args[0].(mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunRequest)
 	require.True(t, ok)
 	require.Equal(t, "runner-b", req.DeviceID)
-	require.Equal(t, []string{"runner-b", "runner-a"}, req.RequiredDeviceIDs)
+	require.ElementsMatch(t, []string{"runner-b", "runner-a"}, req.RequiredDeviceIDs)
 	require.Equal(t, "runner-b", req.LeaderDeviceID)
+	require.Equal(t, 4, req.MaxPipelinesInQueue)
 }
 
 // TestEnqueuePipelineRunTicketActivityQueueLimitError keeps the queue-limit error type stable.
 func TestEnqueuePipelineRunTicketActivityQueueLimitError(t *testing.T) {
-	act := NewEnqueuePipelineRunTicketActivity()
 	queueErr := temporal.NewApplicationError(
 		"queue limit exceeded",
 		mobiledevicesemaphore.ErrQueueLimitExceeded,
 	)
 
-	fakeClient := &fakeEnqueueClient{updateErr: queueErr}
-	act.temporalClientFactory = func(namespace string) (temporalWorkflowUpdater, error) {
-		return fakeClient, nil
+	mockClient := temporalmocks.NewClient(t)
+	mockClient.On("NewWithStartWorkflowOperation", mock.Anything, mock.Anything, mock.Anything).
+		Return(nil)
+	mockClient.On("UpdateWithStartWorkflow", mock.Anything, mock.Anything).
+		Return(nil, queueErr)
+	mockClient.On("UpdateWorkflow", mock.Anything, mock.Anything).
+		Return(nil, errors.New("rollback failed"))
+
+	act := NewEnqueuePipelineRunTicketActivity()
+	act.temporalClientFactory = func(namespace string) (client.Client, error) {
+		return mockClient, nil
 	}
 
 	payload := EnqueuePipelineRunTicketActivityInput{
@@ -314,7 +233,7 @@ func TestEnqueuePipelineRunTicketActivityValidationErrors(t *testing.T) {
 
 func TestEnqueuePipelineRunTicketActivityTemporalClientError(t *testing.T) {
 	act := NewEnqueuePipelineRunTicketActivity()
-	act.temporalClientFactory = func(string) (temporalWorkflowUpdater, error) {
+	act.temporalClientFactory = func(string) (client.Client, error) {
 		return nil, errors.New("no client")
 	}
 
