@@ -54,6 +54,39 @@ the Wallet received the property or answered as the source requires.
   response. Open limitation: 125 and 126 can only evidence the Wallet's own
   error visually, because the Wallet has already submitted its Authorization
   Response when the malformed reply arrives.
+- **Implemented; Capture evidence pending:** `WS_RP_IA_Metadata__011`, `012`,
+  and `013`. The interaction-metadata scenario keeps its default session,
+  whose Request Object carries `aud: https://self-issued.me/v2`, for 012, and
+  adds an aud-mismatch session that sets `/aud` through `request_mutation` for
+  011 and 013. `oid4vp.request_audience` reads the Wallet's discovery mode from
+  the POSTed `wallet_metadata` (`issuer` present means dynamic): 011 is
+  `not_applicable` for a static-discovery Wallet such as 2026.09.42.
+- **Implemented; Capture evidence pending:** `WS_RP_SM_RpIntegrity__024`,
+  `030`, `033`, `034`, and `WS_RP_SM_RpIntegrity_CryptographicSignature_003`,
+  `004`. The rp-integrity default session (ES256, `x5c`, POST retrieval) serves
+  033, 034, 003 and 004, which assert the signature, `alg: ES256`, and a
+  presentation; for `-9` the sources' expected results name JOSE `ES256`, and
+  production refuses `ESP256`. A `decentralized_identifier` session signed with
+  the DID key serves 024, which accepts an error or a discontinuation
+  (`request_rejected`). The `dc-api-multisigned` scenario serves 030: production
+  created `request_delivery: multisigned` sessions on 08/10/2026, with two
+  `ES256` signatures for the `x509_hash` and `decentralized_identifier` Client
+  Identifiers.
+- **Implemented; Capture evidence pending:**
+  `WS_RP_SH_Cryptography_CryptographicHash_008`. It reuses the
+  `CryptographicHash_010` session: a SHA-384-digested `pid_person_b` requested
+  under client metadata naming only SHA-256. A Wallet that presents it supports
+  SHA-384 and is `not_applicable` (wallet 2026.09.42 did for 010); otherwise
+  `sdjwt.presentation_digest_algorithm_unsupported` with `require_error` needs
+  an error and no presentation.
+- **Implemented; Capture evidence pending:** `WS_RP_SM_TrustMechanisms__002`,
+  `003`, `004`, `008`, and `021`. The issuer chain needs no control: the Capture
+  issuer certificate's AuthorityKeyIdentifier is
+  `QlBQvhC4EPCdRFyNv6sQCO4n3Ek` (PID Issuer CA 02, probed 08/10/2026), which
+  also covers the onboarding PID. The trust-mechanisms query carries it for
+  002, 003 and 021 (`trusted_authorities_match`). A second session with an
+  `aki` no certificate carries serves 004 and 008 (`trusted_authorities_no_match`,
+  `fcaf-expect-no-matching-document`).
 - **Implemented; Capture evidence pending:** `WS_RP_IA_MainInteraction__032`,
   `040`, `041`, `WS_RP_MS_CredentialFormats__033`, `044`, and
   `WS_RP_SH_Encoding_TextualEncoding_002`, `003`. Each case now issues the
@@ -198,11 +231,6 @@ delivered request carried the property; no Wallet has run them yet.
 
 Constructible from existing controls:
 
-- [ ] `WS_RP_SM_RpIntegrity__024` (a normal `decentralized_identifier` session is
-  a signed request without the `x509_hash` prefix; the source accepts an error
-  or a discontinuation. Production signs it with the DID key, `kid
-  did:web:capture-wallet.credimi.io:openid4vp#credimi-fake-verifier-did-key`
-  and no `x5c`)
 - [ ] `WS_RP_MS_Metadata__119` (`request_mutation` sets `client_id` to
   `verifier_attestation:capture-wallet.credimi.io` on the default session; the
   delivered header has no `jwt`, which is the defect. No attestation session is
@@ -210,16 +238,6 @@ Constructible from existing controls:
 - [ ] `WS_RP_MS_Metadata__113` (`request_mutation` sets an `openid_federation:`
   `client_id` and a malformed `trust_chain` JOSE header; the source expects
   rejection)
-- [ ] `WS_RP_IA_Metadata__012` (the default Request Object already carries
-  `aud: https://self-issued.me/v2`) and `013` (`request_mutation` on `/aud`)
-- [ ] `WS_RP_SM_RpIntegrity__033`, `034` and
-  `WS_RP_SM_RpIntegrity_CryptographicSignature_003`, `004` (the default
-  Request Object is `ES256`, ECDSA P-256 with SHA-256. For `-9` too the
-  sources' expected results name the JOSE identifier `ES256`; upstream
-  `FCAF_CAPABILITY_MATRIX.csv` rates all four category A since `9091cc2`. The
-  fully specified JOSE name `ESP256` is not deliverable: production refuses
-  `alg: ESP256` with `not supported either by JOSE or your javascript
-  runtime`)
 - [ ] `WS_RP_MS_ProtocolMessages__040` (plain request, `client_id`
   `redirect_uri:<URI>` with `response_mode=fragment` and `response_uri`
   removed through `outer_request` mutation. `<URI>` is a second session's
@@ -248,22 +266,15 @@ or behaviour shows it has it.
   applies only when `wallet_metadata` publishes `jwks`, which wallet 2026.09.42
   does not. For a Wallet that does, see the Request Object encryption entry
   below)
-- [ ] `WS_RP_SH_Cryptography_CryptographicHash_008` (Wallet supporting SHA-256
-  only; a presented SHA-384 credential, as in `CryptographicHash_010`, shows
-  otherwise)
-- [ ] `WS_RP_IA_Metadata__011` (dynamic discovery; applies only when
-  `wallet_metadata` carries `issuer`, which wallet 2026.09.42 omits)
 
 Published in the Capture contract at `3d40a8d`, not yet deployed: on
-30/09/2026 production and beta both answered `request_delivery: "multisigned"`
-with `unsupported_request_delivery`, refused `request_behavior:
+30/09/2026 production and beta both refused `request_behavior:
 {"request_object_encryption": "none"}` as `invalid_request_behavior`, and served
 a plain JWS to a POST retrieval whose `wallet_metadata` carried `jwks`. Re-probe
-after deployment.
+after deployment. (`request_delivery: "multisigned"`, refused on the same date,
+is deployed on production since 08/10/2026; `WS_RP_SM_RpIntegrity__030` uses
+it.)
 
-- [ ] `WS_RP_SM_RpIntegrity__030` (DC API `multisigned` delivery: a JWS JSON
-  Serialization whose two signatures carry the `x509_hash` and
-  `decentralized_identifier` Client Identifiers; upstream category A)
 - [ ] `WS_RP_MS_Metadata__134` for a Wallet publishing `jwks` (POST retrieval
   returns a Nested JWT, `alg: ECDH-ES`, `cty: JWT`, kept in
   `raw.authorization_request_jwe`; `raw.authorization_request_jwt` stays the
@@ -364,7 +375,10 @@ The contract publishes `client_id_scheme: "verifier_attestation"`, the
 constructible from the contract. Beta refuses the session with `500
 internal_error`, `there are no SAN-DNS names`, on 25/09/2026 and again on
 28/09/2026, and production `capture-wallet.credimi.io` answers the same on
-30/09/2026. Re-check after Capture publishes a SAN-matching certificate.
+30/09/2026 and again on 08/10/2026. Re-check after Capture publishes a
+SAN-matching certificate. Until then 008–012 report `blocked` through
+`fcaf.blocked`, as do `WS_RP_SM_RpIntegrity__001`, `025`, `032` and
+`CryptographicSignature_002` below.
 
 - [ ] `WS_RP_SM_RpIntegrity__008` (default verifier attestation, `cnf` holding
   the signing key)
@@ -447,11 +461,13 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
   definitions; WRPAC certificate fixtures; upstream 5.6)
 - [ ] `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__112`, `114`, `115`
   (OpenID Federation entity statements, trust chain, and authority; upstream
-  5.7)
-- [ ] `WS_RP_SM_TrustMechanisms__002`–`013`, `015`, `021`,
-  `WS_RP_MS_ProtocolMessages__095`, and `WS_RP_IA_MainInteraction__065`
-  (issuer chains with controlled Authority Key Identifiers and ETSI trusted-list
-  fixtures; upstream 5.8)
+  5.7). 014 reports `blocked` through `fcaf.blocked` until these exist
+- [ ] `WS_RP_SM_TrustMechanisms__005`–`007` (an issuer chain of depth 3 or
+  more with a controlled Authority Key Identifier in the leaf, a sub-CA or the
+  CA; Capture's chain is the issuer leaf plus PID Issuer CA 02), `009`–`013`,
+  `015` (a mock ETSI Trusted List), `WS_RP_MS_ProtocolMessages__095`, and
+  `WS_RP_IA_MainInteraction__065` (upstream 5.8). The TrustMechanisms tests
+  report `blocked` through `fcaf.blocked`
 - [ ] `WS_RP_MS_ProtocolMessages__145`, `146` (Wallet-local or trusted-registry
   verifier metadata and the required `invalid_client` conflict)
 
@@ -480,5 +496,5 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
   (a scope the Wallet resolves to a DCQL query; the service defines no scope
   values)
 - [ ] `WS_RP_MS_ProtocolMessages__018`, `135`, `154`–`159` (a transaction-data
-  type the reference Wallet supports; `017` and
-  `WS_RP_SH_Cryptography_CryptographicHash_008` were reclassified above)
+  type the reference Wallet supports; `017` was reclassified above and
+  `WS_RP_SH_Cryptography_CryptographicHash_008` is implemented)

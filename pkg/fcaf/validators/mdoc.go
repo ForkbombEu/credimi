@@ -19,8 +19,10 @@ import (
 
 const pidMDocType = "eu.europa.ec.eudi.pid.1"
 
+// ARF Annex 2 PID_06 appends an ISO 3166-1 alpha-2 or ISO 3166-2 code to the PID namespace;
+// its own example is lowercase ("eu.europa.ec.eudi.pid.de.1"), so the code is case-insensitive.
 var mdocDomesticNamespacePattern = regexp.MustCompile(
-	`^eu\.europa\.ec\.eudi\.pid\.([A-Z]{2})(?:-([A-Z0-9]{1,3}))?(?:\.[0-9]+)?$`,
+	`^eu\.europa\.ec\.eudi\.pid\.([A-Za-z]{2})(?:-([A-Za-z0-9]{1,3}))?(?:\.[0-9]+)?$`,
 )
 
 type PIDMDocTypeValidator struct{}
@@ -697,7 +699,7 @@ func (MDocDomesticNamespaceValidator) Validate(_ context.Context, input Input) R
 		if parts == nil {
 			continue
 		}
-		if !isPIDCountryCode(parts[1]) {
+		if !isPIDCountryCode(strings.ToUpper(parts[1])) {
 			return Result{
 				Status: StatusFail,
 				Message: fmt.Sprintf(

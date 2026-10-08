@@ -186,6 +186,44 @@ source test requires the Wallet to reject the request with `invalid_request`.
 - The delivered-request and visual-evidence assertions pass; the reference
   wallet fails the protocol assertion.
 
+## RI-WALLET-004: Authorization Response encrypted with A128CBC-HS256 instead of GCM
+
+### Summary
+
+The reference Android wallet encrypts the `direct_post.jwt` Authorization
+Response with `enc: A128CBC-HS256` when the verifier also offers `A128GCM` and
+`A256GCM`.
+
+### Reproduction
+
+Run `scenarios/fcaf-wallet-solution-relying-party-dcql-session-encryption.yaml`
+against `https://capture-wallet.credimi.io`. On 08/10/2026 its Request Object
+carried the generated `client_metadata.encrypted_response_enc_values_supported`
+`[A128GCM, A256GCM, A128CBC-HS256]` with one `ECDH-ES` P-256 key.
+
+### Observed
+
+Pipeline run reported on 08/10/2026: the captured compact JWE in
+`observed.wallet_response.value.response` has protected header
+`enc: A128CBC-HS256`.
+
+### Expected
+
+The source test requires `enc` to be `A256GCM` or `A128GCM`. HAIP 1.0 Section 5
+requires Wallets to support `A128GCM` or `A256GCM` and says a Wallet supporting
+both SHOULD use `A256GCM`. OpenID4VP allows any advertised value, so the choice
+is not a protocol error, but it is not the algorithm the source expects.
+
+### FCAF Impact
+
+- Test: `WS_RP_SM_SessionEncryption__001b` fails on
+  `content_encryption_is_a256gcm_or_a128gcm`. The assertion is correct and the
+  verifier list is left as Capture generates it, so the result reflects the
+  wallet's own choice.
+- `WS_RP_SM_SessionEncryption__007`–`009` advertise a single GCM value or only
+  the two GCM values in dedicated scenarios, so they test whether the wallet
+  honours a narrowed list, not this default choice.
+
 ## MOCK-VERIFIER-002: Beta signs decentralized_identifier requests with the X.509 key
 
 On 28/09/2026 a beta session with `client_id_scheme: decentralized_identifier`

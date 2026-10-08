@@ -15,17 +15,26 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.interaction-metadata
 evidence:
-  dcql_exchange:
+  session:
     from: pipeline.dcql.interaction-metadata.outputs.dcql_exchange
+  request_object:
+    from: pipeline.dcql.interaction-metadata.outputs.request_object
   visual_evidence:
     from: pipeline.dcql.interaction-metadata.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_metadata__012_metadata_valid
-  validator: json.field_required
-  input: evidence.dcql_exchange
+- id: request_object_aud_is_self_issued
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
   params:
-    field: vp_token
-- id: ws_rp_ia_metadata__012_visual_evidence
+    field: aud
+    value: https://self-issued.me/v2
+- id: static_discovery_wallet_presents
+  validator: oid4vp.request_audience
+  input: evidence.session
+  params:
+    discovery: static
+    outcome: accepted
+- id: presentation_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

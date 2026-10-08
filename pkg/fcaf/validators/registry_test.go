@@ -35,6 +35,17 @@ func TestEvidencePresentValidator(t *testing.T) {
 	require.Equal(t, StatusPass, got.Status)
 }
 
+func TestFCAFBlockedValidator(t *testing.T) {
+	got := FCAFBlockedValidator{}.Validate(context.Background(), Input{
+		Params: map[string]any{"reason": "no OpenID Federation entity"},
+	})
+	require.Equal(t, StatusBlocked, got.Status)
+	require.Equal(t, "no OpenID Federation entity", got.Message)
+
+	got = FCAFBlockedValidator{}.Validate(context.Background(), Input{})
+	require.Equal(t, StatusError, got.Status)
+}
+
 func TestJSONFieldStringPrefixValidator(t *testing.T) {
 	v := JSONFieldStringPrefixValidator{}
 	input := Input{

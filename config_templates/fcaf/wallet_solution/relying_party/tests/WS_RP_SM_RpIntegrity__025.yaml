@@ -15,18 +15,16 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.rp-integrity
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+  session:
+    from: pipeline.dcql.rp-integrity.outputs.session
 assertions:
-- id: ws_rp_sm_rpintegrity__025_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+- id: trust_anchor_in_x5c_is_unavailable
+  validator: fcaf.blocked
+  input: evidence.session
   params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__025_visual_evidence
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      needs the Wallet's trust anchor certificate inside the x5c header; Capture
+      has no control that serves it, and hard-coding the anchor in the scenario
+      would break when the anchor changes
 verdict:
   pass_when: all_assertions_pass

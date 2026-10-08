@@ -2985,3 +2985,157 @@ steps (189 `fcaf-reset-and-onboard` runs including the first step), 166
 happy-flow steps and 7 demo steps.
 `launchApp clearState: true` costs about 0.7 s more than `false` on
 `emulator-5554`.
+## Domestic PID: Credentialmetadata_Domestic SD-JWT VC and mdoc 001, 002
+
+08/10/2026. Capture `575d071` added a domestic PID on both issuers:
+`urn:eudi:pid:xx:1.sd-jwt.*` (`vct: urn:eudi:pid:xx:1`, top-level
+`credimi_domestic_claim`) and `urn:eudi:pid:xx:1.mdoc.*` (PID doctype plus
+namespace `eu.europa.ec.eudi.pid.xx.1`). The four tests had bound the generic
+all-claims PID presentations, which carry no domestic data.
+
+- New scenario `pid-domestic` issues both `key-attestation-required`
+  configurations and presents each with the source-mandated claims plus the
+  domestic claim. It owns the four tests and is in the happy flow; the
+  engagement-haip-vp and pid-mdoc-data-model scenarios no longer list them.
+- `mdoc.domestic_namespace` now accepts the country or subdivision code in
+  any case. ARF Annex 2 PID_06's own example is `eu.europa.ec.eudi.pid.de.1`;
+  the earlier uppercase-only rule rejected it and Capture's `xx`.
+- `sdjwt.domestic_namespace` now checks the PID Rulebook §4.2 model: `vct` is
+  a domestic type `urn:eudi:pid:<cc>[-<sub>]:<n>` with an accepted code. The
+  former check for a claim named like an mdoc namespace matched neither the
+  Rulebook nor Capture. The 001 tests add `sdjwt.claim_present` /
+  `mdoc.namespace_element_present` for `credimi_domestic_claim`, and all four
+  require visual evidence.
+
+Verified on synthetic Capture-shaped evidence through the engine: an SD-JWT
+VC and a CBOR DeviceResponse built to the documented shapes pass all four.
+Not yet run on the reference Wallet. Residual risk: the Wallet must accept a
+`vct` with no published Type Metadata, and must pick the domestic mdoc over
+the plain PID mdoc, which shares its doctype; the DCQL query asks for the
+domestic element, so only the domestic mdoc satisfies it.
+
+`make fcaf-generate` produces 1723 aggregate steps (each wallet scenario now
+starts with a reset step), 615 test IDs and 219 pipeline outputs; the happy
+flow has 179 steps, 303 test IDs and 36 outputs.
+
+## Request aud: IA Metadata 011, 012, 013; 014 blocked
+
+08/10/2026. All four were placeholders asserting a top-level `vp_token` on the
+whole session record, so they failed with `required field "vp_token" is
+missing`; a binding fix alone would have passed 011 and 013, which require
+rejection.
+
+- The interaction-metadata default session serves `aud:
+  https://self-issued.me/v2` (012). A second session sets `/aud` to
+  `https://capture-wallet.credimi.io/fcaf-not-the-wallet-audience` through
+  `request_mutation` and runs `fcaf-expect-request-rejected` (011, 013).
+- New `oid4vp.request_audience` reads the discovery mode from the POSTed
+  `wallet_metadata`: `issuer` present means dynamic (aud must equal it),
+  otherwise static (aud must be the self-issued identifier). A test for the
+  other mode is `not_applicable`; an aud that does not set up the case is
+  `inconclusive`. 013 requires `invalid_request`; 011 accepts any error, as
+  its source says "e.g. invalid_request".
+- New `fcaf.blocked` returns `blocked` with a stated reason; 014 uses it
+  because Capture has no OpenID Federation entity.
+
+Probed on production: both sessions accepted POST retrieval, the served JWS
+carried the mutated aud with a valid signature, and a posted `invalid_request`
+error was recorded. With those sessions the engine gives 011
+`not_applicable`, 012 pass (synthetic presentation added), 013 pass and 014
+`blocked`. Reference Wallet run pending.
+
+`make fcaf-generate` produces 1728 aggregate steps; the happy flow has 184.
+The generator issues a PID before the rejection step as well, so the aud
+mismatch session adds five steps: its own three plus the PID issuance.
+
+## RpIntegrity placeholders: six implemented, nine blocked
+
+08/10/2026. Fifteen RpIntegrity tests ran `jwt.payload_field_presence` with no
+`present` param on the whole session record, so they all errored with
+`present param is required`. That assertion had nothing to do with the sources.
+
+- 033, 034, `CryptographicSignature_003`, `004`: the rp-integrity default
+  session; signature, `alg: ES256`, POST retrieval, and a presentation in
+  `raw.presentation_response_decrypted`. The `-9` sources name JOSE `ES256` in
+  their expected results, and production refuses `ESP256`.
+- 024: a `decentralized_identifier` session (DID key, no `x5c`) checked with
+  `oid4vp.did_signed_request` against `/openid4vp/did.json`, then
+  `request_rejected`, since the source accepts an error or a discontinuation.
+- 030: new `dc-api-multisigned` scenario; production deployed `multisigned`
+  delivery since the 30/09 probe. Asserts the protocol, two signatures, and a
+  presentation. `vp_token_present` of `oid4vp.dc_api_invocation` describes a
+  reported failure outcome, so a successful invocation omits it.
+- 001, 002, 008–012, 025, 032: `fcaf.blocked` with the missing prerequisite
+  from `ASSERTION_REVIEW_BACKLOG.md`; verifier attestation was re-probed and
+  still answers 500.
+
+Verified through the engine on production sessions (presentations synthetic):
+the six pass and the nine report `blocked`. Reference Wallet run pending.
+
+`make fcaf-generate` produces 1740 aggregate steps and 220 pipeline outputs;
+the happy flow has 190 steps and 302 test IDs, since 030 moved to a DC API
+scenario, which the happy flow excludes.
+
+## CryptographicHash 008, SHA-256-only Wallet error
+
+08/10/2026. The last test running `jwt.payload_field_presence` without
+`present`: it asserted a nonexistent `hash` field of the session record.
+
+- It now reuses the `CryptographicHash_010` exchange in the
+  credential-digest-algorithm scenario, which also exposes that session's
+  request object. Assertions: the SHA-384 issuance reached the Wallet, the
+  verifier client metadata names no hash algorithm besides SHA-256, and
+  `sdjwt.presentation_digest_algorithm_unsupported` with the new
+  `require_error` param. It reports `not_applicable` when the SHA-384 credential
+  is presented, and otherwise requires an error and no `vp_token`.
+  Without the param, 010 behaves as before.
+- Capture records decoded presentations both at the top level and under
+  `raw` (`captureVpResponse` sets both), so the validator's top-level read is
+  correct.
+
+Verified through the engine on a production session that was retrieved by
+POST and answered with a posted `invalid_request`: pass. With a synthetic
+SHA-384 presentation it is `not_applicable`; with no response it fails.
+Wallet 2026.09.42 presented the SHA-384 PID for 010, so 008 is expected to be
+`not_applicable` there.
+
+The happy flow drops to 301 test IDs; the credential-digest-algorithm scenario
+is not in it.
+
+## TrustMechanisms: five aki tests implemented, nine blocked
+
+08/10/2026. All 14 asserted `trusted_authorities_match` on a session whose
+query had no `trusted_authorities`, so they failed with `credentials[0] does
+not contain trusted_authorities`.
+
+- The backlog had filed all of them as needing controlled issuer chains, but
+  002, 003, 004, 008 and 021 need no control. The Capture issuer leaf
+  (`Credimi Test Issuer`) has AuthorityKeyIdentifier
+  `QlBQvhC4EPCdRFyNv6sQCO4n3Ek`, the key of PID Issuer CA 02, which also
+  issues the onboarding PID. The trust-mechanisms query now carries that `aki`.
+  002, 003 and 021 keep `trusted_authorities_match`, which checks the AKI of
+  each returned SD-JWT's `x5c` leaf. A second session with `aki`
+  `AAAAAAAAAAAAAAAAAAAAAAAAAAA` and `fcaf-expect-no-matching-document` serves
+  004 and 008 (`trusted_authorities_no_match`).
+- 005–007 need a chain of depth 3 or more; the Capture chain has two
+  certificates. 009–013 and 015 need a mock ETSI Trusted List. All use
+  `fcaf.blocked`.
+
+Verified through the engine: production sessions delivered both `aki` queries
+unchanged. A presentation carrying the real Capture issuer certificate passes
+002, 003 and 021, an empty no-match session passes 004 and 008, and the other
+nine report `blocked`. Reference Wallet run pending.
+
+`make fcaf-generate` produces 1745 aggregate steps; the happy flow has 195. The
+no-match session adds its three steps and a PID issuance.
+
+## SessionEncryption 001b: reference wallet chooses A128CBC-HS256
+
+08/10/2026. 001b failed with `enc` `A128CBC-HS256`, expected `A256GCM` or
+`A128GCM`. The harness is correct: Capture advertises `[A128GCM, A256GCM,
+A128CBC-HS256]` (probed on production), and the wallet picked the CBC value. The
+source requires GCM, and HAIP 1.0 Section 5 says a Wallet supporting both GCM
+lengths SHOULD use `A256GCM`. Narrowing the advertised list was considered and
+rejected: it would test obedience to a HAIP verifier's list, which 007–009
+already cover, rather than the wallet's default choice. Recorded as
+`RI-WALLET-004`; no harness change.

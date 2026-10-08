@@ -15,17 +15,28 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.interaction-metadata
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.interaction-metadata.outputs.dcql_exchange
+  session:
+    from: pipeline.dcql.interaction-metadata.outputs.aud_mismatch_session
+  request_object:
+    from: pipeline.dcql.interaction-metadata.outputs.aud_mismatch_request_object
   visual_evidence:
-    from: pipeline.dcql.interaction-metadata.outputs.visual_evidence
+    from: pipeline.dcql.interaction-metadata.outputs.aud_mismatch_visual_evidence
 assertions:
-- id: ws_rp_ia_metadata__011_metadata_valid
-  validator: json.field_required
-  input: evidence.dcql_exchange
+- id: request_object_is_signed
+  validator: jose.jws_signed_request
+  input: evidence.request_object
+- id: wallet_retrieves_request_object_with_post
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
   params:
-    field: vp_token
-- id: ws_rp_ia_metadata__011_visual_evidence
+    method: POST
+- id: dynamic_discovery_wallet_rejects_aud_other_than_issuer
+  validator: oid4vp.request_audience
+  input: evidence.session
+  params:
+    discovery: dynamic
+    outcome: rejected
+- id: rejection_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

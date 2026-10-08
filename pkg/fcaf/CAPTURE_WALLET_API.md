@@ -11,11 +11,11 @@ additional deployment facts required to decide whether an FCAF test is
 implementable. The upstream API and the applicable OpenID specifications remain
 the wire-contract authorities.
 Synced from the upstream [Capture Wallet API reference](https://github.com/ForkbombEu/credimi-capture-wallet/blob/master/CAPTURE_WALLET_API.md)
-at `3d40a8d` on 30/09/2026.
+at `575d071` on 08/10/2026.
 
 ## Published service contract
 
-The Capture Wallet service is a stateful [OpenID4VCI 1.0](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html) credential issuer and [OpenID4VP 1.0](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html) verifier. It issues deterministic PID, degree, and numeric test credentials and captures wallet protocol evidence per session.
+The Capture Wallet service is a stateful [OpenID4VCI 1.0](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html) credential issuer and [OpenID4VP 1.0](https://openid.net/specs/openid-4-verifiable-presentations-1_0.html) verifier. It issues deterministic PID, domestic PID, degree, and numeric test credentials and captures wallet protocol evidence per session.
 
 This is a companion to the machine-readable [OpenAPI document](/openapi.json). The OpenAPI document and the applicable OpenID specifications are authoritative for wire-level details. Use the issuer metadata rather than hard-coding credential configuration IDs, endpoints, or keys.
 
@@ -124,6 +124,8 @@ The token endpoint accepts either:
 - `grant_type=authorization_code`, `code`, `code_verifier`, and `redirect_uri`, with optional `client_id`.
 
 The credential request normally uses `application/json` with `credential_configuration_id` and one `proofs.jwt` or `proofs.attestation` entry. For encrypted credential requests, send an `application/jwt` compact JWE; the encrypted response is also a compact JWE. The selected issuer's metadata determines supported proof and encryption capabilities.
+
+Credo enforces the wallet's PKCE: a PAR request without `code_challenge` gets `400 invalid_request`, and a token request whose `code_verifier` does not match gets `400 invalid_grant`. A Credential Request without a valid DPoP-bound access token gets `401`. Time claims of Wallet Attestations, Client Attestation PoPs, and DPoP proofs are checked with a 60-second clock skew.
 
 ## OpenID4VP presentation capture
 
@@ -483,6 +485,37 @@ source test permits it.
   `raw.presentation_response_decrypted.vp_token`, and its decoded form at
   `raw.decoded_presentations`. Scenarios with an encrypted response mode bind
   presentation evidence to `raw.presentation_response_decrypted.vp_token`.
+- On 08/10/2026, a production `request_delivery: by_value` session returned
+  no `request` member at `201`, and its session record had no
+  `raw.authorization_request_jwt`, since no Request URI is retrieved. The
+  signed Request Object the Wallet receives is the deeplink `request`
+  parameter, recorded at `raw.outer_request_delivered.request`. Scenarios
+  bind by-value request evidence there, and the Authorization Response
+  parameters of an encrypted response to `raw.presentation_response_decrypted`.
+- Resynced from upstream master on 08/10/2026 (`575d071`). Since `3d40a8d`
+  the contract adds the domestic PID test credential and documents Credo's
+  PKCE, DPoP access-token, and 60-second clock-skew enforcement. Upstream
+  `README.md` describes the domestic PID: it carries every PID claim of the
+  selected fixture plus `credimi_domestic_claim: "credimi-domestic-value"`.
+  The SD-JWT VC has `vct: urn:eudi:pid:xx:1` and discloses the claim at the
+  top level; the mdoc keeps doctype `eu.europa.ec.eudi.pid.1` and its
+  namespace and adds the claim in namespace `eu.europa.ec.eudi.pid.xx.1`.
+  `xx` is an ISO 3166-1 user-assigned code, and no SD-JWT VC Type Metadata is
+  published for `urn:eudi:pid:xx:1`.
+- On 08/10/2026, production `GET /issuers` advertised
+  `urn:eudi:pid:xx:1.sd-jwt.*` and `urn:eudi:pid:xx:1.mdoc.*` on both
+  issuers (`key-attestation-required` on `eu-pid-device-bound`, `jwt-proof`
+  on `eu-pid-jwt-proof-only`). Issuer metadata listed `credimi_domestic_claim`
+  among the SD-JWT VC claims, and `POST /sessions` created `201`
+  pre-authorized sessions for both `key-attestation-required`
+  configurations.
+- On 08/10/2026, production created a `dc_api.jwt` session with
+  `request_delivery: "multisigned"` (`openid4vp-v1-multisigned`). Its
+  `dc_api.request.data.request` is a JWS JSON Serialization whose payload omits
+  `client_id`, with two `ES256` signatures: one with `x5c` and an `x509_hash`
+  Client Identifier, one with the DID `kid` and a `decentralized_identifier`
+  Client Identifier. `client_id_scheme: "verifier_attestation"` still returned
+  `500 internal_error` (`there are no SAN-DNS names`).
 
 - Resynced from upstream master on 25/09/2026 (`5b03750`). Since the 22/09/2026
   sync (`6b94fa4`) the contract adds the SD-JWT VC `digest_algorithm` issuance

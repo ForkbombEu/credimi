@@ -50,6 +50,50 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     expected_status: 200
+- id: create-aud-mismatch-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: interaction-metadata-aud-mismatch
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object:
+          set:
+            /aud: https://capture-wallet.credimi.io/fcaf-not-the-wallet-audience
+        verification_applies: false
+- id: reject-aud-mismatch
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-aud-mismatch-session.outputs.body.deeplink }}
+- id: fetch-aud-mismatch-session
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-aud-mismatch-session.outputs.body.session_id }}
+    expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
@@ -65,3 +109,7 @@ steps:
         output:
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
+          aud_mismatch_session: ${{ fetch-aud-mismatch-session.outputs.body }}
+          aud_mismatch_request_object: ${{ fetch-aud-mismatch-session.outputs.body.raw.authorization_request_jwt }}
+          aud_mismatch_visual_evidence: ${{ reject-aud-mismatch.outputs.flow_output.maestro_screenshot_urls }}

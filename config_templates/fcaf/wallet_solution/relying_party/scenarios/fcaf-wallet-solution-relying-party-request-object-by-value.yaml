@@ -57,10 +57,10 @@ steps:
                     create-presentation: ${{ create-presentation.outputs }}
                     dcql_exchange: ${{ get-presentation-result.outputs.body }}
                     get-presentation-result: ${{ get-presentation-result.outputs }}
-                    request_object: ${{ create-presentation.outputs.body.request }}
+                    request_object: ${{ get-presentation-result.outputs.body.raw.outer_request_delivered.request }}
                     submit-request-object-by-value: ${{ submit-request-object-by-value.outputs }}
                     visual_evidence: ${{ submit-request-object-by-value.outputs.flow_output.maestro_screenshot_urls }}
-                    wallet_response: ${{ get-presentation-result.outputs.body }}
+                    wallet_response: ${{ get-presentation-result.outputs.body.raw.presentation_response_decrypted }}
         suite: wallet_solution/relying_party
         test_ids:
             - WS_RP_MS_Metadata__104

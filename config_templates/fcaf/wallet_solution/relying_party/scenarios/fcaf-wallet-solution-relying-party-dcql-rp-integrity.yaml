@@ -50,6 +50,52 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     expected_status: 200
+- id: create-did-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      client_id_scheme: decentralized_identifier
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: rp-integrity-did
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+- id: reject-did-session
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-did-session.outputs.body.deeplink }}
+- id: fetch-did-session
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-did-session.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-did-document
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/did.json
+    expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
@@ -66,7 +112,6 @@ steps:
       - WS_RP_SM_RpIntegrity__024
       - WS_RP_SM_RpIntegrity__025
       - WS_RP_SM_RpIntegrity__027
-      - WS_RP_SM_RpIntegrity__030
       - WS_RP_SM_RpIntegrity__032
       - WS_RP_SM_RpIntegrity__033
       - WS_RP_SM_RpIntegrity__034
@@ -74,5 +119,12 @@ steps:
     pipeline_outputs:
       pipeline.dcql.rp-integrity:
         output:
-          dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+          session: ${{ fetch-capture-session.outputs.body }}
+          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
+          wallet_response: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+          did_session: ${{ fetch-did-session.outputs.body }}
+          did_request_evidence:
+            request_object: ${{ fetch-did-session.outputs.body.raw.authorization_request_jwt }}
+            did_document: ${{ fetch-did-document.outputs.body }}
+          did_visual_evidence: ${{ reject-did-session.outputs.flow_output.maestro_screenshot_urls }}
