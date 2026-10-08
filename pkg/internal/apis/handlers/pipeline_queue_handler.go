@@ -322,7 +322,7 @@ func enqueuePipelineRun(
 	ticketID := uuid.NewString()
 
 	rollbackEnqueuedTickets := func(deviceIDs []string) {
-		rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		for _, deviceID := range deviceIDs {

@@ -154,6 +154,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
 
 		scheduleInfo, err := startScheduledPipelineWithOptions(
+			e.Request.Context(),
 			req.PipelineID,
 			rec.GetString("name"),
 			namespace,
@@ -255,7 +256,7 @@ func HandleListMySchedules() func(*core.RequestEvent) error {
 			)
 		}
 
-		schedules, err := listScheduledWorkflows(namespace)
+		schedules, err := listScheduledWorkflows(e.Request.Context(), namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -271,7 +272,10 @@ func HandleListMySchedules() func(*core.RequestEvent) error {
 	}
 }
 
-func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
+func listScheduledWorkflows(
+	ctx context.Context,
+	namespace string,
+) ([]*ScheduleInfoSummary, error) {
 	c, err := scheduleTemporalClient(namespace)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -280,8 +284,6 @@ func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
 			err,
 		)
 	}
-
-	ctx := context.Background()
 
 	iter, err := c.ScheduleClient().List(ctx, client.ScheduleListOptions{
 		PageSize: 100,
@@ -456,7 +458,7 @@ func handleSchedule(
 			)
 		}
 
-		ctx := context.Background()
+		ctx := e.Request.Context()
 		handle := c.ScheduleClient().GetHandle(ctx, scheduleID)
 
 		if err := action(ctx, handle); err != nil {
@@ -497,6 +499,7 @@ type SchedulePipelineStartInfo struct {
 }
 
 func startScheduledPipelineWithOptions(
+	ctx context.Context,
 	pipelineID string,
 	pipelineName string,
 	namespace string,
@@ -515,7 +518,6 @@ func startScheduledPipelineWithOptions(
 		)
 	}
 
-	ctx := context.Background()
 	canonifyName := canonify.CanonifyPlain(pipelineName)
 	scheduleID := fmt.Sprintf("Schedule_ID-%s-%s", canonifyName, uuid.NewString())
 	workflowID := fmt.Sprintf("Scheduled-%s-%s", canonifyName, uuid.NewString())

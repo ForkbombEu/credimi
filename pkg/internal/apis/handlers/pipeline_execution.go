@@ -152,7 +152,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 			)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), PipelineExecuteTimeout)
+		ctx, cancel := context.WithTimeout(e.Request.Context(), PipelineExecuteTimeout)
 		defer cancel()
 
 		we, err := temporalClient.ExecuteWorkflow(

@@ -359,6 +359,7 @@ func TestStartScheduledPipelineUsesScheduledEnqueueWorkflow(t *testing.T) {
 		"user_mail": "ada@example.test",
 	}
 	_, err := startScheduledPipelineWithOptions(
+		context.Background(),
 		"pipeline-slug",
 		"Pipeline Name",
 		"acme",
@@ -426,7 +427,7 @@ func TestListScheduledWorkflowsHappyPath(t *testing.T) {
 		return mockClient, nil
 	}
 
-	schedules, err := listScheduledWorkflows("acme")
+	schedules, err := listScheduledWorkflows(context.Background(), "acme")
 	require.NoError(t, err)
 	require.Len(t, schedules, 1)
 	require.Equal(t, "schedule-1", schedules[0].ID)

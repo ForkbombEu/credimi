@@ -671,7 +671,7 @@ func HandleListPipelineExecutionOverview() func(*core.RequestEvent) error {
 		}
 
 		executions, err := listPipelineWorkflowExecutions(
-			context.Background(),
+			e.Request.Context(),
 			temporalClient,
 			namespace,
 			nil,

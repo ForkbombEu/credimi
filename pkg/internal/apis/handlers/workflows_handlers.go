@@ -200,7 +200,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 
 		query := buildWorkflowStatusQuery(statusFilters)
 
-		list, err := listWorkflows(context.Background(), c, namespace, query)
+		list, err := listWorkflows(e.Request.Context(), c, namespace, query)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -383,13 +383,31 @@ func listWorkflowsTemporal(
 	namespace string,
 	query string,
 ) (*workflowservice.ListWorkflowExecutionsResponse, error) {
-	return c.ListWorkflow(
-		ctx,
-		&workflowservice.ListWorkflowExecutionsRequest{
-			Namespace: namespace,
-			Query:     query,
-		},
-	)
+	out := &workflowservice.ListWorkflowExecutionsResponse{}
+	var pageToken []byte
+	for {
+		resp, err := c.ListWorkflow(
+			ctx,
+			&workflowservice.ListWorkflowExecutionsRequest{
+				Namespace:     namespace,
+				PageSize:      1000,
+				NextPageToken: pageToken,
+				Query:         query,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			break
+		}
+		out.Executions = append(out.Executions, resp.GetExecutions()...)
+		if len(resp.GetNextPageToken()) == 0 {
+			break
+		}
+		pageToken = resp.GetNextPageToken()
+	}
+	return out, nil
 }
 
 func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
@@ -442,7 +460,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 			)
 		}
 		workflowExecution, err := c.DescribeWorkflowExecution(
-			context.Background(),
+			e.Request.Context(),
 			workflowID,
 			runID,
 		)
@@ -494,7 +512,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 		if info := workflowExecution.GetWorkflowExecutionInfo(); info != nil &&
 			info.GetStatus() == enums.WORKFLOW_EXECUTION_STATUS_FAILED {
 			if failure := fetchWorkflowFailure(
-				context.Background(),
+				e.Request.Context(),
 				c,
 				workflowID,
 				runID,
@@ -558,7 +576,7 @@ func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 		}
 
 		historyIterator := c.GetWorkflowHistory(
-			context.Background(),
+			e.Request.Context(),
 			workflowID,
 			runID,
 			false,
@@ -657,10 +675,10 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 		}
 
 		list, err := c.ListWorkflow(
-			context.Background(),
+			e.Request.Context(),
 			&workflowservice.ListWorkflowExecutionsRequest{
 				Namespace: namespace,
-				Query:     fmt.Sprintf("WorkflowId = '%s'", workflowID),
+				Query:     fmt.Sprintf("WorkflowId = \"%s\"", escapeTemporalQueryValue(workflowID)),
 			},
 		)
 		if err != nil {
@@ -752,7 +770,7 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 		}
 
 		workflowExecution, err := c.DescribeWorkflowExecution(
-			context.Background(),
+			e.Request.Context(),
 			workflowID,
 			runID,
 		)
@@ -786,7 +804,7 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 				AsDuration(),
 		}
 
-		workflowInput, err := workflowRunInputGetter(workflowID, runID, c)
+		workflowInput, err := workflowRunInputGetter(e.Request.Context(), workflowID, runID, c)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -874,7 +892,7 @@ func HandleCancelMyWorkflowRun() func(*core.RequestEvent) error {
 			)
 		}
 
-		err = c.CancelWorkflow(context.Background(), workflowID, runID)
+		err = c.CancelWorkflow(e.Request.Context(), workflowID, runID)
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
@@ -947,7 +965,7 @@ func HandleExportMyWorkflowRun() func(*core.RequestEvent) error {
 			)
 		}
 
-		workflowInput, err := workflowRunInputGetter(workflowID, runID, c)
+		workflowInput, err := workflowRunInputGetter(e.Request.Context(), workflowID, runID, c)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -976,13 +994,14 @@ func HandleExportMyWorkflowRun() func(*core.RequestEvent) error {
 }
 
 func getWorkflowInput(
+	ctx context.Context,
 	workflowID string,
 	runID string,
 	c client.Client,
 ) (workflowengine.WorkflowInput, error) {
 	var workflowInput workflowengine.WorkflowInput
 	historyIterator := c.GetWorkflowHistory(
-		context.Background(),
+		ctx,
 		workflowID,
 		runID,
 		false,
@@ -1062,7 +1081,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 			)
 		}
 
-		_, err = c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
+		_, err = c.DescribeWorkflowExecution(e.Request.Context(), workflowID, runID)
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
@@ -1086,7 +1105,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 		switch action {
 		case "start":
 			err = c.SignalWorkflow(
-				context.Background(),
+				e.Request.Context(),
 				workflowID,
 				runID,
 				"start-logs",
@@ -1101,7 +1120,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 				)
 			}
 		case "stop":
-			err = c.SignalWorkflow(context.Background(), workflowID, runID, "stop-logs", struct{}{})
+			err = c.SignalWorkflow(e.Request.Context(), workflowID, runID, "stop-logs", struct{}{})
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -1170,7 +1189,7 @@ func HandleTerminateMyWorkflowRun() func(*core.RequestEvent) error {
 		}
 
 		err = c.TerminateWorkflow(
-			context.Background(),
+			e.Request.Context(),
 			workflowID,
 			runID,
 			"Terminated by user",

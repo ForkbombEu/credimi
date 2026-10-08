@@ -86,21 +86,22 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
+		ctx := e.Request.Context()
 		switch req.Signal {
 		case workflows.OpenID4VPWalletStartCheckSignal:
-			err = sendOpenID4VPWalletLogUpdateStart(e.App, c, req)
+			err = sendOpenID4VPWalletLogUpdateStart(ctx, e.App, c, req)
 		case workflows.OpenID4VCIIssuerStartCheckSignal:
-			err = sendOpenIDNetConformanceLogUpdateStart(e.App, c, req)
+			err = sendOpenIDNetConformanceLogUpdateStart(ctx, e.App, c, req)
 		case workflows.OpenID4VPVerifierStartCheckSignal:
-			err = sendOpenIDNetConformanceLogUpdateStart(e.App, c, req)
+			err = sendOpenIDNetConformanceLogUpdateStart(ctx, e.App, c, req)
 		case workflows.OpenID4VCIIssuerStopCheckSignal, workflows.OpenID4VPVerifierStopCheckSignal:
 			err = nil
 		case workflows.EwcStartCheckSignal:
-			err = sendEWCLikeLogUpdateStart(e.App, c, req)
+			err = sendEWCLikeLogUpdateStart(ctx, e.App, c, req)
 		case workflows.EwcStopCheckSignal:
-			err = sendEWCLikeLogUpdateStop(c, req)
+			err = sendEWCLikeLogUpdateStop(ctx, c, req)
 		default:
-			err = sendTemporalSignal(c, req)
+			err = sendTemporalSignal(ctx, c, req)
 		}
 		if err != nil {
 			apiErr := &apierror.APIError{}
@@ -148,8 +149,12 @@ func requireCallerNamespace(app core.App, auth *core.Record, namespace string) *
 	return nil
 }
 
-func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) error {
-	err := c.SignalWorkflow(context.Background(), input.WorkflowID, "", input.Signal, struct{}{})
+func sendTemporalSignal(
+	ctx context.Context,
+	c client.Client,
+	input HandleSendTemporalSignalInput,
+) error {
+	err := c.SignalWorkflow(ctx, input.WorkflowID, "", input.Signal, struct{}{})
 	if err != nil {
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &notFound) {
@@ -176,12 +181,13 @@ func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) er
 }
 
 func sendOpenID4VPWalletLogUpdateStart(
+	ctx context.Context,
 	app core.App,
 	c client.Client,
 	input HandleSendTemporalSignalInput,
 ) error {
 	err := c.SignalWorkflow(
-		context.Background(),
+		ctx,
 		input.WorkflowID,
 		"",
 		workflows.OpenID4VPWalletStartCheckSignal,
@@ -191,8 +197,9 @@ func sendOpenID4VPWalletLogUpdateStart(
 		canceledErr := &serviceerror.Canceled{}
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &canceledErr) ||
-			(errors.As(err, &notFound) && err.Error() == "workflow execution already completed") {
+			(errors.As(err, &notFound) && workflowExecutionClosed(ctx, c, input.WorkflowID)) {
 			return sendCompletedWorkflowLogsUpdate(
+				ctx,
 				app,
 				c,
 				input.WorkflowID,
@@ -224,12 +231,23 @@ func sendOpenID4VPWalletLogUpdateStart(
 	return nil
 }
 
+// workflowExecutionClosed reports whether the latest run of workflowID exists
+// and is no longer running.
+func workflowExecutionClosed(ctx context.Context, c client.Client, workflowID string) bool {
+	exec, err := c.DescribeWorkflowExecution(ctx, workflowID, "")
+	if err != nil {
+		return false
+	}
+	return exec.GetWorkflowExecutionInfo().GetStatus() != enums.WORKFLOW_EXECUTION_STATUS_RUNNING
+}
+
 func sendOpenIDNetConformanceLogUpdateStart(
+	ctx context.Context,
 	app core.App,
 	c client.Client,
 	input HandleSendTemporalSignalInput,
 ) error {
-	exec, err := c.DescribeWorkflowExecution(context.Background(), input.WorkflowID, "")
+	exec, err := c.DescribeWorkflowExecution(ctx, input.WorkflowID, "")
 	if err != nil {
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &notFound) {
@@ -257,6 +275,7 @@ func sendOpenIDNetConformanceLogUpdateStart(
 	}
 
 	return sendCompletedWorkflowLogsUpdate(
+		ctx,
 		app,
 		c,
 		input.WorkflowID,
@@ -266,6 +285,7 @@ func sendOpenIDNetConformanceLogUpdateStart(
 }
 
 func sendEWCLikeLogUpdateStart(
+	ctx context.Context,
 	app core.App,
 	c client.Client,
 	input HandleSendTemporalSignalInput,
@@ -273,7 +293,7 @@ func sendEWCLikeLogUpdateStart(
 	var lastErr error
 	for _, workflowID := range ewcLikeWorkflowIDs(input.WorkflowID) {
 		err := c.SignalWorkflow(
-			context.Background(),
+			ctx,
 			workflowID,
 			"",
 			workflows.EwcStartCheckSignal,
@@ -287,6 +307,7 @@ func sendEWCLikeLogUpdateStart(
 		canceledErr := &serviceerror.Canceled{}
 		if errors.As(err, &canceledErr) || isWorkflowExecutionAlreadyCompleted(err) {
 			return sendCompletedWorkflowLogsUpdate(
+				ctx,
 				app,
 				c,
 				workflowID,
@@ -305,11 +326,15 @@ func sendEWCLikeLogUpdateStart(
 	return apierror.New(http.StatusNotFound, "workflow", "workflow not found", lastErr.Error())
 }
 
-func sendEWCLikeLogUpdateStop(c client.Client, input HandleSendTemporalSignalInput) error {
+func sendEWCLikeLogUpdateStop(
+	ctx context.Context,
+	c client.Client,
+	input HandleSendTemporalSignalInput,
+) error {
 	var lastErr error
 	for _, workflowID := range ewcLikeWorkflowIDs(input.WorkflowID) {
 		err := c.SignalWorkflow(
-			context.Background(),
+			ctx,
 			workflowID,
 			"",
 			workflows.EwcStopCheckSignal,
@@ -367,15 +392,16 @@ func ewcLikeSignalError(err error, signal string) error {
 type workflowLogsExtractor func(workflowengine.WorkflowResult, error) []map[string]any
 
 func sendCompletedWorkflowLogsUpdate(
+	ctx context.Context,
 	app core.App,
 	c client.Client,
 	workflowID string,
 	subscription string,
 	extractLogs workflowLogsExtractor,
 ) error {
-	wf := c.GetWorkflow(context.Background(), workflowID, "")
+	wf := c.GetWorkflow(ctx, workflowID, "")
 	var result workflowengine.WorkflowResult
-	getErr := wf.Get(context.Background(), &result)
+	getErr := wf.Get(ctx, &result)
 	logs := extractLogs(result, getErr)
 	if len(logs) == 0 {
 		return nil
@@ -626,7 +652,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 			)
 		}
 
-		author, err := getWorkflowAuthor(c, workflowID, runID)
+		author, err := getWorkflowAuthor(e.Request.Context(), c, workflowID, runID)
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
@@ -637,9 +663,13 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 		return handleDeeplinkFromHistory(e, c, workflowID, runID, author)
 	}
 }
-func getWorkflowAuthor(c client.Client, workflowID, runID string) (string, error) {
+func getWorkflowAuthor(
+	ctx context.Context,
+	c client.Client,
+	workflowID, runID string,
+) (string, error) {
 	workflowExecution, err := c.DescribeWorkflowExecution(
-		context.Background(),
+		ctx,
 		workflowID,
 		runID,
 	)
@@ -662,7 +692,7 @@ func handleDeeplinkFromHistory(
 	workflowID, runID, author string,
 ) error {
 	historyIterator := c.GetWorkflowHistory(
-		context.Background(),
+		e.Request.Context(),
 		workflowID,
 		runID,
 		false,

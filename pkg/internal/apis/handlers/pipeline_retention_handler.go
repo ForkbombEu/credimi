@@ -5,7 +5,6 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -84,7 +83,7 @@ func HandleSchedulePipelineRetentionWorkflow() func(*core.RequestEvent) error {
 			)
 		}
 
-		ctx := context.Background()
+		ctx := e.Request.Context()
 		scheduleID := pipelineRetentionScheduleID
 		options := buildPipelineRetentionScheduleOptions(
 			scheduleID,
@@ -149,7 +148,7 @@ func HandleDeletePipelineRetentionSchedule() func(*core.RequestEvent) error {
 			)
 		}
 
-		ctx := context.Background()
+		ctx := e.Request.Context()
 		handle := c.ScheduleClient().GetHandle(ctx, pipelineRetentionScheduleID)
 
 		if err := handle.Delete(ctx); err != nil {

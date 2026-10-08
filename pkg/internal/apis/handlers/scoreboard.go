@@ -207,7 +207,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 				)
 			}
 
-			ctx := context.Background()
+			ctx := e.Request.Context()
 
 			scheduleID := fmt.Sprintf(
 				"aggregate-scoreboard-schedule-%d-%d",
@@ -299,7 +299,7 @@ func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
 			)
 		}
 
-		ctx := context.Background()
+		ctx := e.Request.Context()
 		handle := c.ScheduleClient().GetHandle(ctx, scheduleID)
 
 		if err := handle.Delete(ctx); err != nil {
@@ -455,6 +455,7 @@ func namespaceScoreboard(
 // scoreboardExecutionDetails describes one pipeline execution for the
 // scoreboard: the entities recorded in its search attributes.
 func scoreboardExecutionDetails(
+	ctx context.Context,
 	namespace string,
 	workflowID string,
 	runID string,
@@ -463,7 +464,7 @@ func scoreboardExecutionDetails(
 	if err != nil {
 		return nil, fmt.Errorf("create temporal client: %w", err)
 	}
-	exec, err := getWorkflowExecutionWithDecodedAttrs(temporalClient, workflowID, runID)
+	exec, err := getWorkflowExecutionWithDecodedAttrs(ctx, temporalClient, workflowID, runID)
 	if err != nil {
 		return nil, fmt.Errorf("describe workflow execution: %w", err)
 	}
@@ -475,12 +476,13 @@ func scoreboardExecutionDetails(
 }
 
 func getWorkflowExecutionWithDecodedAttrs(
+	ctx context.Context,
 	temporalClient client.Client,
 	workflowID string,
 	runID string,
 ) (*WorkflowExecution, error) {
 	resp, err := temporalClient.DescribeWorkflowExecution(
-		context.Background(),
+		ctx,
 		workflowID,
 		runID,
 	)
