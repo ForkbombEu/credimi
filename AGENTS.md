@@ -279,6 +279,7 @@ Grant/start path:
 
 - Semaphore runs `StartQueuedPipelineActivity` in `pkg/workflowengine/activities/queued_pipeline.go`.
 - The activity starts the pipeline workflow in the owner organization namespace.
+- The pipeline workflow ID is `Pipeline-<canonified name>-<ticket>` (`Pipeline-Sched-<canonified name>-<schedule run id>` for scheduled tickets), started with `REJECT_DUPLICATE` reuse and `USE_EXISTING` conflict policies, so a retried start reuses the ticket's run; after the run closed, the activity describes the workflow and returns its run ID.
 - Injected config keys:
     - `mobile_device_semaphore_ticket_id`
     - `mobile_device_semaphore_device_ids`

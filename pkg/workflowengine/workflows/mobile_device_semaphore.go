@@ -999,7 +999,8 @@ func (r *mobileDeviceSemaphoreRuntime) startPipelineForTicket(
 	state MobileDeviceSemaphoreRunTicketState,
 ) error {
 	activityOptions := DefaultActivityOptions
-	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
+	// StartQueuedPipelineActivity is idempotent on the ticket ID, so retries are safe.
+	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 3}
 	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
 	var result workflowengine.ActivityResult
 	input := workflowengine.ActivityInput{

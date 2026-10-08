@@ -5,7 +5,6 @@ package activities
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +12,11 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/dbx"
 	"github.com/stretchr/testify/require"
+	commonpb "go.temporal.io/api/common/v1"
+	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
+	workflowpb "go.temporal.io/api/workflow/v1"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 )
@@ -48,8 +52,11 @@ func (f fakeWorkflowRun) GetWithOptions(
 
 type capturingTemporalClient struct {
 	run         client.WorkflowRun
+	executeErr  error
+	describeRun string
 	lastOptions client.StartWorkflowOptions
 	lastArgs    []interface{}
+	described   []string
 }
 
 // ExecuteWorkflow records workflow start options for assertions and returns the stubbed run.
@@ -61,7 +68,23 @@ func (c *capturingTemporalClient) ExecuteWorkflow(
 ) (client.WorkflowRun, error) {
 	c.lastOptions = options
 	c.lastArgs = append([]interface{}(nil), args...)
+	if c.executeErr != nil {
+		return nil, c.executeErr
+	}
 	return c.run, nil
+}
+
+// DescribeWorkflowExecution records the described workflow ID and returns the stubbed run ID.
+func (c *capturingTemporalClient) DescribeWorkflowExecution(
+	ctx context.Context,
+	workflowID, runID string,
+) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
+	c.described = append(c.described, workflowID+"/"+runID)
+	return &workflowservice.DescribeWorkflowExecutionResponse{
+		WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
+			Execution: &commonpb.WorkflowExecution{WorkflowId: workflowID, RunId: c.describeRun},
+		},
+	}, nil
 }
 
 func newCapturingQueuedPipelineActivity(
@@ -175,24 +198,23 @@ func TestStartQueuedPipelineActivityCreatesPipelineResult(t *testing.T) {
 	require.Equal(t, pipelineinternal.RunTypeCI, records[0].GetString("type"))
 }
 
-// TestStartQueuedPipelineActivityWorkflowIDPrefix verifies scheduled tickets get a distinct ID prefix.
-func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
+// TestStartQueuedPipelineActivityWorkflowID verifies the workflow ID derives from the
+// ticket and the start options make a repeated start resolve to the same execution.
+func TestStartQueuedPipelineActivityWorkflowID(t *testing.T) {
 	tests := []struct {
-		name          string
-		ticketID      string
-		wantPrefix    string
-		blockedPrefix string
+		name     string
+		ticketID string
+		wantID   string
 	}{
 		{
-			name:       "scheduled ticket",
-			ticketID:   "sched/wf/run",
-			wantPrefix: "Pipeline-Sched-",
+			name:     "scheduled ticket",
+			ticketID: "sched/wf/run-uuid",
+			wantID:   "Pipeline-Sched-test-run-uuid",
 		},
 		{
-			name:          "non scheduled ticket",
-			ticketID:      "ticket-1",
-			wantPrefix:    "Pipeline-",
-			blockedPrefix: "Pipeline-Sched-",
+			name:     "api ticket",
+			ticketID: "ticket-uuid",
+			wantID:   "Pipeline-test-ticket-uuid",
 		},
 	}
 
@@ -209,10 +231,17 @@ func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-			require.True(t, strings.HasPrefix(captured.lastOptions.ID, test.wantPrefix))
-			if test.blockedPrefix != "" {
-				require.False(t, strings.HasPrefix(captured.lastOptions.ID, test.blockedPrefix))
-			}
+			require.Equal(t, test.wantID, captured.lastOptions.ID)
+			require.Equal(
+				t,
+				enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
+				captured.lastOptions.WorkflowIDReusePolicy,
+			)
+			require.Equal(
+				t,
+				enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
+				captured.lastOptions.WorkflowIDConflictPolicy,
+			)
 			key := temporal.NewSearchAttributeKeyKeyword(
 				workflowengine.PipelineIdentifierSearchAttribute,
 			)
@@ -221,6 +250,29 @@ func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 			require.Equal(t, "tenant-1/pipeline", value)
 		})
 	}
+}
+
+// TestStartQueuedPipelineActivityAlreadyStarted verifies a retry after the ticket's run
+// closed continues with that run instead of failing.
+func TestStartQueuedPipelineActivityAlreadyStarted(t *testing.T) {
+	act, captured := newCapturingQueuedPipelineActivity(t, "unused", "unused")
+	captured.executeErr = serviceerror.NewWorkflowExecutionAlreadyStarted("already started", "", "")
+	captured.describeRun = "r1"
+
+	result, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: StartQueuedPipelineActivityInput{
+			TicketID:           "ticket-dup",
+			OwnerNamespace:     "tenant-1",
+			PipelineIdentifier: "tenant-1/pipeline",
+			YAML:               "name: test\nsteps: []\n",
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"Pipeline-test-ticket-dup/"}, captured.described)
+	output, ok := result.Output.(StartQueuedPipelineActivityOutput)
+	require.True(t, ok)
+	require.Equal(t, "Pipeline-test-ticket-dup", output.WorkflowID)
+	require.Equal(t, "r1", output.RunID)
 }
 
 func TestStartQueuedPipelineActivityPropagatesDisableAndroidPlayStore(t *testing.T) {
@@ -323,6 +375,15 @@ func TestStartQueuedPipelineActivityValidationErrors(t *testing.T) {
 				YAML:               "name: [",
 			},
 			errContains: "parse workflow definition",
+		},
+		{
+			name: "missing ticket id",
+			payload: StartQueuedPipelineActivityInput{
+				OwnerNamespace:     "ns",
+				PipelineIdentifier: "p",
+				YAML:               "name: test\nsteps: []\n",
+			},
+			errContains: "ticket_id is required",
 		},
 	}
 

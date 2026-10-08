@@ -694,7 +694,7 @@ func TestMobileDeviceSemaphoreWorkflowQueueLimitIgnoresFailedTickets(t *testing.
 		activity.RegisterOptions{Name: startAct.Name()},
 	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{}, errors.New("start failed")).
+		Return(workflowengine.ActivityResult{}, temporal.NewNonRetryableApplicationError("start failed", "test", nil)).
 		Once()
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).Return(
 		workflowengine.ActivityResult{
@@ -1222,7 +1222,7 @@ func TestMobileDeviceSemaphoreWorkflowRunStartFailureAdvancesQueue(t *testing.T)
 		activity.RegisterOptions{Name: startAct.Name()},
 	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{}, errors.New("start failed")).
+		Return(workflowengine.ActivityResult{}, temporal.NewNonRetryableApplicationError("start failed", "test", nil)).
 		Once()
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).Return(
 		workflowengine.ActivityResult{
@@ -1345,7 +1345,7 @@ func TestMobileDeviceSemaphoreWorkflowRunStartFailureContinuesQueue(t *testing.T
 		activity.RegisterOptions{Name: startAct.Name()},
 	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{}, errors.New("start failed")).
+		Return(workflowengine.ActivityResult{}, temporal.NewNonRetryableApplicationError("start failed", "test", nil)).
 		Once()
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).Return(
 		workflowengine.ActivityResult{
