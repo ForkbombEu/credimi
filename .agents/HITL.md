@@ -454,6 +454,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision: Superseded on 2026-10-06 by the approved plan that removed worker-to-Credimi HTTP: `InternalHTTPActivity`, `SetServerAppURLSource`, `CREDIMI_INTERNAL_APP_URL` and `internal_app_url` no longer exist. Workers reach Credimi data through typed activities that receive `core.App` (`activities.CredimiActivities(app)`), and `app_url` is written only by `workflowengine.WithAppConfig` from PocketBase Settings.
 - follow-up: None. No admin-key sender targets Credimi anymore; the internal admin key is sent to runners through `mobile-runner-http-request` and, as the approved exception (2026-09-25), by the direct `POST {runner_url}/credimi/live-view` call in `pkg/internal/apis/handlers/pipeline_live_view_handler.go`.
 
+### 2026-10-08 - Changing API rules of a PocketBase system collection (`orgAuthorizations`)
+
+- status: open (agent default applied; human may revisit)
+- owner: human maintainer
+- context: Finding `credimi/pb-rules/orgauthorizations-public-list`. `orgAuthorizations` had `listRule`/`viewRule` `""`, so anonymous callers and other tenants listed every organization's members. `orgAuthorizations` is `system: true` (from `migrations/pb_schema.json`), and PocketBase rejects API rule changes and `system` flag changes on system collections in validated saves (`validation_collection_system_rule_change`, `validation_collection_system_flag_change`). `pb_migrations/1791465595_restrict_org_authorizations_read.js` sets both rules to `user.id = @request.auth.id || (same-org member)` with `app.saveNoValidate`. The join page (`webapp/src/routes/my/organizations/join`) found joinable organizations through other tenants' memberships; it now excludes the caller's own organizations instead, so organizations without any membership are also listed.
+- question: Is `app.saveNoValidate` in a migration the accepted way to change rules of the template's system collections (`orgAuthorizations`, `orgRoles`, `orgJoinRequests`, `org_invites`, ...)?
+- options considered: (a) `saveNoValidate` on the rule fields only (applied); (b) raw SQL update of `_collections` (also skips validation, bypasses the collection model); (c) drop `system` from these collections (needs raw SQL too, and removes the PocketBase admin-UI guard).
+- default risk: rule syntax is not validated on save; `TestOrgAuthorizationsReadRulesScopeToMembers` exercises the rules through the records API, so a broken rule fails the suite.
+- decision: (a).
+- follow-up: None unless the maintainer prefers another approach.
+
 ### 2026-10-08 - `z_test_collection` accepts anonymous writes
 
 - status: open
