@@ -14,8 +14,10 @@ import (
 	"unicode/utf8"
 )
 
-var domesticNamespacePattern = regexp.MustCompile(
-	`^eu\.europa\.ec\.eudi\.pid\.([A-Z]{2})(?:-([A-Z0-9]{1,3}))?(?:\.[0-9]+)?$`,
+// PID Rulebook §4.2 places domestic SD-JWT VC claims in a domestic type extending
+// "urn:eudi:pid:1", for example "urn:eudi:pid:de:1".
+var domesticPIDTypePattern = regexp.MustCompile(
+	`^urn:eudi:pid:([A-Za-z]{2})(?:-([A-Za-z0-9]{1,3}))?:[0-9]+$`,
 )
 
 type SDJWTClaimNonEmptyUTF8StringValidator struct{}
@@ -399,46 +401,42 @@ type SDJWTDomesticNamespaceValidator struct{}
 func (SDJWTDomesticNamespaceValidator) ID() string { return "sdjwt.domestic_namespace" }
 
 func (SDJWTDomesticNamespaceValidator) Validate(_ context.Context, input Input) Result {
-	claims, ok := sdjwtClaims(input.Value)
-	if !ok {
+	if _, ok := sdjwtClaims(input.Value); !ok {
 		return Result{
 			Status:  StatusFail,
 			Message: fmt.Sprintf("input is %T, expected SD-JWT claims", input.Value),
 		}
 	}
-	matches := 0
-	for namespace, value := range claims {
-		parts := domesticNamespacePattern.FindStringSubmatch(namespace)
-		if parts == nil {
-			continue
-		}
-		if !isPIDCountryCode(parts[1]) {
-			return Result{
-				Status: StatusFail,
-				Message: fmt.Sprintf(
-					"domestic namespace %q has an invalid country code",
-					namespace,
-				),
-			}
-		}
-		object, ok := value.(map[string]any)
-		if !ok || len(object) == 0 {
-			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("domestic namespace %q contains no claims", namespace),
-			}
-		}
-		matches++
+	value, ok := sdjwtClaim(input.Value, "vct")
+	if !ok {
+		return Result{Status: StatusFail, Message: `claim "vct" is missing`}
 	}
-	if matches == 0 {
+	vct, ok := value.(string)
+	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: "no valid non-empty PID domestic namespace is present",
+			Message: fmt.Sprintf(`claim "vct" is %T, expected string`, value),
+		}
+	}
+	parts := domesticPIDTypePattern.FindStringSubmatch(vct)
+	if parts == nil {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				`claim "vct" %q is not a domestic PID type urn:eudi:pid:<country>[-<subdivision>]:<version>`,
+				vct,
+			),
+		}
+	}
+	if !isPIDCountryCode(strings.ToUpper(parts[1])) {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("domestic PID type %q has an invalid country code", vct),
 		}
 	}
 	return Result{
 		Status:  StatusPass,
-		Message: "a valid non-empty PID domestic namespace is present",
+		Message: fmt.Sprintf("claim \"vct\" %q is a valid domestic PID type", vct),
 	}
 }
 

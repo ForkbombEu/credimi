@@ -1906,6 +1906,190 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs.body.session_id }}
     - continue_on_error: true
+      id: pid-domestic-7fac1fb7-reset-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-create-domestic-sdjwt-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eudi:pid:xx:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-obtain-domestic-sdjwt
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ pid-domestic-7fac1fb7-create-domestic-sdjwt-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-fetch-domestic-sdjwt-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ pid-domestic-7fac1fb7-create-domestic-sdjwt-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-create-domestic-sdjwt-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - family_name
+                            - path:
+                                - given_name
+                            - path:
+                                - birthdate
+                            - path:
+                                - place_of_birth
+                            - path:
+                                - nationalities
+                            - path:
+                                - date_of_expiry
+                            - path:
+                                - issuing_authority
+                            - path:
+                                - issuing_country
+                            - path:
+                                - credimi_domestic_claim
+                          format: dc+sd-jwt
+                          id: pid_sdjwt
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:xx:1
+                nonce: fcaf-pid-domestic-sdjwt
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-present-domestic-sdjwt
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ pid-domestic-7fac1fb7-create-domestic-sdjwt-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-fetch-domestic-sdjwt-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ pid-domestic-7fac1fb7-create-domestic-sdjwt-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-create-domestic-mdoc-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eudi:pid:xx:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-obtain-domestic-mdoc
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ pid-domestic-7fac1fb7-create-domestic-mdoc-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-fetch-domestic-mdoc-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ pid-domestic-7fac1fb7-create-domestic-mdoc-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-create-domestic-mdoc-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - family_name
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - given_name
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - birth_date
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - place_of_birth
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - nationality
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - expiry_date
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - issuing_authority
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - issuing_country
+                            - path:
+                                - eu.europa.ec.eudi.pid.xx.1
+                                - credimi_domestic_claim
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: fcaf-pid-domestic-mdoc
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-present-domestic-mdoc
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ pid-domestic-7fac1fb7-create-domestic-mdoc-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: pid-domestic-7fac1fb7-fetch-domestic-mdoc-presentation
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ pid-domestic-7fac1fb7-create-domestic-mdoc-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-reset-wallet
       use: mobile-automation
       with:
@@ -2291,6 +2475,12 @@ steps:
                     obtain-pid-mdoc: ${{ pid-mdoc-data-model-8f915369-obtain-pid-mdoc.outputs | optional }}
                     pid_mdoc: ${{ pid-mdoc-data-model-8f915369-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     visual_evidence: ${{ pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.pid.presentation.mdoc.domestic:
+                output:
+                    dcql_exchange: ${{ pid-domestic-7fac1fb7-fetch-domestic-mdoc-presentation.outputs.body | optional }}
+                    issuance_session: ${{ pid-domestic-7fac1fb7-fetch-domestic-mdoc-issuance.outputs.body | optional }}
+                    pid_mdoc: ${{ pid-domestic-7fac1fb7-fetch-domestic-mdoc-presentation.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
+                    visual_evidence: ${{ pid-domestic-7fac1fb7-present-domestic-mdoc.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.pid.presentation.sdjwt.all-claims:
                 output:
                     create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}
@@ -2302,6 +2492,12 @@ steps:
                     pid_sdjwt: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     pid_sdjwt_presentations: ${{ engagement-haip-vp-4bb0f83a-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
                     visual_evidence: ${{ engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.pid.presentation.sdjwt.domestic:
+                output:
+                    dcql_exchange: ${{ pid-domestic-7fac1fb7-fetch-domestic-sdjwt-presentation.outputs.body | optional }}
+                    issuance_session: ${{ pid-domestic-7fac1fb7-fetch-domestic-sdjwt-issuance.outputs.body | optional }}
+                    pid_sdjwt: ${{ pid-domestic-7fac1fb7-fetch-domestic-sdjwt-presentation.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
+                    visual_evidence: ${{ pid-domestic-7fac1fb7-present-domestic-sdjwt.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.wallet.engagement.haip-vp:
                 output:
                     create-capture-session: ${{ engagement-haip-vp-4bb0f83a-create-capture-session.outputs | optional }}

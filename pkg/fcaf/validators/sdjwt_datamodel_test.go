@@ -620,45 +620,48 @@ func TestSDJWTDomesticNamespaceValidator(t *testing.T) {
 		message string
 	}{
 		{
-			name: "accepts non-empty domestic namespace",
-			value: map[string]any{
-				"given_name":                 "Ada",
-				"eu.europa.ec.eudi.pid.IT.1": map[string]any{"tax_id": "RSSMRA"},
-			},
-			status: StatusPass,
+			name:    "accepts domestic type with lowercase country",
+			value:   map[string]any{"vct": "urn:eudi:pid:de:1", "tax_id": "123"},
+			status:  StatusPass,
+			message: `"urn:eudi:pid:de:1" is a valid domestic PID type`,
 		},
 		{
-			name: "accepts domestic namespace disclosed in compact presentation",
+			name: "accepts user-assigned subdivision type in compact presentation",
 			value: testSDJWTPresentation(map[string]any{
-				"eu.europa.ec.eudi.pid.DE-BY": map[string]any{"tax_id": "123"},
+				"vct":                    "urn:eudi:pid:XX-AB:2",
+				"credimi_domestic_claim": "credimi-domestic-value",
 			}),
 			status: StatusPass,
 		},
 		{
-			name: "rejects unassigned country code",
-			value: map[string]any{
-				"eu.europa.ec.eudi.pid.OO.1": map[string]any{"tax_id": "RSSMRA"},
-			},
+			name:    "rejects EU-wide base type",
+			value:   map[string]any{"vct": "urn:eudi:pid:1"},
 			status:  StatusFail,
-			message: `domestic namespace "eu.europa.ec.eudi.pid.OO.1" has an invalid country code`,
+			message: `"urn:eudi:pid:1" is not a domestic PID type`,
 		},
 		{
-			name:    "rejects empty domestic namespace",
-			value:   map[string]any{"eu.europa.ec.eudi.pid.IT.1": map[string]any{}},
+			name:    "rejects domestic type without version",
+			value:   map[string]any{"vct": "urn:eudi:pid:de"},
 			status:  StatusFail,
-			message: "contains no claims",
+			message: "is not a domestic PID type",
 		},
 		{
-			name:    "rejects scalar domestic namespace",
-			value:   map[string]any{"eu.europa.ec.eudi.pid.IT.1": "RSSMRA"},
+			name:    "rejects unassigned country code",
+			value:   map[string]any{"vct": "urn:eudi:pid:oo:1"},
 			status:  StatusFail,
-			message: "contains no claims",
+			message: `domestic PID type "urn:eudi:pid:oo:1" has an invalid country code`,
 		},
 		{
-			name:    "rejects claims without domestic namespace",
-			value:   map[string]any{"given_name": "Ada", "eu.europa.ec.eudi.pid.it.1": "x"},
+			name:    "rejects missing vct",
+			value:   map[string]any{"given_name": "Ada"},
 			status:  StatusFail,
-			message: "no valid non-empty PID domestic namespace is present",
+			message: `claim "vct" is missing`,
+		},
+		{
+			name:    "rejects non-string vct",
+			value:   map[string]any{"vct": 1},
+			status:  StatusFail,
+			message: `claim "vct" is int, expected string`,
 		},
 		{
 			name:    "rejects non SD-JWT input",

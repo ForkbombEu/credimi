@@ -1167,10 +1167,18 @@ func TestMDocDomesticNamespaceValidator(t *testing.T) {
 			message: "contains no elements",
 		},
 		{
-			name: "ignores lowercase country and base namespace",
+			name: "accepts lowercase user-assigned country",
 			namespaces: map[string]map[string]evidence.MDocElement{
 				pidMDocType:                  element,
-				"eu.europa.ec.eudi.pid.it.1": element,
+				"eu.europa.ec.eudi.pid.xx.1": element,
+			},
+			status:  StatusPass,
+			message: `"eu.europa.ec.eudi.pid.xx.1"`,
+		},
+		{
+			name: "ignores base namespace",
+			namespaces: map[string]map[string]evidence.MDocElement{
+				pidMDocType: element,
 			},
 			status:  StatusFail,
 			message: "no valid non-empty PID domestic namespace is present",

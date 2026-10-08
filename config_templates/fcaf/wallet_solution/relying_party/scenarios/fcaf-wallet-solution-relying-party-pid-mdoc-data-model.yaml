@@ -117,8 +117,6 @@ steps:
         - WS_RP_DM_AddressData_Residentstreet_PID_ISO-mdoc_002
         - WS_RP_DM_Credentialmetadata_Documentnumber_PID_ISO-mdoc_001
         - WS_RP_DM_Credentialmetadata_Documentnumber_PID_ISO-mdoc_002
-        - WS_RP_DM_Credentialmetadata_Domestic_PID_ISO-mdoc_001
-        - WS_RP_DM_Credentialmetadata_Domestic_PID_ISO-mdoc_002
         - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_001
         - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_002
         - WS_RP_DM_Credentialmetadata_Expirydate_PID_ISO-mdoc_003

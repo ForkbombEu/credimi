@@ -2985,3 +2985,35 @@ steps (189 `fcaf-reset-and-onboard` runs including the first step), 166
 happy-flow steps and 7 demo steps.
 `launchApp clearState: true` costs about 0.7 s more than `false` on
 `emulator-5554`.
+## Domestic PID: Credentialmetadata_Domestic SD-JWT VC and mdoc 001, 002
+
+08/10/2026. Capture `575d071` added a domestic PID on both issuers:
+`urn:eudi:pid:xx:1.sd-jwt.*` (`vct: urn:eudi:pid:xx:1`, top-level
+`credimi_domestic_claim`) and `urn:eudi:pid:xx:1.mdoc.*` (PID doctype plus
+namespace `eu.europa.ec.eudi.pid.xx.1`). The four tests had bound the generic
+all-claims PID presentations, which carry no domestic data.
+
+- New scenario `pid-domestic` issues both `key-attestation-required`
+  configurations and presents each with the source-mandated claims plus the
+  domestic claim. It owns the four tests and is in the happy flow; the
+  engagement-haip-vp and pid-mdoc-data-model scenarios no longer list them.
+- `mdoc.domestic_namespace` now accepts the country or subdivision code in
+  any case. ARF Annex 2 PID_06's own example is `eu.europa.ec.eudi.pid.de.1`;
+  the earlier uppercase-only rule rejected it and Capture's `xx`.
+- `sdjwt.domestic_namespace` now checks the PID Rulebook §4.2 model: `vct` is
+  a domestic type `urn:eudi:pid:<cc>[-<sub>]:<n>` with an accepted code. The
+  former check for a claim named like an mdoc namespace matched neither the
+  Rulebook nor Capture. The 001 tests add `sdjwt.claim_present` /
+  `mdoc.namespace_element_present` for `credimi_domestic_claim`, and all four
+  require visual evidence.
+
+Verified on synthetic Capture-shaped evidence through the engine: an SD-JWT
+VC and a CBOR DeviceResponse built to the documented shapes pass all four.
+Not yet run on the reference Wallet. Residual risk: the Wallet must accept a
+`vct` with no published Type Metadata, and must pick the domestic mdoc over
+the plain PID mdoc, which shares its doctype; the DCQL query asks for the
+domestic element, so only the domestic mdoc satisfies it.
+
+`make fcaf-generate` produces 1723 aggregate steps (each wallet scenario now
+starts with a reset step), 615 test IDs and 219 pipeline outputs; the happy
+flow has 179 steps, 303 test IDs and 36 outputs.
