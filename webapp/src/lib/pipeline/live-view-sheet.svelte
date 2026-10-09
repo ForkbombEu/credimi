@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import { requestLiveView } from './live-view';
+	import LiveViewCommands from './live-view-commands.svelte';
 	import { getExecutionDevices, type ExecutionSummary } from './workflows';
 
 	type Props = {
@@ -59,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	bind:open
 	hideTrigger
 	title={m.Live_view()}
-	class="!w-[min(100vw,24rem)]"
+	class="!w-[min(100vw,48rem)]"
 	contentClass="flex min-h-0 flex-1 flex-col gap-4"
 >
 	{#snippet content()}
@@ -94,12 +95,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</Button>
 
 						{#key deviceId}
-							<iframe
-								src={outcome.url}
-								title={iframeTitle}
-								class="aspect-[9/19.5] w-full border-0"
-								allow="autoplay"
-							></iframe>
+							<div class="grid w-full gap-4 md:grid-cols-2">
+								<iframe
+									src={outcome.url}
+									title={iframeTitle}
+									class="aspect-[9/19.5] w-full border-0"
+									allow="autoplay"
+								></iframe>
+								<LiveViewCommands streamUrl={outcome.url} />
+							</div>
 						{/key}
 					</div>
 				{:else}
