@@ -182,7 +182,7 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	runData := map[string]any{
-		"run_identifier": getPipelineRunIdentifier(
+		"run_identifier": RunIdentifier(
 			workflow.GetInfo(ctx).Namespace,
 			workflowID,
 			runID,

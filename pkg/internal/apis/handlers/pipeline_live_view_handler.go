@@ -56,6 +56,7 @@ type runnerLiveViewRequest struct {
 	Namespace        string `json:"namespace"`
 	WorkflowID       string `json:"workflow_id"`
 	RunID            string `json:"run_id"`
+	RunIdentifier    string `json:"run_identifier"`
 }
 
 type runnerLiveViewResponse struct {
@@ -129,9 +130,10 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 				deviceID,
 				devices[deviceID],
 				runnerLiveViewRequest{
-					Namespace:  namespace,
-					WorkflowID: workflowID,
-					RunID:      runID,
+					Namespace:     namespace,
+					WorkflowID:    workflowID,
+					RunID:         runID,
+					RunIdentifier: pipeline.RunIdentifier(namespace, workflowID, runID),
 				},
 			)
 			if apiErr != nil {

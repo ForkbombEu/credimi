@@ -153,8 +153,8 @@ func TestDeepCopyFallback(t *testing.T) {
 	require.Equal(t, ch, copied)
 }
 
-func TestGetPipelineRunIdentifier(t *testing.T) {
-	got := getPipelineRunIdentifier("acme", "workflow 1", "run 2")
+func TestRunIdentifier(t *testing.T) {
+	got := RunIdentifier("acme", "workflow 1", "run 2")
 	require.Contains(t, got, "acme/")
 	require.NotContains(t, got, " ")
 }
