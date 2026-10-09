@@ -4,6 +4,8 @@
 package pipeline
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"strings"
@@ -220,16 +222,23 @@ func Execute(
 // the Temporal frontend enforces on workflow task completions.
 const maxStepInputBytes = 3 << 20
 
+const (
+	// payloadFramingBytes bounds the protobuf framing and metadata around the JSON data.
+	payloadFramingBytes = 1 << 10
+	// secretsEnvelopeBytes bounds the fixed part of one encrypted secrets envelope:
+	// its keys, algorithm, nonce and GCM tag.
+	secretsEnvelopeBytes = 256
+)
+
 // ensureStepInputSize rejects a step input that would make the workflow task completion
 // exceed the Temporal gRPC message limit, which would otherwise wedge the run. The size is
 // measured on the payload the data converter produces, including encrypted secrets.
 func ensureStepInputSize(stepID string, input any) error {
-	// An encoding error is left to the SDK, which reports it when it encodes the input.
-	payloads, encodeErr := temporalcrypto.DataConverter().ToPayloads(input)
+	size, encodeErr := encodedStepInputSize(input)
 	if encodeErr != nil {
+		// An encoding error is left to the SDK, which reports it when it encodes the input.
 		return nil //nolint:nilerr // the SDK reports encoding errors itself
 	}
-	size := proto.Size(payloads)
 	if size <= maxStepInputBytes {
 		return nil
 	}
@@ -244,6 +253,35 @@ func ensureStepInputSize(stepID string, input any) error {
 			maxStepInputBytes,
 		),
 	})
+}
+
+// encodedStepInputSize returns the size of the payloads the data converter makes from
+// input, or a bound that decides the same way. This runs in workflow code, where encoding
+// a multi-MiB input can exceed the SDK's one-second deadlock detection timeout, so it
+// encodes only inputs close to the limit.
+func encodedStepInputSize(input any) (int, error) {
+	plain, err := json.Marshal(input)
+	if err != nil {
+		return 0, err
+	}
+	// The converter emits this same JSON with each "secrets" value replaced by a larger
+	// encrypted envelope, so the plain size is a lower bound.
+	if len(plain) > maxStepInputBytes {
+		return len(plain), nil
+	}
+	upper := len(plain) + payloadFramingBytes
+	if secrets := bytes.Count(plain, []byte(`"secrets":`)); secrets > 0 {
+		// Base64 of the ciphertext grows each secrets value by a third, plus its envelope.
+		upper += len(plain)/3 + secrets*secretsEnvelopeBytes
+	}
+	if upper <= maxStepInputBytes {
+		return upper, nil
+	}
+	payloads, err := temporalcrypto.DataConverter().ToPayloads(input)
+	if err != nil {
+		return 0, err
+	}
+	return proto.Size(payloads), nil
 }
 
 // summaryLine flattens text to a single line for Temporal UI summaries.
