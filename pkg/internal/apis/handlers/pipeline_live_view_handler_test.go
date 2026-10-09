@@ -205,6 +205,7 @@ func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
 		"namespace":         namespace,
 		"workflow_id":       "pipeline-1",
 		"run_id":            "run-1",
+		"run_identifier":    pipeline.RunIdentifier(namespace, "pipeline-1", "run-1"),
 	}, call.body)
 }
 

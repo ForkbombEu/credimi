@@ -112,12 +112,12 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 			},
 			mobileWorkflow.Name(),
 			workflowengine.WorkflowInput{
-				Config: workflowengine.WithAppConfig(e.App, map[string]any{
-					"taskqueue": fmt.Sprintf(
-						"%s-TaskQueue",
-						canonify.NormalizePath(workflowengine.AsString(device["runner_id"])),
-					),
-				}),
+				Config: workflowengine.WithAppConfig(e.App, pipelineMobileFlowConfig(
+					namespace,
+					strings.TrimSpace(input.WorkflowID),
+					strings.TrimSpace(input.RunID),
+					workflowengine.AsString(device["runner_id"]),
+				)),
 				Payload: workflows.MobileAutomationWorkflowPayload{
 					ActionID:   strings.TrimSpace(input.ActionID),
 					ActionCode: actionCode,
@@ -142,6 +142,15 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 		waitErr := run.Get(e.Request.Context(), &result)
 
 		return e.JSON(http.StatusOK, pipelineMobileFlowResponse(result, waitErr))
+	}
+}
+
+// pipelineMobileFlowConfig routes the flow to the device's runner and runs it in
+// the pipeline's workspace, so its live view commands belong to the pipeline run.
+func pipelineMobileFlowConfig(namespace, workflowID, runID, runnerID string) map[string]any {
+	return map[string]any{
+		"taskqueue":      fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(runnerID)),
+		"run_identifier": pipeline.RunIdentifier(namespace, workflowID, runID),
 	}
 }
 
