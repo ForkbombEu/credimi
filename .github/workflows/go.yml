@@ -145,7 +145,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
 
       - name: git config for credimi-extra
         env:
