@@ -127,20 +127,11 @@ Prefer stopping PocketBase in the source worktree before copying `pb_data/` so S
 
 Primary checkout does not need Worktrunk for `make dev` (classic ports). Worktrunk is required for additional parallel worktrees.
 
-## Temporal server upgrades
+## Temporal server versions
 
-The Compose stack runs `temporalio/server` without `auto-setup`. The one-shot `temporal_schema` job (`scripts/temporal-schema.sh`) creates or upgrades the Postgres and Elasticsearch schemas before the server starts, and Temporal's Postgres data lives on the named volume `<project>_temporal-postgresql-data`.
+The Compose stack runs `temporalio/server`, which does not create or upgrade its own schemas. The `temporal_schema` job in `docker-compose.yaml` does it on every start with the `temporalio/admin-tools` image of the same version, before the server starts. Versions are pinned in `scripts/dev-compose.env`.
 
-`make dev`, `make docker` and `make docker-tunnel` first run `scripts/worktree-compose.sh temporal-check`. It stops with a message when existing data sits on the old anonymous Postgres volume or uses a schema older than server 1.31. Upgrade that data once:
-
-```bash
-# make dev checkouts
-./scripts/worktree-compose.sh prepare && ./scripts/worktree-compose.sh temporal-upgrade
-# make docker environments
-WORKTREE_COMPOSE_MODE=docker ./scripts/worktree-compose.sh temporal-upgrade
-```
-
-The command stops the stack, copies Postgres data still on the old anonymous volume into the named volume, and backs up the Postgres and Elasticsearch volumes to `-backup-<timestamp>` volumes (it prints their names and the restore recipe). It then steps the server through 1.29.7 → 1.30.7 → 1.31.3 → 1.32.0 as the detected schema requires, waiting for `SERVING` and then `TEMPORAL_UPGRADE_HOP_WAIT_SECONDS` (default 600) after each hop. To resume a failed run, set `TEMPORAL_UPGRADE_FROM=1.30` (schema still 1.18) or `TEMPORAL_UPGRADE_FROM=1.31` (schema 1.19).
+Temporal upgrades existing data only one minor version at a time. Dev Temporal data is disposable: after a version bump, run `make purge` and then `make dev`.
 
 ## Temporal Visibility Search Attributes
 

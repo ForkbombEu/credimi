@@ -176,8 +176,8 @@ Persistence:
 
 - PocketBase SQLite data lives in `pb_data/`.
 - Dev Temporal state also uses local project data/infrastructure and must be treated as disposable dev state.
-- Temporal runs `temporalio/server` (no `auto-setup`). The one-shot Compose job `temporal_schema` (`scripts/temporal-schema.sh`, POSIX `sh`: admin-tools is Alpine without bash) creates or upgrades the Postgres and Elasticsearch schemas before `temporal` starts; Credimi registers namespaces and search attributes itself. Temporal Postgres data lives on the named volume `<project>_temporal-postgresql-data`.
-- `scripts/worktree-compose.sh temporal-check` (run by `up` and by `make docker`/`make docker-tunnel`) refuses to start on data from the old anonymous volume or a schema older than server 1.31. Upgrade such data once with the `temporal-upgrade` subcommand (dev: `./scripts/worktree-compose.sh prepare && ./scripts/worktree-compose.sh temporal-upgrade`; `make docker` stacks: `WORKTREE_COMPOSE_MODE=docker ./scripts/worktree-compose.sh temporal-upgrade`): it backs up the volumes, then steps the server through 1.29.7 → 1.30.7 → 1.31.3 → 1.32.0.
+- Temporal runs `temporalio/server`, which does not manage its own schemas. The Compose job `temporal_schema` (inline in `docker-compose.yaml`, `temporalio/admin-tools` of the same version) creates or upgrades the Postgres and Elasticsearch schemas on every start, before `temporal` starts; Credimi registers namespaces and search attributes itself. Temporal Postgres data stays on the service's anonymous volume, which deployments rely on to keep history across redeploys.
+- Temporal supports upgrading existing data only one minor version at a time (latest patch first). In dev, change `TEMPORAL_VERSION` and recreate the Temporal containers and volumes (`make purge`); environments whose history must survive step through each minor version before deploying.
 
 Embedded Temporal UI:
 

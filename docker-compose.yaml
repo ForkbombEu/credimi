@@ -18,11 +18,6 @@ services:
       - 9200
     volumes:
       - esdata:/usr/share/elasticsearch/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsu elastic:$$ELASTIC_PASSWORD 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s' || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 60
   postgresql:
     container_name: temporal-postgresql
     environment:
@@ -32,34 +27,32 @@ services:
     expose:
       - 5432
     volumes:
-      - temporal-postgresql-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
-      interval: 5s
-      timeout: 5s
-      retries: 60
-  # One-shot job: creates or upgrades the Postgres and Elasticsearch schemas
-  # (scripts/temporal-schema.sh). Search attributes are registered by Credimi.
+      - /var/lib/postgresql/data
+  # The temporalio/server image does not create or upgrade its schemas: this job does,
+  # on every start, with the admin-tools image of the same version. Every command is
+  # idempotent. The index name must match ES_VIS_INDEX of the temporal service.
+  # Credimi registers namespaces and search attributes itself.
   temporal_schema:
     depends_on:
-      postgresql:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
+      - postgresql
+      - elasticsearch
     environment:
-      - SQL_HOST=postgresql
-      - SQL_PORT=5432
-      - SQL_USER=temporal
       - SQL_PASSWORD=temporal
-      - ES_SERVER=http://elasticsearch:9200
       - ES_USER=elastic
       - ES_PWD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
-      - ES_VISIBILITY_INDEX=temporal_visibility_v1_dev
     image: temporalio/admin-tools:${TEMPORAL_ADMIN_TOOLS_VERSION}
-    entrypoint: ["/bin/sh", "/scripts/temporal-schema.sh"]
     restart: "no"
-    volumes:
-      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/sh", "-euc"]
+    command:
+      - |
+        until nc -z postgresql 5432; do sleep 1; done
+        until temporal-elasticsearch-tool --ep http://elasticsearch:9200 ping >/dev/null 2>&1; do sleep 2; done
+        temporal-sql-tool --plugin postgres12 --ep postgresql -p 5432 -u temporal --db temporal create
+        temporal-sql-tool --plugin postgres12 --ep postgresql -p 5432 -u temporal --db temporal setup-schema -v 0.0
+        temporal-sql-tool --plugin postgres12 --ep postgresql -p 5432 -u temporal --db temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+        temporal-elasticsearch-tool --ep http://elasticsearch:9200 setup-schema
+        temporal-elasticsearch-tool --ep http://elasticsearch:9200 create-index --index temporal_visibility_v1_dev
+        temporal-elasticsearch-tool --ep http://elasticsearch:9200 update-schema --index temporal_visibility_v1_dev
   temporal:
     depends_on:
       temporal_schema:
@@ -76,14 +69,13 @@ services:
       - ES_VERSION=v7
       - ES_USER=elastic
       - ES_PWD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
+      # The index and shard count existing data was created with; never change them.
       - ES_VIS_INDEX=temporal_visibility_v1_dev
-      - BIND_ON_IP=0.0.0.0
       - NUM_HISTORY_SHARDS=4
-      # Read only by temporalio/auto-setup (temporal-upgrade hop to 1.29.7).
-      - SKIP_DEFAULT_NAMESPACE_CREATION=true
-      - SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES=true
+      # Listen on localhost too, for the healthcheck.
+      - BIND_ON_IP=0.0.0.0
       - LOG_LEVEL=info
-    image: ${TEMPORAL_SERVER_IMAGE:-temporalio/server}:${TEMPORAL_VERSION}
+    image: temporalio/server:${TEMPORAL_VERSION}
     ports:
       - ${TEMPORAL_PORT:-7233}:7233
     healthcheck:
@@ -158,4 +150,3 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 volumes:
   esdata:
-  temporal-postgresql-data:
