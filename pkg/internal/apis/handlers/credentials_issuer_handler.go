@@ -67,7 +67,7 @@ var (
 	}
 	fidesCredentialIssuersTemporalClient = temporalclient.GetTemporalClientWithNamespace
 	credentialIssuerTemporalClient       = temporalclient.GetTemporalClientWithNamespace
-	credentialIssuerWaitForPartialResult = workflowengine.WaitForPartialResult[map[string]any]
+	credentialIssuerWaitForUpdateResult  = workflowengine.WaitForUpdateResult[map[string]any]
 )
 
 // credentialIssuerHTTPClient may only reach public addresses: the issuer URL
@@ -263,13 +263,14 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		issuerResult, err := credentialIssuerWaitForPartialResult(
+		updateCtx, cancel := context.WithTimeout(e.Request.Context(), time.Minute)
+		defer cancel()
+		issuerResult, err := credentialIssuerWaitForUpdateResult(
+			updateCtx,
 			c,
 			result.WorkflowID,
 			result.WorkflowRunID,
-			workflows.CredentialsIssuerDataQuery,
-			100*time.Millisecond,
-			1*time.Minute,
+			workflows.CredentialsIssuerDataUpdate,
 		)
 
 		if err != nil {
@@ -474,9 +475,13 @@ func scheduleFidesCredentialIssuersImport(
 		if isScheduleAlreadyExistsError(err) {
 			handle := c.ScheduleClient().GetHandle(ctx, fidesCredentialIssuersScheduleID)
 			err = handle.Update(ctx, client.ScheduleUpdateOptions{
-				DoUpdate: func(client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
+				DoUpdate: func(update client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
 					return &client.ScheduleUpdate{
-						Schedule: buildFidesCredentialIssuersSchedule(input, intervalDays),
+						Schedule: buildFidesCredentialIssuersSchedule(
+							input,
+							intervalDays,
+							update.Description.Schedule.State,
+						),
 					}, nil
 				},
 			})
@@ -515,9 +520,12 @@ func buildFidesCredentialIssuersScheduleOptions(
 	}
 }
 
+// buildFidesCredentialIssuersSchedule builds the updated schedule, keeping the
+// existing state so pause status and notes survive an upsert.
 func buildFidesCredentialIssuersSchedule(
 	input workflowengine.WorkflowInput,
 	intervalDays int,
+	state *client.ScheduleState,
 ) *client.Schedule {
 	return &client.Schedule{
 		Spec: &client.ScheduleSpec{
@@ -528,7 +536,7 @@ func buildFidesCredentialIssuersSchedule(
 		Policy: &client.SchedulePolicies{
 			Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_BUFFER_ONE,
 		},
-		State:  &client.ScheduleState{},
+		State:  state,
 		Action: buildFidesCredentialIssuersScheduleAction(input),
 	}
 }

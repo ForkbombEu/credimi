@@ -6,7 +6,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -29,7 +29,6 @@ import (
 	"go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
@@ -65,7 +64,7 @@ func TestSendTemporalSignalErrorMapping(t *testing.T) {
 			Return(&serviceerror.NotFound{Message: "missing"}).
 			Once()
 
-		err := sendTemporalSignal(mockClient, HandleSendTemporalSignalInput{
+		err := sendTemporalSignal(context.Background(), mockClient, HandleSendTemporalSignalInput{
 			WorkflowID: "wf-1",
 			Signal:     "signal-1",
 		})
@@ -84,7 +83,7 @@ func TestSendTemporalSignalErrorMapping(t *testing.T) {
 			Return(&serviceerror.InvalidArgument{Message: "bad"}).
 			Once()
 
-		err := sendTemporalSignal(mockClient, HandleSendTemporalSignalInput{
+		err := sendTemporalSignal(context.Background(), mockClient, HandleSendTemporalSignalInput{
 			WorkflowID: "wf-1",
 			Signal:     "signal-1",
 		})
@@ -177,6 +176,10 @@ func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompleted(t *testing.T) {
 		).
 		Return(&serviceerror.NotFound{Message: "workflow execution already completed"}).
 		Once()
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-1-log", "").
+		Return(completedWorkflowDescription(), nil).
+		Once()
 	mockRun.
 		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
 		Run(func(args mock.Arguments) {
@@ -188,6 +191,7 @@ func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompleted(t *testing.T) {
 	mockClient.On("GetWorkflow", mock.Anything, "wf-1-log", "").Return(mockRun).Once()
 
 	err = sendOpenID4VPWalletLogUpdateStart(
+		context.Background(),
 		app,
 		mockClient,
 		HandleSendTemporalSignalInput{WorkflowID: "wf-1-log"},
@@ -232,6 +236,10 @@ func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompletedErrorLogs(t *testing.T
 		).
 		Return(&serviceerror.NotFound{Message: "workflow execution already completed"}).
 		Once()
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-2-log", "").
+		Return(completedWorkflowDescription(), nil).
+		Once()
 	mockRun.
 		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
 		Return(workflowengine.NewAppError(workflowengine.WorkflowError{
@@ -245,6 +253,7 @@ func TestSendOpenID4VPWalletLogUpdateStartAlreadyCompletedErrorLogs(t *testing.T
 	mockClient.On("GetWorkflow", mock.Anything, "wf-2-log", "").Return(mockRun).Once()
 
 	err = sendOpenID4VPWalletLogUpdateStart(
+		context.Background(),
 		app,
 		mockClient,
 		HandleSendTemporalSignalInput{WorkflowID: "wf-2-log"},
@@ -297,6 +306,7 @@ func TestSendOpenIDNetConformanceLogUpdateStartCompleted(t *testing.T) {
 	mockClient.On("GetWorkflow", mock.Anything, "verifier-wf", "").Return(mockRun).Once()
 
 	err = sendOpenIDNetConformanceLogUpdateStart(
+		context.Background(),
 		app,
 		mockClient,
 		HandleSendTemporalSignalInput{WorkflowID: "verifier-wf"},
@@ -336,6 +346,7 @@ func TestSendEWCLikeLogUpdateStartFallsBackToDirectWorkflow(t *testing.T) {
 		Once()
 
 	err := sendEWCLikeLogUpdateStart(
+		context.Background(),
 		nil,
 		mockClient,
 		HandleSendTemporalSignalInput{WorkflowID: "ewc-wf-status"},
@@ -402,6 +413,7 @@ func TestSendEWCLikeLogUpdateStartReplaysCompletedDirectWorkflowLogs(t *testing.
 	mockClient.On("GetWorkflow", mock.Anything, "ewc-wf", "").Return(mockRun).Once()
 
 	err = sendEWCLikeLogUpdateStart(
+		context.Background(),
 		app,
 		mockClient,
 		HandleSendTemporalSignalInput{WorkflowID: "ewc-wf-status"},
@@ -440,6 +452,7 @@ func TestSendEWCLikeLogUpdateStopFallsBackToDirectWorkflow(t *testing.T) {
 		Once()
 
 	err := sendEWCLikeLogUpdateStop(
+		context.Background(),
 		mockClient,
 		HandleSendTemporalSignalInput{WorkflowID: "ewc-wf-status"},
 	)
@@ -749,9 +762,7 @@ func TestGetDeeplinkOpenIDConformanceSuite(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	payload := base64.StdEncoding.EncodeToString(
-		[]byte(`{"Output":{"captures":{"deeplink":"link-1"}}}`),
-	)
+	captures := map[string]any{"deeplink": "link-1"}
 	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink", nil)
 	rec := httptest.NewRecorder()
 
@@ -761,7 +772,7 @@ func TestGetDeeplinkOpenIDConformanceSuite(t *testing.T) {
 			Request:  req,
 			Response: rec,
 		},
-	}, map[string]any{"data": payload})
+	}, captures)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "link-1")
@@ -772,11 +783,10 @@ func TestGetDeeplinkEudiw(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	payload := base64.StdEncoding.EncodeToString(
-		[]byte(
-			`{"Output":{"captures":{"client_id":"client-1","request_uri":"https://example.com/req"}}}`,
-		),
-	)
+	captures := map[string]any{
+		"client_id":   "client-1",
+		"request_uri": "https://example.com/req",
+	}
 	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink", nil)
 	rec := httptest.NewRecorder()
 
@@ -786,7 +796,7 @@ func TestGetDeeplinkEudiw(t *testing.T) {
 			Request:  req,
 			Response: rec,
 		},
-	}, map[string]any{"data": payload})
+	}, captures)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 
@@ -798,7 +808,7 @@ func TestGetDeeplinkEudiw(t *testing.T) {
 }
 
 func TestGetWorkflowAuthorFromMemo(t *testing.T) {
-	payload, err := converter.GetDefaultDataConverter().ToPayload("ewc")
+	payload, err := temporalcrypto.DataConverter().ToPayload("ewc")
 	require.NoError(t, err)
 
 	mockClient := &temporalmocks.Client{}
@@ -815,7 +825,7 @@ func TestGetWorkflowAuthorFromMemo(t *testing.T) {
 		}, nil).
 		Once()
 
-	author, err := getWorkflowAuthor(mockClient, "wf-4", "run-4")
+	author, err := getWorkflowAuthor(context.Background(), mockClient, "wf-4", "run-4")
 	require.NoError(t, err)
 	require.Equal(t, "ewc", author)
 }
@@ -825,19 +835,14 @@ func TestHandleDeeplinkFromHistoryEWC(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	payloadData, err := json.Marshal(map[string]any{
-		"Output": map[string]any{
-			"Captures": map[string]any{
+	payloads, err := temporalcrypto.DataConverter().ToPayloads(workflowengine.ActivityResult{
+		Output: map[string]any{
+			"captures": map[string]any{
 				"deeplink": "ewc://link",
 			},
 		},
 	})
 	require.NoError(t, err)
-	payloads := &common.Payloads{
-		Payloads: []*common.Payload{
-			{Data: payloadData},
-		},
-	}
 
 	iter := &fakeHistoryIterator{
 		events: []*historypb.HistoryEvent{
@@ -879,10 +884,13 @@ func TestHandleDeeplinkFromHistoryEWC(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "ewc://link")
 }
 
-func deeplinkHistoryIterator(t *testing.T, result map[string]any) *fakeHistoryIterator {
+func deeplinkHistoryIterator(
+	t *testing.T,
+	result workflowengine.ActivityResult,
+) *fakeHistoryIterator {
 	t.Helper()
 
-	data, err := json.Marshal(result)
+	payloads, err := temporalcrypto.DataConverter().ToPayloads(result)
 	require.NoError(t, err)
 	return &fakeHistoryIterator{
 		events: []*historypb.HistoryEvent{
@@ -892,7 +900,7 @@ func deeplinkHistoryIterator(t *testing.T, result map[string]any) *fakeHistoryIt
 				EventType: enums.EVENT_TYPE_ACTIVITY_TASK_COMPLETED,
 				Attributes: &historypb.HistoryEvent_ActivityTaskCompletedEventAttributes{
 					ActivityTaskCompletedEventAttributes: &historypb.ActivityTaskCompletedEventAttributes{
-						Result: &common.Payloads{Payloads: []*common.Payload{{Data: data}}},
+						Result: payloads,
 					},
 				},
 			},
@@ -906,7 +914,7 @@ func describeWithAuthor(
 ) *workflowservice.DescribeWorkflowExecutionResponse {
 	t.Helper()
 
-	payload, err := converter.GetDefaultDataConverter().ToPayload(author)
+	payload, err := temporalcrypto.DataConverter().ToPayload(author)
 	require.NoError(t, err)
 	return &workflowservice.DescribeWorkflowExecutionResponse{
 		WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
@@ -916,8 +924,8 @@ func describeWithAuthor(
 }
 
 func TestHandleDeeplink(t *testing.T) {
-	openIDResult := map[string]any{
-		"Output": map[string]any{"captures": map[string]any{"deeplink": "openid://link"}},
+	openIDResult := workflowengine.ActivityResult{
+		Output: map[string]any{"captures": map[string]any{"deeplink": "openid://link"}},
 	}
 
 	cases := []struct {
@@ -1259,8 +1267,13 @@ func TestSendOpenID4VPWalletLogUpdateStartErrorMapping(t *testing.T) {
 				).
 				Return(tc.err).
 				Once()
+			mockClient.
+				On("DescribeWorkflowExecution", mock.Anything, "wf-log", "").
+				Return(nil, &serviceerror.NotFound{Message: "workflow not found"}).
+				Maybe()
 
 			err := sendOpenID4VPWalletLogUpdateStart(
+				context.Background(),
 				nil,
 				mockClient,
 				HandleSendTemporalSignalInput{WorkflowID: "wf-log"},
@@ -1272,6 +1285,48 @@ func TestSendOpenID4VPWalletLogUpdateStartErrorMapping(t *testing.T) {
 			mockClient.AssertExpectations(t)
 		})
 	}
+}
+
+func completedWorkflowDescription() *workflowservice.DescribeWorkflowExecutionResponse {
+	return &workflowservice.DescribeWorkflowExecutionResponse{
+		WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+			Status: enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+		},
+	}
+}
+
+func TestSendOpenID4VPWalletLogUpdateStartNotFoundRunningIs404(t *testing.T) {
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"SignalWorkflow",
+			mock.Anything,
+			"wf-log",
+			"",
+			workflows.OpenID4VPWalletStartCheckSignal,
+			mock.Anything,
+		).
+		Return(&serviceerror.NotFound{Message: "workflow not found"}).
+		Once()
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-log", "").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+				Status: enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			},
+		}, nil).
+		Once()
+
+	err := sendOpenID4VPWalletLogUpdateStart(
+		context.Background(),
+		nil,
+		mockClient,
+		HandleSendTemporalSignalInput{WorkflowID: "wf-log"},
+	)
+	var apiErr *apierror.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusNotFound, apiErr.Code)
+	mockClient.AssertExpectations(t)
 }
 
 func TestSendOpenID4VPWalletLogUpdateStartCanceledReplaysLogs(t *testing.T) {
@@ -1308,11 +1363,15 @@ func TestSendOpenID4VPWalletLogUpdateStartCanceledReplaysLogs(t *testing.T) {
 		Once()
 	mockClient.On("GetWorkflow", mock.Anything, "wf-3-log", "").Return(mockRun).Once()
 
-	require.NoError(t, sendOpenID4VPWalletLogUpdateStart(
-		nil,
-		mockClient,
-		HandleSendTemporalSignalInput{WorkflowID: "wf-3-log"},
-	))
+	require.NoError(
+		t,
+		sendOpenID4VPWalletLogUpdateStart(
+			context.Background(),
+			nil,
+			mockClient,
+			HandleSendTemporalSignalInput{WorkflowID: "wf-3-log"},
+		),
+	)
 	require.Equal(t, "wf-3"+workflows.OpenID4VPWalletSubscription, capturedSubscription)
 	require.Equal(t, []map[string]any{{"src": "check"}}, capturedLogs)
 	mockClient.AssertExpectations(t)
@@ -1345,6 +1404,7 @@ func TestSendOpenIDNetConformanceLogUpdateStartDescribeErrors(t *testing.T) {
 				Once()
 
 			err := sendOpenIDNetConformanceLogUpdateStart(
+				context.Background(),
 				nil,
 				mockClient,
 				HandleSendTemporalSignalInput{WorkflowID: "wf-1"},
@@ -1371,6 +1431,7 @@ func TestSendEWCLikeLogUpdateErrors(t *testing.T) {
 			signal: workflows.EwcStartCheckSignal,
 			send: func(c *temporalmocks.Client) error {
 				return sendEWCLikeLogUpdateStart(
+					context.Background(),
 					nil,
 					c,
 					HandleSendTemporalSignalInput{WorkflowID: "ewc-status"},
@@ -1388,6 +1449,7 @@ func TestSendEWCLikeLogUpdateErrors(t *testing.T) {
 			signal: workflows.EwcStartCheckSignal,
 			send: func(c *temporalmocks.Client) error {
 				return sendEWCLikeLogUpdateStart(
+					context.Background(),
 					nil,
 					c,
 					HandleSendTemporalSignalInput{WorkflowID: "ewc-status"},
@@ -1404,6 +1466,7 @@ func TestSendEWCLikeLogUpdateErrors(t *testing.T) {
 			signal: workflows.EwcStopCheckSignal,
 			send: func(c *temporalmocks.Client) error {
 				return sendEWCLikeLogUpdateStop(
+					context.Background(),
 					c,
 					HandleSendTemporalSignalInput{WorkflowID: "ewc-status"},
 				)
@@ -1419,7 +1482,11 @@ func TestSendEWCLikeLogUpdateErrors(t *testing.T) {
 			name:   "stop surfaces transport failures",
 			signal: workflows.EwcStopCheckSignal,
 			send: func(c *temporalmocks.Client) error {
-				return sendEWCLikeLogUpdateStop(c, HandleSendTemporalSignalInput{WorkflowID: "ewc"})
+				return sendEWCLikeLogUpdateStop(
+					context.Background(),
+					c,
+					HandleSendTemporalSignalInput{WorkflowID: "ewc"},
+				)
 			},
 			errs:       map[string]error{"ewc": errors.New("unavailable")},
 			wantStatus: http.StatusBadRequest,
@@ -1468,6 +1535,7 @@ func TestSendCompletedWorkflowLogsUpdate(t *testing.T) {
 			return nil
 		}
 		err := sendCompletedWorkflowLogsUpdate(
+			context.Background(),
 			nil,
 			newClient(workflowengine.WorkflowResult{Output: map[string]any{"status": "ok"}}),
 			"wf-1",
@@ -1482,6 +1550,7 @@ func TestSendCompletedWorkflowLogsUpdate(t *testing.T) {
 			return errors.New("broker down")
 		}
 		err := sendCompletedWorkflowLogsUpdate(
+			context.Background(),
 			nil,
 			newClient(workflowengine.WorkflowResult{
 				Log: []any{map[string]any{"message": "done", "level": "info"}},

@@ -384,7 +384,7 @@ func TestWorkersHookSkipsWhenTemporalWorkersDisabled(t *testing.T) {
 }
 
 func TestStartAllWorkersByNamespaceDefault(t *testing.T) {
-	workerCancels = sync.Map{}
+	workerSets = sync.Map{}
 
 	originalGetTemporalClient := getTemporalClient
 	originalStartWorker := startWorkerFn
@@ -394,7 +394,7 @@ func TestStartAllWorkersByNamespaceDefault(t *testing.T) {
 		getTemporalClient = originalGetTemporalClient
 		startWorkerFn = originalStartWorker
 		startPipelineWorkerFn = originalStartPipelineWorker
-		workerCancels = sync.Map{}
+		workerSets = sync.Map{}
 	})
 
 	getTemporalClient = func(namespace string) (client.Client, error) {
@@ -420,22 +420,22 @@ func TestStartAllWorkersByNamespaceDefault(t *testing.T) {
 	}
 	<-pipelineCh
 
-	_, ok := workerCancels.Load("default")
+	_, ok := workerSets.Load("default")
 	require.True(t, ok)
 
 	StopAllWorkersByNamespace("default")
-	_, ok = workerCancels.Load("default")
+	_, ok = workerSets.Load("default")
 	require.False(t, ok)
 }
 
 func TestStartAllWorkersByNamespaceSkipsWhenTemporalWorkersDisabled(t *testing.T) {
 	t.Setenv(TemporalWorkersDisabledEnv, "1")
-	workerCancels = sync.Map{}
+	workerSets = sync.Map{}
 
 	originalGetTemporalClient := getTemporalClient
 	t.Cleanup(func() {
 		getTemporalClient = originalGetTemporalClient
-		workerCancels = sync.Map{}
+		workerSets = sync.Map{}
 	})
 
 	getTemporalClient = func(_ string) (client.Client, error) {
@@ -445,12 +445,12 @@ func TestStartAllWorkersByNamespaceSkipsWhenTemporalWorkersDisabled(t *testing.T
 
 	StartAllWorkersByNamespace(nil, "default")
 
-	_, ok := workerCancels.Load("default")
+	_, ok := workerSets.Load("default")
 	require.False(t, ok)
 }
 
 func TestStartAllWorkersByNamespaceOrg(t *testing.T) {
-	workerCancels = sync.Map{}
+	workerSets = sync.Map{}
 
 	originalGetTemporalClient := getTemporalClient
 	originalStartWorker := startWorkerFn
@@ -460,7 +460,7 @@ func TestStartAllWorkersByNamespaceOrg(t *testing.T) {
 		getTemporalClient = originalGetTemporalClient
 		startWorkerFn = originalStartWorker
 		startPipelineWorkerFn = originalStartPipelineWorker
-		workerCancels = sync.Map{}
+		workerSets = sync.Map{}
 	})
 
 	getTemporalClient = func(namespace string) (client.Client, error) {
@@ -491,48 +491,183 @@ func TestStartAllWorkersByNamespaceOrg(t *testing.T) {
 	}
 	require.Equal(t, expectedWorkers, gotWorkers)
 	<-pipelineCh
-	_, ok := workerCancels.Load("acme-org")
+	_, ok := workerSets.Load("acme-org")
 	require.True(t, ok)
 
 	StopAllWorkersByNamespace("acme-org")
-	_, ok = workerCancels.Load("acme-org")
+	_, ok = workerSets.Load("acme-org")
 	require.False(t, ok)
 }
 
-func TestEnsureNamespaceReadyWithRetrySuccess(t *testing.T) {
+func TestStartAllWorkersByNamespaceTwiceStopsFirstSet(t *testing.T) {
+	workerSets = sync.Map{}
+
+	originalGetTemporalClient := getTemporalClient
+	originalStartWorker := startWorkerFn
+	originalStartPipelineWorker := startPipelineWorkerFn
+	t.Cleanup(func() {
+		getTemporalClient = originalGetTemporalClient
+		startWorkerFn = originalStartWorker
+		startPipelineWorkerFn = originalStartPipelineWorker
+		StopAllWorkers()
+		workerSets = sync.Map{}
+	})
+
+	getTemporalClient = func(string) (client.Client, error) {
+		return nil, nil
+	}
+
+	var mu sync.Mutex
+	var ctxs []context.Context
+	runUntilCancelled := func(ctx context.Context, wg *sync.WaitGroup) {
+		mu.Lock()
+		ctxs = append(ctxs, ctx)
+		mu.Unlock()
+		go func() {
+			<-ctx.Done()
+			wg.Done()
+		}()
+	}
+	startWorkerFn = func(ctx context.Context, _ client.Client, _ workerConfig, wg *sync.WaitGroup) {
+		runUntilCancelled(ctx, wg)
+	}
+	startPipelineWorkerFn = func(ctx context.Context, _ core.App, _ client.Client, wg *sync.WaitGroup) {
+		runUntilCancelled(ctx, wg)
+	}
+
+	StartAllWorkersByNamespace(nil, "acme-org")
+	first, ok := workerSets.Load("acme-org")
+	require.True(t, ok)
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(ctxs) == len(orgWorkers(nil))+1
+	}, time.Second, 5*time.Millisecond)
+
+	StartAllWorkersByNamespace(nil, "acme-org")
+
+	// The first set is cancelled and fully drained before the second starts.
+	select {
+	case <-first.(*namespaceWorkers).done:
+	default:
+		t.Fatal("first worker set must be drained before restarting")
+	}
+	second, ok := workerSets.Load("acme-org")
+	require.True(t, ok)
+	require.NotSame(t, first, second)
+
+	mu.Lock()
+	firstCount := len(orgWorkers(nil)) + 1
+	for i, ctx := range ctxs[:firstCount] {
+		require.Error(t, ctx.Err(), "first set worker %d must be cancelled", i)
+	}
+	mu.Unlock()
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(ctxs) == 2*firstCount
+	}, time.Second, 5*time.Millisecond)
+	mu.Lock()
+	for _, ctx := range ctxs[firstCount:] {
+		require.NoError(t, ctx.Err())
+	}
+	mu.Unlock()
+}
+
+// stubNamespaceSetup replaces the namespace client, sleep and search-attribute
+// seams; it returns the namespaces passed to addSearchAttributesFn.
+func stubNamespaceSetup(
+	t *testing.T,
+	nc client.NamespaceClient,
+	addErr error,
+) *[]string {
+	t.Helper()
 	originalNewNamespaceClient := newNamespaceClientFn
 	originalSleep := sleepFn
 	originalNow := nowFn
+	originalAddSearchAttributes := addSearchAttributesFn
+	t.Cleanup(func() {
+		newNamespaceClientFn = originalNewNamespaceClient
+		sleepFn = originalSleep
+		nowFn = originalNow
+		addSearchAttributesFn = originalAddSearchAttributes
+	})
 
+	var added []string
+	newNamespaceClientFn = func() (client.NamespaceClient, error) {
+		return nc, nil
+	}
+	sleepFn = func(time.Duration) {}
+	nowFn = time.Now
+	addSearchAttributesFn = func(_ context.Context, namespace string) error {
+		added = append(added, namespace)
+		return addErr
+	}
+	return &added
+}
+
+func TestEnsureNamespaceReadySuccess(t *testing.T) {
 	mockClient := mocks.NewNamespaceClient(t)
 	mockClient.On("Describe", mock.Anything, "default").Return(
 		&workflowservice.DescribeNamespaceResponse{},
 		nil,
 	)
 	mockClient.On("Close").Return()
+	stubNamespaceSetup(t, mockClient, nil)
 
-	newNamespaceClientFn = func(_ client.Options) (client.NamespaceClient, error) {
-		return mockClient, nil
-	}
-	sleepFn = func(time.Duration) {}
-	nowFn = time.Now
-
-	t.Cleanup(func() {
-		newNamespaceClientFn = originalNewNamespaceClient
-		sleepFn = originalSleep
-		nowFn = originalNow
-	})
-
-	err := ensureNamespaceReadyWithRetry("default")
+	err := EnsureNamespaceReady("default")
 	require.NoError(t, err)
 	mockClient.AssertNotCalled(t, "Register", mock.Anything, mock.Anything)
 }
 
-func TestEnsureNamespaceReadyWithRetryRegistersOnNotFound(t *testing.T) {
-	originalNewNamespaceClient := newNamespaceClientFn
-	originalSleep := sleepFn
-	originalNow := nowFn
+func TestEnsureNamespaceReadyAddsSearchAttributesAfterDescribe(t *testing.T) {
+	mockClient := mocks.NewNamespaceClient(t)
+	describeCalls := 0
+	mockClient.On("Describe", mock.Anything, "tenant").Return(
+		func(_ context.Context, _ string) *workflowservice.DescribeNamespaceResponse {
+			describeCalls++
+			return &workflowservice.DescribeNamespaceResponse{}
+		},
+		nil,
+	)
+	mockClient.On("Close").Return()
+	added := stubNamespaceSetup(t, mockClient, nil)
+	addSearchAttributes := addSearchAttributesFn
+	addSearchAttributesFn = func(ctx context.Context, namespace string) error {
+		require.Equal(t, 1, describeCalls, "search attributes must be added after Describe")
+		return addSearchAttributes(ctx, namespace)
+	}
 
+	err := EnsureNamespaceReady("tenant")
+	require.NoError(t, err)
+	require.Equal(t, []string{"tenant"}, *added)
+}
+
+func TestEnsureNamespaceReadyRetriesSearchAttributeErrors(t *testing.T) {
+	mockClient := mocks.NewNamespaceClient(t)
+	mockClient.On("Describe", mock.Anything, "tenant").Return(
+		&workflowservice.DescribeNamespaceResponse{},
+		nil,
+	)
+	mockClient.On("Close").Return()
+	added := stubNamespaceSetup(t, mockClient, errors.New("boom"))
+	start := time.Now()
+	nowCalls := 0
+	nowFn = func() time.Time {
+		nowCalls++
+		if nowCalls == 1 {
+			return start
+		}
+		return start.Add(91 * time.Second)
+	}
+
+	err := EnsureNamespaceReady("tenant")
+	require.ErrorContains(t, err, "boom")
+	require.Equal(t, []string{"tenant"}, *added)
+}
+
+func TestEnsureNamespaceReadyRegistersOnNotFound(t *testing.T) {
 	mockClient := mocks.NewNamespaceClient(t)
 	callCount := 0
 	mockClient.On("Describe", mock.Anything, "tenant").Return(
@@ -551,46 +686,34 @@ func TestEnsureNamespaceReadyWithRetryRegistersOnNotFound(t *testing.T) {
 		},
 	)
 	mockClient.On("Register", mock.Anything, mock.MatchedBy(func(req *workflowservice.RegisterNamespaceRequest) bool {
-		return req.GetNamespace() == "tenant"
+		return req.GetNamespace() == "tenant" &&
+			req.GetWorkflowExecutionRetentionPeriod().AsDuration() == namespaceRetention
 	})).
-		Return(nil)
+		Return(nil).
+		Once()
 	mockClient.On("Close").Return()
+	slept := false
+	added := stubNamespaceSetup(t, mockClient, nil)
+	sleepFn = func(time.Duration) { slept = true }
 
-	newNamespaceClientFn = func(_ client.Options) (client.NamespaceClient, error) {
-		return mockClient, nil
-	}
-	sleepFn = func(time.Duration) {}
-	nowFn = time.Now
-
-	t.Cleanup(func() {
-		newNamespaceClientFn = originalNewNamespaceClient
-		sleepFn = originalSleep
-		nowFn = originalNow
-	})
-
-	err := ensureNamespaceReadyWithRetry("tenant")
+	err := EnsureNamespaceReady("tenant")
 	require.NoError(t, err)
-	mockClient.AssertCalled(t, "Register", mock.Anything, mock.Anything)
+	require.False(t, slept, "a successful Register must describe again without sleeping")
+	require.Equal(t, 2, callCount)
+	require.Equal(t, []string{"tenant"}, *added)
 }
 
-func TestEnsureNamespaceReadyWithRetryTimeout(t *testing.T) {
-	originalNewNamespaceClient := newNamespaceClientFn
-	originalSleep := sleepFn
-	originalNow := nowFn
-
+func TestEnsureNamespaceReadyTimeout(t *testing.T) {
 	mockClient := mocks.NewNamespaceClient(t)
 	mockClient.On("Describe", mock.Anything, "timeout").Return(
 		(*workflowservice.DescribeNamespaceResponse)(nil),
 		errors.New("boom"),
 	)
 	mockClient.On("Close").Return()
+	added := stubNamespaceSetup(t, mockClient, nil)
 
 	start := time.Now()
 	nowCalls := 0
-	newNamespaceClientFn = func(_ client.Options) (client.NamespaceClient, error) {
-		return mockClient, nil
-	}
-	sleepFn = func(time.Duration) {}
 	nowFn = func() time.Time {
 		nowCalls++
 		if nowCalls == 1 {
@@ -599,14 +722,9 @@ func TestEnsureNamespaceReadyWithRetryTimeout(t *testing.T) {
 		return start.Add(91 * time.Second)
 	}
 
-	t.Cleanup(func() {
-		newNamespaceClientFn = originalNewNamespaceClient
-		sleepFn = originalSleep
-		nowFn = originalNow
-	})
-
-	err := ensureNamespaceReadyWithRetry("timeout")
+	err := EnsureNamespaceReady("timeout")
 	require.Error(t, err)
+	require.Empty(t, *added)
 }
 
 func TestExecuteWorkerManagerWorkflowSuccess(t *testing.T) {
@@ -637,7 +755,9 @@ func TestExecuteWorkerManagerWorkflowSuccess(t *testing.T) {
 		return &mocks.Client{}, nil
 	}
 
-	workerManagerWaitForWorkflowResult = func(c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+	workerManagerWaitForWorkflowResult = func(ctx context.Context, c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+		_, hasDeadline := ctx.Deadline()
+		require.True(t, hasDeadline)
 		require.NotNil(t, c)
 		require.Equal(t, "wf-1", workflowID)
 		require.Equal(t, "run-1", runID)
@@ -715,7 +835,7 @@ func TestExecuteWorkerManagerWorkflowWaitError(t *testing.T) {
 	workerManagerTemporalClient = func(_ string) (client.Client, error) {
 		return &mocks.Client{}, nil
 	}
-	workerManagerWaitForWorkflowResult = func(_ client.Client, _ string, _ string) (workflowengine.WorkflowResult, error) {
+	workerManagerWaitForWorkflowResult = func(_ context.Context, _ client.Client, _ string, _ string) (workflowengine.WorkflowResult, error) {
 		return workflowengine.WorkflowResult{}, errors.New("wait failed")
 	}
 
@@ -886,38 +1006,36 @@ func TestRunWorkerWithRetryStopsOnNonRetryableError(t *testing.T) {
 	require.Equal(t, int32(0), sleepCalls.Load())
 }
 
-func TestRunWorkerWithRetryStopsAfterMaxRetryTime(t *testing.T) {
+func TestRunWorkerWithRetryRetriesUntilContextCancelled(t *testing.T) {
 	origSleepWithContext := sleepWithContextFn
-	origNowFn := nowFn
 	t.Cleanup(func() {
 		sleepWithContextFn = origSleepWithContext
-		nowFn = origNowFn
 	})
 
-	sleepWithContextFn = func(_ context.Context, _ time.Duration) bool {
-		return true
+	var backoffs []time.Duration
+	sleepWithContextFn = func(ctx context.Context, d time.Duration) bool {
+		backoffs = append(backoffs, d)
+		return ctx.Err() == nil
 	}
 
-	start := time.Now()
-	var nowCalls atomic.Int32
-	nowFn = func() time.Time {
-		if nowCalls.Add(1) == 1 {
-			return start
-		}
-		return start.Add(workerStartMaxRetryTime + time.Second)
-	}
-
+	const failuresBeforeCancel = 20
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	var runCalls atomic.Int32
-	runWorkerWithRetry(context.Background(), "queue-a", func() worker.Worker {
+	runWorkerWithRetry(ctx, "queue-a", func() worker.Worker {
 		return &retryTestWorker{
 			runFn: func(_ <-chan interface{}) error {
-				runCalls.Add(1)
+				if runCalls.Add(1) == failuresBeforeCancel {
+					cancel()
+				}
 				return context.DeadlineExceeded
 			},
 		}
 	})
 
-	require.Equal(t, int32(1), runCalls.Load())
+	require.Equal(t, int32(failuresBeforeCancel), runCalls.Load())
+	require.Len(t, backoffs, failuresBeforeCancel-1)
+	require.Equal(t, workerStartMaxBackoff, backoffs[len(backoffs)-1])
 }
 
 func TestStartWorkerManagerWorkflowInvokesExecute(t *testing.T) {

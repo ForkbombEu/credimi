@@ -266,23 +266,46 @@ func TestHandleListMyCheckRunsListError(t *testing.T) {
 	require.Equal(t, "failed to list workflow executions", apiErr.Reason)
 }
 
-func TestListChecksWorkflowsTemporal(t *testing.T) {
+func TestListChecksWorkflowsTemporalPages(t *testing.T) {
 	mockClient := &temporalmocks.Client{}
-	expected := &workflowservice.ListWorkflowExecutionsResponse{}
+	first := &workflow.WorkflowExecutionInfo{
+		Execution: &common.WorkflowExecution{WorkflowId: "wf-1"},
+	}
+	second := &workflow.WorkflowExecutionInfo{
+		Execution: &common.WorkflowExecution{WorkflowId: "wf-2"},
+	}
 
 	mockClient.
 		On(
 			"ListWorkflow",
 			mock.Anything,
 			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-				return req.GetNamespace() == "tenant-1" && req.GetQuery() == "query"
+				return req.GetNamespace() == "tenant-1" && req.GetQuery() == "query" &&
+					req.GetPageSize() == 1000 && len(req.GetNextPageToken()) == 0
 			}),
 		).
-		Return(expected, nil)
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions:    []*workflow.WorkflowExecutionInfo{first},
+			NextPageToken: []byte("page-2"),
+		}, nil).
+		Once()
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return string(req.GetNextPageToken()) == "page-2"
+			}),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{second},
+		}, nil).
+		Once()
 
 	resp, err := listWorkflowsTemporal(context.Background(), mockClient, "tenant-1", "query")
 	require.NoError(t, err)
-	require.Same(t, expected, resp)
+	require.Equal(t, []*workflow.WorkflowExecutionInfo{first, second}, resp.GetExecutions())
+	mockClient.AssertExpectations(t)
 }
 
 func TestHandleGetMyCheckRunHistoryMissingParams(t *testing.T) {
@@ -1059,7 +1082,7 @@ func TestHandleExportMyCheckRunSuccess(t *testing.T) {
 	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	workflowRunInputGetter = func(checkID string, runID string, c client.Client) (workflowengine.WorkflowInput, error) {
+	workflowRunInputGetter = func(_ context.Context, checkID string, runID string, c client.Client) (workflowengine.WorkflowInput, error) {
 		return workflowengine.WorkflowInput{}, nil
 	}
 
@@ -1452,7 +1475,7 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
-	workflowRunInputGetter = func(checkID string, runID string, c client.Client) (workflowengine.WorkflowInput, error) {
+	workflowRunInputGetter = func(_ context.Context, checkID string, runID string, c client.Client) (workflowengine.WorkflowInput, error) {
 		return workflowengine.WorkflowInput{
 			Payload: map[string]any{"foo": "bar"},
 			Config:  map[string]any{"app_url": "https://app"},
@@ -1509,17 +1532,12 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 func TestGetWorkflowInputSuccess(t *testing.T) {
 	mockClient := &temporalmocks.Client{}
 
-	inputData := map[string]any{
-		"Payload": map[string]any{"foo": "bar"},
-		"Config":  map[string]any{"app_url": "https://app"},
-	}
-	raw, err := json.Marshal(inputData)
+	payloads, err := temporalcrypto.DataConverter().ToPayloads(workflowengine.WorkflowInput{
+		Payload: map[string]any{"foo": "bar"},
+		Config:  map[string]any{"app_url": "https://app"},
+		Secrets: map[string]any{"token": "secret"},
+	})
 	require.NoError(t, err)
-	payloads := &common.Payloads{
-		Payloads: []*common.Payload{
-			{Data: raw},
-		},
-	}
 
 	iter := &fakeHistoryIterator{
 		events: []*historypb.HistoryEvent{
@@ -1546,12 +1564,13 @@ func TestGetWorkflowInputSuccess(t *testing.T) {
 		Return(iter).
 		Once()
 
-	got, err := getWorkflowInput("wf-1", "run-1", mockClient)
+	got, err := getWorkflowInput(context.Background(), "wf-1", "run-1", mockClient)
 	require.NoError(t, err)
 	payload, ok := got.Payload.(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "bar", payload["foo"])
 	require.Equal(t, "https://app", got.Config["app_url"])
+	require.Equal(t, "secret", got.Secrets["token"])
 }
 
 func TestHandleListMyWorkflowsStatusFilterQuery(t *testing.T) {
@@ -2127,7 +2146,7 @@ func TestHandleRerunMyCheckGetInputErrorAdditional(t *testing.T) {
 	workflowTemporalClient = func(string) (client.Client, error) {
 		return mockClient, nil
 	}
-	workflowRunInputGetter = func(string, string, client.Client) (workflowengine.WorkflowInput, error) {
+	workflowRunInputGetter = func(context.Context, string, string, client.Client) (workflowengine.WorkflowInput, error) {
 		return workflowengine.WorkflowInput{}, errors.New("input error")
 	}
 
@@ -2178,7 +2197,7 @@ func TestHandleRerunMyCheckStartErrorAdditional(t *testing.T) {
 	workflowTemporalClient = func(string) (client.Client, error) {
 		return mockClient, nil
 	}
-	workflowRunInputGetter = func(string, string, client.Client) (workflowengine.WorkflowInput, error) {
+	workflowRunInputGetter = func(context.Context, string, string, client.Client) (workflowengine.WorkflowInput, error) {
 		return workflowengine.WorkflowInput{Config: map[string]any{"app_url": "https://app"}}, nil
 	}
 	workflowStartWithOptions = func(
@@ -2288,7 +2307,7 @@ func TestHandleExportMyCheckRunGetInputErrorAdditional(t *testing.T) {
 	workflowTemporalClient = func(string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	workflowRunInputGetter = func(string, string, client.Client) (workflowengine.WorkflowInput, error) {
+	workflowRunInputGetter = func(context.Context, string, string, client.Client) (workflowengine.WorkflowInput, error) {
 		return workflowengine.WorkflowInput{}, errors.New("input error")
 	}
 
@@ -2327,7 +2346,7 @@ func TestGetWorkflowInputIteratorErrorAdditional(t *testing.T) {
 		Return(iter).
 		Once()
 
-	_, err := getWorkflowInput("wf-1", "run-1", mockClient)
+	_, err := getWorkflowInput(context.Background(), "wf-1", "run-1", mockClient)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to get workflow history")
 }

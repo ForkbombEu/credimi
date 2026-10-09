@@ -597,7 +597,7 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 
 	if rootExecution.Memo != nil {
 		if field, ok := rootExecution.Memo.Fields["test"]; ok && field.Data != nil {
-			rootSummary.DisplayName = DecodeFromTemporalPayload(*field.Data)
+			rootSummary.DisplayName = workflowengine.DecodeStringPayload(field.temporalPayload())
 		}
 	}
 

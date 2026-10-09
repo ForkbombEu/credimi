@@ -4,13 +4,16 @@
 package workflows
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/google/uuid"
+	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
@@ -174,9 +177,24 @@ func (w *WorkerManagerWorkflow) Start(
 	namespace string,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
+	payload, err := workflowengine.DecodePayload[WorkerManagerWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, fmt.Errorf("decode worker manager payload: %w", err)
+	}
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "worker-manager" + "-" + uuid.NewString(),
-		TaskQueue: WorkerManagerTaskQueue,
+		ID:                       workerManagerWorkflowID(payload),
+		TaskQueue:                WorkerManagerTaskQueue,
+		WorkflowIDConflictPolicy: enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
 	}
 	return workerManagerStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+}
+
+// workerManagerWorkflowID collapses identical concurrent triggers into one run:
+// the ID depends only on the target namespace, the old namespace and the
+// runner set.
+func workerManagerWorkflowID(payload WorkerManagerWorkflowPayload) string {
+	runnerIDs := slices.Clone(payload.RunnerIDs)
+	slices.Sort(runnerIDs)
+	sum := sha256.Sum256([]byte(payload.OldNamespace + "|" + strings.Join(runnerIDs, ",")))
+	return "worker-manager-" + payload.Namespace + "-" + hex.EncodeToString(sum[:])[:12]
 }

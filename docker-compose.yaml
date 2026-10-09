@@ -28,10 +28,35 @@ services:
       - 5432
     volumes:
       - /var/lib/postgresql/data
-  temporal:
+  # The temporalio/server image does not create or upgrade its schemas: this job does,
+  # on every start, with the admin-tools image of the same version. Every command is
+  # idempotent. The index name must match ES_VIS_INDEX of the temporal service.
+  # Credimi registers namespaces and search attributes itself.
+  temporal_schema:
     depends_on:
       - postgresql
       - elasticsearch
+    environment:
+      - SQL_PASSWORD=temporal
+      - ES_USER=elastic
+      - ES_PWD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
+    image: temporalio/admin-tools:${TEMPORAL_ADMIN_TOOLS_VERSION}
+    restart: "no"
+    entrypoint: ["/bin/sh", "-euc"]
+    command:
+      - |
+        until nc -z postgresql 5432; do sleep 1; done
+        until temporal-elasticsearch-tool --ep http://elasticsearch:9200 ping >/dev/null 2>&1; do sleep 2; done
+        temporal-sql-tool --plugin postgres12 --ep postgresql -p 5432 -u temporal --db temporal create
+        temporal-sql-tool --plugin postgres12 --ep postgresql -p 5432 -u temporal --db temporal setup-schema -v 0.0
+        temporal-sql-tool --plugin postgres12 --ep postgresql -p 5432 -u temporal --db temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+        temporal-elasticsearch-tool --ep http://elasticsearch:9200 setup-schema
+        temporal-elasticsearch-tool --ep http://elasticsearch:9200 create-index --index temporal_visibility_v1_dev
+        temporal-elasticsearch-tool --ep http://elasticsearch:9200 update-schema --index temporal_visibility_v1_dev
+  temporal:
+    depends_on:
+      temporal_schema:
+        condition: service_completed_successfully
     environment:
       - DB=postgres12
       - DB_PORT=5432
@@ -44,12 +69,21 @@ services:
       - ES_VERSION=v7
       - ES_USER=elastic
       - ES_PWD=${CREDIMI_ELASTIC_PASSWORD:?CREDIMI_ELASTIC_PASSWORD is required}
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      # The index and shard count existing data was created with; never change them.
+      - ES_VIS_INDEX=temporal_visibility_v1_dev
+      - NUM_HISTORY_SHARDS=4
+      # Listen on localhost too, for the healthcheck.
+      - BIND_ON_IP=0.0.0.0
       - LOG_LEVEL=info
-    image: temporalio/auto-setup:${TEMPORAL_VERSION}
+    image: temporalio/server:${TEMPORAL_VERSION}
     ports:
       - ${TEMPORAL_PORT:-7233}:7233
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "7233"]
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 60
     volumes:
       - ./deployment/dynamicconfig:/etc/temporal/config/dynamicconfig
     logging:
@@ -60,7 +94,8 @@ services:
   temporal_ui:
     container_name: temporal-ui
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
@@ -72,7 +107,8 @@ services:
   # Credimi reaches it, through the org-scoped proxy at /temporal-ui (pkg/internal/temporalui).
   temporal_ui_embedded:
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_UI_PORT=8080
@@ -81,25 +117,13 @@ services:
       - TEMPORAL_DISABLE_NEWS_FETCH=true
       - TEMPORAL_NAV_COLLAPSED_BY_DEFAULT=true
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
-  temporal_setup:
-    depends_on:
-      - temporal
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-    image: temporalio/admin-tools:${TEMPORAL_ADMIN_TOOLS_VERSION}
-    entrypoint:
-      [
-        "/bin/bash",
-        "-lc",
-        "set -euo pipefail; /scripts/wait-for-it.sh -s -t 0 temporal:7233; /scripts/temporal-search-attributes.sh",
-      ]
-    restart: "no"
-    volumes:
-      - ./scripts:/scripts:ro
   credimi:
     depends_on:
-      - temporal
-      - temporal_ui_embedded
+      temporal:
+        condition: service_healthy
+      temporal_ui_embedded:
+        condition: service_started
+    stop_grace_period: 30s
     build:
       context: .
       dockerfile: Dockerfile

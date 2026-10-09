@@ -101,14 +101,14 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 
 		activityOptions := pipelineMobileFlowActivityOptions()
 		mobileWorkflow := workflows.NewMobileAutomationWorkflow()
+		testName := fmt.Sprintf("mobile-flow: %s", strings.TrimSpace(input.ActionID))
 		run, err := temporalClient.ExecuteWorkflow(
 			e.Request.Context(),
 			client.StartWorkflowOptions{
-				ID:        pipelineMobileFlowWorkflowIDPrefix + uuid.NewString(),
-				TaskQueue: pipeline.PipelineTaskQueue,
-				Memo: map[string]any{
-					"test": fmt.Sprintf("mobile-flow: %s", strings.TrimSpace(input.ActionID)),
-				},
+				ID:            pipelineMobileFlowWorkflowIDPrefix + uuid.NewString(),
+				TaskQueue:     pipeline.PipelineTaskQueue,
+				Memo:          map[string]any{"test": testName},
+				StaticSummary: testName,
 			},
 			mobileWorkflow.Name(),
 			workflowengine.WorkflowInput{

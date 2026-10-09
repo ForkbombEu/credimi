@@ -13,7 +13,7 @@ The Scoreboard shows aggregated pipeline execution results across the platform. 
 
 ### `POST /api/pipeline/scoreboard/aggregate/start`
 
-Starts the `AggregateScoreboardWorkflow`. Optional `?schedule=<seconds>` creates a recurring schedule.
+Starts the `AggregateScoreboardWorkflow`. Optional `?schedule=<seconds>` creates the recurring schedule `aggregate-scoreboard-schedule` (overlapping runs are skipped), or updates its interval when it already exists.
 
 ### `DELETE /api/pipeline/scoreboard/aggregate/schedule/{schedule_id}`
 

@@ -9,8 +9,6 @@ package workflows
 
 import (
 	"fmt"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -202,8 +200,7 @@ func (w *OpenID4VPWalletWorkflow) ExecuteWorkflow(
 		child.Name(),
 		workflowengine.WorkflowInput{
 			Payload: OpenID4VPWalletLogsWorkflowPayload{
-				Rid:   rid,
-				Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+				Rid: rid,
 			},
 			Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
 				"app_url":  appURL,
@@ -282,14 +279,20 @@ func (w *OpenID4VPWalletWorkflow) Start(
 	return openID4VPWalletStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
+// openID4VPWalletLogsDefaultInterval is the log polling interval used when the
+// workflow config carries no valid "interval".
+const openID4VPWalletLogsDefaultInterval = 5 * time.Second
+
 // OpenID4VPWalletLogsWorkflow is a workflow that drains logs from the OpenID certification site.
 type OpenID4VPWalletLogsWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
 type OpenID4VPWalletLogsWorkflowPayload struct {
-	Rid   string `json:"rid"   yaml:"rid"   validate:"required"`
-	Token string `json:"token" yaml:"token" validate:"required"`
+	Rid string `json:"rid" yaml:"rid" validate:"required"`
+	// Token is only read by runs recorded before the logs activity fetched the
+	// token on the worker; new runs leave it empty.
+	Token string `json:"token" yaml:"token"`
 }
 
 func NewOpenID4VPWalletLogsWorkflow() *OpenID4VPWalletLogsWorkflow {
@@ -353,45 +356,21 @@ func (w *OpenID4VPWalletLogsWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	getLogsInput := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
-			Method: http.MethodGet,
-			URL: utils.JoinURL(
-				"https://www.certification.openid.net/api/log",
-				url.PathEscape(payload.Rid),
-			),
-			Headers: map[string]string{
-				"Authorization": fmt.Sprintf("Bearer %s", payload.Token),
-			},
-			QueryParams: map[string]string{
-				"public": "false",
-			},
-			ExpectedStatus: 200,
-		},
+	logsActivityName, getLogsInput := openIDNetLogsRequest(subCtx, payload.Rid, payload.Token, "")
+	interval := openID4VPWalletLogsDefaultInterval
+	if configured, ok := input.Config["interval"].(float64); ok && configured > 0 {
+		interval = time.Duration(configured)
 	}
+
 	var logs []map[string]any
 	startSignalChan := workflow.GetSignalChannel(subCtx, OpenID4VPWalletStartCheckSignal)
 	stopSignalChan := workflow.GetSignalChannel(subCtx, OpenID4VPWalletStopCheckSignal)
 	pipelineCancelChan := workflow.GetSignalChannel(subCtx, PipelineCancelSignal)
 	selector := workflow.NewSelector(subCtx)
 
-	var isPolling bool
 	var canceled bool
-
-	var timerFuture workflow.Future
-	var startTimer func()
-	startTimer = func() {
-		timerCtx, _ := workflow.WithCancel(subCtx)
-		timerFuture = workflow.NewTimer(
-			timerCtx,
-			time.Duration(input.Config["interval"].(float64)),
-		)
-		selector.AddFuture(timerFuture, func(_ workflow.Future) {
-			if isPolling {
-				startTimer()
-			}
-		})
-	}
+	timer := newPollTimer(subCtx, selector, interval)
+	var logsTracker realtimeLogsTracker
 
 	var signalVal any
 	selector.AddReceive(pipelineCancelChan, func(c workflow.ReceiveChannel, _ bool) {
@@ -402,15 +381,14 @@ func (w *OpenID4VPWalletLogsWorkflow) ExecuteWorkflow(
 	// Always listen for pause/resume signals
 	selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 		c.Receive(subCtx, &signalVal)
-		if !isPolling {
-			isPolling = true
-			startTimer()
+		if !timer.polling {
+			timer.start(true)
 			logger.Info("Received start signal, unpausing workflow")
 		}
 	})
 	selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 		c.Receive(subCtx, &signalVal)
-		isPolling = false
+		timer.stop()
 		logger.Info("Received stop signal, pausing workflow")
 	})
 
@@ -418,21 +396,20 @@ func (w *OpenID4VPWalletLogsWorkflow) ExecuteWorkflow(
 		// Wait for a signal or timer
 		selector.Select(subCtx)
 
-		if canceled {
+		if canceled || subCtx.Err() != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
 				input.RunMetadata,
 			)
 		}
 
-		if !isPolling {
+		if !timer.takeTick() {
 			continue
 		}
 
 		// Perform activity to fetch logs
-		var HTTPActivity = activities.NewHTTPActivity()
 		var HTTPResponse workflowengine.ActivityResult
 
-		err := workflow.ExecuteActivity(subCtx, HTTPActivity.Name(), getLogsInput).
+		err := workflow.ExecuteActivity(subCtx, logsActivityName, getLogsInput).
 			Get(subCtx, &HTTPResponse)
 		if err != nil {
 			logger.Error("Failed to get logs", "error", err)
@@ -444,18 +421,20 @@ func (w *OpenID4VPWalletLogsWorkflow) ExecuteWorkflow(
 
 		logs = workflowengine.AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
 
-		err = sendRealtimeLogsUpdate(
-			subCtx,
-			strings.TrimSuffix(workflow.GetInfo(subCtx).WorkflowExecution.ID, "-log")+
-				OpenID4VPWalletSubscription,
-			logs,
-		)
-		if err != nil {
-			logger.Error("Failed to send logs", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				err,
-				input.RunMetadata,
+		if logsTracker.changed(logs) {
+			err = sendRealtimeLogsUpdate(
+				subCtx,
+				strings.TrimSuffix(workflow.GetInfo(subCtx).WorkflowExecution.ID, "-log")+
+					OpenID4VPWalletSubscription,
+				logs,
 			)
+			if err != nil {
+				logger.Error("Failed to send logs", "error", err)
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+					err,
+					input.RunMetadata,
+				)
+			}
 		}
 
 		// Stop if logs are done

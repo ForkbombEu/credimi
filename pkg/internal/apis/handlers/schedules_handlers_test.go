@@ -359,6 +359,7 @@ func TestStartScheduledPipelineUsesScheduledEnqueueWorkflow(t *testing.T) {
 		"user_mail": "ada@example.test",
 	}
 	_, err := startScheduledPipelineWithOptions(
+		context.Background(),
 		"pipeline-slug",
 		"Pipeline Name",
 		"acme",
@@ -376,6 +377,7 @@ func TestStartScheduledPipelineUsesScheduledEnqueueWorkflow(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, workflows.ScheduledPipelineEnqueueWorkflowName, action.Workflow)
 	require.Equal(t, pipeline.PipelineTaskQueue, action.TaskQueue)
+	require.Equal(t, "Pipeline Name", action.StaticSummary)
 	require.Len(t, action.Args, 1)
 
 	arg, ok := action.Args[0].(workflowengine.WorkflowInput)
@@ -426,7 +428,7 @@ func TestListScheduledWorkflowsHappyPath(t *testing.T) {
 		return mockClient, nil
 	}
 
-	schedules, err := listScheduledWorkflows("acme")
+	schedules, err := listScheduledWorkflows(context.Background(), "acme")
 	require.NoError(t, err)
 	require.Len(t, schedules, 1)
 	require.Equal(t, "schedule-1", schedules[0].ID)
@@ -525,8 +527,8 @@ func TestHandleListMySchedules(t *testing.T) {
 		},
 		Memo: &commonpb.Memo{
 			Fields: map[string]*commonpb.Payload{
-				"test":        displayPayload,
-				"pipeline_id": pipelinePayload,
+				"test":       displayPayload,
+				"pipelineID": pipelinePayload,
 			},
 		},
 		Paused: true,

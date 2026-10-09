@@ -25,6 +25,7 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
+	"go.temporal.io/sdk/temporal"
 )
 
 func setupPipelineRetentionApp(t testing.TB) *tests.TestApp {
@@ -199,7 +200,7 @@ func TestSchedulePipelineRetentionWorkflow(t *testing.T) {
 		)
 	})
 
-	t.Run("success - update existing schedule on already registered error", func(t *testing.T) {
+	t.Run("success - update existing schedule on already running error", func(t *testing.T) {
 		mockHandle := &temporalmocks.ScheduleHandle{}
 		var capturedUpdateOptions client.ScheduleUpdateOptions
 		mockHandle.On("Update", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -210,7 +211,7 @@ func TestSchedulePipelineRetentionWorkflow(t *testing.T) {
 			Once()
 
 		mockScheduleClient := &fakeScheduleClient{
-			createErr: errors.New("schedule with this ID is already registered"),
+			createErr: temporal.ErrScheduleAlreadyRunning,
 			handle:    mockHandle,
 		}
 		mockClient := &temporalmocks.Client{}

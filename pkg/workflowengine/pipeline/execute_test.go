@@ -6,6 +6,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -25,6 +27,7 @@ import (
 	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
+	"google.golang.org/protobuf/proto"
 )
 
 type fakeActivity struct {
@@ -952,4 +955,81 @@ func TestExecuteStepEmailConfigureError(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "error configuring activity")
+}
+
+func TestEnsureStepInputSizeCountsEncryptedSecrets(t *testing.T) {
+	const secretsBytes = 200 << 10
+	input := workflowengine.ActivityInput{
+		Payload: map[string]any{
+			"data": strings.Repeat("a", maxStepInputBytes-secretsBytes-(16<<10)),
+		},
+		Secrets: map[string]any{"token": strings.Repeat("s", secretsBytes)},
+	}
+
+	plain, err := json.Marshal(input)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(plain), maxStepInputBytes)
+
+	err = ensureStepInputSize("big-step", input)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "step big-step input is")
+}
+
+func TestEnsureStepInputSizeAcceptsSmallInput(t *testing.T) {
+	input := workflowengine.ActivityInput{
+		Payload: map[string]any{"data": "small"},
+		Secrets: map[string]any{"token": "secret"},
+	}
+
+	require.NoError(t, ensureStepInputSize("small-step", input))
+}
+
+func TestEncodedStepInputSizeDecidesLikeTheEncodedPayload(t *testing.T) {
+	cases := []struct {
+		name    string
+		payload string
+		secret  string
+	}{
+		{
+			name:    "plain input under the limit",
+			payload: strings.Repeat("a", maxStepInputBytes-(4<<10)),
+		},
+		{name: "plain input over the limit", payload: strings.Repeat("a", maxStepInputBytes+1)},
+		{
+			name:    "large secrets within the bound",
+			payload: strings.Repeat("a", 700<<10),
+			secret:  strings.Repeat("s", 1500<<10),
+		},
+		{
+			name:    "escaped secrets within the bound",
+			payload: strings.Repeat("a", 1200<<10),
+			secret:  strings.Repeat("<", 100<<10),
+		},
+		{
+			name:    "secrets that only encryption pushes over the limit",
+			payload: strings.Repeat("a", maxStepInputBytes-(216<<10)),
+			secret:  strings.Repeat("s", 200<<10),
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			input := workflowengine.ActivityInput{Payload: map[string]any{"data": tc.payload}}
+			if tc.secret != "" {
+				input.Secrets = map[string]any{"token": tc.secret}
+			}
+			payloads, err := temporalcrypto.DataConverter().ToPayloads(input)
+			require.NoError(t, err)
+			exact := proto.Size(payloads)
+
+			got, err := encodedStepInputSize(input)
+			require.NoError(t, err)
+			require.Equal(t, exact > maxStepInputBytes, got > maxStepInputBytes,
+				"exact %d bytes, measured %d bytes", exact, got)
+		})
+	}
+}
+
+func TestSummaryLineStripsLineBreaks(t *testing.T) {
+	require.Equal(t, "step-1 (http-request)", summaryLine("step-1 (http-request)"))
+	require.Equal(t, "step-1 (http-request)", summaryLine("step-1\r\n (http-\nrequest)\r"))
 }

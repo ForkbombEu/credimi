@@ -74,6 +74,53 @@ func TestPrepareActivityOptionsAddsDefaultHeartbeatTimeout(t *testing.T) {
 	require.Equal(t, 30*time.Second, out.HeartbeatTimeout)
 }
 
+func TestPrepareActivityOptionsDoesNotMutateGlobalRetryPolicy(t *testing.T) {
+	global := PrepareWorkflowOptions(pipeline.RuntimeConfig{}).ActivityOptions
+	before := *global.RetryPolicy
+
+	stepAO := &pipeline.ActivityOptionsConfig{}
+	stepAO.RetryPolicy.MaximumAttempts = 7
+	stepAO.RetryPolicy.InitialInterval = "9s"
+	stepAO.RetryPolicy.MaximumInterval = "90s"
+	stepAO.RetryPolicy.BackoffCoefficient = 3
+
+	out := PrepareActivityOptions(global, stepAO)
+	require.Equal(t, int32(7), out.RetryPolicy.MaximumAttempts)
+	require.NotSame(t, global.RetryPolicy, out.RetryPolicy)
+	require.Equal(t, before, *global.RetryPolicy)
+}
+
+func TestPrepareActivityOptionsNilGlobalRetryPolicy(t *testing.T) {
+	stepAO := &pipeline.ActivityOptionsConfig{}
+	stepAO.RetryPolicy.MaximumAttempts = 4
+	stepAO.RetryPolicy.InitialInterval = "1s"
+	stepAO.RetryPolicy.MaximumInterval = "5s"
+	stepAO.RetryPolicy.BackoffCoefficient = 1.5
+
+	var out workflow.ActivityOptions
+	require.NotPanics(t, func() {
+		out = PrepareActivityOptions(workflow.ActivityOptions{}, stepAO)
+	})
+	require.NotNil(t, out.RetryPolicy)
+	require.Equal(t, int32(4), out.RetryPolicy.MaximumAttempts)
+	require.Equal(t, time.Second, out.RetryPolicy.InitialInterval)
+	require.Equal(t, 5*time.Second, out.RetryPolicy.MaximumInterval)
+	require.Equal(t, 1.5, out.RetryPolicy.BackoffCoefficient)
+}
+
+func TestPrepareActivityOptionsPreservesUnmergedFields(t *testing.T) {
+	global := PrepareWorkflowOptions(pipeline.RuntimeConfig{}).ActivityOptions
+	global.TaskQueue = "custom-queue"
+	global.ScheduleToStartTimeout = 3 * time.Minute
+
+	stepAO := &pipeline.ActivityOptionsConfig{StartToCloseTimeout: "45s"}
+
+	out := PrepareActivityOptions(global, stepAO)
+	require.Equal(t, "custom-queue", out.TaskQueue)
+	require.Equal(t, 3*time.Minute, out.ScheduleToStartTimeout)
+	require.Equal(t, 45*time.Second, out.StartToCloseTimeout)
+}
+
 func TestSetPayloadValueAndMergePayload(t *testing.T) {
 	var payload map[string]any
 	require.NoError(t, SetPayloadValue(&payload, "key", "value"))

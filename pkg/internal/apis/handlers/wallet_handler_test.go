@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -13,7 +14,6 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"testing"
-	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -827,11 +827,11 @@ func TestHandleWalletStartCheckWorkflowStartError(t *testing.T) {
 
 	origFactory := walletWorkflowFactory
 	origClient := walletTemporalClient
-	origWait := walletWaitForPartialResult
+	origWait := walletWaitForUpdateResult
 	t.Cleanup(func() {
 		walletWorkflowFactory = origFactory
 		walletTemporalClient = origClient
-		walletWaitForPartialResult = origWait
+		walletWaitForUpdateResult = origWait
 	})
 
 	walletWorkflowFactory = func() walletWorkflowStarter {
@@ -844,11 +844,10 @@ func TestHandleWalletStartCheckWorkflowStartError(t *testing.T) {
 	walletTemporalClient = func(_ string) (client.Client, error) {
 		return temporalmocks.NewClient(t), nil
 	}
-	walletWaitForPartialResult = func(
+	walletWaitForUpdateResult = func(
+		_ context.Context,
 		_ client.Client,
 		_, _, _ string,
-		_ time.Duration,
-		_ time.Duration,
 	) (map[string]any, error) {
 		return nil, errors.New("not reached")
 	}
@@ -882,11 +881,11 @@ func TestHandleWalletStartCheckTemporalClientError(t *testing.T) {
 
 	origFactory := walletWorkflowFactory
 	origClient := walletTemporalClient
-	origWait := walletWaitForPartialResult
+	origWait := walletWaitForUpdateResult
 	t.Cleanup(func() {
 		walletWorkflowFactory = origFactory
 		walletTemporalClient = origClient
-		walletWaitForPartialResult = origWait
+		walletWaitForUpdateResult = origWait
 	})
 
 	walletWorkflowFactory = func() walletWorkflowStarter {
@@ -902,11 +901,10 @@ func TestHandleWalletStartCheckTemporalClientError(t *testing.T) {
 	walletTemporalClient = func(_ string) (client.Client, error) {
 		return nil, errors.New("no client")
 	}
-	walletWaitForPartialResult = func(
+	walletWaitForUpdateResult = func(
+		_ context.Context,
 		_ client.Client,
 		_, _, _ string,
-		_ time.Duration,
-		_ time.Duration,
 	) (map[string]any, error) {
 		return nil, errors.New("not reached")
 	}
@@ -930,7 +928,7 @@ func TestHandleWalletStartCheckTemporalClientError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestHandleWalletStartCheckPartialResultError(t *testing.T) {
+func TestHandleWalletStartCheckUpdateResultError(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -940,11 +938,11 @@ func TestHandleWalletStartCheckPartialResultError(t *testing.T) {
 
 	origFactory := walletWorkflowFactory
 	origClient := walletTemporalClient
-	origWait := walletWaitForPartialResult
+	origWait := walletWaitForUpdateResult
 	t.Cleanup(func() {
 		walletWorkflowFactory = origFactory
 		walletTemporalClient = origClient
-		walletWaitForPartialResult = origWait
+		walletWaitForUpdateResult = origWait
 	})
 
 	walletWorkflowFactory = func() walletWorkflowStarter {
@@ -960,11 +958,10 @@ func TestHandleWalletStartCheckPartialResultError(t *testing.T) {
 	walletTemporalClient = func(_ string) (client.Client, error) {
 		return temporalmocks.NewClient(t), nil
 	}
-	walletWaitForPartialResult = func(
+	walletWaitForUpdateResult = func(
+		_ context.Context,
 		_ client.Client,
 		_, _, _ string,
-		_ time.Duration,
-		_ time.Duration,
 	) (map[string]any, error) {
 		return nil, errors.New("query failed")
 	}
@@ -998,11 +995,11 @@ func TestHandleWalletStartCheckMetadataError(t *testing.T) {
 
 	origFactory := walletWorkflowFactory
 	origClient := walletTemporalClient
-	origWait := walletWaitForPartialResult
+	origWait := walletWaitForUpdateResult
 	t.Cleanup(func() {
 		walletWorkflowFactory = origFactory
 		walletTemporalClient = origClient
-		walletWaitForPartialResult = origWait
+		walletWaitForUpdateResult = origWait
 	})
 
 	walletWorkflowFactory = func() walletWorkflowStarter {
@@ -1018,11 +1015,10 @@ func TestHandleWalletStartCheckMetadataError(t *testing.T) {
 	walletTemporalClient = func(_ string) (client.Client, error) {
 		return temporalmocks.NewClient(t), nil
 	}
-	walletWaitForPartialResult = func(
+	walletWaitForUpdateResult = func(
+		_ context.Context,
 		_ client.Client,
 		_, _, _ string,
-		_ time.Duration,
-		_ time.Duration,
 	) (map[string]any, error) {
 		return map[string]any{
 			"storeType": "google",
@@ -1062,11 +1058,11 @@ func TestHandleWalletStartCheckSuccess(t *testing.T) {
 
 	origFactory := walletWorkflowFactory
 	origClient := walletTemporalClient
-	origWait := walletWaitForPartialResult
+	origWait := walletWaitForUpdateResult
 	t.Cleanup(func() {
 		walletWorkflowFactory = origFactory
 		walletTemporalClient = origClient
-		walletWaitForPartialResult = origWait
+		walletWaitForUpdateResult = origWait
 	})
 
 	walletWorkflowFactory = func() walletWorkflowStarter {
@@ -1084,11 +1080,10 @@ func TestHandleWalletStartCheckSuccess(t *testing.T) {
 	walletTemporalClient = func(_ string) (client.Client, error) {
 		return temporalmocks.NewClient(t), nil
 	}
-	walletWaitForPartialResult = func(
+	walletWaitForUpdateResult = func(
+		_ context.Context,
 		_ client.Client,
 		_, _, _ string,
-		_ time.Duration,
-		_ time.Duration,
 	) (map[string]any, error) {
 		return map[string]any{
 			"storeType": "google",

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
@@ -28,113 +29,189 @@ func newRuntimeForTests() *mobileDeviceSemaphoreRuntime {
 	}
 }
 
-func TestHandleEnqueueRunValidation(t *testing.T) {
-	rt := newRuntimeForTests()
-	_, err := rt.handleEnqueueRun(MobileDeviceSemaphoreEnqueueRunRequest{})
-	require.Error(t, err)
-
-	var appErr *temporal.ApplicationError
-	require.True(t, temporal.IsApplicationError(err))
-	require.ErrorAs(t, err, &appErr)
-	require.Equal(t, MobileDeviceSemaphoreErrInvalidRequest, appErr.Type())
-}
-
-func TestHandleEnqueueRunRunnerMismatch(t *testing.T) {
-	rt := newRuntimeForTests()
-	_, err := rt.handleEnqueueRun(MobileDeviceSemaphoreEnqueueRunRequest{
-		TicketID:          "ticket-1",
-		OwnerNamespace:    "ns-1",
-		DeviceID:          "runner-2",
-		EnqueuedAt:        time.Now(),
-		RequiredDeviceIDs: []string{"runner-2"},
-		LeaderDeviceID:    "runner-2",
-	})
-	require.Error(t, err)
-	var appErr *temporal.ApplicationError
-	require.ErrorAs(t, err, &appErr)
-	require.Equal(t, MobileDeviceSemaphoreErrInvalidRequest, appErr.Type())
-}
-
-func TestHandleEnqueueRunMissingEnqueuedAt(t *testing.T) {
-	rt := newRuntimeForTests()
-	_, err := rt.handleEnqueueRun(MobileDeviceSemaphoreEnqueueRunRequest{
-		TicketID:          "ticket-1",
+func TestValidateEnqueueRun(t *testing.T) {
+	now := time.Now()
+	valid := MobileDeviceSemaphoreEnqueueRunRequest{
+		TicketID:          "ticket-2",
 		OwnerNamespace:    "ns-1",
 		DeviceID:          "runner-1",
+		EnqueuedAt:        now,
 		RequiredDeviceIDs: []string{"runner-1"},
 		LeaderDeviceID:    "runner-1",
-	})
-	require.Error(t, err)
-}
-
-func TestHandleEnqueueRunMissingRequiredDeviceIDs(t *testing.T) {
-	rt := newRuntimeForTests()
-	_, err := rt.handleEnqueueRun(MobileDeviceSemaphoreEnqueueRunRequest{
-		TicketID:       "ticket-1",
-		OwnerNamespace: "ns-1",
-		DeviceID:       "runner-1",
-		EnqueuedAt:     time.Now(),
-	})
-	require.Error(t, err)
-}
-
-func TestHandleEnqueueRunLeaderNotInRequired(t *testing.T) {
-	rt := newRuntimeForTests()
-	_, err := rt.handleEnqueueRun(MobileDeviceSemaphoreEnqueueRunRequest{
-		TicketID:          "ticket-1",
-		OwnerNamespace:    "ns-1",
-		DeviceID:          "runner-1",
-		EnqueuedAt:        time.Now(),
-		RequiredDeviceIDs: []string{"runner-2"},
-		LeaderDeviceID:    "runner-1",
-	})
-	require.Error(t, err)
-}
-
-func TestHandleEnqueueRunOwnerMismatch(t *testing.T) {
-	rt := newRuntimeForTests()
-	rt.runTickets["ticket-1"] = MobileDeviceSemaphoreRunTicketState{
-		Request: MobileDeviceSemaphoreEnqueueRunRequest{
-			TicketID:       "ticket-1",
-			OwnerNamespace: "ns-1",
-		},
-		Status: mobileDeviceSemaphoreRunQueued,
+	}
+	with := func(mutate func(*MobileDeviceSemaphoreEnqueueRunRequest)) MobileDeviceSemaphoreEnqueueRunRequest {
+		req := valid
+		mutate(&req)
+		return req
 	}
 
-	_, err := rt.handleEnqueueRun(MobileDeviceSemaphoreEnqueueRunRequest{
-		TicketID:          "ticket-1",
-		OwnerNamespace:    "ns-2",
-		DeviceID:          "runner-1",
-		EnqueuedAt:        time.Now(),
-		RequiredDeviceIDs: []string{"runner-1"},
-		LeaderDeviceID:    "runner-1",
-	})
-	require.Error(t, err)
-}
-
-func TestHandleEnqueueRunQueueLimit(t *testing.T) {
-	rt := newRuntimeForTests()
-	rt.runTickets["ticket-1"] = MobileDeviceSemaphoreRunTicketState{
-		Request: MobileDeviceSemaphoreEnqueueRunRequest{
-			TicketID:       "ticket-1",
-			OwnerNamespace: "ns-1",
+	tests := []struct {
+		name     string
+		shutdown bool
+		req      MobileDeviceSemaphoreEnqueueRunRequest
+		wantType string
+	}{
+		{
+			name:     "empty request",
+			req:      MobileDeviceSemaphoreEnqueueRunRequest{},
+			wantType: MobileDeviceSemaphoreErrInvalidRequest,
 		},
-		Status: mobileDeviceSemaphoreRunQueued,
+		{
+			name:     "shutdown in progress",
+			shutdown: true,
+			req:      valid,
+			wantType: MobileDeviceSemaphoreErrInvalidRequest,
+		},
+		{
+			name: "runner mismatch",
+			req: with(func(r *MobileDeviceSemaphoreEnqueueRunRequest) {
+				r.DeviceID = "runner-2"
+				r.RequiredDeviceIDs = []string{"runner-2"}
+				r.LeaderDeviceID = "runner-2"
+			}),
+			wantType: MobileDeviceSemaphoreErrInvalidRequest,
+		},
+		{
+			name: "missing enqueued_at",
+			req: with(
+				func(r *MobileDeviceSemaphoreEnqueueRunRequest) { r.EnqueuedAt = time.Time{} },
+			),
+			wantType: MobileDeviceSemaphoreErrInvalidRequest,
+		},
+		{
+			name: "missing required device IDs",
+			req: with(
+				func(r *MobileDeviceSemaphoreEnqueueRunRequest) { r.RequiredDeviceIDs = nil },
+			),
+			wantType: MobileDeviceSemaphoreErrInvalidRequest,
+		},
+		{
+			name: "leader not in required",
+			req: with(
+				func(r *MobileDeviceSemaphoreEnqueueRunRequest) { r.RequiredDeviceIDs = []string{"runner-2"} },
+			),
+			wantType: MobileDeviceSemaphoreErrInvalidRequest,
+		},
+		{
+			name: "ticket owner mismatch",
+			req: with(func(r *MobileDeviceSemaphoreEnqueueRunRequest) {
+				r.TicketID = "ticket-1"
+				r.OwnerNamespace = "ns-2"
+			}),
+			wantType: MobileDeviceSemaphoreErrInvalidRequest,
+		},
+		{
+			name: "queue limit",
+			req: with(
+				func(r *MobileDeviceSemaphoreEnqueueRunRequest) { r.MaxPipelinesInQueue = 1 },
+			),
+			wantType: MobileDeviceSemaphoreErrQueueLimitExceeded,
+		},
+		{
+			name: "known ticket is idempotent even at the limit",
+			req: with(func(r *MobileDeviceSemaphoreEnqueueRunRequest) {
+				r.TicketID = "ticket-1"
+				r.MaxPipelinesInQueue = 1
+			}),
+		},
+		{
+			name: "valid",
+			req: with(
+				func(r *MobileDeviceSemaphoreEnqueueRunRequest) { r.MaxPipelinesInQueue = 2 },
+			),
+		},
 	}
 
-	_, err := rt.handleEnqueueRun(MobileDeviceSemaphoreEnqueueRunRequest{
-		TicketID:            "ticket-2",
-		OwnerNamespace:      "ns-1",
-		DeviceID:            "runner-1",
-		EnqueuedAt:          time.Now(),
-		RequiredDeviceIDs:   []string{"runner-1"},
-		LeaderDeviceID:      "runner-1",
-		MaxPipelinesInQueue: 1,
-	})
-	require.Error(t, err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rt := newRuntimeForTests()
+			rt.shutdownRequested = tc.shutdown
+			rt.runTickets["ticket-1"] = MobileDeviceSemaphoreRunTicketState{
+				Request: MobileDeviceSemaphoreEnqueueRunRequest{
+					TicketID:       "ticket-1",
+					OwnerNamespace: "ns-1",
+				},
+				Status: mobileDeviceSemaphoreRunQueued,
+			}
+
+			err := rt.validateEnqueueRun(tc.req)
+			if tc.wantType == "" {
+				require.NoError(t, err)
+				return
+			}
+			var appErr *temporal.ApplicationError
+			require.ErrorAs(t, err, &appErr)
+			require.Equal(t, tc.wantType, appErr.Type())
+
+			// The handler keeps validating, because validators are skipped on replay.
+			_, handlerErr := rt.handleEnqueueRun(tc.req)
+			require.Equal(t, err.Error(), handlerErr.Error())
+			require.Len(t, rt.runTickets, 1)
+		})
+	}
+}
+
+// TestEnqueueRunUpdateValidatorRejectsQueueLimit verifies an over-limit enqueue is
+// rejected by the validator, so it never reaches the handler or the update budget.
+func TestEnqueueRunUpdateValidatorRejectsQueueLimit(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (int, error) {
+			rt := newRuntimeForTests()
+			rt.ctx = ctx
+			rt.updateCount = 7
+			rt.runTickets["ticket-1"] = MobileDeviceSemaphoreRunTicketState{
+				Request: MobileDeviceSemaphoreEnqueueRunRequest{
+					TicketID:       "ticket-1",
+					OwnerNamespace: "ns-1",
+				},
+				Status: mobileDeviceSemaphoreRunRunning,
+			}
+			if err := rt.registerEnqueueRunHandler(); err != nil {
+				return 0, err
+			}
+			workflow.GetSignalChannel(ctx, "kick").Receive(ctx, nil)
+			return rt.updateCount, nil
+		},
+		workflow.RegisterOptions{Name: "test-enqueue-validator"},
+	)
+
+	var rejected error
+	completed := false
+	env.RegisterDelayedCallback(func() {
+		env.UpdateWorkflow(
+			MobileDeviceSemaphoreEnqueueRunUpdate,
+			"enqueue/runner-1/ticket-2",
+			&testsuite.TestUpdateCallback{
+				OnReject:   func(err error) { rejected = err },
+				OnComplete: func(interface{}, error) { completed = true },
+			},
+			MobileDeviceSemaphoreEnqueueRunRequest{
+				TicketID:            "ticket-2",
+				OwnerNamespace:      "ns-1",
+				DeviceID:            "runner-1",
+				EnqueuedAt:          time.Now(),
+				RequiredDeviceIDs:   []string{"runner-1"},
+				LeaderDeviceID:      "runner-1",
+				MaxPipelinesInQueue: 1,
+			},
+		)
+		env.SignalWorkflow("kick", nil)
+	}, time.Second)
+
+	env.ExecuteWorkflow("test-enqueue-validator")
+	require.NoError(t, env.GetWorkflowError())
+
+	require.False(t, completed)
 	var appErr *temporal.ApplicationError
-	require.ErrorAs(t, err, &appErr)
+	require.ErrorAs(t, rejected, &appErr)
 	require.Equal(t, MobileDeviceSemaphoreErrQueueLimitExceeded, appErr.Type())
+
+	var updateCount int
+	require.NoError(t, env.GetWorkflowResult(&updateCount))
+	require.Equal(t, 7, updateCount)
 }
 
 func TestHandleEnqueueRunSuccess(t *testing.T) {
@@ -783,6 +860,69 @@ func TestAwaitContinueTriggersContinueAsNew(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.True(t, workflow.IsContinueAsNewError(err))
+}
+
+// TestAwaitContinueDrainsBufferedRunDoneSignal verifies a run-done signal still
+// buffered when continue-as-new triggers is handled before the state snapshot.
+func TestAwaitContinueDrainsBufferedRunDoneSignal(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			rt := newRuntimeForTests()
+			rt.ctx = ctx
+			rt.countAllUpdates = true
+			rt.runTickets["ticket-1"] = MobileDeviceSemaphoreRunTicketState{
+				Request: MobileDeviceSemaphoreEnqueueRunRequest{
+					TicketID:          "ticket-1",
+					OwnerNamespace:    "ns-1",
+					DeviceID:          "runner-1",
+					RequiredDeviceIDs: []string{"runner-1"},
+					LeaderDeviceID:    "runner-1",
+				},
+				Status:     mobileDeviceSemaphoreRunRunning,
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+			}
+			rt.startRunSignalHandlers()
+
+			// The run-done signal arrives in the same workflow task that
+			// reaches the update budget, before its receiver goroutine runs.
+			workflow.GetSignalChannel(ctx, "kick").Receive(ctx, nil)
+			rt.updateCount = mobileDeviceSemaphoreMaxUpdateBatches
+			rt.maybeScheduleContinue()
+			return rt.awaitContinue()
+		},
+		workflow.RegisterOptions{Name: "test-await-continue-drains-signals"},
+	)
+
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflowSkippingWorkflowTask(
+			MobileDeviceSemaphoreRunDoneSignalName,
+			MobileDeviceSemaphoreRunDoneSignal{
+				TicketID:       "ticket-1",
+				WorkflowID:     "wf-1",
+				RunID:          "run-1",
+				WorkflowResult: "failed",
+			},
+		)
+		env.SignalWorkflow("kick", nil)
+	}, time.Second)
+
+	env.ExecuteWorkflow("test-await-continue-drains-signals")
+	var canErr *workflow.ContinueAsNewError
+	require.ErrorAs(t, env.GetWorkflowError(), &canErr)
+
+	var next workflowengine.WorkflowInput
+	require.NoError(t, converter.GetDefaultDataConverter().FromPayloads(canErr.Input, &next))
+	payload, err := workflowengine.DecodePayload[MobileDeviceSemaphoreWorkflowInput](next.Payload)
+	require.NoError(t, err)
+	require.NotNil(t, payload.State)
+	ticket, ok := payload.State.RunTickets["ticket-1"]
+	require.True(t, ok)
+	require.Equal(t, mobileDeviceSemaphoreRunFailed, ticket.Status)
+	require.NotNil(t, ticket.DoneAt)
 }
 
 func TestCheckRunCompletionFinalizesClosedRun(t *testing.T) {

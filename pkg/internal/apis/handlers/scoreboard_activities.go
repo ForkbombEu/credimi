@@ -111,7 +111,7 @@ func (a *GetScoreboardExecutionDetailsActivity) Name() string {
 }
 
 func (a *GetScoreboardExecutionDetailsActivity) Execute(
-	_ context.Context,
+	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	payload, err := workflowengine.DecodePayload[workflows.ScoreboardExecutionInput](input.Payload)
@@ -119,6 +119,7 @@ func (a *GetScoreboardExecutionDetailsActivity) Execute(
 		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(err)
 	}
 	details, err := scoreboardExecutionDetails(
+		ctx,
 		payload.Namespace,
 		payload.WorkflowID,
 		payload.RunID,

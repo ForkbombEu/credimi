@@ -19,7 +19,6 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -27,6 +26,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
+	"go.temporal.io/api/operatorservice/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/activity"
@@ -96,6 +96,7 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		return se.Next()
 	})
 	app.OnTerminate().BindFunc(func(te *core.TerminateEvent) error {
+		StopAllWorkers()
 		shutdownTemporalClientsFn()
 		return te.Next()
 	})
@@ -119,6 +120,7 @@ func orgWorkers(app core.App) []workerConfig {
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewSendMailActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -129,6 +131,7 @@ func orgWorkers(app core.App) []workerConfig {
 			Activities: append([]workflowengine.ExecutableActivity{
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -139,6 +142,7 @@ func orgWorkers(app core.App) []workerConfig {
 			Activities: append([]workflowengine.ExecutableActivity{
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -151,6 +155,7 @@ func orgWorkers(app core.App) []workerConfig {
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewSendMailActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -162,6 +167,7 @@ func orgWorkers(app core.App) []workerConfig {
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewSendMailActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -180,6 +186,7 @@ func orgWorkers(app core.App) []workerConfig {
 				),
 				activities.NewSchemaValidationActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -198,6 +205,7 @@ func orgWorkers(app core.App) []workerConfig {
 					},
 				),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			},
 		},
 		{
@@ -216,6 +224,7 @@ func orgWorkers(app core.App) []workerConfig {
 			},
 			Activities: []workflowengine.ExecutableActivity{
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 				activities.NewCESRParsingActivity(),
 				activities.NewCESRValidateActivity(),
 			},
@@ -237,6 +246,7 @@ func orgWorkers(app core.App) []workerConfig {
 			},
 			Activities: append([]workflowengine.ExecutableActivity{
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 				activities.NewParseFidesCredentialIssuersActivity(),
 				activities.NewCheckCredentialsIssuerActivity(),
 				activities.NewJSONActivity(
@@ -273,6 +283,7 @@ func defaultWorkers(app core.App) []workerConfig {
 			Activities: append([]workflowengine.ExecutableActivity{
 				activities.NewStepCIWorkflowActivity(),
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 			}, activities.CredimiActivities(app)...),
 		},
 		{
@@ -282,6 +293,7 @@ func defaultWorkers(app core.App) []workerConfig {
 			},
 			Activities: []workflowengine.ExecutableActivity{
 				activities.NewHTTPActivity(),
+				activities.NewOpenIDNetLogsActivity(),
 				activities.NewMobileRunnerHTTPActivity(app),
 			},
 		},
@@ -326,7 +338,7 @@ func defaultWorkers(app core.App) []workerConfig {
 
 var (
 	getTemporalClient          = temporalclient.GetTemporalClientWithNamespace
-	newNamespaceClientFn       = client.NewNamespaceClient
+	newNamespaceClientFn       = temporalclient.NewNamespaceClient
 	newWorkerFn                = worker.New
 	sleepFn                    = time.Sleep
 	sleepWithContextFn         = sleepWithContext
@@ -337,7 +349,8 @@ var (
 	workerManagerOrgRecordsFn  = workerManagerAllOrganizationRecords
 	adminRunnerIDsFn           = WorkerManagerAdminRunnerIDs
 	publishedRunnerIDsFn       = WorkerManagerPublishedNonAdminRunnerIDs
-	ensureNamespaceReadyFn     = ensureNamespaceReadyWithRetry
+	ensureNamespaceReadyFn     = EnsureNamespaceReady
+	addSearchAttributesFn      = addSearchAttributes
 	startAllWorkersByNamespace = StartAllWorkersByNamespace
 	startWorkerManagerWorkflow = StartWorkerManagerWorkflow
 	shutdownTemporalClientsFn  = temporalclient.ShutdownClients
@@ -353,13 +366,18 @@ var (
 const (
 	workerStartInitialBackoff = time.Second
 	workerStartMaxBackoff     = 30 * time.Second
-	workerStartMaxRetryTime   = 2 * time.Minute
+	// workerStopTimeout lets in-flight activities finish when a worker stops.
+	workerStopTimeout = 20 * time.Second
+	// workerStopWait bounds how long a stop waits for a namespace's workers.
+	workerStopWait = 30 * time.Second
+	// workerManagerWaitTimeout bounds how long a worker-manager run is awaited.
+	workerManagerWaitTimeout = 5 * time.Minute
 )
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
 	runWorkerWithRetry(ctx, config.TaskQueue, func() worker.Worker {
-		w := newWorkerFn(c, config.TaskQueue, worker.Options{})
+		w := newWorkerFn(c, config.TaskQueue, worker.Options{WorkerStopTimeout: workerStopTimeout})
 
 		for _, wf := range config.Workflows {
 			w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
@@ -376,7 +394,11 @@ func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *
 func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg *sync.WaitGroup) {
 	defer wg.Done()
 	runWorkerWithRetry(ctx, pipeline.PipelineTaskQueue, func() worker.Worker {
-		w := newWorkerFn(c, pipeline.PipelineTaskQueue, worker.Options{})
+		w := newWorkerFn(
+			c,
+			pipeline.PipelineTaskQueue,
+			worker.Options{WorkerStopTimeout: workerStopTimeout},
+		)
 
 		pipelineWf := pipeline.NewPipelineWorkflow()
 		w.RegisterWorkflowWithOptions(
@@ -387,6 +409,11 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 		w.RegisterActivityWithOptions(
 			debugAct.Execute,
 			activity.RegisterOptions{Name: debugAct.Name()},
+		)
+		conformanceTemplateAct := pipeline.NewConformanceTemplateActivity()
+		w.RegisterActivityWithOptions(
+			conformanceTemplateAct.Execute,
+			activity.RegisterOptions{Name: conformanceTemplateAct.Name()},
 		)
 		githubPRCommentAct := activities.NewUpdateGitHubPRCommentActivity()
 		w.RegisterActivityWithOptions(
@@ -438,7 +465,6 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 
 func runWorkerWithRetry(ctx context.Context, taskQueue string, build func() worker.Worker) {
 	backoff := workerStartInitialBackoff
-	deadline := nowFn().Add(workerStartMaxRetryTime)
 
 	for {
 		if ctx.Err() != nil {
@@ -461,15 +487,6 @@ func runWorkerWithRetry(ctx context.Context, taskQueue string, build func() work
 		}
 		if !shouldRetryWorkerStartError(err) {
 			log.Printf("Worker for %s stopped with non-retryable error: %v", taskQueue, err)
-			return
-		}
-		if nowFn().After(deadline) {
-			log.Printf(
-				"Worker for %s stopped retrying after %s: last error: %v",
-				taskQueue,
-				workerStartMaxRetryTime,
-				err,
-			)
 			return
 		}
 
@@ -528,7 +545,14 @@ func growBackoff(current, maxDuration time.Duration) time.Duration {
 	return next
 }
 
-var workerCancels sync.Map
+// namespaceWorkers is the running worker set of one namespace: cancel stops
+// it and done closes once every worker of the set has returned.
+type namespaceWorkers struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+var workerSets sync.Map // map[string]*namespaceWorkers
 
 func StartAllWorkersByNamespace(app core.App, namespace string) {
 	if TemporalWorkersDisabled() {
@@ -540,13 +564,21 @@ func StartAllWorkersByNamespace(app core.App, namespace string) {
 		return
 	}
 
+	if _, ok := workerSets.Load(namespace); ok {
+		StopAllWorkersByNamespace(namespace)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
-	workerCancels.Store(namespace, cancel)
 
 	c, err := getTemporalClient(namespace)
 	if err != nil {
-		log.Fatalf("Failed to connect to Temporal: %v", err)
+		log.Printf("Failed to connect to Temporal for namespace %s: %v", namespace, err)
+		cancel()
+		return
 	}
+
+	set := &namespaceWorkers{cancel: cancel, done: make(chan struct{})}
+	workerSets.Store(namespace, set)
 
 	var wg sync.WaitGroup
 
@@ -568,17 +600,49 @@ func StartAllWorkersByNamespace(app core.App, namespace string) {
 
 	go func() {
 		wg.Wait()
-		<-ctx.Done()
+		close(set.done)
 		log.Printf("Workers for namespace %s stopped", namespace)
 	}()
 }
 
+// StopAllWorkersByNamespace cancels the namespace's workers and waits up to
+// workerStopWait for them to drain.
 func StopAllWorkersByNamespace(namespace string) {
-	if cancel, ok := workerCancels.Load(namespace); ok {
-		cancel.(context.CancelFunc)()
-		workerCancels.Delete(namespace)
-		log.Printf("Stopped workers for namespace %s", namespace)
+	value, ok := workerSets.LoadAndDelete(namespace)
+	if !ok {
+		return
 	}
+	set := value.(*namespaceWorkers)
+	set.cancel()
+
+	timer := time.NewTimer(workerStopWait)
+	defer timer.Stop()
+	select {
+	case <-set.done:
+		log.Printf("Stopped workers for namespace %s", namespace)
+	case <-timer.C:
+		log.Printf(
+			"Timed out after %s waiting for workers of namespace %s to stop",
+			workerStopWait,
+			namespace,
+		)
+	}
+}
+
+// StopAllWorkers stops the workers of every namespace concurrently and waits
+// for them to drain.
+func StopAllWorkers() {
+	var wg sync.WaitGroup
+	workerSets.Range(func(key, _ any) bool {
+		namespace := key.(string)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			StopAllWorkersByNamespace(namespace)
+		}()
+		return true
+	})
+	wg.Wait()
 }
 
 func FetchNamespaces(app core.App) ([]string, error) {
@@ -600,19 +664,18 @@ func FetchNamespaces(app core.App) ([]string, error) {
 	return namespaces, nil
 }
 
-func ensureNamespaceReadyWithRetry(namespace string) error {
-	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
-	log.Printf("[WorkersHook] Connecting to Temporal at %s for namespace %q", hostPort, namespace)
+const namespaceRetention = 365 * 24 * time.Hour
+
+// EnsureNamespaceReady registers the namespace when missing, waits until Temporal
+// describes it and registers Credimi's custom search attributes on it. It retries
+// with backoff for up to 90 seconds.
+func EnsureNamespaceReady(namespace string) error {
+	log.Printf("[WorkersHook] Ensuring Temporal namespace %q", namespace)
 
 	deadline := nowFn().Add(90 * time.Second)
 	attempt := 0
 
-	nc, err := newNamespaceClientFn(client.Options{
-		HostPort: hostPort,
-		ConnectionOptions: client.ConnectionOptions{
-			TLS: nil,
-		},
-	})
+	nc, err := newNamespaceClientFn()
 	if err != nil {
 		return err
 	}
@@ -622,37 +685,44 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 		attempt++
 		start := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 		_, err = nc.Describe(ctx, namespace)
 		cancel()
-		elapsed := time.Since(start)
 
 		if err == nil {
-			log.Printf(
-				"[WorkersHook] Namespace %q ready after %d attempt(s) in %v",
-				namespace,
-				attempt,
-				elapsed,
-			)
-			return nil
-		}
-
-		var notFound *serviceerror.NamespaceNotFound
-		if errors.As(err, &notFound) {
-			err = nc.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{
-				Namespace:                        namespace,
-				WorkflowExecutionRetentionPeriod: durationpb.New(365 * 24 * time.Hour),
-			})
-			if err != nil {
+			saCtx, saCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			err = addSearchAttributesFn(saCtx, namespace)
+			saCancel()
+			if err == nil {
+				log.Printf(
+					"[WorkersHook] Namespace %q ready after %d attempt(s) in %v",
+					namespace,
+					attempt,
+					time.Since(start),
+				)
+				return nil
+			}
+			err = fmt.Errorf("add search attributes: %w", err)
+		} else {
+			var notFound *serviceerror.NamespaceNotFound
+			if errors.As(err, &notFound) {
+				regCtx, regCancel := context.WithTimeout(context.Background(), 10*time.Second)
+				err = nc.Register(regCtx, &workflowservice.RegisterNamespaceRequest{
+					Namespace:                        namespace,
+					WorkflowExecutionRetentionPeriod: durationpb.New(namespaceRetention),
+				})
+				regCancel()
+				if err == nil {
+					log.Printf("[WorkersHook] Created namespace %s", namespace)
+					continue
+				}
 				log.Printf("[WorkersHook] Unable to create namespace %s: %v", namespace, err)
 			}
-			log.Printf("[WorkersHook] Created namespace %s", namespace)
 		}
 
 		log.Printf(
 			"[WorkersHook] Attempt %d failed in %v: namespace=%s err=%v",
 			attempt,
-			elapsed,
+			time.Since(start),
 			namespace,
 			err,
 		)
@@ -668,6 +738,19 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 		log.Printf("[WorkersHook] Sleeping %v before retry...", backoff)
 		sleepFn(backoff)
 	}
+}
+
+func addSearchAttributes(ctx context.Context, namespace string) error {
+	c, err := getTemporalClient(namespace)
+	if err != nil {
+		return err
+	}
+	_, err = c.OperatorService().
+		AddSearchAttributes(ctx, &operatorservice.AddSearchAttributesRequest{
+			Namespace:        namespace,
+			SearchAttributes: workflowengine.CustomSearchAttributeTypes(),
+		})
+	return err
 }
 
 func StartWorkerManagerWorkflow(namespace, oldNamespace string, runnerIDs []string) {
@@ -728,7 +811,10 @@ func executeWorkerManagerWorkflow(
 		return fmt.Errorf("unable to create client: %w", err)
 	}
 
+	waitCtx, cancel := context.WithTimeout(context.Background(), workerManagerWaitTimeout)
+	defer cancel()
 	_, err = workerManagerWaitForWorkflowResult(
+		waitCtx,
 		c,
 		resStart.WorkflowID,
 		resStart.WorkflowRunID,

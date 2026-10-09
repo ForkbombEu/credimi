@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"go.temporal.io/sdk/client"
 )
 
@@ -34,17 +33,17 @@ func getTemporalClient(args ...string) (client.Client, error) {
 	if c, ok := clientCache.Load(namespace); ok {
 		return c.(client.Client), nil
 	}
-	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
-	c, err := newLazyClient(client.Options{
-		HostPort:      hostPort,
-		Namespace:     namespace,
-		DataConverter: temporalcrypto.DataConverter(),
-	})
+	options := baseOptions(namespace)
+	options.DataConverter = temporalcrypto.DataConverter()
+	c, err := newLazyClient(options)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create client: %w", err)
 	}
 
-	clientCache.Store(namespace, c)
+	if existing, loaded := clientCache.LoadOrStore(namespace, c); loaded {
+		c.Close()
+		return existing.(client.Client), nil
+	}
 	return c, nil
 }
 
@@ -53,6 +52,12 @@ func getTemporalClient(args ...string) (client.Client, error) {
 // ShutdownClients.
 func GetTemporalClientWithNamespace(namespace string) (client.Client, error) {
 	return getTemporalClient(namespace)
+}
+
+// NewNamespaceClient returns a new Temporal namespace client for TEMPORAL_ADDRESS.
+// Callers own the returned client and must close it.
+func NewNamespaceClient() (client.NamespaceClient, error) {
+	return client.NewNamespaceClient(baseOptions(""))
 }
 
 func ShutdownClients() {

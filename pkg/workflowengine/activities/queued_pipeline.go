@@ -6,6 +6,7 @@ package activities
 import (
 	"context"
 	"fmt"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -17,8 +18,9 @@ import (
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/google/uuid"
 	"github.com/pocketbase/pocketbase/core"
+	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
@@ -92,6 +94,7 @@ type queuedRuntime struct {
 type queuedActivityOptions struct {
 	ScheduleToCloseTimeout string            `yaml:"schedule_to_close_timeout,omitempty"`
 	StartToCloseTimeout    string            `yaml:"start_to_close_timeout,omitempty"`
+	HeartbeatTimeout       string            `yaml:"heartbeat_timeout,omitempty"`
 	RetryPolicy            queuedRetryPolicy `yaml:"retry_policy,omitempty"`
 }
 
@@ -114,6 +117,10 @@ type temporalWorkflowStarter interface {
 		workflow interface{},
 		args ...interface{},
 	) (client.WorkflowRun, error)
+	DescribeWorkflowExecution(
+		ctx context.Context,
+		workflowID, runID string,
+	) (*workflowservice.DescribeWorkflowExecutionResponse, error)
 }
 
 // StartQueuedPipelineActivityName is the registered name of
@@ -230,19 +237,28 @@ func (a *StartQueuedPipelineActivity) Execute(
 	applySemaphoreTicketMetadata(config, payload)
 
 	memo["test"] = workflowDef.Name
+	ticketKey := path.Base(strings.TrimSpace(payload.TicketID))
+	if ticketKey == "." || ticketKey == "/" {
+		return result, a.NewMissingOrInvalidPayloadError(fmt.Errorf("ticket_id is required"))
+	}
 	options := prepareQueuedWorkflowOptions(workflowDef.Runtime)
 	workflowIDPrefix := "Pipeline-"
 	if strings.HasPrefix(payload.TicketID, "sched/") {
 		workflowIDPrefix = "Pipeline-Sched-"
 	}
+	// The ticket ID makes the start idempotent: a retried or redelivered
+	// start of the same ticket resolves to the same workflow execution.
 	options.Options.ID = fmt.Sprintf(
 		"%s%s-%s",
 		workflowIDPrefix,
 		canonify.CanonifyPlain(workflowDef.Name),
-		uuid.NewString(),
+		ticketKey,
 	)
+	options.Options.WorkflowIDReusePolicy = enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE
+	options.Options.WorkflowIDConflictPolicy = enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING
 	options.Options.TaskQueue = pipelineTaskQueue
 	options.Options.Memo = memo
+	options.Options.StaticSummary = workflowDef.Name
 	entityIDs, err := pipeline.ParseEntityIDs(payload.YAML)
 	if err != nil {
 		return result, fmt.Errorf("failed to parse entity IDs: %w", err)
@@ -254,7 +270,10 @@ func (a *StartQueuedPipelineActivity) Execute(
 		entityIDs,
 	)
 
-	namespace := config["namespace"].(string)
+	namespace, ok := config["namespace"].(string)
+	if !ok || namespace == "" {
+		return result, a.NewMissingOrInvalidPayloadError(fmt.Errorf("namespace config is required"))
+	}
 	temporalFactory := a.temporalClientFactory
 	if temporalFactory == nil {
 		temporalFactory = func(namespace string) (temporalWorkflowStarter, error) {
@@ -282,13 +301,33 @@ func (a *StartQueuedPipelineActivity) Execute(
 		"debug": workflowDef.Runtime.Debug,
 	}
 
+	workflowID := options.Options.ID
+	var runID string
 	workflowRun, err := temporalClient.ExecuteWorkflow(
 		ctx,
 		options.Options,
 		pipelineWorkflowName,
 		workflowInput,
 	)
-	if err != nil {
+	switch {
+	case err == nil:
+		workflowID = workflowRun.GetID()
+		runID = workflowRun.GetRunID()
+	case temporal.IsWorkflowExecutionAlreadyStartedError(err):
+		// A retry after the ticket's run already closed: reuse that run.
+		desc, descErr := temporalClient.DescribeWorkflowExecution(ctx, workflowID, "")
+		if descErr != nil {
+			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+			return result, a.NewActivityError(
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("describe already started workflow: %v", descErr),
+				},
+			)
+		}
+		runID = desc.GetWorkflowExecutionInfo().GetExecution().GetRunId()
+	default:
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 		return result, a.NewActivityError(
 			workflowengine.ActivityError{
@@ -298,9 +337,6 @@ func (a *StartQueuedPipelineActivity) Execute(
 			},
 		)
 	}
-
-	workflowID := workflowRun.GetID()
-	runID := workflowRun.GetRunID()
 
 	output := StartQueuedPipelineActivityOutput{
 		WorkflowID:            workflowID,
@@ -538,8 +574,11 @@ func prepareQueuedWorkflowOptions(rc queuedRuntime) queuedWorkflowOptions {
 			rc.Temporal.ActivityOptions.StartToCloseTimeout,
 			defaultActivityStartTimeout,
 		),
-		HeartbeatTimeout: parseDurationOrDefault("", defaultActivityHeartbeat),
-		RetryPolicy:      rp,
+		HeartbeatTimeout: parseDurationOrDefault(
+			rc.Temporal.ActivityOptions.HeartbeatTimeout,
+			defaultActivityHeartbeat,
+		),
+		RetryPolicy: rp,
 	}
 
 	return queuedWorkflowOptions{

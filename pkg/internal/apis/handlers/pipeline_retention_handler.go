@@ -5,11 +5,9 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -20,6 +18,7 @@ import (
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 )
 
 const (
@@ -84,7 +83,7 @@ func HandleSchedulePipelineRetentionWorkflow() func(*core.RequestEvent) error {
 			)
 		}
 
-		ctx := context.Background()
+		ctx := e.Request.Context()
 		scheduleID := pipelineRetentionScheduleID
 		options := buildPipelineRetentionScheduleOptions(
 			scheduleID,
@@ -149,7 +148,7 @@ func HandleDeletePipelineRetentionSchedule() func(*core.RequestEvent) error {
 			)
 		}
 
-		ctx := context.Background()
+		ctx := e.Request.Context()
 		handle := c.ScheduleClient().GetHandle(ctx, pipelineRetentionScheduleID)
 
 		if err := handle.Delete(ctx); err != nil {
@@ -251,16 +250,9 @@ func buildPipelineRetentionScheduleAction(
 }
 
 func isScheduleAlreadyExistsError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	var alreadyExists *serviceerror.AlreadyExists
-	if errors.As(err, &alreadyExists) {
+	if errors.Is(err, temporal.ErrScheduleAlreadyRunning) {
 		return true
 	}
-
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "already registered") ||
-		strings.Contains(msg, "already exists")
+	var alreadyExists *serviceerror.AlreadyExists
+	return errors.As(err, &alreadyExists)
 }

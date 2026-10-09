@@ -950,6 +950,76 @@ func TestPipelineWorkflowOnSuccessUsesCurrentStepOutputInRuntimeContext(t *testi
 	require.Contains(t, captured[1], "output=seed")
 }
 
+func TestPipelineWorkflowStepActivityOptionsDoNotLeakToNextStep(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
+
+	startToClose := map[string]time.Duration{}
+	env.SetOnActivityStartedListener(
+		func(info *activity.Info, _ context.Context, args converter.EncodedValues) {
+			var input workflowengine.ActivityInput
+			require.NoError(t, args.Get(&input))
+			payload, err := workflowengine.DecodePayload[runtimeCapturePayload](input.Payload)
+			require.NoError(t, err)
+			startToClose[payload.Text] = info.StartToCloseTimeout
+		},
+	)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "Step Options Pipeline",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "first",
+							Use: "capture-runtime",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{"text": "first"},
+							},
+							ActivityOptions: &pipeline.ActivityOptionsConfig{
+								StartToCloseTimeout: "2m",
+							},
+						},
+					},
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "second",
+							Use: "capture-runtime",
+							With: pipeline.StepInputs{
+								Payload: map[string]any{"text": "second"},
+							},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Minute,
+				},
+			},
+		},
+	)
+
+	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, []string{"first", "second"}, captured)
+	require.Equal(t, 2*time.Minute, startToClose["first"])
+	require.Equal(t, time.Minute, startToClose["second"])
+}
+
 func TestPipelineWorkflowChildPipelineResolvesRuntimeContext(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

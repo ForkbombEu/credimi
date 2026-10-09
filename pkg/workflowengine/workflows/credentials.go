@@ -27,9 +27,9 @@ import (
 
 // CredentialsTaskQueue is the task queue for the credentials workflow.
 const (
-	CredentialsTaskQueue       = "CredentialsTaskQueue"
-	CredentialsIssuerDataQuery = "getCredentialsIssuerData"
-	CredentialIssuerSchemaPath = "schemas/credentialissuer/openid-credential-issuer.schema.json"
+	CredentialsTaskQueue        = "CredentialsTaskQueue"
+	CredentialsIssuerDataUpdate = "getCredentialsIssuerData"
+	CredentialIssuerSchemaPath  = "schemas/credentialissuer/openid-credential-issuer.schema.json"
 )
 
 // CredentialsIssuersWorkflow is a workflow that validates and imports credential issuer metadata.
@@ -94,16 +94,33 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 	var issuerName, logo string
 	var credentialsNumber int
 
-	workflow.SetQueryHandler(ctx, CredentialsIssuerDataQuery, func() (map[string]any, error) {
-		if !credentialsIssuerDataReady {
-			return nil, workflowengine.NotReadyError{}
-		}
-		return map[string]any{
-			"issuerName":        issuerName,
-			"logo":              logo,
-			"credentialsNumber": credentialsNumber,
-		}, nil
-	})
+	// The update blocks until the issuer data is ready, so the handler gets it
+	// in one round trip; it fails fast if the workflow ends first.
+	err := workflow.SetUpdateHandlerWithOptions(
+		ctx,
+		CredentialsIssuerDataUpdate,
+		func(ctx workflow.Context) (map[string]any, error) {
+			if err := workflow.Await(
+				ctx,
+				func() bool { return credentialsIssuerDataReady },
+			); err != nil {
+				return nil, err
+			}
+			return map[string]any{
+				"issuerName":        issuerName,
+				"logo":              logo,
+				"credentialsNumber": credentialsNumber,
+			}, nil
+		},
+		workflow.UpdateHandlerOptions{UnfinishedPolicy: workflow.HandlerUnfinishedPolicyAbandon},
+	)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, fmt.Errorf(
+			"register %s update: %w",
+			CredentialsIssuerDataUpdate,
+			err,
+		)
+	}
 	baseURL, issuerSchema, issuerID, err := validateInput(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -152,6 +169,8 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
+	// Let a pending issuer-data update reply before the workflow completes.
+	_ = workflow.Await(ctx, func() bool { return workflow.AllHandlersFinished(ctx) })
 	return workflowengine.WorkflowResult{
 		Message: fmt.Sprintf(
 			"Successfully retrieved, stored, and updated credentials from '%s'",

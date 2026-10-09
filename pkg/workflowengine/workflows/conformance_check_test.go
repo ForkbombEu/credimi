@@ -506,14 +506,14 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
-	httpActivity := activities.NewHTTPActivity()
+	logsActivity := activities.NewOpenIDNetLogsActivity()
 	env.RegisterActivityWithOptions(
 		stepCIActivity.Execute,
 		activity.RegisterOptions{Name: stepCIActivity.Name()},
 	)
 	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
+		logsActivity.Execute,
+		activity.RegisterOptions{Name: logsActivity.Name()},
 	)
 	env.OnActivity(
 		stepCIActivity.Name(),
@@ -539,11 +539,9 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 		},
 	}, nil).Once()
 	env.OnActivity(
-		httpActivity.Name(),
+		logsActivity.Name(),
 		mock.Anything,
-		mock.MatchedBy(matchHTTPGetActivityInput(
-			"https://www.certification.openid.net/api/log/runner-123",
-		)),
+		mock.MatchedBy(matchOpenIDNetLogsInput("runner-123")),
 	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
@@ -641,14 +639,14 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
-	httpActivity := activities.NewHTTPActivity()
+	logsActivity := activities.NewOpenIDNetLogsActivity()
 	env.RegisterActivityWithOptions(
 		stepCIActivity.Execute,
 		activity.RegisterOptions{Name: stepCIActivity.Name()},
 	)
 	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
+		logsActivity.Execute,
+		activity.RegisterOptions{Name: logsActivity.Name()},
 	)
 	env.OnActivity(stepCIActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{
@@ -660,11 +658,9 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 		}, nil).
 		Once()
 	env.OnActivity(
-		httpActivity.Name(),
+		logsActivity.Name(),
 		mock.Anything,
-		mock.MatchedBy(matchHTTPGetActivityInput(
-			"https://www.certification.openid.net/api/log/runner-123",
-		)),
+		mock.MatchedBy(matchOpenIDNetLogsInput("runner-123")),
 	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
@@ -716,14 +712,14 @@ func TestStartCheckWorkflowOpenID4VPVerifier(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
-	httpActivity := activities.NewHTTPActivity()
+	logsActivity := activities.NewOpenIDNetLogsActivity()
 	env.RegisterActivityWithOptions(
 		stepCIActivity.Execute,
 		activity.RegisterOptions{Name: stepCIActivity.Name()},
 	)
 	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
+		logsActivity.Execute,
+		activity.RegisterOptions{Name: logsActivity.Name()},
 	)
 	env.OnActivity(
 		stepCIActivity.Name(),
@@ -748,11 +744,9 @@ func TestStartCheckWorkflowOpenID4VPVerifier(t *testing.T) {
 		},
 	}, nil).Once()
 	env.OnActivity(
-		httpActivity.Name(),
+		logsActivity.Name(),
 		mock.Anything,
-		mock.MatchedBy(matchHTTPGetActivityInput(
-			"https://www.certification.openid.net/api/log/runner-456",
-		)),
+		mock.MatchedBy(matchOpenIDNetLogsInput("runner-456")),
 	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{

@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -40,9 +41,9 @@ type walletWorkflowStarter interface {
 }
 
 var (
-	walletTemporalClient       = temporalclient.GetTemporalClientWithNamespace
-	walletWorkflowFactory      = func() walletWorkflowStarter { return workflows.NewWalletWorkflow() }
-	walletWaitForPartialResult = workflowengine.WaitForPartialResult[map[string]any]
+	walletTemporalClient      = temporalclient.GetTemporalClientWithNamespace
+	walletWorkflowFactory     = func() walletWorkflowStarter { return workflows.NewWalletWorkflow() }
+	walletWaitForUpdateResult = workflowengine.WaitForUpdateResult[map[string]any]
 )
 
 const (
@@ -169,13 +170,14 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		result, err := walletWaitForPartialResult(
+		updateCtx, cancel := context.WithTimeout(e.Request.Context(), 60*time.Second)
+		defer cancel()
+		result, err := walletWaitForUpdateResult(
+			updateCtx,
 			client,
 			workflowInfo.WorkflowID,
 			workflowInfo.WorkflowRunID,
-			workflows.AppMetadataQuery,
-			100*time.Millisecond,
-			60*time.Second,
+			workflows.AppMetadataUpdate,
 		)
 		if err != nil {
 			return apierror.New(

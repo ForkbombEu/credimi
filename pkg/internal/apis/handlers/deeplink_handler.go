@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -79,6 +80,7 @@ type deeplinkWorkflowResponse struct {
 // report can echo response bodies and secret-interpolated URLs, so it is returned only
 // to the caller that supplied the YAML and secrets.
 func getDeeplinkFromYAML(
+	ctx context.Context,
 	app core.App,
 	yaml string,
 	secrets map[string]string,
@@ -127,6 +129,7 @@ func getDeeplinkFromYAML(
 		)
 	}
 	result, err := deeplinkWaitForWorkflowResult(
+		ctx,
 		client,
 		resStart.WorkflowID,
 		resStart.WorkflowRunID,
@@ -217,7 +220,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
-		response, err := getDeeplinkFromYAML(e.App, body.Yaml, secrets, true)
+		response, err := getDeeplinkFromYAML(e.Request.Context(), e.App, body.Yaml, secrets, true)
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
@@ -300,7 +303,7 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 		)
 	}
 
-	deeplink, apiErr := deeplinkFromRecord(e.App, rec, opts.MissingDomain)
+	deeplink, apiErr := deeplinkFromRecord(e.Request.Context(), e.App, rec, opts.MissingDomain)
 	if apiErr != nil {
 		return apiErr
 	}
@@ -315,6 +318,7 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 }
 
 func deeplinkFromRecord(
+	ctx context.Context,
 	app core.App,
 	rec *core.Record,
 	missingDomain string,
@@ -339,7 +343,7 @@ func deeplinkFromRecord(
 		return "", apiErr
 	}
 
-	response, err := getDeeplinkFromYAML(app, yamlStr, secrets, false)
+	response, err := getDeeplinkFromYAML(ctx, app, yamlStr, secrets, false)
 	if err != nil {
 		apiErr := &apierror.APIError{}
 		if errors.As(err, &apiErr) {

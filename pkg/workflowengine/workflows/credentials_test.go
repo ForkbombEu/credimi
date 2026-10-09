@@ -413,6 +413,94 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 	}
 }
 
+func TestCredentialsIssuersWorkflowIssuerDataUpdate(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	checkAct := activities.NewCheckCredentialsIssuerActivity()
+	jsonAct := activities.NewJSONActivity(nil)
+	validateAct := activities.NewSchemaValidationActivity()
+	env.RegisterActivityWithOptions(
+		checkAct.Execute,
+		activity.RegisterOptions{Name: checkAct.Name()},
+	)
+	env.RegisterActivityWithOptions(jsonAct.Execute, activity.RegisterOptions{Name: jsonAct.Name()})
+	env.RegisterActivityWithOptions(
+		validateAct.Execute,
+		activity.RegisterOptions{Name: validateAct.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		activities.NewStoreIssuerCredentialActivity(nil).Execute,
+		activity.RegisterOptions{Name: activities.StoreIssuerCredentialActivityName},
+	)
+	// The issuer check takes a while, so the update arrives before the issuer
+	// data is ready and must wait for it.
+	env.OnActivity(checkAct.Name(), mock.Anything, mock.Anything).
+		After(time.Minute).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"rawJSON": `{"credential_issuer": "testissuer"}`,
+			"source":  "testsource",
+		}}, nil)
+	env.OnActivity(jsonAct.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"credential_issuer": "testissuer",
+			"display": []any{
+				map[string]any{
+					"name": "Test Issuer",
+					"logo": map[string]any{"uri": "testlogo.png"},
+				},
+			},
+			"credential_configurations_supported": map[string]any{
+				"cred1": map[string]any{},
+				"cred2": map[string]any{},
+			},
+		}}, nil)
+	env.OnActivity(validateAct.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, nil)
+	env.OnActivity(activities.StoreIssuerCredentialActivityName, mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"key": "cred"}}, nil)
+
+	var updateResult map[string]any
+	var updateErr error
+	completed := false
+	env.RegisterDelayedCallback(func() {
+		env.UpdateWorkflow(
+			CredentialsIssuerDataUpdate,
+			"issuer-data-1",
+			&testsuite.TestUpdateCallback{
+				OnAccept: func() {},
+				OnReject: func(err error) { updateErr = err },
+				OnComplete: func(result any, err error) {
+					completed = true
+					updateErr = err
+					if m, ok := result.(map[string]any); ok {
+						updateResult = m
+					}
+				},
+			},
+		)
+	}, time.Second)
+
+	env.ExecuteWorkflow(NewCredentialsIssuersWorkflow().Workflow, workflowengine.WorkflowInput{
+		Config: map[string]any{
+			"app_url":       "https://example.com",
+			"issuer_schema": "{}",
+			"orgID":         "org123",
+		},
+		Payload: CredentialsIssuersWorkflowPayload{IssuerID: "issuer123", BaseURL: "baseurl"},
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	require.True(t, completed)
+	require.NoError(t, updateErr)
+	require.Equal(t, map[string]any{
+		"issuerName":        "Test Issuer",
+		"logo":              "testlogo.png",
+		"credentialsNumber": 2,
+	}, updateResult)
+}
+
 func TestCredentialsIssuersWorkflowStart(t *testing.T) {
 	origStart := credentialsStartWorkflowWithOptions
 	t.Cleanup(func() {

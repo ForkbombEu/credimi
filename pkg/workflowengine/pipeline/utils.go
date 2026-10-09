@@ -88,20 +88,20 @@ func PrepareActivityOptions(
 	globalAO workflow.ActivityOptions,
 	stepAO *pipeline.ActivityOptionsConfig,
 ) workflow.ActivityOptions {
-	rp := globalAO.RetryPolicy
-	scheduleToClose := globalAO.ScheduleToCloseTimeout
-	startToClose := globalAO.StartToCloseTimeout
-	heartbeatTimeout := globalAO.HeartbeatTimeout
-
-	if heartbeatTimeout == 0 {
-		heartbeatTimeout = parseDurationOrDefault("", DefaultActivityHeartbeatTimeout)
+	out := globalAO
+	if globalAO.RetryPolicy != nil {
+		rp := *globalAO.RetryPolicy
+		out.RetryPolicy = &rp
+	} else {
+		out.RetryPolicy = &temporal.RetryPolicy{}
 	}
+	rp := out.RetryPolicy
 
 	if stepAO != nil {
 		if stepAO.HeartbeatTimeout != "" {
-			heartbeatTimeout = parseDurationOrDefault(
+			out.HeartbeatTimeout = parseDurationOrDefault(
 				stepAO.HeartbeatTimeout,
-				heartbeatTimeout.String(),
+				out.HeartbeatTimeout.String(),
 			)
 		}
 		if stepAO.RetryPolicy.MaximumAttempts > 0 {
@@ -123,22 +123,24 @@ func PrepareActivityOptions(
 			rp.BackoffCoefficient = stepAO.RetryPolicy.BackoffCoefficient
 		}
 		if stepAO.ScheduleToCloseTimeout != "" {
-			scheduleToClose = parseDurationOrDefault(
+			out.ScheduleToCloseTimeout = parseDurationOrDefault(
 				stepAO.ScheduleToCloseTimeout,
-				scheduleToClose.String(),
+				out.ScheduleToCloseTimeout.String(),
 			)
 		}
 		if stepAO.StartToCloseTimeout != "" {
-			startToClose = parseDurationOrDefault(stepAO.StartToCloseTimeout, startToClose.String())
+			out.StartToCloseTimeout = parseDurationOrDefault(
+				stepAO.StartToCloseTimeout,
+				out.StartToCloseTimeout.String(),
+			)
 		}
 	}
 
-	return workflow.ActivityOptions{
-		ScheduleToCloseTimeout: scheduleToClose,
-		StartToCloseTimeout:    startToClose,
-		HeartbeatTimeout:       heartbeatTimeout,
-		RetryPolicy:            rp,
+	if out.HeartbeatTimeout == 0 {
+		out.HeartbeatTimeout = parseDurationOrDefault("", DefaultActivityHeartbeatTimeout)
 	}
+
+	return out
 }
 
 func parseDurationOrDefault(s, def string) time.Duration {

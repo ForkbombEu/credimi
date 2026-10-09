@@ -18,30 +18,11 @@ import (
 	enumspb "go.temporal.io/api/enums/v1"
 	failurepb "go.temporal.io/api/failure/v1"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
-
-type staticEncodedValue struct {
-	value any
-	err   error
-}
-
-func (s staticEncodedValue) HasValue() bool { return true }
-
-func (s staticEncodedValue) Get(valuePtr interface{}) error {
-	if s.err != nil {
-		return s.err
-	}
-	data, err := json.Marshal(s.value)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, valuePtr)
-}
 
 type testWorkflow struct {
 	name     string
@@ -232,7 +213,7 @@ func TestWaitForWorkflowResult(t *testing.T) {
 			Once()
 		mockClient.On("GetWorkflow", mock.Anything, "wf-id", "run-id").Return(mockRun).Once()
 
-		got, err := WaitForWorkflowResult(mockClient, "wf-id", "run-id")
+		got, err := WaitForWorkflowResult(context.Background(), mockClient, "wf-id", "run-id")
 		require.NoError(t, err)
 		require.Equal(t, "ok", got.Message)
 
@@ -249,7 +230,7 @@ func TestWaitForWorkflowResult(t *testing.T) {
 			Once()
 		mockClient.On("GetWorkflow", mock.Anything, "wf-id", "run-id").Return(mockRun).Once()
 
-		_, err := WaitForWorkflowResult(mockClient, "wf-id", "run-id")
+		_, err := WaitForWorkflowResult(context.Background(), mockClient, "wf-id", "run-id")
 		require.ErrorContains(t, err, "get failed")
 
 		mockClient.AssertExpectations(t)
@@ -257,89 +238,74 @@ func TestWaitForWorkflowResult(t *testing.T) {
 	})
 }
 
-func TestWaitForPartialResult(t *testing.T) {
-	t.Run("returns decoded value when query succeeds", func(t *testing.T) {
-		mockClient := &temporalmocks.Client{}
-		encoded := staticEncodedValue{
-			value: map[string]any{
-				"status": "running",
-				"count":  2,
-			},
-		}
-		mockClient.
-			On("QueryWorkflow", mock.Anything, "wf-id", "run-id", "status").
-			Return(converter.EncodedValue(encoded), nil).
-			Once()
+func TestWaitForUpdateResult(t *testing.T) {
+	matchOptions := mock.MatchedBy(func(opts client.UpdateWorkflowOptions) bool {
+		return opts.WorkflowID == "wf-id" &&
+			opts.RunID == "run-id" &&
+			opts.UpdateName == "status" &&
+			opts.WaitForStage == client.WorkflowUpdateStageCompleted
+	})
 
-		got, err := WaitForPartialResult[map[string]any](
+	t.Run("returns decoded update result", func(t *testing.T) {
+		mockClient := &temporalmocks.Client{}
+		handle := &temporalmocks.WorkflowUpdateHandle{}
+		handle.
+			On("Get", mock.Anything, mock.AnythingOfType("*map[string]interface {}")).
+			Run(func(args mock.Arguments) {
+				out := args.Get(1).(*map[string]any)
+				*out = map[string]any{"status": "running"}
+			}).
+			Return(nil).
+			Once()
+		mockClient.On("UpdateWorkflow", mock.Anything, matchOptions).Return(handle, nil).Once()
+
+		got, err := WaitForUpdateResult[map[string]any](
+			context.Background(),
 			mockClient,
 			"wf-id",
 			"run-id",
 			"status",
-			time.Millisecond,
-			50*time.Millisecond,
 		)
 		require.NoError(t, err)
 		require.Equal(t, "running", got["status"])
-		require.Equal(t, float64(2), got["count"])
-
 		mockClient.AssertExpectations(t)
+		handle.AssertExpectations(t)
 	})
 
-	t.Run("continues on not-ready and times out", func(t *testing.T) {
+	t.Run("returns update error", func(t *testing.T) {
 		mockClient := &temporalmocks.Client{}
 		mockClient.
-			On("QueryWorkflow", mock.Anything, "wf-id", "run-id", "status").
-			Return(converter.EncodedValue(nil), errors.New("result not ready"))
-
-		_, err := WaitForPartialResult[map[string]any](
-			mockClient,
-			"wf-id",
-			"run-id",
-			"status",
-			time.Millisecond,
-			8*time.Millisecond,
-		)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "timeout waiting for partial result")
-	})
-
-	t.Run("returns query error when not not-ready", func(t *testing.T) {
-		mockClient := &temporalmocks.Client{}
-		mockClient.
-			On("QueryWorkflow", mock.Anything, "wf-id", "run-id", "status").
-			Return(converter.EncodedValue(nil), errors.New("query failed")).
+			On("UpdateWorkflow", mock.Anything, matchOptions).
+			Return(nil, errors.New("workflow completed")).
 			Once()
 
-		_, err := WaitForPartialResult[map[string]any](
+		_, err := WaitForUpdateResult[map[string]any](
+			context.Background(),
 			mockClient,
 			"wf-id",
 			"run-id",
 			"status",
-			time.Millisecond,
-			50*time.Millisecond,
 		)
-		require.ErrorContains(t, err, "query failed")
+		require.ErrorContains(t, err, "workflow completed")
 		mockClient.AssertExpectations(t)
 	})
 
-	t.Run("returns decode error", func(t *testing.T) {
+	t.Run("returns handler error", func(t *testing.T) {
 		mockClient := &temporalmocks.Client{}
-		mockClient.
-			On("QueryWorkflow", mock.Anything, "wf-id", "run-id", "status").
-			Return(converter.EncodedValue(staticEncodedValue{err: errors.New("decode failed")}), nil).
-			Once()
+		handle := &temporalmocks.WorkflowUpdateHandle{}
+		handle.On("Get", mock.Anything, mock.Anything).Return(errors.New("handler failed")).Once()
+		mockClient.On("UpdateWorkflow", mock.Anything, matchOptions).Return(handle, nil).Once()
 
-		_, err := WaitForPartialResult[map[string]any](
+		_, err := WaitForUpdateResult[map[string]any](
+			context.Background(),
 			mockClient,
 			"wf-id",
 			"run-id",
 			"status",
-			time.Millisecond,
-			50*time.Millisecond,
 		)
-		require.ErrorContains(t, err, "decode failed")
+		require.ErrorContains(t, err, "handler failed")
 		mockClient.AssertExpectations(t)
+		handle.AssertExpectations(t)
 	})
 }
 
@@ -748,11 +714,6 @@ func TestExtractAppErrorPayloadAndOutput(t *testing.T) {
 	require.Nil(t, ExtractOutputFromError(errors.New("not app error")))
 }
 
-func TestNotReadyError_Error(t *testing.T) {
-	var err error = NotReadyError{}
-	require.Equal(t, "result not ready", err.Error())
-}
-
 func TestParseWorkflowError_IncludesDetailsForApplicationErrors(t *testing.T) {
 	metadata := &WorkflowRunMetadata{
 		WorkflowName: "wf",
@@ -767,19 +728,4 @@ func TestParseWorkflowError_IncludesDetailsForApplicationErrors(t *testing.T) {
 
 	got := ParseWorkflowError(wrapped)
 	require.Equal(t, map[string]any{"x": "y"}, got.Details["output"])
-}
-
-func TestWaitForPartialResult_TimeoutWithoutQueryCalls(t *testing.T) {
-	mockClient := &temporalmocks.Client{}
-
-	_, err := WaitForPartialResult[map[string]any](
-		mockClient,
-		"wf-id",
-		"run-id",
-		"status",
-		50*time.Millisecond,
-		time.Nanosecond,
-	)
-	require.Error(t, err)
-	require.ErrorContains(t, err, context.DeadlineExceeded.Error())
 }

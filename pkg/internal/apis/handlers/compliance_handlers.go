@@ -6,12 +6,9 @@ package handlers
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -20,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/realtimelogs"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -27,7 +25,6 @@ import (
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
@@ -89,21 +86,22 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
+		ctx := e.Request.Context()
 		switch req.Signal {
 		case workflows.OpenID4VPWalletStartCheckSignal:
-			err = sendOpenID4VPWalletLogUpdateStart(e.App, c, req)
+			err = sendOpenID4VPWalletLogUpdateStart(ctx, e.App, c, req)
 		case workflows.OpenID4VCIIssuerStartCheckSignal:
-			err = sendOpenIDNetConformanceLogUpdateStart(e.App, c, req)
+			err = sendOpenIDNetConformanceLogUpdateStart(ctx, e.App, c, req)
 		case workflows.OpenID4VPVerifierStartCheckSignal:
-			err = sendOpenIDNetConformanceLogUpdateStart(e.App, c, req)
+			err = sendOpenIDNetConformanceLogUpdateStart(ctx, e.App, c, req)
 		case workflows.OpenID4VCIIssuerStopCheckSignal, workflows.OpenID4VPVerifierStopCheckSignal:
 			err = nil
 		case workflows.EwcStartCheckSignal:
-			err = sendEWCLikeLogUpdateStart(e.App, c, req)
+			err = sendEWCLikeLogUpdateStart(ctx, e.App, c, req)
 		case workflows.EwcStopCheckSignal:
-			err = sendEWCLikeLogUpdateStop(c, req)
+			err = sendEWCLikeLogUpdateStop(ctx, c, req)
 		default:
-			err = sendTemporalSignal(c, req)
+			err = sendTemporalSignal(ctx, c, req)
 		}
 		if err != nil {
 			apiErr := &apierror.APIError{}
@@ -151,8 +149,12 @@ func requireCallerNamespace(app core.App, auth *core.Record, namespace string) *
 	return nil
 }
 
-func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) error {
-	err := c.SignalWorkflow(context.Background(), input.WorkflowID, "", input.Signal, struct{}{})
+func sendTemporalSignal(
+	ctx context.Context,
+	c client.Client,
+	input HandleSendTemporalSignalInput,
+) error {
+	err := c.SignalWorkflow(ctx, input.WorkflowID, "", input.Signal, struct{}{})
 	if err != nil {
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &notFound) {
@@ -179,12 +181,13 @@ func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) er
 }
 
 func sendOpenID4VPWalletLogUpdateStart(
+	ctx context.Context,
 	app core.App,
 	c client.Client,
 	input HandleSendTemporalSignalInput,
 ) error {
 	err := c.SignalWorkflow(
-		context.Background(),
+		ctx,
 		input.WorkflowID,
 		"",
 		workflows.OpenID4VPWalletStartCheckSignal,
@@ -194,8 +197,9 @@ func sendOpenID4VPWalletLogUpdateStart(
 		canceledErr := &serviceerror.Canceled{}
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &canceledErr) ||
-			(errors.As(err, &notFound) && err.Error() == "workflow execution already completed") {
+			(errors.As(err, &notFound) && workflowExecutionClosed(ctx, c, input.WorkflowID)) {
 			return sendCompletedWorkflowLogsUpdate(
+				ctx,
 				app,
 				c,
 				input.WorkflowID,
@@ -227,12 +231,23 @@ func sendOpenID4VPWalletLogUpdateStart(
 	return nil
 }
 
+// workflowExecutionClosed reports whether the latest run of workflowID exists
+// and is no longer running.
+func workflowExecutionClosed(ctx context.Context, c client.Client, workflowID string) bool {
+	exec, err := c.DescribeWorkflowExecution(ctx, workflowID, "")
+	if err != nil {
+		return false
+	}
+	return exec.GetWorkflowExecutionInfo().GetStatus() != enums.WORKFLOW_EXECUTION_STATUS_RUNNING
+}
+
 func sendOpenIDNetConformanceLogUpdateStart(
+	ctx context.Context,
 	app core.App,
 	c client.Client,
 	input HandleSendTemporalSignalInput,
 ) error {
-	exec, err := c.DescribeWorkflowExecution(context.Background(), input.WorkflowID, "")
+	exec, err := c.DescribeWorkflowExecution(ctx, input.WorkflowID, "")
 	if err != nil {
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &notFound) {
@@ -260,6 +275,7 @@ func sendOpenIDNetConformanceLogUpdateStart(
 	}
 
 	return sendCompletedWorkflowLogsUpdate(
+		ctx,
 		app,
 		c,
 		input.WorkflowID,
@@ -269,6 +285,7 @@ func sendOpenIDNetConformanceLogUpdateStart(
 }
 
 func sendEWCLikeLogUpdateStart(
+	ctx context.Context,
 	app core.App,
 	c client.Client,
 	input HandleSendTemporalSignalInput,
@@ -276,7 +293,7 @@ func sendEWCLikeLogUpdateStart(
 	var lastErr error
 	for _, workflowID := range ewcLikeWorkflowIDs(input.WorkflowID) {
 		err := c.SignalWorkflow(
-			context.Background(),
+			ctx,
 			workflowID,
 			"",
 			workflows.EwcStartCheckSignal,
@@ -290,6 +307,7 @@ func sendEWCLikeLogUpdateStart(
 		canceledErr := &serviceerror.Canceled{}
 		if errors.As(err, &canceledErr) || isWorkflowExecutionAlreadyCompleted(err) {
 			return sendCompletedWorkflowLogsUpdate(
+				ctx,
 				app,
 				c,
 				workflowID,
@@ -308,11 +326,15 @@ func sendEWCLikeLogUpdateStart(
 	return apierror.New(http.StatusNotFound, "workflow", "workflow not found", lastErr.Error())
 }
 
-func sendEWCLikeLogUpdateStop(c client.Client, input HandleSendTemporalSignalInput) error {
+func sendEWCLikeLogUpdateStop(
+	ctx context.Context,
+	c client.Client,
+	input HandleSendTemporalSignalInput,
+) error {
 	var lastErr error
 	for _, workflowID := range ewcLikeWorkflowIDs(input.WorkflowID) {
 		err := c.SignalWorkflow(
-			context.Background(),
+			ctx,
 			workflowID,
 			"",
 			workflows.EwcStopCheckSignal,
@@ -370,15 +392,16 @@ func ewcLikeSignalError(err error, signal string) error {
 type workflowLogsExtractor func(workflowengine.WorkflowResult, error) []map[string]any
 
 func sendCompletedWorkflowLogsUpdate(
+	ctx context.Context,
 	app core.App,
 	c client.Client,
 	workflowID string,
 	subscription string,
 	extractLogs workflowLogsExtractor,
 ) error {
-	wf := c.GetWorkflow(context.Background(), workflowID, "")
+	wf := c.GetWorkflow(ctx, workflowID, "")
 	var result workflowengine.WorkflowResult
-	getErr := wf.Get(context.Background(), &result)
+	getErr := wf.Get(ctx, &result)
 	logs := extractLogs(result, getErr)
 	if len(logs) == 0 {
 		return nil
@@ -629,7 +652,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 			)
 		}
 
-		author, err := getWorkflowAuthor(c, workflowID, runID)
+		author, err := getWorkflowAuthor(e.Request.Context(), c, workflowID, runID)
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
@@ -640,9 +663,13 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 		return handleDeeplinkFromHistory(e, c, workflowID, runID, author)
 	}
 }
-func getWorkflowAuthor(c client.Client, workflowID, runID string) (string, error) {
+func getWorkflowAuthor(
+	ctx context.Context,
+	c client.Client,
+	workflowID, runID string,
+) (string, error) {
 	workflowExecution, err := c.DescribeWorkflowExecution(
-		context.Background(),
+		ctx,
 		workflowID,
 		runID,
 	)
@@ -654,47 +681,9 @@ func getWorkflowAuthor(c client.Client, workflowID, runID string) (string, error
 			err.Error(),
 		)
 	}
-	weJSON, err := protojson.Marshal(workflowExecution)
-	if err != nil {
-		return "", apierror.New(
-			http.StatusInternalServerError,
-			"workflow",
-			"failed to marshal workflow execution",
-			err.Error(),
-		)
-	}
-	var weMap map[string]any
-	if err := json.Unmarshal(weJSON, &weMap); err != nil {
-		return "", apierror.New(
-			http.StatusInternalServerError,
-			"workflow",
-			"failed to unmarshal workflow execution",
-			err.Error(),
-		)
-	}
-	author := ""
-	if workflowExecutionInfo, ok := weMap["workflowExecutionInfo"].(map[string]any); ok {
-		if memo, ok := workflowExecutionInfo["memo"]; ok {
-			if fields, ok := memo.(map[string]any)["fields"]; ok {
-				if protoVal, ok := fields.(map[string]any)["author"]; ok {
-					if protoMap, ok := protoVal.(map[string]any); ok {
-						if protoData, ok := protoMap["data"].(string); ok {
-							decoded, err := base64.StdEncoding.DecodeString(protoData)
-							if err == nil {
-								unquoted, err := strconv.Unquote(string(decoded))
-								if err == nil {
-									author = unquoted
-								} else {
-									author = string(decoded)
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	return author, nil
+	return workflowengine.DecodeStringPayload(
+		workflowExecution.GetWorkflowExecutionInfo().GetMemo().GetFields()["author"],
+	), nil
 }
 
 func handleDeeplinkFromHistory(
@@ -703,7 +692,7 @@ func handleDeeplinkFromHistory(
 	workflowID, runID, author string,
 ) error {
 	historyIterator := c.GetWorkflowHistory(
-		context.Background(),
+		e.Request.Context(),
 		workflowID,
 		runID,
 		false,
@@ -728,17 +717,13 @@ func handleDeeplinkFromHistory(
 				err.Error(),
 			)
 		}
-		eventData, err := protojson.Marshal(event)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to marshal history event",
-				err.Error(),
-			)
+		attr := event.GetActivityTaskCompletedEventAttributes()
+		if len(attr.GetResult().GetPayloads()) == 0 {
+			continue
 		}
-		var eventMap map[string]any
-		if err := json.Unmarshal(eventData, &eventMap); err != nil {
+		var result workflowengine.ActivityResult
+		if err := temporalcrypto.DataConverter().
+			FromPayloads(attr.GetResult(), &result); err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
@@ -746,39 +731,33 @@ func handleDeeplinkFromHistory(
 				err.Error(),
 			)
 		}
-
-		if attrRaw, ok := eventMap["activityTaskCompletedEventAttributes"]; ok {
-			attr := attrRaw.(map[string]any)
-			if resultRaw, ok := attr["result"]; ok {
-				resultMap := resultRaw.(map[string]any)
-				if pls, ok := resultMap["payloads"].([]any); ok && len(pls) > 0 {
-					first := pls[0].(map[string]any)
-					switch author {
-					case workflows.OpenIDConformanceSuite:
-						return getDeeplinkOpenIDConformanceSuite(e, first)
-					case workflows.EWCSuite:
-						return getDeeplinkEWC(e, first)
-					case workflows.WebuildSuite:
-						return getDeeplinkEWC(e, first)
-					case workflows.EudiwSuite:
-						return getDeeplinkEudiw(e, first)
-					default:
-						return apierror.New(
-							http.StatusBadRequest,
-							"protocol",
-							"unsupported suite",
-							fmt.Sprintf(
-								"author is %q, expected %s, %s, %s or %s",
-								author,
-								workflows.OpenIDConformanceSuite,
-								workflows.EWCSuite,
-								workflows.WebuildSuite,
-								workflows.EudiwSuite,
-							),
-						)
-					}
-				}
-			}
+		var captures any
+		if output, ok := result.Output.(map[string]any); ok {
+			captures = output["captures"]
+		}
+		switch author {
+		case workflows.OpenIDConformanceSuite:
+			return getDeeplinkOpenIDConformanceSuite(e, captures)
+		case workflows.EWCSuite:
+			return getDeeplinkEWC(e, captures)
+		case workflows.WebuildSuite:
+			return getDeeplinkEWC(e, captures)
+		case workflows.EudiwSuite:
+			return getDeeplinkEudiw(e, captures)
+		default:
+			return apierror.New(
+				http.StatusBadRequest,
+				"protocol",
+				"unsupported suite",
+				fmt.Sprintf(
+					"author is %q, expected %s, %s, %s or %s",
+					author,
+					workflows.OpenIDConformanceSuite,
+					workflows.EWCSuite,
+					workflows.WebuildSuite,
+					workflows.EudiwSuite,
+				),
+			)
 		}
 	}
 
@@ -790,69 +769,39 @@ func handleDeeplinkFromHistory(
 	)
 }
 
-func getDeeplinkOpenIDConformanceSuite(e *core.RequestEvent, first map[string]any) error {
-	if dataB64, ok := first["data"].(string); ok {
-		decoded, _ := base64.StdEncoding.DecodeString(dataB64)
-		var out struct {
-			Output struct {
-				Captures struct {
-					Deeplink any `json:"deeplink"`
-				} `json:"captures"`
-			} `json:"Output"`
-		}
-		json.Unmarshal(decoded, &out)
-		return e.JSON(http.StatusOK, map[string]any{
-			"deeplink": out.Output.Captures.Deeplink,
-		})
-	}
-	return nil
+func getDeeplinkOpenIDConformanceSuite(e *core.RequestEvent, captures any) error {
+	out, _ := workflowengine.DecodeOutput[struct {
+		Deeplink any `json:"deeplink"`
+	}](captures)
+	return e.JSON(http.StatusOK, map[string]any{
+		"deeplink": out.Deeplink,
+	})
 }
 
-func getDeeplinkEWC(e *core.RequestEvent, first map[string]any) error {
-	if dataB64, ok := first["data"].(string); ok {
-		decoded, _ := base64.StdEncoding.DecodeString(dataB64)
-		var out struct {
-			Output struct {
-				Captures struct {
-					Deeplink string `json:"deeplink"`
-				} `json:"captures"`
-			} `json:"Output"`
-		}
-		json.Unmarshal(decoded, &out)
-		return e.JSON(http.StatusOK, map[string]any{
-			"deeplink": out.Output.Captures.Deeplink,
-		})
-	}
-	return nil
+func getDeeplinkEWC(e *core.RequestEvent, captures any) error {
+	out, _ := workflowengine.DecodeOutput[struct {
+		Deeplink string `json:"deeplink"`
+	}](captures)
+	return e.JSON(http.StatusOK, map[string]any{
+		"deeplink": out.Deeplink,
+	})
 }
 
-func getDeeplinkEudiw(e *core.RequestEvent, first map[string]any) error {
-	if dataB64, ok := first["data"].(string); ok {
-		decoded, _ := base64.StdEncoding.DecodeString(dataB64)
-		var out struct {
-			Output struct {
-				Captures struct {
-					ClientID   string `json:"client_id"`
-					RequestURI string `json:"request_uri"`
-				} `json:"captures"`
-			} `json:"Output"`
-		}
-		json.Unmarshal(decoded, &out)
-		deeplink, err := workflows.BuildQRDeepLink(
-			out.Output.Captures.ClientID,
-			out.Output.Captures.RequestURI,
+func getDeeplinkEudiw(e *core.RequestEvent, captures any) error {
+	out, _ := workflowengine.DecodeOutput[struct {
+		ClientID   string `json:"client_id"`
+		RequestURI string `json:"request_uri"`
+	}](captures)
+	deeplink, err := workflows.BuildQRDeepLink(out.ClientID, out.RequestURI)
+	if err != nil {
+		return apierror.New(
+			http.StatusInternalServerError,
+			"deeplink",
+			"failed to build QR deep link",
+			err.Error(),
 		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"deeplink",
-				"failed to build QR deep link",
-				err.Error(),
-			)
-		}
-		return e.JSON(http.StatusOK, map[string]any{
-			"deeplink": deeplink,
-		})
 	}
-	return nil
+	return e.JSON(http.StatusOK, map[string]any{
+		"deeplink": deeplink,
+	})
 }

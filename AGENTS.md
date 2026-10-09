@@ -176,6 +176,8 @@ Persistence:
 
 - PocketBase SQLite data lives in `pb_data/`.
 - Dev Temporal state also uses local project data/infrastructure and must be treated as disposable dev state.
+- Temporal runs `temporalio/server`, which does not manage its own schemas. The Compose job `temporal_schema` (inline in `docker-compose.yaml`, `temporalio/admin-tools` of the same version) creates or upgrades the Postgres and Elasticsearch schemas on every start, before `temporal` starts; Credimi registers namespaces and search attributes itself. Temporal Postgres data stays on the service's anonymous volume, which deployments rely on to keep history across redeploys.
+- Temporal supports upgrading existing data only one minor version at a time (latest patch first). In dev, change `TEMPORAL_VERSION` and recreate the Temporal containers and volumes (`make purge`); environments whose history must survive step through each minor version before deploying.
 
 Embedded Temporal UI:
 
@@ -213,8 +215,9 @@ Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databas
 ## Tenancy And Temporal
 
 - `organizations.canonified_name` is the Temporal namespace for that tenant.
-- Organization create/update ensures the namespace exists and starts workers in `pkg/internal/pb/namespaces.go`.
+- Organization create/update ensures the namespace exists and starts workers in `pkg/internal/pb/organization.go`.
 - Server startup starts workers for `default` and all organization namespaces in `pkg/workflowengine/hooks/hook.go`.
+- Both paths use `hooks.EnsureNamespaceReady`, which registers missing namespaces and the custom search attributes from `workflowengine.CustomSearchAttributeTypes`.
 - Mobile-device semaphore workflows run in the Temporal `default` namespace.
 - Pipeline workflows run in the owner organization namespace.
 - The `mobile-automation` child workflow runs in the same namespace as the pipeline and uses a runner-specific task queue.
@@ -266,16 +269,20 @@ Semaphore:
 - Workflow ID: `mobile-device-semaphore/<device_id>`.
 - Types: `pkg/workflowengine/mobiledevicesemaphore/types.go`.
 - Implementation: `pkg/workflowengine/workflows/mobile_device_semaphore.go`.
+- Client side: `pkg/workflowengine/semaphoreclient`, shared by the queue handlers and `EnqueuePipelineRunTicketActivity`. `EnqueueRun` uses update-with-start (`USE_EXISTING` conflict policy), so enqueueing starts the device semaphore when it is not running; update IDs are `<enqueue|cancel>/<device_id>/<ticket>`.
 - Updates: `EnqueueRun`, `CancelRun`, `RunDone`, plus the device lifecycle updates `MobileDeviceSemaphore{Pause,Resume,Shutdown}DeviceUpdate`.
+- `EnqueueRun` has a validator (`validateEnqueueRun`): invalid and over-limit enqueues are rejected before they are written to history and do not count toward the update limit. The handler repeats the checks, because validators are skipped on replay.
 - Queries: `GetRunStatus`, `GetState`.
 - Temporal caps accepted updates per workflow run (`history.maxTotalUpdates`, default 2000) and then rejects every update, so a stuck semaphore fails every lifecycle call (`failed_to_pause_device_semaphore` / `failed_to_resume_device_semaphore`). Two guards:
     - The lifecycle heartbeat queries the semaphore state first and sends a pause or resume only when the device's online state disagrees with `Paused`. Heartbeats carry a fresh request ID every 30s, so each update they send is distinct.
     - The workflow counts repeated pauses toward its continue-as-new budget, and also continues-as-new when the server suggests it. Before continuing it drains in-flight handlers (`AllHandlersFinished`) and snapshots state. This is gated by `workflow.GetVersion("mobile-device-semaphore-count-all-updates")`, so runs started before the change keep their old behavior until their next continue-as-new.
+    - Before that snapshot it also waits for running `RunGranted`/`RunStarted`/`RunDoneSignal` handlers and handles every signal still pending, gated by `workflow.GetVersion("credimi-2026-10-semaphore-drain-signals")`.
 
 Grant/start path:
 
 - Semaphore runs `StartQueuedPipelineActivity` in `pkg/workflowengine/activities/queued_pipeline.go`.
 - The activity starts the pipeline workflow in the owner organization namespace.
+- The pipeline workflow ID is `Pipeline-<canonified name>-<ticket>` (`Pipeline-Sched-<canonified name>-<schedule run id>` for scheduled tickets), started with `REJECT_DUPLICATE` reuse and `USE_EXISTING` conflict policies, so a retried start reuses the ticket's run; after the run closed, the activity describes the workflow and returns its run ID.
 - Injected config keys:
     - `mobile_device_semaphore_ticket_id`
     - `mobile_device_semaphore_device_ids`

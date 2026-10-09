@@ -25,10 +25,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
+	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 )
 
 const aggregateScoreboardNamespace = "default"
+
+// aggregateScoreboardScheduleID is the single schedule that refreshes the
+// scoreboard cache; scheduling again updates its interval.
+const aggregateScoreboardScheduleID = "aggregate-scoreboard-schedule"
+
 const scoreboardPipelineRecordBatchSize = 250
 
 var errScoreboardRelationSkipped = errors.New("scoreboard relation skipped")
@@ -207,33 +215,42 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 				)
 			}
 
-			ctx := context.Background()
-
-			scheduleID := fmt.Sprintf(
-				"aggregate-scoreboard-schedule-%d-%d",
-				scheduleSeconds,
-				time.Now().Unix(),
-			)
-
-			_, err = c.ScheduleClient().Create(ctx, client.ScheduleOptions{
-				ID: scheduleID,
-				Spec: client.ScheduleSpec{
-					Intervals: []client.ScheduleIntervalSpec{{
-						Every: time.Duration(scheduleSeconds) * time.Second,
-					}},
-				},
-				Action: &client.ScheduleWorkflowAction{
-					ID:        "aggregate-scoreboard-" + uuid.NewString(),
-					Workflow:  workflows.NewAggregateScoreboardWorkflow().Workflow,
-					TaskQueue: workflows.AggregateScoreboardTaskQueue,
-					Args: []interface{}{
-						workflowengine.WorkflowInput{
-							Config: workflowengine.WithAppConfig(e.App, map[string]any{}),
-						},
+			ctx := e.Request.Context()
+			scheduleID := aggregateScoreboardScheduleID
+			spec := client.ScheduleSpec{
+				Intervals: []client.ScheduleIntervalSpec{{
+					Every: time.Duration(scheduleSeconds) * time.Second,
+				}},
+			}
+			action := &client.ScheduleWorkflowAction{
+				ID:        "aggregate-scoreboard-" + uuid.NewString(),
+				Workflow:  workflows.NewAggregateScoreboardWorkflow().Name(),
+				TaskQueue: workflows.AggregateScoreboardTaskQueue,
+				Args: []interface{}{
+					workflowengine.WorkflowInput{
+						Config: workflowengine.WithAppConfig(e.App, map[string]any{}),
 					},
 				},
-			})
+			}
 
+			_, err = c.ScheduleClient().Create(ctx, client.ScheduleOptions{
+				ID:      scheduleID,
+				Spec:    spec,
+				Action:  action,
+				Overlap: enumspb.SCHEDULE_OVERLAP_POLICY_SKIP,
+			})
+			if errors.Is(err, temporal.ErrScheduleAlreadyRunning) {
+				err = c.ScheduleClient().
+					GetHandle(ctx, scheduleID).
+					Update(ctx, client.ScheduleUpdateOptions{
+						DoUpdate: func(input client.ScheduleUpdateInput) (*client.ScheduleUpdate, error) {
+							schedule := input.Description.Schedule
+							schedule.Spec = &spec
+							schedule.Action = action
+							return &client.ScheduleUpdate{Schedule: &schedule}, nil
+						},
+					})
+			}
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -299,11 +316,12 @@ func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
 			)
 		}
 
-		ctx := context.Background()
+		ctx := e.Request.Context()
 		handle := c.ScheduleClient().GetHandle(ctx, scheduleID)
 
 		if err := handle.Delete(ctx); err != nil {
-			if strings.Contains(err.Error(), "not found") {
+			var notFound *serviceerror.NotFound
+			if errors.As(err, &notFound) {
 				return apierror.New(
 					http.StatusNotFound,
 					"schedule",
@@ -455,6 +473,7 @@ func namespaceScoreboard(
 // scoreboardExecutionDetails describes one pipeline execution for the
 // scoreboard: the entities recorded in its search attributes.
 func scoreboardExecutionDetails(
+	ctx context.Context,
 	namespace string,
 	workflowID string,
 	runID string,
@@ -463,7 +482,7 @@ func scoreboardExecutionDetails(
 	if err != nil {
 		return nil, fmt.Errorf("create temporal client: %w", err)
 	}
-	exec, err := getWorkflowExecutionWithDecodedAttrs(temporalClient, workflowID, runID)
+	exec, err := getWorkflowExecutionWithDecodedAttrs(ctx, temporalClient, workflowID, runID)
 	if err != nil {
 		return nil, fmt.Errorf("describe workflow execution: %w", err)
 	}
@@ -475,12 +494,13 @@ func scoreboardExecutionDetails(
 }
 
 func getWorkflowExecutionWithDecodedAttrs(
+	ctx context.Context,
 	temporalClient client.Client,
 	workflowID string,
 	runID string,
 ) (*WorkflowExecution, error) {
 	resp, err := temporalClient.DescribeWorkflowExecution(
-		context.Background(),
+		ctx,
 		workflowID,
 		runID,
 	)

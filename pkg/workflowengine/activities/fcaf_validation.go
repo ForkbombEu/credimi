@@ -205,7 +205,7 @@ func (a *FCAFValidationActivity) Execute(
 
 func (a *FCAFValidationActivity) loadRun(ctx context.Context) (*pipelinehistory.Run, error) {
 	info := activity.GetInfo(ctx)
-	c, err := temporalclient.GetTemporalClientWithNamespace(info.WorkflowNamespace)
+	c, err := temporalclient.GetTemporalClientWithNamespace(info.Namespace)
 	if err != nil {
 		return nil, err
 	}

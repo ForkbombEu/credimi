@@ -464,26 +464,13 @@ func pollEWCCheck(
 	pipelineCancelChan := workflow.GetSignalChannel(ctx, PipelineCancelSignal)
 	selector := workflow.NewSelector(ctx)
 
-	// If flag is true → start polling right away
-	isPolling := startImmediately
 	var canceled bool
+	timer := newPollTimer(ctx, selector, interval)
+	var logsTracker realtimeLogsTracker
 
-	var timerFuture workflow.Future
-	var startTimer func()
-
-	startTimer = func() {
-		timerCtx, _ := workflow.WithCancel(ctx)
-		timerFuture = workflow.NewTimer(timerCtx, interval)
-		selector.AddFuture(timerFuture, func(_ workflow.Future) {
-			if isPolling {
-				startTimer()
-			}
-		})
-	}
-
-	// Automatically start timer if startImmediately == true
+	// If flag is true → start polling right away, first poll after one interval.
 	if startImmediately {
-		startTimer()
+		timer.start(false)
 		logger.Info("EWC polling started (startImmediately=true)")
 	}
 
@@ -506,29 +493,28 @@ func pollEWCCheck(
 	selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 		c.Receive(ctx, &signalData)
 
-		if !isPolling {
-			isPolling = true
-			startTimer()
+		if !timer.polling {
+			timer.start(true)
 			logger.Info("EWC polling started (signal)")
 		}
 	})
 
 	selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 		c.Receive(ctx, &signalData)
-		isPolling = false
+		timer.stop()
 		logger.Info("EWC polling stopped (signal)")
 	})
 
 	for {
 		selector.Select(ctx)
 
-		if canceled {
+		if canceled || ctx.Err() != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
 				runMetadata,
 			)
 		}
 
-		if !isPolling {
+		if !timer.takeTick() {
 			continue
 		}
 
@@ -584,7 +570,7 @@ func pollEWCCheck(
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
 		}
-		if len(logs) > 0 {
+		if len(logs) > 0 && logsTracker.changed(logs) {
 			if err := notifyEWCLikeLogs(
 				ctx,
 				workflow.GetInfo(ctx).WorkflowExecution.ID,

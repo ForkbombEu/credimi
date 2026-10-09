@@ -9,6 +9,7 @@ package workflowengine
 import (
 	"context"
 	"os/exec"
+	"sync"
 	"syscall"
 	"time"
 
@@ -174,18 +175,43 @@ func RunCommandWithCancellation(
 			return err
 
 		case <-ticker.C:
-			safeRecordActivityHeartbeat(ctx, "running")
+			RecordHeartbeat(ctx, "running")
 		}
 	}
 }
 
-func safeRecordActivityHeartbeat(ctx context.Context, details ...any) {
-	defer func() {
-		// RecordHeartbeat panics if the context is not an activity context.
-		// RunCommandWithCancellation is also used in unit tests with plain contexts.
-		_ = recover()
-	}()
+// RecordHeartbeat records an activity heartbeat. It is a no-op outside an
+// activity context, so helpers shared with plain-context callers can use it.
+func RecordHeartbeat(ctx context.Context, details ...any) {
+	if !activity.IsActivity(ctx) {
+		return
+	}
 	activity.RecordHeartbeat(ctx, details...)
+}
+
+// StartHeartbeat records a heartbeat with details every interval until the
+// returned stop is called or ctx is done.
+func StartHeartbeat(ctx context.Context, every time.Duration, details ...any) (stop func()) {
+	if !activity.IsActivity(ctx) {
+		return func() {}
+	}
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(every)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				RecordHeartbeat(ctx, details...)
+			}
+		}
+	}()
+	var once sync.Once
+	return func() { once.Do(func() { close(done) }) }
 }
 
 // OutputKind represents the expected type of an activity output.

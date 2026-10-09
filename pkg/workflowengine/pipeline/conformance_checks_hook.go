@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -21,11 +22,24 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/log"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 	"gopkg.in/yaml.v3"
 )
 
-const conformanceCheckStepUse = "conformance-check"
+const (
+	conformanceCheckStepUse = "conformance-check"
+
+	conformanceTemplateActivityChangeID = "credimi-2026-10-conformance-template-activity"
+)
+
+// conformanceTemplate holds everything ConformanceCheckSetupHook reads from disk
+// for one conformance check step.
+type conformanceTemplate struct {
+	Tpl        map[string]any `json:"tpl"`
+	SuiteExtra map[string]any `json:"suite_extra"`
+	Template   string         `json:"template"`
+}
 
 func ConformanceCheckSetupHook(
 	ctx workflow.Context,
@@ -37,6 +51,13 @@ func ConformanceCheckSetupHook(
 ) error {
 	logger := workflow.GetLogger(ctx)
 	steps := &wfDef.Steps
+
+	version := workflow.GetVersion(
+		ctx,
+		conformanceTemplateActivityChangeID,
+		workflow.DefaultVersion,
+		1,
+	)
 
 	for i := range *steps {
 		step := &(*steps)[i]
@@ -89,63 +110,12 @@ func ConformanceCheckSetupHook(
 			)
 		}
 
-		rootDir := utils.GetEnvironmentVariable("ROOT_DIR", true)
-		configTemplatePath := filepath.Join(rootDir, "config_templates", payload.CheckID+".yaml")
-		content, err := os.ReadFile(configTemplatePath)
+		resolved, err := loadConformanceTemplate(ctx, version, payload.CheckID, step.ID)
 		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.ReadFileFailed]
-			return workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf(
-						"failed to read template file %s: %v",
-						configTemplatePath,
-						err,
-					),
-				},
-			)
+			return err
 		}
 
-		extractedContent, err := extractCredimiJSON(string(content))
-		if err != nil {
-			return workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errorcodes.Codes[errorcodes.TemplateRenderFailed].Code,
-					Summary: errorcodes.Codes[errorcodes.TemplateRenderFailed].Description,
-					Message: fmt.Sprintf(
-						"failed to extract credimi JSON from %s: %v",
-						configTemplatePath,
-						err,
-					),
-				},
-			)
-		}
-		var tpl map[string]any
-		if err := yaml.Unmarshal([]byte(extractedContent), &tpl); err != nil {
-			errCode := errorcodes.Codes[errorcodes.TemplateRenderFailed]
-			return workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf(
-						"failed to parse template YAML %s: %v",
-						configTemplatePath,
-						err,
-					),
-				},
-			)
-		}
-
-		tpl = extractValues(tpl).(map[string]any)
-
-		parts := strings.Split(filepath.ToSlash(payload.CheckID), "/")
-		var suite, standard, checkName string
-		if len(parts) >= 2 {
-			suite = parts[len(parts)-2]
-			standard = parts[0]
-			checkName = parts[len(parts)-1]
-		}
+		suite, standard, checkName := splitConformanceCheckID(payload.CheckID)
 		memo := map[string]any{
 			"author":   suite,
 			"standard": standard,
@@ -174,40 +144,159 @@ func ConformanceCheckSetupHook(
 		SetPayloadValue(&defaultPayload, "user_mail", userMail)
 		SetPayloadValue(&defaultPayload, "suite", suite)
 		SetPayloadValue(&defaultPayload, "standard", standard)
-
-		suiteExtra, suiteTemplatePath, err := resolveSuiteSetup(
-			standard,
-			suite,
-			checkName,
-			step.ID,
-			tpl,
-		)
-		if err != nil {
-			return err
-		}
-		for k, v := range suiteExtra {
+		for k, v := range resolved.SuiteExtra {
 			SetPayloadValue(&defaultPayload, k, v)
-		}
-
-		templatePath := filepath.Join(rootDir, suiteTemplatePath)
-		template, err := os.ReadFile(templatePath)
-		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.ReadFileFailed]
-			return workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf("failed to read template file %s: %v", templatePath, err),
-				},
-			)
 		}
 
 		MergePayload(&defaultPayload, &step.With.Payload)
 		step.With.Payload = defaultPayload
-		SetConfigValue(&step.With.Config, "template", string(template))
+		SetConfigValue(&step.With.Config, "template", resolved.Template)
 	}
 
 	return nil
+}
+
+// loadConformanceTemplate resolves the check template through
+// ConformanceTemplateActivity on new runs, and inline for runs started before
+// the activity existed.
+func loadConformanceTemplate(
+	ctx workflow.Context,
+	version workflow.Version,
+	checkID, stepID string,
+) (conformanceTemplate, error) {
+	if version == workflow.DefaultVersion {
+		return resolveConformanceTemplate(checkID, stepID)
+	}
+
+	actCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		StartToCloseTimeout: 30 * time.Second,
+		RetryPolicy:         &temporal.RetryPolicy{MaximumAttempts: 3},
+	})
+	var result workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		actCtx,
+		NewConformanceTemplateActivity().Name(),
+		workflowengine.ActivityInput{
+			Payload: ConformanceTemplateActivityPayload{CheckID: checkID, StepID: stepID},
+		},
+	).Get(actCtx, &result); err != nil {
+		return conformanceTemplate{}, err
+	}
+
+	resolved, err := workflowengine.DecodePayload[conformanceTemplate](result.Output)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return conformanceTemplate{}, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"error decoding conformance template for step %s: %s",
+					stepID,
+					err.Error(),
+				),
+			},
+		)
+	}
+	return resolved, nil
+}
+
+// splitConformanceCheckID returns the suite, standard and check name encoded in
+// a "<standard>/.../<suite>/<check>" check ID.
+func splitConformanceCheckID(checkID string) (suite, standard, checkName string) {
+	parts := strings.Split(filepath.ToSlash(checkID), "/")
+	if len(parts) >= 2 {
+		suite = parts[len(parts)-2]
+		standard = parts[0]
+		checkName = parts[len(parts)-1]
+	}
+	return suite, standard, checkName
+}
+
+// resolveConformanceTemplate reads the config and StepCI templates of a
+// conformance check. It does file I/O and generates UUIDs, so workflow code must
+// only call it for runs that predate ConformanceTemplateActivity.
+func resolveConformanceTemplate(checkID, stepID string) (conformanceTemplate, error) {
+	rootDir := utils.GetEnvironmentVariable("ROOT_DIR", true)
+	configTemplatePath := filepath.Join(rootDir, "config_templates", checkID+".yaml")
+	content, err := os.ReadFile(configTemplatePath)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.ReadFileFailed]
+		return conformanceTemplate{}, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"failed to read template file %s: %v",
+					configTemplatePath,
+					err,
+				),
+			},
+		)
+	}
+
+	extractedContent, err := extractCredimiJSON(string(content))
+	if err != nil {
+		return conformanceTemplate{}, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.TemplateRenderFailed].Code,
+				Summary: errorcodes.Codes[errorcodes.TemplateRenderFailed].Description,
+				Message: fmt.Sprintf(
+					"failed to extract credimi JSON from %s: %v",
+					configTemplatePath,
+					err,
+				),
+			},
+		)
+	}
+	var tpl map[string]any
+	if err := yaml.Unmarshal([]byte(extractedContent), &tpl); err != nil {
+		errCode := errorcodes.Codes[errorcodes.TemplateRenderFailed]
+		return conformanceTemplate{}, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"failed to parse template YAML %s: %v",
+					configTemplatePath,
+					err,
+				),
+			},
+		)
+	}
+
+	tpl = extractValues(tpl).(map[string]any)
+
+	suite, standard, checkName := splitConformanceCheckID(checkID)
+	suiteExtra, suiteTemplatePath, err := resolveSuiteSetup(
+		standard,
+		suite,
+		checkName,
+		stepID,
+		tpl,
+	)
+	if err != nil {
+		return conformanceTemplate{}, err
+	}
+
+	templatePath := filepath.Join(rootDir, suiteTemplatePath)
+	template, err := os.ReadFile(templatePath)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.ReadFileFailed]
+		return conformanceTemplate{}, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("failed to read template file %s: %v", templatePath, err),
+			},
+		)
+	}
+
+	return conformanceTemplate{
+		Tpl:        tpl,
+		SuiteExtra: suiteExtra,
+		Template:   string(template),
+	}, nil
 }
 
 // resolveSuiteSetup returns the extra payload fields and StepCI template path

@@ -164,6 +164,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 			)
 		}
 		result, err := workflowengine.WaitForWorkflowResult(
+			e.Request.Context(),
 			client,
 			resStart.WorkflowID,
 			resStart.WorkflowRunID,

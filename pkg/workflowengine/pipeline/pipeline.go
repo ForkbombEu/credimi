@@ -116,8 +116,22 @@ func (w *PipelineWorkflow) Workflow(
 
 	defer func() {
 		finalResult := pipelineFinalResult(ctx, finalErr)
-		reportGitHubPRCommentDone(
+		reportCtx := ctx
+		if workflow.GetVersion(
 			ctx,
+			"credimi-2026-10-pipeline-final-reports",
+			workflow.DefaultVersion,
+			1,
+		) == 1 {
+			reportAO := ao
+			if input.WorkflowInput.ActivityOptions == nil {
+				reportAO = PrepareWorkflowOptions(pipeline.RuntimeConfig{}).ActivityOptions
+			}
+			reportCtx, _ = workflow.NewDisconnectedContext(ctx)
+			reportCtx = workflow.WithActivityOptions(reportCtx, reportAO)
+		}
+		reportGitHubPRCommentDone(
+			reportCtx,
 			logger,
 			config,
 			workflowID,
@@ -125,7 +139,7 @@ func (w *PipelineWorkflow) Workflow(
 			finalResult,
 		)
 		reportMobileDeviceSemaphoreDone(
-			ctx,
+			reportCtx,
 			logger,
 			config,
 			workflowID,
@@ -133,7 +147,7 @@ func (w *PipelineWorkflow) Workflow(
 			finalResult,
 		)
 		reportPipelineCompletionNotification(
-			ctx,
+			reportCtx,
 			logger,
 			config,
 			workflowID,
@@ -244,8 +258,7 @@ func (w *PipelineWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, wrapWorkflowCancellationError(err, runMetadata)
 	}
 
-	var err error
-	ao, err = w.executeSteps(
+	err := w.executeSteps(
 		ctx,
 		input,
 		wfDef.Steps,
@@ -405,9 +418,9 @@ func (w *PipelineWorkflow) executeSteps(
 	state *pipelineExecutionState,
 	debug bool,
 	logger log.Logger,
-) (workflow.ActivityOptions, error) {
+) error {
 	for _, step := range steps {
-		nextAO, err := w.executeStep(
+		if err := w.executeStep(
 			ctx,
 			input,
 			step,
@@ -417,14 +430,12 @@ func (w *PipelineWorkflow) executeSteps(
 			state,
 			debug,
 			logger,
-		)
-		if err != nil {
-			return nextAO, err
+		); err != nil {
+			return err
 		}
-		ao = nextAO
 	}
 
-	return ao, nil
+	return nil
 }
 
 func (w *PipelineWorkflow) executeStep(
@@ -437,7 +448,7 @@ func (w *PipelineWorkflow) executeStep(
 	state *pipelineExecutionState,
 	debug bool,
 	logger log.Logger,
-) (workflow.ActivityOptions, error) {
+) error {
 	switch step.Use {
 	case "debug":
 		runDebugActivity(
@@ -447,9 +458,9 @@ func (w *PipelineWorkflow) executeStep(
 			state.finalOutput[state.previousStepID],
 			input.WorkflowInput.Payload,
 		)
-		return ao, nil
+		return nil
 	case childPipelineStepUse:
-		return ao, w.executeChildPipelineStep(
+		return w.executeChildPipelineStep(
 			ctx,
 			input,
 			step,
@@ -742,10 +753,10 @@ func (w *PipelineWorkflow) executeRegularStep(
 	state *pipelineExecutionState,
 	debug bool,
 	logger log.Logger,
-) (workflow.ActivityOptions, error) {
+) error {
 	logger.Info("Running step", "id", step.ID, "use", step.Use)
 
-	ao = PrepareActivityOptions(ao, step.ActivityOptions)
+	stepAO := PrepareActivityOptions(ao, step.ActivityOptions)
 
 	pipelineName := input.WorkflowDefinition.Name
 	pipelineURL := runMetadata.TemporalUI
@@ -760,13 +771,13 @@ func (w *PipelineWorkflow) executeRegularStep(
 	)
 
 	if depErr := failedDependencyError(step, state.failedSteps); depErr != nil {
-		return ao, handleRegularStepError(
+		return handleRegularStepError(
 			ctx,
 			step,
 			payload,
 			nil,
 			depErr,
-			ao,
+			stepAO,
 			config,
 			runMetadata,
 			state,
@@ -775,18 +786,18 @@ func (w *PipelineWorkflow) executeRegularStep(
 			pipelineURL,
 		)
 	}
-	stepOutput, err := Execute(&step, ctx, config, enrichedStepInputs, ao)
+	stepOutput, err := Execute(&step, ctx, config, enrichedStepInputs, stepAO)
 	if err != nil {
 		if stepOutput != nil {
 			state.finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
 		}
-		return ao, handleRegularStepError(
+		return handleRegularStepError(
 			ctx,
 			step,
 			payload,
 			stepOutput,
 			err,
-			ao,
+			stepAO,
 			config,
 			runMetadata,
 			state,
@@ -811,7 +822,7 @@ func (w *PipelineWorkflow) executeRegularStep(
 		step,
 		successInputs,
 		state.failures,
-		ao,
+		stepAO,
 		config,
 		logger,
 	)
@@ -826,7 +837,7 @@ func (w *PipelineWorkflow) executeRegularStep(
 	}
 	state.previousStepID = step.ID
 
-	return ao, nil
+	return nil
 }
 
 func handleRegularStepError(
@@ -965,6 +976,7 @@ func (w *PipelineWorkflow) Start(
 	memo["test"] = wfDef.Name
 	options := PrepareWorkflowOptions(wfDef.Runtime)
 	options.Options.Memo = memo
+	options.Options.StaticSummary = summaryLine(wfDef.Name)
 	options.Options.ID = fmt.Sprintf(
 		"Pipeline-%s-%s",
 		canonify.CanonifyPlain(wfDef.Name),
@@ -1042,6 +1054,7 @@ func (w *PipelineWorkflow) Start(
 				TaskQueue:             options.Options.TaskQueue,
 				Args:                  []any{input},
 				Memo:                  memo,
+				StaticSummary:         options.Options.StaticSummary,
 				TypedSearchAttributes: searchAttributes,
 			},
 		})

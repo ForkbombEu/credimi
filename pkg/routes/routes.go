@@ -79,9 +79,9 @@ func bindAppHooks(app core.App) {
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
 	conformancecatalog.Register(app)
+	hooks.TemporalClientSetupHook(app)
 	pb.HookOrganizations(app)
 	pb.RegisterMobileRunnerWorkerManagerHooks(app)
-	pb.HookNamespaceOrgs(app)
 	pb.RegisterMobileRunnerHooks(app)
 	pb.RegisterMobileDeviceHooks(app)
 	pb.RegisterPipelineHooks(app)
