@@ -184,16 +184,17 @@ type cleanupRecordingInput struct {
 }
 
 type storeRecordingResultsInput struct {
-	ctx        workflow.Context
-	runnerID   string
-	videoPath  string
-	lastFrame  string
-	logPath    string
-	deviceType mobileDeviceType
-	runID      string
-	deviceID   string
-	output     *map[string]any
-	logger     log.Logger
+	ctx             workflow.Context
+	runnerID        string
+	videoPath       string
+	lastFrame       string
+	logPath         string
+	maestroTimeline string
+	deviceType      mobileDeviceType
+	runID           string
+	deviceID        string
+	output          *map[string]any
+	logger          log.Logger
 }
 
 func MobileAutomationSetupHook(
@@ -1850,7 +1851,7 @@ func cleanupRecording(
 		*input.cleanupErrs = append(*input.cleanupErrs, err)
 	}
 
-	lastFramePath, err := stopRecording(
+	stopped, err := stopRecording(
 		input.mobileCtx,
 		input.deviceID,
 		recordingInfo,
@@ -1861,16 +1862,17 @@ func cleanupRecording(
 	}
 
 	if err := storeRecordingResults(storeRecordingResultsInput{
-		ctx:        input.ctx,
-		runnerID:   canonify.NormalizePath(runnerID),
-		videoPath:  recordingInfo.videoPath,
-		lastFrame:  lastFramePath,
-		logPath:    recordingInfo.logPath,
-		deviceType: recordingInfo.deviceType,
-		runID:      input.runID,
-		deviceID:   input.deviceID,
-		output:     input.output,
-		logger:     logger,
+		ctx:             input.ctx,
+		runnerID:        canonify.NormalizePath(runnerID),
+		videoPath:       recordingInfo.videoPath,
+		lastFrame:       stopped.lastFramePath,
+		logPath:         recordingInfo.logPath,
+		maestroTimeline: stopped.maestroTimelinePath,
+		deviceType:      recordingInfo.deviceType,
+		runID:           input.runID,
+		deviceID:        input.deviceID,
+		output:          input.output,
+		logger:          logger,
 	}); err != nil {
 		*input.cleanupErrs = append(*input.cleanupErrs, err)
 	}
@@ -1980,12 +1982,19 @@ func extractRecordingInfo(
 	}, nil
 }
 
+// recordingStopOutput is what the runner reports about a stopped recording.
+// maestroTimelinePath is empty when no flow ran while recording.
+type recordingStopOutput struct {
+	lastFramePath       string
+	maestroTimelinePath string
+}
+
 func stopRecording(
 	ctx workflow.Context,
 	deviceID string,
 	info *recordingInfo,
 	logger log.Logger,
-) (string, error) {
+) (recordingStopOutput, error) {
 	var stopResult workflowengine.ActivityResult
 	stopCtx := heartbeatAwareCleanupContext(ctx)
 
@@ -2018,10 +2027,11 @@ func stopRecording(
 		},
 	).Get(stopCtx, &stopResult); err != nil {
 		logger.Error("cleanup: stop recording failed", "error", err)
-		return "", err
+		return recordingStopOutput{}, err
 	}
 
-	lastFramePath, ok := stopResult.Output.(map[string]any)["last_frame_path"].(string)
+	output, _ := stopResult.Output.(map[string]any)
+	lastFramePath, ok := output["last_frame_path"].(string)
 	if !ok || lastFramePath == "" {
 		err := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
@@ -2032,10 +2042,11 @@ func stopRecording(
 			},
 		)
 
-		return "", err
+		return recordingStopOutput{}, err
 	}
+	timelinePath, _ := output["maestro_timeline_path"].(string)
 
-	return lastFramePath, nil
+	return recordingStopOutput{lastFramePath: lastFramePath, maestroTimelinePath: timelinePath}, nil
 }
 
 func heartbeatAwareCleanupContext(ctx workflow.Context) workflow.Context {
@@ -2066,6 +2077,9 @@ func storeRecordingResults(
 	}
 	if input.logPath != "" {
 		body["log_path"] = input.logPath
+	}
+	if input.maestroTimeline != "" {
+		body["maestro_timeline_path"] = input.maestroTimeline
 	}
 
 	if err := workflow.ExecuteActivity(

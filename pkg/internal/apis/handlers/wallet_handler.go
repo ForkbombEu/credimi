@@ -517,6 +517,18 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 		response["log_file_name"] = logFilename
 		response["log_urls"] = logURLs
 
+		// The maestro timeline exists only for runs whose flows ran while recording.
+		if len(e.Request.MultipartForm.File["maestro_timeline"]) > 0 {
+			timelineFilename, _, apierr := saveUploadedFileToRecord(
+				e, resultRecord, "maestro_timeline", "maestro_timelines",
+				versionName+"_maestro_timeline", false,
+			)
+			if apierr != nil {
+				return apierr
+			}
+			response["maestro_timeline_file_name"] = timelineFilename
+		}
+
 		return e.JSON(http.StatusOK, response)
 	}
 }

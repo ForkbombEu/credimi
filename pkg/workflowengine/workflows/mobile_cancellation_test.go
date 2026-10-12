@@ -168,6 +168,71 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
+func TestMobileAutomationWorkflowStoresScreenshotsOfFailedFlow(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileAutomationWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+	mobileActivity := activities.NewRunMobileFlowActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
+	env.RegisterActivityWithOptions(
+		mobileActivity.Execute,
+		activity.RegisterOptions{Name: mobileActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+
+	env.OnActivity(mobileActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, temporal.NewNonRetryableApplicationError(
+			"command execution failed: Maestro flow failed.",
+			"CRE201",
+			nil,
+			workflowengine.ActivityError{
+				Code:    "CRE201",
+				Summary: "command execution failed",
+				Message: "Maestro flow failed.",
+				Details: map[string]any{
+					"maestro_screenshot_paths": []string{"/tmp/before-failure.png"},
+				},
+			},
+		))
+	env.OnActivity(
+		httpActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			request, err := workflowengine.DecodePayload[activities.MobileRunnerHTTPActivityPayload](
+				input.Payload,
+			)
+			if err != nil {
+				return false
+			}
+			body := workflowengine.AsMap(request.Body)
+			return request.Path == "/credimi/execution-screenshots" &&
+				workflowengine.AsString(body["step_id"]) == "scan-credential" &&
+				requireScreenshotPaths(body["screenshot_paths"], "/tmp/before-failure.png")
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"screenshot_urls": []string{"https://app.example/api/files/before-failure.png"},
+		},
+	}}, nil)
+
+	env.ExecuteWorkflow(w.Name(), mobileScreenshotWorkflowInput())
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Maestro flow failed.")
+	failure := workflowengine.ParseWorkflowError(err)
+	require.Equal(
+		t,
+		[]string{"https://app.example/api/files/before-failure.png"},
+		workflowengine.AsSliceOfStrings(failure.Details["maestro_screenshot_urls"]),
+	)
+	env.AssertExpectations(t)
+}
+
 func TestMobileFlowStepLabel(t *testing.T) {
 	for _, test := range []struct {
 		name     string

@@ -18,6 +18,7 @@ var retentionFileFields = []string{
 	"video_results",
 	"screenshots",
 	"maestro_screenshots",
+	"maestro_timelines",
 	"logcats",
 	"ios_logstreams",
 	"report",
@@ -42,6 +43,7 @@ type FileCounts struct {
 	VideoResults       int `json:"video_results"`
 	Screenshots        int `json:"screenshots"`
 	MaestroScreenshots int `json:"maestro_screenshots"`
+	MaestroTimelines   int `json:"maestro_timelines"`
 	Logcats            int `json:"logcats"`
 	IOSLogstreams      int `json:"ios_logstreams"`
 	Report             int `json:"report"`
@@ -178,6 +180,7 @@ func countFiles(record *core.Record) FileCounts {
 		VideoResults:       len(record.GetStringSlice("video_results")),
 		Screenshots:        len(record.GetStringSlice("screenshots")),
 		MaestroScreenshots: len(record.GetStringSlice("maestro_screenshots")),
+		MaestroTimelines:   len(record.GetStringSlice("maestro_timelines")),
 		Logcats:            len(record.GetStringSlice("logcats")),
 		IOSLogstreams:      len(record.GetStringSlice("ios_logstreams")),
 		Report:             len(record.GetStringSlice("report")),
@@ -185,8 +188,8 @@ func countFiles(record *core.Record) FileCounts {
 		FCAFReportPDF:      len(record.GetStringSlice("fcaf_report_pdf")),
 	}
 	counts.Total = counts.VideoResults + counts.Screenshots + counts.MaestroScreenshots +
-		counts.Logcats + counts.IOSLogstreams + counts.Report + counts.FCAFReport +
-		counts.FCAFReportPDF
+		counts.MaestroTimelines + counts.Logcats + counts.IOSLogstreams + counts.Report +
+		counts.FCAFReport + counts.FCAFReportPDF
 
 	return counts
 }
@@ -195,6 +198,7 @@ func addFileCounts(left FileCounts, right FileCounts) FileCounts {
 	left.VideoResults += right.VideoResults
 	left.Screenshots += right.Screenshots
 	left.MaestroScreenshots += right.MaestroScreenshots
+	left.MaestroTimelines += right.MaestroTimelines
 	left.Logcats += right.Logcats
 	left.IOSLogstreams += right.IOSLogstreams
 	left.Report += right.Report
