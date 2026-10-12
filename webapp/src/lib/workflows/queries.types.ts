@@ -23,6 +23,7 @@ export interface WorkflowExecutionResult {
 	video: string;
 	screenshot: string;
 	log: string;
+	timeline?: string;
 }
 
 /**

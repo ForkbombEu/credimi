@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { m } from '@/i18n';
 
+	import { buildPipelineResultViewerHref } from './maestro-timeline';
 	import PipelineReportSheet from './pipeline-report-sheet.svelte';
 
 	type PreviewIcon = 'image' | 'video' | 'file' | 'document' | 'fcaf';
@@ -97,7 +98,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				previewIcon: 'video',
 				icon: VideoIcon,
 				image: result.screenshot,
-				href: result.video,
+				href: buildPipelineResultViewerHref('video', result),
 				target: '_blank'
 			},
 			{
@@ -105,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				previewIcon: 'image',
 				icon: ImageIcon,
 				image: result.screenshot,
-				href: result.screenshot,
+				href: buildPipelineResultViewerHref('screenshot', result),
 				target: '_blank'
 			}
 		];

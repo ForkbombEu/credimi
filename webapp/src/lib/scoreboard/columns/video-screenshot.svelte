@@ -32,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { BadgeCheckIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { buildPipelineResultViewerHref } from '$lib/pipeline/results/maestro-timeline';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 
@@ -47,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				size="mini"
 				variant="ghost"
 				icon={VideoIcon}
-				href={result.video}
+				href={buildPipelineResultViewerHref('video', result)}
 				target="_blank"
 				class="text-primary hover:bg-secondary"
 				tooltip={m.pipeline_artifact_video_tooltip()}
@@ -56,7 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				size="mini"
 				variant="ghost"
 				icon={ImageIcon}
-				href={result.screenshot}
+				href={buildPipelineResultViewerHref('screenshot', result)}
 				target="_blank"
 				class="text-primary hover:bg-secondary"
 				tooltip={m.pipeline_artifact_screenshot_tooltip()}
