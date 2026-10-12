@@ -166,6 +166,7 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			Yaml:       payload.ActionCode,
 			Parameters: payload.Parameters,
 			WorkflowId: workspaceID,
+			StepID:     mobileFlowStepLabel(input.Config, payload.ActionID),
 		},
 	}
 	executeErr := workflow.ExecuteActivity(runnerCtx, mobileActivity.Name(), mobileInput).
@@ -361,6 +362,17 @@ func uniqueScreenshotURLs(values []string) []string {
 		result = append(result, value)
 	}
 	return result
+}
+
+// mobileFlowStepLabel names the flow in the live view: the pipeline step id,
+// or the wallet action id for flows started outside a pipeline step
+// (/api/pipeline/mobile-flow).
+func mobileFlowStepLabel(config map[string]any, actionID string) string {
+	stepID, _ := config[workflowengine.StepIDConfigKey].(string)
+	if stepID = strings.TrimSpace(stepID); stepID != "" {
+		return stepID
+	}
+	return strings.TrimSpace(actionID)
 }
 
 func mobileActivityOptions(

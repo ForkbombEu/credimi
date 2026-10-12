@@ -121,7 +121,8 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 
 	env.OnActivity(mobileActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 		payload, err := workflowengine.DecodePayload[mobile.RunMobileFlowPayload](input.Payload)
-		return err == nil && payload.WorkflowId == "org/workflow-run"
+		return err == nil && payload.WorkflowId == "org/workflow-run" &&
+			payload.StepID == "scan-credential"
 	})).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"output":                   "Maestro output",
@@ -165,6 +166,22 @@ func TestMobileAutomationWorkflowStoresStepScreenshots(t *testing.T) {
 		workflowengine.AsSliceOfStrings(flowOutput["maestro_screenshot_urls"]),
 	)
 	env.AssertExpectations(t)
+}
+
+func TestMobileFlowStepLabel(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		config   map[string]any
+		actionID string
+		want     string
+	}{
+		{"pipeline step id wins", map[string]any{"step_id": "scan-credential"}, "acme/wallet/scan", "scan-credential"},
+		{"wallet action id without step", map[string]any{}, " acme/wallet/get-pid ", "acme/wallet/get-pid"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.want, mobileFlowStepLabel(test.config, test.actionID))
+		})
+	}
 }
 
 func TestMobileAutomationWorkflowSkipsScreenshotAPIWithoutPaths(t *testing.T) {
