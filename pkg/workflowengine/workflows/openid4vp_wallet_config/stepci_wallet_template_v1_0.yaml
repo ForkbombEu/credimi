@@ -22,6 +22,10 @@ tests:
         http:
           url: https://capture-wallet.credimi.io/sessions
           method: POST
+          json:
+            issuer_configuration_id: eu-pid-device-bound
+            flow: authorization_code
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
           check:
             status: 201
           captures:
@@ -29,6 +33,8 @@ tests:
               jsonpath: $.session_id
             fake_deeplink:
               jsonpath: $.deeplink
+            issuer_identifier:
+              jsonpath: $.issuer_identifier
       - name: Get the fake issuer credential
         http:
           url: https://credimi.io/api/pipeline/mobile-flow
@@ -81,7 +87,7 @@ tests:
                       - path:
                           - iss
                         values:
-                          - https://capture-wallet.credimi.io
+                          - ${{ captures.issuer_identifier }}
               jwks:
                 keys:
                   - kty: EC
