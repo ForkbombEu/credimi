@@ -727,7 +727,7 @@
 	"Only_lowercase_letters_and_underscores_are_allowed": "Allowed characters: lowercase letters (a-z), numbers (0-9), underscores (_), hyphens (-). Must start with a letter.",
 	"Wallet_actions": "Wallet actions",
 	"Wallet_actions_no_progress": "No wallet action progress was recorded",
-	"Open_original_file": "Open original file",
+	"Download_screenshot": "Download screenshot",
 	"Download_video": "Download video",
 	"Add_new_action": "Tilføj ny action",
 	"Android_installer": "Android installer",

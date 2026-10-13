@@ -81,9 +81,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	// PocketBase serves `?download=1` as an attachment; `download` alone covers browsers
 	// that honour it, since result URLs are always on this page's origin.
-	const videoDownload = $derived.by(() => {
-		if (!data.video) return undefined;
-		const url = new URL(data.video);
+	const download = $derived.by(() => {
+		const file = data.mode === 'video' ? data.video : data.screenshot;
+		if (!file) return undefined;
+		const url = new URL(file);
 		url.searchParams.set('download', '1');
 		return url.href;
 	});
@@ -91,15 +92,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <main class="page">
 	<nav class="toolbar">
-		{#if data.mode === 'video'}
-			<a href={videoDownload} download rel="external">
-				<DownloadIcon aria-hidden="true" />{m.Download_video()}
-			</a>
-		{:else}
-			<a href={data.screenshot} target="_blank" rel="external noopener"
-				>{m.Open_original_file()}</a
-			>
-		{/if}
+		<a href={download} download rel="external">
+			<DownloadIcon aria-hidden="true" />
+			{data.mode === 'video' ? m.Download_video() : m.Download_screenshot()}
+		</a>
 	</nav>
 	<div class="columns" style:--aspect={aspect}>
 		{#if data.mode === 'video'}
