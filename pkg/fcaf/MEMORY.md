@@ -3214,3 +3214,22 @@ Go map order decided which `error` it found. `findWalletError` now skips the
 verifier's HTTP replies; it serves `dcql.response_satisfies_constraints`,
 `oid4vp.error_response_required`, `oid4vp.request_audience` and the digest
 check in `generic.go`.
+
+## MainInteraction 039: inline wallet flow
+
+13/10/2026. On the USB runner the step failed with `Assert that "Data sharing
+request" is visible... FAILED`, so the wallet never sent a `vp_token` and the
+failed step stored no screenshot. The wallet, Capture and the validator are
+fine: on the emulator the request lists both PIDs and the session validates
+with `pid_sdjwt` and `pid_mdoc`, and the engine passes 039.
+
+The inline flow unlocked the wallet before `openLink` by tapping the PIN field
+by coordinates and then ran `hideKeyboard`, and it never handled a `Welcome
+back` screen after the link. On Android `hideKeyboard` can act as Back, and Back
+with the keyboard open closes this wallet [INFERENCE: probable cause on the
+runner]. The flow now follows `fcaf-submit-request-object-by-value`: stop the
+app, open the link, unlock on `Welcome back` by typing `12345` and tapping `6`,
+then share and enter the PIN the same way. It keeps the two
+`request_screen_requested_document_*` assertions and adds a screenshot after
+sharing. About 20 other inline flows still unlock by coordinate taps; none of
+their tests were in the run that exposed this.
