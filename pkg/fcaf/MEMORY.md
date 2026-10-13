@@ -3139,3 +3139,15 @@ lengths SHOULD use `A256GCM`. Narrowing the advertised list was considered and
 rejected: it would test obedience to a HAIP verifier's list, which 007–009
 already cover, rather than the wallet's default choice. Recorded as
 `RI-WALLET-004`; no harness change.
+
+## CredentialFormats 046 and 048 reported blocked
+
+13/10/2026. Both ran `dcql.response_satisfies_constraints` with the
+nonexistent mode `format_mso_mdoc` on the generic credential-formats session,
+so they always errored; `knownUnsupportedDCQLModeTests` had exempted them from
+the mode check. Neither source can be built against Capture: 046 needs an
+unbound SD-JWT VC (credo-ts#2936 still open; Capture's
+`require_cryptographic_holder_binding` is request-side only), and 048 needs
+SD-JWT JSON serialization. Both now use `fcaf.blocked`; their exemptions were
+removed. Still exempted with unsupported modes: `WS_RP_IA_ProtocolFlow__002`,
+`WS_RP_SM_IssuerIntegrity__012`, `WS_RP_UC_Presentation__003`, `004`.

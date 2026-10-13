@@ -423,9 +423,11 @@ SAN-matching certificate. Until then 008–012 report `blocked` through
   `WS_RP_MS_CredentialFormats__046` (a credential without cryptographic holder
   binding; Credo refuses `require_cryptographic_holder_binding: false` during
   issuance until
-  [credo-ts#2936](https://github.com/openwallet-foundation/credo-ts/pull/2936))
+  [credo-ts#2936](https://github.com/openwallet-foundation/credo-ts/pull/2936),
+  still open on 13/10/2026). 046 reports `blocked` through `fcaf.blocked`
 - [ ] `WS_RP_MS_CredentialFormats__048` (SD-JWT VC JSON serialization; issuer
-  and verifier support compact serialization only)
+  and verifier support compact serialization only). It reports `blocked`
+  through `fcaf.blocked`
 - [ ] `WS_RP_MS_Metadata__089` gap and `WS_RP_MS_Metadata__099` (missing-scheme,
   unencoded-space, invalid-percent-encoding, illegal-character and empty URI
   shapes; `status_reference: malformed_uri` expresses only the unparseable one)
