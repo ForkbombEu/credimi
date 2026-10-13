@@ -30,6 +30,8 @@ steps:
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
                 nonce: fcaf-request-object-by-value
+                # WS_RP_MS_ProtocolMessages__032 needs a request without state.
+                state: null
         expected_status: 201
         headers:
             Content-Type: application/json

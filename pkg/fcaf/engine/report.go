@@ -317,17 +317,17 @@ func firstNonEmpty(values ...string) string {
 }
 
 func buildTestOutcome(test TestResult) TestOutcome {
-	assertionFailure := firstNonPassingAssertion(test.Assertions)
+	reason := test.Message
+	if assertionFailure := firstNonPassingAssertion(test.Assertions); assertionFailure != nil &&
+		assertionFailure.Message != "" {
+		reason = assertionFailure.Message
+	}
 	switch test.Status {
 	case validators.StatusPass:
 		return TestOutcome{Status: "passed", Reason: test.Message}
 	case validators.StatusSkipped, validators.StatusNotApplicable:
-		return TestOutcome{Status: "skipped", Reason: test.Message}
+		return TestOutcome{Status: "skipped", Reason: reason}
 	default:
-		reason := test.Message
-		if assertionFailure != nil && assertionFailure.Message != "" {
-			reason = assertionFailure.Message
-		}
 		return TestOutcome{Status: "failed", Reason: reason}
 	}
 }

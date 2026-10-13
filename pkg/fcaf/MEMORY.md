@@ -3139,3 +3139,78 @@ lengths SHOULD use `A256GCM`. Narrowing the advertised list was considered and
 rejected: it would test obedience to a HAIP verifier's list, which 007–009
 already cover, rather than the wallet's default choice. Recorded as
 `RI-WALLET-004`; no harness change.
+
+## CredentialFormats 046 and 048 reported blocked
+
+13/10/2026. Both ran `dcql.response_satisfies_constraints` with the
+nonexistent mode `format_mso_mdoc` on the generic credential-formats session,
+so they always errored; `knownUnsupportedDCQLModeTests` had exempted them from
+the mode check. Neither source can be built against Capture: 046 needs an
+unbound SD-JWT VC (credo-ts#2936 still open; Capture's
+`require_cryptographic_holder_binding` is request-side only), and 048 needs
+SD-JWT JSON serialization. Both now use `fcaf.blocked`; their exemptions were
+removed. Still exempted with unsupported modes: `WS_RP_IA_ProtocolFlow__002`,
+`WS_RP_SM_IssuerIntegrity__012`, `WS_RP_UC_Presentation__003`, `004`.
+
+## Report o5weo19bwp follow-up: skipped prerequisites and harness fixes
+
+13/10/2026, from the failures of report `fcaf_assessment_o5weo19bwp.json`.
+
+- `fcaf.blocked` became `fcaf.skipped`: a prerequisite Capture or the
+  infrastructure cannot build now reports `skipped` with its reason, both in
+  the summary and in each test's outcome. `AggregateVerdict` ranks `skipped`
+  below error, fail and blocked. `blocked` remains for missing evidence.
+- CredentialFormats 039, 040: the wallet answered with an encrypted
+  `invalid_request`, which the validator read as "no error". It now reads
+  Capture's `raw.presentation_response_decrypted` (capture-wallet `0083657b`).
+- MainInteraction 025: `claim_sets_preferred_option` takes an explicit
+  `claim_set_count`; 019 and 020 pin 3 as their sources say, 025 pins 2.
+- MainInteraction 027: `given_name` carries `values: [Mario]`, the held PID's
+  value, so both claims are value-constrained as the source requires.
+- MainInteraction 029, 030: the available PID query requests `given_name`;
+  the sources never asked for a claimless query. 028 stays claimless, as its
+  source requires, but its precondition (a credential without selective
+  disclosure) cannot be met with Capture's SD-JWT VC or mdoc PID.
+- ProtocolMessages 131: the response-transport session sends
+  `encrypted_response_enc_values_supported: null`, and `metadata_enc_absent`
+  now rejects that key as well as the legacy
+  `authorization_encrypted_response_enc`.
+- ProtocolMessages 134: the source checks a form-encoded body holding the JWT,
+  not an `enc` value; the assertion became `require_compact_jwe`.
+- ProtocolMessages 032: the by-value session sets
+  `presentation_request.state: null` (capture-wallet `239b479d`). Production
+  already omits `state` for the nested form; the top-level form is not yet
+  deployed.
+
+Step counts are unchanged.
+
+## Claimless DCQL queries the sources do not require
+
+13/10/2026. The reference wallet answers a credential query without `claims`
+with "The requested document is not available", even when it holds the
+credential. Only MainInteraction 016, 017, 028 and ProtocolMessages 082 require
+an absent `claims`; every other wallet-held PID query now requests
+`given_name`: ProtocolMessages 058, 061–063, 065, 066, 068, 069, 097–101,
+MainInteraction 029–031, 034. Queries for credentials the wallet cannot hold
+(029, 030, 043, ProtocolMessages 102, 104) keep no claims; nothing matches them
+either way.
+
+Emulator run, production Capture, a fresh PID before each presentation (each
+presentation consumes one):
+
+- pass: ProtocolMessages 058, 061–063, 065, 066, 068, 069, 098, 099, 101;
+  MainInteraction 031.
+- fail, RI-WALLET-001 (error shown, nothing posted): ProtocolMessages 097,
+  100; MainInteraction 034.
+
+098 and 100 ran the share flow on a request the wallet must refuse, so the
+wallet step always failed and their visual evidence was empty; both now run
+`fcaf-expect-request-rejected`.
+
+The run also exposed a validator bug: the wallet error lookup searched the
+whole session, including Capture's own reply to the wallet
+(`raw.presentation_response_verifier_http.body`, `invalid_presentation`), and
+Go map order decided which `error` it found. `findWalletError` now skips the
+verifier's HTTP replies; it serves `dcql.response_satisfies_constraints`,
+`oid4vp.error_response_required`, `oid4vp.request_audience` and the digest
+check in `generic.go`.

@@ -63,6 +63,22 @@ response class.
 - The Credimi test requires both the exact protocol error and a strict error
   page; the reference wallet currently fails the protocol assertion.
 
+### Same defect for other credential_sets refusals
+
+Re-checked on 13/10/2026 against production Capture with a fresh PID in the
+wallet and claim-bearing queries. The wallet shows an error and records only
+`vp_request_retrieved` for:
+
+- `WS_RP_MS_ProtocolMessages__097`: `options cannot be empty` (unchanged).
+- `WS_RP_MS_ProtocolMessages__100`: an option referencing an unknown
+  credential query id (`Unknown credential query ids: [unknown_credential_id]`).
+- `WS_RP_IA_MainInteraction__034`: a `required: true` set whose option needs a
+  credential the wallet lacks (`The requested document is not available`).
+
+Other DCQL refusals in the same run were posted as `invalid_request`
+(ProtocolMessages 058, 061–063, 065, 066, 068, 069, 098), so the verifier
+accepts the response class.
+
 ## MOCK-VERIFIER-001: Beta capture verifier rejects valid PID response on certificate SAN
 
 For `WS_RP_MS_ProtocolMessages__099`, the reference wallet reaches the request,

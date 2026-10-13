@@ -37,6 +37,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		ExpectedValue     any     `json:"expected_value"`
 		ExpectedFormat    string  `json:"expected_format"`
 		ExpectedClaimPath []any   `json:"expected_claim_path"`
+		ClaimSetCount     int     `json:"claim_set_count"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -138,7 +139,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	}
 
 	responseValue, _ := findObjectKey(root, "vp_token")
-	errorValue, _ := findObjectKey(root, "error")
+	errorValue := findWalletError(root)
 	switch params.Mode {
 	case "credential_sets":
 		sets, ok := query["credential_sets"].([]any)
@@ -1032,7 +1033,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 			}
 		}
 	case "claim_sets_preferred_option":
-		return validateClaimSetsPreferredOption(query, responseValue, params.ExpectedValue)
+		return validateClaimSetsPreferredOption(
+			query,
+			responseValue,
+			params.ExpectedValue,
+			params.ClaimSetCount,
+		)
 	case "claim_sets_no_match":
 		return validateClaimSetsNoMatch(query, responseValue)
 	case "claim_sets_without_claims":
@@ -1362,11 +1368,24 @@ func validateVPTokenSignedPresentation(
 	query map[string]any,
 	responseValue any,
 ) Result {
+	// Capture records the request both as authorization_request and under raw,
+	// so every captured copy must be vp_token rather than exactly one existing.
 	responseTypes := collectObjectFieldValues(root, "response_type")
-	if len(responseTypes) != 1 || responseTypes[0] != "vp_token" {
+	if len(responseTypes) == 0 {
 		return Result{
 			Status:  StatusFail,
-			Message: "captured authorization request response_type must equal vp_token",
+			Message: "captured authorization request has no response_type",
+		}
+	}
+	for _, responseType := range responseTypes {
+		if responseType != "vp_token" {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"captured authorization request response_type is %v, expected vp_token",
+					responseType,
+				),
+			}
 		}
 	}
 	response, result := validatedVPTokenPresentations(query, responseValue)
@@ -1697,6 +1716,25 @@ func normalizeJSONObject(value any) (map[string]any, bool) {
 }
 
 func findObjectKey(value any, key string) (any, bool) {
+	return findObjectKeySkipping(value, key, nil)
+}
+
+// verifierReplyKeys name the captured HTTP replies Capture sent to the Wallet.
+// Capture answers a Wallet error with its own error object (for example
+// invalid_presentation), so a Wallet error lookup must not descend into them.
+var verifierReplyKeys = map[string]struct{}{
+	"presentation_response_verifier_http": {},
+	"request_uri_response_http":           {},
+}
+
+// findWalletError returns the error code the Wallet sent, wherever the capture
+// recorded it, ignoring the verifier's own replies.
+func findWalletError(value any) any {
+	found, _ := findObjectKeySkipping(value, "error", verifierReplyKeys)
+	return found
+}
+
+func findObjectKeySkipping(value any, key string, skip map[string]struct{}) (any, bool) {
 	object, ok := normalizeJSONObject(value)
 	if !ok {
 		return nil, false
@@ -1704,13 +1742,16 @@ func findObjectKey(value any, key string) (any, bool) {
 	if found, exists := object[key]; exists {
 		return found, true
 	}
-	for _, child := range object {
-		if found, exists := findObjectKey(child, key); exists {
+	for name, child := range object {
+		if _, skipped := skip[name]; skipped {
+			continue
+		}
+		if found, exists := findObjectKeySkipping(child, key, skip); exists {
 			return found, true
 		}
 		if array, ok := child.([]any); ok {
 			for _, item := range array {
-				if found, exists := findObjectKey(item, key); exists {
+				if found, exists := findObjectKeySkipping(item, key, skip); exists {
 					return found, true
 				}
 			}
@@ -2345,12 +2386,19 @@ func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPath
 func validateClaimSetsPreferredOption(
 	query map[string]any,
 	responseValue, expectedValue any,
+	claimSetCount int,
 ) Result {
 	expectedFloat, ok := expectedValue.(float64)
 	if !ok || expectedFloat < 0 || expectedFloat != float64(int(expectedFloat)) {
 		return Result{
 			Status:  StatusError,
 			Message: "expected_value must be a non-negative claim_sets index",
+		}
+	}
+	if claimSetCount <= int(expectedFloat) {
+		return Result{
+			Status:  StatusError,
+			Message: "claim_set_count must exceed the expected claim_sets index",
 		}
 	}
 	credentials, ok := query["credentials"].([]any)
@@ -2367,10 +2415,13 @@ func validateClaimSetsPreferredOption(
 	id, _ := credential["id"].(string)
 	claims, claimsOK := credential["claims"].([]any)
 	sets, setsOK := credential["claim_sets"].([]any)
-	if id == "" || !claimsOK || !setsOK || len(sets) != 3 || int(expectedFloat) >= len(sets) {
+	if id == "" || !claimsOK || !setsOK || len(sets) != claimSetCount {
 		return Result{
-			Status:  StatusFail,
-			Message: "request does not contain three claim_sets over identified claims",
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"request does not contain %d claim_sets over identified claims",
+				claimSetCount,
+			),
 		}
 	}
 	paths := map[string][]any{}

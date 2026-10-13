@@ -101,14 +101,15 @@ func (EvidencePresentValidator) Validate(_ context.Context, input Input) Result 
 	return Result{Status: StatusPass, Message: "evidence value is present"}
 }
 
-// FCAFBlockedValidator records that the setup a test requires cannot be built
-// with the available verifier or infrastructure, so the test reports blocked
-// with the missing prerequisite instead of asserting on unrelated evidence.
-type FCAFBlockedValidator struct{}
+// FCAFSkippedValidator records that the setup a test requires cannot be built
+// with the available verifier, issuer or infrastructure, so the test reports
+// skipped with the missing prerequisite instead of asserting on unrelated
+// evidence.
+type FCAFSkippedValidator struct{}
 
-func (FCAFBlockedValidator) ID() string { return "fcaf.blocked" }
+func (FCAFSkippedValidator) ID() string { return "fcaf.skipped" }
 
-func (FCAFBlockedValidator) Validate(_ context.Context, input Input) Result {
+func (FCAFSkippedValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
 		Reason string `json:"reason"`
 	}](input.Params)
@@ -118,7 +119,7 @@ func (FCAFBlockedValidator) Validate(_ context.Context, input Input) Result {
 	if params.Reason == "" {
 		return Result{Status: StatusError, Message: "reason param is required"}
 	}
-	return Result{Status: StatusBlocked, Message: params.Reason}
+	return Result{Status: StatusSkipped, Message: params.Reason}
 }
 
 type JSONFieldRequiredValidator struct{}
@@ -826,7 +827,7 @@ func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, inp
 				Message: "wallet returned vp_token instead of an error",
 			}
 		}
-		errorValue, _ := findObjectKey(session, "error")
+		errorValue := findWalletError(session)
 		if code := normalizeString(errorValue); code != "" {
 			return Result{
 				Status: StatusPass,
