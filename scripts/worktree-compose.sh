@@ -30,6 +30,9 @@ load_env() {
 	# shellcheck disable=SC1091
 	eval "$(bash "${ROOT_DIR}/scripts/worktree-env.sh" export)"
 	export CREDIMI_ELASTIC_PASSWORD="${CREDIMI_ELASTIC_PASSWORD:-devpassword}"
+	# Compose interpolates the base before merging the dev override, which clears
+	# the Caddy labels. This placeholder is never used for authentication.
+	export TEMPORAL_BASIC_AUTH_HASH="${TEMPORAL_BASIC_AUTH_HASH:-unused-in-local-development}"
 	set -a
 	# shellcheck disable=SC1091
 	source "${COMPOSE_VERSIONS_FILE}"
