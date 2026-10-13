@@ -1929,6 +1929,34 @@ func TestDCQLVPTokenResponseModes(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name: "signed presentation accepts the request recorded twice",
+			mode: "vp_token_signed_presentation",
+			mutate: func(evidence map[string]any) {
+				evidence["raw"] = map[string]any{
+					"authorization_request": map[string]any{"response_type": "vp_token"},
+				}
+			},
+			status: StatusPass,
+		},
+		{
+			name: "signed presentation rejects a disagreeing recorded copy",
+			mode: "vp_token_signed_presentation",
+			mutate: func(evidence map[string]any) {
+				evidence["raw"] = map[string]any{
+					"authorization_request": map[string]any{"response_type": "vp_token id_token"},
+				}
+			},
+			status: StatusFail,
+		},
+		{
+			name: "signed presentation rejects a request without response_type",
+			mode: "vp_token_signed_presentation",
+			mutate: func(evidence map[string]any) {
+				delete(evidence, "response_type")
+			},
+			status: StatusFail,
+		},
+		{
 			name: "signed presentation rejects unsigned jwt",
 			mode: "vp_token_signed_presentation",
 			mutate: func(evidence map[string]any) {

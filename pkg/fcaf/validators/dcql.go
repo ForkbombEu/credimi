@@ -1362,11 +1362,24 @@ func validateVPTokenSignedPresentation(
 	query map[string]any,
 	responseValue any,
 ) Result {
+	// Capture records the request both as authorization_request and under raw,
+	// so every captured copy must be vp_token rather than exactly one existing.
 	responseTypes := collectObjectFieldValues(root, "response_type")
-	if len(responseTypes) != 1 || responseTypes[0] != "vp_token" {
+	if len(responseTypes) == 0 {
 		return Result{
 			Status:  StatusFail,
-			Message: "captured authorization request response_type must equal vp_token",
+			Message: "captured authorization request has no response_type",
+		}
+	}
+	for _, responseType := range responseTypes {
+		if responseType != "vp_token" {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"captured authorization request response_type is %v, expected vp_token",
+					responseType,
+				),
+			}
 		}
 	}
 	response, result := validatedVPTokenPresentations(query, responseValue)
