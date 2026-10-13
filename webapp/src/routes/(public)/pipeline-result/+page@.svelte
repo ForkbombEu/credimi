@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Attachment } from 'svelte/attachments';
 
+	import { DownloadIcon } from '@lucide/svelte';
 	import {
 		maestroFlowsAt,
 		parseMaestroTimeline,
@@ -78,12 +79,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		videoElement.currentTime = Math.max(0, (row.startedAt - startedAt) / 1000);
 	}
 
-	const original = $derived(data.mode === 'video' ? data.video : data.screenshot);
+	// PocketBase serves `?download=1` as an attachment; `download` alone covers browsers
+	// that honour it, since result URLs are always on this page's origin.
+	const videoDownload = $derived.by(() => {
+		if (!data.video) return undefined;
+		const url = new URL(data.video);
+		url.searchParams.set('download', '1');
+		return url.href;
+	});
 </script>
 
 <main class="page">
 	<nav class="toolbar">
-		<a href={original} target="_blank" rel="external noopener">{m.Open_original_file()}</a>
+		{#if data.mode === 'video'}
+			<a href={videoDownload} download rel="external">
+				<DownloadIcon aria-hidden="true" />{m.Download_video()}
+			</a>
+		{:else}
+			<a href={data.screenshot} target="_blank" rel="external noopener"
+				>{m.Open_original_file()}</a
+			>
+		{/if}
 	</nav>
 	<div class="columns" style:--aspect={aspect}>
 		{#if data.mode === 'video'}
@@ -149,8 +165,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		font-size: 14px;
 	}
 	.toolbar a {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
 		color: var(--primary, inherit);
 		text-decoration: underline;
+	}
+	.toolbar a :global(svg) {
+		width: 16px;
+		height: 16px;
 	}
 	.columns {
 		--col: min(calc((100vw - 48px) / 2), calc((100dvh - 96px) * var(--aspect, 0.45)));
