@@ -1015,6 +1015,8 @@ steps:
                     - claims:
                         - path:
                             - given_name
+                          values:
+                            - Mario
                         - path:
                             - family_name
                           values:
@@ -1119,7 +1121,10 @@ steps:
                         - - unavailable_pid
                       required: false
                 credentials:
-                    - format: dc+sd-jwt
+                    - claims:
+                        - path:
+                            - given_name
+                      format: dc+sd-jwt
                       id: available_pid
                       meta:
                         vct_values:
@@ -1212,7 +1217,10 @@ steps:
                     - options:
                         - - available_pid
                 credentials:
-                    - format: dc+sd-jwt
+                    - claims:
+                        - path:
+                            - given_name
+                      format: dc+sd-jwt
                       id: available_pid
                       meta:
                         vct_values:
@@ -1268,7 +1276,10 @@ steps:
                         - - available_pid
                           - unavailable_pid
                 credentials:
-                    - format: dc+sd-jwt
+                    - claims:
+                        - path:
+                            - given_name
+                      format: dc+sd-jwt
                       id: available_pid
                       meta:
                         vct_values:
@@ -1939,6 +1950,8 @@ steps:
       use: http-request
       with:
         body:
+            client_metadata:
+                encrypted_response_enc_values_supported: null
             presentation_request:
                 dcql_query:
                     credentials:
@@ -2455,6 +2468,7 @@ steps:
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
                 nonce: fcaf-request-object-by-value
+                state: null
             request_delivery: by_value
             response_mode: direct_post.jwt
             response_type: vp_token

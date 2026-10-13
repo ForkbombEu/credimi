@@ -76,6 +76,16 @@ func (OID4VPUnsupportedResponseTypeValidator) Validate(_ context.Context, input 
 			Message: "captured wallet response value is not an object",
 		}
 	}
+	if _, encrypted := response["response"]; encrypted {
+		decrypted, found := findObjectKey(input.Value, "presentation_response_decrypted")
+		response, ok = normalizeJSONObject(decrypted)
+		if !found || !ok {
+			return Result{
+				Status:  StatusFail,
+				Message: "wallet posted an encrypted response that the verifier did not decrypt",
+			}
+		}
+	}
 	if vpToken, found := response["vp_token"]; found && !isEmptyDCQLValue(vpToken) {
 		return Result{
 			Status:  StatusFail,

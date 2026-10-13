@@ -42,7 +42,7 @@ func (OID4VPErrorResponseRequiredValidator) Validate(_ context.Context, input In
 		}
 	}
 
-	errorValue, _ := findObjectKey(session, "error")
+	errorValue := findWalletError(session)
 	code := normalizeString(errorValue)
 	if code == "" {
 		return Result{

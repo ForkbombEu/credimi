@@ -25,6 +25,7 @@ assertions:
     params:
       mode: claim_sets_preferred_option
       expected_value: 1
+      claim_set_count: 3
   - id: interaction_is_recorded
     validator: evidence.non_empty
     input: evidence.visual_evidence

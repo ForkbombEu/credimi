@@ -19,7 +19,7 @@ evidence:
     from: pipeline.dcql.trust-mechanisms.outputs.dcql_exchange
 assertions:
 - id: mock_etsi_trusted_list_is_unavailable
-  validator: fcaf.blocked
+  validator: fcaf.skipped
   input: evidence.dcql_exchange
   params:
     reason: >-

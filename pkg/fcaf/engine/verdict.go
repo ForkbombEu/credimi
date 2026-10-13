@@ -10,6 +10,7 @@ func AggregateVerdict(assertions []AssertionResult) validators.Status {
 	if len(assertions) == 0 {
 		return validators.StatusInconclusive
 	}
+	hasSkipped := false
 	hasInconclusive := false
 	hasNotApplicable := false
 	for _, assertion := range assertions {
@@ -20,11 +21,16 @@ func AggregateVerdict(assertions []AssertionResult) validators.Status {
 			return validators.StatusFail
 		case validators.StatusBlocked:
 			return validators.StatusBlocked
+		case validators.StatusSkipped:
+			hasSkipped = true
 		case validators.StatusInconclusive:
 			hasInconclusive = true
 		case validators.StatusNotApplicable:
 			hasNotApplicable = true
 		}
+	}
+	if hasSkipped {
+		return validators.StatusSkipped
 	}
 	if hasInconclusive {
 		return validators.StatusInconclusive
@@ -43,6 +49,8 @@ func verdictMessage(status validators.Status) string {
 		return "one or more assertions failed"
 	case validators.StatusBlocked:
 		return "one or more dependencies were blocked"
+	case validators.StatusSkipped:
+		return "test was skipped"
 	case validators.StatusInconclusive:
 		return "one or more assertions could not be evaluated"
 	case validators.StatusNotApplicable:

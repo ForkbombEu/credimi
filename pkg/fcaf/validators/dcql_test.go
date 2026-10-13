@@ -1632,6 +1632,34 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	}
 }
 
+// Capture answers a Wallet error with its own error object. The wallet's code
+// must decide the verdict, whatever order the session map is walked in.
+func TestDCQLWalletErrorIgnoresVerifierReply(t *testing.T) {
+	session := map[string]any{
+		"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}},
+		"raw": map[string]any{
+			"presentation_response_decrypted": map[string]any{"error": "invalid_request"},
+			"presentation_response_verifier_http": map[string]any{
+				"body": `{"error":"invalid_presentation"}`,
+			},
+		},
+	}
+	for range 50 {
+		result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+			Value:  session,
+			Params: map[string]any{"mode": "invalid_request_generic"},
+		})
+		require.Equal(t, StatusPass, result.Status, result.Message)
+	}
+
+	delete(session["raw"].(map[string]any), "presentation_response_decrypted")
+	result := OID4VPErrorResponseRequiredValidator{}.Validate(context.Background(), Input{
+		Value:  session,
+		Params: map[string]any{"code": "invalid_request"},
+	})
+	require.Equal(t, StatusFail, result.Status, "the verifier's reply is not a wallet error")
+}
+
 // A broken forbidden_paths param is the definition's fault, so it must not be
 // reported as the wallet's non-conformance.
 func TestDCQLForbiddenPathsConfigurationErrors(t *testing.T) {
@@ -1925,6 +1953,34 @@ func TestDCQLVPTokenResponseModes(t *testing.T) {
 			mode: "vp_token_signed_presentation",
 			mutate: func(evidence map[string]any) {
 				evidence["response_type"] = "code"
+			},
+			status: StatusFail,
+		},
+		{
+			name: "signed presentation accepts the request recorded twice",
+			mode: "vp_token_signed_presentation",
+			mutate: func(evidence map[string]any) {
+				evidence["raw"] = map[string]any{
+					"authorization_request": map[string]any{"response_type": "vp_token"},
+				}
+			},
+			status: StatusPass,
+		},
+		{
+			name: "signed presentation rejects a disagreeing recorded copy",
+			mode: "vp_token_signed_presentation",
+			mutate: func(evidence map[string]any) {
+				evidence["raw"] = map[string]any{
+					"authorization_request": map[string]any{"response_type": "vp_token id_token"},
+				}
+			},
+			status: StatusFail,
+		},
+		{
+			name: "signed presentation rejects a request without response_type",
+			mode: "vp_token_signed_presentation",
+			mutate: func(evidence map[string]any) {
+				delete(evidence, "response_type")
 			},
 			status: StatusFail,
 		},
@@ -2308,20 +2364,48 @@ func TestDCQLClaimSetsSelection(t *testing.T) {
 			"pid": []any{testSDJWTPresentation(map[string]any{"given_name": "Alice"})},
 		},
 	}
+	preferred := func(index, count int) map[string]any {
+		return map[string]any{
+			"mode":            "claim_sets_preferred_option",
+			"expected_value":  index,
+			"claim_set_count": count,
+		}
+	}
 	result := validator.Validate(context.Background(), Input{
-		Value:  evidence,
-		Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
+		Value: evidence, Params: preferred(0, 3),
 	})
 	require.Equal(t, StatusPass, result.Status)
+
+	result = validator.Validate(context.Background(), Input{
+		Value: evidence, Params: preferred(0, 2),
+	})
+	require.Equal(
+		t,
+		StatusFail,
+		result.Status,
+		"a three-set request must not satisfy a two-set test",
+	)
+
+	result = validator.Validate(context.Background(), Input{
+		Value: evidence, Params: map[string]any{
+			"mode": "claim_sets_preferred_option", "expected_value": 0,
+		},
+	})
+	require.Equal(t, StatusError, result.Status, "claim_set_count is required")
 
 	evidence["vp_token"] = map[string]any{
 		"pid": []any{testSDJWTPresentation(map[string]any{"family_name": "Smith"})},
 	}
 	result = validator.Validate(context.Background(), Input{
-		Value:  evidence,
-		Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
+		Value: evidence, Params: preferred(0, 3),
 	})
 	require.Equal(t, StatusFail, result.Status)
+
+	credential["claim_sets"] = []any{[]any{"first", "third"}, []any{"second"}}
+	result = validator.Validate(context.Background(), Input{
+		Value: evidence, Params: preferred(1, 2),
+	})
+	require.Equal(t, StatusPass, result.Status, "wallet falls back to the second of two sets")
 
 	delete(evidence, "vp_token")
 	result = validator.Validate(context.Background(), Input{

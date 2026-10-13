@@ -75,12 +75,10 @@ func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 // Choosing the right mode needs the FCAF source; remove an entry once its
 // definition is fixed.
 var knownUnsupportedDCQLModeTests = map[string]bool{
-	"WS_RP_IA_ProtocolFlow__002":      true,
-	"WS_RP_MS_CredentialFormats__046": true,
-	"WS_RP_MS_CredentialFormats__048": true,
-	"WS_RP_SM_IssuerIntegrity__012":   true,
-	"WS_RP_UC_Presentation__003":      true,
-	"WS_RP_UC_Presentation__004":      true,
+	"WS_RP_IA_ProtocolFlow__002":    true,
+	"WS_RP_SM_IssuerIntegrity__012": true,
+	"WS_RP_UC_Presentation__003":    true,
+	"WS_RP_UC_Presentation__004":    true,
 }
 
 // Every DCQL mode a catalog test uses must pass the validator's mode gate;

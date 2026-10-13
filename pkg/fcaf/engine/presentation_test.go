@@ -105,6 +105,47 @@ func TestBuildPresentationAssignsVisualsByURLForSharedEvidenceNames(t *testing.T
 	}, presentation.Screenshots)
 }
 
+func TestBuildPresentationDoesNotLeakSharedEvidenceNameAcrossTests(t *testing.T) {
+	report := Report{Tests: []TestResult{
+		{
+			ID: "rejection-test",
+			Evidence: []EvidenceResult{{
+				Name:  "visual_evidence",
+				Value: []any{"https://app.test/screens/expect-request-rejected.png"},
+			}},
+			Assertions: []AssertionResult{
+				{ID: "visual", EvidenceKeys: []string{"visual_evidence"}},
+			},
+		},
+		{
+			ID: "presentation-test",
+			Evidence: []EvidenceResult{{
+				Name:  "visual_evidence",
+				Value: []any{"https://app.test/screens/engagement-shared.png"},
+			}},
+			Assertions: []AssertionResult{
+				{ID: "visual", EvidenceKeys: []string{"visual_evidence"}},
+			},
+		},
+	}}
+	report.PopulateDerivedViews()
+
+	presentation := BuildPresentation(report, nil)
+
+	require.Equal(t, []PresentationScreenshot{
+		{
+			URL:     "https://app.test/screens/engagement-shared.png",
+			Label:   "engagement shared",
+			TestIDs: []string{"presentation-test"},
+		},
+		{
+			URL:     "https://app.test/screens/expect-request-rejected.png",
+			Label:   "expect request rejected",
+			TestIDs: []string{"rejection-test"},
+		},
+	}, presentation.Screenshots)
+}
+
 func TestBuildPresentationIncludesMaestroURLs(t *testing.T) {
 	presentation := BuildPresentation(Report{}, []string{
 		"https://app.test/screens/Wallet%20Launch_step_1_open.png?token=temporary",
