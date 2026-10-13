@@ -22,11 +22,11 @@ evidence:
   dcql_exchange_session:
     from: pipeline.dcql.claims-empty.outputs.dcql_exchange_session
 assertions:
-- id: ws_rp_ms_protocolmessages__083_dcql_valid
+- id: delivered_request_has_empty_claims
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: empty_claims
 - id: ws_rp_ms_protocolmessages__083_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

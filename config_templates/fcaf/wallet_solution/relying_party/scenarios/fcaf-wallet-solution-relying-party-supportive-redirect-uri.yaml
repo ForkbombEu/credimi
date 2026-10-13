@@ -109,7 +109,7 @@ steps:
         pipeline.wallet.supportive.redirect-uri:
           output:
             dcql_exchange: ${{ get-presentation-result.outputs.body }}
-            wallet_response: ${{ get-presentation-result.outputs.body }}
+            wallet_response: ${{ get-presentation-result.outputs.body.raw.presentation_response_decrypted }}
             capture_session: ${{ get-presentation-result.outputs.body }}
             visual_evidence: ${{ submit-and-follow-redirect.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}

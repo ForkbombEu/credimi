@@ -52,6 +52,43 @@ func TestOID4VPNoPresentationValidator(t *testing.T) {
 			want: StatusFail,
 		},
 		{
+			name: "wallet answered with an error response",
+			session: map[string]any{
+				"status": "presentation_invalid",
+				"checks": map[string]any{"presentation_valid": false},
+				"raw": map[string]any{
+					"presentation_response_decrypted": map[string]any{"error": "invalid_request"},
+					"presentation_response_verifier_http": map[string]any{
+						"body": `{"error":"invalid_presentation"}`,
+					},
+				},
+			},
+			want: StatusPass,
+		},
+		{
+			name: "wallet sent a vp_token alongside an error",
+			session: map[string]any{
+				"status": "presentation_invalid",
+				"checks": map[string]any{"presentation_valid": false},
+				"raw": map[string]any{"presentation_response_decrypted": map[string]any{
+					"error":    "invalid_request",
+					"vp_token": map[string]any{"pid": []any{"presentation"}},
+				}},
+			},
+			want: StatusFail,
+		},
+		{
+			name: "only the verifier's own reply carries an error",
+			session: map[string]any{
+				"status": "presentation_invalid",
+				"checks": map[string]any{"presentation_valid": false},
+				"raw": map[string]any{"presentation_response_verifier_http": map[string]any{
+					"body": `{"error":"invalid_presentation"}`,
+				}},
+			},
+			want: StatusFail,
+		},
+		{
 			name: "presentation decoded without a terminal status",
 			session: map[string]any{
 				"status":                "request_retrieved",

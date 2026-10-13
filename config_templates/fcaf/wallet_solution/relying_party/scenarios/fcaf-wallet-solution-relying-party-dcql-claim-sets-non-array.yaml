@@ -690,7 +690,18 @@ steps:
     pipeline_outputs:
       pipeline.dcql.claim-sets-non-array:
         output:
-          dcql_exchange: ${{ fetch-null.outputs.body.raw.authorization_request_delivered }}
           visual_evidence: ${{ exercise-non-array-claim-sets.outputs.flow_output.maestro_screenshot_urls }}
-          exercise-non-array-claim-sets: ${{ exercise-non-array-claim-sets.outputs }}
-          dcql_exchange_session: ${{ fetch-null.outputs.body }}
+          null_value: ${{ fetch-null.outputs.body.raw.authorization_request_delivered }}
+          true_value: ${{ fetch-true.outputs.body.raw.authorization_request_delivered }}
+          false_value: ${{ fetch-false.outputs.body.raw.authorization_request_delivered }}
+          zero_value: ${{ fetch-zero.outputs.body.raw.authorization_request_delivered }}
+          random_number: ${{ fetch-number.outputs.body.raw.authorization_request_delivered }}
+          string_value: ${{ fetch-string.outputs.body.raw.authorization_request_delivered }}
+          object_value: ${{ fetch-object.outputs.body.raw.authorization_request_delivered }}
+          null_value_session: ${{ fetch-null.outputs.body }}
+          true_value_session: ${{ fetch-true.outputs.body }}
+          false_value_session: ${{ fetch-false.outputs.body }}
+          zero_value_session: ${{ fetch-zero.outputs.body }}
+          random_number_session: ${{ fetch-number.outputs.body }}
+          string_value_session: ${{ fetch-string.outputs.body }}
+          object_value_session: ${{ fetch-object.outputs.body }}

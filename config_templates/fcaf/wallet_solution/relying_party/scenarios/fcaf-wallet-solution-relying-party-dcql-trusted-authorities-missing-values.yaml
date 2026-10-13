@@ -71,14 +71,10 @@ steps:
     pipeline_outputs:
       pipeline.dcql.trusted-authorities-missing-values:
         output:
-          trusted_authority: ${{ evidence-missing-trusted-authorities-values.outputs.trusted_authority }}
           dcql_exchange: ${{ fetch-missing-trusted-authorities-values.outputs.body.raw.authorization_request_delivered }}
           visual_evidence: ${{ reject-missing-trusted-authorities-values.outputs.flow_output.maestro_screenshot_urls }}
           dcql_exchange_session: ${{ fetch-missing-trusted-authorities-values.outputs.body }}
 outputs:
-  trusted_authority:
-    path: $.output.fetch-missing-trusted-authorities-values.outputs.body.raw.authorization_request_delivered.trusted_authority
-    decoder: raw
   dcql_exchange:
     path: $.output.fetch-missing-trusted-authorities-values.outputs.body.raw.authorization_request_delivered
     decoder: raw

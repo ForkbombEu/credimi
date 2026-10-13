@@ -95,6 +95,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"property_type",
 		"property_equals",
 		"trusted_authority_property_type",
+		"trusted_authority_property_absent",
 		"trusted_authority_array_item_type",
 		"trusted_authority_empty_string_item",
 		"multiple_default_false",
@@ -917,6 +918,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				),
 			}
 		}
+	case "trusted_authority_property_absent":
+		return validateTrustedAuthorityPropertyAbsent(query, responseValue, params.Property)
 	case "trusted_authority_empty_string_item":
 		if params.Property == "" {
 			return Result{
@@ -1673,7 +1676,7 @@ func validateDCQLCredentialQueries(credentials []any) error {
 			}
 			for claimIndex, rawClaim := range items {
 				claim, ok := normalizeJSONObject(rawClaim)
-				if !ok || !nonEmptyStringArray(claim["path"]) {
+				if !ok || !validClaimsPathPointer(claim["path"]) {
 					return fmt.Errorf(
 						"credentials[%d].claims[%d].path is invalid",
 						index,
@@ -1684,6 +1687,36 @@ func validateDCQLCredentialQueries(credentials []any) error {
 		}
 	}
 	return nil
+}
+
+// validClaimsPathPointer reports whether value is an OpenID4VP claims path
+// pointer (Section 7): a non-empty array whose members are strings, null, or
+// non-negative integers.
+func validClaimsPathPointer(value any) bool {
+	items, ok := value.([]any)
+	if !ok || len(items) == 0 {
+		return false
+	}
+	for _, item := range items {
+		switch member := item.(type) {
+		case nil:
+		case string:
+			if member == "" {
+				return false
+			}
+		case float64:
+			if member < 0 || member != float64(int64(member)) {
+				return false
+			}
+		case int:
+			if member < 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func nonEmptyStringArray(value any) bool {
@@ -2496,6 +2529,76 @@ func validateClaimSetsPreferredOption(
 	return Result{
 		Status:  StatusPass,
 		Message: "wallet disclosed only the preferred satisfiable claim_set",
+	}
+}
+
+// validateTrustedAuthorityPropertyAbsent checks that every trusted_authorities
+// entry of the delivered query lacks property, and that the Wallet returned no
+// credential for that malformed query.
+func validateTrustedAuthorityPropertyAbsent(
+	query map[string]any,
+	responseValue any,
+	property string,
+) Result {
+	if property == "" {
+		return Result{
+			Status:  StatusError,
+			Message: "property is required for trusted_authority_property_absent mode",
+		}
+	}
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	for credentialIndex, rawCredential := range credentials {
+		credential, _ := normalizeJSONObject(rawCredential)
+		authorities, ok := credential["trusted_authorities"].([]any)
+		if !ok || len(authorities) == 0 {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"credentials[%d].trusted_authorities is not a non-empty array",
+					credentialIndex,
+				),
+			}
+		}
+		for authorityIndex, rawAuthority := range authorities {
+			authority, ok := normalizeJSONObject(rawAuthority)
+			if !ok {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"credentials[%d].trusted_authorities[%d] is not an object",
+						credentialIndex,
+						authorityIndex,
+					),
+				}
+			}
+			if _, exists := authority[property]; exists {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"credentials[%d].trusted_authorities[%d] contains %s",
+						credentialIndex,
+						authorityIndex,
+						property,
+					),
+				}
+			}
+		}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"wallet returned a credential for a trusted authority without %s",
+				property,
+			),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("trusted authority without %s returned no credential", property),
 	}
 }
 
@@ -3878,7 +3981,7 @@ func validateClaimsWithoutValues(query map[string]any, responseValue any) Result
 					),
 				}
 			}
-			if !nonEmptyStringArray(claim["path"]) {
+			if !validClaimsPathPointer(claim["path"]) {
 				return Result{
 					Status: StatusFail,
 					Message: fmt.Sprintf(

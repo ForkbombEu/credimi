@@ -3233,11 +3233,9 @@ then share and enter the PIN the same way. It keeps the two
 `request_screen_requested_document_*` assertions and adds a screenshot after
 sharing.
 
-## Inline wallet flows converted to the shared pattern (emulator check pending)
+## Inline wallet flows converted to the shared pattern
 
-13/10/2026, work in progress; resume here.
-
-Done:
+13/10/2026.
 
 - 083, 085, 090 (`dcql-claims-empty`, `dcql-claim-sets-empty`,
   `dcql-trusted-authorities-missing-values`) now call the shared
@@ -3250,27 +3248,52 @@ Done:
   precedes each `Welcome back` check; `EUDI Remote Verifier` assertions (117,
   118) are dropped because Capture shows `Fake Verifier`; 087 gained the shared
   launch-and-unlock prelude. `pid-candidate-selection` keeps its `15%,53%` tap:
-  the candidate cards expose no text or id.
+  the candidate cards expose no text or id. String values are double-quoted so
+  the generator's Share-tap regex still counts them.
 - Ten bindings read `<step>.outputs.screenshot_urls`, which mobile steps never
   produce (the cleanup hook writes it to the run output); they now read
-  `flow_output.maestro_screenshot_urls` (TrustMechanisms-adjacent PM 090–094).
-- All 17 inline flows pass `maestro check-syntax`; generated step ids are
-  unchanged (1745), and the Share-tap count that drives PID issuance is
-  unchanged (string values are double-quoted so the generator regex matches).
+  `flow_output.maestro_screenshot_urls` (ProtocolMessages 090–094).
 
-Emulator check, started, not finished. Maestro reaches the WSL emulator through
-a TCP relay from `127.0.0.1:5037` to the Windows adb server
-(`172.22.16.1:5037`, after `adb -H localhost -P 5037 kill-server`), run with
-`ADB_SERVER_SOCKET` unset. `takeScreenshot` files land under
-`~/.maestro/tests/<timestamp>/<flow name>/takeScreenshot/`, not the cwd.
+### Emulator run
 
-- 083, 085, 090: the shared flow completed. Their protocol assertions failed
-  (083 `credentials[0].claims is not a non-empty array`, 085 `wallet vp_token is
-  not an object keyed by credential query ID`, 090 `DCQL evidence is <nil>` and
-  a posted response); not yet analysed, independent of the flow change.
-- 087: the flow reached Share and the PIN, then the wallet showed `Oups!
-  Something went wrong / Credential not found` (two queries for the same PID);
-  not yet analysed.
-- Not yet run with Maestro: 013 (unchecked claim), 014 (claims union), 081
-  family (holder binding), 084, 086, 091–094, 117, 118, 148, 149, Supportive
-  001.
+Every converted flow ran through Maestro against production Capture, with the
+scenario's own requests and fresh PIDs. Maestro ignores `ADB_SERVER_SOCKET`; it
+reaches the Windows emulator through a TCP relay from `127.0.0.1:5037` to the
+Windows adb server (free the port with `adb -H localhost -P 5037 kill-server`,
+run Maestro with `ADB_SERVER_SOCKET` unset). If Gboard collapses to its
+floating handle, enable "Show on-screen keyboard": the shared flows tap the `6`
+key.
+
+Pass: ProtocolMessages 013, 083–086, 090–094, 117, 118; MainInteraction 005,
+007, 008, 013, 039; DeviceBinding 008, 009; Supportive 001.
+
+Wallet findings: 014 and 087 (RI-WALLET-005), 148 and 149 (RI-WALLET-006), 081
+(RI-WALLET-007).
+
+Harness fixes found by the run:
+
+- 083, 085, 086, 090 asserted `credentials_match`, which requires a well-formed
+  query and a presentation, on requests the wallet must reject. They now check
+  the delivered defect: 083 `empty_claims`, 085 `empty_array` on `claim_sets`,
+  090 the new `trusted_authority_property_absent` mode on `values`, and 086
+  mirrors 084 with `property_type` on `claim_sets` for all seven variants (it
+  previously evidenced only `null`).
+- `oid4vp.no_presentation_returned` failed on any posted response. The sources
+  accept an error response, so it now passes when the wallet's own error is
+  posted without a `vp_token`; 090 and the 081 number/string variants are
+  `invalid_request` responses.
+- The claims path pointer check accepted strings only; OpenID4VP Section 7 also
+  allows `null` and non-negative integers, so 118's valid query was reported
+  invalid.
+- 118 requested `nationality`, the mdoc element; the SD-JWT VC PID claim is
+  `nationalities`, so the wallet found no match.
+- 117 asked for two queries on the same PID, which hits RI-WALLET-005 and is not
+  what its source tests (two credentials); it now requests the SD-JWT VC and
+  the mdoc PID, and the generator adds the mdoc issuance (1747 steps). Both 014
+  and 117 flows now expand the second consent card before checking its claim.
+- Holder-binding and Supportive 001 read `vp_token` at the session top level;
+  Capture stores it under `raw.presentation_response_decrypted`.
+- Supportive 001's source says `direct_post`; the reference wallet refuses plain
+  `direct_post` under every scheme ("HAIP profile requires an encrypted response
+  mode"), so the scenario keeps `direct_post.jwt`, whose `redirect_uri` handling
+  is the same. Open decision.

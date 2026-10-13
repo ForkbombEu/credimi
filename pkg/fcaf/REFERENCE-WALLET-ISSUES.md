@@ -240,6 +240,97 @@ is not a protocol error, but it is not the algorithm the source expects.
   the two GCM values in dedicated scenarios, so they test whether the wallet
   honours a narrowed list, not this default choice.
 
+## RI-WALLET-005: Two queries satisfied by one credential end in "Credential not found"
+
+### Summary
+
+When two DCQL credential queries match the same credential type, the reference
+Android wallet lists both on the consent screen, accepts Share and the PIN, then
+shows `Oups! Something went wrong / Credential not found` and posts nothing.
+
+### Reproduction
+
+13/10/2026, production Capture, emulator, one and then two freshly issued
+SD-JWT VC PIDs: run
+`scenarios/fcaf-wallet-solution-relying-party-dcql-same-credential-multiple-queries.yaml`
+(two `dc+sd-jwt` PID queries for `given_name`) or
+`scenarios/fcaf-wallet-solution-relying-party-dcql-claims-union.yaml`
+(`given_name` and `address` in two PID queries).
+
+### Observed
+
+The session records only `vp_request_retrieved`; the wallet shows `Credential
+not found` after the PIN.
+
+### Expected
+
+`WS_RP_MS_ProtocolMessages__087`: the wallet recognises that one credential
+satisfies both queries and "MUST NOT return an error". `WS_RP_IA_MainInteraction__014`:
+the wallet presents the union of both queries from the same credential.
+
+### FCAF Impact
+
+- Tests: `WS_RP_MS_ProtocolMessages__087`, `WS_RP_IA_MainInteraction__014`.
+- Two queries for distinct credentials (SD-JWT VC and mdoc PID, as in
+  `WS_RP_IA_MainInteraction__039` and `WS_RP_MS_ProtocolMessages__117`) succeed.
+
+## RI-WALLET-006: Denied consent and failed user authentication are not returned to the verifier
+
+### Summary
+
+After the End-User denies consent, or enters a wrong PIN at the authorization
+step, the reference Android wallet returns to its own screens without posting an
+`access_denied` error response.
+
+### Reproduction
+
+13/10/2026, production Capture, emulator: run
+`scenarios/fcaf-wallet-solution-relying-party-dcql-user-denied-consent.yaml` and
+`scenarios/fcaf-wallet-solution-relying-party-dcql-user-authentication-failed.yaml`.
+
+### Observed
+
+Both sessions stay at `request_retrieved`; no POST reaches `response_uri`.
+
+### Expected
+
+An Authorization Error Response with `error=access_denied` and no `vp_token`.
+
+### FCAF Impact
+
+- Tests: `WS_RP_MS_ProtocolMessages__148`, `WS_RP_MS_ProtocolMessages__149`.
+  Their consent and denial screenshots are captured; only the protocol
+  assertion fails.
+
+## RI-WALLET-007: Boolean-like strings accepted for require_cryptographic_holder_binding
+
+### Summary
+
+The reference Android wallet presents a credential when a DCQL credential query
+sets `require_cryptographic_holder_binding` to the strings `"true"`, `"false"`,
+`"TRUE"` or `"FALSE"`, instead of rejecting the non-boolean value.
+
+### Reproduction
+
+13/10/2026, production Capture, emulator: run
+`scenarios/fcaf-wallet-solution-relying-party-dcql-holder-binding-type-boundary.yaml`.
+
+### Observed
+
+The four sessions above reach `presentation_validated`. Numbers (`0`, `1`,
+random) and other strings (`"yes"`, `"no"`, `"y"`, `"n"`, `"0"`, `"1"`,
+random) are rejected.
+
+### Expected
+
+`WS_RP_MS_ProtocolMessages__081`: the property is a boolean; any other type makes
+the query invalid and the wallet rejects it.
+
+### FCAF Impact
+
+- Test: `WS_RP_MS_ProtocolMessages__081` fails on the four
+  `*_no_presentation_returned` assertions for those strings.
+
 ## MOCK-VERIFIER-002: Beta signs decentralized_identifier requests with the X.509 key
 
 On 28/09/2026 a beta session with `client_id_scheme: decentralized_identifier`

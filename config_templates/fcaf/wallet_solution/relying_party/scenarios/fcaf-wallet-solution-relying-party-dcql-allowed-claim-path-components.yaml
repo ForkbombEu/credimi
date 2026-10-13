@@ -4,7 +4,7 @@ steps:
   - id: evidence-request
     use: json-parse
     with:
-      rawJSON: '{"dcql_query":{"credentials":[{"id":"pid-path-components","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"id":"given-name","path":["given_name"]},{"id":"all-nationalities","path":["nationality",null]},{"id":"first-nationality","path":["nationality",0]}]}]}}'
+      rawJSON: '{"dcql_query":{"credentials":[{"id":"pid-path-components","format":"dc+sd-jwt","meta":{"vct_values":["urn:eudi:pid:1"]},"claims":[{"id":"given-name","path":["given_name"]},{"id":"all-nationalities","path":["nationalities",null]},{"id":"first-nationality","path":["nationalities",0]}]}]}}'
       struct_type: map
   - id: create-presentation
     use: http-request
@@ -27,8 +27,8 @@ steps:
                 meta: { vct_values: ["urn:eudi:pid:1"] }
                 claims:
                   - { id: given-name, path: [given_name] }
-                  - { id: all-nationalities, path: [nationality, null] }
-                  - { id: first-nationality, path: [nationality, 0] }
+                  - { id: all-nationalities, path: [nationalities, null] }
+                  - { id: first-nationality, path: [nationalities, 0] }
   - id: present-allowed-path-components
     use: mobile-automation
     with:

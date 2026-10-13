@@ -76,6 +76,9 @@ steps:
             id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
             retryTapIfNoChange: false
         - assertVisible: "Given Name"
+        - tapOn:
+            id: "eu.europa.ec.euidi:id/request_screen_requested_document_1"
+            retryTapIfNoChange: false
         - assertVisible: "address"
         - takeScreenshot: "fcaf-014-claims-union-request"
         - tapOn: "Share"

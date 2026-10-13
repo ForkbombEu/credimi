@@ -1544,9 +1544,9 @@ steps:
           dcql_exchange: ${{ get-valid-false.outputs.body }}
           visual_evidence: ${{ exercise-holder-binding-variants.outputs.flow_output.maestro_screenshot_urls }}
           exchange_valid_true: ${{ get-valid-true.outputs.body }}
-          pid_sdjwt_presentations_valid_true: ${{ get-valid-true.outputs.body.vp_token.pididentity01 }}
+          pid_sdjwt_presentations_valid_true: ${{ get-valid-true.outputs.body.raw.presentation_response_decrypted.vp_token.pididentity01 }}
           exchange_valid_false: ${{ get-valid-false.outputs.body }}
-          pid_sdjwt_presentations_valid_false: ${{ get-valid-false.outputs.body.vp_token.pididentity01 }}
+          pid_sdjwt_presentations_valid_false: ${{ get-valid-false.outputs.body.raw.presentation_response_decrypted.vp_token.pididentity01 }}
           exchange_number_zero: ${{ fetch-number-zero.outputs.body.raw.authorization_request_delivered }}
           exchange_number_one: ${{ fetch-number-one.outputs.body.raw.authorization_request_delivered }}
           exchange_number_random: ${{ fetch-number-random.outputs.body.raw.authorization_request_delivered }}
