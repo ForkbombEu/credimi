@@ -37,62 +37,90 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-        - launchApp: { stopApp: true, clearState: false }
-        - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Welcome, .*", timeout: 30000 }
+        - launchApp:
+            stopApp: true
+            clearState: false
+        - extendedWaitUntil:
+            visible: "Welcome back|Home|Documents|Welcome, .*"
+            timeout: 30000
+        - waitForAnimationToEnd:
+            timeout: 3000
         - runFlow:
-            when: { visible: "Welcome back" }
+            when:
+              visible: "Welcome back"
             commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
-        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil:
+                visible: "1"
+                timeout: 30000
+            - inputText: "12345"
+            - tapOn: "6"
+        - extendedWaitUntil:
+            visible: "Home|Documents|Welcome, .*"
+            timeout: 30000
+        - openLink:
+            link: "${DEEPLINK}"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Welcome back|Data sharing request"
+            timeout: 100000
+        - waitForAnimationToEnd:
+            timeout: 3000
         - runFlow:
-            when: { visible: "EUDI Wallet" }
+            when:
+              visible: "Welcome back"
             commands:
-              - tapOn: { text: "EUDI Wallet", optional: true }
+            - extendedWaitUntil:
+                visible: "1"
+                timeout: 30000
+            - inputText: "12345"
+            - tapOn: "6"
+        - extendedWaitUntil:
+            visible: "Data sharing request"
+            timeout: 100000
+        - assertVisible:
+            id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
+        - tapOn:
+            id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
+            retryTapIfNoChange: false
+            waitToSettleTimeoutMs: 0
         - runFlow:
-            when: { visible: "Just once" }
+            when:
+              visible:
+                id: "eu.europa.ec.euidi:id/request_screen_requested_document_1"
             commands:
-              - tapOn: { text: "Just once", optional: true }
-        - extendedWaitUntil: { visible: "Welcome back|Data sharing request", timeout: 100000 }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,39%" }
-              - tapOn: { text: "1", retryTapIfNoChange: false }
-              - tapOn: { text: "2", retryTapIfNoChange: false }
-              - tapOn: { text: "3", retryTapIfNoChange: false }
-              - tapOn: { text: "4", retryTapIfNoChange: false }
-              - tapOn: { text: "5", retryTapIfNoChange: false }
-              - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
-        - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
-        - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-        - tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0, retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
-        - runFlow:
-            when: { visible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 } }
-            commands:
-              - tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1, retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
+            - tapOn:
+                id: "eu.europa.ec.euidi:id/request_screen_requested_document_1"
+                retryTapIfNoChange: false
+                waitToSettleTimeoutMs: 0
         - assertVisible: "Given Name"
-        - takeScreenshot: fcaf-118-allowed-claim-path-components
+        - takeScreenshot: "fcaf-118-allowed-claim-path-components"
         - assertVisible: "Nationalities"
         - tapOn: "Share"
-        - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
-        - tapOn: { point: "11%,39%" }
-        - inputText: "123456"
-        - hideKeyboard
-        - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
-        - assertVisible: "EUDI Remote Verifier"
-        - assertVisible: { id: eu.europa.ec.euidi:id/document_success_screen_document_0 }
-        - tapOn: { id: eu.europa.ec.euidi:id/document_success_screen_document_0 }
+        - extendedWaitUntil:
+            visible: "PIN"
+            timeout: 30000
+        - extendedWaitUntil:
+            visible: "1"
+            timeout: 30000
+        - inputText: "12345"
+        - tapOn: "6"
+        - extendedWaitUntil:
+            visible: ".*successfully shared.*"
+            timeout: 30000
+        - assertVisible:
+            id: "eu.europa.ec.euidi:id/document_success_screen_document_0"
+        - tapOn:
+            id: "eu.europa.ec.euidi:id/document_success_screen_document_0"
         - runFlow:
-            when: { visible: { id: eu.europa.ec.euidi:id/document_success_screen_document_1 } }
+            when:
+              visible:
+                id: "eu.europa.ec.euidi:id/document_success_screen_document_1"
             commands:
-              - tapOn: { id: eu.europa.ec.euidi:id/document_success_screen_document_1 }
+            - tapOn:
+                id: "eu.europa.ec.euidi:id/document_success_screen_document_1"
         - assertVisible: "Given Name"
-        - takeScreenshot: fcaf-118-allowed-claim-path-components-shared
+        - takeScreenshot: "fcaf-118-allowed-claim-path-components-shared"
         - assertVisible: "Nationalities"
         - tapOn: "Close"
   - id: fetch-result

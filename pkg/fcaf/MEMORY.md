@@ -3231,5 +3231,46 @@ runner]. The flow now follows `fcaf-submit-request-object-by-value`: stop the
 app, open the link, unlock on `Welcome back` by typing `12345` and tapping `6`,
 then share and enter the PIN the same way. It keeps the two
 `request_screen_requested_document_*` assertions and adds a screenshot after
-sharing. About 20 other inline flows still unlock by coordinate taps; none of
-their tests were in the run that exposed this.
+sharing.
+
+## Inline wallet flows converted to the shared pattern (emulator check pending)
+
+13/10/2026, work in progress; resume here.
+
+Done:
+
+- 083, 085, 090 (`dcql-claims-empty`, `dcql-claim-sets-empty`,
+  `dcql-trusted-authorities-missing-values`) now call the shared
+  `fcaf-exercise-wallet-generic` with `deeplink`; their inline flows did the
+  same thing.
+- The other 15 inline flows stay inline (test-specific UI checks, or several
+  deeplinks in one step whose screenshots the tests read as one list). Unlock
+  and PIN entry follow the shared flows (wait for `1`, type `12345`, tap `6`);
+  every `hideKeyboard`, `50%,10%` tap and app-chooser tap is gone; a settle wait
+  precedes each `Welcome back` check; `EUDI Remote Verifier` assertions (117,
+  118) are dropped because Capture shows `Fake Verifier`; 087 gained the shared
+  launch-and-unlock prelude. `pid-candidate-selection` keeps its `15%,53%` tap:
+  the candidate cards expose no text or id.
+- Ten bindings read `<step>.outputs.screenshot_urls`, which mobile steps never
+  produce (the cleanup hook writes it to the run output); they now read
+  `flow_output.maestro_screenshot_urls` (TrustMechanisms-adjacent PM 090–094).
+- All 17 inline flows pass `maestro check-syntax`; generated step ids are
+  unchanged (1745), and the Share-tap count that drives PID issuance is
+  unchanged (string values are double-quoted so the generator regex matches).
+
+Emulator check, started, not finished. Maestro reaches the WSL emulator through
+a TCP relay from `127.0.0.1:5037` to the Windows adb server
+(`172.22.16.1:5037`, after `adb -H localhost -P 5037 kill-server`), run with
+`ADB_SERVER_SOCKET` unset. `takeScreenshot` files land under
+`~/.maestro/tests/<timestamp>/<flow name>/takeScreenshot/`, not the cwd.
+
+- 083, 085, 090: the shared flow completed. Their protocol assertions failed
+  (083 `credentials[0].claims is not a non-empty array`, 085 `wallet vp_token is
+  not an object keyed by credential query ID`, 090 `DCQL evidence is <nil>` and
+  a posted response); not yet analysed, independent of the flow change.
+- 087: the flow reached Share and the PIN, then the wallet showed `Oups!
+  Something went wrong / Credential not found` (two queries for the same PID);
+  not yet analysed.
+- Not yet run with Maestro: 013 (unchecked claim), 014 (claims union), 081
+  family (holder binding), 084, 086, 091–094, 117, 118, 148, 149, Supportive
+  001.

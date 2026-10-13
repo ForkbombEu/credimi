@@ -103,41 +103,45 @@ steps:
     action_code: |
       appId: eu.europa.ec.euidi
       ---
-      - stopApp
-      - launchApp: { clearState: false }
-      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+      - "stopApp"
+      - launchApp:
+          clearState: false
+      - extendedWaitUntil:
+          visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 3000
       - runFlow:
-          when: { visible: "Welcome back" }
+          when:
+            visible: "Welcome back"
           commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - openLink: { link: "${DEEPLINK_SINGLE}", autoVerify: false, browser: false }
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      - extendedWaitUntil:
+          visible: "Home|Documents|Add document|Welcome, .*"
+          timeout: 30000
+      - openLink:
+          link: "${DEEPLINK_SINGLE}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
-      - tapOn: { text: "EUDI Wallet", optional: true }
-      - tapOn: { text: "Just once", optional: true }
-      - tapOn: { text: "Always", optional: true }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
-      - takeScreenshot: fcaf-094-single
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      - extendedWaitUntil:
+          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          timeout: 30000
+      - takeScreenshot: "fcaf-094-single"
       - runFlow:
           when:
             visible: "Requested data"
@@ -147,16 +151,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-094-single-presented
+          - takeScreenshot: "fcaf-094-single-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -167,31 +170,25 @@ steps:
           - tapOn: "Cancel"
           - waitForAnimationToEnd:
               timeout: 3000
-      - openLink: { link: "${DEEPLINK_MIXED}", autoVerify: false, browser: false }
+      - openLink:
+          link: "${DEEPLINK_MIXED}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
-      - tapOn: { text: "EUDI Wallet", optional: true }
-      - tapOn: { text: "Just once", optional: true }
-      - tapOn: { text: "Always", optional: true }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
-      - takeScreenshot: fcaf-094-mixed
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      - extendedWaitUntil:
+          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          timeout: 30000
+      - takeScreenshot: "fcaf-094-mixed"
       - runFlow:
           when:
             visible: "Requested data"
@@ -201,16 +198,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-094-mixed-presented
+          - takeScreenshot: "fcaf-094-mixed-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -247,7 +243,7 @@ steps:
         output:
           single_value: ${{ fetch-single.outputs.body.raw.authorization_request_delivered }}
           mixed_value: ${{ fetch-mixed.outputs.body.raw.authorization_request_delivered }}
-          visual_evidence: ${{ exercise-trusted-authorities-values-empty-string.outputs.screenshot_urls }}
+          visual_evidence: ${{ exercise-trusted-authorities-values-empty-string.outputs.flow_output.maestro_screenshot_urls }}
           single_value_session: ${{ fetch-single.outputs.body }}
           mixed_value_session: ${{ fetch-mixed.outputs.body }}
 outputs:
@@ -258,7 +254,7 @@ outputs:
     path: $.output.fetch-mixed.outputs.body.raw.authorization_request_delivered
     decoder: raw
   visual_evidence:
-    path: $.output.exercise-trusted-authorities-values-empty-string.outputs.screenshot_urls
+    path: $.output.exercise-trusted-authorities-values-empty-string.outputs.flow_output.maestro_screenshot_urls
     decoder: raw
   single_value_session:
     path: $.output.fetch-single.outputs.body
