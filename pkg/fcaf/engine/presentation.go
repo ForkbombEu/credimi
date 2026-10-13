@@ -84,7 +84,18 @@ func presentationScreenshots(report Report, maestroURLs []string) []Presentation
 		}
 	}
 	for _, test := range report.ExecutedTests {
+		// report.Evidence is keyed by bare evidence name, so a name such as
+		// visual_evidence holds only the last test's value. A test's own
+		// evidence therefore supplies its images; the shared map is consulted
+		// only for keys the test did not resolve itself.
+		own := make(map[string]struct{}, len(test.Evidence))
+		for _, evidence := range test.Evidence {
+			own[strings.TrimSpace(evidence.Name)] = struct{}{}
+		}
 		for _, key := range presentationEvidenceKeys(test) {
+			if _, resolved := own[key]; resolved {
+				continue
+			}
 			record, found := report.Evidence[key]
 			if !found {
 				continue
