@@ -3309,4 +3309,5 @@ response mode or assertion so the reference wallet passes.
 Capture note: for plain `direct_post`, Capture writes its own verification
 error into `raw.presentation_response_decrypted` when the presentation fails
 verification (probed 13/10/2026), so `findWalletError` would read it as a
-wallet error. No negative test uses plain `direct_post` today.
+wallet error. No negative test uses plain `direct_post` today. Reported as
+[credimi-capture-wallet#10](https://github.com/ForkbombEu/credimi-capture-wallet/issues/10).
