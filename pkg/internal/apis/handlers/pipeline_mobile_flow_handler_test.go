@@ -6,9 +6,11 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/stretchr/testify/mock"
@@ -159,6 +161,15 @@ func TestPipelineMobileFlowActivityOptions(t *testing.T) {
 	require.Equal(t, 20*time.Minute, options.StartToCloseTimeout)
 	require.NotNil(t, options.RetryPolicy)
 	require.Equal(t, int32(1), options.RetryPolicy.MaximumAttempts)
+}
+
+func TestPipelineMobileFlowConfig(t *testing.T) {
+	config := pipelineMobileFlowConfig("acme", "pipeline-1", "run-1", "acme/runner-1")
+
+	require.Equal(t, map[string]any{
+		"taskqueue":      fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath("acme/runner-1")),
+		"run_identifier": pipeline.RunIdentifier("acme", "pipeline-1", "run-1"),
+	}, config)
 }
 
 func pipelineMobileFlowDescription(

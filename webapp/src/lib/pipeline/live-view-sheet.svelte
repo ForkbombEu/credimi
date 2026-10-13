@@ -59,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	bind:open
 	hideTrigger
 	title={m.Live_view()}
-	class="!w-[min(100vw,24rem)]"
+	class="!w-[min(100vw,48rem)]"
 	contentClass="flex min-h-0 flex-1 flex-col gap-4"
 >
 	{#snippet content()}
@@ -94,10 +94,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</Button>
 
 						{#key deviceId}
+							<!-- The runner page lays out the device screen and its Maestro commands side by side. -->
 							<iframe
 								src={outcome.url}
 								title={iframeTitle}
-								class="aspect-[9/19.5] w-full border-0"
+								class="h-[70dvh] min-h-96 w-full border-0"
 								allow="autoplay"
 							></iframe>
 						{/key}

@@ -97,6 +97,54 @@ func TestResolvePipelineExecutionArtifacts(t *testing.T) {
 	require.Empty(t, missing.Results)
 }
 
+func TestComputePipelineResultsPairsMaestroTimeline(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		timelines []string
+		want      string
+	}{
+		{
+			name:      "with timeline",
+			timelines: []string{"org-runner-dev_timeline_abc.jsonl", "org-runner-other_timeline_abc.jsonl"},
+			want:      "/org-runner-dev_timeline_abc.jsonl",
+		},
+		{name: "without timeline"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app, err := tests.NewTestApp(testDataDir)
+			require.NoError(t, err)
+			defer app.Cleanup()
+
+			app.Settings().Meta.AppURL = "https://app.test"
+			coll, err := app.FindCollectionByNameOrId("pipeline_results")
+			require.NoError(t, err)
+			record := createPipelineResultRecord(t, app, coll)
+			require.NoError(t, app.Save(record))
+			setPipelineResultFiles(
+				t, app, record.Id,
+				[]string{"org-runner-dev_result_video_abc.mp4"},
+				[]string{"org-runner-dev_screenshot_abc.png"},
+				nil,
+			)
+			setPipelineResultFileField(t, app, record.Id, "maestro_timelines", tc.timelines)
+			record, err = app.FindRecordById(coll.Id, record.Id)
+			require.NoError(t, err)
+
+			results := ComputePipelineResultsFromRecord(app, record)
+			require.Len(t, results, 1)
+			if tc.want == "" {
+				require.Empty(t, results[0].Timeline)
+				return
+			}
+			require.Equal(
+				t,
+				"https://app.test/api/files/pipeline_results/"+record.Id+tc.want,
+				results[0].Timeline,
+			)
+		})
+	}
+}
+
 func TestRefreshScoreboardLatestExecutionArtifacts(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)

@@ -1423,6 +1423,8 @@ components:
           type: string
         screenshot:
           type: string
+        timeline:
+          type: string
         video:
           type: string
       type: object

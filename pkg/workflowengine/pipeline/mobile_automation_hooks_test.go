@@ -182,43 +182,79 @@ func TestStartRecordingForDeviceSetsDefaultHeartbeatTimeout(t *testing.T) {
 }
 
 func TestCleanupRecordingSuccess(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	env.RegisterWorkflowWithOptions(
-		testCleanupRecordingWorkflow,
-		workflow.RegisterOptions{Name: "test-cleanup-recording"},
-	)
-
-	stopActivity := activities.NewStopRecordingActivity()
-	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
-	env.RegisterActivityWithOptions(
-		stopActivity.Execute,
-		activity.RegisterOptions{Name: stopActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
-
-	env.OnActivity(stopActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"last_frame_path": "/tmp/last.png",
-		}}, nil)
-	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"body": map[string]any{
-				"result_urls":     []string{"url1"},
-				"screenshot_urls": []string{"shot1"},
+	for _, tc := range []struct {
+		name         string
+		stopOutput   map[string]any
+		wantTimeline string
+	}{
+		{
+			name: "forwards the maestro timeline",
+			stopOutput: map[string]any{
+				"last_frame_path":       "/tmp/last.png",
+				"maestro_timeline_path": "/tmp/maestro-timeline.jsonl",
 			},
-		}}, nil)
+			wantTimeline: "/tmp/maestro-timeline.jsonl",
+		},
+		{
+			name:       "without a maestro timeline",
+			stopOutput: map[string]any{"last_frame_path": "/tmp/last.png"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			suite := testsuite.WorkflowTestSuite{}
+			env := suite.NewTestWorkflowEnvironment()
 
-	env.ExecuteWorkflow("test-cleanup-recording")
-	require.NoError(t, env.GetWorkflowError())
+			env.RegisterWorkflowWithOptions(
+				testCleanupRecordingWorkflow,
+				workflow.RegisterOptions{Name: "test-cleanup-recording"},
+			)
 
-	var out map[string]any
-	require.NoError(t, env.GetWorkflowResult(&out))
-	require.Contains(t, workflowengine.AsSliceOfStrings(out["result_video_urls"]), "url1")
+			stopActivity := activities.NewStopRecordingActivity()
+			httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
+			env.RegisterActivityWithOptions(
+				stopActivity.Execute,
+				activity.RegisterOptions{Name: stopActivity.Name()},
+			)
+			env.RegisterActivityWithOptions(
+				httpActivity.Execute,
+				activity.RegisterOptions{Name: httpActivity.Name()},
+			)
+
+			env.OnActivity(stopActivity.Name(), mock.Anything, mock.Anything).
+				Return(workflowengine.ActivityResult{Output: tc.stopOutput}, nil)
+			var body map[string]any
+			env.OnActivity(
+				httpActivity.Name(),
+				mock.Anything,
+				mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+					payload, ok := input.Payload.(map[string]any)
+					if ok {
+						body, _ = payload["body"].(map[string]any)
+					}
+					return ok
+				}),
+			).
+				Return(workflowengine.ActivityResult{Output: map[string]any{
+					"body": map[string]any{
+						"result_urls":     []string{"url1"},
+						"screenshot_urls": []string{"shot1"},
+					},
+				}}, nil)
+
+			env.ExecuteWorkflow("test-cleanup-recording")
+			require.NoError(t, env.GetWorkflowError())
+
+			var out map[string]any
+			require.NoError(t, env.GetWorkflowResult(&out))
+			require.Contains(t, workflowengine.AsSliceOfStrings(out["result_video_urls"]), "url1")
+			require.Equal(t, "/tmp/last.png", body["last_frame_path"])
+			if tc.wantTimeline == "" {
+				require.NotContains(t, body, "maestro_timeline_path")
+				return
+			}
+			require.Equal(t, tc.wantTimeline, body["maestro_timeline_path"])
+		})
+	}
 }
 
 func TestCleanupRecordingMissingRunnerID(t *testing.T) {
@@ -2802,7 +2838,7 @@ func testStopRecordingMissingLastFrameWorkflow(ctx workflow.Context) error {
 func testStopRecordingSuccessWorkflow(
 	ctx workflow.Context,
 	ao workflow.ActivityOptions,
-) (string, error) {
+) error {
 	ctx = workflow.WithActivityOptions(
 		ctx,
 		ao,
@@ -2815,7 +2851,8 @@ func testStopRecordingSuccessWorkflow(
 		ffmpegPid:    2,
 		logPid:       3,
 	}
-	return stopRecording(ctx, "runner-1/device-1", info, workflow.GetLogger(ctx))
+	_, err := stopRecording(ctx, "runner-1/device-1", info, workflow.GetLogger(ctx))
+	return err
 }
 
 func testStopRecordingUsesCleanupFallbackWorkflow(

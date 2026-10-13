@@ -223,7 +223,8 @@ func deepCopy(v any) any {
 	return c
 }
 
-func getPipelineRunIdentifier(namespace, workflowID, runID string) string {
+// RunIdentifier is the canonical pipeline run identifier used for runner workspaces and artifacts.
+func RunIdentifier(namespace, workflowID, runID string) string {
 	id := fmt.Sprintf("%s-%s", workflowID, runID)
 	return fmt.Sprintf("%s/%s", namespace, canonify.CanonifyPlain(id))
 }

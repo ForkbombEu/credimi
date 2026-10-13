@@ -530,15 +530,18 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	)
 
 	successBody, successContentType := walletStorePipelineResultBody(
-		t, reservedDevicePath, "android",
+		t, reservedDevicePath, "android", false,
+	)
+	timelineBody, timelineContentType := walletStorePipelineResultBody(
+		t, reservedDevicePath, "android", true,
 	)
 	otherDeviceBody, otherDeviceContentType := walletStorePipelineResultBody(
-		t, otherDevicePath, "android",
+		t, otherDevicePath, "android", false,
 	)
 	crossOrgRunnerBody, crossOrgRunnerContentType := walletStorePipelineResultBody(
-		t, publicDevicePath, "android",
+		t, publicDevicePath, "android", false,
 	)
-	iosBody, iosContentType := walletStorePipelineResultBody(t, reservedDevicePath, "ios")
+	iosBody, iosContentType := walletStorePipelineResultBody(t, reservedDevicePath, "ios", false)
 
 	// Prepare missing file multipart request
 	var missingBody bytes.Buffer
@@ -597,7 +600,30 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"screenshot_urls"`,
 				`"video_file_name"`,
 			},
+			NotExpectedContent: []string{`"maestro_timeline_file_name"`},
+			TestAppFactory:     setupReservedDeviceApp,
+		},
+		{
+			Name:   "store pipeline result with its maestro timeline",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(timelineBody),
+			Headers: map[string]string{
+				"Content-Type": timelineContentType,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"status":"success"`,
+				`"maestro_timeline_file_name":"maestro-timeline.jsonl"`,
+			},
 			TestAppFactory: setupReservedDeviceApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				record, err := canonify.Resolve(app, "usera-s-organization/workflow123-run123")
+				require.NoError(t, err)
+				timelines := record.GetStringSlice("maestro_timelines")
+				require.Len(t, timelines, 1)
+				require.Contains(t, timelines[0], "test_device_timeline_")
+			},
 		},
 		{
 			Name:   "store pipeline result successfully with authenticated user",
@@ -751,6 +777,7 @@ func walletStorePipelineResultBody(
 	t testing.TB,
 	deviceIdentifier string,
 	platform string,
+	withTimeline bool,
 ) ([]byte, string) {
 	t.Helper()
 
@@ -783,6 +810,15 @@ func walletStorePipelineResultBody(
 	require.NoError(t, err)
 	_, err = logWriter.Write([]byte("test log content"))
 	require.NoError(t, err)
+
+	if withTimeline {
+		timelineWriter, err := writer.CreateFormFile("maestro_timeline", "maestro-timeline.jsonl")
+		require.NoError(t, err)
+		_, err = timelineWriter.Write(
+			[]byte(`{"t":1,"kind":"recording_started","index":0,"parent":0,"depth":0}` + "\n"),
+		)
+		require.NoError(t, err)
+	}
 
 	require.NoError(t, writer.Close())
 	return body.Bytes(), writer.FormDataContentType()
