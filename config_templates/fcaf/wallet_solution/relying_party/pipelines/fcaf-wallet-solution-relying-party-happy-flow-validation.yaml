@@ -1276,7 +1276,10 @@ steps:
                         - - available_pid
                           - unavailable_pid
                 credentials:
-                    - format: dc+sd-jwt
+                    - claims:
+                        - path:
+                            - given_name
+                      format: dc+sd-jwt
                       id: available_pid
                       meta:
                         vct_values:

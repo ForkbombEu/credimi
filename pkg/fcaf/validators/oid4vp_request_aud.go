@@ -121,7 +121,7 @@ func (OID4VPRequestAudienceValidator) Validate(ctx context.Context, input Input)
 			),
 		}
 	}
-	errorValue, _ := findObjectKey(session, "error")
+	errorValue := findWalletError(session)
 	code := normalizeString(errorValue)
 	if code == "" {
 		return Result{

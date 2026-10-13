@@ -139,7 +139,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 	}
 
 	responseValue, _ := findObjectKey(root, "vp_token")
-	errorValue, _ := findObjectKey(root, "error")
+	errorValue := findWalletError(root)
 	switch params.Mode {
 	case "credential_sets":
 		sets, ok := query["credential_sets"].([]any)
@@ -1716,6 +1716,25 @@ func normalizeJSONObject(value any) (map[string]any, bool) {
 }
 
 func findObjectKey(value any, key string) (any, bool) {
+	return findObjectKeySkipping(value, key, nil)
+}
+
+// verifierReplyKeys name the captured HTTP replies Capture sent to the Wallet.
+// Capture answers a Wallet error with its own error object (for example
+// invalid_presentation), so a Wallet error lookup must not descend into them.
+var verifierReplyKeys = map[string]struct{}{
+	"presentation_response_verifier_http": {},
+	"request_uri_response_http":           {},
+}
+
+// findWalletError returns the error code the Wallet sent, wherever the capture
+// recorded it, ignoring the verifier's own replies.
+func findWalletError(value any) any {
+	found, _ := findObjectKeySkipping(value, "error", verifierReplyKeys)
+	return found
+}
+
+func findObjectKeySkipping(value any, key string, skip map[string]struct{}) (any, bool) {
 	object, ok := normalizeJSONObject(value)
 	if !ok {
 		return nil, false
@@ -1723,13 +1742,16 @@ func findObjectKey(value any, key string) (any, bool) {
 	if found, exists := object[key]; exists {
 		return found, true
 	}
-	for _, child := range object {
-		if found, exists := findObjectKey(child, key); exists {
+	for name, child := range object {
+		if _, skipped := skip[name]; skipped {
+			continue
+		}
+		if found, exists := findObjectKeySkipping(child, key, skip); exists {
 			return found, true
 		}
 		if array, ok := child.([]any); ok {
 			for _, item := range array {
-				if found, exists := findObjectKey(item, key); exists {
+				if found, exists := findObjectKeySkipping(item, key, skip); exists {
 					return found, true
 				}
 			}

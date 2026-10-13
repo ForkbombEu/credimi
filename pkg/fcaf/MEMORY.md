@@ -3183,3 +3183,34 @@ removed. Still exempted with unsupported modes: `WS_RP_IA_ProtocolFlow__002`,
   deployed.
 
 Step counts are unchanged.
+
+## Claimless DCQL queries the sources do not require
+
+13/10/2026. The reference wallet answers a credential query without `claims`
+with "The requested document is not available", even when it holds the
+credential. Only MainInteraction 016, 017, 028 and ProtocolMessages 082 require
+an absent `claims`; every other wallet-held PID query now requests
+`given_name`: ProtocolMessages 058, 061–063, 065, 066, 068, 069, 097–101,
+MainInteraction 029–031, 034. Queries for credentials the wallet cannot hold
+(029, 030, 043, ProtocolMessages 102, 104) keep no claims; nothing matches them
+either way.
+
+Emulator run, production Capture, a fresh PID before each presentation (each
+presentation consumes one):
+
+- pass: ProtocolMessages 058, 061–063, 065, 066, 068, 069, 098, 099, 101;
+  MainInteraction 031.
+- fail, RI-WALLET-001 (error shown, nothing posted): ProtocolMessages 097,
+  100; MainInteraction 034.
+
+098 and 100 ran the share flow on a request the wallet must refuse, so the
+wallet step always failed and their visual evidence was empty; both now run
+`fcaf-expect-request-rejected`.
+
+The run also exposed a validator bug: the wallet error lookup searched the
+whole session, including Capture's own reply to the wallet
+(`raw.presentation_response_verifier_http.body`, `invalid_presentation`), and
+Go map order decided which `error` it found. `findWalletError` now skips the
+verifier's HTTP replies; it serves `dcql.response_satisfies_constraints`,
+`oid4vp.error_response_required`, `oid4vp.request_audience` and the digest
+check in `generic.go`.

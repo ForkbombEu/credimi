@@ -827,7 +827,7 @@ func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, inp
 				Message: "wallet returned vp_token instead of an error",
 			}
 		}
-		errorValue, _ := findObjectKey(session, "error")
+		errorValue := findWalletError(session)
 		if code := normalizeString(errorValue); code != "" {
 			return Result{
 				Status: StatusPass,

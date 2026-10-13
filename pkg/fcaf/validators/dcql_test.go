@@ -1632,6 +1632,34 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	}
 }
 
+// Capture answers a Wallet error with its own error object. The wallet's code
+// must decide the verdict, whatever order the session map is walked in.
+func TestDCQLWalletErrorIgnoresVerifierReply(t *testing.T) {
+	session := map[string]any{
+		"dcql_query": map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}},
+		"raw": map[string]any{
+			"presentation_response_decrypted": map[string]any{"error": "invalid_request"},
+			"presentation_response_verifier_http": map[string]any{
+				"body": `{"error":"invalid_presentation"}`,
+			},
+		},
+	}
+	for range 50 {
+		result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+			Value:  session,
+			Params: map[string]any{"mode": "invalid_request_generic"},
+		})
+		require.Equal(t, StatusPass, result.Status, result.Message)
+	}
+
+	delete(session["raw"].(map[string]any), "presentation_response_decrypted")
+	result := OID4VPErrorResponseRequiredValidator{}.Validate(context.Background(), Input{
+		Value:  session,
+		Params: map[string]any{"code": "invalid_request"},
+	})
+	require.Equal(t, StatusFail, result.Status, "the verifier's reply is not a wallet error")
+}
+
 // A broken forbidden_paths param is the definition's fault, so it must not be
 // reported as the wallet's non-conformance.
 func TestDCQLForbiddenPathsConfigurationErrors(t *testing.T) {
