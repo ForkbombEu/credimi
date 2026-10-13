@@ -695,8 +695,8 @@ func (JOSEJWEEncryptedResponseValidator) Validate(_ context.Context, input Input
 
 // OID4VPNoPresentationValidator fails when a Verifier session shows that the
 // Wallet answered an Authorization Request with a presentation. FCAF negative
-// tests require the Wallet to reject the request instead, so any Authorization
-// Response, valid or not, is a failure of the test's normative requirement.
+// tests accept a rejection either as no Authorization Response at all or as an
+// error response without a vp_token; any other response fails.
 type OID4VPNoPresentationValidator struct{}
 
 func (OID4VPNoPresentationValidator) ID() string {
@@ -715,6 +715,14 @@ func (OID4VPNoPresentationValidator) Validate(_ context.Context, input Input) Re
 		return Result{
 			Status:  StatusFail,
 			Message: "wallet returned a presentation for a request it had to reject",
+		}
+	}
+	if presentation, _ := findObjectKey(session, "vp_token"); isEmptyDCQLValue(presentation) {
+		if code := normalizeString(findWalletError(session)); code != "" {
+			return Result{
+				Status:  StatusPass,
+				Message: fmt.Sprintf("wallet rejected the request with error %q", code),
+			}
 		}
 	}
 	if checks, ok := session["checks"].(map[string]any); ok {

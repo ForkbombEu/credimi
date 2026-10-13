@@ -1236,6 +1236,55 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			name:     "trusted authority without values is recognised",
+			mode:     "trusted_authority_property_absent",
+			property: "values",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{"type": "aki"}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name:     "trusted authority with values is not the missing-values case",
+			mode:     "trusted_authority_property_absent",
+			property: "values",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{
+							"type":   "aki",
+							"values": []any{"authority-key-id"},
+						}}
+						return credential
+					}()},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			name:     "credential returned for a trusted authority without values",
+			mode:     "trusted_authority_property_absent",
+			property: "values",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["trusted_authorities"] = []any{map[string]any{"type": "aki"}}
+						return credential
+					}()},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name:         "non-string trusted authority type is rejected",
 			mode:         "trusted_authority_property_type",
 			property:     "type",
@@ -1629,6 +1678,37 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			})
 			require.Equal(t, test.status, result.Status, result.Message)
 		})
+	}
+}
+
+// OpenID4VP Section 7 claims path pointers may contain null and non-negative
+// integers; a query using them is valid, while negative or fractional
+// indices are not.
+func TestDCQLClaimsPathPointerMembers(t *testing.T) {
+	evidenceWithPath := func(path []any) map[string]any {
+		credential := validSDJWTCredentialQuery("pid")
+		credential["claims"] = []any{map[string]any{"path": path}}
+		return map[string]any{
+			"dcql_query": map[string]any{"credentials": []any{credential}},
+			"vp_token":   map[string]any{"pid": []any{"presentation"}},
+		}
+	}
+	for _, tc := range []struct {
+		path []any
+		want Status
+	}{
+		{[]any{"nationality", nil}, StatusPass},
+		{[]any{"nationality", float64(0)}, StatusPass},
+		{[]any{"nationality", float64(-1)}, StatusFail},
+		{[]any{"nationality", float64(1.5)}, StatusFail},
+		{[]any{"nationality", true}, StatusFail},
+		{[]any{}, StatusFail},
+	} {
+		result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+			Value:  evidenceWithPath(tc.path),
+			Params: map[string]any{"mode": "credentials_match"},
+		})
+		require.Equal(t, tc.want, result.Status, "%v: %s", tc.path, result.Message)
 	}
 }
 

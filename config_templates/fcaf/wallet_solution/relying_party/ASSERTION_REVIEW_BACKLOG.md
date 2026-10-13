@@ -354,11 +354,12 @@ unable to pass on beta, need a production run.
   its only evidence of the Wallet's own error is visual, so
   `evidence.non_empty` would also pass for a Wallet that shows success. Its
   reference-Wallet run is still pending.
-- `WS_RP_IA_MainInteraction__057`, `061`, `067`, `WS_RP_IA_Supportive__001`,
-  and `WS_RP_MS_ProtocolMessages__127`, `128` configure a `redirect_uri` that
+- `WS_RP_IA_MainInteraction__057`, `061`, `067`, and
+  `WS_RP_MS_ProtocolMessages__127`, `128` configure a `redirect_uri` that
   beta signed into the request until MOCK-VERIFIER-003 was fixed on
   30/09/2026, so a conformant Wallet rejected them. They need a
-  reference-Wallet run after the fix.
+  reference-Wallet run after the fix (`WS_RP_IA_Supportive__001` passed on
+  13/10/2026).
 
 ## Blocked
 

@@ -695,32 +695,35 @@ steps:
       - extendedWaitUntil:
           visible: "Welcome back|Home|Documents|Welcome, .*"
           timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 3000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Home|Documents|Welcome, .*"
           timeout: 30000
-      - openLink: { link: "${DEEPLINK_VALID_TRUE}", autoVerify: false, browser: false }
+      - openLink:
+          link: "${DEEPLINK_VALID_TRUE}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Data sharing request"
           timeout: 100000
@@ -728,29 +731,31 @@ steps:
       - extendedWaitUntil:
           visible: "PIN"
           timeout: 30000
-      - tapOn:
-          point: "11%,39%"
-      - inputText: "123456"
-      - hideKeyboard
-      - tapOn: { point: "50%,10%" }
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
       - extendedWaitUntil:
           visible: ".*successfully shared.*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-valid-true
+      - takeScreenshot: "fcaf-081-valid-true"
       - tapOn: "Close"
-      - openLink: { link: "${DEEPLINK_VALID_FALSE}", autoVerify: false, browser: false }
+      - openLink:
+          link: "${DEEPLINK_VALID_FALSE}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Data sharing request"
           timeout: 100000
@@ -758,15 +763,15 @@ steps:
       - extendedWaitUntil:
           visible: "PIN"
           timeout: 30000
-      - tapOn:
-          point: "11%,39%"
-      - inputText: "123456"
-      - hideKeyboard
-      - tapOn: { point: "50%,10%" }
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
       - extendedWaitUntil:
           visible: ".*successfully shared.*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-valid-false
+      - takeScreenshot: "fcaf-081-valid-false"
       - tapOn: "Close"
       - openLink:
           link: "${DEEPLINK_NUMBER_ZERO}"
@@ -778,16 +783,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-number-zero
+      - takeScreenshot: "fcaf-081-number-zero"
       - runFlow:
           when:
             visible: "Requested data"
@@ -797,16 +801,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-number-zero-presented
+          - takeScreenshot: "fcaf-081-number-zero-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -827,16 +830,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-number-one
+      - takeScreenshot: "fcaf-081-number-one"
       - runFlow:
           when:
             visible: "Requested data"
@@ -846,16 +848,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-number-one-presented
+          - takeScreenshot: "fcaf-081-number-one-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -876,16 +877,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-number-random
+      - takeScreenshot: "fcaf-081-number-random"
       - runFlow:
           when:
             visible: "Requested data"
@@ -895,16 +895,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-number-random-presented
+          - takeScreenshot: "fcaf-081-number-random-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -925,16 +924,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-true
+      - takeScreenshot: "fcaf-081-string-true"
       - runFlow:
           when:
             visible: "Requested data"
@@ -944,16 +942,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-true-presented
+          - takeScreenshot: "fcaf-081-string-true-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -974,16 +971,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-false
+      - takeScreenshot: "fcaf-081-string-false"
       - runFlow:
           when:
             visible: "Requested data"
@@ -993,16 +989,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-false-presented
+          - takeScreenshot: "fcaf-081-string-false-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -1023,16 +1018,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-uppercase-true
+      - takeScreenshot: "fcaf-081-string-uppercase-true"
       - runFlow:
           when:
             visible: "Requested data"
@@ -1042,16 +1036,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-uppercase-true-presented
+          - takeScreenshot: "fcaf-081-string-uppercase-true-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -1072,16 +1065,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-uppercase-false
+      - takeScreenshot: "fcaf-081-string-uppercase-false"
       - runFlow:
           when:
             visible: "Requested data"
@@ -1091,16 +1083,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-uppercase-false-presented
+          - takeScreenshot: "fcaf-081-string-uppercase-false-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -1121,16 +1112,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-yes
+      - takeScreenshot: "fcaf-081-string-yes"
       - runFlow:
           when:
             visible: "Requested data"
@@ -1140,16 +1130,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-yes-presented
+          - takeScreenshot: "fcaf-081-string-yes-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -1170,16 +1159,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-no
+      - takeScreenshot: "fcaf-081-string-no"
       - runFlow:
           when:
             visible: "Requested data"
@@ -1189,16 +1177,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-no-presented
+          - takeScreenshot: "fcaf-081-string-no-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -1219,16 +1206,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-y
+      - takeScreenshot: "fcaf-081-string-y"
       - runFlow:
           when:
             visible: "Requested data"
@@ -1238,16 +1224,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-y-presented
+          - takeScreenshot: "fcaf-081-string-y-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -1268,16 +1253,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-n
+      - takeScreenshot: "fcaf-081-string-n"
       - runFlow:
           when:
             visible: "Requested data"
@@ -1287,16 +1271,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-n-presented
+          - takeScreenshot: "fcaf-081-string-n-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -1317,16 +1300,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-zero
+      - takeScreenshot: "fcaf-081-string-zero"
       - runFlow:
           when:
             visible: "Requested data"
@@ -1336,16 +1318,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-zero-presented
+          - takeScreenshot: "fcaf-081-string-zero-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -1366,16 +1347,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-one
+      - takeScreenshot: "fcaf-081-string-one"
       - runFlow:
           when:
             visible: "Requested data"
@@ -1385,16 +1365,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-one-presented
+          - takeScreenshot: "fcaf-081-string-one-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -1415,16 +1394,15 @@ steps:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
       - extendedWaitUntil:
           visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
-      - takeScreenshot: fcaf-081-string-random
+      - takeScreenshot: "fcaf-081-string-random"
       - runFlow:
           when:
             visible: "Requested data"
@@ -1434,16 +1412,15 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-081-string-random-presented
+          - takeScreenshot: "fcaf-081-string-random-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -1567,9 +1544,9 @@ steps:
           dcql_exchange: ${{ get-valid-false.outputs.body }}
           visual_evidence: ${{ exercise-holder-binding-variants.outputs.flow_output.maestro_screenshot_urls }}
           exchange_valid_true: ${{ get-valid-true.outputs.body }}
-          pid_sdjwt_presentations_valid_true: ${{ get-valid-true.outputs.body.vp_token.pididentity01 }}
+          pid_sdjwt_presentations_valid_true: ${{ get-valid-true.outputs.body.raw.presentation_response_decrypted.vp_token.pididentity01 }}
           exchange_valid_false: ${{ get-valid-false.outputs.body }}
-          pid_sdjwt_presentations_valid_false: ${{ get-valid-false.outputs.body.vp_token.pididentity01 }}
+          pid_sdjwt_presentations_valid_false: ${{ get-valid-false.outputs.body.raw.presentation_response_decrypted.vp_token.pididentity01 }}
           exchange_number_zero: ${{ fetch-number-zero.outputs.body.raw.authorization_request_delivered }}
           exchange_number_one: ${{ fetch-number-one.outputs.body.raw.authorization_request_delivered }}
           exchange_number_random: ${{ fetch-number-random.outputs.body.raw.authorization_request_delivered }}

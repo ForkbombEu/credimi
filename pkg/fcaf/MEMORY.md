@@ -3214,3 +3214,100 @@ Go map order decided which `error` it found. `findWalletError` now skips the
 verifier's HTTP replies; it serves `dcql.response_satisfies_constraints`,
 `oid4vp.error_response_required`, `oid4vp.request_audience` and the digest
 check in `generic.go`.
+
+## MainInteraction 039: inline wallet flow
+
+13/10/2026. On the USB runner the step failed with `Assert that "Data sharing
+request" is visible... FAILED`, so the wallet never sent a `vp_token` and the
+failed step stored no screenshot. The wallet, Capture and the validator are
+fine: on the emulator the request lists both PIDs and the session validates
+with `pid_sdjwt` and `pid_mdoc`, and the engine passes 039.
+
+The inline flow unlocked the wallet before `openLink` by tapping the PIN field
+by coordinates and then ran `hideKeyboard`, and it never handled a `Welcome
+back` screen after the link. On Android `hideKeyboard` can act as Back, and Back
+with the keyboard open closes this wallet [INFERENCE: probable cause on the
+runner]. The flow now follows `fcaf-submit-request-object-by-value`: stop the
+app, open the link, unlock on `Welcome back` by typing `12345` and tapping `6`,
+then share and enter the PIN the same way. It keeps the two
+`request_screen_requested_document_*` assertions and adds a screenshot after
+sharing.
+
+## Inline wallet flows converted to the shared pattern
+
+13/10/2026.
+
+- 083, 085, 090 (`dcql-claims-empty`, `dcql-claim-sets-empty`,
+  `dcql-trusted-authorities-missing-values`) now call the shared
+  `fcaf-exercise-wallet-generic` with `deeplink`; their inline flows did the
+  same thing.
+- The other 15 inline flows stay inline (test-specific UI checks, or several
+  deeplinks in one step whose screenshots the tests read as one list). Unlock
+  and PIN entry follow the shared flows (wait for `1`, type `12345`, tap `6`);
+  every `hideKeyboard`, `50%,10%` tap and app-chooser tap is gone; a settle wait
+  precedes each `Welcome back` check; `EUDI Remote Verifier` assertions (117,
+  118) are dropped because Capture shows `Fake Verifier`; 087 gained the shared
+  launch-and-unlock prelude. `pid-candidate-selection` keeps its `15%,53%` tap:
+  the candidate cards expose no text or id. String values are double-quoted so
+  the generator's Share-tap regex still counts them.
+- Ten bindings read `<step>.outputs.screenshot_urls`, which mobile steps never
+  produce (the cleanup hook writes it to the run output); they now read
+  `flow_output.maestro_screenshot_urls` (ProtocolMessages 090–094).
+
+### Emulator run
+
+Every converted flow ran through Maestro against production Capture, with the
+scenario's own requests and fresh PIDs. Maestro ignores `ADB_SERVER_SOCKET`; it
+reaches the Windows emulator through a TCP relay from `127.0.0.1:5037` to the
+Windows adb server (free the port with `adb -H localhost -P 5037 kill-server`,
+run Maestro with `ADB_SERVER_SOCKET` unset). If Gboard collapses to its
+floating handle, enable "Show on-screen keyboard": the shared flows tap the `6`
+key.
+
+Pass: ProtocolMessages 013, 083–086, 090–094, 117, 118; MainInteraction 005,
+007, 008, 013, 039; DeviceBinding 008, 009.
+
+Wallet findings: 014 and 087 (RI-WALLET-005), 148 and 149 (RI-WALLET-006), 081
+(RI-WALLET-007), Supportive 001 (RI-WALLET-008).
+
+Harness fixes found by the run:
+
+- 083, 085, 086, 090 asserted `credentials_match`, which requires a well-formed
+  query and a presentation, on requests the wallet must reject. They now check
+  the delivered defect: 083 `empty_claims`, 085 `empty_array` on `claim_sets`,
+  090 the new `trusted_authority_property_absent` mode on `values`, and 086
+  mirrors 084 with `property_type` on `claim_sets` for all seven variants (it
+  previously evidenced only `null`).
+- `oid4vp.no_presentation_returned` failed on any posted response. The sources
+  accept an error response, so it now passes when the wallet's own error is
+  posted without a `vp_token`; 090 and the 081 number/string variants are
+  `invalid_request` responses.
+- The claims path pointer check accepted strings only; OpenID4VP Section 7 also
+  allows `null` and non-negative integers, so 118's valid query was reported
+  invalid.
+- 118 requested `nationality`, the mdoc element; the SD-JWT VC PID claim is
+  `nationalities`, so the wallet found no match.
+- 117 asked for two queries on the same PID, which hits RI-WALLET-005 and is not
+  what its source tests (two credentials); it now requests the SD-JWT VC and
+  the mdoc PID, and the generator adds the mdoc issuance (1747 steps). Both 014
+  and 117 flows now expand the second consent card before checking its claim.
+- The holder-binding scenario read `vp_token` at the session top level;
+  Capture stores it under `raw.presentation_response_decrypted`.
+- Supportive 001 now sends `response_mode: direct_post`, as its source says,
+  and reads the wallet's form body from `raw.presentation_response`. The
+  reference wallet refuses plain `direct_post` under every scheme ("HAIP profile
+  requires an encrypted response mode"), so 001 fails for that wallet.
+
+### Rule: encode the source, not what the reference wallet can pass
+
+Confirmed by the maintainer on 13/10/2026. A test implements its FCAF source as
+written. When the reference wallet cannot do what the source asks (a response
+mode, an error response, a request shape), the test fails for that wallet and
+the gap is recorded in `REFERENCE-WALLET-ISSUES.md`. Never change a request,
+response mode or assertion so the reference wallet passes.
+
+Capture note: for plain `direct_post`, Capture writes its own verification
+error into `raw.presentation_response_decrypted` when the presentation fails
+verification (probed 13/10/2026), so `findWalletError` would read it as a
+wallet error. No negative test uses plain `direct_post` today. Reported as
+[credimi-capture-wallet#10](https://github.com/ForkbombEu/credimi-capture-wallet/issues/10).

@@ -31,7 +31,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1745)
+	require.Len(t, definition.Steps, 1747)
 	require.NotContains(
 		t,
 		string(data),
