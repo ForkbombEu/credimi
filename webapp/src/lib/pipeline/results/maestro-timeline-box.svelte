@@ -162,9 +162,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		padding-bottom: 1px;
 		border-radius: 4px;
 	}
+	/* Drawn inside the row: rows are only 2px apart, so an outer outline would
+	   cover the neighbouring lines. */
 	li.highlighted {
-		outline: 2px solid #f87171;
-		outline-offset: 1px;
+		outline: 1px solid #f87171;
+		outline-offset: -1px;
+		background: rgb(248 113 113 / 0.08);
 	}
 	.row {
 		display: flex;
