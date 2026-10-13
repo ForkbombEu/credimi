@@ -331,6 +331,38 @@ the query invalid and the wallet rejects it.
 - Test: `WS_RP_MS_ProtocolMessages__081` fails on the four
   `*_no_presentation_returned` assertions for those strings.
 
+## RI-WALLET-008: Plain direct_post response mode is refused
+
+### Summary
+
+The reference Android wallet refuses every Authorization Request with
+`response_mode: direct_post`, whatever the scheme (`haip-vp://` or
+`openid4vp://`), with `HAIP profile requires an encrypted response mode
+(direct_post.jwt or dc_api.jwt)`.
+
+### Reproduction
+
+13/10/2026, production Capture, emulator: run
+`scenarios/fcaf-wallet-solution-relying-party-supportive-redirect-uri.yaml`, or
+create any session with `response_mode: direct_post`.
+
+### Observed
+
+The wallet shows the error above and posts nothing; the session stays at
+`request_retrieved`.
+
+### Expected
+
+`WS_RP_IA_Supportive__001` sends `direct_post` with a `response_uri` and expects
+the wallet to POST the Authorization Response and follow the returned
+`redirect_uri`.
+
+### FCAF Impact
+
+- Test: `WS_RP_IA_Supportive__001` fails for this wallet. With
+  `direct_post.jwt` the same wallet posts and follows the `redirect_uri`, but
+  that is not the response mode the source specifies.
+
 ## MOCK-VERIFIER-002: Beta signs decentralized_identifier requests with the X.509 key
 
 On 28/09/2026 a beta session with `client_id_scheme: decentralized_identifier`

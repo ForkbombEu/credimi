@@ -3265,10 +3265,10 @@ floating handle, enable "Show on-screen keyboard": the shared flows tap the `6`
 key.
 
 Pass: ProtocolMessages 013, 083–086, 090–094, 117, 118; MainInteraction 005,
-007, 008, 013, 039; DeviceBinding 008, 009; Supportive 001.
+007, 008, 013, 039; DeviceBinding 008, 009.
 
 Wallet findings: 014 and 087 (RI-WALLET-005), 148 and 149 (RI-WALLET-006), 081
-(RI-WALLET-007).
+(RI-WALLET-007), Supportive 001 (RI-WALLET-008).
 
 Harness fixes found by the run:
 
@@ -3291,9 +3291,22 @@ Harness fixes found by the run:
   what its source tests (two credentials); it now requests the SD-JWT VC and
   the mdoc PID, and the generator adds the mdoc issuance (1747 steps). Both 014
   and 117 flows now expand the second consent card before checking its claim.
-- Holder-binding and Supportive 001 read `vp_token` at the session top level;
+- The holder-binding scenario read `vp_token` at the session top level;
   Capture stores it under `raw.presentation_response_decrypted`.
-- Supportive 001's source says `direct_post`; the reference wallet refuses plain
-  `direct_post` under every scheme ("HAIP profile requires an encrypted response
-  mode"), so the scenario keeps `direct_post.jwt`, whose `redirect_uri` handling
-  is the same. Open decision.
+- Supportive 001 now sends `response_mode: direct_post`, as its source says,
+  and reads the wallet's form body from `raw.presentation_response`. The
+  reference wallet refuses plain `direct_post` under every scheme ("HAIP profile
+  requires an encrypted response mode"), so 001 fails for that wallet.
+
+### Rule: encode the source, not what the reference wallet can pass
+
+Confirmed by the maintainer on 13/10/2026. A test implements its FCAF source as
+written. When the reference wallet cannot do what the source asks (a response
+mode, an error response, a request shape), the test fails for that wallet and
+the gap is recorded in `REFERENCE-WALLET-ISSUES.md`. Never change a request,
+response mode or assertion so the reference wallet passes.
+
+Capture note: for plain `direct_post`, Capture writes its own verification
+error into `raw.presentation_response_decrypted` when the presentation fails
+verification (probed 13/10/2026), so `findWalletError` would read it as a
+wallet error. No negative test uses plain `direct_post` today.
