@@ -622,7 +622,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				require.NoError(t, err)
 				timelines := record.GetStringSlice("maestro_timelines")
 				require.Len(t, timelines, 1)
-				require.Contains(t, timelines[0], "test_device_maestro_timeline_")
+				require.Contains(t, timelines[0], "test_device_timeline_")
 			},
 		},
 		{

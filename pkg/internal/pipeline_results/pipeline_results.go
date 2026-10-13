@@ -114,7 +114,7 @@ func ComputePipelineResultsFromRecord(app core.App, record *core.Record) []Pipel
 
 	timelineMap := make(map[string]string)
 	for _, name := range record.GetStringSlice("maestro_timelines") {
-		if key, ok := baseArtifactKey(name, "_maestro_timeline_"); ok {
+		if key, ok := baseArtifactKey(name, "_timeline_"); ok {
 			timelineMap[key] = name
 		}
 	}

@@ -521,7 +521,9 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 		if len(e.Request.MultipartForm.File["maestro_timeline"]) > 0 {
 			timelineFilename, _, apierr := saveUploadedFileToRecord(
 				e, resultRecord, "maestro_timeline", "maestro_timelines",
-				versionName+"_maestro_timeline", false,
+				// No longer than "_result_video": PocketBase truncates long file names,
+				// and a cut marker would leave the timeline unpaired with its video.
+				versionName+"_timeline", false,
 			)
 			if apierr != nil {
 				return apierr

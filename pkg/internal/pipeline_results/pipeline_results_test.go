@@ -105,8 +105,8 @@ func TestComputePipelineResultsPairsMaestroTimeline(t *testing.T) {
 	}{
 		{
 			name:      "with timeline",
-			timelines: []string{"org-runner-dev_maestro_timeline_abc.jsonl", "org-runner-other_maestro_timeline_abc.jsonl"},
-			want:      "/org-runner-dev_maestro_timeline_abc.jsonl",
+			timelines: []string{"org-runner-dev_timeline_abc.jsonl", "org-runner-other_timeline_abc.jsonl"},
+			want:      "/org-runner-dev_timeline_abc.jsonl",
 		},
 		{name: "without timeline"},
 	} {
