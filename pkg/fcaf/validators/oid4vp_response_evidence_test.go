@@ -133,6 +133,9 @@ func TestOID4VPResponseEncryptionValidator(t *testing.T) {
 	}{
 		{"metadata kid", valid, map[string]any{"match_metadata_kid": true}, StatusPass},
 		{"default encryption", valid, map[string]any{"expected_enc": "A128GCM", "metadata_enc_absent": true}, StatusPass},
+		{"advertised enc values are not absent", restricted, map[string]any{"expected_enc": "A128GCM", "metadata_enc_absent": true}, StatusFail},
+		{"compact JWE only", valid, map[string]any{"require_compact_jwe": true}, StatusPass},
+		{"compact JWE required but form holds a plain value", map[string]any{"request_object": request, "presentation_response_http": map[string]any{"body": "response=not-a-jwe"}}, map[string]any{"require_compact_jwe": true}, StatusFail},
 		{"replacement metadata", replacement, map[string]any{"expected_enc": "A256GCM", "metadata_enc": "A256GCM", "preserve_generated_jwks": true}, StatusPass},
 		{"unknown kid", map[string]any{"request_object": request, "presentation_response_http": map[string]any{"body": "response=" + testCompactJWE(t, map[string]any{"kid": "unknown", "enc": "A128GCM"})}}, map[string]any{"match_metadata_kid": true}, StatusFail},
 		{"wrong encryption", valid, map[string]any{"expected_enc": "A256GCM"}, StatusFail},

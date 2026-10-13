@@ -37,6 +37,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		ExpectedValue     any     `json:"expected_value"`
 		ExpectedFormat    string  `json:"expected_format"`
 		ExpectedClaimPath []any   `json:"expected_claim_path"`
+		ClaimSetCount     int     `json:"claim_set_count"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -1032,7 +1033,12 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 			}
 		}
 	case "claim_sets_preferred_option":
-		return validateClaimSetsPreferredOption(query, responseValue, params.ExpectedValue)
+		return validateClaimSetsPreferredOption(
+			query,
+			responseValue,
+			params.ExpectedValue,
+			params.ClaimSetCount,
+		)
 	case "claim_sets_no_match":
 		return validateClaimSetsNoMatch(query, responseValue)
 	case "claim_sets_without_claims":
@@ -2358,12 +2364,19 @@ func validateClaimsSubset(query map[string]any, responseValue any, forbiddenPath
 func validateClaimSetsPreferredOption(
 	query map[string]any,
 	responseValue, expectedValue any,
+	claimSetCount int,
 ) Result {
 	expectedFloat, ok := expectedValue.(float64)
 	if !ok || expectedFloat < 0 || expectedFloat != float64(int(expectedFloat)) {
 		return Result{
 			Status:  StatusError,
 			Message: "expected_value must be a non-negative claim_sets index",
+		}
+	}
+	if claimSetCount <= int(expectedFloat) {
+		return Result{
+			Status:  StatusError,
+			Message: "claim_set_count must exceed the expected claim_sets index",
 		}
 	}
 	credentials, ok := query["credentials"].([]any)
@@ -2380,10 +2393,13 @@ func validateClaimSetsPreferredOption(
 	id, _ := credential["id"].(string)
 	claims, claimsOK := credential["claims"].([]any)
 	sets, setsOK := credential["claim_sets"].([]any)
-	if id == "" || !claimsOK || !setsOK || len(sets) != 3 || int(expectedFloat) >= len(sets) {
+	if id == "" || !claimsOK || !setsOK || len(sets) != claimSetCount {
 		return Result{
-			Status:  StatusFail,
-			Message: "request does not contain three claim_sets over identified claims",
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"request does not contain %d claim_sets over identified claims",
+				claimSetCount,
+			),
 		}
 	}
 	paths := map[string][]any{}

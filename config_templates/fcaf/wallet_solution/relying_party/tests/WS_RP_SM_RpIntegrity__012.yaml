@@ -19,7 +19,7 @@ evidence:
     from: pipeline.dcql.rp-integrity.outputs.session
 assertions:
 - id: verifier_attestation_session_is_unavailable
-  validator: fcaf.blocked
+  validator: fcaf.skipped
   input: evidence.session
   params:
     reason: >-

@@ -2336,20 +2336,48 @@ func TestDCQLClaimSetsSelection(t *testing.T) {
 			"pid": []any{testSDJWTPresentation(map[string]any{"given_name": "Alice"})},
 		},
 	}
+	preferred := func(index, count int) map[string]any {
+		return map[string]any{
+			"mode":            "claim_sets_preferred_option",
+			"expected_value":  index,
+			"claim_set_count": count,
+		}
+	}
 	result := validator.Validate(context.Background(), Input{
-		Value:  evidence,
-		Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
+		Value: evidence, Params: preferred(0, 3),
 	})
 	require.Equal(t, StatusPass, result.Status)
+
+	result = validator.Validate(context.Background(), Input{
+		Value: evidence, Params: preferred(0, 2),
+	})
+	require.Equal(
+		t,
+		StatusFail,
+		result.Status,
+		"a three-set request must not satisfy a two-set test",
+	)
+
+	result = validator.Validate(context.Background(), Input{
+		Value: evidence, Params: map[string]any{
+			"mode": "claim_sets_preferred_option", "expected_value": 0,
+		},
+	})
+	require.Equal(t, StatusError, result.Status, "claim_set_count is required")
 
 	evidence["vp_token"] = map[string]any{
 		"pid": []any{testSDJWTPresentation(map[string]any{"family_name": "Smith"})},
 	}
 	result = validator.Validate(context.Background(), Input{
-		Value:  evidence,
-		Params: map[string]any{"mode": "claim_sets_preferred_option", "expected_value": 0},
+		Value: evidence, Params: preferred(0, 3),
 	})
 	require.Equal(t, StatusFail, result.Status)
+
+	credential["claim_sets"] = []any{[]any{"first", "third"}, []any{"second"}}
+	result = validator.Validate(context.Background(), Input{
+		Value: evidence, Params: preferred(1, 2),
+	})
+	require.Equal(t, StatusPass, result.Status, "wallet falls back to the second of two sets")
 
 	delete(evidence, "vp_token")
 	result = validator.Validate(context.Background(), Input{

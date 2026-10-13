@@ -41,6 +41,46 @@ func TestOID4VPUnsupportedResponseTypeValidator(t *testing.T) {
 			wantStatus: StatusPass,
 		},
 		{
+			name: "encrypted wallet error read from the decrypted response",
+			value: map[string]any{
+				"authorization_request": map[string]any{"response_type": "code"},
+				"observed": map[string]any{"wallet_response": map[string]any{
+					"value": map[string]any{"response": "eyJhbGciOiJFQ0RILUVTIn0..."},
+				}},
+				"raw": map[string]any{"presentation_response_decrypted": map[string]any{
+					"error":             "invalid_request",
+					"error_description": "UnsupportedResponseType(value=code)",
+				}},
+			},
+			expected:   "code",
+			wantStatus: StatusPass,
+		},
+		{
+			name: "encrypted wallet response the verifier did not decrypt",
+			value: map[string]any{
+				"authorization_request": map[string]any{"response_type": "code"},
+				"observed": map[string]any{"wallet_response": map[string]any{
+					"value": map[string]any{"response": "eyJhbGciOiJFQ0RILUVTIn0..."},
+				}},
+			},
+			expected:   "code",
+			wantStatus: StatusFail,
+		},
+		{
+			name: "encrypted wallet presentation for unsupported response type",
+			value: map[string]any{
+				"authorization_request": map[string]any{"response_type": "code"},
+				"observed": map[string]any{"wallet_response": map[string]any{
+					"value": map[string]any{"response": "eyJhbGciOiJFQ0RILUVTIn0..."},
+				}},
+				"raw": map[string]any{"presentation_response_decrypted": map[string]any{
+					"vp_token": map[string]any{"pid": []any{"presentation"}},
+				}},
+			},
+			expected:   "code",
+			wantStatus: StatusFail,
+		},
+		{
 			name: "interaction discontinued without wallet response",
 			value: map[string]any{
 				"presentation_request": map[string]any{"response_type": "code"},

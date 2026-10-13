@@ -376,8 +376,8 @@ constructible from the contract. Beta refuses the session with `500
 internal_error`, `there are no SAN-DNS names`, on 25/09/2026 and again on
 28/09/2026, and production `capture-wallet.credimi.io` answers the same on
 30/09/2026 and again on 08/10/2026. Re-check after Capture publishes a
-SAN-matching certificate. Until then 008–012 report `blocked` through
-`fcaf.blocked`, as do `WS_RP_SM_RpIntegrity__001`, `025`, `032` and
+SAN-matching certificate. Until then 008–012 report `skipped` through
+`fcaf.skipped`, as do `WS_RP_SM_RpIntegrity__001`, `025`, `032` and
 `CryptographicSignature_002` below.
 
 - [ ] `WS_RP_SM_RpIntegrity__008` (default verifier attestation, `cnf` holding
@@ -424,10 +424,10 @@ SAN-matching certificate. Until then 008–012 report `blocked` through
   binding; Credo refuses `require_cryptographic_holder_binding: false` during
   issuance until
   [credo-ts#2936](https://github.com/openwallet-foundation/credo-ts/pull/2936),
-  still open on 13/10/2026). 046 reports `blocked` through `fcaf.blocked`
+  still open on 13/10/2026). 046 reports `skipped` through `fcaf.skipped`
 - [ ] `WS_RP_MS_CredentialFormats__048` (SD-JWT VC JSON serialization; issuer
-  and verifier support compact serialization only). It reports `blocked`
-  through `fcaf.blocked`
+  and verifier support compact serialization only). It reports `skipped`
+  through `fcaf.skipped`
 - [ ] `WS_RP_MS_Metadata__089` gap and `WS_RP_MS_Metadata__099` (missing-scheme,
   unencoded-space, invalid-percent-encoding, illegal-character and empty URI
   shapes; `status_reference: malformed_uri` expresses only the unparseable one)
@@ -463,13 +463,13 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
   definitions; WRPAC certificate fixtures; upstream 5.6)
 - [ ] `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__112`, `114`, `115`
   (OpenID Federation entity statements, trust chain, and authority; upstream
-  5.7). 014 reports `blocked` through `fcaf.blocked` until these exist
+  5.7). 014 reports `skipped` through `fcaf.skipped` until these exist
 - [ ] `WS_RP_SM_TrustMechanisms__005`–`007` (an issuer chain of depth 3 or
   more with a controlled Authority Key Identifier in the leaf, a sub-CA or the
   CA; Capture's chain is the issuer leaf plus PID Issuer CA 02), `009`–`013`,
   `015` (a mock ETSI Trusted List), `WS_RP_MS_ProtocolMessages__095`, and
   `WS_RP_IA_MainInteraction__065` (upstream 5.8). The TrustMechanisms tests
-  report `blocked` through `fcaf.blocked`
+  report `skipped` through `fcaf.skipped`
 - [ ] `WS_RP_MS_ProtocolMessages__145`, `146` (Wallet-local or trusted-registry
   verifier metadata and the required `invalid_client` conflict)
 

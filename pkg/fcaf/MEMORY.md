@@ -3151,3 +3151,35 @@ unbound SD-JWT VC (credo-ts#2936 still open; Capture's
 SD-JWT JSON serialization. Both now use `fcaf.blocked`; their exemptions were
 removed. Still exempted with unsupported modes: `WS_RP_IA_ProtocolFlow__002`,
 `WS_RP_SM_IssuerIntegrity__012`, `WS_RP_UC_Presentation__003`, `004`.
+
+## Report o5weo19bwp follow-up: skipped prerequisites and harness fixes
+
+13/10/2026, from the failures of report `fcaf_assessment_o5weo19bwp.json`.
+
+- `fcaf.blocked` became `fcaf.skipped`: a prerequisite Capture or the
+  infrastructure cannot build now reports `skipped` with its reason, both in
+  the summary and in each test's outcome. `AggregateVerdict` ranks `skipped`
+  below error, fail and blocked. `blocked` remains for missing evidence.
+- CredentialFormats 039, 040: the wallet answered with an encrypted
+  `invalid_request`, which the validator read as "no error". It now reads
+  Capture's `raw.presentation_response_decrypted` (capture-wallet `0083657b`).
+- MainInteraction 025: `claim_sets_preferred_option` takes an explicit
+  `claim_set_count`; 019 and 020 pin 3 as their sources say, 025 pins 2.
+- MainInteraction 027: `given_name` carries `values: [Mario]`, the held PID's
+  value, so both claims are value-constrained as the source requires.
+- MainInteraction 029, 030: the available PID query requests `given_name`;
+  the sources never asked for a claimless query. 028 stays claimless, as its
+  source requires, but its precondition (a credential without selective
+  disclosure) cannot be met with Capture's SD-JWT VC or mdoc PID.
+- ProtocolMessages 131: the response-transport session sends
+  `encrypted_response_enc_values_supported: null`, and `metadata_enc_absent`
+  now rejects that key as well as the legacy
+  `authorization_encrypted_response_enc`.
+- ProtocolMessages 134: the source checks a form-encoded body holding the JWT,
+  not an `enc` value; the assertion became `require_compact_jwe`.
+- ProtocolMessages 032: the by-value session sets
+  `presentation_request.state: null` (capture-wallet `239b479d`). Production
+  already omits `state` for the nested form; the top-level form is not yet
+  deployed.
+
+Step counts are unchanged.

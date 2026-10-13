@@ -264,6 +264,8 @@ steps:
                     - claims:
                         - path:
                             - given_name
+                          values:
+                            - Mario
                         - path:
                             - family_name
                           values:
@@ -358,7 +360,10 @@ steps:
                         - - unavailable_pid
                       required: false
                 credentials:
-                    - format: dc+sd-jwt
+                    - claims:
+                        - path:
+                            - given_name
+                      format: dc+sd-jwt
                       id: available_pid
                       meta:
                         vct_values:
@@ -443,7 +448,10 @@ steps:
                     - options:
                         - - available_pid
                 credentials:
-                    - format: dc+sd-jwt
+                    - claims:
+                        - path:
+                            - given_name
+                      format: dc+sd-jwt
                       id: available_pid
                       meta:
                         vct_values:

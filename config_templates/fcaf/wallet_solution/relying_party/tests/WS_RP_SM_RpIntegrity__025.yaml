@@ -19,7 +19,7 @@ evidence:
     from: pipeline.dcql.rp-integrity.outputs.session
 assertions:
 - id: trust_anchor_in_x5c_is_unavailable
-  validator: fcaf.blocked
+  validator: fcaf.skipped
   input: evidence.session
   params:
     reason: >-
