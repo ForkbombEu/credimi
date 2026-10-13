@@ -40,14 +40,13 @@ database records, API keys, wallet APKs, screenshots, or runner state.
 The public wallet action exports included here are:
 
 - `onboarding`
-- `onboarding-1` (2026.06.38)
 - `getcredential-pid-formeu-issuer-eudiw-dev`
 - `verifycredential-pid-formeu-issuer-eudiw-dev`
 - `unlock-wallet`
 - `choose-eudi-wallet`
 - `fcaf-engagement-haip-vp`
 
-The FCAF scenarios additionally share three flows. They must exist as
+The FCAF scenarios additionally share six flows. They must exist as
 `wallet_actions` records before the aggregate pipeline runs:
 
 - `fcaf-expect-request-rejected`: the Wallet answers with an error screen or
@@ -56,11 +55,23 @@ The FCAF scenarios additionally share three flows. They must exist as
   so that a positive flow cannot skip the consent screen.
 - `fcaf-expect-no-matching-document`: the Wallet reports that it holds no
   credential satisfying the request.
-- `fcaf-dc-api-present`: the Digital Credentials API flow. There is no link to
-  open, so this taps the presentation page's "Present credential" button and
-  then either completes the consent screen or records the Wallet's refusal.
-  The page reports the outcome to the service either way, so both endings are
-  evidence.
+- `fcaf-expect-credential-rejected`: the Wallet accepts a credential offer and
+  then refuses to store the credential, showing an error screen or returning to
+  Home. It fails on the `View details` success screen that
+  `getcredential-generic-credential-without-authentication` requires.
+- `fcaf-dc-api-present`: the Digital Credentials API flow for cases that must
+  succeed. There is no link to open, so this taps the presentation page's
+  "Present credential" button, completes the consent screen, closes the
+  Wallet's result screen so the response reaches the page, and passes only
+  when the page reports `Presentation accepted`.
+- `fcaf-dc-api-expect-rejected`: the Digital Credentials API flow for cases
+  the Wallet must refuse. It fails on the consent screen and on an accepted
+  presentation; after the Wallet's error screen it presses Back and closes the
+  platform picker, so the page reports the outcome to the service.
+- `fcaf-reset-and-onboard`: clears the Wallet's app state and onboards it with
+  the PIN `123456`. `cmd/fcaf-pipeline-gen` runs it as the first step of every
+  pipeline and before every scenario that drives the Wallet, so a presentation
+  can only select credentials its own scenario issued.
 
 The remaining wallet files are local reusable Maestro helpers. The files are
 not database records and contain no instance-specific PocketBase IDs. Importers

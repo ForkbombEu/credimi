@@ -26,7 +26,13 @@ func TestSchemaColumnListsDriveSelectAndDDL(t *testing.T) {
 	require.Contains(t, suiteDDL, "suite_name TEXT NOT NULL DEFAULT ''")
 	require.Contains(t, suiteDDL, "suite_subtitle TEXT NOT NULL DEFAULT ''")
 	require.Contains(t, suiteDDL, "provider_label TEXT NOT NULL DEFAULT ''")
+	require.Contains(t, suiteDDL, "has_qr INTEGER NOT NULL DEFAULT 0")
 	require.Contains(t, suiteDDL, "path_prefix TEXT NOT NULL")
+
+	hasQR := findClientColumn(SuiteClientColumns(), "has_qr")
+	require.Equal(t, ColumnKindBool, hasQR.Kind)
+	require.True(t, hasQR.Optional)
+	require.Equal(t, "false", hasQR.Default)
 
 	checkInsert := insertSQL(ChecksCollectionName, checkColumns)
 	require.Contains(t, checkInsert, "INSERT INTO conformance_checks")

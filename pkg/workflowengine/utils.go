@@ -12,16 +12,27 @@ import (
 
 var validate = validator.New()
 
-// DecodePayload decodes a JSON payload into a given type.
-// It returns the decoded object and an error if the decoding fails.
-// This allows for the decoding of arbitrary JSON payloads into Go types.
-func DecodePayload[T any](input any) (T, error) {
+// DecodeOutput decodes a JSON-shaped value, such as an activity output, into T
+// through a JSON round-trip. Unlike DecodePayload it does not validate the
+// result, so T may be any type, including slices.
+func DecodeOutput[T any](output any) (T, error) {
 	var t T
-	b, err := json.Marshal(input)
+	b, err := json.Marshal(output)
 	if err != nil {
 		return t, err
 	}
 	if err := json.Unmarshal(b, &t); err != nil {
+		return t, err
+	}
+	return t, nil
+}
+
+// DecodePayload decodes a JSON payload into a given type.
+// It returns the decoded object and an error if the decoding fails.
+// This allows for the decoding of arbitrary JSON payloads into Go types.
+func DecodePayload[T any](input any) (T, error) {
+	t, err := DecodeOutput[T](input)
+	if err != nil {
 		return t, err
 	}
 	if err := validate.Struct(t); err != nil {

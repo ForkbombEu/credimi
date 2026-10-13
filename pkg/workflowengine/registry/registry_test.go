@@ -24,12 +24,12 @@ func TestRegistryContainsCoreTasks(t *testing.T) {
 
 	httpTask := Registry["http-request"]
 	require.Equal(t, TaskActivity, httpTask.Kind)
-	require.NotNil(t, httpTask.NewFunc())
+	require.NotNil(t, httpTask.NewFunc(nil))
 	require.NotNil(t, httpTask.PayloadType)
 
 	mobileTask := Registry["mobile-automation"]
 	require.Equal(t, TaskWorkflow, mobileTask.Kind)
-	require.NotNil(t, mobileTask.NewFunc())
+	require.NotNil(t, mobileTask.NewFunc(nil))
 	require.NotNil(t, mobileTask.PayloadType)
 	require.False(t, mobileTask.CustomTaskQueue)
 	require.NotNil(t, mobileTask.PipelinePayloadType)
@@ -45,7 +45,7 @@ func TestRegistryFactoriesCreateInstances(t *testing.T) {
 			t.Parallel()
 
 			require.NotNil(t, factory.NewFunc)
-			require.NotNil(t, factory.NewFunc())
+			require.NotNil(t, factory.NewFunc(nil))
 			require.Contains(t, []TaskKind{TaskActivity, TaskWorkflow}, factory.Kind)
 		})
 	}
@@ -128,15 +128,15 @@ func TestPipelineInternalRegistryContainsTasks(t *testing.T) {
 
 	require.Contains(t, PipelineInternalRegistry, "scheduled-pipeline-enqueue")
 	require.Contains(t, PipelineInternalRegistry, "mobile-device-semaphore-done")
-	require.Contains(t, PipelineInternalRegistry, "internal-http-request")
+	require.Contains(t, PipelineInternalRegistry, "mobile-runner-http-request")
 
 	task := PipelineInternalRegistry["scheduled-pipeline-enqueue"]
 	require.Equal(t, TaskWorkflow, task.Kind)
-	require.NotNil(t, task.NewFunc())
+	require.NotNil(t, task.NewFunc(nil))
 
-	internalHTTPTask := PipelineInternalRegistry["internal-http-request"]
-	require.Equal(t, TaskActivity, internalHTTPTask.Kind)
-	require.NotNil(t, internalHTTPTask.NewFunc())
+	runnerHTTPTask := PipelineInternalRegistry["mobile-runner-http-request"]
+	require.Equal(t, TaskActivity, runnerHTTPTask.Kind)
+	require.NotNil(t, runnerHTTPTask.NewFunc(nil))
 }
 
 func TestPipelineInternalRegistryFactoriesCreateInstances(t *testing.T) {
@@ -150,7 +150,7 @@ func TestPipelineInternalRegistryFactoriesCreateInstances(t *testing.T) {
 			t.Parallel()
 
 			require.NotNil(t, factory.NewFunc)
-			require.NotNil(t, factory.NewFunc())
+			require.NotNil(t, factory.NewFunc(nil))
 			require.Contains(t, []TaskKind{TaskActivity, TaskWorkflow}, factory.Kind)
 		})
 	}

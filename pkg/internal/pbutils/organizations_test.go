@@ -5,6 +5,7 @@
 package pbutils
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/pocketbase/dbx"
@@ -98,4 +99,56 @@ func TestGetOrganizationCanonifiedName(t *testing.T) {
 	name, err := GetOrganizationCanonifiedName(app, org.Id)
 	require.NoError(t, err)
 	require.Equal(t, org.GetString("canonified_name"), name)
+}
+
+func TestFindOrganizationByNamespace(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	org, err := app.FindFirstRecordByFilter(
+		"organizations",
+		"name={:name}",
+		dbx.Params{"name": "userA's organization"},
+	)
+	require.NoError(t, err)
+	namespace := org.GetString("canonified_name")
+	require.NotEmpty(t, namespace)
+
+	cases := []struct {
+		name      string
+		namespace string
+		wantID    string
+		wantNoRow bool
+	}{
+		{name: "found", namespace: namespace, wantID: org.Id},
+		{name: "found with surrounding spaces", namespace: " " + namespace + "\n", wantID: org.Id},
+		{name: "missing", namespace: "missing-organization", wantNoRow: true},
+		{name: "blank", namespace: "  ", wantNoRow: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := FindOrganizationByNamespace(app, tc.namespace)
+			if tc.wantNoRow {
+				require.ErrorIs(t, err, sql.ErrNoRows)
+				require.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.wantID, got.Id)
+		})
+	}
+}
+
+func TestFindOrganizationByNamespaceDatabaseError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	_, err = app.DB().NewQuery("DROP TABLE organizations").Execute()
+	require.NoError(t, err)
+
+	_, err = FindOrganizationByNamespace(app, "any-organization")
+	require.Error(t, err)
+	require.NotErrorIs(t, err, sql.ErrNoRows)
 }

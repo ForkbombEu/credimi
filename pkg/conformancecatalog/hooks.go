@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -61,11 +62,21 @@ func bootRebuild(app core.App, templatesDir string) error {
 func RebuildHTTP() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if err := Rebuild(""); err != nil {
-			return e.InternalServerError("conformance catalog rebuild failed", err)
+			return apierror.New(
+				http.StatusInternalServerError,
+				"catalog",
+				"conformance catalog rebuild failed",
+				err.Error(),
+			)
 		}
 		n, err := countEphemeralChecks()
 		if err != nil {
-			return e.InternalServerError("conformance catalog count failed", err)
+			return apierror.New(
+				http.StatusInternalServerError,
+				"catalog",
+				"conformance catalog count failed",
+				err.Error(),
+			)
 		}
 		return e.JSON(http.StatusOK, map[string]any{
 			"ok":     true,

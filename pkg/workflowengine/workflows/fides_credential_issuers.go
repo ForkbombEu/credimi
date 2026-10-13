@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -74,13 +73,6 @@ func (w *FidesCredentialIssuersWorkflow) ExecuteWorkflow(
 ) (workflowengine.WorkflowResult, error) {
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
 	issuerSchema, ok := input.Config["issuer_schema"].(string)
 	if !ok || issuerSchema == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -127,7 +119,6 @@ func (w *FidesCredentialIssuersWorkflow) ExecuteWorkflow(
 		issuerID, err := storeOrUpdateCredentialIssuerRecord(
 			ctx,
 			input,
-			appURL,
 			issuerURL,
 			orgID,
 			metadata.IssuerName,
@@ -148,7 +139,6 @@ func (w *FidesCredentialIssuersWorkflow) ExecuteWorkflow(
 				ctx,
 				input,
 				credentialIssuerCredentialStoreParams{
-					AppURL:         appURL,
 					IssuerID:       issuerID,
 					OrganizationID: orgID,
 				},
@@ -254,72 +244,40 @@ func fetchFidesCredentialIssuerURLs(
 func storeOrUpdateCredentialIssuerRecord(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
-	appURL string,
 	issuerURL string,
 	orgID string,
 	name string,
 	logo string,
 ) (string, error) {
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	var storeResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				appURL,
-				"api", "credentials_issuers", "store-or-update",
-			),
-			Body: map[string]any{
-				"url":   issuerURL,
-				"orgID": orgID,
-				"name":  name,
-				"logo":  logo,
-			},
-			ExpectedStatus: http.StatusOK,
+	if err := workflow.ExecuteActivity(ctx, activities.StoreCredentialIssuerActivityName, workflowengine.ActivityInput{
+		Payload: activities.StoreCredentialIssuerInput{
+			URL:   issuerURL,
+			OrgID: orgID,
+			Name:  name,
+			Logo:  logo,
 		},
 	}).
 		Get(ctx, &storeResult); err != nil {
 		return "", workflowengine.NewWorkflowError(err, input.RunMetadata)
 	}
 
-	body, ok := storeResult.Output.(map[string]any)["body"].(map[string]any)
-	if !ok {
+	stored, err := workflowengine.DecodePayload[activities.StoreCredentialIssuerOutput](
+		storeResult.Output,
+	)
+	if err != nil || stored.ID == "" {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: fmt.Sprintf("%s: body", internalHTTPActivity.Name()),
-			},
-		)
-		return "", workflowengine.NewWorkflowError(appErr, input.RunMetadata)
-	}
-	record, ok := body["record"].(map[string]any)
-	if !ok {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		appErr := workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("%s: body.record", internalHTTPActivity.Name()),
-			},
-		)
-		return "", workflowengine.NewWorkflowError(appErr, input.RunMetadata)
-	}
-	id, ok := record["id"].(string)
-	if !ok || id == "" {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		appErr := workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf("%s: body.record.id", internalHTTPActivity.Name()),
+				Message: fmt.Sprintf("%s: id", activities.StoreCredentialIssuerActivityName),
 			},
 		)
 		return "", workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 	}
 
-	return id, nil
+	return stored.ID, nil
 }
 
 func fidesCredentialIssuersFromActivityOutput(

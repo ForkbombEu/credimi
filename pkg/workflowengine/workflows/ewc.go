@@ -9,11 +9,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -161,7 +162,10 @@ func startEWCLikeWorkflow(
 ) (result workflowengine.WorkflowResult, err error) {
 	input = workflowengine.WithCredimiCapabilities(
 		input,
-		workflowengine.CredimiCapabilities{Logs: true},
+		workflowengine.CredimiCapabilities{
+			Logs: true,
+			QR:   ewcLikeSuiteHasQR(input),
+		},
 	)
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       workflowPrefix + uuid.NewString(),
@@ -173,6 +177,36 @@ func startEWCLikeWorkflow(
 		namespace = input.Config["namespace"].(string)
 	}
 	return startFn(namespace, workflowOptions, name, input)
+}
+
+// ewcLikeSuiteHasQR reads suite path axes from memo/config and looks up catalog has_qr.
+func ewcLikeSuiteHasQR(input workflowengine.WorkflowInput) bool {
+	memo, _ := input.Config["memo"].(map[string]any)
+	standard := ewcLikeMemoString(memo["standard"])
+	suite := ewcLikeMemoString(memo["author"])
+	version := ewcLikeMemoString(input.Config["version"])
+	if standard == "" || version == "" || suite == "" {
+		return false
+	}
+	return conformancecatalog.SuiteHasQR(
+		conformancecatalog.SuitePathPrefix(standard, version, suite),
+	)
+}
+
+// ewcLikeMemoString returns the string value of v when it is a string or a named
+// string type (reflect.String). Non-string kinds yield "" — no fmt.Sprint.
+func ewcLikeMemoString(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.String {
+		return rv.String()
+	}
+	return ""
 }
 
 // EWCStatusWorkflow is a workflow that checks the status of an EWC check.
@@ -307,7 +341,6 @@ func executeEWCLikeWorkflow(
 	workflowResult, err := pollEWCCheck(
 		ctx,
 		interval,
-		appURL,
 		checkEndpoint,
 		logsEndpoint,
 		sessionID,
@@ -328,14 +361,6 @@ func executeEWCLikeStatusWorkflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			input.RunMetadata,
-		)
-	}
-
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
 			input.RunMetadata,
 		)
 	}
@@ -363,7 +388,6 @@ func executeEWCLikeStatusWorkflow(
 	result, err := pollEWCCheck(
 		ctx,
 		interval,
-		workflowengine.InternalAppURLFromConfig(input.Config),
 		checkEndpoint,
 		logsEndpoint,
 		payload.SessionID,
@@ -427,7 +451,6 @@ func resolveEWCLikeBaseURL(suite string, standard string) (string, error) {
 func pollEWCCheck(
 	ctx workflow.Context,
 	interval time.Duration,
-	appURL string,
 	checkEndpoint string,
 	logsEndpoint string,
 	sessionID string,
@@ -441,26 +464,13 @@ func pollEWCCheck(
 	pipelineCancelChan := workflow.GetSignalChannel(ctx, PipelineCancelSignal)
 	selector := workflow.NewSelector(ctx)
 
-	// If flag is true → start polling right away
-	isPolling := startImmediately
 	var canceled bool
+	timer := newPollTimer(ctx, selector, interval)
+	var logsTracker realtimeLogsTracker
 
-	var timerFuture workflow.Future
-	var startTimer func()
-
-	startTimer = func() {
-		timerCtx, _ := workflow.WithCancel(ctx)
-		timerFuture = workflow.NewTimer(timerCtx, interval)
-		selector.AddFuture(timerFuture, func(_ workflow.Future) {
-			if isPolling {
-				startTimer()
-			}
-		})
-	}
-
-	// Automatically start timer if startImmediately == true
+	// If flag is true → start polling right away, first poll after one interval.
 	if startImmediately {
-		startTimer()
+		timer.start(false)
 		logger.Info("EWC polling started (startImmediately=true)")
 	}
 
@@ -483,29 +493,28 @@ func pollEWCCheck(
 	selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 		c.Receive(ctx, &signalData)
 
-		if !isPolling {
-			isPolling = true
-			startTimer()
+		if !timer.polling {
+			timer.start(true)
 			logger.Info("EWC polling started (signal)")
 		}
 	})
 
 	selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 		c.Receive(ctx, &signalData)
-		isPolling = false
+		timer.stop()
 		logger.Info("EWC polling stopped (signal)")
 	})
 
 	for {
 		selector.Select(ctx)
 
-		if canceled {
+		if canceled || ctx.Err() != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
 				runMetadata,
 			)
 		}
 
-		if !isPolling {
+		if !timer.takeTick() {
 			continue
 		}
 
@@ -561,10 +570,9 @@ func pollEWCCheck(
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
 		}
-		if len(logs) > 0 {
+		if len(logs) > 0 && logsTracker.changed(logs) {
 			if err := notifyEWCLikeLogs(
 				ctx,
-				appURL,
 				workflow.GetInfo(ctx).WorkflowExecution.ID,
 				logs,
 				runMetadata,
@@ -680,21 +688,14 @@ func extractEWCLikeLogs(logsResponse any) []map[string]any {
 
 func notifyEWCLikeLogs(
 	ctx workflow.Context,
-	appURL string,
 	workflowID string,
 	logs []map[string]any,
 	runMetadata *workflowengine.WorkflowRunMetadata,
 ) error {
-	if appURL == "" {
-		return nil
-	}
-
 	if err := sendRealtimeLogsUpdate(
 		ctx,
-		utils.JoinURL(appURL, "api", "compliance", "send-ewc-log-update"),
-		strings.TrimSuffix(workflowID, "-status"),
+		strings.TrimSuffix(workflowID, "-status")+EWCSubscription,
 		logs,
-		"",
 	); err != nil {
 		return workflowengine.NewWorkflowError(err, runMetadata)
 	}

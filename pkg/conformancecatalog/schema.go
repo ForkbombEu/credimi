@@ -16,6 +16,7 @@ const (
 	ColumnKindString      ColumnKind = "string"
 	ColumnKindInt         ColumnKind = "int"
 	ColumnKindNonNegInt   ColumnKind = "nonNegInt"
+	ColumnKindBool        ColumnKind = "bool"
 	ColumnKindStringArray ColumnKind = "stringArray"
 	ColumnKindMemberArray ColumnKind = "memberArray"
 )
@@ -233,6 +234,14 @@ var suiteColumns = []columnSpec{
 		Kind:     ColumnKindString,
 		Optional: true,
 		Default:  "''",
+	},
+	{
+		Name:     "has_qr",
+		SQLType:  "INTEGER NOT NULL DEFAULT 0",
+		Client:   true,
+		Kind:     ColumnKindBool,
+		Optional: true,
+		Default:  "false",
 	},
 	{
 		Name:    "check_count",

@@ -96,6 +96,7 @@ func projectSuites(
 					SuiteHelp:        disp.Help,
 					SuiteDescription: disp.Description,
 					SuiteLogo:        disp.Logo,
+					HasQR:            disp.HasQR,
 					FSStandard:       ch.FSStandard,
 					FSVersion:        ch.FSVersion,
 					PathPrefix:       prefix,

@@ -103,9 +103,9 @@ func TestGetCloneRecord(t *testing.T) {
 			Body: strings.NewReader(`{
 				"id": "crede1234567890",
 				"collection": "credentials",`), // JSON malformato
-			ExpectedStatus: 500,
+			ExpectedStatus: 400,
 			ExpectedContent: []string{
-				`"message":"Invalid JSON."`,
+				`"reason":"invalid JSON input"`,
 			},
 			TestAppFactory: setupApp(orgID),
 		},
@@ -121,9 +121,9 @@ func TestGetCloneRecord(t *testing.T) {
 				"id": "crede1234567890",
 				"collection": ""
 			}`),
-			ExpectedStatus: 500,
+			ExpectedStatus: 400,
 			ExpectedContent: []string{
-				`"message":"Id and collection are required."`,
+				`"reason":"id and collection are required"`,
 			},
 			TestAppFactory: setupApp(orgID),
 		},
@@ -139,9 +139,9 @@ func TestGetCloneRecord(t *testing.T) {
 				"id": "crede1234567890",
 				"collection": "coll"
 			}`),
-			ExpectedStatus: 500,
+			ExpectedStatus: 400,
 			ExpectedContent: []string{
-				`"message":"Collection 'coll' not supported for cloning."`,
+				`"message":"Collection 'coll' not supported for cloning"`,
 			},
 			TestAppFactory: setupApp(orgID),
 		},
@@ -175,9 +175,9 @@ func TestGetCloneRecord(t *testing.T) {
 				"id": "crede1234567890",
 				"collection": "credentials"
 			}`),
-			ExpectedStatus: 500,
+			ExpectedStatus: 401,
 			ExpectedContent: []string{
-				`"message":"Authentication required."`,
+				`"reason":"authentication required"`,
 			},
 			TestAppFactory: setupApp(orgID),
 		},
@@ -193,9 +193,9 @@ func TestGetCloneRecord(t *testing.T) {
 				"id": "crede1234567890",
 				"collection": "credentials"
 			}`),
-			ExpectedStatus: 500,
+			ExpectedStatus: 403,
 			ExpectedContent: []string{
-				`"message":"Not authorized for this organization."`,
+				`"reason":"not authorized for this organization"`,
 			},
 			TestAppFactory: setupApp(orgID),
 		},
@@ -501,9 +501,9 @@ func TestCloneRecord_WithBeforeSave(t *testing.T) {
 				"id": "tikklnj1uh32237",
 				"collection": "pipelines"
 			}`),
-			ExpectedStatus: 500,
+			ExpectedStatus: 403,
 			ExpectedContent: []string{
-				`"message":"Not authorized for this organization."`,
+				`"reason":"not authorized for this organization"`,
 			},
 			TestAppFactory: setupAppWithPipelines(orgID),
 		},
@@ -518,9 +518,9 @@ func TestCloneRecord_WithBeforeSave(t *testing.T) {
 				"id": "tikklnj1uh32237",
 				"collection": "pipelines"
 			}`),
-			ExpectedStatus: 500,
+			ExpectedStatus: 401,
 			ExpectedContent: []string{
-				`"message":"Authentication required."`,
+				`"reason":"authentication required"`,
 			},
 			TestAppFactory: setupAppWithPipelines(orgID),
 		},

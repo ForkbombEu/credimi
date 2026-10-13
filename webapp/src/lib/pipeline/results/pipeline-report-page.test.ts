@@ -24,12 +24,18 @@ describe('validatePipelineReportUrl', () => {
 		).toBe('https://app.test/api/files/pipeline_results/rec123/run_report.md');
 	});
 
-	it('rejects cross-origin URLs', () => {
+	it('rebases pipeline_results URLs from another host onto the page origin', () => {
 		expect(
 			validatePipelineReportUrl(
-				'https://evil.test/api/files/pipeline_results/rec123/run_report.md',
+				'http://archlinux:8090/api/files/pipeline_results/rec123/run_report.md?download=1',
 				origin
 			)
+		).toBe('https://app.test/api/files/pipeline_results/rec123/run_report.md?download=1');
+	});
+
+	it('rejects non-http URLs', () => {
+		expect(
+			validatePipelineReportUrl('javascript:/api/files/pipeline_results/rec123/x', origin)
 		).toBeUndefined();
 	});
 

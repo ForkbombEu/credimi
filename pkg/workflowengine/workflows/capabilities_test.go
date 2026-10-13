@@ -19,11 +19,22 @@ func requireWorkflowLogsCapability(
 	t.Helper()
 	memo, ok := input.Config["memo"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(
-		t,
-		workflowengine.CredimiCapabilities{Logs: expected},
-		memo[workflowengine.CredimiCapabilitiesMemoKey],
-	)
+	caps, ok := memo[workflowengine.CredimiCapabilitiesMemoKey].(workflowengine.CredimiCapabilities)
+	require.True(t, ok)
+	require.Equal(t, expected, caps.Logs)
+}
+
+func requireWorkflowQRCapability(
+	t *testing.T,
+	input workflowengine.WorkflowInput,
+	expected bool,
+) {
+	t.Helper()
+	memo, ok := input.Config["memo"].(map[string]any)
+	require.True(t, ok)
+	caps, ok := memo[workflowengine.CredimiCapabilitiesMemoKey].(workflowengine.CredimiCapabilities)
+	require.True(t, ok)
+	require.Equal(t, expected, caps.QR)
 }
 
 func TestConformanceSuiteHasLogs(t *testing.T) {

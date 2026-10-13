@@ -6,6 +6,7 @@ package canonify
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -18,9 +19,9 @@ type mockDB struct {
 	existing map[string]struct{}
 }
 
-func (m *mockDB) Exists(name string) bool {
+func (m *mockDB) Exists(name string) (bool, error) {
 	_, ok := m.existing[name]
-	return ok
+	return ok, nil
 }
 
 func makeMock(names ...string) *mockDB {
@@ -173,6 +174,33 @@ func TestCanonifyBLNS(t *testing.T) {
 			exp, ok := expected[s]
 			require.True(t, ok, "no expected output for input %q", s)
 			require.Equal(t, exp, got, "output changed for input %q", s)
+		})
+	}
+}
+
+func TestCanonifyStopsAtFirstExistsError(t *testing.T) {
+	lookupErr := errors.New("lookup failed")
+	cases := []struct {
+		name      string
+		failAt    int
+		wantCalls int
+	}{
+		{name: "base name lookup fails", failAt: 1, wantCalls: 1},
+		{name: "suffix lookup fails", failAt: 3, wantCalls: 3},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			exists := func(string) (bool, error) {
+				calls++
+				if calls == tc.failAt {
+					return false, lookupErr
+				}
+				return true, nil
+			}
+			_, err := Canonify("name", exists)
+			require.ErrorIs(t, err, lookupErr)
+			require.Equal(t, tc.wantCalls, calls)
 		})
 	}
 }

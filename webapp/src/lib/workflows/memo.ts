@@ -21,7 +21,13 @@ export type WorkflowMemo = {
 	author: string;
 	standard: string;
 	test: string;
+	has_qr?: boolean;
 };
+
+const credimiCapabilitiesSchema = z.object({
+	logs: z.boolean().optional(),
+	qr: z.boolean().optional()
+});
 
 /** Parse Credimi memo fields from Temporal describe `memo` (protojson). */
 export function getWorkflowMemo(memo: unknown): WorkflowMemo | undefined {
@@ -39,7 +45,8 @@ export function getWorkflowMemo(memo: unknown): WorkflowMemo | undefined {
 		return {
 			author,
 			standard,
-			test
+			test,
+			has_qr: memoFieldHasQR(fields['credimi_capabilities'])
 		};
 	} catch (error) {
 		warn('Failed to parse memo:', error);
@@ -54,5 +61,15 @@ function memoFieldToText(field: MemoField | undefined) {
 		return atob(data).replaceAll('"', '').trim();
 	} catch (error) {
 		throw new Error(`Failed to decode memo field: ${error}`);
+	}
+}
+
+function memoFieldHasQR(field: MemoField | undefined): boolean {
+	if (!field) return false;
+	try {
+		const parsed = credimiCapabilitiesSchema.safeParse(JSON.parse(atob(field.data)));
+		return parsed.success ? Boolean(parsed.data.qr) : false;
+	} catch {
+		return false;
 	}
 }

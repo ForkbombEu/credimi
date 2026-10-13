@@ -29,8 +29,9 @@ var DefaultOptions = CanonifyOptions{
 }
 
 // ExistsFunc is the callback used to ask if a candidate already exists in DB.
-// Should be deterministic.
-type ExistsFunc func(name string) bool
+// Should be deterministic. A non-nil error means the lookup itself failed;
+// Canonify returns it instead of trying further candidates.
+type ExistsFunc func(name string) (bool, error)
 
 // ErrExhaustedAttempts returned when we couldn't find a free name within MaxAttempts.
 var ErrExhaustedAttempts = errors.New("could not find unique name: exhausted attempts")
@@ -52,7 +53,11 @@ func CanonifyWithOptions(in string, exists ExistsFunc, opts CanonifyOptions) (st
 	out := canonifyCore(in, opts)
 
 	// Now check uniqueness deterministically: try out, out-1, out-2, ...
-	if !exists(out) {
+	taken, err := exists(out)
+	if err != nil {
+		return "", err
+	}
+	if !taken {
 		return out, nil
 	}
 
@@ -60,7 +65,11 @@ func CanonifyWithOptions(in string, exists ExistsFunc, opts CanonifyOptions) (st
 	// We'll append "-<counter>" using decimal; this is simple, deterministic and readable.
 	for i := 1; i <= opts.MaxAttempts; i++ {
 		candidate := fmt.Sprintf("%s%c%d", out, opts.Separator, i)
-		if !exists(candidate) {
+		taken, err := exists(candidate)
+		if err != nil {
+			return "", err
+		}
+		if !taken {
 			return candidate, nil
 		}
 	}

@@ -307,14 +307,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-09-10 — Temporal callbacks behind Cloudflare WAF
 
-- status: resolved
+- status: resolved (superseded)
 - owner: human maintainer
 - context: Temporal activities used the persisted public `app_url`, causing Cloudflare WAF/browser challenges to block server-to-server callbacks. Public links must remain on `app_url`, while callbacks need an origin-reachable URL.
 - question: How should deployments provide a callback URL without making persisted workflow links private?
 - options considered: Replace `app_url` globally with a compose hostname; add a separate optional internal URL with public fallback; add Cloudflare allow rules for every worker egress IP.
 - default risk: A private hostname in `app_url` breaks browsers, external runners, schedules, and cross-instance workers; WAF allowlists are operationally brittle.
 - decision: Use `CREDIMI_INTERNAL_APP_URL`, injected as separate workflow config `internal_app_url`; callback consumers prefer it and fall back to public `app_url`. Production deployments must provision all required credentials explicitly; Docker Compose does not add development host aliases.
-- follow-up: Non-Compose deployments must set `CREDIMI_INTERNAL_APP_URL` to a DNS name reachable from every Temporal worker that executes these workflows.
+- follow-up: Superseded on 2026-10-06: workers no longer call Credimi over HTTP (typed activities with `core.App`), so `CREDIMI_INTERNAL_APP_URL` and `internal_app_url` were removed. Deployments no longer need to set it.
 
 ## 2026-09-10 — Test app lifecycle: per-test `tests.NewTestApp` retained
 
@@ -370,14 +370,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-09-30 - AGENTS.md names pipeline/runner surfaces that no longer exist
 
-- status: open
+- status: resolved
 - owner: human maintainer
 - context: While writing the `credimi` skill, three `AGENTS.md` claims were checked against code and do not hold in this worktree: (1) "UI calls `POST /api/pipeline/start`" — no such route exists under `/api/pipeline` (`pkg/internal/apis/handlers/pipeline_handler.go`); the GUI (`webapp/src/lib/pipeline/queue.ts`) and the CLI both use `POST /api/pipeline/queue`, which starts device-less pipelines directly. (2) The external runner HTTP contract lists `POST {runner_url}/fetch-apk-and-action` and `/store-pipeline-result`; the code calls `/credimi/installer-action` and `/credimi/pipeline-result` (`pkg/workflowengine/pipeline/mobile_automation_hooks.go`). (3) `X-Api-Key` is documented for internal-admin routes; the middleware reads `Credimi-Api-Key` (`pkg/internal/middlewares/auth_api_key.go`, `pkg/internal/apis/handlers/api_key_service.go`); the same stale header appears in `docs/src/content/docs/software-architecture/scoreboard.md` and a comment in `pkg/conformancecatalog/store.go`.
 - question: Update `AGENTS.md` (and the scoreboard doc/comment) to the current routes and header, or treat the documented names as the intended contract and change the code back?
 - options considered: (a) fix the docs/comments to match code; (b) add compatibility aliases for the old runner endpoints and accept `X-Api-Key` as an alias; (c) add a `/api/pipeline/start` alias.
 - default risk: Agents and docs keep describing endpoints that 404, and sibling `credimi-extra` implementers may build against the wrong runner paths.
-- decision:
-- follow-up: Confirm (a) and update `AGENTS.md` "Dynamic Pipeline Workflow", "External runner HTTP contract" and "Routes, DTOs, Auth, Errors" sections.
+- decision: (1) resolved 2026-10-06 by the user: option (a), `AGENTS.md` "Dynamic Pipeline Workflow" now documents `POST /api/pipeline/queue` as the only run entrypoint. (3) applied: `AGENTS.md`, the scoreboard doc and the `pkg/conformancecatalog/store.go` comment now name `Credimi-Api-Key`. (2) resolved 2026-10-07 by the user: option (a), the "External runner HTTP contract" in `AGENTS.md` now documents `POST {runner_url}/credimi/installer-action` and `POST {runner_url}/credimi/pipeline-result` with `log_path` and `platform`, matching `mobile_automation_hooks.go` and `credimi-runner` (`pkg/design/runner_server.go`).
+- follow-up: None.
 
 ### 2026-10-01 - FCAF complete-validation exceeds Temporal 4 MB gRPC message limit
 
@@ -445,11 +445,31 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-10-05 - Server App URL reaches `InternalHTTPActivity` through a process-level source
 
-- status: open (agent default; human may revisit)
+- status: resolved (superseded)
 - owner: human maintainer
 - context: Finding `credimi/workflowengine/internal-app-url-from-user-config`. `InternalHTTPActivity` attaches `CREDIMI_INTERNAL_ADMIN_KEY` to a URL built from workflow config. The fix strips `app_url`/`internal_app_url` from user-controlled config (`MergeConfigs`, the pipeline YAML fill-in in `PipelineWorkflow.Start` and `StartQueuedPipelineActivity`, the rerun body copy) and makes the activity reject any destination whose origin is not `CREDIMI_INTERNAL_APP_URL` or the PocketBase App URL. The activity has no app handle: `NewInternalHTTPActivity()` takes no arguments and is built in ~30 places, including static worker lists and the step registry.
 - question: Should the server App URL reach the activity by dependency injection instead of `workflowengine.SetServerAppURLSource`, which `hooks.WorkersHook` calls once per process?
 - options considered: (a) process-level source registered at worker startup, read on each call so App URL edits apply without restart (chosen); (b) constructor injection through every `NewInternalHTTPActivity` call site, worker list and registry factory; (c) accept only `CREDIMI_INTERNAL_APP_URL`, which production Compose requires but other deployments may not set.
 - default risk: (a) is a package-level registration, which `AGENTS.md` discourages; a worker process that never calls `WorkersHook` and has no `CREDIMI_INTERNAL_APP_URL` fails closed with `no Credimi base URL is configured`. `credimi-extra` runner workers do not register this activity.
-- decision: pending human.
-- follow-up: The other admin-key senders (`postInternalJSON`, `SendPipelineCompletionNotificationActivity`, `postPipelineExecutionResult`, `CleanupMobileDeviceSemaphoreResourcesActivity`) take their base from the same now-stripped config or from server payloads but do not check the destination origin themselves; decide whether they should call `ValidateInternalAppURLDestination` too.
+- decision: Superseded on 2026-10-06 by the approved plan that removed worker-to-Credimi HTTP: `InternalHTTPActivity`, `SetServerAppURLSource`, `CREDIMI_INTERNAL_APP_URL` and `internal_app_url` no longer exist. Workers reach Credimi data through typed activities that receive `core.App` (`activities.CredimiActivities(app)`), and `app_url` is written only by `workflowengine.WithAppConfig` from PocketBase Settings.
+- follow-up: None. No admin-key sender targets Credimi anymore; the internal admin key is sent to runners through `mobile-runner-http-request` and, as the approved exception (2026-09-25), by the direct `POST {runner_url}/credimi/live-view` call in `pkg/internal/apis/handlers/pipeline_live_view_handler.go`.
+
+### 2026-10-08 - Changing API rules of a PocketBase system collection (`orgAuthorizations`)
+
+- status: open (agent default applied; human may revisit)
+- owner: human maintainer
+- context: Finding `credimi/pb-rules/orgauthorizations-public-list`. `orgAuthorizations` had `listRule`/`viewRule` `""`, so anonymous callers and other tenants listed every organization's members. `orgAuthorizations` is `system: true` (from `migrations/pb_schema.json`), and PocketBase rejects API rule changes and `system` flag changes on system collections in validated saves (`validation_collection_system_rule_change`, `validation_collection_system_flag_change`). `pb_migrations/1791465595_restrict_org_authorizations_read.js` sets both rules to `user.id = @request.auth.id || (same-org member)` with `app.saveNoValidate`. The join page (`webapp/src/routes/my/organizations/join`) found joinable organizations through other tenants' memberships; it now excludes the caller's own organizations instead, so organizations without any membership are also listed.
+- question: Is `app.saveNoValidate` in a migration the accepted way to change rules of the template's system collections (`orgAuthorizations`, `orgRoles`, `orgJoinRequests`, `org_invites`, ...)?
+- options considered: (a) `saveNoValidate` on the rule fields only (applied); (b) raw SQL update of `_collections` (also skips validation, bypasses the collection model); (c) drop `system` from these collections (needs raw SQL too, and removes the PocketBase admin-UI guard).
+- default risk: rule syntax is not validated on save; `TestOrgAuthorizationsReadRulesScopeToMembers` exercises the rules through the records API, so a broken rule fails the suite.
+- decision: (a).
+- follow-up: None unless the maintainer prefers another approach.
+
+### 2026-10-08 - `z_test_collection` accepts anonymous writes
+
+- status: open
+- owner: human maintainer
+- context: Finding `credimi/pb-rules/news-public-create`. `news` was fixed by `pb_migrations/1791464765_restrict_news_create.js` (`createRule` null). `z_test_collection` (`migrations/pb_schema.json`, id `ktjgpqf146ss2ia`) has the same root pattern: `createRule`, `updateRule` and `deleteRule` are `""`, so anyone can create, edit or delete its rows. It is a fixture collection used only by the unguarded webapp `/ui-tests/*` pages and `webapp/e2e/nru/collection-manager.spec.ts` (userA creates a record). It is `system: true`, so PocketBase rejects any rule change through `app.save` (`System collection API rule cannot be changed`).
+- question: Restrict `z_test_collection` writes, and how?
+- options considered: (a) superuser-only rules saved with `app.saveNoValidate` (new migration pattern; breaks the `/ui-tests` write pages and the e2e create); (b) logged-in create plus the owner/authorization expression of `listRule` for update/delete, saved with `app.saveNoValidate`; (c) remove the collection and `/ui-tests` from production builds; (d) leave as is.
+- default risk: Anonymous writes stay open on a fixture collection that exists in every deployment; impact limited to junk test rows.

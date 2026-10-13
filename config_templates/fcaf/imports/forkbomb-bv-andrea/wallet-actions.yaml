@@ -2,10 +2,6 @@ organization: forkbomb-bv-andrea
 wallet: eudiw-beta-wallet
 version: 2026-06-38-demo
 actions:
-  - name: onboarding-1
-    category: onboarding
-    tags: 2026.06.38
-    file: wallet/onboarding-1.yaml
   - name: getcredential-pid-formeu-issuer-eudiw-dev
     category: get-credential-specific
     tags: fcaf, pid, formeu
@@ -14,6 +10,10 @@ actions:
     category: get-credential-generic
     tags: fcaf, credential, generic
     file: wallet/getcredential-generic-credential-without-authentication.yaml
+  - name: fcaf-expect-credential-rejected
+    category: get-credential-generic
+    tags: fcaf, expect, rejected, credential
+    file: wallet/fcaf-expect-credential-rejected.yaml
   - name: verifycredential-pid-formeu-issuer-eudiw-dev
     category: verify-credential
     tags: fcaf, pid, formeu
@@ -26,6 +26,10 @@ actions:
     category: other
     tags: fcaf, helper
     file: wallet/choose-eudi-wallet.yaml
+  - name: fcaf-reset-and-onboard
+    category: onboarding
+    tags: fcaf, helper, reset, onboarding
+    file: wallet/fcaf-reset-and-onboard.yaml
   - name: fcaf-engagement-haip-vp
     category: verify-credential
     tags: fcaf, engagement, haip-vp
@@ -46,6 +50,10 @@ actions:
     category: verify-credential
     tags: fcaf, dc-api, present
     file: wallet/fcaf-dc-api-present.yaml
+  - name: fcaf-dc-api-expect-rejected
+    category: verify-credential
+    tags: fcaf, dc-api, expect, rejected
+    file: wallet/fcaf-dc-api-expect-rejected.yaml
   - name: fcaf-submit-request-object-by-value
     category: verify-credential
     tags: fcaf, request-object, by-value

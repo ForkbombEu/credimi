@@ -130,6 +130,8 @@ func exportedFieldName(col string) string {
 			b.WriteString("FS")
 		case "sut":
 			b.WriteString("SUT")
+		case "qr":
+			b.WriteString("QR")
 		default:
 			if p == "" {
 				continue
@@ -146,6 +148,8 @@ func goType(kind conformancecatalog.ColumnKind) string {
 		return "string"
 	case conformancecatalog.ColumnKindInt, conformancecatalog.ColumnKindNonNegInt:
 		return "int"
+	case conformancecatalog.ColumnKindBool:
+		return "bool"
 	case conformancecatalog.ColumnKindStringArray:
 		return "stringArray"
 	case conformancecatalog.ColumnKindMemberArray:
@@ -167,12 +171,13 @@ func columnsTS(checks, suites []conformancecatalog.ClientColumn) string {
  * stubs (generate.collections-models.ts stitches; it does not re-map Kind).
  */
 
-export type CatalogColumnPbType = 'text' | 'number' | 'json';
+export type CatalogColumnPbType = 'text' | 'number' | 'bool' | 'json';
 
 export type CatalogColumnKind =
 	| 'string'
 	| 'int'
 	| 'nonNegInt'
+	| 'bool'
 	| 'stringArray'
 	| 'memberArray';
 `)
@@ -263,6 +268,8 @@ func pbType(kind conformancecatalog.ColumnKind) string {
 		return "text"
 	case conformancecatalog.ColumnKindInt, conformancecatalog.ColumnKindNonNegInt:
 		return "number"
+	case conformancecatalog.ColumnKindBool:
+		return "bool"
 	case conformancecatalog.ColumnKindStringArray, conformancecatalog.ColumnKindMemberArray:
 		return "json"
 	default:
@@ -309,6 +316,8 @@ func zodBase(kind conformancecatalog.ColumnKind) string {
 		return "z.number().int()"
 	case conformancecatalog.ColumnKindNonNegInt:
 		return "z.number().int().nonnegative()"
+	case conformancecatalog.ColumnKindBool:
+		return "z.boolean()"
 	case conformancecatalog.ColumnKindStringArray:
 		return "z.array(z.string())"
 	case conformancecatalog.ColumnKindMemberArray:
@@ -335,6 +344,8 @@ func tsType(kind conformancecatalog.ColumnKind) string {
 		return "string"
 	case conformancecatalog.ColumnKindInt, conformancecatalog.ColumnKindNonNegInt:
 		return "number"
+	case conformancecatalog.ColumnKindBool:
+		return "boolean"
 	case conformancecatalog.ColumnKindStringArray:
 		return "string[]"
 	case conformancecatalog.ColumnKindMemberArray:

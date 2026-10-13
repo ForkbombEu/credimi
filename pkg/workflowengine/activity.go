@@ -9,6 +9,7 @@ package workflowengine
 import (
 	"context"
 	"os/exec"
+	"sync"
 	"syscall"
 	"time"
 
@@ -81,11 +82,20 @@ func (a *BaseActivity) NewActivityError(
 func (a *BaseActivity) NewNonRetryableActivityError(
 	failure ActivityError,
 ) error {
+	return a.NewNonRetryableActivityErrorWithCause(failure, nil)
+}
+
+// NewNonRetryableActivityErrorWithCause is NewNonRetryableActivityError with a
+// cause that errors.Is and errors.As can match.
+func (a *BaseActivity) NewNonRetryableActivityErrorWithCause(
+	failure ActivityError,
+	cause error,
+) error {
 	failure = a.withActivityName(failure)
 	return temporal.NewNonRetryableApplicationError(
 		errorMessage(failure.Summary, failure.Message),
 		failure.Code,
-		nil,
+		cause,
 		failure,
 	)
 }
@@ -106,6 +116,21 @@ func (a *BaseActivity) NewMissingOrInvalidPayloadError(err error) error {
 			Message: err.Error(),
 		},
 	)
+}
+
+// NewCodedError builds an activity error for the errorcodes key code with
+// err as its message; it is non-retryable unless retryable is true.
+func (a *BaseActivity) NewCodedError(code string, retryable bool, err error) error {
+	errCode := errorcodes.Codes[code]
+	failure := ActivityError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: err.Error(),
+	}
+	if retryable {
+		return a.NewActivityError(failure)
+	}
+	return a.NewNonRetryableActivityError(failure)
 }
 
 func RunCommandWithCancellation(
@@ -150,18 +175,43 @@ func RunCommandWithCancellation(
 			return err
 
 		case <-ticker.C:
-			safeRecordActivityHeartbeat(ctx, "running")
+			RecordHeartbeat(ctx, "running")
 		}
 	}
 }
 
-func safeRecordActivityHeartbeat(ctx context.Context, details ...any) {
-	defer func() {
-		// RecordHeartbeat panics if the context is not an activity context.
-		// RunCommandWithCancellation is also used in unit tests with plain contexts.
-		_ = recover()
-	}()
+// RecordHeartbeat records an activity heartbeat. It is a no-op outside an
+// activity context, so helpers shared with plain-context callers can use it.
+func RecordHeartbeat(ctx context.Context, details ...any) {
+	if !activity.IsActivity(ctx) {
+		return
+	}
 	activity.RecordHeartbeat(ctx, details...)
+}
+
+// StartHeartbeat records a heartbeat with details every interval until the
+// returned stop is called or ctx is done.
+func StartHeartbeat(ctx context.Context, every time.Duration, details ...any) (stop func()) {
+	if !activity.IsActivity(ctx) {
+		return func() {}
+	}
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(every)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				RecordHeartbeat(ctx, details...)
+			}
+		}
+	}()
+	var once sync.Once
+	return func() { once.Do(func() { close(done) }) }
 }
 
 // OutputKind represents the expected type of an activity output.

@@ -38,7 +38,7 @@ var realtimeLogTopics = []struct {
 
 // RegisterRealtimeLogsAuthorizationHook strips realtime subscriptions to
 // workflow log topics that the requester's organization does not own.
-// notifyLogsUpdate delivers by topic name only, so this hook is the access
+// realtimelogs.Notify delivers by topic name only, so this hook is the access
 // decision for log streams: guests hold no log topics, and users only hold
 // topics of workflows that exist in their organization namespace.
 func RegisterRealtimeLogsAuthorizationHook(app core.App) {

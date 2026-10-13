@@ -35,8 +35,7 @@ assertions:
   validator: oid4vp.response_encryption
   input: evidence.encryption_evidence
   params:
-    expected_enc: A128GCM
-    metadata_enc_absent: true
+    require_compact_jwe: true
 - id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

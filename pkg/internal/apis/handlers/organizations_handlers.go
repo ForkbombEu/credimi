@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
 
@@ -38,7 +39,11 @@ var OrganizationRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 	},
 }
-var OrganizationTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
+
+// OrganizationInternalRoutes are guarded by the internal admin key.
+// GET /api/organizations/namespaces is called by admin-managed runners
+// (credimi-runner) to list the namespaces they serve.
+var OrganizationInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/organizations",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
@@ -84,7 +89,7 @@ func HandleGetMyOrganization() func(*core.RequestEvent) error {
 
 func HandleGetAllNamespaces() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		records, err := e.App.FindAllRecords("organizations")
+		namespaces, err := allOrganizationNamespaces(e.App)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -94,17 +99,27 @@ func HandleGetAllNamespaces() func(*core.RequestEvent) error {
 			)
 		}
 
-		namespaces := make([]string, 0, len(records))
-		for _, record := range records {
-			if canonified := record.GetString("canonified_name"); canonified != "" {
-				namespaces = append(namespaces, canonified)
-			}
-		}
-
 		return e.JSON(http.StatusOK, map[string]interface{}{
 			"namespaces": namespaces,
 		})
 	}
+}
+
+// allOrganizationNamespaces returns the canonified name of every organization
+// that has one.
+func allOrganizationNamespaces(app core.App) ([]string, error) {
+	records, err := app.FindAllRecords("organizations")
+	if err != nil {
+		return nil, fmt.Errorf("fetch organizations: %w", err)
+	}
+
+	namespaces := make([]string, 0, len(records))
+	for _, record := range records {
+		if canonified := record.GetString("canonified_name"); canonified != "" {
+			namespaces = append(namespaces, canonified)
+		}
+	}
+	return namespaces, nil
 }
 
 func HandleGetVisibleOrganizationNamespaces() func(*core.RequestEvent) error {

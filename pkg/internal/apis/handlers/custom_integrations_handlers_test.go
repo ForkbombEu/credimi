@@ -183,7 +183,7 @@ func TestHandleRunCustomIntegrationSuccess(t *testing.T) {
 func TestProcessCustomChecksEmptyYAML(t *testing.T) {
 	result, err := processCustomChecks(
 		"",
-		"https://app.example",
+		nil,
 		"ns-1",
 		map[string]interface{}{"author": "custom"},
 		nil,
@@ -207,7 +207,7 @@ func TestProcessCustomChecksStartError(t *testing.T) {
 
 	result, err := processCustomChecks(
 		"steps: []\n",
-		"https://app.example",
+		newStarterTestApp(t),
 		"ns-1",
 		map[string]interface{}{"author": "custom"},
 		nil,
@@ -239,7 +239,7 @@ func TestProcessCustomChecksSuccess(t *testing.T) {
 
 	result, err := processCustomChecks(
 		"steps: []\n",
-		"https://app.example.com",
+		newStarterTestApp(t),
 		"ns",
 		map[string]interface{}{"author": "custom-user"},
 		map[string]any{"foo": "bar"},

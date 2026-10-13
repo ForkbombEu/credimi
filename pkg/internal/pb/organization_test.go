@@ -5,126 +5,48 @@
 package pb
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.temporal.io/api/serviceerror"
-	"go.temporal.io/api/workflowservice/v1"
-	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/mocks"
 )
 
-type fakeNamespaceClient struct {
-	describeErrs  []error
-	describeCalls int
-}
-
-func (f *fakeNamespaceClient) Register(
-	_ context.Context,
-	_ *workflowservice.RegisterNamespaceRequest,
-) error {
-	return nil
-}
-
-func (f *fakeNamespaceClient) Describe(
-	_ context.Context,
-	_ string,
-) (*workflowservice.DescribeNamespaceResponse, error) {
-	f.describeCalls++
-	if len(f.describeErrs) > 0 {
-		err := f.describeErrs[0]
-		f.describeErrs = f.describeErrs[1:]
-		return nil, err
-	}
-	return &workflowservice.DescribeNamespaceResponse{}, nil
-}
-
-func (f *fakeNamespaceClient) Update(
-	_ context.Context,
-	_ *workflowservice.UpdateNamespaceRequest,
-) error {
-	return nil
-}
-
-func (f *fakeNamespaceClient) Close() {}
-
-func TestWaitForNamespaceReadyImmediateSuccess(t *testing.T) {
-	client := &fakeNamespaceClient{}
-
-	err := waitForNamespaceReady(client, "default", time.Second)
-	require.NoError(t, err)
-	require.Equal(t, 1, client.describeCalls)
-}
-
-func TestWaitForNamespaceReadyRetriesThenSucceeds(t *testing.T) {
-	client := &fakeNamespaceClient{describeErrs: []error{errors.New("transient")}}
-
-	err := waitForNamespaceReady(client, "default", 3*time.Second)
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, client.describeCalls, 2)
-}
-
-func TestWaitForNamespaceReadyTimeout(t *testing.T) {
-	client := &fakeNamespaceClient{describeErrs: []error{errors.New("still failing")}}
-
-	err := waitForNamespaceReady(client, "default", -time.Second)
-	require.Error(t, err)
-	require.Equal(t, 1, client.describeCalls)
-}
-
-func TestEnsureNamespaceAndWorkersCreatesNamespace(t *testing.T) {
-	origClient := newNamespaceClient
-	origWait := waitForNamespaceReadyFn
+func stubEnsureNamespace(t *testing.T, ensureErr error) (<-chan string, <-chan string) {
+	t.Helper()
+	origEnsure := ensureNamespaceReadyFn
 	origStart := startWorkersByNamespaceFn
 	t.Cleanup(func() {
-		newNamespaceClient = origClient
-		waitForNamespaceReadyFn = origWait
+		ensureNamespaceReadyFn = origEnsure
 		startWorkersByNamespaceFn = origStart
 	})
 
-	mockClient := mocks.NewNamespaceClient(t)
-	mockClient.
-		On("Describe", mock.Anything, "tenant").
-		Return((*workflowservice.DescribeNamespaceResponse)(nil), &serviceerror.NamespaceNotFound{}).
-		Once()
-	mockClient.On("Register", mock.Anything, mock.Anything).Return(nil).Once()
-	mockClient.On("Close").Return()
-
-	newNamespaceClient = func(_ client.Options) (client.NamespaceClient, error) {
-		return mockClient, nil
+	ensured := make(chan string, 1)
+	ensureNamespaceReadyFn = func(namespace string) error {
+		ensured <- namespace
+		return ensureErr
 	}
-
-	waitCalled := make(chan struct{}, 1)
-	waitForNamespaceReadyFn = func(_ client.NamespaceClient, namespace string, _ time.Duration) error {
-		require.Equal(t, "tenant", namespace)
-		waitCalled <- struct{}{}
-		return nil
-	}
-
 	started := make(chan string, 1)
-	startWorkersByNamespaceFn = func(namespace string) {
+	startWorkersByNamespaceFn = func(_ core.App, namespace string) {
 		started <- namespace
 	}
+	return ensured, started
+}
 
-	ensureNamespaceAndWorkers("tenant")
+func TestEnsureNamespaceAndWorkersCreatesNamespace(t *testing.T) {
+	ensured, started := stubEnsureNamespace(t, nil)
 
-	select {
-	case <-waitCalled:
-	case <-time.After(time.Second):
-		t.Fatal("timeout waiting for namespace readiness call")
-	}
+	ensureNamespaceAndWorkers(nil, "tenant")
 
+	require.Equal(t, "tenant", <-ensured)
 	select {
 	case ns := <-started:
 		require.Equal(t, "tenant", ns)
@@ -133,93 +55,111 @@ func TestEnsureNamespaceAndWorkersCreatesNamespace(t *testing.T) {
 	}
 }
 
-func TestEnsureNamespaceAndWorkersSkipsExisting(t *testing.T) {
-	origClient := newNamespaceClient
-	origWait := waitForNamespaceReadyFn
-	origStart := startWorkersByNamespaceFn
+func TestEnsureNamespaceAndWorkersStartsWorkersForExistingNamespace(t *testing.T) {
+	app := pocketbase.NewWithConfig(pocketbase.Config{DefaultDataDir: t.TempDir()})
+	ensured, started := stubEnsureNamespace(t, nil)
+
+	origStartManager := startWorkerManagerFn
+	origAdminRunnerIDs := adminRunnerIDsFn
 	t.Cleanup(func() {
-		newNamespaceClient = origClient
-		waitForNamespaceReadyFn = origWait
-		startWorkersByNamespaceFn = origStart
+		startWorkerManagerFn = origStartManager
+		adminRunnerIDsFn = origAdminRunnerIDs
 	})
+	adminRunnerIDsFn = func(_ core.App) ([]string, error) { return nil, nil }
+	startWorkerManagerFn = func(_, _ string, _ []string) {}
 
-	mockClient := mocks.NewNamespaceClient(t)
-	mockClient.
-		On("Describe", mock.Anything, "tenant").
-		Return(&workflowservice.DescribeNamespaceResponse{}, nil).
-		Once()
-	mockClient.On("Close").Return()
+	registerOrganizationNamespaceHooks(app)
 
-	newNamespaceClient = func(_ client.Options) (client.NamespaceClient, error) {
-		return mockClient, nil
+	// Rename an organization to a namespace that already exists in Temporal:
+	// EnsureNamespaceReady succeeds without registering and workers must start.
+	record := core.NewRecord(core.NewBaseCollection("organizations"))
+	record.Id = "org1"
+	record.Set("canonified_name", "old-org")
+	require.NoError(t, record.PostScan())
+	record.Set("canonified_name", "existing-org")
+	event := &core.RecordEvent{App: app}
+	event.Record = record
+
+	err := app.OnRecordAfterUpdateSuccess("organizations").Trigger(
+		event,
+		func(_ *core.RecordEvent) error { return nil },
+	)
+	require.NoError(t, err)
+	require.Equal(t, "existing-org", <-ensured)
+	select {
+	case ns := <-started:
+		require.Equal(t, "existing-org", ns)
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for workers start")
 	}
+}
 
-	waitForNamespaceReadyFn = func(_ client.NamespaceClient, _ string, _ time.Duration) error {
-		require.Fail(t, "waitForNamespaceReady should not be called")
-		return nil
+func TestEnsureNamespaceAndWorkersSkipsWhenNamespaceNotReady(t *testing.T) {
+	_, started := stubEnsureNamespace(t, errors.New("not ready"))
+
+	ensureNamespaceAndWorkers(nil, "tenant")
+
+	select {
+	case <-started:
+		t.Fatal("workers must not start when the namespace is not ready")
+	case <-time.After(50 * time.Millisecond):
 	}
-
-	startWorkersByNamespaceFn = func(_ string) {
-		require.Fail(t, "startWorkersByNamespace should not be called")
-	}
-
-	ensureNamespaceAndWorkers("tenant")
 }
 
 func TestEnsureNamespaceAndWorkersSkipsWhenTemporalWorkersDisabled(t *testing.T) {
 	t.Setenv(hooks.TemporalWorkersDisabledEnv, "1")
 
-	origClient := newNamespaceClient
+	origEnsure := ensureNamespaceReadyFn
 	origStart := startWorkersByNamespaceFn
 	t.Cleanup(func() {
-		newNamespaceClient = origClient
+		ensureNamespaceReadyFn = origEnsure
 		startWorkersByNamespaceFn = origStart
 	})
 
-	newNamespaceClient = func(_ client.Options) (client.NamespaceClient, error) {
-		require.Fail(t, "newNamespaceClient should not be called")
-		return nil, nil
+	ensureNamespaceReadyFn = func(_ string) error {
+		require.Fail(t, "ensureNamespaceReady should not be called")
+		return nil
 	}
-	startWorkersByNamespaceFn = func(_ string) {
+	startWorkersByNamespaceFn = func(_ core.App, _ string) {
 		require.Fail(t, "startWorkersByNamespace should not be called")
 	}
 
-	ensureNamespaceAndWorkers("tenant")
+	ensureNamespaceAndWorkers(nil, "tenant")
 }
 
-func TestHookNamespaceOrgsAfterCreate(t *testing.T) {
+func TestOrganizationNamespaceHooksAfterCreate(t *testing.T) {
 	app := pocketbase.NewWithConfig(pocketbase.Config{DefaultDataDir: t.TempDir()})
 
 	origEnsure := ensureNamespaceAndWorkersFn
 	origStartManager := startWorkerManagerFn
-	origAdminRunnerURLs := adminRunnerURLsFn
+	origAdminRunnerIDs := adminRunnerIDsFn
 	t.Cleanup(func() {
 		ensureNamespaceAndWorkersFn = origEnsure
 		startWorkerManagerFn = origStartManager
-		adminRunnerURLsFn = origAdminRunnerURLs
+		adminRunnerIDsFn = origAdminRunnerIDs
 	})
 
 	var ensured string
-	ensureNamespaceAndWorkersFn = func(namespace string) {
+	ensureNamespaceAndWorkersFn = func(_ core.App, namespace string) {
 		ensured = namespace
 	}
 
-	adminRunnerURLsFn = func(_ core.App) ([]string, error) {
-		return []string{"https://admin.runner"}, nil
+	adminRunnerIDsFn = func(_ core.App) ([]string, error) {
+		return []string{"admin/runner"}, nil
 	}
 
 	var started struct {
 		namespace    string
 		oldNamespace string
-		runnerURLs   []string
+		runnerIDs    []string
 	}
-	startWorkerManagerFn = func(_ core.App, namespace, oldNamespace string, runnerURLs []string) {
+	startWorkerManagerFn = func(namespace, oldNamespace string, runnerIDs []string) {
 		started.namespace = namespace
 		started.oldNamespace = oldNamespace
-		started.runnerURLs = runnerURLs
+		started.runnerIDs = runnerIDs
 	}
 
-	HookNamespaceOrgs(app)
+	registerOrganizationNamespaceHooks(app)
 
 	collection := core.NewBaseCollection("organizations")
 	record := core.NewRecord(collection)
@@ -235,12 +175,12 @@ func TestHookNamespaceOrgsAfterCreate(t *testing.T) {
 	require.Equal(t, "org-1", ensured)
 	require.Equal(t, "org-1", started.namespace)
 	require.Equal(t, "", started.oldNamespace)
-	require.Equal(t, []string{"https://admin.runner"}, started.runnerURLs)
+	require.Equal(t, []string{"admin/runner"}, started.runnerIDs)
 }
 
-func TestHookNamespaceOrgsCreateDefaults(t *testing.T) {
+func TestOrganizationNamespaceHooksCreateDefaults(t *testing.T) {
 	app := pocketbase.NewWithConfig(pocketbase.Config{DefaultDataDir: t.TempDir()})
-	HookNamespaceOrgs(app)
+	registerOrganizationNamespaceHooks(app)
 
 	collection := core.NewBaseCollection("organizations")
 	record := core.NewRecord(collection)
@@ -537,7 +477,7 @@ func TestHookOrganizations_OrganizationPublishesToNonAdminRunners(t *testing.T) 
 		false,
 		true,
 	)
-	createWorkerManagerRunnerRecord(
+	publicRunner := createWorkerManagerRunnerRecord(
 		t,
 		app,
 		orgID,
@@ -553,13 +493,13 @@ func TestHookOrganizations_OrganizationPublishesToNonAdminRunners(t *testing.T) 
 	})
 
 	type call struct {
-		namespace  string
-		runnerURLs []string
+		namespace string
+		runnerIDs []string
 	}
 	calls := make(chan call, 1)
-	startWorkerManagerFn = func(_ core.App, namespace, oldNamespace string, runnerURLs []string) {
+	startWorkerManagerFn = func(namespace, oldNamespace string, runnerIDs []string) {
 		require.Empty(t, oldNamespace)
-		calls <- call{namespace: namespace, runnerURLs: runnerURLs}
+		calls <- call{namespace: namespace, runnerIDs: runnerIDs}
 	}
 	HookOrganizations(app)
 
@@ -569,7 +509,7 @@ func TestHookOrganizations_OrganizationPublishesToNonAdminRunners(t *testing.T) 
 	select {
 	case got := <-calls:
 		require.Equal(t, org.GetString("canonified_name"), got.namespace)
-		require.Equal(t, []string{"https://public.example"}, got.runnerURLs)
+		require.Equal(t, []string{workerManagerRunnerID(t, app, publicRunner)}, got.runnerIDs)
 	default:
 		t.Fatal("expected worker manager call")
 	}
@@ -656,4 +596,12 @@ func createWorkerManagerRunnerRecord(
 	require.NoError(t, app.Save(record))
 
 	return record
+}
+
+func workerManagerRunnerID(t testing.TB, app core.App, runner *core.Record) string {
+	t.Helper()
+
+	runnerID, err := mobilerunner.RunnerIdentifier(app, runner)
+	require.NoError(t, err)
+	return runnerID
 }

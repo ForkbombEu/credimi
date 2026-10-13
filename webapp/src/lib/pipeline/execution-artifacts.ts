@@ -5,7 +5,7 @@
 import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
 
 export type PipelineExecutionArtifacts = {
-	results: Array<{ video: string; screenshot: string; log: string }>;
+	results: Array<{ video: string; screenshot: string; log: string; timeline?: string }>;
 	maestro_screenshots?: string[];
 	report?: string;
 	fcafReport?: string;

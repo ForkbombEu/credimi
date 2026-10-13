@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/log"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -128,5 +130,94 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 
 	require.NoError(t, env.GetWorkflowError())
 	require.Equal(t, []string{"cleanup", "report"}, runOrder)
+	env.AssertExpectations(t)
+}
+
+func TestPipelineSendsFinalReportsAfterCancellation(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	reportActivity := activities.NewReportMobileDeviceSemaphoreDoneActivity()
+	env.RegisterActivityWithOptions(
+		reportActivity.Execute,
+		activity.RegisterOptions{Name: reportActivity.Name()},
+	)
+	notificationActivity := activities.NewSendPipelineCompletionNotificationActivity(nil)
+	env.RegisterActivityWithOptions(
+		notificationActivity.Execute,
+		activity.RegisterOptions{Name: notificationActivity.Name()},
+	)
+
+	originalSetupHooks := setupHooks
+	originalCleanupHooks := cleanupHooks
+	setupHooks = []SetupFunc{
+		func(
+			ctx workflow.Context,
+			_ *pipeline.WorkflowDefinition,
+			_ map[string]any,
+			_ *map[string]any,
+			_ *map[string]any,
+			_ log.Logger,
+		) error {
+			return workflow.Sleep(ctx, time.Hour)
+		},
+	}
+	cleanupHooks = []CleanupFunc{}
+	t.Cleanup(func() {
+		setupHooks = originalSetupHooks
+		cleanupHooks = originalCleanupHooks
+	})
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Minute)
+
+	var reportedResult, notifiedResult string
+	env.OnActivity(reportActivity.Name(), mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			payload, err := workflowengine.DecodePayload[activities.ReportMobileDeviceSemaphoreDoneInput](
+				args.Get(1).(workflowengine.ActivityInput).Payload,
+			)
+			require.NoError(t, err)
+			reportedResult = payload.WorkflowResult
+		}).
+		Return(workflowengine.ActivityResult{}, nil).
+		Once()
+	env.OnActivity(notificationActivity.Name(), mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			payload, err := workflowengine.DecodePayload[activities.SendPipelineCompletionNotificationInput](
+				args.Get(1).(workflowengine.ActivityInput).Payload,
+			)
+			require.NoError(t, err)
+			notifiedResult = payload.Result
+		}).
+		Return(workflowengine.ActivityResult{}, nil).
+		Once()
+
+	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
+			Name:  "test-pipeline",
+			Steps: []pipeline.StepDefinition{},
+		},
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config: map[string]any{
+				"app_url":                                  "https://example.test",
+				"mobile_device_semaphore_ticket_id":        "ticket-1",
+				"mobile_device_semaphore_leader_device_id": "runner-1/device-1",
+				"mobile_device_semaphore_owner_namespace":  "tenant-1",
+				CompletionNotificationConfigKey:            true,
+			},
+		},
+	})
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.True(t, temporal.IsCanceledError(err))
+	require.Equal(t, resultCanceled, reportedResult)
+	require.Equal(t, resultCanceled, notifiedResult)
 	env.AssertExpectations(t)
 }

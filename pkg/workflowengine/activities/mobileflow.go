@@ -11,7 +11,6 @@ import (
 	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"go.temporal.io/sdk/activity"
 )
 
 type SetupMobileDeviceActivity struct {
@@ -644,7 +643,7 @@ func buildMobileInput(
 		NewActivityError: newErr,
 		ErrorCodes:       baseCodes,
 		Heartbeat: func(details ...any) {
-			recordMobileActivityHeartbeat(ctx, details...)
+			workflowengine.RecordHeartbeat(ctx, details...)
 		},
 	}
 
@@ -653,13 +652,4 @@ func buildMobileInput(
 	}
 
 	return in
-}
-
-func recordMobileActivityHeartbeat(ctx context.Context, details ...any) {
-	defer func() {
-		// Unit tests can execute activities with a plain context instead of a
-		// Temporal activity context.
-		_ = recover()
-	}()
-	activity.RecordHeartbeat(ctx, details...)
 }

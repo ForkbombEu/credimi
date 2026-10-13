@@ -16,16 +16,16 @@ normative_references:
 - ref: pipeline.dcql.trust-mechanisms
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.trust-mechanisms.outputs.dcql_exchange
+    from: pipeline.dcql.trust-mechanisms.outputs.no_match_exchange
   visual_evidence:
-    from: pipeline.dcql.trust-mechanisms.outputs.visual_evidence
+    from: pipeline.dcql.trust-mechanisms.outputs.no_match_visual_evidence
 assertions:
-- id: ws_rp_sm_trustmechanisms__008_trust_mechanism_valid
+- id: wallet_returns_no_credential_for_unmatched_aki
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: trusted_authorities_match
-- id: ws_rp_sm_trustmechanisms__008_visual_evidence_stored
+    mode: trusted_authorities_no_match
+- id: no_matching_credential_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

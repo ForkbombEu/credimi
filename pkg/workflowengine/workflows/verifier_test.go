@@ -28,31 +28,34 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 		{
 			name: "Success: retrieves use case verification deeplink",
 			input: workflowengine.WorkflowInput{
-				Config: map[string]any{
-					"app_url": "https://example.com",
-				},
 				Payload: GetUseCaseVerificationDeeplinkWorkflowPayload{
 					UseCaseIdentifier: "test_use_case",
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
-					httpAct.Execute,
-					activity.RegisterOptions{Name: httpAct.Name()},
+					activities.NewGetUseCaseVerificationDeeplinkActivity(nil).Execute,
+					activity.RegisterOptions{
+						Name: activities.GetUseCaseVerificationDeeplinkActivityName,
+					},
 				)
 				stepCIAct := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(
 					stepCIAct.Execute,
 					activity.RegisterOptions{Name: stepCIAct.Name()},
 				)
-				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(
+					activities.GetUseCaseVerificationDeeplinkActivityName,
+					mock.Anything,
+					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+						payload, err := workflowengine.DecodePayload[activities.GetUseCaseVerificationDeeplinkInput](
+							input.Payload,
+						)
+						return err == nil && payload.UseCaseIdentifier == "test_use_case"
+					}),
+				).
 					Return(workflowengine.ActivityResult{
-						Output: map[string]any{
-							"body": map[string]any{
-								"code": "yaml-test-code",
-							},
-						},
+						Output:  map[string]any{"code": "yaml-test-code"},
 						Secrets: map[string]any{"pin": "1234"},
 					}, nil)
 				env.OnActivity(
@@ -78,7 +81,6 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 		{
 			name: "Failure: missing use_case_id",
 			input: workflowengine.WorkflowInput{
-				Config:  map[string]any{"app_url": "https://example.com"},
 				Payload: GetUseCaseVerificationDeeplinkWorkflowPayload{},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
@@ -86,21 +88,25 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 			errorCode:      errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
 		{
-			name: "Failure: invalid HTTP output (body not a map)",
+			name: "Failure: invalid activity output (not a map)",
 			input: workflowengine.WorkflowInput{
-				Config: map[string]any{"app_url": "https://example.com"},
 				Payload: GetUseCaseVerificationDeeplinkWorkflowPayload{
 					UseCaseIdentifier: "test_use_case",
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
-					httpAct.Execute,
-					activity.RegisterOptions{Name: httpAct.Name()},
+					activities.NewGetUseCaseVerificationDeeplinkActivity(nil).Execute,
+					activity.RegisterOptions{
+						Name: activities.GetUseCaseVerificationDeeplinkActivityName,
+					},
 				)
-				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"body": "not-a-map"}}, nil)
+				env.OnActivity(
+					activities.GetUseCaseVerificationDeeplinkActivityName,
+					mock.Anything,
+					mock.Anything,
+				).
+					Return(workflowengine.ActivityResult{Output: "not-a-map"}, nil)
 			},
 			expectedErr: true,
 			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
@@ -108,27 +114,29 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 		{
 			name: "Failure: StepCI activity fails",
 			input: workflowengine.WorkflowInput{
-				Config: map[string]any{
-					"app_url": "https://example.com",
-				},
 				Payload: GetUseCaseVerificationDeeplinkWorkflowPayload{
 					UseCaseIdentifier: "test_use_case",
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
-					httpAct.Execute,
-					activity.RegisterOptions{Name: httpAct.Name()},
+					activities.NewGetUseCaseVerificationDeeplinkActivity(nil).Execute,
+					activity.RegisterOptions{
+						Name: activities.GetUseCaseVerificationDeeplinkActivityName,
+					},
 				)
 				stepCIAct := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(
 					stepCIAct.Execute,
 					activity.RegisterOptions{Name: stepCIAct.Name()},
 				)
-				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(
+					activities.GetUseCaseVerificationDeeplinkActivityName,
+					mock.Anything,
+					mock.Anything,
+				).
 					Return(workflowengine.ActivityResult{
-						Output: map[string]any{"body": map[string]any{"code": "valid-yaml"}},
+						Output: map[string]any{"code": "valid-yaml"},
 					}, nil)
 				env.OnActivity(stepCIAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, fmt.Errorf("CRE301: stepCI execution failed"))
@@ -146,6 +154,7 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 
 			w := NewGetUseCaseVerificationDeeplinkWorkflow()
 			tc.input.ActivityOptions = &DefaultActivityOptions
+			tc.input.Config = map[string]any{"app_url": "https://example.com"}
 			env.ExecuteWorkflow(w.Workflow, tc.input)
 
 			require.True(t, env.IsWorkflowCompleted())

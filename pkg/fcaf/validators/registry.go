@@ -23,6 +23,7 @@ func NewRegistry(validators ...Validator) (*Registry, error) {
 func DefaultRegistry() (*Registry, error) {
 	return NewRegistry(
 		EvidencePresentValidator{},
+		FCAFSkippedValidator{},
 		EvidenceNonEmptyValidator{},
 		EvidenceMinimumItemsValidator{},
 		JSONFieldRequiredValidator{},
@@ -82,11 +83,10 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPErrorResponseRequiredValidator{},
 		OID4VPWalletMetadataValidator{},
 		OID4VPUnencryptedRequestObjectRejectedValidator{},
+		OID4VPRequestAudienceValidator{},
 		OID4VPX509ClientIDLeafMismatchValidator{},
 		OID4VPDIDSigningKeyUnlistedValidator{},
 		OID4VPSessionEventCountValidator{},
-		OID4VPDeviceBindingValidator{},
-		OID4VPNonceStateBindingValidator{},
 		OID4VPClientIDMatchValidator{},
 		OID4VPX509HashClientIDValidator{},
 		OID4VPDIDSignedRequestValidator{},

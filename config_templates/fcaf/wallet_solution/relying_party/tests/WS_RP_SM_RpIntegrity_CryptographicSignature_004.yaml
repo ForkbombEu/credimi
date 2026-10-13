@@ -15,17 +15,35 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.rp-integrity
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  session:
+    from: pipeline.dcql.rp-integrity.outputs.session
+  request_object:
+    from: pipeline.dcql.rp-integrity.outputs.request_object
+  wallet_response:
+    from: pipeline.dcql.rp-integrity.outputs.wallet_response
   visual_evidence:
     from: pipeline.dcql.rp-integrity.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity_cryptographicsignature_004_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+- id: request_object_signature_is_valid
+  validator: jose.jws_signed_request
+  input: evidence.request_object
+- id: request_object_is_signed_with_es256
+  validator: jwt.header_field_equals
+  input: evidence.request_object
   params:
-    field: iss
-- id: ws_rp_sm_rpintegrity_cryptographicsignature_004_visual_evidence
+    field: alg
+    value: ES256
+- id: wallet_retrieves_request_object_with_post
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
+  params:
+    method: POST
+- id: wallet_presents_after_validating_es256_request
+  validator: json.field_required
+  input: evidence.wallet_response
+  params:
+    field: vp_token
+- id: presentation_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

@@ -192,20 +192,11 @@ func TestRunTicketHelpers(t *testing.T) {
 	state := MobileDeviceSemaphoreRunTicketState{
 		WorkflowID:        "wf-1",
 		WorkflowNamespace: "ns-1",
-		Request: MobileDeviceSemaphoreEnqueueRunRequest{
-			PipelineConfig: map[string]any{"app_url": "https://example.test"},
-		},
 	}
 	require.True(t, ticketHasStartedWorkflow(state))
-	require.Equal(t, "https://example.test", runTicketAppURL(state))
 
 	state.WorkflowNamespace = ""
-	state.Request.PipelineConfig = nil
-	state.Request.Notification = &MobileDeviceSemaphoreNotification{
-		GitHubPR: &MobileDeviceSemaphoreGitHubPRNotification{AppURL: "https://fallback.test"},
-	}
 	require.False(t, ticketHasStartedWorkflow(state))
-	require.Equal(t, "https://fallback.test", runTicketAppURL(state))
 
 	require.Equal(t, []string{"a", "b"}, sortedDeviceIDs([]string{"b", "a"}))
 }

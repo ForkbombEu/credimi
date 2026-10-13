@@ -96,7 +96,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/snippet}
 			{#snippet row({ workflow, Td })}
 				<Td>
-					{#if workflow.status === 'Running'}
+					{#if workflow.status === 'Running' && workflow.has_qr}
 						<WorkflowQrPoller
 							workflowId={workflow.execution.workflowId}
 							runId={workflow.execution.runId}

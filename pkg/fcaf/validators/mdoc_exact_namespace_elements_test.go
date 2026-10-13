@@ -77,6 +77,50 @@ func TestMDocExactNamespaceElementsValidator(t *testing.T) {
 			},
 			want: StatusError,
 		},
+		{
+			name: "rejects empty configured element",
+			presentation: mdocValidatorPresentation(map[string]evidence.MDocElement{
+				"given_name": {Identifier: "given_name"},
+			}),
+			params: map[string]any{"namespace": pidMDocType, "elements": []string{""}},
+			want:   StatusError,
+		},
+		{
+			name: "requires namespace and elements",
+			presentation: mdocValidatorPresentation(map[string]evidence.MDocElement{
+				"given_name": {Identifier: "given_name"},
+			}),
+			params: map[string]any{"namespace": pidMDocType},
+			want:   StatusError,
+		},
+		{
+			name: "rejects same-sized element set with a different element",
+			presentation: mdocValidatorPresentation(map[string]evidence.MDocElement{
+				"given_name": {Identifier: "given_name"},
+				"birth_date": {Identifier: "birth_date"},
+			}),
+			params: params,
+			want:   StatusFail,
+		},
+		{
+			name: "rejects single namespace other than the requested one",
+			presentation: &evidence.MDocPresentation{
+				Namespaces: map[string]map[string]evidence.MDocElement{
+					"org.iso.18013.5.1": {
+						"given_name":  {Identifier: "given_name"},
+						"family_name": {Identifier: "family_name"},
+					},
+				},
+			},
+			params: params,
+			want:   StatusFail,
+		},
+		{
+			name:         "rejects missing presentation",
+			presentation: nil,
+			params:       params,
+			want:         StatusFail,
+		},
 	}
 
 	for _, tt := range tests {

@@ -6,10 +6,13 @@ package workflows
 import (
 	"errors"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -503,14 +506,14 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
-	httpActivity := activities.NewHTTPActivity()
+	logsActivity := activities.NewOpenIDNetLogsActivity()
 	env.RegisterActivityWithOptions(
 		stepCIActivity.Execute,
 		activity.RegisterOptions{Name: stepCIActivity.Name()},
 	)
 	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
+		logsActivity.Execute,
+		activity.RegisterOptions{Name: logsActivity.Name()},
 	)
 	env.OnActivity(
 		stepCIActivity.Name(),
@@ -536,12 +539,9 @@ func TestStartCheckWorkflowOpenID4VCIIssuer(t *testing.T) {
 		},
 	}, nil).Once()
 	env.OnActivity(
-		httpActivity.Name(),
+		logsActivity.Name(),
 		mock.Anything,
-		mock.MatchedBy(matchHTTPActivityInput(
-			"GET",
-			"https://www.certification.openid.net/api/log/runner-123",
-		)),
+		mock.MatchedBy(matchOpenIDNetLogsInput("runner-123")),
 	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
@@ -639,14 +639,14 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
-	httpActivity := activities.NewHTTPActivity()
+	logsActivity := activities.NewOpenIDNetLogsActivity()
 	env.RegisterActivityWithOptions(
 		stepCIActivity.Execute,
 		activity.RegisterOptions{Name: stepCIActivity.Name()},
 	)
 	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
+		logsActivity.Execute,
+		activity.RegisterOptions{Name: logsActivity.Name()},
 	)
 	env.OnActivity(stepCIActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{
@@ -658,12 +658,9 @@ func TestStartCheckWorkflowOpenID4VCIIssuerFailedResult(t *testing.T) {
 		}, nil).
 		Once()
 	env.OnActivity(
-		httpActivity.Name(),
+		logsActivity.Name(),
 		mock.Anything,
-		mock.MatchedBy(matchHTTPActivityInput(
-			"GET",
-			"https://www.certification.openid.net/api/log/runner-123",
-		)),
+		mock.MatchedBy(matchOpenIDNetLogsInput("runner-123")),
 	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
@@ -715,14 +712,14 @@ func TestStartCheckWorkflowOpenID4VPVerifier(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
-	httpActivity := activities.NewHTTPActivity()
+	logsActivity := activities.NewOpenIDNetLogsActivity()
 	env.RegisterActivityWithOptions(
 		stepCIActivity.Execute,
 		activity.RegisterOptions{Name: stepCIActivity.Name()},
 	)
 	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
+		logsActivity.Execute,
+		activity.RegisterOptions{Name: logsActivity.Name()},
 	)
 	env.OnActivity(
 		stepCIActivity.Name(),
@@ -747,12 +744,9 @@ func TestStartCheckWorkflowOpenID4VPVerifier(t *testing.T) {
 		},
 	}, nil).Once()
 	env.OnActivity(
-		httpActivity.Name(),
+		logsActivity.Name(),
 		mock.Anything,
-		mock.MatchedBy(matchHTTPActivityInput(
-			"GET",
-			"https://www.certification.openid.net/api/log/runner-456",
-		)),
+		mock.MatchedBy(matchOpenIDNetLogsInput("runner-456")),
 	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
@@ -1197,8 +1191,60 @@ func TestStartCheckWorkflowStart(t *testing.T) {
 	require.Equal(t, "ns-1", capturedNamespace)
 	require.Equal(t, w.Name(), capturedName)
 	requireWorkflowLogsCapability(t, capturedInput, false)
+	requireWorkflowQRCapability(t, capturedInput, false)
 	require.Equal(t, ConformanceCheckTaskQueue, capturedOptions.TaskQueue)
 	require.True(t, strings.HasPrefix(capturedOptions.ID, "conformance-check-"))
+}
+
+func testConfigTemplatesDir(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "config_templates"))
+}
+
+func TestStartCheckWorkflowStartSetsQRFromCatalog(t *testing.T) {
+	require.NoError(t, conformancecatalog.Rebuild(testConfigTemplatesDir(t)))
+
+	prev := startCheckWorkflowWithOptions
+	t.Cleanup(func() { startCheckWorkflowWithOptions = prev })
+
+	var capturedInput workflowengine.WorkflowInput
+	startCheckWorkflowWithOptions = func(
+		_ string,
+		_ client.StartWorkflowOptions,
+		_ string,
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		capturedInput = input
+		return workflowengine.WorkflowResult{}, nil
+	}
+
+	input := workflowengine.WorkflowInput{
+		Payload: StartCheckWorkflowPayload{
+			Suite:   EWCSuite,
+			CheckID: "openid4vci_wallet/draft-15/ewc/wallet-test",
+		},
+		Config: map[string]any{
+			"memo": map[string]any{"author": EWCSuite},
+		},
+	}
+	_, err := NewStartCheckWorkflow().Start("ns-1", input)
+	require.NoError(t, err)
+	requireWorkflowLogsCapability(t, capturedInput, true)
+	requireWorkflowQRCapability(t, capturedInput, true)
+
+	input.Payload = StartCheckWorkflowPayload{
+		Suite:   OpenIDConformanceSuite,
+		CheckID: "openid4vp_wallet/1.0/openid_conformance_suite/check",
+	}
+	input.Config = map[string]any{
+		"memo": map[string]any{"author": OpenIDConformanceSuite},
+	}
+	_, err = NewStartCheckWorkflow().Start("ns-1", input)
+	require.NoError(t, err)
+	requireWorkflowLogsCapability(t, capturedInput, true)
+	requireWorkflowQRCapability(t, capturedInput, false)
 }
 
 // activityOptionsNoRetry returns activity options for single-attempt activities in tests.

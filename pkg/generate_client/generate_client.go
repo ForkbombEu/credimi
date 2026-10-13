@@ -242,7 +242,7 @@ func addOperationResponses(operation openapi.OperationContext, route RouteInfo) 
 		)
 	}
 	operation.AddRespStructure(
-		apierror.APIError{},
+		apierror.Response{},
 		openapi.WithContentType("application/json"),
 		withDefaultResponseDescription("An unexpected error occurred."),
 	)

@@ -157,6 +157,63 @@ func Test_WalletWorkflow(t *testing.T) {
 	}
 }
 
+func TestWalletWorkflowAppMetadataUpdate(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	parseActivity := activities.NewParseWalletURLActivity()
+	env.RegisterActivityWithOptions(httpActivity.Execute, activity.RegisterOptions{
+		Name: httpActivity.Name(),
+	})
+	env.RegisterActivityWithOptions(parseActivity.Execute, activity.RegisterOptions{
+		Name: parseActivity.Name(),
+	})
+	// The parse step takes a while, so the update arrives before the metadata
+	// is ready and must wait for it.
+	env.OnActivity(parseActivity.Name(), mock.Anything, mock.Anything).
+		After(time.Minute).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"api_input":  "123",
+			"store_type": "apple",
+		}}, nil)
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{"results": []map[string]any{{"trackName": "Wallet"}}},
+		}}, nil)
+
+	var updateResult map[string]any
+	var updateErr error
+	completed := false
+	env.RegisterDelayedCallback(func() {
+		env.UpdateWorkflow(AppMetadataUpdate, "metadata-1", &testsuite.TestUpdateCallback{
+			OnAccept: func() {},
+			OnReject: func(err error) { updateErr = err },
+			OnComplete: func(result any, err error) {
+				completed = true
+				updateErr = err
+				if m, ok := result.(map[string]any); ok {
+					updateResult = m
+				}
+			},
+		})
+	}, time.Second)
+
+	env.ExecuteWorkflow(NewWalletWorkflow().Workflow, workflowengine.WorkflowInput{
+		Payload: WalletWorkflowPayload{URL: "https://apps.apple.com/app/id123"},
+		Config:  map[string]any{"namespace": "namespace", "app_url": "http://app.example.com"},
+	})
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+	require.True(t, completed)
+	require.NoError(t, updateErr)
+	require.Equal(t, map[string]any{
+		"metadata":  map[string]any{"trackName": "Wallet"},
+		"storeType": "apple",
+	}, updateResult)
+}
+
 func TestWalletWorkflowStart(t *testing.T) {
 	origStart := walletStartWorkflowWithOptions
 	t.Cleanup(func() {

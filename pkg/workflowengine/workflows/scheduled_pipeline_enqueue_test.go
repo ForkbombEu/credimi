@@ -50,10 +50,14 @@ steps:
 	suite := &testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	internalHTTPAct := activities.NewInternalHTTPActivity()
-	env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
-		Name: internalHTTPAct.Name(),
-	})
+	env.RegisterActivityWithOptions(
+		activities.NewResolveRecordActivity(nil).Execute,
+		activity.RegisterOptions{Name: activities.ResolveRecordActivityName},
+	)
+	env.RegisterActivityWithOptions(
+		activities.NewValidateDeviceAccessActivity(nil).Execute,
+		activity.RegisterOptions{Name: activities.ValidateDeviceAccessActivityName},
+	)
 
 	var capturedPayload activities.EnqueuePipelineRunTicketActivityInput
 	env.RegisterActivityWithOptions(
@@ -68,48 +72,39 @@ steps:
 		activity.RegisterOptions{Name: activities.EnqueuePipelineRunTicketActivityName},
 	)
 
-	internalHTTPURL := func(suffix string) any {
-		return mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
-				input.Payload,
-			)
-			return err == nil && strings.HasSuffix(payload.URL, suffix)
-		})
-	}
 	env.OnActivity(
-		internalHTTPAct.Name(),
+		activities.ResolveRecordActivityName,
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+			payload, err := workflowengine.DecodePayload[activities.ResolveRecordInput](
 				input.Payload,
 			)
-			body := workflowengine.AsMap(payload.Body)
-			return err == nil &&
-				strings.HasSuffix(payload.URL, "/api/canonify/internal/resolve") &&
-				body["collection"] == "pipelines" &&
-				body["owner_namespace"] == "org-1"
+			return err == nil && payload == activities.ResolveRecordInput{
+				CanonifiedName: "pipeline-123",
+				Collection:     "pipelines",
+				OwnerNamespace: "org-1",
+			}
 		}),
 	).
 		Return(workflowengine.ActivityResult{
 			Output: map[string]any{
-				"body": map[string]any{
-					"record": map[string]any{
-						"published": false,
-						"yaml":      pipelineYAML,
-					},
-				},
+				"published": false,
+				"yaml":      pipelineYAML,
 			},
 		}, nil)
 	env.OnActivity(
-		internalHTTPAct.Name(),
+		activities.ValidateDeviceAccessActivityName,
 		mock.Anything,
-		internalHTTPURL("/api/mobile-runner/validate-access"),
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, err := workflowengine.DecodePayload[activities.ValidateDeviceAccessInput](
+				input.Payload,
+			)
+			return err == nil &&
+				payload.OwnerNamespace == "org-1" &&
+				strings.Join(payload.DeviceIDs, ",") == "runner-a/device-a,runner-b/device-b"
+		}),
 	).
-		Return(workflowengine.ActivityResult{
-			Output: map[string]any{
-				"body": map[string]any{"valid": true},
-			},
-		}, nil)
+		Return(workflowengine.ActivityResult{}, nil)
 
 	w := NewScheduledPipelineEnqueueWorkflow()
 	env.ExecuteWorkflow(w.Workflow, input)

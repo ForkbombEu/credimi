@@ -5,9 +5,36 @@
 package pbutils
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
+
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
+
+// FindOrganizationByNamespace returns the organization whose canonified name is
+// namespace, ignoring surrounding spaces. A missing or blank namespace returns
+// an error wrapping sql.ErrNoRows.
+func FindOrganizationByNamespace(app core.App, namespace string) (*core.Record, error) {
+	namespace = strings.TrimSpace(namespace)
+	if namespace == "" {
+		return nil, fmt.Errorf("organization namespace is required: %w", sql.ErrNoRows)
+	}
+	org, err := app.FindFirstRecordByFilter(
+		"organizations",
+		"canonified_name = {:namespace}",
+		dbx.Params{"namespace": namespace},
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("organization %s not found: %w", namespace, err)
+		}
+		return nil, fmt.Errorf("find organization %s: %w", namespace, err)
+	}
+	return org, nil
+}
 
 func GetUserOrganization(app core.App, userID string) (*core.Record, error) {
 	orgID, err := GetUserOrganizationID(app, userID)

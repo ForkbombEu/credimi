@@ -43,6 +43,7 @@ export type ConformanceSuitesRecord = {
 	suite_help?: string
 	suite_description?: string
 	suite_logo?: string
+	has_qr?: boolean
 	check_count: number
 	members?: { path: string; title: string; file: string }[]
 	visible_in?: string[]

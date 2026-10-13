@@ -4,21 +4,22 @@
 package pipeline
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"maps"
-	"net/http"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
-	"github.com/forkbombeu/credimi/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/workflow"
+	"google.golang.org/protobuf/proto"
 )
 
 func ExecuteStep(
@@ -78,8 +79,10 @@ func ExecuteStep(
 
 			return nil, appErr
 		}
-		ctx = workflow.WithActivityOptions(ctx, ao)
-		act := step.NewFunc().(workflowengine.Activity)
+		actAO := ao
+		actAO.Summary = summaryLine(s.ID + " (" + s.Use + ")")
+		ctx = workflow.WithActivityOptions(ctx, actAO)
+		act := step.NewFunc(nil).(workflowengine.Activity)
 		input := workflowengine.ActivityInput{
 			Payload: payload,
 			Config:  workflowengine.StringifyConfig(s.With.Config),
@@ -159,20 +162,7 @@ func ExecuteStep(
 			}
 			taskqueue = configuredTaskQueue
 		}
-		w := step.NewFunc().(workflowengine.Workflow)
-		appURL, ok := s.With.Config["app_url"].(string)
-		if ok && appURL == "" {
-			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-			appErr := workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf("missing or invalid app_url for step %s", s.ID),
-				},
-			)
-
-			return nil, appErr
-		}
+		w := step.NewFunc(nil).(workflowengine.Workflow)
 		input := workflowengine.WorkflowInput{
 			Payload:         payload,
 			Config:          workflowengine.MergeTelemetryConfig(ctx, s.With.Config),
@@ -192,6 +182,7 @@ func ExecuteStep(
 			TaskQueue:         taskqueue,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 			Memo:              memo,
+			StaticSummary:     summaryLine(s.ID),
 		}
 		ctxChild := workflow.WithChildOptions(ctx, opts)
 		if err := ensureStepInputSize(s.ID, input); err != nil {
@@ -231,13 +222,25 @@ func Execute(
 // the Temporal frontend enforces on workflow task completions.
 const maxStepInputBytes = 3 << 20
 
+const (
+	// payloadFramingBytes bounds the protobuf framing and metadata around the JSON data.
+	payloadFramingBytes = 1 << 10
+	// secretsEnvelopeBytes bounds the fixed part of one encrypted secrets envelope:
+	// its keys, algorithm, nonce and GCM tag.
+	secretsEnvelopeBytes = 256
+)
+
 // ensureStepInputSize rejects a step input that would make the workflow task completion
-// exceed the Temporal gRPC message limit, which would otherwise wedge the run.
+// exceed the Temporal gRPC message limit, which would otherwise wedge the run. The size is
+// measured on the payload the data converter produces, including encrypted secrets.
 func ensureStepInputSize(stepID string, input any) error {
-	// A marshal error is left to the SDK, which reports it when it encodes the input.
-	data, marshalErr := json.Marshal(input)
-	if marshalErr != nil || len(data) <= maxStepInputBytes {
+	size, encodeErr := encodedStepInputSize(input)
+	if encodeErr != nil {
+		// An encoding error is left to the SDK, which reports it when it encodes the input.
 		return nil //nolint:nilerr // the SDK reports encoding errors itself
+	}
+	if size <= maxStepInputBytes {
+		return nil
 	}
 	errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 	return workflowengine.NewAppError(workflowengine.WorkflowError{
@@ -246,10 +249,44 @@ func ensureStepInputSize(stepID string, input any) error {
 		Message: fmt.Sprintf(
 			"step %s input is %d bytes; the limit is %d bytes because Temporal rejects workflow task messages above 4 MiB",
 			stepID,
-			len(data),
+			size,
 			maxStepInputBytes,
 		),
 	})
+}
+
+// encodedStepInputSize returns the size of the payloads the data converter makes from
+// input, or a bound that decides the same way. This runs in workflow code, where encoding
+// a multi-MiB input can exceed the SDK's one-second deadlock detection timeout, so it
+// encodes only inputs close to the limit.
+func encodedStepInputSize(input any) (int, error) {
+	plain, err := json.Marshal(input)
+	if err != nil {
+		return 0, err
+	}
+	// The converter emits this same JSON with each "secrets" value replaced by a larger
+	// encrypted envelope, so the plain size is a lower bound.
+	if len(plain) > maxStepInputBytes {
+		return len(plain), nil
+	}
+	upper := len(plain) + payloadFramingBytes
+	if secrets := bytes.Count(plain, []byte(`"secrets":`)); secrets > 0 {
+		// Base64 of the ciphertext grows each secrets value by a third, plus its envelope.
+		upper += len(plain)/3 + secrets*secretsEnvelopeBytes
+	}
+	if upper <= maxStepInputBytes {
+		return upper, nil
+	}
+	payloads, err := temporalcrypto.DataConverter().ToPayloads(input)
+	if err != nil {
+		return 0, err
+	}
+	return proto.Size(payloads), nil
+}
+
+// summaryLine flattens text to a single line for Temporal UI summaries.
+func summaryLine(text string) string {
+	return strings.NewReplacer("\r", "", "\n", "").Replace(text)
 }
 
 // selectConfigKeys copies the listed keys that are present in cfg.
@@ -328,6 +365,7 @@ func runChildPipeline(
 		),
 		TaskQueue:         PipelineTaskQueue,
 		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
+		StaticSummary:     summaryLine(step.ID + ": " + wfDef.Name),
 	}
 
 	ao := PrepareActivityOptions(options.ActivityOptions, step.ActivityOptions)
@@ -366,7 +404,7 @@ func runChildPipeline(
 	return childResult.Output, nil
 }
 
-// fetchChildPipelineYAML fetches the pipeline YAML from an internal API route.
+// fetchChildPipelineYAML resolves the child pipeline record and returns its YAML.
 func fetchChildPipelineYAML(
 	ctx workflow.Context,
 	step pipeline.StepDefinition,
@@ -381,42 +419,37 @@ func fetchChildPipelineYAML(
 		)
 	}
 
-	appURL, ok := input.WorkflowInput.Config["app_url"].(string)
-	if !ok || appURL == "" {
+	namespace, ok := input.WorkflowInput.Config["namespace"].(string)
+	if !ok || namespace == "" {
 		return "", workflowengine.NewWorkflowError(
-			workflowengine.NewMissingConfigError("app_url", meta),
+			workflowengine.NewMissingConfigError("namespace", meta),
 			meta,
 		)
 	}
 
-	act := activities.NewInternalHTTPActivity()
 	var response workflowengine.ActivityResult
 	req := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodGet,
-			URL: utils.JoinURL(
-				workflowengine.InternalAppURLFromConfig(input.WorkflowInput.Config),
-				"api", "pipeline", "get-yaml",
-			),
-			QueryParams: map[string]string{
-				"pipeline_identifier": pipelineID,
-			},
-			ExpectedStatus: 200,
+		Payload: activities.ResolveRecordInput{
+			CanonifiedName: pipelineID,
+			Collection:     "pipelines",
+			OwnerNamespace: namespace,
 		},
 	}
 
-	if err := workflow.ExecuteActivity(ctx, act.Name(), req).Get(ctx, &response); err != nil {
+	if err := workflow.ExecuteActivity(ctx, activities.ResolveRecordActivityName, req).
+		Get(ctx, &response); err != nil {
 		return "", workflowengine.NewWorkflowError(err, meta)
 	}
 
-	body, ok := response.Output.(map[string]any)["body"].(string)
+	record, _ := response.Output.(map[string]any)
+	yaml, ok := record["yaml"].(string)
 	if !ok {
 		return "", workflowengine.NewWorkflowError(
 			workflowengine.NewAppError(
 				workflowengine.WorkflowError{
 					Code:    errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Code,
 					Summary: errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Description,
-					Message: "invalid HTTP output",
+					Message: "invalid resolved pipeline output",
 					Details: map[string]any{"payload": response.Output},
 				},
 			),
@@ -424,7 +457,7 @@ func fetchChildPipelineYAML(
 		)
 	}
 
-	return body, nil
+	return yaml, nil
 }
 
 func ExtractPipelineOutput(dataCtx map[string]any) map[string]any {

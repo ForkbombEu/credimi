@@ -19,6 +19,7 @@ type PipelineResults struct {
 	Video      string `json:"video,omitempty"`
 	Screenshot string `json:"screenshot,omitempty"`
 	Log        string `json:"log,omitempty"`
+	Timeline   string `json:"timeline,omitempty"`
 }
 
 type PipelineExecutionArtifacts struct {
@@ -111,6 +112,13 @@ func ComputePipelineResultsFromRecord(app core.App, record *core.Record) []Pipel
 		}
 	}
 
+	timelineMap := make(map[string]string)
+	for _, name := range record.GetStringSlice("maestro_timelines") {
+		if key, ok := baseArtifactKey(name, "_timeline_"); ok {
+			timelineMap[key] = name
+		}
+	}
+
 	logMap := make(map[string]pipelineResultFileRef)
 	for _, field := range []string{"logcats", "ios_logstreams"} {
 		for _, name := range record.GetStringSlice(field) {
@@ -158,6 +166,15 @@ func ComputePipelineResultsFromRecord(app core.App, record *core.Record) []Pipel
 				record.Id,
 				record.GetString(logFile.field),
 				logFile.name,
+			)
+		}
+		if timeline, found := timelineMap[key]; found {
+			result.Timeline = utils.JoinURL(
+				app.Settings().Meta.AppURL,
+				"api", "files", "pipeline_results",
+				record.Id,
+				record.GetString("maestro_timelines"),
+				timeline,
 			)
 		}
 

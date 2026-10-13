@@ -34,6 +34,7 @@ function suite(partial: Partial<ConformanceSuiteRecord>): ConformanceSuiteRecord
 		suite_help: '',
 		suite_description: '',
 		suite_logo: '',
+		has_qr: false,
 		check_count: 0,
 		members: [],
 		visible_in: [],

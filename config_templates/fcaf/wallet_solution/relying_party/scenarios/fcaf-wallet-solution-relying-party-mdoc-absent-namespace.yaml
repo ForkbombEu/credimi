@@ -5,11 +5,6 @@ runtime:
     log_checker: capture-wallet
   global_device_id: ''
 steps:
-- id: onboard-reference-wallet
-  use: mobile-automation
-  with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/onboarding-1
-    version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
 - id: create-pid-mdoc-offer
   use: credential-offer
   with:

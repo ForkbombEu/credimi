@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/realtimelogs"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/subscriptions"
@@ -193,17 +194,17 @@ func TestNotifyLogsUpdateReachesOnlyAuthorizedSubscribers(t *testing.T) {
 	go func() { received <- <-owner.Channel() }()
 
 	// Send blocks on unbuffered client channels, so a delivery to the guest
-	// or to the other organization would hang notifyLogsUpdate.
+	// or to the other organization would hang realtimelogs.Notify.
 	done := make(chan error, 1)
 	go func() {
-		done <- notifyLogsUpdate(app, topic, []map[string]any{{"message": "secret-step-log"}})
+		done <- realtimelogs.Notify(app, topic, []map[string]any{{"message": "secret-step-log"}})
 	}()
 
 	select {
 	case err := <-done:
 		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
-		t.Fatal("notifyLogsUpdate delivered to an unauthorized subscriber")
+		t.Fatal("realtimelogs.Notify delivered to an unauthorized subscriber")
 	}
 
 	msg := <-received

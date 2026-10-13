@@ -11,6 +11,7 @@ import (
 	"context"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/ForkbombEu/et-tu-cesr/cesr"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -116,7 +117,11 @@ func (a *CESRValidateActivity) Execute(
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
-	err = cmd.Run()
+	err = workflowengine.RunCommandWithCancellation(ctx, cmd, 2*time.Second)
+	if err != nil && ctx.Err() != nil {
+		// Temporal cancellation: the process group was killed, propagate cleanly.
+		return result, ctx.Err()
+	}
 	stdoutStr := stdoutBuf.String()
 	stderrStr := stderrBuf.String()
 	if err != nil {

@@ -233,3 +233,50 @@ func TestIsEmptySecretsValueVariants(t *testing.T) {
 		t.Fatal("expected non-empty variants to be false")
 	}
 }
+
+func TestSecretsJSONPayloadConverterKeepsIntegersExact(t *testing.T) {
+	const bigInt int64 = 9007199254740993 // 2^53 + 1, not representable as float64
+
+	type bigIntValue struct {
+		ID      int64            `json:"id"`
+		Secrets map[string]int64 `json:"secrets"`
+	}
+
+	key := bytes.Repeat([]byte{8}, 32)
+	c := NewSecretsJSONPayloadConverter(key)
+	envelope, err := encryptJSONValue(key, map[string]any{"pin": bigInt})
+	if err != nil {
+		t.Fatalf("encryptJSONValue failed: %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		value any
+	}{
+		{
+			name:  "plain secrets",
+			value: bigIntValue{ID: bigInt, Secrets: map[string]int64{"pin": bigInt}},
+		},
+		{
+			name:  "encrypted secrets",
+			value: map[string]any{"id": bigInt, "secrets": envelope},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			payload, err := c.ToPayload(tc.value)
+			if err != nil {
+				t.Fatalf("ToPayload failed: %v", err)
+			}
+
+			var got bigIntValue
+			if err := c.FromPayload(payload, &got); err != nil {
+				t.Fatalf("FromPayload failed: %v", err)
+			}
+			if got.ID != bigInt || got.Secrets["pin"] != bigInt {
+				t.Fatalf("expected %d in id and secrets, got %+v", bigInt, got)
+			}
+		})
+	}
+}

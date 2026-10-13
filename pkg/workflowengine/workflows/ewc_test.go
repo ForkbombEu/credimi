@@ -5,11 +5,15 @@
 package workflows
 
 import (
+	"maps"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -361,9 +365,112 @@ func TestEWCWorkflowStart(t *testing.T) {
 	require.Equal(t, w.Name(), capturedName)
 	require.Equal(t, "ns-1", capturedInput.Config["namespace"])
 	requireWorkflowLogsCapability(t, capturedInput, true)
+	requireWorkflowQRCapability(t, capturedInput, false)
 	require.Equal(t, EWCTaskQueue, capturedOptions.TaskQueue)
 	require.True(t, strings.HasPrefix(capturedOptions.ID, "EWCWorkflow"))
 	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
+}
+
+func TestEWCWorkflowStartSetsQRFromCatalog(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	templatesDir := filepath.Clean(
+		filepath.Join(filepath.Dir(file), "..", "..", "..", "config_templates"),
+	)
+	require.NoError(t, conformancecatalog.Rebuild(templatesDir))
+
+	prev := ewcStartWorkflowWithOptions
+	t.Cleanup(func() { ewcStartWorkflowWithOptions = prev })
+
+	var capturedInput workflowengine.WorkflowInput
+	ewcStartWorkflowWithOptions = func(
+		_ string,
+		_ client.StartWorkflowOptions,
+		_ string,
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		capturedInput = input
+		return workflowengine.WorkflowResult{}, nil
+	}
+
+	input := workflowengine.WorkflowInput{
+		Config: map[string]any{
+			"namespace": "ns-1",
+			"version":   "draft-15",
+			"memo": map[string]any{
+				"standard": "openid4vci_wallet",
+				"author":   EWCSuite,
+			},
+		},
+	}
+	_, err := NewEWCWorkflow().Start(input)
+	require.NoError(t, err)
+	requireWorkflowLogsCapability(t, capturedInput, true)
+	requireWorkflowQRCapability(t, capturedInput, true)
+
+	input.Config["version"] = "1.0"
+	input.Config["memo"] = map[string]any{
+		"standard": "openid4vci_issuer",
+		"author":   WebuildSuite,
+	}
+	_, err = NewEWCWorkflow().Start(input)
+	require.NoError(t, err)
+	requireWorkflowQRCapability(t, capturedInput, false)
+}
+
+// marketplaceMemoAuthor mirrors handlers.Author: a named string put into memo by
+// save-variables-and-start. Plain string constants (see TestEWCWorkflowStartSetsQRFromCatalog)
+// do not reproduce the marketplace Start path.
+type marketplaceMemoAuthor string
+
+func TestEWCWorkflowStartSetsQRMemoForMarketplaceAuthorType(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	templatesDir := filepath.Clean(
+		filepath.Join(filepath.Dir(file), "..", "..", "..", "config_templates"),
+	)
+	require.NoError(t, conformancecatalog.Rebuild(templatesDir))
+
+	prev := ewcStartWorkflowWithOptions
+	t.Cleanup(func() { ewcStartWorkflowWithOptions = prev })
+
+	var capturedOptions client.StartWorkflowOptions
+	ewcStartWorkflowWithOptions = func(
+		_ string,
+		options client.StartWorkflowOptions,
+		_ string,
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		// Mirror StartWorkflowWithOptions: Temporal memo comes from input.Config["memo"].
+		if m, ok := input.Config["memo"].(map[string]any); ok {
+			options.Memo = maps.Clone(m)
+		}
+		capturedOptions = options
+		return workflowengine.WorkflowResult{}, nil
+	}
+
+	input := workflowengine.WorkflowInput{
+		Config: map[string]any{
+			"namespace": "ns-1",
+			"version":   "draft-15",
+			"memo": map[string]any{
+				"test":     "ewc/RFC001-authorization_code_flow-kid_jwk-sd_jwt.yaml",
+				"standard": "openid4vci_wallet",
+				"author":   marketplaceMemoAuthor(EWCSuite),
+			},
+		},
+	}
+	_, err := NewEWCWorkflow().Start(input)
+	require.NoError(t, err)
+
+	require.NotNil(t, capturedOptions.Memo)
+	caps, ok := capturedOptions.Memo[workflowengine.CredimiCapabilitiesMemoKey].(workflowengine.CredimiCapabilities)
+	require.True(t, ok, "StartWorkflowOptions.Memo must carry credimi_capabilities")
+	require.True(
+		t,
+		caps.QR,
+		"marketplace/manual Start must write credimi_capabilities.qr=true for wallet suites with has_qr",
+	)
 }
 
 func TestResolveEWCLikeCheckEndpoint(t *testing.T) {
@@ -487,10 +594,7 @@ func TestEWCStatusWorkflowUsesTemplatedStatusAndLogsEndpoints(t *testing.T) {
 	env.RegisterActivityWithOptions(httpActivity.Execute, activity.RegisterOptions{
 		Name: httpActivity.Name(),
 	})
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	env.RegisterActivityWithOptions(internalHTTPActivity.Execute, activity.RegisterOptions{
-		Name: internalHTTPActivity.Name(),
-	})
+	registerRealtimeLogsActivity(env)
 
 	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 		return matchesHTTPPayload(
@@ -515,11 +619,7 @@ func TestEWCStatusWorkflowUsesTemplatedStatusAndLogsEndpoints(t *testing.T) {
 			},
 		}}, nil).
 		Once()
-	env.OnActivity(internalHTTPActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-		return matchesHTTPPayload(input, "https://test-app.com/api/compliance/send-ewc-log-update")
-	})).
-		Return(workflowengine.ActivityResult{}, nil).
-		Once()
+	onRealtimeLogsActivity(env, testWorkflowID+EWCSubscription, func() {}).Once()
 
 	w := NewWebuildStatusWorkflow()
 	env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
@@ -548,12 +648,95 @@ func matchesHTTPPayload(input workflowengine.ActivityInput, wantURL string) bool
 	switch payload := input.Payload.(type) {
 	case activities.HTTPActivityPayload:
 		return payload.URL == wantURL && payload.QueryParams == nil
-	case activities.InternalHTTPActivityPayload:
-		return payload.URL == wantURL && payload.QueryParams == nil
 	case map[string]any:
 		_, hasQueryParams := payload["query_params"]
 		return payload["url"] == wantURL && !hasQueryParams
 	default:
 		return false
 	}
+}
+
+func httpPayloadURL(input workflowengine.ActivityInput) string {
+	switch payload := input.Payload.(type) {
+	case activities.HTTPActivityPayload:
+		return payload.URL
+	case map[string]any:
+		return workflowengine.AsString(payload["url"])
+	default:
+		return ""
+	}
+}
+
+// runPendingEWCStatusWorkflow runs an EWC status workflow whose check stays
+// pending with identical logs, applying signals before cancelling at cancelAt.
+// It returns the number of status checks and realtime log pushes.
+func runPendingEWCStatusWorkflow(
+	t *testing.T,
+	signals func(env *testsuite.TestWorkflowEnvironment),
+	cancelAt time.Duration,
+) (checks int, pushes int) {
+	t.Helper()
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(httpActivity.Execute, activity.RegisterOptions{
+		Name: httpActivity.Name(),
+	})
+	registerRealtimeLogsActivity(env)
+
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		return httpPayloadURL(input) == "https://api.test/ewc"
+	})).
+		Run(func(_ mock.Arguments) { checks++ }).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{"status": "pending", "reason": "ok"},
+		}}, nil)
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+		return httpPayloadURL(input) == "https://api.test/ewc/logs/12345"
+	})).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{"logs": []any{map[string]any{"message": "same"}}},
+		}}, nil)
+	onRealtimeLogsActivity(env, testWorkflowID+EWCSubscription, func() { pushes++ })
+
+	signals(env)
+	env.RegisterDelayedCallback(env.CancelWorkflow, cancelAt)
+	env.ExecuteWorkflow(NewEWCStatusWorkflow().Workflow, workflowengine.WorkflowInput{
+		Payload: EWCStatusWorkflowPayload{SessionID: "12345"},
+		Config: map[string]any{
+			"app_url":        "https://test-app.com",
+			"check_endpoint": "https://api.test/ewc",
+			"logs_endpoint":  "https://api.test/ewc/logs/{{ sessionId }}",
+			"interval":       float64(10 * time.Second),
+		},
+	})
+	require.True(t, env.IsWorkflowCompleted())
+	return checks, pushes
+}
+
+func TestEWCPollRestartWithinIntervalKeepsOneTimerChain(t *testing.T) {
+	checks, _ := runPendingEWCStatusWorkflow(t, func(env *testsuite.TestWorkflowEnvironment) {
+		env.RegisterDelayedCallback(func() {
+			env.SignalWorkflow(EwcStopCheckSignal, nil)
+		}, 2*time.Second)
+		env.RegisterDelayedCallback(func() {
+			env.SignalWorkflow(EwcStartCheckSignal, nil)
+		}, 5*time.Second)
+	}, 34*time.Second)
+
+	// Polls at 5s (start signal), 15s and 25s; a leaked timer from before the
+	// stop would add polls at 10s, 20s and 30s.
+	require.Equal(t, 3, checks)
+}
+
+func TestEWCPollSendsUnchangedLogsOnce(t *testing.T) {
+	checks, pushes := runPendingEWCStatusWorkflow(
+		t,
+		func(_ *testsuite.TestWorkflowEnvironment) {},
+		25*time.Second,
+	)
+
+	require.Equal(t, 2, checks)
+	require.Equal(t, 1, pushes)
 }

@@ -37,7 +37,7 @@ steps:
 - id: offer-mdoc-status-without-status-list-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-status-without-status-list-issuance.outputs.body.deeplink }}
@@ -104,7 +104,7 @@ steps:
 - id: offer-mdoc-negative-index-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-negative-index-issuance.outputs.body.deeplink }}
@@ -171,7 +171,7 @@ steps:
 - id: offer-mdoc-missing-index-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-missing-index-issuance.outputs.body.deeplink }}
@@ -238,7 +238,7 @@ steps:
 - id: offer-mdoc-malformed-uri-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-malformed-uri-issuance.outputs.body.deeplink }}
@@ -305,7 +305,7 @@ steps:
 - id: offer-mdoc-missing-uri-credential
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-mdoc-missing-uri-issuance.outputs.body.deeplink }}

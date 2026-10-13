@@ -5,10 +5,7 @@
 package pipeline
 
 import (
-	"net/http"
-
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/workflow"
@@ -25,11 +22,7 @@ func tempCredentialsCleanupHook(
 	_ map[string]any,
 	_ *map[string]any,
 ) error {
-	return cleanupTempRecords(ctx, config, tempCredentialsConfigKey, "credentials", []string{
-		"api",
-		"credential",
-		"temp",
-	})
+	return cleanupTempRecords(ctx, config, tempCredentialsConfigKey, "credentials", "credentials")
 }
 
 func tempUseCaseVerificationsCleanupHook(
@@ -40,11 +33,13 @@ func tempUseCaseVerificationsCleanupHook(
 	_ map[string]any,
 	_ *map[string]any,
 ) error {
-	return cleanupTempRecords(ctx, config, tempUseCaseVerificationsConfigKey, "use_cases", []string{
-		"api",
-		"verifier",
-		"temp-use-case",
-	})
+	return cleanupTempRecords(
+		ctx,
+		config,
+		tempUseCaseVerificationsConfigKey,
+		"use_cases",
+		"use_cases_verifications",
+	)
 }
 
 func cleanupTempRecords(
@@ -52,7 +47,7 @@ func cleanupTempRecords(
 	config map[string]any,
 	configKey string,
 	itemsKey string,
-	urlParts []string,
+	collection string,
 ) error {
 	cleanupConfig, ok := config[configKey].(map[string]any)
 	if !ok || !workflowengine.AsBool(cleanupConfig["cleanup"]) {
@@ -67,12 +62,7 @@ func cleanupTempRecords(
 	if len(items) == 0 {
 		return nil
 	}
-	appURL := workflowengine.InternalAppURLFromConfig(config)
-	if appURL == "" {
-		return nil
-	}
 
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
 	for _, item := range items {
 		recordID, _ := item["record_id"].(string)
@@ -81,19 +71,15 @@ func cleanupTempRecords(
 		if recordID == "" {
 			continue
 		}
-		recordURLParts := append(append([]string{}, urlParts...), recordID)
 		request := workflowengine.ActivityInput{
-			Payload: activities.InternalHTTPActivityPayload{
-				Method: http.MethodDelete,
-				URL:    utils.JoinURL(appURL, recordURLParts...),
-				Body: map[string]any{
-					"expected_owner_id":   ownerID,
-					"expected_identifier": identifier,
-				},
-				ExpectedStatus: http.StatusOK,
+			Payload: activities.DeleteTempRecordInput{
+				Collection:         collection,
+				RecordID:           recordID,
+				ExpectedOwnerID:    ownerID,
+				ExpectedIdentifier: identifier,
 			},
 		}
-		if err := workflow.ExecuteActivity(cleanupCtx, internalHTTPActivity.Name(), request).
+		if err := workflow.ExecuteActivity(cleanupCtx, activities.DeleteTempRecordActivityName, request).
 			Get(cleanupCtx, nil); err != nil {
 			return err
 		}

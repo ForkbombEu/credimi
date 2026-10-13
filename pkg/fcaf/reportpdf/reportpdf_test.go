@@ -10,10 +10,13 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf16"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/engine"
+	"github.com/go-pdf/fpdf"
 	"github.com/stretchr/testify/require"
 )
 
@@ -406,11 +409,16 @@ func TestDeduplicateScreenshotsLeavesNonBurstImagesAlone(t *testing.T) {
 
 func testPNG(t *testing.T) []byte {
 	t.Helper()
+	return testPNGWithColor(t, color.RGBA{R: 49, G: 4, B: 255, A: 255})
+}
+
+func testPNGWithColor(t *testing.T, fill color.RGBA) []byte {
+	t.Helper()
 
 	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
 	for y := range 4 {
 		for x := range 4 {
-			img.Set(x, y, color.RGBA{R: 49, G: 4, B: 255, A: 255})
+			img.Set(x, y, fill)
 		}
 	}
 	var output bytes.Buffer
@@ -454,4 +462,187 @@ func TestDeduplicateScreenshotsKeepsLastPerCloudBurst(t *testing.T) {
 		"engagement_haip_vp_4bb0f83a_invoke_wallet_with_haip_vp_fcaf_engagement_haip_vp_invoked_e.png",
 		kept[2].Filename,
 	)
+}
+
+func TestRenderEmbedsVisualEvidenceOfEveryTest(t *testing.T) {
+	firstTestImages := []string{"shared.png", "a.png", "b.png", "c.png", "d.png", "empty.png"}
+	images := make([]ImageAsset, 0, len(firstTestImages))
+	for index, filename := range firstTestImages {
+		// fpdf embeds byte-identical images once, so every screenshot gets its own color.
+		red := []uint8{0, 40, 80, 120, 160, 200}[index]
+		imageData, err := PrepareImage(testPNGWithColor(t, color.RGBA{
+			R: red, G: 120, B: 200, A: 255,
+		}))
+		require.NoError(t, err)
+		asset := ImageAsset{Filename: filename, Data: imageData}
+		if filename == "empty.png" {
+			asset.Data = nil
+		}
+		images = append(images, asset)
+	}
+	report := engine.Report{
+		Status: "failed",
+		ExecutedTests: []engine.ExecutedTest{
+			{
+				TestID:   "WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001",
+				Status:   "failed",
+				Outcome:  engine.TestOutcome{Status: "failed", Reason: "Email claim missing."},
+				Evidence: []engine.ExecutedEvidence{{Name: "screens", Visual: firstTestImages}},
+			},
+			{
+				TestID: "WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_002",
+				Status: "passed",
+				Evidence: []engine.ExecutedEvidence{
+					{Name: "screens", Visual: []string{"shared.png"}},
+				},
+			},
+		},
+	}
+	metadata := Metadata{GeneratedAt: time.Date(2026, time.August, 28, 0, 0, 0, 0, time.UTC)}
+
+	document := BuildDocument(Input{Report: report, Images: images, Metadata: metadata})
+	require.Empty(t, document.Unassigned)
+	require.Len(t, document.Categories, 1)
+	tests := document.Categories[0].Groups[0].Tests
+	require.Len(t, tests[0].Images, len(firstTestImages))
+	require.Equal(t, []ImageAsset{images[0]}, tests[1].Images)
+	withImages, err := Render(context.Background(), document)
+	require.NoError(t, err)
+	withoutImages, err := Render(
+		context.Background(),
+		BuildDocument(Input{Report: report, Metadata: metadata}),
+	)
+	require.NoError(t, err)
+
+	// Five non-empty screenshots across a two-row grid (the shared one is registered
+	// once); the empty one has nothing to embed.
+	require.Equal(
+		t,
+		bytes.Count(withoutImages, []byte("/Subtype /Image"))+5,
+		bytes.Count(withImages, []byte("/Subtype /Image")),
+	)
+	require.True(t, pdfHasBookmark(withImages, report.ExecutedTests[0].TestID))
+	require.True(t, pdfHasBookmark(withImages, report.ExecutedTests[1].TestID))
+}
+
+func TestRenderAddsWarningsSectionOnlyWhenNeeded(t *testing.T) {
+	report := engine.Report{
+		Status: "passed",
+		ExecutedTests: []engine.ExecutedTest{
+			{TestID: "WS_RP_IA_MainInteraction__003", Status: "passed"},
+		},
+	}
+
+	clean, err := Render(context.Background(), BuildDocument(Input{Report: report}))
+	require.NoError(t, err)
+	require.False(t, pdfHasBookmark(clean, "Report warnings"))
+	require.True(t, pdfHasBookmark(clean, "WS_RP_IA_MainInteraction__003"))
+
+	warned, err := Render(context.Background(), BuildDocument(Input{
+		Report: report,
+		Warnings: []string{
+			"visual evidence z.png was not stored",
+			"load pipeline metadata: missing",
+		},
+	}))
+	require.NoError(t, err)
+	require.True(t, pdfHasBookmark(warned, "Report warnings"))
+	require.Greater(
+		t,
+		bytes.Count(warned, []byte("/Type /Page\n")),
+		bytes.Count(clean, []byte("/Type /Page\n")),
+		"warnings get their own page",
+	)
+}
+
+func TestRenderStopsWhenContextIsCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	data, err := Render(ctx, BuildDocument(Input{Report: engine.Report{
+		ExecutedTests: []engine.ExecutedTest{{TestID: "WS_RP_IA_MainInteraction__003"}},
+	}}))
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorContains(t, err, "generate FCAF PDF")
+	require.Nil(t, data)
+}
+
+func TestStatusLabelAndColor(t *testing.T) {
+	green := [3]int{35, 126, 74}
+	red := [3]int{181, 48, 48}
+	amber := [3]int{164, 103, 16}
+	grey := [3]int{99, 99, 109}
+	purple := [3]int{74, 55, 168}
+
+	tests := []struct {
+		status    string
+		wantLabel string
+		wantColor [3]int
+	}{
+		{status: "pass", wantLabel: "Passed", wantColor: green},
+		{status: " PASSED ", wantLabel: "Passed", wantColor: green},
+		{status: "fail", wantLabel: "Failed", wantColor: red},
+		{status: "Failed", wantLabel: "Failed", wantColor: red},
+		{status: "error", wantLabel: "Error", wantColor: red},
+		{status: "blocked", wantLabel: "Blocked", wantColor: amber},
+		{status: "inconclusive", wantLabel: "Inconclusive", wantColor: amber},
+		{status: "skipped", wantLabel: "Skipped", wantColor: grey},
+		{status: "not_applicable", wantLabel: "Not applicable", wantColor: grey},
+		{status: "not applicable", wantLabel: "Not applicable", wantColor: grey},
+		{status: "", wantLabel: "Unknown", wantColor: purple},
+		{status: "pending", wantLabel: "Pending", wantColor: purple},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.status, func(t *testing.T) {
+			label := statusLabel(tc.status)
+			require.Equal(t, tc.wantLabel, label)
+			red, green, blue := statusColor(label)
+			require.Equal(t, tc.wantColor, [3]int{red, green, blue})
+		})
+	}
+}
+
+func TestWrapTokenBreaksLongIdentifiersAtUnderscores(t *testing.T) {
+	pdf := fpdf.New("P", "mm", "A4", "")
+	pdf.AddUTF8FontFromBytes("Inter", "", interRegular)
+	pdf.SetFont("Inter", "", 9)
+	r := &renderer{pdf: pdf}
+	const width = 40.0
+
+	require.Equal(t, "", r.wrapToken("   ", width))
+	require.Equal(t, "short_id", r.wrapToken("  short_id  ", width))
+
+	const unbreakable = "averyveryverylongidentifierwithoutanyunderscoreseparators"
+	require.Equal(t, unbreakable, r.wrapToken(unbreakable, width))
+
+	const testID = "WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001"
+	wrapped := r.wrapToken(testID, width)
+	lines := strings.Split(wrapped, "\n")
+	require.Greater(t, len(lines), 1)
+	require.Equal(t, testID, strings.Join(lines, ""), "wrapping only inserts line breaks")
+	for _, line := range lines[:len(lines)-1] {
+		require.True(
+			t,
+			strings.HasSuffix(line, "_"),
+			"line %q must break after an underscore",
+			line,
+		)
+	}
+	for _, line := range lines {
+		if strings.Count(line, "_") > 1 {
+			require.LessOrEqual(t, pdf.GetStringWidth(line), width, "line %q overflows", line)
+		}
+	}
+}
+
+// pdfHasBookmark reports whether the PDF outline contains title. Bookmarks are
+// written as UTF-16BE strings because the report uses UTF-8 fonts.
+func pdfHasBookmark(data []byte, title string) bool {
+	encoded := make([]byte, 0, 2*len(title))
+	for _, unit := range utf16.Encode([]rune(title)) {
+		encoded = append(encoded, byte(unit>>8), byte(unit))
+	}
+	return bytes.Contains(data, encoded)
 }

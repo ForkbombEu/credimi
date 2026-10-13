@@ -1,0 +1,65 @@
+name: FCAF DC API multi-signed request
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+# OpenID4VP Appendix A.3.2.2: one Request Object signed under two Client
+# Identifiers (x509_hash and decentralized_identifier) as a JWS JSON
+# Serialization, answered as an encrypted JWT over the browser API.
+- id: create-dc-api-multisigned
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      response_mode: dc_api.jwt
+      request_delivery: multisigned
+      response_type: vp_token
+      presentation_request:
+        nonce: dc-api-multisigned
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+- id: invoke-dc-api-multisigned
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-dc-api-present
+    version_id: installed_from_external_source
+    parameters:
+      presentation_url: "${{ create-dc-api-multisigned.outputs.body.deeplink }}"
+- id: fetch-dc-api-multisigned
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-dc-api-multisigned.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_SM_RpIntegrity__030
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dc-api.multisigned:
+        output:
+          session: ${{ fetch-dc-api-multisigned.outputs.body }}
+          signatures: ${{ fetch-dc-api-multisigned.outputs.body.dc_api.request.data.request.signatures }}
+          wallet_response: ${{ fetch-dc-api-multisigned.outputs.body.raw.presentation_response_decrypted }}
+          visual_evidence: ${{ invoke-dc-api-multisigned.outputs.flow_output.maestro_screenshot_urls }}

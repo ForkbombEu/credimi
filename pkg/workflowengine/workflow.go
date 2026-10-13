@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
-	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -101,12 +101,7 @@ func BuildWorkflow(
 			WorkflowID:   info.WorkflowExecution.ID,
 			RunID:        info.WorkflowExecution.RunID,
 			Namespace:    info.Namespace,
-			TemporalUI: utils.JoinURL(
-				input.Config["app_url"].(string),
-				"my", "tests", "runs",
-				info.WorkflowExecution.ID,
-				info.WorkflowExecution.RunID,
-			),
+			TemporalUI:   RunPageURL(input.Config, info.WorkflowExecution),
 		}
 
 		// ---- activity options composition ----
@@ -135,6 +130,18 @@ func BuildWorkflow(
 		}
 		return result, nil
 	}
+}
+
+// RunPageURL returns the Credimi page of a run, linked from workflow errors
+// and pipeline notifications. It is empty when the config carries no app_url:
+// workflows that build user-facing links check app_url themselves, the others
+// do not need it.
+func RunPageURL(config map[string]any, execution workflow.Execution) string {
+	appURL, _ := config[AppURLConfigKey].(string)
+	if strings.TrimSpace(appURL) == "" {
+		return ""
+	}
+	return utils.JoinURL(appURL, "my", "tests", "runs", execution.ID, execution.RunID)
 }
 
 func NewWorkflowError(err error, metadata *WorkflowRunMetadata) error {
@@ -439,8 +446,8 @@ func StartWorkflowWithOptions(
 		return WorkflowResult{}, fmt.Errorf("unable to create client: %w", err)
 	}
 
-	if input.Config["memo"] != nil {
-		options.Memo = input.Config["memo"].(map[string]any)
+	if m, ok := input.Config["memo"].(map[string]any); ok {
+		options.Memo = maps.Clone(m)
 	}
 
 	if options.Memo == nil {
@@ -465,64 +472,41 @@ func StartWorkflowWithOptions(
 }
 
 // Wait for final workflow result
-func WaitForWorkflowResult(c client.Client, workflowID, runID string) (WorkflowResult, error) {
+func WaitForWorkflowResult(
+	ctx context.Context,
+	c client.Client,
+	workflowID, runID string,
+) (WorkflowResult, error) {
 	var result WorkflowResult
-	we := c.GetWorkflow(context.Background(), workflowID, runID)
-	if err := we.Get(context.Background(), &result); err != nil {
+	we := c.GetWorkflow(ctx, workflowID, runID)
+	if err := we.Get(ctx, &result); err != nil {
 		return result, err
 	}
 	return result, nil
 }
 
-// ErrNotReady is returned by a workflow query when the requested data is not ready yet.
-type NotReadyError struct{}
-
-// Error implements the error interface for ErrNotReady.
-func (e NotReadyError) Error() string {
-	return "result not ready"
-}
-
-// Fetch partial workflow result via query (generic)
-func WaitForPartialResult[T any](
+// WaitForUpdateResult sends updateName to the workflow and waits for the
+// handler's result. The handler blocks until the data is ready, so ctx bounds
+// the wait.
+func WaitForUpdateResult[T any](
+	ctx context.Context,
 	c client.Client,
-	workflowID, runID, queryName string,
-	pollInterval time.Duration,
-	maxWait time.Duration, // 0 = no timeout
+	workflowID, runID, updateName string,
 ) (T, error) {
 	var result T
-
-	// Context with timeout if maxWait > 0
-	ctx := context.Background()
-	if maxWait > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, maxWait)
-		defer cancel()
+	handle, err := c.UpdateWorkflow(ctx, client.UpdateWorkflowOptions{
+		WorkflowID:   workflowID,
+		RunID:        runID,
+		UpdateName:   updateName,
+		WaitForStage: client.WorkflowUpdateStageCompleted,
+	})
+	if err != nil {
+		return result, fmt.Errorf("update %s: %w", updateName, err)
 	}
-
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return result, fmt.Errorf("timeout waiting for partial result: %w", ctx.Err())
-		case <-ticker.C:
-			queryResp, err := c.QueryWorkflow(ctx, workflowID, runID, queryName)
-			if err != nil {
-				if strings.Contains(err.Error(), "result not ready") {
-					// Query not ready yet → keep polling
-					continue
-				}
-				return result, err
-			}
-
-			// Got query result → decode into result
-			if err := queryResp.Get(&result); err != nil {
-				return result, err
-			}
-			return result, nil
-		}
+	if err := handle.Get(ctx, &result); err != nil {
+		return result, fmt.Errorf("update %s result: %w", updateName, err)
 	}
+	return result, nil
 }
 
 func ParseWorkflowError(err error) WorkflowError {

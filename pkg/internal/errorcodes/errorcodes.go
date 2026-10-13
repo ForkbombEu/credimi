@@ -44,6 +44,9 @@ var Codes = map[string]Code{
 	ChildWorkflowExecutionError:    {"CRE230", "Failed to execute child workflow"},
 	WorkflowCancellationError:      {"CRE231", "Workflow was cancelled"},
 	UnexpectedWorkflowError:        {"CRE232", "Unexpected workflow error"},
+	RecordNotFound:                 {"CRE233", "Credimi record not found"},
+	RecordNotAccessible:            {"CRE234", "Credimi record is not accessible"},
+	DatabaseOperationFailed:        {"CRE235", "Credimi database operation failed"},
 	CommandExecutionFailed:         {"CRE301", "Command execution failed"},
 	StepCIRunFailed:                {"CRE302", "StepCI run failed"},
 	UnexpectedStepCIOutput:         {"CRE303", "Unexpected output from StepCI run"},
@@ -51,7 +54,6 @@ var Codes = map[string]Code{
 	EWCCheckFailed:                 {"CRE305", "EWC check failed"},
 	EudiwCheckFailed:               {"CRE306", "Eudiw check failed"},
 	UnexpectedDockerOutput:         {"CRE307", "Unexpected output from docker container"},
-	ZenroomExecutionFailed:         {"CRE308", "Execution of Zenroom failed"},
 	OpenIDnetCheckFailed:           {"CRE309", "OpenIDnet check failed"},
 	UnexpectedHTTPStatusCode:       {"CRE310", "Unexpected HTTP status code"},
 	OpenID4VCIIssuerCheckFailed:    {"CRE313", "OID4VCI issuer check failed"},
@@ -98,6 +100,9 @@ const (
 	ChildWorkflowExecutionError    = "CRE230"
 	WorkflowCancellationError      = "CRE231"
 	UnexpectedWorkflowError        = "CRE232"
+	RecordNotFound                 = "CRE233"
+	RecordNotAccessible            = "CRE234"
+	DatabaseOperationFailed        = "CRE235"
 	CommandExecutionFailed         = "CRE301"
 	StepCIRunFailed                = "CRE302"
 	UnexpectedStepCIOutput         = "CRE303"
@@ -105,7 +110,6 @@ const (
 	EWCCheckFailed                 = "CRE305"
 	EudiwCheckFailed               = "CRE306"
 	UnexpectedDockerOutput         = "CRE307"
-	ZenroomExecutionFailed         = "CRE308"
 	OpenIDnetCheckFailed           = "CRE309"
 	UnexpectedHTTPStatusCode       = "CRE310"
 	OpenID4VCIIssuerCheckFailed    = "CRE313"

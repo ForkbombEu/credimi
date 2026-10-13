@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -13,13 +14,12 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"testing"
-	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -33,7 +33,7 @@ func setupWalletApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	canonify.RegisterCanonifyHooks(app)
-	WalletTemporalInternalRoutes.Add(app)
+	WalletInternalRoutes.Add(app)
 	seedInternalAdminKey(t, app)
 	return app
 }
@@ -59,160 +59,6 @@ func NewTestFile(name string, content []byte) *filesystem.File {
 		OriginalName: name,
 		Size:         int64(len(content)),
 	}
-}
-
-func TestWalletDeleteTempVersion(t *testing.T) {
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	t.Run("requires internal admin key", func(t *testing.T) {
-		scenario := tests.ApiScenario{
-			Name:           "missing key",
-			Method:         http.MethodDelete,
-			URL:            "/api/wallet/temp-version/missing",
-			ExpectedStatus: http.StatusUnauthorized,
-			ExpectedContent: []string{
-				"api_key_required",
-			},
-			TestAppFactory: setupWalletApp,
-		}
-		scenario.Test(t)
-	})
-
-	t.Run("deletes existing wallet version", func(t *testing.T) {
-		app := setupWalletApp(t)
-		defer app.Cleanup()
-
-		versionID := createWalletAPKVersion(t, app, orgID, "wallet-temp-delete", "abc123")
-		versionRecord, err := canonify.Resolve(app, versionID)
-		require.NoError(t, err)
-
-		baseRouter, err := apis.NewRouter(app)
-		require.NoError(t, err)
-		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-			mux, err := e.Router.BuildMux()
-			require.NoError(t, err)
-
-			req := httptest.NewRequest(
-				http.MethodDelete,
-				"/api/wallet/temp-version/"+versionRecord.Id,
-				jsonBody(map[string]any{
-					"expected_owner_id":   orgID,
-					"expected_identifier": versionID,
-				}),
-			)
-			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusOK, rec.Code)
-			require.Contains(t, rec.Body.String(), `"deleted":true`)
-			return nil
-		})
-		require.NoError(t, serveErr)
-
-		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
-		require.Error(t, err)
-	})
-
-	t.Run("rejects existing wallet version without validation payload", func(t *testing.T) {
-		app := setupWalletApp(t)
-		defer app.Cleanup()
-
-		versionID := createWalletAPKVersion(t, app, orgID, "wallet-temp-no-payload", "abc123")
-		versionRecord, err := canonify.Resolve(app, versionID)
-		require.NoError(t, err)
-
-		baseRouter, err := apis.NewRouter(app)
-		require.NoError(t, err)
-		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-			mux, err := e.Router.BuildMux()
-			require.NoError(t, err)
-
-			req := httptest.NewRequest(
-				http.MethodDelete,
-				"/api/wallet/temp-version/"+versionRecord.Id,
-				nil,
-			)
-			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusBadRequest, rec.Code)
-			require.Contains(t, rec.Body.String(), "delete validation payload is required")
-			return nil
-		})
-		require.NoError(t, serveErr)
-
-		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
-		require.NoError(t, err)
-	})
-
-	t.Run("rejects owner mismatch", func(t *testing.T) {
-		app := setupWalletApp(t)
-		defer app.Cleanup()
-
-		versionID := createWalletAPKVersion(t, app, orgID, "wallet-temp-owner-mismatch", "abc123")
-		versionRecord, err := canonify.Resolve(app, versionID)
-		require.NoError(t, err)
-
-		baseRouter, err := apis.NewRouter(app)
-		require.NoError(t, err)
-		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-			mux, err := e.Router.BuildMux()
-			require.NoError(t, err)
-
-			req := httptest.NewRequest(
-				http.MethodDelete,
-				"/api/wallet/temp-version/"+versionRecord.Id,
-				jsonBody(map[string]any{
-					"expected_owner_id":   "other-owner",
-					"expected_identifier": versionID,
-				}),
-			)
-			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusForbidden, rec.Code)
-			require.Contains(t, rec.Body.String(), "owner mismatch")
-			return nil
-		})
-		require.NoError(t, serveErr)
-
-		_, err = app.FindRecordById("wallet_versions", versionRecord.Id)
-		require.NoError(t, err)
-	})
-
-	t.Run("missing record is idempotent success", func(t *testing.T) {
-		app := setupWalletApp(t)
-		defer app.Cleanup()
-
-		baseRouter, err := apis.NewRouter(app)
-		require.NoError(t, err)
-		serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-		serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
-			mux, err := e.Router.BuildMux()
-			require.NoError(t, err)
-
-			req := httptest.NewRequest(
-				http.MethodDelete,
-				"/api/wallet/temp-version/missingrecord12",
-				nil,
-			)
-			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
-			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusOK, rec.Code)
-			require.Contains(t, rec.Body.String(), `"deleted":false`)
-			return nil
-		})
-		require.NoError(t, serveErr)
-	})
 }
 
 type walletWorkflowStub struct {
@@ -553,6 +399,30 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 			TestAppFactory: setupWalletApp,
 		},
 		{
+			Name:   "get installer MD5 for a wallet without versions",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_identifier": "usera-s-organization/empty-wallet",
+				"platform":          "android",
+			}),
+			ExpectedStatus: 404,
+			ExpectedContent: []string{
+				`"wallet version not found"`,
+				`has no versions`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+				walletColl, err := app.FindCollectionByNameOrId("wallets")
+				require.NoError(t, err)
+				walletRecord := core.NewRecord(walletColl)
+				walletRecord.Set("name", "empty-wallet")
+				walletRecord.Set("owner", orgID)
+				require.NoError(t, app.Save(walletRecord))
+				return app
+			},
+		},
+		{
 			Name:   "get installer MD5 with invalid platform",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/get-installer-md5-or-etag",
@@ -660,15 +530,18 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	)
 
 	successBody, successContentType := walletStorePipelineResultBody(
-		t, reservedDevicePath, "android",
+		t, reservedDevicePath, "android", false,
+	)
+	timelineBody, timelineContentType := walletStorePipelineResultBody(
+		t, reservedDevicePath, "android", true,
 	)
 	otherDeviceBody, otherDeviceContentType := walletStorePipelineResultBody(
-		t, otherDevicePath, "android",
+		t, otherDevicePath, "android", false,
 	)
 	crossOrgRunnerBody, crossOrgRunnerContentType := walletStorePipelineResultBody(
-		t, publicDevicePath, "android",
+		t, publicDevicePath, "android", false,
 	)
-	iosBody, iosContentType := walletStorePipelineResultBody(t, reservedDevicePath, "ios")
+	iosBody, iosContentType := walletStorePipelineResultBody(t, reservedDevicePath, "ios", false)
 
 	// Prepare missing file multipart request
 	var missingBody bytes.Buffer
@@ -727,7 +600,30 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"screenshot_urls"`,
 				`"video_file_name"`,
 			},
+			NotExpectedContent: []string{`"maestro_timeline_file_name"`},
+			TestAppFactory:     setupReservedDeviceApp,
+		},
+		{
+			Name:   "store pipeline result with its maestro timeline",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(timelineBody),
+			Headers: map[string]string{
+				"Content-Type": timelineContentType,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"status":"success"`,
+				`"maestro_timeline_file_name":"maestro-timeline.jsonl"`,
+			},
 			TestAppFactory: setupReservedDeviceApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				record, err := canonify.Resolve(app, "usera-s-organization/workflow123-run123")
+				require.NoError(t, err)
+				timelines := record.GetStringSlice("maestro_timelines")
+				require.Len(t, timelines, 1)
+				require.Contains(t, timelines[0], "test_device_timeline_")
+			},
 		},
 		{
 			Name:   "store pipeline result successfully with authenticated user",
@@ -881,6 +777,7 @@ func walletStorePipelineResultBody(
 	t testing.TB,
 	deviceIdentifier string,
 	platform string,
+	withTimeline bool,
 ) ([]byte, string) {
 	t.Helper()
 
@@ -914,6 +811,15 @@ func walletStorePipelineResultBody(
 	_, err = logWriter.Write([]byte("test log content"))
 	require.NoError(t, err)
 
+	if withTimeline {
+		timelineWriter, err := writer.CreateFormFile("maestro_timeline", "maestro-timeline.jsonl")
+		require.NoError(t, err)
+		_, err = timelineWriter.Write(
+			[]byte(`{"t":1,"kind":"recording_started","index":0,"parent":0,"depth":0}` + "\n"),
+		)
+		require.NoError(t, err)
+	}
+
 	require.NoError(t, writer.Close())
 	return body.Bytes(), writer.FormDataContentType()
 }
@@ -941,7 +847,10 @@ func TestHandleWalletStartCheckInvalidJSON(t *testing.T) {
 			Response: rec,
 		},
 	})
-	require.Error(t, err)
+	var apiErr *apierror.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "invalid JSON input", apiErr.Reason)
 }
 
 func TestHandleWalletStartCheckWorkflowStartError(t *testing.T) {
@@ -954,11 +863,11 @@ func TestHandleWalletStartCheckWorkflowStartError(t *testing.T) {
 
 	origFactory := walletWorkflowFactory
 	origClient := walletTemporalClient
-	origWait := walletWaitForPartialResult
+	origWait := walletWaitForUpdateResult
 	t.Cleanup(func() {
 		walletWorkflowFactory = origFactory
 		walletTemporalClient = origClient
-		walletWaitForPartialResult = origWait
+		walletWaitForUpdateResult = origWait
 	})
 
 	walletWorkflowFactory = func() walletWorkflowStarter {
@@ -971,11 +880,10 @@ func TestHandleWalletStartCheckWorkflowStartError(t *testing.T) {
 	walletTemporalClient = func(_ string) (client.Client, error) {
 		return temporalmocks.NewClient(t), nil
 	}
-	walletWaitForPartialResult = func(
+	walletWaitForUpdateResult = func(
+		_ context.Context,
 		_ client.Client,
 		_, _, _ string,
-		_ time.Duration,
-		_ time.Duration,
 	) (map[string]any, error) {
 		return nil, errors.New("not reached")
 	}
@@ -1009,11 +917,11 @@ func TestHandleWalletStartCheckTemporalClientError(t *testing.T) {
 
 	origFactory := walletWorkflowFactory
 	origClient := walletTemporalClient
-	origWait := walletWaitForPartialResult
+	origWait := walletWaitForUpdateResult
 	t.Cleanup(func() {
 		walletWorkflowFactory = origFactory
 		walletTemporalClient = origClient
-		walletWaitForPartialResult = origWait
+		walletWaitForUpdateResult = origWait
 	})
 
 	walletWorkflowFactory = func() walletWorkflowStarter {
@@ -1029,11 +937,10 @@ func TestHandleWalletStartCheckTemporalClientError(t *testing.T) {
 	walletTemporalClient = func(_ string) (client.Client, error) {
 		return nil, errors.New("no client")
 	}
-	walletWaitForPartialResult = func(
+	walletWaitForUpdateResult = func(
+		_ context.Context,
 		_ client.Client,
 		_, _, _ string,
-		_ time.Duration,
-		_ time.Duration,
 	) (map[string]any, error) {
 		return nil, errors.New("not reached")
 	}
@@ -1057,7 +964,7 @@ func TestHandleWalletStartCheckTemporalClientError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestHandleWalletStartCheckPartialResultError(t *testing.T) {
+func TestHandleWalletStartCheckUpdateResultError(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -1067,11 +974,11 @@ func TestHandleWalletStartCheckPartialResultError(t *testing.T) {
 
 	origFactory := walletWorkflowFactory
 	origClient := walletTemporalClient
-	origWait := walletWaitForPartialResult
+	origWait := walletWaitForUpdateResult
 	t.Cleanup(func() {
 		walletWorkflowFactory = origFactory
 		walletTemporalClient = origClient
-		walletWaitForPartialResult = origWait
+		walletWaitForUpdateResult = origWait
 	})
 
 	walletWorkflowFactory = func() walletWorkflowStarter {
@@ -1087,11 +994,10 @@ func TestHandleWalletStartCheckPartialResultError(t *testing.T) {
 	walletTemporalClient = func(_ string) (client.Client, error) {
 		return temporalmocks.NewClient(t), nil
 	}
-	walletWaitForPartialResult = func(
+	walletWaitForUpdateResult = func(
+		_ context.Context,
 		_ client.Client,
 		_, _, _ string,
-		_ time.Duration,
-		_ time.Duration,
 	) (map[string]any, error) {
 		return nil, errors.New("query failed")
 	}
@@ -1125,11 +1031,11 @@ func TestHandleWalletStartCheckMetadataError(t *testing.T) {
 
 	origFactory := walletWorkflowFactory
 	origClient := walletTemporalClient
-	origWait := walletWaitForPartialResult
+	origWait := walletWaitForUpdateResult
 	t.Cleanup(func() {
 		walletWorkflowFactory = origFactory
 		walletTemporalClient = origClient
-		walletWaitForPartialResult = origWait
+		walletWaitForUpdateResult = origWait
 	})
 
 	walletWorkflowFactory = func() walletWorkflowStarter {
@@ -1145,11 +1051,10 @@ func TestHandleWalletStartCheckMetadataError(t *testing.T) {
 	walletTemporalClient = func(_ string) (client.Client, error) {
 		return temporalmocks.NewClient(t), nil
 	}
-	walletWaitForPartialResult = func(
+	walletWaitForUpdateResult = func(
+		_ context.Context,
 		_ client.Client,
 		_, _, _ string,
-		_ time.Duration,
-		_ time.Duration,
 	) (map[string]any, error) {
 		return map[string]any{
 			"storeType": "google",
@@ -1189,11 +1094,11 @@ func TestHandleWalletStartCheckSuccess(t *testing.T) {
 
 	origFactory := walletWorkflowFactory
 	origClient := walletTemporalClient
-	origWait := walletWaitForPartialResult
+	origWait := walletWaitForUpdateResult
 	t.Cleanup(func() {
 		walletWorkflowFactory = origFactory
 		walletTemporalClient = origClient
-		walletWaitForPartialResult = origWait
+		walletWaitForUpdateResult = origWait
 	})
 
 	walletWorkflowFactory = func() walletWorkflowStarter {
@@ -1211,11 +1116,10 @@ func TestHandleWalletStartCheckSuccess(t *testing.T) {
 	walletTemporalClient = func(_ string) (client.Client, error) {
 		return temporalmocks.NewClient(t), nil
 	}
-	walletWaitForPartialResult = func(
+	walletWaitForUpdateResult = func(
+		_ context.Context,
 		_ client.Client,
 		_, _, _ string,
-		_ time.Duration,
-		_ time.Duration,
 	) (map[string]any, error) {
 		return map[string]any{
 			"storeType": "google",

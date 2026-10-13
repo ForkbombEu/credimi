@@ -45,26 +45,29 @@ func TestMergeConfigs(t *testing.T) {
 			expected: map[string]any{"c": "x"},
 		},
 		{
-			name: "step cannot override server-owned base URLs",
+			name: "step cannot override server-owned app config",
 			global: map[string]any{
-				"app_url":          "https://credimi.example",
-				"internal_app_url": "http://credimi:8090",
+				"app_url":  "https://credimi.example",
+				"app_name": "Credimi",
+				"app_logo": "https://credimi.example/logo.png",
 			},
 			step: map[string]any{
-				"app_url":          "https://attacker.example",
-				"internal_app_url": "https://attacker.example",
-				"c":                "x",
+				"app_url":  "https://attacker.example",
+				"app_name": "Attacker",
+				"app_logo": "https://attacker.example/logo.png",
+				"c":        "x",
 			},
 			expected: map[string]any{
-				"app_url":          "https://credimi.example",
-				"internal_app_url": "http://credimi:8090",
-				"c":                "x",
+				"app_url":  "https://credimi.example",
+				"app_name": "Credimi",
+				"app_logo": "https://credimi.example/logo.png",
+				"c":        "x",
 			},
 		},
 		{
-			name:     "step cannot introduce server-owned base URLs",
+			name:     "step cannot introduce server-owned app config",
 			global:   map[string]any{},
-			step:     map[string]any{"internal_app_url": "https://attacker.example"},
+			step:     map[string]any{"app_url": "https://attacker.example"},
 			expected: map[string]any{},
 		},
 	}
@@ -77,46 +80,26 @@ func TestMergeConfigs(t *testing.T) {
 	}
 }
 
-// Step config reaches InternalAppURLFromConfig, which picks the destination of
-// calls carrying the internal admin key; pipeline YAML must not redirect it.
-func TestResolveInputsIgnoresStepInternalAppURL(t *testing.T) {
-	tests := []struct {
-		name      string
-		globalCfg map[string]any
-		expected  string
-	}{
-		{
-			name: "internal override configured",
-			globalCfg: map[string]any{
-				"app_url":          "https://credimi.example",
-				"internal_app_url": "http://credimi:8090",
-			},
-			expected: "http://credimi:8090",
-		},
-		{
-			name:      "app url only",
-			globalCfg: map[string]any{"app_url": "https://credimi.example"},
-			expected:  "https://credimi.example",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			wf, err := ParseWorkflow(`name: repro
+// Step config builds user-facing links from app_url; pipeline YAML must not
+// redirect them.
+func TestResolveInputsIgnoresStepAppURL(t *testing.T) {
+	wf, err := ParseWorkflow(`name: repro
 steps:
   - id: x
     use: credential-offer
     with:
       config:
-        internal_app_url: https://attacker.example
+        app_url: https://attacker.example
 `)
-			require.NoError(t, err)
-			step := wf.Steps[0]
+	require.NoError(t, err)
+	step := wf.Steps[0]
 
-			require.NoError(t, ResolveInputs(&step, tc.globalCfg, map[string]any{}))
-			require.Equal(t, tc.expected, workflowengine.InternalAppURLFromConfig(step.With.Config))
-		})
-	}
+	require.NoError(t, ResolveInputs(
+		&step,
+		map[string]any{workflowengine.AppURLConfigKey: "https://credimi.example"},
+		map[string]any{},
+	))
+	require.Equal(t, "https://credimi.example", step.With.Config[workflowengine.AppURLConfigKey])
 }
 
 func TestResolveRef(t *testing.T) {

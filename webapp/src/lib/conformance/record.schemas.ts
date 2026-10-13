@@ -44,6 +44,7 @@ export const conformanceSuiteRecordSchema = z.object({
 	suite_help: z.string().optional().default(''),
 	suite_description: z.string().optional().default(''),
 	suite_logo: z.string().optional().default(''),
+	has_qr: z.boolean().optional().default(false),
 	check_count: z.number().int().nonnegative(),
 	members: z.array(z.object({ path: z.string(), title: z.string(), file: z.string() })).optional().default([]),
 	visible_in: z.array(z.string()).optional().default([]),

@@ -37,17 +37,18 @@ description: ""
 │  ┌────────────────────────────────────────────────────────────┐     │
 │  │ AggregateScoreboardWorkflow (Temporal)                     │     │
 │  │                                                            │     │
-│  │  1. List org namespaces                                    │     │
-│  │  2. GET /api/pipeline/scoreboard/{namespace} per tenant    │     │
+│  │  1. List org namespaces (activity)                         │     │
+│  │  2. Get the pipeline scoreboard of each namespace          │     │
 │  │  3. Merge pipeline stats                                   │     │
-│  │  4. POST /api/pipeline/scoreboard/save-results             │     │
+│  │  4. Save aggregated scoreboard results (activity)          │     │
 │  └────────────────────────────────────────────────────────────┘     │
 │                                                                       │
 │  ┌────────────────────────────────────────────────────────────┐     │
-│  │ Scoreboard handlers (pkg/internal/apis/handlers)           │     │
+│  │ Scoreboard handlers and activities                         │     │
+│  │ (pkg/internal/apis/handlers)                               │     │
 │  │                                                            │     │
-│  │  - GET  /api/pipeline/scoreboard/{namespace}               │     │
-│  │  - POST /api/pipeline/scoreboard/save-results              │     │
+│  │  - Activities: namespaces, namespace scoreboard,           │     │
+│  │    execution details, save results (core.App, no HTTP)     │     │
 │  │  - POST /api/pipeline/scoreboard/aggregate/start           │     │
 │  │  - DELETE /api/pipeline/scoreboard/aggregate/schedule/{id} │     │
 │  └────────────────────────────────────────────────────────────┘     │
@@ -87,8 +88,8 @@ description: ""
 
 1. An operator or scheduler starts `POST /api/pipeline/scoreboard/aggregate/start`
 2. Temporal runs `AggregateScoreboardWorkflow` in the `default` namespace
-3. For each org namespace, the workflow calls `GET /api/pipeline/scoreboard/{namespace}`
-4. Per-namespace stats are merged and posted to `POST /api/pipeline/scoreboard/save-results`
+3. For each org namespace, the workflow runs the `Get the pipeline scoreboard of a namespace` activity, which reads Temporal and PocketBase directly
+4. Per-namespace stats are merged and saved by the `Save aggregated scoreboard results` activity
 5. `pipeline_scoreboard_cache` is refreshed (truncate + upsert by pipeline)
 
 ## Integration Points
@@ -98,7 +99,7 @@ description: ""
 - Public scoreboard UI at `/scoreboard`
 - Homepage scoreboard section on the public landing page
 - PocketBase-backed read model (`pipeline_scoreboard_cache`)
-- Temporal aggregation workflow and save endpoint
+- Temporal aggregation workflow and its activities (`pkg/internal/apis/handlers/scoreboard_activities.go`)
 - Shared frontend module at `webapp/src/lib/scoreboard`
 
 ### Removed
@@ -112,7 +113,8 @@ description: ""
 ```
 credimi/
 ├── pkg/internal/apis/handlers/
-│   ├── scoreboard.go                    (active aggregation + save handlers)
+│   ├── scoreboard.go                    (aggregation logic, schedule start/cancel handlers)
+│   ├── scoreboard_activities.go         (scoreboard aggregation activities)
 │   ├── scoreboard_handler.go            (legacy OTel handler, commented out)
 │   └── scoreboard_test.go
 ├── pkg/workflowengine/workflows/

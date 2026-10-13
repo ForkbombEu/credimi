@@ -12,8 +12,8 @@ require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/antchfx/htmlquery v1.3.6
 	github.com/forkbombeu/credimi-conformance-assessment v1.3.1
-	github.com/forkbombeu/credimi-extra v1.17.2
-	github.com/forkbombeu/eudi-conformance-evidence v1.0.2
+	github.com/forkbombeu/credimi-extra v1.18.0
+	github.com/forkbombeu/eudi-conformance-evidence v1.7.0
 	github.com/fxamacker/cbor/v2 v2.9.0
 	github.com/go-pdf/fpdf v0.9.0
 	github.com/go-playground/validator/v10 v10.26.0
@@ -25,7 +25,7 @@ require (
 	github.com/moby/moby/api v1.55.0
 	github.com/moby/moby/client v0.5.0
 	github.com/mocktools/go-smtp-mock v1.10.0
-	github.com/nexus-rpc/sdk-go v0.3.0
+	github.com/nexus-rpc/sdk-go v0.7.0
 	github.com/pocketbase/dbx v1.12.0
 	github.com/pocketbase/ozzo-validation/v4 v4.3.0
 	github.com/pocketbase/pocketbase v0.40.3
@@ -33,13 +33,13 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
 	github.com/swaggest/openapi-go v0.2.60
-	go.temporal.io/api v1.51.0
-	go.temporal.io/sdk v1.36.0
-	golang.org/x/crypto v0.56.0
+	go.temporal.io/api v1.63.6
+	go.temporal.io/sdk v1.49.0
+	golang.org/x/crypto v0.57.0
 	golang.org/x/image v0.45.0
-	golang.org/x/net v0.58.0
-	golang.org/x/sys v0.47.0
-	golang.org/x/text v0.41.0
+	golang.org/x/net v0.60.0
+	golang.org/x/sys v0.48.0
+	golang.org/x/text v0.42.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/yaml.v3 v3.0.1
@@ -110,6 +110,7 @@ require (
 	github.com/mitranim/gow v0.0.0-20250328223101-576bf37beebc // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
+	github.com/nexus-rpc/nexus-proto-annotations v0.1.0 // indirect
 	github.com/nikolaydubina/go-cover-treemap v1.5.0 // indirect
 	github.com/nikolaydubina/treemap v1.2.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -142,17 +143,17 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect
-	golang.org/x/mod v0.40.0 // indirect
+	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260811182544-a038080d80e5 // indirect
-	golang.org/x/term v0.45.0 // indirect
+	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 	golang.org/x/vuln v1.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
-	google.golang.org/grpc v1.83.1 // indirect
+	google.golang.org/grpc v1.83.2 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	honnef.co/go/tools v0.8.1 // indirect

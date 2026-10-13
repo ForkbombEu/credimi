@@ -414,3 +414,175 @@ func tamperCompactJWT(token string) string {
 	}
 	return token[:signatureStart] + string(replacement) + token[signatureStart+1:]
 }
+
+func TestSDJWTKeyBindingMatchesCNFValidatorEnforcesJWKPolicy(t *testing.T) {
+	p256Key := generateP256Key(t)
+	p384Key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	require.NoError(t, err)
+	p384JWK := map[string]any{
+		"kty": "EC",
+		"crv": "P-384",
+		"x":   base64.RawURLEncoding.EncodeToString(p384Key.X.FillBytes(make([]byte, 48))),
+		"y":   base64.RawURLEncoding.EncodeToString(p384Key.Y.FillBytes(make([]byte, 48))),
+	}
+	withMember := func(member string, value any) map[string]any {
+		jwk := p256PublicJWK(p256Key)
+		jwk[member] = value
+		return jwk
+	}
+	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	rsaJWK := func(exponent []byte) map[string]any {
+		return map[string]any{
+			"kty": "RSA",
+			"n":   base64.RawURLEncoding.EncodeToString(rsaKey.N.Bytes()),
+			"e":   base64.RawURLEncoding.EncodeToString(exponent),
+		}
+	}
+	_, edKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name        string
+		jwk         map[string]any
+		method      jwt.SigningMethod
+		signingKey  any
+		wantStatus  Status
+		wantMessage string
+	}{
+		{
+			name:       "P-384 key verifies ES384",
+			jwk:        p384JWK,
+			method:     jwt.SigningMethodES384,
+			signingKey: p384Key,
+			wantStatus: StatusPass,
+		},
+		{
+			name:        "P-384 key rejects ES256 signature",
+			jwk:         p384JWK,
+			method:      jwt.SigningMethodES256,
+			signingKey:  p256Key,
+			wantStatus:  StatusFail,
+			wantMessage: "curve P-384 requires ES384, got ES256",
+		},
+		{
+			name:       "verify key operation is accepted",
+			jwk:        withMember("key_ops", []any{"verify"}),
+			method:     jwt.SigningMethodES256,
+			signingKey: p256Key,
+			wantStatus: StatusPass,
+		},
+		{
+			name:        "sign-only key operations are rejected",
+			jwk:         withMember("key_ops", []any{"sign"}),
+			method:      jwt.SigningMethodES256,
+			signingKey:  p256Key,
+			wantStatus:  StatusFail,
+			wantMessage: "JWK key_ops does not permit verification",
+		},
+		{
+			name:        "empty key operations are rejected",
+			jwk:         withMember("key_ops", []any{}),
+			method:      jwt.SigningMethodES256,
+			signingKey:  p256Key,
+			wantStatus:  StatusFail,
+			wantMessage: "JWK key_ops does not permit verification",
+		},
+		{
+			name:        "encryption key use is rejected",
+			jwk:         withMember("use", "enc"),
+			method:      jwt.SigningMethodES256,
+			signingKey:  p256Key,
+			wantStatus:  StatusFail,
+			wantMessage: `JWK use "enc" does not permit signature verification`,
+		},
+		{
+			name:        "RSA key rejects EC algorithm",
+			jwk:         rsaJWK(big.NewInt(int64(rsaKey.E)).Bytes()),
+			method:      jwt.SigningMethodES256,
+			signingKey:  p256Key,
+			wantStatus:  StatusFail,
+			wantMessage: "RSA key cannot verify algorithm ES256",
+		},
+		{
+			name:        "RSA exponent of one is rejected",
+			jwk:         rsaJWK([]byte{1}),
+			method:      jwt.SigningMethodRS256,
+			signingKey:  rsaKey,
+			wantStatus:  StatusFail,
+			wantMessage: "JWK RSA exponent is invalid",
+		},
+		{
+			name: "X25519 key cannot verify signatures",
+			jwk: map[string]any{
+				"kty": "OKP",
+				"crv": "X25519",
+				"x":   base64.RawURLEncoding.EncodeToString(make([]byte, 32)),
+			},
+			method:      jwt.SigningMethodEdDSA,
+			signingKey:  edKey,
+			wantStatus:  StatusFail,
+			wantMessage: "only Ed25519 with EdDSA is supported",
+		},
+		{
+			name:        "invalid JWK is rejected before verification",
+			jwk:         withMember("d", "private"),
+			method:      jwt.SigningMethodES256,
+			signingKey:  p256Key,
+			wantStatus:  StatusFail,
+			wantMessage: `JWK contains private key member "d"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			presentation := newKeyBindingPresentationWithSigner(t, tt.jwk, tt.method, tt.signingKey)
+
+			result := SDJWTKeyBindingMatchesCNFValidator{}.Validate(
+				context.Background(),
+				Input{Value: presentation},
+			)
+
+			require.Equal(t, tt.wantStatus, result.Status, result.Message)
+			require.Contains(t, result.Message, tt.wantMessage)
+		})
+	}
+}
+
+func TestSDJWTKeyBindingMatchesCNFValidatorRejectsMalformedCNF(t *testing.T) {
+	tests := []struct {
+		name        string
+		value       any
+		wantMessage string
+	}{
+		{
+			name:        "missing cnf",
+			value:       &evidence.SDJWTPresentation{IssuerPayload: map[string]any{}},
+			wantMessage: `presentation[0]: SD-JWT issuer claim "cnf" must be a non-empty object`,
+		},
+		{
+			name: "jwk is not an object",
+			value: &evidence.SDJWTPresentation{
+				IssuerPayload: map[string]any{"cnf": map[string]any{"jwk": "holder-key"}},
+			},
+			wantMessage: `presentation[0]: cnf member "jwk" must be an object`,
+		},
+		{
+			name:        "no presentation evidence",
+			value:       []*evidence.SDJWTPresentation{},
+			wantMessage: "SD-JWT presentation evidence is missing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SDJWTKeyBindingMatchesCNFValidator{}.Validate(
+				context.Background(),
+				Input{Value: tt.value},
+			)
+
+			require.Equal(t, StatusFail, result.Status, result.Message)
+			require.Equal(t, tt.wantMessage, result.Message)
+		})
+	}
+}

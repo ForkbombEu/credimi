@@ -4,15 +4,16 @@
 package workflows
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
-	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/google/uuid"
+	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
@@ -29,13 +30,13 @@ var workerManagerStartWorkflowWithOptions = workflowengine.StartWorkflowWithOpti
 type WorkerManagerWorkflowPayload struct {
 	Namespace    string   `json:"namespace"               yaml:"namespace"               validate:"required"`
 	OldNamespace string   `json:"old_namespace,omitempty" yaml:"old_namespace,omitempty"`
-	RunnerURLs   []string `json:"runner_urls"             yaml:"runner_urls"`
+	RunnerIDs    []string `json:"runner_ids"              yaml:"runner_ids"`
 }
 
 type WorkerManagerRunnerResult struct {
-	RunnerURL string `json:"runner_url"`
-	Success   bool   `json:"success"`
-	Error     string `json:"error,omitempty"`
+	RunnerID string `json:"runner_id"`
+	Success  bool   `json:"success"`
+	Error    string `json:"error,omitempty"`
 }
 
 type WorkerManagerWorkflowOutput struct {
@@ -90,98 +91,24 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			runMetadata,
-		)
-	}
-	appURL = workflowengine.InternalAppURLFromConfig(input.Config)
+	// Runner-directed calls get their own activity: it reaches the runner at
+	// its stored address with the runner's own credential.
+	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity(nil)
+	runnerIDs := normalizeWorkerManagerRunnerIDs(payload.RunnerIDs)
 
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	// Runner-directed calls get their own activity: the destination can be a
-	// quick tunnel, whose hostname only resolves through Cloudflare DNS while
-	// it is propagating.
-	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity()
-	runnerURLs := normalizeWorkerManagerRunnerURLs(payload.RunnerURLs)
-	if payload.RunnerURLs == nil {
-		listReq := workflowengine.ActivityInput{
-			Payload: activities.InternalHTTPActivityPayload{
-				Method: http.MethodGet,
-				URL: utils.JoinURL(
-					appURL,
-					"api",
-					"mobile-runner",
-					"list-urls",
-				),
-				ExpectedStatus: 200,
-			},
-		}
-		var resp workflowengine.ActivityResult
-		err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), listReq).Get(ctx, &resp)
-		if err != nil {
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				err,
-				runMetadata,
-			)
-		}
-
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		body, ok := resp.Output.(map[string]any)["body"].(map[string]any)
-		if !ok {
-			appErr :=
-				workflowengine.NewAppError(
-					workflowengine.WorkflowError{
-						Code:    errCode.Code,
-						Summary: errCode.Description,
-						Message: "invalid HTTP response format",
-						Details: map[string]any{"payload": resp.Output},
-					},
-				)
-
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
-		}
-
-		runnerURLs, ok = parseRunnerURLs(body["runners"])
-		if !ok {
-			appErr :=
-				workflowengine.NewAppError(
-					workflowengine.WorkflowError{
-						Code:    errCode.Code,
-						Summary: errCode.Description,
-						Message: "invalid HTTP response body",
-						Details: map[string]any{"payload": body},
-					},
-				)
-
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
-		}
-		runnerURLs = normalizeWorkerManagerRunnerURLs(runnerURLs)
-	}
-
-	runnerResults := make([]WorkerManagerRunnerResult, 0, len(runnerURLs))
+	runnerResults := make([]WorkerManagerRunnerResult, 0, len(runnerIDs))
 	successfulRunners := 0
 
-	for _, runnerURL := range runnerURLs {
+	for _, runnerID := range runnerIDs {
 		runnerResult := WorkerManagerRunnerResult{
-			RunnerURL: runnerURL,
+			RunnerID: runnerID,
 		}
 
 		err = workflow.ExecuteActivity(ctx, runnerHTTPActivity.Name(), workflowengine.ActivityInput{
 			Payload: activities.MobileRunnerHTTPActivityPayload{
-				Method: http.MethodPost,
-				URL: utils.JoinURL(
-					runnerURL,
-					"worker",
-					payload.Namespace,
-				),
+				Method:   http.MethodPost,
+				RunnerID: runnerID,
+				Path:     "/worker/" + payload.Namespace,
 				Body: map[string]string{
 					"old_namespace": payload.OldNamespace,
 				},
@@ -193,8 +120,8 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		if err != nil {
 			logger.Error(
 				"Send namespaces names to start workers failed for runner",
-				"runner_url",
-				runnerURL,
+				"runner_id",
+				runnerID,
 				"error",
 				err,
 			)
@@ -227,30 +154,11 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	}, nil
 }
 
-func parseRunnerURLs(rawRunners any) ([]string, bool) {
-	switch runners := rawRunners.(type) {
-	case []string:
-		return runners, true
-	case []any:
-		runnerURLs := make([]string, 0, len(runners))
-		for _, runner := range runners {
-			runnerURL, ok := runner.(string)
-			if !ok {
-				return nil, false
-			}
-			runnerURLs = append(runnerURLs, runnerURL)
-		}
-		return runnerURLs, true
-	default:
-		return nil, false
-	}
-}
-
-func normalizeWorkerManagerRunnerURLs(runnerURLs []string) []string {
-	seen := make(map[string]struct{}, len(runnerURLs))
-	result := make([]string, 0, len(runnerURLs))
-	for _, runnerURL := range runnerURLs {
-		trimmed := strings.TrimSpace(runnerURL)
+func normalizeWorkerManagerRunnerIDs(runnerIDs []string) []string {
+	seen := make(map[string]struct{}, len(runnerIDs))
+	result := make([]string, 0, len(runnerIDs))
+	for _, runnerID := range runnerIDs {
+		trimmed := strings.TrimSpace(runnerID)
 		if trimmed == "" {
 			continue
 		}
@@ -269,9 +177,24 @@ func (w *WorkerManagerWorkflow) Start(
 	namespace string,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
+	payload, err := workflowengine.DecodePayload[WorkerManagerWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, fmt.Errorf("decode worker manager payload: %w", err)
+	}
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "worker-manager" + "-" + uuid.NewString(),
-		TaskQueue: WorkerManagerTaskQueue,
+		ID:                       workerManagerWorkflowID(payload),
+		TaskQueue:                WorkerManagerTaskQueue,
+		WorkflowIDConflictPolicy: enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
 	}
 	return workerManagerStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+}
+
+// workerManagerWorkflowID collapses identical concurrent triggers into one run:
+// the ID depends only on the target namespace, the old namespace and the
+// runner set.
+func workerManagerWorkflowID(payload WorkerManagerWorkflowPayload) string {
+	runnerIDs := slices.Clone(payload.RunnerIDs)
+	slices.Sort(runnerIDs)
+	sum := sha256.Sum256([]byte(payload.OldNamespace + "|" + strings.Join(runnerIDs, ",")))
+	return "worker-manager-" + payload.Namespace + "-" + hex.EncodeToString(sum[:])[:12]
 }

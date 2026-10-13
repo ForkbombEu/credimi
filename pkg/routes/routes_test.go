@@ -62,40 +62,78 @@ func TestCreateReverseProxy_InvalidTarget(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestBindAppHooks_RegistersCatchAllProxyRoute(t *testing.T) {
-	var proxiedPath string
+func TestBindAppHooks_CatchAllProxiesUIButNotAPI(t *testing.T) {
+	cases := []struct {
+		name        string
+		path        string
+		wantCode    int
+		wantProxied bool
+	}{
+		{
+			name:        "ui path is proxied",
+			path:        "/any/path",
+			wantCode:    http.StatusAccepted,
+			wantProxied: true,
+		},
+		{
+			name:     "unknown api path is not proxied",
+			path:     "/api/unknown/route",
+			wantCode: http.StatusNotFound,
+		},
+		{
+			name:     "bare api path is not proxied",
+			path:     "/api",
+			wantCode: http.StatusNotFound,
+		},
+		{
+			name:        "api-prefixed ui path is proxied",
+			path:        "/apix",
+			wantCode:    http.StatusAccepted,
+			wantProxied: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var proxiedPath string
+			server := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					proxiedPath = r.URL.Path
+					w.WriteHeader(http.StatusAccepted)
+				}),
+			)
+			defer server.Close()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		proxiedPath = r.URL.Path
-		w.WriteHeader(http.StatusAccepted)
-	}))
-	defer server.Close()
+			t.Setenv("ADDRESS_UI", server.URL)
 
-	t.Setenv("ADDRESS_UI", server.URL)
+			app, err := tests.NewTestApp()
+			require.NoError(t, err)
+			defer app.Cleanup()
 
-	app, err := tests.NewTestApp()
-	require.NoError(t, err)
-	defer app.Cleanup()
+			bindAppHooks(app)
 
-	bindAppHooks(app)
+			baseRouter, err := apis.NewRouter(app)
+			require.NoError(t, err)
 
-	baseRouter, err := apis.NewRouter(app)
-	require.NoError(t, err)
+			serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+			serveErr := app.OnServe().Trigger(serveEvent, func(se *core.ServeEvent) error {
+				mux, buildErr := se.Router.BuildMux()
+				require.NoError(t, buildErr)
 
-	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
-	serveErr := app.OnServe().Trigger(serveEvent, func(se *core.ServeEvent) error {
-		mux, buildErr := se.Router.BuildMux()
-		require.NoError(t, buildErr)
+				req := httptest.NewRequest(http.MethodPost, tc.path, nil)
+				rec := httptest.NewRecorder()
+				mux.ServeHTTP(rec, req)
 
-		req := httptest.NewRequest(http.MethodGet, "/any/path", nil)
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-
-		require.Equal(t, http.StatusAccepted, rec.Code)
-		require.Equal(t, "/any/path", proxiedPath)
-		return nil
-	})
-	require.NoError(t, serveErr)
+				require.Equal(t, tc.wantCode, rec.Code)
+				if tc.wantProxied {
+					require.Equal(t, tc.path, proxiedPath)
+				} else {
+					require.Empty(t, proxiedPath)
+				}
+				return nil
+			})
+			require.NoError(t, serveErr)
+		})
+	}
 }
 
 func TestSetup_DoesNotPanic(t *testing.T) {

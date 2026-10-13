@@ -104,6 +104,7 @@ steps:
 		expectedSearchAttrs,
 		capturedAction.TypedSearchAttributes,
 	)
+	require.Equal(t, "scheduled-pipeline", capturedAction.StaticSummary)
 }
 
 func TestPipelineStartImmediate(t *testing.T) {
@@ -149,6 +150,7 @@ func TestPipelineStartImmediate(t *testing.T) {
 	value, ok := capturedOptions.TypedSearchAttributes.GetKeyword(key)
 	require.True(t, ok)
 	require.Equal(t, "tenant-1/immediate-pipeline", value)
+	require.Equal(t, "immediate-pipeline", capturedOptions.StaticSummary)
 	require.NotContains(t, capturedInput.WorkflowInput.Config, tempWalletVersionConfigKey)
 }
 
@@ -194,7 +196,6 @@ config:
     repository: attacker/repo
     pull_request_number: 17
   app_url: https://attacker.example
-  internal_app_url: https://attacker.example
 steps: []
 `,
 		map[string]any{"namespace": "default"},
@@ -208,11 +209,6 @@ steps: []
 	require.NotContains(t, capturedInput.WorkflowInput.Config, tempUseCaseVerificationsConfigKey)
 	require.NotContains(t, capturedInput.WorkflowInput.Config, GitHubPRCommentConfigKey)
 	require.NotContains(t, capturedInput.WorkflowInput.Config, workflowengine.AppURLConfigKey)
-	require.NotContains(
-		t,
-		capturedInput.WorkflowInput.Config,
-		workflowengine.InternalAppURLConfigKey,
-	)
 }
 
 func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {

@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -56,7 +57,7 @@ func TestHandleGetDeeplinkWaitError(t *testing.T) {
 	deeplinkTemporalClient = func(namespace string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	deeplinkWaitForWorkflowResult = func(c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+	deeplinkWaitForWorkflowResult = func(_ context.Context, c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
 		return workflowengine.WorkflowResult{}, errors.New("wait failed")
 	}
 
@@ -112,7 +113,7 @@ func TestGetDeeplinkFromYAMLStepCIFailureMessage(t *testing.T) {
 			deeplinkTemporalClient = func(namespace string) (client.Client, error) {
 				return &temporalmocks.Client{}, nil
 			}
-			deeplinkWaitForWorkflowResult = func(c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+			deeplinkWaitForWorkflowResult = func(_ context.Context, c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
 				return workflowengine.WorkflowResult{}, workflowengine.NewAppError(
 					workflowengine.WorkflowError{
 						Code:    errorcodes.StepCIRunFailed,
@@ -122,7 +123,7 @@ func TestGetDeeplinkFromYAMLStepCIFailureMessage(t *testing.T) {
 				)
 			}
 
-			_, err = getDeeplinkFromYAML(app, "test", nil, tc.expose)
+			_, err = getDeeplinkFromYAML(context.Background(), app, "test", nil, tc.expose)
 			var apiErr *apierror.APIError
 			require.ErrorAs(t, err, &apiErr)
 			require.Equal(t, http.StatusInternalServerError, apiErr.Code)
@@ -145,7 +146,7 @@ func TestHandleGetDeeplinkMalformedOutput(t *testing.T) {
 	deeplinkTemporalClient = func(namespace string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	deeplinkWaitForWorkflowResult = func(c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+	deeplinkWaitForWorkflowResult = func(_ context.Context, c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
 		return workflowengine.WorkflowResult{Output: "invalid"}, nil
 	}
 
@@ -181,7 +182,7 @@ func TestHandleGetDeeplinkSuccess(t *testing.T) {
 	deeplinkTemporalClient = func(namespace string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	deeplinkWaitForWorkflowResult = func(c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+	deeplinkWaitForWorkflowResult = func(_ context.Context, c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
 		return workflowengine.WorkflowResult{
 			Output: []any{
 				map[string]any{
@@ -679,7 +680,7 @@ func installSuccessfulDeeplinkWorkflow(t testing.TB, capturedInput *workflowengi
 	deeplinkTemporalClient = func(namespace string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	deeplinkWaitForWorkflowResult = func(c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+	deeplinkWaitForWorkflowResult = func(_ context.Context, c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
 		return workflowengine.WorkflowResult{
 			Output: []any{
 				map[string]any{

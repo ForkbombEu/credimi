@@ -6,6 +6,7 @@ package workflowengine
 import (
 	"strings"
 
+	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 )
@@ -22,6 +23,21 @@ const (
 	ConformanceCheckSearchAttribute  = "ConformanceCheckID"
 	CustomCheckSearchAttribute       = "CustomCheckID"
 )
+
+// CustomSearchAttributeTypes returns the custom search attributes every Credimi
+// namespace must register, keyed by name.
+func CustomSearchAttributeTypes() map[string]enumspb.IndexedValueType {
+	return map[string]enumspb.IndexedValueType{
+		PipelineIdentifierSearchAttribute: enumspb.INDEXED_VALUE_TYPE_KEYWORD,
+		DeviceIdentifiersSearchAttribute:  enumspb.INDEXED_VALUE_TYPE_KEYWORD_LIST,
+		ActionsSearchAttribute:            enumspb.INDEXED_VALUE_TYPE_KEYWORD_LIST,
+		VersionsSearchAttribute:           enumspb.INDEXED_VALUE_TYPE_KEYWORD_LIST,
+		CredentialsSearchAttribute:        enumspb.INDEXED_VALUE_TYPE_KEYWORD_LIST,
+		UseCaseSearchAttribute:            enumspb.INDEXED_VALUE_TYPE_KEYWORD_LIST,
+		ConformanceCheckSearchAttribute:   enumspb.INDEXED_VALUE_TYPE_KEYWORD_LIST,
+		CustomCheckSearchAttribute:        enumspb.INDEXED_VALUE_TYPE_KEYWORD_LIST,
+	}
+}
 
 type EntityIDs struct {
 	Actions           []string `json:"actions,omitempty"`

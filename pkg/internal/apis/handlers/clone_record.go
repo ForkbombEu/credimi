@@ -17,7 +17,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/hook"
@@ -89,12 +88,21 @@ var CloneConfigs = map[string]CloneConfig{
 	},
 }
 
+func errCloneAuthRequired() *apierror.APIError {
+	return apierror.New(
+		http.StatusUnauthorized,
+		"auth",
+		"authentication required",
+		"Authentication required",
+	)
+}
+
 func canDuplicateIfRequestIsFromOwnerOrRecordIsPublic(
 	e *core.RequestEvent,
 	originalRecord *core.Record) (bool, error) {
 	auth := e.Auth
 	if auth == nil {
-		return false, apis.NewUnauthorizedError("Authentication required", nil)
+		return false, errCloneAuthRequired()
 	}
 	if originalRecord.GetBool("published") {
 		return true, nil
@@ -108,11 +116,16 @@ func canDuplicateIfRequestIsFromOwner(
 	originalRecord *core.Record) (bool, error) {
 	auth := e.Auth
 	if auth == nil {
-		return false, apis.NewUnauthorizedError("Authentication required", nil)
+		return false, errCloneAuthRequired()
 	}
 	orgID := originalRecord.GetString("owner")
 	if orgID == "" {
-		return false, apis.NewForbiddenError("Record has no owner", nil)
+		return false, apierror.New(
+			http.StatusForbidden,
+			"owner",
+			"record has no owner",
+			"Record has no owner",
+		)
 	}
 	authRecord, err := e.App.FindFirstRecordByFilter(
 		"orgAuthorizations",
@@ -120,7 +133,12 @@ func canDuplicateIfRequestIsFromOwner(
 		dbx.Params{"user": auth.Id, "org": orgID},
 	)
 	if err != nil || authRecord == nil {
-		return false, apis.NewForbiddenError("Not authorized for this organization", nil)
+		return false, apierror.New(
+			http.StatusForbidden,
+			"organization",
+			"not authorized for this organization",
+			"Not authorized for this organization",
+		)
 	}
 	return true, nil
 }
@@ -128,7 +146,7 @@ func canDuplicateIfRequestIsFromOwner(
 func UpdateOwnerField(e *core.RequestEvent, newRecord *core.Record) error {
 	auth := e.Auth
 	if auth == nil {
-		return apis.NewUnauthorizedError("Authentication required", nil)
+		return errCloneAuthRequired()
 	}
 	authRecord, err := e.App.FindFirstRecordByFilter("orgAuthorizations", "user={:user}",
 		dbx.Params{"user": auth.Id})
@@ -136,7 +154,12 @@ func UpdateOwnerField(e *core.RequestEvent, newRecord *core.Record) error {
 		return fmt.Errorf("failed to find user organization: %w", err)
 	}
 	if authRecord == nil {
-		return apis.NewForbiddenError("User not authorized for any organization", nil)
+		return apierror.New(
+			http.StatusForbidden,
+			"organization",
+			"user not authorized for any organization",
+			"User not authorized for any organization",
+		)
 	}
 
 	orgID := authRecord.GetString("organization")
@@ -226,15 +249,23 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var req CloneRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
-			return apis.NewBadRequestError("Invalid JSON", err)
+			return apierror.New(http.StatusBadRequest, "request", "invalid JSON input", err.Error())
 		}
 		if req.ID == "" || req.Collection == "" {
-			return apis.NewBadRequestError("id and collection are required", nil)
+			return apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"id and collection are required",
+				"id and collection are required",
+			)
 		}
 		config, exists := CloneConfigs[req.Collection]
 		if !exists {
-			return apis.NewBadRequestError(
-				fmt.Sprintf("Collection '%s' not supported for cloning", req.Collection), nil,
+			return apierror.New(
+				http.StatusBadRequest,
+				"collection",
+				"collection not supported for cloning",
+				fmt.Sprintf("Collection '%s' not supported for cloning", req.Collection),
 			)
 		}
 		originalRecord, err := e.App.FindRecordById(req.Collection, req.ID)
@@ -253,13 +284,15 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 				return authErr
 			}
 			if !allowed {
-				return apis.NewForbiddenError(
+				return apierror.New(
+					http.StatusForbidden,
+					"record",
+					"not authorized to clone this record",
 					"Not authorized to clone this record",
-					nil,
 				)
 			}
 		} else if e.Auth == nil {
-			return apis.NewUnauthorizedError("Authentication required", nil)
+			return errCloneAuthRequired()
 		}
 
 		clonedRecord, err := cloneRecord(e, originalRecord, config)

@@ -17,8 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		SuiteBrowse,
 		type ConformanceSuiteRecord
 	} from '$lib/conformance';
-	import EntityTag from '$lib/global/entity-tag.svelte';
-
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import SortHeaderPill from '@/components/ui-custom/sort-header-pill.svelte';
 	import { createSvelteTable, FlexRender, renderComponent } from '@/components/ui/data-table';
@@ -26,6 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import SuiteChecksCell from './_partials/suite-checks-cell.svelte';
+	import SuiteComponentCell from './_partials/suite-component-cell.svelte';
 	import TableNameCell from './_partials/table-name-cell.svelte';
 
 	//
@@ -67,7 +66,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			cell: ({ row }) => {
 				const data = entityForComponent(row.original.component);
 				if (!data) return '—';
-				return renderComponent(EntityTag, { data });
+				return renderComponent(SuiteComponentCell, {
+					data,
+					hasQr: row.original.has_qr === true
+				});
 			}
 		}),
 		columnHelper.accessor('version', {

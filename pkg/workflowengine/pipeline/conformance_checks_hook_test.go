@@ -5,19 +5,24 @@
 package pipeline
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
@@ -160,6 +165,7 @@ test: "alpha"
 		capabilities, ok := memo[workflowengine.CredimiCapabilitiesMemoKey].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, true, capabilities["logs"])
+		require.Equal(t, false, capabilities["qr"])
 		require.Equal(t, "openid template", result.Config["template"])
 	})
 
@@ -192,6 +198,39 @@ test: "alpha"
 		require.True(t, ok)
 		require.Equal(t, "session-123", parameters["session_id"])
 		require.Equal(t, "ewc template", result.Config["template"])
+	})
+
+	t.Run("ewc wallet check sets qr from catalog suite grain", func(t *testing.T) {
+		require.NoError(t, conformancecatalog.Rebuild(testConfigTemplatesDir(t)))
+
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "openid4vci_wallet/draft-15/ewc/check2"
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			`session_id: "session-123"`,
+		)
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join(workflows.EWCTemplateFolderPath, "check2.yaml"),
+			"ewc template",
+		)
+
+		result := runConformanceHookWorkflow(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+
+		memo, ok := result.Config["memo"].(map[string]any)
+		require.True(t, ok)
+		capabilities, ok := memo[workflowengine.CredimiCapabilitiesMemoKey].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, true, capabilities["logs"])
+		require.Equal(t, true, capabilities["qr"])
 	})
 
 	t.Run("webuild suite populates session id", func(t *testing.T) {
@@ -340,6 +379,7 @@ test: "issuer-test"`
 		capabilities, ok := memo[workflowengine.CredimiCapabilitiesMemoKey].(map[string]any)
 		require.True(t, ok)
 		require.Equal(t, true, capabilities["logs"])
+		require.Equal(t, false, capabilities["qr"])
 	})
 
 	t.Run("openid4vp verifier suite uses verifier StepCI template", func(t *testing.T) {
@@ -598,13 +638,7 @@ type conformanceHookResult struct {
 
 func runConformanceHookWorkflow(t *testing.T, input conformanceHookInput) conformanceHookResult {
 	t.Helper()
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	env.RegisterWorkflowWithOptions(
-		conformanceHookWorkflow,
-		workflow.RegisterOptions{Name: "test-conformance-hook"},
-	)
+	env := newConformanceHookTestEnv()
 
 	env.ExecuteWorkflow("test-conformance-hook", input)
 	require.NoError(t, env.GetWorkflowError())
@@ -616,6 +650,13 @@ func runConformanceHookWorkflow(t *testing.T, input conformanceHookInput) confor
 
 func runConformanceHookWorkflowError(t *testing.T, input conformanceHookInput) error {
 	t.Helper()
+	env := newConformanceHookTestEnv()
+
+	env.ExecuteWorkflow("test-conformance-hook", input)
+	return env.GetWorkflowError()
+}
+
+func newConformanceHookTestEnv() *testsuite.TestWorkflowEnvironment {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -623,9 +664,90 @@ func runConformanceHookWorkflowError(t *testing.T, input conformanceHookInput) e
 		conformanceHookWorkflow,
 		workflow.RegisterOptions{Name: "test-conformance-hook"},
 	)
+	templateAct := NewConformanceTemplateActivity()
+	env.RegisterActivityWithOptions(
+		templateAct.Execute,
+		activity.RegisterOptions{Name: templateAct.Name()},
+	)
+	return env
+}
 
-	env.ExecuteWorkflow("test-conformance-hook", input)
-	return env.GetWorkflowError()
+func TestResolveConformanceTemplate(t *testing.T) {
+	rootDir := filepath.Dir(testConfigTemplatesDir(t))
+	t.Setenv("ROOT_DIR", rootDir)
+
+	checkID := "openid4vci_issuer/1.0/openid_conformance_suite/fail-invalid-nonce"
+	resolved, err := resolveConformanceTemplate(checkID, "step-1")
+	require.NoError(t, err)
+
+	require.Equal(t, "oid4vci-1_0-issuer-fail-invalid-nonce", resolved.Tpl["test"])
+	require.Equal(t, "", resolved.Tpl["deeplink"])
+	require.Equal(t, "oid4vci-1_0-issuer-fail-invalid-nonce", resolved.SuiteExtra["test"])
+	require.Equal(
+		t,
+		map[string]any{"deeplink": ""},
+		resolved.SuiteExtra["parameters"],
+	)
+	template, err := os.ReadFile(
+		filepath.Join(rootDir, workflows.OpenID4VCIIssuerStepCITemplatePath),
+	)
+	require.NoError(t, err)
+	require.Equal(t, string(template), resolved.Template)
+}
+
+func TestConformanceCheckSetupHookActivityMatchesInline(t *testing.T) {
+	t.Setenv("ROOT_DIR", filepath.Dir(testConfigTemplatesDir(t)))
+
+	input := conformanceHookInput{
+		CheckID: "openid4vp_wallet/draft-24/openid_conformance_suite/" +
+			"sd_jwt_vc+did+request_uri_signed+direct_post",
+		Config: map[string]any{"user_mail": "test@example.com"},
+	}
+
+	activityEnv := newConformanceHookTestEnv()
+	activityCalls := 0
+	activityEnv.SetOnActivityStartedListener(
+		func(info *activity.Info, _ context.Context, _ converter.EncodedValues) {
+			if info.ActivityType.Name == NewConformanceTemplateActivity().Name() {
+				activityCalls++
+			}
+		},
+	)
+	activityEnv.ExecuteWorkflow("test-conformance-hook", input)
+	require.NoError(t, activityEnv.GetWorkflowError())
+	require.Equal(t, 1, activityCalls)
+	var viaActivity conformanceHookResult
+	require.NoError(t, activityEnv.GetWorkflowResult(&viaActivity))
+
+	inlineEnv := newConformanceHookTestEnv()
+	inlineEnv.OnGetVersion(
+		conformanceTemplateActivityChangeID,
+		workflow.DefaultVersion,
+		1,
+	).Return(workflow.DefaultVersion)
+	inlineEnv.ExecuteWorkflow("test-conformance-hook", input)
+	require.NoError(t, inlineEnv.GetWorkflowError())
+	var inline conformanceHookResult
+	require.NoError(t, inlineEnv.GetWorkflowResult(&inline))
+
+	// The alias is generated by a uuidv4 template function, so it differs per run.
+	for _, result := range []conformanceHookResult{viaActivity, inline} {
+		form, ok := result.Payload["parameters"].(map[string]any)["form"].(map[string]any)
+		require.True(t, ok)
+		_, err := uuid.Parse(form["alias"].(string))
+		require.NoError(t, err)
+		delete(form, "alias")
+	}
+
+	require.NotEmpty(t, inline.Config["template"])
+	require.Equal(t, inline, viaActivity)
+}
+
+func testConfigTemplatesDir(t *testing.T) string {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "config_templates"))
 }
 
 func conformanceHookWorkflow(

@@ -97,6 +97,54 @@ func TestResolvePipelineExecutionArtifacts(t *testing.T) {
 	require.Empty(t, missing.Results)
 }
 
+func TestComputePipelineResultsPairsMaestroTimeline(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		timelines []string
+		want      string
+	}{
+		{
+			name:      "with timeline",
+			timelines: []string{"org-runner-dev_timeline_abc.jsonl", "org-runner-other_timeline_abc.jsonl"},
+			want:      "/org-runner-dev_timeline_abc.jsonl",
+		},
+		{name: "without timeline"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app, err := tests.NewTestApp(testDataDir)
+			require.NoError(t, err)
+			defer app.Cleanup()
+
+			app.Settings().Meta.AppURL = "https://app.test"
+			coll, err := app.FindCollectionByNameOrId("pipeline_results")
+			require.NoError(t, err)
+			record := createPipelineResultRecord(t, app, coll)
+			require.NoError(t, app.Save(record))
+			setPipelineResultFiles(
+				t, app, record.Id,
+				[]string{"org-runner-dev_result_video_abc.mp4"},
+				[]string{"org-runner-dev_screenshot_abc.png"},
+				nil,
+			)
+			setPipelineResultFileField(t, app, record.Id, "maestro_timelines", tc.timelines)
+			record, err = app.FindRecordById(coll.Id, record.Id)
+			require.NoError(t, err)
+
+			results := ComputePipelineResultsFromRecord(app, record)
+			require.Len(t, results, 1)
+			if tc.want == "" {
+				require.Empty(t, results[0].Timeline)
+				return
+			}
+			require.Equal(
+				t,
+				"https://app.test/api/files/pipeline_results/"+record.Id+tc.want,
+				results[0].Timeline,
+			)
+		})
+	}
+}
+
 func TestRefreshScoreboardLatestExecutionArtifacts(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -231,33 +279,15 @@ func setPipelineResultFiles(
 ) {
 	t.Helper()
 
-	_, err := app.DB().NewQuery(
-		`UPDATE pipeline_results
-		SET video_results = {:video_results},
-		    screenshots = {:screenshots},
-		    logcats = {:logcats}
-		WHERE id = {:id}`,
-	).Bind(dbx.Params{
-		"video_results": mustMarshalJSONStringArray(t, videoResults),
-		"screenshots":   mustMarshalJSONStringArray(t, screenshots),
-		"logcats":       mustMarshalJSONStringArray(t, logcats),
-		"id":            recordID,
-	}).Execute()
-	require.NoError(t, err)
+	setPipelineResultFileField(t, app, recordID, "video_results", videoResults)
+	setPipelineResultFileField(t, app, recordID, "screenshots", screenshots)
+	setPipelineResultFileField(t, app, recordID, "logcats", logcats)
 }
 
 func setPipelineResultReport(t testing.TB, app *tests.TestApp, recordID string, report string) {
 	t.Helper()
 
-	_, err := app.DB().NewQuery(
-		`UPDATE pipeline_results
-		SET report = {:report}
-		WHERE id = {:id}`,
-	).Bind(dbx.Params{
-		"report": mustMarshalJSONStringArray(t, []string{report}),
-		"id":     recordID,
-	}).Execute()
-	require.NoError(t, err)
+	setPipelineResultFileField(t, app, recordID, "report", []string{report})
 }
 
 func setPipelineResultFCAFReport(
@@ -268,14 +298,25 @@ func setPipelineResultFCAFReport(
 ) {
 	t.Helper()
 
-	_, err := app.DB().NewQuery(
-		`UPDATE pipeline_results
-		SET fcaf_report = {:fcaf_report}
-		WHERE id = {:id}`,
-	).Bind(dbx.Params{
-		"fcaf_report": mustMarshalJSONStringArray(t, []string{fcafReport}),
-		"id":          recordID,
-	}).Execute()
+	setPipelineResultFileField(t, app, recordID, "fcaf_report", []string{fcafReport})
+}
+
+// setPipelineResultFileField writes file names straight into the table,
+// bypassing the file upload pipeline.
+func setPipelineResultFileField(
+	t testing.TB,
+	app *tests.TestApp,
+	recordID string,
+	field string,
+	values []string,
+) {
+	t.Helper()
+
+	_, err := app.DB().Update(
+		"pipeline_results",
+		dbx.Params{field: mustMarshalJSONStringArray(t, values)},
+		dbx.HashExp{"id": recordID},
+	).Execute()
 	require.NoError(t, err)
 }
 

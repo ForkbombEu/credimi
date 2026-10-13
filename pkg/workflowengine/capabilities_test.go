@@ -14,12 +14,12 @@ func TestWithCredimiCapabilities(t *testing.T) {
 	originalMemo := map[string]any{"test": "check"}
 	original := WorkflowInput{Config: map[string]any{"memo": originalMemo}}
 
-	updated := WithCredimiCapabilities(original, CredimiCapabilities{Logs: true})
+	updated := WithCredimiCapabilities(original, CredimiCapabilities{Logs: true, QR: true})
 
 	require.NotContains(t, originalMemo, CredimiCapabilitiesMemoKey)
 	memo := updated.Config["memo"].(map[string]any)
 	require.Equal(t, "check", memo["test"])
-	require.Equal(t, CredimiCapabilities{Logs: true}, memo[CredimiCapabilitiesMemoKey])
+	require.Equal(t, CredimiCapabilities{Logs: true, QR: true}, memo[CredimiCapabilitiesMemoKey])
 }
 
 func TestWithCredimiCapabilitiesInitializesConfigAndMemo(t *testing.T) {

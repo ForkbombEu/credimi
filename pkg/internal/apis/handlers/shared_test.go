@@ -24,13 +24,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func TestDecodeFromTemporalPayload(t *testing.T) {
+func TestPayloadTemporalPayload(t *testing.T) {
 	t.Parallel()
 
-	encoded := base64.StdEncoding.EncodeToString([]byte(`"hello"`))
-	require.Equal(t, "hello", DecodeFromTemporalPayload(encoded))
-	require.Equal(t, "not-base64", DecodeFromTemporalPayload("not-base64"))
-	require.Equal(t, "", DecodeFromTemporalPayload(""))
+	require.Nil(t, (*Payload)(nil).temporalPayload())
+
+	data := base64.StdEncoding.EncodeToString([]byte(`"hello"`))
+	encoding := base64.StdEncoding.EncodeToString([]byte("json/plain"))
+	payload := (&Payload{
+		Metadata: map[string]string{"encoding": encoding},
+		Data:     &data,
+	}).temporalPayload()
+	require.Equal(t, []byte(`"hello"`), payload.GetData())
+	require.Equal(t, []byte("json/plain"), payload.GetMetadata()["encoding"])
+	require.Equal(t, "hello", workflowengine.DecodeStringPayload(payload))
 }
 
 func TestCalculateAndFormatDuration(t *testing.T) {

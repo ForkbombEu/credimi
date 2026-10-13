@@ -5,18 +5,18 @@ package activities
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/pocketbase/dbx"
 	"github.com/stretchr/testify/require"
+	commonpb "go.temporal.io/api/common/v1"
+	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
+	workflowpb "go.temporal.io/api/workflow/v1"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 )
@@ -34,6 +34,10 @@ func (f fakeWorkflowRun) GetRunID() string {
 	return f.runID
 }
 
+func (f fakeWorkflowRun) GetFirstExecutionRunID() string {
+	return f.runID
+}
+
 func (f fakeWorkflowRun) Get(ctx context.Context, valuePtr interface{}) error {
 	return nil
 }
@@ -46,23 +50,13 @@ func (f fakeWorkflowRun) GetWithOptions(
 	return nil
 }
 
-type fakeTemporalClient struct {
-	run client.WorkflowRun
-}
-
-func (f fakeTemporalClient) ExecuteWorkflow(
-	ctx context.Context,
-	options client.StartWorkflowOptions,
-	workflow interface{},
-	args ...interface{},
-) (client.WorkflowRun, error) {
-	return f.run, nil
-}
-
 type capturingTemporalClient struct {
 	run         client.WorkflowRun
+	executeErr  error
+	describeRun string
 	lastOptions client.StartWorkflowOptions
 	lastArgs    []interface{}
+	described   []string
 }
 
 // ExecuteWorkflow records workflow start options for assertions and returns the stubbed run.
@@ -74,195 +68,159 @@ func (c *capturingTemporalClient) ExecuteWorkflow(
 ) (client.WorkflowRun, error) {
 	c.lastOptions = options
 	c.lastArgs = append([]interface{}(nil), args...)
+	if c.executeErr != nil {
+		return nil, c.executeErr
+	}
 	return c.run, nil
 }
 
-type failingDoer struct {
-	err error
-}
-
-func (f failingDoer) Do(*http.Request) (*http.Response, error) {
-	return nil, f.err
-}
-
-type countingDoer struct {
-	attempts int
-	err      error
-}
-
-func (c *countingDoer) Do(*http.Request) (*http.Response, error) {
-	c.attempts++
-	return nil, c.err
-}
-
-type headerCaptureDoer struct {
-	lastRequest *http.Request
-	statusCode  int
-}
-
-func (d *headerCaptureDoer) Do(req *http.Request) (*http.Response, error) {
-	d.lastRequest = req
-	return &http.Response{
-		StatusCode: d.statusCode,
-		Status:     http.StatusText(d.statusCode),
-		Body:       io.NopCloser(strings.NewReader("")),
+// DescribeWorkflowExecution records the described workflow ID and returns the stubbed run ID.
+func (c *capturingTemporalClient) DescribeWorkflowExecution(
+	ctx context.Context,
+	workflowID, runID string,
+) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
+	c.described = append(c.described, workflowID+"/"+runID)
+	return &workflowservice.DescribeWorkflowExecutionResponse{
+		WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
+			Execution: &commonpb.WorkflowExecution{WorkflowId: workflowID, RunId: c.describeRun},
+		},
 	}, nil
 }
 
+func newCapturingQueuedPipelineActivity(
+	t *testing.T,
+	workflowID string,
+	runID string,
+) (*StartQueuedPipelineActivity, *capturingTemporalClient) {
+	t.Helper()
+	captured := &capturingTemporalClient{
+		run: fakeWorkflowRun{id: workflowID, runID: runID},
+	}
+	act := NewStartQueuedPipelineActivity(newPipelineResultsTestApp(t))
+	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
+		return captured, nil
+	}
+	return act, captured
+}
+
+func capturedWorkflowConfig(t *testing.T, captured *capturingTemporalClient) map[string]any {
+	t.Helper()
+	require.Len(t, captured.lastArgs, 1)
+	workflowInput, ok := captured.lastArgs[0].(map[string]any)
+	require.True(t, ok)
+	rawInput, ok := workflowInput["workflow_input"].(workflowengine.WorkflowInput)
+	require.True(t, ok)
+	return rawInput.Config
+}
+
 func TestStartQueuedPipelineActivityNonFatalResultFailure(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
-	act := NewStartQueuedPipelineActivity()
-	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
-		return fakeTemporalClient{
-			run: fakeWorkflowRun{
-				id:    "wf-1",
-				runID: "run-1",
-			},
-		}, nil
-	}
-	act.httpDoer = failingDoer{err: errors.New("boom")}
-
-	result, err := act.Execute(context.Background(), workflowengine.ActivityInput{
-		Payload: StartQueuedPipelineActivityInput{
-			TicketID:           "ticket-1",
-			OwnerNamespace:     "tenant-1",
-			PipelineIdentifier: "tenant-1/pipeline",
-			YAML:               "name: test\nsteps: []\n",
-			PipelineConfig: map[string]any{
-				"app_url": "https://example.com",
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	output, ok := result.Output.(StartQueuedPipelineActivityOutput)
-	require.True(t, ok)
-	require.Equal(t, "wf-1", output.WorkflowID)
-	require.Equal(t, "run-1", output.RunID)
-	require.Equal(t, "tenant-1", output.WorkflowNamespace)
-	require.False(t, output.PipelineResultCreated)
-	require.NotEmpty(t, output.PipelineResultError)
-	require.NotEmpty(t, result.Log)
-}
-
-func TestStartQueuedPipelineActivityRetriesPipelineResult(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
-	attempts := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attempts++
-		if attempts < 3 {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	act := NewStartQueuedPipelineActivity()
-	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
-		return fakeTemporalClient{
-			run: fakeWorkflowRun{
-				id:    "wf-2",
-				runID: "run-2",
-			},
-		}, nil
-	}
-	act.httpDoer = server.Client()
-
-	result, err := act.Execute(context.Background(), workflowengine.ActivityInput{
-		Payload: StartQueuedPipelineActivityInput{
-			TicketID:           "ticket-2",
-			OwnerNamespace:     "tenant-2",
-			PipelineIdentifier: "tenant-2/pipeline",
-			YAML:               "name: test\nsteps: []\n",
-			PipelineConfig: map[string]any{
-				"app_url": server.URL,
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	output, ok := result.Output.(StartQueuedPipelineActivityOutput)
-	require.True(t, ok)
-	require.True(t, output.PipelineResultCreated)
-	require.Empty(t, output.PipelineResultError)
-	require.Empty(t, result.Log)
-	require.Equal(t, 3, attempts)
-}
-
-func TestStartQueuedPipelineActivityPostsRunType(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
-	var posted map[string]any
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&posted))
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	act := NewStartQueuedPipelineActivity()
-	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
-		return fakeTemporalClient{
-			run: fakeWorkflowRun{
-				id:    "wf-ci",
-				runID: "run-ci",
-			},
-		}, nil
-	}
-	act.httpDoer = server.Client()
-
-	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
-		Payload: StartQueuedPipelineActivityInput{
-			TicketID:           "ticket-ci",
-			OwnerNamespace:     "tenant-ci",
-			PipelineIdentifier: "tenant-ci/pipeline",
-			YAML:               "name: test\nsteps: []\n",
-			PipelineConfig: map[string]any{
-				"app_url": server.URL,
-			},
-			Memo: map[string]any{
-				pipelineinternal.RunTypeMemoKey: pipelineinternal.RunTypeCI,
-			},
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, pipelineinternal.RunTypeCI, posted["type"])
-}
-
-// TestStartQueuedPipelineActivityWorkflowIDPrefix verifies scheduled tickets get a distinct ID prefix.
-func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
 	tests := []struct {
-		name          string
-		ticketID      string
-		wantPrefix    string
-		blockedPrefix string
+		name           string
+		ownerNamespace string
+		pipelineID     string
+		errContains    string
 	}{
 		{
-			name:       "scheduled ticket",
-			ticketID:   "sched/wf/run",
-			wantPrefix: "Pipeline-Sched-",
+			name:           "unknown pipeline",
+			ownerNamespace: testOrgANamespace,
+			pipelineID:     testOrgANamespace + "/unknown-pipeline",
+			errContains:    "resolve pipeline",
 		},
 		{
-			name:          "non scheduled ticket",
-			ticketID:      "ticket-1",
-			wantPrefix:    "Pipeline-",
-			blockedPrefix: "Pipeline-Sched-",
+			name:           "unknown owner",
+			ownerNamespace: "missing-org",
+			pipelineID:     "missing-org/pipeline",
+			errContains:    "lookup owner organization: organization missing-org not found",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			act, _ := newCapturingQueuedPipelineActivity(t, "wf-1", "run-1")
+
+			result, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+				Payload: StartQueuedPipelineActivityInput{
+					TicketID:           "ticket-1",
+					OwnerNamespace:     tc.ownerNamespace,
+					PipelineIdentifier: tc.pipelineID,
+					YAML:               "name: test\nsteps: []\n",
+				},
+			})
+			require.NoError(t, err)
+
+			output, ok := result.Output.(StartQueuedPipelineActivityOutput)
+			require.True(t, ok)
+			require.Equal(t, "wf-1", output.WorkflowID)
+			require.Equal(t, "run-1", output.RunID)
+			require.Equal(t, tc.ownerNamespace, output.WorkflowNamespace)
+			require.False(t, output.PipelineResultCreated)
+			require.Contains(t, output.PipelineResultError, tc.errContains)
+			require.Len(t, result.Log, 1)
+			require.Contains(t, result.Log[0], "pipeline execution result not created: ")
+		})
+	}
+}
+
+func TestStartQueuedPipelineActivityCreatesPipelineResult(t *testing.T) {
+	act, _ := newCapturingQueuedPipelineActivity(t, "wf-ci", "run-ci")
+	app := act.app
+	pipeline, identifier := createTestPipeline(t, app, "queued-ci")
+
+	payload := StartQueuedPipelineActivityInput{
+		TicketID:           "ticket-ci",
+		OwnerNamespace:     testOrgANamespace,
+		PipelineIdentifier: identifier,
+		YAML:               "name: test\nsteps: []\n",
+		Memo: map[string]any{
+			pipelineinternal.RunTypeMemoKey: pipelineinternal.RunTypeCI,
+		},
+	}
+	for range 2 {
+		result, err := act.Execute(
+			context.Background(),
+			workflowengine.ActivityInput{Payload: payload},
+		)
+		require.NoError(t, err)
+		output, ok := result.Output.(StartQueuedPipelineActivityOutput)
+		require.True(t, ok)
+		require.True(t, output.PipelineResultCreated)
+		require.Empty(t, output.PipelineResultError)
+		require.Empty(t, result.Log)
+	}
+
+	records, err := app.FindAllRecords(
+		"pipeline_results",
+		dbx.HashExp{"workflow_id": "wf-ci", "run_id": "run-ci"},
+	)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	require.Equal(t, pipeline.Id, records[0].GetString("pipeline"))
+	require.Equal(t, testOrgAID, records[0].GetString("owner"))
+	require.Equal(t, pipelineinternal.RunTypeCI, records[0].GetString("type"))
+}
+
+// TestStartQueuedPipelineActivityWorkflowID verifies the workflow ID derives from the
+// ticket and the start options make a repeated start resolve to the same execution.
+func TestStartQueuedPipelineActivityWorkflowID(t *testing.T) {
+	tests := []struct {
+		name     string
+		ticketID string
+		wantID   string
+	}{
+		{
+			name:     "scheduled ticket",
+			ticketID: "sched/wf/run-uuid",
+			wantID:   "Pipeline-Sched-test-run-uuid",
+		},
+		{
+			name:     "api ticket",
+			ticketID: "ticket-uuid",
+			wantID:   "Pipeline-test-ticket-uuid",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			captured := &capturingTemporalClient{
-				run: fakeWorkflowRun{
-					id:    "wf-3",
-					runID: "run-3",
-				},
-			}
-			act := NewStartQueuedPipelineActivity()
-			act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
-				return captured, nil
-			}
-			act.httpDoer = failingDoer{err: errors.New("boom")}
+			act, captured := newCapturingQueuedPipelineActivity(t, "wf-3", "run-3")
 
 			_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
 				Payload: StartQueuedPipelineActivityInput{
@@ -270,16 +228,21 @@ func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 					OwnerNamespace:     "tenant-1",
 					PipelineIdentifier: "tenant-1/pipeline",
 					YAML:               "name: test\nsteps: []\n",
-					PipelineConfig: map[string]any{
-						"app_url": "https://example.com",
-					},
 				},
 			})
 			require.NoError(t, err)
-			require.True(t, strings.HasPrefix(captured.lastOptions.ID, test.wantPrefix))
-			if test.blockedPrefix != "" {
-				require.False(t, strings.HasPrefix(captured.lastOptions.ID, test.blockedPrefix))
-			}
+			require.Equal(t, test.wantID, captured.lastOptions.ID)
+			require.Equal(
+				t,
+				enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
+				captured.lastOptions.WorkflowIDReusePolicy,
+			)
+			require.Equal(
+				t,
+				enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
+				captured.lastOptions.WorkflowIDConflictPolicy,
+			)
+			require.Equal(t, "test", captured.lastOptions.StaticSummary)
 			key := temporal.NewSearchAttributeKeyKeyword(
 				workflowengine.PipelineIdentifierSearchAttribute,
 			)
@@ -290,19 +253,31 @@ func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 	}
 }
 
-func TestStartQueuedPipelineActivityPropagatesDisableAndroidPlayStore(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
-	captured := &capturingTemporalClient{
-		run: fakeWorkflowRun{
-			id:    "wf-4",
-			runID: "run-4",
+// TestStartQueuedPipelineActivityAlreadyStarted verifies a retry after the ticket's run
+// closed continues with that run instead of failing.
+func TestStartQueuedPipelineActivityAlreadyStarted(t *testing.T) {
+	act, captured := newCapturingQueuedPipelineActivity(t, "unused", "unused")
+	captured.executeErr = serviceerror.NewWorkflowExecutionAlreadyStarted("already started", "", "")
+	captured.describeRun = "r1"
+
+	result, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: StartQueuedPipelineActivityInput{
+			TicketID:           "ticket-dup",
+			OwnerNamespace:     "tenant-1",
+			PipelineIdentifier: "tenant-1/pipeline",
+			YAML:               "name: test\nsteps: []\n",
 		},
-	}
-	act := NewStartQueuedPipelineActivity()
-	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
-		return captured, nil
-	}
-	act.httpDoer = failingDoer{err: errors.New("boom")}
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"Pipeline-test-ticket-dup/"}, captured.described)
+	output, ok := result.Output.(StartQueuedPipelineActivityOutput)
+	require.True(t, ok)
+	require.Equal(t, "Pipeline-test-ticket-dup", output.WorkflowID)
+	require.Equal(t, "r1", output.RunID)
+}
+
+func TestStartQueuedPipelineActivityPropagatesDisableAndroidPlayStore(t *testing.T) {
+	act, captured := newCapturingQueuedPipelineActivity(t, "wf-4", "run-4")
 
 	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
 		Payload: StartQueuedPipelineActivityInput{
@@ -314,36 +289,14 @@ runtime:
   disable_android_play_store: true
 steps: []
 `,
-			PipelineConfig: map[string]any{
-				"app_url": "https://example.com",
-			},
 		},
 	})
 	require.NoError(t, err)
-	require.Len(t, captured.lastArgs, 1)
-
-	workflowInput, ok := captured.lastArgs[0].(map[string]any)
-	require.True(t, ok)
-
-	rawInput, ok := workflowInput["workflow_input"].(workflowengine.WorkflowInput)
-	require.True(t, ok)
-	require.Equal(t, true, rawInput.Config["disable_android_play_store"])
+	require.Equal(t, true, capturedWorkflowConfig(t, captured)["disable_android_play_store"])
 }
 
 func TestStartQueuedPipelineActivitySkipsReservedYAMLConfig(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
-	t.Setenv(workflowengine.InternalAppURLConfigKeyEnv, "")
-	captured := &capturingTemporalClient{
-		run: fakeWorkflowRun{
-			id:    "wf-5",
-			runID: "run-5",
-		},
-	}
-	act := NewStartQueuedPipelineActivity()
-	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
-		return captured, nil
-	}
-	act.httpDoer = failingDoer{err: errors.New("boom")}
+	act, captured := newCapturingQueuedPipelineActivity(t, "wf-5", "run-5")
 
 	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
 		Payload: StartQueuedPipelineActivityInput{
@@ -363,94 +316,28 @@ config:
     repository: attacker/repo
     pull_request_number: 17
   app_url: https://attacker.example
-  internal_app_url: https://attacker.example
 steps: []
 `,
 			PipelineConfig: map[string]any{
-				"app_url": "https://example.com",
+				"app_url": "https://stale.example",
 			},
 		},
 	})
 	require.NoError(t, err)
-	require.Len(t, captured.lastArgs, 1)
 
-	workflowInput, ok := captured.lastArgs[0].(map[string]any)
-	require.True(t, ok)
-
-	rawInput, ok := workflowInput["workflow_input"].(workflowengine.WorkflowInput)
-	require.True(t, ok)
-	require.Equal(t, "value", rawInput.Config["keep"])
-	require.NotContains(t, rawInput.Config, queuedTempWalletVersionConfigKey)
-	require.NotContains(t, rawInput.Config, queuedTempCredentialsConfigKey)
-	require.NotContains(t, rawInput.Config, queuedTempUseCaseVerificationsConfigKey)
-	require.NotContains(t, rawInput.Config, queuedGitHubPRCommentConfigKey)
-	require.Equal(t, "https://example.com", rawInput.Config[workflowengine.AppURLConfigKey])
-	require.NotContains(t, rawInput.Config, workflowengine.InternalAppURLConfigKey)
-}
-
-func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
-	doer := &countingDoer{err: errors.New("boom")}
-
-	err := createPipelineExecutionResultWithRetry(
-		context.Background(),
-		doer,
-		"https://example.com",
-		"tenant-1",
-		"pipeline-1",
-		"wf-1",
-		"run-1",
-		pipelineinternal.RunTypeManual,
-		nil,
-	)
-
-	require.Error(t, err)
-	require.Equal(t, 4, doer.attempts)
-}
-
-func TestPostPipelineExecutionResultAddsInternalAPIKeyHeader(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "internal-key")
-	doer := &headerCaptureDoer{statusCode: http.StatusOK}
-
-	status, err := postPipelineExecutionResult(
-		context.Background(),
-		doer,
-		"https://example.com",
-		"tenant-1",
-		"pipeline-1",
-		"wf-1",
-		"run-1",
-		pipelineinternal.RunTypeManual,
-		nil,
-	)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, status)
-	require.NotNil(t, doer.lastRequest)
-	require.Equal(t, "internal-key", doer.lastRequest.Header.Get("Credimi-Api-Key"))
-}
-
-func TestPostPipelineExecutionResultMissingInternalAPIKey(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "")
-	doer := &headerCaptureDoer{statusCode: http.StatusOK}
-
-	_, err := postPipelineExecutionResult(
-		context.Background(),
-		doer,
-		"https://example.com",
-		"tenant-1",
-		"pipeline-1",
-		"wf-1",
-		"run-1",
-		pipelineinternal.RunTypeManual,
-		nil,
-	)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "CREDIMI_INTERNAL_ADMIN_KEY is required")
+	config := capturedWorkflowConfig(t, captured)
+	require.Equal(t, "value", config["keep"])
+	require.NotContains(t, config, queuedTempWalletVersionConfigKey)
+	require.NotContains(t, config, queuedTempCredentialsConfigKey)
+	require.NotContains(t, config, queuedTempUseCaseVerificationsConfigKey)
+	require.NotContains(t, config, queuedGitHubPRCommentConfigKey)
+	require.Equal(t, pipelineResultsTestAppURL, config[workflowengine.AppURLConfigKey])
+	require.Equal(t, "Credimi", config[workflowengine.AppNameConfigKey])
+	require.Contains(t, config, workflowengine.AppLogoConfigKey)
 }
 
 func TestStartQueuedPipelineActivityValidationErrors(t *testing.T) {
-	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
-	act := NewStartQueuedPipelineActivity()
+	act := NewStartQueuedPipelineActivity(newPipelineResultsTestApp(t))
 
 	tests := []struct {
 		name        string
@@ -482,25 +369,22 @@ func TestStartQueuedPipelineActivityValidationErrors(t *testing.T) {
 			errContains: "yaml is required",
 		},
 		{
-			name: "missing app_url",
-			payload: StartQueuedPipelineActivityInput{
-				OwnerNamespace:     "ns",
-				PipelineIdentifier: "p",
-				YAML:               "name: test\nsteps: []\n",
-			},
-			errContains: "app_url",
-		},
-		{
 			name: "invalid yaml",
 			payload: StartQueuedPipelineActivityInput{
 				OwnerNamespace:     "ns",
 				PipelineIdentifier: "p",
 				YAML:               "name: [",
-				PipelineConfig: map[string]any{
-					"app_url": "https://example.com",
-				},
 			},
 			errContains: "parse workflow definition",
+		},
+		{
+			name: "missing ticket id",
+			payload: StartQueuedPipelineActivityInput{
+				OwnerNamespace:     "ns",
+				PipelineIdentifier: "p",
+				YAML:               "name: test\nsteps: []\n",
+			},
+			errContains: "ticket_id is required",
 		},
 	}
 
@@ -518,7 +402,7 @@ func TestStartQueuedPipelineActivityValidationErrors(t *testing.T) {
 }
 
 func TestStartQueuedPipelineActivityName(t *testing.T) {
-	act := NewStartQueuedPipelineActivity()
+	act := NewStartQueuedPipelineActivity(nil)
 	require.Equal(t, "Start queued pipeline", act.Name())
 }
 
@@ -557,6 +441,14 @@ func TestPrepareQueuedWorkflowOptionsOverrides(t *testing.T) {
 	require.Equal(t, 3*time.Second, opts.ActivityOptions.RetryPolicy.InitialInterval)
 	require.Equal(t, 9*time.Second, opts.ActivityOptions.RetryPolicy.MaximumInterval)
 	require.Equal(t, 1.5, opts.ActivityOptions.RetryPolicy.BackoffCoefficient)
+}
+
+func TestPrepareQueuedWorkflowOptionsHeartbeatOverride(t *testing.T) {
+	rc := queuedRuntime{}
+	rc.Temporal.ActivityOptions.HeartbeatTimeout = "2m"
+
+	opts := prepareQueuedWorkflowOptions(rc)
+	require.Equal(t, 2*time.Minute, opts.ActivityOptions.HeartbeatTimeout)
 }
 
 func TestApplySemaphoreTicketMetadata(t *testing.T) {

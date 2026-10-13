@@ -31,6 +31,7 @@ type suiteYAML struct {
 	Help        string   `yaml:"help"`
 	Description string   `yaml:"description"`
 	Logo        string   `yaml:"logo"`
+	HasQR       bool     `yaml:"has_qr"`
 	VisibleIn   []string `yaml:"visible_in"`
 	Protocol    string   `yaml:"protocol"`
 	SUT         string   `yaml:"sut"`
@@ -48,6 +49,7 @@ type suiteDisplayFields struct {
 	Help        string
 	Description string
 	Logo        string
+	HasQR       bool
 }
 
 func suiteDisplayFromYAML(s suiteYAML) suiteDisplayFields {
@@ -59,6 +61,7 @@ func suiteDisplayFromYAML(s suiteYAML) suiteDisplayFields {
 		Help:        strings.TrimSpace(s.Help),
 		Description: strings.TrimSpace(s.Description),
 		Logo:        strings.TrimSpace(s.Logo),
+		HasQR:       s.HasQR,
 	}
 }
 

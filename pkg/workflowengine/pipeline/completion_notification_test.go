@@ -30,7 +30,7 @@ func TestPipelineReportsCompletionNotification(t *testing.T) {
 		workflow.RegisterOptions{Name: pipelineWf.Name()},
 	)
 
-	notificationActivity := activities.NewSendPipelineCompletionNotificationActivity()
+	notificationActivity := activities.NewSendPipelineCompletionNotificationActivity(nil)
 	env.RegisterActivityWithOptions(
 		notificationActivity.Execute,
 		activity.RegisterOptions{Name: notificationActivity.Name()},
@@ -61,8 +61,7 @@ func TestPipelineReportsCompletionNotification(t *testing.T) {
 				}
 				payload = decoded
 			}
-			return payload.AppURL == "https://example.test" &&
-				payload.WorkflowID == "default-test-workflow-id" &&
+			return payload.WorkflowID == "default-test-workflow-id" &&
 				payload.RunID == "default-test-run-id" &&
 				payload.Result == resultSuccess
 		}),
@@ -102,7 +101,7 @@ func TestPipelineSkipsCompletionNotificationWithoutConfigKey(t *testing.T) {
 		workflow.RegisterOptions{Name: pipelineWf.Name()},
 	)
 
-	notificationActivity := activities.NewSendPipelineCompletionNotificationActivity()
+	notificationActivity := activities.NewSendPipelineCompletionNotificationActivity(nil)
 	env.RegisterActivityWithOptions(
 		notificationActivity.Execute,
 		activity.RegisterOptions{Name: notificationActivity.Name()},

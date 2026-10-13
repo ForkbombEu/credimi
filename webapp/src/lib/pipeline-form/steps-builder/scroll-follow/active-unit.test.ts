@@ -568,9 +568,10 @@ describe('scrollUnitIntoView (cards)', () => {
 
 	it('onlyIfOutside skips scroll when the card still intersects (paired-reorder peek)', async () => {
 		const scroller = createCardsScroller([1]);
-		const card = scroller.querySelector(
-			'[data-card-section="steps"][data-card-index="1"]'
-		) as { getBoundingClientRect: () => DOMRect; focus: ReturnType<typeof vi.fn> };
+		const card = scroller.querySelector('[data-card-section="steps"][data-card-index="1"]') as {
+			getBoundingClientRect: () => DOMRect;
+			focus: ReturnType<typeof vi.fn>;
+		};
 		// Peeking mid-viewport — intersects, so nearest must not yank the swap target.
 		card.getBoundingClientRect = () => makeRect({ top: 100, bottom: 180, height: 80 });
 

@@ -15,17 +15,27 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.rp-integrity
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  session:
+    from: pipeline.dcql.rp-integrity.outputs.did_session
+  request_evidence:
+    from: pipeline.dcql.rp-integrity.outputs.did_request_evidence
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.dcql.rp-integrity.outputs.did_visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__024_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+- id: request_is_signed_without_x509_hash_prefix
+  validator: oid4vp.did_signed_request
+  input: evidence.request_evidence
+- id: wallet_retrieves_request_object_with_post
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.session
   params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__024_visual_evidence
+    method: POST
+- id: wallet_rejects_or_discontinues
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params:
+    mode: request_rejected
+- id: rejection_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

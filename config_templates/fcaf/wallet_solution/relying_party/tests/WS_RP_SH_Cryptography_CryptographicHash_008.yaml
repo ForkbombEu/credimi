@@ -13,19 +13,39 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.cryptography
+- ref: pipeline.cryptography.digest-algorithm
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.cryptography.outputs.dcql_exchange
+  issuance_capture:
+    from: pipeline.cryptography.digest-algorithm.outputs.issuance_capture
+  request_object:
+    from: pipeline.cryptography.digest-algorithm.outputs.presentation_request_object
+  presentation_session:
+    from: pipeline.cryptography.digest-algorithm.outputs.presentation_session
   visual_evidence:
-    from: pipeline.dcql.cryptography.outputs.visual_evidence
+    from: pipeline.cryptography.digest-algorithm.outputs.visual_evidence
 assertions:
-- id: ws_rp_sh_cryptography_cryptographichash_008_crypto_verified
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
-  params:
-    field: hash
-- id: ws_rp_sh_cryptography_cryptographichash_008_visual_evidence
+# The request asks for the pid_person_b PID, which the Wallet holds only as a
+# SHA-384-digested credential, while the verifier client metadata names no hash
+# algorithm besides SHA-256. A Wallet that presents it supports SHA-384 and is
+# outside the source's profile applicability (not_applicable); otherwise it must
+# raise an error instead of presenting.
+- id: verifier_uses_a_sha384_digested_credential
+  validator: json.field_equals
+  input: evidence.issuance_capture
+  params: { field: digest_algorithm, value: sha-384 }
+- id: sha384_credential_reached_the_wallet
+  validator: json.field_equals
+  input: evidence.issuance_capture
+  params: { field: status, value: credential_issued }
+- id: verifier_client_metadata_names_no_other_hash_algorithm
+  validator: oid4vp.client_metadata_hash_algorithms
+  input: evidence.request_object
+  params: { allowed: [sha-256] }
+- id: sha256_only_wallet_raises_an_error
+  validator: sdjwt.presentation_digest_algorithm_unsupported
+  input: evidence.presentation_session
+  params: { digest_algorithm: sha-384, require_error: true }
+- id: interaction_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

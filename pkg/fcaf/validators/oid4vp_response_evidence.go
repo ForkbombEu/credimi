@@ -192,6 +192,7 @@ func (OID4VPResponseEncryptionValidator) Validate(_ context.Context, input Input
 }
 
 type oid4vpResponseEncryptionParams struct {
+	RequireCompactJWE        bool     `json:"require_compact_jwe"`
 	MatchMetadataKID         bool     `json:"match_metadata_kid"`
 	ExpectedEnc              string   `json:"expected_enc"`
 	MetadataEnc              string   `json:"metadata_enc"`
@@ -201,8 +202,12 @@ type oid4vpResponseEncryptionParams struct {
 	PreserveGeneratedJWKs    bool     `json:"preserve_generated_jwks"`
 }
 
+// validate rejects parameter sets that check nothing. Every check decodes the
+// response parameter as a compact JWE first, so require_compact_jwe alone
+// asserts only that the Wallet posted one.
 func (p oid4vpResponseEncryptionParams) validate() *Result {
-	if !p.MatchMetadataKID && p.ExpectedEnc == "" && p.MetadataEnc == "" &&
+	if !p.RequireCompactJWE && !p.MatchMetadataKID && p.ExpectedEnc == "" &&
+		p.MetadataEnc == "" &&
 		!p.MetadataEncAbsent &&
 		len(p.MetadataEncValuesSupport) == 0 &&
 		!p.PreserveGeneratedJWKs {
@@ -322,7 +327,7 @@ func (p oid4vpResponseEncryptionParams) checkProtectedHeader(
 func (p oid4vpResponseEncryptionParams) checkMetadataEnc(
 	captured responseEncryptionEvidence,
 ) *Result {
-	metadataEnc, present := captured.metadata["authorization_encrypted_response_enc"]
+	metadataEnc := captured.metadata["authorization_encrypted_response_enc"]
 	if p.MetadataEnc != "" && metadataEnc != p.MetadataEnc {
 		return &Result{
 			Status: StatusFail,
@@ -333,10 +338,17 @@ func (p oid4vpResponseEncryptionParams) checkMetadataEnc(
 			),
 		}
 	}
-	if p.MetadataEncAbsent && present {
-		return &Result{
-			Status:  StatusFail,
-			Message: "client metadata authorization_encrypted_response_enc is present",
+	if p.MetadataEncAbsent {
+		for _, key := range []string{
+			"authorization_encrypted_response_enc",
+			"encrypted_response_enc_values_supported",
+		} {
+			if _, present := captured.metadata[key]; present {
+				return &Result{
+					Status:  StatusFail,
+					Message: fmt.Sprintf("client metadata %s is present", key),
+				}
+			}
 		}
 	}
 	return nil

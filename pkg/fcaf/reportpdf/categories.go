@@ -64,20 +64,22 @@ func parseTestID(testID string) (code, subgroup, label string) {
 		code = strings.ToUpper(parts[2])
 		if _, ok := categoryByCode[code]; ok {
 			subgroup = strings.ToLower(parts[3])
-			return code, subgroup, subgroupLabel(subgroup)
+			return code, subgroup, subgroupLabel(subgroup, parts[3])
 		}
 	}
 	return "OTHER", "other", "Other"
 }
 
-func subgroupLabel(key string) string {
+// subgroupLabel looks the subgroup up by its lowercase key, and humanizes the
+// original segment, whose case marks the word boundaries, when it is unknown.
+func subgroupLabel(key, segment string) string {
 	if label, ok := subgroupLabels[key]; ok {
 		return label
 	}
-	return humanize(key)
+	return humanize(segment)
 }
 
-// humanize turns a CamelCase segment into space-separated words, used only for
+// humanize turns a CamelCase segment into sentence-case words, used only for
 // subgroups not yet present in subgroupLabels.
 func humanize(segment string) string {
 	if segment == "" {
@@ -90,7 +92,7 @@ func humanize(segment string) string {
 		if unicode.IsUpper(runes[i]) {
 			sb.WriteByte(' ')
 		}
-		sb.WriteRune(runes[i])
+		sb.WriteRune(unicode.ToLower(runes[i]))
 	}
 	return sb.String()
 }

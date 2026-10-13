@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -268,10 +269,10 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	appURL := input.Config["app_url"].(string)
+	appURL := input.Config[workflowengine.AppURLConfigKey].(string)
 	if appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
+			workflowengine.AppURLConfigKey,
 			input.RunMetadata,
 		)
 	}
@@ -338,7 +339,6 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			return pollOpenIDConformanceLogs(
 				ctx,
 				rid,
-				workflowengine.InternalAppURLFromConfig(input.Config),
 				utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				false,
 				input.RunMetadata,
@@ -367,12 +367,11 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			child.Name(),
 			workflowengine.WorkflowInput{
 				Payload: OpenID4VPWalletLogsWorkflowPayload{
-					Rid:   rid,
-					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+					Rid: rid,
 				},
 				Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
-					"app_url":  workflowengine.InternalAppURLFromConfig(input.Config),
-					"interval": time.Second,
+					workflowengine.AppURLConfigKey: appURL,
+					"interval":                     time.Second,
 				}),
 			}).GetChildWorkflowExecution().Get(ctx, nil)
 		if err != nil {
@@ -458,10 +457,10 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				SessionID: ewcSessionID,
 			},
 			Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
-				"app_url":        workflowengine.InternalAppURLFromConfig(input.Config),
-				"interval":       time.Second * 5,
-				"check_endpoint": checkEndpoint,
-				"logs_endpoint":  logsEndpoint,
+				workflowengine.AppURLConfigKey: appURL,
+				"interval":                     time.Second * 5,
+				"check_endpoint":               checkEndpoint,
+				"logs_endpoint":                logsEndpoint,
 			}),
 		}
 
@@ -528,10 +527,17 @@ func (w *StartCheckWorkflow) Start(
 ) (workflowengine.WorkflowResult, error) {
 	memo, _ := input.Config["memo"].(map[string]any)
 	suite, _ := memo["author"].(string)
+	pathPrefix := ""
+	if payload, err := workflowengine.DecodePayload[StartCheckWorkflowPayload](
+		input.Payload,
+	); err == nil {
+		pathPrefix = conformancecatalog.SuitePathPrefixFromCheckID(payload.CheckID)
+	}
 	input = workflowengine.WithCredimiCapabilities(
 		input,
 		workflowengine.CredimiCapabilities{
 			Logs: ConformanceSuiteHasLogs(suite),
+			QR:   conformancecatalog.SuiteHasQR(pathPrefix),
 		},
 	)
 	workflowOptions := client.StartWorkflowOptions{

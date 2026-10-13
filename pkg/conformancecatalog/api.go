@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/search"
 )
@@ -80,7 +80,7 @@ func (c collectionHTTP[R]) list() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		db, err := catalogDB()
 		if err != nil {
-			return e.InternalServerError("conformance catalog unavailable", err)
+			return errCatalogUnavailable(err)
 		}
 
 		rows := []*R{}
@@ -92,7 +92,7 @@ func (c collectionHTTP[R]) list() func(*core.RequestEvent) error {
 			CountCol("id").
 			ParseAndExec(e.Request.URL.Query().Encode(), &rows)
 		if err != nil {
-			return firstSearchAPIError(e, err)
+			return searchAPIError(err)
 		}
 
 		for _, row := range rows {
@@ -107,12 +107,12 @@ func (c collectionHTTP[R]) view() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		id := e.Request.PathValue("id")
 		if id == "" {
-			return e.NotFoundError("", nil)
+			return errCatalogRecordNotFound(c.table, id)
 		}
 
 		db, err := catalogDB()
 		if err != nil {
-			return e.InternalServerError("conformance catalog unavailable", err)
+			return errCatalogUnavailable(err)
 		}
 
 		row := new(R)
@@ -121,7 +121,7 @@ func (c collectionHTTP[R]) view() func(*core.RequestEvent) error {
 			AndWhere(dbx.HashExp{"id": id}).
 			One(row)
 		if err != nil {
-			return e.NotFoundError("", err)
+			return errCatalogRecordNotFound(c.table, id)
 		}
 		c.attachMeta(row)
 		return e.JSON(http.StatusOK, row)
@@ -130,7 +130,7 @@ func (c collectionHTTP[R]) view() func(*core.RequestEvent) error {
 
 func (c collectionHTTP[R]) writeReject() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		return e.BadRequestError(c.writeMsg, nil)
+		return apierror.New(http.StatusBadRequest, "collection", "read-only collection", c.writeMsg)
 	}
 }
 
@@ -165,21 +165,39 @@ func SuitesWriteRejectHTTP() func(*core.RequestEvent) error {
 	return suitesCollectionHTTP().writeReject()
 }
 
-func firstSearchAPIError(e *core.RequestEvent, err error) error {
-	if err == nil {
-		return nil
-	}
+// searchAPIError maps a PocketBase search error to a 400.
+func searchAPIError(err error) *apierror.APIError {
 	switch {
 	case errors.Is(err, search.ErrFilterLengthLimit),
 		errors.Is(err, search.ErrFilterExprLimit),
 		errors.Is(err, search.ErrSortExprLimit),
 		errors.Is(err, search.ErrSortFieldLengthLimit),
 		errors.Is(err, search.ErrEmptyQuery):
-		return e.BadRequestError("", err)
+		return apierror.New(http.StatusBadRequest, "query", "search query rejected", err.Error())
 	default:
-		return apis.NewBadRequestError(
+		return apierror.New(
+			http.StatusBadRequest,
+			"query",
+			"invalid search query",
 			fmt.Sprintf("Something went wrong while processing your search request. %v", err),
-			err,
 		)
 	}
+}
+
+func errCatalogUnavailable(err error) *apierror.APIError {
+	return apierror.New(
+		http.StatusInternalServerError,
+		"catalog",
+		"conformance catalog unavailable",
+		err.Error(),
+	)
+}
+
+func errCatalogRecordNotFound(table, id string) *apierror.APIError {
+	return apierror.New(
+		http.StatusNotFound,
+		"id",
+		"record not found",
+		fmt.Sprintf("%s record %q not found", table, id),
+	)
 }

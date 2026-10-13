@@ -58,7 +58,7 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 			expectedResult: []any{"test1", "test2"},
 		},
 		{
-			name: "Workflow fetches yaml via HTTP when only id is provided",
+			name: "Workflow resolves yaml when only id is provided",
 			inputPayload: CustomCheckWorkflowPayload{
 				CheckID:    "custom-check-id",
 				Parameters: map[string]any{"runner": "ios"},
@@ -68,28 +68,27 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{
 					Name: stepCI.Name(),
 				})
-				httpAct := activities.NewInternalHTTPActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
-					Name: httpAct.Name(),
-				})
+				env.RegisterActivityWithOptions(
+					activities.NewResolveRecordActivity(nil).Execute,
+					activity.RegisterOptions{Name: activities.ResolveRecordActivityName},
+				)
 
 				env.OnActivity(
-					httpAct.Name(),
+					activities.ResolveRecordActivityName,
 					mock.Anything,
 					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-						payload, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
+						payload, err := workflowengine.DecodePayload[activities.ResolveRecordInput](
 							input.Payload,
 						)
-						return err == nil &&
-							strings.HasSuffix(payload.URL, "/api/canonify/internal/resolve")
+						return err == nil && payload == activities.ResolveRecordInput{
+							CanonifiedName: "custom-check-id",
+							Collection:     "custom_checks",
+							OwnerNamespace: "org-1",
+						}
 					}),
 				).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
-						"body": map[string]any{
-							"record": map[string]any{
-								"yaml": "fetched-yaml",
-							},
-						},
+						"yaml": "fetched-yaml",
 					}}, nil)
 
 				env.OnActivity(
@@ -109,25 +108,21 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 			expectedResult: []any{"ok"},
 		},
 		{
-			name:         "Workflow fails when yaml missing in HTTP response",
+			name:         "Workflow fails when yaml missing in resolved record",
 			inputPayload: CustomCheckWorkflowPayload{CheckID: "broken-id"},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{
 					Name: stepCI.Name(),
 				})
-				httpAct := activities.NewInternalHTTPActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
-					Name: httpAct.Name(),
-				})
+				env.RegisterActivityWithOptions(
+					activities.NewResolveRecordActivity(nil).Execute,
+					activity.RegisterOptions{Name: activities.ResolveRecordActivityName},
+				)
 
-				// Return response without yaml
-				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{
-						"body": map[string]any{
-							"record": map[string]any{},
-						},
-					}}, nil)
+				// Return a record without yaml
+				env.OnActivity(activities.ResolveRecordActivityName, mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{}}, nil)
 			},
 			expectedErr: true,
 			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
@@ -148,7 +143,8 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 					"api_key": "secret-value",
 				},
 				Config: map[string]any{
-					"app_url": "https://test-app.com",
+					"app_url":   "https://test-app.com",
+					"namespace": "org-1",
 				},
 			})
 

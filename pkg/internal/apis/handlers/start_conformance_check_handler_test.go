@@ -341,23 +341,24 @@ func TestStartOpenID4VPWalletWorkflowSuccess(t *testing.T) {
 		openID4VPWalletWorkflowStart = origStart
 	})
 
+	var started workflowengine.WorkflowInput
 	openID4VPWalletWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		started = input
 		return workflowengine.WorkflowResult{
 			WorkflowID:    "wf-openid",
 			WorkflowRunID: "run-openid",
 		}, nil
 	}
 
+	app := newStarterTestApp(t)
 	params := WorkflowStarterParams{
+		App:       app,
 		YAMLData:  "variant: json\ntest: test-1\n",
 		Email:     "user@example.com",
-		AppURL:    "https://app.example.com",
 		Namespace: "ns",
 		Memo:      map[string]interface{}{"test": "test-1"},
 		Author:    "openid_conformance_suite",
 		Version:   "1.0",
-		AppName:   "Credimi",
-		LogoUrl:   "https://app.example.com/logo.png",
 		UserName:  "User",
 	}
 
@@ -365,6 +366,25 @@ func TestStartOpenID4VPWalletWorkflowSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "wf-openid", result.WorkflowID)
 	require.Equal(t, string(params.Author), result.Author)
+	require.Equal(t, "https://app.example.com", started.Config["app_url"])
+	require.Equal(t, "Credimi", started.Config["app_name"])
+	require.Equal(
+		t,
+		"https://app.example.com/logos/credimi_logo-transp_emblem.png",
+		started.Config["app_logo"],
+	)
+	require.Equal(t, "User", started.Config["user_name"])
+	require.Equal(t, "ns", started.Config["namespace"])
+}
+
+func newStarterTestApp(t *testing.T) *tests.TestApp {
+	t.Helper()
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	t.Cleanup(app.Cleanup)
+	app.Settings().Meta.AppURL = "https://app.example.com"
+	app.Settings().Meta.AppName = "Credimi"
+	return app
 }
 
 func TestStartOpenID4VPWalletWorkflowRoutesVerifierToDedicatedWorkflow(t *testing.T) {
@@ -393,16 +413,14 @@ func TestStartOpenID4VPWalletWorkflowRoutesVerifierToDedicatedWorkflow(t *testin
 	}
 
 	params := WorkflowStarterParams{
+		App:       newStarterTestApp(t),
 		YAMLData:  "use_case_id: org/verifier/use-case\ntest: verifier-test\n",
 		Email:     "user@example.com",
-		AppURL:    "https://app.example.com",
 		Namespace: "ns",
 		Memo:      map[string]interface{}{"test": "verifier-test"},
 		Author:    "openid_conformance_suite",
 		Protocol:  workflows.OpenID4VPVerifierStandard,
 		Version:   "1.0",
-		AppName:   "Credimi",
-		LogoUrl:   "https://app.example.com/logo.png",
 		UserName:  "User",
 	}
 
@@ -448,16 +466,14 @@ func TestStartEWCWorkflowSuccess(t *testing.T) {
 	}
 
 	params := WorkflowStarterParams{
+		App:       newStarterTestApp(t),
 		YAMLData:  "session_id: session-1\n",
 		Email:     "user@example.com",
-		AppURL:    "https://app.example.com",
 		Namespace: "ns",
 		Memo:      map[string]interface{}{"test": "ewc/test"},
 		Author:    "ewc",
 		Protocol:  "openid4vp_wallet",
 		TestName:  "ewctest.yaml",
-		AppName:   "Credimi",
-		LogoUrl:   "https://app.example.com/logo.png",
 		UserName:  "User",
 	}
 
@@ -505,16 +521,14 @@ func TestStartWebuildWorkflowSuccess(t *testing.T) {
 	}
 
 	params := WorkflowStarterParams{
+		App:       newStarterTestApp(t),
 		YAMLData:  "session_id: session-1\n",
 		Email:     "user@example.com",
-		AppURL:    "https://app.example.com",
 		Namespace: "ns",
 		Memo:      map[string]interface{}{"test": "webuild/test"},
 		Author:    "webuild",
 		Protocol:  "openid4vp_wallet",
 		TestName:  "webuildtest.yaml",
-		AppName:   "Credimi",
-		LogoUrl:   "https://app.example.com/logo.png",
 		UserName:  "User",
 	}
 
@@ -543,15 +557,13 @@ func TestStartEudiwWorkflowSuccess(t *testing.T) {
 	}
 
 	params := WorkflowStarterParams{
+		App:       newStarterTestApp(t),
 		YAMLData:  "nonce: n1\nid: id-1\n",
 		Email:     "user@example.com",
-		AppURL:    "https://app.example.com",
 		Namespace: "ns",
 		Memo:      map[string]interface{}{"test": "eudiw/test"},
 		Author:    "eudiw",
 		TestName:  "eudiwtest.yaml",
-		AppName:   "Credimi",
-		LogoUrl:   "https://app.example.com/logo.png",
 		UserName:  "User",
 	}
 
@@ -574,8 +586,8 @@ func TestStartVLEIWorkflowSuccess(t *testing.T) {
 	}
 
 	params := WorkflowStarterParams{
+		App:       newStarterTestApp(t),
 		YAMLData:  "credentialID: cred-1\nserverURL: https://vlei.example.com\n",
-		AppURL:    "https://app.example.com",
 		Namespace: "ns",
 		Memo:      map[string]interface{}{"test": "vlei/test"},
 		Author:    "vlei",
@@ -589,17 +601,15 @@ func TestStartVLEIWorkflowSuccess(t *testing.T) {
 
 func TestProcessJSONChecksUnsupportedAuthor(t *testing.T) {
 	result, err := processJSONChecks(
+		nil,
 		"{}",
 		"user@example.org",
-		"https://app.example",
 		"ns-1",
 		map[string]interface{}{"test": "demo"},
 		Author("unknown"),
 		"unknown/test",
 		"openid4vp_wallet",
 		"v1",
-		"https://logo.png",
-		"Credimi",
 		"User",
 	)
 	require.Error(t, err)
@@ -614,9 +624,10 @@ func TestProcessJSONChecksUsesRegistry(t *testing.T) {
 	t.Cleanup(func() {
 		workflowRegistry = origRegistry
 	})
+	app := newStarterTestApp(t)
 	workflowRegistry = map[Author]WorkflowStarter{
 		"ewc": func(params WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-			require.Equal(t, "https://app.example", params.AppURL)
+			require.Same(t, app, params.App)
 			return workflowengine.WorkflowResult{
 				WorkflowID:    "wf-1",
 				WorkflowRunID: "run-1",
@@ -625,17 +636,15 @@ func TestProcessJSONChecksUsesRegistry(t *testing.T) {
 	}
 
 	result, err := processJSONChecks(
+		app,
 		"{}",
 		"user@example.org",
-		"https://app.example",
 		"ns-1",
 		map[string]interface{}{"test": "demo"},
 		Author("ewc"),
 		"ewc/test",
 		"openid4vp_wallet",
 		"v1",
-		"https://logo.png",
-		"Credimi",
 		"User",
 	)
 	require.NoError(t, err)
@@ -650,7 +659,7 @@ func TestStartOpenID4VPWalletWorkflowMissingTemplate(t *testing.T) {
 	params := WorkflowStarterParams{
 		YAMLData:  "variant: {}\nform: {}\ntest: demo\n",
 		Email:     "user@example.org",
-		AppURL:    "https://app.example",
+		App:       newStarterTestApp(t),
 		Namespace: "ns-1",
 		Version:   "1.0",
 	}

@@ -6,7 +6,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { ArrowUp, Eye } from '@lucide/svelte';
-	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
 
 	import type { IconComponent } from '@/components/types';
 	import type { GenericRecord } from '@/utils/types';
@@ -40,8 +39,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function getCurlCommand() {
 		const url = new URL(
-			`api/compliance/${form.props.standardAndVersionPath}/save-variables-and-start`,
-			PUBLIC_POCKETBASE_URL
+			`/api/compliance/${form.props.standardAndVersionPath}/save-variables-and-start`,
+			window.location.origin
 		);
 		return `curl '${url.toString()}' -X POST -H 'Authorization: ${pb.authStore.token}' --data-raw '${JSON.stringify(form.getFormData())}'`;
 	}

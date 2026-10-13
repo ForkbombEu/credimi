@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -17,14 +18,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
-	"gopkg.in/yaml.v3"
 )
 
 type CredentialDeeplinkRequest struct {
@@ -80,13 +80,12 @@ type deeplinkWorkflowResponse struct {
 // report can echo response bodies and secret-interpolated URLs, so it is returned only
 // to the caller that supplied the YAML and secrets.
 func getDeeplinkFromYAML(
+	ctx context.Context,
 	app core.App,
 	yaml string,
 	secrets map[string]string,
 	exposeStepCIReport bool,
 ) (deeplinkWorkflowResponse, error) {
-	appURL := app.Settings().Meta.AppURL
-
 	memo := map[string]any{
 		"test": "get-deeplink",
 	}
@@ -104,11 +103,10 @@ func getDeeplinkFromYAML(
 		Payload: workflows.CustomCheckWorkflowPayload{
 			Yaml: yaml,
 		},
-		Config: workflowengine.WithInternalAppURL(map[string]any{
-			"memo":    memo,
-			"app_url": appURL,
+		Config: workflowengine.WithAppConfig(app, map[string]any{
+			"memo": memo,
 		}),
-		Secrets:         secretsToMap(secrets),
+		Secrets:         utils.SecretsToAny(secrets),
 		ActivityOptions: ao,
 	}
 
@@ -131,6 +129,7 @@ func getDeeplinkFromYAML(
 		)
 	}
 	result, err := deeplinkWaitForWorkflowResult(
+		ctx,
 		client,
 		resStart.WorkflowID,
 		resStart.WorkflowRunID,
@@ -209,23 +208,11 @@ func getDeeplinkFromYAML(
 	}, nil
 }
 
-func secretsToMap(secrets map[string]string) map[string]any {
-	if len(secrets) == 0 {
-		return nil
-	}
-
-	out := make(map[string]any, len(secrets))
-	for key, value := range secrets {
-		out[key] = value
-	}
-	return out
-}
-
 func HandleGetDeeplink() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var body CredentialDeeplinkRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
-			return apis.NewBadRequestError("invalid JSON body", err)
+			return apierror.New(http.StatusBadRequest, "request", "invalid JSON input", err.Error())
 		}
 
 		secrets, apiErr := parseSecretsYAML(body.Secrets)
@@ -233,7 +220,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
-		response, err := getDeeplinkFromYAML(e.App, body.Yaml, secrets, true)
+		response, err := getDeeplinkFromYAML(e.Request.Context(), e.App, body.Yaml, secrets, true)
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
@@ -316,7 +303,7 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 		)
 	}
 
-	deeplink, apiErr := deeplinkFromRecord(e.App, rec, opts.MissingDomain)
+	deeplink, apiErr := deeplinkFromRecord(e.Request.Context(), e.App, rec, opts.MissingDomain)
 	if apiErr != nil {
 		return apiErr
 	}
@@ -331,6 +318,7 @@ func handleRecordDeeplink(e *core.RequestEvent, opts recordDeeplinkOptions) erro
 }
 
 func deeplinkFromRecord(
+	ctx context.Context,
 	app core.App,
 	rec *core.Record,
 	missingDomain string,
@@ -355,7 +343,7 @@ func deeplinkFromRecord(
 		return "", apiErr
 	}
 
-	response, err := getDeeplinkFromYAML(app, yamlStr, secrets, false)
+	response, err := getDeeplinkFromYAML(ctx, app, yamlStr, secrets, false)
 	if err != nil {
 		apiErr := &apierror.APIError{}
 		if errors.As(err, &apiErr) {
@@ -373,13 +361,10 @@ func deeplinkFromRecord(
 	return response.Deeplink, nil
 }
 
+// parseSecretsYAML maps utils.ParseSecretsYAML errors to a 400 API error.
 func parseSecretsYAML(secretsYAML string) (map[string]string, *apierror.APIError) {
-	if secretsYAML == "" {
-		return nil, nil
-	}
-
-	var secrets map[string]string
-	if err := yaml.Unmarshal([]byte(secretsYAML), &secrets); err != nil {
+	secrets, err := utils.ParseSecretsYAML(secretsYAML)
+	if err != nil {
 		return nil, apierror.New(
 			http.StatusBadRequest,
 			"secrets",
@@ -387,6 +372,5 @@ func parseSecretsYAML(secretsYAML string) (map[string]string, *apierror.APIError
 			err.Error(),
 		)
 	}
-
 	return secrets, nil
 }

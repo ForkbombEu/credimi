@@ -285,7 +285,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	{#if workflowName !== 'Dynamic Pipeline Workflow'}
+	{#if memo?.has_qr}
 		<WorkflowQrPoller {workflowId} {runId} showQrLink={true} containerClass="size-40" />
 	{/if}
 </div>

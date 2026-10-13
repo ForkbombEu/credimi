@@ -12,7 +12,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
@@ -88,7 +87,7 @@ func RegisterSchedulesHooks(app core.App) {
 		var displayName string
 		if desc.Memo != nil {
 			if field, ok := desc.Memo.GetFields()["test"]; ok {
-				displayName = handlers.DecodeFromTemporalPayload(string(field.GetData()))
+				displayName = workflowengine.DecodeStringPayload(field)
 			}
 		}
 

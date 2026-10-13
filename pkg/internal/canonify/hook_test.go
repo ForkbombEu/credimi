@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
 )
@@ -282,4 +283,85 @@ func TestCanonifyAPI(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+func TestMakeExistsFunc(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	const orgID = "co35481b68u3zj3"
+	const issuerID = "10dsg8625060x12"
+	collection, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+
+	cases := []struct {
+		name       string
+		collection string
+		owner      string
+		excludeID  string
+		candidate  string
+		want       bool
+		wantErr    string
+	}{
+		{name: "free name", collection: "credential_issuers", owner: orgID, candidate: "free-name"},
+		{
+			name:       "taken name",
+			collection: "credential_issuers",
+			owner:      orgID,
+			candidate:  "test-issuer",
+			want:       true,
+		},
+		{
+			name:       "name taken by the excluded record",
+			collection: "credential_issuers",
+			owner:      orgID,
+			excludeID:  issuerID,
+			candidate:  "test-issuer",
+		},
+		{
+			name:       "missing parent",
+			collection: "credential_issuers",
+			owner:      "missing-org",
+			candidate:  "free-name",
+			wantErr:    "build path for credential_issuers",
+		},
+		{
+			name:       "unknown collection",
+			collection: "not_canonified",
+			owner:      orgID,
+			candidate:  "free-name",
+			wantErr:    `no path template for collection "not_canonified"`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			record := core.NewRecord(collection)
+			record.Set("owner", tc.owner)
+			taken, err := MakeExistsFunc(app, tc.collection, record, tc.excludeID)(tc.candidate)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, taken)
+		})
+	}
+}
+
+func TestCanonifyHookFailsFastOnMissingParent(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	RegisterCanonifyHooks(app)
+
+	collection, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+	record := core.NewRecord(collection)
+	record.Set("name", "Orphan issuer")
+	record.Set("url", "https://orphan.example.com")
+	record.Set("owner", "missing-org")
+
+	err = app.Save(record)
+	require.ErrorContains(t, err, "build path for credential_issuers")
 }

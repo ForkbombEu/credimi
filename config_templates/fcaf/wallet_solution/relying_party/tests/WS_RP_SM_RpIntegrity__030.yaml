@@ -8,24 +8,39 @@ suite:
   section: security_mechanisms.rp_integrity
 applicability:
   profile: EUDI_generic
-  presentation_flow: redirects
+  presentation_flow: digital_credentials_api
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- ref: pipeline.dc-api.multisigned
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.rp-integrity.outputs.dcql_exchange
+  session:
+    from: pipeline.dc-api.multisigned.outputs.session
+  signatures:
+    from: pipeline.dc-api.multisigned.outputs.signatures
+  wallet_response:
+    from: pipeline.dc-api.multisigned.outputs.wallet_response
   visual_evidence:
-    from: pipeline.dcql.rp-integrity.outputs.visual_evidence
+    from: pipeline.dc-api.multisigned.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_rpintegrity__030_rp_integrity
-  validator: jwt.payload_field_presence
-  input: evidence.dcql_exchange
+- id: verifier_offered_a_multisigned_dc_api_request
+  validator: oid4vp.dc_api_invocation
+  input: evidence.session
   params:
-    field: iss
-- id: ws_rp_sm_rpintegrity__030_visual_evidence
+    protocol: openid4vp-v1-multisigned
+    invoked: true
+- id: request_carries_two_signatures
+  validator: evidence.minimum_items
+  input: evidence.signatures
+  params:
+    min_items: 2
+- id: wallet_answers_multisigned_request
+  validator: json.field_required
+  input: evidence.wallet_response
+  params:
+    field: vp_token
+- id: presentation_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

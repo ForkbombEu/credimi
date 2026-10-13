@@ -47,6 +47,13 @@ func TestParseTestID(t *testing.T) {
 			label:    "RP integrity",
 		},
 		{
+			name:     "unknown subgroup splits camel case into sentence case",
+			testID:   "WS_RP_DM_NewSubgroup_X_001",
+			code:     "DM",
+			subgroup: "newsubgroup",
+			label:    "New subgroup",
+		},
+		{
 			name:     "unknown category falls back to other",
 			testID:   "WS_RP_TEST__001",
 			code:     "OTHER",
@@ -70,4 +77,10 @@ func TestParseTestID(t *testing.T) {
 			require.Equal(t, tc.label, label)
 		})
 	}
+}
+
+func TestHumanizeSplitsCamelCase(t *testing.T) {
+	require.Equal(t, "", humanize(""))
+	require.Equal(t, "New subgroup", humanize("NewSubgroup"))
+	require.Equal(t, "Single", humanize("single"))
 }

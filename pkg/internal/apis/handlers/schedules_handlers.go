@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -23,7 +22,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/api/serviceerror"
@@ -105,7 +103,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var req StartScheduleRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
-			return apis.NewBadRequestError("invalid JSON input", err)
+			return apierror.New(http.StatusBadRequest, "request", "invalid JSON input", err.Error())
 		}
 
 		// Validate schedule mode
@@ -156,6 +154,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
 
 		scheduleInfo, err := startScheduledPipelineWithOptions(
+			e.Request.Context(),
 			req.PipelineID,
 			rec.GetString("name"),
 			namespace,
@@ -257,7 +256,7 @@ func HandleListMySchedules() func(*core.RequestEvent) error {
 			)
 		}
 
-		schedules, err := listScheduledWorkflows(namespace)
+		schedules, err := listScheduledWorkflows(e.Request.Context(), namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -273,7 +272,10 @@ func HandleListMySchedules() func(*core.RequestEvent) error {
 	}
 }
 
-func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
+func listScheduledWorkflows(
+	ctx context.Context,
+	namespace string,
+) ([]*ScheduleInfoSummary, error) {
 	c, err := scheduleTemporalClient(namespace)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -282,8 +284,6 @@ func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
 			err,
 		)
 	}
-
-	ctx := context.Background()
 
 	iter, err := c.ScheduleClient().List(ctx, client.ScheduleListOptions{
 		PageSize: 100,
@@ -298,36 +298,28 @@ func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to list schedules: %w", err)
 		}
-		schedJSON, err := json.Marshal(sched)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal schedule: %w", err)
+		memo := sched.Memo.GetFields()
+		var calendars []client.ScheduleCalendarSpec
+		if sched.Spec != nil {
+			calendars = sched.Spec.Calendars
 		}
-		var schedInfo ScheduleInfo
-		if err := json.Unmarshal(schedJSON, &schedInfo); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal schedule: %w", err)
+		var workflowType *WorkflowType
+		if sched.WorkflowType.Name != "" {
+			workflowType = &WorkflowType{Name: sched.WorkflowType.Name}
 		}
-		var displayName string
-		if schedInfo.Memo != nil {
-			if field, ok := schedInfo.Memo.Fields["test"]; ok {
-				displayName = DecodeFromTemporalPayload(*field.Data)
-			}
+		nextActionTime := ""
+		if len(sched.NextActionTimes) > 0 {
+			nextActionTime = sched.NextActionTimes[0].UTC().Format(time.RFC3339)
 		}
-		var pipelineID string
-		if schedInfo.Memo != nil {
-			if field, ok := schedInfo.Memo.Fields["pipeline_id"]; ok {
-				pipelineID = DecodeFromTemporalPayload(*field.Data)
-			}
-		}
-		scheduleMode := workflowengine.ParseScheduleMode(schedInfo.Spec.Calendars)
 
 		schedInfoSummary := ScheduleInfoSummary{
-			ID:             schedInfo.ID,
-			ScheduleMode:   scheduleMode,
-			WorkflowType:   schedInfo.WorkflowType,
-			DisplayName:    displayName,
-			PipelineID:     pipelineID,
-			NextActionTime: schedInfo.NextActionTimes[0].UTC().Format(time.RFC3339),
-			Paused:         schedInfo.Paused,
+			ID:             sched.ID,
+			ScheduleMode:   workflowengine.ParseScheduleMode(calendars),
+			WorkflowType:   workflowType,
+			DisplayName:    workflowengine.DecodeStringPayload(memo["test"]),
+			PipelineID:     workflowengine.DecodeStringPayload(memo["pipelineID"]),
+			NextActionTime: nextActionTime,
+			Paused:         sched.Paused,
 		}
 
 		schedules = append(schedules, &schedInfoSummary)
@@ -466,7 +458,7 @@ func handleSchedule(
 			)
 		}
 
-		ctx := context.Background()
+		ctx := e.Request.Context()
 		handle := c.ScheduleClient().GetHandle(ctx, scheduleID)
 
 		if err := action(ctx, handle); err != nil {
@@ -507,6 +499,7 @@ type SchedulePipelineStartInfo struct {
 }
 
 func startScheduledPipelineWithOptions(
+	ctx context.Context,
 	pipelineID string,
 	pipelineName string,
 	namespace string,
@@ -516,13 +509,6 @@ func startScheduledPipelineWithOptions(
 	globalDeviceID string,
 	maxPipelinesInQueue int,
 ) (SchedulePipelineStartInfo, error) {
-	appURL, ok := config["app_url"].(string)
-	if !ok || strings.TrimSpace(appURL) == "" {
-		return SchedulePipelineStartInfo{}, fmt.Errorf(
-			"schedule config missing app_url",
-		)
-	}
-
 	c, err := scheduleTemporalClient(namespace)
 	if err != nil {
 		return SchedulePipelineStartInfo{}, fmt.Errorf(
@@ -532,7 +518,6 @@ func startScheduledPipelineWithOptions(
 		)
 	}
 
-	ctx := context.Background()
 	canonifyName := canonify.CanonifyPlain(pipelineName)
 	scheduleID := fmt.Sprintf("Schedule_ID-%s-%s", canonifyName, uuid.NewString())
 	workflowID := fmt.Sprintf("Scheduled-%s-%s", canonifyName, uuid.NewString())
@@ -562,6 +547,7 @@ func startScheduledPipelineWithOptions(
 			Memo: map[string]any{
 				"test": pipelineName,
 			},
+			StaticSummary: pipelineName,
 		},
 		Memo: map[string]any{
 			"test":       pipelineName,

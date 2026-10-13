@@ -5,8 +5,7 @@
 package pb
 
 import (
-	"strings"
-
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunnerlifecycle"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -44,9 +43,12 @@ func RegisterMobileRunnerWorkerManagerHooks(app core.App) {
 			return e.Next()
 		}
 
-		runnerURL := mobileRunnerURL(e.Record)
-		if runnerURL == "" {
+		if mobilerunner.RunnerURL(e.Record) == "" {
 			return e.Next()
+		}
+		runnerID, err := mobilerunner.RunnerIdentifier(e.App, e.Record)
+		if err != nil {
+			return err
 		}
 
 		orgs, err := listOrganizations(e.App)
@@ -63,7 +65,7 @@ func RegisterMobileRunnerWorkerManagerHooks(app core.App) {
 		}
 
 		for _, namespace := range namespaces {
-			startWorkerManagerFn(e.App, namespace, "", []string{runnerURL})
+			startWorkerManagerFn(namespace, "", []string{runnerID})
 		}
 
 		return e.Next()
@@ -93,17 +95,4 @@ func workerManagerRunnerStartable(record *core.Record) bool {
 // admin-managed runners: they serve every namespace.
 func workerManagerAdminRunnerStartable(record *core.Record) bool {
 	return mobilerunnerlifecycle.EligibleForWorkerStart(record)
-}
-
-func mobileRunnerURL(record *core.Record) string {
-	runnerURL := strings.TrimSpace(record.GetString("ip"))
-	if runnerURL == "" {
-		return ""
-	}
-
-	if port := strings.TrimSpace(record.GetString("port")); port != "" {
-		runnerURL = strings.TrimRight(runnerURL, "/") + ":" + port
-	}
-
-	return runnerURL
 }

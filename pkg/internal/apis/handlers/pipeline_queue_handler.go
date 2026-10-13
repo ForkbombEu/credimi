@@ -15,19 +15,21 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/runqueue"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/semaphoreclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
-	tclient "go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 )
 
@@ -82,8 +84,6 @@ type pipelineQueueRunContext struct {
 	notification       *workflows.MobileDeviceSemaphoreNotification
 }
 
-var errRunTicketNotFound = errors.New("run ticket not found")
-
 func isQueueLimitExceeded(err error) bool {
 	var appErr *temporal.ApplicationError
 	if errors.As(err, &appErr) {
@@ -92,10 +92,40 @@ func isQueueLimitExceeded(err error) bool {
 	return false
 }
 
-var ensureRunQueueSemaphoreWorkflow = ensureRunQueueSemaphoreWorkflowTemporal
-var enqueueRunTicket = enqueueRunTicketTemporal
+var ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, deviceID string) error {
+	c, err := queueTemporalClient(workflowengine.MobileDeviceSemaphoreDefaultNamespace)
+	if err != nil {
+		return err
+	}
+	return semaphoreclient.EnsureWorkflow(ctx, c, deviceID)
+}
+
+var enqueueRunTicket = func(
+	ctx context.Context,
+	deviceID string,
+	req workflows.MobileDeviceSemaphoreEnqueueRunRequest,
+) (workflows.MobileDeviceSemaphoreEnqueueRunResponse, error) {
+	c, err := queueTemporalClient(workflowengine.MobileDeviceSemaphoreDefaultNamespace)
+	if err != nil {
+		return workflows.MobileDeviceSemaphoreEnqueueRunResponse{}, err
+	}
+	return semaphoreclient.EnqueueRun(ctx, c, deviceID, req)
+}
+
 var queryRunTicketStatus = queryRunTicketStatusTemporal
-var cancelRunTicket = cancelRunTicketTemporal
+
+var cancelRunTicket = func(
+	ctx context.Context,
+	deviceID string,
+	req workflows.MobileDeviceSemaphoreRunCancelRequest,
+) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
+	c, err := queueTemporalClient(workflowengine.MobileDeviceSemaphoreDefaultNamespace)
+	if err != nil {
+		return workflows.MobileDeviceSemaphoreRunStatusView{}, err
+	}
+	return semaphoreclient.CancelRun(ctx, c, deviceID, req)
+}
+
 var queueTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 // startPipelineWorkflow starts a pipeline workflow and is stubbed in unit tests.
@@ -291,19 +321,8 @@ func enqueuePipelineRun(
 	now := time.Now().UTC()
 	ticketID := uuid.NewString()
 
-	for _, deviceID := range deviceIDs {
-		if err := ensureRunQueueSemaphoreWorkflow(e.Request.Context(), deviceID); err != nil {
-			return PipelineQueueResponse{}, apierror.New(
-				http.StatusInternalServerError,
-				"semaphore",
-				"failed to ensure runner semaphore",
-				err.Error(),
-			)
-		}
-	}
-
 	rollbackEnqueuedTickets := func(deviceIDs []string) {
-		rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		for _, deviceID := range deviceIDs {
@@ -316,7 +335,7 @@ func enqueuePipelineRun(
 				},
 			)
 			if err != nil {
-				if errors.Is(err, errRunTicketNotFound) {
+				if errors.Is(err, semaphoreclient.ErrRunTicketNotFound) {
 					continue
 				}
 				e.App.Logger().Warn(fmt.Sprintf(
@@ -541,22 +560,11 @@ func buildPipelineQueueConfig(
 	userName string,
 	userMail string,
 ) map[string]any {
-	appURL := e.App.Settings().Meta.AppURL
-	appName := e.App.Settings().Meta.AppName
-	logoURL := utils.JoinURL(
-		appURL,
-		"logos",
-		strings.ToLower(appName)+"_logo-transp_emblem.png",
-	)
-	config := map[string]any{
+	return workflowengine.WithAppConfig(e.App, map[string]any{
 		"namespace": namespace,
-		"app_url":   appURL,
-		"app_name":  appName,
-		"app_logo":  logoURL,
 		"user_name": userName,
 		"user_mail": userMail,
-	}
-	return workflowengine.WithInternalAppURL(config)
+	})
 }
 
 func applyPipelineQueueCleanupConfig(
@@ -625,24 +633,7 @@ func startPipelineFromQueue(
 	memo map[string]any,
 	runType string,
 ) (workflowengine.WorkflowResult, *apierror.APIError) {
-	var result workflowengine.WorkflowResult
-
-	coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
-	if err != nil {
-		return result, apierror.New(
-			http.StatusInternalServerError,
-			"collection",
-			"failed to get collection",
-			err.Error(),
-		)
-	}
-
-	record := core.NewRecord(coll)
-	record.Set("owner", ownerID)
-	record.Set("pipeline", pipelineRecord.Id)
-	setPipelineRunType(record, coll, runType)
-
-	result, err = startPipelineWorkflow(yaml, config, memo, pipelineIdentifier)
+	result, err := startPipelineWorkflow(yaml, config, memo, pipelineIdentifier)
 	if err != nil {
 		return result, apierror.New(
 			http.StatusInternalServerError,
@@ -652,10 +643,13 @@ func startPipelineFromQueue(
 		)
 	}
 
-	record.Set("workflow_id", result.WorkflowID)
-	record.Set("run_id", result.WorkflowRunID)
-
-	if err := e.App.Save(record); err != nil {
+	if _, err := pipelineresults.Create(e.App, pipelineresults.CreateInput{
+		OwnerID:    ownerID,
+		PipelineID: pipelineRecord.Id,
+		WorkflowID: result.WorkflowID,
+		RunID:      result.WorkflowRunID,
+		RunType:    runType,
+	}); err != nil {
 		return result, apierror.New(
 			http.StatusInternalServerError,
 			"pipeline",
@@ -681,96 +675,39 @@ func resolvePipelineDeviceIDs(yaml string, info pipeline.PipelineDeviceInfo) ([]
 	return deviceIDs, nil
 }
 
-// mobileRunnerSharedWith reports whether another organization's runner may be
-// used by an organization, mirroring listMobileRunnerRecords: only published
-// runners are shared, and unpublished organizations only get admin-managed ones.
-func mobileRunnerSharedWith(runner *core.Record, orgPublished bool) bool {
-	return runner.GetBool("published") && (orgPublished || runner.GetBool("admin_managed"))
-}
-
-// organizationPublishedLoader returns a function that reads the organization's
-// published flag on first use and reuses it afterwards.
-func organizationPublishedLoader(app core.App, orgID string) func() (bool, error) {
-	loaded := false
-	published := false
-	return func() (bool, error) {
-		if loaded {
-			return published, nil
-		}
-		org, err := app.FindRecordById("organizations", orgID)
-		if err != nil {
-			return false, err
-		}
-		loaded = true
-		published = org.GetBool("published")
-		return published, nil
-	}
-}
-
 func validatePipelineRunnerAccess(
 	app core.App,
 	ownerID string,
 	deviceIDs []string,
 ) *apierror.APIError {
-	ownerPublished := organizationPublishedLoader(app, ownerID)
-	for _, deviceID := range normalizeDeviceIDs(deviceIDs) {
-		record, err := canonify.Resolve(app, deviceID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return apierror.New(
-					http.StatusNotFound,
-					"device_id",
-					"runner not found",
-					"mobile runner "+deviceID+" was not found",
-				)
-			}
-			return apierror.New(
-				http.StatusInternalServerError,
-				"device_id",
-				"failed to resolve device_id",
-				err.Error(),
-			)
-		}
-		if record.Collection() == nil || record.Collection().Name != mobileDevicesCollection {
-			return apierror.New(
-				http.StatusNotFound,
-				"device_id",
-				"device not found",
-				"mobile device "+deviceID+" was not found",
-			)
-		}
-		runner, runnerErr := app.FindRecordById("mobile_runners", record.GetString("runner"))
-		if runnerErr != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"device_id",
-				"device runner not found",
-				runnerErr.Error(),
-			)
-		}
-		if record.GetString("owner") == ownerID {
-			continue
-		}
-		orgPublished, orgErr := ownerPublished()
-		if orgErr != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"failed to load organization",
-				orgErr.Error(),
-			)
-		}
-		if mobileRunnerSharedWith(runner, orgPublished) {
-			continue
-		}
+	err := mobilerunner.ValidateDeviceAccess(app, ownerID, deviceIDs)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, mobilerunner.ErrDeviceNotFound):
+		return apierror.New(http.StatusNotFound, "device_id", "device not found", err.Error())
+	case errors.Is(err, mobilerunner.ErrDeviceRunnerNotFound):
+		return apierror.New(
+			http.StatusNotFound,
+			"device_id",
+			"device runner not found",
+			err.Error(),
+		)
+	case errors.Is(err, mobilerunner.ErrDeviceNotAccessible):
 		return apierror.New(
 			http.StatusForbidden,
 			"device_id",
 			"device_id is not accessible",
-			"mobile device "+deviceID+" is private and does not belong to the caller organization",
+			err.Error(),
+		)
+	default:
+		return apierror.New(
+			http.StatusInternalServerError,
+			"device_id",
+			"failed to validate device access",
+			err.Error(),
 		)
 	}
-	return nil
 }
 
 func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apierror.APIError) {
@@ -793,7 +730,7 @@ func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apie
 		)
 	}
 
-	deviceIDs := normalizeDeviceIDs(parseDeviceIDs(e.Request))
+	deviceIDs := mobilerunner.NormalizeDeviceIDs(parseDeviceIDs(e.Request))
 	if len(deviceIDs) == 0 {
 		return nil, apierror.New(
 			http.StatusBadRequest,
@@ -841,7 +778,7 @@ func queryQueueRunnerStatuses(
 	for _, deviceID := range deviceIDs {
 		status, err := queryRunTicketStatus(ctx, deviceID, namespace, ticketID)
 		if err != nil {
-			if errors.Is(err, errRunTicketNotFound) {
+			if errors.Is(err, semaphoreclient.ErrRunTicketNotFound) {
 				runnerStatuses = append(
 					runnerStatuses,
 					runnerStatusFromView(deviceID, runTicketNotFoundView(ticketID)),
@@ -878,7 +815,7 @@ func cancelQueueRunnerStatuses(
 			},
 		)
 		if err != nil {
-			if errors.Is(err, errRunTicketNotFound) {
+			if errors.Is(err, semaphoreclient.ErrRunTicketNotFound) {
 				continue
 			}
 			return nil, apierror.New(
@@ -927,25 +864,6 @@ func parseDeviceIDs(req *http.Request) []string {
 		values = req.URL.Query()["device_ids"]
 	}
 	return values
-}
-
-func normalizeDeviceIDs(values []string) []string {
-	unique := map[string]struct{}{}
-	for _, value := range values {
-		for _, part := range strings.Split(value, ",") {
-			candidate := canonify.NormalizePath(part)
-			if candidate == "" {
-				continue
-			}
-			unique[candidate] = struct{}{}
-		}
-	}
-	out := make([]string, 0, len(unique))
-	for candidate := range unique {
-		out = append(out, candidate)
-	}
-	sort.Strings(out)
-	return out
 }
 
 func runnerStatusFromView(
@@ -1146,76 +1064,6 @@ func copyStringSlice(values []string) []string {
 	return out
 }
 
-func ensureRunQueueSemaphoreWorkflowTemporal(ctx context.Context, deviceID string) error {
-	deviceID = canonify.NormalizePath(deviceID)
-
-	client, err := queueTemporalClient(
-		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
-	)
-	if err != nil {
-		return err
-	}
-
-	workflowID := workflows.MobileDeviceSemaphoreWorkflowID(deviceID)
-	input := workflowengine.WorkflowInput{
-		Payload: workflows.MobileDeviceSemaphoreWorkflowInput{
-			DeviceID: deviceID,
-			Capacity: 1,
-		},
-	}
-
-	_, err = client.ExecuteWorkflow(
-		ctx,
-		tclient.StartWorkflowOptions{
-			ID:        workflowID,
-			TaskQueue: workflows.MobileDeviceSemaphoreTaskQueue,
-		},
-		workflows.MobileDeviceSemaphoreWorkflowName,
-		input,
-	)
-	if err != nil && !temporal.IsWorkflowExecutionAlreadyStartedError(err) {
-		return err
-	}
-
-	return nil
-}
-
-func enqueueRunTicketTemporal(
-	ctx context.Context,
-	deviceID string,
-	req workflows.MobileDeviceSemaphoreEnqueueRunRequest,
-) (workflows.MobileDeviceSemaphoreEnqueueRunResponse, error) {
-	deviceID = canonify.NormalizePath(deviceID)
-	req.DeviceID = canonify.NormalizePath(req.DeviceID)
-	req.RequiredDeviceIDs = normalizeDeviceIDs(req.RequiredDeviceIDs)
-	req.LeaderDeviceID = canonify.NormalizePath(req.LeaderDeviceID)
-
-	client, err := queueTemporalClient(
-		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
-	)
-	if err != nil {
-		return workflows.MobileDeviceSemaphoreEnqueueRunResponse{}, err
-	}
-
-	workflowID := workflows.MobileDeviceSemaphoreWorkflowID(deviceID)
-	handle, err := client.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
-		WorkflowID:   workflowID,
-		UpdateName:   workflows.MobileDeviceSemaphoreEnqueueRunUpdate,
-		UpdateID:     runQueueUpdateID("enqueue", deviceID, req.TicketID),
-		Args:         []interface{}{req},
-		WaitForStage: tclient.WorkflowUpdateStageCompleted,
-	})
-	if err != nil {
-		return workflows.MobileDeviceSemaphoreEnqueueRunResponse{}, err
-	}
-
-	var response workflows.MobileDeviceSemaphoreEnqueueRunResponse
-	if err := handle.Get(ctx, &response); err != nil {
-		return workflows.MobileDeviceSemaphoreEnqueueRunResponse{}, err
-	}
-	return response, nil
-}
-
 func queryRunTicketStatusTemporal(
 	ctx context.Context,
 	deviceID string,
@@ -1241,7 +1089,7 @@ func queryRunTicketStatusTemporal(
 	if err != nil {
 		var notFound *serviceerror.NotFound
 		if errors.As(err, &notFound) {
-			return workflows.MobileDeviceSemaphoreRunStatusView{}, errRunTicketNotFound
+			return workflows.MobileDeviceSemaphoreRunStatusView{}, semaphoreclient.ErrRunTicketNotFound
 		}
 		return workflows.MobileDeviceSemaphoreRunStatusView{}, err
 	}
@@ -1250,42 +1098,6 @@ func queryRunTicketStatusTemporal(
 	if err := encoded.Get(&status); err != nil {
 		return workflows.MobileDeviceSemaphoreRunStatusView{}, err
 	}
-	return status, nil
-}
-
-func cancelRunTicketTemporal(
-	ctx context.Context,
-	deviceID string,
-	req workflows.MobileDeviceSemaphoreRunCancelRequest,
-) (workflows.MobileDeviceSemaphoreRunStatusView, error) {
-	client, err := queueTemporalClient(
-		workflowengine.MobileDeviceSemaphoreDefaultNamespace,
-	)
-	if err != nil {
-		return workflows.MobileDeviceSemaphoreRunStatusView{}, err
-	}
-
-	workflowID := workflows.MobileDeviceSemaphoreWorkflowID(deviceID)
-	handle, err := client.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
-		WorkflowID:   workflowID,
-		UpdateName:   workflows.MobileDeviceSemaphoreCancelRunUpdate,
-		UpdateID:     runQueueUpdateID("cancel", deviceID, req.TicketID),
-		Args:         []interface{}{req},
-		WaitForStage: tclient.WorkflowUpdateStageCompleted,
-	})
-	if err != nil {
-		var notFound *serviceerror.NotFound
-		if errors.As(err, &notFound) {
-			return workflows.MobileDeviceSemaphoreRunStatusView{}, errRunTicketNotFound
-		}
-		return workflows.MobileDeviceSemaphoreRunStatusView{}, err
-	}
-
-	var status workflows.MobileDeviceSemaphoreRunStatusView
-	if err := handle.Get(ctx, &status); err != nil {
-		return workflows.MobileDeviceSemaphoreRunStatusView{}, err
-	}
-
 	return status, nil
 }
 
@@ -1298,9 +1110,4 @@ func startPipelineWorkflowTemporal(
 ) (workflowengine.WorkflowResult, error) {
 	w := pipeline.NewPipelineWorkflow()
 	return w.Start(yaml, config, memo, pipelineIdentifier)
-}
-
-func runQueueUpdateID(prefix, deviceID, ticketID string) string {
-	deviceID = canonify.NormalizePath(deviceID)
-	return prefix + "/" + deviceID + "/" + ticketID
 }

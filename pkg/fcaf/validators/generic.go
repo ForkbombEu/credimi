@@ -101,6 +101,27 @@ func (EvidencePresentValidator) Validate(_ context.Context, input Input) Result 
 	return Result{Status: StatusPass, Message: "evidence value is present"}
 }
 
+// FCAFSkippedValidator records that the setup a test requires cannot be built
+// with the available verifier, issuer or infrastructure, so the test reports
+// skipped with the missing prerequisite instead of asserting on unrelated
+// evidence.
+type FCAFSkippedValidator struct{}
+
+func (FCAFSkippedValidator) ID() string { return "fcaf.skipped" }
+
+func (FCAFSkippedValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Reason string `json:"reason"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Reason == "" {
+		return Result{Status: StatusError, Message: "reason param is required"}
+	}
+	return Result{Status: StatusSkipped, Message: params.Reason}
+}
+
 type JSONFieldRequiredValidator struct{}
 
 func (JSONFieldRequiredValidator) ID() string {
@@ -672,71 +693,6 @@ func (JOSEJWEEncryptedResponseValidator) Validate(_ context.Context, input Input
 	}
 }
 
-type OID4VPDeviceBindingValidator struct{}
-
-func (OID4VPDeviceBindingValidator) ID() string {
-	return "oid4vp.device_binding"
-}
-
-func (OID4VPDeviceBindingValidator) Validate(_ context.Context, input Input) Result {
-	if input.Value == nil {
-		return Result{Status: StatusFail, Message: "device binding evidence is missing"}
-	}
-	switch typed := input.Value.(type) {
-	case map[string]any:
-		if hasAnyKey(
-			typed,
-			"key_binding",
-			"keyBinding",
-			"_kb_header",
-			"device_signature",
-			"deviceSignature",
-		) {
-			return Result{Status: StatusPass, Message: "device binding evidence is present"}
-		}
-		return Result{Status: StatusFail, Message: "device binding evidence is missing"}
-	default:
-		return Result{Status: StatusPass, Message: "device binding evidence is present"}
-	}
-}
-
-type OID4VPNonceStateBindingValidator struct{}
-
-func (OID4VPNonceStateBindingValidator) ID() string {
-	return "oid4vp.nonce_state_binding"
-}
-
-func (OID4VPNonceStateBindingValidator) Validate(_ context.Context, input Input) Result {
-	payload, ok := input.Value.(map[string]any)
-	if !ok {
-		return Result{
-			Status:  StatusFail,
-			Message: fmt.Sprintf("input is %T, expected object", input.Value),
-		}
-	}
-	requestNonce, _ := payload["request_nonce"].(string)
-	responseNonce, _ := payload["response_nonce"].(string)
-	requestState, _ := payload["request_state"].(string)
-	responseState, _ := payload["response_state"].(string)
-
-	if requestNonce != "" && responseNonce != "" && requestNonce != responseNonce {
-		return Result{Status: StatusFail, Message: "nonce binding failed"}
-	}
-	if requestState != "" && responseState != "" && requestState != responseState {
-		return Result{Status: StatusFail, Message: "state binding failed"}
-	}
-	return Result{Status: StatusPass, Message: "nonce and state bindings match"}
-}
-
-func hasAnyKey(object map[string]any, keys ...string) bool {
-	for _, key := range keys {
-		if _, ok := object[key]; ok {
-			return true
-		}
-	}
-	return false
-}
-
 // OID4VPNoPresentationValidator fails when a Verifier session shows that the
 // Wallet answered an Authorization Request with a presentation. FCAF negative
 // tests require the Wallet to reject the request instead, so any Authorization
@@ -796,7 +752,9 @@ func (OID4VPNoPresentationValidator) Validate(_ context.Context, input Input) Re
 // Wallet must not present a credential digested with an algorithm it does not
 // support. A Wallet that presents it has demonstrated support, which puts it
 // outside the source's profile applicability instead of in breach of it, so
-// that case is reported as not applicable rather than as a failure.
+// that case is reported as not applicable rather than as a failure. With
+// require_error, a Wallet inside the applicability must also have answered
+// with an error and no presentation.
 type SDJWTPresentationDigestAlgorithmValidator struct{}
 
 func (SDJWTPresentationDigestAlgorithmValidator) ID() string {
@@ -806,6 +764,7 @@ func (SDJWTPresentationDigestAlgorithmValidator) ID() string {
 func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
 		DigestAlgorithm string `json:"digest_algorithm"`
+		RequireError    bool   `json:"require_error"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -823,16 +782,7 @@ func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, inp
 	if _, recorded := session["status"]; !recorded {
 		return Result{Status: StatusFail, Message: "session evidence does not contain status"}
 	}
-	decoded, present := session["decoded_presentations"].(map[string]any)
-	if !present {
-		return Result{
-			Status: StatusPass,
-			Message: fmt.Sprintf(
-				"wallet returned no presentation digested with %q",
-				params.DigestAlgorithm,
-			),
-		}
-	}
+	decoded, _ := session["decoded_presentations"].(map[string]any)
 	for queryID, raw := range decoded {
 		entries, ok := raw.([]any)
 		if !ok {
@@ -868,6 +818,29 @@ func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, inp
 					),
 				}
 			}
+		}
+	}
+	if params.RequireError {
+		if presentation, _ := findObjectKey(session, "vp_token"); !isEmptyDCQLValue(presentation) {
+			return Result{
+				Status:  StatusFail,
+				Message: "wallet returned vp_token instead of an error",
+			}
+		}
+		errorValue := findWalletError(session)
+		if code := normalizeString(errorValue); code != "" {
+			return Result{
+				Status: StatusPass,
+				Message: fmt.Sprintf(
+					"wallet answered the %q-digested credential request with error %q",
+					params.DigestAlgorithm,
+					code,
+				),
+			}
+		}
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet returned neither a presentation nor an error",
 		}
 	}
 	return Result{

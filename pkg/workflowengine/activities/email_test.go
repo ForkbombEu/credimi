@@ -6,8 +6,11 @@ package activities
 
 import (
 	"context"
+	"net"
 	"os"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -217,4 +220,46 @@ func TestSendMailActivity_ExecuteValidationErrors(t *testing.T) {
 			require.Contains(t, err.Error(), tt.errContains)
 		})
 	}
+}
+
+func TestSendMailActivity_ExecuteReturnsOnCancel(t *testing.T) {
+	// The server accepts connections but never sends the SMTP greeting, so
+	// DialAndSend blocks until the connection is closed.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	conns := make(chan net.Conn, 1)
+	go func() {
+		conn, acceptErr := listener.Accept()
+		if acceptErr == nil {
+			conns <- conn
+		}
+	}()
+	t.Cleanup(func() {
+		_ = listener.Close()
+		select {
+		case conn := <-conns:
+			_ = conn.Close()
+		case <-time.After(time.Second):
+		}
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err = (&SendMailActivity{}).Execute(ctx, workflowengine.ActivityInput{
+		Config: map[string]string{
+			"smtp_host": "127.0.0.1",
+			"smtp_port": strconv.Itoa(listener.Addr().(*net.TCPAddr).Port),
+		},
+		Payload: SendMailActivityPayload{
+			Sender:    "sender@example.com",
+			Recipient: "recipient@example.com",
+			Body:      "body",
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), context.DeadlineExceeded.Error())
+	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.EmailSendFailed].Code)
+	require.Less(t, time.Since(start), 5*time.Second)
 }

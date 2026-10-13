@@ -9,10 +9,7 @@
 package workflows
 
 import (
-	"net/http"
-
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/workflow"
@@ -70,61 +67,32 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
-	act := activities.NewInternalHTTPActivity()
 	var result workflowengine.ActivityResult
 	request := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodGet,
-			URL: utils.JoinURL(
-				input.Config["app_url"].(string),
-				"api", "verifier", "get-use-case-verification-deeplink",
-			),
-			QueryParams: map[string]string{
-				"use_case_identifier": payload.UseCaseIdentifier,
-			},
-			ExpectedStatus: 200,
+		Payload: activities.GetUseCaseVerificationDeeplinkInput{
+			UseCaseIdentifier: payload.UseCaseIdentifier,
 		},
 	}
-	err = workflow.ExecuteActivity(ctx, act.Name(), request).Get(ctx, &result)
+	err = workflow.ExecuteActivity(ctx, activities.GetUseCaseVerificationDeeplinkActivityName, request).
+		Get(ctx, &result)
 	if err != nil {
-		logger.Error("HTTPActivity failed", "error", err)
+		logger.Error(activities.GetUseCaseVerificationDeeplinkActivityName+" failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
 			input.RunMetadata,
 		)
 	}
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-	responseBody, ok := result.Output.(map[string]any)["body"].(map[string]any)
-	if !ok {
+	verification, err := workflowengine.DecodePayload[activities.UseCaseVerificationDeeplinkOutput](
+		result.Output,
+	)
+	if err != nil {
 		wErr := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
-				Message: "output is not a map",
-				Details: map[string]any{"payload": result.Output},
-			},
-		)
-
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			wErr,
-			input.RunMetadata,
-		)
-	}
-
-	code, ok := responseBody["code"].(string)
-	if !ok {
-		wErr := workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: "yaml code is not a string",
+				Message: "decode " + activities.GetUseCaseVerificationDeeplinkActivityName +
+					" output: " + err.Error(),
 				Details: map[string]any{"payload": result.Output},
 			},
 		)
@@ -138,7 +106,7 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 	var stepCIResult workflowengine.ActivityResult
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: activities.StepCIWorkflowActivityPayload{
-			Yaml: code,
+			Yaml: verification.Code,
 		},
 		Secrets: result.Secrets,
 	}

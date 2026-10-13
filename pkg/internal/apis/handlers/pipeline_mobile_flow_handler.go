@@ -101,24 +101,23 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 
 		activityOptions := pipelineMobileFlowActivityOptions()
 		mobileWorkflow := workflows.NewMobileAutomationWorkflow()
+		testName := fmt.Sprintf("mobile-flow: %s", strings.TrimSpace(input.ActionID))
 		run, err := temporalClient.ExecuteWorkflow(
 			e.Request.Context(),
 			client.StartWorkflowOptions{
-				ID:        pipelineMobileFlowWorkflowIDPrefix + uuid.NewString(),
-				TaskQueue: pipeline.PipelineTaskQueue,
-				Memo: map[string]any{
-					"test": fmt.Sprintf("mobile-flow: %s", strings.TrimSpace(input.ActionID)),
-				},
+				ID:            pipelineMobileFlowWorkflowIDPrefix + uuid.NewString(),
+				TaskQueue:     pipeline.PipelineTaskQueue,
+				Memo:          map[string]any{"test": testName},
+				StaticSummary: testName,
 			},
 			mobileWorkflow.Name(),
 			workflowengine.WorkflowInput{
-				Config: workflowengine.WithInternalAppURL(map[string]any{
-					"app_url": e.App.Settings().Meta.AppURL,
-					"taskqueue": fmt.Sprintf(
-						"%s-TaskQueue",
-						canonify.NormalizePath(workflowengine.AsString(device["runner_id"])),
-					),
-				}),
+				Config: workflowengine.WithAppConfig(e.App, pipelineMobileFlowConfig(
+					namespace,
+					strings.TrimSpace(input.WorkflowID),
+					strings.TrimSpace(input.RunID),
+					workflowengine.AsString(device["runner_id"]),
+				)),
 				Payload: workflows.MobileAutomationWorkflowPayload{
 					ActionID:   strings.TrimSpace(input.ActionID),
 					ActionCode: actionCode,
@@ -143,6 +142,15 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 		waitErr := run.Get(e.Request.Context(), &result)
 
 		return e.JSON(http.StatusOK, pipelineMobileFlowResponse(result, waitErr))
+	}
+}
+
+// pipelineMobileFlowConfig routes the flow to the device's runner and runs it in
+// the pipeline's workspace, so its live view commands belong to the pipeline run.
+func pipelineMobileFlowConfig(namespace, workflowID, runID, runnerID string) map[string]any {
+	return map[string]any{
+		"taskqueue":      fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(runnerID)),
+		"run_identifier": pipeline.RunIdentifier(namespace, workflowID, runID),
 	}
 }
 

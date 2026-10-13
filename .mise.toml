@@ -5,7 +5,7 @@
 min_version = '2025.1.8'
 
 [tools]
-go = "1.27.0"
+go = "1.27.2"
 bun = "latest"
 node = "24.13.0"
 "aqua:dyne/slangroom-exec" = "latest"
@@ -17,5 +17,5 @@ golangci-lint = "latest"
 "npm:@nanonets/graft" = { version = "0.18.0", allow_builds = true }
 
 [tools."github:temporalio/cli"]
-version = "1.8.1"
+version = "1.9.1"
 

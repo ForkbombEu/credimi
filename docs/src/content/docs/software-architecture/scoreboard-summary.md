@@ -11,12 +11,11 @@ The Scoreboard feature provides a public dashboard of pipeline execution results
 
 ### Backend
 
-- **`GET /api/pipeline/scoreboard/{namespace}`** — per-tenant pipeline stats
-- **`POST /api/pipeline/scoreboard/save-results`** — refresh the PocketBase cache
+- **Scoreboard activities** — per-tenant pipeline stats and the cache refresh, run by the workflow with direct database access (`pkg/internal/apis/handlers/scoreboard_activities.go`)
 - **`POST /api/pipeline/scoreboard/aggregate/start`** — start or schedule aggregation
 - **`DELETE /api/pipeline/scoreboard/aggregate/schedule/{schedule_id}`** — cancel a schedule
 - **`AggregateScoreboardWorkflow`** — Temporal workflow that merges namespace stats
-- **Unit/integration tests** in `pkg/internal/apis/handlers/scoreboard_test.go`
+- **Unit/integration tests** in `pkg/internal/apis/handlers/scoreboard_test.go` and `scoreboard_activities_test.go`
 
 ### Frontend
 
@@ -57,6 +56,8 @@ The Scoreboard feature provides a public dashboard of pipeline execution results
 ```
 pkg/internal/apis/handlers/
 ├── scoreboard.go
+├── scoreboard_activities.go
+├── scoreboard_activities_test.go
 ├── scoreboard_test.go
 └── scoreboard_handler.go          (legacy OTel code, commented out)
 

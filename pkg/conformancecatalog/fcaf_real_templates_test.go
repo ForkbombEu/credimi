@@ -124,6 +124,41 @@ func TestLoadFromDirClassicSuiteFacetsFromMetadata(t *testing.T) {
 	}
 }
 
+func TestLoadFromDirSuiteHasQRFromMetadata(t *testing.T) {
+	root := realTemplatesDir(t)
+
+	loaded, err := LoadFromDir(root)
+	require.NoError(t, err)
+
+	byPrefix := map[string]SuiteRecord{}
+	for _, s := range loaded.Suites {
+		byPrefix[s.PathPrefix] = s
+	}
+
+	wantQR := []string{
+		"openid4vci_wallet/draft-15/ewc",
+		"openid4vp_wallet/draft-23/ewc",
+		"openid4vci_wallet/1.0/webuild",
+		"openid4vp_wallet/1.0/webuild",
+	}
+	for _, prefix := range wantQR {
+		s, ok := byPrefix[prefix]
+		require.True(t, ok, "missing suite %s", prefix)
+		require.True(t, s.HasQR, "expected has_qr for %s", prefix)
+	}
+
+	wantFalse := []string{
+		"openid4vp_wallet/1.0/openid_conformance_suite",
+		"openid4vci_issuer/1.0/webuild",
+		"openid4vp_verifier/1.0/webuild",
+	}
+	for _, prefix := range wantFalse {
+		s, ok := byPrefix[prefix]
+		require.True(t, ok, "missing suite %s", prefix)
+		require.False(t, s.HasQR, "expected no has_qr for %s", prefix)
+	}
+}
+
 func realTemplatesDir(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)

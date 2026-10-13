@@ -5,9 +5,7 @@
 package pipeline
 
 import (
-	"context"
 	"errors"
-	"net/http"
 	"testing"
 	"time"
 
@@ -16,11 +14,17 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
+
+var tempWalletVersionDeleteInput = activities.DeleteTempRecordInput{
+	Collection:         "wallet_versions",
+	RecordID:           "version-1",
+	ExpectedOwnerID:    "owner-1",
+	ExpectedIdentifier: "org/wallet/sha",
+}
 
 func TestTempWalletVersionCleanupHookSkipsWhenConfigAbsent(t *testing.T) {
 	var ctx workflow.Context
@@ -31,7 +35,7 @@ func TestTempWalletVersionCleanupHookSkipsWhenConfigAbsent(t *testing.T) {
 		ctx,
 		nil,
 		&ao,
-		map[string]any{"app_url": "https://example.test"},
+		map[string]any{},
 		nil,
 		&output,
 	)
@@ -39,20 +43,11 @@ func TestTempWalletVersionCleanupHookSkipsWhenConfigAbsent(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestTempWalletVersionCleanupHookCallsInternalDelete(t *testing.T) {
+func TestTempWalletVersionCleanupHookDeletesTempRecord(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	env.RegisterActivityWithOptions(
-		func(
-			ctx context.Context,
-			input workflowengine.ActivityInput,
-		) (workflowengine.ActivityResult, error) {
-			return workflowengine.ActivityResult{}, nil
-		},
-		activity.RegisterOptions{Name: internalHTTPActivity.Name()},
-	)
+	registerDeleteTempRecordActivity(env)
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
@@ -62,7 +57,6 @@ func TestTempWalletVersionCleanupHookCallsInternalDelete(t *testing.T) {
 				nil,
 				&ao,
 				map[string]any{
-					"app_url": "https://example.test",
 					tempWalletVersionConfigKey: map[string]any{
 						"record_id":  "version-1",
 						"owner_id":   "owner-1",
@@ -78,30 +72,9 @@ func TestTempWalletVersionCleanupHookCallsInternalDelete(t *testing.T) {
 	)
 
 	env.OnActivity(
-		internalHTTPActivity.Name(),
+		activities.DeleteTempRecordActivityName,
 		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(activities.InternalHTTPActivityPayload)
-			if !ok {
-				decoded, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
-					input.Payload,
-				)
-				if err != nil {
-					return false
-				}
-				payload = decoded
-			}
-			body, ok := payload.Body.(map[string]any)
-			if !ok {
-				return false
-			}
-			return ok &&
-				payload.Method == http.MethodDelete &&
-				payload.URL == "https://example.test/api/wallet/temp-version/version-1" &&
-				body["expected_owner_id"] == "owner-1" &&
-				body["expected_identifier"] == "org/wallet/sha" &&
-				payload.ExpectedStatus == http.StatusOK
-		}),
+		deleteTempRecordInputMatcher(tempWalletVersionDeleteInput),
 	).Return(workflowengine.ActivityResult{}, nil).Once()
 
 	env.ExecuteWorkflow("test-temp-wallet-cleanup")
@@ -120,16 +93,7 @@ func TestPipelineTempWalletCleanupRunsAfterSetupFailure(t *testing.T) {
 		workflow.RegisterOptions{Name: pipelineWf.Name()},
 	)
 
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	env.RegisterActivityWithOptions(
-		func(
-			ctx context.Context,
-			input workflowengine.ActivityInput,
-		) (workflowengine.ActivityResult, error) {
-			return workflowengine.ActivityResult{}, nil
-		},
-		activity.RegisterOptions{Name: internalHTTPActivity.Name()},
-	)
+	registerDeleteTempRecordActivity(env)
 
 	originalSetupHooks := setupHooks
 	originalCleanupHooks := cleanupHooks
@@ -152,29 +116,9 @@ func TestPipelineTempWalletCleanupRunsAfterSetupFailure(t *testing.T) {
 	})
 
 	env.OnActivity(
-		internalHTTPActivity.Name(),
+		activities.DeleteTempRecordActivityName,
 		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(activities.InternalHTTPActivityPayload)
-			if !ok {
-				decoded, err := workflowengine.DecodePayload[activities.InternalHTTPActivityPayload](
-					input.Payload,
-				)
-				if err != nil {
-					return false
-				}
-				payload = decoded
-			}
-			body, ok := payload.Body.(map[string]any)
-			if !ok {
-				return false
-			}
-			return ok &&
-				payload.Method == http.MethodDelete &&
-				payload.URL == "https://example.test/api/wallet/temp-version/version-1" &&
-				body["expected_owner_id"] == "owner-1" &&
-				body["expected_identifier"] == "org/wallet/sha"
-		}),
+		deleteTempRecordInputMatcher(tempWalletVersionDeleteInput),
 	).Return(workflowengine.ActivityResult{}, nil).Once()
 
 	input := PipelineWorkflowInput{
@@ -184,7 +128,6 @@ func TestPipelineTempWalletCleanupRunsAfterSetupFailure(t *testing.T) {
 		},
 		WorkflowInput: workflowengine.WorkflowInput{
 			Config: map[string]any{
-				"app_url": "https://example.test",
 				tempWalletVersionConfigKey: map[string]any{
 					"record_id":  "version-1",
 					"owner_id":   "owner-1",

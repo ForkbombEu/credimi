@@ -77,8 +77,6 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 			timeout = time.Duration(*req.TimeoutSeconds) * time.Second
 		}
 
-		appURL := e.App.Settings().Meta.AppURL
-
 		memo := map[string]interface{}{
 			"test":   "custom-integration",
 			"author": authRecord.Id,
@@ -86,7 +84,7 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 
 		result, err := processCustomChecks(
 			req.Yaml,
-			appURL,
+			e.App,
 			namespace,
 			memo,
 			req.Data,
@@ -110,7 +108,7 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 
 func processCustomChecks(
 	testData string,
-	appURL string,
+	app core.App,
 	namespace string,
 	memo map[string]interface{},
 	parameters map[string]any,
@@ -135,9 +133,8 @@ func processCustomChecks(
 			Yaml:       yaml,
 			Parameters: parameters,
 		},
-		Config: workflowengine.WithInternalAppURL(map[string]any{
-			"memo":    memo,
-			"app_url": appURL,
+		Config: workflowengine.WithAppConfig(app, map[string]any{
+			"memo": memo,
 		}),
 		ActivityOptions: &workflow.ActivityOptions{
 			ScheduleToCloseTimeout: totalTimeout,

@@ -53,7 +53,7 @@ jobs:
           version: "~> v2.15"
           install-only: true
       - uses: sigstore/cosign-installer@v4.1.2
-      - uses: anchore/sbom-action/download-syft@v0.24.0
+      - uses: anchore/sbom-action/download-syft@v0.24.2
       - name: git config for credimi-extra
         env:
           CREDIMI_EXTRA_PAT: ${{ secrets.CREDIMI_EXTRA_PAT }}

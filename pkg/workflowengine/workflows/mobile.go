@@ -112,15 +112,6 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
-	_ = appURL
-
 	taskqueue, ok := input.Config["taskqueue"].(string)
 	if !ok || strings.TrimSpace(taskqueue) == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -175,6 +166,7 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			Yaml:       payload.ActionCode,
 			Parameters: payload.Parameters,
 			WorkflowId: workspaceID,
+			StepID:     mobileFlowStepLabel(input.Config, payload.ActionID),
 		},
 	}
 	executeErr := workflow.ExecuteActivity(runnerCtx, mobileActivity.Name(), mobileInput).
@@ -185,12 +177,31 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			return workflowengine.WorkflowResult{}, executeErr
 		}
 
+		details := map[string]any{"output": output}
+		// Screenshots taken before the flow failed are evidence too. Storing
+		// them is best effort: the flow failure is what the step reports.
+		failedPaths := workflowengine.AsSliceOfStrings(
+			workflowengine.ParseWorkflowError(executeErr).Details["maestro_screenshot_paths"],
+		)
+		if len(failedPaths) > 0 {
+			stored, err := storeMobileFlowScreenshots(
+				ctx,
+				input,
+				payload,
+				map[string]any{"maestro_screenshot_paths": failedPaths},
+			)
+			if err != nil {
+				workflow.GetLogger(ctx).
+					Warn("store screenshots of failed mobile flow", "error", err)
+			} else {
+				details["maestro_screenshot_urls"] = stored["maestro_screenshot_urls"]
+			}
+		}
+
 		return workflowengine.WorkflowResult{}, newMobileWorkflowError(
 			executeErr,
 			input.RunMetadata,
-			map[string]any{
-				"output": output,
-			},
+			details,
 		)
 	}
 	flowOutput, err := storeMobileFlowScreenshots(
@@ -301,30 +312,27 @@ func storeMobileFlowScreenshots(
 		return flowOutput, nil
 	}
 
-	runnerURL := workflowengine.AsString(input.Config["runner_url"])
+	runnerID := workflowengine.AsString(input.Config["runner_id"])
 	stepID := workflowengine.AsString(input.Config[workflowengine.StepIDConfigKey])
 	runIdentifier := workflowengine.AsString(input.Config["run_identifier"])
-	if runnerURL == "" || stepID == "" || runIdentifier == "" || payload.DeviceID == "" {
+	if runnerID == "" || stepID == "" || runIdentifier == "" || payload.DeviceID == "" {
 		return nil, workflowengine.NewMissingConfigError(
-			"runner_url, step_id, run_identifier, or device_id",
+			"runner_id, step_id, run_identifier, or device_id",
 			input.RunMetadata,
 		)
 	}
 
 	activityOptions := mobileActivityOptions(input.ActivityOptions, pipelineTaskQueue)
 	storageCtx := workflow.WithActivityOptions(ctx, activityOptions)
-	httpActivity := activities.NewMobileRunnerHTTPActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	var storeResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(
 		storageCtx,
 		httpActivity.Name(),
 		workflowengine.ActivityInput{Payload: activities.MobileRunnerHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				runnerURL,
-				"credimi",
-				"execution-screenshots",
-			),
+			Method:   http.MethodPost,
+			RunnerID: runnerID,
+			Path:     "/credimi/execution-screenshots",
 			Headers: map[string]string{
 				workflowengine.HTTPHeaderContentType: workflowengine.MIMEApplicationJSON,
 			},
@@ -373,6 +381,17 @@ func uniqueScreenshotURLs(values []string) []string {
 		result = append(result, value)
 	}
 	return result
+}
+
+// mobileFlowStepLabel names the flow in the live view: the pipeline step id,
+// or the wallet action id for flows started outside a pipeline step
+// (/api/pipeline/mobile-flow).
+func mobileFlowStepLabel(config map[string]any, actionID string) string {
+	stepID, _ := config[workflowengine.StepIDConfigKey].(string)
+	if stepID = strings.TrimSpace(stepID); stepID != "" {
+		return stepID
+	}
+	return strings.TrimSpace(actionID)
 }
 
 func mobileActivityOptions(

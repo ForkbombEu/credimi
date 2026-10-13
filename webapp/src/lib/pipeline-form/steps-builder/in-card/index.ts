@@ -21,7 +21,11 @@ export {
 } from './in-card-layout.js';
 export { createInCardLayoutMachine } from './in-card-host-machine.svelte.js';
 export { cancelMotion, playInCardEnter, playInCardExit } from './in-card-motion.js';
-export { completeInCardExit, shouldCompleteExitOnDestroy, useCardShell } from './use-card-shell.svelte.js';
+export {
+	completeInCardExit,
+	shouldCompleteExitOnDestroy,
+	useCardShell
+} from './use-card-shell.svelte.js';
 export { useHeldFormMode } from './use-held-form-mode.svelte.js';
 
 export { default as InCardHost } from './in-card-host.svelte';

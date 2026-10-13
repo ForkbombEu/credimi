@@ -18,10 +18,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
-	import NavExtraLink from './nav-extra-link.svelte';
+	import NavExtrasList from './nav-extras-list.svelte';
 	import NavLink from './nav-link.svelte';
 	import MobileNav from './nav-mobile.svelte';
-	import { extras, leftItems } from './topbar-links';
+	import { leftItems } from './topbar-links';
 	import UserNav from './userNav.svelte';
 
 	//
@@ -77,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#each leftItems as item (item)}
 					<NavLink link={item} variant="desktop" />
 				{/each}
-				<Popover containerClass="p-1">
+				<Popover containerClass="cursor-pointer p-1">
 					{#snippet trigger({ props })}
 						<Button {...props} target="_blank" variant="link" class="gap-1 border-none">
 							{m.Extras()}
@@ -85,11 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</Button>
 					{/snippet}
 					{#snippet content()}
-						<div>
-							{#each extras as item (item.href)}
-								<NavExtraLink link={item} />
-							{/each}
-						</div>
+						<NavExtrasList />
 					{/snippet}
 				</Popover>
 			</div>
@@ -113,7 +109,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			<div class="md:hidden">
-				<MobileNav items={allItems} {extras} />
+				<MobileNav items={allItems} />
 			</div>
 		</div>
 	{/snippet}

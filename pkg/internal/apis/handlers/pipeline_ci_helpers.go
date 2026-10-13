@@ -6,11 +6,9 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"slices"
@@ -18,6 +16,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/dbx"
@@ -26,11 +25,6 @@ import (
 )
 
 const pipelineCIMobileAutomationStepUse = "mobile-automation"
-
-type tempRecordDeleteInput struct {
-	ExpectedOwnerID    string `json:"expected_owner_id"`
-	ExpectedIdentifier string `json:"expected_identifier"`
-}
 
 type pipelineCITempRecordResult struct {
 	Record     *core.Record
@@ -68,114 +62,6 @@ type pipelineCIRunContext struct {
 	UserEmail          string
 	PipelineRecord     *core.Record
 	PipelineYAML       string
-}
-
-// handleTempRecordDelete deletes a temporary CI record after route-specific validation.
-func handleTempRecordDelete(collection, resourceName string) func(*core.RequestEvent) error {
-	resourceDomain := strings.ReplaceAll(resourceName, " ", "_")
-	return func(e *core.RequestEvent) error {
-		recordID := strings.TrimSpace(e.Request.PathValue("record"))
-		if recordID == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"record",
-				resourceName+" record id is required",
-				"missing record path parameter",
-			)
-		}
-
-		var input tempRecordDeleteInput
-		if e.Request.Body != nil {
-			if err := json.NewDecoder(e.Request.Body).Decode(&input); err != nil &&
-				!errors.Is(err, io.EOF) {
-				return apierror.New(
-					http.StatusBadRequest,
-					resourceDomain,
-					"invalid delete validation payload",
-					err.Error(),
-				)
-			}
-		}
-
-		record, err := e.App.FindRecordById(collection, recordID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return e.JSON(http.StatusOK, map[string]any{"deleted": false})
-			}
-			return apierror.New(
-				http.StatusInternalServerError,
-				resourceDomain,
-				"failed to find "+resourceName,
-				err.Error(),
-			)
-		}
-
-		if apiErr := validateTempRecordDeleteRequest(
-			e.App,
-			record,
-			input,
-			resourceName,
-			resourceDomain,
-		); apiErr != nil {
-			return apiErr
-		}
-
-		if err := e.App.Delete(record); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				resourceDomain,
-				"failed to delete "+resourceName,
-				err.Error(),
-			)
-		}
-
-		return e.JSON(http.StatusOK, map[string]any{"deleted": true})
-	}
-}
-
-func validateTempRecordDeleteRequest(
-	app core.App,
-	record *core.Record,
-	input tempRecordDeleteInput,
-	resourceName string,
-	resourceDomain string,
-) *apierror.APIError {
-	expectedOwnerID := strings.TrimSpace(input.ExpectedOwnerID)
-	expectedIdentifier := strings.TrimSpace(input.ExpectedIdentifier)
-	if expectedOwnerID == "" || expectedIdentifier == "" {
-		return apierror.New(
-			http.StatusBadRequest,
-			resourceDomain,
-			"delete validation payload is required",
-			"expected_owner_id and expected_identifier are required",
-		)
-	}
-	if record.GetString("owner") != expectedOwnerID {
-		return apierror.New(
-			http.StatusForbidden,
-			resourceDomain,
-			"temporary "+resourceName+" owner mismatch",
-			resourceName+" owner does not match expected_owner_id",
-		)
-	}
-	resolved, err := canonify.Resolve(app, expectedIdentifier)
-	if err != nil {
-		return apierror.New(
-			http.StatusForbidden,
-			resourceDomain,
-			"temporary "+resourceName+" identifier mismatch",
-			err.Error(),
-		)
-	}
-	if resolved.Id != record.Id {
-		return apierror.New(
-			http.StatusForbidden,
-			resourceDomain,
-			"temporary "+resourceName+" identifier mismatch",
-			"expected_identifier does not resolve to the requested record",
-		)
-	}
-	return nil
 }
 
 func firstNonEmpty(values ...string) string {
@@ -941,7 +827,7 @@ func selectPipelineCIDeviceByType(
 		)
 	}
 
-	ownerPublished := organizationPublishedLoader(app, ownerID)
+	ownerPublished := mobilerunner.OrganizationPublishedLoader(app, ownerID)
 	selectedDeviceID := ""
 	selectedBacklog := 0
 	for _, device := range devices {
@@ -959,7 +845,7 @@ func selectPipelineCIDeviceByType(
 					orgErr.Error(),
 				)
 			}
-			if !mobileRunnerSharedWith(runner, orgPublished) {
+			if !mobilerunner.SharedWith(runner, orgPublished) {
 				continue
 			}
 		}

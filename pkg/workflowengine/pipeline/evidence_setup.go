@@ -5,14 +5,12 @@
 package pipeline
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
+	"maps"
 	"strings"
 	"time"
 
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/log"
@@ -26,10 +24,20 @@ const (
 	pipelineEvidenceRunDataKey = "pipeline_evidence"
 )
 
+// evidenceExtractionTimeout bounds the extraction activity, which generates a
+// deeplink (running StepCI for dynamic records) and contacts the issuer or
+// verifier for every evidence step of the pipeline.
+const evidenceExtractionTimeout = 30 * time.Minute
+
+// PipelineEvidenceSetupHook extracts issuer and verifier evidence for the
+// pipeline's credential-offer and use-case-verification-deeplink steps in a
+// single activity, before the steps run. The activity generates its own
+// deeplinks: a verifier serves a request object only once, so evidence cannot
+// reuse the deeplink the wallet receives.
 func PipelineEvidenceSetupHook(
 	ctx workflow.Context,
 	wfDef *pipelineinternal.WorkflowDefinition,
-	config map[string]any,
+	_ map[string]any,
 	runData *map[string]any,
 	finalOutput *map[string]any,
 	logger log.Logger,
@@ -38,28 +46,28 @@ func PipelineEvidenceSetupHook(
 		return nil
 	}
 	baseAO := PrepareWorkflowOptions(wfDef.Runtime).ActivityOptions
+	discoveryDef, inputErrors := resolveEvidenceInputs(wfDef, runData)
 
-	appURL, ok := config["app_url"].(string)
-	if !ok || strings.TrimSpace(appURL) == "" {
-		appendSetupWarning(finalOutput, "pipeline evidence extraction skipped: missing app_url")
-		return nil
-	}
-
-	extractionActivity := activities.NewPipelineEvidenceExtractionActivity()
+	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
 	extractionReq := workflowengine.ActivityInput{
 		Payload: activities.PipelineEvidenceExtractionInput{
-			WorkflowDefinition: evidenceDiscoveryDefinition(wfDef),
-			CredimiBaseURL:     workflowengine.InternalAppURLFromConfig(config),
+			WorkflowDefinition: discoveryDef,
+			InputErrors:        inputErrors,
+			WorkflowID:         workflowID,
+			RunID:              runID,
 		},
 	}
 
-	extractionCtx := workflow.WithActivityOptions(
-		ctx,
-		evidenceActivityOptions(&baseAO, 5*time.Minute, 1),
-	)
+	extractionAO := evidenceActivityOptions(&baseAO, evidenceExtractionTimeout, 1)
+	extractionAO.StartToCloseTimeout = evidenceExtractionTimeout
+	extractionAO.ScheduleToCloseTimeout = 0
+	extractionCtx := workflow.WithActivityOptions(ctx, extractionAO)
 	var extractionResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(extractionCtx, extractionActivity.Name(), extractionReq).
-		Get(extractionCtx, &extractionResult); err != nil {
+	if err := workflow.ExecuteActivity(
+		extractionCtx,
+		activities.PipelineEvidenceExtractionActivityName,
+		extractionReq,
+	).Get(extractionCtx, &extractionResult); err != nil {
 		if temporal.IsCanceledError(err) {
 			return err
 		}
@@ -68,7 +76,9 @@ func PipelineEvidenceSetupHook(
 		return nil
 	}
 
-	output, err := decodePipelineEvidenceOutput(extractionResult)
+	output, err := workflowengine.DecodeOutput[activities.PipelineEvidenceExtractionOutput](
+		extractionResult.Output,
+	)
 	if err != nil {
 		appendSetupWarning(
 			finalOutput,
@@ -79,55 +89,46 @@ func PipelineEvidenceSetupHook(
 	}
 	appendSetupWarnings(finalOutput, output.Warnings)
 	SetRunDataValue(runData, pipelineEvidenceRunDataKey, output)
-	if len(output.CredentialWellKnowns) == 0 && len(output.PresentationResults) == 0 {
-		return nil
-	}
-	workflowID, runID := pipelineWorkflowIDs(ctx, finalOutput)
-	if workflowID == "" || runID == "" {
-		appendSetupWarning(
-			finalOutput,
-			"pipeline evidence storage skipped: missing workflow_id or run_id",
-		)
-		return nil
-	}
-
-	internalHTTPActivity := activities.NewInternalHTTPActivity()
-	updateReq := workflowengine.ActivityInput{
-		Payload: activities.InternalHTTPActivityPayload{
-			Method: http.MethodPost,
-			URL: utils.JoinURL(
-				workflowengine.InternalAppURLFromConfig(config),
-				"api",
-				"pipeline",
-				"pipeline-execution-results",
-				"evidence",
-			),
-			ExpectedStatus: http.StatusOK,
-			Timeout:        "30",
-			Body: map[string]any{
-				"workflow_id":            workflowID,
-				"run_id":                 runID,
-				"credential_well_knowns": output.CredentialWellKnowns,
-				"presentation_results":   output.PresentationResults,
-			},
-		},
-	}
-
-	updateCtx := workflow.WithActivityOptions(
-		ctx,
-		evidenceActivityOptions(&baseAO, 2*time.Minute, 5),
-	)
-	var updateResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(updateCtx, internalHTTPActivity.Name(), updateReq).
-		Get(updateCtx, &updateResult); err != nil {
-		if temporal.IsCanceledError(err) {
-			return err
-		}
-		appendSetupWarning(finalOutput, fmt.Sprintf("pipeline evidence storage failed: %v", err))
-		logger.Warn("Pipeline evidence storage failed", "error", err)
-	}
-
 	return nil
+}
+
+// resolveEvidenceInputs returns the pipeline's evidence steps with their inputs
+// resolved against the run data available at setup, so the extraction activity
+// input does not copy the whole definition. A step whose inputs cannot be
+// resolved yet, such as one that reads an earlier step's output, keeps its raw
+// inputs and is reported by step ID instead of failing the pipeline.
+func resolveEvidenceInputs(
+	wfDef *pipelineinternal.WorkflowDefinition,
+	runData *map[string]any,
+) (*pipelineinternal.WorkflowDefinition, map[string]string) {
+	dataCtx := map[string]any{}
+	if runData != nil && *runData != nil {
+		dataCtx = *runData
+	}
+	def := &pipelineinternal.WorkflowDefinition{Name: wfDef.Name}
+	inputErrors := map[string]string{}
+	for _, step := range wfDef.Steps {
+		if !isPipelineEvidenceStep(step.Use) {
+			continue
+		}
+		resolved := step
+		// ResolveInputs writes resolved values back into the maps it receives;
+		// clone them so the pipeline step itself still resolves its own inputs.
+		resolved.With = pipelineinternal.StepInputs{
+			Config:  maps.Clone(step.With.Config),
+			Payload: maps.Clone(step.With.Payload),
+		}
+		if err := pipelineinternal.ResolveInputs(&resolved, nil, dataCtx); err != nil {
+			inputErrors[step.ID] = err.Error()
+			resolved.With = step.With
+		}
+		def.Steps = append(def.Steps, resolved)
+	}
+	return def, inputErrors
+}
+
+func isPipelineEvidenceStep(use string) bool {
+	return use == "credential-offer" || use == "use-case-verification-deeplink"
 }
 
 func hasPipelineEvidenceStep(wfDef *pipelineinternal.WorkflowDefinition) bool {
@@ -135,39 +136,11 @@ func hasPipelineEvidenceStep(wfDef *pipelineinternal.WorkflowDefinition) bool {
 		return false
 	}
 	for _, step := range wfDef.Steps {
-		if step.Use == "credential-offer" || step.Use == "use-case-verification-deeplink" {
+		if isPipelineEvidenceStep(step.Use) {
 			return true
 		}
 	}
 	return false
-}
-
-// evidenceDiscoveryDefinition keeps only the steps evidence discovery reads, so the
-// extraction activity input does not copy the whole definition.
-func evidenceDiscoveryDefinition(
-	wfDef *pipelineinternal.WorkflowDefinition,
-) *pipelineinternal.WorkflowDefinition {
-	discovery := &pipelineinternal.WorkflowDefinition{Name: wfDef.Name}
-	for _, step := range wfDef.Steps {
-		if step.Use == "credential-offer" || step.Use == "use-case-verification-deeplink" {
-			discovery.Steps = append(discovery.Steps, step)
-		}
-	}
-	return discovery
-}
-
-func decodePipelineEvidenceOutput(
-	result workflowengine.ActivityResult,
-) (activities.PipelineEvidenceExtractionOutput, error) {
-	var out activities.PipelineEvidenceExtractionOutput
-	raw, err := json.Marshal(result.Output)
-	if err != nil {
-		return out, fmt.Errorf("marshal output: %w", err)
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return out, fmt.Errorf("decode output: %w", err)
-	}
-	return out, nil
 }
 
 func evidenceActivityOptions(

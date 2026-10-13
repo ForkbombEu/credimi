@@ -11,16 +11,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Collapsible from '@/components/ui/collapsible';
 	import { m } from '@/i18n';
 
-	import type { ExtraLink } from './topbar-links';
-
-	import NavExtraLink from './nav-extra-link.svelte';
+	import NavExtrasList from './nav-extras-list.svelte';
 
 	interface Props {
-		extras: ExtraLink[];
 		onNavigate: () => void;
 	}
 
-	const { extras, onNavigate }: Props = $props();
+	const { onNavigate }: Props = $props();
 </script>
 
 <Collapsible.Root class="group/collapsible">
@@ -35,8 +32,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 	</Collapsible.Trigger>
 	<Collapsible.Content class="mt-1 space-y-0.5">
-		{#each extras as item (item.href)}
-			<NavExtraLink link={item} onclick={onNavigate} />
-		{/each}
+		<NavExtrasList
+			onclick={() => {
+				onNavigate();
+			}}
+		/>
 	</Collapsible.Content>
 </Collapsible.Root>

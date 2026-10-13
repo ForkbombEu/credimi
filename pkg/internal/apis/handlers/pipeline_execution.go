@@ -121,7 +121,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 		workflowInput := pip.PipelineWorkflowInput{
 			WorkflowDefinition: wfDef,
 			WorkflowInput: workflowengine.WorkflowInput{
-				Config: map[string]any{},
+				Config: workflowengine.WithAppConfig(e.App, map[string]any{}),
 				ActivityOptions: &workflow.ActivityOptions{
 					StartToCloseTimeout: PipelineExecuteTimeout,
 				},
@@ -152,7 +152,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 			)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), PipelineExecuteTimeout)
+		ctx, cancel := context.WithTimeout(e.Request.Context(), PipelineExecuteTimeout)
 		defer cancel()
 
 		we, err := temporalClient.ExecuteWorkflow(

@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ClientResponseError } from 'pocketbase';
 
-	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
 	import { nanoid } from 'nanoid';
 	import { onMount } from 'svelte';
@@ -54,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			list.oauth2.providers.map((provider) => {
 				return {
 					displayName: provider.displayName,
-					image: `${PUBLIC_POCKETBASE_URL}/_/images/oauth2/${provider.name}.svg`, // TODO - This won't work with `oidc2` for example
+					image: `/_/images/oauth2/${provider.name}.svg`, // TODO - This won't work with `oidc2` for example
 					initializer: async () => {
 						if (needsCaptcha && !turnstileToken) {
 							captchaError = m.Please_complete_the_captcha();
