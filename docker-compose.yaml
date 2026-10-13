@@ -103,6 +103,8 @@ services:
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
     ports:
       - ${TEMPORAL_UI_PORT:-8280}:8280
+    labels:
+      - 'caddy_0.basicauth.admin="${TEMPORAL_BASIC_AUTH_HASH:?}"'
   # Read-only Temporal UI embedded in Credimi run pages. No published port: only
   # Credimi reaches it, through the org-scoped proxy at /temporal-ui (pkg/internal/temporalui).
   temporal_ui_embedded:

@@ -20,6 +20,7 @@ printf '%s\n' \
 	'  temporal:' \
 	'  temporal_ui:' \
 	"    container_name: ${COMPOSE_PROJECT_NAME}-temporal-ui" \
+	'    labels: !reset {}' \
 	'  temporal_ui_embedded:' \
 	"    container_name: ${COMPOSE_PROJECT_NAME}-temporal-ui-embedded" \
 	'    ports:' \
