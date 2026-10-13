@@ -200,43 +200,6 @@ export function maestroFlowsAt(timeline: MaestroTimeline, at: number): MaestroFl
 
 //
 
-function vttTimestamp(seconds: number): string {
-	const totalMs = Math.round(seconds * 1000);
-	const ms = totalMs % 1000;
-	const totalSeconds = Math.floor(totalMs / 1000);
-	const s = totalSeconds % 60;
-	const m = Math.floor(totalSeconds / 60) % 60;
-	const h = Math.floor(totalSeconds / 3600);
-	const pad = (n: number, width = 2) => String(n).padStart(width, '0');
-	return `${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms, 3)}`;
-}
-
-/** WebVTT subtitles with one cue per state update, or undefined without a recording start. */
-export function buildMaestroVtt(timeline: MaestroTimeline): string | undefined {
-	const startedAt = timeline.recordingStartedAt;
-	if (startedAt === undefined) return undefined;
-	const titles = maestroFlowTitles(timeline);
-	const starts = timeline.entries.map((entry) => Math.max(0, (entry.t - startedAt) / 1000));
-	const cues = timeline.entries.map((entry, i) => {
-		const start = starts[i];
-		let end = i + 1 < starts.length ? starts[i + 1] : start + 3;
-		if (end <= start) end = start + 0.5;
-		const title = titles.get(entry.flow_id ?? '') ?? '';
-		let text = `${title} ${entry.description ?? ''}`;
-		if (entry.kind === 'command' && entry.status) text += ` (${entry.status})`;
-		// A blank line would end the cue early; `<`, `&` and `-->` are cue syntax.
-		const cueText = text
-			.replace(/\s*\r?\n\s*/g, ' ')
-			.replaceAll('&', '&amp;')
-			.replaceAll('<', '&lt;')
-			.replaceAll('-->', '->');
-		return `${vttTimestamp(start)} --> ${vttTimestamp(end)}\n${cueText}\n`;
-	});
-	return `WEBVTT\n\n${cues.join('\n')}`;
-}
-
-//
-
 type ViewerResult = { video: string; screenshot: string; timeline?: string };
 
 /** The result viewer page, or the raw file when the result has no timeline. */

@@ -5,7 +5,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-	buildMaestroVtt,
 	buildPipelineResultViewerHref,
 	maestroFlowsAt,
 	parseMaestroTimeline
@@ -149,43 +148,6 @@ describe('maestroFlowsAt', () => {
 			'get-credential:',
 			'Flow 4:'
 		]);
-	});
-});
-
-describe('buildMaestroVtt', () => {
-	it('builds one escaped cue per entry', () => {
-		const timeline = parseMaestroTimeline(
-			jsonl(
-				{ t: START, kind: 'recording_started', index: 0, parent: 0, depth: 0 },
-				command(START + 1000, 'f1', 1, 'RUNNING', {
-					step_id: 'get-credential',
-					description: 'Tap on <Accept> & go'
-				}),
-				{
-					t: START + 2500,
-					kind: 'notice',
-					flow_id: 'f1',
-					index: 2,
-					parent: -1,
-					depth: 0,
-					description: 'Done --> next'
-				}
-			)
-		);
-
-		expect(buildMaestroVtt(timeline)).toBe(
-			'WEBVTT\n\n' +
-				'00:00:01.000 --> 00:00:02.500\n' +
-				'get-credential: Tap on &lt;Accept> &amp; go (RUNNING)\n' +
-				'\n' +
-				'00:00:02.500 --> 00:00:05.500\n' +
-				'get-credential: Done -> next\n'
-		);
-	});
-
-	it('returns undefined without a recording start', () => {
-		const timeline = parseMaestroTimeline(jsonl(command(START, 'f1', 1, 'RUNNING')));
-		expect(buildMaestroVtt(timeline)).toBeUndefined();
 	});
 });
 

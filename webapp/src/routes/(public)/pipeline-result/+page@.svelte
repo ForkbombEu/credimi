@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Attachment } from 'svelte/attachments';
 
 	import {
-		buildMaestroVtt,
 		maestroFlowsAt,
 		parseMaestroTimeline,
 		type MaestroRowView,
@@ -25,7 +24,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let loaded = $state(false);
 	let aspect = $state<number | undefined>();
 	let currentTime = $state(0);
-	let vttUrl = $state<string | undefined>();
 	let videoElement: HTMLVideoElement | undefined;
 	let frame = 0;
 
@@ -39,8 +37,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			.then((text) => {
 				if (destroyed) return;
 				timeline = parseMaestroTimeline(text);
-				const vtt = data.mode === 'video' ? buildMaestroVtt(timeline) : undefined;
-				if (vtt) vttUrl = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
 			})
 			.catch(() => {
 				timeline = undefined;
@@ -50,7 +46,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			});
 		return () => {
 			destroyed = true;
-			if (vttUrl) URL.revokeObjectURL(vttUrl);
 		};
 	});
 
@@ -89,15 +84,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <main class="page">
 	<nav class="toolbar">
 		<a href={original} target="_blank" rel="external noopener">{m.Open_original_file()}</a>
-		{#if vttUrl}
-			<a href={vttUrl} download="wallet-actions.vtt" rel="external"
-				>{m.Download_subtitles()}</a
-			>
-		{/if}
 	</nav>
 	<div class="columns" style:--aspect={aspect}>
 		{#if data.mode === 'video'}
-			<!-- Screen recording without audio; the subtitles track is added once the timeline loads. -->
+			<!-- Screen recording without audio; the commands are shown in the box beside it. -->
 			<!-- svelte-ignore a11y_media_has_caption -->
 			<video
 				class="media"
@@ -116,17 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}}
 				onseeked={(event) => (currentTime = event.currentTarget.currentTime)}
 				onpause={(event) => (currentTime = event.currentTarget.currentTime)}
-			>
-				{#if vttUrl}
-					<track
-						kind="subtitles"
-						default
-						src={vttUrl}
-						srclang="en"
-						label={m.Wallet_actions()}
-					/>
-				{/if}
-			</video>
+			></video>
 		{:else}
 			<img
 				class="media"
