@@ -1,3 +1,11 @@
+# The source asks for an Authorization Request without client_metadata. Capture
+# omits that parameter only with client_metadata: null, which it limits to
+# response_mode: direct_post (any other mode is refused with
+# client_metadata_required_for_encrypted_response), so this session is the
+# source's construction; the outer Authorization Request never carries
+# client_metadata, and the assertion on its absence belongs to the delivered
+# Request Object. The unencrypted direct_post reply carries vp_token as the
+# form parameter, not the response parameter of direct_post.jwt.
 id: WS_RP_MS_Metadata__107
 title: Send full wallet_metadata to a POST Request URI without client_metadata
 source:
@@ -17,18 +25,19 @@ normative_references:
   section: '5.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  session: { from: pipeline.protocol.metadata-request-controls.outputs.default_post_retrieval_session }
-  outer_request: { from: pipeline.protocol.metadata-request-controls.outputs.default_post_retrieval_outer_request }
-  request_uri_payload: { from: pipeline.protocol.metadata-request-controls.outputs.default_post_retrieval_request_uri_payload }
-  visual_evidence: { from: pipeline.protocol.metadata-request-controls.outputs.default_post_retrieval_visual_evidence }
+  session: { from: pipeline.protocol.metadata-request-object-delivery.outputs.absent_client_metadata_session }
+  outer_request: { from: pipeline.protocol.metadata-request-object-delivery.outputs.absent_client_metadata_outer_request }
+  request_object: { from: pipeline.protocol.metadata-request-object-delivery.outputs.absent_client_metadata_request_object }
+  request_uri_payload: { from: pipeline.protocol.metadata-request-object-delivery.outputs.absent_client_metadata_request_uri_payload }
+  visual_evidence: { from: pipeline.protocol.metadata-request-object-delivery.outputs.absent_client_metadata_visual_evidence }
 assertions:
 - id: authorization_request_asks_for_post_retrieval
   validator: json.field_equals
   input: evidence.outer_request
   params: { field: request_uri_method, value: post }
-- id: authorization_request_carries_no_client_metadata
-  validator: json.field_presence
-  input: evidence.outer_request
+- id: delivered_request_object_carries_no_client_metadata
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
   params: { field: client_metadata, present: false }
 - id: wallet_retrieves_request_object_with_post
   validator: oid4vp.request_uri_retrieval
@@ -48,7 +57,6 @@ assertions:
   params:
     method: POST
     media_type: application/x-www-form-urlencoded
-    require_response_parameter: true
 - id: wallet_returned_the_requested_credential
   validator: dcql.response_satisfies_constraints
   input: evidence.session

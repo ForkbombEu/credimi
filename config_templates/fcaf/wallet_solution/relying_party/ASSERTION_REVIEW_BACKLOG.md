@@ -7,8 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 # FCAF assertion review backlog
 
 Open work only. A completed item is removed from this file; its reasoning stays
-in git history and in `pkg/fcaf/MEMORY.md`. Everything below is either **ready
-to work** or **blocked**, and a blocked entry names the exact missing input.
+in git history and in `pkg/fcaf/MEMORY.md`. Everything below waits on a
+maintainer decision, on the test environment, or on a missing Capture feature,
+and each entry names what is missing.
 
 A test that already has a Credimi definition keeps running in the generated
 aggregate pipeline. Listing it here means its assertions or its evidence are not
@@ -16,59 +17,11 @@ yet trustworthy, not that it is absent from execution.
 
 Review baseline: the source mirror under
 `config_templates/fcaf_sources/wallet_solution/relying_party/` holds 621 distinct
-`WS_RP_*` sources against 615 Credimi definitions. The six sources without a
-definition are `WS_RP_IA_Engagement__001b` and `WS_RP_IA_ProtocolFlow__002d`
-(ready below) and `WS_RP_SM_RpIntegrity__013c_UF`,
+`WS_RP_*` sources against 617 Credimi definitions. The four sources without a
+definition are `WS_RP_SM_RpIntegrity__013c_UF`,
 `WS_RP_SM_TrustMechanisms__101`, `101b_UF`, `101c_UF` (blocked on Capture).
 Scenarios and probes target production `https://capture-wallet.credimi.io`;
 facts undated below were probed 14/10/2026.
-
-## Ready to work
-
-- `WS_RP_IA_Engagement__001b` (no definition): create a session with `scheme:
-  eu-eaap://` and drive the deeplink, then assert the Wallet retrieved the
-  request and its engagement screenshot, like `WS_RP_IA_Engagement__001`. The
-  reference Wallet registers no `eu-eaap://` handler, which makes the test fail
-  on it (EUDI_required), not blocked.
-- `WS_RP_MS_Metadata__135`: set `request_behavior.request_object_encryption:
-  none` on the session it reads (accepted by production, probed 14/10/2026) and
-  extend `oid4vp.unencrypted_request_object_rejected` to require
-  `raw.authorization_request_jwe` absent, so the delivery is provably a plain
-  Request Object and not an encrypted one read through
-  `authorization_request_jwt`.
-- `WS_RP_MS_Metadata__107`: move the `client_metadata`-absent assertion from the
-  outer Authorization Request, which never carries that member, to the delivered
-  Request Object, and give the test its own session: `request_uri_method: post`,
-  `client_metadata: null`, `response_mode: direct_post` (probed 14/10/2026:
-  `201`, served Request Object without `client_metadata`, Wallet POST body under
-  `observed.request_uri_payload`). Any other response mode is refused with `400
-  client_metadata_required_for_encrypted_response`. A Wallet that refuses the
-  unencrypted response is a Wallet finding.
-- `WS_RP_MS_CredentialFormats__034`: add `mdoc.element_equals{namespace,
-  element, value}` and issue a second mdoc (`fixture_id: pid_person_b`) in
-  `fcaf-wallet-solution-relying-party-dcql-credential-formats`, so the
-  `values: [Mario]` constraint discriminates instead of passing on either
-  credential.
-- `WS_RP_IA_ProtocolFlow__002d`: mirror `WS_RP_MS_ProtocolMessages__011`, whose
-  scenario already retrieves with POST: assert
-  `oid4vp.request_uri_retrieval{method: post}` and then `fcaf.not_applicable`
-  with the 011 reason (the source applies to a Wallet that does not support POST
-  retrieval). `eu-eaap://` is only the source's example invocation, so use the
-  scenario's default scheme and record the deviation. Its ER3.3 (path without
-  query or fragment) stays unassertable until Capture records the requested
-  target (see Blocked).
-- `WS_RP_MS_ProtocolMessages__145`, `146`: replace `fcaf.skipped` with
-  `fcaf.not_applicable`. Their preconditions are Wallet state (trusted metadata
-  already stored for the Verifier; a trusted registry in which the Verifier is
-  pre-registered), not a Capture feature, and the reference Wallet holds neither
-  for the Capture verifier. Asserting `invalid_client` would fail a Wallet that
-  correctly sees no conflict.
-- `oid4vp.transaction_data_support`: decide the `not_applicable` branch the
-  sources' profile applicability asks for ("Wallet does not support
-  transaction_data", `WS_RP_MS_ProtocolMessages__017`, `158`, `159`) from
-  Capture's `checks.transaction_data_verified`, so a Wallet that returns
-  `transaction_data_hashes` is reported as supporting the parameter instead of
-  failing a rejection assertion.
 
 ## Maintainer decision
 

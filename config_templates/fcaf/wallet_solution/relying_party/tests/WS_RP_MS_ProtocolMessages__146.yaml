@@ -17,15 +17,28 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-146.outputs.dcql_exchange
+  request_object:
+    from: pipeline.dcql.protocol-messages-146.outputs.request_object
 assertions:
+# The request shape the source presupposes: the Verifier delivers
+# client_metadata as a top-level Request Object member beside the client_id it
+# already knows.
+- id: client_metadata_is_delivered_top_level
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params:
+    field: client_metadata
+    present: true
 - id: verifier_trusted_registry_entry_is_unavailable
-  validator: fcaf.skipped
+  validator: fcaf.not_applicable
   input: evidence.dcql_exchange
   params:
     reason: >-
       the source's precondition is a Wallet configured to resolve the client_id
-      through a trusted registry in which the Verifier is pre-registered; the
-      harness has no trusted-registry entry for a Capture verifier to configure
-      the Wallet with
+      through a trusted registry in which Verifier A is pre-registered, so the
+      client_metadata the request delivers overrides a pre-registered entry;
+      the reference Wallet holds no trusted registry entry for the Capture
+      verifier, so the override the source asserts cannot arise and its
+      invalid_client expectation has no subject
 verdict:
   pass_when: all_assertions_pass

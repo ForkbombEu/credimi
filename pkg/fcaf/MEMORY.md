@@ -3887,3 +3887,75 @@ and `graft` still carries nodes for the deleted
 the behaviour was proven by the scoped Go suites, the flows' `maestro
 check-syntax`, and live Capture probes; a fresh reference-Wallet run is still
 required to confirm the projections.
+
+## Assertion-review backlog burn-down, 14/10/2026
+
+Every remaining `Ready to work` item in
+`config_templates/fcaf/wallet_solution/relying_party/ASSERTION_REVIEW_BACKLOG.md`
+is implemented in this working tree, so that section is deleted and only the
+blocked and maintainer-decision entries remain. The regenerated aggregate is
+1869 steps / 617 tests / 224 outputs; the happy flow is 210 steps / 299 test
+IDs. The generator's count pins are updated to match.
+
+- Engagement 001b / ProtocolFlow 002d: a new one-test scenario
+  `engagement-eu-eaap` (scheme `eu-eaap://`, shared action
+  `fcaf-engagement-eu-eaap`, evidence source
+  `pipeline.wallet.engagement.eu-eaap` with `wallet_engagement` +
+  `visual_evidence`) implements `WS_RP_IA_Engagement__001b`: the deeplink-shape
+  and POST-retrieval assertions pass on production (probed 14/10/2026: `201`
+  with `deeplink: eu-eaap://?client_id=...`), and the engagement-screenshot
+  assertion fails on the reference Wallet because it registers no `eu-eaap://`
+  handler (EUDI_required; RI-WALLET-026). `WS_RP_IA_ProtocolFlow__002d` rides
+  `dcql-protocol-messages` and asserts
+  `oid4vp.request_uri_retrieval{method: post}` before `fcaf.not_applicable`
+  with 011's reason (the suite's default `haip-vp://` scheme; ER3.3 stays
+  unassertable because Capture records no requested target).
+- Request-object delivery (Metadata 135/107): the new
+  `metadata-request-object-delivery` scenario moves both off the shared
+  `metadata-request-controls` session. 135 sets
+  `request_behavior.request_object_encryption: none` (probe: `201`,
+  `vp_request_object_encryption_skipped`, a plain JWS with
+  `raw.authorization_request_jwe` absent) and
+  `oid4vp.unencrypted_request_object_rejected` now requires that member absent
+  before accepting the JWS, because Capture records the inner signed JWT in
+  `raw.authorization_request_jwt` even when it served a JWE (a control session
+  kept a 4-dot Nested JWT in `authorization_request_jwe`); its verdict stays
+  `not_applicable` (the Wallet publishes no jwks). 107 gets its own
+  `create-absent-client-metadata` session (`request_uri_method: post`,
+  `client_metadata: null`, `response_mode: direct_post`); the
+  `client_metadata`-absence assertion now runs on the delivered Request Object
+  and `require_response_parameter` is dropped for the unencrypted form; it is
+  expected to fail on the reference Wallet (RI-WALLET-008: plain `direct_post`
+  refused).
+- CredentialFormats 034: `mdoc.element_equals{namespace, element, value}` and a
+  second same-doctype mdoc PID (`fixture_id: pid_person_b`, `given_name
+  Giulia`) in `dcql-credential-formats`, so the `values: [Mario]` constraint
+  selects `pid_default` instead of passing on either credential; verified by
+  production issuance and verifier probes and by the generator. A conforming
+  Wallet presents `pid_default` and passes; one that ignores the constraint or
+  presents Giulia fails (Wallet finding, not a blocker).
+- ProtocolMessages 017: `dcql.response_satisfies_constraints` gained
+  `not_applicable_when_wallet_supports_transaction_data` on its
+  transaction_data error modes; when the capture proves the Wallet processed
+  the transaction_data it was sent (`checks.transaction_data_verified: true`,
+  or `transaction_data_hashes` in the Wallet's Authorization Response) the
+  assertion reports `not_applicable`, because the source's profile
+  applicability is "Wallet does not support transaction_data"; otherwise the
+  `invalid_transaction_data` requirement decides. The gate applies only to 017:
+  158/159 carry `Profile applicability: None` and keep the plain requirement,
+  018 keeps its static `not_applicable`, and the param is refused
+  (`StatusError`) on every other mode.
+- ProtocolMessages 145/146: `fcaf.skipped` -> `fcaf.not_applicable`. Their
+  preconditions are Wallet state (trusted metadata already stored for the
+  Verifier A; a trusted registry in which Verifier A is pre-registered) that
+  the reference Wallet does not hold for the Capture verifier, so the
+  `invalid_client` expectation has no subject; each test also asserts the
+  delivered Request Object carries `client_metadata` at top level, exposed by
+  its scenario as the new `request_object` output
+  (`raw.authorization_request_jwt`).
+
+No emulator run backed this pass - the constructions were proven by live
+production Capture probes, the scoped Go suites and the generator; the
+reference-Wallet verdicts above (001b fail, 107 fail, 135/145/146
+not_applicable, 017 pass, 034 contingent) remain projections that still need a
+fresh device run.

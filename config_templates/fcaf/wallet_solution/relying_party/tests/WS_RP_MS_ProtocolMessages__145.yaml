@@ -17,15 +17,27 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-145.outputs.dcql_exchange
+  request_object:
+    from: pipeline.dcql.protocol-messages-145.outputs.request_object
 assertions:
+# The request shape the source presupposes: the Verifier delivers
+# client_metadata as a top-level Request Object member to a Wallet that
+# already knows it.
+- id: client_metadata_is_delivered_top_level
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params:
+    field: client_metadata
+    present: true
 - id: wallet_stored_verifier_metadata_is_unavailable
-  validator: fcaf.skipped
+  validator: fcaf.not_applicable
   input: evidence.dcql_exchange
   params:
     reason: >-
-      the source's precondition is a Wallet that already holds stored trusted
-      metadata for the Verifier; the harness provides no way to store trusted
-      client metadata in the Wallet before a request arrives, so no delivered
-      client_metadata can conflict with it
+      the source's precondition is a Wallet that has already stored trusted
+      metadata for Verifier A, so the client_metadata the request delivers
+      conflicts with that stored copy; the reference Wallet holds no stored
+      metadata for the Capture verifier, so the conflict the source asserts
+      cannot arise and its invalid_client expectation has no subject
 verdict:
   pass_when: all_assertions_pass

@@ -1,0 +1,80 @@
+name: FCAF verifier metadata request object delivery
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy: { maximum_attempts: 1 }
+steps:
+- id: create-unencrypted-request-object
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      request_behavior: { request_object_encryption: none }
+      presentation_request:
+        nonce: unencrypted-request-object
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+- id: exercise-unencrypted-request-object
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-unencrypted-request-object.outputs.body.deeplink }}" }
+- id: fetch-unencrypted-request-object
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-unencrypted-request-object.outputs.body.session_id }}", expected_status: 200 }
+- id: create-absent-client-metadata
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      client_metadata: null
+      response_mode: direct_post
+      response_type: vp_token
+      presentation_request:
+        nonce: absent-client-metadata
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [given_name] }] }]
+- id: exercise-absent-client-metadata
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-absent-client-metadata.outputs.body.deeplink }}" }
+- id: fetch-absent-client-metadata
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-absent-client-metadata.outputs.body.session_id }}", expected_status: 200 }
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+      - WS_RP_MS_Metadata__107
+      - WS_RP_MS_Metadata__135
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.protocol.metadata-request-object-delivery:
+        output:
+          unencrypted_request_object_session: ${{ fetch-unencrypted-request-object.outputs.body }}
+          unencrypted_request_object_visual_evidence: ${{ exercise-unencrypted-request-object.outputs.flow_output.maestro_screenshot_urls }}
+          absent_client_metadata_session: ${{ fetch-absent-client-metadata.outputs.body }}
+          absent_client_metadata_outer_request: ${{ fetch-absent-client-metadata.outputs.body.raw.outer_request_delivered }}
+          absent_client_metadata_request_object: ${{ fetch-absent-client-metadata.outputs.body.raw.authorization_request_jwt }}
+          absent_client_metadata_request_uri_payload: ${{ fetch-absent-client-metadata.outputs.body.observed.request_uri_payload.value }}
+          absent_client_metadata_visual_evidence: ${{ exercise-absent-client-metadata.outputs.flow_output.maestro_screenshot_urls }}

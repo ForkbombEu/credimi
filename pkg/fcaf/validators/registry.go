@@ -45,6 +45,7 @@ func DefaultRegistry() (*Registry, error) {
 		MDocDigestAlgorithmValidator{},
 		MDocElementCBORTypeValidator{},
 		MDocElementUTF8StringValidator{},
+		MDocElementEqualsValidator{},
 		MDocElementDateEncodingValidator{},
 		MDocElementDateFormatValidator{},
 		MDocElementValidDateValidator{},

@@ -381,6 +381,11 @@ the wallet to POST the Authorization Response and follow the returned
 - Test: `WS_RP_IA_Supportive__001` fails for this wallet. With
   `direct_post.jwt` the same wallet posts and follows the `redirect_uri`, but
   that is not the response mode the source specifies.
+- Test: `WS_RP_MS_Metadata__107` fails for this wallet. Its
+  `create-absent-client-metadata` session sends `client_metadata: null`, which
+  Capture limits to `response_mode: direct_post`, so the source requires the
+  unencrypted mode this wallet refuses; the wallet posts its `wallet_metadata`
+  and retrieves the Request Object, then never sends an Authorization Response.
 
 Confirmed on the emulator 14/10/2026 (wallet 2026.09.42, production Capture):
 after a successful share the Wallet opens the returned `redirect_uri` only once
@@ -1124,3 +1129,57 @@ HTTP 400 reply with a JSON error body) the Wallet does show
   `WS_RP_MS_ProtocolMessages__125` now assert a named error screenshot
   (`no-redirect-wallet-error` / `non-json-wallet-error`) and are expected to
   FAIL on this Wallet; `WS_RP_MS_ProtocolMessages__126` passes.
+
+## RI-WALLET-026: The `eu-eaap://` invocation scheme has no handler
+
+### Summary
+
+The reference Android Wallet registers no handler for the `eu-eaap://` custom
+URL scheme, so an `eu-eaap://` presentation deeplink cannot invoke it and the
+Wallet never opens the request screen it carries. Expected from the
+implementation and the production probe; not yet observed on an emulator.
+
+### Reproduction
+
+`WS_RP_IA_Engagement__001b` (scenario
+`scenarios/fcaf-wallet-solution-relying-party-engagement-eu-eaap.yaml`) creates
+an OpenID4VP session with `scheme: eu-eaap://`, `request_uri_method: post`,
+`request_delivery: by_reference` and a `direct_post.jwt` PID query, then opens
+the returned deeplink with the shared `fcaf-engagement-eu-eaap` flow.
+
+### Observed
+
+Not observed on an emulator: no run of `WS_RP_IA_Engagement__001b` against the
+reference Wallet has been made. The projection is that the Wallet's `openLink`
+on an `eu-eaap://` URI does nothing, so Capture records no `request_uri`
+retrieval and stores no `fcaf-engagement-eu-eaap-invoked` screenshot.
+
+Probed on production 14/10/2026: `POST /openid4vp/sessions` with
+`{"scheme": "eu-eaap://"}` answers `201` with `deeplink: eu-eaap://?client_id=
+x509_hash%3A...&request_uri=...&request_uri_method=post`, and a wallet-shaped
+POST retrieval of that `request_uri` answers `200`; the request shape and the
+retrieval are therefore satisfiable, and the Wallet's behaviour is the only
+open variable.
+
+### Expected
+
+`WS_RP_IA_Engagement__001b` source (relevancy `EUDI_specific |
+EUDI_required`): "the Wallet can be invoked through the custom URL scheme
+`eu-eaap://`". The Wallet must open the request screen for the deeplink and
+retrieve the Request Object.
+
+### Notes
+
+This is a projection from the implementation and the production probe, not an
+observation: the reference Wallet's registered intent filters are not visible
+from the pipeline, and an emulator run is required to confirm it. The flow's
+`openLink` and its waits are optional, so the step still finishes and the
+outcome is decided by the assertions.
+
+### FCAF Impact
+
+- Test: `WS_RP_IA_Engagement__001b` is expected to FAIL for this wallet
+  (EUDI_required). `eu_eaap_deeplink_is_created` passes on the request shape,
+  but `wallet_retrieved_the_request_from_the_deeplink` and
+  `wallet_shows_the_engagement_screen` fail because no `eu-eaap://` handler
+  exists.

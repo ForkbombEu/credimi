@@ -1,0 +1,98 @@
+appId: eu.europa.ec.euidi
+name: FCAF engagement - EU EAAP custom URL scheme
+tags:
+  - fcaf
+  - engagement
+  - eu-eaap
+---
+# Engagement flow for a presentation link that uses the `eu-eaap://` custom URL
+# scheme (WS_RP_IA_Engagement__001b).
+#
+# A Wallet that registers no handler for the scheme is not invoked at all: the
+# openLink intent resolves to no activity and the Wallet stays where it was.
+# That is a property of the Wallet under test, not a reason to abort the run, so
+# openLink is optional and every wait below is bounded and optional. The step
+# therefore cannot hang the pipeline and always stores a screenshot.
+#
+# The engagement screenshot is taken only while the Wallet shows the request
+# screen, so its presence - not the flow's success - is the evidence that the
+# Wallet was invoked; the terminal screenshot is taken whatever screen the
+# Wallet ends on, so a Wallet that ignored the link is still evidenced. The
+# test's assertions decide the verdict.
+#
+# The pre-openLink waits are optional too: this flow must always reach its
+# terminal screenshot, so a Wallet that is slow to launch or stops on a screen
+# this flow does not know cannot end it before the evidence is stored.
+- launchApp:
+    stopApp: true
+    clearState: false
+    permissions:
+      camera: allow
+      notifications: allow
+- extendedWaitUntil:
+    visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
+- extendedWaitUntil:
+    visible: "Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+    optional: true
+# The reference build registers no `eu-eaap://` handler, so this intent may
+# resolve to nothing; `optional` keeps that from ending the flow before its
+# screenshots.
+- openLink:
+    link: "${deeplink}"
+    autoVerify: false
+    browser: false
+    optional: true
+# A settle wait so every `when`-style lookup below starts from a screen that is
+# no longer being composed.
+- waitForAnimationToEnd:
+    timeout: 3000
+# Phase 1: bounded, optional wait for the Wallet's reaction to the link. A
+# second lock screen counts as a reaction even though it says nothing yet about
+# the request.
+- extendedWaitUntil:
+    visible: "Welcome back|Requested data|Share|Oups! Something went wrong|invalid request"
+    timeout: 30000
+    optional: true
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
+      - waitForAnimationToEnd:
+          timeout: 3000
+# Phase 2: the request screen alone, over a long window because a Wallet that
+# does answer the scheme renders it only after the deeplink intent settles.
+- extendedWaitUntil:
+    visible: "Requested data|Share"
+    timeout: 100000
+    optional: true
+# The engagement screenshot, stored only while the request screen is up. The
+# name must survive PocketBase's 100-character cap on the snake-cased
+# `<step id>-<name>` stem: the only step id that binds this action is 41
+# characters, so this 29-character name fits with room to spare.
+- runFlow:
+    when:
+      visible: "Requested data|Share"
+    commands:
+      - takeScreenshot: fcaf-engagement-eu-eaap-invoked
+# The terminal screenshot records whichever screen the Wallet ended on, so a
+# Wallet that ignored the link still leaves evidence.
+- takeScreenshot: eu-eaap-outcome

@@ -31,7 +31,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1852)
+	require.Len(t, definition.Steps, 1869)
 	require.NotContains(
 		t,
 		string(data),
@@ -54,7 +54,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.Len(t, validationSteps, 1)
 	with, ok := validationSteps[0]["with"].(map[string]any)
 	require.True(t, ok)
-	require.Len(t, stringSlice(with["test_ids"]), 615)
+	require.Len(t, stringSlice(with["test_ids"]), 617)
 	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__006")
 	require.Contains(t, stringSlice(with["test_ids"]), "WS_RP_SM_RpIntegrity__013")
 	for _, restricted := range []string{
@@ -71,7 +71,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 			"each response-encryption case needs its own verifier metadata scenario",
 		)
 	}
-	require.Len(t, with["pipeline_outputs"], 222)
+	require.Len(t, with["pipeline_outputs"], 224)
 
 	committed, err := os.ReadFile(filepath.Join(
 		root,
@@ -158,7 +158,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 		"WS_RP_IA_MainInteraction__015",
 		"happy flow must omit tests whose exact evidence source is not selected",
 	)
-	require.Len(t, stringSlice(with["test_ids"]), 298)
+	require.Len(t, stringSlice(with["test_ids"]), 299)
 	require.NotContains(
 		t,
 		stringSlice(with["test_ids"]),

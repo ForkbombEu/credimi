@@ -143,6 +143,10 @@ steps:
       - WS_RP_MS_ProtocolMessages__009
       - WS_RP_MS_ProtocolMessages__010
       - WS_RP_MS_ProtocolMessages__011
+      # 002d mirrors 011's source profile (a Wallet that does not support POST
+      # retrieval) over the same POST-retrieval session; it reads
+      # capture_session, which this scenario declares.
+      - WS_RP_IA_ProtocolFlow__002d
       - WS_RP_MS_ProtocolMessages__015
       - WS_RP_MS_ProtocolMessages__016
       - WS_RP_MS_ProtocolMessages__017

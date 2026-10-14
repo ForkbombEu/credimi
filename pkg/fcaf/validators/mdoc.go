@@ -261,6 +261,54 @@ func (MDocElementUTF8StringValidator) Validate(_ context.Context, input Input) R
 	return validMDocElement(params, "is a valid CBOR UTF-8 text string")
 }
 
+// MDocElementEqualsValidator verifies that one mdoc element is a CBOR text
+// string equal to an expected value. DCQL value matching compares the CBOR
+// value through its JSON-compatible representation (RFC 8949 §6.1), so the
+// expected value is the string the query constrained.
+type MDocElementEqualsValidator struct{}
+
+// ID returns the validator identifier.
+func (MDocElementEqualsValidator) ID() string { return "mdoc.element_equals" }
+
+// Validate fails when the element is missing, carries an ErrorItem, is not a
+// text string, or holds a value other than the expected one.
+func (MDocElementEqualsValidator) Validate(_ context.Context, input Input) Result {
+	params, err := decodeMDocElementParams(input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	expected, err := DecodeParams[struct {
+		Value *string `json:"value"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if expected.Value == nil {
+		return Result{Status: StatusError, Message: "value param is required"}
+	}
+	element, result := requireMDocElement(input.Value, params)
+	if result != nil {
+		return *result
+	}
+	if element.MajorType != 3 {
+		return invalidMDocElement(
+			params,
+			fmt.Errorf("CBOR major type is %d, expected text string type 3", element.MajorType),
+		)
+	}
+	text, err := requireUTF8String(element.Value)
+	if err != nil {
+		return invalidMDocElement(params, err)
+	}
+	if text != *expected.Value {
+		return invalidMDocElement(
+			params,
+			fmt.Errorf("value %q does not equal expected %q", text, *expected.Value),
+		)
+	}
+	return validMDocElement(params, fmt.Sprintf("equals %q", *expected.Value))
+}
+
 type MDocElementDateEncodingValidator struct{}
 
 func (MDocElementDateEncodingValidator) ID() string { return "mdoc.element_date_encoding" }

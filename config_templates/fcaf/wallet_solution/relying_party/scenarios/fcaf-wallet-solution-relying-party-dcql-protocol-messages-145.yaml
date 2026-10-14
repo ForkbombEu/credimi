@@ -57,4 +57,5 @@ steps:
       pipeline.dcql.protocol-messages-145:
         output:
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

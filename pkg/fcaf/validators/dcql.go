@@ -43,6 +43,19 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 			),
 		}
 	}
+	// Only transactionDataErrorMode consults
+	// NotApplicableWhenWalletSupportsTransactionData, so a definition that sets
+	// it on another mode would silently lose it. Fail closed instead.
+	if params.NotApplicableWhenWalletSupportsTransactionData &&
+		!transactionDataErrorMode(params.Mode) {
+		return Result{
+			Status: StatusError,
+			Message: fmt.Sprintf(
+				"not_applicable_when_wallet_supports_transaction_data is only supported by the transaction_data error modes, not %q",
+				params.Mode,
+			),
+		}
+	}
 	result := validateDCQLResponseMode(params, input)
 	if !dcqlModeAssertsWalletResponse(params.Mode) {
 		return result
@@ -70,6 +83,15 @@ type dcqlModeParams struct {
 	// false, because the rejection is asserted by its own mode and no
 	// presentation exists to inspect.
 	RequireResponse *bool `json:"require_response"`
+	// NotApplicableWhenWalletSupportsTransactionData is optional and defaults
+	// to false. Only the transaction_data error modes consult it (the other
+	// modes reject it with StatusError, so a definition cannot set it and
+	// silently lose it). It marks a source whose own profile applicability is
+	// "Wallet does not support transaction_data": when the Wallet's captured
+	// evidence proves the opposite, the mode reports not_applicable instead of
+	// demanding the invalid_transaction_data rejection the source prescribes
+	// for a Wallet without that support.
+	NotApplicableWhenWalletSupportsTransactionData bool `json:"not_applicable_when_wallet_supports_transaction_data"`
 }
 
 // dcqlModesAwaitingWalletResponse is the set of modes whose pass can be reached
@@ -646,9 +668,16 @@ func validateDCQLResponseMode(params dcqlModeParams, input Input) Result {
 		return validateUnknownFieldStripped(query, responseValue, params.Property)
 	case "vp_formats_not_supported":
 		return validateErrorCode(responseValue, errorValue, "vp_formats_not_supported")
-	case "transaction_data_error":
-		return validateErrorCode(responseValue, errorValue, "invalid_transaction_data")
-	case "transaction_data_error_required":
+	case "transaction_data_error", "transaction_data_error_required":
+		// The source's applicability is a fact about the Wallet under test, so
+		// it is read from the Wallet's captured evidence before the error the
+		// source prescribes is demanded.
+		if result, decided := transactionDataSupportVerdict(params, root); decided {
+			return result
+		}
+		if params.Mode == "transaction_data_error" {
+			return validateErrorCode(responseValue, errorValue, "invalid_transaction_data")
+		}
 		return validateRequiredErrorCode(responseValue, errorValue, "invalid_transaction_data")
 	case "invalid_request_required":
 		return validateRequiredErrorCode(responseValue, errorValue, invalidRequestError)

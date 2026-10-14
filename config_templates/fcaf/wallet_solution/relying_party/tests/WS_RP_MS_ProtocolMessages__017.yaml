@@ -28,11 +28,18 @@ assertions:
   params:
     field: transaction_data
     present: true
+# The source's profile applicability is "Wallet does not support
+# transaction_data", which is a fact about the Wallet and is read from its own
+# captured evidence: a Wallet that bound the transaction_data it was sent
+# (checks.transaction_data_verified, transaction_data_hashes) makes the source's
+# premise false, so the invalid_transaction_data expectation below has no
+# subject and the assertion reports not_applicable instead.
 - id: ws_rp_ms_protocolmessages__017_unsupported_transaction_data_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
     mode: transaction_data_error_required
+    not_applicable_when_wallet_supports_transaction_data: true
 - id: ws_rp_ms_protocolmessages__017_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

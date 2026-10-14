@@ -51,7 +51,7 @@ func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 	cat, err := Load("../../../config_templates/fcaf/wallet_solution/relying_party")
 
 	require.NoError(t, err)
-	require.Len(t, cat.Tests, 615)
+	require.Len(t, cat.Tests, 617)
 
 	registry, err := validators.DefaultRegistry()
 	require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 
 	selected, err := cat.ResolveSelectedTests(nil, "wallet_solution/relying_party", nil)
 	require.NoError(t, err)
-	require.Len(t, selected, 615)
+	require.Len(t, selected, 617)
 }
 
 // Every DCQL mode a catalog test uses must pass the validator's mode gate;

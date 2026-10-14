@@ -175,10 +175,91 @@ func TestMDocElementValidDateRejectsInvalidCalendarDate(t *testing.T) {
 	require.Equal(t, StatusFail, result.Status)
 }
 
+func TestMDocElementEqualsValidator(t *testing.T) {
+	presentation := mdocValidatorPresentation(map[string]evidence.MDocElement{
+		"given_name": {
+			Identifier: "given_name",
+			Value:      "Mario",
+			MajorType:  3,
+		},
+		"sex": {
+			Identifier: "sex",
+			Value:      uint64(2),
+			MajorType:  0,
+		},
+	})
+
+	tests := []struct {
+		name       string
+		params     map[string]any
+		wantStatus Status
+	}{
+		{
+			name:       "text equals the expected value",
+			params:     mergeMDocParams("given_name", map[string]any{"value": "Mario"}),
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "text differs from the expected value",
+			params:     mergeMDocParams("given_name", map[string]any{"value": "Giulia"}),
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "element is not a text string",
+			params:     mergeMDocParams("sex", map[string]any{"value": "2"}),
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "element is missing",
+			params:     mergeMDocParams("family_name", map[string]any{"value": "Bianchi"}),
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "value param is required",
+			params:     mdocParams("given_name"),
+			wantStatus: StatusError,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := MDocElementEqualsValidator{}.Validate(context.Background(), Input{
+				Value:  presentation,
+				Params: test.params,
+			})
+			require.Equal(t, test.wantStatus, result.Status, result.Message)
+		})
+	}
+}
+
+func TestMDocElementEqualsRejectsErrorItem(t *testing.T) {
+	presentation := mdocValidatorPresentation(map[string]evidence.MDocElement{
+		"given_name": {
+			Identifier: "given_name",
+			Value:      "Mario",
+			MajorType:  3,
+		},
+	})
+	presentation.Documents[0].Errors = map[string]map[string]int64{
+		pidMDocType: {"given_name": 2},
+	}
+
+	result := MDocElementEqualsValidator{}.Validate(context.Background(), Input{
+		Value: presentation,
+		Params: mergeMDocParams("given_name", map[string]any{
+			"value": "Mario",
+		}),
+	})
+
+	require.Equal(t, StatusFail, result.Status)
+	require.Contains(t, result.Message, "ErrorItem")
+}
+
 func TestMDocValidatorsRejectMissingConfiguration(t *testing.T) {
 	validators := []Validator{
 		MDocElementCBORTypeValidator{},
 		MDocElementUTF8StringValidator{},
+		MDocElementEqualsValidator{},
 		MDocElementDateEncodingValidator{},
 		MDocElementDateFormatValidator{},
 		MDocElementValidDateValidator{},
