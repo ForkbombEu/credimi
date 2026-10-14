@@ -382,18 +382,14 @@ the wallet to POST the Authorization Response and follow the returned
   `direct_post.jwt` the same wallet posts and follows the `redirect_uri`, but
   that is not the response mode the source specifies.
 
-Added 14/10/2026 (unverified): the Wallet follows a returned `redirect_uri` only
-after the user dismisses its terminal screen (the `Close` tap of
-`scenarios/fcaf-wallet-solution-relying-party-supportive-redirect-uri.yaml`),
-which is why the 4t9hxzgxlf run recorded no redirect visit for
-`WS_RP_IA_MainInteraction__057`, `061`, `067`, `064` and
-`WS_RP_MS_ProtocolMessages__127`, `128` — their steps drove
-`fcaf-exercise-wallet-generic`, which screenshots that screen and never dismisses
-it. Those steps now dismiss it and await Capture's `Presentation complete` page.
-If a run with the dismissal-enabled flow still records no visit, those tests
-become wallet defects and need their own entry; `WS_RP_IA_MainInteraction__064`
-additionally needs the Wallet to parse `redirect_uri` out of the verifier's HTTP
-400 reply, which no run has observed yet.
+Confirmed on the emulator 14/10/2026 (wallet 2026.09.42, production Capture):
+after a successful share the Wallet opens the returned `redirect_uri` only once
+the user taps `Close` on its terminal screen; with the dismissal-enabled flow
+Capture recorded `redirect_uri_visit_count: 1` for the callback-redirect session
+(`WS_RP_IA_MainInteraction__057`, `061`, `067`; `WS_RP_MS_ProtocolMessages__127`,
+`128` use the same pattern). The 4t9hxzgxlf run recorded no visit because its
+flow never dismissed that screen. See RI-WALLET-023 for the HTTP 400 error reply
+(`064`), whose `redirect_uri` the Wallet never opens.
 
 ## MOCK-VERIFIER-002: Beta signs decentralized_identifier requests with the X.509 key
 
@@ -948,3 +944,71 @@ a credential; `claims` and `meta` are independently optional.
 ### FCAF Impact
 
 - Test: `WS_RP_MS_ProtocolMessages__076`.
+
+## RI-WALLET-022: `trusted_authorities` is ignored when matching credentials
+
+### Summary
+
+The reference Android wallet offers and presents a PID whose issuer chain does
+not match the request's `trusted_authorities`.
+
+### Reproduction
+
+14/10/2026, emulator, wallet 2026.09.42, production Capture: issue a PID from
+Capture (issuer AuthorityKeyIdentifier `QlBQvhC4EPCdRFyNv6sQCO4n3Ek`), then open
+the `create-no-match-session` request of
+`scenarios/fcaf-wallet-solution-relying-party-dcql-trust-mechanisms.yaml`, whose
+query carries `trusted_authorities: [{type: aki, values:
+["AAAAAAAAAAAAAAAAAAAAAAAAAAA"]}]`.
+
+### Observed
+
+- The wallet shows `Data sharing request` with the PID under `Requested data`
+  instead of its no-match notice, and shares it.
+- Capture records `presentation_invalid` with Credo's `Expected one of the
+  trusted authority values to be 'AAAAAAAAAAAAAAAAAAAAAAAAAAA' but received
+  'QlBQvhC4EPCdRFyNv6sQCO4n3Ek'`.
+- Consistent with the earlier observation that the wallet answers malformed
+  `trusted_authorities` members (MEMORY.md, reference wallet 2026.09.42 table).
+
+### Expected
+
+No credential is offered; the wallet informs the user it holds no matching
+credential (OpenID4VP 6.1.1).
+
+### FCAF Impact
+
+- Tests: `WS_RP_SM_TrustMechanisms__004`, `__008`,
+  `WS_RP_IA_MainInteraction__004`. Before credimi-capture-wallet#10 was fixed
+  (upstream `2422e58`) Capture replaced the shared `vp_token` with its own
+  error, so these tests passed falsely.
+
+## RI-WALLET-023: `redirect_uri` in an HTTP 400 response-endpoint reply is not followed
+
+### Summary
+
+When the Verifier's response endpoint answers the Authorization Response with an
+HTTP error carrying a `redirect_uri`, the reference Android wallet shows its error
+screen and never opens that URI.
+
+### Reproduction
+
+14/10/2026, emulator, wallet 2026.09.42, production Capture: the
+`create-http-error-redirect-response` session of
+`scenarios/fcaf-wallet-solution-relying-party-verifier-response-controls.yaml`.
+
+### Observed
+
+- After sharing, the wallet shows `Oups! Something went wrong / Verifier
+  rejected the response` with `TRY AGAIN` and a close control; closing it
+  returns to the `Data sharing request` screen.
+- Capture records no `vp_redirect_uri_visited` event.
+
+### Expected
+
+The wallet navigates the user agent to the returned `redirect_uri`, as
+`WS_RP_IA_MainInteraction__064` requires.
+
+### FCAF Impact
+
+- Test: `WS_RP_IA_MainInteraction__064`.

@@ -3353,11 +3353,13 @@ mode, an error response, a request shape), the test fails for that wallet and
 the gap is recorded in `REFERENCE-WALLET-ISSUES.md`. Never change a request,
 response mode or assertion so the reference wallet passes.
 
-Capture note: for plain `direct_post`, Capture writes its own verification
-error into `raw.presentation_response_decrypted` when the presentation fails
-verification (probed 13/10/2026), so `findWalletError` would read it as a
-wallet error. No negative test uses plain `direct_post` today. Reported as
-[credimi-capture-wallet#10](https://github.com/ForkbombEu/credimi-capture-wallet/issues/10).
+Capture note: before upstream `2422e58` (14/10/2026), a presentation that
+failed Credo verification left Capture's own error in
+`raw.presentation_response_decrypted` instead of the Wallet's payload, for
+plain `direct_post` and for `direct_post.jwt` alike, so `findWalletError` read a
+verifier rejection as a Wallet refusal. Fixed upstream
+([credimi-capture-wallet#10](https://github.com/ForkbombEu/credimi-capture-wallet/issues/10));
+see the emulator note at the end of this file.
 
 ## Report 4t9hxzgxlf follow-up: test fixes
 
@@ -3572,3 +3574,28 @@ nothing was ever posted.
   status-reference probes now resolve on real evidence (RI-WALLET-007 and
   RI-WALLET-009 surface as failures instead of passes); a Wallet that never
   receives a by-reference request reports `blocked`, not `pass`.
+
+### Emulator smoke of the guard flows, 14/10/2026
+
+Wallet 2026.09.42 on the Windows emulator `emulator-5554`, production Capture,
+one run per flow. Maestro reaches the Windows adb server through a TCP relay
+from `127.0.0.1:5037` to `172.22.16.1:5037` (run Maestro with
+`ADB_SERVER_SOCKET` unset). Gboard had collapsed to its floating handle; select
+`Show on-screen keyboard` from it, otherwise the PIN flows cannot tap `6`.
+
+- Callback redirect (057/061/067): share, `Close`, Capture recorded
+  `redirect_uri_visit_count: 1`.
+- HTTP 400 redirect (064): the Wallet never opens the `redirect_uri`
+  (RI-WALLET-023).
+- `fcaf-expect-request-rejected` (081): the `"true"` variant is shared and
+  recorded (`presentation_validated`, RI-WALLET-007); the `"yes"` variant is
+  answered with `invalid_request` and nothing is shared.
+- Status reference (084): the offer reaches `View details` and the probe
+  shares the `status: {}` credential; `oid4vp.malformed_status_credential_absent`
+  now fails (RI-WALLET-009).
+- aki no-match (TrustMechanisms 004/008, MainInteraction 004): the Wallet
+  shares a non-matching PID (RI-WALLET-022). Before upstream `2422e58` Capture
+  stored its own `invalid_request` instead of the Wallet's `vp_token`, so every
+  no-match validator passed; after the redeploy the session keeps the
+  `vp_token` (`vp_token_observed: true`) and `trusted_authorities_no_match`,
+  `no_match` and `oid4vp.no_presentation_returned` fail.

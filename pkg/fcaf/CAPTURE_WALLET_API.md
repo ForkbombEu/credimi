@@ -399,6 +399,17 @@ Raw form payloads are preserved in the presentation capture for fidelity. Treat 
 
 The session record additionally exposes `raw.authorization_request_jwt`, the exact signed Request Object returned to the Wallet, and `raw.request_uri_http`, the Wallet's Request URI retrieval method, headers with sensitive values redacted, and exact POST body when received. `raw.presentation_response_http` contains the received presentation response HTTP `method`, headers with sensitive values redacted, and exact body. `raw.presentation_response_verifier_http` captures the verifier reply's status, redacted headers, and exact body. The HTTP envelopes are retained for valid and invalid responses and are intentionally not shown as dedicated fields in the operator UI.
 
+`raw.presentation_response_decrypted` is always wallet-originated evidence, never an error
+constructed by Capture while verifying it. For `direct_post.jwt` and `dc_api.jwt`, it contains the
+decrypted Authorization Response JWE payload, including either `vp_token` or the Wallet's `error`,
+`error_description`, and `state`, even when verification fails. It is absent only when the response
+cannot be decrypted, including an intentionally `allow_undecryptable_response` session. For plain
+`direct_post` and `dc_api`, it contains the normalized posted Authorization Response when available;
+`raw.presentation_response` preserves the unmodified form or JSON members. `checks.vp_token_format_valid`
+and `vp_presentation_response_received.detail.vp_token_observed` describe whether that wallet
+payload carried a `vp_token`, independently of the verifier's subsequent result. Verifier-side
+failures remain in `checks.errors` and `raw.presentation_response_verifier_http`.
+
 ## Test-only chained OAuth server
 
 The authorization-code issuance flow uses an internal, auto-approving OAuth server between Credo and the issuer. These are test-service endpoints, not a general-purpose identity provider.
@@ -516,6 +527,18 @@ source test permits it.
   Client Identifier, one with the DID `kid` and a `decentralized_identifier`
   Client Identifier. `client_id_scheme: "verifier_attestation"` still returned
   `500 internal_error` (`there are no SAN-DNS names`).
+- Upstream `2422e58` (14/10/2026, fixes credimi-capture-wallet#10): before it,
+  a presentation that failed Credo verification left
+  `raw.presentation_response_decrypted` holding the error Credo built for the
+  verifier's own reply (`{"error": "invalid_request", ...}`) instead of the
+  Wallet's payload, for plain `direct_post` and for `direct_post.jwt` alike,
+  and `vp_token_observed` was `false`. A Wallet that shared a non-matching
+  credential therefore looked like a Wallet that refused, and negative FCAF
+  checks passed falsely (reproduced on the emulator with the
+  TrustMechanisms aki no-match request). Capture now decrypts the JWE itself
+  on failure. A failed presentation keeps its `vp_token` in
+  `raw.presentation_response_decrypted`, but `raw.decoded_presentations` is
+  still absent because Credo did not decode it.
 
 - Resynced from upstream master on 25/09/2026 (`5b03750`). Since the 22/09/2026
   sync (`6b94fa4`) the contract adds the SD-JWT VC `digest_algorithm` issuance
