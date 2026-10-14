@@ -65,6 +65,33 @@ func TestLoadMaterialsFindsCatalogAndSource(t *testing.T) {
 	require.NotEmpty(t, sources[testID].ExpectedResults)
 }
 
+func TestFCAFSourceURLAnchorsOnSourceHeading(t *testing.T) {
+	// Anchors observed on the FCAF test-cases page; each heading differs from
+	// the source file name the Credimi test ID comes from, or keeps a hyphen.
+	tests := []struct {
+		heading string
+		anchor  string
+	}{
+		{
+			heading: "WS_RP_DM_CredentialMetadata_CredentialStructure007",
+			anchor:  "ws_rp_dm_credentialmetadata_credentialstructure007",
+		},
+		{heading: "WS_RP_IA_Engagement_001", anchor: "ws_rp_ia_engagement_001"},
+		{
+			heading: "WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001",
+			anchor:  "ws_rp_dm_addressdata_emailaddress_pid_ietf-sd-jwt-vc_001",
+		},
+		{heading: "  Résumé -- (draft)  ", anchor: "resume-draft"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.heading, func(t *testing.T) {
+			require.Equal(t, fcafTestCasesURL+"#"+tt.anchor, fcafSourceURL(tt.heading))
+		})
+	}
+
+	require.Empty(t, fcafSourceURL(""))
+}
+
 func TestBuildDocumentAttachesPerTestVisualEvidence(t *testing.T) {
 	report := engine.Report{
 		ExecutedTests: []engine.ExecutedTest{
