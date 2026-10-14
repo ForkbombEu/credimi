@@ -27,12 +27,13 @@ assertions:
   input: evidence.session
   params:
     protocol: openid4vp-v1-unsigned
-    invoked: true
-- id: wallet_completed_the_presentation_without_a_signature_to_validate
-  validator: dcql.response_satisfies_constraints
+- id: wallet_processes_the_request_without_validating_signatures
+  validator: fcaf.not_applicable
   input: evidence.session
   params:
-    mode: credentials_match
+    reason: >-
+      source relevancy is EUDI_forbidden: an EUDI wallet must not support
+      processing an unsigned request without signature validation
 - id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

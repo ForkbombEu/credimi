@@ -15,15 +15,15 @@ normative_references:
     url: "https://openid.net/specs/openid-4-verifiable-presentations-1_0.html"
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.claims-omitted.outputs.dcql_exchange
+    from: pipeline.dcql.claims-omitted-mdoc.outputs.dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.claims-omitted.outputs.visual_evidence
+    from: pipeline.dcql.claims-omitted-mdoc.outputs.visual_evidence
 assertions:
   - id: no_pid_personal_data_is_disclosed
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange
     params:
-      mode: without_claim_disclosures
+      mode: mdoc_without_claim_disclosures
   - id: successful_interaction_is_recorded
     validator: evidence.non_empty
     input: evidence.visual_evidence

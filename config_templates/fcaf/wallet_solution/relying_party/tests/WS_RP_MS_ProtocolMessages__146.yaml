@@ -17,16 +17,14 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-146.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages-146.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__146_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
+- id: verifier_trusted_registry_entry_is_unavailable
+  validator: fcaf.skipped
   input: evidence.dcql_exchange
   params:
-    mode: invalid_client
-- id: ws_rp_ms_protocolmessages__146_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      needs a Wallet configured to resolve the client_id through a trusted
+      registry in which the Verifier is pre-registered; the reference Wallet
+      cannot be provisioned with a registry entry for a Capture verifier
 verdict:
   pass_when: all_assertions_pass

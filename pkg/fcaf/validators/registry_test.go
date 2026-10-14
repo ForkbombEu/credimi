@@ -46,6 +46,43 @@ func TestFCAFSkippedValidator(t *testing.T) {
 	require.Equal(t, StatusError, got.Status)
 }
 
+func TestFCAFNotApplicableValidator(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		params     map[string]any
+		wantStatus Status
+		wantMsg    string
+	}{
+		{
+			name:       "records the excluded feature",
+			params:     map[string]any{"reason": "source relevancy is EUDI_forbidden"}, //nolint:goconst
+			wantStatus: StatusNotApplicable,
+			wantMsg:    "source relevancy is EUDI_forbidden",
+		},
+		{
+			name:       "missing reason",
+			wantStatus: StatusError,
+			wantMsg:    "reason param is required",
+		},
+		{
+			name:       "empty reason",
+			params:     map[string]any{"reason": ""},
+			wantStatus: StatusError,
+			wantMsg:    "reason param is required",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FCAFNotApplicableValidator{}.Validate(
+				context.Background(),
+				Input{Params: tt.params},
+			)
+
+			require.Equal(t, tt.wantStatus, got.Status)
+			require.Equal(t, tt.wantMsg, got.Message)
+		})
+	}
+}
+
 func TestJSONFieldStringPrefixValidator(t *testing.T) {
 	v := JSONFieldStringPrefixValidator{}
 	input := Input{

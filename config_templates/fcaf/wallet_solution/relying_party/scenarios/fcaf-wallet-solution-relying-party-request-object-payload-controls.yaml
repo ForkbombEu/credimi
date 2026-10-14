@@ -32,7 +32,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: "${{ create-different-iss.outputs.body.deeplink }}" }
+    parameters: { deeplink: "${{ create-different-iss.outputs.body.deeplink }}" }
     action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
 - id: fetch-different-iss
   use: http-request
@@ -105,7 +105,7 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: "${{ create-unknown-parameter.outputs.body.deeplink }}" }
+    parameters: { deeplink: "${{ create-unknown-parameter.outputs.body.deeplink }}" }
     action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
 - id: fetch-unknown-parameter
   use: http-request

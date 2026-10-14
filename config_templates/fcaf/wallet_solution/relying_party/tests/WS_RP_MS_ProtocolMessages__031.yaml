@@ -16,18 +16,16 @@ normative_references:
     section: "5.1"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  presentation_request:
-    from: pipeline.wallet.protocol.request-uri-method-post.outputs.presentation_request
+  state_echo:
+    from: pipeline.wallet.protocol.request-uri-method-post.outputs.state_echo
   wallet_response:
     from: pipeline.wallet.protocol.request-uri-method-post.outputs.wallet_response
   visual_evidence:
     from: pipeline.wallet.protocol.request-uri-method-post.outputs.visual_evidence
 assertions:
-  - id: state_parameter_is_present
-    validator: json.field_required
-    input: evidence.presentation_request
-    params:
-      field: state
+  - id: state_parameter_is_returned_unchanged
+    validator: oid4vp.state_echoed
+    input: evidence.state_echo
   - id: wallet_processes_request
     validator: json.field_required
     input: evidence.wallet_response

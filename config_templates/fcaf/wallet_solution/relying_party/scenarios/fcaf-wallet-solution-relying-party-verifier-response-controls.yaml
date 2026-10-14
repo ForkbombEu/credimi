@@ -105,12 +105,77 @@ steps:
             claims: [{ path: [given_name] }]
       response_scenario:
         status: 400
+# 064: the verifier answers the Authorization Response with HTTP 400 and a JSON
+# body carrying a redirect_uri, and the source requires the Wallet to open it.
+# The reference Wallet parks on `Oups! Something went wrong / Verifier rejected
+# the response` whose only dismiss control is the X, so this flow dismisses that
+# screen and waits for Capture's `Presentation complete` page in the browser.
+# The page wait is `optional`: a Wallet that never opens the redirect_uri is
+# reported by `oid4vp.redirect_uri_visited` instead of failing this step and,
+# with it, the validation step that 066, 125 and 126 share through this scenario.
 - id: exercise-http-error-redirect-response
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { deeplink: "${{ create-http-error-redirect-response.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    parameters: { DEEPLINK: "${{ create-http-error-redirect-response.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp:
+          stopApp: true
+          clearState: false
+          permissions:
+            camera: allow
+            notifications: allow
+      - extendedWaitUntil:
+          visible: "Welcome back"
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+            - inputText: "12345"
+            - tapOn: "6"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - openLink:
+          link: "${DEEPLINK}"
+          autoVerify: false
+          browser: false
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Requested data"
+          commands:
+            - tapOn: "Share"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - inputText: "12345"
+            - tapOn: "6"
+      - extendedWaitUntil:
+          visible: "Oups! Something went wrong"
+          timeout: 30000
+      - takeScreenshot: "http-error-redirect-wallet-error"
+      # The X is the error screen's only dismiss control. If the tap leaves the
+      # screen in place, the Android Back gesture (which the Wallet's DC API
+      # error screen also accepts) is tried before the browser is awaited.
+      - tapOn:
+          point: "8%,9%"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Oups! Something went wrong"
+          commands:
+            - pressKey: Back
+      - extendedWaitUntil:
+          visible: "Presentation complete"
+          timeout: 30000
+          optional: true
+      - takeScreenshot: "http-error-redirect-visit"
 - id: fetch-http-error-redirect-response
   use: http-request
   with:

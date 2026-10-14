@@ -205,6 +205,18 @@ func TestOID4VPMalformedStatusCredentialAbsentValidator(t *testing.T) {
 			wantStatus: StatusPass,
 		},
 		{
+			name:       "wallet retained the token without a status claim",
+			value:      exchange(true, "CREDIMI-DEMO-CASE", statusToken(nil)),
+			shape:      "status_absent",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "a valid status is not an absent status",
+			value:      exchange(true, "CREDIMI-DEMO-CASE", valid),
+			shape:      "status_absent",
+			wantStatus: StatusPass,
+		},
+		{
 			name:       "wallet retained the token without a status_list",
 			value:      exchange(true, "CREDIMI-DEMO-CASE", noStatusList),
 			shape:      "missing_status_list",
@@ -308,6 +320,13 @@ func TestOID4VPMalformedStatusCredentialAbsentValidatorMDoc(t *testing.T) {
 	}{
 		{"wallet holds nothing", exchange(pinned), "missing_status_list", StatusPass},
 		{"only a valid duplicate", exchange(pinned, valid), "missing_status_list", StatusPass},
+		{
+			"token with no status element retained",
+			exchange(pinned, statusMDoc(nil)),
+			"status_absent",
+			StatusFail,
+		},
+		{"a valid status is not absent", exchange(pinned, valid), "status_absent", StatusPass},
 		{
 			"empty status map retained",
 			exchange(pinned, statusMDoc(map[string]any{})),

@@ -5,6 +5,7 @@ package validators
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,6 +20,23 @@ func capturedWalletResponse(value map[string]any) map[string]any {
 			},
 		},
 	}
+}
+
+// walletResponseWithMetadata adds the wallet_metadata the Wallet POSTed to the
+// Request URI, as Capture records it.
+func walletResponseWithMetadata(
+	t *testing.T,
+	response map[string]any,
+	metadata map[string]any,
+) map[string]any {
+	t.Helper()
+	encoded, err := json.Marshal(metadata)
+	require.NoError(t, err)
+	session := capturedWalletResponse(response)
+	session["observed"].(map[string]any)["request_uri_payload"] = map[string]any{
+		"value": map[string]any{"wallet_metadata": string(encoded)},
+	}
+	return session
 }
 
 func TestOID4VPErrorResponseRequiredValidator(t *testing.T) {
@@ -86,6 +104,62 @@ func TestOID4VPErrorResponseRequiredValidator(t *testing.T) {
 			name:   "evidence is not an object",
 			value:  "not-an-object",
 			params: map[string]any{"code": "invalid_scope"},
+			status: StatusFail,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__151: the source assumes the wallet
+			// does not support mso_mdoc; its own wallet_metadata says otherwise.
+			name: "wallet metadata declares the format the source assumes unsupported",
+			value: walletResponseWithMetadata(t, nil, map[string]any{
+				"vp_formats_supported": map[string]any{"mso_mdoc": map[string]any{}},
+			}),
+			params: map[string]any{
+				"code": "vp_formats_not_supported",
+				"not_applicable_when_wallet_supports_format": "mso_mdoc",
+			},
+			status: StatusNotApplicable,
+		},
+		{
+			name: "wallet presented the format the source assumes unsupported",
+			value: func() map[string]any {
+				session := capturedWalletResponse(map[string]any{
+					"vp_token": map[string]any{"pid_mdoc": []any{"a.b.c"}},
+				})
+				session["decoded_presentations"] = map[string]any{
+					"pid_mdoc": []any{map[string]any{"format": "mso_mdoc"}},
+				}
+				return session
+			}(),
+			params: map[string]any{
+				"code": "vp_formats_not_supported",
+				"not_applicable_when_wallet_supports_format": "mso_mdoc",
+			},
+			status: StatusNotApplicable,
+		},
+		{
+			name: "format absent from the metadata and the exact required error",
+			value: walletResponseWithMetadata(
+				t,
+				map[string]any{"error": "vp_formats_not_supported"},
+				map[string]any{"vp_formats_supported": map[string]any{"dc+sd-jwt": map[string]any{}}},
+			),
+			params: map[string]any{
+				"code": "vp_formats_not_supported",
+				"not_applicable_when_wallet_supports_format": "mso_mdoc",
+			},
+			status: StatusPass,
+		},
+		{
+			name: "format absent from the metadata and a different error",
+			value: walletResponseWithMetadata(
+				t,
+				map[string]any{"error": "invalid_request"},
+				map[string]any{"vp_formats_supported": map[string]any{"dc+sd-jwt": map[string]any{}}},
+			),
+			params: map[string]any{
+				"code": "vp_formats_not_supported",
+				"not_applicable_when_wallet_supports_format": "mso_mdoc",
+			},
 			status: StatusFail,
 		},
 	} {

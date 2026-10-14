@@ -20,13 +20,29 @@ evidence:
   visual_evidence:
     from: pipeline.credential-status.mdoc.outputs.visual_evidence
 assertions:
-# Capture issues no CWT Referenced Token. The mdoc Mobile Security Object carries
-# its status under the text key "status", not as a CWT claim at CBOR label
-# 65535, so cose.cwt_status_claim reports this evidence as blocked rather than
-# reading one encoding as the other.
-- id: status_claim_at_label_65535_holds_a_valid_status
-  validator: cose.cwt_status_claim
+# Token Status List 6.3: for an ISO mdoc the Status CBOR structure sits in the
+# Mobile Security Object under the recommended text label "status" (the mdoc
+# encoding of the CWT label-65535 claim). A valid structure is a Status map
+# holding a status_list map; the accepted token is presented by the Wallet.
+- id: status_claim_holds_a_status_cbor_map
+  validator: mdoc.mso_status_cbor_type
   input: evidence.pid_mdoc
+  params:
+    path: []
+    major_type: 5
+- id: status_map_holds_a_status_list
+  validator: mdoc.mso_status_member_present
+  input: evidence.pid_mdoc
+  params:
+    path:
+    - status_list
+- id: status_list_is_a_status_cbor_map
+  validator: mdoc.mso_status_cbor_type
+  input: evidence.pid_mdoc
+  params:
+    path:
+    - status_list
+    major_type: 5
 - id: accepted_token_is_presented_by_the_wallet
   validator: pid.mdoc_doc_type
   input: evidence.pid_mdoc

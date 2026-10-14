@@ -62,9 +62,10 @@ steps:
         pipeline.wallet.metadata.direct-post-jwt:
           output:
             authorization_request: ${{ get-presentation-result.outputs.body.authorization_request }}
+            capture_session: ${{ get-presentation-result.outputs.body }}
             dcql_exchange: ${{ get-presentation-result.outputs.body }}
             encrypted_response: ${{ get-presentation-result.outputs.body.observed.wallet_response.value.response }}
-            wallet_response: ${{ get-presentation-result.outputs.body }}
+            wallet_response: ${{ get-presentation-result.outputs.body.raw.presentation_response_decrypted }}
             visual_evidence: ${{ submit-direct-post-jwt.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}
             submit-direct-post-jwt: ${{ submit-direct-post-jwt.outputs }}

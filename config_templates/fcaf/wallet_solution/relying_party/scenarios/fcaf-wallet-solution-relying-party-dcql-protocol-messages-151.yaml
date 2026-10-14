@@ -1,4 +1,4 @@
-name: 'FCAF ProtocolMessages 151: vc+sd-jwt support without mso_mdoc prerequisite'
+name: 'FCAF ProtocolMessages 151: mso_mdoc-only request without mso_mdoc support'
 runtime:
   temporal:
     activity_options:
@@ -16,18 +16,20 @@ steps:
     headers:
       Content-Type: application/json
     body:
+      request_delivery: by_reference
+      request_uri_method: post
       response_mode: direct_post.jwt
       presentation_request:
         nonce: fcaf-151
         dcql_query:
           credentials:
-          - id: pid
-            format: vc+sd-jwt
+          - id: pid_mdoc
+            format: mso_mdoc
             meta:
-              vct_values:
-              - urn:eudi:pid:1
+              doctype_value: eu.europa.ec.eudi.pid.1
             claims:
             - path:
+              - eu.europa.ec.eudi.pid.1
               - given_name
 - id: exercise-wallet
   use: mobile-automation
@@ -52,4 +54,5 @@ steps:
       pipeline.dcql.protocol-messages-151:
         output:
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+          request_uri_payload: ${{ fetch-capture-session.outputs.body.observed.request_uri_payload.value }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

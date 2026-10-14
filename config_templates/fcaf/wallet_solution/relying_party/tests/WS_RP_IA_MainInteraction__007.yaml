@@ -19,7 +19,7 @@ evidence:
   pid_sdjwt_presentations:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.pid_sdjwt_presentations_valid_false
   visual_evidence:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_valid_false
 assertions:
   - id: wallet_processes_query_without_holder_binding_requirement
     validator: dcql.response_satisfies_constraints

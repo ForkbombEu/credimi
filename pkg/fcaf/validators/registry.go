@@ -24,6 +24,7 @@ func DefaultRegistry() (*Registry, error) {
 	return NewRegistry(
 		EvidencePresentValidator{},
 		FCAFSkippedValidator{},
+		FCAFNotApplicableValidator{},
 		EvidenceNonEmptyValidator{},
 		EvidenceMinimumItemsValidator{},
 		JSONFieldRequiredValidator{},
@@ -113,7 +114,6 @@ func DefaultRegistry() (*Registry, error) {
 		MDocMSOStatusCBORTypeValidator{},
 		MDocMSOStatusURIValidator{},
 		MDocMSOStatusListStructureValidator{},
-		COSECWTStatusClaimValidator{},
 		OID4VPMDocDeviceResponsePerQueryValidator{},
 		OID4VPWalletMetadataHashAlgorithmsValidator{},
 		OID4VPPresentedDigestAlgorithmsValidator{},
@@ -124,6 +124,7 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPWalletNonceMatchValidator{},
 		OID4VPWalletNonceMismatchValidator{},
 		OID4VPRequestURIRetrievalValidator{},
+		OID4VPStateEchoValidator{},
 		OID4VPRequestURINotRetrievedValidator{},
 		OID4VPUnsupportedResponseTypeValidator{},
 		OID4VPVerifierMetadataExclusiveValidator{},

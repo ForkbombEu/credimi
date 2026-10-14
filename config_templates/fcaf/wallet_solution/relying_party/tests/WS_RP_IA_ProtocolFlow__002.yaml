@@ -35,6 +35,8 @@ assertions:
 - id: presentation_matches_requested_credentials
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
+  params:
+    mode: credentials_match
 - id: presentation_was_accepted
   validator: json.field_equals
   input: evidence.session_checks

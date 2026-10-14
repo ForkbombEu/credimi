@@ -434,13 +434,11 @@ SAN-matching certificate. Until then 008–012 report `skipped` through
   shapes; `status_reference: malformed_uri` expresses only the unparseable one)
 - [ ] `WS_RP_SM_IssuerIntegrity__012` (an ISO mdoc revocation fixture; Capture
   publishes Token Status List allocation only)
-- [ ] `WS_RP_MS_Metadata__101`, `102` and `WS_RP_MS_CredentialFormats__032`
-  (a CWT Referenced Token with the Status claim at CBOR label 65535, and for
-  102 one without it. Capture issues only SD-JWT VC and ISO mdoc; the mdoc
-  Mobile Security Object keys its status by the text `"status"`, not label
-  65535. `cose.cwt_status_claim` reports the mdoc evidence as blocked. Upstream
-  `FCAF_FIXTURES.md` maps these tests to the mdoc configurations and
-  `FCAF_CAPABILITY_MATRIX.csv` rates them category A; blocked by decision)
+- [x] `WS_RP_MS_Metadata__101`, `102` and `WS_RP_MS_CredentialFormats__032`
+  (resolved 14/10/2026: Token Status List §6.3 places the mdoc Status CBOR
+  structure under the MSO text label `status`; 032 and 101 assert it with the
+  `mdoc.mso_status_*` validators, 102 issues an mdoc without status and probes
+  its rejection like the 092 family; `cose.cwt_status_claim` was removed)
 
 ### Blocked on Credimi-signed or profile-defined attestations
 

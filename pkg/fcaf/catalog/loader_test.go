@@ -70,17 +70,6 @@ func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
 	require.Len(t, selected, 615)
 }
 
-// knownUnsupportedDCQLModeTests use a DCQL mode the validator does not
-// support (format_mso_mdoc, or no mode at all), so they always end in Error.
-// Choosing the right mode needs the FCAF source; remove an entry once its
-// definition is fixed.
-var knownUnsupportedDCQLModeTests = map[string]bool{
-	"WS_RP_IA_ProtocolFlow__002":    true,
-	"WS_RP_SM_IssuerIntegrity__012": true,
-	"WS_RP_UC_Presentation__003":    true,
-	"WS_RP_UC_Presentation__004":    true,
-}
-
 // Every DCQL mode a catalog test uses must pass the validator's mode gate;
 // otherwise the test can only ever end in Error, whatever the wallet does.
 func TestCatalogDCQLAssertionModesAreSupported(t *testing.T) {
@@ -97,16 +86,6 @@ func TestCatalogDCQLAssertionModesAreSupported(t *testing.T) {
 			got := validator.Validate(context.Background(), validators.Input{
 				Params: assertion.Params,
 			})
-			if knownUnsupportedDCQLModeTests[id] {
-				require.Equalf(
-					t,
-					validators.StatusError,
-					got.Status,
-					"%s now passes the mode gate; remove it from knownUnsupportedDCQLModeTests",
-					id,
-				)
-				continue
-			}
 			require.NotEqualf(
 				t,
 				validators.StatusError,

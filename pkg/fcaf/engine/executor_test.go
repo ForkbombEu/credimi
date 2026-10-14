@@ -138,6 +138,47 @@ func TestEngineReportsUnbuildablePrerequisiteAsSkippedWithReason(t *testing.T) {
 	require.Equal(t, "needs an RS384 request key", report.ExecutedTests[0].Outcome.Reason)
 }
 
+func TestEngineReportsForbiddenFeatureAsNotApplicableWithReason(t *testing.T) {
+	cat := testCatalog("pipeline.pid.outputs.value", "fcaf.not_applicable")
+	test := cat.Tests["test-1"]
+	test.Assertions[0].Params = map[string]any{
+		"reason": "source relevancy is EUDI_forbidden: an EUDI wallet must not support the feature",
+	}
+	test.Assertions = append(test.Assertions, dsl.AssertionDefinition{
+		ID:        "request-shape-still-holds",
+		Validator: "evidence.present",
+		Input:     "evidence.value",
+	})
+	cat.Tests["test-1"] = test
+	fcafEngine, err := New(nil)
+	require.NoError(t, err)
+
+	report, err := fcafEngine.ExecuteCatalog(
+		context.Background(),
+		cat,
+		[]string{"test-1"},
+		"",
+		nil,
+		evidence.Bundle{PipelineOutputs: map[string]any{
+			"pipeline.pid": map[string]any{"output": map[string]any{"value": "session"}},
+		}},
+	)
+	report.PopulateDerivedViews()
+
+	require.NoError(t, err)
+	require.Equal(t, validators.StatusPass, report.Tests[0].Assertions[1].Status)
+	require.Equal(t, validators.StatusNotApplicable, report.Tests[0].Status)
+	require.Equal(t, 1, report.Summary.NotApplicable)
+	require.Zero(t, report.Summary.Fail)
+	require.Zero(t, report.Summary.Pass)
+	require.Equal(t, "skipped", report.ExecutedTests[0].Outcome.Status)
+	require.Equal(
+		t,
+		"source relevancy is EUDI_forbidden: an EUDI wallet must not support the feature",
+		report.ExecutedTests[0].Outcome.Reason,
+	)
+}
+
 func testCatalog(binding string, validator string) *catalog.Catalog {
 	return &catalog.Catalog{Tests: map[string]dsl.TestDefinition{
 		"test-1": {

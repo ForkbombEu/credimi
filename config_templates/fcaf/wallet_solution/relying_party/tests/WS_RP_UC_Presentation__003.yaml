@@ -17,11 +17,13 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.presentation.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.presentation.outputs.visual_evidence
 assertions:
-- id: ws_rp_uc_presentation__003_dcql_valid
-  validator: dcql.response_satisfies_constraints
+- id: wallet_processes_a_scope_based_presentation_request
+  validator: fcaf.not_applicable
   input: evidence.dcql_exchange
+  params:
+    reason: >-
+      source relevancy is EUDI_forbidden: an EUDI wallet must not support
+      scope-based presentation requests
 verdict:
   pass_when: all_assertions_pass

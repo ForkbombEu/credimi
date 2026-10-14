@@ -122,6 +122,28 @@ func (FCAFSkippedValidator) Validate(_ context.Context, input Input) Result {
 	return Result{Status: StatusSkipped, Message: params.Reason}
 }
 
+// FCAFNotApplicableValidator records that a requirement a source test states
+// for the Wallet is explicitly excluded for EUDI wallets. The test still runs
+// and keeps its evidence, but the Wallet-acceptance expectation reports not
+// applicable instead of a pass or a failure, so a Wallet that refuses the
+// excluded feature is not reported as being in breach of the source.
+type FCAFNotApplicableValidator struct{}
+
+func (FCAFNotApplicableValidator) ID() string { return "fcaf.not_applicable" }
+
+func (FCAFNotApplicableValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Reason string `json:"reason"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Reason == "" {
+		return Result{Status: StatusError, Message: "reason param is required"}
+	}
+	return Result{Status: StatusNotApplicable, Message: params.Reason}
+}
+
 type JSONFieldRequiredValidator struct{}
 
 func (JSONFieldRequiredValidator) ID() string {

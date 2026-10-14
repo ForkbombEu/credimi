@@ -6,8 +6,40 @@ package validators
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 )
+
+// decodeTransactionDataEntry decodes one entry of the Request Object's
+// transaction_data array. OpenID4VP 1.0 Section 5.1 encodes every entry as a
+// base64url string carrying a JSON object, so a conformant entry is decoded
+// here before it is inspected. A value that already is a JSON object is
+// returned as is, which also covers captures and callers that hold the decoded
+// form. An entry that is neither is a different defect than the one the
+// transaction_data validators look for, so every caller fails on it instead of
+// reporting the property it was asked to prove.
+func decodeTransactionDataEntry(value any) (map[string]any, bool) {
+	if object, ok := value.(map[string]any); ok {
+		return object, true
+	}
+	encoded, ok := value.(string)
+	if !ok {
+		return nil, false
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		decoded, err = base64.URLEncoding.DecodeString(encoded)
+		if err != nil {
+			return nil, false
+		}
+	}
+	var object map[string]any
+	if err := json.Unmarshal(decoded, &object); err != nil {
+		return nil, false
+	}
+	return object, true
+}
 
 // OID4VPTransactionDataCredentialIDsValidator verifies that every transaction
 // data credential ID is a DCQL Credential Query ID.
@@ -61,11 +93,14 @@ func (OID4VPTransactionDataCredentialIDsValidator) Validate(_ context.Context, i
 		}
 	}
 	for index, rawTransactionData := range transactionData {
-		entry, ok := normalizeJSONObject(rawTransactionData)
+		entry, ok := decodeTransactionDataEntry(rawTransactionData)
 		if !ok {
 			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("transaction_data[%d] is not an object", index),
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"transaction_data[%d] is not a base64url-encoded JSON object",
+					index,
+				),
 			}
 		}
 		if transactionType, _ := entry["type"].(string); transactionType == "" {

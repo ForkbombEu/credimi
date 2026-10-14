@@ -64,9 +64,58 @@ steps:
       id: callback-redirect-298d09a0-exercise-wallet
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 30000
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Requested data"
+                commands:
+                  - tapOn: "Share"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - extendedWaitUntil:
+                visible: ".*successfully shared.*"
+                timeout: 30000
+            - extendedWaitUntil:
+                visible: "Close"
+                timeout: 30000
+            - takeScreenshot: "callback-redirect-wallet-success"
+            - tapOn: "Close"
+            - extendedWaitUntil:
+                visible: "Presentation complete"
+                timeout: 30000
+                optional: true
+            - takeScreenshot: "callback-redirect-visit"
         parameters:
-            deeplink: ${{ callback-redirect-298d09a0-create-callback-session.outputs.body.deeplink }}
+            DEEPLINK: ${{ callback-redirect-298d09a0-create-callback-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: callback-redirect-298d09a0-fetch-callback-session
@@ -518,7 +567,6 @@ steps:
                 request_object:
                     set:
                         /client_id: redirect_uri:${fixture.verifier_url}/openid4vp/response
-                        /response_uri: ${fixture.verifier_url}/openid4vp/response
                 verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -1033,6 +1081,97 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ credential-status-list-13040d21-create-status-mdoc-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-status-list-13040d21-create-statusless-mdoc-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            fixture_id: pid_family_name_uppercase
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: false
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-status-list-13040d21-offer-statusless-mdoc-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ credential-status-list-13040d21-create-statusless-mdoc-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-status-list-13040d21-fetch-statusless-mdoc-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-status-list-13040d21-create-statusless-mdoc-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-status-list-13040d21-create-statusless-mdoc-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-CASE
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                          multiple: true
+                nonce: credential-status-statusless-mdoc
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: credential-status-list-13040d21-probe-statusless-mdoc-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-status-list-13040d21-probe-statusless-mdoc-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ credential-status-list-13040d21-probe-statusless-mdoc-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-status-list-13040d21-probe-statusless-mdoc
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+        parameters:
+            deeplink: ${{ credential-status-list-13040d21-create-statusless-mdoc-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-status-list-13040d21-fetch-statusless-mdoc-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ credential-status-list-13040d21-create-statusless-mdoc-probe.outputs.body.session_id }}
     - continue_on_error: true
       id: dc-api-invalid-signature-32532cf2-reset-wallet
       use: mobile-automation
@@ -3753,6 +3892,59 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claims-omitted-119046a6-create-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-claims-omitted-119046a6-create-mdoc-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - format: mso_mdoc
+                      id: pididentity02
+                      meta:
+                        doctype_value: eu.europa.ec.eudi.pid.1
+            nonce: fcaf-017-claims-omitted-mdoc
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-claims-omitted-119046a6-present-mdoc-without-claims-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-claims-omitted-119046a6-present-mdoc-without-claims-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-claims-omitted-119046a6-present-mdoc-without-claims-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claims-omitted-119046a6-present-mdoc-without-claims
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-claims-omitted-119046a6-create-mdoc-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claims-omitted-119046a6-get-mdoc-presentation-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claims-omitted-119046a6-create-mdoc-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-claims-path-no-match-00a99e11-reset-wallet
       use: mobile-automation
@@ -7663,7 +7855,7 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-session
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true-issue-pid-session
       use: http-request
       with:
         body:
@@ -7675,15 +7867,23 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true-issue-pid
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true-issue-pid-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-2-session
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-true.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false-issue-pid-session
       use: http-request
       with:
         body:
@@ -7695,15 +7895,23 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-2
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false-issue-pid
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-2-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false-issue-pid-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-3-session
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-false.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero-issue-pid-session
       use: http-request
       with:
         body:
@@ -7715,1039 +7923,124 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-3
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero-issue-pid
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-3-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero-issue-pid-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-4-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-4
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-4-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-zero.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-5-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-5
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-5-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-one.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-6-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-6
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-6-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-random.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-7-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-7
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-7-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-true.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-8-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-8
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-8-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-false.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-9-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-9
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-9-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-true.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-10-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-10
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-10-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-false.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-11-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-11
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-11-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-yes.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-12-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-12
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-12-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-no.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-13-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-13
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-13-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-y.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-14-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-14
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-14-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-n.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-15-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-15
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-15-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-zero.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-16-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-16
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants-issue-pid-16-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-one.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-random
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-            - extendedWaitUntil:
-                visible: "Welcome back|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - waitForAnimationToEnd:
-                timeout: 3000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Home|Documents|Welcome, .*"
-                timeout: 30000
-            - openLink:
-                link: "${DEEPLINK_VALID_TRUE}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - tapOn: "Share"
-            - extendedWaitUntil:
-                visible: "PIN"
-                timeout: 30000
-            - extendedWaitUntil:
-                visible: "1"
-                timeout: 30000
-            - inputText: "12345"
-            - tapOn: "6"
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-valid-true"
-            - tapOn: "Close"
-            - openLink:
-                link: "${DEEPLINK_VALID_FALSE}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - tapOn: "Share"
-            - extendedWaitUntil:
-                visible: "PIN"
-                timeout: 30000
-            - extendedWaitUntil:
-                visible: "1"
-                timeout: 30000
-            - inputText: "12345"
-            - tapOn: "6"
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-valid-false"
-            - tapOn: "Close"
-            - openLink:
-                link: "${DEEPLINK_NUMBER_ZERO}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-number-zero"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-number-zero-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_NUMBER_ONE}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-number-one"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-number-one-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_NUMBER_RANDOM}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-number-random"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-number-random-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_TRUE}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-true"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-true-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_FALSE}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-false"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-false-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_UPPERCASE_TRUE}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-uppercase-true"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-uppercase-true-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_UPPERCASE_FALSE}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-uppercase-false"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-uppercase-false-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_YES}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-yes"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-yes-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_NO}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-no"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-no-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_Y}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-y"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-y-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_N}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-n"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-n-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_ZERO}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-zero"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-zero-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_ONE}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-one"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-one-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
-            - openLink:
-                link: "${DEEPLINK_STRING_RANDOM}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-                timeout: 30000
-            - takeScreenshot: "fcaf-081-string-random"
-            - runFlow:
-                when:
-                  visible: "Requested data"
-                commands:
-                - tapOn: "Share"
-                - runFlow:
-                    when:
-                      visible: "PIN"
-                    commands:
-                    - extendedWaitUntil:
-                        visible: "1"
-                        timeout: 30000
-                    - inputText: "12345"
-                    - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*|Oups! Something went wrong"
-                    timeout: 60000
-                - takeScreenshot: "fcaf-081-string-random-presented"
-                - tapOn:
-                    text: "Close|TRY AGAIN"
-                    optional: true
-            - runFlow:
-                when:
-                  visible: "Data sharing request"
-                commands:
-                - tapOn: "Cancel"
-                - waitForAnimationToEnd:
-                    timeout: 3000
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
-            DEEPLINK_NUMBER_ONE: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-one.outputs.body.deeplink }}
-            DEEPLINK_NUMBER_RANDOM: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-random.outputs.body.deeplink }}
-            DEEPLINK_NUMBER_ZERO: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-zero.outputs.body.deeplink }}
-            DEEPLINK_STRING_FALSE: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-false.outputs.body.deeplink }}
-            DEEPLINK_STRING_N: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-n.outputs.body.deeplink }}
-            DEEPLINK_STRING_NO: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-no.outputs.body.deeplink }}
-            DEEPLINK_STRING_ONE: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-one.outputs.body.deeplink }}
-            DEEPLINK_STRING_RANDOM: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-random.outputs.body.deeplink }}
-            DEEPLINK_STRING_TRUE: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-true.outputs.body.deeplink }}
-            DEEPLINK_STRING_UPPERCASE_FALSE: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-false.outputs.body.deeplink }}
-            DEEPLINK_STRING_UPPERCASE_TRUE: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-true.outputs.body.deeplink }}
-            DEEPLINK_STRING_Y: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-y.outputs.body.deeplink }}
-            DEEPLINK_STRING_YES: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-yes.outputs.body.deeplink }}
-            DEEPLINK_STRING_ZERO: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-zero.outputs.body.deeplink }}
-            DEEPLINK_VALID_FALSE: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-false.outputs.body.deeplink }}
-            DEEPLINK_VALID_TRUE: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-true.outputs.body.deeplink }}
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-random.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-fetch-number-zero
@@ -10405,6 +9698,49 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-meta-vct-mismatch-1d861c4c-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: dcql-meta-vct-mismatch-1d861c4c-create-matching-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                            - path:
+                                - family_name
+                          format: dc+sd-jwt
+                          id: pididentity01
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-dcql-meta-vct-match
+            request_delivery: by_reference
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-meta-vct-mismatch-1d861c4c-present-matching-meta
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-meta-vct-mismatch-1d861c4c-create-matching-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-meta-vct-mismatch-1d861c4c-get-matching-presentation-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-meta-vct-mismatch-1d861c4c-create-matching-presentation.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-metadata-b66a6319-reset-wallet
       use: mobile-automation
       with:
@@ -11226,10 +10562,12 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                    transaction_data:
-                        - data: dGVzdA==
-                          type: unsupported_type
                 nonce: fcaf-135
+                transaction_data:
+                    - credential_ids:
+                        - pid
+                      data: dGVzdA==
+                      type: unsupported_type
             response_mode: direct_post.jwt
         expected_status: 201
         headers:
@@ -11293,10 +10631,12 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                    transaction_data:
-                        - data: AAAA
-                          type: invalid
                 nonce: fcaf-136
+                transaction_data:
+                    - credential_ids:
+                        - pid
+                      data: AAAA
+                      type: invalid
             response_mode: direct_post.jwt
         expected_status: 201
         headers:
@@ -11693,12 +11033,12 @@ steps:
       use: http-request
       with:
         body:
+            client_metadata:
+                vp_formats:
+                    jwt_vp_json:
+                        alg:
+                            - ES256
             presentation_request:
-                client_metadata:
-                    vp_formats:
-                        jwt_vp_json:
-                            alg:
-                                - ES256
                 dcql_query:
                     credentials:
                         - claims:
@@ -11762,9 +11102,9 @@ steps:
       use: http-request
       with:
         body:
+            client_metadata:
+                authorization_encrypted_response_alg: RSA-OAEP
             presentation_request:
-                client_metadata:
-                    authorization_encrypted_response_alg: RSA-OAEP
                 dcql_query:
                     credentials:
                         - claims:
@@ -11897,13 +11237,15 @@ steps:
                     credentials:
                         - claims:
                             - path:
+                                - eu.europa.ec.eudi.pid.1
                                 - given_name
-                          format: vc+sd-jwt
-                          id: pid
+                          format: mso_mdoc
+                          id: pid_mdoc
                           meta:
-                            vct_values:
-                                - urn:eudi:pid:1
+                            doctype_value: eu.europa.ec.eudi.pid.1
                 nonce: fcaf-151
+            request_delivery: by_reference
+            request_uri_method: post
             response_mode: direct_post.jwt
         expected_status: 201
         headers:
@@ -11915,7 +11257,7 @@ steps:
       use: http-request
       with:
         body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
             issuer_configuration_id: eu-pid-device-bound
         expected_status: 201
         headers:
@@ -11967,10 +11309,12 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                    transaction_data:
-                        - data: Zm9v
-                          type: invalid_specialized
                 nonce: fcaf-153
+                transaction_data:
+                    - credential_ids:
+                        - pid
+                      data: Zm9v
+                      type: invalid_specialized
             response_mode: direct_post.jwt
         expected_status: 201
         headers:
@@ -12034,11 +11378,11 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                    transaction_data:
-                        - data: dGVzdA==
-                          type: supported_type
-                          unknown_field: bad
                 nonce: fcaf-154
+                transaction_data:
+                    - data: dGVzdA==
+                      type: supported_type
+                      unknown_field: bad
             response_mode: direct_post.jwt
         expected_status: 201
         headers:
@@ -12102,10 +11446,10 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                    transaction_data:
-                        - data: 12345
-                          type: supported_type
                 nonce: fcaf-155
+                transaction_data:
+                    - data: 12345
+                      type: supported_type
             response_mode: direct_post.jwt
         expected_status: 201
         headers:
@@ -12169,11 +11513,11 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                    transaction_data:
-                        - amount: -1
-                          data: dGVzdA==
-                          type: supported_type
                 nonce: fcaf-156
+                transaction_data:
+                    - amount: -1
+                      data: dGVzdA==
+                      type: supported_type
             response_mode: direct_post.jwt
         expected_status: 201
         headers:
@@ -12237,11 +11581,11 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                    transaction_data:
-                        - currency: EUR
-                          data: dGVzdA==
-                          type: supported_type
                 nonce: fcaf-157
+                transaction_data:
+                    - currency: EUR
+                      data: dGVzdA==
+                      type: supported_type
             response_mode: direct_post.jwt
         expected_status: 201
         headers:
@@ -12305,12 +11649,12 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                    transaction_data:
-                        - credential_ids:
-                            - other_credential
-                          data: dGVzdA==
-                          type: payment
                 nonce: fcaf-158
+                transaction_data:
+                    - credential_ids:
+                        - other_credential
+                      data: dGVzdA==
+                      type: payment
             response_mode: direct_post.jwt
         expected_status: 201
         headers:
@@ -12381,12 +11725,12 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                    transaction_data:
-                        - credential_ids:
-                            - unavailable_cred
-                          data: dGVzdA==
-                          type: payment
                 nonce: fcaf-159
+                transaction_data:
+                    - credential_ids:
+                        - unavailable_cred
+                      data: dGVzdA==
+                      type: payment
             response_mode: direct_post.jwt
         expected_status: 201
         headers:
@@ -13783,7 +13127,7 @@ steps:
       id: dcql-trusted-authorities-no-match-9fc63a53-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ dcql-trusted-authorities-no-match-9fc63a53-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -17523,7 +16867,6 @@ steps:
       with:
         body:
             client_id_scheme: decentralized_identifier
-            client_metadata: {}
             presentation_request:
                 dcql_query:
                     credentials:
@@ -17536,6 +16879,11 @@ steps:
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
                 nonce: fcaf-did-empty-metadata
+            request_mutation:
+                request_object:
+                    set:
+                        /client_metadata: {}
+                verification_applies: false
             response_mode: direct_post.jwt
             response_type: vp_token
         expected_status: 201
@@ -21199,7 +20547,7 @@ steps:
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ request-object-payload-controls-aefde1c6-create-different-iss.outputs.body.deeplink }}
+            deeplink: ${{ request-object-payload-controls-aefde1c6-create-different-iss.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-payload-controls-aefde1c6-fetch-different-iss
@@ -21311,7 +20659,7 @@ steps:
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
         parameters:
-            DEEPLINK: ${{ request-object-payload-controls-aefde1c6-create-unknown-parameter.outputs.body.deeplink }}
+            deeplink: ${{ request-object-payload-controls-aefde1c6-create-unknown-parameter.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-payload-controls-aefde1c6-fetch-unknown-parameter
@@ -22206,40 +21554,13 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: response-encryption-metadata-7d34f50e-metadata-probe
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                nonce: response-encryption-metadata-probe
-            request_delivery: by_reference
-            request_uri_method: post
-            response_mode: direct_post.jwt
-            response_type: vp_token
-            scheme: haip-vp://
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
       id: response-encryption-metadata-7d34f50e-create-capture-session
       use: http-request
       with:
         body:
             client_metadata:
-                authorization_encrypted_response_enc: A256GCM
-                jwks: ${{ response-encryption-metadata-7d34f50e-metadata-probe.outputs.body.authorization_request.client_metadata.jwks }}
+                encrypted_response_enc_values_supported:
+                    - A256GCM
             presentation_request:
                 dcql_query:
                     credentials:
@@ -23203,8 +22524,12 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                nonce: null
             request_delivery: by_reference
+            request_mutation:
+                request_object:
+                    unset:
+                        - /nonce
+                verification_applies: false
             request_uri_method: post
             response_mode: direct_post.jwt
             response_type: vp_token
@@ -24322,9 +23647,58 @@ steps:
       id: unknown-parameter-controls-e7438d99-exercise-unknown-response-parameter
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 30000
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Requested data"
+                commands:
+                  - tapOn: "Share"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - extendedWaitUntil:
+                visible: ".*successfully shared.*"
+                timeout: 30000
+            - extendedWaitUntil:
+                visible: "Close"
+                timeout: 30000
+            - takeScreenshot: "unknown-response-parameter-wallet-success"
+            - tapOn: "Close"
+            - extendedWaitUntil:
+                visible: "Presentation complete"
+                timeout: 30000
+                optional: true
+            - takeScreenshot: "unknown-response-parameter-visit"
         parameters:
-            deeplink: ${{ unknown-parameter-controls-e7438d99-create-unknown-response-parameter.outputs.body.deeplink }}
+            DEEPLINK: ${{ unknown-parameter-controls-e7438d99-create-unknown-response-parameter.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: unknown-parameter-controls-e7438d99-fetch-unknown-response-parameter
@@ -24391,9 +23765,58 @@ steps:
       id: unknown-parameter-controls-e7438d99-exercise-unknown-request-and-response-parameter
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 30000
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Requested data"
+                commands:
+                  - tapOn: "Share"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - extendedWaitUntil:
+                visible: ".*successfully shared.*"
+                timeout: 30000
+            - extendedWaitUntil:
+                visible: "Close"
+                timeout: 30000
+            - takeScreenshot: "unknown-request-and-response-parameter-wallet-success"
+            - tapOn: "Close"
+            - extendedWaitUntil:
+                visible: "Presentation complete"
+                timeout: 30000
+                optional: true
+            - takeScreenshot: "unknown-request-and-response-parameter-visit"
         parameters:
-            deeplink: ${{ unknown-parameter-controls-e7438d99-create-unknown-request-and-response-parameter.outputs.body.deeplink }}
+            DEEPLINK: ${{ unknown-parameter-controls-e7438d99-create-unknown-request-and-response-parameter.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: unknown-parameter-controls-e7438d99-fetch-unknown-request-and-response-parameter
@@ -24413,14 +23836,14 @@ steps:
       use: http-request
       with:
         body:
-            dcql_query: null
             presentation_request:
+                dcql_query: null
                 nonce: protocol-messages-unknown-scope
+                scopes:
+                    - urn:credimi:fcaf:unknown-scope
             request_delivery: by_reference
             response_mode: direct_post.jwt
             response_type: vp_token
-            scopes:
-                - urn:credimi:fcaf:unknown-scope
         expected_status: 201
         headers:
             Content-Type: application/json
@@ -24726,9 +24149,66 @@ steps:
       id: verifier-response-controls-f1d3d4c9-exercise-http-error-redirect-response
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 30000
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Requested data"
+                commands:
+                  - tapOn: "Share"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - extendedWaitUntil:
+                visible: "Oups! Something went wrong"
+                timeout: 30000
+            - takeScreenshot: "http-error-redirect-wallet-error"
+            # The X is the error screen's only dismiss control. If the tap leaves the
+            # screen in place, the Android Back gesture (which the Wallet's DC API
+            # error screen also accepts) is tried before the browser is awaited.
+            - tapOn:
+                point: "8%,9%"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Oups! Something went wrong"
+                commands:
+                  - pressKey: Back
+            - extendedWaitUntil:
+                visible: "Presentation complete"
+                timeout: 30000
+                optional: true
+            - takeScreenshot: "http-error-redirect-visit"
         parameters:
-            deeplink: ${{ verifier-response-controls-f1d3d4c9-create-http-error-redirect-response.outputs.body.deeplink }}
+            DEEPLINK: ${{ verifier-response-controls-f1d3d4c9-create-http-error-redirect-response.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: verifier-response-controls-f1d3d4c9-fetch-http-error-redirect-response
@@ -25017,6 +24497,9 @@ steps:
             pipeline.credential-status.mdoc:
                 output:
                     pid_mdoc: ${{ credential-status-list-13040d21-fetch-status-mdoc-presentation.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
+                    statusless_issuance: ${{ credential-status-list-13040d21-fetch-statusless-mdoc-issuance.outputs.body | optional }}
+                    statusless_probe: ${{ credential-status-list-13040d21-fetch-statusless-mdoc-probe.outputs.body | optional }}
+                    statusless_visual_evidence: ${{ credential-status-list-13040d21-probe-statusless-mdoc.outputs.flow_output.maestro_screenshot_urls | optional }}
                     visual_evidence: ${{ credential-status-list-13040d21-present-status-mdoc.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.credential-status.sdjwt:
                 output:
@@ -25171,6 +24654,13 @@ steps:
                     get-presentation-result: ${{ dcql-claims-omitted-119046a6-get-presentation-result.outputs | optional }}
                     present-without-claims: ${{ dcql-claims-omitted-119046a6-present-without-claims.outputs | optional }}
                     visual_evidence: ${{ dcql-claims-omitted-119046a6-present-without-claims.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.claims-omitted-mdoc:
+                output:
+                    create-presentation: ${{ dcql-claims-omitted-119046a6-create-mdoc-presentation.outputs | optional }}
+                    dcql_exchange: ${{ dcql-claims-omitted-119046a6-get-mdoc-presentation-result.outputs.body | optional }}
+                    get-presentation-result: ${{ dcql-claims-omitted-119046a6-get-mdoc-presentation-result.outputs | optional }}
+                    present-without-claims: ${{ dcql-claims-omitted-119046a6-present-mdoc-without-claims.outputs | optional }}
+                    visual_evidence: ${{ dcql-claims-omitted-119046a6-present-mdoc-without-claims.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.claims-path-no-match:
                 output:
                     dcql_exchange: ${{ dcql-claims-path-no-match-00a99e11-session.outputs.body | optional }}
@@ -25405,8 +24895,6 @@ steps:
                     visual_evidence: ${{ dcql-format-mso-mdoc-fe537db0-present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.holder-binding-type-boundary:
                 output:
-                    create-valid-false: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-false.outputs | optional }}
-                    create-valid-true: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-true.outputs | optional }}
                     dcql_exchange: ${{ dcql-holder-binding-type-boundary-3ff3e611-get-valid-false.outputs.body | optional }}
                     exchange_number_one: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-number-one.outputs.body.raw.authorization_request_delivered | optional }}
                     exchange_number_one_session: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-number-one.outputs.body | optional }}
@@ -25438,26 +24926,24 @@ steps:
                     exchange_string_zero_session: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-zero.outputs.body | optional }}
                     exchange_valid_false: ${{ dcql-holder-binding-type-boundary-3ff3e611-get-valid-false.outputs.body | optional }}
                     exchange_valid_true: ${{ dcql-holder-binding-type-boundary-3ff3e611-get-valid-true.outputs.body | optional }}
-                    exercise-holder-binding-variants: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants.outputs | optional }}
-                    fetch-number-one: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-number-one.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-number-random: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-number-random.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-number-zero: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-number-zero.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-false: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-false.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-n: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-n.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-no: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-no.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-one: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-one.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-random: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-random.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-true: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-true.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-uppercase-false: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-uppercase-false.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-uppercase-true: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-uppercase-true.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-y: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-y.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-yes: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-yes.outputs.body.raw.authorization_request_delivered | optional }}
-                    fetch-string-zero: ${{ dcql-holder-binding-type-boundary-3ff3e611-fetch-string-zero.outputs.body.raw.authorization_request_delivered | optional }}
-                    get-valid-false: ${{ dcql-holder-binding-type-boundary-3ff3e611-get-valid-false.outputs | optional }}
-                    get-valid-true: ${{ dcql-holder-binding-type-boundary-3ff3e611-get-valid-true.outputs | optional }}
                     pid_sdjwt_presentations_valid_false: ${{ dcql-holder-binding-type-boundary-3ff3e611-get-valid-false.outputs.body.raw.presentation_response_decrypted.vp_token.pididentity01 | optional }}
                     pid_sdjwt_presentations_valid_true: ${{ dcql-holder-binding-type-boundary-3ff3e611-get-valid-true.outputs.body.raw.presentation_response_decrypted.vp_token.pididentity01 | optional }}
-                    visual_evidence: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-holder-binding-variants.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_number_one: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_number_random: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_number_zero: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_false: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_n: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_no: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_one: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_random: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-random.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_true: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_uppercase_false: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_uppercase_true: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_y: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_yes: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_string_zero: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_valid_false: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence_valid_true: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.interaction-engagement:
                 output:
                     dcql_exchange: ${{ dcql-interaction-engagement-d1f27e9f-fetch-capture-session.outputs.body | optional }}
@@ -25525,6 +25011,13 @@ steps:
                     dcql_exchange: ${{ dcql-meta-omitted-3812c5e1-session.outputs.body | optional }}
                     request_object: ${{ dcql-meta-omitted-3812c5e1-request.outputs.body | optional }}
                     visual_evidence: ${{ dcql-meta-omitted-3812c5e1-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.dcql.meta-vct-match:
+                output:
+                    create-matching-presentation: ${{ dcql-meta-vct-mismatch-1d861c4c-create-matching-presentation.outputs | optional }}
+                    dcql_exchange: ${{ dcql-meta-vct-mismatch-1d861c4c-get-matching-presentation-result.outputs.body | optional }}
+                    get-matching-presentation-result: ${{ dcql-meta-vct-mismatch-1d861c4c-get-matching-presentation-result.outputs | optional }}
+                    present-matching-meta: ${{ dcql-meta-vct-mismatch-1d861c4c-present-matching-meta.outputs | optional }}
+                    visual_evidence: ${{ dcql-meta-vct-mismatch-1d861c4c-present-matching-meta.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.meta-vct-mismatch:
                 output:
                     create-presentation: ${{ dcql-meta-vct-mismatch-1d861c4c-create-presentation.outputs | optional }}
@@ -25657,6 +25150,7 @@ steps:
             pipeline.dcql.protocol-messages-151:
                 output:
                     dcql_exchange: ${{ dcql-protocol-messages-151-02b4e313-fetch-capture-session.outputs.body | optional }}
+                    request_uri_payload: ${{ dcql-protocol-messages-151-02b4e313-fetch-capture-session.outputs.body.observed.request_uri_payload.value | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-151-02b4e313-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.protocol-messages-153:
                 output:
@@ -25892,12 +25386,12 @@ steps:
                     visual_evidence: ${{ dcql-user-authentication-failed-9c3ae613-fail-user-authentication.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.user-denied-consent:
                 output:
+                    capture_session: ${{ dcql-user-denied-consent-ee29c457-fetch-result.outputs.body | optional }}
                     create-presentation: ${{ dcql-user-denied-consent-ee29c457-create-presentation.outputs | optional }}
                     dcql_exchange: ${{ dcql-user-denied-consent-ee29c457-fetch-result.outputs.body | optional }}
                     deny-consent: ${{ dcql-user-denied-consent-ee29c457-deny-consent.outputs | optional }}
                     fetch-result: ${{ dcql-user-denied-consent-ee29c457-fetch-result.outputs | optional }}
                     visual_evidence: ${{ dcql-user-denied-consent-ee29c457-deny-consent.outputs.flow_output.maestro_screenshot_urls | optional }}
-                    wallet_response: ${{ dcql-user-denied-consent-ee29c457-fetch-result.outputs.body | optional }}
             pipeline.dcql.valid-id-alphanumeric:
                 output:
                     create-presentation: ${{ dcql-valid-id-alphanumeric-0dd94705-create-presentation.outputs | optional }}
@@ -26282,7 +25776,6 @@ steps:
                 output:
                     capture_session: ${{ response-encryption-metadata-7d34f50e-fetch-capture-session.outputs.body | optional }}
                     replacement_encryption_evidence:
-                        generated_jwks: ${{ response-encryption-metadata-7d34f50e-metadata-probe.outputs.body.authorization_request.client_metadata.jwks | optional }}
                         presentation_response_http: ${{ response-encryption-metadata-7d34f50e-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
                         request_object: ${{ response-encryption-metadata-7d34f50e-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-metadata-7d34f50e-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
@@ -26291,18 +25784,21 @@ steps:
                     capture_session: ${{ response-encryption-a128gcm-57bacf6d-fetch-capture-session.outputs.body | optional }}
                     encryption_evidence:
                         presentation_response_http: ${{ response-encryption-a128gcm-57bacf6d-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
+                        request_object: ${{ response-encryption-a128gcm-57bacf6d-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-a128gcm-57bacf6d-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.response-encryption.a256gcm:
                 output:
                     capture_session: ${{ response-encryption-a256gcm-a9a43850-fetch-capture-session.outputs.body | optional }}
                     encryption_evidence:
                         presentation_response_http: ${{ response-encryption-a256gcm-a9a43850-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
+                        request_object: ${{ response-encryption-a256gcm-a9a43850-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-a256gcm-a9a43850-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.response-encryption.both-gcm:
                 output:
                     capture_session: ${{ response-encryption-both-gcm-76a19a08-fetch-capture-session.outputs.body | optional }}
                     encryption_evidence:
                         presentation_response_http: ${{ response-encryption-both-gcm-76a19a08-fetch-capture-session.outputs.body.raw.presentation_response_http | optional }}
+                        request_object: ${{ response-encryption-both-gcm-76a19a08-fetch-capture-session.outputs.body.raw.authorization_request_jwt | optional }}
                     visual_evidence: ${{ response-encryption-both-gcm-76a19a08-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.response-encryption.jwk-alg-mismatch:
                 output:
@@ -26406,13 +25902,14 @@ steps:
             pipeline.wallet.metadata.direct-post-jwt:
                 output:
                     authorization_request: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body.authorization_request | optional }}
+                    capture_session: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body | optional }}
                     create-presentation: ${{ metadata-direct-post-jwt-bf077ae9-create-presentation.outputs | optional }}
                     dcql_exchange: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body | optional }}
                     encrypted_response: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body.observed.wallet_response.value.response | optional }}
                     get-presentation-result: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs | optional }}
                     submit-direct-post-jwt: ${{ metadata-direct-post-jwt-bf077ae9-submit-direct-post-jwt.outputs | optional }}
                     visual_evidence: ${{ metadata-direct-post-jwt-bf077ae9-submit-direct-post-jwt.outputs.flow_output.maestro_screenshot_urls | optional }}
-                    wallet_response: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body | optional }}
+                    wallet_response: ${{ metadata-direct-post-jwt-bf077ae9-get-presentation-result.outputs.body.raw.presentation_response_decrypted | optional }}
             pipeline.wallet.metadata.signed-x509-hash:
                 output:
                     capture_session: ${{ signed-x509-hash-metadata-ec05d944-fetch-capture-session.outputs.body | optional }}
@@ -26453,7 +25950,7 @@ steps:
                     signed_request_object: ${{ request-uri-method-get-91ef716c-get-presentation-result.outputs.body.raw.authorization_request_jwt | optional }}
                     submit-request-uri-method-get: ${{ request-uri-method-get-91ef716c-submit-request-uri-method-get.outputs | optional }}
                     visual_evidence: ${{ request-uri-method-get-91ef716c-submit-request-uri-method-get.outputs.flow_output.maestro_screenshot_urls | optional }}
-                    wallet_response: ${{ request-uri-method-get-91ef716c-get-presentation-result.outputs.body | optional }}
+                    wallet_response: ${{ request-uri-method-get-91ef716c-get-presentation-result.outputs.body.raw.presentation_response_decrypted | optional }}
             pipeline.wallet.protocol.request-uri-method-post:
                 output:
                     capture_session: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body | optional }}
@@ -26461,21 +25958,25 @@ steps:
                     dcql_exchange: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body | optional }}
                     get-presentation-result: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs | optional }}
                     presentation_request: ${{ request-uri-method-post-11b1acd0-create-presentation.outputs.body | optional }}
-                    request_object: ${{ request-uri-method-post-11b1acd0-create-presentation.outputs.body.request | optional }}
-                    request_uri_payload: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body.request_uri_payload | optional }}
+                    request_object: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body.raw.authorization_request_jwt | optional }}
+                    request_uri_payload: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body.observed.request_uri_payload.value | optional }}
                     session_checks: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body.checks | optional }}
                     signed_request_object: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body.raw.authorization_request_jwt | optional }}
+                    state_echo:
+                        request_object: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body.raw.authorization_request_jwt | optional }}
+                        response: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body.raw.presentation_response_decrypted | optional }}
                     submit-request-uri-method-post: ${{ request-uri-method-post-11b1acd0-submit-request-uri-method-post.outputs | optional }}
                     visual_evidence: ${{ request-uri-method-post-11b1acd0-submit-request-uri-method-post.outputs.flow_output.maestro_screenshot_urls | optional }}
-                    wallet_response: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body | optional }}
+                    wallet_response: ${{ request-uri-method-post-11b1acd0-get-presentation-result.outputs.body.raw.presentation_response_decrypted | optional }}
             pipeline.wallet.session-binding.valid-nonce:
                 output:
                     create-presentation: ${{ session-binding-valid-nonce-aa3a1f9c-create-presentation.outputs | optional }}
                     dcql_exchange: ${{ session-binding-valid-nonce-aa3a1f9c-get-presentation-result.outputs.body | optional }}
                     get-presentation-result: ${{ session-binding-valid-nonce-aa3a1f9c-get-presentation-result.outputs | optional }}
+                    session_checks: ${{ session-binding-valid-nonce-aa3a1f9c-get-presentation-result.outputs.body.checks | optional }}
                     submit-valid-nonce-presentation: ${{ session-binding-valid-nonce-aa3a1f9c-submit-valid-nonce-presentation.outputs | optional }}
                     visual_evidence: ${{ session-binding-valid-nonce-aa3a1f9c-submit-valid-nonce-presentation.outputs.flow_output.maestro_screenshot_urls | optional }}
-                    wallet_response: ${{ session-binding-valid-nonce-aa3a1f9c-get-presentation-result.outputs.body | optional }}
+                    wallet_response: ${{ session-binding-valid-nonce-aa3a1f9c-get-presentation-result.outputs.body.raw.presentation_response_decrypted | optional }}
             pipeline.wallet.supportive.redirect-uri:
                 output:
                     capture_session: ${{ supportive-redirect-uri-9f399357-get-presentation-result.outputs.body | optional }}
@@ -26488,7 +25989,8 @@ steps:
             pipeline.wallet.supportive.signed-request-without-request-uri:
                 output:
                     dcql_exchange: ${{ supportive-signed-request-without-re-042dcbe8-get-presentation-result.outputs.body | optional }}
-                    request_object: ${{ supportive-signed-request-without-re-042dcbe8-create-presentation.outputs.body.request | optional }}
+                    outer_request: ${{ supportive-signed-request-without-re-042dcbe8-get-presentation-result.outputs.body.raw.outer_request_delivered | optional }}
+                    request_object: ${{ supportive-signed-request-without-re-042dcbe8-get-presentation-result.outputs.body.raw.outer_request_delivered.request | optional }}
                     visual_evidence: ${{ supportive-signed-request-without-re-042dcbe8-submit-haip-by-value-request.outputs.flow_output.maestro_screenshot_urls | optional }}
         suite: wallet_solution/relying_party
         test_ids:

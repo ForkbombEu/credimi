@@ -69,7 +69,36 @@ func (f *FinallyDefinition) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// keepTimestampScalarsAsStrings retags YAML `!!timestamp` scalars as strings so
+// their literal text survives decoding. Step inputs are forwarded to activities
+// as JSON, where a date-like scalar has no timestamp type: decoding it to
+// time.Time would silently rewrite the author's `2012-03-04` into
+// `2012-03-04T00:00:00Z` the moment the body is marshalled.
+func keepTimestampScalarsAsStrings(node *yaml.Node) {
+	seen := map[*yaml.Node]struct{}{}
+	var walk func(*yaml.Node)
+	walk = func(n *yaml.Node) {
+		if n == nil {
+			return
+		}
+		if _, ok := seen[n]; ok {
+			return
+		}
+		seen[n] = struct{}{}
+		if n.Kind == yaml.ScalarNode && n.Tag == "!!timestamp" {
+			n.Tag = "!!str"
+		}
+		walk(n.Alias)
+		for _, child := range n.Content {
+			walk(child)
+		}
+	}
+	walk(node)
+}
+
 func (s *StepInputs) UnmarshalYAML(value *yaml.Node) error {
+	keepTimestampScalarsAsStrings(value)
+
 	var tmp map[string]any
 	if err := value.Decode(&tmp); err != nil {
 		return fmt.Errorf("invalid step inputs: %w", err)

@@ -28,7 +28,7 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: request_rejected
+    mode: invalid_request_required
 - id: ws_rp_ms_protocolmessages__015_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

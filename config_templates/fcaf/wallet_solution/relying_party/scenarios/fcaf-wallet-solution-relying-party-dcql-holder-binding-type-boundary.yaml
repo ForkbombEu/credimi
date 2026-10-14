@@ -665,772 +665,118 @@ steps:
                 - path:
                   - family_name
         verification_applies: false
-- id: exercise-holder-binding-variants
+- id: exercise-valid-true
   use: mobile-automation
   with:
     version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
     parameters:
-      DEEPLINK_VALID_TRUE: ${{ create-valid-true.outputs.body.deeplink }}
-      DEEPLINK_VALID_FALSE: ${{ create-valid-false.outputs.body.deeplink }}
-      DEEPLINK_NUMBER_ZERO: ${{ create-number-zero.outputs.body.deeplink }}
-      DEEPLINK_NUMBER_ONE: ${{ create-number-one.outputs.body.deeplink }}
-      DEEPLINK_NUMBER_RANDOM: ${{ create-number-random.outputs.body.deeplink }}
-      DEEPLINK_STRING_TRUE: ${{ create-string-true.outputs.body.deeplink }}
-      DEEPLINK_STRING_FALSE: ${{ create-string-false.outputs.body.deeplink }}
-      DEEPLINK_STRING_UPPERCASE_TRUE: ${{ create-string-uppercase-true.outputs.body.deeplink }}
-      DEEPLINK_STRING_UPPERCASE_FALSE: ${{ create-string-uppercase-false.outputs.body.deeplink }}
-      DEEPLINK_STRING_YES: ${{ create-string-yes.outputs.body.deeplink }}
-      DEEPLINK_STRING_NO: ${{ create-string-no.outputs.body.deeplink }}
-      DEEPLINK_STRING_Y: ${{ create-string-y.outputs.body.deeplink }}
-      DEEPLINK_STRING_N: ${{ create-string-n.outputs.body.deeplink }}
-      DEEPLINK_STRING_ZERO: ${{ create-string-zero.outputs.body.deeplink }}
-      DEEPLINK_STRING_ONE: ${{ create-string-one.outputs.body.deeplink }}
-      DEEPLINK_STRING_RANDOM: ${{ create-string-random.outputs.body.deeplink }}
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp:
-          stopApp: true
-          clearState: false
-      - extendedWaitUntil:
-          visible: "Welcome back|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Home|Documents|Welcome, .*"
-          timeout: 30000
-      - openLink:
-          link: "${DEEPLINK_VALID_TRUE}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Data sharing request"
-          timeout: 100000
-      - tapOn: "Share"
-      - extendedWaitUntil:
-          visible: "PIN"
-          timeout: 30000
-      - extendedWaitUntil:
-          visible: "1"
-          timeout: 30000
-      - inputText: "12345"
-      - tapOn: "6"
-      - extendedWaitUntil:
-          visible: ".*successfully shared.*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-valid-true"
-      - tapOn: "Close"
-      - openLink:
-          link: "${DEEPLINK_VALID_FALSE}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Data sharing request"
-          timeout: 100000
-      - tapOn: "Share"
-      - extendedWaitUntil:
-          visible: "PIN"
-          timeout: 30000
-      - extendedWaitUntil:
-          visible: "1"
-          timeout: 30000
-      - inputText: "12345"
-      - tapOn: "6"
-      - extendedWaitUntil:
-          visible: ".*successfully shared.*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-valid-false"
-      - tapOn: "Close"
-      - openLink:
-          link: "${DEEPLINK_NUMBER_ZERO}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-number-zero"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-number-zero-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_NUMBER_ONE}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-number-one"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-number-one-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_NUMBER_RANDOM}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-number-random"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-number-random-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_TRUE}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-true"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-true-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_FALSE}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-false"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-false-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_UPPERCASE_TRUE}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-uppercase-true"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-uppercase-true-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_UPPERCASE_FALSE}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-uppercase-false"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-uppercase-false-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_YES}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-yes"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-yes-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_NO}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-no"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-no-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_Y}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-y"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-y-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_N}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-n"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-n-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_ZERO}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-zero"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-zero-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_ONE}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-one"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-one-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
-      - openLink:
-          link: "${DEEPLINK_STRING_RANDOM}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-          - extendedWaitUntil:
-              visible: "1"
-              timeout: 30000
-          - inputText: "12345"
-          - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
-          timeout: 30000
-      - takeScreenshot: "fcaf-081-string-random"
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - extendedWaitUntil:
-                  visible: "1"
-                  timeout: 30000
-              - inputText: "12345"
-              - tapOn: "6"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: "fcaf-081-string-random-presented"
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
+      deeplink: ${{ create-valid-true.outputs.body.deeplink }}
+- id: exercise-valid-false
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    parameters:
+      deeplink: ${{ create-valid-false.outputs.body.deeplink }}
+- id: exercise-number-zero
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-number-zero.outputs.body.deeplink }}
+- id: exercise-number-one
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-number-one.outputs.body.deeplink }}
+- id: exercise-number-random
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-number-random.outputs.body.deeplink }}
+- id: exercise-string-true
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-true.outputs.body.deeplink }}
+- id: exercise-string-false
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-false.outputs.body.deeplink }}
+- id: exercise-string-uppercase-true
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-uppercase-true.outputs.body.deeplink }}
+- id: exercise-string-uppercase-false
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-uppercase-false.outputs.body.deeplink }}
+- id: exercise-string-yes
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-yes.outputs.body.deeplink }}
+- id: exercise-string-no
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-no.outputs.body.deeplink }}
+- id: exercise-string-y
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-y.outputs.body.deeplink }}
+- id: exercise-string-n
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-n.outputs.body.deeplink }}
+- id: exercise-string-zero
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-zero.outputs.body.deeplink }}
+- id: exercise-string-one
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-one.outputs.body.deeplink }}
+- id: exercise-string-random
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string-random.outputs.body.deeplink }}
 - id: fetch-number-zero
   use: http-request
   with:
@@ -1542,55 +888,51 @@ steps:
       pipeline.dcql.holder-binding-type-boundary:
         output:
           dcql_exchange: ${{ get-valid-false.outputs.body }}
-          visual_evidence: ${{ exercise-holder-binding-variants.outputs.flow_output.maestro_screenshot_urls }}
           exchange_valid_true: ${{ get-valid-true.outputs.body }}
           pid_sdjwt_presentations_valid_true: ${{ get-valid-true.outputs.body.raw.presentation_response_decrypted.vp_token.pididentity01 }}
+          visual_evidence_valid_true: ${{ exercise-valid-true.outputs.flow_output.maestro_screenshot_urls }}
           exchange_valid_false: ${{ get-valid-false.outputs.body }}
           pid_sdjwt_presentations_valid_false: ${{ get-valid-false.outputs.body.raw.presentation_response_decrypted.vp_token.pididentity01 }}
+          visual_evidence_valid_false: ${{ exercise-valid-false.outputs.flow_output.maestro_screenshot_urls }}
           exchange_number_zero: ${{ fetch-number-zero.outputs.body.raw.authorization_request_delivered }}
-          exchange_number_one: ${{ fetch-number-one.outputs.body.raw.authorization_request_delivered }}
-          exchange_number_random: ${{ fetch-number-random.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_true: ${{ fetch-string-true.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_false: ${{ fetch-string-false.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_uppercase_true: ${{ fetch-string-uppercase-true.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_uppercase_false: ${{ fetch-string-uppercase-false.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_yes: ${{ fetch-string-yes.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_no: ${{ fetch-string-no.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_y: ${{ fetch-string-y.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_n: ${{ fetch-string-n.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_zero: ${{ fetch-string-zero.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_one: ${{ fetch-string-one.outputs.body.raw.authorization_request_delivered }}
-          exchange_string_random: ${{ fetch-string-random.outputs.body.raw.authorization_request_delivered }}
-          create-valid-true: ${{ create-valid-true.outputs }}
-          create-valid-false: ${{ create-valid-false.outputs }}
-          fetch-number-zero: ${{ fetch-number-zero.outputs.body.raw.authorization_request_delivered }}
-          fetch-number-one: ${{ fetch-number-one.outputs.body.raw.authorization_request_delivered }}
-          fetch-number-random: ${{ fetch-number-random.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-true: ${{ fetch-string-true.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-false: ${{ fetch-string-false.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-uppercase-true: ${{ fetch-string-uppercase-true.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-uppercase-false: ${{ fetch-string-uppercase-false.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-yes: ${{ fetch-string-yes.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-no: ${{ fetch-string-no.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-y: ${{ fetch-string-y.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-n: ${{ fetch-string-n.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-zero: ${{ fetch-string-zero.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-one: ${{ fetch-string-one.outputs.body.raw.authorization_request_delivered }}
-          fetch-string-random: ${{ fetch-string-random.outputs.body.raw.authorization_request_delivered }}
-          exercise-holder-binding-variants: ${{ exercise-holder-binding-variants.outputs }}
-          get-valid-true: ${{ get-valid-true.outputs }}
-          get-valid-false: ${{ get-valid-false.outputs }}
           exchange_number_zero_session: ${{ fetch-number-zero.outputs.body }}
+          visual_evidence_number_zero: ${{ exercise-number-zero.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_number_one: ${{ fetch-number-one.outputs.body.raw.authorization_request_delivered }}
           exchange_number_one_session: ${{ fetch-number-one.outputs.body }}
+          visual_evidence_number_one: ${{ exercise-number-one.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_number_random: ${{ fetch-number-random.outputs.body.raw.authorization_request_delivered }}
           exchange_number_random_session: ${{ fetch-number-random.outputs.body }}
+          visual_evidence_number_random: ${{ exercise-number-random.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_true: ${{ fetch-string-true.outputs.body.raw.authorization_request_delivered }}
           exchange_string_true_session: ${{ fetch-string-true.outputs.body }}
+          visual_evidence_string_true: ${{ exercise-string-true.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_false: ${{ fetch-string-false.outputs.body.raw.authorization_request_delivered }}
           exchange_string_false_session: ${{ fetch-string-false.outputs.body }}
+          visual_evidence_string_false: ${{ exercise-string-false.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_uppercase_true: ${{ fetch-string-uppercase-true.outputs.body.raw.authorization_request_delivered }}
           exchange_string_uppercase_true_session: ${{ fetch-string-uppercase-true.outputs.body }}
+          visual_evidence_string_uppercase_true: ${{ exercise-string-uppercase-true.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_uppercase_false: ${{ fetch-string-uppercase-false.outputs.body.raw.authorization_request_delivered }}
           exchange_string_uppercase_false_session: ${{ fetch-string-uppercase-false.outputs.body }}
+          visual_evidence_string_uppercase_false: ${{ exercise-string-uppercase-false.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_yes: ${{ fetch-string-yes.outputs.body.raw.authorization_request_delivered }}
           exchange_string_yes_session: ${{ fetch-string-yes.outputs.body }}
+          visual_evidence_string_yes: ${{ exercise-string-yes.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_no: ${{ fetch-string-no.outputs.body.raw.authorization_request_delivered }}
           exchange_string_no_session: ${{ fetch-string-no.outputs.body }}
+          visual_evidence_string_no: ${{ exercise-string-no.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_y: ${{ fetch-string-y.outputs.body.raw.authorization_request_delivered }}
           exchange_string_y_session: ${{ fetch-string-y.outputs.body }}
+          visual_evidence_string_y: ${{ exercise-string-y.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_n: ${{ fetch-string-n.outputs.body.raw.authorization_request_delivered }}
           exchange_string_n_session: ${{ fetch-string-n.outputs.body }}
+          visual_evidence_string_n: ${{ exercise-string-n.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_zero: ${{ fetch-string-zero.outputs.body.raw.authorization_request_delivered }}
           exchange_string_zero_session: ${{ fetch-string-zero.outputs.body }}
+          visual_evidence_string_zero: ${{ exercise-string-zero.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_one: ${{ fetch-string-one.outputs.body.raw.authorization_request_delivered }}
           exchange_string_one_session: ${{ fetch-string-one.outputs.body }}
+          visual_evidence_string_one: ${{ exercise-string-one.outputs.flow_output.maestro_screenshot_urls }}
+          exchange_string_random: ${{ fetch-string-random.outputs.body.raw.authorization_request_delivered }}
           exchange_string_random_session: ${{ fetch-string-random.outputs.body }}
+          visual_evidence_string_random: ${{ exercise-string-random.outputs.flow_output.maestro_screenshot_urls }}

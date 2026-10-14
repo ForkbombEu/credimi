@@ -27,11 +27,13 @@ assertions:
     params:
       field: client_id
       prefix: "redirect_uri:"
-  - id: wallet_processes_plain_redirect_uri_request
-    validator: json.field_required
+  - id: wallet_accepts_the_plain_redirect_uri_client_identifier
+    validator: fcaf.not_applicable
     input: evidence.wallet_response
     params:
-      field: vp_token
+      reason: >-
+        source relevancy is EUDI_forbidden: an EUDI wallet must not support the
+        redirect_uri: Client Identifier Prefix
   - id: visual_evidence_is_stored
     validator: evidence.non_empty
     input: evidence.visual_evidence

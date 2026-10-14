@@ -57,6 +57,7 @@ steps:
       pipeline_outputs:
         pipeline.wallet.supportive.signed-request-without-request-uri:
           output:
-            request_object: ${{ create-presentation.outputs.body.request }}
+            request_object: ${{ get-presentation-result.outputs.body.raw.outer_request_delivered.request }}
+            outer_request: ${{ get-presentation-result.outputs.body.raw.outer_request_delivered }}
             dcql_exchange: ${{ get-presentation-result.outputs.body }}
             visual_evidence: ${{ submit-haip-by-value-request.outputs.flow_output.maestro_screenshot_urls }}

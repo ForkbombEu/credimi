@@ -75,6 +75,18 @@ wallet and claim-bearing queries. The wallet shows an error and records only
 - `WS_RP_IA_MainInteraction__034`: a `required: true` set whose option needs a
   credential the wallet lacks (`The requested document is not available`).
 
+Added 14/10/2026, from run `fcaf_assessment_4t9hxzgxlf.json`:
+
+- `WS_RP_MS_ProtocolMessages__147`: the request asks for a credential the wallet
+  cannot hold and the source requires `error=access_denied`; the wallet shows
+  its unavailable-document screen and `Go Back`/`Cancel` posts nothing. The
+  session records no error (confirmed again after the test moved to
+  `access_denied_required`).
+- `WS_RP_MS_ProtocolMessages__015`: no `invalid_request` for a non-array
+  `dcql_query.credentials`; the session records no error and no `vp_token`
+  [INFERENCE: the converted test's failure is the missing error response, not a
+  wrong code].
+
 Other DCQL refusals in the same run were posted as `invalid_request`
 (ProtocolMessages 058, 061–063, 065, 066, 068, 069, 098), so the verifier
 accepts the response class.
@@ -331,6 +343,13 @@ the query invalid and the wallet rejects it.
 - Test: `WS_RP_MS_ProtocolMessages__081` fails on the four
   `*_no_presentation_returned` assertions for those strings.
 
+Extended 14/10/2026: after the per-variant split of
+`scenarios/fcaf-wallet-solution-relying-party-dcql-holder-binding-type-boundary.yaml`
+(each variant is now its own wallet step with its own session and screenshots),
+081 fails only through these four variants — the strings `true`, `false`,
+`TRUE`, `FALSE`. The numeric values (`0`, `1`, random) and the other strings
+(`yes`, `no`, `Y`, `N`, `0`, `1`, random) are rejected and pass.
+
 ## RI-WALLET-008: Plain direct_post response mode is refused
 
 ### Summary
@@ -362,6 +381,19 @@ the wallet to POST the Authorization Response and follow the returned
 - Test: `WS_RP_IA_Supportive__001` fails for this wallet. With
   `direct_post.jwt` the same wallet posts and follows the `redirect_uri`, but
   that is not the response mode the source specifies.
+
+Added 14/10/2026 (unverified): the Wallet follows a returned `redirect_uri` only
+after the user dismisses its terminal screen (the `Close` tap of
+`scenarios/fcaf-wallet-solution-relying-party-supportive-redirect-uri.yaml`),
+which is why the 4t9hxzgxlf run recorded no redirect visit for
+`WS_RP_IA_MainInteraction__057`, `061`, `067`, `064` and
+`WS_RP_MS_ProtocolMessages__127`, `128` — their steps drove
+`fcaf-exercise-wallet-generic`, which screenshots that screen and never dismisses
+it. Those steps now dismiss it and await Capture's `Presentation complete` page.
+If a run with the dismissal-enabled flow still records no visit, those tests
+become wallet defects and need their own entry; `WS_RP_IA_MainInteraction__064`
+additionally needs the Wallet to parse `redirect_uri` out of the verifier's HTTP
+400 reply, which no run has observed yet.
 
 ## MOCK-VERIFIER-002: Beta signs decentralized_identifier requests with the X.509 key
 
@@ -415,3 +447,504 @@ delivered `response_uri` without `redirect_uri`.
 - `WS_RP_IA_MainInteraction__057`, `061`, `067`, `WS_RP_IA_Supportive__001`,
   and `WS_RP_MS_ProtocolMessages__127`, `128` are no longer rejected for this
   reason. None has a reference-Wallet run since the fix.
+
+## RI-WALLET-009: A malformed Token Status List reference is not rejected
+
+### Summary
+
+When the issuer embeds a malformed `status` structure in a credential, the
+reference Android wallet accepts and stores the credential instead of rejecting
+it, and never shows its no-match screen for a probe query that targets it.
+
+### Reproduction
+
+Run `fcaf_assessment_4t9hxzgxlf.json` (13/10/2026, production Capture,
+`https://capture-wallet.credimi.io`): issue each malformed `status_reference`
+with `status_list_enabled: true`, offer the credential, then probe with a DCQL
+query for the issued `document_number`.
+
+| Test | `status_reference` | fixture | probe |
+| --- | --- | --- | --- |
+| `WS_RP_MS_Metadata__084` | `status_without_status_list` | `pid_family_name_uppercase` | `document_number = CREDIMI-DEMO-CASE` |
+| `WS_RP_MS_Metadata__086` | `negative_index` | `pid_family_name_trailing_space` | `CREDIMI-DEMO-SPACE` |
+| `WS_RP_MS_Metadata__087` | `missing_index` | `pid_locality_diacritics` | `CREDIMI-DEMO-UMLAUT` |
+| `WS_RP_MS_Metadata__089` | `malformed_uri` | `pid_locality_no_diacritics` | `CREDIMI-DEMO-NOUMLAUT` |
+| `WS_RP_MS_Metadata__090` | `missing_uri` | `pid_multiple_nationalities` | `CREDIMI-DEMO-ARRAY` |
+| `WS_RP_MS_Metadata__092`/`__096`/`__097`/`__099`/`__100` | the same five shapes as mdoc (`urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required`) | — | `doctype`/namespace `eu.europa.ec.eudi.pid.1` |
+
+### Observed
+
+- The offer flow ends on the wallet's "Document issued" success screen — the
+  screenshot
+  `status_reference_rejection_..._probe_status_without_status_list_issue_pid_credential_added_*.png`
+  shows the stored credential card with `View details` — so the flow's
+  `assertNotVisible: "View details"` is what fails.
+- The stored credential is then offered for the probe query. In
+  `WS_RP_MS_Metadata__100`'s probe record the session shows
+  `status: request_retrieved`, `observed.wallet_response.value: null` and
+  `checks.errors: []`; the protocol probe passes vacuously on the empty session,
+  and the failing assertion is the missing rejection evidence
+  (`evidence value is empty`) [INFERENCE: the run's evidence is consistent with
+  "the wallet kept the credential", not with a rejected issuance].
+
+### Expected
+
+The source requires the Wallet to reject a credential whose status reference
+cannot be resolved, and to present none of it for the probe. Capture applied
+every malformed `status_reference` (both formats), so no service gap blocked
+these tests.
+
+### FCAF Impact
+
+- Tests: `WS_RP_MS_Metadata__084`, `086`, `087`, `089`, `090`, `092`, `096`,
+  `097`, `099`, `100`.
+- Extended 14/10/2026: `WS_RP_MS_Metadata__102` — a COSE/ISO mdoc Referenced
+  Token whose Mobile Security Object carries no `status` element at all
+  (`status_list_enabled: false`, fixture `pid_family_name_uppercase`,
+  `document_number` `CREDIMI-DEMO-CASE`) is accepted and stored the same way;
+  the wallet shows the issuance success screen and offers the stored credential
+  on a `document_number` probe instead of rejecting the issuance.
+
+## RI-WALLET-010: A DCQL request-evaluation error is shown but never returned
+
+### Summary
+
+For a request whose DCQL query is malformed, the reference Android wallet either
+renders its own error page naming the defect or stops at its no-match screen,
+and posts nothing: no `invalid_request` (or `access_denied`) Authorization Error
+Response reaches the verifier.
+
+### Reproduction
+
+Run `fcaf_assessment_4t9hxzgxlf.json` (13/10/2026, production Capture): run the
+`fcaf-wallet-solution-relying-party-dcql-*` scenarios whose signed `dcql_query`
+carries one malformed member (claim `id`, claim `path`, claim `values`,
+duplicate claim ids), unlock the wallet and open the deeplink.
+
+### Observed
+
+The wallet shows the defect on screen and the session records no error response:
+
+- `WS_RP_MS_ProtocolMessages__107` — no-match screen
+  (`The requested document is not available in your EUDI Wallet`), nothing
+  posted; its source requires `error=access_denied`.
+- `...__108` — `Oups! Something went wrong / Unknown claim ids`.
+- `...__110` — `... / Within a CredentialQuery, the same id of claims MUST NOT be present more than once`.
+- `...__111` — `... / Value cannot be be empty`.
+- `...__112` — `... / The value must be a non-empty string consisting of alphanumeric, underscore (_) or hyphen (-) characters`.
+- `...__114` — `... / Failed requirement`.
+- `...__120` — `... / Only string, null, int can be used`.
+- `...__121` — `... / Index should be non-negative`.
+- `...__123` — the same UI error page, nothing posted.
+- `WS_RP_SH_Encoding_TextualEncoding__007` — `... / Can only select from object or array of objects`.
+- `...__009` — `Element class kotlinx.serialization.json.b… is not a JsonArray`.
+- `...__010` — `Element class rr4 (Kotlin reflection is not available) is not a JsonArray`.
+- `...__012` — `... / Only string, null, int can be used`.
+- `...__018` — `... / ClaimPaths for MSO MDoc based formats must have exactly two elements`.
+- `...__019` — `... / ClaimPaths for MSO MDoc based formats must contain only Claim ClaimPathElements`.
+- `...__013`, `...__016`, `...__020` — no error text: `The requested document is not available in your EUDI Wallet` with `Share` disabled, then stop.
+- `WS_RP_MS_ProtocolMessages__015` — no `invalid_request` for a non-array
+  `dcql_query.credentials` [INFERENCE: the run records no error and no
+  `vp_token`; the converted test's failure is the missing response].
+
+In every case `raw.presentation_response_decrypted` is absent. Screenshot names
+are listed in `fcaf-4t9hxzgxlf-failure-review.md`.
+
+### Expected
+
+The sources require the Wallet to reject the request with `invalid_request` (or,
+for 107, `access_denied`) instead of stopping locally. The same Capture verifier
+recorded real Wallet error responses for the sibling controls 058, 061–063, 065,
+066, 068, 069, 096, 098, 113, 115 and 122, so the response class is accepted.
+
+### FCAF Impact
+
+- Tests: `WS_RP_MS_ProtocolMessages__015`, `107`, `108`, `110`, `111`, `112`,
+  `114`, `120`, `121`, `123`; `WS_RP_SH_Encoding_TextualEncoding__007`, `009`,
+  `010`, `012`, `013`, `016`, `018`, `019`, `020`.
+- The request-shape assertions pass; the wallet fails the error-response
+  assertion. Same mechanism as RI-WALLET-001 (credential_sets refusals and
+  `147`), RI-WALLET-002 (Client Identifier Prefixes) and RI-WALLET-003
+  (malformed `client_metadata`).
+
+## RI-WALLET-011: A null array selector is not rejected on arrays of objects
+
+### Summary
+
+A DCQL claim path that selects inside an array of objects with an invalid
+element (a `null` component) is not rejected: the wallet fails after the user
+approves sharing and never answers the verifier.
+
+### Reproduction
+
+Run the degree-credential claims-path scenarios of
+`WS_RP_SH_Encoding_TextualEncoding__002`, `__008` and `__011` against production
+Capture (`fcaf_assessment_4t9hxzgxlf.json`, 13/10/2026).
+
+### Observed
+
+- `002`/`008`: `captured evidence does not contain vp_token`; no
+  `…present_degree_credential…` screenshot exists for the session, while the
+  issuance screenshot does.
+- `011`: the `dcql_degree_index_selector_…_present_degree_credential_…png`
+  screenshot shows the full `Data sharing request / Fake Verifier` consent
+  screen with `Share` enabled, and the step's `visual_evidence` is empty
+  [INFERENCE: the wallet stopped after `Share`, before posting anything].
+
+No error response reaches the verifier in any of the three sessions.
+
+### Expected
+
+The source requires the selector to resolve or the request to be rejected with
+an error response; a silent stop is neither.
+
+### FCAF Impact
+
+- Tests: `WS_RP_SH_Encoding_TextualEncoding__002`, `__008`, `__011`.
+
+## RI-WALLET-012: A non-URL-safe nonce is accepted and a credential is presented
+
+### Summary
+
+The reference Android wallet accepts an Authorization Request whose `nonce` is
+not URL-safe and presents a credential, instead of rejecting the request with
+`invalid_request`.
+
+### Reproduction
+
+13/10/2026, production Capture, emulator: run
+`scenarios/fcaf-wallet-solution-relying-party-session-binding-invalid-nonce.yaml`
+(`WS_RP_SM_SessionBinding__003`), whose signed Request Object carries the
+verbatim nonce `fcaf nonce/!`.
+
+### Observed
+
+`wallet returned vp_token, expected error "invalid_request"` — the session
+contains a non-empty `vp_token`. The precondition (the exact nonce in the
+delivered request) passed on the same session.
+
+### Expected
+
+The source requires `invalid_request` without a presentation.
+
+### FCAF Impact
+
+- Test: `WS_RP_SM_SessionBinding__003`.
+
+## RI-WALLET-013: An unusable verifier encryption JWK is not refused
+
+### Summary
+
+When the verifier's `client_metadata` publishes an encryption JWK the wallet
+cannot use according to HAIP — an `alg` that is not bare `ECDH-ES`, or no bare
+`ECDH-ES` key at all — the reference Android wallet does not return
+`invalid_request`: it either answers anyway or stops silently.
+
+### Reproduction
+
+13/10/2026, production Capture, emulator, with
+`allow_undecryptable_response: true`:
+
+- `WS_RP_SM_SessionEncryption__003` —
+  `fcaf-wallet-solution-relying-party-response-encryption-jwk-alg-mismatch`
+  (`alg: ECDH-ES+A256KW`; HAIP pins the JWE `alg` to bare `ECDH-ES`, so the
+  wallet must refuse rather than substitute it).
+- `WS_RP_SM_SessionEncryption__006` —
+  `fcaf-wallet-solution-relying-party-response-encryption-no-ecdh-es-jwk` (a
+  single valid P-256 `use: enc` JWK with `alg: ECDH-ES+A256KW`, i.e. no bare
+  `ECDH-ES` key).
+
+### Observed
+
+- `003`: `capture recorded 1 "vp_presentation_response_received" event(s),
+  expected 0` **and** `wallet returned no error, expected "invalid_request"` —
+  the wallet submitted a response the verifier rejected
+  (`Oups! Something went wrong / Verifier rejected the response`), instead of
+  refusing the malformed JWK.
+- `006`: `wallet returned no vp_token but no error, expected error`, with the
+  same `Verifier rejected the response` screen — the wallet stopped without
+  posting an error response.
+
+### Expected
+
+OID4VP Section 8.3 requires `alg` in the published JWKs and the JWE `alg` to
+equal it; the sources require `invalid_request` without a presentation.
+
+### FCAF Impact
+
+- Tests: `WS_RP_SM_SessionEncryption__003`, `WS_RP_SM_SessionEncryption__006`.
+- Adjacent to RI-WALLET-004 (wrong content encryption chosen when the list is
+  not narrowed).
+
+## RI-WALLET-014: Request URI POST advertises a list of acceptable media types
+
+### Summary
+
+For a `request_uri_method: post` retrieval the reference Android wallet sends
+`Accept: application/oauth-authz-req+jwt,application/jwt,application/json`
+instead of the single `application/oauth-authz-req+jwt` the source pins.
+
+### Reproduction
+
+13/10/2026, production Capture: run
+`scenarios/fcaf-wallet-solution-relying-party-request-uri-post.yaml`
+(`WS_RP_MS_ProtocolMessages__042`).
+
+### Observed
+
+`oid4vp.request_uri_retrieval` fails with `request_uri retrieval Accept header
+is "application/oauth-authz-req+jwt,application/jwt,application/json", expected
+"application/oauth-authz-req+jwt" - method and Content-Type passed`.
+
+### Expected
+
+The source asks the Wallet to request the Request Object as a JWT. Whether
+OpenID4VP requires `Accept` to carry that media type alone, and not a
+preference list, is [INFERENCE]; this is the borderline entry of the run's
+Wallet findings, and the assertion pins the exact header.
+
+### FCAF Impact
+
+- Test: `WS_RP_MS_ProtocolMessages__042` (its sibling 044, which checks UTF-8
+  in the POST body, is unaffected).
+
+## RI-WALLET-015: A SHA-384 credential is presented to a SHA-256-only verifier and the algorithm is not declared
+
+### Summary
+
+The reference Android wallet presents an SD-JWT VC digested with SHA-384 to a
+verifier that advertises SHA-256 only, and its `wallet_metadata` does not name
+`sha-384` as an algorithm it supports.
+
+### Reproduction
+
+13/10/2026, production Capture: issue the PID with `digest_algorithm: sha-384`
+and present it to
+
+- a verifier that advertises SHA-256 only (`WS_RP_SH_Cryptography_CryptographicHash_007`),
+- the default session whose `wallet_metadata` is inspected for declared hash
+  algorithms (`WS_RP_SH_Cryptography_CryptographicHash_006`).
+
+### Observed
+
+- `006`: the session reaches `presentation_validated`;
+  `decoded_presentations.pid_sha384[0].digest_algorithm = "sha-384"`, while the
+  wallet's `wallet_metadata` names no `sha-384`.
+- `007`: `vp_token_holds_only_sha256_digested_credentials: presentation 0 is
+  digested with sha-384, outside sha-256`; the
+  `credential_digest_algorithm_…_exercise_sha256_only_presentation_…png`
+  screenshot shows `Authentication successful – You successfully shared …
+  Credimi Demo PID`.
+
+### Expected
+
+The source requires a Wallet that supports only SHA-256 not to present a
+credential digested with another hash function, and a Wallet to declare the
+digest algorithms it can process.
+
+### FCAF Impact
+
+- Tests: `WS_RP_SH_Cryptography_CryptographicHash__006`, `__007`.
+- Capture advertises SHA-256 only in its Credential Issuer Metadata while
+  issuing the `sha-384`-digested credential, which is what the source
+  (`WS_RP_SH_Cryptography_CryptographicHash__010`) asks for; the wallet's own
+  behaviour is the finding.
+
+## RI-WALLET-016: The Authorization Error code does not match the source
+
+### Summary
+
+The reference Android wallet answers a malformed scope or format request with
+`error=invalid_request` where the source requires a specific code: `invalid_scope`
+for the unknown scope (139/140) and `vp_formats_not_supported` for the
+unsupported format (150).
+
+### Reproduction
+
+13/10/2026, production Capture: run the unknown-scope and unsupported-format
+scenarios of `WS_RP_MS_ProtocolMessages__139`, `__140` and `__150`.
+
+### Observed
+
+- `139`/`140`: `wallet returned error "invalid_request", expected "invalid_scope"`.
+- `150`: `wallet returned error "invalid_request", expected "vp_formats_not_supported"`.
+- 140's termination half passed, so the wallet does send an error response.
+
+### Expected
+
+Each source names its exact error code; a broader generic code is not the
+required response.
+
+### FCAF Impact
+
+- Tests: `WS_RP_MS_ProtocolMessages__139`, `140`, `150`.
+
+## RI-WALLET-017: `decentralized_identifier` is not supported
+
+### Summary
+
+The reference Android wallet does not process an Authorization Request whose
+Client Identifier is a `decentralized_identifier:`, and answers nothing.
+
+### Reproduction
+
+13/10/2026, production Capture: run
+`scenarios/fcaf-wallet-solution-relying-party-did-metadata.yaml`
+(`WS_RP_SM_RpIntegrity__006`), which requests
+`client_id_scheme: decentralized_identifier` and expects the Wallet to verify
+the request with the key published in `/openid4vp/did.json`.
+
+### Observed
+
+`oid4vp.session_event_count` fails with `capture recorded 0
+"vp_presentation_response_received" event(s), expected 1; observed events:
+vp_session_created, vp_deeplink_generated, vp_request_retrieved`; the
+`did_metadata_…_exercise_wallet_…png` screenshot shows the wallet's
+`Oups! Something went wrong` page.
+
+### Expected
+
+The source requires the Wallet to accept the DID-based Client Identifier and
+verify the JWS with the DID-documented key.
+
+### FCAF Impact
+
+- Test: `WS_RP_SM_RpIntegrity__006` (and the `decentralized_identifier` cases
+  `WS_RP_IA_Metadata__015`, `__016`, recorded under MOCK-VERIFIER-002 as well).
+- [INFERENCE] MOCK-VERIFIER-002 (beta signed `decentralized_identifier`
+  requests with the X.509 key) may also contribute; the wallet's own
+  unsupported-prefix refusal is documented in RI-WALLET-002, so a
+  wallet-side `decentralized_identifier` gap is the accurate record for a
+  service that signs correctly.
+
+## RI-WALLET-018: Unsigned and multisigned DC API requests are never answered
+
+### Summary
+
+The reference Android wallet produces no Authorization Response and no DC API
+invocation outcome for an unsigned (`openid4vp-v1-unsigned`) or a multisigned
+(`openid4vp-v1-multisigned`) DC API request.
+
+### Reproduction
+
+13/10/2026, production Capture: run the unsigned and multisigned DC API
+scenarios of `WS_RP_SM_RpIntegrity__028` and `WS_RP_SM_RpIntegrity__030`.
+
+### Observed
+
+- `028`: `capture recorded 0 "vp_presentation_response_received" event(s),
+  expected 1; observed events: vp_session_created, vp_deeplink_generated`.
+- `030`: the session "records neither an Authorization Response nor a DC API
+  invocation outcome, so the wallet was never invoked"; the multisigned block
+  produced only the `issue pid credential added` screenshot.
+
+### Expected
+
+The source requires the Wallet to process the request under the DC API protocol
+and return the corresponding response/invocation outcome.
+
+### FCAF Impact
+
+- Tests: `WS_RP_SM_RpIntegrity__028`, `WS_RP_SM_RpIntegrity__030`.
+- The DC API runner is demonstrably healthy: 7 of the 9 `pipeline.dc-api.*`
+  tests pass in the same run, and the three working blocks have terminal
+  `dc api invocation outcome` screenshots.
+
+## RI-WALLET-019: A wrong audience and an untrusted certificate root are not rejected
+
+### Summary
+
+The reference Android wallet does not reject a signed request whose `aud` does
+not match its Client Identifier, and does not reject a request whose `x5c`
+chain ends in an untrusted root: it proceeds to the consent screen.
+
+### Reproduction
+
+13/10/2026, production Capture: run the `aud`-mismatch scenario of
+`WS_RP_IA_Metadata__013` and the untrusted-root scenario of
+`WS_RP_SM_RpIntegrity__019`.
+
+### Observed
+
+- `013`: `wallet returned no error, expected "invalid_request"`; the
+  `…reject_aud_mismatch_expect_request_rejected_….png` screenshot shows the
+  wallet on its `Data sharing request` consent screen (spinner, `Cancel`/`Share`).
+- `019`: `wallet returned no error, expected "invalid_request"`; the
+  `…reject_untrusted_root_expect_request_rejected_….png` screenshot shows the
+  same consent screen, i.e. the presentation flow was initiated.
+
+### Expected
+
+Both sources require `invalid_request` and no presentation.
+
+### FCAF Impact
+
+- Tests: `WS_RP_IA_Metadata__013`, `WS_RP_SM_RpIntegrity__019`.
+- Same family as RI-WALLET-002 ("rejection not returned"), but here the wallet
+  does not reject at all.
+
+## RI-WALLET-020: A claimless DCQL credential query is refused
+
+### Summary
+
+The reference Android wallet refuses a DCQL credential query that carries no
+`claims` member, even when it holds a matching credential, and posts no
+response.
+
+### Reproduction
+
+13/10/2026, production Capture: run
+`scenarios/fcaf-wallet-solution-relying-party-dcql-claims-omitted.yaml` and open
+the deeplink for `WS_RP_IA_MainInteraction__016`, `WS_RP_IA_MainInteraction__017`
+(mdoc form) and `WS_RP_MS_ProtocolMessages__082`.
+
+### Observed
+
+Every session records the wallet's `The requested document is not available in
+your EUDI Wallet` screen with `Share` disabled and no POST to the verifier
+(`wallet vp_token is not an object keyed by credential query ID`).
+
+### Expected
+
+`WS_RP_MS_ProtocolMessages__082` requires a credential-bearing response for the
+query id; `WS_RP_IA_MainInteraction__016` requires an SD-JWT presentation with
+zero disclosures; `__017` the same for an mdoc.
+
+### FCAF Impact
+
+- Tests: `WS_RP_IA_MainInteraction__016`, `WS_RP_IA_MainInteraction__017`,
+  `WS_RP_MS_ProtocolMessages__082`.
+- Documented in `pkg/fcaf/MEMORY.md` ("Claimless DCQL queries the sources do not
+  require") before this entry existed; the maintainers kept the four claimless
+  tests because the sources require them.
+
+## RI-WALLET-021: A present-but-empty `client_metadata`/`meta` is refused
+
+### Summary
+
+The reference Android wallet refuses a DCQL credential query for `dc+sd-jwt`
+whose `meta` object is present but empty, requiring `vct_values` even when the
+`meta` object carries no other member.
+
+### Reproduction
+
+13/10/2026, production Capture: run the empty-`meta` scenario of
+`WS_RP_MS_ProtocolMessages__076` and open the deeplink.
+
+### Observed
+
+- The wallet shows `Oups! Something went wrong / Field 'vct_values' is required
+  for type with serial name 'eu.europa.ec.eudi.openid4vp.dcql.DCQLMetaSdJwtVcExtensions',
+  but it was missing`; nothing is posted.
+- The earlier validator rejected the same query itself, so the wallet's
+  behaviour only became visible after the 14/10/2026 fix that accepts a
+  present-but-empty `meta` for `dc+sd-jwt`.
+
+### Expected
+
+The source's form ("no further constraints") must be accepted and answered with
+a credential; `claims` and `meta` are independently optional.
+
+### FCAF Impact
+
+- Test: `WS_RP_MS_ProtocolMessages__076`.

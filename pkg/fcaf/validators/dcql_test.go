@@ -163,6 +163,44 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusPass,
 		},
 		{
+			// WS_RP_MS_ProtocolMessages__104: an optional set the wallet cannot
+			// satisfy next to a satisfiable required set, whose presentation
+			// completes the matching.
+			name: "required false set beside a satisfiable required set",
+			mode: "credential_sets_required_false_with_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						validSDJWTCredentialQuery("optional_missing"),
+						validSDJWTCredentialQuery("pid"),
+					},
+					"credential_sets": []any{
+						map[string]any{
+							"required": false,
+							"options":  []any{[]any{"optional_missing"}},
+						},
+						map[string]any{"required": true, "options": []any{[]any{"pid"}}},
+					},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "required false mode rejects a query without an optional set",
+			mode: "credential_sets_required_false_with_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{
+						map[string]any{"required": true, "options": []any{[]any{"pid"}}},
+					},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
 			name: "required credential set with unavailable optional set",
 			mode: "credential_sets_required_optional",
 			evidence: map[string]any{
@@ -1648,6 +1686,153 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			},
 			status: StatusPass,
 		},
+		{
+			// WS_RP_MS_ProtocolMessages__074: the source's defect is the
+			// credential's meta carrying another format's value, so the
+			// request_rejected mode must not reject the query itself before
+			// looking at the wallet's outcome.
+			name: "request rejected accepts a format mismatched meta",
+			mode: "request_rejected",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+						"claims": []any{map[string]any{"path": []any{"given_name"}}},
+					}},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__075: meta omitted is the source's
+			// malformation, so it must reach the rejection outcome check.
+			name: "request rejected accepts omitted meta",
+			mode: "request_rejected",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"claims": []any{map[string]any{"path": []any{"given_name"}}},
+					}},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__119: the empty claims path is the
+			// malformation under test; the rejection outcome is discontinuation.
+			name: "request rejected accepts an empty claims path",
+			mode: "request_rejected",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{"vct_values": []any{"urn:eudi:pid:1"}},
+						"claims": []any{map[string]any{"id": "empty_path", "path": []any{}}},
+					}},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "request rejected rejects a returned credential",
+			mode: "request_rejected",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+					}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
+			// no_match keeps the well-formed-query precondition, so a
+			// malformed query is still reported as the definition's fault.
+			name: "no match still rejects a malformed query",
+			mode: "no_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+					}},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__076: a present-but-empty meta is
+			// valid for dc+sd-jwt, so the wallet's presentation is the subject.
+			name: "credentials match accepts an empty meta",
+			mode: "credentials_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{},
+						"claims": []any{map[string]any{"path": []any{"given_name"}}},
+					}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			// WS_RP_IA_MainInteraction__017: a claimless mso_mdoc query must
+			// be answered by the credential itself with no disclosed element.
+			name: "mdoc claimless accepts a presentation disclosing no element",
+			mode: "mdoc_without_claim_disclosures",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid_mdoc",
+						"format": "mso_mdoc",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+					}},
+				},
+				"vp_token": map[string]any{"pid_mdoc": []any{claimlessMDocPresentation(t)}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "mdoc claimless rejects a disclosed element",
+			mode: "mdoc_without_claim_disclosures",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid_mdoc",
+						"format": "mso_mdoc",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+					}},
+				},
+				"vp_token": map[string]any{"pid_mdoc": []any{validMDocPresentation(t)}},
+			},
+			status: StatusFail,
+		},
+		{
+			name: "mdoc claimless rejects missing vp token",
+			mode: "mdoc_without_claim_disclosures",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid_mdoc",
+						"format": "mso_mdoc",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+					}},
+				},
+			},
+			status: StatusFail,
+		},
 	}
 
 	for _, test := range tests {
@@ -1709,6 +1894,67 @@ func TestDCQLClaimsPathPointerMembers(t *testing.T) {
 			Params: map[string]any{"mode": "credentials_match"},
 		})
 		require.Equal(t, tc.want, result.Status, "%v: %s", tc.path, result.Message)
+	}
+}
+
+// WS_RP_IA_MainInteraction__014: two queries for one credential must be
+// answered with the union of the requested claims while the age claims stay
+// hidden.
+func TestDCQLClaimsUnionKeepsAgeHidden(t *testing.T) {
+	query := map[string]any{
+		"credentials": []any{
+			map[string]any{
+				"id":     "pid-name",
+				"claims": []any{map[string]any{"path": []any{"given_name"}}},
+			},
+			map[string]any{
+				"id":     "pid-address",
+				"claims": []any{map[string]any{"path": []any{"address"}}},
+			},
+		},
+	}
+	for _, test := range []struct {
+		name   string
+		claims map[string]any
+		status Status
+	}{
+		{
+			name:   "union of name and address",
+			claims: map[string]any{"given_name": "Mario", "address": map[string]any{"locality": "Roma"}},
+			status: StatusPass,
+		},
+		{
+			name: "age disclosed alongside the union",
+			claims: map[string]any{
+				"given_name":  "Mario",
+				"address":     map[string]any{"locality": "Roma"},
+				"age_over_18": true,
+			},
+			status: StatusFail,
+		},
+		{
+			name:   "address missing from the response",
+			claims: map[string]any{"given_name": "Mario"},
+			status: StatusFail,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			presentation := testSDJWTPresentation(test.claims)
+			result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+				Value: map[string]any{
+					"dcql_query": query,
+					"vp_token": map[string]any{
+						"pid-name":    []any{presentation},
+						"pid-address": []any{presentation},
+					},
+				},
+				Params: map[string]any{
+					"mode":            "claims_union",
+					"forbidden_paths": []any{[]any{"age_over_18"}, []any{"birthdate"}},
+				},
+			})
+			require.Equal(t, test.status, result.Status, result.Message)
+		})
 	}
 }
 
@@ -2233,6 +2479,30 @@ func validMDocPresentation(t *testing.T) string {
 				"nameSpaces": map[string]any{
 					"eu.europa.ec.eudi.pid.1": []any{cbor.Tag{Number: 24, Content: item}},
 				},
+				"issuerAuth": cbor.Tag{
+					Number:  18,
+					Content: []any{[]byte{}, map[string]any{}, msoBytes, []byte("signature")},
+				},
+			},
+		}}, "status": uint64(0),
+	})
+	require.NoError(t, err)
+	return base64.RawURLEncoding.EncodeToString(raw)
+}
+
+// claimlessMDocPresentation encodes an mdoc DeviceResponse whose document
+// contains no data element in any namespace.
+func claimlessMDocPresentation(t *testing.T) string {
+	t.Helper()
+	mso, err := cbor.Marshal(map[string]any{"digestAlgorithm": "SHA-256"})
+	require.NoError(t, err)
+	msoBytes, err := cbor.Marshal(mso)
+	require.NoError(t, err)
+	raw, err := cbor.Marshal(map[string]any{
+		"version": "1.0", "documents": []any{map[string]any{
+			"docType": "eu.europa.ec.eudi.pid.1",
+			"issuerSigned": map[string]any{
+				"nameSpaces": map[string]any{},
 				"issuerAuth": cbor.Tag{
 					Number:  18,
 					Content: []any{[]byte{}, map[string]any{}, msoBytes, []byte("signature")},

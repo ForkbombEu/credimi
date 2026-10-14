@@ -17,11 +17,15 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.issuer-integrity.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.issuer-integrity.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_issuerintegrity__012_dcql_valid
-  validator: dcql.response_satisfies_constraints
+- id: revoked_mdoc_is_unavailable
+  validator: fcaf.skipped
   input: evidence.dcql_exchange
+  params:
+    reason: >-
+      needs an ISO mdoc whose MSO status is revoked, so the wallet must refuse
+      it and return an error without revealing the reason; Capture issues no
+      revoked credential (it publishes a Token Status List allocation, not a
+      revocation fixture)
 verdict:
   pass_when: all_assertions_pass

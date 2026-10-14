@@ -90,6 +90,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"without_trusted_authorities",
 		"without_claims",
 		"without_claim_disclosures",
+		"mdoc_without_claim_disclosures",
 		"empty_claims",
 		"empty_array",
 		"property_type",
@@ -499,13 +500,23 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				),
 			}
 		}
+	case "mdoc_without_claim_disclosures":
+		return validateMDocWithoutClaimDisclosures(query, responseValue)
 	case "no_match", "request_rejected":
 		credentials, ok := query["credentials"].([]any)
 		if !ok || len(credentials) == 0 {
 			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
 		}
-		if err := validateDCQLCredentialQueries(credentials); err != nil {
-			return Result{Status: StatusFail, Message: err.Error()}
+		// no_match asserts that no credential could be matched for a
+		// well-formed query, so it keeps the query precondition.
+		// request_rejected exists for requests the sources deliberately
+		// malform (meta, claims path, credentials): re-validating the query
+		// there would abort before the wallet's outcome is examined. The
+		// request's own defect is asserted separately on the request object.
+		if params.Mode == "no_match" {
+			if err := validateDCQLCredentialQueries(credentials); err != nil {
+				return Result{Status: StatusFail, Message: err.Error()}
+			}
 		}
 		if errorText, _ := errorValue.(string); errorText == invalidRequestError {
 			break
@@ -1655,7 +1666,10 @@ func validateDCQLCredentialQueries(credentials []any) error {
 		}
 		switch format {
 		case "dc+sd-jwt":
-			if !nonEmptyStringArray(meta["vct_values"]) {
+			// A present-but-empty meta object is the source's
+			// "no further constraints" form (WS_RP_MS_ProtocolMessages__076);
+			// vct_values is only required once meta carries another member.
+			if len(meta) > 0 && !nonEmptyStringArray(meta["vct_values"]) {
 				return fmt.Errorf(
 					"credentials[%d].meta.vct_values is not a non-empty string array",
 					index,
@@ -1687,6 +1701,122 @@ func validateDCQLCredentialQueries(credentials []any) error {
 		}
 	}
 	return nil
+}
+
+// validateMDocWithoutClaimDisclosures checks the response to a claimless
+// mso_mdoc credential query: the source requires the wallet to return the
+// credential (a parseable mdoc DeviceResponse for the requested docType) while
+// disclosing no personal data element at all.
+func validateMDocWithoutClaimDisclosures(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet vp_token is not an object keyed by credential query ID",
+		}
+	}
+	for index, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d] is not an object", index),
+			}
+		}
+		if format, _ := credential["format"].(string); format != "mso_mdoc" {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d].format is not mso_mdoc", index),
+			}
+		}
+		if _, exists := credential["claims"]; exists {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d] contains claims", index),
+			}
+		}
+		meta, _ := normalizeJSONObject(credential["meta"])
+		docType, _ := meta["doctype_value"].(string)
+		if docType == "" {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d].meta.doctype_value is missing", index),
+			}
+		}
+		id, _ := credential["id"].(string)
+		if id == "" {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d] has no id", index),
+			}
+		}
+		presentations, ok := response[id].([]any)
+		if !ok || len(presentations) == 0 {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"vp_token has no presentation for credential query %q",
+					id,
+				),
+			}
+		}
+		for presentationIndex, rawPresentation := range presentations {
+			presentation, ok := mdocPresentation(rawPresentation)
+			if !ok {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] is not an mdoc presentation",
+						id,
+						presentationIndex,
+					),
+				}
+			}
+			if _, exists := presentation.Document(docType); !exists {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] does not contain document type %q",
+						id,
+						presentationIndex,
+						docType,
+					),
+				}
+			}
+			if disclosed := mdocDisclosedElementCount(presentation); disclosed != 0 {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] disclosed %d personal data element(s) although claims was omitted",
+						id,
+						presentationIndex,
+						disclosed,
+					),
+				}
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "wallet returned the mdoc credential without disclosing personal data elements",
+	}
+}
+
+// mdocDisclosedElementCount counts the personal data elements a presentation
+// carries across all of its namespaces.
+func mdocDisclosedElementCount(presentation *evidence.MDocPresentation) int {
+	if presentation == nil {
+		return 0
+	}
+	count := 0
+	for _, elements := range presentation.Namespaces {
+		count += len(elements)
+	}
+	return count
 }
 
 // validClaimsPathPointer reports whether value is an OpenID4VP claims path
@@ -1950,6 +2080,7 @@ func validateCredentialSetsRequired(query map[string]any, responseValue any, mod
 		return Result{Status: StatusFail, Message: "dcql_query does not contain credential_sets"}
 	}
 	response, responseOK := normalizeJSONObject(responseValue)
+	optionalSetSeen := false
 	for index, rawSet := range sets {
 		set, ok := normalizeJSONObject(rawSet)
 		if !ok {
@@ -1968,9 +2099,15 @@ func validateCredentialSetsRequired(query map[string]any, responseValue any, mod
 		if mode == "credential_sets_required_omitted" && exists {
 			return Result{Status: StatusFail, Message: "required is present"}
 		}
-		if mode == "credential_sets_required_false_with_match" && required != false {
-			return Result{Status: StatusFail, Message: "required is not false"}
+		// A required:false set is the source's optional, possibly
+		// unsatisfiable set; it is asserted next to the satisfiable sets, not
+		// instead of them.
+		if exists && required == false {
+			optionalSetSeen = true
 		}
+	}
+	if mode == "credential_sets_required_false_with_match" && !optionalSetSeen {
+		return Result{Status: StatusFail, Message: "no credential set has required false"}
 	}
 	if mode == "credential_sets_required_true_match" ||
 		mode == "credential_sets_required_omitted" ||

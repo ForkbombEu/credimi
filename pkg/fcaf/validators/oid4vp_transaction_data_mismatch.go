@@ -62,11 +62,14 @@ func (OID4VPTransactionDataCredentialIDsMismatchValidator) Validate(
 		}
 	}
 	for index, rawTransactionData := range transactionData {
-		entry, ok := normalizeJSONObject(rawTransactionData)
+		entry, ok := decodeTransactionDataEntry(rawTransactionData)
 		if !ok {
 			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("transaction_data[%d] is not an object", index),
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"transaction_data[%d] is not a base64url-encoded JSON object, so a credential_ids mismatch cannot be shown",
+					index,
+				),
 			}
 		}
 		if transactionType, _ := entry["type"].(string); transactionType == "" {

@@ -26,10 +26,10 @@ assertions:
   validator: oid4vp.request_encryption_jwk
   input: evidence.request_object
   params: {field: alg, present: false}
-- id: wallet_sent_no_authorization_response
+- id: wallet_sent_exactly_one_error_response
   validator: oid4vp.session_event_count
   input: evidence.capture_session
-  params: {type: vp_presentation_response_received, count: 0}
+  params: {type: vp_presentation_response_received, count: 1}
 - id: wallet_returned_an_error_without_presentation
   validator: oid4vp.error_response_required
   input: evidence.capture_session

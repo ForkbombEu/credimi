@@ -14,10 +14,18 @@ normative_references:
     section: "5.2, 14.1"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
+  session_checks:
+    from: pipeline.wallet.session-binding.valid-nonce.outputs.session_checks
   wallet_response:
     from: pipeline.wallet.session-binding.valid-nonce.outputs.wallet_response
 assertions:
   - id: valid_nonce_request_accepted
+    validator: json.field_equals
+    input: evidence.session_checks
+    params:
+      field: presentation_valid
+      value: true
+  - id: valid_nonce_request_presented
     validator: json.field_required
     input: evidence.wallet_response
     params:

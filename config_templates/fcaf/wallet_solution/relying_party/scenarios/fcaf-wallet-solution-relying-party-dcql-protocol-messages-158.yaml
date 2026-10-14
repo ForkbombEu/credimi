@@ -19,6 +19,11 @@ steps:
       response_mode: direct_post.jwt
       presentation_request:
         nonce: fcaf-158
+        transaction_data:
+        - type: payment
+          data: dGVzdA==
+          credential_ids:
+          - other_credential
         dcql_query:
           credentials:
           - id: pid
@@ -29,11 +34,6 @@ steps:
             claims:
             - path:
               - given_name
-          transaction_data:
-          - type: payment
-            data: dGVzdA==
-            credential_ids:
-            - other_credential
 - id: exercise-wallet
   use: mobile-automation
   with:

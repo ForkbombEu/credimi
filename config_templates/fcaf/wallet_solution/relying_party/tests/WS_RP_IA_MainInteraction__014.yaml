@@ -24,7 +24,10 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: claims_union
+    forbidden_paths:
+      - - age_over_18
+      - - birthdate
 - id: ws_rp_ia_maininteraction__014_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
