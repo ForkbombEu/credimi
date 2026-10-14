@@ -5,7 +5,9 @@
 package validators
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/mail"
@@ -302,7 +304,77 @@ func (MDocElementDateEncodingValidator) Validate(_ context.Context, input Input)
 	if _, err := requireUTF8String(element.Value); err != nil {
 		return invalidMDocElement(params, err)
 	}
+	if len(element.Raw) == 0 {
+		return invalidMDocElement(
+			params,
+			fmt.Errorf("tagged CBOR data item has no wire bytes"),
+		)
+	}
+	// RFC 8949 §4.2 prefers the shortest additional-information form of the
+	// tag head; the FCAF sources pin those bytes ("the value of the additional
+	// information on the first byte is 25 and the value of the next two bytes
+	// is '03 EC'" for tag 1004, "the additional information on the only byte is
+	// 0" for tag 0).
+	preferred := preferredCBORTagEncoding(*element.Tag)
+	if !bytes.HasPrefix(element.Raw, preferred) {
+		seen := element.Raw
+		if length := cborHeadLength(seen[0]); length < len(seen) {
+			seen = seen[:length]
+		}
+		return invalidMDocElement(params, fmt.Errorf(
+			"CBOR tag %d is encoded as %q, expected the preferred encoding %q",
+			*element.Tag,
+			hex.EncodeToString(seen),
+			hex.EncodeToString(preferred),
+		))
+	}
 	return validMDocElement(params, fmt.Sprintf("uses CBOR tag %d with UTF-8 text", *element.Tag))
+}
+
+// cborHeadLength returns the byte length of a CBOR item head given its first
+// byte: the additional-information field selects the argument width
+// (RFC 8949 §3, Table 1).
+func cborHeadLength(first byte) int {
+	switch first & 0x1f {
+	case 24:
+		return 2
+	case 25:
+		return 3
+	case 26:
+		return 5
+	case 27:
+		return 9
+	default:
+		return 1
+	}
+}
+
+// preferredCBORTagEncoding returns the preferred serialization (RFC 8949 §4.2)
+// of a CBOR tag head: the shortest additional-information form that can carry
+// the tag number.
+func preferredCBORTagEncoding(tag uint64) []byte {
+	switch {
+	case tag < 24:
+		return []byte{0xc0 | byte(tag)}
+	case tag < 1<<8:
+		return []byte{0xd8, byte(tag)}
+	case tag < 1<<16:
+		return []byte{0xd9, byte(tag >> 8), byte(tag)}
+	case tag < 1<<32:
+		return []byte{0xda, byte(tag >> 24), byte(tag >> 16), byte(tag >> 8), byte(tag)}
+	default:
+		return []byte{
+			0xdb,
+			byte(tag >> 56),
+			byte(tag >> 48),
+			byte(tag >> 40),
+			byte(tag >> 32),
+			byte(tag >> 24),
+			byte(tag >> 16),
+			byte(tag >> 8),
+			byte(tag),
+		}
+	}
 }
 
 type MDocElementDateFormatValidator struct{}
@@ -317,7 +389,7 @@ func (MDocElementDateFormatValidator) Validate(_ context.Context, input Input) R
 	if *element.Tag == 1004 && !fullDatePattern.MatchString(text) {
 		return invalidMDocElement(params, fmt.Errorf("tag 1004 value must use YYYY-MM-DD format"))
 	}
-	if *element.Tag == 0 && (len(text) != 20 || !strings.HasSuffix(text, "Z")) {
+	if *element.Tag == 0 && !rfc3339UTCDateTimePattern.MatchString(text) {
 		return invalidMDocElement(
 			params,
 			fmt.Errorf("tag 0 value must use YYYY-MM-DDThh:mm:ssZ format"),
@@ -412,11 +484,8 @@ func (MDocElementInternationalPhoneValidator) Validate(_ context.Context, input 
 			fmt.Errorf("value must contain at least %d characters", limits.MinLength),
 		)
 	}
-	if !internationalPhonePattern.MatchString(text) {
-		return invalidMDocElement(
-			params,
-			fmt.Errorf("value must start with + and contain digits only"),
-		)
+	if err := validateInternationalPhone(text); err != nil {
+		return invalidMDocElement(params, err)
 	}
 	return validMDocElement(params, "contains an international phone number")
 }

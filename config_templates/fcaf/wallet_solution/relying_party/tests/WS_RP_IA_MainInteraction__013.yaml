@@ -17,14 +17,31 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.unchecked-claim.outputs.dcql_exchange
+  wallet_response:
+    from: pipeline.dcql.unchecked-claim.outputs.wallet_response
   visual_evidence:
     from: pipeline.dcql.unchecked-claim.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__013_dcql_valid
-  validator: dcql.response_satisfies_constraints
+- id: request_asks_for_given_name_and_address
+  validator: oid4vp.dcql_requested_claim_paths
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    format: dc+sd-jwt
+    paths:
+    - - given_name
+    - - address
+- id: ws_rp_ia_maininteraction__013_given_name_is_disclosed
+  validator: sdjwt.claim_presence
+  input: evidence.wallet_response
+  params:
+    claim: given_name
+    present: true
+- id: ws_rp_ia_maininteraction__013_unchecked_address_is_absent
+  validator: sdjwt.claim_presence
+  input: evidence.wallet_response
+  params:
+    claim: address
+    present: false
 - id: ws_rp_ia_maininteraction__013_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

@@ -16,14 +16,15 @@ normative_references:
 evidence:
   signed_request_object:
     from: pipeline.wallet.metadata.default-x509-hash.outputs.signed_request_object
-  visual_evidence:
-    from: pipeline.wallet.metadata.default-x509-hash.outputs.visual_evidence
+  capture_session:
+    from: pipeline.wallet.metadata.default-x509-hash.outputs.capture_session
 assertions:
   - id: signature_verifies_with_x509_leaf_key
     validator: jose.jws_signed_request
     input: evidence.signed_request_object
   - id: wallet_processes_signed_x509_request
-    validator: evidence.non_empty
-    input: evidence.visual_evidence
+    validator: dcql.response_satisfies_constraints
+    input: evidence.capture_session
+    params: { mode: credentials_match }
 verdict:
   pass_when: all_assertions_pass

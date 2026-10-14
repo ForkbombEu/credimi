@@ -33,10 +33,16 @@ func TestSDJWTClaimInternationalPhoneValidator(t *testing.T) {
 		status Status
 	}{
 		{name: "valid", value: "+3901234", status: StatusPass},
+		{name: "reference wallet value", value: "+390600000000", status: StatusPass},
+		{name: "one digit country calling code", value: "+14155550123", status: StatusPass},
+		{name: "three digit country calling code", value: "+351912345678", status: StatusPass},
 		{name: "too short", value: "+391234", status: StatusFail},
 		{name: "missing plus", value: "39012345", status: StatusFail},
 		{name: "non digit", value: "+39012A4", status: StatusFail},
 		{name: "wrong type", value: 39012345, status: StatusFail},
+		{name: "missing country calling code", value: "+00000000", status: StatusFail},
+		{name: "spare country calling code", value: "+210560000", status: StatusFail},
+		{name: "country calling code only", value: "+39", status: StatusFail},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -62,6 +68,9 @@ func TestSDJWTClaimCountryCodeValidator(t *testing.T) {
 		{value: "UK", status: StatusFail},
 		{value: "it", status: StatusFail},
 		{value: "ITA", status: StatusFail},
+		{value: "QMA", status: StatusFail},
+		{value: "XA1", status: StatusFail},
+		{value: "QZ0", status: StatusFail},
 	}
 	for _, test := range tests {
 		t.Run(test.value, func(t *testing.T) {
@@ -215,18 +224,78 @@ func TestSDJWTClaimJPEGDataURLValidator(t *testing.T) {
 }
 
 func TestSDJWTClaimCountrySubdivisionValidator(t *testing.T) {
-	result := SDJWTClaimCountrySubdivisionValidator{}.Validate(context.Background(), Input{
-		Value: map[string]any{
-			"issuing_country":      "GR",
-			"issuing_jurisdiction": "GR-I",
+	tests := []struct {
+		name    string
+		claim   string
+		country string
+		status  Status
+		message string
+	}{
+		{
+			name:    "listed subdivision of the issuing country",
+			claim:   "IT-RM",
+			country: "IT",
+			status:  StatusPass,
 		},
-		Params: map[string]any{
-			"claim":         "issuing_jurisdiction",
-			"country_claim": "issuing_country",
+		{
+			name:    "listed subdivision of another country",
+			claim:   "GR-I",
+			country: "GR",
+			status:  StatusPass,
 		},
-	})
+		{
+			name:    "unlisted subdivision of the issuing country",
+			claim:   "IT-ZZ",
+			country: "IT",
+			status:  StatusFail,
+			message: `subdivision code "ZZ" is not listed in ISO 3166-2 for "IT"`,
+		},
+		{
+			name:    "over-long subdivision of the issuing country",
+			claim:   "IT-RM9",
+			country: "IT",
+			status:  StatusFail,
+			message: `subdivision code "RM9" is not listed in ISO 3166-2 for "IT"`,
+		},
+		{
+			name:    "subdivision of another country",
+			claim:   "FR-75",
+			country: "IT",
+			status:  StatusFail,
+			message: `subdivision country prefix "FR" does not match issuing country "IT"`,
+		},
+		{
+			name:    "code without separator",
+			claim:   "ITRM",
+			country: "IT",
+			status:  StatusFail,
+			message: "ISO 3166-2 country-subdivision shape",
+		},
+		{
+			name:    "user-assigned country has no subdivision list",
+			claim:   "XA-AB",
+			country: "XA",
+			status:  StatusFail,
+			message: `country "XA" lists no ISO 3166-2 subdivisions`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := SDJWTClaimCountrySubdivisionValidator{}.Validate(context.Background(), Input{
+				Value: map[string]any{
+					"issuing_country":      test.country,
+					"issuing_jurisdiction": test.claim,
+				},
+				Params: map[string]any{
+					"claim":         "issuing_jurisdiction",
+					"country_claim": "issuing_country",
+				},
+			})
 
-	require.Equal(t, StatusPass, result.Status)
+			require.Equal(t, test.status, result.Status, result.Message)
+			require.Contains(t, result.Message, test.message)
+		})
+	}
 }
 
 func TestSDJWTDataModelValidatorsRejectMissingConfiguration(t *testing.T) {

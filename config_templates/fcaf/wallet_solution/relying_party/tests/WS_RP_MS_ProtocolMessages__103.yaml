@@ -20,11 +20,11 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.credential-sets-required-omitted.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__103_dcql_protocol_valid
+- id: ws_rp_ms_protocolmessages__103_required_is_omitted_and_the_set_is_presented
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: credential_sets_required_omitted
 - id: ws_rp_ms_protocolmessages__103_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

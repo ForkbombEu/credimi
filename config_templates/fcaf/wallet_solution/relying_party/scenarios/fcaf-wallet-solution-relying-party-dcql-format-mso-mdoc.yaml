@@ -51,6 +51,52 @@ steps:
       url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
       expected_status: 200
 
+# The source accepts a credential whose `format` is one of `mso_mdoc` or
+# `dc+sd-jwt`, so the test needs one session per format: binding the same
+# mso_mdoc session to both assertions would report a dc+sd-jwt acceptance that
+# was never requested.
+  - id: create-sdjwt-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        scheme: haip-vp://
+        request_delivery: by_reference
+        response_type: vp_token
+        response_mode: direct_post.jwt
+        presentation_request:
+          nonce: fcaf-dcql-format-sd-jwt
+          dcql_query:
+            credentials:
+              - id: pid_sdjwt
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                    - urn:eudi:pid:1
+                claims:
+                  - path:
+                      - given_name
+                  - path:
+                      - family_name
+
+  - id: present-sdjwt-with-reference-implementation
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        deeplink: ${{ create-sdjwt-presentation.outputs.body.deeplink }}
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+  - id: get-sdjwt-presentation-result
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-sdjwt-presentation.outputs.body.session_id }}
+      expected_status: 200
+
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
@@ -65,3 +111,8 @@ steps:
             create-presentation: ${{ create-presentation.outputs }}
             present-with-reference-implementation: ${{ present-with-reference-implementation.outputs }}
             get-presentation-result: ${{ get-presentation-result.outputs }}
+            sdjwt_dcql_exchange: ${{ get-sdjwt-presentation-result.outputs.body }}
+            sdjwt_visual_evidence: ${{ present-sdjwt-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls }}
+            create-sdjwt-presentation: ${{ create-sdjwt-presentation.outputs }}
+            present-sdjwt-with-reference-implementation: ${{ present-sdjwt-with-reference-implementation.outputs }}
+            get-sdjwt-presentation-result: ${{ get-sdjwt-presentation-result.outputs }}

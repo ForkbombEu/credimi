@@ -24,6 +24,7 @@ import (
 	"net/mail"
 	"net/url"
 	"reflect"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -395,28 +396,30 @@ type SDJWTKBJWTPresentValidator struct{}
 
 func (SDJWTKBJWTPresentValidator) ID() string { return "sdjwt.kb_jwt_present" }
 
-// SDJWTKBJWTAlgorithmEqualsValidator verifies the precise JOSE algorithm
-// emitted by a Wallet fixture after the KB-JWT structural checks succeed.
-type SDJWTKBJWTAlgorithmEqualsValidator struct{}
+// SDJWTKBJWTAlgorithmAllowedValidator checks that every KB-JWT of the
+// presentation evidence uses a JOSE signature algorithm from the accepted list
+// the assertion supplies.
+type SDJWTKBJWTAlgorithmAllowedValidator struct{}
 
-func (SDJWTKBJWTAlgorithmEqualsValidator) ID() string {
-	return "sdjwt.kb_jwt_algorithm_equals"
+func (SDJWTKBJWTAlgorithmAllowedValidator) ID() string {
+	return "sdjwt.kb_jwt_algorithm_allowed"
 }
 
-func (SDJWTKBJWTAlgorithmEqualsValidator) Validate(_ context.Context, input Input) Result {
+func (SDJWTKBJWTAlgorithmAllowedValidator) Validate(_ context.Context, input Input) Result {
 	params, err := DecodeParams[struct {
-		Algorithm string `json:"algorithm"`
+		Allowed []string `json:"allowed"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
-	if params.Algorithm == "" {
-		return Result{Status: StatusError, Message: "algorithm is required"}
+	if len(params.Allowed) == 0 {
+		return Result{Status: StatusError, Message: "allowed param is required"}
 	}
 	presentations, ok := sdjwtPresentations(input.Value)
 	if !ok || len(presentations) == 0 {
 		return Result{Status: StatusFail, Message: "SD-JWT presentation evidence is missing"}
 	}
+	algorithms := make([]string, 0, len(presentations))
 	for index, presentation := range presentations {
 		result := validateSDJWTKBJWTStructure(presentation)
 		if result.Status != StatusPass {
@@ -424,21 +427,25 @@ func (SDJWTKBJWTAlgorithmEqualsValidator) Validate(_ context.Context, input Inpu
 			return result
 		}
 		algorithm, _ := result.Details["alg"].(string)
-		if algorithm != params.Algorithm {
+		if !slices.Contains(params.Allowed, algorithm) {
 			return Result{
 				Status: StatusFail,
 				Message: fmt.Sprintf(
-					"presentation[%d] KB-JWT alg is %q, expected %q",
+					"presentation[%d] KB-JWT alg is %q, which is not an acceptable algorithm",
 					index,
 					algorithm,
-					params.Algorithm,
 				),
 			}
 		}
+		algorithms = append(algorithms, algorithm)
 	}
 	return Result{
-		Status:  StatusPass,
-		Message: fmt.Sprintf("all KB-JWTs use %q", params.Algorithm),
+		Status: StatusPass,
+		Message: fmt.Sprintf(
+			"all %d KB-JWTs use an acceptable algorithm",
+			len(presentations),
+		),
+		Details: map[string]any{"algorithms": algorithms},
 	}
 }
 

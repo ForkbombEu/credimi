@@ -15,19 +15,17 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.device-binding
 evidence:
-  pid_sdjwt_presentations:
-    from: pipeline.dcql.device-binding.outputs.pid_sdjwt_presentations
-  visual_evidence:
-    from: pipeline.dcql.device-binding.outputs.visual_evidence
+  dcql_exchange:
+    from: pipeline.dcql.device-binding.outputs.dcql_exchange
 assertions:
-- id: ws_rp_sm_devicebinding__004_cnf_conforms
-  validator: sdjwt.cnf_conforms
-  input: evidence.pid_sdjwt_presentations
-- id: ws_rp_sm_devicebinding__004_key_binding_matches
-  validator: sdjwt.key_binding_matches_cnf
-  input: evidence.pid_sdjwt_presentations
-- id: ws_rp_sm_devicebinding__004_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+- id: ws_rp_sm_devicebinding__004_verifier_info_attestation_unavailable
+  validator: fcaf.skipped
+  input: evidence.dcql_exchange
+  params:
+    reason: >-
+      needs a Verifier Info attestation whose proof is valid per the active
+      profile, so that the Wallet accepting it is observable; the harness
+      cannot sign a profile conformant attestation, because Capture delivers
+      verifier_info verbatim and signs none of its own
 verdict:
   pass_when: all_assertions_pass

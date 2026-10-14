@@ -19,15 +19,16 @@ import (
 
 func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	tests := []struct {
-		name           string
-		mode           string
-		property       string
-		expectedType   string
-		expectedValue  any
-		expectedFormat string
-		valid          bool
-		evidence       map[string]any
-		status         Status
+		name            string
+		mode            string
+		property        string
+		expectedType    string
+		expectedValue   any
+		expectedFormat  string
+		valid           bool
+		requireResponse *bool
+		evidence        map[string]any
+		status          Status
 	}{
 		{
 			name: "credential sets",
@@ -1222,6 +1223,61 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			// WS_RP_MS_ProtocolMessages__034 asserts the delivered query only:
+			// its source demands a rejection, so there is no presentation to read.
+			name:            "holder binding false with require_response false passes on a rejection",
+			mode:            "property_equals",
+			property:        "require_cryptographic_holder_binding",
+			expectedValue:   false,
+			requireResponse: boolPtr(false),
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = false
+						return credential
+					}()},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusPass,
+		},
+		{
+			name:            "holder binding true still fails require_response false",
+			mode:            "property_equals",
+			property:        "require_cryptographic_holder_binding",
+			expectedValue:   false,
+			requireResponse: boolPtr(false),
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = true
+						return credential
+					}()},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusFail,
+		},
+		{
+			name:          "property_equals still requires the wallet answer by default",
+			mode:          "property_equals",
+			property:      "require_cryptographic_holder_binding",
+			expectedValue: false,
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = false
+						return credential
+					}()},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusFail,
+		},
+		{
 			name:         "non-boolean property is rejected",
 			mode:         "property_type",
 			property:     "require_cryptographic_holder_binding",
@@ -1848,6 +1904,9 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			if test.mode == "property_equals" {
 				params["expected_value"] = test.expectedValue
 			}
+			if test.requireResponse != nil {
+				params["require_response"] = *test.requireResponse
+			}
 			if test.expectedFormat != "" {
 				params["expected_format"] = test.expectedFormat
 			}
@@ -2376,6 +2435,189 @@ func TestDCQLVPTokenResponseModes(t *testing.T) {
 			require.Equal(t, test.status, result.Status, result.Message)
 		})
 	}
+}
+
+// The vp_token clauses of WS_RP_MS_ProtocolMessages__127a (each entry of the
+// object holds an array) and __127b (each element of those arrays is a string or
+// a JSON object) used to accept any element type.
+func TestDCQLVPTokenEntryTypes(t *testing.T) {
+	query := map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}}
+	evidence := func(vpToken any) map[string]any {
+		return map[string]any{"dcql_query": query, "vp_token": vpToken}
+	}
+	compact := signedSDJWTPresentation()
+	signedObject := map[string]any{"protected": "eyJhbGciOiJFUzI1NiJ9"}
+
+	tests := []struct {
+		name    string
+		mode    string
+		vpToken any
+		status  Status
+	}{
+		{
+			name:    "object mode accepts an array entry",
+			mode:    "vp_token_json_object",
+			vpToken: map[string]any{"pid": []any{compact}},
+			status:  StatusPass,
+		},
+		{
+			name:    "object mode rejects a scalar entry",
+			mode:    "vp_token_json_object",
+			vpToken: map[string]any{"pid": compact},
+			status:  StatusFail,
+		},
+		{
+			name:    "object mode rejects an object entry",
+			mode:    "vp_token_json_object",
+			vpToken: map[string]any{"pid": signedObject},
+			status:  StatusFail,
+		},
+		{
+			name:    "arrays mode accepts string elements",
+			mode:    "vp_token_presentation_arrays",
+			vpToken: map[string]any{"pid": []any{compact}},
+			status:  StatusPass,
+		},
+		{
+			name:    "arrays mode accepts object elements",
+			mode:    "vp_token_presentation_arrays",
+			vpToken: map[string]any{"pid": []any{signedObject}},
+			status:  StatusPass,
+		},
+		{
+			name:    "arrays mode rejects a number element",
+			mode:    "vp_token_presentation_arrays",
+			vpToken: map[string]any{"pid": []any{float64(1)}},
+			status:  StatusFail,
+		},
+		{
+			name:    "arrays mode rejects a null element",
+			mode:    "vp_token_presentation_arrays",
+			vpToken: map[string]any{"pid": []any{nil}},
+			status:  StatusFail,
+		},
+		{
+			name:    "arrays mode rejects an array element",
+			mode:    "vp_token_presentation_arrays",
+			vpToken: map[string]any{"pid": []any{[]any{"presentation"}}},
+			status:  StatusFail,
+		},
+	}
+
+	validator := DCQLResponseConstraintsValidator{}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := validator.Validate(context.Background(), Input{
+				Value:  evidence(test.vpToken),
+				Params: map[string]any{"mode": test.mode},
+			})
+			require.Equal(t, test.status, result.Status, result.Message)
+		})
+	}
+}
+
+// The modes that assert the Wallet answered a credential query with a matching
+// credential must not count a presentation the Verifier rejected, when the
+// evidence carries a Capture verifier session's checks (Mixed6 request on the
+// credentials_match family; sources 008/012/052/057/067/105).
+func TestDCQLMatchingModesRespectTheVerifierVerdict(t *testing.T) {
+	presentation := signedSDJWTPresentation()
+	session := func(checks map[string]any) map[string]any {
+		record := capturePresentationRecord(
+			"presentation_validated",
+			"vp_session_created",
+			"vp_deeplink_generated",
+			eventRequestRetrieved,
+			eventPresentationReceived,
+		)
+		record["dcql_query"] = map[string]any{
+			"credentials": []any{validSDJWTCredentialQuery("pid")},
+		}
+		record["vp_token"] = map[string]any{"pid": []any{presentation}}
+		if checks == nil {
+			delete(record, "checks")
+		} else {
+			record["checks"] = checks
+		}
+		return record
+	}
+
+	tests := []struct {
+		name   string
+		mode   string
+		checks map[string]any
+		status Status
+	}{
+		{
+			name:   "credentials match accepts an accepted presentation",
+			mode:   "credentials_match",
+			checks: map[string]any{"presentation_valid": true, "dcql_query_matched": true},
+			status: StatusPass,
+		},
+		{
+			name:   "credentials match rejects an invalid presentation",
+			mode:   "credentials_match",
+			checks: map[string]any{"presentation_valid": false, "dcql_query_matched": true},
+			status: StatusFail,
+		},
+		{
+			name:   "credentials match rejects an unmatched query",
+			mode:   "credentials_match",
+			checks: map[string]any{"presentation_valid": true, "dcql_query_matched": false},
+			status: StatusFail,
+		},
+		{
+			name:   "credentials match rejects a session without a verdict",
+			mode:   "credentials_match",
+			checks: map[string]any{"presentation_valid": nil},
+			status: StatusFail,
+		},
+		{
+			name:   "credentials match keeps its verdict without checks",
+			mode:   "credentials_match",
+			checks: nil,
+			status: StatusPass,
+		},
+		{
+			name:   "without credential sets respects the verdict",
+			mode:   "without_credential_sets",
+			checks: map[string]any{"presentation_valid": false},
+			status: StatusFail,
+		},
+		{
+			name:   "multiple default false respects the verdict",
+			mode:   "multiple_default_false",
+			checks: map[string]any{"presentation_valid": false},
+			status: StatusFail,
+		},
+	}
+
+	validator := DCQLResponseConstraintsValidator{}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := validator.Validate(context.Background(), Input{
+				Value:  session(test.checks),
+				Params: map[string]any{"mode": test.mode},
+			})
+			require.Equal(t, test.status, result.Status, result.Message)
+		})
+	}
+
+	// The verdict is read from a Capture session record; checks on evidence
+	// that is not one leave the mode to its own checks.
+	t.Run("checks outside a session record do not decide the mode", func(t *testing.T) {
+		result := validator.Validate(context.Background(), Input{
+			Value: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"vp_token": map[string]any{"pid": []any{presentation}},
+				"checks":   map[string]any{"presentation_valid": false},
+			},
+			Params: map[string]any{"mode": "credentials_match"},
+		})
+		require.Equal(t, StatusPass, result.Status, result.Message)
+	})
 }
 
 func unsignedSDJWTPresentation() string {
@@ -3267,4 +3509,10 @@ func TestDCQLResponseConstraintsValidatorRejectsMalformedEvidence(t *testing.T) 
 			require.Contains(t, result.Message, test.message)
 		})
 	}
+}
+
+// boolPtr returns a pointer to value, for table entries that distinguish an
+// absent optional boolean param from an explicit false.
+func boolPtr(value bool) *bool {
+	return &value
 }

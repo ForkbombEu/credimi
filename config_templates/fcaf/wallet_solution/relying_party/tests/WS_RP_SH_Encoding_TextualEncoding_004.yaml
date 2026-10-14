@@ -26,11 +26,11 @@ assertions:
   params:
     mode: claims_path_no_match
     expected_claim_path: [street_address, address]
-- id: ws_rp_sh_encoding_textualencoding_004_returns_access_denied
+- id: ws_rp_sh_encoding_textualencoding_004_returns_an_error
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: access_denied
+    mode: wallet_error_required
 - id: ws_rp_sh_encoding_textualencoding_004_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

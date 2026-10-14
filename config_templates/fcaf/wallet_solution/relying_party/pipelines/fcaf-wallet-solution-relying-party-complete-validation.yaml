@@ -5508,9 +5508,80 @@ steps:
       id: dcql-credential-id-duplicate-0ca7fa96-reject
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+            - extendedWaitUntil:
+                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+                timeout: 30000
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - extendedWaitUntil:
+                      visible: "1"
+                      timeout: 30000
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - extendedWaitUntil:
+                visible: "Home|Documents|Add document|Welcome, .*"
+                timeout: 30000
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - extendedWaitUntil:
+                visible: "Welcome back|Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+                timeout: 60000
+                optional: true
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - extendedWaitUntil:
+                      visible: "1"
+                      timeout: 30000
+                  - inputText: "12345"
+                  - tapOn: "6"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+            # A tolerant Wallet that lists the request has accepted it; share so the
+            # Verifier records the Authorization Response the source test must
+            # refute.
+            - runFlow:
+                when:
+                  visible: "Requested data"
+                commands:
+                  - tapOn: "Share"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+                  - inputText: "12345"
+                  - tapOn: "6"
+                  - extendedWaitUntil:
+                      visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
+                      timeout: 30000
+                      optional: true
+            # The decisive refusal screen, captured under its own name. The same
+            # screen is what the terminal screenshot records, so this block only
+            # adds the name the test asserts.
+            - runFlow:
+                when:
+                  visible: "Oups! Something went wrong|invalid request|Presentation blocked|The requested document is not available.*"
+                commands:
+                  - takeScreenshot: wallet-refused
+            - takeScreenshot: expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-credential-id-duplicate-0ca7fa96-create.outputs.body.deeplink }}
+            DEEPLINK: ${{ dcql-credential-id-duplicate-0ca7fa96-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-id-duplicate-0ca7fa96-fetch
@@ -5818,9 +5889,80 @@ steps:
       id: dcql-credential-sets-empty-84f34308-reject
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+            - extendedWaitUntil:
+                visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+                timeout: 30000
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - extendedWaitUntil:
+                      visible: "1"
+                      timeout: 30000
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - extendedWaitUntil:
+                visible: "Home|Documents|Add document|Welcome, .*"
+                timeout: 30000
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - extendedWaitUntil:
+                visible: "Welcome back|Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+                timeout: 60000
+                optional: true
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - extendedWaitUntil:
+                      visible: "1"
+                      timeout: 30000
+                  - inputText: "12345"
+                  - tapOn: "6"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+            # A tolerant Wallet that lists the request has accepted it; share so the
+            # Verifier records the Authorization Response the source test must
+            # refute.
+            - runFlow:
+                when:
+                  visible: "Requested data"
+                commands:
+                  - tapOn: "Share"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+                  - inputText: "12345"
+                  - tapOn: "6"
+                  - extendedWaitUntil:
+                      visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
+                      timeout: 30000
+                      optional: true
+            # The decisive refusal screen, captured under its own name. The same
+            # screen is what the terminal screenshot records, so this block only
+            # adds the name the test asserts.
+            - runFlow:
+                when:
+                  visible: "Oups! Something went wrong|invalid request|Presentation blocked|The requested document is not available.*"
+                commands:
+                  - takeScreenshot: wallet-refused
+            - takeScreenshot: expect-request-rejected
         parameters:
-            deeplink: ${{ dcql-credential-sets-empty-84f34308-create.outputs.body.deeplink }}
+            DEEPLINK: ${{ dcql-credential-sets-empty-84f34308-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-sets-empty-84f34308-fetch
@@ -7480,6 +7622,69 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-format-mso-mdoc-fe537db0-create-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-format-mso-mdoc-fe537db0-create-sdjwt-presentation
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                            - path:
+                                - family_name
+                          format: dc+sd-jwt
+                          id: pid_sdjwt
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-dcql-format-sd-jwt
+            request_delivery: by_reference
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-format-mso-mdoc-fe537db0-present-sdjwt-with-reference-implementation-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-format-mso-mdoc-fe537db0-present-sdjwt-with-reference-implementation-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-format-mso-mdoc-fe537db0-present-sdjwt-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-format-mso-mdoc-fe537db0-present-sdjwt-with-reference-implementation
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-format-mso-mdoc-fe537db0-create-sdjwt-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-format-mso-mdoc-fe537db0-get-sdjwt-presentation-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-format-mso-mdoc-fe537db0-create-sdjwt-presentation.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-reset-wallet
       use: mobile-automation
@@ -10616,6 +10821,27 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-multiple-true-ad438f05-create-second-matching-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_person_b
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-multiple-true-ad438f05-obtain-second-matching-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-multiple-true-ad438f05-create-second-matching-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-multiple-true-ad438f05-create-presentation
       use: http-request
       with:
@@ -10645,30 +10871,10 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-multiple-true-ad438f05-present-with-reference-implementation-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-multiple-true-ad438f05-present-with-reference-implementation-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-multiple-true-ad438f05-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-multiple-true-ad438f05-present-with-reference-implementation
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
             deeplink: ${{ dcql-multiple-true-ad438f05-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -12548,6 +12754,73 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.session_id }}/request
     - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-create-transaction-data-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: protocol-messages-transaction-data
+                transaction_data:
+                    - credential_ids:
+                        - pid
+                      data: dGVzdA==
+                      type: unsupported_type
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-reject-transaction-data
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ dcql-protocol-messages-a25772b2-create-transaction-data-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-fetch-transaction-data-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-transaction-data-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-required-credentials-no-partial-c6dd8f09-reset-wallet
       use: mobile-automation
       with:
@@ -12975,24 +13248,30 @@ steps:
             deeplink: ${{ dcql-standard-all-28f43ce6-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-standard-all-28f43ce6-create-capture-session
+      id: dcql-standard-all-28f43ce6-create-credential-sets-session
       use: http-request
       with:
         body:
             presentation_request:
                 dcql_query:
+                    credential_sets:
+                        - options:
+                            - - available_pid
                     credentials:
                         - claims:
                             - path:
                                 - given_name
-                            - path:
-                                - family_name
                           format: dc+sd-jwt
-                          id: pid
+                          id: available_pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                nonce: fcaf-standard-all
+                        - format: dc+sd-jwt
+                          id: unavailable_pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:unavailable:1
+                nonce: fcaf-standard-all-credential-sets
             request_delivery: by_reference
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -13004,20 +13283,89 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-standard-all-28f43ce6-exercise-wallet
+      id: dcql-standard-all-28f43ce6-exercise-credential-sets
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
         parameters:
-            deeplink: ${{ dcql-standard-all-28f43ce6-create-capture-session.outputs.body.deeplink }}
+            deeplink: ${{ dcql-standard-all-28f43ce6-create-credential-sets-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-standard-all-28f43ce6-fetch-capture-session
+      id: dcql-standard-all-28f43ce6-fetch-credential-sets-session
       use: http-request
       with:
         expected_status: 200
         method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-standard-all-28f43ce6-create-capture-session.outputs.body.session_id }}
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-standard-all-28f43ce6-create-credential-sets-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-standard-all-28f43ce6-create-claim-sets-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claim_sets:
+                            - - unavailable
+                            - - given_name_claim
+                          claims:
+                            - id: unavailable
+                              path:
+                                - claim_that_does_not_exist
+                            - id: given_name_claim
+                              path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-standard-all-claim-sets
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-standard-all-28f43ce6-exercise-claim-sets-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-standard-all-28f43ce6-exercise-claim-sets-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-standard-all-28f43ce6-exercise-claim-sets-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-standard-all-28f43ce6-exercise-claim-sets
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ dcql-standard-all-28f43ce6-create-claim-sets-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-standard-all-28f43ce6-fetch-claim-sets-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-standard-all-28f43ce6-create-claim-sets-session.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-string-claim-path-index-selecto-e72d9b13-reset-wallet
       use: mobile-automation
@@ -21788,7 +22136,7 @@ steps:
             request_mutation:
                 request_object:
                     set:
-                        /require_cryptographic_holder_binding: false
+                        /dcql_query/credentials/0/require_cryptographic_holder_binding: false
                     unset:
                         - /state
                 verification_applies: false
@@ -25255,9 +25603,57 @@ steps:
       id: verifier-response-controls-f1d3d4c9-exercise-non-json-response
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 30000
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Requested data"
+                commands:
+                  - tapOn: "Share"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - extendedWaitUntil:
+                visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+                timeout: 60000
+                optional: true
+            - runFlow:
+                when:
+                  visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+                commands:
+                  - takeScreenshot: "non-json-wallet-error"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - takeScreenshot: "exercise-wallet"
         parameters:
-            deeplink: ${{ verifier-response-controls-f1d3d4c9-create-non-json-response.outputs.body.deeplink }}
+            DEEPLINK: ${{ verifier-response-controls-f1d3d4c9-create-non-json-response.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: verifier-response-controls-f1d3d4c9-fetch-non-json-response
@@ -25319,9 +25715,57 @@ steps:
       id: verifier-response-controls-f1d3d4c9-exercise-http-error-response
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 30000
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Requested data"
+                commands:
+                  - tapOn: "Share"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - extendedWaitUntil:
+                visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+                timeout: 60000
+                optional: true
+            - runFlow:
+                when:
+                  visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+                commands:
+                  - takeScreenshot: "http-error-wallet-error"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - takeScreenshot: "exercise-wallet"
         parameters:
-            deeplink: ${{ verifier-response-controls-f1d3d4c9-create-http-error-response.outputs.body.deeplink }}
+            DEEPLINK: ${{ verifier-response-controls-f1d3d4c9-create-http-error-response.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: verifier-response-controls-f1d3d4c9-fetch-http-error-response
@@ -25499,9 +25943,57 @@ steps:
       id: verifier-response-controls-f1d3d4c9-exercise-no-redirect-response
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        action_code: |
+            appId: eu.europa.ec.euidi
+            ---
+            - launchApp:
+                stopApp: true
+                clearState: false
+                permissions:
+                  camera: allow
+                  notifications: allow
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 30000
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Welcome back"
+                commands:
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Requested data"
+                commands:
+                  - tapOn: "Share"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - extendedWaitUntil:
+                visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+                timeout: 60000
+                optional: true
+            - runFlow:
+                when:
+                  visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+                commands:
+                  - takeScreenshot: "no-redirect-wallet-error"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - takeScreenshot: "exercise-wallet"
         parameters:
-            deeplink: ${{ verifier-response-controls-f1d3d4c9-create-no-redirect-response.outputs.body.deeplink }}
+            DEEPLINK: ${{ verifier-response-controls-f1d3d4c9-create-no-redirect-response.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: verifier-response-controls-f1d3d4c9-fetch-no-redirect-response
@@ -26162,9 +26654,14 @@ steps:
             pipeline.dcql.format-mso-mdoc:
                 output:
                     create-presentation: ${{ dcql-format-mso-mdoc-fe537db0-create-presentation.outputs | optional }}
+                    create-sdjwt-presentation: ${{ dcql-format-mso-mdoc-fe537db0-create-sdjwt-presentation.outputs | optional }}
                     dcql_exchange: ${{ dcql-format-mso-mdoc-fe537db0-get-presentation-result.outputs.body | optional }}
                     get-presentation-result: ${{ dcql-format-mso-mdoc-fe537db0-get-presentation-result.outputs | optional }}
+                    get-sdjwt-presentation-result: ${{ dcql-format-mso-mdoc-fe537db0-get-sdjwt-presentation-result.outputs | optional }}
+                    present-sdjwt-with-reference-implementation: ${{ dcql-format-mso-mdoc-fe537db0-present-sdjwt-with-reference-implementation.outputs | optional }}
                     present-with-reference-implementation: ${{ dcql-format-mso-mdoc-fe537db0-present-with-reference-implementation.outputs | optional }}
+                    sdjwt_dcql_exchange: ${{ dcql-format-mso-mdoc-fe537db0-get-sdjwt-presentation-result.outputs.body | optional }}
+                    sdjwt_visual_evidence: ${{ dcql-format-mso-mdoc-fe537db0-present-sdjwt-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls | optional }}
                     visual_evidence: ${{ dcql-format-mso-mdoc-fe537db0-present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.holder-binding-type-boundary:
                 output:
@@ -26356,6 +26853,9 @@ steps:
                     dcql_exchange: ${{ dcql-protocol-messages-a25772b2-fetch-capture-session.outputs.body | optional }}
                     request_object: ${{ dcql-protocol-messages-a25772b2-probe-request-uri-response.outputs.body | optional }}
                     request_uri_response: ${{ dcql-protocol-messages-a25772b2-probe-request-uri-response.outputs | optional }}
+                    transaction_data_dcql_exchange: ${{ dcql-protocol-messages-a25772b2-fetch-transaction-data-session.outputs.body | optional }}
+                    transaction_data_request_object: ${{ dcql-protocol-messages-a25772b2-fetch-transaction-data-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    transaction_data_visual_evidence: ${{ dcql-protocol-messages-a25772b2-reject-transaction-data.outputs.flow_output.maestro_screenshot_urls | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-a25772b2-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
                     wallet_nonce_evidence:
                         request_object: ${{ dcql-protocol-messages-a25772b2-fetch-signed-request-object.outputs.body | optional }}
@@ -26489,13 +26989,10 @@ steps:
                     visual_evidence: ${{ dcql-session-encryption-210827bd-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.standard-all:
                 output:
-                    create-capture-session: ${{ dcql-standard-all-28f43ce6-create-capture-session.outputs | optional }}
-                    dcql_exchange: ${{ dcql-standard-all-28f43ce6-fetch-capture-session.outputs.body | optional }}
-                    exercise-wallet: ${{ dcql-standard-all-28f43ce6-exercise-wallet.outputs | optional }}
-                    fetch-capture-session: ${{ dcql-standard-all-28f43ce6-fetch-capture-session.outputs | optional }}
-                    pid_sdjwt_presentations: ${{ dcql-standard-all-28f43ce6-fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
-                    trusted_authority: ${{ dcql-standard-all-28f43ce6-fetch-capture-session.outputs.body | optional }}
-                    visual_evidence: ${{ dcql-standard-all-28f43ce6-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    claim_sets_dcql_exchange: ${{ dcql-standard-all-28f43ce6-fetch-claim-sets-session.outputs.body | optional }}
+                    claim_sets_visual_evidence: ${{ dcql-standard-all-28f43ce6-exercise-claim-sets.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    credential_sets_dcql_exchange: ${{ dcql-standard-all-28f43ce6-fetch-credential-sets-session.outputs.body | optional }}
+                    credential_sets_visual_evidence: ${{ dcql-standard-all-28f43ce6-exercise-credential-sets.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.string-claim-path-index-selector:
                 output:
                     dcql_exchange: ${{ dcql-string-claim-path-index-selecto-e72d9b13-session.outputs.body | optional }}
@@ -26646,6 +27143,7 @@ steps:
                     fetch-result: ${{ dcql-unchecked-claim-0efe5303-fetch-result.outputs | optional }}
                     present-with-unchecked-address: ${{ dcql-unchecked-claim-0efe5303-present-with-unchecked-address.outputs | optional }}
                     visual_evidence: ${{ dcql-unchecked-claim-0efe5303-present-with-unchecked-address.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    wallet_response: ${{ dcql-unchecked-claim-0efe5303-fetch-result.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
             pipeline.dcql.unsupported-claim-path-component:
                 output:
                     dcql_exchange: ${{ dcql-unsupported-claim-path-componen-39ccebe1-session.outputs.body | optional }}
@@ -26938,6 +27436,7 @@ steps:
                     conflicting_nonce_outer_request: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-nonce.outputs.body.raw.outer_request_delivered | optional }}
                     conflicting_nonce_request_object: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-nonce.outputs.body.raw.authorization_request_jwt | optional }}
                     conflicting_nonce_session: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-nonce.outputs.body | optional }}
+                    conflicting_nonce_session_checks: ${{ request-object-outer-controls-84cfd8b2-fetch-conflicting-nonce.outputs.body.checks | optional }}
                     conflicting_nonce_visual_evidence: ${{ request-object-outer-controls-84cfd8b2-exercise-conflicting-nonce.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.protocol.request-object-payload-controls:
                 output:
@@ -26963,11 +27462,9 @@ steps:
                     unknown_parameter_visual_evidence: ${{ request-object-payload-controls-aefde1c6-exercise-unknown-parameter.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.protocol.request-uri-response-controls:
                 output:
-                    http_error_behavior: ${{ request-uri-response-controls-77a90e75-fetch-http-error.outputs.body.request_behavior.request_uri_response | optional }}
                     http_error_response: ${{ request-uri-response-controls-77a90e75-fetch-http-error.outputs.body.raw.request_uri_response_http | optional }}
                     http_error_session: ${{ request-uri-response-controls-77a90e75-fetch-http-error.outputs.body | optional }}
                     http_error_visual_evidence: ${{ request-uri-response-controls-77a90e75-reject-http-error.outputs.flow_output.maestro_screenshot_urls | optional }}
-                    wrong_content_type_behavior: ${{ request-uri-response-controls-77a90e75-fetch-wrong-content-type.outputs.body.request_behavior.request_uri_response | optional }}
                     wrong_content_type_response: ${{ request-uri-response-controls-77a90e75-fetch-wrong-content-type.outputs.body.raw.request_uri_response_http | optional }}
                     wrong_content_type_session: ${{ request-uri-response-controls-77a90e75-fetch-wrong-content-type.outputs.body | optional }}
                     wrong_content_type_visual_evidence: ${{ request-uri-response-controls-77a90e75-reject-wrong-content-type.outputs.flow_output.maestro_screenshot_urls | optional }}
@@ -27208,6 +27705,7 @@ steps:
                     capture_session: ${{ request-uri-method-default-9bc74bd3-get-presentation-result.outputs.body | optional }}
                     create-presentation: ${{ request-uri-method-default-9bc74bd3-create-presentation.outputs | optional }}
                     get-presentation-result: ${{ request-uri-method-default-9bc74bd3-get-presentation-result.outputs | optional }}
+                    outer_request_delivered: ${{ request-uri-method-default-9bc74bd3-get-presentation-result.outputs.body.raw.outer_request_delivered | optional }}
                     session_checks: ${{ request-uri-method-default-9bc74bd3-get-presentation-result.outputs.body.checks | optional }}
                     signed_request_object: ${{ request-uri-method-default-9bc74bd3-get-presentation-result.outputs.body.raw.authorization_request_jwt | optional }}
                     submit-request-uri-method-default: ${{ request-uri-method-default-9bc74bd3-submit-request-uri-method-default.outputs | optional }}

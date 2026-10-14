@@ -242,10 +242,39 @@ func guardedDCQLModeCases() []guardedModeCase {
 			}),
 			credentialID: "pid",
 		},
-		// claim_path_member_type_error belongs to the guarded set too, but the
-		// mode is missing from the allow-list at the top of Validate, so no
-		// definition can reach its pass today and there is nothing to exercise
-		// here.
+		// The explicit error-code modes reach their pass through
+		// validateErrorCode's absent-response branch, so a Wallet that never
+		// received the request passes them unless the guard speaks.
+		{
+			mode:         "invalid_request_generic",
+			evidence:     plainQuery,
+			credentialID: "pid",
+		},
+		{
+			mode:         "invalid_scope",
+			evidence:     plainQuery,
+			credentialID: "pid",
+		},
+		{
+			mode:         "access_denied",
+			evidence:     plainQuery,
+			credentialID: "pid",
+		},
+		{
+			mode:         "invalid_client",
+			evidence:     plainQuery,
+			credentialID: "pid",
+		},
+		{
+			mode:         "transaction_data_error",
+			evidence:     plainQuery,
+			credentialID: "pid",
+		},
+		// claim_path_member_type_error, wallet_error_expected and
+		// vp_formats_not_supported belong to the guarded set too, but all three
+		// are missing from the allow-list at the top of Validate, so no
+		// definition can reach their pass today and there is nothing to
+		// exercise here.
 	}
 }
 

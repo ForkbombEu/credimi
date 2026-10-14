@@ -35,5 +35,18 @@ assertions:
 - id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence
+- id: complete_trust_chain_precondition_is_unbuildable
+  validator: fcaf.skipped
+  input: evidence.signed_request_object
+  params:
+    reason: >-
+      the source's precondition is a Request Object whose x5c JOSE header
+      contains the full certificate chain and whose chain leads to a trusted
+      root; Capture delivers its deployed verifier certificate as a
+      single-element x5c (leaf only, probed 14/10/2026) and no Capture control
+      builds a valid complete chain, so the Wallet's chain validation cannot be
+      exercised; the reference Wallet also accepts a request whose chain ends in
+      an untrusted root (REFERENCE-WALLET-ISSUES.md RI-WALLET-019), so its
+      acceptance does not evidence chain validation
 verdict:
   pass_when: all_assertions_pass

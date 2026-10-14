@@ -23,7 +23,10 @@ steps:
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-pid-sdjwt-offer.outputs }}
-- id: create-capture-session
+# credential_sets: one set whose only option is the available PID query. The
+# second credential query is not part of any option, so a Wallet that applies
+# the constraint returns the available PID and nothing for the other query.
+- id: create-credential-sets-session
   use: http-request
   with:
     method: POST
@@ -38,7 +41,56 @@ steps:
       response_type: vp_token
       response_mode: direct_post.jwt
       presentation_request:
-        nonce: fcaf-standard-all
+        nonce: fcaf-standard-all-credential-sets
+        dcql_query:
+          credential_sets:
+          - options:
+            - - available_pid
+          credentials:
+          - id: available_pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+          - id: unavailable_pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:unavailable:1
+- id: exercise-credential-sets
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-credential-sets-session.outputs.body.deeplink }}
+- id: fetch-credential-sets-session
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-credential-sets-session.outputs.body.session_id }}
+    expected_status: 200
+# claim_sets: the first set asks for a claim the PID does not carry, so a
+# Wallet that applies Section 6.4.1 selection discloses the second set only.
+- id: create-claim-sets-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: fcaf-standard-all-claim-sets
         dcql_query:
           credentials:
           - id: pid
@@ -47,22 +99,27 @@ steps:
               vct_values:
               - urn:eudi:pid:1
             claims:
-            - path:
+            - id: unavailable
+              path:
+              - claim_that_does_not_exist
+            - id: given_name_claim
+              path:
               - given_name
-            - path:
-              - family_name
-- id: exercise-wallet
+            claim_sets:
+            - - unavailable
+            - - given_name_claim
+- id: exercise-claim-sets
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
     version_id: installed_from_external_source
     parameters:
-      deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-- id: fetch-capture-session
+      deeplink: ${{ create-claim-sets-session.outputs.body.deeplink }}
+- id: fetch-claim-sets-session
   use: http-request
   with:
     method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-claim-sets-session.outputs.body.session_id }}
     expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
@@ -74,10 +131,7 @@ steps:
     pipeline_outputs:
       pipeline.dcql.standard-all:
         output:
-          create-capture-session: ${{ create-capture-session.outputs }}
-          exercise-wallet: ${{ exercise-wallet.outputs }}
-          fetch-capture-session: ${{ fetch-capture-session.outputs }}
-          dcql_exchange: ${{ fetch-capture-session.outputs.body }}
-          trusted_authority: ${{ fetch-capture-session.outputs.body }}
-          pid_sdjwt_presentations: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token }}
-          visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+          credential_sets_dcql_exchange: ${{ fetch-credential-sets-session.outputs.body }}
+          credential_sets_visual_evidence: ${{ exercise-credential-sets.outputs.flow_output.maestro_screenshot_urls }}
+          claim_sets_dcql_exchange: ${{ fetch-claim-sets-session.outputs.body }}
+          claim_sets_visual_evidence: ${{ exercise-claim-sets.outputs.flow_output.maestro_screenshot_urls }}

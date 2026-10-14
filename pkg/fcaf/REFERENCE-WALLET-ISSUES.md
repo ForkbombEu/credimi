@@ -1012,3 +1012,105 @@ The wallet navigates the user agent to the returned `redirect_uri`, as
 ### FCAF Impact
 
 - Test: `WS_RP_IA_MainInteraction__064`.
+
+## RI-WALLET-024: A DCQL request offers no per-claim deselection
+
+### Summary
+
+The reference Android Wallet renders the consent screen of a DCQL (or DC API)
+presentation request with no per-claim deselection control, so the user cannot
+withhold a single requested claim. The sources that require a user to unselect
+a claim, such as `WS_RP_IA_MainInteraction__013`, therefore cannot be
+satisfied by this SUT.
+
+### Reproduction
+
+14/10/2026, emulator, Wallet 2026.09.42, production
+`capture-wallet.credimi.io`: run the `unchecked-claim` session of
+`scenarios/fcaf-wallet-solution-relying-party-dcql-unchecked-claim.yaml`
+(`WS_RP_IA_MainInteraction__013`), open the deeplink, unlock, and try to
+unselect the `address` claim on the consent screen.
+
+### Observed
+
+- The consent screen lists the requested data read-only; tapping the `address`
+  group only expands it and no checkbox is offered.
+- The run's `fcaf-013-unchecked-address` screenshot shows the expand-only row,
+  and the Wallet discloses `address` in the submission.
+
+### Expected
+
+`WS_RP_IA_MainInteraction__013` (source l.33): "User unselects `address` claim
+in the UI, that claim is absent in the vp_token".
+
+### Notes
+
+`[INFERENCE]` At the Wallet's 2026.09.42 tag, `WalletCorePresentationController.kt`
+(279-282) returns `requestAllowsClaimSelection = false` for `ProcessedDcqlRequest`
+and `ProcessedOpenId4VpDCAPIRequest` ("these protocols validate the selection as
+a complete set"), so the consent screen renders read-only claim rows and
+`RequestScreen.kt` passes a null item callback. The screenshot and the app's
+test tags agree with that reading, but the source line was not re-read from the
+APK in this session.
+
+### FCAF Impact
+
+- Test: `WS_RP_IA_MainInteraction__013`, which now asserts
+  `sdjwt.claim_presence{address, present: false}` and
+  `{given_name, present: true}` on the Wallet's own `wallet_response`. It
+  FAILS on this Wallet.
+- Maintainer decision required: keep the strict failure (the source relevancy is
+  `EUDI_generic | EUDI_required`, so a missing capability is arguably a breach)
+  or report `fcaf.not_applicable` per the `.agents/HITL.md` entry of
+  2026-10-14 ("not_applicable when the SUT cannot meet a source precondition").
+
+## RI-WALLET-025: A malformed response-endpoint reply does not produce a Wallet error screen
+
+### Summary
+
+After the Wallet has submitted its Authorization Response, a reply from the
+Verifier's response endpoint that carries no `redirect_uri`
+(`WS_RP_IA_MainInteraction__066`) or whose HTTP 200 body is not JSON
+(`WS_RP_MS_ProtocolMessages__125`) leaves the reference Android Wallet on its
+success screen instead of an error or a termination.
+
+### Reproduction
+
+14/10/2026, emulator, Wallet 2026.09.42, production
+`capture-wallet.credimi.io`: the `exercise-no-redirect-response` session of
+`scenarios/fcaf-wallet-solution-relying-party-verifier-response-controls.yaml`
+(066) and its `exercise-non-json-response` session (125); open the deeplink,
+unlock, share a PID, and observe the terminal screen.
+
+### Observed
+
+- After sharing, the Wallet shows `Authentication successful ... you
+  successfully shared the following information` and no `Oups! Something went
+  wrong` error; the guarded `no-redirect-wallet-error` / `non-json-wallet-error`
+  screenshots are never stored.
+- Capture cannot say whether an error arrives later, because the Wallet has
+  already posted its Authorization Response.
+
+### Expected
+
+- 066 source: "The Wallet raises an invalid_request error or terminates
+  transaction".
+- 125 source: "the wallet detects that the verifier's HTTP 200 response body is
+  not valid JSON and returns an error".
+
+A success screen is neither an error nor a termination of the transaction.
+
+### Notes
+
+For 066 the finding is a judgment on "terminates transaction": staying on the
+success screen could be argued to end the interaction, but the source's
+alternative is an invalid_request error, and neither is evidenced. For 126 (an
+HTTP 400 reply with a JSON error body) the Wallet does show
+`Oups! ... Verifier rejected the response`, so the error path exists.
+
+### FCAF Impact
+
+- Tests: `WS_RP_IA_MainInteraction__066` and
+  `WS_RP_MS_ProtocolMessages__125` now assert a named error screenshot
+  (`no-redirect-wallet-error` / `non-json-wallet-error`) and are expected to
+  FAIL on this Wallet; `WS_RP_MS_ProtocolMessages__126` passes.

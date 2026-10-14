@@ -3599,3 +3599,121 @@ from `127.0.0.1:5037` to `172.22.16.1:5037` (run Maestro with
   no-match validator passed; after the redeploy the session keeps the
   `vp_token` (`vp_token_observed: true`) and `trusted_authorities_no_match`,
   `no_match` and `oid4vp.no_presentation_returned` fail.
+
+## Passed-test audit of run 4t9hxzgxlf, 14/10/2026
+
+The 439 tests that passed in `fcaf_assessment_4t9hxzgxlf.json` were re-audited
+against their sources in 12 slices: 354 genuine passes, 80 false positives, 3
+`skip` (`WS_RP_SM_RpIntegrity__016`/`018`/`020`, unbuildable trust-chain
+preconditions), 2 `unclear` (`WS_RP_MS_ProtocolMessages__006`/`007`). Every
+false positive and the two unclear are fixed; the audit judged the CURRENT
+definitions and used the run only as evidence.
+
+**False-positive classes** (with test ids).
+
+1. The DCQL template mode `credentials_match` on a generic positive session
+   stood in for an unrelated property: `WS_RP_IA_MainInteraction__006`/`010`/`024`
+   (unbound / mixed-binding / encrypted credential),
+   `WS_RP_MS_Metadata__111`-`128` and `134` (verifier_attestation /
+   openid_federation / x509_san_dns), and
+   `WS_RP_MS_ProtocolMessages__011`/`017`/`018`/`020`/`040`/`095`; also
+   `WS_RP_DM_CredentialMetadata_CredentialStructure_007`/`010`,
+   `WS_RP_IA_MainInteraction__012`, `WS_RP_IA_Metadata__015`,
+   `WS_RP_MS_Metadata__094`,
+   `WS_RP_MS_ProtocolMessages__058`/`066`/`070`/`071`/`086`/`103`/`106`/`118`
+   and `WS_RP_SH_Encoding_TextualEncoding_004`.
+2. Loose modes that also accept an absent response or silence:
+   `request_rejected` and `invalid_request_generic` pass on an empty response,
+   so `WS_RP_MS_ProtocolMessages__006`/`007`/`010`/`014`/`021`/`033`/`034`/`053`/`062`/`068`/`079`
+   moved to `invalid_request_required` or the engagement-guarded
+   `request_rejected`; `WS_RP_MS_ProtocolMessages__086`/`103`/`118` moved from a
+   mode that passed on an absent response to `property_type`/
+   `credential_sets_required_omitted`/`claim_path_allowed_components`.
+3. `evidence.non_empty` over screenshots standing in for Wallet behaviour:
+   `WS_RP_IA_Engagement__001`/`001a`, `WS_RP_MS_CredentialFormats__044`,
+   `WS_RP_MS_Metadata__129`/`131`,
+   `WS_RP_MS_ProtocolMessages__058`/`066`/`125`/`126`,
+   `WS_RP_SM_RpIntegrity__026`/`029`/`031`,
+   `WS_RP_SH_Encoding_TextualEncoding_004`.
+4. Preconditions not delivered: `WS_RP_MS_ProtocolMessages__034` (holder
+   binding sat on the Request Object top level, not the DCQL entry),
+   `070`/`071` (only one matching credential in the Wallet),
+   `WS_RP_IA_MainInteraction__013` (nothing was deselected) and `018` (3 of the
+   25 requested claim paths was asserted).
+5. Unbuildable preconditions now `fcaf.skipped`: verifier_attestation
+   (`WS_RP_MS_Metadata__116`-`124`), openid_federation (`113`/`114`/`115`),
+   x509_san_dns (`125`/`127`/`128`), unbound credential
+   (`WS_RP_IA_MainInteraction__006`/`008`/`010`), encrypted data
+   (`WS_RP_IA_MainInteraction__024`), ETSI trust list
+   (`WS_RP_MS_ProtocolMessages__095`), trust chain
+   (`WS_RP_SM_RpIntegrity__016`/`018`/`020`) and
+   `WS_RP_SM_DeviceBinding__002`-`006`.
+6. EUDI_forbidden sources now `fcaf.not_applicable`:
+   `WS_RP_IA_MainInteraction__060`, `WS_RP_MS_Metadata__112`/`134`,
+   `WS_RP_MS_ProtocolMessages__011`/`018`/`020`/`040`.
+
+**Validators** (`pkg/fcaf/validators/`).
+`dcqlModesAwaitingWalletResponse` (`dcql.go`) now also guards the error-code
+modes (`invalid_request_generic`, `invalid_scope`, `access_denied`,
+`invalid_client`, `transaction_data_error`), because `validateErrorCode`'s
+absent-response branch passed with neither an error nor a `vp_token`;
+`wallet_error_expected`, `vp_formats_not_supported` and the pre-existing
+`claim_path_member_type_error` are listed defensively (dispatched but absent
+from the mode allow-list, so unreachable until it is fixed).
+`verifierRejectedPresentation` (`dcql.go`) makes the whole
+`credentials_match`/`without_*`/`multiple_*` family (51 tests, 53 assertions)
+fail when the Capture session records `presentation_valid` or
+`dcql_query_matched` not `true`. `vp_token_json_object` now requires every
+entry to be an array; `vp_token_presentation_arrays` requires every element to
+be a string or a JSON object. `dcql.response_satisfies_constraints` mode
+`property_equals` gained an optional `require_response` boolean (default
+`true`). `value.go` embeds the ITU-T E.164 assigned country calling codes and
+requires them in `sdjwt.claim_international_phone` /
+`mdoc.element_international_phone`; it also derives the ISO 3166-2:2020 6.1
+subdivision list (new `iso3166_2.go`, LGPL-2.1-or-later - licensing is an open
+HITL item) so `sdjwt.claim_country_subdivision` /
+`mdoc.element_country_subdivision` reject an unlisted subdivision.
+`mdoc.element_date_encoding` requires the preferred RFC 8949 4.2 tag encoding.
+`sdjwt.kb_jwt_algorithm_allowed` replaces `sdjwt.kb_jwt_algorithm_equals`
+(012a uses `allowed: [ES256]`, the HITL-approved beta set).
+
+**Scenarios.** `request-object-payload-controls` sets
+`require_cryptographic_holder_binding` inside `dcql_query.credentials[0]`
+(OpenID4VP 6.1) and 034 reads it there; `verifier-response-controls`'s three
+negative steps (066/125/126) inline the 064 prelude and store a named error
+screenshot (`no-redirect-wallet-error` / `non-json-wallet-error` /
+`http-error-wallet-error`) instead of `fcaf-exercise-wallet-generic`;
+`request-uri-method-default` exposes `outer_request_delivered` for 002c;
+`pid-multiple-credentials` now owns 070 (two PIDs); 018 moved from
+`dcql-main-interaction` to `engagement-haip-vp` (its evidence);
+`standard-all` runs credential_sets/claim_sets queries for CredentialStructure
+007/010; `unchecked-claim` exposes `wallet_response` for MainInteraction 013.
+The regenerated aggregate is 1860 steps / 615 tests / 222 outputs; the happy
+flow is 210 steps / 300 tests (070 left it).
+
+**Emulator, 14/10/2026** (wallet 2026.09.42, production Capture). The new
+inline verifier-response-controls flow for `WS_RP_IA_MainInteraction__066` runs;
+on a 200 reply without `redirect_uri` the reference Wallet shows its success
+screen and no error, so 066 fails (source: "raises an invalid_request error or
+terminates transaction" - a success screen is neither; see
+REFERENCE-WALLET-ISSUES RI-WALLET-025). `WS_RP_IA_MainInteraction__013`: the
+Wallet offers no per-claim deselection for DCQL requests
+(`WalletCorePresentationController.kt` returns
+`requestAllowsClaimSelection = false` for `ProcessedDcqlRequest`), so the
+source's "user unselects a claim" step is not deliverable
+(RI-WALLET-024). 125 is projected to fail and 126 to pass from the run's own
+screenshots (the run stored the success screen for 066/125 and the
+`Oups! ... Verifier rejected the response` screen for 126); both need a fresh
+run to confirm.
+
+**Residual / unclear.** 006/007 keep `unclear` until a fresh run (their pass now
+needs a real `invalid_request`). `WS_RP_MS_CredentialFormats__034` still infers
+its `values` filter (needs a second mdoc plus a new `mdoc.element_equals`
+validator). `WS_RP_IA_MainInteraction__026` is expected to FAIL (needs
+`access_denied`; RI-WALLET-001/010 family). Mixed3's VR-3 is truncated in the
+report: `vp_token_json_object`'s array clause was reconstructed from 127a's
+source. `oid4vp.request_uri_retrieval` cannot check the requested path (Capture
+records only `{body, headers, method}`). `mdoc_without_claim_disclosures` was
+left out of the `credentials_match` checks change. Three optional validators
+(`oid4vp.transaction_data_support`, `oid4vp.request_uri_method_fallback`,
+`mdoc.mso_status_member_absent`) were deliberately not added.

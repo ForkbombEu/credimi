@@ -29,6 +29,10 @@ assertions:
   validator: oid4vp.session_event_count
   input: evidence.capture_session
   params: {type: vp_presentation_response_received, count: 1}
+- id: wallet_answers_with_a_presentation
+  validator: dcql.response_satisfies_constraints
+  input: evidence.capture_session
+  params: {mode: credentials_match}
 - id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

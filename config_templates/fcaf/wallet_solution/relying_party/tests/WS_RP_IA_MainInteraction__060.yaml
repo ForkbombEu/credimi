@@ -20,11 +20,14 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.main-interaction.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__060_interaction
-  validator: dcql.response_satisfies_constraints
+- id: wallet_redirects_the_user_agent_to_redirect_uri
+  validator: fcaf.not_applicable
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    reason: >-
+      source relevancy is EUDI_forbidden: an EUDI wallet must not support a
+      redirect_uri in the initial Authorization Request, so its acceptance is
+      not a breach of the source
 - id: ws_rp_ia_maininteraction__060_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

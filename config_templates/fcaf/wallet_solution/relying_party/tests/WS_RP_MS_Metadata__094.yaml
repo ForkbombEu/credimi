@@ -31,12 +31,18 @@ assertions:
 - id: issuer_offered_an_mdoc_pid
   validator: json.field_equals
   input: evidence.issuance_session
-  params: { field: credential_configuration_id, value: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required }
-# Local policy allows the Wallet to keep or refuse the token, so no outcome is
-# asserted. The probe for the fixture's document_number records which one the
-# Wallet chose; WS_RP_MS_Metadata__092 is the case that requires rejection.
-- id: wallet_outcome_for_the_token_is_captured
-  validator: evidence.non_empty
+  params: { field: credential_configuration_id, value: "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required" }
+# Local policy allows the Wallet to keep or refuse the token, so no disposition
+# is asserted and WS_RP_MS_Metadata__092 is the case that requires rejection.
+# What is asserted is that the Wallet handled the token instead of stalling on
+# it: the probe exchange for the fixture's document_number records the Wallet's
+# retrieval, so the Wallet was still able to process the request that reflects
+# the token's disposition. `evidence.non_empty` on the session record was
+# satisfied by the session Capture creates before the Wallet does anything, so
+# it passed for a Wallet that never engaged.
+- id: wallet_retrieved_the_probe_after_the_malformed_token
+  validator: oid4vp.session_event_count
   input: evidence.probe_exchange
+  params: { type: vp_request_retrieved, count: 1 }
 verdict:
   pass_when: all_assertions_pass

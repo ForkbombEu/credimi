@@ -20,11 +20,12 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.main-interaction.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__046_interaction
-  validator: dcql.response_satisfies_constraints
+- id: authorization_response_is_delivered_by_post
+  validator: oid4vp.presentation_response_http
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    method: POST
+    require_response_parameter: true
 - id: ws_rp_ia_maininteraction__046_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

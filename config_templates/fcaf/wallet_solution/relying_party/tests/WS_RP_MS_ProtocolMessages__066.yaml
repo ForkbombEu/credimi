@@ -25,6 +25,16 @@ assertions:
   input: evidence.dcql_exchange
   params:
     mode: invalid_request_generic
+# The source's third accepted outcome is "discontinuing the interaction", which
+# leaves no protocol evidence behind, so the Wallet's own refusal screen is the
+# evidence for it: the scenario stores `wallet-refused` only while that screen
+# is up, and a Wallet that instead shows its consent screen is shared by the
+# flow, which makes the protocol assertion above fail.
+- id: wallet_showed_a_refusal_screen
+  validator: evidence.screenshot_named
+  input: evidence.visual_evidence
+  params:
+    name: wallet-refused
 - id: ws_rp_ms_protocolmessages__066_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

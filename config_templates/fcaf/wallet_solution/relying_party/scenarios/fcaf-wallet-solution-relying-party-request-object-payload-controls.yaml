@@ -172,7 +172,13 @@ steps:
             claims: [{ path: [given_name] }]
       request_mutation:
         request_object:
-          set: { /require_cryptographic_holder_binding: false }
+          # OpenID4VP Section 6.1: require_cryptographic_holder_binding is a
+          # member of each dcql_query credential entry. Setting it on the
+          # Request Object top level made it an unrecognized parameter, so the
+          # delivered request was an ordinary one and the Section 5.3
+          # precondition of WS_RP_MS_ProtocolMessages__034 was not delivered.
+          set:
+            /dcql_query/credentials/0/require_cryptographic_holder_binding: false
           unset: [/state]
         verification_applies: false
 - id: exercise-no-state-without-holder-binding

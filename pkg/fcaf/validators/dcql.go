@@ -51,6 +51,12 @@ type dcqlModeParams struct {
 	ExpectedFormat    string  `json:"expected_format"`
 	ExpectedClaimPath []any   `json:"expected_claim_path"`
 	ClaimSetCount     int     `json:"claim_set_count"`
+	// RequireResponse is optional and defaults to true. The request-shape modes
+	// assert a property of the delivered query and normally also require the
+	// Wallet's answer; a negative control whose source demands a rejection sets
+	// it to false, because the rejection is asserted by its own mode and no
+	// presentation exists to inspect.
+	RequireResponse *bool `json:"require_response"`
 }
 
 // dcqlModesAwaitingWalletResponse is the set of modes whose pass can be reached
@@ -61,12 +67,21 @@ type dcqlModeParams struct {
 // received the request; guardWalletEngagement blocks the ones that do not.
 //
 // The modes outside the set already require a non-empty vp_token (the positive
-// controls and the claim/credential matching modes) or a Wallet error (the
-// explicit error-code modes), and their own precondition says so.
+// controls and the claim/credential matching modes), and their own precondition
+// says so.
 //
-// claim_path_member_type_error is listed defensively: it is dispatched but
+// The explicit error-code modes belong to the set too: validateErrorCode and
+// validateWalletErrorExpected pass through their absent-response branch when the
+// evidence carries neither an error nor a vp_token ("wallet did not return
+// vp_token for %s case"), which is exactly the outcome a Wallet that never
+// received the request produces. Their pass therefore needs the same
+// engagement evidence as the modes above (validateRequiredErrorCode and
+// validateWalletErrorRequired fail on that branch and stay unguarded).
+//
+// claim_path_member_type_error, wallet_error_expected and
+// vp_formats_not_supported are listed defensively: all three are dispatched but
 // absent from the allow-list at the top of Validate, so no definition reaches
-// its pass today and the guard only speaks if that list is fixed.
+// their pass today and the guard only speaks if that list is fixed.
 var dcqlModesAwaitingWalletResponse = map[string]struct{}{
 	"no_match":                                 {},
 	"request_rejected":                         {},
@@ -86,6 +101,13 @@ var dcqlModesAwaitingWalletResponse = map[string]struct{}{
 	"trusted_authority_array_item_type":        {},
 	"trusted_authority_empty_string_item":      {},
 	"property_type":                            {},
+	"invalid_request_generic":                  {},
+	"invalid_scope":                            {},
+	"access_denied":                            {},
+	"invalid_client":                           {},
+	"vp_formats_not_supported":                 {},
+	"transaction_data_error":                   {},
+	"wallet_error_expected":                    {},
 	"claim_path_member_type_error":             {},
 }
 
@@ -503,6 +525,9 @@ func validateDCQLResponseMode(params dcqlModeParams, input Input) Result {
 				}
 			}
 		}
+		if reason, rejected := verifierRejectedPresentation(root); rejected {
+			return Result{Status: StatusFail, Message: reason}
+		}
 	case "empty_claims", "empty_array":
 		property := "claims"
 		if params.Mode == "empty_array" {
@@ -732,7 +757,8 @@ func validateDCQLResponseMode(params dcqlModeParams, input Input) Result {
 				}
 			}
 		}
-		if isEmptyDCQLValue(responseValue) {
+		if (params.RequireResponse == nil || *params.RequireResponse) &&
+			isEmptyDCQLValue(responseValue) {
 			return Result{
 				Status:  StatusFail,
 				Message: fmt.Sprintf("wallet returned no credential for %s", params.Property),
@@ -1508,9 +1534,23 @@ func validateVPTokenSignedPresentation(
 	}
 }
 
+// validateVPTokenJSONObject checks the vp_token object clause of the source of
+// WS_RP_MS_ProtocolMessages__127a together with the array clause it states
+// beside it: the vp_token is a JSON object and every entry of that object holds
+// an array. The element types of those arrays are the subject of 127b
+// (validateVPTokenPresentationArrays).
 func validateVPTokenJSONObject(responseValue any) Result {
-	if _, ok := normalizeJSONObject(responseValue); !ok {
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
 		return Result{Status: StatusFail, Message: "wallet response vp_token is not a JSON object"}
+	}
+	for _, key := range sortedKeys(response) {
+		if _, isArray := response[key].([]any); !isArray {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("vp_token[%q] is not an array", key),
+			}
+		}
 	}
 	return Result{Status: StatusPass, Message: "wallet response vp_token is a JSON object"}
 }
@@ -1537,10 +1577,32 @@ func validateVPTokenQueryIDs(query map[string]any, responseValue any) Result {
 	return Result{Status: StatusPass, Message: "vp_token keys exactly match credential query IDs"}
 }
 
+// validateVPTokenPresentationArrays checks both clauses the source of
+// WS_RP_MS_ProtocolMessages__127b states for each vp_token entry: the value is a
+// non-empty array and every element of that array is a string or a JSON object.
 func validateVPTokenPresentationArrays(query map[string]any, responseValue any) Result {
-	_, result := validatedVPTokenPresentations(query, responseValue)
+	response, result := validatedVPTokenPresentations(query, responseValue)
 	if result != nil {
 		return *result
+	}
+	for _, queryID := range queryCredentialIDs(query) {
+		presentations := response[queryID].([]any)
+		for index, rawPresentation := range presentations {
+			if _, isString := rawPresentation.(string); isString {
+				continue
+			}
+			if _, isObject := normalizeJSONObject(rawPresentation); isObject {
+				continue
+			}
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"vp_token[%q][%d] is neither a string nor a JSON object",
+					queryID,
+					index,
+				),
+			}
+		}
 	}
 	return Result{
 		Status:  StatusPass,
@@ -4500,6 +4562,46 @@ func validateWalletErrorRequired(responseValue, errorValue any) Result {
 		Status:  StatusFail,
 		Message: "wallet returned no vp_token but no error, expected error",
 	}
+}
+
+// verifierRejectedPresentation reports the Verifier's recorded verdict on the
+// Wallet's Authorization Response when the evidence carries a Capture verifier
+// session that records one. Capture writes the verdict into the session's
+// checks: presentation_valid says whether the presented credential verified and
+// dcql_query_matched whether it satisfied the delivered query.
+//
+// The matching modes (credentials_match and the modes beside it) assert that the
+// Wallet answered every credential query with a credential the Verifier
+// accepted, so a recorded member that is not true fails them however well-formed
+// the vp_token is. A checks object that omits a member says nothing about it,
+// and evidence that is not a Capture session record at all leaves the mode to
+// its own checks.
+func verifierRejectedPresentation(value any) (string, bool) {
+	session, ok := captureVerifierSession(value)
+	if !ok {
+		return "", false
+	}
+	checks, ok := normalizeJSONObject(session["checks"])
+	if !ok {
+		return "", false
+	}
+	if verdict, recorded := checks["presentation_valid"]; recorded {
+		if accepted, isBool := verdict.(bool); !isBool || !accepted {
+			return fmt.Sprintf(
+				"the verifier recorded presentation_valid=%v for the presented credential",
+				verdict,
+			), true
+		}
+	}
+	if matched, recorded := checks["dcql_query_matched"]; recorded {
+		if matchedOK, isBool := matched.(bool); !isBool || !matchedOK {
+			return fmt.Sprintf(
+				"the verifier recorded dcql_query_matched=%v for the delivered query",
+				matched,
+			), true
+		}
+	}
+	return "", false
 }
 
 // validateErrorCode checks that wallet returns a specific OAuth2/OID4VP error code.

@@ -17,16 +17,16 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.main-interaction.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__024_interaction
-  validator: dcql.response_satisfies_constraints
+- id: encrypted_credential_precondition_is_unavailable
+  validator: fcaf.skipped
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__024_visual_evidence
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      needs a matching credential whose value the Wallet cannot parse yet
+      (source profile "Encrypted data"), so that it proceeds on the credential
+      type and claim path alone; Capture's PID is a plain, fully readable
+      credential, so the Wallet always evaluates a values restriction and the
+      scenario cannot deliver the source's premise
 verdict:
   pass_when: all_assertions_pass

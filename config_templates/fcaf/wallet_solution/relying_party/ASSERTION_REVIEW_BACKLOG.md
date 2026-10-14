@@ -231,41 +231,55 @@ delivered request carried the property; no Wallet has run them yet.
 
 Constructible from existing controls:
 
-- [ ] `WS_RP_MS_Metadata__119` (`request_mutation` sets `client_id` to
+- [x] `WS_RP_MS_Metadata__119` (`request_mutation` sets `client_id` to
   `verifier_attestation:capture-wallet.credimi.io` on the default session; the
   delivered header has no `jwt`, which is the defect. No attestation session is
-  needed)
-- [ ] `WS_RP_MS_Metadata__113` (`request_mutation` sets an `openid_federation:`
+  needed). Resolved 14/10/2026: the source precondition is unbuildable, so the
+  test asserts `fcaf.skipped` naming the missing certificate (see the
+  certificate entry below).
+- [x] `WS_RP_MS_Metadata__113` (`request_mutation` sets an `openid_federation:`
   `client_id` and a malformed `trust_chain` JOSE header; the source expects
-  rejection)
-- [ ] `WS_RP_MS_ProtocolMessages__040` (plain request, `client_id`
+  rejection). Resolved 14/10/2026: Capture rejects `openid_federation` with
+  `400 unsupported_client_id_scheme` (probed 14/10/2026), so the session cannot
+  be created; the test asserts `fcaf.skipped` with that reason.
+- [x] `WS_RP_MS_ProtocolMessages__040` (plain request, `client_id`
   `redirect_uri:<URI>` with `response_mode=fragment` and `response_uri`
   removed through `outer_request` mutation. `<URI>` is a second session's
   capture redirect page with its `response_code`, so a recorded visit on that
   session proves the Wallet derived the target from the Client Identifier.
   Upstream rates it category A. Wallet 2026.09.42 rejects the `redirect_uri:`
-  prefix, so it is expected to fail)
-- [ ] `WS_RP_MS_ProtocolMessages__017` (`transaction_data` of an unknown type;
+  prefix, so it is expected to fail). Resolved 14/10/2026: the source relevancy
+  is `EUDI_forbidden`, so the acceptance clause is `fcaf.not_applicable` and the
+  request-shape assertions are kept.
+- [x] `WS_RP_MS_ProtocolMessages__017` (`transaction_data` of an unknown type;
   `invalid_transaction_data` passes, a presentation carrying
   `transaction_data_hashes` makes it `not_applicable` because the Wallet then
-  supports the parameter)
+  supports the parameter). Resolved 14/10/2026: implemented as
+  `jwt.payload_field_presence` + `dcql.response_satisfies_constraints{mode:
+  transaction_data_error_required}` on the delivered request and the Wallet's
+  error response.
 
 Profile-conditional, decided by evidence like `WS_RP_MS_Metadata__135` and
 `WS_RP_SH_Cryptography_Encryption_002`: each applies only to a Wallet lacking a
 capability, and the verdict is `not_applicable` when the Wallet's own metadata
 or behaviour shows it has it.
 
-- [ ] `WS_RP_MS_ProtocolMessages__011` (Wallet without POST Request URI
-  retrieval; a POST retrieval shows support)
+- [x] `WS_RP_MS_ProtocolMessages__011` (Wallet without POST Request URI
+  retrieval; a POST retrieval shows support). Resolved 14/10/2026: the
+  reference Wallet retrieves the Request Object with HTTP POST, so the source's
+  GET-fallback premise is false for this SUT and the acceptance clause is
+  `fcaf.not_applicable` (profile-conditional); the retrieval and request-shape
+  assertions are kept.
 - [ ] `WS_RP_IA_ProtocolFlow__002d` (same condition; no Credimi definition yet.
   Its example invocation is `eu-eaap://`, which the reference Wallet does not
   handle, so use the default scheme and record the deviation)
 - [ ] `WS_RP_MS_ProtocolMessages__151` (Wallet without `mso_mdoc`;
   `vp_formats_supported` in the POSTed `wallet_metadata` shows support)
-- [ ] `WS_RP_MS_Metadata__134` (Wallet requiring encrypted Request Objects;
+- [x] `WS_RP_MS_Metadata__134` (Wallet requiring encrypted Request Objects;
   applies only when `wallet_metadata` publishes `jwks`, which wallet 2026.09.42
   does not. For a Wallet that does, see the Request Object encryption entry
-  below)
+  below). Resolved 14/10/2026: the reference Wallet publishes no `jwks`, so the
+  premise does not hold and the test asserts `fcaf.not_applicable`.
 
 Published in the Capture contract at `3d40a8d`, not yet deployed: on
 30/09/2026 production and beta both refused `request_behavior:
@@ -295,9 +309,16 @@ unable to pass on beta, need a production run.
 
 ### Known gaps inside implemented coverage
 
-- `WS_RP_MS_ProtocolMessages__125` and `126` can only evidence the Wallet's own
-  error visually: the Wallet has already submitted its Authorization Response
-  when the malformed verifier reply arrives.
+- `WS_RP_MS_ProtocolMessages__125`, `126` and `WS_RP_IA_MainInteraction__066`
+  can only evidence the Wallet's own error visually: the Wallet has already
+  submitted its Authorization Response when the malformed verifier reply
+  arrives. Updated 14/10/2026: the three steps now store a named error
+  screenshot (`non-json-wallet-error` / `http-error-wallet-error` /
+  `no-redirect-wallet-error`) and assert `evidence.screenshot_named`, so a
+  Wallet that stays on its success screen fails. On wallet 2026.09.42 the
+  success screen is what 066 and 125 show (expected FAIL,
+  `REFERENCE-WALLET-ISSUES.md` RI-WALLET-025); 126 shows
+  `Oups! ... Verifier rejected the response` (pass).
 - `WS_RP_IA_MainInteraction__033` covers its numeric data-type axis on a
   separate credential type. The source's B2 trap is a PID-shaped credential
   holding a float, which no PID or degree fixture provides, and OpenID4VP 6.4
@@ -350,16 +371,64 @@ unable to pass on beta, need a production run.
   `Verifier rejected the response` without opening the URI. That run used a
   `request_mutation` to strip the `redirect_uri` beta then signed into the
   request (MOCK-VERIFIER-003, since fixed); the mutation is gone and the
-  unmutated session has not been rerun. 066 has the same limit as 125 and 126:
-  its only evidence of the Wallet's own error is visual, so
-  `evidence.non_empty` would also pass for a Wallet that shows success. Its
-  reference-Wallet run is still pending.
+  unmutated session has not been rerun. 066 kept the same limit as 125 and 126
+  until 14/10/2026, when its step was inlined like theirs and it moved from
+  `evidence.non_empty` to `evidence.screenshot_named{name:
+  no-redirect-wallet-error}`. The emulator run of 14/10/2026 leaves the
+  reference Wallet on its success screen when the reply carries no
+  `redirect_uri`, so 066 is expected to FAIL (the source's "raises an
+  invalid_request error or terminates transaction" is a judgment:
+  `REFERENCE-WALLET-ISSUES.md` RI-WALLET-025).
 - `WS_RP_IA_MainInteraction__057`, `061`, `067`, and
   `WS_RP_MS_ProtocolMessages__127`, `128` configure a `redirect_uri` that
   beta signed into the request until MOCK-VERIFIER-003 was fixed on
   30/09/2026, so a conformant Wallet rejected them. They need a
   reference-Wallet run after the fix (`WS_RP_IA_Supportive__001` passed on
   13/10/2026).
+
+### Unresolved after the 14/10/2026 passed-test audit
+
+The 439 passed tests of `fcaf_assessment_4t9hxzgxlf.json` were re-audited (353
+genuine passes, 80 false positives, 3 skips, 2 unclear; see
+`pkg/fcaf/MEMORY.md`). Open items it left behind:
+
+- [ ] `WS_RP_MS_ProtocolMessages__006` and `007` keep the `unclear` verdict: the
+  source demands an `invalid_request` error and the run's evidence cannot show
+  whether one was posted. Both now assert `invalid_request_required`; a fresh
+  reference-Wallet run must confirm the verdict.
+- [ ] `WS_RP_MS_CredentialFormats__034` still infers its `values` filter: no
+  validator pins an mdoc element to a value and no second non-matching mdoc
+  fixture is wired to the credential-formats scenario, so the assertion passes
+  on either credential. Needs a new `mdoc.element_equals{namespace, element,
+  value}` validator plus a second mdoc issuance (`fixture_id: pid_person_b`).
+- [ ] `WS_RP_IA_MainInteraction__026` is expected to FAIL on the reference
+  Wallet: it now asserts `access_denied_required` for source ER3, and the Wallet
+  shows its local no-match notice and posts nothing (RI-WALLET-001/010 family,
+  mirroring `WS_RP_MS_ProtocolMessages__106`). Confirm on a device.
+- [ ] `WS_RP_IA_MainInteraction__013` expects a per-claim deselection the
+  reference Wallet does not offer for DCQL requests (RI-WALLET-024). Decide
+  between the strict failure and `fcaf.not_applicable` per the `.agents/HITL.md`
+  entry of 2026-10-14.
+- [ ] `WS_RP_IA_MainInteraction__066` and `WS_RP_MS_ProtocolMessages__125`
+  leave the Wallet on its success screen when the response-endpoint reply is
+  missing a `redirect_uri` / not JSON (RI-WALLET-025); 066's disposition is a
+  judgment on the source's "terminates transaction". Confirm on a device.
+- [ ] `oid4vp.request_uri_retrieval` cannot assert that the Wallet requested the
+  `request_uri` path without query or fragment (source
+  `WS_RP_IA_ProtocolFlow__002b` ER3.3): Capture records only
+  `{body, headers, method}` in `raw.request_uri_http`. Capture must record the
+  requested target before the clause is assertable.
+- [ ] Mixed3's `VR-3` was truncated in the audit report: `vp_token_json_object`'s
+  new array clause was reconstructed from `WS_RP_MS_ProtocolMessages__127a`'s
+  source and the per-test pointer. Confirm against the untruncated report.
+- [ ] The `credentials_match` family now consults Capture's `presentation_valid`
+  / `dcql_query_matched`; `mdoc_without_claim_disclosures` was deliberately left
+  out of that change (`WS_RP_IA_MainInteraction__017`). Add the verifier-verdict
+  check there if the maintainers want it.
+- [ ] Three optional validators were deliberately not added:
+  `oid4vp.transaction_data_support`, `oid4vp.request_uri_method_fallback` and
+  `mdoc.mso_status_member_absent` (two are conditional on a future Wallet run,
+  one belongs to the mdoc owner).
 
 ## Blocked
 
@@ -390,16 +459,23 @@ SAN-matching certificate. Until then 008–012 report `skipped` through
   `/openid4vp/verifier-attestation-issuer/jwks.json` as trusted in the Wallet)
 - [ ] `WS_RP_SM_RpIntegrity__011` (`verifier_attestation.issuer`)
 - [ ] `WS_RP_SM_RpIntegrity__012` (`verifier_attestation.signature: corrupt`)
-- [ ] `WS_RP_MS_Metadata__116`, `118`, `122`, `124` (default verifier
-  attestation)
-- [ ] `WS_RP_MS_Metadata__117` (`verifier_attestation.subject`)
-- [ ] `WS_RP_MS_Metadata__120`, `121` (`verifier_attestation.redirect_uris`)
-- [ ] `WS_RP_MS_Metadata__123` (verifier attestation plus non-key metadata
-  outside `client_metadata`)
-- [ ] `WS_RP_MS_Metadata__125`, `127`, `128` (`x509_san_dns` happy path and
+- [x] `WS_RP_MS_Metadata__116`, `118`, `122`, `124` (default verifier
+  attestation). Resolved 14/10/2026: expressed as `fcaf.skipped` naming the
+  missing SAN-DNS certificate.
+- [x] `WS_RP_MS_Metadata__117` (`verifier_attestation.subject`). Resolved
+  14/10/2026: expressed as `fcaf.skipped` naming the missing SAN-DNS
+  certificate.
+- [x] `WS_RP_MS_Metadata__120`, `121` (`verifier_attestation.redirect_uris`).
+  Resolved 14/10/2026: expressed as `fcaf.skipped` naming the missing SAN-DNS
+  certificate.
+- [x] `WS_RP_MS_Metadata__123` (verifier attestation plus non-key metadata
+  outside `client_metadata`). Resolved 14/10/2026: expressed as `fcaf.skipped`
+  naming the missing SAN-DNS certificate.
+- [x] `WS_RP_MS_Metadata__125`, `127`, `128` (`x509_san_dns` happy path and
   redirect-URI host mismatch. Upstream: the EUDI service-provider registry
   issues no certificate with a `dNSName` SAN, so a registry-trusted request
-  cannot use this prefix even after Capture changes its certificate)
+  cannot use this prefix even after Capture changes its certificate). Resolved
+  14/10/2026: expressed as `fcaf.skipped` naming the missing `dNSName` SAN.
 
 ### Blocked on a missing Capture Wallet capability
 
@@ -420,12 +496,14 @@ SAN-matching certificate. Until then 008–012 report `skipped` through
   no pipeline step can read the leaf's AIA and convert PEM to `x5c`, so it
   would break when the anchor changes. The verifier will serve the anchor
   itself)
-- [ ] `WS_RP_IA_MainInteraction__006`, `008`, `010` and
+- [x] `WS_RP_IA_MainInteraction__006`, `008`, `010` and
   `WS_RP_MS_CredentialFormats__046` (a credential without cryptographic holder
   binding; Credo refuses `require_cryptographic_holder_binding: false` during
   issuance until
   [credo-ts#2936](https://github.com/openwallet-foundation/credo-ts/pull/2936),
-  still open on 13/10/2026). 046 reports `skipped` through `fcaf.skipped`
+  still open on 13/10/2026). Resolved 14/10/2026: 006/008/010 and 046 all
+  report `skipped` through `fcaf.skipped`; 006/010 name the unbound and
+  mixed-binding preconditions respectively.
 - [ ] `WS_RP_MS_CredentialFormats__048` (SD-JWT VC JSON serialization; issuer
   and verifier support compact serialization only). It reports `skipped`
   through `fcaf.skipped`
@@ -447,12 +525,14 @@ SAN-matching certificate. Until then 008–012 report `skipped` through
   the Wallet chooses to use `verifier_info`, and nothing shows whether the
   reference Wallet does. A presentation would be indistinguishable between
   ignoring the attestation and accepting a bad one)
-- [ ] `WS_RP_SM_DeviceBinding__002`–`006` (Capture delivers `verifier_info`
+- [x] `WS_RP_SM_DeviceBinding__002`–`006` (Capture delivers `verifier_info`
   verbatim and signs none: the caller must sign the attestation and its proof
   over the chosen `nonce` and the Client Identifier. The EUDI concrete type,
   the Relying Party Registration Certificate, has no TS5 attachment structure,
   so there is no profile format for the reference Wallet to validate, and the
-  harness has no attestation-signing step)
+  harness has no attestation-signing step). Resolved 14/10/2026: all five report
+  `skipped` through `fcaf.skipped` with the missing attestation-signing step as
+  the reason.
 
 ### Blocked on external trust infrastructure
 
@@ -460,15 +540,22 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
 
 - [ ] `WS_RP_SM_TrustMechanisms__101`, `101b_UF`, `101c_UF` (no Credimi
   definitions; WRPAC certificate fixtures; upstream 5.6)
-- [ ] `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__112`, `114`, `115`
+- [x] `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__112`, `114`, `115`
   (OpenID Federation entity statements, trust chain, and authority; upstream
-  5.7). 014 reports `skipped` through `fcaf.skipped` until these exist
+  5.7). Resolved 14/10/2026: `112` asserts `fcaf.not_applicable` (the
+  `openid_federation` Client Identifier Prefix is `EUDI_forbidden`); `114` and
+  `115` report `skipped` through `fcaf.skipped` because Capture rejects
+  `openid_federation` with `400 unsupported_client_id_scheme`; `014` was
+  already `skipped`.
 - [ ] `WS_RP_SM_TrustMechanisms__005`–`007` (an issuer chain of depth 3 or
   more with a controlled Authority Key Identifier in the leaf, a sub-CA or the
   CA; Capture's chain is the issuer leaf plus PID Issuer CA 02), `009`–`013`,
-  `015` (a mock ETSI Trusted List), `WS_RP_MS_ProtocolMessages__095`, and
-  `WS_RP_IA_MainInteraction__065` (upstream 5.8). The TrustMechanisms tests
-  report `skipped` through `fcaf.skipped`
+  `015` (a mock ETSI Trusted List) (upstream 5.8). The TrustMechanisms tests
+  report `skipped` through `fcaf.skipped`. Note
+  14/10/2026: `WS_RP_MS_ProtocolMessages__095` now reports `fcaf.skipped` (no
+  ETSI Trust List fixture), and `WS_RP_IA_MainInteraction__065` is implemented
+  (`dcql.response_satisfies_constraints{mode: trusted_authorities_match}` on
+  `pipeline.dcql.trust-mechanisms`) instead of blocked.
 - [ ] `WS_RP_MS_ProtocolMessages__145`, `146` (Wallet-local or trusted-registry
   verifier metadata and the required `invalid_client` conflict)
 
@@ -476,15 +563,19 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
 
 - [ ] `WS_RP_IA_Engagement__001b` (no Credimi definition; the reference Android
   Wallet registers no `eu-eaap://` handler)
-- [ ] `WS_RP_IA_MainInteraction__024` (the Wallet holds a matching credential
+- [x] `WS_RP_IA_MainInteraction__024` (the Wallet holds a matching credential
   whose data is encrypted or locked, so it cannot check a `values` restriction.
   This is Wallet state, not Request Object encryption, which it was previously
   filed under. Upstream rates it category A since `9091cc2`, reading it as
-  Request Object encryption; that reading does not match the source)
-- [ ] `WS_RP_IA_MainInteraction__060` (upstream category F: its source asks for
+  Request Object encryption; that reading does not match the source). Resolved
+  14/10/2026: the harness cannot deliver the premise (Capture's PID is plain and
+  readable), so the test asserts `fcaf.skipped` with that reason.
+- [x] `WS_RP_IA_MainInteraction__060` (upstream category F: its source asks for
   the Authorization Response appended to `redirect_uri` under
   `response_mode=direct_post`, which contradicts OpenID4VP Section 8.2. Report
-  upstream rather than implement)
+  upstream rather than implement). Resolved 14/10/2026: the source relevancy is
+  `EUDI_forbidden` (a Wallet must not support `redirect_uri` in the initial
+  Authorization Request), so the acceptance clause is `fcaf.not_applicable`.
 - [ ] `WS_RP_UC_Presentation__004` (an independently controllable second-device
   invocation path)
 - [ ] `WS_RP_IA_Supportive__006` (deliberate Wallet device resource exhaustion)
@@ -493,9 +584,14 @@ Upstream leaves the scope of 5.6–5.8 as an open decision.
 
 ### Blocked on scope and transaction-data support
 
-- [ ] `WS_RP_MS_ProtocolMessages__020`, `141` and `WS_RP_UC_Presentation__003`
+- [x] `WS_RP_MS_ProtocolMessages__020`, `141` and `WS_RP_UC_Presentation__003`
   (a scope the Wallet resolves to a DCQL query; the service defines no scope
-  values)
-- [ ] `WS_RP_MS_ProtocolMessages__018`, `135`, `154`–`159` (a transaction-data
+  values). Resolved 14/10/2026 for `020`: the source relevancy is
+  `EUDI_forbidden` (scope-borne DCQL), so the acceptance clause is
+  `fcaf.not_applicable`; `003` was already `not_applicable`.
+- [x] `WS_RP_MS_ProtocolMessages__018`, `135`, `154`–`159` (a transaction-data
   type the reference Wallet supports; `017` was reclassified above and
-  `WS_RP_SH_Cryptography_CryptographicHash_008` is implemented)
+  `WS_RP_SH_Cryptography_CryptographicHash_008` is implemented). Resolved
+  14/10/2026 for `018`: the reference Wallet declares no supported
+  transaction-data type, so the premise is factually false for this SUT and the
+  test asserts `fcaf.not_applicable`.

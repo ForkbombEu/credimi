@@ -107,26 +107,40 @@ assertions:
   input: evidence.visual_evidence
   params:
     min_items: 7
-- id: null_value_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
+- id: null_value_returns_invalid_request
+  validator: oid4vp.error_response_required
   input: evidence.null_value_session
-- id: true_value_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
+  params:
+    code: invalid_request
+- id: true_value_returns_invalid_request
+  validator: oid4vp.error_response_required
   input: evidence.true_value_session
-- id: false_value_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
+  params:
+    code: invalid_request
+- id: false_value_returns_invalid_request
+  validator: oid4vp.error_response_required
   input: evidence.false_value_session
-- id: zero_value_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
+  params:
+    code: invalid_request
+- id: zero_value_returns_invalid_request
+  validator: oid4vp.error_response_required
   input: evidence.zero_value_session
-- id: random_number_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
+  params:
+    code: invalid_request
+- id: random_number_returns_invalid_request
+  validator: oid4vp.error_response_required
   input: evidence.random_number_session
-- id: string_value_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
+  params:
+    code: invalid_request
+- id: string_value_returns_invalid_request
+  validator: oid4vp.error_response_required
   input: evidence.string_value_session
-- id: object_value_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
+  params:
+    code: invalid_request
+- id: object_value_returns_invalid_request
+  validator: oid4vp.error_response_required
   input: evidence.object_value_session
+  params:
+    code: invalid_request
 verdict:
   pass_when: all_assertions_pass

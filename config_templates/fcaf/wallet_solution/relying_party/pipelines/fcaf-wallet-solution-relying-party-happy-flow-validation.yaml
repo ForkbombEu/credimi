@@ -1703,6 +1703,73 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-capture-session.outputs.body.session_id }}/request
     - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-create-transaction-data-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: protocol-messages-transaction-data
+                transaction_data:
+                    - credential_ids:
+                        - pid
+                      data: dGVzdA==
+                      type: unsupported_type
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-reject-transaction-data
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ dcql-protocol-messages-a25772b2-create-transaction-data-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-protocol-messages-a25772b2-fetch-transaction-data-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-protocol-messages-a25772b2-create-transaction-data-session.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-reset-wallet
       use: mobile-automation
       with:
@@ -2764,6 +2831,9 @@ steps:
                     dcql_exchange: ${{ dcql-protocol-messages-a25772b2-fetch-capture-session.outputs.body | optional }}
                     request_object: ${{ dcql-protocol-messages-a25772b2-probe-request-uri-response.outputs.body | optional }}
                     request_uri_response: ${{ dcql-protocol-messages-a25772b2-probe-request-uri-response.outputs | optional }}
+                    transaction_data_dcql_exchange: ${{ dcql-protocol-messages-a25772b2-fetch-transaction-data-session.outputs.body | optional }}
+                    transaction_data_request_object: ${{ dcql-protocol-messages-a25772b2-fetch-transaction-data-session.outputs.body.raw.authorization_request_jwt | optional }}
+                    transaction_data_visual_evidence: ${{ dcql-protocol-messages-a25772b2-reject-transaction-data.outputs.flow_output.maestro_screenshot_urls | optional }}
                     visual_evidence: ${{ dcql-protocol-messages-a25772b2-exercise-wallet.outputs.flow_output.maestro_screenshot_urls | optional }}
                     wallet_nonce_evidence:
                         request_object: ${{ dcql-protocol-messages-a25772b2-fetch-signed-request-object.outputs.body | optional }}
@@ -3090,7 +3160,6 @@ steps:
             - WS_RP_MS_ProtocolMessages__057
             - WS_RP_MS_ProtocolMessages__059
             - WS_RP_MS_ProtocolMessages__060
-            - WS_RP_MS_ProtocolMessages__070
             - WS_RP_MS_ProtocolMessages__095
             - WS_RP_MS_ProtocolMessages__105
             - WS_RP_MS_ProtocolMessages__127a

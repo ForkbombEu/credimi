@@ -79,11 +79,8 @@ func (SDJWTClaimInternationalPhoneValidator) Validate(_ context.Context, input I
 			fmt.Errorf("value must contain at least %d characters", params.MinLength),
 		)
 	}
-	if !internationalPhonePattern.MatchString(text) {
-		return invalidClaim(
-			params.Claim,
-			fmt.Errorf("value must start with + and contain digits only"),
-		)
+	if err := validateInternationalPhone(text); err != nil {
+		return invalidClaim(params.Claim, err)
 	}
 	return validClaim(params.Claim, "is an international phone number")
 }
