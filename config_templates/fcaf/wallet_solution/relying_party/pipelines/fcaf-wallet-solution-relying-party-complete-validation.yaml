@@ -104,11 +104,21 @@ steps:
             - extendedWaitUntil:
                 visible: ".*successfully shared.*"
                 timeout: 30000
+                optional: true
             - extendedWaitUntil:
                 visible: "Close"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "callback-redirect-wallet-success"
-            - tapOn: "Close"
+            # `Close` is the reference Wallet's own dismiss control. The tap is
+            # conditional because the source says nothing about the Wallet's screen
+            # wording: a Wallet with a different terminal screen must still reach the
+            # visit screenshot below.
+            - runFlow:
+                when:
+                  visible: "Close"
+                commands:
+                  - tapOn: "Close"
             - extendedWaitUntil:
                 visible: "Presentation complete"
                 timeout: 30000
@@ -1241,97 +1251,6 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ credential-status-list-13040d21-create-status-mdoc-presentation.outputs.body.session_id }}
-    - continue_on_error: true
-      id: credential-status-list-13040d21-create-statusless-mdoc-issuance
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_family_name_uppercase
-            issuer_configuration_id: eu-pid-device-bound
-            status_list_enabled: false
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
-      id: credential-status-list-13040d21-offer-statusless-mdoc-credential
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
-        parameters:
-            deeplink: ${{ credential-status-list-13040d21-create-statusless-mdoc-issuance.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: credential-status-list-13040d21-fetch-statusless-mdoc-issuance
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: https://capture-wallet.credimi.io/sessions/${{ credential-status-list-13040d21-create-statusless-mdoc-issuance.outputs.body.session_id }}
-    - continue_on_error: true
-      id: credential-status-list-13040d21-create-statusless-mdoc-probe
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - eu.europa.ec.eudi.pid.1
-                                - document_number
-                              values:
-                                - CREDIMI-DEMO-CASE
-                          format: mso_mdoc
-                          id: pid_mdoc
-                          meta:
-                            doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
-                nonce: credential-status-statusless-mdoc
-            request_uri_method: post
-            response_mode: direct_post.jwt
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: credential-status-list-13040d21-probe-statusless-mdoc-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
-      id: credential-status-list-13040d21-probe-statusless-mdoc-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ credential-status-list-13040d21-probe-statusless-mdoc-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: credential-status-list-13040d21-probe-statusless-mdoc
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-        parameters:
-            deeplink: ${{ credential-status-list-13040d21-create-statusless-mdoc-probe.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: credential-status-list-13040d21-fetch-statusless-mdoc-probe
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ credential-status-list-13040d21-create-statusless-mdoc-probe.outputs.body.session_id }}
     - continue_on_error: true
       id: dc-api-invalid-signature-32532cf2-reset-wallet
       use: mobile-automation
@@ -2706,10 +2625,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-086-null"
             - runFlow:
                 when:
@@ -2762,10 +2694,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-086-true"
             - runFlow:
                 when:
@@ -2818,10 +2763,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-086-false"
             - runFlow:
                 when:
@@ -2874,10 +2832,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-086-zero"
             - runFlow:
                 when:
@@ -2930,10 +2901,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-086-number"
             - runFlow:
                 when:
@@ -2986,10 +2970,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-086-string"
             - runFlow:
                 when:
@@ -3042,10 +3039,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-086-object"
             - runFlow:
                 when:
@@ -3684,10 +3694,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-084-null"
             - runFlow:
                 when:
@@ -3740,10 +3763,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-084-true"
             - runFlow:
                 when:
@@ -3796,10 +3832,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-084-false"
             - runFlow:
                 when:
@@ -3852,10 +3901,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-084-zero"
             - runFlow:
                 when:
@@ -3908,10 +3970,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-084-number"
             - runFlow:
                 when:
@@ -3964,10 +4039,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-084-string"
             - runFlow:
                 when:
@@ -4020,10 +4108,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-084-object"
             - runFlow:
                 when:
@@ -5571,15 +5672,15 @@ steps:
                       visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
                       timeout: 30000
                       optional: true
-            # The decisive refusal screen, captured under its own name. The same
-            # screen is what the terminal screenshot records, so this block only
-            # adds the name the test asserts.
+            # The decisive refusal screen, captured under its own name for the run
+            # report. No assertion requires this name: the source also accepts a
+            # silent discontinuation, which leaves no screen to capture.
             - runFlow:
                 when:
                   visible: "Oups! Something went wrong|invalid request|Presentation blocked|The requested document is not available.*"
                 commands:
                   - takeScreenshot: wallet-refused
-            - takeScreenshot: expect-request-rejected
+            - takeScreenshot: request-refused
         parameters:
             DEEPLINK: ${{ dcql-credential-id-duplicate-0ca7fa96-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -5952,15 +6053,15 @@ steps:
                       visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
                       timeout: 30000
                       optional: true
-            # The decisive refusal screen, captured under its own name. The same
-            # screen is what the terminal screenshot records, so this block only
-            # adds the name the test asserts.
+            # The decisive refusal screen, captured under its own name for the run
+            # report. No assertion requires this name: the source also accepts a
+            # silent discontinuation, which leaves no screen to capture.
             - runFlow:
                 when:
                   visible: "Oups! Something went wrong|invalid request|Presentation blocked|The requested document is not available.*"
                 commands:
                   - takeScreenshot: wallet-refused
-            - takeScreenshot: expect-request-rejected
+            - takeScreenshot: request-refused
         parameters:
             DEEPLINK: ${{ dcql-credential-sets-empty-84f34308-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -13266,11 +13367,14 @@ steps:
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                        - format: dc+sd-jwt
-                          id: unavailable_pid
+                        - claims:
+                            - path:
+                                - family_name
+                          format: dc+sd-jwt
+                          id: excluded_pid
                           meta:
                             vct_values:
-                                - urn:eudi:unavailable:1
+                                - urn:eudi:pid:1
                 nonce: fcaf-standard-all-credential-sets
             request_delivery: by_reference
             request_uri_method: post
@@ -14735,10 +14839,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-091-null"
             - runFlow:
                 when:
@@ -14791,10 +14908,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-091-true"
             - runFlow:
                 when:
@@ -14847,10 +14977,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-091-false"
             - runFlow:
                 when:
@@ -14903,10 +15046,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-091-zero"
             - runFlow:
                 when:
@@ -14959,10 +15115,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-091-number"
             - runFlow:
                 when:
@@ -15015,10 +15184,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-091-array"
             - runFlow:
                 when:
@@ -15071,10 +15253,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-091-object"
             - runFlow:
                 when:
@@ -15424,10 +15619,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-094-single"
             - runFlow:
                 when:
@@ -15480,10 +15688,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-094-mixed"
             - runFlow:
                 when:
@@ -16042,10 +16263,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-093-null"
             - runFlow:
                 when:
@@ -16098,10 +16332,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-093-true"
             - runFlow:
                 when:
@@ -16154,10 +16401,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-093-false"
             - runFlow:
                 when:
@@ -16210,10 +16470,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-093-zero"
             - runFlow:
                 when:
@@ -16266,10 +16539,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-093-number"
             - runFlow:
                 when:
@@ -16322,10 +16608,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-093-array"
             - runFlow:
                 when:
@@ -16378,10 +16677,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-093-object"
             - runFlow:
                 when:
@@ -16974,10 +17286,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-092-null"
             - runFlow:
                 when:
@@ -17030,10 +17355,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-092-true"
             - runFlow:
                 when:
@@ -17086,10 +17424,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-092-false"
             - runFlow:
                 when:
@@ -17142,10 +17493,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-092-zero"
             - runFlow:
                 when:
@@ -17198,10 +17562,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-092-number"
             - runFlow:
                 when:
@@ -17254,10 +17631,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-092-string"
             - runFlow:
                 when:
@@ -17310,10 +17700,23 @@ steps:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
                 timeout: 30000
                 optional: true
-            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+            # gets the whole window to render its reaction before Home/Documents
+            # counts as a discontinuation. While this wait accepted Home/Documents it
+            # returned the instant phase 1 timed out, so a Wallet that needed longer
+            # than phase 1's window was recorded as having discontinued.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 100000
+                optional: true
+            # Phase 3: only now accept the discontinuation outcomes. It is optional
+            # too, so a Wallet parked on a screen this flow does not know still
+            # reaches the screenshot instead of failing the step and with it the
+            # evidence.
             - extendedWaitUntil:
                 visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "fcaf-092-object"
             - runFlow:
                 when:
@@ -25268,11 +25671,21 @@ steps:
             - extendedWaitUntil:
                 visible: ".*successfully shared.*"
                 timeout: 30000
+                optional: true
             - extendedWaitUntil:
                 visible: "Close"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "unknown-response-parameter-wallet-success"
-            - tapOn: "Close"
+            # `Close` is the reference Wallet's own dismiss control. The tap is
+            # conditional because the source says nothing about the Wallet's screen
+            # wording: a Wallet with a different terminal screen must still reach the
+            # visit screenshot below.
+            - runFlow:
+                when:
+                  visible: "Close"
+                commands:
+                  - tapOn: "Close"
             - extendedWaitUntil:
                 visible: "Presentation complete"
                 timeout: 30000
@@ -25386,11 +25799,21 @@ steps:
             - extendedWaitUntil:
                 visible: ".*successfully shared.*"
                 timeout: 30000
+                optional: true
             - extendedWaitUntil:
                 visible: "Close"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "unknown-request-and-response-parameter-wallet-success"
-            - tapOn: "Close"
+            # `Close` is the reference Wallet's own dismiss control. The tap is
+            # conditional because the source says nothing about the Wallet's screen
+            # wording: a Wallet with a different terminal screen must still reach the
+            # visit screenshot below.
+            - runFlow:
+                when:
+                  visible: "Close"
+                commands:
+                  - tapOn: "Close"
             - extendedWaitUntil:
                 visible: "Presentation complete"
                 timeout: 30000
@@ -25864,19 +26287,28 @@ steps:
                   - inputText: "12345"
                   - tapOn: "6"
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong"
+                visible: "Oups! Something went wrong|Verifier rejected the response"
                 timeout: 30000
+                optional: true
             - takeScreenshot: "http-error-redirect-wallet-error"
-            # The X is the error screen's only dismiss control. If the tap leaves the
-            # screen in place, the Android Back gesture (which the Wallet's DC API
-            # error screen also accepts) is tried before the browser is awaited.
-            - tapOn:
-                point: "8%,9%"
-            - waitForAnimationToEnd:
-                timeout: 3000
+            # The X is the error screen's only dismiss control (and the sibling
+            # verifier-response-controls flows word the same screen as `Verifier
+            # rejected the response`). It is tapped only while the error screen is up,
+            # so a Wallet that worded its screen differently is not hit by a blind
+            # coordinate tap. If the tap leaves the screen in place, the Android Back
+            # gesture (which the Wallet's DC API error screen also accepts) is tried
+            # before the browser is awaited.
             - runFlow:
                 when:
-                  visible: "Oups! Something went wrong"
+                  visible: "Oups! Something went wrong|Verifier rejected the response"
+                commands:
+                  - tapOn:
+                      point: "8%,9%"
+                  - waitForAnimationToEnd:
+                      timeout: 3000
+            - runFlow:
+                when:
+                  visible: "Oups! Something went wrong|Verifier rejected the response"
                 commands:
                   - pressKey: Back
             - extendedWaitUntil:
@@ -26262,9 +26694,6 @@ steps:
             pipeline.credential-status.mdoc:
                 output:
                     pid_mdoc: ${{ credential-status-list-13040d21-fetch-status-mdoc-presentation.outputs.body.raw.presentation_response_decrypted.vp_token | optional }}
-                    statusless_issuance: ${{ credential-status-list-13040d21-fetch-statusless-mdoc-issuance.outputs.body | optional }}
-                    statusless_probe: ${{ credential-status-list-13040d21-fetch-statusless-mdoc-probe.outputs.body | optional }}
-                    statusless_visual_evidence: ${{ credential-status-list-13040d21-probe-statusless-mdoc.outputs.flow_output.maestro_screenshot_urls | optional }}
                     visual_evidence: ${{ credential-status-list-13040d21-present-status-mdoc.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.credential-status.sdjwt:
                 output:

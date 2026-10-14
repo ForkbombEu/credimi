@@ -216,10 +216,12 @@ steps:
 # body carrying a redirect_uri, and the source requires the Wallet to open it.
 # The reference Wallet parks on `Oups! Something went wrong / Verifier rejected
 # the response` whose only dismiss control is the X, so this flow dismisses that
-# screen and waits for Capture's `Presentation complete` page in the browser.
-# The page wait is `optional`: a Wallet that never opens the redirect_uri is
-# reported by `oid4vp.redirect_uri_visited` instead of failing this step and,
-# with it, the validation step that 066, 125 and 126 share through this scenario.
+# screen when it is there and waits for Capture's `Presentation complete` page
+# in the browser. Every wait on Wallet-specific text is `optional` and the X tap
+# is conditional, because the source says nothing about the Wallet's screen
+# wording: a Wallet that never opens the redirect_uri is reported by
+# `oid4vp.redirect_uri_visited` instead of failing this step and, with it, the
+# validation step that 066, 125 and 126 share through this scenario.
 - id: exercise-http-error-redirect-response
   use: mobile-automation
   with:
@@ -263,19 +265,28 @@ steps:
             - inputText: "12345"
             - tapOn: "6"
       - extendedWaitUntil:
-          visible: "Oups! Something went wrong"
+          visible: "Oups! Something went wrong|Verifier rejected the response"
           timeout: 30000
+          optional: true
       - takeScreenshot: "http-error-redirect-wallet-error"
-      # The X is the error screen's only dismiss control. If the tap leaves the
-      # screen in place, the Android Back gesture (which the Wallet's DC API
-      # error screen also accepts) is tried before the browser is awaited.
-      - tapOn:
-          point: "8%,9%"
-      - waitForAnimationToEnd:
-          timeout: 3000
+      # The X is the error screen's only dismiss control (and the sibling
+      # verifier-response-controls flows word the same screen as `Verifier
+      # rejected the response`). It is tapped only while the error screen is up,
+      # so a Wallet that worded its screen differently is not hit by a blind
+      # coordinate tap. If the tap leaves the screen in place, the Android Back
+      # gesture (which the Wallet's DC API error screen also accepts) is tried
+      # before the browser is awaited.
       - runFlow:
           when:
-            visible: "Oups! Something went wrong"
+            visible: "Oups! Something went wrong|Verifier rejected the response"
+          commands:
+            - tapOn:
+                point: "8%,9%"
+            - waitForAnimationToEnd:
+                timeout: 3000
+      - runFlow:
+          when:
+            visible: "Oups! Something went wrong|Verifier rejected the response"
           commands:
             - pressKey: Back
       - extendedWaitUntil:

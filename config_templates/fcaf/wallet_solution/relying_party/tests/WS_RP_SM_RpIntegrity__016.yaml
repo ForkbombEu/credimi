@@ -45,8 +45,6 @@ assertions:
       root; Capture delivers its deployed verifier certificate as a
       single-element x5c (leaf only, probed 14/10/2026) and no Capture control
       builds a valid complete chain, so the Wallet's chain validation cannot be
-      exercised; the reference Wallet also accepts a request whose chain ends in
-      an untrusted root (REFERENCE-WALLET-ISSUES.md RI-WALLET-019), so its
-      acceptance does not evidence chain validation
+      exercised
 verdict:
   pass_when: all_assertions_pass

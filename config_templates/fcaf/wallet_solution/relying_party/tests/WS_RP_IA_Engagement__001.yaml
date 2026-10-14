@@ -40,5 +40,9 @@ assertions:
     input: evidence.visual_evidence
     params:
       name: fcaf-engagement-haip-vp-invoked
+# 001 ("Wallet is invoked successfully") and 001a ("User-agent presents an option
+# to engage the presentation") are deliberately identical here: on the reference
+# device both expectations are the same engagement screen, and the flow stores it
+# under one name once the Wallet is up.
 verdict:
   pass_when: all_assertions_pass

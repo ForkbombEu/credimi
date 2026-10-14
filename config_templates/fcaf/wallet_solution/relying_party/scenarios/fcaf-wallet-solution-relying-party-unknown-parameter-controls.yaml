@@ -71,11 +71,12 @@ steps:
 # unrecognized member, and the source requires the Wallet to ignore the member
 # and open the redirect_uri. The reference Wallet follows it only once the user
 # dismisses its terminal `Authentication successful … Close` screen, so this
-# flow dismisses that screen and waits for Capture's `Presentation complete`
-# page in the browser. The page wait is `optional`: a Wallet that never follows
-# leaves the missing visit to `oid4vp.redirect_uri_visited` instead of failing
-# this step and, with it, the validation step that 124 shares through this
-# scenario.
+# flow dismisses that screen when it is there and waits for Capture's
+# `Presentation complete` page in the browser. Every wait on Wallet-specific
+# text is `optional` and the dismiss tap is conditional, because the source says
+# nothing about the Wallet's screen wording: a Wallet that never follows leaves
+# the missing visit to `oid4vp.redirect_uri_visited` instead of failing this step
+# and, with it, the validation step that 124 shares through this scenario.
 - id: exercise-unknown-response-parameter
   use: mobile-automation
   with:
@@ -121,11 +122,21 @@ steps:
       - extendedWaitUntil:
           visible: ".*successfully shared.*"
           timeout: 30000
+          optional: true
       - extendedWaitUntil:
           visible: "Close"
           timeout: 30000
+          optional: true
       - takeScreenshot: "unknown-response-parameter-wallet-success"
-      - tapOn: "Close"
+      # `Close` is the reference Wallet's own dismiss control. The tap is
+      # conditional because the source says nothing about the Wallet's screen
+      # wording: a Wallet with a different terminal screen must still reach the
+      # visit screenshot below.
+      - runFlow:
+          when:
+            visible: "Close"
+          commands:
+            - tapOn: "Close"
       - extendedWaitUntil:
           visible: "Presentation complete"
           timeout: 30000
@@ -168,9 +179,11 @@ steps:
 # after a request that itself carried an unrecognized member, and the source
 # requires the Wallet to ignore both and open the redirect_uri. The reference
 # Wallet follows it only once the user dismisses its terminal `Authentication
-# successful … Close` screen, so this flow dismisses that screen and waits for
-# Capture's `Presentation complete` page in the browser. The page wait is
-# `optional`: a Wallet that never follows leaves the missing visit to
+# successful … Close` screen, so this flow dismisses that screen when it is
+# there and waits for Capture's `Presentation complete` page in the browser.
+# Every wait on Wallet-specific text is `optional` and the dismiss tap is
+# conditional, because the source says nothing about the Wallet's screen
+# wording: a Wallet that never follows leaves the missing visit to
 # `oid4vp.redirect_uri_visited` instead of failing this step and, with it, the
 # validation step that 124 shares through this scenario.
 - id: exercise-unknown-request-and-response-parameter
@@ -218,11 +231,21 @@ steps:
       - extendedWaitUntil:
           visible: ".*successfully shared.*"
           timeout: 30000
+          optional: true
       - extendedWaitUntil:
           visible: "Close"
           timeout: 30000
+          optional: true
       - takeScreenshot: "unknown-request-and-response-parameter-wallet-success"
-      - tapOn: "Close"
+      # `Close` is the reference Wallet's own dismiss control. The tap is
+      # conditional because the source says nothing about the Wallet's screen
+      # wording: a Wallet with a different terminal screen must still reach the
+      # visit screenshot below.
+      - runFlow:
+          when:
+            visible: "Close"
+          commands:
+            - tapOn: "Close"
       - extendedWaitUntil:
           visible: "Presentation complete"
           timeout: 30000

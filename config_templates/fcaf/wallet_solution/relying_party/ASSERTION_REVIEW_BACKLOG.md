@@ -197,7 +197,11 @@ Authorization Request:
   `WS_RP_MS_ProtocolMessages__020`, `WS_RP_MS_ProtocolMessages__141` and
   `WS_RP_UC_Presentation__003` stay blocked: they need a scope the Wallet
   resolves to a DCQL query, and the service deliberately defines no scope
-  values.
+  values, so the scope-only request shape the sources describe cannot be built
+  here. Updated 14/10/2026: `020` reports `fcaf.not_applicable` and its reason
+  names only the `EUDI_forbidden` ground; this harness gap is not recorded
+  there, because a `fcaf.skipped` reason is the only place that names an
+  unbuilt precondition.
 
 Transaction data gained object encoding per Section 5.1 and a real binding
 check, `checks.transaction_data_verified`, which is `true` only when the
@@ -378,7 +382,14 @@ unable to pass on beta, need a production run.
   reference Wallet on its success screen when the reply carries no
   `redirect_uri`, so 066 is expected to FAIL (the source's "raises an
   invalid_request error or terminates transaction" is a judgment:
-  `REFERENCE-WALLET-ISSUES.md` RI-WALLET-025).
+  `REFERENCE-WALLET-ISSUES.md` RI-WALLET-025). Deliberate extra strictness,
+  recorded 14/10/2026: the named screenshot is stored only while the flow's
+  error-screen pattern
+  (`Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked`)
+  is visible, so a Wallet that satisfies the source's alternative ("terminates
+  transaction") without showing one of those strings fails; the DSL cannot
+  express the alternative branch as an accepted outcome, and the assertion's
+  own comment says so.
 - `WS_RP_IA_MainInteraction__057`, `061`, `067`, and
   `WS_RP_MS_ProtocolMessages__127`, `128` configure a `redirect_uri` that
   beta signed into the request until MOCK-VERIFIER-003 was fixed on
@@ -429,6 +440,13 @@ genuine passes, 80 false positives, 3 skips, 2 unclear; see
   `oid4vp.transaction_data_support`, `oid4vp.request_uri_method_fallback` and
   `mdoc.mso_status_member_absent` (two are conditional on a future Wallet run,
   one belongs to the mdoc owner).
+- [x] `WS_RP_DM_CredentialMetadata_CredentialStructure_007`'s scenario now
+  discriminates its property (closed 14/10/2026). Its second credential query
+  is `excluded_pid` (`vct urn:eudi:pid:1`, a claim the Wallet holds) instead of
+  the unsatisfiable `unavailable_pid`, so a Wallet that ignores `credential_sets`
+  answers a query no option references and fails
+  `credential_sets_single_available_option`, while a Wallet that applies the
+  constraint presents only `available_pid`; before, both Wallets passed.
 
 ## Blocked
 

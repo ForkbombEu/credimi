@@ -156,6 +156,39 @@ func isCaptureVerifierSession(object map[string]any) bool {
 	return ok && delivery != ""
 }
 
+// captureSessionRecordedAResponse reports whether a Capture verifier session
+// records a Wallet Authorization Response. Capture writes the response and the
+// judgement on it together (server.ts captureVpResponse writes
+// observed.wallet_response, the raw.presentation_response* members and the
+// vp_token they carry), so a session that carries one of them while its checks
+// still hold Capture's initial values (state.ts) is a session whose response was
+// never judged.
+func captureSessionRecordedAResponse(session map[string]any) bool {
+	if _, found := findObjectKey(session, "vp_token"); found {
+		return true
+	}
+	if observed, ok := normalizeJSONObject(session["observed"]); ok {
+		if response, ok := normalizeJSONObject(observed["wallet_response"]); ok &&
+			!isEmptyDCQLValue(response["value"]) {
+			return true
+		}
+	}
+	raw, ok := normalizeJSONObject(session["raw"])
+	if !ok {
+		return false
+	}
+	for _, key := range []string{
+		"presentation_response",
+		"presentation_response_decrypted",
+		"presentation_response_raw",
+	} {
+		if !isEmptyDCQLValue(raw[key]) {
+			return true
+		}
+	}
+	return false
+}
+
 // redirectEngagement classifies a session Capture reaches over request_uri
 // retrieval. Only by-reference delivery is observable: with by_value or plain
 // delivery the Wallet is handed the request inside the deeplink or the DC API

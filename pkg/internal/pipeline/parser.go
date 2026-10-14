@@ -69,11 +69,36 @@ func (f *FinallyDefinition) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// copyNode returns a deep copy of n whose Alias pointers are rewired to the
+// copies, so the result is a self-contained graph. Step inputs are decoded from
+// a copy because retagging timestamps mutates nodes: an anchored scalar inside
+// `with` may also be aliased from elsewhere in the document, where it must keep
+// yaml.v3's own resolution.
+func copyNode(n *yaml.Node, copies map[*yaml.Node]*yaml.Node) *yaml.Node {
+	if n == nil {
+		return nil
+	}
+	if copied, ok := copies[n]; ok {
+		return copied
+	}
+	copied := *n
+	copies[n] = &copied
+	copied.Alias = copyNode(n.Alias, copies)
+	if n.Content != nil {
+		copied.Content = make([]*yaml.Node, len(n.Content))
+		for i, child := range n.Content {
+			copied.Content[i] = copyNode(child, copies)
+		}
+	}
+	return &copied
+}
+
 // keepTimestampScalarsAsStrings retags YAML `!!timestamp` scalars as strings so
 // their literal text survives decoding. Step inputs are forwarded to activities
 // as JSON, where a date-like scalar has no timestamp type: decoding it to
 // time.Time would silently rewrite the author's `2012-03-04` into
-// `2012-03-04T00:00:00Z` the moment the body is marshalled.
+// `2012-03-04T00:00:00Z` the moment the body is marshalled. It mutates the
+// nodes it is given, so callers must pass a copy (see copyNode).
 func keepTimestampScalarsAsStrings(node *yaml.Node) {
 	seen := map[*yaml.Node]struct{}{}
 	var walk func(*yaml.Node)
@@ -97,10 +122,13 @@ func keepTimestampScalarsAsStrings(node *yaml.Node) {
 }
 
 func (s *StepInputs) UnmarshalYAML(value *yaml.Node) error {
-	keepTimestampScalarsAsStrings(value)
+	// The retag mutates the tree, so decode a copy: anchors declared inside
+	// `with` may be aliased elsewhere in the document.
+	inputs := copyNode(value, map[*yaml.Node]*yaml.Node{})
+	keepTimestampScalarsAsStrings(inputs)
 
 	var tmp map[string]any
-	if err := value.Decode(&tmp); err != nil {
+	if err := inputs.Decode(&tmp); err != nil {
 		return fmt.Errorf("invalid step inputs: %w", err)
 	}
 

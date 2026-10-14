@@ -19,7 +19,9 @@ import (
 // appending the random part (tools/filesystem/file.go). A screenshot name that
 // does not fit in the room its step id leaves behind is cut off in the stored
 // name and cannot be proven by name, so a name this validator is asked for must
-// satisfy `len(Snakecase(stepID)) + 1 + len(Snakecase(name)) <= 100`.
+// satisfy `len(Snakecase(stepID)) + 1 + len(Snakecase(name)) <= 100`. When a
+// stored stem reaches the cap and does not carry the wanted name, the name may
+// have been truncated away, so the validator reports blocked rather than fail.
 const screenshotStemLimit = 100
 
 // EvidenceScreenshotNamedValidator proves that a flow stored a screenshot under
@@ -59,6 +61,7 @@ func (EvidenceScreenshotNamedValidator) Validate(_ context.Context, input Input)
 	}
 
 	wanted := inflector.Snakecase(params.Name)
+	truncated := false
 	for _, name := range names {
 		if strings.Contains(name, wanted) {
 			return Result{
@@ -69,6 +72,26 @@ func (EvidenceScreenshotNamedValidator) Validate(_ context.Context, input Input)
 					name,
 				),
 			}
+		}
+		if stem, ok := screenshotStoredStem(name); ok && len(stem) >= screenshotStemLimit {
+			truncated = true
+		}
+	}
+
+	// A stored name whose stem is exactly the cap may have lost the name to
+	// truncation, so the screen cannot be disproven by name. That is a storage
+	// limitation, not a Wallet breach, and reports blocked.
+	if truncated {
+		return Result{
+			Status: StatusBlocked,
+			Message: fmt.Sprintf(
+				"cannot tell whether a screenshot named %q was stored: the stem of %s "+
+					"is cut off at PocketBase's %d-character cap, which is where the "+
+					"name would have been",
+				params.Name,
+				strings.Join(names, ", "),
+				screenshotStemLimit,
+			),
 		}
 	}
 
@@ -85,6 +108,22 @@ func (EvidenceScreenshotNamedValidator) Validate(_ context.Context, input Input)
 			screenshotStemLimit,
 		),
 	}
+}
+
+// screenshotStoredStem returns the stem PocketBase kept of a stored screenshot
+// file name. A stored name is `<stem>_<10 random characters><extension>`, so the
+// extension and the random part are stripped; a stem of screenshotStemLimit
+// characters is one that reached PocketBase's cap and may have been truncated.
+func screenshotStoredStem(fileName string) (string, bool) {
+	stem := fileName
+	if index := strings.LastIndexByte(stem, '.'); index >= 0 {
+		stem = stem[:index]
+	}
+	index := strings.LastIndexByte(stem, '_')
+	if index < 0 {
+		return "", false
+	}
+	return stem[:index], true
 }
 
 // screenshotFileNames returns the file names of the screenshot URLs in the

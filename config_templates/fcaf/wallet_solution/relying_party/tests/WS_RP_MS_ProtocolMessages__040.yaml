@@ -13,20 +13,40 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.wallet.protocol.plain-redirect-uri
 evidence:
-  session:
-    from: pipeline.dcql.protocol-messages.outputs.capture_session
+  authorization_request:
+    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.authorization_request
+  wallet_response:
+    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.wallet_response
   visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.visual_evidence
 assertions:
+# The source's request shape: the client_id carries the redirect_uri prefix and
+# the request omits the redirect_uri parameter, so the redirect target can only
+# come from the Client Identifier.
+- id: client_identifier_uses_the_redirect_uri_prefix
+  validator: json.field_string_prefix
+  input: evidence.authorization_request
+  params:
+    field: client_id
+    prefix: "redirect_uri:"
+- id: request_omits_the_redirect_uri_parameter
+  validator: json.field_presence
+  input: evidence.authorization_request
+  params:
+    field: redirect_uri
+    present: false
 - id: wallet_derives_the_redirect_target_from_the_client_identifier
   validator: fcaf.not_applicable
-  input: evidence.session
+  input: evidence.wallet_response
   params:
     reason: >-
       source relevancy is EUDI_forbidden: an EUDI wallet must not support the
       redirect_uri Client Identifier Prefix, so a Wallet that does not derive
       the redirect target from it is not in breach of the source
+- id: visual_evidence_is_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

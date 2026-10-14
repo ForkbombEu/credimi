@@ -122,11 +122,23 @@ func (FCAFSkippedValidator) Validate(_ context.Context, input Input) Result {
 	return Result{Status: StatusSkipped, Message: params.Reason}
 }
 
-// FCAFNotApplicableValidator records that a requirement a source test states
-// for the Wallet is explicitly excluded for EUDI wallets. The test still runs
-// and keeps its evidence, but the Wallet-acceptance expectation reports not
-// applicable instead of a pass or a failure, so a Wallet that refuses the
-// excluded feature is not reported as being in breach of the source.
+// FCAFNotApplicableValidator records that a source test's Wallet expectation
+// cannot apply to the SUT, so the test reports not applicable instead of a pass
+// or a failure. The test still runs and keeps its evidence; the engine folds
+// pass + not_applicable into not_applicable, while any fail/error/blocked
+// dominates.
+//
+// Two grounds are sanctioned (.agents/HITL.md, 2026-10-14):
+//
+//   - the source's own relevancy is EUDI_forbidden and it expects the Wallet to
+//     accept the excluded feature, so no conformant EUDI Wallet can satisfy it;
+//   - the SUT's own capabilities refute the source's precondition, so the test
+//     is not about this Wallet (WS_RP_MS_ProtocolMessages__011/018,
+//     WS_RP_MS_Metadata__134).
+//
+// A precondition the harness cannot build is a different case: that is
+// fcaf.skipped, and its reason must name the unbuilt precondition, never the
+// Wallet's behaviour.
 type FCAFNotApplicableValidator struct{}
 
 func (FCAFNotApplicableValidator) ID() string { return "fcaf.not_applicable" }

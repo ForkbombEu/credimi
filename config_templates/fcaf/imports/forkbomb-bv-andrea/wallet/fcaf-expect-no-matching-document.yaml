@@ -14,12 +14,13 @@ tags:
 # credential, that failure discarded the proof: nothing was posted, the
 # screenshot was never taken, and the source's "no presentation" assertion
 # passed on a Wallet that had actually found a match. The flow now never fails
-# its step. It waits (bounded and optional) for a decisive screen so a
-# screenshot of an unchanged Home cannot pass as evidence, shares when the
-# consent screen lists Requested data so the Verifier records a real
-# Authorization Response, and always stores a screenshot of the terminal state.
-# The protocol assertion decides the verdict; the screenshot shows which screen
-# appeared.
+# its step. It waits (bounded and optional, in a 30 s probe followed by a 100 s
+# window) for a decisive screen, so neither a screenshot of an unchanged Home
+# nor a slow Wallet misread as having discontinued the interaction can pass;
+# it shares when the consent screen lists Requested data so the Verifier
+# records a real Authorization Response, and always stores a screenshot of the
+# terminal state. The protocol assertion decides the verdict; the screenshot
+# shows which screen appeared.
 - launchApp:
     stopApp: true
     clearState: false
@@ -71,27 +72,39 @@ tags:
       - tapOn: "6"
       - waitForAnimationToEnd:
           timeout: 3000
-# Phase 2: accept the decisive screen, or fall back to the discontinuation
-# outcomes only once phase 1 has had its chance.
+# Phase 2: the decisive screens only, optional and long, so a slow Wallet gets
+# the whole window to render its reaction before Home/Documents counts as a
+# discontinuation. While this wait accepted Home/Documents it returned the
+# instant phase 1 timed out, so a Wallet that needed longer than phase 1's
+# window was recorded as having discontinued.
+- extendedWaitUntil:
+    visible: "The requested document is not available.*|Requested data|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 100000
+    optional: true
+# Phase 3: only now accept the discontinuation outcomes. It is optional too, so
+# a Wallet parked on a screen this flow does not know still reaches the
+# screenshot instead of failing the step and with it the evidence.
 - extendedWaitUntil:
     visible: "The requested document is not available.*|Requested data|invalid request|Oups! Something went wrong|Presentation blocked|Home|Documents|Add document|Welcome, .*"
-    timeout: 100000
-# The evidence the sources that require the notice ask for ("the Wallet informs
-# the user it has no matching credential available"): a screenshot taken only
-# while that notice is on screen. It is separate from the terminal screenshot
-# below, which is taken whatever the Wallet showed so a Wallet that never
-# displayed the notice is still recorded.
+    timeout: 30000
+    optional: true
+# The decisive screen the sources that require the notice ask for ("the Wallet
+# informs the user it has no matching credential available"): a screenshot taken
+# only while that notice is on screen. It is separate from the terminal
+# screenshot below, which is taken whatever the Wallet showed so a Wallet that
+# never displayed the notice is still recorded.
 #
 # The name must survive PocketBase's 100-character cap on the snake-cased
 # `<stepID>-<screenshot name>` stem (tools/filesystem/file.go truncates
 # cleanName to 100 before appending the random part). The longest step id that
-# uses this action is 79 characters, so the name must stay within 21 characters.
+# uses this action is 78 characters, so a name must stay within 21 characters;
+# `no-match-notice` (15) and the terminal `no-match-document` (17) both fit.
 - runFlow:
     when:
       visible: "The requested document is not available.*"
     commands:
       - takeScreenshot: no-match-notice
-# Phase 3: a tolerant Wallet that lists Requested data has found a matching
+# Phase 4: a tolerant Wallet that lists Requested data has found a matching
 # credential; share it so the Verifier records the presentation the source test
 # must refute. The terminal wait is optional because this flow must reach its
 # screenshot even when the Wallet stops on an unexpected screen.
@@ -108,4 +121,6 @@ tags:
           visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
           timeout: 30000
           optional: true
-- takeScreenshot: expect-no-matching-document
+# The terminal screenshot is stored whatever screen the Wallet showed; its name
+# (17 characters) fits the budget stated above.
+- takeScreenshot: no-match-document

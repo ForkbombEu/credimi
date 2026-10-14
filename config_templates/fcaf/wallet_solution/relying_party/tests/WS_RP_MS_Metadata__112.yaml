@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__112
-title: FCAF WS_RP_MS_Metadata__112
+title: Process an openid_federation request carrying a valid trust_chain.
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__112.md
 suite:
@@ -17,8 +17,6 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.metadata.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
 assertions:
 - id: openid_federation_trust_chain_acceptance_is_not_applicable
   validator: fcaf.not_applicable

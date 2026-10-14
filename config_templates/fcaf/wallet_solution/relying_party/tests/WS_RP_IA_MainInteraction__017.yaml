@@ -9,6 +9,7 @@ suite:
 applicability:
   profile: EUDI_generic
   presentation_flow: redirects
+  credential_format: iso_mdoc
 normative_references:
   - title: OpenID for Verifiable Presentations 1.0
     section: "6.4.1"
@@ -19,6 +20,10 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.claims-omitted-mdoc.outputs.visual_evidence
 assertions:
+# Fixture substitution: the source names an ISO mDL, and Capture has no mDL
+# fixture, so the query and assertions use the PID ISO mdoc instead. The property
+# under test (a query that omits claims must not lead to claim disclosure) is
+# unchanged by the doctype.
   - id: no_pid_personal_data_is_disclosed
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange

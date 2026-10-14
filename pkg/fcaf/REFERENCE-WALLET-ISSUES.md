@@ -500,6 +500,10 @@ these tests.
   `document_number` `CREDIMI-DEMO-CASE`) is accepted and stored the same way;
   the wallet shows the issuance success screen and offers the stored credential
   on a `document_number` probe instead of rejecting the issuance.
+- Withdrawn 14/10/2026 (self-review): 102's statusless-mdoc fixture and probe
+  were removed from the scenario and 102 reports `fcaf.skipped` for the unbuilt
+  COSE/CWT Referenced Token again, so no test asserts the case above today; the
+  observation comes from the probe as it stood in run `4t9hxzgxlf`.
 
 ## RI-WALLET-010: A DCQL request-evaluation error is shown but never returned
 
@@ -878,6 +882,12 @@ Both sources require `invalid_request` and no presentation.
 - Tests: `WS_RP_IA_Metadata__013`, `WS_RP_SM_RpIntegrity__019`.
 - Same family as RI-WALLET-002 ("rejection not returned"), but here the wallet
   does not reject at all.
+- Extended 14/10/2026: `WS_RP_SM_RpIntegrity__016` and `WS_RP_SM_RpIntegrity__018`
+  keep a `fcaf.skipped` assertion for their chain-validation half, because
+  Capture serves a single-element, leaf-only `x5c`. This issue is the reason a
+  complete chain would not settle that property either on this Wallet, which
+  accepts a request whose chain ends in an untrusted root. The rationale was
+  moved out of 016's skip reason, which must name only the unbuilt precondition.
 
 ## RI-WALLET-020: A claimless DCQL credential query is refused
 

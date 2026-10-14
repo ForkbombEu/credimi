@@ -32,10 +32,14 @@ func validateUnsupportedResponseType(input Input) Result {
 		return Result{Status: StatusError, Message: "expected_response_type is required"}
 	}
 
+	// The delivered request is the scenario's own artifact: its missing or
+	// unexpected response_type is a harness or definition defect and reports
+	// StatusError, while everything read from the Wallet's answer reports
+	// StatusFail.
 	responseTypes := collectObjectFieldValues(input.Value, "response_type")
 	if len(responseTypes) == 0 {
 		return Result{
-			Status:  StatusFail,
+			Status:  StatusError,
 			Message: "captured request does not contain response_type",
 		}
 	}
@@ -43,7 +47,7 @@ func validateUnsupportedResponseType(input Input) Result {
 		responseType, ok := rawResponseType.(string)
 		if !ok || responseType != params.ExpectedResponseType {
 			return Result{
-				Status: StatusFail,
+				Status: StatusError,
 				Message: fmt.Sprintf(
 					"captured response_type is %v, expected %q",
 					rawResponseType,

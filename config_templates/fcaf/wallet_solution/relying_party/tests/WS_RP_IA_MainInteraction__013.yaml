@@ -22,6 +22,9 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.unchecked-claim.outputs.visual_evidence
 assertions:
+# The source asks for the claims "name" and "address"; the reference PID
+# credential carries given_name (the ARF PID claim the source's "name" maps to),
+# which is the claim the scenario's query requests.
 - id: request_asks_for_given_name_and_address
   validator: oid4vp.dcql_requested_claim_paths
   input: evidence.dcql_exchange

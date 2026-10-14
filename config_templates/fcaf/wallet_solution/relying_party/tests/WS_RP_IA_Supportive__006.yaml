@@ -1,5 +1,5 @@
 id: WS_RP_IA_Supportive__006
-title: FCAF WS_RP_IA_Supportive__006
+title: Return wallet_unavailable when the device is out of resources.
 source:
   path: Interaction/Supportive/WS_RP_IA_Supportive__006.md
 suite:

@@ -112,7 +112,7 @@ func TestOID4VPUnsupportedResponseTypeValidator(t *testing.T) {
 				"observed":             map[string]any{},
 			},
 			expected:   "code",
-			wantStatus: StatusFail,
+			wantStatus: StatusError,
 		},
 		{
 			name: "missing response type",
@@ -121,7 +121,7 @@ func TestOID4VPUnsupportedResponseTypeValidator(t *testing.T) {
 				"observed":             map[string]any{},
 			},
 			expected:   "code",
-			wantStatus: StatusFail,
+			wantStatus: StatusError,
 		},
 		{
 			name: "credential returned for unsupported response type",

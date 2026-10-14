@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__145
-title: FCAF WS_RP_MS_ProtocolMessages__145
+title: Reject client_metadata from a Verifier whose metadata is already stored.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__145.md
 suite:
@@ -23,9 +23,9 @@ assertions:
   input: evidence.dcql_exchange
   params:
     reason: >-
-      needs a Wallet that already holds stored trusted metadata for the
-      Verifier; the reference Wallet cannot be provisioned with metadata for a
-      Capture verifier, and every Capture session is a new x509_hash client,
-      so the Wallet has no stored metadata the request could conflict with
+      the source's precondition is a Wallet that already holds stored trusted
+      metadata for the Verifier; the harness provides no way to store trusted
+      client metadata in the Wallet before a request arrives, so no delivered
+      client_metadata can conflict with it
 verdict:
   pass_when: all_assertions_pass

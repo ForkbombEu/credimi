@@ -1,5 +1,5 @@
 id: WS_RP_SM_DeviceBinding__004
-title: FCAF WS_RP_SM_DeviceBinding__004
+title: Accept a Verifier Info attestation with a valid proof.
 source:
   path: SecurityMechanisms/DeviceBinding/WS_RP_SM_DeviceBinding__004.md
 suite:
@@ -11,7 +11,7 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.11.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.device-binding
 evidence:

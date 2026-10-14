@@ -23,9 +23,12 @@ steps:
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-pid-sdjwt-offer.outputs }}
-# credential_sets: one set whose only option is the available PID query. The
-# second credential query is not part of any option, so a Wallet that applies
-# the constraint returns the available PID and nothing for the other query.
+# credential_sets: one set whose only option is the available PID query, plus a
+# second credential query that no option references and that the Wallet CAN
+# satisfy. A Wallet that applies the constraint returns the available PID and
+# nothing for the excluded query, whereas a Wallet that ignores credential_sets
+# evaluates both queries independently and returns a presentation for the
+# excluded query too — which is what makes the assertion discriminate.
 - id: create-credential-sets-session
   use: http-request
   with:
@@ -55,11 +58,14 @@ steps:
             claims:
             - path:
               - given_name
-          - id: unavailable_pid
+          - id: excluded_pid
             format: dc+sd-jwt
             meta:
               vct_values:
-              - urn:eudi:unavailable:1
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - family_name
 - id: exercise-credential-sets
   use: mobile-automation
   with:

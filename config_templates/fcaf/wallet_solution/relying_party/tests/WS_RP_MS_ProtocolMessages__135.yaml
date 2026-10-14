@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__135
-title: FCAF WS_RP_MS_ProtocolMessages__135
+title: Include a transaction_data reference in the credential presentation.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__135.md
 suite:
@@ -17,19 +17,16 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-135.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages-135.outputs.visual_evidence
 assertions:
 - id: ws_rp_ms_protocolmessages__135_transaction_binding_requires_a_supported_type
-  validator: fcaf.skipped
+  validator: fcaf.not_applicable
   input: evidence.dcql_exchange
   params:
     reason: >-
-      the source's positive case requires a transaction_data type the Wallet
-      supports and binds through transaction_data_hashes; the reference Wallet
-      under test (eudiw-beta-wallet 2026-09-42-demo, wallet-core 0.30.2) declares
-      no transaction_data type (no withTransactionDataTypes) and rejects every
-      non-empty transaction_data with invalid_transaction_data, so no such
-      presentation can be produced
+      the source requires the Wallet to display the transaction_data and to
+      reference it from the presentation's transaction_data_hashes, which
+      needs a transaction_data type the Wallet supports; the reference Wallet
+      declares no supported transaction-data type, so that presentation cannot
+      be produced
 verdict:
   pass_when: all_assertions_pass

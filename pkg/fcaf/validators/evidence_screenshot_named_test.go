@@ -66,9 +66,18 @@ func TestEvidenceScreenshotNamedValidator(t *testing.T) {
 			wantStatus: StatusPass,
 		},
 		{
-			name:        "rejects a name the 100-character cap truncates away",
+			name:        "blocks a name the 100-character cap truncates away",
 			params:      map[string]any{"name": "no-matching-document-notice"},
 			value:       []any{truncatedNoticeURL},
+			wantStatus:  StatusBlocked,
+			wantMessage: "cut off at PocketBase's 100-character cap",
+		},
+		{
+			// The same cap applies to a name whose stem is under it: the stored
+			// name is complete, so a missing screenshot is the Wallet's.
+			name:        "a stem under the cap still fails",
+			params:      map[string]any{"name": "no-matching-document-notice"},
+			value:       []any{noMatchTerminalURL},
 			wantStatus:  StatusFail,
 			wantMessage: `no screenshot named "no-matching-document-notice" was stored`,
 		},

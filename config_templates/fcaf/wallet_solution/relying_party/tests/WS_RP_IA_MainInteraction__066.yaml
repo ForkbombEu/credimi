@@ -55,6 +55,11 @@ assertions:
 # termination, and the flow stores it only while the error screen is up, so a
 # Wallet that stays on its success screen fails here; do not add a synthetic
 # invalid_request assertion.
+# This is deliberately stricter than the source, which also accepts "terminates
+# transaction": a Wallet that terminates without rendering one of the flow's
+# error strings satisfies the source but fails this assertion. The DSL cannot
+# express the alternative branch, so the named screen is required; the
+# trade-off is recorded in ASSERTION_REVIEW_BACKLOG.md (RI-WALLET-025).
 - id: visual_evidence_of_the_wallet_error_is_stored
   validator: evidence.screenshot_named
   input: evidence.visual_evidence

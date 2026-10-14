@@ -171,7 +171,13 @@ func TestEngineReportsForbiddenFeatureAsNotApplicableWithReason(t *testing.T) {
 	require.Equal(t, 1, report.Summary.NotApplicable)
 	require.Zero(t, report.Summary.Fail)
 	require.Zero(t, report.Summary.Pass)
-	require.Equal(t, "skipped", report.ExecutedTests[0].Outcome.Status)
+	// The derived views keep not_applicable distinct from skipped so the PDF's
+	// "Not applicable" label is reachable for the test and for the assertion.
+	require.Equal(t, "not_applicable", report.ExecutedTests[0].Status)
+	require.Equal(t, "not_applicable", report.ExecutedTests[0].Outcome.Status)
+	require.Equal(t, "not_applicable", report.ExecutedTests[0].Assertions[0].Status)
+	require.Equal(t, "passed", report.ExecutedTests[0].Assertions[1].Status)
+	require.Zero(t, report.Summary.Skipped)
 	require.Equal(
 		t,
 		"source relevancy is EUDI_forbidden: an EUDI wallet must not support the feature",

@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__028
-title: FCAF WS_RP_MS_ProtocolMessages__028
+title: Process a transaction_data object whose credential_ids match the DCQL query.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__028.md
 suite:
@@ -17,21 +17,15 @@ normative_references:
 evidence:
   request_object:
     from: pipeline.dcql.transaction-data-matching-credential-ids.outputs.request_object
-  dcql_exchange:
-    from: pipeline.dcql.transaction-data-matching-credential-ids.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.transaction-data-matching-credential-ids.outputs.visual_evidence
 assertions:
 - id: ws_rp_ms_protocolmessages__028_presentation_requires_a_supported_type
-  validator: fcaf.skipped
+  validator: fcaf.not_applicable
   input: evidence.request_object
   params:
     reason: >-
-      the source's positive case requires the Wallet to support the
-      transaction_data type referenced by the dcql_query; the reference Wallet
-      under test (eudiw-beta-wallet 2026-09-42-demo, wallet-core 0.30.2) declares
-      no transaction_data type (no withTransactionDataTypes) and rejects every
-      non-empty transaction_data with invalid_transaction_data, so the
-      matching-credential_ids presentation cannot be produced
+      the source's precondition is a Wallet that supports the transaction_data
+      type; the reference Wallet declares no supported transaction-data type,
+      so a transaction_data object whose credential_ids all match the
+      dcql_query cannot be put to it
 verdict:
   pass_when: all_assertions_pass

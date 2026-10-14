@@ -68,20 +68,27 @@ func TestOID4VPStateEchoValidator(t *testing.T) {
 			wantStatus: StatusFail,
 		},
 		{
-			name: "rejects a request without state",
+			name: "errors on a request without state",
 			value: map[string]any{
 				"request_object": compactTestJWT(t, map[string]any{"nonce": "fcaf"}),
 				"response":       map[string]any{"state": "lIj5WZg5_X5Y7g-kMW7-KRGOo"},
 			},
-			wantStatus: StatusFail,
+			wantStatus: StatusError,
 		},
 		{
-			name: "rejects a served request object that is not a compact JWS",
+			name: "errors on a served request object that is not a compact JWS",
 			value: map[string]any{
 				"request_object": "not-a-jwt",
 				"response":       map[string]any{"state": "lIj5WZg5_X5Y7g-kMW7-KRGOo"},
 			},
-			wantStatus: StatusFail,
+			wantStatus: StatusError,
+		},
+		{
+			name: "errors on a missing request object",
+			value: map[string]any{
+				"response": map[string]any{"state": "lIj5WZg5_X5Y7g-kMW7-KRGOo"},
+			},
+			wantStatus: StatusError,
 		},
 		{
 			name: "rejects a missing decrypted response",
@@ -94,9 +101,9 @@ func TestOID4VPStateEchoValidator(t *testing.T) {
 			wantStatus: StatusFail,
 		},
 		{
-			name:       "rejects input that is not an object",
+			name:       "errors on input that is not an object",
 			value:      "lIj5WZg5_X5Y7g-kMW7-KRGOo",
-			wantStatus: StatusFail,
+			wantStatus: StatusError,
 		},
 	}
 

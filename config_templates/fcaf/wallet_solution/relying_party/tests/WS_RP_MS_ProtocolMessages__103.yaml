@@ -20,6 +20,9 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.credential-sets-required-omitted.outputs.visual_evidence
 assertions:
+# credential_sets_required_omitted requires a presentation for the credential
+# query the omitted-required set names, so a Wallet answering a different query
+# id fails it.
 - id: ws_rp_ms_protocolmessages__103_required_is_omitted_and_the_set_is_presented
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange

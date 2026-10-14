@@ -325,7 +325,9 @@ func buildTestOutcome(test TestResult) TestOutcome {
 	switch test.Status {
 	case validators.StatusPass:
 		return TestOutcome{Status: "passed", Reason: test.Message}
-	case validators.StatusSkipped, validators.StatusNotApplicable:
+	case validators.StatusNotApplicable:
+		return TestOutcome{Status: "not_applicable", Reason: reason}
+	case validators.StatusSkipped:
 		return TestOutcome{Status: "skipped", Reason: reason}
 	default:
 		return TestOutcome{Status: "failed", Reason: reason}
@@ -349,7 +351,9 @@ func normalizeExecutionStatus(status validators.Status) string {
 		return "failed"
 	case validators.StatusBlocked:
 		return "blocked"
-	case validators.StatusSkipped, validators.StatusNotApplicable:
+	case validators.StatusNotApplicable:
+		return "not_applicable"
+	case validators.StatusSkipped:
 		return "skipped"
 	case validators.StatusInconclusive:
 		return "inconclusive"

@@ -17,8 +17,6 @@ normative_references:
 evidence:
   session:
     from: pipeline.dcql.protocol-messages.outputs.capture_session
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
 assertions:
 - id: wallet_accepts_a_transaction_data_type_it_supports
   validator: fcaf.not_applicable

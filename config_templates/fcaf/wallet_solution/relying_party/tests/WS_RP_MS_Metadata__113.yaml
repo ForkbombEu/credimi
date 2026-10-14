@@ -17,8 +17,6 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.metadata.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
 assertions:
 - id: openid_federation_trust_chain_rejection_is_unavailable
   validator: fcaf.skipped

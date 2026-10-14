@@ -14,13 +14,15 @@ tags:
 # The Wallet is still showing Home the instant after openLink, so a screenshot
 # taken then is not evidence that it reacted: only a decisive screen (consent
 # request, no-match notice, Wallet error, blocked presentation) proves the
-# request reached the Wallet. Home/Documents is therefore accepted only after a
-# bounded, optional wait for a decisive screen. A tolerant Wallet that shows the
-# consent screen is answered with Share and the PIN, so the Verifier records a
-# real Authorization Response and the source's negative assertion fails on
+# request reached the Wallet. Home/Documents is therefore accepted only after
+# two bounded, optional waits for a decisive screen: a 30 s probe and, when that
+# finds nothing, a further 100 s window, so a Wallet slower than 33 s is not
+# misread as having discontinued the interaction. A tolerant Wallet that shows
+# the consent screen is answered with Share and the PIN, so the Verifier records
+# a real Authorization Response and the source's negative assertion fails on
 # evidence instead of passing on a Wallet that never engaged. The flow itself
-# never fails its step: the screenshot is the evidence of which screen appeared,
-# and the protocol assertion decides the verdict.
+# never fails its step: every wait is optional, the screenshot is the evidence
+# of which screen appeared, and the protocol assertion decides the verdict.
 - launchApp:
     stopApp: true
     clearState: false
@@ -72,12 +74,23 @@ tags:
       - tapOn: "6"
       - waitForAnimationToEnd:
           timeout: 3000
-# Phase 2: accept the decisive screen, or fall back to the discontinuation
-# outcomes only once phase 1 has had its chance.
+# Phase 2: the decisive screens only, optional and long, so a slow Wallet gets
+# the whole window to render its reaction before Home/Documents counts as a
+# discontinuation. While this wait accepted Home/Documents it returned the
+# instant phase 1 timed out, so a Wallet that needed longer than phase 1's
+# window was recorded as having discontinued.
+- extendedWaitUntil:
+    visible: "Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 100000
+    optional: true
+# Phase 3: only now accept the discontinuation outcomes. It is optional too, so
+# a Wallet parked on a screen this flow does not know still reaches the
+# screenshot instead of failing the step and with it the evidence.
 - extendedWaitUntil:
     visible: "Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked|Home|Documents|Add document|Welcome, .*"
-    timeout: 100000
-# Phase 3: a tolerant Wallet that lists Requested data has accepted the request;
+    timeout: 30000
+    optional: true
+# Phase 4: a tolerant Wallet that lists Requested data has accepted the request;
 # share it so the Verifier records the Authorization Response the source test
 # must refute. The terminal wait is optional because this flow must reach its
 # screenshot even when the Wallet stops on an unexpected screen.
@@ -94,4 +107,10 @@ tags:
           visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
           timeout: 30000
           optional: true
-- takeScreenshot: expect-request-rejected
+# The terminal screenshot is stored whatever screen the Wallet showed, so a
+# Wallet that stopped on a screen listed above is still recorded. The name must
+# leave room for the step id: the longest step id that uses this action is 84
+# characters and PocketBase keeps only the first 100 characters of the
+# snake-cased `<step id>-<screenshot name>` stem
+# (tools/filesystem/file.go), so the name may not exceed 15 characters.
+- takeScreenshot: request-refused

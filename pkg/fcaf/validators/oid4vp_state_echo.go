@@ -23,24 +23,30 @@ func (OID4VPStateEchoValidator) ID() string {
 
 // Validate compares the state claim the Wallet received with the state member
 // of the response it posted.
+//
+// The two sides are reported differently: a defect on the request side (the
+// delivered Request Object was not collected, is not a compact JWS, or carries
+// no state) is a harness or definition defect and reports StatusError, while a
+// response that omits the state or changes it is the Wallet's own deviation and
+// reports StatusFail.
 func (OID4VPStateEchoValidator) Validate(_ context.Context, input Input) Result {
 	evidence, ok := normalizeJSONObject(input.Value)
 	if !ok {
-		return Result{Status: StatusFail, Message: "input is not an object"}
+		return Result{Status: StatusError, Message: "input is not an object"}
 	}
 
 	requestObject, ok := evidence["request_object"].(string)
 	if !ok || requestObject == "" {
-		return Result{Status: StatusFail, Message: "request_object is missing or not a string"}
+		return Result{Status: StatusError, Message: "request_object is missing or not a string"}
 	}
 	payload, err := compactJWTPart(requestObject, 1)
 	if err != nil {
-		return Result{Status: StatusFail, Message: err.Error()}
+		return Result{Status: StatusError, Message: err.Error()}
 	}
 	requestState, ok := payload["state"].(string)
 	if !ok || requestState == "" {
 		return Result{
-			Status:  StatusFail,
+			Status:  StatusError,
 			Message: "Authorization Request state is missing or not a string",
 		}
 	}

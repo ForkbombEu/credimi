@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__060
-title: FCAF WS_RP_IA_MainInteraction__060
+title: Redirect the user agent to a redirect_uri in the initial request.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__060.md
 suite:
@@ -11,23 +11,39 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
+- ref: pipeline.protocol.response-uri-controls
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
+  request_object:
+    from: pipeline.protocol.response-uri-controls.outputs.redirect_uri_present_request_object
+  session:
+    from: pipeline.protocol.response-uri-controls.outputs.redirect_uri_present_session
   visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+    from: pipeline.protocol.response-uri-controls.outputs.redirect_uri_present_visual_evidence
 assertions:
+# The source's request shape: an Authorization Request carrying response_type
+# vp_token and a redirect_uri parameter. The scenario sets redirect_uri on the
+# signed Request Object this assertion reads. Deliberate deviation: the source's
+# applicability names response_mode=direct_post and the scenario delivers
+# direct_post.jwt, the closest shape Capture can build.
+- id: delivered_request_carries_the_redirect_uri_parameter
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params: { field: redirect_uri, present: true }
+- id: delivered_request_uses_response_type_vp_token
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params: { field: response_type, value: vp_token }
 - id: wallet_redirects_the_user_agent_to_redirect_uri
   validator: fcaf.not_applicable
-  input: evidence.dcql_exchange
+  input: evidence.session
   params:
     reason: >-
-      source relevancy is EUDI_forbidden: an EUDI wallet must not support a
-      redirect_uri in the initial Authorization Request, so its acceptance is
-      not a breach of the source
+      source relevancy is EUDI_forbidden: an EUDI wallet must not accept a
+      redirect_uri in the initial Authorization Request, so a Wallet that does
+      not append the Authorization Response to it is not in breach of the
+      source
 - id: ws_rp_ia_maininteraction__060_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

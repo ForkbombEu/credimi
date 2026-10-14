@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__151
-title: FCAF WS_RP_MS_ProtocolMessages__151
+title: Return vp_formats_not_supported when the requested format is unsupported.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__151.md
 suite:
@@ -17,11 +17,18 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-151.outputs.dcql_exchange
-  request_uri_payload:
-    from: pipeline.dcql.protocol-messages-151.outputs.request_uri_payload
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages-151.outputs.visual_evidence
 assertions:
+# The request shape the source states: the delivered query offers only the
+# mso_mdoc format, which is the format the source's premise assumes the Wallet
+# does not support.
+- id: request_offers_only_the_mso_mdoc_format
+  validator: oid4vp.dcql_requested_claim_paths
+  input: evidence.dcql_exchange
+  params:
+    format: mso_mdoc
+    paths:
+    - - eu.europa.ec.eudi.pid.1
+      - given_name
 - id: ws_rp_ms_protocolmessages__151_dcql_protocol_valid
   validator: oid4vp.error_response_required
   input: evidence.dcql_exchange

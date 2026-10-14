@@ -7,6 +7,7 @@ package pipeline
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -249,4 +250,41 @@ func TestParseWorkflow_KeepsAnchoredDateLikeBodyValuesVerbatim(t *testing.T) {
 	encoded, err := json.Marshal(wf.Steps[0].With.Payload["body"])
 	require.NoError(t, err)
 	require.JSONEq(t, `{"values":["2012-03-04"]}`, string(encoded))
+}
+
+// Retagging date-like scalars in step inputs must stay inside the `with`
+// subtree: an alias reaching such a scalar from a field outside `with` has to
+// keep yaml.v3's own resolution (time.Time) there. Mutating a shared anchored
+// node in place would silently change every other reference to it.
+func TestParseWorkflow_TimestampRetagStaysInsideStepInputs(t *testing.T) {
+	t.Run("anchor declared inside with", func(t *testing.T) {
+		yamlStr := "name: t\nsteps:\n- id: s\n  use: http-request\n" +
+			"  with:\n    body: &dob\n      date: 2012-03-04\n" +
+			"  metadata:\n    shared: *dob\n"
+		wf, err := ParseWorkflow(yamlStr)
+		require.NoError(t, err)
+
+		encoded, err := json.Marshal(wf.Steps[0].With.Payload["body"])
+		require.NoError(t, err)
+		require.JSONEq(t, `{"date":"2012-03-04"}`, string(encoded))
+
+		shared, ok := wf.Steps[0].Metadata["shared"].(map[string]any)
+		require.True(t, ok, "aliased metadata should decode as a map")
+		require.IsType(t, time.Time{}, shared["date"])
+	})
+
+	t.Run("anchor declared outside with", func(t *testing.T) {
+		yamlStr := "name: t\nconfig:\n  dob: &dob 2012-03-04\nsteps:\n- id: s\n" +
+			"  use: http-request\n  with:\n    body:\n      values:\n      - *dob\n" +
+			"  metadata:\n    shared: *dob\n"
+		wf, err := ParseWorkflow(yamlStr)
+		require.NoError(t, err)
+
+		encoded, err := json.Marshal(wf.Steps[0].With.Payload["body"])
+		require.NoError(t, err)
+		require.JSONEq(t, `{"values":["2012-03-04"]}`, string(encoded))
+
+		require.IsType(t, time.Time{}, wf.Config["dob"])
+		require.IsType(t, time.Time{}, wf.Steps[0].Metadata["shared"])
+	})
 }

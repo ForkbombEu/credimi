@@ -17,8 +17,6 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.metadata.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
 assertions:
 - id: x509_san_dns_name_match_is_unavailable
   validator: fcaf.skipped
