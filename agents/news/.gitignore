@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/

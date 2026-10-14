@@ -1,0 +1,6 @@
+{
+ "url": "https://api.github.com/repos/openid/OpenID4VP/pulls/744",
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": "{\"number\": 744, \"title\": \"Add additional text clarifying how to match vct and doctype\", \"body\": \"Resolves #741 by adding more explicit instructions on what allows a Credential to satisfy `vct_values`, and applies similar explicit text to  `doctype_value`\\r\\n\\r\\nThis makes use of the SD-JWT VC draft 15 which added `aka_vcts` for this purpose \", \"html_url\": \"https://github.com/openid/OpenID4VP/pull/744\", \"state\": \"closed\", \"merged_at\": \"2026-10-01T15:30:24Z\", \"user\": {\"login\": \"GarethCOliver\"}}"
+}
