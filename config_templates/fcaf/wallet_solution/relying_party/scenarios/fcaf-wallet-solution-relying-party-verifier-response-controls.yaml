@@ -32,12 +32,67 @@ steps:
         status: 200
         content_type: text/plain
         body: fcaf plain text response
+# 125: the verifier answers the Authorization Response with HTTP 200 and a
+# non-JSON body. The Wallet has already submitted its response by then, so no
+# protocol channel carries its error back and the terminal screen is the only
+# evidence. The screenshot is taken only while the error screen is up, so a
+# Wallet that stays on its success screen stores no `non-json-wallet-error`
+# file and fails the named-screenshot assertion instead of passing on any
+# screenshot.
 - id: exercise-non-json-response
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { deeplink: "${{ create-non-json-response.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    parameters: { DEEPLINK: "${{ create-non-json-response.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp:
+          stopApp: true
+          clearState: false
+          permissions:
+            camera: allow
+            notifications: allow
+      - extendedWaitUntil:
+          visible: "Welcome back"
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+            - inputText: "12345"
+            - tapOn: "6"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - openLink:
+          link: "${DEEPLINK}"
+          autoVerify: false
+          browser: false
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Requested data"
+          commands:
+            - tapOn: "Share"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - inputText: "12345"
+            - tapOn: "6"
+      - extendedWaitUntil:
+          visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+          timeout: 60000
+          optional: true
+      - runFlow:
+          when:
+            visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+          commands:
+            - takeScreenshot: "non-json-wallet-error"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - takeScreenshot: "exercise-wallet"
 - id: fetch-non-json-response
   use: http-request
   with:
@@ -67,12 +122,64 @@ steps:
         status: 400
         content_type: application/json
         body: '{"error":"invalid_request","error_description":"fcaf verifier response control"}'
+# 126: the verifier answers the Authorization Response with HTTP 400 and a JSON
+# error body. As for 125, the terminal screen is the only evidence of the
+# Wallet's handling and the screenshot is stored only while the error screen is
+# up.
 - id: exercise-http-error-response
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { deeplink: "${{ create-http-error-response.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    parameters: { DEEPLINK: "${{ create-http-error-response.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp:
+          stopApp: true
+          clearState: false
+          permissions:
+            camera: allow
+            notifications: allow
+      - extendedWaitUntil:
+          visible: "Welcome back"
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+            - inputText: "12345"
+            - tapOn: "6"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - openLink:
+          link: "${DEEPLINK}"
+          autoVerify: false
+          browser: false
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Requested data"
+          commands:
+            - tapOn: "Share"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - inputText: "12345"
+            - tapOn: "6"
+      - extendedWaitUntil:
+          visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+          timeout: 60000
+          optional: true
+      - runFlow:
+          when:
+            visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+          commands:
+            - takeScreenshot: "http-error-wallet-error"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - takeScreenshot: "exercise-wallet"
 - id: fetch-http-error-response
   use: http-request
   with:
@@ -105,12 +212,88 @@ steps:
             claims: [{ path: [given_name] }]
       response_scenario:
         status: 400
+# 064: the verifier answers the Authorization Response with HTTP 400 and a JSON
+# body carrying a redirect_uri, and the source requires the Wallet to open it.
+# The reference Wallet parks on `Oups! Something went wrong / Verifier rejected
+# the response` whose only dismiss control is the X, so this flow dismisses that
+# screen when it is there and waits for Capture's `Presentation complete` page
+# in the browser. Every wait on Wallet-specific text is `optional` and the X tap
+# is conditional, because the source says nothing about the Wallet's screen
+# wording: a Wallet that never opens the redirect_uri is reported by
+# `oid4vp.redirect_uri_visited` instead of failing this step and, with it, the
+# validation step that 066, 125 and 126 share through this scenario.
 - id: exercise-http-error-redirect-response
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { deeplink: "${{ create-http-error-redirect-response.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    parameters: { DEEPLINK: "${{ create-http-error-redirect-response.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp:
+          stopApp: true
+          clearState: false
+          permissions:
+            camera: allow
+            notifications: allow
+      - extendedWaitUntil:
+          visible: "Welcome back"
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+            - inputText: "12345"
+            - tapOn: "6"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - openLink:
+          link: "${DEEPLINK}"
+          autoVerify: false
+          browser: false
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Requested data"
+          commands:
+            - tapOn: "Share"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - inputText: "12345"
+            - tapOn: "6"
+      - extendedWaitUntil:
+          visible: "Oups! Something went wrong|Verifier rejected the response"
+          timeout: 30000
+          optional: true
+      - takeScreenshot: "http-error-redirect-wallet-error"
+      # The X is the error screen's only dismiss control (and the sibling
+      # verifier-response-controls flows word the same screen as `Verifier
+      # rejected the response`). It is tapped only while the error screen is up,
+      # so a Wallet that worded its screen differently is not hit by a blind
+      # coordinate tap. If the tap leaves the screen in place, the Android Back
+      # gesture (which the Wallet's DC API error screen also accepts) is tried
+      # before the browser is awaited.
+      - runFlow:
+          when:
+            visible: "Oups! Something went wrong|Verifier rejected the response"
+          commands:
+            - tapOn:
+                point: "8%,9%"
+            - waitForAnimationToEnd:
+                timeout: 3000
+      - runFlow:
+          when:
+            visible: "Oups! Something went wrong|Verifier rejected the response"
+          commands:
+            - pressKey: Back
+      - extendedWaitUntil:
+          visible: "Presentation complete"
+          timeout: 30000
+          optional: true
+      - takeScreenshot: "http-error-redirect-visit"
 - id: fetch-http-error-redirect-response
   use: http-request
   with:
@@ -118,8 +301,7 @@ steps:
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-http-error-redirect-response.outputs.body.session_id }}
     expected_status: 200
 # 066: the default direct-post reply is HTTP 200 with an empty JSON object, so
-# the verifier supplies no redirect_uri and the Wallet must raise an error or
-# terminate the transaction.
+# the verifier supplies no redirect_uri.
 - id: create-no-redirect-response
   use: http-request
   with:
@@ -139,12 +321,64 @@ steps:
             format: dc+sd-jwt
             meta: { vct_values: ["urn:eudi:pid:1"] }
             claims: [{ path: [given_name] }]
+# 066: the Wallet must raise an error or terminate the transaction, and the
+# terminal screen is the only evidence. The screenshot is stored only while the
+# error screen is up, so a Wallet that stays on its success screen fails the
+# named-screenshot assertion instead of passing on any screenshot.
 - id: exercise-no-redirect-response
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { deeplink: "${{ create-no-redirect-response.outputs.body.deeplink }}" }
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    parameters: { DEEPLINK: "${{ create-no-redirect-response.outputs.body.deeplink }}" }
+    action_code: |
+      appId: eu.europa.ec.euidi
+      ---
+      - launchApp:
+          stopApp: true
+          clearState: false
+          permissions:
+            camera: allow
+            notifications: allow
+      - extendedWaitUntil:
+          visible: "Welcome back"
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Welcome back"
+          commands:
+            - inputText: "12345"
+            - tapOn: "6"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - openLink:
+          link: "${DEEPLINK}"
+          autoVerify: false
+          browser: false
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - runFlow:
+          when:
+            visible: "Requested data"
+          commands:
+            - tapOn: "Share"
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - inputText: "12345"
+            - tapOn: "6"
+      - extendedWaitUntil:
+          visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+          timeout: 60000
+          optional: true
+      - runFlow:
+          when:
+            visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
+          commands:
+            - takeScreenshot: "no-redirect-wallet-error"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - takeScreenshot: "exercise-wallet"
 - id: fetch-no-redirect-response
   use: http-request
   with:

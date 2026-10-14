@@ -4,7 +4,10 @@
 
 package validators
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // OID4VPTransactionDataTypeNonStringValidator verifies a malformed type field.
 type OID4VPTransactionDataTypeNonStringValidator struct{}
@@ -25,10 +28,16 @@ func (OID4VPTransactionDataTypeNonStringValidator) Validate(_ context.Context, i
 			Message: "Request Object transaction_data is missing or empty",
 		}
 	}
-	for _, raw := range entries {
-		entry, ok := normalizeJSONObject(raw)
+	for index, raw := range entries {
+		entry, ok := decodeTransactionDataEntry(raw)
 		if !ok {
-			return Result{Status: StatusFail, Message: "transaction_data entry is not an object"}
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"transaction_data[%d] is not a base64url-encoded JSON object, so a non-string type cannot be shown",
+					index,
+				),
+			}
 		}
 		if value, exists := entry["type"]; exists {
 			if _, stringType := value.(string); !stringType {

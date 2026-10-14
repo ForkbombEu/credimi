@@ -55,6 +55,7 @@ steps:
   with:
     test_ids:
     - WS_RP_SM_RpIntegrity__003
+    - WS_RP_SM_RpIntegrity__028
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dc-api.unsigned:

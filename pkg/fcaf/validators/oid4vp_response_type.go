@@ -18,6 +18,10 @@ func (OID4VPUnsupportedResponseTypeValidator) ID() string {
 }
 
 func (OID4VPUnsupportedResponseTypeValidator) Validate(_ context.Context, input Input) Result {
+	return guardWalletEngagement(input.Value, validateUnsupportedResponseType(input))
+}
+
+func validateUnsupportedResponseType(input Input) Result {
 	params, err := DecodeParams[struct {
 		ExpectedResponseType string `json:"expected_response_type"`
 	}](input.Params)
@@ -28,10 +32,14 @@ func (OID4VPUnsupportedResponseTypeValidator) Validate(_ context.Context, input 
 		return Result{Status: StatusError, Message: "expected_response_type is required"}
 	}
 
+	// The delivered request is the scenario's own artifact: its missing or
+	// unexpected response_type is a harness or definition defect and reports
+	// StatusError, while everything read from the Wallet's answer reports
+	// StatusFail.
 	responseTypes := collectObjectFieldValues(input.Value, "response_type")
 	if len(responseTypes) == 0 {
 		return Result{
-			Status:  StatusFail,
+			Status:  StatusError,
 			Message: "captured request does not contain response_type",
 		}
 	}
@@ -39,7 +47,7 @@ func (OID4VPUnsupportedResponseTypeValidator) Validate(_ context.Context, input 
 		responseType, ok := rawResponseType.(string)
 		if !ok || responseType != params.ExpectedResponseType {
 			return Result{
-				Status: StatusFail,
+				Status: StatusError,
 				Message: fmt.Sprintf(
 					"captured response_type is %v, expected %q",
 					rawResponseType,

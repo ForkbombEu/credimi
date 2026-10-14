@@ -23,7 +23,7 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: trusted_authorities_no_match
 - id: ws_rp_ia_maininteraction__004_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

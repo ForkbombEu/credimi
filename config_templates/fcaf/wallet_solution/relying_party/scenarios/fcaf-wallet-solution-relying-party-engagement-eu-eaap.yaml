@@ -1,0 +1,66 @@
+name: FCAF engagement EU EAAP
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+    log_checker: capture-wallet
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+# The source (WS_RP_IA_Engagement__001b) invokes the Wallet through the
+# `eu-eaap://` custom URL scheme, which is the same by-reference presentation
+# request the HAIP VP engagement scenario builds, delivered under that scheme.
+- id: create-capture-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: eu-eaap://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: engagement-eu-eaap
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+- id: invoke-wallet
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-eu-eaap
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-capture-session.outputs.body.deeplink }}
+- id: fetch-capture-session
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    suite: wallet_solution/relying_party
+    test_ids:
+    - WS_RP_IA_Engagement__001b
+    pipeline_outputs:
+      pipeline.wallet.engagement.eu-eaap:
+        output:
+          wallet_engagement: ${{ fetch-capture-session.outputs.body }}
+          visual_evidence: ${{ invoke-wallet.outputs.flow_output.maestro_screenshot_urls }}

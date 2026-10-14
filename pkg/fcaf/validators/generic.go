@@ -122,6 +122,40 @@ func (FCAFSkippedValidator) Validate(_ context.Context, input Input) Result {
 	return Result{Status: StatusSkipped, Message: params.Reason}
 }
 
+// FCAFNotApplicableValidator records that a source test's Wallet expectation
+// cannot apply to the SUT, so the test reports not applicable instead of a pass
+// or a failure. The test still runs and keeps its evidence; the engine folds
+// pass + not_applicable into not_applicable, while any fail/error/blocked
+// dominates.
+//
+// Two grounds are sanctioned (.agents/HITL.md, 2026-10-14):
+//
+//   - the source's own relevancy is EUDI_forbidden and it expects the Wallet to
+//     accept the excluded feature, so no conformant EUDI Wallet can satisfy it;
+//   - the SUT's own capabilities refute the source's precondition, so the test
+//     is not about this Wallet (WS_RP_MS_ProtocolMessages__011/018,
+//     WS_RP_MS_Metadata__134).
+//
+// A precondition the harness cannot build is a different case: that is
+// fcaf.skipped, and its reason must name the unbuilt precondition, never the
+// Wallet's behaviour.
+type FCAFNotApplicableValidator struct{}
+
+func (FCAFNotApplicableValidator) ID() string { return "fcaf.not_applicable" }
+
+func (FCAFNotApplicableValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Reason string `json:"reason"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Reason == "" {
+		return Result{Status: StatusError, Message: "reason param is required"}
+	}
+	return Result{Status: StatusNotApplicable, Message: params.Reason}
+}
+
 type JSONFieldRequiredValidator struct{}
 
 func (JSONFieldRequiredValidator) ID() string {
@@ -704,11 +738,15 @@ func (OID4VPNoPresentationValidator) ID() string {
 }
 
 func (OID4VPNoPresentationValidator) Validate(_ context.Context, input Input) Result {
-	session, ok := input.Value.(map[string]any)
+	return guardWalletEngagement(input.Value, validateNoPresentationReturned(input.Value))
+}
+
+func validateNoPresentationReturned(value any) Result {
+	session, ok := value.(map[string]any)
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: fmt.Sprintf("session evidence is %T, expected object", input.Value),
+			Message: fmt.Sprintf("session evidence is %T, expected object", value),
 		}
 	}
 	if _, submitted := session["decoded_presentations"]; submitted {
@@ -770,6 +808,10 @@ func (SDJWTPresentationDigestAlgorithmValidator) ID() string {
 }
 
 func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, input Input) Result {
+	return guardWalletEngagement(input.Value, validatePresentationDigestAlgorithm(input))
+}
+
+func validatePresentationDigestAlgorithm(input Input) Result {
 	params, err := DecodeParams[struct {
 		DigestAlgorithm string `json:"digest_algorithm"`
 		RequireError    bool   `json:"require_error"`

@@ -50,6 +50,47 @@ steps:
       url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
       expected_status: 200
 
+  - id: create-matching-presentation
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        scheme: haip-vp://
+        request_delivery: by_reference
+        response_type: vp_token
+        response_mode: direct_post.jwt
+        presentation_request:
+          nonce: fcaf-dcql-meta-vct-match
+          dcql_query:
+            credentials:
+              - id: pididentity01
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                    - urn:eudi:pid:1
+                claims:
+                  - path:
+                      - given_name
+                  - path:
+                      - family_name
+  - id: present-matching-meta
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      parameters:
+        deeplink: ${{ create-matching-presentation.outputs.body.deeplink }}
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+  - id: get-matching-presentation-result
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-matching-presentation.outputs.body.session_id }}
+      expected_status: 200
+
   - id: run-fcaf-validators
     use: fcaf-validation
     with:
@@ -64,3 +105,10 @@ steps:
             create-presentation: ${{ create-presentation.outputs }}
             present-with-reference-implementation: ${{ present-with-reference-implementation.outputs }}
             get-presentation-result: ${{ get-presentation-result.outputs }}
+        pipeline.dcql.meta-vct-match:
+          output:
+            dcql_exchange: ${{ get-matching-presentation-result.outputs.body }}
+            visual_evidence: ${{ present-matching-meta.outputs.flow_output.maestro_screenshot_urls }}
+            create-matching-presentation: ${{ create-matching-presentation.outputs }}
+            present-matching-meta: ${{ present-matching-meta.outputs }}
+            get-matching-presentation-result: ${{ get-matching-presentation-result.outputs }}

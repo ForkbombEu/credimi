@@ -35,8 +35,13 @@ assertions:
     status: 200
     media_type: text/plain
     body_format: not_json
+# The Wallet has already submitted its Authorization Response when the non-JSON
+# reply arrives, so the terminal screen is the only evidence that it detected
+# the malformed reply. The flow stores the screenshot only while the error
+# screen is up, so a Wallet that stays on its success screen fails here.
 - id: visual_evidence_of_the_wallet_error_is_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.visual_evidence
+  params: { name: non-json-wallet-error }
 verdict:
   pass_when: all_assertions_pass

@@ -1,3 +1,7 @@
+# The source assumes a Wallet that published wallet_metadata.jwks; the session
+# sets request_behavior.request_object_encryption: none so the Request Object it
+# receives is provably plain, not an encrypted one read through
+# raw.authorization_request_jwt.
 id: WS_RP_MS_Metadata__135
 title: Reject an unencrypted Request Object after requiring encryption
 source:
@@ -14,8 +18,8 @@ normative_references:
   section: '5.10'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  session: { from: pipeline.protocol.metadata-request-controls.outputs.default_post_retrieval_session }
-  visual_evidence: { from: pipeline.protocol.metadata-request-controls.outputs.default_post_retrieval_visual_evidence }
+  session: { from: pipeline.protocol.metadata-request-object-delivery.outputs.unencrypted_request_object_session }
+  visual_evidence: { from: pipeline.protocol.metadata-request-object-delivery.outputs.unencrypted_request_object_visual_evidence }
 assertions:
 - id: wallet_retrieves_request_object_with_post
   validator: oid4vp.request_uri_retrieval

@@ -1,5 +1,7 @@
 name: FCAF wallet relying-party DCQL multiple true
 runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
   temporal:
     activity_options:
       schedule_to_close_timeout: 50m
@@ -8,6 +10,28 @@ runtime:
         maximum_attempts: 1
 
 steps:
+  # The source's precondition is a Wallet holding more than one credential
+  # matching the query, so the scenario issues a second identity itself; the
+  # aggregate's own injected pid_default issuance supplies the first.
+  - id: create-second-matching-issuance
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.issuer_url}/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        issuer_configuration_id: eu-pid-device-bound
+        credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+        fixture_id: pid_person_b
+  - id: obtain-second-matching-credential
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+      version_id: installed_from_external_source
+      parameters:
+        deeplink: ${{ create-second-matching-issuance.outputs.body.deeplink }}
   - id: create-presentation
     use: http-request
     with:
@@ -43,7 +67,7 @@ steps:
       version_id: installed_from_external_source
       parameters:
         deeplink: ${{ create-presentation.outputs.body.deeplink }}
-      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
   - id: get-presentation-result
     use: http-request
     with:

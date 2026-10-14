@@ -57,6 +57,7 @@ steps:
           output:
             capture_session: ${{ get-presentation-result.outputs.body }}
             signed_request_object: ${{ get-presentation-result.outputs.body.raw.authorization_request_jwt }}
+            outer_request_delivered: ${{ get-presentation-result.outputs.body.raw.outer_request_delivered }}
             session_checks: ${{ get-presentation-result.outputs.body.checks }}
             visual_evidence: ${{ submit-request-uri-method-default.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}

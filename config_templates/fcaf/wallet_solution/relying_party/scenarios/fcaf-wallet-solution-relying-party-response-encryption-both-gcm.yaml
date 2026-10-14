@@ -67,5 +67,6 @@ steps:
         output:
           capture_session: ${{ fetch-capture-session.outputs.body }}
           encryption_evidence:
-              presentation_response_http: ${{ fetch-capture-session.outputs.body.raw.presentation_response_http }}
+            request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
+            presentation_response_http: ${{ fetch-capture-session.outputs.body.raw.presentation_response_http }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

@@ -5,7 +5,9 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -196,5 +198,93 @@ finally:
 		require.Equal(t, "notify-any", wf.Finally.Always[0].ID)
 		require.Equal(t, "notify-success", wf.Finally.OnSuccess[0].ID)
 		require.Equal(t, "notify-failure", wf.Finally.OnFailure[0].ID)
+	})
+}
+
+// A date-like scalar must reach the http-request body as the exact text the
+// author wrote. yaml.v3 otherwise resolves an unquoted `2012-03-04` to
+// time.Time, and the http-request activity marshals the body back to JSON as
+// `2012-03-04T00:00:00Z`. The webapp pipeline serializer (`yaml` core schema)
+// emits such values unquoted, so the delivered request would no longer match
+// the credential claim (FCAF WS_RP_IA_MainInteraction__032 / __033).
+func TestParseWorkflow_KeepsDateLikeBodyValuesVerbatim(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{"unquoted", "2012-03-04", "2012-03-04"},
+		{"double quoted", `"2012-03-04"`, "2012-03-04"},
+		{"single quoted", "'2012-03-04'", "2012-03-04"},
+		{"unquoted expiry", "2031-01-01", "2031-01-01"},
+		{"unquoted with time", "2031-01-01T00:00:00Z", "2031-01-01T00:00:00Z"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			yamlStr := "name: t\nsteps:\n- id: s\n  use: http-request\n  with:\n" +
+				"    body:\n      claims:\n      - path:\n        - birthdate\n" +
+				"        values:\n        - " + tc.value + "\n"
+			wf, err := ParseWorkflow(yamlStr)
+			require.NoError(t, err)
+
+			body := wf.Steps[0].With.Payload["body"]
+			// The http-request activity marshals the body map to JSON.
+			encoded, err := json.Marshal(body)
+			require.NoError(t, err)
+			require.JSONEq(
+				t,
+				`{"claims":[{"path":["birthdate"],"values":["`+tc.want+`"]}]}`,
+				string(encoded),
+			)
+		})
+	}
+}
+
+// A date-like scalar referenced through a YAML alias must also keep its
+// literal text, since aliases are resolved while decoding step inputs.
+func TestParseWorkflow_KeepsAnchoredDateLikeBodyValuesVerbatim(t *testing.T) {
+	yamlStr := "name: t\nanchor: &dob 2012-03-04\nsteps:\n- id: s\n  use: http-request\n" +
+		"  with:\n    body:\n      values:\n      - *dob\n"
+	wf, err := ParseWorkflow(yamlStr)
+	require.NoError(t, err)
+
+	encoded, err := json.Marshal(wf.Steps[0].With.Payload["body"])
+	require.NoError(t, err)
+	require.JSONEq(t, `{"values":["2012-03-04"]}`, string(encoded))
+}
+
+// Retagging date-like scalars in step inputs must stay inside the `with`
+// subtree: an alias reaching such a scalar from a field outside `with` has to
+// keep yaml.v3's own resolution (time.Time) there. Mutating a shared anchored
+// node in place would silently change every other reference to it.
+func TestParseWorkflow_TimestampRetagStaysInsideStepInputs(t *testing.T) {
+	t.Run("anchor declared inside with", func(t *testing.T) {
+		yamlStr := "name: t\nsteps:\n- id: s\n  use: http-request\n" +
+			"  with:\n    body: &dob\n      date: 2012-03-04\n" +
+			"  metadata:\n    shared: *dob\n"
+		wf, err := ParseWorkflow(yamlStr)
+		require.NoError(t, err)
+
+		encoded, err := json.Marshal(wf.Steps[0].With.Payload["body"])
+		require.NoError(t, err)
+		require.JSONEq(t, `{"date":"2012-03-04"}`, string(encoded))
+
+		shared, ok := wf.Steps[0].Metadata["shared"].(map[string]any)
+		require.True(t, ok, "aliased metadata should decode as a map")
+		require.IsType(t, time.Time{}, shared["date"])
+	})
+
+	t.Run("anchor declared outside with", func(t *testing.T) {
+		yamlStr := "name: t\nconfig:\n  dob: &dob 2012-03-04\nsteps:\n- id: s\n" +
+			"  use: http-request\n  with:\n    body:\n      values:\n      - *dob\n" +
+			"  metadata:\n    shared: *dob\n"
+		wf, err := ParseWorkflow(yamlStr)
+		require.NoError(t, err)
+
+		encoded, err := json.Marshal(wf.Steps[0].With.Payload["body"])
+		require.NoError(t, err)
+		require.JSONEq(t, `{"values":["2012-03-04"]}`, string(encoded))
+
+		require.IsType(t, time.Time{}, wf.Config["dob"])
+		require.IsType(t, time.Time{}, wf.Steps[0].Metadata["shared"])
 	})
 }

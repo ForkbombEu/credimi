@@ -43,6 +43,36 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
+    - id: create-mdoc-presentation
+      use: http-request
+      with:
+        body:
+            dcql_query:
+                credentials:
+                    - format: mso_mdoc
+                      id: pididentity02
+                      meta:
+                        doctype_value: eu.europa.ec.eudi.pid.1
+            nonce: fcaf-017-claims-omitted-mdoc
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - id: present-mdoc-without-claims
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        parameters:
+            deeplink: ${{ create-mdoc-presentation.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - id: get-mdoc-presentation-result
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-mdoc-presentation.outputs.body.session_id }}
     - id: run-fcaf-validators
       use: fcaf-validation
       with:
@@ -55,6 +85,15 @@ steps:
                     get-presentation-result: ${{ get-presentation-result.outputs }}
                     present-without-claims: ${{ present-without-claims.outputs }}
                     visual_evidence: ${{ present-without-claims.outputs.flow_output.maestro_screenshot_urls }}
+            pipeline.dcql.claims-omitted-mdoc:
+                output:
+                    create-presentation: ${{ create-mdoc-presentation.outputs }}
+                    dcql_exchange: ${{ get-mdoc-presentation-result.outputs.body }}
+                    get-presentation-result: ${{ get-mdoc-presentation-result.outputs }}
+                    present-without-claims: ${{ present-mdoc-without-claims.outputs }}
+                    visual_evidence: ${{ present-mdoc-without-claims.outputs.flow_output.maestro_screenshot_urls }}
         suite: wallet_solution/relying_party
         test_ids:
             - WS_RP_MS_ProtocolMessages__082
+            - WS_RP_IA_MainInteraction__016
+            - WS_RP_IA_MainInteraction__017

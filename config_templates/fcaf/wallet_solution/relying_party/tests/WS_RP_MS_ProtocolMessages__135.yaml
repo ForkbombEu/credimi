@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__135
-title: FCAF WS_RP_MS_ProtocolMessages__135
+title: Include a transaction_data reference in the credential presentation.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__135.md
 suite:
@@ -17,16 +17,16 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.protocol-messages-135.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.protocol-messages-135.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__135_dcql_protocol_valid
-  validator: dcql.response_satisfies_constraints
+- id: ws_rp_ms_protocolmessages__135_transaction_binding_requires_a_supported_type
+  validator: fcaf.not_applicable
   input: evidence.dcql_exchange
   params:
-    mode: transaction_data_error
-- id: ws_rp_ms_protocolmessages__135_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      the source requires the Wallet to display the transaction_data and to
+      reference it from the presentation's transaction_data_hashes, which
+      needs a transaction_data type the Wallet supports; the reference Wallet
+      declares no supported transaction-data type, so that presentation cannot
+      be produced
 verdict:
   pass_when: all_assertions_pass

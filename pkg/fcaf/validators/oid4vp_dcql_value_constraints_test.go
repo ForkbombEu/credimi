@@ -199,9 +199,43 @@ func TestOID4VPMalformedStatusCredentialAbsentValidator(t *testing.T) {
 			wantStatus: StatusPass,
 		},
 		{
+			name:       "wallet never retrieved the request",
+			value:      neverRetrievedSession(exchange(true, "CREDIMI-DEMO-CASE")),
+			shape:      "missing_status_list",
+			wantStatus: StatusBlocked,
+		},
+		{
+			name:       "wallet retrieved the request and returned nothing",
+			value:      retrievedSessionWithoutResponse(exchange(true, "CREDIMI-DEMO-CASE")),
+			shape:      "missing_status_list",
+			wantStatus: StatusPass,
+		},
+		{
+			name: "wallet retrieved the request and returned a malformed credential",
+			value: retrievedSessionWithPresentation(
+				exchange(true, "CREDIMI-DEMO-CASE", noStatusList),
+				"pid",
+				noStatusList,
+			),
+			shape:      "missing_status_list",
+			wantStatus: StatusFail,
+		},
+		{
 			name:       "wallet holds only a validly issued duplicate",
 			value:      exchange(true, "CREDIMI-DEMO-CASE", valid),
 			shape:      "missing_status_list",
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "wallet retained the token without a status claim",
+			value:      exchange(true, "CREDIMI-DEMO-CASE", statusToken(nil)),
+			shape:      "status_absent",
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "a valid status is not an absent status",
+			value:      exchange(true, "CREDIMI-DEMO-CASE", valid),
+			shape:      "status_absent",
 			wantStatus: StatusPass,
 		},
 		{
@@ -308,6 +342,13 @@ func TestOID4VPMalformedStatusCredentialAbsentValidatorMDoc(t *testing.T) {
 	}{
 		{"wallet holds nothing", exchange(pinned), "missing_status_list", StatusPass},
 		{"only a valid duplicate", exchange(pinned, valid), "missing_status_list", StatusPass},
+		{
+			"token with no status element retained",
+			exchange(pinned, statusMDoc(nil)),
+			"status_absent",
+			StatusFail,
+		},
+		{"a valid status is not absent", exchange(pinned, valid), "status_absent", StatusPass},
 		{
 			"empty status map retained",
 			exchange(pinned, statusMDoc(map[string]any{})),

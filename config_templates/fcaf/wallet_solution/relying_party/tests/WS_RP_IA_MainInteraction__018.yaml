@@ -16,9 +16,49 @@ normative_references:
 evidence:
   pid_sdjwt:
     from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt
+  capture_session:
+    from: pipeline.pid.presentation.sdjwt.all-claims.outputs.fetch-capture-session
   visual_evidence:
     from: pipeline.pid.presentation.sdjwt.all-claims.outputs.visual_evidence
 assertions:
+  - id: request_lists_every_claim_without_claim_sets
+    validator: oid4vp.dcql_requested_claim_paths
+    input: evidence.capture_session
+    params:
+      format: dc+sd-jwt
+      paths:
+        - - given_name
+        - - family_name
+        - - address
+          - country
+        - - address
+          - formatted
+        - - address
+          - house_number
+        - - address
+          - locality
+        - - address
+          - postal_code
+        - - address
+          - region
+        - - address
+          - street_address
+        - - birth_family_name
+        - - birth_given_name
+        - - birthdate
+        - - date_of_expiry
+        - - date_of_issuance
+        - - document_number
+        - - email
+        - - issuing_authority
+        - - issuing_country
+        - - issuing_jurisdiction
+        - - nationalities
+        - - personal_administrative_number
+        - - phone_number
+        - - picture
+        - - place_of_birth
+        - - sex
   - id: requested_given_name_is_disclosed
     validator: sdjwt.claim_present
     input: evidence.pid_sdjwt
@@ -29,11 +69,121 @@ assertions:
     input: evidence.pid_sdjwt
     params:
       claim: family_name
+  - id: requested_address_country_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: address.country
+  - id: requested_address_formatted_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: address.formatted
+  - id: requested_address_house_number_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: address.house_number
+  - id: requested_address_locality_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: address.locality
+  - id: requested_address_postal_code_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: address.postal_code
+  - id: requested_address_region_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: address.region
+  - id: requested_address_street_address_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: address.street_address
+  - id: requested_birth_family_name_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: birth_family_name
+  - id: requested_birth_given_name_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: birth_given_name
   - id: requested_birthdate_is_disclosed
     validator: sdjwt.claim_present
     input: evidence.pid_sdjwt
     params:
       claim: birthdate
+  - id: requested_date_of_expiry_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: date_of_expiry
+  - id: requested_date_of_issuance_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: date_of_issuance
+  - id: requested_document_number_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: document_number
+  - id: requested_email_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: email
+  - id: requested_issuing_authority_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: issuing_authority
+  - id: requested_issuing_country_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: issuing_country
+  - id: requested_issuing_jurisdiction_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: issuing_jurisdiction
+  - id: requested_nationalities_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: nationalities
+  - id: requested_personal_administrative_number_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: personal_administrative_number
+  - id: requested_phone_number_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: phone_number
+  - id: requested_picture_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: picture
+  - id: requested_place_of_birth_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: place_of_birth
+  - id: requested_sex_is_disclosed
+    validator: sdjwt.claim_present
+    input: evidence.pid_sdjwt
+    params:
+      claim: sex
   - id: successful_interaction_is_recorded
     validator: evidence.non_empty
     input: evidence.visual_evidence

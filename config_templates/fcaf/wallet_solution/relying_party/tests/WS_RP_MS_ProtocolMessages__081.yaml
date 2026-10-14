@@ -14,85 +14,94 @@ normative_references:
   section: 6.1, 8.5
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  exchange_valid_true:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_valid_true
-  exchange_valid_false:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_valid_false
+  # The boolean `true`/`false` forms are the positive controls of
+  # WS_RP_IA_MainInteraction__005/__007; this test owns only the non-boolean
+  # forms its source rejects.
   exchange_number_zero:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_zero
-  exchange_number_one:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_one
-  exchange_number_random:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_random
-  exchange_string_true:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_true
-  exchange_string_false:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_false
-  exchange_string_uppercase_true:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_uppercase_true
-  exchange_string_uppercase_false:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_uppercase_false
-  exchange_string_yes:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_yes
-  exchange_string_no:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_no
-  exchange_string_y:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_y
-  exchange_string_n:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_n
-  exchange_string_zero:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_zero
-  exchange_string_one:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_one
-  exchange_string_random:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_random
-  visual_evidence:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence
   exchange_number_zero_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_zero_session
+  visual_evidence_number_zero:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_number_zero
+  exchange_number_one:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_one
   exchange_number_one_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_one_session
+  visual_evidence_number_one:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_number_one
+  exchange_number_random:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_random
   exchange_number_random_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_number_random_session
+  visual_evidence_number_random:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_number_random
+  exchange_string_true:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_true
   exchange_string_true_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_true_session
+  visual_evidence_string_true:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_true
+  exchange_string_false:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_false
   exchange_string_false_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_false_session
+  visual_evidence_string_false:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_false
+  exchange_string_uppercase_true:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_uppercase_true
   exchange_string_uppercase_true_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_uppercase_true_session
+  visual_evidence_string_uppercase_true:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_uppercase_true
+  exchange_string_uppercase_false:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_uppercase_false
   exchange_string_uppercase_false_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_uppercase_false_session
+  visual_evidence_string_uppercase_false:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_uppercase_false
+  exchange_string_yes:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_yes
   exchange_string_yes_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_yes_session
+  visual_evidence_string_yes:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_yes
+  exchange_string_no:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_no
   exchange_string_no_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_no_session
+  visual_evidence_string_no:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_no
+  exchange_string_y:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_y
   exchange_string_y_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_y_session
+  visual_evidence_string_y:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_y
+  exchange_string_n:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_n
   exchange_string_n_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_n_session
+  visual_evidence_string_n:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_n
+  exchange_string_zero:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_zero
   exchange_string_zero_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_zero_session
+  visual_evidence_string_zero:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_zero
+  exchange_string_one:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_one
   exchange_string_one_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_one_session
+  visual_evidence_string_one:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_one
+  exchange_string_random:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_random
   exchange_string_random_session:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.exchange_string_random_session
+  visual_evidence_string_random:
+    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence_string_random
 assertions:
-- id: holder_binding_valid_true_is_accepted
-  validator: dcql.response_satisfies_constraints
-  input: evidence.exchange_valid_true
-  params:
-    mode: property_type
-    property: require_cryptographic_holder_binding
-    expected_type: boolean
-    valid: true
-- id: holder_binding_valid_false_is_accepted
-  validator: dcql.response_satisfies_constraints
-  input: evidence.exchange_valid_false
-  params:
-    mode: property_type
-    property: require_cryptographic_holder_binding
-    expected_type: boolean
-    valid: true
 - id: holder_binding_number_zero_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_number_zero
@@ -101,6 +110,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_number_zero_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_number_zero_session
+- id: holder_binding_number_zero_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_number_zero
 - id: holder_binding_number_one_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_number_one
@@ -109,6 +124,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_number_one_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_number_one_session
+- id: holder_binding_number_one_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_number_one
 - id: holder_binding_number_random_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_number_random
@@ -117,6 +138,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_number_random_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_number_random_session
+- id: holder_binding_number_random_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_number_random
 - id: holder_binding_string_true_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_true
@@ -125,6 +152,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_string_true_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_string_true_session
+- id: holder_binding_string_true_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_true
 - id: holder_binding_string_false_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_false
@@ -133,6 +166,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_string_false_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_string_false_session
+- id: holder_binding_string_false_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_false
 - id: holder_binding_string_uppercase_true_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_uppercase_true
@@ -141,6 +180,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_string_uppercase_true_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_string_uppercase_true_session
+- id: holder_binding_string_uppercase_true_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_uppercase_true
 - id: holder_binding_string_uppercase_false_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_uppercase_false
@@ -149,6 +194,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_string_uppercase_false_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_string_uppercase_false_session
+- id: holder_binding_string_uppercase_false_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_uppercase_false
 - id: holder_binding_string_yes_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_yes
@@ -157,6 +208,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_string_yes_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_string_yes_session
+- id: holder_binding_string_yes_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_yes
 - id: holder_binding_string_no_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_no
@@ -165,6 +222,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_string_no_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_string_no_session
+- id: holder_binding_string_no_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_no
 - id: holder_binding_string_y_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_y
@@ -173,6 +236,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_string_y_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_string_y_session
+- id: holder_binding_string_y_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_y
 - id: holder_binding_string_n_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_n
@@ -181,6 +250,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_string_n_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_string_n_session
+- id: holder_binding_string_n_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_n
 - id: holder_binding_string_zero_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_zero
@@ -189,6 +264,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_string_zero_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_string_zero_session
+- id: holder_binding_string_zero_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_zero
 - id: holder_binding_string_one_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_one
@@ -197,6 +278,12 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
+- id: exchange_string_one_no_presentation_returned
+  validator: oid4vp.no_presentation_returned
+  input: evidence.exchange_string_one_session
+- id: holder_binding_string_one_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_one
 - id: holder_binding_string_random_is_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.exchange_string_random
@@ -205,52 +292,11 @@ assertions:
     property: require_cryptographic_holder_binding
     expected_type: boolean
     valid: false
-- id: every_holder_binding_variant_has_visual_evidence
-  validator: evidence.minimum_items
-  input: evidence.visual_evidence
-  params:
-    min_items: 16
-- id: exchange_number_zero_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_number_zero_session
-- id: exchange_number_one_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_number_one_session
-- id: exchange_number_random_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_number_random_session
-- id: exchange_string_true_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_string_true_session
-- id: exchange_string_false_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_string_false_session
-- id: exchange_string_uppercase_true_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_string_uppercase_true_session
-- id: exchange_string_uppercase_false_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_string_uppercase_false_session
-- id: exchange_string_yes_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_string_yes_session
-- id: exchange_string_no_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_string_no_session
-- id: exchange_string_y_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_string_y_session
-- id: exchange_string_n_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_string_n_session
-- id: exchange_string_zero_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_string_zero_session
-- id: exchange_string_one_no_presentation_returned
-  validator: oid4vp.no_presentation_returned
-  input: evidence.exchange_string_one_session
 - id: exchange_string_random_no_presentation_returned
   validator: oid4vp.no_presentation_returned
   input: evidence.exchange_string_random_session
+- id: holder_binding_string_random_visual_evidence_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence_string_random
 verdict:
   pass_when: all_assertions_pass

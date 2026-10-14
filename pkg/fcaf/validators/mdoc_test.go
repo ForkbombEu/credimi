@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,6 +27,7 @@ func TestMDocDataModelValidators(t *testing.T) {
 			MajorType:        6,
 			ContentMajorType: 3,
 			Tag:              &dateTag,
+			Raw:              mustCBORTag(t, 1004, "2000-02-29"),
 		},
 		"nationality": {
 			Identifier: "nationality",
@@ -173,10 +175,91 @@ func TestMDocElementValidDateRejectsInvalidCalendarDate(t *testing.T) {
 	require.Equal(t, StatusFail, result.Status)
 }
 
+func TestMDocElementEqualsValidator(t *testing.T) {
+	presentation := mdocValidatorPresentation(map[string]evidence.MDocElement{
+		"given_name": {
+			Identifier: "given_name",
+			Value:      "Mario",
+			MajorType:  3,
+		},
+		"sex": {
+			Identifier: "sex",
+			Value:      uint64(2),
+			MajorType:  0,
+		},
+	})
+
+	tests := []struct {
+		name       string
+		params     map[string]any
+		wantStatus Status
+	}{
+		{
+			name:       "text equals the expected value",
+			params:     mergeMDocParams("given_name", map[string]any{"value": "Mario"}),
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "text differs from the expected value",
+			params:     mergeMDocParams("given_name", map[string]any{"value": "Giulia"}),
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "element is not a text string",
+			params:     mergeMDocParams("sex", map[string]any{"value": "2"}),
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "element is missing",
+			params:     mergeMDocParams("family_name", map[string]any{"value": "Bianchi"}),
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "value param is required",
+			params:     mdocParams("given_name"),
+			wantStatus: StatusError,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := MDocElementEqualsValidator{}.Validate(context.Background(), Input{
+				Value:  presentation,
+				Params: test.params,
+			})
+			require.Equal(t, test.wantStatus, result.Status, result.Message)
+		})
+	}
+}
+
+func TestMDocElementEqualsRejectsErrorItem(t *testing.T) {
+	presentation := mdocValidatorPresentation(map[string]evidence.MDocElement{
+		"given_name": {
+			Identifier: "given_name",
+			Value:      "Mario",
+			MajorType:  3,
+		},
+	})
+	presentation.Documents[0].Errors = map[string]map[string]int64{
+		pidMDocType: {"given_name": 2},
+	}
+
+	result := MDocElementEqualsValidator{}.Validate(context.Background(), Input{
+		Value: presentation,
+		Params: mergeMDocParams("given_name", map[string]any{
+			"value": "Mario",
+		}),
+	})
+
+	require.Equal(t, StatusFail, result.Status)
+	require.Contains(t, result.Message, "ErrorItem")
+}
+
 func TestMDocValidatorsRejectMissingConfiguration(t *testing.T) {
 	validators := []Validator{
 		MDocElementCBORTypeValidator{},
 		MDocElementUTF8StringValidator{},
+		MDocElementEqualsValidator{},
 		MDocElementDateEncodingValidator{},
 		MDocElementDateFormatValidator{},
 		MDocElementValidDateValidator{},
@@ -270,6 +353,110 @@ func mergeMDocParams(element string, values map[string]any) map[string]any {
 	return params
 }
 
+// mustCBORTag encodes a tagged text string with the library that decodes the
+// production evidence, which emits the preferred (RFC 8949 §4.2) tag head.
+func mustCBORTag(t *testing.T, tag uint64, value string) []byte {
+	t.Helper()
+	encoded, err := cbor.Marshal(cbor.Tag{Number: tag, Content: value})
+	require.NoError(t, err)
+	return encoded
+}
+
+// mustMDocDeviceResponse encodes a DeviceResponse with one PID element whose
+// elementValue bytes are exactly the ones given, so a validator sees the same
+// wire shape the Wallet delivered.
+func mustMDocDeviceResponse(t *testing.T, identifier string, elementValue []byte) []byte {
+	t.Helper()
+	item, err := cbor.Marshal(map[string]any{
+		"digestID":          uint64(1),
+		"random":            []byte("salt"),
+		"elementIdentifier": identifier,
+		"elementValue":      cbor.RawMessage(elementValue),
+	})
+	require.NoError(t, err)
+	msoBytes, err := cbor.Marshal(map[string]any{"digestAlgorithm": "SHA-256"})
+	require.NoError(t, err)
+	raw, err := cbor.Marshal(map[string]any{
+		"version": "1.0",
+		"documents": []any{map[string]any{
+			"docType": pidMDocType,
+			"issuerSigned": map[string]any{
+				"nameSpaces": map[string]any{
+					pidMDocType: []any{cbor.Tag{Number: 24, Content: item}},
+				},
+				"issuerAuth": cbor.Tag{
+					Number:  18,
+					Content: []any{[]byte{}, map[string]any{}, msoBytes, []byte("signature")},
+				},
+			},
+		}},
+		"status": uint64(0),
+	})
+	require.NoError(t, err)
+	return raw
+}
+
+// TestMDocElementDateEncodingOnDecodedDeviceResponse drives the validator with
+// a DeviceResponse decoded by the production parser, so the element wire bytes
+// come from the same path the aggregate pipeline evidence uses.
+func TestMDocElementDateEncodingOnDecodedDeviceResponse(t *testing.T) {
+	tests := []struct {
+		name    string
+		element []byte
+		status  Status
+		message string
+	}{
+		{
+			name:    "preferred tag 1004 encoding passes",
+			element: mustCBORTag(t, 1004, "2031-01-01"),
+			status:  StatusPass,
+		},
+		{
+			name: "non-preferred tag 1004 encoding fails",
+			element: append(
+				[]byte{0xda, 0x00, 0x00, 0x03, 0xec, 0x6a},
+				[]byte("2031-01-01")...,
+			),
+			status:  StatusFail,
+			message: `CBOR tag 1004 is encoded as "da000003ec"`,
+		},
+		{
+			name:    "preferred tag 0 encoding passes",
+			element: mustCBORTag(t, 0, "2031-01-01T00:00:00Z"),
+			status:  StatusPass,
+		},
+		{
+			name: "non-preferred tag 0 encoding fails",
+			element: append(
+				[]byte{0xd8, 0x00, 0x74},
+				[]byte("2031-01-01T00:00:00Z")...,
+			),
+			status:  StatusFail,
+			message: `CBOR tag 0 is encoded as "d800"`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			presentation, err := evidence.ParseMDocPresentation(
+				mustMDocDeviceResponse(t, "expiry_date", test.element),
+			)
+			require.NoError(t, err)
+
+			result := MDocElementDateEncodingValidator{}.Validate(context.Background(), Input{
+				Value: presentation,
+				Params: mergeMDocParams(
+					"expiry_date",
+					map[string]any{"allowed_tags": []int{0, 1004}},
+				),
+			})
+
+			require.Equal(t, test.status, result.Status, result.Message)
+			require.Contains(t, result.Message, test.message)
+		})
+	}
+}
+
 func TestMDocElementValidatorOutcomes(t *testing.T) {
 	dateTag := uint64(1004)
 	dateTimeTag := uint64(0)
@@ -285,6 +472,16 @@ func TestMDocElementValidatorOutcomes(t *testing.T) {
 			ContentMajorType: 3,
 			Tag:              tag,
 		}
+	}
+	taggedRaw := func(
+		identifier string,
+		tag *uint64,
+		value any,
+		raw []byte,
+	) evidence.MDocElement {
+		element := tagged(identifier, tag, value)
+		element.Raw = raw
+		return element
 	}
 	array := func(identifier string, values []any) evidence.MDocElement {
 		return evidence.MDocElement{Identifier: identifier, Value: values, MajorType: 4}
@@ -411,6 +608,66 @@ func TestMDocElementValidatorOutcomes(t *testing.T) {
 			message:   "value is int, expected string",
 		},
 		{
+			name:      "date encoding requires the wire bytes",
+			validator: MDocElementDateEncodingValidator{},
+			element:   tagged("birth_date", &dateTag, "2000-02-29"),
+			params:    mergeMDocParams("birth_date", map[string]any{"allowed_tags": []int{1004}}),
+			status:    StatusFail,
+			message:   "has no wire bytes",
+		},
+		{
+			name:      "date encoding accepts the preferred tag 1004 encoding",
+			validator: MDocElementDateEncodingValidator{},
+			element: taggedRaw(
+				"expiry_date",
+				&dateTag,
+				"2031-01-01",
+				append([]byte{0xd9, 0x03, 0xec, 0x6a}, []byte("2031-01-01")...),
+			),
+			params: mergeMDocParams("expiry_date", map[string]any{"allowed_tags": []int{1004}}),
+			status: StatusPass,
+		},
+		{
+			name:      "date encoding rejects a non-preferred tag 1004 encoding",
+			validator: MDocElementDateEncodingValidator{},
+			element: taggedRaw(
+				"expiry_date",
+				&dateTag,
+				"2031-01-01",
+				append([]byte{0xda, 0x00, 0x00, 0x03, 0xec, 0x6a}, []byte("2031-01-01")...),
+			),
+			params: mergeMDocParams("expiry_date", map[string]any{"allowed_tags": []int{1004}}),
+			status: StatusFail,
+			message: `CBOR tag 1004 is encoded as "da000003ec", ` +
+				`expected the preferred encoding "d903ec"`,
+		},
+		{
+			name:      "date encoding accepts the preferred tag 0 encoding",
+			validator: MDocElementDateEncodingValidator{},
+			element: taggedRaw(
+				"expiry_date",
+				&dateTimeTag,
+				"2031-01-01T00:00:00Z",
+				append([]byte{0xc0, 0x74}, []byte("2031-01-01T00:00:00Z")...),
+			),
+			params: mergeMDocParams("expiry_date", map[string]any{"allowed_tags": []int{0, 1004}}),
+			status: StatusPass,
+		},
+		{
+			name:      "date encoding rejects a non-preferred tag 0 encoding",
+			validator: MDocElementDateEncodingValidator{},
+			element: taggedRaw(
+				"expiry_date",
+				&dateTimeTag,
+				"2031-01-01T00:00:00Z",
+				append([]byte{0xd8, 0x00, 0x74}, []byte("2031-01-01T00:00:00Z")...),
+			),
+			params: mergeMDocParams("expiry_date", map[string]any{"allowed_tags": []int{0, 1004}}),
+			status: StatusFail,
+			message: `CBOR tag 0 is encoded as "d800", ` +
+				`expected the preferred encoding "c0"`,
+		},
+		{
 			name:      "date format rejects slash separated full-date",
 			validator: MDocElementDateFormatValidator{},
 			element:   tagged("birth_date", &dateTag, "2000/02/29"),
@@ -429,6 +686,22 @@ func TestMDocElementValidatorOutcomes(t *testing.T) {
 			name:      "date format rejects tag 0 with offset",
 			validator: MDocElementDateFormatValidator{},
 			element:   tagged("issuance_date", &dateTimeTag, "2024-01-02T10:00:00+01:00"),
+			params:    mdocParams("issuance_date"),
+			status:    StatusFail,
+			message:   "tag 0 value must use YYYY-MM-DDThh:mm:ssZ format",
+		},
+		{
+			name:      "date format rejects tag 0 with letter placeholders",
+			validator: MDocElementDateFormatValidator{},
+			element:   tagged("issuance_date", &dateTimeTag, "abcdefghijklmnopqrsZ"),
+			params:    mdocParams("issuance_date"),
+			status:    StatusFail,
+			message:   "tag 0 value must use YYYY-MM-DDThh:mm:ssZ format",
+		},
+		{
+			name:      "date format rejects tag 0 with a space separator",
+			validator: MDocElementDateFormatValidator{},
+			element:   tagged("issuance_date", &dateTimeTag, "2031-01-01 00:00:00Z"),
 			params:    mdocParams("issuance_date"),
 			status:    StatusFail,
 			message:   "tag 0 value must use YYYY-MM-DDThh:mm:ssZ format",
@@ -465,6 +738,29 @@ func TestMDocElementValidatorOutcomes(t *testing.T) {
 			message:   "not a valid UTC date-time",
 		},
 		{
+			name:      "valid date accepts a tag 0 leap second",
+			validator: MDocElementValidDateValidator{},
+			element:   tagged("issuance_date", &dateTimeTag, "2012-03-04T12:00:60Z"),
+			params:    mdocParams("issuance_date"),
+			status:    StatusPass,
+		},
+		{
+			name:      "valid date rejects tag 0 hour above 23",
+			validator: MDocElementValidDateValidator{},
+			element:   tagged("issuance_date", &dateTimeTag, "2012-03-04T24:00:00Z"),
+			params:    mdocParams("issuance_date"),
+			status:    StatusFail,
+			message:   "not a valid UTC date-time",
+		},
+		{
+			name:      "valid date rejects tag 0 day outside the month",
+			validator: MDocElementValidDateValidator{},
+			element:   tagged("issuance_date", &dateTimeTag, "2012-02-30T12:00:00Z"),
+			params:    mdocParams("issuance_date"),
+			status:    StatusFail,
+			message:   "not a valid UTC date-time",
+		},
+		{
 			name:      "country code accepts ISO alpha-2",
 			validator: MDocElementCountryCodeValidator{},
 			element:   text("issuing_country", "IT"),
@@ -485,6 +781,22 @@ func TestMDocElementValidatorOutcomes(t *testing.T) {
 			params:    mdocParams("issuing_country"),
 			status:    StatusFail,
 			message:   `value "it" is not an accepted country code`,
+		},
+		{
+			name:      "country code rejects three character user-assigned code",
+			validator: MDocElementCountryCodeValidator{},
+			element:   text("issuing_country", "QMA"),
+			params:    mdocParams("issuing_country"),
+			status:    StatusFail,
+			message:   `value "QMA" is not an accepted country code`,
+		},
+		{
+			name:      "country code array rejects three character user-assigned code",
+			validator: MDocElementCountryCodeArrayValidator{},
+			element:   array("nationality", []any{"IT", "XA1"}),
+			params:    mergeMDocParams("nationality", map[string]any{"min_items": 1}),
+			status:    StatusFail,
+			message:   `item 1 value "XA1" is not an accepted country code`,
 		},
 		{
 			name:      "country code rejects non-text element",
@@ -555,6 +867,21 @@ func TestMDocElementValidatorOutcomes(t *testing.T) {
 			params:    mergeMDocParams("mobile_phone_number", map[string]any{"min_length": 5}),
 			status:    StatusFail,
 			message:   "must start with + and contain digits only",
+		},
+		{
+			name:      "phone rejects value without country calling code",
+			validator: MDocElementInternationalPhoneValidator{},
+			element:   text("mobile_phone_number", "+0000000000"),
+			params:    mergeMDocParams("mobile_phone_number", map[string]any{"min_length": 8}),
+			status:    StatusFail,
+			message:   "must start with an assigned ITU-T E.164 country calling code",
+		},
+		{
+			name:      "phone accepts one digit country calling code",
+			validator: MDocElementInternationalPhoneValidator{},
+			element:   text("mobile_phone_number", "+14155550123"),
+			params:    mergeMDocParams("mobile_phone_number", map[string]any{"min_length": 8}),
+			status:    StatusPass,
 		},
 		{
 			name:      "phone requires positive min_length",
@@ -904,6 +1231,45 @@ func TestMDocElementValidatorOutcomes(t *testing.T) {
 				"country_element": "issuing_country",
 			}),
 			status: StatusPass,
+		},
+		{
+			name:      "subdivision rejects unlisted code of the issuing country",
+			validator: MDocElementCountrySubdivisionValidator{},
+			element:   text("issuing_jurisdiction", "IT-ZZ"),
+			extra: map[string]evidence.MDocElement{
+				"issuing_country": text("issuing_country", "IT"),
+			},
+			params: mergeMDocParams("issuing_jurisdiction", map[string]any{
+				"country_element": "issuing_country",
+			}),
+			status:  StatusFail,
+			message: `subdivision code "ZZ" is not listed in ISO 3166-2 for "IT"`,
+		},
+		{
+			name:      "subdivision rejects over-long unlisted code",
+			validator: MDocElementCountrySubdivisionValidator{},
+			element:   text("issuing_jurisdiction", "IT-RM9"),
+			extra: map[string]evidence.MDocElement{
+				"issuing_country": text("issuing_country", "IT"),
+			},
+			params: mergeMDocParams("issuing_jurisdiction", map[string]any{
+				"country_element": "issuing_country",
+			}),
+			status:  StatusFail,
+			message: `subdivision code "RM9" is not listed in ISO 3166-2 for "IT"`,
+		},
+		{
+			name:      "subdivision rejects a user-assigned country without a list",
+			validator: MDocElementCountrySubdivisionValidator{},
+			element:   text("issuing_jurisdiction", "XA-AB"),
+			extra: map[string]evidence.MDocElement{
+				"issuing_country": text("issuing_country", "XA"),
+			},
+			params: mergeMDocParams("issuing_jurisdiction", map[string]any{
+				"country_element": "issuing_country",
+			}),
+			status:  StatusFail,
+			message: `country "XA" lists no ISO 3166-2 subdivisions`,
 		},
 		{
 			name:      "subdivision rejects prefix of another country",

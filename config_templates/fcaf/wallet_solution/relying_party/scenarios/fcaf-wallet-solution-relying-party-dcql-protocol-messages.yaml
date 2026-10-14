@@ -88,6 +88,52 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}/request
     expected_status: 200
+# transaction_data of a type no Wallet profile supports: the Wallet must reject
+# the Authorization Request with invalid_transaction_data and present nothing.
+- id: create-transaction-data-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: protocol-messages-transaction-data
+        transaction_data:
+        - type: unsupported_type
+          data: dGVzdA==
+          credential_ids:
+          - pid
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+- id: reject-transaction-data
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-transaction-data-session.outputs.body.deeplink }}
+- id: fetch-transaction-data-session
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-transaction-data-session.outputs.body.session_id }}
+    expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
@@ -97,6 +143,10 @@ steps:
       - WS_RP_MS_ProtocolMessages__009
       - WS_RP_MS_ProtocolMessages__010
       - WS_RP_MS_ProtocolMessages__011
+      # 002d mirrors 011's source profile (a Wallet that does not support POST
+      # retrieval) over the same POST-retrieval session; it reads
+      # capture_session, which this scenario declares.
+      - WS_RP_IA_ProtocolFlow__002d
       - WS_RP_MS_ProtocolMessages__015
       - WS_RP_MS_ProtocolMessages__016
       - WS_RP_MS_ProtocolMessages__017
@@ -106,7 +156,6 @@ steps:
       - WS_RP_MS_ProtocolMessages__026
       - WS_RP_MS_ProtocolMessages__033
       - WS_RP_MS_ProtocolMessages__034
-      - WS_RP_MS_ProtocolMessages__040
       - WS_RP_MS_ProtocolMessages__045
       - WS_RP_MS_Metadata__138
       - WS_RP_MS_ProtocolMessages__047
@@ -129,6 +178,9 @@ steps:
           request_object: ${{ probe-request-uri-response.outputs.body }}
           capture_session: ${{ fetch-capture-session.outputs.body }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+          transaction_data_dcql_exchange: ${{ fetch-transaction-data-session.outputs.body }}
+          transaction_data_request_object: ${{ fetch-transaction-data-session.outputs.body.raw.authorization_request_jwt }}
+          transaction_data_visual_evidence: ${{ reject-transaction-data.outputs.flow_output.maestro_screenshot_urls }}
           wallet_nonce_evidence:
             request_object: ${{ fetch-signed-request-object.outputs.body }}
             request_uri_payload: ${{ fetch-capture-session.outputs.body.observed.request_uri_payload.value }}

@@ -692,7 +692,6 @@ steps:
             - WS_RP_IA_MainInteraction__015
             - WS_RP_IA_MainInteraction__016
             - WS_RP_IA_MainInteraction__017
-            - WS_RP_IA_MainInteraction__018
             - WS_RP_IA_MainInteraction__019
             - WS_RP_IA_MainInteraction__020
             - WS_RP_IA_MainInteraction__021
@@ -715,5 +714,4 @@ steps:
             - WS_RP_IA_MainInteraction__042
             - WS_RP_IA_MainInteraction__043
             - WS_RP_IA_MainInteraction__046
-            - WS_RP_IA_MainInteraction__060
             - WS_RP_IA_MainInteraction__065

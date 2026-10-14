@@ -18,51 +18,56 @@ func TestOID4VPTransactionDataCredentialIDsMismatchValidator(t *testing.T) {
 		wantStatus Status
 	}{
 		{
-			name: "accepts string credential ID absent from DCQL query",
-			value: compactTestJWT(t, map[string]any{
-				"dcql_query": map[string]any{
-					"credentials": []any{map[string]any{"id": "pid"}},
-				},
-				"transaction_data": []any{
-					map[string]any{
-						"type":           "payment",
-						"data":           "dGVzdA==",
-						"credential_ids": []any{"other"},
-					},
-				},
-			}),
+			name: "accepts base64url-encoded string credential ID absent from the DCQL query",
+			value: compactTestJWT(
+				t,
+				transactionDataPayload(encodeTransactionDataEntry(t, map[string]any{
+					"type":           "payment",
+					"data":           "dGVzdA==",
+					"credential_ids": []any{"other"},
+				})),
+			),
 			wantStatus: StatusPass,
 		},
 		{
+			name: "accepts an already-decoded object entry with a mismatched credential ID",
+			value: compactTestJWT(t, transactionDataPayload(map[string]any{
+				"type":           "payment",
+				"data":           "dGVzdA==",
+				"credential_ids": []any{"other"},
+			})),
+			wantStatus: StatusPass,
+		},
+		{
+			name: "rejects an entry that is not base64url-encoded JSON",
+			value: compactTestJWT(
+				t,
+				transactionDataPayload("not base64url json"),
+			),
+			wantStatus: StatusFail,
+		},
+		{
 			name: "rejects matching credential ID",
-			value: compactTestJWT(t, map[string]any{
-				"dcql_query": map[string]any{
-					"credentials": []any{map[string]any{"id": "pid"}},
-				},
-				"transaction_data": []any{
-					map[string]any{
-						"type":           "payment",
-						"data":           "dGVzdA==",
-						"credential_ids": []any{"pid"},
-					},
-				},
-			}),
+			value: compactTestJWT(
+				t,
+				transactionDataPayload(encodeTransactionDataEntry(t, map[string]any{
+					"type":           "payment",
+					"data":           "dGVzdA==",
+					"credential_ids": []any{"pid"},
+				})),
+			),
 			wantStatus: StatusFail,
 		},
 		{
 			name: "rejects non-string mismatched credential ID",
-			value: compactTestJWT(t, map[string]any{
-				"dcql_query": map[string]any{
-					"credentials": []any{map[string]any{"id": "pid"}},
-				},
-				"transaction_data": []any{
-					map[string]any{
-						"type":           "payment",
-						"data":           "dGVzdA==",
-						"credential_ids": []any{1},
-					},
-				},
-			}),
+			value: compactTestJWT(
+				t,
+				transactionDataPayload(encodeTransactionDataEntry(t, map[string]any{
+					"type":           "payment",
+					"data":           "dGVzdA==",
+					"credential_ids": []any{1},
+				})),
+			),
 			wantStatus: StatusFail,
 		},
 	}

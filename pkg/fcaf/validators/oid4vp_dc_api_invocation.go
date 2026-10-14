@@ -36,18 +36,40 @@ func (OID4VPDCAPIInvocationValidator) ID() string {
 	return "oid4vp.dc_api_invocation"
 }
 
+// dcAPIInvocationParams is the parameter block oid4vp.dc_api_invocation
+// decodes.
+type dcAPIInvocationParams struct {
+	Protocol        string   `json:"protocol"`
+	Invoked         bool     `json:"invoked"`
+	AllowedOutcomes []string `json:"allowed_outcomes"`
+	VPTokenPresent  *bool    `json:"vp_token_present"`
+}
+
+// dcAPIInvocationAssertsWalletOutcome reports whether the definition asks what
+// the Wallet did rather than what the verifier delivered. invoked,
+// allowed_outcomes and vp_token_present all describe an invocation the User
+// Agent mediated, so a pass on them needs a Wallet that engaged. A definition
+// that names only the protocol asserts the delivered request and keeps its pass
+// on a session where no Wallet ran.
+func dcAPIInvocationAssertsWalletOutcome(params dcAPIInvocationParams) bool {
+	return params.Invoked || len(params.AllowedOutcomes) > 0 || params.VPTokenPresent != nil
+}
+
 // Validate requires the session to record a DC API request and, optionally, a
 // specific invocation outcome.
 func (OID4VPDCAPIInvocationValidator) Validate(_ context.Context, input Input) Result {
-	params, err := DecodeParams[struct {
-		Protocol        string   `json:"protocol"`
-		Invoked         bool     `json:"invoked"`
-		AllowedOutcomes []string `json:"allowed_outcomes"`
-		VPTokenPresent  *bool    `json:"vp_token_present"`
-	}](input.Params)
+	params, err := DecodeParams[dcAPIInvocationParams](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
+	result := validateDCAPIInvocation(params, input)
+	if !dcAPIInvocationAssertsWalletOutcome(params) {
+		return result
+	}
+	return guardWalletEngagement(input.Value, result)
+}
+
+func validateDCAPIInvocation(params dcAPIInvocationParams, input Input) Result {
 	for _, outcome := range params.AllowedOutcomes {
 		switch outcome {
 		case dcAPIOutcomeAPIUnavailable,

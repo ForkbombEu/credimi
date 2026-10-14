@@ -29,7 +29,7 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: transaction_data_error
+    mode: transaction_data_error_required
 - id: ws_rp_ms_protocolmessages__027_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

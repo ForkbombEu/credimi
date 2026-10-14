@@ -30,9 +30,25 @@ func TestOID4VPNoPresentationValidator(t *testing.T) {
 			want: StatusPass,
 		},
 		{
-			name:    "deeplink never opened",
+			// A bare status map is not a Capture session record, so the guard
+			// cannot see engagement and the validator's own verdict stands.
+			name:    "evidence without a session record",
 			session: map[string]any{"status": "created"},
 			want:    StatusPass,
+		},
+		{
+			name: "wallet never retrieved the request",
+			session: neverRetrievedSession(
+				map[string]any{"checks": map[string]any{"presentation_valid": nil}},
+			),
+			want: StatusBlocked,
+		},
+		{
+			name: "wallet retrieved the request and answered nothing",
+			session: retrievedSessionWithoutResponse(map[string]any{
+				"checks": map[string]any{"presentation_valid": nil},
+			}),
+			want: StatusPass,
 		},
 		{
 			name: "wallet shared a valid presentation",

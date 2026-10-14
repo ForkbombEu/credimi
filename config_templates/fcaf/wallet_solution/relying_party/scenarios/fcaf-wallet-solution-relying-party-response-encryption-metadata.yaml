@@ -11,32 +11,6 @@ runtime:
       retry_policy:
         maximum_attempts: 1
 steps:
-- id: metadata-probe
-  use: http-request
-  with:
-    method: POST
-    url: ${fixture.verifier_url}/openid4vp/sessions
-    expected_status: 201
-    headers:
-      Content-Type: application/json
-    body:
-      scheme: haip-vp://
-      request_delivery: by_reference
-      request_uri_method: post
-      response_type: vp_token
-      response_mode: direct_post.jwt
-      presentation_request:
-        nonce: response-encryption-metadata-probe
-        dcql_query:
-          credentials:
-          - id: pid
-            format: dc+sd-jwt
-            meta:
-              vct_values:
-              - urn:eudi:pid:1
-            claims:
-            - path:
-              - given_name
 - id: create-capture-session
   use: http-request
   with:
@@ -52,8 +26,7 @@ steps:
       response_type: vp_token
       response_mode: direct_post.jwt
       client_metadata:
-        jwks: ${{ metadata-probe.outputs.body.authorization_request.client_metadata.jwks }}
-        authorization_encrypted_response_enc: A256GCM
+        encrypted_response_enc_values_supported: [A256GCM]
       presentation_request:
         nonce: response-encryption-metadata
         dcql_query:
@@ -92,5 +65,4 @@ steps:
           replacement_encryption_evidence:
             request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
             presentation_response_http: ${{ fetch-capture-session.outputs.body.raw.presentation_response_http }}
-            generated_jwks: ${{ metadata-probe.outputs.body.authorization_request.client_metadata.jwks }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

@@ -19,15 +19,16 @@ import (
 
 func TestDCQLResponseConstraintsValidator(t *testing.T) {
 	tests := []struct {
-		name           string
-		mode           string
-		property       string
-		expectedType   string
-		expectedValue  any
-		expectedFormat string
-		valid          bool
-		evidence       map[string]any
-		status         Status
+		name            string
+		mode            string
+		property        string
+		expectedType    string
+		expectedValue   any
+		expectedFormat  string
+		valid           bool
+		requireResponse *bool
+		evidence        map[string]any
+		status          Status
 	}{
 		{
 			name: "credential sets",
@@ -126,7 +127,10 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			mode: "credential_sets_required_true_match",
 			evidence: map[string]any{
 				"dcql_query": map[string]any{
-					"credential_sets": []any{map[string]any{"required": true}},
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{
+						map[string]any{"required": true, "options": []any{[]any{"pid"}}},
+					},
 				},
 				"vp_token": map[string]any{"pid": []any{"presentation"}},
 			},
@@ -146,21 +150,92 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			name: "required omitted",
 			mode: "credential_sets_required_omitted",
 			evidence: map[string]any{
-				"dcql_query": map[string]any{"credential_sets": []any{map[string]any{}}},
-				"vp_token":   map[string]any{"pid": []any{"presentation"}},
-			},
-			status: StatusPass,
-		},
-		{
-			name: "required false with match",
-			mode: "credential_sets_required_false_with_match",
-			evidence: map[string]any{
 				"dcql_query": map[string]any{
-					"credential_sets": []any{map[string]any{"required": false}},
+					"credentials":     []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{map[string]any{"options": []any{[]any{"pid"}}}},
 				},
 				"vp_token": map[string]any{"pid": []any{"presentation"}},
 			},
 			status: StatusPass,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__103: an omitted "required" behaves as
+			// required=true, so the Wallet must answer the credential query the
+			// set's option names and not another one.
+			name: "required omitted requires the requested credential query",
+			mode: "credential_sets_required_omitted",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						validSDJWTCredentialQuery("pid"),
+						validSDJWTCredentialQuery("other"),
+					},
+					"credential_sets": []any{map[string]any{"options": []any{[]any{"pid"}}}},
+				},
+				"vp_token": map[string]any{"other": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__104: answering only the required:false
+			// set is not "completes successful matching" for the satisfiable one.
+			name: "required false with match requires the satisfiable set",
+			mode: "credential_sets_required_false_with_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						validSDJWTCredentialQuery("optional_missing"),
+						validSDJWTCredentialQuery("pid"),
+					},
+					"credential_sets": []any{
+						map[string]any{
+							"required": false,
+							"options":  []any{[]any{"optional_missing"}},
+						},
+						map[string]any{"required": true, "options": []any{[]any{"pid"}}},
+					},
+				},
+				"vp_token": map[string]any{"optional_missing": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__104: an optional set the wallet cannot
+			// satisfy next to a satisfiable required set, whose presentation
+			// completes the matching.
+			name: "required false set beside a satisfiable required set",
+			mode: "credential_sets_required_false_with_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{
+						validSDJWTCredentialQuery("optional_missing"),
+						validSDJWTCredentialQuery("pid"),
+					},
+					"credential_sets": []any{
+						map[string]any{
+							"required": false,
+							"options":  []any{[]any{"optional_missing"}},
+						},
+						map[string]any{"required": true, "options": []any{[]any{"pid"}}},
+					},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "required false mode rejects a query without an optional set",
+			mode: "credential_sets_required_false_with_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+					"credential_sets": []any{
+						map[string]any{"required": true, "options": []any{[]any{"pid"}}},
+					},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
 		},
 		{
 			name: "required credential set with unavailable optional set",
@@ -1184,6 +1259,61 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			status: StatusFail,
 		},
 		{
+			// WS_RP_MS_ProtocolMessages__034 asserts the delivered query only:
+			// its source demands a rejection, so there is no presentation to read.
+			name:            "holder binding false with require_response false passes on a rejection",
+			mode:            "property_equals",
+			property:        "require_cryptographic_holder_binding",
+			expectedValue:   false,
+			requireResponse: new(false),
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = false
+						return credential
+					}()},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusPass,
+		},
+		{
+			name:            "holder binding true still fails require_response false",
+			mode:            "property_equals",
+			property:        "require_cryptographic_holder_binding",
+			expectedValue:   false,
+			requireResponse: new(false),
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = true
+						return credential
+					}()},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusFail,
+		},
+		{
+			name:          "property_equals still requires the wallet answer by default",
+			mode:          "property_equals",
+			property:      "require_cryptographic_holder_binding",
+			expectedValue: false,
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{func() map[string]any {
+						credential := validSDJWTCredentialQuery("pid")
+						credential["require_cryptographic_holder_binding"] = false
+						return credential
+					}()},
+				},
+				"error": "invalid_request",
+			},
+			status: StatusFail,
+		},
+		{
 			name:         "non-boolean property is rejected",
 			mode:         "property_type",
 			property:     "require_cryptographic_holder_binding",
@@ -1648,6 +1778,233 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			},
 			status: StatusPass,
 		},
+		{
+			// WS_RP_MS_ProtocolMessages__074: the source's defect is the
+			// credential's meta carrying another format's value, so the
+			// request_rejected mode must not reject the query itself before
+			// looking at the wallet's outcome.
+			name: "request rejected accepts a format mismatched meta",
+			mode: "request_rejected",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+						"claims": []any{map[string]any{"path": []any{"given_name"}}},
+					}},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__075: meta omitted is the source's
+			// malformation, so it must reach the rejection outcome check.
+			name: "request rejected accepts omitted meta",
+			mode: "request_rejected",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"claims": []any{map[string]any{"path": []any{"given_name"}}},
+					}},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__119: the empty claims path is the
+			// malformation under test; the rejection outcome is discontinuation.
+			name: "request rejected accepts an empty claims path",
+			mode: "request_rejected",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{"vct_values": []any{"urn:eudi:pid:1"}},
+						"claims": []any{map[string]any{"id": "empty_path", "path": []any{}}},
+					}},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "request rejected rejects a returned credential",
+			mode: "request_rejected",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+					}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
+			// OpenID4VP 8.5 defines no error response that also carries a
+			// vp_token, so an error next to a presentation is not a rejection.
+			name: "request rejected rejects an error carrying a presentation",
+			mode: "request_rejected",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"error":    "invalid_request",
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
+			name: "no match rejects an error carrying a presentation",
+			mode: "no_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("unknown")},
+				},
+				"error":    "invalid_request",
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__053: the source's defect is the
+			// malformed "credentials" member itself, so the mode must not
+			// re-validate the query before reading the Wallet's outcome.
+			name: "request rejected accepts a malformed credentials member",
+			mode: "request_rejected",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": map[string]any{"malformed": true},
+				},
+			},
+			status: StatusPass,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__053 end to end: the same malformed
+			// request on the by-reference session the Wallet retrieved, which
+			// the engagement guard must leave passing.
+			name: "request rejected accepts a malformed credentials member on a retrieved session",
+			mode: "request_rejected",
+			evidence: retrievedSessionWithoutResponse(map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": map[string]any{"malformed": true},
+				},
+			}),
+			status: StatusPass,
+		},
+		{
+			// Every loose error-code mode rejects a presentation returned beside
+			// the error it accepted.
+			name: "invalid request generic rejects an error carrying a presentation",
+			mode: "invalid_request_generic",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"error":    "invalid_request",
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusFail,
+		},
+		{
+			// Only property_equals consults require_response, so a definition
+			// that sets it on another mode must not lose it silently.
+			name:            "require_response is rejected outside property_equals",
+			mode:            "credentials_match",
+			requireResponse: new(false),
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusError,
+		},
+		{
+			// no_match keeps the well-formed-query precondition, so a
+			// malformed query is still reported as the definition's fault.
+			name: "no match still rejects a malformed query",
+			mode: "no_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+					}},
+				},
+			},
+			status: StatusFail,
+		},
+		{
+			// WS_RP_MS_ProtocolMessages__076: a present-but-empty meta is
+			// valid for dc+sd-jwt, so the wallet's presentation is the subject.
+			name: "credentials match accepts an empty meta",
+			mode: "credentials_match",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid",
+						"format": "dc+sd-jwt",
+						"meta":   map[string]any{},
+						"claims": []any{map[string]any{"path": []any{"given_name"}}},
+					}},
+				},
+				"vp_token": map[string]any{"pid": []any{"presentation"}},
+			},
+			status: StatusPass,
+		},
+		{
+			// WS_RP_IA_MainInteraction__017: a claimless mso_mdoc query must
+			// be answered by the credential itself with no disclosed element.
+			name: "mdoc claimless accepts a presentation disclosing no element",
+			mode: "mdoc_without_claim_disclosures",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid_mdoc",
+						"format": "mso_mdoc",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+					}},
+				},
+				"vp_token": map[string]any{"pid_mdoc": []any{claimlessMDocPresentation(t)}},
+			},
+			status: StatusPass,
+		},
+		{
+			name: "mdoc claimless rejects a disclosed element",
+			mode: "mdoc_without_claim_disclosures",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid_mdoc",
+						"format": "mso_mdoc",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+					}},
+				},
+				"vp_token": map[string]any{"pid_mdoc": []any{validMDocPresentation(t)}},
+			},
+			status: StatusFail,
+		},
+		{
+			name: "mdoc claimless rejects missing vp token",
+			mode: "mdoc_without_claim_disclosures",
+			evidence: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{map[string]any{
+						"id":     "pid_mdoc",
+						"format": "mso_mdoc",
+						"meta":   map[string]any{"doctype_value": "eu.europa.ec.eudi.pid.1"},
+					}},
+				},
+			},
+			status: StatusFail,
+		},
 	}
 
 	for _, test := range tests {
@@ -1662,6 +2019,9 @@ func TestDCQLResponseConstraintsValidator(t *testing.T) {
 			}
 			if test.mode == "property_equals" {
 				params["expected_value"] = test.expectedValue
+			}
+			if test.requireResponse != nil {
+				params["require_response"] = *test.requireResponse
 			}
 			if test.expectedFormat != "" {
 				params["expected_format"] = test.expectedFormat
@@ -1709,6 +2069,67 @@ func TestDCQLClaimsPathPointerMembers(t *testing.T) {
 			Params: map[string]any{"mode": "credentials_match"},
 		})
 		require.Equal(t, tc.want, result.Status, "%v: %s", tc.path, result.Message)
+	}
+}
+
+// WS_RP_IA_MainInteraction__014: two queries for one credential must be
+// answered with the union of the requested claims while the age claims stay
+// hidden.
+func TestDCQLClaimsUnionKeepsAgeHidden(t *testing.T) {
+	query := map[string]any{
+		"credentials": []any{
+			map[string]any{
+				"id":     "pid-name",
+				"claims": []any{map[string]any{"path": []any{"given_name"}}},
+			},
+			map[string]any{
+				"id":     "pid-address",
+				"claims": []any{map[string]any{"path": []any{"address"}}},
+			},
+		},
+	}
+	for _, test := range []struct {
+		name   string
+		claims map[string]any
+		status Status
+	}{
+		{
+			name:   "union of name and address",
+			claims: map[string]any{"given_name": "Mario", "address": map[string]any{"locality": "Roma"}},
+			status: StatusPass,
+		},
+		{
+			name: "age disclosed alongside the union",
+			claims: map[string]any{
+				"given_name":  "Mario",
+				"address":     map[string]any{"locality": "Roma"},
+				"age_over_18": true,
+			},
+			status: StatusFail,
+		},
+		{
+			name:   "address missing from the response",
+			claims: map[string]any{"given_name": "Mario"},
+			status: StatusFail,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			presentation := testSDJWTPresentation(test.claims)
+			result := DCQLResponseConstraintsValidator{}.Validate(context.Background(), Input{
+				Value: map[string]any{
+					"dcql_query": query,
+					"vp_token": map[string]any{
+						"pid-name":    []any{presentation},
+						"pid-address": []any{presentation},
+					},
+				},
+				Params: map[string]any{
+					"mode":            "claims_union",
+					"forbidden_paths": []any{[]any{"age_over_18"}, []any{"birthdate"}},
+				},
+			})
+			require.Equal(t, test.status, result.Status, result.Message)
+		})
 	}
 }
 
@@ -2132,6 +2553,205 @@ func TestDCQLVPTokenResponseModes(t *testing.T) {
 	}
 }
 
+// The vp_token clauses of WS_RP_MS_ProtocolMessages__127a (each entry of the
+// object holds an array) and __127b (each element of those arrays is a string or
+// a JSON object) used to accept any element type.
+func TestDCQLVPTokenEntryTypes(t *testing.T) {
+	query := map[string]any{"credentials": []any{validSDJWTCredentialQuery("pid")}}
+	evidence := func(vpToken any) map[string]any {
+		return map[string]any{"dcql_query": query, "vp_token": vpToken}
+	}
+	compact := signedSDJWTPresentation()
+	signedObject := map[string]any{"protected": "eyJhbGciOiJFUzI1NiJ9"}
+
+	tests := []struct {
+		name    string
+		mode    string
+		vpToken any
+		status  Status
+	}{
+		{
+			name:    "object mode accepts an array entry",
+			mode:    "vp_token_json_object",
+			vpToken: map[string]any{"pid": []any{compact}},
+			status:  StatusPass,
+		},
+		{
+			name:    "object mode rejects a scalar entry",
+			mode:    "vp_token_json_object",
+			vpToken: map[string]any{"pid": compact},
+			status:  StatusFail,
+		},
+		{
+			name:    "object mode rejects an object entry",
+			mode:    "vp_token_json_object",
+			vpToken: map[string]any{"pid": signedObject},
+			status:  StatusFail,
+		},
+		{
+			name:    "arrays mode accepts string elements",
+			mode:    "vp_token_presentation_arrays",
+			vpToken: map[string]any{"pid": []any{compact}},
+			status:  StatusPass,
+		},
+		{
+			name:    "arrays mode accepts object elements",
+			mode:    "vp_token_presentation_arrays",
+			vpToken: map[string]any{"pid": []any{signedObject}},
+			status:  StatusPass,
+		},
+		{
+			name:    "arrays mode rejects a number element",
+			mode:    "vp_token_presentation_arrays",
+			vpToken: map[string]any{"pid": []any{float64(1)}},
+			status:  StatusFail,
+		},
+		{
+			name:    "arrays mode rejects a null element",
+			mode:    "vp_token_presentation_arrays",
+			vpToken: map[string]any{"pid": []any{nil}},
+			status:  StatusFail,
+		},
+		{
+			name:    "arrays mode rejects an array element",
+			mode:    "vp_token_presentation_arrays",
+			vpToken: map[string]any{"pid": []any{[]any{"presentation"}}},
+			status:  StatusFail,
+		},
+	}
+
+	validator := DCQLResponseConstraintsValidator{}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := validator.Validate(context.Background(), Input{
+				Value:  evidence(test.vpToken),
+				Params: map[string]any{"mode": test.mode},
+			})
+			require.Equal(t, test.status, result.Status, result.Message)
+		})
+	}
+}
+
+// The modes that assert the Wallet answered a credential query with a matching
+// credential must not count a presentation the Verifier rejected, when the
+// evidence carries a Capture verifier session's checks (Mixed6 request on the
+// credentials_match family; sources 008/012/052/057/067/105).
+func TestDCQLMatchingModesRespectTheVerifierVerdict(t *testing.T) {
+	presentation := signedSDJWTPresentation()
+	session := func(checks map[string]any) map[string]any {
+		record := capturePresentationRecord(
+			"presentation_validated",
+			"vp_session_created",
+			"vp_deeplink_generated",
+			eventRequestRetrieved,
+			eventPresentationReceived,
+		)
+		record["dcql_query"] = map[string]any{
+			"credentials": []any{validSDJWTCredentialQuery("pid")},
+		}
+		record["vp_token"] = map[string]any{"pid": []any{presentation}}
+		if checks == nil {
+			delete(record, "checks")
+		} else {
+			record["checks"] = checks
+		}
+		return record
+	}
+
+	tests := []struct {
+		name   string
+		mode   string
+		checks map[string]any
+		status Status
+	}{
+		{
+			name:   "credentials match accepts an accepted presentation",
+			mode:   "credentials_match",
+			checks: map[string]any{"presentation_valid": true, "dcql_query_matched": true},
+			status: StatusPass,
+		},
+		{
+			// The family asks whether the Verifier matched the delivered query
+			// (sources 052/087/116); presentation_valid bundles the vp_token
+			// format, nonce and holder-binding checks its sources assert
+			// separately, so it does not decide the mode.
+			name:   "credentials match keeps its verdict when only presentation_valid is false",
+			mode:   "credentials_match",
+			checks: map[string]any{"presentation_valid": false, "dcql_query_matched": true},
+			status: StatusPass,
+		},
+		{
+			name:   "credentials match rejects an unmatched query",
+			mode:   "credentials_match",
+			checks: map[string]any{"presentation_valid": true, "dcql_query_matched": false},
+			status: StatusFail,
+		},
+		{
+			// A checks object without a boolean dcql_query_matched records no
+			// judgement at all, so the mode keeps its own verdict.
+			name:   "credentials match leaves an unrecorded query judgement to its own checks",
+			mode:   "credentials_match",
+			checks: map[string]any{"presentation_valid": nil},
+			status: StatusPass,
+		},
+		{
+			// Capture creates the session with presentation_valid=null and
+			// dcql_query_matched=false and rewrites both when it judges a
+			// response, so this session recorded a response nobody judged: the
+			// evidence cannot settle what the source asks.
+			name:   "credentials match blocks a recorded response the verifier never judged",
+			mode:   "credentials_match",
+			checks: map[string]any{"presentation_valid": nil, "dcql_query_matched": false},
+			status: StatusBlocked,
+		},
+		{
+			name:   "credentials match keeps its verdict without checks",
+			mode:   "credentials_match",
+			checks: nil,
+			status: StatusPass,
+		},
+		{
+			name:   "without credential sets respects the verdict",
+			mode:   "without_credential_sets",
+			checks: map[string]any{"presentation_valid": false, "dcql_query_matched": false},
+			status: StatusFail,
+		},
+		{
+			name:   "multiple default false respects the verdict",
+			mode:   "multiple_default_false",
+			checks: map[string]any{"presentation_valid": false, "dcql_query_matched": false},
+			status: StatusFail,
+		},
+	}
+
+	validator := DCQLResponseConstraintsValidator{}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := validator.Validate(context.Background(), Input{
+				Value:  session(test.checks),
+				Params: map[string]any{"mode": test.mode},
+			})
+			require.Equal(t, test.status, result.Status, result.Message)
+		})
+	}
+
+	// The verdict is read from a Capture session record; checks on evidence
+	// that is not one leave the mode to its own checks.
+	t.Run("checks outside a session record do not decide the mode", func(t *testing.T) {
+		result := validator.Validate(context.Background(), Input{
+			Value: map[string]any{
+				"dcql_query": map[string]any{
+					"credentials": []any{validSDJWTCredentialQuery("pid")},
+				},
+				"vp_token": map[string]any{"pid": []any{presentation}},
+				"checks":   map[string]any{"presentation_valid": false},
+			},
+			Params: map[string]any{"mode": "credentials_match"},
+		})
+		require.Equal(t, StatusPass, result.Status, result.Message)
+	})
+}
+
 func unsignedSDJWTPresentation() string {
 	header, _ := json.Marshal(map[string]any{"alg": "none"})
 	payload, _ := json.Marshal(map[string]any{"_sd_alg": "sha-256"})
@@ -2233,6 +2853,30 @@ func validMDocPresentation(t *testing.T) string {
 				"nameSpaces": map[string]any{
 					"eu.europa.ec.eudi.pid.1": []any{cbor.Tag{Number: 24, Content: item}},
 				},
+				"issuerAuth": cbor.Tag{
+					Number:  18,
+					Content: []any{[]byte{}, map[string]any{}, msoBytes, []byte("signature")},
+				},
+			},
+		}}, "status": uint64(0),
+	})
+	require.NoError(t, err)
+	return base64.RawURLEncoding.EncodeToString(raw)
+}
+
+// claimlessMDocPresentation encodes an mdoc DeviceResponse whose document
+// contains no data element in any namespace.
+func claimlessMDocPresentation(t *testing.T) string {
+	t.Helper()
+	mso, err := cbor.Marshal(map[string]any{"digestAlgorithm": "SHA-256"})
+	require.NoError(t, err)
+	msoBytes, err := cbor.Marshal(mso)
+	require.NoError(t, err)
+	raw, err := cbor.Marshal(map[string]any{
+		"version": "1.0", "documents": []any{map[string]any{
+			"docType": "eu.europa.ec.eudi.pid.1",
+			"issuerSigned": map[string]any{
+				"nameSpaces": map[string]any{},
 				"issuerAuth": cbor.Tag{
 					Number:  18,
 					Content: []any{[]byte{}, map[string]any{}, msoBytes, []byte("signature")},
@@ -2995,6 +3639,101 @@ func TestDCQLResponseConstraintsValidatorRejectsMalformedEvidence(t *testing.T) 
 
 			require.Equal(t, test.status, result.Status, result.Message)
 			require.Contains(t, result.Message, test.message)
+		})
+	}
+}
+
+// The credential_sets "required" modes assert that the Wallet presented the
+// satisfiable set, so they consult the Verifier's recorded judgement exactly as
+// the credentials_match family does (sources 103/104): a query the Verifier
+// recorded as unmatched fails the mode, and a response Capture never judged
+// cannot settle it.
+func TestDCQLCredentialSetsRequiredModesUseTheVerifierVerdict(t *testing.T) {
+	presentation := signedSDJWTPresentation()
+	session := func(checks map[string]any) map[string]any {
+		record := capturePresentationRecord(
+			"presentation_validated",
+			"vp_session_created",
+			"vp_deeplink_generated",
+			eventRequestRetrieved,
+			eventPresentationReceived,
+		)
+		record["dcql_query"] = map[string]any{
+			"credentials": []any{
+				validSDJWTCredentialQuery("optional_missing"),
+				validSDJWTCredentialQuery("pid"),
+			},
+			"credential_sets": []any{
+				map[string]any{"required": false, "options": []any{[]any{"optional_missing"}}},
+				map[string]any{"required": true, "options": []any{[]any{"pid"}}},
+			},
+		}
+		record["vp_token"] = map[string]any{"pid": []any{presentation}}
+		if checks == nil {
+			delete(record, "checks")
+		} else {
+			record["checks"] = checks
+		}
+		return record
+	}
+
+	tests := []struct {
+		name   string
+		checks map[string]any
+		status Status
+	}{
+		{
+			name:   "accepts a matching judgement",
+			checks: map[string]any{"presentation_valid": true, "dcql_query_matched": true},
+			status: StatusPass,
+		},
+		{
+			name:   "rejects an unmatched query",
+			checks: map[string]any{"presentation_valid": true, "dcql_query_matched": false},
+			status: StatusFail,
+		},
+		{
+			name:   "blocks a recorded response the verifier never judged",
+			checks: map[string]any{"presentation_valid": nil, "dcql_query_matched": false},
+			status: StatusBlocked,
+		},
+	}
+
+	validator := DCQLResponseConstraintsValidator{}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := validator.Validate(context.Background(), Input{
+				Value:  session(test.checks),
+				Params: map[string]any{"mode": "credential_sets_required_false_with_match"},
+			})
+			require.Equal(t, test.status, result.Status, result.Message)
+		})
+	}
+}
+
+// validateWalletErrorExpected and validateClaimPathMemberTypeError are
+// dispatched by the mode switch but absent from the allow-list at the top of
+// Validate, so no definition reaches them today. They share validateErrorCode's
+// rule that a presentation returned next to an error is not a rejection, so a
+// later re-enable cannot reintroduce the false pass.
+func TestDCQLLooseErrorHelpersRejectAPresentationBesideAnError(t *testing.T) {
+	response := map[string]any{"pid": []any{"presentation"}}
+	tests := []struct {
+		name   string
+		result Result
+	}{
+		{
+			name:   "wallet error expected",
+			result: validateWalletErrorExpected(response, "invalid_request", "invalid_request"),
+		},
+		{
+			name:   "claim path member type error",
+			result: validateClaimPathMemberTypeError(response, "invalid_request"),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, StatusFail, test.result.Status, test.result.Message)
 		})
 	}
 }

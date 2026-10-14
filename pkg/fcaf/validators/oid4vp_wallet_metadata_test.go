@@ -108,6 +108,7 @@ func TestOID4VPUnencryptedRequestObjectRejectedValidator(t *testing.T) {
 		name          string
 		metadata      any
 		requestObject string
+		servedJWE     string
 		response      map[string]any
 		want          Status
 	}{
@@ -140,6 +141,14 @@ func TestOID4VPUnencryptedRequestObjectRejectedValidator(t *testing.T) {
 			want:          StatusFail,
 		},
 		{
+			name:          "a served JWE fails even when the signed Request Object reads as a plain JWS",
+			metadata:      encryptingMetadata,
+			requestObject: "header.payload.signature",
+			servedJWE:     "header.key.iv.ciphertext.tag",
+			response:      map[string]any{"error": "invalid_request"},
+			want:          StatusFail,
+		},
+		{
 			name:          "no Request URI POST means there is no wallet_metadata to judge",
 			metadata:      nil,
 			requestObject: "header.payload.signature",
@@ -155,6 +164,10 @@ func TestOID4VPUnencryptedRequestObjectRejectedValidator(t *testing.T) {
 				"observed": map[string]any{
 					"wallet_response": map[string]any{"value": test.response},
 				},
+			}
+			if test.servedJWE != "" {
+				raw, _ := session["raw"].(map[string]any)
+				raw["authorization_request_jwe"] = test.servedJWE
 			}
 			if test.metadata != nil {
 				observed, _ := session["observed"].(map[string]any)

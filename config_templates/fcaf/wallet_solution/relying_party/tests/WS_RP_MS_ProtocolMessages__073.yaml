@@ -15,11 +15,11 @@ normative_references:
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
   matching_meta_exchange:
-    from: pipeline.dcql.meta-vct-mismatch.outputs.dcql_exchange
+    from: pipeline.dcql.meta-vct-match.outputs.dcql_exchange
   mismatching_meta_exchange:
     from: pipeline.dcql.meta-vct-mismatch.outputs.dcql_exchange
   matching_meta_visual_evidence:
-    from: pipeline.dcql.meta-vct-mismatch.outputs.visual_evidence
+    from: pipeline.dcql.meta-vct-match.outputs.visual_evidence
   mismatching_meta_visual_evidence:
     from: pipeline.dcql.meta-vct-mismatch.outputs.visual_evidence
 assertions:

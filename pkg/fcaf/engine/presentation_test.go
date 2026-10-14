@@ -41,6 +41,9 @@ func TestBuildPresentationMapsNonZeroSummaryFiltersInExecutedStatusOrder(t *test
 			{TestID: "h", Status: "blocked"},
 			{TestID: "i", Status: "blocked"},
 			{TestID: "j", Status: "inconclusive"},
+			{TestID: "k", Status: "skipped"},
+			{TestID: "l", Status: "not_applicable"},
+			{TestID: "m", Status: "not_applicable"},
 		},
 	}
 
@@ -50,6 +53,8 @@ func TestBuildPresentationMapsNonZeroSummaryFiltersInExecutedStatusOrder(t *test
 		{Key: "passed", Label: "Passed", Count: 4},
 		{Key: "failed", Label: "Failed", Count: 3},
 		{Key: "blocked", Label: "Blocked", Count: 2},
+		{Key: "skipped", Label: "Skipped", Count: 1},
+		{Key: "not_applicable", Label: "Not applicable", Count: 2},
 		{Key: "inconclusive", Label: "Inconclusive", Count: 1},
 	}, presentation.SummaryFilters)
 }

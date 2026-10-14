@@ -15,19 +15,25 @@ normative_references:
   section: '6.3'
   url: https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-13.html
 evidence:
-  pid_mdoc:
+  referenced_token:
     from: pipeline.credential-status.mdoc.outputs.pid_mdoc
-  visual_evidence:
-    from: pipeline.credential-status.mdoc.outputs.visual_evidence
 assertions:
-# Capture issues no CWT Referenced Token. The mdoc Mobile Security Object carries
-# its status under the text key "status", not as a CWT claim at CBOR label
-# 65535, so cose.cwt_status_claim reports this evidence as blocked rather than
-# reading one encoding as the other.
-# The rejection itself needs a CWT fixture lacking label 65535 and a probe like
-# the one WS_RP_MS_Metadata__092 uses; until then this definition cannot pass.
-- id: referenced_token_is_a_cwt
-  validator: cose.cwt_status_claim
-  input: evidence.pid_mdoc
+# The source's precondition is a COSE-based Referenced Token whose status claim
+# at CBOR label 65535 is missing, i.e. a CWT claims set defect (Token Status
+# List 6.3). The reference issuer emits ISO mdoc and SD-JWT VC only, and an ISO
+# mdoc keys its status by the MSO text label "status" rather than by the CWT
+# claims-set label 65535, so the label-65535 condition cannot be built here.
+# The mdoc MSO status cases are covered by the WS_RP_MS_Metadata__092-100
+# family instead.
+- id: token_without_the_status_claim_at_label_65535_is_rejected
+  validator: fcaf.skipped
+  input: evidence.referenced_token
+  params:
+    reason: >-
+      the source's precondition is a COSE-based Referenced Token whose status
+      claim at CBOR label 65535 is missing, and the suite has no such fixture:
+      the reference issuer emits ISO mdoc and SD-JWT VC only, and an ISO mdoc
+      keys its status by the MSO text label "status" rather than by the CWT
+      claims-set label 65535
 verdict:
   pass_when: all_assertions_pass

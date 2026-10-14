@@ -58,3 +58,7 @@ actions:
     category: verify-credential
     tags: fcaf, request-object, by-value
     file: wallet/fcaf-submit-request-object-by-value.yaml
+  - name: fcaf-engagement-eu-eaap
+    category: verify-credential
+    tags: fcaf, engagement, eu-eaap
+    file: wallet/fcaf-engagement-eu-eaap.yaml

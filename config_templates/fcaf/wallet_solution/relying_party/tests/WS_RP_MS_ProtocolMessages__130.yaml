@@ -28,13 +28,13 @@ assertions:
   params:
     method: POST
     require_response_parameter: true
-- id: replacement_metadata_preserves_key_and_selects_encryption
+- id: metadata_advertises_a256gcm_and_wallet_uses_it
   validator: oid4vp.response_encryption
   input: evidence.encryption_evidence
   params:
+    metadata_enc_values_supported: [A256GCM]
+    metadata_enc_values_exclusive: true
     expected_enc: A256GCM
-    metadata_enc: A256GCM
-    preserve_generated_jwks: true
 - id: wallet_response_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

@@ -17,11 +17,14 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.presentation.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.presentation.outputs.visual_evidence
 assertions:
-- id: ws_rp_uc_presentation__004_dcql_valid
-  validator: dcql.response_satisfies_constraints
+- id: cross_device_invocation_path_is_unavailable
+  validator: fcaf.skipped
   input: evidence.dcql_exchange
+  params:
+    reason: >-
+      needs an independently controllable second device: the request is
+      rendered on Device A and transferred to the wallet on Device B (OpenID4VP
+      5.7 cross-device flow); the pipeline drives a single device
 verdict:
   pass_when: all_assertions_pass

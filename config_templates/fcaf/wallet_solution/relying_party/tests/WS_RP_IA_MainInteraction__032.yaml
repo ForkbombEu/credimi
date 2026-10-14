@@ -41,7 +41,12 @@ assertions:
   validator: evidence.non_empty
   input: evidence.matching_visual_evidence
 - id: visual_evidence_of_the_unmet_requirement_is_stored
-  validator: evidence.non_empty
+  validator: evidence.screenshot_named
   input: evidence.constrained_visual_evidence
+  # Source: "If no others are available wallet states that: I have no
+  # credentials to meet your requirement". The query keeps the under-18
+  # birthdate and flips age_over_18, a combination no fixture satisfies, so no
+  # other credential is available and the notice must appear.
+  params: { name: no-match-notice }
 verdict:
   pass_when: all_assertions_pass

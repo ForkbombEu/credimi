@@ -4,7 +4,6 @@
 
 import { getPath } from '$lib/utils';
 import { err, ok, Result } from 'true-myth/result';
-import { stringify } from 'yaml';
 
 import type { PipelinesResponse } from '@/pocketbase/types';
 
@@ -13,7 +12,7 @@ import { pb } from '@/pocketbase';
 import { getExceptionMessage } from '@/utils/errors';
 
 import * as Device from './device';
-import { parseYaml } from './utils';
+import { parseYaml, serializeYaml } from './utils';
 
 //
 
@@ -57,7 +56,7 @@ export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIRe
 			method: 'POST',
 			body: {
 				pipeline_identifier: getPath(pipeline),
-				yaml: stringify(parsedYaml)
+				yaml: serializeYaml(parsedYaml)
 			}
 		});
 

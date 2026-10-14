@@ -4,7 +4,10 @@
 
 package validators
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // OID4VPTransactionDataCredentialIDsNonArrayValidator verifies malformed credential_ids.
 type OID4VPTransactionDataCredentialIDsNonArrayValidator struct{}
@@ -28,10 +31,16 @@ func (OID4VPTransactionDataCredentialIDsNonArrayValidator) Validate(
 			Message: "Request Object transaction_data is missing or empty",
 		}
 	}
-	for _, raw := range entries {
-		entry, ok := normalizeJSONObject(raw)
+	for index, raw := range entries {
+		entry, ok := decodeTransactionDataEntry(raw)
 		if !ok {
-			return Result{Status: StatusFail, Message: "transaction_data entry is not an object"}
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"transaction_data[%d] is not a base64url-encoded JSON object, so a non-array credential_ids cannot be shown",
+					index,
+				),
+			}
 		}
 		if _, exists := entry["credential_ids"]; !exists {
 			return Result{Status: StatusFail, Message: "transaction_data credential_ids is missing"}

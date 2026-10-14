@@ -154,7 +154,7 @@ Credo enforces the wallet's PKCE: a PAR request without `code_challenge` gets `4
 | `request_behavior` | Request-delivery behaviour that is not a payload value; test-only | — |
 | `response_scenario` | HTTP response the verifier returns after a presentation; test-only | — |
 
-`request_uri_method` is valid only with `request_delivery: "by_reference"`. The service preserves any supplied string in the deeplink, including values other than the OpenID4VP-defined, case-sensitive `get` and `post`, exclusively to create malformed requests for wallet negative tests. `by_value` supplies a signed Request Object in `request`; `plain` supplies the Authorization Request's URL-encoded parameters directly in the deeplink and omits `request`, `request_uri`, and `request_uri_method`; `multisigned` applies only to the DC API response modes. `response_type`, top-level DCQL, scopes, transaction data, and verifier information are used to construct the wallet-facing request. Inspect the returned `authorization_request` to confirm the exact claims.
+`request_uri_method` is valid only with `request_delivery: "by_reference"`. The service preserves any supplied string in the deeplink, including values other than the OpenID4VP-defined, case-sensitive `get` and `post`, exclusively to create malformed requests for wallet negative tests. `by_value` supplies a signed Request Object in `request`; `plain` supplies the Authorization Request's URL-encoded parameters directly in the deeplink and omits `request`, `request_uri`, and `request_uri_method`; `multisigned` applies only to the DC API response modes. `response_type` always, and the top-level DCQL query, scopes, transaction data, and verifier information when `presentation_request` is absent, are used to construct the wallet-facing request. Inspect the returned `authorization_request` to confirm the exact claims.
 
 With `request_uri_method: post`, a Wallet whose `wallet_metadata` carries `jwks` receives the signed Request Object encrypted as a Nested JWT (`alg: ECDH-ES`, `cty: JWT`) to the first public EC or X25519 key usable for ECDH-ES, using the first content encryption it lists in `request_object_encryption_enc_values_supported` among `A128GCM`, `A192GCM`, `A256GCM`, `A128CBC-HS256`, `A192CBC-HS384`, and `A256CBC-HS512`. `request_object_encryption_alg_values_supported`, when present, must include `ECDH-ES`. These are the RFC 8414 Wallet Metadata members; `authorization_encryption_*` describes the Authorization Response and is not consulted. An unmet requirement is answered `400 {"error":"invalid_request","error_description":"…"}` and recorded as `vp_request_object_encryption_unsupported`; a successful encryption is recorded as `vp_request_object_encrypted` with the JWE in `raw.authorization_request_jwe` and the enclosed signed JWT in `raw.authorization_request_jwt`.
 
@@ -172,7 +172,7 @@ A session that sent transaction data records `checks.transaction_data_verified`:
 
 Entries of a `transaction_data` array that are JSON objects are base64url-encoded as OpenID4VP Section 5.1 requires, so a caller supplies the entry it wants the Wallet to decode; entries of any other type, strings included, are delivered exactly as supplied, and a `transaction_data` value that is not an array is passed through untouched. Use `request_mutation` on `/transaction_data` to deliver a parameter that bypasses encoding entirely.
 
-`scheme`, `request_uri_method`, `client_id_scheme`, `request_delivery`, `response_mode`, `client_metadata`, and `redirect_uri` are top-level fields only. They select how the service builds, signs, and delivers the request instead of being request-object claims, so nesting any of them inside `presentation_request` has no effect and is not reported as an error. `redirect_uri` is returned only in a successful direct-post response after the service adds its fresh response code. In particular, a `client_metadata` value inside `presentation_request` is discarded and the generated verifier metadata is used. Only `response_type`, `dcql_query`, `nonce`, `scopes`, `transaction_data`, and `verifier_info` are honoured in both positions, and a top-level `response_type` wins over a nested one.
+`scheme`, `request_uri_method`, `client_id_scheme`, `request_delivery`, `response_mode`, `client_metadata`, and `redirect_uri` are top-level fields only. They select how the service builds, signs, and delivers the request instead of being request-object claims, so nesting any of them inside `presentation_request` has no effect and is not reported as an error. `redirect_uri` is returned only in a successful direct-post response after the service adds its fresh response code. In particular, a `client_metadata` value inside `presentation_request` is discarded and the generated verifier metadata is used. The wallet-facing request is composed as `presentation_request ?? vpRequestBody(body)` (capture `src/server.ts`): when `presentation_request` is absent or `null` the top-level body is the request, and when it is an object the request is built from it alone, so a top-level `dcql_query`, `scopes`, `transaction_data`, `nonce` or `verifier_info` is discarded. Only a top-level `response_type` is still merged in and always wins over a nested one. `transaction_data` is a sibling of `dcql_query`, never a member of it: a `transaction_data` nested inside `dcql_query` is copied into the signed query as a stray member and no `transaction_data` Authorization Request parameter is delivered at all.
 
 `client_id_scheme: "x509_san_dns"` signs the request with the existing verifier certificate and uses its DNS Subject Alternative Name as the Client Identifier value. `client_id_scheme: "decentralized_identifier"` signs with a separate `did:web` key and publishes its DID Document at `/openid4vp/did.json`. `client_id_scheme: "verifier_attestation"` signs with the request key but publishes no certificate: the request object's `jwt` JOSE header carries a Verifier Attestation JWT whose `sub` is the Client Identifier after the prefix, whose `cnf.jwk` is the request signing key, and whose `iss` is the fixture attestation issuer published at `/openid4vp/verifier-attestation-issuer/jwks.json`. The optional `verifier_attestation` object sets `subject`, `issuer`, `redirect_uris`, extra `claims`, or `signature: "corrupt"`; the last requires `FCAF_SCENARIOS_ENABLED`, and supplying the object under any other client identifier prefix is refused with `verifier_attestation_requires_verifier_attestation_client_id`. `client_id_scheme: "redirect_uri"` creates an unsigned request and therefore requires `request_delivery: "plain"`; signed and by-reference delivery are rejected. The default remains the certificate hash prefix, `x509_hash`.
 
@@ -393,11 +393,22 @@ submissions.
 | `GET` | `/openid4vp/sessions/{sessionId}/request` | — | Signed request object with media type `application/oauth-authz-req+jwt`; marks the request as retrieved. |
 | `POST` | `/openid4vp/sessions/{sessionId}/request` | Form payload; `wallet_nonce` and `wallet_metadata` are recognized and other fields are captured | Signed request object, encrypted when `wallet_metadata` carries `jwks`; `400 invalid_request` when that encryption requirement cannot be met. Use only for a session with `request_uri_method: post`. |
 | `POST` | `/openid4vp/sessions/{sessionId}/response` | Form-encoded wallet response | Captures and verifies the response for that session. `200` means valid; `400` returns `invalid_presentation` and verification errors. |
-| `POST` | `/openid4vp/response` | Form-encoded wallet response with required `state` | Alternative direct-post endpoint; `state` selects the session. |
+| `POST` | `/openid4vp/response` | Form-encoded wallet response with required `state` | Alternative direct-post endpoint; the form `state` must carry the Capture session id, because the handler resolves the session with `store.getVpSession(body.state)`. It is not the Authorization Request's `state` claim, which is Credo's generated value; any other value answers `404 vp_session_not_found` and records nothing. |
 
 Raw form payloads are preserved in the presentation capture for fidelity. Treat them as sensitive evidence.
 
 The session record additionally exposes `raw.authorization_request_jwt`, the exact signed Request Object returned to the Wallet, and `raw.request_uri_http`, the Wallet's Request URI retrieval method, headers with sensitive values redacted, and exact POST body when received. `raw.presentation_response_http` contains the received presentation response HTTP `method`, headers with sensitive values redacted, and exact body. `raw.presentation_response_verifier_http` captures the verifier reply's status, redacted headers, and exact body. The HTTP envelopes are retained for valid and invalid responses and are intentionally not shown as dedicated fields in the operator UI.
+
+`raw.presentation_response_decrypted` is always wallet-originated evidence, never an error
+constructed by Capture while verifying it. For `direct_post.jwt` and `dc_api.jwt`, it contains the
+decrypted Authorization Response JWE payload, including either `vp_token` or the Wallet's `error`,
+`error_description`, and `state`, even when verification fails. It is absent only when the response
+cannot be decrypted, including an intentionally `allow_undecryptable_response` session. For plain
+`direct_post` and `dc_api`, it contains the normalized posted Authorization Response when available;
+`raw.presentation_response` preserves the unmodified form or JSON members. `checks.vp_token_format_valid`
+and `vp_presentation_response_received.detail.vp_token_observed` describe whether that wallet
+payload carried a `vp_token`, independently of the verifier's subsequent result. Verifier-side
+failures remain in `checks.errors` and `raw.presentation_response_verifier_http`.
 
 ## Test-only chained OAuth server
 
@@ -516,6 +527,18 @@ source test permits it.
   Client Identifier, one with the DID `kid` and a `decentralized_identifier`
   Client Identifier. `client_id_scheme: "verifier_attestation"` still returned
   `500 internal_error` (`there are no SAN-DNS names`).
+- Upstream `2422e58` (14/10/2026, fixes credimi-capture-wallet#10): before it,
+  a presentation that failed Credo verification left
+  `raw.presentation_response_decrypted` holding the error Credo built for the
+  verifier's own reply (`{"error": "invalid_request", ...}`) instead of the
+  Wallet's payload, for plain `direct_post` and for `direct_post.jwt` alike,
+  and `vp_token_observed` was `false`. A Wallet that shared a non-matching
+  credential therefore looked like a Wallet that refused, and negative FCAF
+  checks passed falsely (reproduced on the emulator with the
+  TrustMechanisms aki no-match request). Capture now decrypts the JWE itself
+  on failure. A failed presentation keeps its `vp_token` in
+  `raw.presentation_response_decrypted`, but `raw.decoded_presentations` is
+  still absent because Credo did not decode it.
 
 - Resynced from upstream master on 25/09/2026 (`5b03750`). Since the 22/09/2026
   sync (`6b94fa4`) the contract adds the SD-JWT VC `digest_algorithm` issuance

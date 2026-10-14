@@ -8,33 +8,30 @@ suite:
   section: security_mechanisms.rp_integrity
 applicability:
   profile: EUDI_generic
-  presentation_flow: redirects
+  presentation_flow: digital_credentials_api
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '5.9.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.wallet.protocol.plain-redirect-uri
+- ref: pipeline.dc-api.unsigned
 evidence:
-  authorization_request:
-    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.authorization_request
-  wallet_response:
-    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.wallet_response
+  session:
+    from: pipeline.dc-api.unsigned.outputs.session
   visual_evidence:
-    from: pipeline.wallet.protocol.plain-redirect-uri.outputs.visual_evidence
+    from: pipeline.dc-api.unsigned.outputs.visual_evidence
 assertions:
-- id: request_carries_no_signed_request_object
-  validator: json.field_presence
-  input: evidence.authorization_request
-  params: {field: request, present: false}
-- id: request_parameters_are_sent_directly
-  validator: json.field_presence
-  input: evidence.authorization_request
-  params: {field: request_uri, present: false}
+- id: verifier_sends_an_unsigned_dc_api_request
+  validator: oid4vp.dc_api_invocation
+  input: evidence.session
+  params:
+    protocol: openid4vp-v1-unsigned
+    invoked: true
 - id: wallet_answers_unsigned_request
-  validator: oid4vp.session_event_count
-  input: evidence.wallet_response
-  params: {type: vp_presentation_response_received, count: 1}
-- id: wallet_processing_has_visual_evidence
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params:
+    mode: credentials_match
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

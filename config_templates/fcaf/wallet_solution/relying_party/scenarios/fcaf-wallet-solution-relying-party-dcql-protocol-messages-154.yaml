@@ -19,6 +19,10 @@ steps:
       response_mode: direct_post.jwt
       presentation_request:
         nonce: fcaf-154
+        transaction_data:
+        - type: supported_type
+          data: dGVzdA==
+          unknown_field: bad
         dcql_query:
           credentials:
           - id: pid
@@ -29,10 +33,6 @@ steps:
             claims:
             - path:
               - given_name
-          transaction_data:
-          - type: supported_type
-            data: dGVzdA==
-            unknown_field: bad
 - id: exercise-wallet
   use: mobile-automation
   with:

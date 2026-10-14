@@ -24,7 +24,6 @@ steps:
         request_object:
           set:
             /client_id: redirect_uri:${fixture.verifier_url}/openid4vp/response
-            /response_uri: ${fixture.verifier_url}/openid4vp/response
         outer_request:
           set:
             /client_id: redirect_uri:${fixture.verifier_url}/openid4vp/response

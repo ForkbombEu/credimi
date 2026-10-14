@@ -109,7 +109,7 @@ steps:
         pipeline.dcql.user-denied-consent:
           output:
             dcql_exchange: ${{ fetch-result.outputs.body }}
-            wallet_response: ${{ fetch-result.outputs.body }}
+            capture_session: ${{ fetch-result.outputs.body }}
             visual_evidence: ${{ deny-consent.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}
             deny-consent: ${{ deny-consent.outputs }}

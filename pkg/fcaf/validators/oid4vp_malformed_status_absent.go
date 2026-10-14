@@ -12,13 +12,17 @@ import (
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 )
 
-// Malformed status-reference shapes the capture issuer can emit.
+// Status shapes the probe can tell apart. The first five are malformed
+// status-reference shapes the capture issuer emits when asked
+// (`status_reference`); `status_absent` is the default issuance with
+// `status_list_enabled: false`, whose token carries no status element at all.
 const (
 	statusShapeMissingStatusList = "missing_status_list"
 	statusShapeNegativeIndex     = "negative_index"
 	statusShapeMissingIndex      = "missing_index"
 	statusShapeMalformedURI      = "malformed_uri"
 	statusShapeMissingURI        = "missing_uri"
+	statusShapeStatusAbsent      = "status_absent"
 )
 
 // OID4VPMalformedStatusCredentialAbsentValidator proves that a Wallet did not
@@ -69,11 +73,12 @@ func (p malformedStatusParams) definitionError() string {
 		statusShapeNegativeIndex,
 		statusShapeMissingIndex,
 		statusShapeMalformedURI,
-		statusShapeMissingURI:
+		statusShapeMissingURI,
+		statusShapeStatusAbsent:
 		return ""
 	default:
 		return "shape must be missing_status_list, negative_index, missing_index, " +
-			"malformed_uri or missing_uri"
+			"malformed_uri, missing_uri or status_absent"
 	}
 }
 
@@ -91,6 +96,10 @@ func (OID4VPMalformedStatusCredentialAbsentValidator) Validate(
 	_ context.Context,
 	input Input,
 ) Result {
+	return guardWalletEngagement(input.Value, validateMalformedStatusCredentialAbsent(input))
+}
+
+func validateMalformedStatusCredentialAbsent(input Input) Result {
 	params, err := DecodeParams[malformedStatusParams](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -252,7 +261,7 @@ func credentialQueryForDocType(
 func hasMalformedStatusShape(claims map[string]any, shape string) bool {
 	status, found := resolveObjectPath(claims, "status")
 	if !found {
-		return false
+		return shape == statusShapeStatusAbsent
 	}
 	if _, ok := normalizeJSONObject(status); !ok {
 		return false
@@ -291,7 +300,10 @@ func hasMalformedStatusShape(claims map[string]any, shape string) bool {
 // hasMalformedStatusShape: it reads the CBOR `status` map, so a negative index
 // is a CBOR negative integer (major type 1) rather than a JSON number.
 func hasMalformedMDocStatusShape(status *evidence.MDocCBORValue, shape string) bool {
-	if status == nil || status.ContentMajorType != 5 {
+	if status == nil {
+		return shape == statusShapeStatusAbsent
+	}
+	if status.ContentMajorType != 5 {
 		return false
 	}
 	list, listFound := status.Member("status_list")

@@ -15,6 +15,7 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
   session: { from: pipeline.protocol.request-object-outer-controls.outputs.conflicting_nonce_session }
+  session_checks: { from: pipeline.protocol.request-object-outer-controls.outputs.conflicting_nonce_session_checks }
   request_object: { from: pipeline.protocol.request-object-outer-controls.outputs.conflicting_nonce_request_object }
   outer_request: { from: pipeline.protocol.request-object-outer-controls.outputs.conflicting_nonce_outer_request }
   visual_evidence: { from: pipeline.protocol.request-object-outer-controls.outputs.conflicting_nonce_visual_evidence }
@@ -35,6 +36,13 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.session
   params: { mode: credentials_match }
+# The verifier checks the response against the Request Object it signed: a
+# Wallet that had answered the conflicting query-string nonce instead fails
+# this check, so only a Wallet that used the Request Object value passes.
+- id: wallet_bound_its_response_to_the_request_object_nonce
+  validator: json.field_equals
+  input: evidence.session_checks
+  params: { field: nonce_verified, value: true }
 - id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

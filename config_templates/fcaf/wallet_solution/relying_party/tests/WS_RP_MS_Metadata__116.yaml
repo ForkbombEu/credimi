@@ -17,16 +17,17 @@ normative_references:
 evidence:
   dcql_exchange:
     from: pipeline.dcql.metadata.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
 assertions:
-- id: ws_rp_ms_metadata__116_dcql_metadata_valid
-  validator: dcql.response_satisfies_constraints
+- id: verifier_attestation_subject_match_is_unavailable
+  validator: fcaf.skipped
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
-- id: ws_rp_ms_metadata__116_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      needs a client_id_scheme verifier_attestation session whose attestation
+      sub equals the Client Identifier; Capture answers 500 because the
+      deployed verifier certificate carries no dNSName SAN and the
+      request-signing library rejects every x5c Client Identifier Prefix other
+      than x509_hash ("there are no SAN-DNS names", probed 14/10/2026), so the
+      session cannot be created
 verdict:
   pass_when: all_assertions_pass
