@@ -278,6 +278,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet
       use: mobile-automation
       with:
@@ -932,6 +952,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback
       use: mobile-automation
       with:
@@ -1033,6 +1073,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match
       use: mobile-automation
@@ -1179,6 +1239,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match
       use: mobile-automation
@@ -1351,7 +1431,7 @@ steps:
       use: http-request
       with:
         body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
             issuer_configuration_id: eu-pid-device-bound
         expected_status: 201
         headers:
@@ -1365,6 +1445,26 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials

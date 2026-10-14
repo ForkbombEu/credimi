@@ -3524,9 +3524,51 @@ it is served as `"nonce": null`; omission needs
 No emulator or runner was available for this pass: every outcome above comes
 from the run's own Capture records, live production probes, engine replays with
 the updated definitions, or the tests' own parser/webapp regression tests. A
-fresh reference-Wallet run is still required to confirm the projections, and
-`make fcaf-generate` must be re-run with `cmd/fcaf-pipeline-gen/main_test.go`'s
-aggregate expectations recomputed from the regenerated output (the last
-generation in this pass produced 1751 steps / 615 test ids / 222 pipeline
-outputs; individual fixes quoted different counts as sibling slices landed, so
-regenerate before trusting any of them).
+fresh reference-Wallet run is still required to confirm the projections. The
+committed aggregate (f10dbd95) had 1751 steps, 615 test ids and 222 pipeline
+outputs.
+
+## Vacuous-pass guard
+
+14/10/2026, after f10dbd95. Negative assertions passed in run 4t9hxzgxlf
+without any Wallet behaviour behind them: 081's 14 malformed variants passed
+`oid4vp.no_presentation_returned` on sessions still at `created`, and the
+no-match probes (MS Metadata 084–102, TrustMechanisms 004/008, MainInteraction
+004) passed because the flow failed on its exact-text wait before any Share, so
+nothing was ever posted.
+
+- Validators (`pkg/fcaf/validators/wallet_engagement.go`): a pass whose
+  evidence is a Capture verifier session record that proves the Wallet never
+  engaged becomes `blocked` ("wallet never retrieved the request, so its
+  rejection is not evidenced"). By-reference sessions engage on
+  `vp_request_retrieved` / a captured retrieval or response; DC API sessions on
+  a reported invocation. Guarded: `oid4vp.no_presentation_returned`,
+  `sdjwt.presentation_digest_algorithm_unsupported`,
+  `oid4vp.malformed_status_credential_absent`,
+  `oid4vp.unsupported_response_type_handled`, the wallet-outcome paths of
+  `oid4vp.dc_api_invocation` (request-shape-only use stays unguarded), and the
+  19 `dcql.response_satisfies_constraints` modes that can pass on an absent
+  response. Not guardable from Capture: by-value and plain deeplink delivery
+  (Capture records no retrieval) and `oid4vp.request_uri_not_retrieved`, whose
+  pass is by definition a Wallet that never contacted the verifier. Assertions
+  bound to `raw.authorization_request_delivered` see no session; their tests
+  also bind the per-variant session, which carries the guard.
+- Flows: `fcaf-expect-request-rejected` and `fcaf-expect-no-matching-document`
+  (and the inline negative flows of the six trusted-authorities / claims /
+  claim-sets type scenarios) first wait, bounded and optional, for a decisive
+  Wallet screen before accepting Home/Documents as discontinuation; a consent
+  screen listing `Requested data` is shared with the PIN, so a tolerant
+  Wallet's presentation reaches Capture and the negative validators fail on
+  real evidence; the terminal screenshot is always stored. The no-match flow
+  also stores `no-match-notice` when the notice is on screen, and the new
+  `evidence.screenshot_named` validator requires it for the sources that
+  require the Wallet to inform the user (TrustMechanisms 004, MainInteraction
+  032, ProtocolMessages 014). Keep screenshot names short: PocketBase cuts the
+  snake-cased `<step id>_<name>` stem at 100 characters.
+- Generator: a conditional Share counts as a consumed PID, so every use of the
+  two negative actions gets a fresh matching-format PID. The aggregate grows to
+  1845 steps (+47 injected issuances), the happy flow to 205.
+- Expected verdict changes on the reference Wallet: the 081 variants and the
+  status-reference probes now resolve on real evidence (RI-WALLET-007 and
+  RI-WALLET-009 surface as failures instead of passes); a Wallet that never
+  receives a by-reference request reports `blocked`, not `pass`.

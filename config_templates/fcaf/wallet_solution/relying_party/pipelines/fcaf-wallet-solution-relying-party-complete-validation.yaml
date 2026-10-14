@@ -234,6 +234,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-hash-mismatch-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-hash-mismatch-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-reject-hash-mismatch-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: client-id-binding-controls-616e872a-reject-hash-mismatch
       use: mobile-automation
       with:
@@ -285,6 +305,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-did-unlisted-key-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-did-unlisted-key-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-reject-did-unlisted-key-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: client-id-binding-controls-616e872a-reject-did-unlisted-key
       use: mobile-automation
       with:
@@ -330,6 +370,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-missing-x5c-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-missing-x5c-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-reject-missing-x5c-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: client-id-binding-controls-616e872a-reject-missing-x5c
       use: mobile-automation
@@ -377,6 +437,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-non-https-redirect-uri-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-reject-non-https-redirect-uri-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-reject-non-https-redirect-uri-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: client-id-binding-controls-616e872a-reject-non-https-redirect-uri
       use: mobile-automation
       with:
@@ -422,6 +502,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-exercise-derived-response-uri-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-exercise-derived-response-uri-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-exercise-derived-response-uri-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: client-id-binding-controls-616e872a-exercise-derived-response-uri
       use: mobile-automation
@@ -646,6 +746,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api
       use: mobile-automation
       with:
@@ -695,6 +815,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-reject-unsupported-prefix-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-reject-unsupported-prefix-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ client-id-prefix-controls-f49aa8ab-reject-unsupported-prefix-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: client-id-prefix-controls-f49aa8ab-reject-unsupported-prefix
       use: mobile-automation
       with:
@@ -740,6 +880,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-reject-unsigned-https-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: client-id-prefix-controls-f49aa8ab-reject-unsigned-https-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ client-id-prefix-controls-f49aa8ab-reject-unsigned-https-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: client-id-prefix-controls-f49aa8ab-reject-unsigned-https
       use: mobile-automation
@@ -2539,8 +2699,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-086-null"
             - runFlow:
@@ -2560,6 +2728,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-086-null-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -2586,8 +2755,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-086-true"
             - runFlow:
@@ -2607,6 +2784,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-086-true-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -2633,8 +2811,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-086-false"
             - runFlow:
@@ -2654,6 +2840,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-086-false-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -2680,8 +2867,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-086-zero"
             - runFlow:
@@ -2701,6 +2896,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-086-zero-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -2727,8 +2923,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-086-number"
             - runFlow:
@@ -2748,6 +2952,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-086-number-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -2774,8 +2979,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-086-string"
             - runFlow:
@@ -2795,6 +3008,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-086-string-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -2821,8 +3035,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-086-object"
             - runFlow:
@@ -2842,6 +3064,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-086-object-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -3454,8 +3677,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-084-null"
             - runFlow:
@@ -3475,6 +3706,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-084-null-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -3501,8 +3733,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-084-true"
             - runFlow:
@@ -3522,6 +3762,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-084-true-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -3548,8 +3789,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-084-false"
             - runFlow:
@@ -3569,6 +3818,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-084-false-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -3595,8 +3845,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-084-zero"
             - runFlow:
@@ -3616,6 +3874,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-084-zero-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -3642,8 +3901,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-084-number"
             - runFlow:
@@ -3663,6 +3930,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-084-number-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -3689,8 +3957,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-084-string"
             - runFlow:
@@ -3710,6 +3986,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-084-string-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -3736,8 +4013,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-084-object"
             - runFlow:
@@ -3757,6 +4042,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-084-object-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -5128,6 +5414,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet
       use: mobile-automation
@@ -7939,12 +8245,52 @@ steps:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-zero.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-one.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random-issue-pid-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random
@@ -7955,12 +8301,52 @@ steps:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-random.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-true.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false-issue-pid-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false
@@ -7971,12 +8357,52 @@ steps:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-false.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-true.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false-issue-pid-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false
@@ -7987,12 +8413,52 @@ steps:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-false.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-yes.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no-issue-pid-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no
@@ -8003,12 +8469,52 @@ steps:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-no.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-y.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n-issue-pid-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n
@@ -8019,6 +8525,26 @@ steps:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-n.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero
       use: mobile-automation
       with:
@@ -8027,12 +8553,52 @@ steps:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-zero.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
         parameters:
             deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-one.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-random-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-random-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-random-issue-pid-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-random
@@ -8928,6 +9494,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback
       use: mobile-automation
       with:
@@ -9029,6 +9615,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match
       use: mobile-automation
@@ -9175,6 +9781,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match
       use: mobile-automation
@@ -9347,7 +9973,7 @@ steps:
       use: http-request
       with:
         body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
             issuer_configuration_id: eu-pid-device-bound
         expected_status: 201
         headers:
@@ -9361,6 +9987,26 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials
@@ -9725,6 +10371,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: dcql-meta-vct-mismatch-1d861c4c-present-matching-meta-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-meta-vct-mismatch-1d861c4c-present-matching-meta-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-meta-vct-mismatch-1d861c4c-present-matching-meta-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-meta-vct-mismatch-1d861c4c-present-matching-meta
       use: mobile-automation
@@ -13714,8 +14380,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-091-null"
             - runFlow:
@@ -13735,6 +14409,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-091-null-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -13761,8 +14436,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-091-true"
             - runFlow:
@@ -13782,6 +14465,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-091-true-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -13808,8 +14492,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-091-false"
             - runFlow:
@@ -13829,6 +14521,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-091-false-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -13855,8 +14548,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-091-zero"
             - runFlow:
@@ -13876,6 +14577,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-091-zero-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -13902,8 +14604,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-091-number"
             - runFlow:
@@ -13923,6 +14633,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-091-number-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -13949,8 +14660,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-091-array"
             - runFlow:
@@ -13970,6 +14689,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-091-array-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -13996,8 +14716,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-091-object"
             - runFlow:
@@ -14017,6 +14745,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-091-object-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -14340,8 +15069,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-094-single"
             - runFlow:
@@ -14361,6 +15098,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-094-single-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -14387,8 +15125,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-094-mixed"
             - runFlow:
@@ -14408,6 +15154,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-094-mixed-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -14940,8 +15687,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-093-null"
             - runFlow:
@@ -14961,6 +15716,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-093-null-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -14987,8 +15743,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-093-true"
             - runFlow:
@@ -15008,6 +15772,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-093-true-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -15034,8 +15799,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-093-false"
             - runFlow:
@@ -15055,6 +15828,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-093-false-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -15081,8 +15855,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-093-zero"
             - runFlow:
@@ -15102,6 +15884,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-093-zero-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -15128,8 +15911,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-093-number"
             - runFlow:
@@ -15149,6 +15940,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-093-number-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -15175,8 +15967,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-093-array"
             - runFlow:
@@ -15196,6 +15996,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-093-array-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -15222,8 +16023,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-093-object"
             - runFlow:
@@ -15243,6 +16052,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-093-object-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -15809,8 +16619,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-092-null"
             - runFlow:
@@ -15830,6 +16648,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-092-null-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -15856,8 +16675,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-092-true"
             - runFlow:
@@ -15877,6 +16704,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-092-true-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -15903,8 +16731,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-092-false"
             - runFlow:
@@ -15924,6 +16760,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-092-false-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -15950,8 +16787,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-092-zero"
             - runFlow:
@@ -15971,6 +16816,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-092-zero-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -15997,8 +16843,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-092-number"
             - runFlow:
@@ -16018,6 +16872,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-092-number-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -16044,8 +16899,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-092-string"
             - runFlow:
@@ -16065,6 +16928,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-092-string-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -16091,8 +16955,16 @@ steps:
                     timeout: 30000
                 - inputText: "12345"
                 - tapOn: "6"
+            # Phase 1: give the Wallet time to react before accepting Home/Documents.
+            # A screenshot taken while it is still on Home is not evidence that it
+            # engaged with the request, so a decisive screen is awaited first.
             - extendedWaitUntil:
-                visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+                timeout: 30000
+                optional: true
+            # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+            - extendedWaitUntil:
+                visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
                 timeout: 30000
             - takeScreenshot: "fcaf-092-object"
             - runFlow:
@@ -16112,6 +16984,7 @@ steps:
                 - extendedWaitUntil:
                     visible: ".*successfully shared.*|Oups! Something went wrong"
                     timeout: 60000
+                    optional: true
                 - takeScreenshot: "fcaf-092-object-presented"
                 - tapOn:
                     text: "Close|TRY AGAIN"
@@ -18597,6 +19470,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-negative-index-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-negative-index-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-negative-index-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-negative-index
       use: mobile-automation
       with:
@@ -18668,6 +19561,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-index-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-index-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-index-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-index
       use: mobile-automation
@@ -18741,6 +19654,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-malformed-uri-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-malformed-uri-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-malformed-uri-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-malformed-uri
       use: mobile-automation
       with:
@@ -18812,6 +19745,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-uri-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-uri-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-uri-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-uri
       use: mobile-automation
@@ -19127,6 +20080,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: metadata-request-controls-913fbdc1-exercise-metadata-outside-client-metadata-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: metadata-request-controls-913fbdc1-exercise-metadata-outside-client-metadata-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ metadata-request-controls-913fbdc1-exercise-metadata-outside-client-metadata-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: metadata-request-controls-913fbdc1-exercise-metadata-outside-client-metadata
       use: mobile-automation
@@ -20283,6 +21256,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: request-object-header-controls-ed82443e-reject-missing-typ-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-reject-missing-typ-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ request-object-header-controls-ed82443e-reject-missing-typ-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: request-object-header-controls-ed82443e-reject-missing-typ
       use: mobile-automation
       with:
@@ -20328,6 +21321,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-reject-wrong-typ-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: request-object-header-controls-ed82443e-reject-wrong-typ-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ request-object-header-controls-ed82443e-reject-wrong-typ-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-header-controls-ed82443e-reject-wrong-typ
       use: mobile-automation
@@ -20654,6 +21667,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-exercise-unknown-parameter-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-exercise-unknown-parameter-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ request-object-payload-controls-aefde1c6-exercise-unknown-parameter-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: request-object-payload-controls-aefde1c6-exercise-unknown-parameter
       use: mobile-automation
       with:
@@ -20767,6 +21800,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-exercise-no-state-without-holder-binding-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: request-object-payload-controls-aefde1c6-exercise-no-state-without-holder-binding-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ request-object-payload-controls-aefde1c6-exercise-no-state-without-holder-binding-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: request-object-payload-controls-aefde1c6-exercise-no-state-without-holder-binding
       use: mobile-automation
@@ -21161,6 +22214,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-reject-http-error-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: request-uri-response-controls-77a90e75-reject-http-error-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ request-uri-response-controls-77a90e75-reject-http-error-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: request-uri-response-controls-77a90e75-reject-http-error
       use: mobile-automation
@@ -22081,6 +23154,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: response-uri-controls-48310ca6-reject-redirect-uri-present-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: response-uri-controls-48310ca6-reject-redirect-uri-present-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ response-uri-controls-48310ca6-reject-redirect-uri-present-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: response-uri-controls-48310ca6-reject-redirect-uri-present
       use: mobile-automation
       with:
@@ -22126,6 +23219,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: response-uri-controls-48310ca6-reject-invalid-response-uri-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: response-uri-controls-48310ca6-reject-invalid-response-uri-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ response-uri-controls-48310ca6-reject-invalid-response-uri-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: response-uri-controls-48310ca6-reject-invalid-response-uri
       use: mobile-automation
@@ -22239,6 +23352,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-reject-untrusted-root-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-reject-untrusted-root-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ rp-integrity-certificate-chain-ed1def1e-reject-untrusted-root-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: rp-integrity-certificate-chain-ed1def1e-reject-untrusted-root
       use: mobile-automation
       with:
@@ -22281,6 +23414,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-reject-self-signed-leaf-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-reject-self-signed-leaf-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ rp-integrity-certificate-chain-ed1def1e-reject-self-signed-leaf-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: rp-integrity-certificate-chain-ed1def1e-reject-self-signed-leaf
       use: mobile-automation
@@ -22877,6 +24030,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-negative-index-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-negative-index-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-probe-negative-index-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-negative-index
       use: mobile-automation
       with:
@@ -22948,6 +24121,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-missing-index-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-missing-index-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-probe-missing-index-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-missing-index
       use: mobile-automation
@@ -23021,6 +24214,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-malformed-uri-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-malformed-uri-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-probe-malformed-uri-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-malformed-uri
       use: mobile-automation
       with:
@@ -23092,6 +24305,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-missing-uri-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-missing-uri-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-probe-missing-uri-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-missing-uri
       use: mobile-automation
@@ -24375,6 +25608,26 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-mismatch-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-mismatch-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-mismatch-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-mismatch
       use: mobile-automation
       with:
@@ -24417,6 +25670,26 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-omitted-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-omitted-issue-pid
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-omitted-issue-pid-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: wallet-nonce-controls-5bb1d8ef-reject-metadata-nonce-omitted
       use: mobile-automation

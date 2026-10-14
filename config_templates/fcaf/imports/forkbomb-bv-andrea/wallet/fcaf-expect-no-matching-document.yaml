@@ -6,10 +6,20 @@ tags:
   - no-match
 ---
 # Shared terminal flow for negative cases whose expected outcome is the Wallet
-# telling the End-User it holds no credential satisfying the request. It is
-# separate from fcaf-expect-request-rejected because that flow accepts an error
-# screen or a return to Home, neither of which proves the request reached
-# credential selection and found nothing.
+# telling the End-User it holds no credential satisfying the request.
+#
+# It used to fail its step unless the exact notice
+# `The requested document is not available in your EUDI Wallet` appeared. On a
+# tolerant Wallet that instead shows the consent screen with a matching
+# credential, that failure discarded the proof: nothing was posted, the
+# screenshot was never taken, and the source's "no presentation" assertion
+# passed on a Wallet that had actually found a match. The flow now never fails
+# its step. It waits (bounded and optional) for a decisive screen so a
+# screenshot of an unchanged Home cannot pass as evidence, shares when the
+# consent screen lists Requested data so the Verifier records a real
+# Authorization Response, and always stores a screenshot of the terminal state.
+# The protocol assertion decides the verdict; the screenshot shows which screen
+# appeared.
 - launchApp:
     stopApp: true
     clearState: false
@@ -37,9 +47,65 @@ tags:
     link: "${deeplink}"
     autoVerify: false
     browser: false
+# A settle wait so every `when`-style lookup below starts from a screen that is
+# no longer being composed.
+- waitForAnimationToEnd:
+    timeout: 3000
+# Phase 1: bounded, optional wait for a decisive Wallet screen. A second
+# `Welcome back` lock screen counts as a reaction to the link even though it says
+# nothing yet about the request's outcome.
 - extendedWaitUntil:
-    visible: "The requested document is not available in your EUDI Wallet.*"
+    visible: "Welcome back|The requested document is not available.*|Requested data|invalid request|Oups! Something went wrong|Presentation blocked"
     timeout: 30000
-- assertNotVisible:
-    id: eu.europa.ec.euidi:id/request_screen_requested_document_0
+    optional: true
+# A second lock screen after openLink is unlocked with the shared unlock
+# sequence before the request screen is awaited again.
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
+      - waitForAnimationToEnd:
+          timeout: 3000
+# Phase 2: accept the decisive screen, or fall back to the discontinuation
+# outcomes only once phase 1 has had its chance.
+- extendedWaitUntil:
+    visible: "The requested document is not available.*|Requested data|invalid request|Oups! Something went wrong|Presentation blocked|Home|Documents|Add document|Welcome, .*"
+    timeout: 100000
+# The evidence the sources that require the notice ask for ("the Wallet informs
+# the user it has no matching credential available"): a screenshot taken only
+# while that notice is on screen. It is separate from the terminal screenshot
+# below, which is taken whatever the Wallet showed so a Wallet that never
+# displayed the notice is still recorded.
+#
+# The name must survive PocketBase's 100-character cap on the snake-cased
+# `<stepID>-<screenshot name>` stem (tools/filesystem/file.go truncates
+# cleanName to 100 before appending the random part). The longest step id that
+# uses this action is 79 characters, so the name must stay within 21 characters.
+- runFlow:
+    when:
+      visible: "The requested document is not available.*"
+    commands:
+      - takeScreenshot: no-match-notice
+# Phase 3: a tolerant Wallet that lists Requested data has found a matching
+# credential; share it so the Verifier records the presentation the source test
+# must refute. The terminal wait is optional because this flow must reach its
+# screenshot even when the Wallet stops on an unexpected screen.
+- runFlow:
+    when:
+      visible: "Requested data"
+    commands:
+      - tapOn: "Share"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - inputText: "12345"
+      - tapOn: "6"
+      - extendedWaitUntil:
+          visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
+          timeout: 30000
+          optional: true
 - takeScreenshot: expect-no-matching-document

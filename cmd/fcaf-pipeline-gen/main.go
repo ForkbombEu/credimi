@@ -62,6 +62,11 @@ const (
 // shareTap counts the consent screen's Share action, which is the point at
 // which the wallet spends a credential instance. A flow that shares twice, such
 // as a scenario exercising two valid presentations in one step, spends two.
+// A Share reached only through a `when: visible "Requested data"` guard counts
+// too: the negative actions share whenever a tolerant Wallet shows the consent
+// screen, and an instance that is spent but modelled as unspent would leave a
+// later presentation of the same scenario running on an empty Wallet, whose
+// refusal or no-match evidence would then prove nothing.
 var shareTap = regexp.MustCompile(
 	`tapOn:\s*(?:"Share"|\{[^}\n]*text:\s*"Share"|\n\s*text:\s*"Share")`,
 )

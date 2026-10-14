@@ -96,6 +96,10 @@ func (OID4VPMalformedStatusCredentialAbsentValidator) Validate(
 	_ context.Context,
 	input Input,
 ) Result {
+	return guardWalletEngagement(input.Value, validateMalformedStatusCredentialAbsent(input))
+}
+
+func validateMalformedStatusCredentialAbsent(input Input) Result {
 	params, err := DecodeParams[malformedStatusParams](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}

@@ -726,11 +726,15 @@ func (OID4VPNoPresentationValidator) ID() string {
 }
 
 func (OID4VPNoPresentationValidator) Validate(_ context.Context, input Input) Result {
-	session, ok := input.Value.(map[string]any)
+	return guardWalletEngagement(input.Value, validateNoPresentationReturned(input.Value))
+}
+
+func validateNoPresentationReturned(value any) Result {
+	session, ok := value.(map[string]any)
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: fmt.Sprintf("session evidence is %T, expected object", input.Value),
+			Message: fmt.Sprintf("session evidence is %T, expected object", value),
 		}
 	}
 	if _, submitted := session["decoded_presentations"]; submitted {
@@ -792,6 +796,10 @@ func (SDJWTPresentationDigestAlgorithmValidator) ID() string {
 }
 
 func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, input Input) Result {
+	return guardWalletEngagement(input.Value, validatePresentationDigestAlgorithm(input))
+}
+
+func validatePresentationDigestAlgorithm(input Input) Result {
 	params, err := DecodeParams[struct {
 		DigestAlgorithm string `json:"digest_algorithm"`
 		RequireError    bool   `json:"require_error"`

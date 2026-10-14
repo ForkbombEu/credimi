@@ -351,8 +351,16 @@ steps:
               timeout: 30000
           - inputText: "12345"
           - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
       - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
       - takeScreenshot: "fcaf-092-null"
       - runFlow:
@@ -372,6 +380,7 @@ steps:
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
+              optional: true
           - takeScreenshot: "fcaf-092-null-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
@@ -398,8 +407,16 @@ steps:
               timeout: 30000
           - inputText: "12345"
           - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
       - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
       - takeScreenshot: "fcaf-092-true"
       - runFlow:
@@ -419,6 +436,7 @@ steps:
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
+              optional: true
           - takeScreenshot: "fcaf-092-true-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
@@ -445,8 +463,16 @@ steps:
               timeout: 30000
           - inputText: "12345"
           - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
       - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
       - takeScreenshot: "fcaf-092-false"
       - runFlow:
@@ -466,6 +492,7 @@ steps:
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
+              optional: true
           - takeScreenshot: "fcaf-092-false-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
@@ -492,8 +519,16 @@ steps:
               timeout: 30000
           - inputText: "12345"
           - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
       - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
       - takeScreenshot: "fcaf-092-zero"
       - runFlow:
@@ -513,6 +548,7 @@ steps:
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
+              optional: true
           - takeScreenshot: "fcaf-092-zero-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
@@ -539,8 +575,16 @@ steps:
               timeout: 30000
           - inputText: "12345"
           - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
       - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
       - takeScreenshot: "fcaf-092-number"
       - runFlow:
@@ -560,6 +604,7 @@ steps:
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
+              optional: true
           - takeScreenshot: "fcaf-092-number-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
@@ -586,8 +631,16 @@ steps:
               timeout: 30000
           - inputText: "12345"
           - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
       - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
       - takeScreenshot: "fcaf-092-string"
       - runFlow:
@@ -607,6 +660,7 @@ steps:
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
+              optional: true
           - takeScreenshot: "fcaf-092-string-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
@@ -633,8 +687,16 @@ steps:
               timeout: 30000
           - inputText: "12345"
           - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
       - extendedWaitUntil:
-          visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: accept the decisive screen, or the discontinuation outcomes.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
           timeout: 30000
       - takeScreenshot: "fcaf-092-object"
       - runFlow:
@@ -654,6 +716,7 @@ steps:
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
+              optional: true
           - takeScreenshot: "fcaf-092-object-presented"
           - tapOn:
               text: "Close|TRY AGAIN"

@@ -26,6 +26,7 @@ func DefaultRegistry() (*Registry, error) {
 		FCAFSkippedValidator{},
 		FCAFNotApplicableValidator{},
 		EvidenceNonEmptyValidator{},
+		EvidenceScreenshotNamedValidator{},
 		EvidenceMinimumItemsValidator{},
 		JSONFieldRequiredValidator{},
 		JSONFieldEqualsValidator{},

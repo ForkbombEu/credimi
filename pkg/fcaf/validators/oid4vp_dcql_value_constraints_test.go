@@ -199,6 +199,28 @@ func TestOID4VPMalformedStatusCredentialAbsentValidator(t *testing.T) {
 			wantStatus: StatusPass,
 		},
 		{
+			name:       "wallet never retrieved the request",
+			value:      neverRetrievedSession(exchange(true, "CREDIMI-DEMO-CASE")),
+			shape:      "missing_status_list",
+			wantStatus: StatusBlocked,
+		},
+		{
+			name:       "wallet retrieved the request and returned nothing",
+			value:      retrievedSessionWithoutResponse(exchange(true, "CREDIMI-DEMO-CASE")),
+			shape:      "missing_status_list",
+			wantStatus: StatusPass,
+		},
+		{
+			name: "wallet retrieved the request and returned a malformed credential",
+			value: retrievedSessionWithPresentation(
+				exchange(true, "CREDIMI-DEMO-CASE", noStatusList),
+				"pid",
+				noStatusList,
+			),
+			shape:      "missing_status_list",
+			wantStatus: StatusFail,
+		},
+		{
 			name:       "wallet holds only a validly issued duplicate",
 			value:      exchange(true, "CREDIMI-DEMO-CASE", valid),
 			shape:      "missing_status_list",

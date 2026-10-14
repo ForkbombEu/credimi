@@ -28,20 +28,74 @@ func (DCQLResponseConstraintsValidator) ID() string {
 
 //nolint:gocyclo // DCQL modes share decoding and evidence normalization in one registry validator.
 func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input) Result {
-	params, err := DecodeParams[struct {
-		Mode              string  `json:"mode"`
-		ForbiddenPaths    [][]any `json:"forbidden_paths"`
-		Property          string  `json:"property"`
-		ExpectedType      string  `json:"expected_type"`
-		Valid             bool    `json:"valid"`
-		ExpectedValue     any     `json:"expected_value"`
-		ExpectedFormat    string  `json:"expected_format"`
-		ExpectedClaimPath []any   `json:"expected_claim_path"`
-		ClaimSetCount     int     `json:"claim_set_count"`
-	}](input.Params)
+	params, err := DecodeParams[dcqlModeParams](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
+	result := validateDCQLResponseMode(params, input)
+	if !dcqlModeAssertsWalletResponse(params.Mode) {
+		return result
+	}
+	return guardWalletEngagement(input.Value, result)
+}
+
+// dcqlModeParams is the parameter block the modes of
+// dcql.response_satisfies_constraints decode.
+type dcqlModeParams struct {
+	Mode              string  `json:"mode"`
+	ForbiddenPaths    [][]any `json:"forbidden_paths"`
+	Property          string  `json:"property"`
+	ExpectedType      string  `json:"expected_type"`
+	Valid             bool    `json:"valid"`
+	ExpectedValue     any     `json:"expected_value"`
+	ExpectedFormat    string  `json:"expected_format"`
+	ExpectedClaimPath []any   `json:"expected_claim_path"`
+	ClaimSetCount     int     `json:"claim_set_count"`
+}
+
+// dcqlModesAwaitingWalletResponse is the set of modes whose pass can be reached
+// without the Wallet answering the request at all, with neither a vp_token nor
+// an error. Those modes state what the Wallet did with a malformed, unmatched or
+// unsatisfiable request — it presented nothing, or matched no credential — so
+// their pass needs a Capture verifier session record that shows the Wallet
+// received the request; guardWalletEngagement blocks the ones that do not.
+//
+// The modes outside the set already require a non-empty vp_token (the positive
+// controls and the claim/credential matching modes) or a Wallet error (the
+// explicit error-code modes), and their own precondition says so.
+//
+// claim_path_member_type_error is listed defensively: it is dispatched but
+// absent from the allow-list at the top of Validate, so no definition reaches
+// its pass today and the guard only speaks if that list is fixed.
+var dcqlModesAwaitingWalletResponse = map[string]struct{}{
+	"no_match":                                 {},
+	"request_rejected":                         {},
+	"trusted_authorities_no_match":             {},
+	"credential_sets_required_true_no_match":   {},
+	"credential_sets_optional_no_match":        {},
+	"credential_sets_combined_option_no_match": {},
+	"claims_path_no_match":                     {},
+	"claims_values_no_match":                   {},
+	"mdoc_claim_path_no_match":                 {},
+	"empty_claims":                             {},
+	"empty_array":                              {},
+	"claim_sets_no_match":                      {},
+	"claim_sets_without_claims":                {},
+	"trusted_authority_property_absent":        {},
+	"trusted_authority_property_type":          {},
+	"trusted_authority_array_item_type":        {},
+	"trusted_authority_empty_string_item":      {},
+	"property_type":                            {},
+	"claim_path_member_type_error":             {},
+}
+
+func dcqlModeAssertsWalletResponse(mode string) bool {
+	_, guarded := dcqlModesAwaitingWalletResponse[mode]
+	return guarded
+}
+
+//nolint:gocyclo // DCQL modes share decoding and evidence normalization in one registry validator.
+func validateDCQLResponseMode(params dcqlModeParams, input Input) Result {
 	switch params.Mode {
 	case "credential_sets",
 		"claim_sets_preferred_option",

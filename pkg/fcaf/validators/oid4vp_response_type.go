@@ -18,6 +18,10 @@ func (OID4VPUnsupportedResponseTypeValidator) ID() string {
 }
 
 func (OID4VPUnsupportedResponseTypeValidator) Validate(_ context.Context, input Input) Result {
+	return guardWalletEngagement(input.Value, validateUnsupportedResponseType(input))
+}
+
+func validateUnsupportedResponseType(input Input) Result {
 	params, err := DecodeParams[struct {
 		ExpectedResponseType string `json:"expected_response_type"`
 	}](input.Params)
