@@ -374,16 +374,25 @@ steps:
       pipeline.dcql.combined-value-constraints:
         output:
           fixture_issuances:
-          - ${{ fetch-full-match-issuance.outputs.body }}
-          - ${{ fetch-age-trap-issuance.outputs.body }}
-          - ${{ fetch-case-trap-issuance.outputs.body }}
-          - ${{ fetch-whitespace-trap-issuance.outputs.body }}
-          - ${{ fetch-diacritics-trap-issuance.outputs.body }}
-          - ${{ fetch-no-diacritics-trap-issuance.outputs.body }}
-          - ${{ fetch-array-trap-issuance.outputs.body }}
-          - ${{ fetch-expiry-trap-issuance.outputs.body }}
+          - issuer_session: ${{ fetch-full-match-issuance.outputs.body }}
+            wallet_screenshots: ${{ obtain-full-match-credential.outputs.flow_output.maestro_screenshot_urls }}
+          - issuer_session: ${{ fetch-age-trap-issuance.outputs.body }}
+            wallet_screenshots: ${{ obtain-age-trap-credential.outputs.flow_output.maestro_screenshot_urls }}
+          - issuer_session: ${{ fetch-case-trap-issuance.outputs.body }}
+            wallet_screenshots: ${{ obtain-case-trap-credential.outputs.flow_output.maestro_screenshot_urls }}
+          - issuer_session: ${{ fetch-whitespace-trap-issuance.outputs.body }}
+            wallet_screenshots: ${{ obtain-whitespace-trap-credential.outputs.flow_output.maestro_screenshot_urls }}
+          - issuer_session: ${{ fetch-diacritics-trap-issuance.outputs.body }}
+            wallet_screenshots: ${{ obtain-diacritics-trap-credential.outputs.flow_output.maestro_screenshot_urls }}
+          - issuer_session: ${{ fetch-no-diacritics-trap-issuance.outputs.body }}
+            wallet_screenshots: ${{ obtain-no-diacritics-trap-credential.outputs.flow_output.maestro_screenshot_urls }}
+          - issuer_session: ${{ fetch-array-trap-issuance.outputs.body }}
+            wallet_screenshots: ${{ obtain-array-trap-credential.outputs.flow_output.maestro_screenshot_urls }}
+          - issuer_session: ${{ fetch-expiry-trap-issuance.outputs.body }}
+            wallet_screenshots: ${{ obtain-expiry-trap-credential.outputs.flow_output.maestro_screenshot_urls }}
           dcql_exchange: ${{ fetch-combined-constraint-request.outputs.body }}
           visual_evidence: ${{ present-combined-constraint-request.outputs.flow_output.maestro_screenshot_urls }}
           numeric_issuance: ${{ fetch-numeric-type-trap-issuance.outputs.body }}
+          numeric_issuance_screenshots: ${{ obtain-numeric-type-trap-credential.outputs.flow_output.maestro_screenshot_urls }}
           numeric_type_trap: ${{ fetch-numeric-type-trap-request.outputs.body }}
           numeric_visual_evidence: ${{ present-numeric-type-trap-request.outputs.flow_output.maestro_screenshot_urls }}

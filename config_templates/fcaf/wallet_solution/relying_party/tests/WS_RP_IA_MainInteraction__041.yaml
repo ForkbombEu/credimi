@@ -27,10 +27,11 @@ evidence:
     from: pipeline.fixtures.pid-multiple-credentials.outputs.multiple_false_visual_evidence
 assertions:
 - id: wallet_holds_two_distinct_pids_for_the_same_query
-  validator: oid4vci.fixtures_issued
+  validator: oid4vci.fixtures_stored
   input: evidence.query_issuances
   params:
     fixtures: [pid_default, pid_person_b]
+    stored_screenshot: credential-added
 - id: credential_query_sets_multiple_false_and_returns_one_presentation
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange

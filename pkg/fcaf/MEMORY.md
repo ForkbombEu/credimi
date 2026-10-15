@@ -4005,21 +4005,30 @@ spent by the scenarios' own possession proofs:
   passed vacuously: two probe presentations spent both PIDs, so the multiple
   queries ran with one freshly injected PID.
 
-Possession is now proven from the issuer sessions: the new
-`oid4vci.fixtures_issued` validator requires a `credential_issued` issuer
-session for each named `fixture_id`, and `oid4vp.distinct_presentations` is
-removed with its last callers. 071 issues both identities itself; the
-multiple-credentials scenario issues both identities again before the
-`multiple: false` query, because the omitted-`multiple` query spends one.
-`cmd/fcaf-pipeline-gen` now models a Share of a `multiple: true` query as
-spending every instance of its format
+Possession is now proven without presenting: the new `oid4vci.fixtures_stored`
+validator requires, for each named `fixture_id`, an issuer session at
+`credential_issued` (the Wallet fetched the credential) paired with the
+issuance step's `credential-added` screenshot, which
+`getcredential-generic-credential-without-authentication` takes only after
+`assertVisible: "View details"` on the Wallet's document-added screen (the
+Wallet stored it). A Wallet that fetches a credential and then discards it
+fails the issuance step, stores no screenshot, and fails the precondition
+assertion instead of passing the test vacuously.
+`oid4vp.distinct_presentations` is removed with its last callers. 071 issues
+both identities itself; the multiple-credentials scenario issues both
+identities again before the `multiple: false` query, because the
+omitted-`multiple` query spends one. `cmd/fcaf-pipeline-gen` now models a
+Share of a `multiple: true` query as spending every instance of its format
 (`TestMultipleTruePresentationSpendsEveryHeldInstance`); no other scenario's
 injections changed. The aggregate is 1874 steps / 617 tests / 224 outputs.
 
-Evidence gaps closed in the same change: `fcaf-engagement-haip-vp` no longer
-fails when the Wallet shows no Share button (the consent screenshot stays
-conditional on Share; the terminal screenshot is now
-`fcaf-engagement-haip-vp-outcome` and always taken), and `fcaf-dc-api-present`
-stores `dc-api-page` and `dc-api-after-present` before its success-only
-assertions, so an unsigned or multisigned DC API failure is no longer evidenced
-only by absence (RI-WALLET-018).
+Evidence gaps closed in the same change, without weakening any assertion:
+`fcaf-engagement-haip-vp` still fails unless the presentation completes (Share
+present and the success screen reached), so its screenshots reach a test's
+visual evidence only for a completed presentation; it now stores
+`fcaf-engagement-haip-vp-request` before looking for Share, so a refusal
+screen is kept on the pipeline result for review. The second PIN and View
+details stay optional. `fcaf-dc-api-present` likewise stores `dc-api-page` and
+`dc-api-after-present` before its success-only assertions, so an unsigned or
+multisigned DC API failure is no longer evidenced only by absence
+(RI-WALLET-018).

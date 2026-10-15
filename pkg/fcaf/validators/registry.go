@@ -72,7 +72,7 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPRequestEncryptionJWKValidator{},
 		OID4VPRequestJWKValueAbsentValidator{},
 		OID4VPDistinctRequestEncryptionKeysValidator{},
-		OID4VCIFixturesIssuedValidator{},
+		OID4VCIFixturesStoredValidator{},
 		OID4VPNoPresentationValidator{},
 		SDJWTPresentationDigestAlgorithmValidator{},
 		OID4VPDCQLValueConstraintsSatisfiedValidator{},

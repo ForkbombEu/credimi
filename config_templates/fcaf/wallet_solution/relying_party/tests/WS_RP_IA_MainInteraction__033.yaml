@@ -23,18 +23,23 @@ evidence:
     from: pipeline.dcql.combined-value-constraints.outputs.visual_evidence
   numeric_issuance:
     from: pipeline.dcql.combined-value-constraints.outputs.numeric_issuance
+  numeric_issuance_screenshots:
+    from: pipeline.dcql.combined-value-constraints.outputs.numeric_issuance_screenshots
   numeric_type_trap:
     from: pipeline.dcql.combined-value-constraints.outputs.numeric_type_trap
   numeric_visual_evidence:
     from: pipeline.dcql.combined-value-constraints.outputs.numeric_visual_evidence
 assertions:
-# Possession is proven from the issuer sessions, not by presenting: the
-# reference Wallet spends a credential instance on every presentation, so an
-# inventory query would leave the constrained query an empty Wallet.
+# Possession is proven without presenting: the reference Wallet spends a
+# credential instance on every presentation, so an inventory query would leave
+# the constrained query an empty Wallet. Each fixture needs its issuer session
+# at credential_issued (the Wallet fetched it) and the issuance flow's
+# credential-added screenshot (the Wallet confirmed it stored it).
 - id: wallet_holds_the_near_miss_credentials_it_must_exclude
-  validator: oid4vci.fixtures_issued
+  validator: oid4vci.fixtures_stored
   input: evidence.fixture_issuances
   params:
+    stored_screenshot: credential-added
     fixtures:
     - pid_default
     - pid_under_18
@@ -66,6 +71,11 @@ assertions:
   params:
     field: credential_configuration_id
     value: urn:credimi:numeric-claims:1.sd-jwt.key-attestation-required
+- id: wallet_stored_the_numeric_data_type_trap_credential
+  validator: evidence.screenshot_named
+  input: evidence.numeric_issuance_screenshots
+  params:
+    name: credential-added
 - id: integer_constraint_withholds_the_float_credential
   validator: oid4vp.no_presentation_returned
   input: evidence.numeric_type_trap

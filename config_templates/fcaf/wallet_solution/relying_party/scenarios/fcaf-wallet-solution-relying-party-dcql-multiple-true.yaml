@@ -120,8 +120,10 @@ steps:
             dcql_exchange: ${{ get-presentation-result.outputs.body }}
             visual_evidence: ${{ present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls }}
             matching_issuances:
-              - ${{ fetch-first-matching-issuance.outputs.body }}
-              - ${{ fetch-second-matching-issuance.outputs.body }}
+              - issuer_session: ${{ fetch-first-matching-issuance.outputs.body }}
+                wallet_screenshots: ${{ obtain-first-matching-credential.outputs.flow_output.maestro_screenshot_urls }}
+              - issuer_session: ${{ fetch-second-matching-issuance.outputs.body }}
+                wallet_screenshots: ${{ obtain-second-matching-credential.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}
             present-with-reference-implementation: ${{ present-with-reference-implementation.outputs }}
             get-presentation-result: ${{ get-presentation-result.outputs }}

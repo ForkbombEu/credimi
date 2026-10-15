@@ -27038,15 +27038,24 @@ steps:
                 output:
                     dcql_exchange: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-combined-constraint-request.outputs.body | optional }}
                     fixture_issuances:
-                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-full-match-issuance.outputs.body | optional }}
-                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-age-trap-issuance.outputs.body | optional }}
-                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-case-trap-issuance.outputs.body | optional }}
-                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-whitespace-trap-issuance.outputs.body | optional }}
-                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-diacritics-trap-issuance.outputs.body | optional }}
-                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-no-diacritics-trap-issuance.outputs.body | optional }}
-                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-array-trap-issuance.outputs.body | optional }}
-                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-expiry-trap-issuance.outputs.body | optional }}
+                        - issuer_session: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-full-match-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ dcql-combined-value-constraints-6bdb8a96-obtain-full-match-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        - issuer_session: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-age-trap-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ dcql-combined-value-constraints-6bdb8a96-obtain-age-trap-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        - issuer_session: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-case-trap-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ dcql-combined-value-constraints-6bdb8a96-obtain-case-trap-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        - issuer_session: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-whitespace-trap-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ dcql-combined-value-constraints-6bdb8a96-obtain-whitespace-trap-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        - issuer_session: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-diacritics-trap-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ dcql-combined-value-constraints-6bdb8a96-obtain-diacritics-trap-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        - issuer_session: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-no-diacritics-trap-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ dcql-combined-value-constraints-6bdb8a96-obtain-no-diacritics-trap-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        - issuer_session: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-array-trap-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ dcql-combined-value-constraints-6bdb8a96-obtain-array-trap-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        - issuer_session: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-expiry-trap-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ dcql-combined-value-constraints-6bdb8a96-obtain-expiry-trap-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
                     numeric_issuance: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-numeric-type-trap-issuance.outputs.body | optional }}
+                    numeric_issuance_screenshots: ${{ dcql-combined-value-constraints-6bdb8a96-obtain-numeric-type-trap-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
                     numeric_type_trap: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-numeric-type-trap-request.outputs.body | optional }}
                     numeric_visual_evidence: ${{ dcql-combined-value-constraints-6bdb8a96-present-numeric-type-trap-request.outputs.flow_output.maestro_screenshot_urls | optional }}
                     visual_evidence: ${{ dcql-combined-value-constraints-6bdb8a96-present-combined-constraint-request.outputs.flow_output.maestro_screenshot_urls | optional }}
@@ -27404,8 +27413,10 @@ steps:
                     dcql_exchange: ${{ dcql-multiple-true-ad438f05-get-presentation-result.outputs.body | optional }}
                     get-presentation-result: ${{ dcql-multiple-true-ad438f05-get-presentation-result.outputs | optional }}
                     matching_issuances:
-                        - ${{ dcql-multiple-true-ad438f05-fetch-first-matching-issuance.outputs.body | optional }}
-                        - ${{ dcql-multiple-true-ad438f05-fetch-second-matching-issuance.outputs.body | optional }}
+                        - issuer_session: ${{ dcql-multiple-true-ad438f05-fetch-first-matching-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ dcql-multiple-true-ad438f05-obtain-first-matching-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        - issuer_session: ${{ dcql-multiple-true-ad438f05-fetch-second-matching-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ dcql-multiple-true-ad438f05-obtain-second-matching-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
                     present-with-reference-implementation: ${{ dcql-multiple-true-ad438f05-present-with-reference-implementation.outputs | optional }}
                     visual_evidence: ${{ dcql-multiple-true-ad438f05-present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.no-matching-credentials:
@@ -27794,15 +27805,19 @@ steps:
             pipeline.fixtures.pid-multiple-credentials:
                 output:
                     false_query_issuances:
-                        - ${{ pid-multiple-credentials-3e946b72-fetch-replacement-baseline-issuance.outputs.body | optional }}
-                        - ${{ pid-multiple-credentials-3e946b72-fetch-replacement-second-identity-issuance.outputs.body | optional }}
+                        - issuer_session: ${{ pid-multiple-credentials-3e946b72-fetch-replacement-baseline-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ pid-multiple-credentials-3e946b72-obtain-replacement-baseline-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        - issuer_session: ${{ pid-multiple-credentials-3e946b72-fetch-replacement-second-identity-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ pid-multiple-credentials-3e946b72-obtain-replacement-second-identity-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
                     multiple_false_exchange: ${{ pid-multiple-credentials-3e946b72-fetch-multiple-false.outputs.body | optional }}
                     multiple_false_visual_evidence: ${{ pid-multiple-credentials-3e946b72-present-multiple-false.outputs.flow_output.maestro_screenshot_urls | optional }}
                     multiple_omitted_exchange: ${{ pid-multiple-credentials-3e946b72-fetch-multiple-omitted.outputs.body | optional }}
                     multiple_omitted_visual_evidence: ${{ pid-multiple-credentials-3e946b72-present-multiple-omitted.outputs.flow_output.maestro_screenshot_urls | optional }}
                     omitted_query_issuances:
-                        - ${{ pid-multiple-credentials-3e946b72-fetch-baseline-issuance.outputs.body | optional }}
-                        - ${{ pid-multiple-credentials-3e946b72-fetch-second-identity-issuance.outputs.body | optional }}
+                        - issuer_session: ${{ pid-multiple-credentials-3e946b72-fetch-baseline-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ pid-multiple-credentials-3e946b72-obtain-baseline-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        - issuer_session: ${{ pid-multiple-credentials-3e946b72-fetch-second-identity-issuance.outputs.body | optional }}
+                          wallet_screenshots: ${{ pid-multiple-credentials-3e946b72-obtain-second-identity-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.fixtures.pid-under-18:
                 output:
                     constrained_exchange: ${{ pid-under-18-constraint-e7f0d444-fetch-over-18-constraint.outputs.body | optional }}
