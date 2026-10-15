@@ -80,6 +80,7 @@ type FailureReason struct {
 type ExecutedTest struct {
 	TestID     string             `json:"test_id"`
 	Title      string             `json:"title,omitempty"`
+	SourceURL  string             `json:"source_url,omitempty"`
 	Status     string             `json:"status"`
 	Assertions []ExecutedCheck    `json:"assertions,omitempty"`
 	Evidence   []ExecutedEvidence `json:"evidence,omitempty"`

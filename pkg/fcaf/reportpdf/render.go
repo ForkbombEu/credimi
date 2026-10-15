@@ -543,7 +543,7 @@ func (r *renderer) renderTest(test TestEntry) {
 		}
 	}
 
-	if sourceURL := fcafSourceURL(test.Source.Title); sourceURL != "" {
+	if sourceURL := SourceURL(test.Source.Title); sourceURL != "" {
 		r.linkBullet("Open FCAF source test", sourceURL)
 	}
 
@@ -1034,11 +1034,11 @@ const fcafTestCasesURL = "https://conformance.eudi.dev/latest-draft/fcaf/suts/wa
 
 var markdownAnchorSeparators = regexp.MustCompile(`[-\s]+`)
 
-// fcafSourceURL links a test on the FCAF test-cases page. The page derives its
+// SourceURL links a test on the FCAF test-cases page. The page derives its
 // anchors from the "# " heading of each source Markdown, which does not always
 // match the source file name that Credimi test IDs come from
 // (CredentialStructure007 in WS_RP_DM_CredentialMetadata_CredentialStructure_007.md).
-func fcafSourceURL(sourceTitle string) string {
+func SourceURL(sourceTitle string) string {
 	anchor := markdownHeadingAnchor(sourceTitle)
 	if anchor == "" {
 		return ""
