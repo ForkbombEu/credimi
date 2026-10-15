@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -31,7 +32,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1794)
+	require.Len(t, definition.Steps, 1528)
 	require.NotContains(
 		t,
 		string(data),
@@ -135,7 +136,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 173)
+	require.Len(t, definition.Steps, 154)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validationSteps := make([]map[string]any, 0, 1)
@@ -218,6 +219,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 	actions, err := loadWalletActions(filepath.Join(root, "..", "..", "imports"))
 	require.NoError(t, err)
 	injectedFor := regexp.MustCompile(`^(.+)-issue-pid(?:-[0-9]+)?$`)
+	pidSession := regexp.MustCompile(`^(.+)-issue-pid(?:-[0-9]+)?-session$`)
 	scenarioOf := regexp.MustCompile(`^(.+?-[0-9a-f]{8})-`)
 
 	for _, pipeline := range []string{
@@ -280,18 +282,14 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 			)
 			if issuesCredential(step) {
 				available[issuedCredentialFormat(source)]++
+				// An issuance injected as its own step, for a presentation
+				// driving another app, must be followed by that presentation.
 				if match := injectedFor.FindStringSubmatch(id); match != nil {
 					injected++
-					// An injected issuance exists only for the presentation it
-					// is named after, which must follow in the same scenario.
-					followed := false
-					for _, later := range definition.Steps[index+1:] {
-						laterID, _ := later["id"].(string)
-						if laterID == match[1] {
-							followed = true
-							break
-						}
-					}
+					followed := slices.ContainsFunc(
+						definition.Steps[index+1:],
+						func(later map[string]any) bool { return later["id"] == match[1] },
+					)
 					require.Truef(
 						t,
 						followed,
@@ -301,6 +299,34 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 					)
 				}
 				continue
+			}
+			// Other injected issuances run first, in the presentation's own
+			// flow, and accept the offer of an issuer session created for it.
+			beforeActions, _ := with["before_actions"].([]any)
+			for _, entry := range beforeActions {
+				issuance, _ := entry.(map[string]any)
+				require.Equalf(
+					t,
+					issuanceActionID,
+					issuance["action_id"],
+					"%s: step %q runs a before action that is not a PID issuance",
+					pipeline,
+					id,
+				)
+				session := deeplinkSourceStep(map[string]any{"with": issuance}, earlier)
+				require.NotNilf(t, session, "%s: %q issues a PID from no session", pipeline, id)
+				sessionID, _ := session["id"].(string)
+				match := pidSession.FindStringSubmatch(sessionID)
+				require.Truef(
+					t,
+					match != nil && match[1] == id,
+					"%s: %q accepts the offer of issuer session %q, created for another step",
+					pipeline,
+					id,
+					sessionID,
+				)
+				available[issuedCredentialFormat(session)]++
+				injected++
 			}
 			consumed, err := credentialInstancesConsumed(step, actions)
 			require.NoError(t, err)

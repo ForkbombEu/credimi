@@ -50,11 +50,19 @@ type MobileAutomationWorkflowPayload struct {
 }
 
 type MobileAutomationWorkflowPipelinePayload struct {
-	ActionID   string            `json:"action_id,omitempty"   yaml:"action_id,omitempty"`
-	VersionID  string            `json:"version_id,omitempty"  yaml:"version_id,omitempty"`
-	ActionCode string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
-	Parameters map[string]string `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
-	DeviceID   string            `json:"device_id,omitempty"   yaml:"device_id,omitempty"`
+	ActionID      string                         `json:"action_id,omitempty"      yaml:"action_id,omitempty"`
+	VersionID     string                         `json:"version_id,omitempty"     yaml:"version_id,omitempty"`
+	ActionCode    string                         `json:"action_code,omitempty"    yaml:"action_code,omitempty"`
+	Parameters    map[string]string              `json:"parameters,omitempty"     yaml:"parameters,omitempty"`
+	DeviceID      string                         `json:"device_id,omitempty"      yaml:"device_id,omitempty"`
+	BeforeActions []MobileAutomationBeforeAction `json:"before_actions,omitempty" yaml:"before_actions,omitempty"`
+}
+
+// MobileAutomationBeforeAction is a stored wallet action the pipeline runs in
+// the same Maestro flow, before the step's own action.
+type MobileAutomationBeforeAction struct {
+	ActionID   string            `json:"action_id"            yaml:"action_id"`
+	Parameters map[string]string `json:"parameters,omitempty" yaml:"parameters,omitempty"`
 }
 
 func NewMobileAutomationWorkflow() *MobileAutomationWorkflow {

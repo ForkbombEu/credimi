@@ -63,6 +63,20 @@ describe('wallet-action inline action_code', () => {
 		});
 	});
 
+	it('keeps before_actions through deserialize and serialize', async () => {
+		const withBeforeActions = {
+			...inlineYaml,
+			before_actions: [
+				{
+					action_id: 'tenant/wallet/issue-pid',
+					parameters: { deeplink: '${{ issue.outputs.body.deeplink }}' }
+				}
+			]
+		};
+		const data = await walletActionStepConfig.deserialize(withBeforeActions);
+		expect(walletActionStepConfig.serialize(data)).toEqual(withBeforeActions);
+	});
+
 	it('shows custom-code card metadata without exposing the script', async () => {
 		const data = await walletActionStepConfig.deserialize(inlineYaml);
 		const card = walletActionStepConfig.cardData(data);
