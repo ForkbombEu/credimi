@@ -316,14 +316,16 @@ func buildAggregate(
 		if err != nil {
 			return err
 		}
+		// The reset runs in the scenario's first wallet step when it can (see
+		// injectWalletActions).
+		var reset map[string]any
 		if drivesWallet(definition.Steps) {
 			if walletUsed {
-				reset := walletResetStep(prefix)
+				reset = walletResetStep(prefix)
 				resetID, _ := reset["id"].(string)
 				if err := claimStepID(seenStepIDs, resetID, path); err != nil {
 					return err
 				}
-				aggregate.Steps = append(aggregate.Steps, reset)
 			}
 			walletUsed = true
 			pidAvailable = map[credentialFormat]int{}
@@ -364,7 +366,17 @@ func buildAggregate(
 				pidAvailable,
 				fixture,
 			)
-			inserted, err := injectIssuances(rewritten, sessions, issuances, walletActions)
+			var stepReset map[string]any
+			if use == mobileAutomationTask {
+				stepReset, reset = reset, nil
+			}
+			inserted, err := injectWalletActions(
+				rewritten,
+				stepReset,
+				sessions,
+				issuances,
+				walletActions,
+			)
 			if err != nil {
 				return fmt.Errorf("FCAF scenario %s step %q: %w", path, id, err)
 			}
@@ -491,24 +503,28 @@ func pidIssuancesBefore(
 	return sessions, issuances
 }
 
-// injectIssuances returns the steps to insert before a wallet step for the
-// PIDs issued for it. When the step drives the wallet app, each issuance runs
-// as one of its before_actions, in the same Maestro flow, which saves a
-// mobile-automation run per issuance; a failed issuance then fails the step,
-// whose presentation would otherwise run on a wallet without the PID it needs.
-// A step driving another app, such as the browser of a DC API flow, cannot run
-// wallet commands, so its issuances stay separate steps.
-func injectIssuances(
+// injectWalletActions returns the steps to insert before a wallet step for
+// the wallet actions it needs first: the scenario's wallet reset when it is
+// the scenario's first wallet step, then the PIDs issued for it. When every
+// such action drives the step's own app, they run as its before_actions, in
+// the same Maestro flow, which saves a mobile-automation run each; a failed
+// one then fails the step, which would otherwise run on a wallet still holding
+// an earlier scenario's credentials or lacking the PID it needs. A step
+// driving another app, such as the browser of a DC API flow, cannot run wallet
+// commands, so its issuances stay separate steps, the first of which runs the
+// reset when it can.
+func injectWalletActions(
 	step map[string]any,
+	reset map[string]any,
 	sessions []map[string]any,
 	issuances []map[string]any,
 	actions map[string]string,
 ) ([]map[string]any, error) {
-	if len(issuances) == 0 {
+	if reset == nil && len(issuances) == 0 {
 		return sessions, nil
 	}
 	if use, _ := step["use"].(string); use != mobileAutomationTask {
-		return nil, fmt.Errorf("a %q step cannot present a PID", use)
+		return nil, fmt.Errorf("a %q step cannot run wallet actions", use)
 	}
 	with, _ := step["with"].(map[string]any)
 	code, _ := with["action_code"].(string)
@@ -524,24 +540,35 @@ func injectIssuances(
 	if err != nil {
 		return nil, err
 	}
-	issuanceApp, err := flowAppID(actions[issuanceActionID])
-	if err != nil {
-		return nil, fmt.Errorf("wallet action %q: %w", issuanceActionID, err)
+
+	before := make([]map[string]any, 0, len(issuances)+1)
+	if reset != nil {
+		before = append(before, map[string]any{"action_id": resetActionID})
+	}
+	before = append(before, issuances...)
+	combinable := true
+	for _, action := range before {
+		actionID, _ := action["action_id"].(string)
+		app, err := flowAppID(actions[actionID])
+		if err != nil {
+			return nil, fmt.Errorf("wallet action %q: %w", actionID, err)
+		}
+		combinable = combinable && app == stepApp
 	}
 
-	if stepApp == issuanceApp {
+	if combinable {
 		existing, _ := with["before_actions"].([]any)
-		before := make([]any, 0, len(issuances)+len(existing))
-		for _, issuance := range issuances {
-			before = append(before, issuance)
+		merged := make([]any, 0, len(before)+len(existing))
+		for _, action := range before {
+			merged = append(merged, action)
 		}
-		with["before_actions"] = append(before, existing...)
+		with["before_actions"] = append(merged, existing...)
 		return sessions, nil
 	}
-	steps := make([]map[string]any, 0, 2*len(issuances))
+	steps := make([]map[string]any, 0, 2*len(issuances)+1)
 	for i, issuance := range issuances {
 		sessionID, _ := sessions[i]["id"].(string)
-		steps = append(steps, sessions[i], map[string]any{
+		issue := map[string]any{
 			"id":                strings.TrimSuffix(sessionID, "-session"),
 			"use":               mobileAutomationTask,
 			"continue_on_error": true,
@@ -550,7 +577,18 @@ func injectIssuances(
 				"version_id": "installed_from_external_source",
 				"parameters": issuance["parameters"],
 			},
-		})
+		}
+		resetSteps, err := injectWalletActions(issue, reset, nil, nil, actions)
+		if err != nil {
+			return nil, err
+		}
+		reset = nil
+		steps = append(steps, sessions[i])
+		steps = append(steps, resetSteps...)
+		steps = append(steps, issue)
+	}
+	if reset != nil {
+		steps = append(steps, reset)
 	}
 	return steps, nil
 }

@@ -32,7 +32,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1528)
+	require.Len(t, definition.Steps, 1345)
 	require.NotContains(
 		t,
 		string(data),
@@ -136,7 +136,7 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 154)
+	require.Len(t, definition.Steps, 141)
 	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
 
 	validationSteps := make([]map[string]any, 0, 1)
@@ -267,6 +267,25 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 				resets++
 				continue
 			}
+			// A scenario's reset usually runs first in its first wallet step.
+			beforeActions, _ := with["before_actions"].([]any)
+			if len(beforeActions) > 0 {
+				if first, _ := beforeActions[0].(map[string]any); first["action_id"] == resetActionID {
+					require.Falsef(
+						t,
+						previousWalletStepResets,
+						"%s: %q resets a wallet that nothing used since the last reset",
+						pipeline,
+						id,
+					)
+					match := scenarioOf.FindStringSubmatch(id)
+					require.NotNilf(t, match, "%s: step %q has no scenario prefix", pipeline, id)
+					scenario = match[1]
+					available = map[credentialFormat]int{}
+					resets++
+					beforeActions = beforeActions[1:]
+				}
+			}
 			previousWalletStepResets = false
 			if scenario == afterPrelude {
 				match := scenarioOf.FindStringSubmatch(id)
@@ -281,6 +300,13 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 				id,
 			)
 			if issuesCredential(step) {
+				require.Emptyf(
+					t,
+					beforeActions,
+					"%s: issuance %q runs wallet actions other than a reset first",
+					pipeline,
+					id,
+				)
 				available[issuedCredentialFormat(source)]++
 				// An issuance injected as its own step, for a presentation
 				// driving another app, must be followed by that presentation.
@@ -302,7 +328,6 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 			}
 			// Other injected issuances run first, in the presentation's own
 			// flow, and accept the offer of an issuer session created for it.
-			beforeActions, _ := with["before_actions"].([]any)
 			for _, entry := range beforeActions {
 				issuance, _ := entry.(map[string]any)
 				require.Equalf(
