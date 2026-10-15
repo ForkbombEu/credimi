@@ -10,7 +10,6 @@ import {
 	prepareReportDisplay,
 	rebaseResultFileURLs,
 	screenshotsForTest,
-	sourceUrl,
 	statusIsFailed,
 	statusIsPassed,
 	testMatchesSearch,
@@ -330,14 +329,5 @@ describe('prepareReportDisplay', () => {
 			{ filter: 'all', searchQuery: '' }
 		);
 		expect(display.summaryFilters).toEqual([{ key: 'failed', label: 'Failed', count: 7 }]);
-	});
-});
-
-describe('sourceUrl', () => {
-	it('builds the FCAF docs anchor', () => {
-		expect(sourceUrl('WS_RP_DM_AddressData_001')).toBe(
-			'https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/test_cases/#ws_rp_dm_addressdata_001'
-		);
-		expect(sourceUrl(undefined)).toBeUndefined();
 	});
 });

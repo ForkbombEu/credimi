@@ -42,8 +42,13 @@ tags:
       - extendedWaitUntil:
           visible: "1"
           timeout: 30000
-      - inputText: "12345"
-      - tapOn: "6"
+          optional: true
+      - runFlow:
+          when:
+            visible: "1"
+          commands:
+            - inputText: "12345"
+            - tapOn: "6"
 - extendedWaitUntil:
     visible: "Home|Documents|Add document|Welcome, .*"
     timeout: 30000
@@ -74,8 +79,13 @@ tags:
       - extendedWaitUntil:
           visible: "1"
           timeout: 30000
-      - inputText: "12345"
-      - tapOn: "6"
+          optional: true
+      - runFlow:
+          when:
+            visible: "1"
+          commands:
+            - inputText: "12345"
+            - tapOn: "6"
       - waitForAnimationToEnd:
           timeout: 3000
 # Phase 2: the request screen alone, over a long window because a Wallet that

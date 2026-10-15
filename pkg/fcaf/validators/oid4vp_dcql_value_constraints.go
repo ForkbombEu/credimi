@@ -311,3 +311,77 @@ func credentialQueryForVCT(
 		Message: fmt.Sprintf("dcql_query has no credential query for vct %q", vct),
 	}
 }
+
+// vctPresentations returns the presentation strings one exchange returned for
+// the credential query selecting the given vct.
+func vctPresentations(root map[string]any, vct string, exchangeIndex int) ([]string, *Result) {
+	queryValue, found := findObjectKey(root, "dcql_query")
+	if !found {
+		return nil, &Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"exchange %d does not contain dcql_query",
+				exchangeIndex,
+			),
+		}
+	}
+	query, ok := normalizeJSONObject(queryValue)
+	if !ok {
+		return nil, &Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("exchange %d dcql_query is not an object", exchangeIndex),
+		}
+	}
+	credentialID, result := credentialQueryIDForVCT(query, vct)
+	if result != nil {
+		return nil, result
+	}
+	responseValue, found := findObjectKey(root, "vp_token")
+	if !found {
+		return nil, &Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("exchange %d does not contain vp_token", exchangeIndex),
+		}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return nil, &Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("exchange %d vp_token is not an object", exchangeIndex),
+		}
+	}
+	entries, ok := response[credentialID].([]any)
+	if !ok || len(entries) == 0 {
+		return nil, &Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"exchange %d returned no presentation for credential query %q",
+				exchangeIndex,
+				credentialID,
+			),
+		}
+	}
+	tokens := make([]string, 0, len(entries))
+	for index, entry := range entries {
+		token, ok := entry.(string)
+		if !ok || token == "" {
+			return nil, &Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"exchange %d presentation %d is not an SD-JWT",
+					exchangeIndex,
+					index,
+				),
+			}
+		}
+		tokens = append(tokens, token)
+	}
+	return tokens, nil
+}
+
+// credentialQueryIDForVCT returns the id of the credential query that selects
+// the given vct.
+func credentialQueryIDForVCT(query map[string]any, vct string) (string, *Result) {
+	_, id, result := credentialQueryForVCT(query, vct)
+	return id, result
+}

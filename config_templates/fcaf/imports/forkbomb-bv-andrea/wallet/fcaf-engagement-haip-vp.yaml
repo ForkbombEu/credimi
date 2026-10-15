@@ -17,26 +17,44 @@ tags:
       - inputText: "12345"
       - tapOn: "6"
 - waitForAnimationToEnd: { timeout: 3000 }
+# This flow succeeds only on a completed presentation, so its screenshots reach
+# a test's visual evidence only then. A Wallet that refuses the request shows
+# no usable Share button and fails the step; the screenshot below is taken
+# first so the refusal screen is still stored on the pipeline result for
+# review, without counting as evidence of a presentation.
+- extendedWaitUntil:
+    visible: "Share|Oups! Something went wrong|The requested document is not available.*|invalid request"
+    timeout: 30000
+    optional: true
+- takeScreenshot: fcaf-engagement-haip-vp-request
 - scrollUntilVisible:
     element: "Share"
+# Taken only while the consent screen is up: tests use it as evidence that the
+# Wallet asked for consent.
 - takeScreenshot: fcaf-engagement-haip-vp-invoked
 - tapOn:
     text: "Share"
     waitToSettleTimeoutMs: 1000
+# A Wallet may ask for a second PIN after Share or skip it; only the success
+# screen is required.
 - extendedWaitUntil:
-    visible: "PIN"
-    timeout: 3000
+    visible: "PIN|.*successfully shared.*"
+    timeout: 30000
+    optional: true
 - runFlow:
     when:
       visible: "PIN"
     commands:
       - inputText: "12345"
       - tapOn: "6"
-- waitForAnimationToEnd:
-    timeout: 1000
-- scrollUntilVisible:
-    element: ".*successfully shared.*"
-- tapOn: "View details"
+- extendedWaitUntil:
+    visible: ".*successfully shared.*"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "View details"
+    commands:
+      - tapOn: "View details"
 - waitForAnimationToEnd:
     timeout: 1000
 - takeScreenshot: fcaf-engagement-haip-vp-shared

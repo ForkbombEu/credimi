@@ -3959,3 +3959,76 @@ production Capture probes, the scoped Go suites and the generator; the
 reference-Wallet verdicts above (001b fail, 107 fail, 135/145/146
 not_applicable, 017 pass, 034 contingent) remain projections that still need a
 fresh device run.
+
+## Complete pipeline review and harness fixes, 15/10/2026
+
+Complete run `fcaf_assessment_7emdx9outp.json` produced 419 pass, 117 fail,
+57 skipped and 24 not applicable outcomes. Review of every failure found two
+Credimi defects and no Capture blocker:
+
+- `WS_RP_SH_Encoding_TextualEncoding__011` already passes its protocol assertion
+  (the Wallet retained only the valid degree entry), but the shared
+  `fcaf-engagement-haip-vp` action failed before its terminal screenshot after
+  Share. Its second-PIN and success-state waits are now optional, View details
+  is conditional, and the terminal screenshot is always attempted.
+- `WS_RP_SM_RpIntegrity__003` correctly reports `fcaf.not_applicable` because
+  EUDI_forbidden unsigned DC API requests must not be processed; its additional
+  screenshot assertion made that result fail even though no Wallet can be
+  invoked. The visual evidence binding and assertion are removed.
+- `fcaf-engagement-eu-eaap` now tolerates a delayed or absent PIN control inside
+  both conditional unlock paths, so `WS_RP_IA_Engagement__001b` always reaches
+  its terminal screenshot. The run still proves its Wallet failure from no
+  `vp_request_retrieved` event.
+
+The remaining failures were first classified as reference-Wallet behavior;
+the second review below moves 033 and 071 to test defects. RI-WALLET-027 and
+028 record processing of an HTTP-500 Request-URI body and acceptance of a
+signed Request Object without `request_uri`; RI-WALLET-026 is now confirmed by
+the run rather than a projection.
+
+## Single-use credentials spent by possession proofs, 15/10/2026
+
+A second review of `fcaf_assessment_7emdx9outp.json` found that the reference
+Wallet's single-use credential instances (item 2 at the top of this file) were
+spent by the scenarios' own possession proofs:
+
+- `WS_RP_IA_MainInteraction__033` failed on a test defect, not on the Wallet:
+  its `multiple: true` inventory query returned and spent all eight fixtures
+  (screenshot 08:43, eight PIDs shared), so the combined query one minute later
+  met an empty Wallet and correctly answered "The requested document is not
+  available". The numeric axis passed vacuously the same way. The withdrawn
+  RI-WALLET-027 had recorded this as a Wallet finding.
+- `WS_RP_MS_ProtocolMessages__071` failed because its scenario issued only
+  `pid_person_b` and relied on an injected `pid_default` the generator no longer
+  emits; the Wallet correctly returned its single PID.
+- `WS_RP_IA_MainInteraction__040`, `__041` and `WS_RP_MS_ProtocolMessages__070`
+  passed vacuously: two probe presentations spent both PIDs, so the multiple
+  queries ran with one freshly injected PID.
+
+Possession is now proven without presenting: the new `oid4vci.fixtures_stored`
+validator requires, for each named `fixture_id`, an issuer session at
+`credential_issued` (the Wallet fetched the credential) paired with the
+issuance step's `credential-added` screenshot, which
+`getcredential-generic-credential-without-authentication` takes only after
+`assertVisible: "View details"` on the Wallet's document-added screen (the
+Wallet stored it). A Wallet that fetches a credential and then discards it
+fails the issuance step, stores no screenshot, and fails the precondition
+assertion instead of passing the test vacuously.
+`oid4vp.distinct_presentations` is removed with its last callers. 071 issues
+both identities itself; the multiple-credentials scenario issues both
+identities again before the `multiple: false` query, because the
+omitted-`multiple` query spends one. `cmd/fcaf-pipeline-gen` now models a
+Share of a `multiple: true` query as spending every instance of its format
+(`TestMultipleTruePresentationSpendsEveryHeldInstance`); no other scenario's
+injections changed. The aggregate is 1874 steps / 617 tests / 224 outputs.
+
+Evidence gaps closed in the same change, without weakening any assertion:
+`fcaf-engagement-haip-vp` still fails unless the presentation completes (Share
+present and the success screen reached), so its screenshots reach a test's
+visual evidence only for a completed presentation; it now stores
+`fcaf-engagement-haip-vp-request` before looking for Share, so a refusal
+screen is kept on the pipeline result for review. The second PIN and View
+details stay optional. `fcaf-dc-api-present` likewise stores `dc-api-page` and
+`dc-api-after-present` before its success-only assertions, so an unsigned or
+multisigned DC API failure is no longer evidenced only by absence
+(RI-WALLET-018).

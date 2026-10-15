@@ -85,11 +85,11 @@ func TestFCAFSourceURLAnchorsOnSourceHeading(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.heading, func(t *testing.T) {
-			require.Equal(t, fcafTestCasesURL+"#"+tt.anchor, fcafSourceURL(tt.heading))
+			require.Equal(t, fcafTestCasesURL+"#"+tt.anchor, SourceURL(tt.heading))
 		})
 	}
 
-	require.Empty(t, fcafSourceURL(""))
+	require.Empty(t, SourceURL(""))
 }
 
 func TestBuildDocumentAttachesPerTestVisualEvidence(t *testing.T) {

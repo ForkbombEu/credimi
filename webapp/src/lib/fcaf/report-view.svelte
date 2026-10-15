@@ -15,7 +15,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		checksForTest,
 		prepareReportDisplay,
 		screenshotsForTest,
-		sourceUrl,
 		statusClass,
 		statusDotClass,
 		type CategoryGroup,
@@ -95,9 +94,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="font-medium">
 					{test.title ?? test.test_id}
 				</div>
-				{#if sourceUrl(test.test_id)}
+				{#if test.source_url}
 					<a
-						href={sourceUrl(test.test_id)}
+						href={test.source_url}
 						target="_blank"
 						rel="noreferrer"
 						class="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"

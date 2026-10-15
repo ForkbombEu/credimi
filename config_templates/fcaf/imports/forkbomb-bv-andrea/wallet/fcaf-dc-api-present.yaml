@@ -25,13 +25,21 @@ tags:
     link: "${presentation_url}"
     autoVerify: false
     browser: true
+# The two screenshots below record the page and the screen reached after the
+# button press. The flow still fails on any outcome but an accepted
+# presentation; these screenshots are what remains when it does, so a Wallet
+# the platform never offered is told apart from a page that never loaded.
 - extendedWaitUntil:
     visible: "Present credential"
     timeout: 60000
+    optional: true
+- takeScreenshot: dc-api-page
 - tapOn: "Present credential"
 - extendedWaitUntil:
     visible: "Continue|Agree and continue|Welcome back|Share|Cancel|.*(did not complete|answered without a presentation|Presentation accepted).*"
     timeout: 120000
+    optional: true
+- takeScreenshot: dc-api-after-present
 # Chrome asks once per origin whether the site may read the wallet.
 - runFlow:
     when:
