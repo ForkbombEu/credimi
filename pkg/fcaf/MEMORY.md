@@ -3959,3 +3959,29 @@ production Capture probes, the scoped Go suites and the generator; the
 reference-Wallet verdicts above (001b fail, 107 fail, 135/145/146
 not_applicable, 017 pass, 034 contingent) remain projections that still need a
 fresh device run.
+
+## Complete pipeline review and harness fixes, 15/10/2026
+
+Complete run `fcaf_assessment_7emdx9outp.json` produced 419 pass, 117 fail,
+57 skipped and 24 not applicable outcomes. Review of every failure found two
+Credimi defects and no Capture blocker:
+
+- `WS_RP_SH_Encoding_TextualEncoding__011` already passes its protocol assertion
+  (the Wallet retained only the valid degree entry), but the shared
+  `fcaf-engagement-haip-vp` action failed before its terminal screenshot after
+  Share. Its second-PIN and success-state waits are now optional, View details
+  is conditional, and the terminal screenshot is always attempted.
+- `WS_RP_SM_RpIntegrity__003` correctly reports `fcaf.not_applicable` because
+  EUDI_forbidden unsigned DC API requests must not be processed; its additional
+  screenshot assertion made that result fail even though no Wallet can be
+  invoked. The visual evidence binding and assertion are removed.
+- `fcaf-engagement-eu-eaap` now tolerates a delayed or absent PIN control inside
+  both conditional unlock paths, so `WS_RP_IA_Engagement__001b` always reaches
+  its terminal screenshot. The run still proves its Wallet failure from no
+  `vp_request_retrieved` event.
+
+The remaining 115 failures are reference-Wallet behavior. New observed entries
+RI-WALLET-027 through 029 record the combined-constraints omission, processing
+of an HTTP-500 Request-URI body, and acceptance of a signed Request Object
+without `request_uri`; RI-WALLET-026 is now confirmed by the run rather than a
+projection.

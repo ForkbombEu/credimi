@@ -19,8 +19,6 @@ normative_references:
 evidence:
   session:
     from: pipeline.dc-api.unsigned.outputs.session
-  visual_evidence:
-    from: pipeline.dc-api.unsigned.outputs.visual_evidence
 assertions:
 - id: verifier_delivered_an_unsigned_dc_api_request
   validator: oid4vp.dc_api_invocation
@@ -34,8 +32,5 @@ assertions:
     reason: >-
       source relevancy is EUDI_forbidden: an EUDI wallet must not support
       processing an unsigned request without signature validation
-- id: visual_evidence_is_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass
