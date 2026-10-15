@@ -93,6 +93,8 @@ github.com/forkbombeu/credimi-extra v1.18.1-0.20261015133820-ee9059846927 h1:wmK
 github.com/forkbombeu/credimi-extra v1.18.1-0.20261015133820-ee9059846927/go.mod h1:SweYLvlz1JVCQffxMCFjYkV7FmA81dp3z8w+kKW2hjA=
 github.com/forkbombeu/credimi-extra v1.18.1-0.20261015135436-94680a00b14a h1:4FQcFW+g4DkZZIrAwjiBdq2AU89BLw/cidoqg1DDlk4=
 github.com/forkbombeu/credimi-extra v1.18.1-0.20261015135436-94680a00b14a/go.mod h1:SweYLvlz1JVCQffxMCFjYkV7FmA81dp3z8w+kKW2hjA=
+github.com/forkbombeu/credimi-extra v1.18.1-0.20261015143205-9504b9ace219 h1:xh5KhkegGqNizCDEwnWw4hBML0xmjKHXhkSmujf1EAw=
+github.com/forkbombeu/credimi-extra v1.18.1-0.20261015143205-9504b9ace219/go.mod h1:SweYLvlz1JVCQffxMCFjYkV7FmA81dp3z8w+kKW2hjA=
 github.com/forkbombeu/eudi-conformance-evidence v1.7.0 h1:YqZvKmcm1aDcW7L00EI0S5yJrQxExFU3HDIEasiHgGg=
 github.com/forkbombeu/eudi-conformance-evidence v1.7.0/go.mod h1:XGCDUqIPYIesNmhiqu/Xih/R0blR7MJoP5U0MZ7xtAE=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=

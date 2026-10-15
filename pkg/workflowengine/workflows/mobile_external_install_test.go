@@ -51,7 +51,8 @@ func TestMobileAutomationWorkflowChecksExternallyInstalledApp(t *testing.T) {
 		Once()
 	for _, apps := range [][]string{
 		{"com.example.old"},
-		{"com.example.installed", "com.example.old"},
+		// The flow leaves Maestro's driver installed next to the store app.
+		{"com.example.installed", "com.example.old", "dev.mobile.maestro", "dev.mobile.maestro.test"},
 	} {
 		env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload := workflowengine.AsMap(input.Payload)

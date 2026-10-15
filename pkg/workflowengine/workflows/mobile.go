@@ -475,6 +475,16 @@ func waitForAddedInstalledApps(
 	}
 }
 
+// maestroDriverPackages are installed by the Maestro flow itself: Android
+// runs keep the driver between flows (--no-reinstall-driver), so it shows up
+// as a new app next to the one the flow installed from the store.
+var maestroDriverPackages = map[string]struct{}{
+	"dev.mobile.maestro":      {},
+	"dev.mobile.maestro.test": {},
+}
+
+// diffAddedApps returns the apps in after that are not in before, ignoring
+// the Maestro driver.
 func diffAddedApps(before, after []string) []string {
 	beforeSet := make(map[string]struct{}, len(before))
 	for _, appID := range before {
@@ -492,6 +502,9 @@ func diffAddedApps(before, after []string) []string {
 			continue
 		}
 		if _, exists := beforeSet[trimmed]; exists {
+			continue
+		}
+		if _, driver := maestroDriverPackages[trimmed]; driver {
 			continue
 		}
 		added = append(added, trimmed)
