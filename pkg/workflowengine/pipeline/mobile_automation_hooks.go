@@ -1145,7 +1145,11 @@ func installAppIfNeeded(
 			Config:  workflowengine.ActivityTelemetryConfig(input.mobileCtx, nil),
 		}
 		installOutput := workflowengine.ActivityResult{}
-		if err := workflow.ExecuteActivity(input.mobileCtx, input.activities.Install, installInput).
+		installCtx := workflow.WithActivityOptions(
+			input.mobileCtx,
+			withDeviceRebootBudget(workflow.GetActivityOptions(input.mobileCtx)),
+		)
+		if err := workflow.ExecuteActivity(installCtx, input.activities.Install, installInput).
 			Get(input.mobileCtx, &installOutput); err != nil {
 			return err
 		}
@@ -1533,6 +1537,27 @@ func mobileRunnerActivityOptions(
 	return options
 }
 
+// deviceRebootAttemptTimeout is the minimum time per attempt for runner
+// activities that may reboot an Android device to free its exhausted app UIDs
+// (APK install and device cleanup). A reboot and the wait until the device is
+// usable again take a few minutes, longer for a Wi-Fi device that has to be
+// found again on the network.
+const deviceRebootAttemptTimeout = 10 * time.Minute
+
+// withDeviceRebootBudget raises the timeouts of options so one attempt can
+// reboot the device and a retry still fits in the schedule-to-close budget.
+func withDeviceRebootBudget(options workflow.ActivityOptions) workflow.ActivityOptions {
+	if options.StartToCloseTimeout != 0 &&
+		options.StartToCloseTimeout < deviceRebootAttemptTimeout {
+		options.StartToCloseTimeout = deviceRebootAttemptTimeout
+	}
+	if options.ScheduleToCloseTimeout != 0 &&
+		options.ScheduleToCloseTimeout < 2*deviceRebootAttemptTimeout {
+		options.ScheduleToCloseTimeout = 2 * deviceRebootAttemptTimeout
+	}
+	return options
+}
+
 func shouldSkipDeviceCleanup(runData map[string]any, deviceID string) bool {
 	rawPolicy, ok := runData[pipelineCancellationPolicyRunDataKey]
 	if !ok {
@@ -1587,7 +1612,7 @@ func cleanupDevice(
 	if !ok {
 		return missingDeviceHostRunnerID(input.deviceID, deviceMap)
 	}
-	mobileAo := mobileRunnerActivityOptions(input.mobileAo, hostRunnerID)
+	mobileAo := withDeviceRebootBudget(mobileRunnerActivityOptions(input.mobileAo, hostRunnerID))
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAo)
 
 	cleanupRecording(cleanupRecordingInput{

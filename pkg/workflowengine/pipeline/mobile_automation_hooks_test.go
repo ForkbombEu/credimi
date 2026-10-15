@@ -395,6 +395,50 @@ func TestMobileRunnerActivityOptionsAddHeartbeatAndPreserveRetryPolicy(t *testin
 	require.Equal(t, int32(5), options.RetryPolicy.MaximumAttempts)
 }
 
+func TestWithDeviceRebootBudget(t *testing.T) {
+	tests := []struct {
+		name                string
+		startToClose        time.Duration
+		scheduleToClose     time.Duration
+		wantStartToClose    time.Duration
+		wantScheduleToClose time.Duration
+	}{
+		{
+			name:                "raises pipeline defaults",
+			startToClose:        5 * time.Minute,
+			scheduleToClose:     10 * time.Minute,
+			wantStartToClose:    10 * time.Minute,
+			wantScheduleToClose: 20 * time.Minute,
+		},
+		{
+			name:                "keeps longer timeouts",
+			startToClose:        15 * time.Minute,
+			scheduleToClose:     time.Hour,
+			wantStartToClose:    15 * time.Minute,
+			wantScheduleToClose: time.Hour,
+		},
+		{
+			name:                "leaves unset timeouts unset",
+			wantStartToClose:    0,
+			wantScheduleToClose: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			options := withDeviceRebootBudget(workflow.ActivityOptions{
+				StartToCloseTimeout:    tt.startToClose,
+				ScheduleToCloseTimeout: tt.scheduleToClose,
+				HeartbeatTimeout:       30 * time.Second,
+				TaskQueue:              "runner-1-TaskQueue",
+			})
+			require.Equal(t, tt.wantStartToClose, options.StartToCloseTimeout)
+			require.Equal(t, tt.wantScheduleToClose, options.ScheduleToCloseTimeout)
+			require.Equal(t, 30*time.Second, options.HeartbeatTimeout)
+			require.Equal(t, "runner-1-TaskQueue", options.TaskQueue)
+		})
+	}
+}
+
 func TestInstallAppIfNeededUsesPlatformActivity(t *testing.T) {
 	tests := []struct {
 		name           string
