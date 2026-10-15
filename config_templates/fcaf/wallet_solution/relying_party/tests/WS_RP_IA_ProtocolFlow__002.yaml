@@ -13,18 +13,18 @@ normative_references:
 - title: High Assurance Interoperability Profile
   section: '5.1'
   url: https://openid.net/specs/openid-4-high-assurance-interoperability-profile-1_0.html
-- ref: pipeline.dcql.interaction-protocol-flow
+- ref: pipeline.dcql.baseline
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.interaction-protocol-flow.outputs.dcql_exchange
+    from: pipeline.dcql.baseline.outputs.session
   visual_evidence:
-    from: pipeline.dcql.interaction-protocol-flow.outputs.visual_evidence
+    from: pipeline.dcql.baseline.outputs.visual_evidence
   signed_request_object:
-    from: pipeline.dcql.interaction-protocol-flow.outputs.signed_request_object
+    from: pipeline.dcql.baseline.outputs.signed_request_object
   request_uri_payload:
-    from: pipeline.dcql.interaction-protocol-flow.outputs.request_uri_payload
+    from: pipeline.dcql.baseline.outputs.request_uri_payload
   session_checks:
-    from: pipeline.dcql.interaction-protocol-flow.outputs.session_checks
+    from: pipeline.dcql.baseline.outputs.session_checks
 assertions:
 - id: signed_request_signature_is_valid
   validator: jose.jws_signed_request

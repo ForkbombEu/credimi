@@ -13,10 +13,10 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.dcql.baseline
 evidence:
   session:
-    from: pipeline.dcql.protocol-messages.outputs.capture_session
+    from: pipeline.dcql.baseline.outputs.session
 assertions:
 - id: trusted_authorities_etsi_tl_is_matched_against_a_trust_list
   validator: fcaf.skipped

@@ -4032,3 +4032,33 @@ details stay optional. `fcaf-dc-api-present` likewise stores `dc-api-page` and
 `dc-api-after-present` before its success-only assertions, so an unsigned or
 multisigned DC API failure is no longer evidenced only by absence
 (RI-WALLET-018).
+
+## One shared baseline PID presentation, 15/10/2026
+
+Fifteen scenarios sent the identical baseline request (haip-vp, by-reference
+Request Object retrieved with POST, direct_post.jwt, SD-JWT PID `given_name`;
+only the nonce label differed), each with its own wallet reset, injected PID
+and `fcaf-exercise-wallet-generic` presentation. They now share
+`scenarios/fcaf-wallet-solution-relying-party-dcql-baseline.yaml`, whose source
+`pipeline.dcql.baseline` exposes the session and every value the 66 rebound
+tests read (`session`, `visual_evidence`, `vp_token`, `wallet_response`,
+`request_object`, `request_uri_payload`, `session_checks`,
+`signed_request_object`, `client_id_evidence`, `wallet_nonce_evidence`, and the
+pipeline's own Request URI probe as `request_uri_response` /
+`probe_request_object`). No test pins a nonce label, so the evidence is the same
+whichever copy produced it.
+
+Ten scenarios were only the baseline and are deleted (cryptography,
+device-binding, encoding, interaction-engagement, interaction-protocol-flow,
+interaction-supportive, issuer-integrity, metadata, presentation,
+request-uri-post). Five keep their other sessions and lose only the baseline
+part (credential-formats, interaction-metadata, main-interaction,
+protocol-messages, rp-integrity). Metadata 108 and 141, owned only by the
+deleted metadata scenario but reading other evidence, move to the scenarios
+that produce it (request-object-by-value, credential-formats). Response
+encryption per-request keys and the invalid-nonce session keep their own
+sessions: their request deliberately differs (two sessions, a malformed nonce).
+
+The complete aggregate drops from 1874 to 1794 steps (826 to 789 wallet steps,
+617 tests unchanged, 213 outputs); the happy flow is 173 steps / 308 tests / 32
+outputs, having gained the baseline tests of the deleted scenarios.
