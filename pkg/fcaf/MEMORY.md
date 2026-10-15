@@ -3980,8 +3980,46 @@ Credimi defects and no Capture blocker:
   its terminal screenshot. The run still proves its Wallet failure from no
   `vp_request_retrieved` event.
 
-The remaining 115 failures are reference-Wallet behavior. New observed entries
-RI-WALLET-027 through 029 record the combined-constraints omission, processing
-of an HTTP-500 Request-URI body, and acceptance of a signed Request Object
-without `request_uri`; RI-WALLET-026 is now confirmed by the run rather than a
-projection.
+The remaining failures were first classified as reference-Wallet behavior;
+the second review below moves 033 and 071 to test defects. RI-WALLET-027 and
+028 record processing of an HTTP-500 Request-URI body and acceptance of a
+signed Request Object without `request_uri`; RI-WALLET-026 is now confirmed by
+the run rather than a projection.
+
+## Single-use credentials spent by possession proofs, 15/10/2026
+
+A second review of `fcaf_assessment_7emdx9outp.json` found that the reference
+Wallet's single-use credential instances (item 2 at the top of this file) were
+spent by the scenarios' own possession proofs:
+
+- `WS_RP_IA_MainInteraction__033` failed on a test defect, not on the Wallet:
+  its `multiple: true` inventory query returned and spent all eight fixtures
+  (screenshot 08:43, eight PIDs shared), so the combined query one minute later
+  met an empty Wallet and correctly answered "The requested document is not
+  available". The numeric axis passed vacuously the same way. The withdrawn
+  RI-WALLET-027 had recorded this as a Wallet finding.
+- `WS_RP_MS_ProtocolMessages__071` failed because its scenario issued only
+  `pid_person_b` and relied on an injected `pid_default` the generator no longer
+  emits; the Wallet correctly returned its single PID.
+- `WS_RP_IA_MainInteraction__040`, `__041` and `WS_RP_MS_ProtocolMessages__070`
+  passed vacuously: two probe presentations spent both PIDs, so the multiple
+  queries ran with one freshly injected PID.
+
+Possession is now proven from the issuer sessions: the new
+`oid4vci.fixtures_issued` validator requires a `credential_issued` issuer
+session for each named `fixture_id`, and `oid4vp.distinct_presentations` is
+removed with its last callers. 071 issues both identities itself; the
+multiple-credentials scenario issues both identities again before the
+`multiple: false` query, because the omitted-`multiple` query spends one.
+`cmd/fcaf-pipeline-gen` now models a Share of a `multiple: true` query as
+spending every instance of its format
+(`TestMultipleTruePresentationSpendsEveryHeldInstance`); no other scenario's
+injections changed. The aggregate is 1874 steps / 617 tests / 224 outputs.
+
+Evidence gaps closed in the same change: `fcaf-engagement-haip-vp` no longer
+fails when the Wallet shows no Share button (the consent screenshot stays
+conditional on Share; the terminal screenshot is now
+`fcaf-engagement-haip-vp-outcome` and always taken), and `fcaf-dc-api-present`
+stores `dc-api-page` and `dc-api-after-present` before its success-only
+assertions, so an unsigned or multisigned DC API failure is no longer evidenced
+only by absence (RI-WALLET-018).

@@ -4913,48 +4913,61 @@ steps:
             deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-expiry-trap-issuance.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-combined-value-constraints-6bdb8a96-create-fixture-inventory-request
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - document_number
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                          multiple: true
-                nonce: combined-value-constraints-inventory
-            request_delivery: by_reference
-            request_uri_method: post
-            response_mode: direct_post.jwt
-            response_type: vp_token
-            scheme: haip-vp://
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: dcql-combined-value-constraints-6bdb8a96-present-fixture-inventory-request
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-        parameters:
-            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-fixture-inventory-request.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-combined-value-constraints-6bdb8a96-fetch-fixture-inventory-request
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-full-match-issuance
       use: http-request
       with:
         expected_status: 200
         method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-fixture-inventory-request.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-full-match-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-age-trap-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-age-trap-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-case-trap-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-case-trap-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-whitespace-trap-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-whitespace-trap-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-diacritics-trap-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-diacritics-trap-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-no-diacritics-trap-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-no-diacritics-trap-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-array-trap-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-array-trap-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-expiry-trap-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-expiry-trap-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-create-combined-constraint-request
       use: http-request
@@ -5039,48 +5052,12 @@ steps:
             deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-numeric-type-trap-issuance.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-combined-value-constraints-6bdb8a96-create-numeric-inventory-request
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - kg
-                          format: dc+sd-jwt
-                          id: numeric
-                          meta:
-                            vct_values:
-                                - urn:credimi:numeric-claims:1
-                          multiple: true
-                nonce: combined-value-constraints-numeric-inventory
-            request_delivery: by_reference
-            request_uri_method: post
-            response_mode: direct_post.jwt
-            response_type: vp_token
-            scheme: haip-vp://
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: dcql-combined-value-constraints-6bdb8a96-present-numeric-inventory-request
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-        parameters:
-            deeplink: ${{ dcql-combined-value-constraints-6bdb8a96-create-numeric-inventory-request.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-combined-value-constraints-6bdb8a96-fetch-numeric-inventory-request
+      id: dcql-combined-value-constraints-6bdb8a96-fetch-numeric-type-trap-issuance
       use: http-request
       with:
         expected_status: 200
         method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-numeric-inventory-request.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-combined-value-constraints-6bdb8a96-create-numeric-type-trap-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-combined-value-constraints-6bdb8a96-create-numeric-type-trap-request
       use: http-request
@@ -10923,6 +10900,34 @@ steps:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: dcql-multiple-true-ad438f05-create-first-matching-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_default
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: dcql-multiple-true-ad438f05-obtain-first-matching-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ dcql-multiple-true-ad438f05-create-first-matching-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-multiple-true-ad438f05-fetch-first-matching-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-multiple-true-ad438f05-create-first-matching-issuance.outputs.body.session_id }}
+    - continue_on_error: true
       id: dcql-multiple-true-ad438f05-create-second-matching-issuance
       use: http-request
       with:
@@ -10943,6 +10948,13 @@ steps:
         parameters:
             deeplink: ${{ dcql-multiple-true-ad438f05-create-second-matching-issuance.outputs.body.deeplink }}
         version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-multiple-true-ad438f05-fetch-second-matching-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ dcql-multiple-true-ad438f05-create-second-matching-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-multiple-true-ad438f05-create-presentation
       use: http-request
@@ -21576,6 +21588,13 @@ steps:
             deeplink: ${{ pid-multiple-credentials-3e946b72-create-baseline-issuance.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
+      id: pid-multiple-credentials-3e946b72-fetch-baseline-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ pid-multiple-credentials-3e946b72-create-baseline-issuance.outputs.body.session_id }}
+    - continue_on_error: true
       id: pid-multiple-credentials-3e946b72-create-second-identity-issuance
       use: http-request
       with:
@@ -21597,97 +21616,12 @@ steps:
             deeplink: ${{ pid-multiple-credentials-3e946b72-create-second-identity-issuance.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: pid-multiple-credentials-3e946b72-create-baseline-probe
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - family_name
-                              values:
-                                - Rossi
-                            - path:
-                                - document_number
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                nonce: pid-fixture-probe-baseline
-            request_delivery: by_reference
-            request_uri_method: post
-            response_mode: direct_post.jwt
-            response_type: vp_token
-            scheme: haip-vp://
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: pid-multiple-credentials-3e946b72-present-baseline-probe
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-        parameters:
-            deeplink: ${{ pid-multiple-credentials-3e946b72-create-baseline-probe.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: pid-multiple-credentials-3e946b72-fetch-baseline-probe
+      id: pid-multiple-credentials-3e946b72-fetch-second-identity-issuance
       use: http-request
       with:
         expected_status: 200
         method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ pid-multiple-credentials-3e946b72-create-baseline-probe.outputs.body.session_id }}
-    - continue_on_error: true
-      id: pid-multiple-credentials-3e946b72-create-second-identity-probe
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - family_name
-                              values:
-                                - Bianchi
-                            - path:
-                                - document_number
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                nonce: pid-fixture-probe-second-identity
-            request_delivery: by_reference
-            request_uri_method: post
-            response_mode: direct_post.jwt
-            response_type: vp_token
-            scheme: haip-vp://
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: pid-multiple-credentials-3e946b72-present-second-identity-probe
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-        parameters:
-            deeplink: ${{ pid-multiple-credentials-3e946b72-create-second-identity-probe.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: pid-multiple-credentials-3e946b72-fetch-second-identity-probe
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ pid-multiple-credentials-3e946b72-create-second-identity-probe.outputs.body.session_id }}
+        url: https://capture-wallet.credimi.io/sessions/${{ pid-multiple-credentials-3e946b72-create-second-identity-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: pid-multiple-credentials-3e946b72-create-multiple-omitted
       use: http-request
@@ -21718,26 +21652,6 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: pid-multiple-credentials-3e946b72-present-multiple-omitted-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
-      id: pid-multiple-credentials-3e946b72-present-multiple-omitted-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ pid-multiple-credentials-3e946b72-present-multiple-omitted-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: pid-multiple-credentials-3e946b72-present-multiple-omitted
       use: mobile-automation
       with:
@@ -21752,6 +21666,62 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ pid-multiple-credentials-3e946b72-create-multiple-omitted.outputs.body.session_id }}
+    - continue_on_error: true
+      id: pid-multiple-credentials-3e946b72-create-replacement-baseline-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_default
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: pid-multiple-credentials-3e946b72-obtain-replacement-baseline-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ pid-multiple-credentials-3e946b72-create-replacement-baseline-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: pid-multiple-credentials-3e946b72-fetch-replacement-baseline-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ pid-multiple-credentials-3e946b72-create-replacement-baseline-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: pid-multiple-credentials-3e946b72-create-replacement-second-identity-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_person_b
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: pid-multiple-credentials-3e946b72-obtain-replacement-second-identity-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ pid-multiple-credentials-3e946b72-create-replacement-second-identity-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: pid-multiple-credentials-3e946b72-fetch-replacement-second-identity-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ pid-multiple-credentials-3e946b72-create-replacement-second-identity-issuance.outputs.body.session_id }}
     - continue_on_error: true
       id: pid-multiple-credentials-3e946b72-create-multiple-false
       use: http-request
@@ -21782,26 +21752,6 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: pid-multiple-credentials-3e946b72-present-multiple-false-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
-      id: pid-multiple-credentials-3e946b72-present-multiple-false-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ pid-multiple-credentials-3e946b72-present-multiple-false-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
     - continue_on_error: true
       id: pid-multiple-credentials-3e946b72-present-multiple-false
       use: mobile-automation
@@ -27087,8 +27037,16 @@ steps:
             pipeline.dcql.combined-value-constraints:
                 output:
                     dcql_exchange: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-combined-constraint-request.outputs.body | optional }}
-                    fixture_inventory: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-fixture-inventory-request.outputs.body | optional }}
-                    numeric_inventory: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-numeric-inventory-request.outputs.body | optional }}
+                    fixture_issuances:
+                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-full-match-issuance.outputs.body | optional }}
+                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-age-trap-issuance.outputs.body | optional }}
+                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-case-trap-issuance.outputs.body | optional }}
+                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-whitespace-trap-issuance.outputs.body | optional }}
+                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-diacritics-trap-issuance.outputs.body | optional }}
+                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-no-diacritics-trap-issuance.outputs.body | optional }}
+                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-array-trap-issuance.outputs.body | optional }}
+                        - ${{ dcql-combined-value-constraints-6bdb8a96-fetch-expiry-trap-issuance.outputs.body | optional }}
+                    numeric_issuance: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-numeric-type-trap-issuance.outputs.body | optional }}
                     numeric_type_trap: ${{ dcql-combined-value-constraints-6bdb8a96-fetch-numeric-type-trap-request.outputs.body | optional }}
                     numeric_visual_evidence: ${{ dcql-combined-value-constraints-6bdb8a96-present-numeric-type-trap-request.outputs.flow_output.maestro_screenshot_urls | optional }}
                     visual_evidence: ${{ dcql-combined-value-constraints-6bdb8a96-present-combined-constraint-request.outputs.flow_output.maestro_screenshot_urls | optional }}
@@ -27445,6 +27403,9 @@ steps:
                     create-presentation: ${{ dcql-multiple-true-ad438f05-create-presentation.outputs | optional }}
                     dcql_exchange: ${{ dcql-multiple-true-ad438f05-get-presentation-result.outputs.body | optional }}
                     get-presentation-result: ${{ dcql-multiple-true-ad438f05-get-presentation-result.outputs | optional }}
+                    matching_issuances:
+                        - ${{ dcql-multiple-true-ad438f05-fetch-first-matching-issuance.outputs.body | optional }}
+                        - ${{ dcql-multiple-true-ad438f05-fetch-second-matching-issuance.outputs.body | optional }}
                     present-with-reference-implementation: ${{ dcql-multiple-true-ad438f05-present-with-reference-implementation.outputs | optional }}
                     visual_evidence: ${{ dcql-multiple-true-ad438f05-present-with-reference-implementation.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.no-matching-credentials:
@@ -27832,13 +27793,16 @@ steps:
                     visual_evidence: ${{ pid-candidate-selection-e35c6cf5-select-and-share-candidate.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.fixtures.pid-multiple-credentials:
                 output:
-                    fixture_exchanges:
-                        - ${{ pid-multiple-credentials-3e946b72-fetch-baseline-probe.outputs.body | optional }}
-                        - ${{ pid-multiple-credentials-3e946b72-fetch-second-identity-probe.outputs.body | optional }}
+                    false_query_issuances:
+                        - ${{ pid-multiple-credentials-3e946b72-fetch-replacement-baseline-issuance.outputs.body | optional }}
+                        - ${{ pid-multiple-credentials-3e946b72-fetch-replacement-second-identity-issuance.outputs.body | optional }}
                     multiple_false_exchange: ${{ pid-multiple-credentials-3e946b72-fetch-multiple-false.outputs.body | optional }}
                     multiple_false_visual_evidence: ${{ pid-multiple-credentials-3e946b72-present-multiple-false.outputs.flow_output.maestro_screenshot_urls | optional }}
                     multiple_omitted_exchange: ${{ pid-multiple-credentials-3e946b72-fetch-multiple-omitted.outputs.body | optional }}
                     multiple_omitted_visual_evidence: ${{ pid-multiple-credentials-3e946b72-present-multiple-omitted.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    omitted_query_issuances:
+                        - ${{ pid-multiple-credentials-3e946b72-fetch-baseline-issuance.outputs.body | optional }}
+                        - ${{ pid-multiple-credentials-3e946b72-fetch-second-identity-issuance.outputs.body | optional }}
             pipeline.fixtures.pid-under-18:
                 output:
                     constrained_exchange: ${{ pid-under-18-constraint-e7f0d444-fetch-over-18-constraint.outputs.body | optional }}

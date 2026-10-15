@@ -1166,39 +1166,7 @@ retrieve the Request Object.
 
 - Test: `WS_RP_IA_Engagement__001b` fails on this Wallet.
 
-## RI-WALLET-027: A matching credential is withheld for combined DCQL value constraints
-
-### Summary
-
-The reference Android Wallet shows its no-match state and returns no
-presentation when a DCQL query combines value constraints that `pid_default`
-satisfies.
-
-### Reproduction
-
-15/10/2026, complete FCAF run `fcaf_assessment_7emdx9outp.json`, wallet
-2026.09.42, production Capture: the combined-value-constraints scenario issues
-the eight PID fixtures, then asks for the credential satisfying the five
-constraints in `WS_RP_IA_MainInteraction__033`.
-
-### Observed
-
-- The fixture inventory confirms that `pid_default` has `family_name=Rossi`,
-  `age_over_18=true`, `address.locality=Roma`, `nationalities=["IT"]`, and
-  `date_of_expiry=2031-01-01`, satisfying the query.
-- The Wallet shows `The requested document is not available in your EUDI
-  Wallet`, disables Share, and returns no `vp_token`.
-
-### Expected
-
-The Wallet presents the one credential satisfying every requested value
-constraint, as `WS_RP_IA_MainInteraction__033` requires.
-
-### FCAF Impact
-
-- Test: `WS_RP_IA_MainInteraction__033` fails on this Wallet.
-
-## RI-WALLET-028: A Request-URI HTTP error whose body is a Request Object is processed
+## RI-WALLET-027: A Request-URI HTTP error whose body is a Request Object is processed
 
 ### Summary
 
@@ -1228,7 +1196,7 @@ returns an HTTP error.
 
 - Test: `WS_RP_IA_Supportive__002` fails on this Wallet.
 
-## RI-WALLET-029: A signed Request Object without `request_uri` is accepted
+## RI-WALLET-028: A signed Request Object without `request_uri` is accepted
 
 ### Summary
 

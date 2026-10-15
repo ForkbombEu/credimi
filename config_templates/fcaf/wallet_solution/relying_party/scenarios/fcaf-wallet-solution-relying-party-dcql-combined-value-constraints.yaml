@@ -171,48 +171,58 @@ steps:
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-expiry-trap-issuance.outputs.body.deeplink }}
-# Precondition evidence: one unconstrained query with multiple: true returns
-# every PID the Wallet holds, so the eight fixtures above are shown to be
-# present before the constrained query is asked to exclude seven of them.
-- id: create-fixture-inventory-request
-  use: http-request
-  with:
-    method: POST
-    url: ${fixture.verifier_url}/openid4vp/sessions
-    expected_status: 201
-    headers:
-      Content-Type: application/json
-    body:
-      scheme: haip-vp://
-      request_uri_method: post
-      request_delivery: by_reference
-      response_type: vp_token
-      response_mode: direct_post.jwt
-      presentation_request:
-        nonce: combined-value-constraints-inventory
-        dcql_query:
-          credentials:
-          - id: pid
-            format: dc+sd-jwt
-            multiple: true
-            meta:
-              vct_values:
-              - urn:eudi:pid:1
-            claims:
-            - path:
-              - document_number
-- id: present-fixture-inventory-request
-  use: mobile-automation
-  with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-    version_id: installed_from_external_source
-    parameters:
-      deeplink: ${{ create-fixture-inventory-request.outputs.body.deeplink }}
-- id: fetch-fixture-inventory-request
+# Precondition evidence: each issuer session above records whether the Wallet
+# fetched its credential. Possession is proven from these records rather than
+# by presenting the credentials, because the reference Wallet spends a
+# credential instance on every presentation: an inventory query with
+# multiple: true would empty the Wallet before the constrained query below.
+- id: fetch-full-match-issuance
   use: http-request
   with:
     method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-fixture-inventory-request.outputs.body.session_id }}
+    url: ${fixture.issuer_url}/sessions/${{ create-full-match-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-age-trap-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-age-trap-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-case-trap-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-case-trap-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-whitespace-trap-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-whitespace-trap-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-diacritics-trap-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-diacritics-trap-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-no-diacritics-trap-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-no-diacritics-trap-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-array-trap-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-array-trap-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-expiry-trap-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-expiry-trap-issuance.outputs.body.session_id }}
     expected_status: 200
 # One query restricting five independent axes at once. Every trap above fails
 # exactly one of them, and multiple: true makes the Wallet return every
@@ -303,47 +313,14 @@ steps:
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-numeric-type-trap-issuance.outputs.body.deeplink }}
-# Possession evidence: an unconstrained query discloses the float the trap
-# below relies on, so withholding cannot be attributed to a missing credential.
-- id: create-numeric-inventory-request
-  use: http-request
-  with:
-    method: POST
-    url: ${fixture.verifier_url}/openid4vp/sessions
-    expected_status: 201
-    headers:
-      Content-Type: application/json
-    body:
-      scheme: haip-vp://
-      request_uri_method: post
-      request_delivery: by_reference
-      response_type: vp_token
-      response_mode: direct_post.jwt
-      presentation_request:
-        nonce: combined-value-constraints-numeric-inventory
-        dcql_query:
-          credentials:
-          - id: numeric
-            format: dc+sd-jwt
-            multiple: true
-            meta:
-              vct_values:
-              - urn:credimi:numeric-claims:1
-            claims:
-            - path:
-              - kg
-- id: present-numeric-inventory-request
-  use: mobile-automation
-  with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-    version_id: installed_from_external_source
-    parameters:
-      deeplink: ${{ create-numeric-inventory-request.outputs.body.deeplink }}
-- id: fetch-numeric-inventory-request
+# Possession evidence: the issuer session records that the Wallet fetched the
+# numeric credential, whose kg claim is the float 70.5 the trap below relies
+# on. Presenting it to prove possession would spend it.
+- id: fetch-numeric-type-trap-issuance
   use: http-request
   with:
     method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-numeric-inventory-request.outputs.body.session_id }}
+    url: ${fixture.issuer_url}/sessions/${{ create-numeric-type-trap-issuance.outputs.body.session_id }}
     expected_status: 200
 # The trap itself: an integer constraint against the float the wallet holds.
 - id: create-numeric-type-trap-request
@@ -396,9 +373,17 @@ steps:
     pipeline_outputs:
       pipeline.dcql.combined-value-constraints:
         output:
-          fixture_inventory: ${{ fetch-fixture-inventory-request.outputs.body }}
+          fixture_issuances:
+          - ${{ fetch-full-match-issuance.outputs.body }}
+          - ${{ fetch-age-trap-issuance.outputs.body }}
+          - ${{ fetch-case-trap-issuance.outputs.body }}
+          - ${{ fetch-whitespace-trap-issuance.outputs.body }}
+          - ${{ fetch-diacritics-trap-issuance.outputs.body }}
+          - ${{ fetch-no-diacritics-trap-issuance.outputs.body }}
+          - ${{ fetch-array-trap-issuance.outputs.body }}
+          - ${{ fetch-expiry-trap-issuance.outputs.body }}
           dcql_exchange: ${{ fetch-combined-constraint-request.outputs.body }}
           visual_evidence: ${{ present-combined-constraint-request.outputs.flow_output.maestro_screenshot_urls }}
-          numeric_inventory: ${{ fetch-numeric-inventory-request.outputs.body }}
+          numeric_issuance: ${{ fetch-numeric-type-trap-issuance.outputs.body }}
           numeric_type_trap: ${{ fetch-numeric-type-trap-request.outputs.body }}
           numeric_visual_evidence: ${{ present-numeric-type-trap-request.outputs.flow_output.maestro_screenshot_urls }}

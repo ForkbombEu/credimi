@@ -241,7 +241,7 @@ func TestOID4VPDCAPIInvocationValidator(t *testing.T) {
 
 func TestSDJWTKBJWTClaimStringPrefixValidator(t *testing.T) {
 	presentation := func(audience any) map[string]any {
-		token := testSDJWT(t, testPIDVCT, map[string]any{"given_name": "Mario"})
+		token := testSDJWT(t, map[string]any{"given_name": "Mario"})
 		if audience != nil {
 			token += encodeTestKBJWT(t, map[string]any{"nonce": "n", "aud": audience})
 		}

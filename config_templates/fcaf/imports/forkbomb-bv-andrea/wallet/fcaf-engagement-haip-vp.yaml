@@ -17,34 +17,44 @@ tags:
       - inputText: "12345"
       - tapOn: "6"
 - waitForAnimationToEnd: { timeout: 3000 }
+# A Wallet that refuses the request shows no Share button. The wait is optional
+# so the flow still reaches its terminal screenshot, which records whatever the
+# Wallet showed instead; the validators decide the verdict from Capture's
+# session evidence.
 - scrollUntilVisible:
     element: "Share"
-- takeScreenshot: fcaf-engagement-haip-vp-invoked
-- tapOn:
-    text: "Share"
-    waitToSettleTimeoutMs: 1000
-# A Wallet may ask for a second PIN after Share, or may settle directly on its
-# terminal screen. Neither outcome may prevent the terminal screenshot below:
-# validators decide the protocol verdict from Capture's session evidence.
-- extendedWaitUntil:
-    visible: "PIN"
-    timeout: 30000
     optional: true
 - runFlow:
     when:
-      visible: "PIN"
+      visible: "Share"
     commands:
-      - inputText: "12345"
-      - tapOn: "6"
-- extendedWaitUntil:
-    visible: ".*successfully shared.*"
-    timeout: 30000
-    optional: true
-- runFlow:
-    when:
-      visible: "View details"
-    commands:
-      - tapOn: "View details"
+      # Taken only while the consent screen is up: tests use it as evidence
+      # that the Wallet asked for consent.
+      - takeScreenshot: fcaf-engagement-haip-vp-invoked
+      - tapOn:
+          text: "Share"
+          waitToSettleTimeoutMs: 1000
+      # A Wallet may ask for a second PIN after Share, or may settle directly
+      # on its terminal screen; neither may prevent the terminal screenshot.
+      - extendedWaitUntil:
+          visible: "PIN"
+          timeout: 30000
+          optional: true
+      - runFlow:
+          when:
+            visible: "PIN"
+          commands:
+            - inputText: "12345"
+            - tapOn: "6"
+      - extendedWaitUntil:
+          visible: ".*successfully shared.*"
+          timeout: 30000
+          optional: true
+      - runFlow:
+          when:
+            visible: "View details"
+          commands:
+            - tapOn: "View details"
 - waitForAnimationToEnd:
     timeout: 1000
-- takeScreenshot: fcaf-engagement-haip-vp-shared
+- takeScreenshot: fcaf-engagement-haip-vp-outcome

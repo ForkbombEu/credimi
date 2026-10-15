@@ -15,11 +15,21 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.standard-all
 evidence:
+  matching_issuances:
+    from: pipeline.dcql.multiple-true.outputs.matching_issuances
   dcql_exchange:
     from: pipeline.dcql.multiple-true.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.multiple-true.outputs.visual_evidence
 assertions:
+# Source precondition: the Wallet contains more than one credential matching
+# the request. Proven from the issuer sessions, because presenting a
+# credential to prove possession would spend it.
+- id: wallet_holds_two_matching_pids
+  validator: oid4vci.fixtures_issued
+  input: evidence.matching_issuances
+  params:
+    fixtures: [pid_default, pid_person_b]
 - id: ws_rp_ms_protocolmessages__071_dcql_valid
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange

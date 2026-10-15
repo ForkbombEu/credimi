@@ -15,26 +15,35 @@ normative_references:
   section: '6.4'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  fixture_inventory:
-    from: pipeline.dcql.combined-value-constraints.outputs.fixture_inventory
+  fixture_issuances:
+    from: pipeline.dcql.combined-value-constraints.outputs.fixture_issuances
   dcql_exchange:
     from: pipeline.dcql.combined-value-constraints.outputs.dcql_exchange
   visual_evidence:
     from: pipeline.dcql.combined-value-constraints.outputs.visual_evidence
-  numeric_inventory:
-    from: pipeline.dcql.combined-value-constraints.outputs.numeric_inventory
+  numeric_issuance:
+    from: pipeline.dcql.combined-value-constraints.outputs.numeric_issuance
   numeric_type_trap:
     from: pipeline.dcql.combined-value-constraints.outputs.numeric_type_trap
   numeric_visual_evidence:
     from: pipeline.dcql.combined-value-constraints.outputs.numeric_visual_evidence
 assertions:
+# Possession is proven from the issuer sessions, not by presenting: the
+# reference Wallet spends a credential instance on every presentation, so an
+# inventory query would leave the constrained query an empty Wallet.
 - id: wallet_holds_the_near_miss_credentials_it_must_exclude
-  validator: oid4vp.distinct_presentations
-  input: evidence.fixture_inventory
+  validator: oid4vci.fixtures_issued
+  input: evidence.fixture_issuances
   params:
-    vct: urn:eudi:pid:1
-    claim: document_number
-    minimum: 8
+    fixtures:
+    - pid_default
+    - pid_under_18
+    - pid_family_name_uppercase
+    - pid_family_name_trailing_space
+    - pid_locality_diacritics
+    - pid_locality_no_diacritics
+    - pid_multiple_nationalities
+    - pid_expiry_2032
 - id: every_released_credential_satisfies_all_value_constraints
   validator: oid4vp.dcql_value_constraints_satisfied
   input: evidence.dcql_exchange
@@ -46,11 +55,17 @@ assertions:
   validator: evidence.non_empty
   input: evidence.visual_evidence
 - id: wallet_holds_the_numeric_data_type_trap_credential
-  validator: json.field_presence
-  input: evidence.numeric_inventory
+  validator: json.field_equals
+  input: evidence.numeric_issuance
   params:
-    field: decoded_presentations
-    present: true
+    field: status
+    value: credential_issued
+- id: numeric_trap_issuance_is_the_numeric_claims_credential
+  validator: json.field_equals
+  input: evidence.numeric_issuance
+  params:
+    field: credential_configuration_id
+    value: urn:credimi:numeric-claims:1.sd-jwt.key-attestation-required
 - id: integer_constraint_withholds_the_float_credential
   validator: oid4vp.no_presentation_returned
   input: evidence.numeric_type_trap

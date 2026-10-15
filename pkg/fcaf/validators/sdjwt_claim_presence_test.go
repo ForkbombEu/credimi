@@ -12,10 +12,10 @@ import (
 )
 
 func TestSDJWTClaimPresenceValidator(t *testing.T) {
-	withStatus := map[string]any{"pid": []any{testSDJWT(t, testPIDVCT, map[string]any{
+	withStatus := map[string]any{"pid": []any{testSDJWT(t, map[string]any{
 		"status": map[string]any{"status_list": map[string]any{"idx": 1}},
 	})}}
-	withoutStatus := map[string]any{"pid": []any{testSDJWT(t, testPIDVCT, map[string]any{
+	withoutStatus := map[string]any{"pid": []any{testSDJWT(t, map[string]any{
 		"given_name": "Mario",
 	})}}
 
@@ -103,7 +103,7 @@ func TestClaimsValuesNoMatchPinsTheConstrainedValue(t *testing.T) {
 		if presented {
 			record["observed"] = map[string]any{"wallet_response": map[string]any{
 				"value": map[string]any{"vp_token": map[string]any{
-					"pid": []any{testSDJWT(t, testPIDVCT, map[string]any{
+					"pid": []any{testSDJWT(t, map[string]any{
 						"document_number": documentNumber,
 					})},
 				}},

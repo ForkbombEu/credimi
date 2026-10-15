@@ -79,3 +79,46 @@ func TestWalletActionShareConsumption(t *testing.T) {
 		})
 	}
 }
+
+// TestMultipleTruePresentationSpendsEveryHeldInstance pins that a Share of a
+// multiple: true query spends every instance of its format: the wallet returns
+// all of them, so a later presentation in the same scenario holds none unless
+// one is issued for it. Counting such a Share as one instance once let an
+// inventory query empty the wallet before the query it was meant to prepare.
+func TestMultipleTruePresentationSpendsEveryHeldInstance(t *testing.T) {
+	session := func(multiple bool) map[string]any {
+		credential := map[string]any{"id": "pid", "format": "dc+sd-jwt"}
+		if multiple {
+			credential["multiple"] = true
+		}
+		return map[string]any{"with": map[string]any{"body": map[string]any{
+			"presentation_request": map[string]any{
+				"dcql_query": map[string]any{"credentials": []any{credential}},
+			},
+		}}}
+	}
+	present := map[string]any{"id": "present", "use": mobileAutomationTask}
+
+	for _, testCase := range []struct {
+		name          string
+		multiple      bool
+		wantRemaining int
+	}{
+		{name: "single presentation spends one of three", multiple: false, wantRemaining: 2},
+		{name: "multiple: true spends all three", multiple: true, wantRemaining: 0},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			available := map[credentialFormat]int{formatSDJWT: 3}
+			inserted := pidIssuancesBefore(present, session(testCase.multiple), 1, available, nil)
+			require.Empty(t, inserted)
+			require.Equal(t, testCase.wantRemaining, available[formatSDJWT])
+
+			next := pidIssuancesBefore(present, session(false), 1, available, nil)
+			if testCase.wantRemaining == 0 {
+				require.NotEmpty(t, next, "a later Share must get a freshly issued PID")
+			} else {
+				require.Empty(t, next)
+			}
+		})
+	}
+}
