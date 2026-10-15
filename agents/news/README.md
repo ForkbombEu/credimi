@@ -79,6 +79,46 @@ in the Temporal UI. UI sessions stay open until you stop them.
 In fake mode the scripted model only follows a fixed chat script: name a source and two dates
 (`openid4vp 2026-10-01 2026-10-14`) and add `draft` to reach the approval step.
 
+### Other OpenAI-compatible models (Gemini, Ollama)
+
+The worker can use any endpoint that implements OpenAI's Chat Completions API. Set these in the
+worker's terminal only; without `NEWS_AGENT_MODEL_BASE_URL` it uses OpenAI as before.
+
+```sh
+# Gemini free tier (key from https://aistudio.google.com/apikey, no billing)
+export NEWS_AGENT_MODEL_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+export NEWS_AGENT_MODEL_API_KEY="$(cat ~/.config/credimi-news/gemini.key)"
+export NEWS_AGENT_MODEL=gemini-3.5-flash
+
+# or a local model through Ollama (no key)
+export NEWS_AGENT_MODEL_BASE_URL=http://localhost:11434/v1
+export NEWS_AGENT_MODEL=qwen3:14b
+
+make news-agent.worker
+```
+
+`NEWS_AGENT_MODEL` replaces the model name the workflow asks for. In this mode the worker allows
+10 minutes per model call and exports no traces. The adapter in `worker.py` works around
+differences observed on 15/10/2026; recheck them when upgrading the harness or the SDK:
+
+- The SDK adds GPT-5 settings (`verbosity`, `reasoning`) for the default `gpt-5.1` model name;
+  Gemini rejects them, so they are dropped.
+- Gemini 3 requires each tool call to come back with its thought signature. The harness loses it
+  when decoding the model activity's input, so the adapter sends Gemini's placeholder signature
+  instead, as the SDK's LiteLLM model does. Gemini then lacks its own reasoning context between
+  steps.
+- Ollama constrains the whole reply to a requested JSON schema, so a typed scan answer blocks every
+  tool call. For non-Gemini endpoints the schema moves into the instructions; the SDK still
+  validates the reply, and code fences around it are removed.
+- Ollama does not enforce tool schemas, so small models omit fields. Invalid tool arguments come
+  back to the model as the tool's reply instead of failing the turn (`workflow.py`).
+
+Observed on 15/10/2026: `gemini-2.5-flash` is no longer offered to new keys; the Gemini free tier
+allowed about 20 requests per day for `gemini-3.5-flash` (a scan takes about 6, a chat answer 2 to
+4), and after that every model call is retried until the quota resets. `qwen3:8b` and `qwen3:14b`
+on a 12 GB GPU answer chat questions with tools but rarely follow the drafting steps of a scan;
+use them to exercise the infrastructure, not to judge drafts.
+
 `make news-agent.test` runs lint and the tests, including an end-to-end scan on a test Temporal
 server. To record new fixtures, run the worker with `NEWS_AGENT_RECORD_DIR=fixtures/github`.
 

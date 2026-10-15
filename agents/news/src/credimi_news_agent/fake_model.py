@@ -22,8 +22,10 @@ source id and two YYYY-MM-DD dates in the message, e.g. "openid4vp 2026-10-01 20
 
 1. ``list_changes`` on that source and window, then ``get_pull_request`` on its first merged
    pull request, and an answer listing what it found;
-2. only if the message contains "draft": ``search_news``, ``check_draft``, then ``save_draft``
-   (which waits for a human approval in the harness UI), and an answer saying how it went.
+2. only if the message contains "draft": ``search_news``; ``check_draft`` without the required
+   ``quotes`` field (as small local models do; the error must come back as the tool's reply),
+   then ``check_draft`` again with the full draft; ``save_draft`` (which waits for a human
+   approval in the harness UI); and an answer saying how it went.
 
 When a step has nothing to work on it answers straight away.
 """
@@ -228,8 +230,12 @@ def _chat(conv: _Conversation, instructions: str) -> ModelResponse:
             )
         return conv.call("search_news", {"query": pr_ev["title"].split(": ", 1)[-1][:60]})
     if name == "search_news":
-        return conv.call("check_draft", _draft(pr_ev, pr_ev["evidence_id"]))
+        malformed = _draft(pr_ev, pr_ev["evidence_id"])
+        del malformed["draft"]["quotes"]
+        return conv.call("check_draft", malformed)
     if name == "check_draft":
+        if out.startswith("ERROR: invalid arguments"):
+            return conv.call("check_draft", _draft(pr_ev, pr_ev["evidence_id"]))
         if not out.startswith("OK"):
             return _text(f"I did not save a draft. The check found:\n{out}")
         return conv.call("save_draft", _draft(pr_ev, pr_ev["evidence_id"]))

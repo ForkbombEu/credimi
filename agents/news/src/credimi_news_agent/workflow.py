@@ -15,6 +15,7 @@ After each turn the workflow (not the model) stores the accepted drafts through 
 ``Store a news draft``, always unpublished.
 """
 
+import dataclasses
 from datetime import timedelta
 
 from temporalio import workflow
@@ -116,6 +117,35 @@ def _usage(result) -> Usage:
     return Usage(requests=u.requests, input_tokens=u.input_tokens, output_tokens=u.output_tokens)
 
 
+def _adapt_tools(runner: AgentWorkflowRunner, tools: list, session: ResearchSession) -> list:
+    """Harness tools for the SDK, with invalid arguments sent back to the model.
+
+    The harness adapter raises a non-retryable `InvalidToolInput` when the model's arguments
+    do not match the tool schema, which fails the whole turn. Models without strict schema
+    enforcement (e.g. through Ollama) omit fields, so the error becomes the tool's reply and
+    the model can call again.
+    """
+    adapted = as_openai_agent_tools(runner, tools, injections={"session": session})
+    return [dataclasses.replace(t, on_invoke_tool=_reply_invalid_input(t)) for t in adapted]
+
+
+def _reply_invalid_input(tool):
+    invoke = tool.on_invoke_tool
+
+    async def on_invoke_tool(ctx, input: str):  # noqa: A002
+        try:
+            return await invoke(ctx, input)
+        except ApplicationError as exc:
+            if exc.type != "InvalidToolInput":
+                raise
+            return (
+                f"ERROR: invalid arguments for {tool.name}: {exc.message}\n"
+                "Call it again with every required field."
+            )
+
+    return on_invoke_tool
+
+
 @agent.defn(name=WORKFLOW_TYPE)
 class NewsAgentWorkflow:
     @agent.init
@@ -180,7 +210,7 @@ class NewsAgentWorkflow:
             name="CredimiNewsEditor",
             instructions=SCAN_INSTRUCTIONS,
             model=request.model,
-            tools=as_openai_agent_tools(self._runner, SCAN_TOOLS, injections={"session": session}),
+            tools=_adapt_tools(self._runner, SCAN_TOOLS, session),
             output_type=ScanDecisions,
         )
         prompt = (
@@ -237,7 +267,7 @@ class NewsAgentWorkflow:
                 f"{CHAT_INSTRUCTIONS}\n\nToday is {session.today.isoformat()}.\n{_context(session)}"
             ),
             model=DEFAULT_MODEL,
-            tools=as_openai_agent_tools(self._runner, CHAT_TOOLS, injections={"session": session}),
+            tools=_adapt_tools(self._runner, CHAT_TOOLS, session),
         )
         try:
             result = await Runner.run(
