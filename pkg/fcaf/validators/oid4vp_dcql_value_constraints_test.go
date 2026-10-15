@@ -42,27 +42,27 @@ func constrainedPIDExchange(multiple bool, tokens ...string) map[string]any {
 }
 
 func TestOID4VPDCQLValueConstraintsSatisfiedValidator(t *testing.T) {
-	matching := testSDJWT(t, testPIDVCT, map[string]any{
+	matching := testSDJWT(t, map[string]any{
 		"family_name":   "Rossi",
 		"age_over_18":   true,
 		"nationalities": []any{"IT"},
 	})
-	caseTrap := testSDJWT(t, testPIDVCT, map[string]any{
+	caseTrap := testSDJWT(t, map[string]any{
 		"family_name":   "ROSSI",
 		"age_over_18":   true,
 		"nationalities": []any{"IT"},
 	})
-	ageTrap := testSDJWT(t, testPIDVCT, map[string]any{
+	ageTrap := testSDJWT(t, map[string]any{
 		"family_name":   "Rossi",
 		"age_over_18":   false,
 		"nationalities": []any{"IT"},
 	})
-	arrayTrap := testSDJWT(t, testPIDVCT, map[string]any{
+	arrayTrap := testSDJWT(t, map[string]any{
 		"family_name":   "Rossi",
 		"age_over_18":   true,
 		"nationalities": []any{"FR", "DE"},
 	})
-	undisclosed := testSDJWT(t, testPIDVCT, map[string]any{"family_name": "Rossi"})
+	undisclosed := testSDJWT(t, map[string]any{"family_name": "Rossi"})
 
 	tests := []struct {
 		name       string
@@ -146,7 +146,7 @@ func TestOID4VPMalformedStatusCredentialAbsentValidator(t *testing.T) {
 		if status != nil {
 			claims["status"] = status
 		}
-		return testSDJWT(t, testPIDVCT, claims)
+		return testSDJWT(t, claims)
 	}
 	valid := statusToken(map[string]any{"status_list": map[string]any{
 		"uri": "https://status.example/list/1", "idx": 42,

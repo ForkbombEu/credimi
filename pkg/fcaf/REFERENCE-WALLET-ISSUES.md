@@ -1136,30 +1136,24 @@ HTTP 400 reply with a JSON error body) the Wallet does show
 
 The reference Android Wallet registers no handler for the `eu-eaap://` custom
 URL scheme, so an `eu-eaap://` presentation deeplink cannot invoke it and the
-Wallet never opens the request screen it carries. Expected from the
-implementation and the production probe; not yet observed on an emulator.
+Wallet never opens the request screen it carries.
 
 ### Reproduction
 
-`WS_RP_IA_Engagement__001b` (scenario
-`scenarios/fcaf-wallet-solution-relying-party-engagement-eu-eaap.yaml`) creates
-an OpenID4VP session with `scheme: eu-eaap://`, `request_uri_method: post`,
-`request_delivery: by_reference` and a `direct_post.jwt` PID query, then opens
-the returned deeplink with the shared `fcaf-engagement-eu-eaap` flow.
+15/10/2026, complete FCAF run `fcaf_assessment_7emdx9outp.json`, wallet
+2026.09.42, production Capture:
+`WS_RP_IA_Engagement__001b` creates an OpenID4VP session with
+`scheme: eu-eaap://`, `request_uri_method: post`, `request_delivery:
+by_reference` and a `direct_post.jwt` PID query, then opens the returned
+deeplink with the shared `fcaf-engagement-eu-eaap` flow.
 
 ### Observed
 
-Not observed on an emulator: no run of `WS_RP_IA_Engagement__001b` against the
-reference Wallet has been made. The projection is that the Wallet's `openLink`
-on an `eu-eaap://` URI does nothing, so Capture records no `request_uri`
-retrieval and stores no `fcaf-engagement-eu-eaap-invoked` screenshot.
-
-Probed on production 14/10/2026: `POST /openid4vp/sessions` with
-`{"scheme": "eu-eaap://"}` answers `201` with `deeplink: eu-eaap://?client_id=
-x509_hash%3A...&request_uri=...&request_uri_method=post`, and a wallet-shaped
-POST retrieval of that `request_uri` answers `200`; the request shape and the
-retrieval are therefore satisfiable, and the Wallet's behaviour is the only
-open variable.
+- The deeplink shape assertion passes, but Capture records only
+  `vp_session_created` and `vp_deeplink_generated`: no `vp_request_retrieved`
+  event exists.
+- No request-screen screenshot is stored, because the Wallet never reaches the
+  request screen.
 
 ### Expected
 
@@ -1168,18 +1162,62 @@ EUDI_required`): "the Wallet can be invoked through the custom URL scheme
 `eu-eaap://`". The Wallet must open the request screen for the deeplink and
 retrieve the Request Object.
 
-### Notes
+### FCAF Impact
 
-This is a projection from the implementation and the production probe, not an
-observation: the reference Wallet's registered intent filters are not visible
-from the pipeline, and an emulator run is required to confirm it. The flow's
-`openLink` and its waits are optional, so the step still finishes and the
-outcome is decided by the assertions.
+- Test: `WS_RP_IA_Engagement__001b` fails on this Wallet.
+
+## RI-WALLET-027: A Request-URI HTTP error whose body is a Request Object is processed
+
+### Summary
+
+The reference Android Wallet processes a signed Request Object returned by a
+Request-URI endpoint with an HTTP 500 status, instead of discontinuing the
+presentation flow.
+
+### Reproduction
+
+15/10/2026, complete FCAF run `fcaf_assessment_7emdx9outp.json`, wallet
+2026.09.42, production Capture:
+`WS_RP_IA_Supportive__002` configures the Request-URI endpoint to return HTTP
+500. Capture serves the signed Request Object body with
+`application/oauth-authz-req+jwt`.
+
+### Observed
+
+The Wallet parses the response body, opens its consent screen, and presents a
+credential. Capture records a `vp_token`.
+
+### Expected
+
+The Wallet terminates the presentation flow when retrieving the Request Object
+returns an HTTP error.
 
 ### FCAF Impact
 
-- Test: `WS_RP_IA_Engagement__001b` is expected to FAIL for this wallet
-  (EUDI_required). `eu_eaap_deeplink_is_created` passes on the request shape,
-  but `wallet_retrieved_the_request_from_the_deeplink` and
-  `wallet_shows_the_engagement_screen` fail because no `eu-eaap://` handler
-  exists.
+- Test: `WS_RP_IA_Supportive__002` fails on this Wallet.
+
+## RI-WALLET-028: A signed Request Object without `request_uri` is accepted
+
+### Summary
+
+The reference Android Wallet opens a consent screen and presents a credential
+for a signed by-value Request Object that has no `request_uri`.
+
+### Reproduction
+
+15/10/2026, complete FCAF run `fcaf_assessment_7emdx9outp.json`, wallet
+2026.09.42, production Capture: `WS_RP_IA_Supportive__007` delivers a signed
+Request Object by value without a `request_uri`.
+
+### Observed
+
+The Wallet opens the consent screen, shares a credential, and Capture records a
+`vp_token`.
+
+### Expected
+
+The Wallet returns an error or discontinues, as HAIP 5.1 and RFC 9101 require.
+
+### FCAF Impact
+
+- Test: `WS_RP_IA_Supportive__007` fails on this Wallet.

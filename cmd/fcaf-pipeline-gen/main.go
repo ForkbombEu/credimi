@@ -433,10 +433,12 @@ func claimStepID(seen map[string]string, id string, path string) error {
 
 // pidIssuancesBefore updates the scenario's unspent PIDs for a step and returns
 // the issuances to insert before it. A presentation that shares spends one
-// instance per Share. A presentation the wallet refuses or cannot satisfy
-// spends nothing, but its evidence only means something when the wallet holds a
-// PID of the requested format: otherwise a rejection or a no-match screen is
-// just the empty wallet. That PID stays unspent until the next reset.
+// instance per Share, and a query with multiple: true spends every instance of
+// its format the wallet holds, because the wallet returns all of them. A
+// presentation the wallet refuses or cannot satisfy spends nothing, but its
+// evidence only means something when the wallet holds a PID of the requested
+// format: otherwise a rejection or a no-match screen is just the empty wallet.
+// That PID stays unspent until the next reset.
 func pidIssuancesBefore(
 	step map[string]any,
 	source map[string]any,
@@ -458,6 +460,11 @@ func pidIssuancesBefore(
 			}
 			steps = append(steps, pidIssuanceSteps(id, issued, format, fixture)...)
 			issued++
+		}
+	}
+	if consumed > 0 {
+		for _, format := range formatsSpentEntirely(source) {
+			available[format] = 0
 		}
 	}
 	if consumed > 0 || !opensPresentationRequest(step, source) {
@@ -700,21 +707,10 @@ func presentedCredentialFormats(source map[string]any, consumed int) []credentia
 	if consumed == 0 {
 		return nil
 	}
-	with, _ := source["with"].(map[string]any)
-	body, _ := with["body"].(map[string]any)
-	query := nestedMap(body, "dcql_query")
-	if len(query) == 0 {
-		query = nestedMap(nestedMap(body, "presentation_request"), "dcql_query")
-	}
-	credentials, _ := query["credentials"].([]any)
 	formats := make([]credentialFormat, 0, 2)
 	seen := map[credentialFormat]bool{}
-	for _, item := range credentials {
-		credential, _ := item.(map[string]any)
-		format := formatSDJWT
-		if declared, _ := credential["format"].(string); declared == "mso_mdoc" {
-			format = formatMdoc
-		}
+	for _, credential := range sessionCredentialQueries(source) {
+		format := credentialQueryFormat(credential)
 		if !seen[format] {
 			seen[format] = true
 			formats = append(formats, format)
@@ -724,6 +720,46 @@ func presentedCredentialFormats(source map[string]any, consumed int) []credentia
 		return []credentialFormat{formatSDJWT}
 	}
 	return formats
+}
+
+// formatsSpentEntirely lists the PID formats whose credential query in the
+// session's DCQL query sets multiple: true. The wallet answers such a query with
+// every matching instance it holds, so a Share spends all of them and a later
+// presentation of the same scenario finds none left.
+func formatsSpentEntirely(source map[string]any) []credentialFormat {
+	var formats []credentialFormat
+	for _, credential := range sessionCredentialQueries(source) {
+		if multiple, _ := credential["multiple"].(bool); multiple {
+			formats = append(formats, credentialQueryFormat(credential))
+		}
+	}
+	return formats
+}
+
+// sessionCredentialQueries returns the DCQL credential queries of the verifier
+// session a presentation opens.
+func sessionCredentialQueries(source map[string]any) []map[string]any {
+	with, _ := source["with"].(map[string]any)
+	body, _ := with["body"].(map[string]any)
+	query := nestedMap(body, "dcql_query")
+	if len(query) == 0 {
+		query = nestedMap(nestedMap(body, "presentation_request"), "dcql_query")
+	}
+	items, _ := query["credentials"].([]any)
+	credentials := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		if credential, ok := item.(map[string]any); ok {
+			credentials = append(credentials, credential)
+		}
+	}
+	return credentials
+}
+
+func credentialQueryFormat(credential map[string]any) credentialFormat {
+	if declared, _ := credential["format"].(string); declared == "mso_mdoc" {
+		return formatMdoc
+	}
+	return formatSDJWT
 }
 
 // pidIssuanceSteps issues one fresh PID of the given format for the
