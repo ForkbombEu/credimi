@@ -191,7 +191,7 @@ var happyFlowScenarioNames = []string{
 	"fcaf-wallet-solution-relying-party-pid-domestic.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-protocol-messages.yaml",
 	"fcaf-wallet-solution-relying-party-direct-post-jwt-response-transport.yaml",
-	"fcaf-wallet-solution-relying-party-dcql-metadata.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-baseline.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-main-interaction.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-credential-formats.yaml",
@@ -199,9 +199,7 @@ var happyFlowScenarioNames = []string{
 	"fcaf-wallet-solution-relying-party-dcql-session-encryption.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-interaction-metadata.yaml",
 	"fcaf-wallet-solution-relying-party-request-object-by-value.yaml",
-	"fcaf-wallet-solution-relying-party-dcql-cryptography.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-credentials-match.yaml",
-	"fcaf-wallet-solution-relying-party-dcql-device-binding.yaml",
 }
 
 // generateHappyFlow builds the aggregate pipeline validating every FCAF test

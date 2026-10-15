@@ -13,14 +13,14 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.cryptography
+- ref: pipeline.dcql.baseline
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.cryptography.outputs.dcql_exchange
+    from: pipeline.dcql.baseline.outputs.session
   pid_sdjwt:
-    from: pipeline.dcql.cryptography.outputs.pid_sdjwt
+    from: pipeline.dcql.baseline.outputs.vp_token
   visual_evidence:
-    from: pipeline.dcql.cryptography.outputs.visual_evidence
+    from: pipeline.dcql.baseline.outputs.visual_evidence
 assertions:
 - id: ws_rp_sh_cryptography_cryptographichash_001_crypto_verified
   validator: sdjwt.disclosure_digests_sha_256
