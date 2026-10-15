@@ -577,6 +577,12 @@ func preparePhysicalAndroidDeviceIfNeeded(
 
 	deviceMap["screen_prepared"] = true
 	deviceMap["original_stay_awake"] = originalStayAwake
+	// Optional: the runner raises the screen timeout for the run when it can
+	// and reports the value to restore at cleanup.
+	if originalScreenOffTimeout, ok := output["original_screen_off_timeout"].(string); ok &&
+		strings.TrimSpace(originalScreenOffTimeout) != "" {
+		deviceMap["original_screen_off_timeout"] = originalScreenOffTimeout
+	}
 	return nil
 }
 
@@ -1145,7 +1151,11 @@ func installAppIfNeeded(
 			Config:  workflowengine.ActivityTelemetryConfig(input.mobileCtx, nil),
 		}
 		installOutput := workflowengine.ActivityResult{}
-		if err := workflow.ExecuteActivity(input.mobileCtx, input.activities.Install, installInput).
+		installCtx := workflow.WithActivityOptions(
+			input.mobileCtx,
+			withDeviceRebootBudget(workflow.GetActivityOptions(input.mobileCtx)),
+		)
+		if err := workflow.ExecuteActivity(installCtx, input.activities.Install, installInput).
 			Get(input.mobileCtx, &installOutput); err != nil {
 			return err
 		}
@@ -1533,6 +1543,27 @@ func mobileRunnerActivityOptions(
 	return options
 }
 
+// deviceRebootAttemptTimeout is the minimum time per attempt for runner
+// activities that may reboot an Android device to free its exhausted app UIDs
+// (APK install and device cleanup). A reboot and the wait until the device is
+// usable again take a few minutes; the runner bounds the wait at 4 minutes.
+// Only USB phones are rebooted: Wi-Fi phones would lose wireless debugging.
+const deviceRebootAttemptTimeout = 10 * time.Minute
+
+// withDeviceRebootBudget raises the timeouts of options so one attempt can
+// reboot the device and a retry still fits in the schedule-to-close budget.
+func withDeviceRebootBudget(options workflow.ActivityOptions) workflow.ActivityOptions {
+	if options.StartToCloseTimeout != 0 &&
+		options.StartToCloseTimeout < deviceRebootAttemptTimeout {
+		options.StartToCloseTimeout = deviceRebootAttemptTimeout
+	}
+	if options.ScheduleToCloseTimeout != 0 &&
+		options.ScheduleToCloseTimeout < 2*deviceRebootAttemptTimeout {
+		options.ScheduleToCloseTimeout = 2 * deviceRebootAttemptTimeout
+	}
+	return options
+}
+
 func shouldSkipDeviceCleanup(runData map[string]any, deviceID string) bool {
 	rawPolicy, ok := runData[pipelineCancellationPolicyRunDataKey]
 	if !ok {
@@ -1587,7 +1618,7 @@ func cleanupDevice(
 	if !ok {
 		return missingDeviceHostRunnerID(input.deviceID, deviceMap)
 	}
-	mobileAo := mobileRunnerActivityOptions(input.mobileAo, hostRunnerID)
+	mobileAo := withDeviceRebootBudget(mobileRunnerActivityOptions(input.mobileAo, hostRunnerID))
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAo)
 
 	cleanupRecording(cleanupRecordingInput{
@@ -1600,18 +1631,21 @@ func cleanupDevice(
 		output:      input.output,
 		cleanupErrs: input.cleanupErrs,
 	})
-
+	// Absent when setup could not read or raise the screen timeout, or ran on
+	// a runner that does not manage it: send "" so the runner restores nothing.
+	originalScreenOffTimeout, _ := deviceMap["original_screen_off_timeout"].(string)
 	cleanupPayload := map[string]any{
-		"device_id":              input.deviceID,
-		"serial":                 serial,
-		"type":                   deviceType,
-		"name":                   name,
-		"apk_packages":           packages,
-		"initial_installed_apps": initialInstalledApps,
-		"track_installed_apps":   trackInstalledApps,
-		"reenable_play_store":    reenablePlayStore,
-		"manage_screen":          workflowengine.AsBool(deviceMap["screen_prepared"]),
-		"original_stay_awake":    workflowengine.AsString(deviceMap["original_stay_awake"]),
+		"device_id":                   input.deviceID,
+		"serial":                      serial,
+		"type":                        deviceType,
+		"name":                        name,
+		"apk_packages":                packages,
+		"initial_installed_apps":      initialInstalledApps,
+		"track_installed_apps":        trackInstalledApps,
+		"reenable_play_store":         reenablePlayStore,
+		"manage_screen":               workflowengine.AsBool(deviceMap["screen_prepared"]),
+		"original_stay_awake":         workflowengine.AsString(deviceMap["original_stay_awake"]),
+		"original_screen_off_timeout": originalScreenOffTimeout,
 	}
 
 	if err := workflow.ExecuteActivity(

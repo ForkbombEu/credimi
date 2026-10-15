@@ -395,6 +395,50 @@ func TestMobileRunnerActivityOptionsAddHeartbeatAndPreserveRetryPolicy(t *testin
 	require.Equal(t, int32(5), options.RetryPolicy.MaximumAttempts)
 }
 
+func TestWithDeviceRebootBudget(t *testing.T) {
+	tests := []struct {
+		name                string
+		startToClose        time.Duration
+		scheduleToClose     time.Duration
+		wantStartToClose    time.Duration
+		wantScheduleToClose time.Duration
+	}{
+		{
+			name:                "raises pipeline defaults",
+			startToClose:        5 * time.Minute,
+			scheduleToClose:     10 * time.Minute,
+			wantStartToClose:    10 * time.Minute,
+			wantScheduleToClose: 20 * time.Minute,
+		},
+		{
+			name:                "keeps longer timeouts",
+			startToClose:        15 * time.Minute,
+			scheduleToClose:     time.Hour,
+			wantStartToClose:    15 * time.Minute,
+			wantScheduleToClose: time.Hour,
+		},
+		{
+			name:                "leaves unset timeouts unset",
+			wantStartToClose:    0,
+			wantScheduleToClose: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			options := withDeviceRebootBudget(workflow.ActivityOptions{
+				StartToCloseTimeout:    tt.startToClose,
+				ScheduleToCloseTimeout: tt.scheduleToClose,
+				HeartbeatTimeout:       30 * time.Second,
+				TaskQueue:              "runner-1-TaskQueue",
+			})
+			require.Equal(t, tt.wantStartToClose, options.StartToCloseTimeout)
+			require.Equal(t, tt.wantScheduleToClose, options.ScheduleToCloseTimeout)
+			require.Equal(t, 30*time.Second, options.HeartbeatTimeout)
+			require.Equal(t, "runner-1-TaskQueue", options.TaskQueue)
+		})
+	}
+}
+
 func TestInstallAppIfNeededUsesPlatformActivity(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -832,6 +876,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 				"runner_count": len(runData["setted_devices"].(map[string]any)),
 				"screen_ready": deviceMap["screen_prepared"],
 				"stay_awake":   deviceMap["original_stay_awake"],
+				"screen_off":   deviceMap["original_screen_off_timeout"],
 			}, nil
 		},
 		workflow.RegisterOptions{Name: "test-process-step"},
@@ -854,8 +899,9 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 				payload["serial"] == "serial-1"
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"screen_prepared":     true,
-		"original_stay_awake": "0",
+		"screen_prepared":             true,
+		"original_stay_awake":         "0",
+		"original_screen_off_timeout": "30000",
 	}}, nil)
 	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 		payload, ok := input.Payload.(map[string]any)
@@ -925,6 +971,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 	require.Equal(t, float64(1), result["runner_count"])
 	require.Equal(t, true, result["screen_ready"])
 	require.Equal(t, "0", result["stay_awake"])
+	require.Equal(t, "30000", result["screen_off"])
 }
 
 func TestCleanupDeviceMarksDeviceCleaned(t *testing.T) {
@@ -1065,59 +1112,85 @@ func TestCleanupDeviceSkipsPhysicalDeviceWithoutCleanupWork(t *testing.T) {
 }
 
 func TestCleanupDeviceRunsForPreparedPhysicalDevice(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	cleanupActivity := activities.NewCleanupDeviceActivity()
-	env.RegisterActivityWithOptions(
-		cleanupActivity.Execute,
-		activity.RegisterOptions{Name: cleanupActivity.Name()},
-	)
-
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) error {
-			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			ctx = workflow.WithActivityOptions(ctx, ao)
-			deviceMap := map[string]any{
-				"type":                "android_phone",
-				"serial":              "serial-1",
-				"runner_id":           "tenant/runner-1",
-				"recording":           false,
-				"installed":           map[string]string{},
-				"screen_prepared":     true,
-				"original_stay_awake": "2",
-			}
-			output := map[string]any{}
-			cleanupErrs := []error{}
-			return cleanupDevice(cleanupDeviceInput{
-				ctx:           ctx,
-				deviceID:      "tenant/runner-1",
-				raw:           deviceMap,
-				mobileAo:      &ao,
-				runIdentifier: "run-1",
-				output:        &output,
-				cleanupErrs:   &cleanupErrs,
-				logger:        workflow.GetLogger(ctx),
-			})
+	tests := []struct {
+		name              string
+		screenOffTimeout  any
+		wantScreenRestore string
+	}{
+		{
+			name:              "restores the recorded screen timeout",
+			screenOffTimeout:  "30000",
+			wantScreenRestore: "30000",
 		},
-		workflow.RegisterOptions{Name: "test-cleanup-prepared-physical-device"},
-	)
+		// Setup could not manage the timeout (or ran on an older runner):
+		// the runner must get "" and restore nothing, not "<nil>".
+		{
+			name:              "sends nothing to restore when setup recorded no timeout",
+			screenOffTimeout:  nil,
+			wantScreenRestore: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			suite := testsuite.WorkflowTestSuite{}
+			env := suite.NewTestWorkflowEnvironment()
 
-	env.OnActivity(
-		cleanupActivity.Name(),
-		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(map[string]any)
-			return ok &&
-				payload["serial"] == "serial-1" &&
-				payload["manage_screen"] == true &&
-				payload["original_stay_awake"] == "2"
-		}),
-	).Return(workflowengine.ActivityResult{}, nil).Once()
+			cleanupActivity := activities.NewCleanupDeviceActivity()
+			env.RegisterActivityWithOptions(
+				cleanupActivity.Execute,
+				activity.RegisterOptions{Name: cleanupActivity.Name()},
+			)
 
-	env.ExecuteWorkflow("test-cleanup-prepared-physical-device")
-	require.NoError(t, env.GetWorkflowError())
-	env.AssertExpectations(t)
+			env.RegisterWorkflowWithOptions(
+				func(ctx workflow.Context) error {
+					ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+					ctx = workflow.WithActivityOptions(ctx, ao)
+					deviceMap := map[string]any{
+						"type":                "android_phone",
+						"serial":              "serial-1",
+						"runner_id":           "tenant/runner-1",
+						"recording":           false,
+						"installed":           map[string]string{},
+						"screen_prepared":     true,
+						"original_stay_awake": "2",
+					}
+					if tt.screenOffTimeout != nil {
+						deviceMap["original_screen_off_timeout"] = tt.screenOffTimeout
+					}
+					output := map[string]any{}
+					cleanupErrs := []error{}
+					return cleanupDevice(cleanupDeviceInput{
+						ctx:           ctx,
+						deviceID:      "tenant/runner-1",
+						raw:           deviceMap,
+						mobileAo:      &ao,
+						runIdentifier: "run-1",
+						output:        &output,
+						cleanupErrs:   &cleanupErrs,
+						logger:        workflow.GetLogger(ctx),
+					})
+				},
+				workflow.RegisterOptions{Name: "test-cleanup-prepared-physical-device"},
+			)
+
+			env.OnActivity(
+				cleanupActivity.Name(),
+				mock.Anything,
+				mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+					payload, ok := input.Payload.(map[string]any)
+					return ok &&
+						payload["serial"] == "serial-1" &&
+						payload["manage_screen"] == true &&
+						payload["original_stay_awake"] == "2" &&
+						payload["original_screen_off_timeout"] == tt.wantScreenRestore
+				}),
+			).Return(workflowengine.ActivityResult{}, nil).Once()
+
+			env.ExecuteWorkflow("test-cleanup-prepared-physical-device")
+			require.NoError(t, env.GetWorkflowError())
+			env.AssertExpectations(t)
+		})
+	}
 }
 
 func TestNormalizeDeviceTypeMappings(t *testing.T) {
