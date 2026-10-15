@@ -1112,61 +1112,85 @@ func TestCleanupDeviceSkipsPhysicalDeviceWithoutCleanupWork(t *testing.T) {
 }
 
 func TestCleanupDeviceRunsForPreparedPhysicalDevice(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	cleanupActivity := activities.NewCleanupDeviceActivity()
-	env.RegisterActivityWithOptions(
-		cleanupActivity.Execute,
-		activity.RegisterOptions{Name: cleanupActivity.Name()},
-	)
-
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) error {
-			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			ctx = workflow.WithActivityOptions(ctx, ao)
-			deviceMap := map[string]any{
-				"type":                        "android_phone",
-				"serial":                      "serial-1",
-				"runner_id":                   "tenant/runner-1",
-				"recording":                   false,
-				"installed":                   map[string]string{},
-				"screen_prepared":             true,
-				"original_stay_awake":         "2",
-				"original_screen_off_timeout": "30000",
-			}
-			output := map[string]any{}
-			cleanupErrs := []error{}
-			return cleanupDevice(cleanupDeviceInput{
-				ctx:           ctx,
-				deviceID:      "tenant/runner-1",
-				raw:           deviceMap,
-				mobileAo:      &ao,
-				runIdentifier: "run-1",
-				output:        &output,
-				cleanupErrs:   &cleanupErrs,
-				logger:        workflow.GetLogger(ctx),
-			})
+	tests := []struct {
+		name              string
+		screenOffTimeout  any
+		wantScreenRestore string
+	}{
+		{
+			name:              "restores the recorded screen timeout",
+			screenOffTimeout:  "30000",
+			wantScreenRestore: "30000",
 		},
-		workflow.RegisterOptions{Name: "test-cleanup-prepared-physical-device"},
-	)
+		// Setup could not manage the timeout (or ran on an older runner):
+		// the runner must get "" and restore nothing, not "<nil>".
+		{
+			name:              "sends nothing to restore when setup recorded no timeout",
+			screenOffTimeout:  nil,
+			wantScreenRestore: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			suite := testsuite.WorkflowTestSuite{}
+			env := suite.NewTestWorkflowEnvironment()
 
-	env.OnActivity(
-		cleanupActivity.Name(),
-		mock.Anything,
-		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-			payload, ok := input.Payload.(map[string]any)
-			return ok &&
-				payload["serial"] == "serial-1" &&
-				payload["manage_screen"] == true &&
-				payload["original_stay_awake"] == "2" &&
-				payload["original_screen_off_timeout"] == "30000"
-		}),
-	).Return(workflowengine.ActivityResult{}, nil).Once()
+			cleanupActivity := activities.NewCleanupDeviceActivity()
+			env.RegisterActivityWithOptions(
+				cleanupActivity.Execute,
+				activity.RegisterOptions{Name: cleanupActivity.Name()},
+			)
 
-	env.ExecuteWorkflow("test-cleanup-prepared-physical-device")
-	require.NoError(t, env.GetWorkflowError())
-	env.AssertExpectations(t)
+			env.RegisterWorkflowWithOptions(
+				func(ctx workflow.Context) error {
+					ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+					ctx = workflow.WithActivityOptions(ctx, ao)
+					deviceMap := map[string]any{
+						"type":                "android_phone",
+						"serial":              "serial-1",
+						"runner_id":           "tenant/runner-1",
+						"recording":           false,
+						"installed":           map[string]string{},
+						"screen_prepared":     true,
+						"original_stay_awake": "2",
+					}
+					if tt.screenOffTimeout != nil {
+						deviceMap["original_screen_off_timeout"] = tt.screenOffTimeout
+					}
+					output := map[string]any{}
+					cleanupErrs := []error{}
+					return cleanupDevice(cleanupDeviceInput{
+						ctx:           ctx,
+						deviceID:      "tenant/runner-1",
+						raw:           deviceMap,
+						mobileAo:      &ao,
+						runIdentifier: "run-1",
+						output:        &output,
+						cleanupErrs:   &cleanupErrs,
+						logger:        workflow.GetLogger(ctx),
+					})
+				},
+				workflow.RegisterOptions{Name: "test-cleanup-prepared-physical-device"},
+			)
+
+			env.OnActivity(
+				cleanupActivity.Name(),
+				mock.Anything,
+				mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+					payload, ok := input.Payload.(map[string]any)
+					return ok &&
+						payload["serial"] == "serial-1" &&
+						payload["manage_screen"] == true &&
+						payload["original_stay_awake"] == "2" &&
+						payload["original_screen_off_timeout"] == tt.wantScreenRestore
+				}),
+			).Return(workflowengine.ActivityResult{}, nil).Once()
+
+			env.ExecuteWorkflow("test-cleanup-prepared-physical-device")
+			require.NoError(t, env.GetWorkflowError())
+			env.AssertExpectations(t)
+		})
+	}
 }
 
 func TestNormalizeDeviceTypeMappings(t *testing.T) {
