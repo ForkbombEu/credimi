@@ -24,7 +24,8 @@ import { type WalletActionsResponse, type WalletVersionsResponse } from '@/pocke
 import type {
 	InlineWalletActionStepData,
 	StoredWalletActionStepData,
-	WalletActionStepData
+	WalletActionStepData,
+	WalletBeforeAction
 } from './types.js';
 
 type MobileWith = PipelineStepData<PipelineStepByType<'mobile-automation'>>;
@@ -72,37 +73,45 @@ function parametersFrom(data: MobileWith): { [key: string]: string } | undefined
 	return data.parameters as { [key: string]: string };
 }
 
+function beforeActionsFrom(data: MobileWith): WalletBeforeAction[] | undefined {
+	if (!('before_actions' in data) || !data.before_actions?.length) return undefined;
+	return data.before_actions;
+}
 function versionIdOf(version: SelectedVersion): string {
 	return version === EXTERNAL_VERSION ? EXTERNAL_VERSION : getPath(version);
 }
 
-/** Shared write of version_id / device_id / parameters onto MobileWith. */
+/** Shared write of version_id / device_id / parameters / before_actions onto MobileWith. */
 function applyTargetFields(
 	_with: MobileWith,
-	version: SelectedVersion,
-	device: SelectedDevice,
-	parameters?: { [key: string]: string }
+	data: Pick<WalletActionStepData, 'beforeActions' | 'device' | 'parameters' | 'version'>
 ): void {
-	_with.version_id = versionIdOf(version);
-	if (device !== GLOBAL_DEVICE) {
-		_with.device_id = device.path;
+	_with.version_id = versionIdOf(data.version);
+	if (data.device !== GLOBAL_DEVICE) {
+		_with.device_id = data.device.path;
 	}
-	if (parameters && Object.keys(parameters).length > 0) {
-		_with.parameters = parameters;
+	if (data.parameters && Object.keys(data.parameters).length > 0) {
+		_with.parameters = data.parameters;
+	}
+	if (data.beforeActions?.length) {
+		_with.before_actions = data.beforeActions;
 	}
 }
 
-/** Shared resolve of version + device + parameters from YAML. */
-async function resolveTargetFields(data: MobileWith): Promise<{
-	version: SelectedVersion;
-	device: SelectedDevice;
-	parameters: { [key: string]: string } | undefined;
-}> {
+/** Shared resolve of version + device + parameters + before_actions from YAML. */
+async function resolveTargetFields(
+	data: MobileWith
+): Promise<Pick<WalletActionStepData, 'beforeActions' | 'device' | 'parameters' | 'version'>> {
 	const version = await resolveVersion(String(data.version_id));
 	const device = await resolveDevice(
 		'device_id' in data ? (data.device_id as string | undefined) : undefined
 	);
-	return { version, device, parameters: parametersFrom(data) };
+	return {
+		version,
+		device,
+		parameters: parametersFrom(data),
+		beforeActions: beforeActionsFrom(data)
+	};
 }
 
 export function makeWalletActionId(data: MobileWith): string {
@@ -118,13 +127,13 @@ export function makeWalletActionId(data: MobileWith): string {
 export function serializeWalletAction(data: WalletActionStepData): MobileWith {
 	if (data.kind === 'inline') {
 		const _with = { action_code: data.actionCode } as MobileWith;
-		applyTargetFields(_with, data.version, data.device, data.parameters);
+		applyTargetFields(_with, data);
 		return _with;
 	}
 
-	const { action, version, device, parameters } = data;
+	const { action } = data;
 	const _with = { action_id: getPath(action) } as MobileWith;
-	applyTargetFields(_with, version, device, parameters);
+	applyTargetFields(_with, data);
 	if (
 		!_with.parameters &&
 		(action.code.includes('${DL}') || action.code.includes('${deeplink}'))
@@ -138,13 +147,10 @@ export function serializeWalletAction(data: WalletActionStepData): MobileWith {
 
 export async function deserializeWalletAction(data: MobileWith): Promise<WalletActionStepData> {
 	if (isInlineWalletActionYaml(data)) {
-		const { version, device, parameters } = await resolveTargetFields(data);
 		return {
 			kind: 'inline',
 			actionCode: data.action_code as string,
-			version,
-			device,
-			parameters
+			...(await resolveTargetFields(data))
 		} satisfies InlineWalletActionStepData;
 	}
 
@@ -157,15 +163,13 @@ export async function deserializeWalletAction(data: MobileWith): Promise<WalletA
 		throw action;
 	}
 
-	const { version, device, parameters } = await resolveTargetFields(data);
+	const target = await resolveTargetFields(data);
 	const wallet = await getHubItemById(action.wallet);
 
 	return {
 		kind: 'stored',
 		wallet,
-		version,
 		action,
-		device,
-		parameters
+		...target
 	} satisfies StoredWalletActionStepData;
 }

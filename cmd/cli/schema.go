@@ -262,12 +262,30 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 		with["required"] = req
 	}
 	if stepKey == "mobile-automation" {
+		beforeActions := map[string]any{
+			"type": "array",
+			"description": "Stored wallet actions run in the same Maestro flow before the step's " +
+				"action, each with its own parameters. Their screenshots are not kept.",
+			"items": map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"action_id": map[string]any{"type": "string"},
+					"parameters": map[string]any{
+						"type":                 "object",
+						"additionalProperties": map[string]any{"type": "string"},
+					},
+				},
+				"required":             []string{"action_id"},
+				"additionalProperties": false,
+			},
+		}
 		with := []map[string]any{
 			{
 				"type": "object",
 				"properties": map[string]any{
-					"device_id": map[string]any{"type": "string"},
-					"action_id": map[string]any{"type": "string"},
+					"device_id":      map[string]any{"type": "string"},
+					"action_id":      map[string]any{"type": "string"},
+					"before_actions": beforeActions,
 					"parameters": map[string]any{
 						"type":                 "object",
 						"additionalProperties": map[string]any{"type": "string"},
@@ -283,9 +301,10 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 			{
 				"type": "object",
 				"properties": map[string]any{
-					"device_id":  map[string]any{"type": "string"},
-					"action_id":  map[string]any{"type": "string"},
-					"version_id": map[string]any{"type": "string"},
+					"device_id":      map[string]any{"type": "string"},
+					"action_id":      map[string]any{"type": "string"},
+					"version_id":     map[string]any{"type": "string"},
+					"before_actions": beforeActions,
 					"parameters": map[string]any{
 						"type":                 "object",
 						"additionalProperties": map[string]any{"type": "string"},
@@ -301,9 +320,10 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 			{
 				"type": "object",
 				"properties": map[string]any{
-					"device_id":   map[string]any{"type": "string"},
-					"version_id":  map[string]any{"type": "string"},
-					"action_code": map[string]any{"type": "string"},
+					"device_id":      map[string]any{"type": "string"},
+					"version_id":     map[string]any{"type": "string"},
+					"action_code":    map[string]any{"type": "string"},
+					"before_actions": beforeActions,
 					"parameters": map[string]any{
 						"type":                 "object",
 						"additionalProperties": map[string]any{"type": "string"},

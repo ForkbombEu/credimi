@@ -7,6 +7,12 @@ import type { SelectedDevice, SelectedVersion } from '$pipeline-form/execution-t
 
 import type { WalletActionsResponse } from '@/pocketbase/types';
 
+/** Stored wallet action run in the same Maestro flow before the step's action. */
+export type WalletBeforeAction = {
+	action_id: string;
+	parameters?: { [key: string]: string };
+};
+
 /** Catalog-backed wallet action (action_id path). */
 export type StoredWalletActionStepData = {
 	kind: 'stored';
@@ -15,6 +21,7 @@ export type StoredWalletActionStepData = {
 	device: SelectedDevice;
 	action: WalletActionsResponse;
 	parameters?: { [key: string]: string };
+	beforeActions?: WalletBeforeAction[];
 };
 
 /**
@@ -27,6 +34,7 @@ export type InlineWalletActionStepData = {
 	version: SelectedVersion;
 	device: SelectedDevice;
 	parameters?: { [key: string]: string };
+	beforeActions?: WalletBeforeAction[];
 };
 
 export type WalletActionStepData = StoredWalletActionStepData | InlineWalletActionStepData;

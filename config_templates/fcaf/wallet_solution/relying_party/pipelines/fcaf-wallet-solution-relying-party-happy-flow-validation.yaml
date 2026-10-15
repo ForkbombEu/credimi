@@ -88,18 +88,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-baseline-ab869899-exercise-wallet-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-baseline-ab869899-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-baseline-ab869899-exercise-wallet
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-baseline-ab869899-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-baseline-ab869899-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -338,18 +334,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-credential-formats-3cfeac03-credential-formats-040-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -485,18 +477,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-interaction-metadata-f9737358-reject-aud-mismatch-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-interaction-metadata-f9737358-reject-aud-mismatch-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-interaction-metadata-f9737358-reject-aud-mismatch
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-interaction-metadata-f9737358-reject-aud-mismatch-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-interaction-metadata-f9737358-create-aud-mismatch-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -559,18 +547,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-019-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -627,18 +611,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-020-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -683,18 +663,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-main-interaction-eeb8ef1f-main-interaction-022-reject-claim-sets-without-claims-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-022-reject-claim-sets-without-claims-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-022-reject-claim-sets-without-claims
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-022-reject-claim-sets-without-claims-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-022-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -752,18 +728,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -811,18 +783,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-main-interaction-eeb8ef1f-main-interaction-026-exercise-no-match-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-026-exercise-no-match-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-026-exercise-no-match
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-026-exercise-no-match-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-026-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -874,18 +842,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-027-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1040,18 +1004,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1227,14 +1187,6 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session
       use: http-request
       with:
@@ -1246,14 +1198,6 @@ steps:
             Content-Type: application/json
         method: POST
         url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
-      id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials
       use: mobile-automation
@@ -1303,6 +1247,13 @@ steps:
                 timeout: 30000
             - takeScreenshot: fcaf-main-interaction-039-shared
             - tapOn: "Close"
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session.outputs.body.deeplink }}
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session.outputs.body.deeplink }}
         parameters:
             DEEPLINK: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1364,18 +1315,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-reject-transaction-data
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-protocol-messages-a25772b2-create-transaction-data-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1433,18 +1380,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-rp-integrity-3576cc79-reject-did-session-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-rp-integrity-3576cc79-reject-did-session-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-reject-did-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-rp-integrity-3576cc79-reject-did-session-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-rp-integrity-3576cc79-create-did-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1508,18 +1451,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-session-encryption-210827bd-exercise-wallet-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-session-encryption-210827bd-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-session-encryption-210827bd-exercise-wallet
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-session-encryption-210827bd-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-session-encryption-210827bd-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1580,18 +1519,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-exercise-wallet
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-trust-mechanisms-157d0f39-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1646,18 +1581,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: dcql-trust-mechanisms-157d0f39-expect-no-matching-credential-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ dcql-trust-mechanisms-157d0f39-expect-no-matching-credential-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-expect-no-matching-credential
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ dcql-trust-mechanisms-157d0f39-expect-no-matching-credential-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ dcql-trust-mechanisms-157d0f39-create-no-match-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -1716,18 +1647,14 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ direct-post-jwt-response-transport-57ec17f1-create-capture-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -2220,18 +2147,14 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/sessions
     - continue_on_error: true
-      id: request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
-        parameters:
-            deeplink: ${{ request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: request-object-by-value-f1c94061-submit-request-object-by-value
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-submit-request-object-by-value
+        before_actions:
+            - action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid-session.outputs.body.deeplink }}
         parameters:
             deeplink: ${{ request-object-by-value-f1c94061-create-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source

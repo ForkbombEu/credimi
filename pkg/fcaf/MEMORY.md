@@ -4062,3 +4062,29 @@ sessions: their request deliberately differs (two sessions, a malformed nonce).
 The complete aggregate drops from 1874 to 1794 steps (826 to 789 wallet steps,
 617 tests unchanged, 213 outputs); the happy flow is 173 steps / 308 tests / 32
 outputs, having gained the baseline tests of the deleted scenarios.
+
+## Injected PID issuances run inside their presentation, 15/10/2026
+
+Each PID the generator injects for a presentation used to be its own
+`mobile-automation` step (child workflow, Maestro run, recording) before the
+presentation. The issuer session stays an `http-request` step, but the wallet
+action that accepts its offer is now one of the presentation's
+`with.before_actions`; the pipeline setup hook prepends it to the
+presentation's flow as a `runFlow` block (see AGENTS.md, pipeline contract).
+
+- A failed injected issuance now fails the presentation step. Before, the
+  presentation still ran on a wallet without the PID it needed, and a refusal
+  or no-match screen from that empty wallet could pass as evidence.
+- Before actions' screenshots are dropped, so the issuance's `credential-added`
+  screenshot no longer reaches the presentation's `visual_evidence`, where it
+  would pad `evidence.minimum_items` / `evidence.non_empty`. Injected issuances
+  were never possession evidence (`oid4vci.fixtures_stored` reads
+  scenario-authored issuances only); the issuance's `assertVisible: "View
+  details"` still has to pass.
+- Presentations driving another app (the five DC API flows run in Chrome) keep
+  their injected issuance as a separate step: a before action must drive the
+  step's own `appId`.
+
+The complete aggregate drops from 1794 to 1528 steps (789 to 523 wallet steps:
+266 issuances moved into their presentations, at most 7 in one step); the happy
+flow drops from 173 to 154 steps (19 moved). Tests and outputs are unchanged.
