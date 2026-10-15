@@ -9,6 +9,7 @@ import { err, ok, type Result } from 'true-myth/result';
 import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { getExceptionMessage } from '@/utils/errors';
+import { warn } from '@/utils/other';
 
 //
 
@@ -98,6 +99,29 @@ export async function disablePipelineNotifications(): Promise<Result<null, strin
 	}
 }
 
+/**
+ * Keeps this browser's push subscription bound to the signed-in user.
+ * The subscription belongs to the browser, its `push_subscriptions` record to
+ * the user who enabled it: after that user signs out, or another user signs
+ * in, the browser would keep showing the first user's notifications.
+ * Without a signed-in user, or when the signed-in user has no record for the
+ * subscription, unsubscribe it; the server prunes the orphaned record on its
+ * next push (HTTP 410). Lookup failures keep the subscription.
+ */
+export async function syncPushSubscriptionOwner(user: string | undefined): Promise<void> {
+	if (!browser || !('serviceWorker' in navigator && 'PushManager' in window)) return;
+
+	try {
+		const registration = await navigator.serviceWorker.getRegistration();
+		const subscription = await registration?.pushManager.getSubscription();
+		if (!subscription) return;
+		if (user && (await findSubscriptionRecord(user, subscription.endpoint))) return;
+		await subscription.unsubscribe();
+	} catch (e) {
+		warn('Failed to align the push subscription with the signed-in user', e);
+	}
+}
+
 async function saveSubscription(subscription: PushSubscription): Promise<void> {
 	const { endpoint, keys } = subscription.toJSON() as {
 		endpoint?: string;
@@ -141,9 +165,18 @@ async function deleteSubscriptionRecords(endpoint: string): Promise<void> {
 	await Promise.all(records.map((r) => pb.collection('push_subscriptions').delete(r.id)));
 }
 
+/** Returns null only when no record matches; any other failure throws. */
 async function findSubscriptionRecord(user: string, endpoint: string) {
 	return pb
 		.collection('push_subscriptions')
-		.getFirstListItem(pb.filter('user = {:user} && endpoint = {:endpoint}', { user, endpoint }))
-		.catch(() => null);
+		.getFirstListItem(
+			pb.filter('user = {:user} && endpoint = {:endpoint}', { user, endpoint }),
+			{
+				requestKey: null
+			}
+		)
+		.catch((e: unknown) => {
+			if (e instanceof ClientResponseError && e.status === 404) return null;
+			throw e;
+		});
 }

@@ -467,6 +467,14 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
+				if pipelineRunOwnedByAnotherOrganization(e.App, authRecord.Id, workflowID, runID) {
+					return apierror.New(
+						http.StatusForbidden,
+						"workflow",
+						"workflow belongs to another organization",
+						"the run belongs to another organization",
+					)
+				}
 				return apierror.New(
 					http.StatusNotFound,
 					"workflow",
@@ -530,6 +538,26 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 		}
 		return e.JSON(http.StatusOK, finalJSON)
 	}
+}
+
+// pipelineRunOwnedByAnotherOrganization reports whether a run missing from the
+// caller's namespace is a pipeline run recorded for another organization, so
+// the run page can ask the caller to switch account (e.g. after opening another
+// user's notification) instead of reporting a missing run. It discloses only
+// that the given workflow and run IDs exist; lookup failures report false.
+func pipelineRunOwnedByAnotherOrganization(
+	app core.App,
+	userID, workflowID, runID string,
+) bool {
+	record, err := pipelineresults.FindByWorkflowRun(app, workflowID, runID)
+	if err != nil {
+		return false
+	}
+	orgID, err := pbutils.GetUserOrganizationID(app, userID)
+	if err != nil {
+		return false
+	}
+	return record.GetString("owner") != orgID
 }
 
 func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
