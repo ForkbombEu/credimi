@@ -31,7 +31,8 @@ func AttachPresentation(app core.App, record *core.Record, report *engine.Report
 	report.AttachPresentation(pipelineresults.ComputeMaestroScreenshotURLs(app, record))
 }
 
-// EnrichReportJSON attaches presentation while preserving unknown JSON fields.
+// EnrichReportJSON attaches presentation and FCAF source links while preserving
+// unknown JSON fields.
 func EnrichReportJSON(
 	app core.App,
 	record *core.Record,
@@ -50,11 +51,37 @@ func EnrichReportJSON(
 	}
 	AttachPresentation(app, record, &report)
 	root["presentation"] = report.Presentation
+	attachSourceURLs(root, &report)
 	enriched, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
 		return nil, nil, fmt.Errorf("encode FCAF report: %w", err)
 	}
 	return enriched, &report, nil
+}
+
+// attachSourceURLs sets each executed test's link to its FCAF source test, built
+// from the source heading as the PDF does, on both the typed report and the raw
+// JSON root, whose executed_tests entries are in the same order.
+func attachSourceURLs(root map[string]any, report *engine.Report) {
+	rawTests, _ := root["executed_tests"].([]any)
+	if len(rawTests) == 0 || len(rawTests) != len(report.ExecutedTests) {
+		return
+	}
+	testIDs := make([]string, 0, len(report.ExecutedTests))
+	for _, test := range report.ExecutedTests {
+		testIDs = append(testIDs, test.TestID)
+	}
+	_, sources, _ := reportpdf.LoadMaterials(testIDs)
+	for index := range report.ExecutedTests {
+		test := &report.ExecutedTests[index]
+		sourceURL := reportpdf.SourceURL(sources[test.TestID].Title)
+		rawTest, ok := rawTests[index].(map[string]any)
+		if sourceURL == "" || !ok {
+			continue
+		}
+		test.SourceURL = sourceURL
+		rawTest["source_url"] = sourceURL
+	}
 }
 
 // RefreshScoreboardLatestExecutionArtifacts rewrites scoreboard cache artifact URLs after
