@@ -876,6 +876,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 				"runner_count": len(runData["setted_devices"].(map[string]any)),
 				"screen_ready": deviceMap["screen_prepared"],
 				"stay_awake":   deviceMap["original_stay_awake"],
+				"screen_off":   deviceMap["original_screen_off_timeout"],
 			}, nil
 		},
 		workflow.RegisterOptions{Name: "test-process-step"},
@@ -898,8 +899,9 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 				payload["serial"] == "serial-1"
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"screen_prepared":     true,
-		"original_stay_awake": "0",
+		"screen_prepared":             true,
+		"original_stay_awake":         "0",
+		"original_screen_off_timeout": "30000",
 	}}, nil)
 	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 		payload, ok := input.Payload.(map[string]any)
@@ -969,6 +971,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 	require.Equal(t, float64(1), result["runner_count"])
 	require.Equal(t, true, result["screen_ready"])
 	require.Equal(t, "0", result["stay_awake"])
+	require.Equal(t, "30000", result["screen_off"])
 }
 
 func TestCleanupDeviceMarksDeviceCleaned(t *testing.T) {
@@ -1123,13 +1126,14 @@ func TestCleanupDeviceRunsForPreparedPhysicalDevice(t *testing.T) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			deviceMap := map[string]any{
-				"type":                "android_phone",
-				"serial":              "serial-1",
-				"runner_id":           "tenant/runner-1",
-				"recording":           false,
-				"installed":           map[string]string{},
-				"screen_prepared":     true,
-				"original_stay_awake": "2",
+				"type":                        "android_phone",
+				"serial":                      "serial-1",
+				"runner_id":                   "tenant/runner-1",
+				"recording":                   false,
+				"installed":                   map[string]string{},
+				"screen_prepared":             true,
+				"original_stay_awake":         "2",
+				"original_screen_off_timeout": "30000",
 			}
 			output := map[string]any{}
 			cleanupErrs := []error{}
@@ -1155,7 +1159,8 @@ func TestCleanupDeviceRunsForPreparedPhysicalDevice(t *testing.T) {
 			return ok &&
 				payload["serial"] == "serial-1" &&
 				payload["manage_screen"] == true &&
-				payload["original_stay_awake"] == "2"
+				payload["original_stay_awake"] == "2" &&
+				payload["original_screen_off_timeout"] == "30000"
 		}),
 	).Return(workflowengine.ActivityResult{}, nil).Once()
 

@@ -577,6 +577,12 @@ func preparePhysicalAndroidDeviceIfNeeded(
 
 	deviceMap["screen_prepared"] = true
 	deviceMap["original_stay_awake"] = originalStayAwake
+	// Optional: the runner raises the screen timeout for the run when it can
+	// and reports the value to restore at cleanup.
+	if originalScreenOffTimeout, ok := output["original_screen_off_timeout"].(string); ok &&
+		strings.TrimSpace(originalScreenOffTimeout) != "" {
+		deviceMap["original_screen_off_timeout"] = originalScreenOffTimeout
+	}
 	return nil
 }
 
@@ -1637,6 +1643,9 @@ func cleanupDevice(
 		"reenable_play_store":    reenablePlayStore,
 		"manage_screen":          workflowengine.AsBool(deviceMap["screen_prepared"]),
 		"original_stay_awake":    workflowengine.AsString(deviceMap["original_stay_awake"]),
+		"original_screen_off_timeout": workflowengine.AsString(
+			deviceMap["original_screen_off_timeout"],
+		),
 	}
 
 	if err := workflow.ExecuteActivity(
