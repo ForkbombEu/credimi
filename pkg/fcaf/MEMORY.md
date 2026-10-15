@@ -4088,3 +4088,26 @@ presentation's flow as a `runFlow` block (see AGENTS.md, pipeline contract).
 The complete aggregate drops from 1794 to 1528 steps (789 to 523 wallet steps:
 266 issuances moved into their presentations, at most 7 in one step); the happy
 flow drops from 173 to 154 steps (19 moved). Tests and outputs are unchanged.
+
+## Scenario wallet resets run inside the first wallet step, 15/10/2026
+
+The `fcaf-reset-and-onboard` reset that isolates each scenario is no longer a
+`<scenario>-reset-wallet` step: it is the first before action of the
+scenario's first wallet step, ahead of that step's injected issuances. For the
+five DC API scenarios, whose first wallet step runs in Chrome, it is the first
+before action of the separate injected issuance instead. The pipeline's first
+step, `onboard-reference-wallet`, stays a step: it installs the wallet version.
+
+- The reset still clears the wallet and onboards it before anything in the
+  scenario touches the wallet; it now runs after the scenario's first
+  server-side steps (2.3 on average), which the wallet does not see.
+- A failed reset fails the scenario's first wallet step. Before, the scenario
+  went on with the previous scenario's credentials in the wallet, which could
+  falsify its tests (the reason grouping scenarios was rejected).
+- The reset's `fcaf-reset-and-onboard` screenshot is dropped with the other
+  before-action screenshots; no test or validator reads it.
+
+The complete aggregate drops from 1528 to 1345 steps (523 to 340 wallet steps,
+all 183 scenario resets folded, at most 8 before actions in one step); the
+happy flow drops from 154 to 141 steps (13 folded). Tests and outputs are
+unchanged.
