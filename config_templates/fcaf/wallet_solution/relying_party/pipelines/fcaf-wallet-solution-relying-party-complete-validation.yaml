@@ -1,6 +1,7 @@
 name: FCAF wallet relying-party complete validation
 runtime:
     global_device_id: forkbomb-bv-andrea/usb/device
+    no_video: false
     temporal:
         activity_options:
             heartbeat_timeout: 10m
