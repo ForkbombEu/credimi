@@ -767,6 +767,9 @@ func saveUploadedFileToRecord(
 	}
 	defer file.Close()
 	ext := filepath.Ext(fileHeader.Filename)
+	// Runners zip long device logs before upload to keep the request under the
+	// body limit; an already zipped upload is stored as-is instead of nested.
+	preZipped := zipUpload && strings.EqualFold(ext, ".zip")
 	if zipUpload {
 		ext = ".zip"
 	}
@@ -781,7 +784,7 @@ func saveUploadedFileToRecord(
 	}
 	defer tmp.Close()
 
-	if zipUpload {
+	if zipUpload && !preZipped {
 		zipWriter := zip.NewWriter(tmp)
 		entryName := fileHeader.Filename
 		if entryName == "" {
