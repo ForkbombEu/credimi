@@ -1051,28 +1051,6 @@
                       "action_id": {
                         "type": "string"
                       },
-                      "before_actions": {
-                        "description": "Stored wallet actions run in the same Maestro flow before the step's action, each with its own parameters. Their screenshots are not kept.",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "action_id": {
-                              "type": "string"
-                            },
-                            "parameters": {
-                              "additionalProperties": {
-                                "type": "string"
-                              },
-                              "type": "object"
-                            }
-                          },
-                          "required": [
-                            "action_id"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
                       "config": {
                         "additionalProperties": true,
                         "type": "object"
@@ -1097,28 +1075,6 @@
                     "properties": {
                       "action_id": {
                         "type": "string"
-                      },
-                      "before_actions": {
-                        "description": "Stored wallet actions run in the same Maestro flow before the step's action, each with its own parameters. Their screenshots are not kept.",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "action_id": {
-                              "type": "string"
-                            },
-                            "parameters": {
-                              "additionalProperties": {
-                                "type": "string"
-                              },
-                              "type": "object"
-                            }
-                          },
-                          "required": [
-                            "action_id"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
                       },
                       "config": {
                         "additionalProperties": true,
@@ -1149,26 +1105,77 @@
                       "action_code": {
                         "type": "string"
                       },
-                      "before_actions": {
-                        "description": "Stored wallet actions run in the same Maestro flow before the step's action, each with its own parameters. Their screenshots are not kept.",
+                      "config": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "device_id": {
+                        "type": "string"
+                      },
+                      "parameters": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "version_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "action_code",
+                      "version_id"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "actions": {
+                        "description": "Wallet actions run in order in one Maestro flow. Each action's parameters take precedence over the step's, which every action receives.",
                         "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "action_id": {
-                              "type": "string"
-                            },
-                            "parameters": {
-                              "additionalProperties": {
-                                "type": "string"
+                          "oneOf": [
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "id": {
+                                  "description": "Stored wallet action",
+                                  "type": "string"
+                                },
+                                "parameters": {
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  },
+                                  "type": "object"
+                                }
                               },
+                              "required": [
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "code": {
+                                  "description": "Inline Maestro code",
+                                  "type": "string"
+                                },
+                                "parameters": {
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  },
+                                  "type": "object"
+                                }
+                              },
+                              "required": [
+                                "code"
+                              ],
                               "type": "object"
                             }
-                          },
-                          "required": [
-                            "action_id"
-                          ],
-                          "type": "object"
+                          ]
                         },
+                        "minItems": 1,
                         "type": "array"
                       },
                       "config": {
@@ -1189,7 +1196,7 @@
                       }
                     },
                     "required": [
-                      "action_code",
+                      "actions",
                       "version_id"
                     ],
                     "type": "object"

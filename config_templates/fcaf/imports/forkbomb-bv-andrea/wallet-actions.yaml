@@ -10,6 +10,10 @@ actions:
     category: get-credential-generic
     tags: fcaf, credential, generic
     file: wallet/getcredential-generic-credential-without-authentication.yaml
+  - name: fcaf-issue-pid
+    category: get-credential-generic
+    tags: fcaf, helper, credential
+    file: wallet/fcaf-issue-pid.yaml
   - name: fcaf-expect-credential-rejected
     category: get-credential-generic
     tags: fcaf, expect, rejected, credential

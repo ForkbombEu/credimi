@@ -290,25 +290,25 @@ func MobileAutomationSetupHook(
 
 // resolveStoredMobileActions loads the code of every stored wallet action
 // (`action_id` without `action_code`) once, on behalf of the run's
-// organization, and marks external-source install actions. It then prepends
-// each step's `before_actions` to its code. Runners receive the resolved code
-// and never look actions up themselves.
+// organization, and marks external-source install actions. A step listing
+// `actions` gets them composed into one flow instead. Runners receive the
+// resolved code and never look actions up themselves.
 func resolveStoredMobileActions(
 	ctx workflow.Context,
 	steps *[]pipeline.StepDefinition,
 	config map[string]any,
 ) error {
 	ownerNamespace, _ := config["namespace"].(string)
-	beforeActionCodes := map[string]string{}
+	actionRecords := map[string]map[string]any{}
 
 	return walkMutableStepSpecs(*steps, func(step *pipeline.StepSpec) error {
 		if step.Use != mobileAutomationStepUse {
 			return nil
 		}
-		if err := resolveStoredMobileAction(ctx, step, ownerNamespace); err != nil {
-			return err
+		if _, ok := step.With.Payload[mobileActionsPayloadKey]; ok {
+			return composeStepActions(ctx, step, ownerNamespace, actionRecords)
 		}
-		return composeStepBeforeActions(ctx, step, ownerNamespace, beforeActionCodes)
+		return resolveStoredMobileAction(ctx, step, ownerNamespace)
 	})
 }
 
@@ -346,7 +346,13 @@ func resolveStoredMobileAction(
 	}
 	SetPayloadValue(&step.With.Payload, "action_code", code)
 	SetPayloadValue(&step.With.Payload, "stored_action_code", true)
+	markExternalInstall(step, action)
+	return nil
+}
 
+// markExternalInstall enables external-install detection for a step that runs
+// an install-app action on a wallet installed from an external source.
+func markExternalInstall(step *pipeline.StepSpec, action map[string]any) {
 	if workflowengine.AsString(
 		step.With.Payload["version_id"],
 	) == mobileExternalSourceVersionID &&
@@ -354,7 +360,6 @@ func resolveStoredMobileAction(
 			walletActionCategoryInstallApp {
 		SetConfigValue(&step.With.Config, mobileExternalInstallConfigKey, true)
 	}
-	return nil
 }
 
 // fetchMobileAction resolves the wallet action on behalf of the run's

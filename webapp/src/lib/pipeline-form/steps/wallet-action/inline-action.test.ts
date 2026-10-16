@@ -63,18 +63,31 @@ describe('wallet-action inline action_code', () => {
 		});
 	});
 
-	it('keeps before_actions through deserialize and serialize', async () => {
-		const withBeforeActions = {
-			...inlineYaml,
-			before_actions: [
+	it('keeps actions through deserialize, the pass-through form and serialize', async () => {
+		const actionsYaml = {
+			version_id: EXTERNAL_VERSION,
+			parameters: { lang: 'en' },
+			actions: [
 				{
-					action_id: 'tenant/wallet/issue-pid',
+					id: 'tenant/wallet/issue-pid',
 					parameters: { deeplink: '${{ issue.outputs.body.deeplink }}' }
-				}
+				},
+				{ code: inlineYaml.action_code, parameters: inlineYaml.parameters }
 			]
 		};
-		const data = await walletActionStepConfig.deserialize(withBeforeActions);
-		expect(walletActionStepConfig.serialize(data)).toEqual(withBeforeActions);
+		const data = await walletActionStepConfig.deserialize(actionsYaml);
+		expect(walletActionStepConfig.makeId(actionsYaml)).toBe('wallet-actions');
+
+		const form = walletActionStepConfig.initForm({
+			intent: 'edit',
+			initial: data,
+			getExecutionTarget: () => undefined,
+			isExecutionTargetLocked: () => false
+		});
+		expect(form.canSave()).toBe(true);
+		const saved = form.getSubmitData();
+		if (!saved) throw new Error('the pass-through form must keep the actions');
+		expect(walletActionStepConfig.serialize(saved)).toEqual(actionsYaml);
 	});
 
 	it('shows custom-code card metadata without exposing the script', async () => {

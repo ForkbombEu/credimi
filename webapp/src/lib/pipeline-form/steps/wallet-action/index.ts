@@ -9,6 +9,7 @@ import { entities } from '$lib/global/entities';
 import { getHubItemLogo, getHubItemUrl } from '$lib/hub';
 import { type PipelineStepType } from '$lib/pipeline/types.js';
 import { getPath } from '$lib/utils';
+import { getLastPathSegment } from '$pipeline-form/steps/_partials/index.js';
 import { formatLinkedId } from '$pipeline-form/steps/utils.js';
 
 import { m } from '@/i18n/index.js';
@@ -19,15 +20,20 @@ import CardDetailsComponent from './card-details.svelte';
 import { deserializeWalletAction, makeWalletActionId, serializeWalletAction } from './codec.js';
 import { InlineWalletActionStepForm } from './inline-wallet-action-step-form.svelte.js';
 import { getDeviceLabel, getVersionLabel } from './labels.js';
-import { isInlineWalletActionStepData } from './types.js';
+import { isPassThroughWalletActionStepData } from './types.js';
 import { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
 export type {
+	ActionsWalletActionStepData,
 	InlineWalletActionStepData,
 	StoredWalletActionStepData,
 	WalletActionStepData
 } from './types.js';
-export { isInlineWalletActionStepData, isStoredWalletActionStepData } from './types.js';
+export {
+	isActionsWalletActionStepData,
+	isInlineWalletActionStepData,
+	isStoredWalletActionStepData
+} from './types.js';
 export { applyWalletActionStepVersion, isMatchingMobileStepData } from './change-wallet-version.js';
 export { InlineWalletActionStepForm } from './inline-wallet-action-step-form.svelte.js';
 export { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
@@ -42,6 +48,20 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	CardDetailsComponent,
 
 	cardData: (data) => {
+		if (data.kind === 'actions') {
+			return {
+				title: m.Wallet_actions(),
+				beforeTitle: data.actions
+					.map((action) =>
+						'id' in action ? getLastPathSegment(action.id) : m.Custom_code()
+					)
+					.join(' → '),
+				meta: {
+					['Device']: getDeviceLabel(data.device),
+					[m.Version()]: getVersionLabel(data.version)
+				}
+			};
+		}
 		if (data.kind === 'inline') {
 			return {
 				title: m.Custom_wallet_action(),
@@ -75,7 +95,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	makeId: makeWalletActionId,
 
 	initForm: (opts) => {
-		if (opts?.initial && isInlineWalletActionStepData(opts.initial)) {
+		if (opts?.initial && isPassThroughWalletActionStepData(opts.initial)) {
 			return new InlineWalletActionStepForm(opts);
 		}
 		return new WalletActionStepForm(opts);

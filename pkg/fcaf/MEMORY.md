@@ -4111,3 +4111,32 @@ The complete aggregate drops from 1528 to 1345 steps (523 to 340 wallet steps,
 all 183 scenario resets folded, at most 8 before actions in one step); the
 happy flow drops from 154 to 141 steps (13 folded). Tests and outputs are
 unchanged.
+
+## `actions` replaces `before_actions`, 16/10/2026
+
+`with.before_actions` (extra stored actions run before the step's own action,
+their screenshots dropped) is removed. A step now either runs one action
+(`action_id` / `action_code`) or lists `with.actions: [{ id | code,
+parameters? }]`, all equal, run in order in one Maestro flow, every action
+keeping its screenshots (contract in AGENTS.md). The generator's combined steps
+list the reset, the injected issuances and the step's own action, which moves
+into the last entry with its parameters; the 24 scenario-authored inline
+flows become `code` entries.
+
+Keeping every screenshot would have padded the 285 count-based checks
+(`evidence.non_empty`, `evidence.minimum_items`) that read a combined step's
+screenshots, so the extra actions take none:
+
+- `fcaf-reset-and-onboard` no longer takes `fcaf-reset-and-onboard`, which
+  nothing read.
+- Injected PIDs use the new stored action `fcaf-issue-pid`, the issuance flow
+  of `getcredential-generic-credential-without-authentication` without its
+  final `credential-added` screenshot. Scenario-authored issuances keep the
+  generic action: their `credential-added` screenshot is possession evidence
+  (`oid4vci.fixtures_stored`, MainInteraction 033/040/041, ProtocolMessages
+  070/071) and appears in the PDF report. The two flows must keep the same
+  commands. `credimi fcaf sync` imports the new action from the manifest.
+
+A combined step's screenshots are therefore its own action's only, as before.
+Step and test counts are unchanged (complete 1345 steps / 340 wallet steps,
+happy flow 141 / 43).

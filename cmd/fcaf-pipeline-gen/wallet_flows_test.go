@@ -65,6 +65,11 @@ func TestWalletActionShareConsumption(t *testing.T) {
 			action: issuanceActionID,
 			want:   0,
 		},
+		{
+			name:   "injected issuance never presents",
+			action: injectedIssuanceActionID,
+			want:   0,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			consumed, err := credentialInstancesConsumed(

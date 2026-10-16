@@ -1055,6 +1055,7 @@
 	"Custom_wallet_action": "Custom wallet action",
 	"Custom_code": "Custom code",
 	"Inline_action_edit_notice": "This step uses inline Maestro code. Code editing will be available later. Saving keeps the existing code, version, device and parameters.",
+	"Actions_edit_notice": "This step runs several wallet actions in one Maestro flow. Editing them will be available later. Saving keeps the existing actions, version, device and parameters.",
 	"Failed": "Échoué",
 	"Timed_Out": "Expiré",
 	"Continued_as_New": "Continué en tant que nouveau",

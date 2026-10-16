@@ -50,13 +50,19 @@ const (
 // issuance of the same scenario or one injected issuance provides.
 const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
-	issuanceActionID      = walletActionNamespace +
+	// issuanceActionID is the issuance scenarios author; its credential-added
+	// screenshot is possession evidence.
+	issuanceActionID = walletActionNamespace +
 		"getcredential-generic-credential-without-authentication"
-	resetActionID        = walletActionNamespace + "fcaf-reset-and-onboard"
-	pidIssuerConfigID    = "eu-pid-device-bound"
-	pidSDJWTConfigID     = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
-	pidMdocConfigID      = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
-	mobileAutomationTask = "mobile-automation"
+	// injectedIssuanceActionID is the same issuance without a screenshot, for
+	// the PIDs the generator injects: it runs inside a presentation step, whose
+	// screenshots must evidence the presentation alone.
+	injectedIssuanceActionID = walletActionNamespace + "fcaf-issue-pid"
+	resetActionID            = walletActionNamespace + "fcaf-reset-and-onboard"
+	pidIssuerConfigID        = "eu-pid-device-bound"
+	pidSDJWTConfigID         = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
+	pidMdocConfigID          = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
+	mobileAutomationTask     = "mobile-automation"
 )
 
 // shareTap counts the consent screen's Share action, which is the point at
@@ -506,13 +512,13 @@ func pidIssuancesBefore(
 // injectWalletActions returns the steps to insert before a wallet step for
 // the wallet actions it needs first: the scenario's wallet reset when it is
 // the scenario's first wallet step, then the PIDs issued for it. When every
-// such action drives the step's own app, they run as its before_actions, in
-// the same Maestro flow, which saves a mobile-automation run each; a failed
-// one then fails the step, which would otherwise run on a wallet still holding
-// an earlier scenario's credentials or lacking the PID it needs. A step
-// driving another app, such as the browser of a DC API flow, cannot run wallet
-// commands, so its issuances stay separate steps, the first of which runs the
-// reset when it can.
+// such action drives the step's own app, the step lists them, followed by its
+// own action, as `actions` run in one Maestro flow, which saves a
+// mobile-automation run each; a failed one then fails the step, which would
+// otherwise run on a wallet still holding an earlier scenario's credentials or
+// lacking the PID it needs. A step driving another app, such as the browser of
+// a DC API flow, cannot run wallet commands, so its issuances stay separate
+// steps, the first of which runs the reset when it can.
 func injectWalletActions(
 	step map[string]any,
 	reset map[string]any,
@@ -528,8 +534,8 @@ func injectWalletActions(
 	}
 	with, _ := step["with"].(map[string]any)
 	code, _ := with["action_code"].(string)
+	actionID, _ := with["action_id"].(string)
 	if code == "" {
-		actionID, _ := with["action_id"].(string)
 		stored, known := actions[actionID]
 		if !known {
 			return nil, fmt.Errorf("unknown wallet action %q", actionID)
@@ -541,28 +547,37 @@ func injectWalletActions(
 		return nil, err
 	}
 
-	before := make([]map[string]any, 0, len(issuances)+1)
+	before := make([]any, 0, len(issuances)+2)
 	if reset != nil {
-		before = append(before, map[string]any{"action_id": resetActionID})
+		before = append(before, map[string]any{"id": resetActionID})
 	}
-	before = append(before, issuances...)
 	combinable := true
-	for _, action := range before {
-		actionID, _ := action["action_id"].(string)
-		app, err := flowAppID(actions[actionID])
+	for _, issuance := range issuances {
+		before = append(before, issuance)
+	}
+	for _, entry := range before {
+		id, _ := entry.(map[string]any)["id"].(string)
+		app, err := flowAppID(actions[id])
 		if err != nil {
-			return nil, fmt.Errorf("wallet action %q: %w", actionID, err)
+			return nil, fmt.Errorf("wallet action %q: %w", id, err)
 		}
 		combinable = combinable && app == stepApp
 	}
 
 	if combinable {
-		existing, _ := with["before_actions"].([]any)
-		merged := make([]any, 0, len(before)+len(existing))
-		for _, action := range before {
-			merged = append(merged, action)
+		own := map[string]any{}
+		if actionID != "" {
+			own["id"] = actionID
+		} else {
+			own["code"] = code
 		}
-		with["before_actions"] = append(merged, existing...)
+		if parameters, ok := with["parameters"]; ok {
+			own["parameters"] = parameters
+		}
+		delete(with, "action_id")
+		delete(with, "action_code")
+		delete(with, "parameters")
+		with["actions"] = append(before, own)
 		return sessions, nil
 	}
 	steps := make([]map[string]any, 0, 2*len(issuances)+1)
@@ -573,7 +588,7 @@ func injectWalletActions(
 			"use":               mobileAutomationTask,
 			"continue_on_error": true,
 			"with": map[string]any{
-				"action_id":  issuance["action_id"],
+				"action_id":  issuance["id"],
 				"version_id": "installed_from_external_source",
 				"parameters": issuance["parameters"],
 			},
@@ -763,7 +778,7 @@ func issuesCredential(step map[string]any) bool {
 	}
 	with, _ := step["with"].(map[string]any)
 	actionID, _ := with["action_id"].(string)
-	return actionID == issuanceActionID
+	return actionID == issuanceActionID || actionID == injectedIssuanceActionID
 }
 
 // credentialInstancesConsumed reports how many credential instances a step
@@ -774,7 +789,7 @@ func credentialInstancesConsumed(step map[string]any, actions map[string]string)
 	}
 	with, _ := step["with"].(map[string]any)
 	actionID, _ := with["action_id"].(string)
-	if actionID == issuanceActionID {
+	if actionID == issuanceActionID || actionID == injectedIssuanceActionID {
 		return 0, nil
 	}
 	source, _ := with["action_code"].(string)
@@ -889,8 +904,8 @@ func credentialQueryFormat(credential map[string]any) credentialFormat {
 }
 
 // pidIssuance issues one fresh PID of the given format for the presentation
-// it precedes: an issuer session step, and the wallet action that accepts its
-// offer, which runs as one of the presentation's before_actions.
+// it precedes: an issuer session step, and the `actions` entry that accepts
+// its offer, which runs in the presentation's own flow.
 func pidIssuance(
 	presentationID string,
 	index int,
@@ -925,7 +940,7 @@ func pidIssuance(
 		},
 	}
 	issuance := map[string]any{
-		"action_id": issuanceActionID,
+		"id": injectedIssuanceActionID,
 		"parameters": map[string]any{
 			"deeplink": "${{ " + sessionID + ".outputs.body.deeplink }}",
 		},
