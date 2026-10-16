@@ -235,6 +235,7 @@ Pipeline contract:
 - `step.with.payload` is reserved for step payload.
 - Other keys under `step.with` are merged into `payload`.
 - `mobile-automation` steps must provide `with.payload.device_id`, or the pipeline must set `runtime.global_device_id`.
+- A `mobile-automation` step runs one wallet action (`with.action_id` or inline `with.action_code`) or several in one Maestro flow: `with.actions: [{ id | code, parameters? }]`, each entry a stored action (`id`) or inline Maestro code (`code`). `actions` excludes `action_id` and `action_code`; `version_id` and `device_id` stay step-level. The setup hook (`composeStepActions` in `pkg/workflowengine/pipeline/mobile_actions.go`) writes each entry as a `runFlow` block of one flow, so runners see one ordinary flow. Step-level `parameters` reach every action; an entry's own `parameters` take precedence (passed as step parameters `action_<n>_<name>` and mapped back in the block's `env`), and both override defaults in the action's own `env`. Every action keeps its screenshots. All entries must share one `appId`, and an entry's flow header may only carry `appId`, `name`, `tags` and `env`.
 
 Step outputs live in Temporal history, recorded once:
 

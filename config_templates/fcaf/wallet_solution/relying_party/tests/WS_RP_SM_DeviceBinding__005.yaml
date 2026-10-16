@@ -13,10 +13,10 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.device-binding
+- ref: pipeline.dcql.baseline
 evidence:
   dcql_exchange:
-    from: pipeline.dcql.device-binding.outputs.dcql_exchange
+    from: pipeline.dcql.baseline.outputs.session
 assertions:
 - id: ws_rp_sm_devicebinding__005_verifier_info_attestation_unavailable
   validator: fcaf.skipped

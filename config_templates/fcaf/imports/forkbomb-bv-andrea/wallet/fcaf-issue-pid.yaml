@@ -1,0 +1,36 @@
+appId: eu.europa.ec.euidi
+name: "FCAF issue PID - accept an offer the generator injects for a presentation"
+tags:
+  - fcaf
+  - helper
+  - credential
+---
+# The PID issuance cmd/fcaf-pipeline-gen injects before a presentation that
+# needs a credential. It runs as an entry of the presentation step's `actions`,
+# so it takes no screenshot: the step's screenshots are evidence for the
+# presentation alone. It keeps every assertion of
+# getcredential-generic-credential-without-authentication, which scenarios use
+# for issuances they author and whose credential-added screenshot is
+# possession evidence; keep the two flows' commands in step.
+- launchApp:
+    stopApp: true
+    clearState: false
+- openLink:
+    link: ${deeplink}
+    autoVerify: false
+    browser: false
+- waitForAnimationToEnd: { timeout: 3000 }
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - inputText: "12345"
+      - tapOn: "6"
+- waitForAnimationToEnd: { timeout: 3000 }
+- scrollUntilVisible:
+    element: "Accept"
+- tapOn: "Accept"
+- waitForAnimationToEnd: { timeout: 1000 }
+- assertVisible: "View details"
+- tapOn: "View details"
+- waitForAnimationToEnd: { timeout: 1000 }

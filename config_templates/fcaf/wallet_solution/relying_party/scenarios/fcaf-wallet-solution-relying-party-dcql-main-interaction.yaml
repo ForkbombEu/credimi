@@ -11,45 +11,6 @@ runtime:
             schedule_to_close_timeout: 50m
             start_to_close_timeout: 50m
 steps:
-    - id: create-capture-session
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                nonce: main-interaction
-            request_delivery: by_reference
-            request_uri_method: post
-            response_mode: direct_post.jwt
-            response_type: vp_token
-            scheme: haip-vp://
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - id: exercise-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-        parameters:
-            deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - id: fetch-capture-session
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     - id: main-interaction-019-create-presentation
       use: http-request
       with:
@@ -661,10 +622,6 @@ steps:
                 output:
                     dcql_exchange: ${{ main-interaction-030-fetch-result.outputs.body }}
                     visual_evidence: ${{ main-interaction-030-present-available-option.outputs.flow_output.maestro_screenshot_urls }}
-            pipeline.dcql.main-interaction:
-                output:
-                    dcql_exchange: ${{ fetch-capture-session.outputs.body }}
-                    visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
             pipeline.dcql.main-interaction-two-distinct-credentials:
                 output:
                     dcql_exchange: ${{ main-interaction-039-fetch-two-credentials-result.outputs.body }}
@@ -687,8 +644,6 @@ steps:
                     visual_evidence: ${{ main-interaction-027-exercise-no-match.outputs.flow_output.maestro_screenshot_urls }}
         suite: wallet_solution/relying_party
         test_ids:
-            - WS_RP_IA_MainInteraction__006
-            - WS_RP_IA_MainInteraction__010
             - WS_RP_IA_MainInteraction__015
             - WS_RP_IA_MainInteraction__016
             - WS_RP_IA_MainInteraction__017
@@ -697,7 +652,6 @@ steps:
             - WS_RP_IA_MainInteraction__021
             - WS_RP_IA_MainInteraction__022
             - WS_RP_IA_MainInteraction__023
-            - WS_RP_IA_MainInteraction__024
             - WS_RP_IA_MainInteraction__025
             - WS_RP_IA_MainInteraction__026
             - WS_RP_IA_MainInteraction__027
@@ -706,12 +660,7 @@ steps:
             - WS_RP_IA_MainInteraction__030
             - WS_RP_IA_MainInteraction__031
             - WS_RP_IA_MainInteraction__034
-            - WS_RP_IA_MainInteraction__035
-            - WS_RP_IA_MainInteraction__036
-            - WS_RP_IA_MainInteraction__037
-            - WS_RP_IA_MainInteraction__038
             - WS_RP_IA_MainInteraction__039
             - WS_RP_IA_MainInteraction__042
             - WS_RP_IA_MainInteraction__043
-            - WS_RP_IA_MainInteraction__046
             - WS_RP_IA_MainInteraction__065

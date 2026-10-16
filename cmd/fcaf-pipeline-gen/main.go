@@ -50,13 +50,19 @@ const (
 // issuance of the same scenario or one injected issuance provides.
 const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
-	issuanceActionID      = walletActionNamespace +
+	// issuanceActionID is the issuance scenarios author; its credential-added
+	// screenshot is possession evidence.
+	issuanceActionID = walletActionNamespace +
 		"getcredential-generic-credential-without-authentication"
-	resetActionID        = walletActionNamespace + "fcaf-reset-and-onboard"
-	pidIssuerConfigID    = "eu-pid-device-bound"
-	pidSDJWTConfigID     = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
-	pidMdocConfigID      = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
-	mobileAutomationTask = "mobile-automation"
+	// injectedIssuanceActionID is the same issuance without a screenshot, for
+	// the PIDs the generator injects: it runs inside a presentation step, whose
+	// screenshots must evidence the presentation alone.
+	injectedIssuanceActionID = walletActionNamespace + "fcaf-issue-pid"
+	resetActionID            = walletActionNamespace + "fcaf-reset-and-onboard"
+	pidIssuerConfigID        = "eu-pid-device-bound"
+	pidSDJWTConfigID         = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
+	pidMdocConfigID          = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
+	mobileAutomationTask     = "mobile-automation"
 )
 
 // shareTap counts the consent screen's Share action, which is the point at
@@ -191,7 +197,7 @@ var happyFlowScenarioNames = []string{
 	"fcaf-wallet-solution-relying-party-pid-domestic.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-protocol-messages.yaml",
 	"fcaf-wallet-solution-relying-party-direct-post-jwt-response-transport.yaml",
-	"fcaf-wallet-solution-relying-party-dcql-metadata.yaml",
+	"fcaf-wallet-solution-relying-party-dcql-baseline.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-main-interaction.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-rp-integrity.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-credential-formats.yaml",
@@ -199,9 +205,7 @@ var happyFlowScenarioNames = []string{
 	"fcaf-wallet-solution-relying-party-dcql-session-encryption.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-interaction-metadata.yaml",
 	"fcaf-wallet-solution-relying-party-request-object-by-value.yaml",
-	"fcaf-wallet-solution-relying-party-dcql-cryptography.yaml",
 	"fcaf-wallet-solution-relying-party-dcql-credentials-match.yaml",
-	"fcaf-wallet-solution-relying-party-dcql-device-binding.yaml",
 }
 
 // generateHappyFlow builds the aggregate pipeline validating every FCAF test
@@ -318,14 +322,16 @@ func buildAggregate(
 		if err != nil {
 			return err
 		}
+		// The reset runs in the scenario's first wallet step when it can (see
+		// injectWalletActions).
+		var reset map[string]any
 		if drivesWallet(definition.Steps) {
 			if walletUsed {
-				reset := walletResetStep(prefix)
+				reset = walletResetStep(prefix)
 				resetID, _ := reset["id"].(string)
 				if err := claimStepID(seenStepIDs, resetID, path); err != nil {
 					return err
 				}
-				aggregate.Steps = append(aggregate.Steps, reset)
 			}
 			walletUsed = true
 			pidAvailable = map[credentialFormat]int{}
@@ -359,10 +365,28 @@ func buildAggregate(
 				return fmt.Errorf("FCAF scenario %s step %q: %w", path, id, err)
 			}
 			source := deeplinkSourceStep(rewritten, emitted)
-			aggregate.Steps = append(
-				aggregate.Steps,
-				pidIssuancesBefore(rewritten, source, consumed, pidAvailable, fixture)...,
+			sessions, issuances := pidIssuancesBefore(
+				rewritten,
+				source,
+				consumed,
+				pidAvailable,
+				fixture,
 			)
+			var stepReset map[string]any
+			if use == mobileAutomationTask {
+				stepReset, reset = reset, nil
+			}
+			inserted, err := injectWalletActions(
+				rewritten,
+				stepReset,
+				sessions,
+				issuances,
+				walletActions,
+			)
+			if err != nil {
+				return fmt.Errorf("FCAF scenario %s step %q: %w", path, id, err)
+			}
+			aggregate.Steps = append(aggregate.Steps, inserted...)
 			aggregate.Steps = append(aggregate.Steps, rewritten)
 			emitted[id] = rewritten
 		}
@@ -432,7 +456,8 @@ func claimStepID(seen map[string]string, id string, path string) error {
 }
 
 // pidIssuancesBefore updates the scenario's unspent PIDs for a step and returns
-// the issuances to insert before it. A presentation that shares spends one
+// the issuer sessions and the wallet actions accepting their offers that the
+// step needs first (see injectIssuances). A presentation that shares spends one
 // instance per Share, and a query with multiple: true spends every instance of
 // its format the wallet holds, because the wallet returns all of them. A
 // presentation the wallet refuses or cannot satisfy spends nothing, but its
@@ -445,21 +470,25 @@ func pidIssuancesBefore(
 	consumed int,
 	available map[credentialFormat]int,
 	fixture map[string]any,
-) []map[string]any {
+) ([]map[string]any, []map[string]any) {
 	if issuesCredential(step) {
 		available[issuedCredentialFormat(source)]++
 	}
 	id, _ := step["id"].(string)
-	var steps []map[string]any
-	issued := 0
+	var sessions []map[string]any
+	var issuances []map[string]any
+	issue := func(format credentialFormat) {
+		session, issuance := pidIssuance(id, len(issuances), format, fixture)
+		sessions = append(sessions, session)
+		issuances = append(issuances, issuance)
+	}
 	for _, format := range presentedCredentialFormats(source, consumed) {
 		for need := consumed; need > 0; need-- {
 			if available[format] > 0 {
 				available[format]--
 				continue
 			}
-			steps = append(steps, pidIssuanceSteps(id, issued, format, fixture)...)
-			issued++
+			issue(format)
 		}
 	}
 	if consumed > 0 {
@@ -468,17 +497,129 @@ func pidIssuancesBefore(
 		}
 	}
 	if consumed > 0 || !opensPresentationRequest(step, source) {
-		return steps
+		return sessions, issuances
 	}
 	for _, format := range presentedCredentialFormats(source, 1) {
 		if available[format] > 0 {
 			continue
 		}
-		steps = append(steps, pidIssuanceSteps(id, issued, format, fixture)...)
-		issued++
+		issue(format)
 		available[format]++
 	}
-	return steps
+	return sessions, issuances
+}
+
+// injectWalletActions returns the steps to insert before a wallet step for
+// the wallet actions it needs first: the scenario's wallet reset when it is
+// the scenario's first wallet step, then the PIDs issued for it. When every
+// such action drives the step's own app, the step lists them, followed by its
+// own action, as `actions` run in one Maestro flow, which saves a
+// mobile-automation run each; a failed one then fails the step, which would
+// otherwise run on a wallet still holding an earlier scenario's credentials or
+// lacking the PID it needs. A step driving another app, such as the browser of
+// a DC API flow, cannot run wallet commands, so its issuances stay separate
+// steps, the first of which runs the reset when it can.
+func injectWalletActions(
+	step map[string]any,
+	reset map[string]any,
+	sessions []map[string]any,
+	issuances []map[string]any,
+	actions map[string]string,
+) ([]map[string]any, error) {
+	if reset == nil && len(issuances) == 0 {
+		return sessions, nil
+	}
+	if use, _ := step["use"].(string); use != mobileAutomationTask {
+		return nil, fmt.Errorf("a %q step cannot run wallet actions", use)
+	}
+	with, _ := step["with"].(map[string]any)
+	code, _ := with["action_code"].(string)
+	actionID, _ := with["action_id"].(string)
+	if code == "" {
+		stored, known := actions[actionID]
+		if !known {
+			return nil, fmt.Errorf("unknown wallet action %q", actionID)
+		}
+		code = stored
+	}
+	stepApp, err := flowAppID(code)
+	if err != nil {
+		return nil, err
+	}
+
+	before := make([]any, 0, len(issuances)+2)
+	if reset != nil {
+		before = append(before, map[string]any{"id": resetActionID})
+	}
+	combinable := true
+	for _, issuance := range issuances {
+		before = append(before, issuance)
+	}
+	for _, entry := range before {
+		id, _ := entry.(map[string]any)["id"].(string)
+		app, err := flowAppID(actions[id])
+		if err != nil {
+			return nil, fmt.Errorf("wallet action %q: %w", id, err)
+		}
+		combinable = combinable && app == stepApp
+	}
+
+	if combinable {
+		own := map[string]any{}
+		if actionID != "" {
+			own["id"] = actionID
+		} else {
+			own["code"] = code
+		}
+		if parameters, ok := with["parameters"]; ok {
+			own["parameters"] = parameters
+		}
+		delete(with, "action_id")
+		delete(with, "action_code")
+		delete(with, "parameters")
+		with["actions"] = append(before, own)
+		return sessions, nil
+	}
+	steps := make([]map[string]any, 0, 2*len(issuances)+1)
+	for i, issuance := range issuances {
+		sessionID, _ := sessions[i]["id"].(string)
+		issue := map[string]any{
+			"id":                strings.TrimSuffix(sessionID, "-session"),
+			"use":               mobileAutomationTask,
+			"continue_on_error": true,
+			"with": map[string]any{
+				"action_id":  issuance["id"],
+				"version_id": "installed_from_external_source",
+				"parameters": issuance["parameters"],
+			},
+		}
+		resetSteps, err := injectWalletActions(issue, reset, nil, nil, actions)
+		if err != nil {
+			return nil, err
+		}
+		reset = nil
+		steps = append(steps, sessions[i])
+		steps = append(steps, resetSteps...)
+		steps = append(steps, issue)
+	}
+	if reset != nil {
+		steps = append(steps, reset)
+	}
+	return steps, nil
+}
+
+// flowAppID returns the appId of a Maestro flow's header.
+func flowAppID(code string) (string, error) {
+	var header struct {
+		AppID string `yaml:"appId"`
+	}
+	if err := yaml.NewDecoder(strings.NewReader(code)).Decode(&header); err != nil {
+		return "", fmt.Errorf("read Maestro flow header: %w", err)
+	}
+	if header.AppID == "" {
+		return "", fmt.Errorf("the Maestro flow header has no appId")
+	}
+	return header.AppID, nil
 }
 
 func removeTestsWithoutAvailableEvidence(
@@ -637,7 +778,7 @@ func issuesCredential(step map[string]any) bool {
 	}
 	with, _ := step["with"].(map[string]any)
 	actionID, _ := with["action_id"].(string)
-	return actionID == issuanceActionID
+	return actionID == issuanceActionID || actionID == injectedIssuanceActionID
 }
 
 // credentialInstancesConsumed reports how many credential instances a step
@@ -648,7 +789,7 @@ func credentialInstancesConsumed(step map[string]any, actions map[string]string)
 	}
 	with, _ := step["with"].(map[string]any)
 	actionID, _ := with["action_id"].(string)
-	if actionID == issuanceActionID {
+	if actionID == issuanceActionID || actionID == injectedIssuanceActionID {
 		return 0, nil
 	}
 	source, _ := with["action_code"].(string)
@@ -762,14 +903,15 @@ func credentialQueryFormat(credential map[string]any) credentialFormat {
 	return formatSDJWT
 }
 
-// pidIssuanceSteps issues one fresh PID of the given format for the
-// presentation that follows.
-func pidIssuanceSteps(
+// pidIssuance issues one fresh PID of the given format for the presentation
+// it precedes: an issuer session step, and the `actions` entry that accepts
+// its offer, which runs in the presentation's own flow.
+func pidIssuance(
 	presentationID string,
 	index int,
 	format credentialFormat,
 	fixture map[string]any,
-) []map[string]any {
+) (map[string]any, map[string]any) {
 	base := "${fixture.verifier_url}"
 	if _, declared := fixture["issuer_url"].(string); declared {
 		base = "${fixture.issuer_url}"
@@ -782,35 +924,28 @@ func pidIssuanceSteps(
 		suffix = fmt.Sprintf("-%d", index+1)
 	}
 	sessionID := presentationID + "-issue-pid" + suffix + "-session"
-	return []map[string]any{
-		{
-			"id":                sessionID,
-			"use":               "http-request",
-			"continue_on_error": true,
-			"with": map[string]any{
-				"method":          "POST",
-				"url":             base + "/sessions",
-				"expected_status": 201,
-				"headers":         map[string]any{"Content-Type": "application/json"},
-				"body": map[string]any{
-					"issuer_configuration_id":     pidIssuerConfigID,
-					"credential_configuration_id": pidCredentialConfigID(format),
-				},
-			},
-		},
-		{
-			"id":                presentationID + "-issue-pid" + suffix,
-			"use":               mobileAutomationTask,
-			"continue_on_error": true,
-			"with": map[string]any{
-				"action_id":  issuanceActionID,
-				"version_id": "installed_from_external_source",
-				"parameters": map[string]any{
-					"deeplink": "${{ " + sessionID + ".outputs.body.deeplink }}",
-				},
+	session := map[string]any{
+		"id":                sessionID,
+		"use":               "http-request",
+		"continue_on_error": true,
+		"with": map[string]any{
+			"method":          "POST",
+			"url":             base + "/sessions",
+			"expected_status": 201,
+			"headers":         map[string]any{"Content-Type": "application/json"},
+			"body": map[string]any{
+				"issuer_configuration_id":     pidIssuerConfigID,
+				"credential_configuration_id": pidCredentialConfigID(format),
 			},
 		},
 	}
+	issuance := map[string]any{
+		"id": injectedIssuanceActionID,
+		"parameters": map[string]any{
+			"deeplink": "${{ " + sessionID + ".outputs.body.deeplink }}",
+		},
+	}
+	return session, issuance
 }
 
 func pidCredentialConfigID(format credentialFormat) string {

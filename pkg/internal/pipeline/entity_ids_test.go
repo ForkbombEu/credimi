@@ -62,6 +62,27 @@ steps:
 		)
 	})
 
+	t.Run("collects the stored action ids of actions", func(t *testing.T) {
+		yamlStr := `
+name: test
+steps:
+  - id: step-1
+    use: mobile-automation
+    with:
+      version_id: /org/wallet/v1-0-0
+      actions:
+        - id: /org/action-reset
+        - code: "appId: wallet\n---\n- launchApp\n"
+        - id: /org/action-offer
+          parameters:
+            deeplink: x
+`
+
+		got, err := ParseEntityIDs(yamlStr)
+		require.NoError(t, err)
+		require.Equal(t, []string{"org/action-offer", "org/action-reset"}, got.Actions)
+	})
+
 	t.Run("collects credential_ids from multiple steps", func(t *testing.T) {
 		yamlStr := `
 name: test

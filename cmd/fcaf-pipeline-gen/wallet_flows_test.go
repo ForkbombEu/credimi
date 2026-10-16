@@ -65,6 +65,11 @@ func TestWalletActionShareConsumption(t *testing.T) {
 			action: issuanceActionID,
 			want:   0,
 		},
+		{
+			name:   "injected issuance never presents",
+			action: injectedIssuanceActionID,
+			want:   0,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			consumed, err := credentialInstancesConsumed(
@@ -109,11 +114,18 @@ func TestMultipleTruePresentationSpendsEveryHeldInstance(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			available := map[credentialFormat]int{formatSDJWT: 3}
-			inserted := pidIssuancesBefore(present, session(testCase.multiple), 1, available, nil)
-			require.Empty(t, inserted)
+			sessions, issuances := pidIssuancesBefore(
+				present,
+				session(testCase.multiple),
+				1,
+				available,
+				nil,
+			)
+			require.Empty(t, sessions)
+			require.Empty(t, issuances)
 			require.Equal(t, testCase.wantRemaining, available[formatSDJWT])
 
-			next := pidIssuancesBefore(present, session(false), 1, available, nil)
+			_, next := pidIssuancesBefore(present, session(false), 1, available, nil)
 			if testCase.wantRemaining == 0 {
 				require.NotEmpty(t, next, "a later Share must get a freshly issued PID")
 			} else {

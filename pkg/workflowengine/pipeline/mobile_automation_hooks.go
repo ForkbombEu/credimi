@@ -307,7 +307,8 @@ func MobileAutomationSetupHook(
 
 // resolveStoredMobileActions loads the code of every stored wallet action
 // (`action_id` without `action_code`) once, on behalf of the run's
-// organization, and marks external-source install actions. Runners receive the
+// organization, and marks external-source install actions. A step listing
+// `actions` gets them composed into one flow instead. Runners receive the
 // resolved code and never look actions up themselves.
 func resolveStoredMobileActions(
 	ctx workflow.Context,
@@ -315,50 +316,67 @@ func resolveStoredMobileActions(
 	config map[string]any,
 ) error {
 	ownerNamespace, _ := config["namespace"].(string)
+	actionRecords := map[string]map[string]any{}
 
 	return walkMutableStepSpecs(*steps, func(step *pipeline.StepSpec) error {
 		if step.Use != mobileAutomationStepUse {
 			return nil
 		}
-		actionID, _ := step.With.Payload["action_id"].(string)
-		actionCode, _ := step.With.Payload["action_code"].(string)
-		if strings.TrimSpace(actionID) == "" || actionCode != "" {
-			// Inline action_code steps have no stored action to resolve.
-			return nil
+		if _, ok := step.With.Payload[mobileActionsPayloadKey]; ok {
+			return composeStepActions(ctx, step, ownerNamespace, actionRecords)
 		}
-
-		action, err := fetchMobileAction(ctx, ownerNamespace, actionID)
-		if err != nil {
-			return err
-		}
-		code := workflowengine.AsString(action["code"])
-		if code == "" {
-			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-			return workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf(
-						"%s: wallet action %s has no code for step %s",
-						errCode.Description,
-						actionID,
-						step.ID,
-					),
-				},
-			)
-		}
-		SetPayloadValue(&step.With.Payload, "action_code", code)
-		SetPayloadValue(&step.With.Payload, "stored_action_code", true)
-
-		if workflowengine.AsString(
-			step.With.Payload["version_id"],
-		) == mobileExternalSourceVersionID &&
-			strings.TrimSpace(workflowengine.AsString(action["category"])) ==
-				walletActionCategoryInstallApp {
-			SetConfigValue(&step.With.Config, mobileExternalInstallConfigKey, true)
-		}
-		return nil
+		return resolveStoredMobileAction(ctx, step, ownerNamespace)
 	})
+}
+
+func resolveStoredMobileAction(
+	ctx workflow.Context,
+	step *pipeline.StepSpec,
+	ownerNamespace string,
+) error {
+	actionID, _ := step.With.Payload["action_id"].(string)
+	actionCode, _ := step.With.Payload["action_code"].(string)
+	if strings.TrimSpace(actionID) == "" || actionCode != "" {
+		// Inline action_code steps have no stored action to resolve.
+		return nil
+	}
+
+	action, err := fetchMobileAction(ctx, ownerNamespace, actionID)
+	if err != nil {
+		return err
+	}
+	code := workflowengine.AsString(action["code"])
+	if code == "" {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		return workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: wallet action %s has no code for step %s",
+					errCode.Description,
+					actionID,
+					step.ID,
+				),
+			},
+		)
+	}
+	SetPayloadValue(&step.With.Payload, "action_code", code)
+	SetPayloadValue(&step.With.Payload, "stored_action_code", true)
+	markExternalInstall(step, action)
+	return nil
+}
+
+// markExternalInstall enables external-install detection for a step that runs
+// an install-app action on a wallet installed from an external source.
+func markExternalInstall(step *pipeline.StepSpec, action map[string]any) {
+	if workflowengine.AsString(
+		step.With.Payload["version_id"],
+	) == mobileExternalSourceVersionID &&
+		strings.TrimSpace(workflowengine.AsString(action["category"])) ==
+			walletActionCategoryInstallApp {
+		SetConfigValue(&step.With.Config, mobileExternalInstallConfigKey, true)
+	}
 }
 
 // fetchMobileAction resolves the wallet action on behalf of the run's

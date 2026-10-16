@@ -692,7 +692,7 @@ instead of the single `application/oauth-authz-req+jwt` the source pins.
 ### Reproduction
 
 13/10/2026, production Capture: run
-`scenarios/fcaf-wallet-solution-relying-party-request-uri-post.yaml`
+`scenarios/fcaf-wallet-solution-relying-party-dcql-baseline.yaml`
 (`WS_RP_MS_ProtocolMessages__042`).
 
 ### Observed
