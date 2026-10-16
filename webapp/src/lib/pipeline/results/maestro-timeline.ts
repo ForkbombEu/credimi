@@ -200,14 +200,19 @@ export function maestroFlowsAt(timeline: MaestroTimeline, at: number): MaestroFl
 
 //
 
-type ViewerResult = { video: string; screenshot: string; timeline?: string };
+type ViewerResult = { video?: string; screenshot?: string; timeline?: string };
 
-/** The result viewer page, or the raw file when the result has no timeline. */
+/**
+ * The result viewer page, or the raw file when the result has no timeline.
+ * Undefined when the result lacks the requested file (no_video runs have no video).
+ */
 export function buildPipelineResultViewerHref(
 	mode: 'video' | 'screenshot',
 	result: ViewerResult
-): string {
-	if (!result.timeline) return mode === 'video' ? result.video : result.screenshot;
+): string | undefined {
+	const file = mode === 'video' ? result.video : result.screenshot;
+	if (!file) return undefined;
+	if (!result.timeline || !result.video || !result.screenshot) return file;
 	const params = [
 		`mode=${mode}`,
 		`video=${encodeURIComponent(result.video)}`,

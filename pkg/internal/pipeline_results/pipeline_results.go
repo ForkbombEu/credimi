@@ -94,93 +94,69 @@ func ResolvePipelineExecutionArtifacts(
 	return BuildPipelineExecutionArtifacts(app, record)
 }
 
+// ComputePipelineResultsFromRecord pairs the per-device artifacts of a run by
+// device key. A device has a result when it stored a video, a screenshot or a
+// log: no_video runs store only the screenshot and the log.
 func ComputePipelineResultsFromRecord(app core.App, record *core.Record) []PipelineResults {
 	if app == nil || record == nil {
 		return nil
 	}
 
-	videos := record.GetStringSlice("video_results")
-	screenshots := record.GetStringSlice("screenshots")
-	if len(videos) == 0 || len(screenshots) == 0 {
-		return nil
+	fileURL := func(field, name string) string {
+		return utils.JoinURL(
+			app.Settings().Meta.AppURL,
+			"api", "files", "pipeline_results",
+			record.Id,
+			record.GetString(field),
+			name,
+		)
 	}
 
-	screenshotMap := make(map[string]string, len(screenshots))
-	for _, name := range screenshots {
+	var keys []string
+	byKey := make(map[string]*PipelineResults)
+	result := func(key string) *PipelineResults {
+		if r, ok := byKey[key]; ok {
+			return r
+		}
+		r := &PipelineResults{}
+		byKey[key] = r
+		keys = append(keys, key)
+		return r
+	}
+
+	for _, name := range record.GetStringSlice("video_results") {
+		if key, ok := baseArtifactKey(name, "_result_video_"); ok {
+			result(key).Video = fileURL("video_results", name)
+		}
+	}
+	for _, name := range record.GetStringSlice("screenshots") {
 		if key, ok := baseArtifactKey(name, "_screenshot_"); ok {
-			screenshotMap[key] = name
+			result(key).Screenshot = fileURL("screenshots", name)
 		}
 	}
-
-	timelineMap := make(map[string]string)
-	for _, name := range record.GetStringSlice("maestro_timelines") {
-		if key, ok := baseArtifactKey(name, "_timeline_"); ok {
-			timelineMap[key] = name
-		}
-	}
-
-	logMap := make(map[string]pipelineResultFileRef)
 	for _, field := range []string{"logcats", "ios_logstreams"} {
 		for _, name := range record.GetStringSlice(field) {
 			if key, ok := baseArtifactKey(name, "_logfile_"); ok {
-				logMap[key] = pipelineResultFileRef{
-					field: field,
-					name:  name,
-				}
+				result(key).Log = fileURL(field, name)
+			}
+		}
+	}
+	// A timeline only belongs to a video; it never makes a result on its own.
+	for _, name := range record.GetStringSlice("maestro_timelines") {
+		if key, ok := baseArtifactKey(name, "_timeline_"); ok {
+			if r, found := byKey[key]; found && r.Video != "" {
+				r.Timeline = fileURL("maestro_timelines", name)
 			}
 		}
 	}
 
-	results := make([]PipelineResults, 0, len(videos))
-	for _, name := range videos {
-		key, ok := baseArtifactKey(name, "_result_video_")
-		if !ok {
-			continue
-		}
-
-		screenshot, found := screenshotMap[key]
-		if !found {
-			continue
-		}
-
-		result := PipelineResults{
-			Video: utils.JoinURL(
-				app.Settings().Meta.AppURL,
-				"api", "files", "pipeline_results",
-				record.Id,
-				record.GetString("video_results"),
-				name,
-			),
-			Screenshot: utils.JoinURL(
-				app.Settings().Meta.AppURL,
-				"api", "files", "pipeline_results",
-				record.Id,
-				record.GetString("screenshots"),
-				screenshot,
-			),
-		}
-		if logFile, found := logMap[key]; found {
-			result.Log = utils.JoinURL(
-				app.Settings().Meta.AppURL,
-				"api", "files", "pipeline_results",
-				record.Id,
-				record.GetString(logFile.field),
-				logFile.name,
-			)
-		}
-		if timeline, found := timelineMap[key]; found {
-			result.Timeline = utils.JoinURL(
-				app.Settings().Meta.AppURL,
-				"api", "files", "pipeline_results",
-				record.Id,
-				record.GetString("maestro_timelines"),
-				timeline,
-			)
-		}
-
-		results = append(results, result)
+	if len(keys) == 0 {
+		return nil
 	}
-
+	results := make([]PipelineResults, 0, len(keys))
+	for _, key := range keys {
+		results = append(results, *byKey[key])
+	}
 	return results
 }
 
@@ -321,11 +297,6 @@ func computePipelineResultFileURL(app core.App, record *core.Record, field strin
 		record.Id,
 		filename,
 	)
-}
-
-type pipelineResultFileRef struct {
-	field string
-	name  string
 }
 
 func baseArtifactKey(filename, marker string) (string, bool) {

@@ -78,8 +78,8 @@ type RuntimeConfig struct {
 	// the serialized pipeline contract is exclusively global_device_id.
 	GlobalDeviceID          string `yaml:"global_device_id,omitempty"           json:"global_device_id,omitempty"`
 	DisableAndroidPlayStore bool   `yaml:"disable_android_play_store,omitempty" json:"disable_android_play_store,omitempty"`
-	// NoVideo skips the device screen recording (and the device log captured
-	// with it) for runs that would outlast the recording time limit anyway.
+	// NoVideo skips the device screen recording for runs that would outlast the
+	// recording time limit anyway; the device log and a final screenshot are kept.
 	NoVideo  bool `yaml:"no_video,omitempty" json:"no_video,omitempty"`
 	Debug    bool `yaml:"debug,omitempty"    json:"debug,omitempty"`
 	Temporal struct {

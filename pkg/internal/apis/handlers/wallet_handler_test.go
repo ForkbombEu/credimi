@@ -586,6 +586,22 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	_ = missingWriter.WriteField("platform", "android")
 	require.NoError(t, missingWriter.Close())
 
+	var noVideoBody bytes.Buffer
+	noVideoWriter := multipart.NewWriter(&noVideoBody)
+	_ = noVideoWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
+	_ = noVideoWriter.WriteField("device_identifier", reservedDevicePath)
+	_ = noVideoWriter.WriteField("platform", "android")
+	for field, file := range map[string][2]string{
+		"last_frame": {"last.png", "frame"},
+		"logfile":    {"log.txt", "test log content"},
+	} {
+		part, err := noVideoWriter.CreateFormFile(field, file[0])
+		require.NoError(t, err)
+		_, err = part.Write([]byte(file[1]))
+		require.NoError(t, err)
+	}
+	require.NoError(t, noVideoWriter.Close())
+
 	var invalidPlatformBody bytes.Buffer
 	invalidPlatformWriter := multipart.NewWriter(&invalidPlatformBody)
 	_ = invalidPlatformWriter.WriteField(
@@ -784,6 +800,31 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			TestAppFactory: setupReservedDeviceApp,
 		},
 		{
+			Name:   "store pipeline result without video",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(noVideoBody.Bytes()),
+			Headers: map[string]string{
+				"Content-Type": noVideoWriter.FormDataContentType(),
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"status":"success"`,
+				`"last_frame_file_name"`,
+				`"screenshot_urls"`,
+				`"log_file_name"`,
+			},
+			NotExpectedContent: []string{`"video_file_name"`, `"result_urls"`},
+			TestAppFactory:     setupReservedDeviceApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				requireStoredLog(t, app)
+				record, err := canonify.Resolve(app, "usera-s-organization/workflow123-run123")
+				require.NoError(t, err)
+				require.Empty(t, record.GetStringSlice("video_results"))
+				require.Len(t, record.GetStringSlice("screenshots"), 1)
+			},
+		},
+		{
 			Name:   "store pipeline result missing files",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
@@ -794,7 +835,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedStatus: 400,
 			ExpectedContent: []string{
 				`"file"`,
-				`failed to read file for field result_video"`,
+				`no pipeline result file uploaded`,
 			},
 			TestAppFactory: setupReservedDeviceApp,
 		},
