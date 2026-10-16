@@ -137,9 +137,7 @@ func TestStartRecordingForDeviceSuccess(t *testing.T) {
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"recording_process_pid": float64(1),
 			"ffmpeg_process_pid":    float64(2),
-			"log_process_pid":       float64(3),
 			"video_path":            "/tmp/video.mp4",
-			"log_path":              "/tmp/log.txt",
 		}}, nil)
 
 	env.ExecuteWorkflow("test-start-recording-success")
@@ -168,9 +166,7 @@ func TestStartRecordingForDeviceSetsDefaultHeartbeatTimeout(t *testing.T) {
 			return workflowengine.ActivityResult{Output: map[string]any{
 				"recording_process_pid": float64(1),
 				"ffmpeg_process_pid":    float64(2),
-				"log_process_pid":       float64(3),
 				"video_path":            "/tmp/video.mp4",
-				"log_path":              "/tmp/log.txt",
 			}}, nil
 		},
 		activity.RegisterOptions{Name: recordActivity.Name()},
@@ -181,7 +177,7 @@ func TestStartRecordingForDeviceSetsDefaultHeartbeatTimeout(t *testing.T) {
 	require.Equal(t, 30*time.Second, observedHeartbeat)
 }
 
-func TestCleanupRecordingSuccess(t *testing.T) {
+func TestCleanupDeviceCapturesRecordedDevice(t *testing.T) {
 	for _, tc := range []struct {
 		name         string
 		stopOutput   map[string]any
@@ -205,8 +201,8 @@ func TestCleanupRecordingSuccess(t *testing.T) {
 			env := suite.NewTestWorkflowEnvironment()
 
 			env.RegisterWorkflowWithOptions(
-				testCleanupRecordingWorkflow,
-				workflow.RegisterOptions{Name: "test-cleanup-recording"},
+				testCleanupDeviceCapturesWorkflow,
+				workflow.RegisterOptions{Name: "test-cleanup-device-captures"},
 			)
 
 			stopActivity := activities.NewStopRecordingActivity()
@@ -219,54 +215,88 @@ func TestCleanupRecordingSuccess(t *testing.T) {
 				httpActivity.Execute,
 				activity.RegisterOptions{Name: httpActivity.Name()},
 			)
+			stopLogPayload := onStopAndroidDeviceLog(env, map[string]any{})
 
 			env.OnActivity(stopActivity.Name(), mock.Anything, mock.Anything).
 				Return(workflowengine.ActivityResult{Output: tc.stopOutput}, nil)
-			var body map[string]any
-			env.OnActivity(
-				httpActivity.Name(),
-				mock.Anything,
-				mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
-					payload, ok := input.Payload.(map[string]any)
-					if ok {
-						body, _ = payload["body"].(map[string]any)
-					}
-					return ok
-				}),
-			).
-				Return(workflowengine.ActivityResult{Output: map[string]any{
-					"body": map[string]any{
-						"result_urls":     []string{"url1"},
-						"screenshot_urls": []string{"shot1"},
-					},
-				}}, nil)
+			body := onStoreRecordingResults(env, httpActivity.Name(), map[string]any{
+				"result_urls":     []string{"url1"},
+				"screenshot_urls": []string{"shot1"},
+			})
 
-			env.ExecuteWorkflow("test-cleanup-recording")
+			env.ExecuteWorkflow("test-cleanup-device-captures", true)
 			require.NoError(t, env.GetWorkflowError())
 
 			var out map[string]any
 			require.NoError(t, env.GetWorkflowResult(&out))
 			require.Contains(t, workflowengine.AsSliceOfStrings(out["result_video_urls"]), "url1")
-			require.Equal(t, "/tmp/last.png", body["last_frame_path"])
+			require.Equal(t, false, (*stopLogPayload)["capture_last_frame"])
+			require.Equal(t, "/tmp/log.txt", (*stopLogPayload)["log_path"])
+			require.Equal(t, float64(3), (*stopLogPayload)["log_process_pid"])
+			require.Equal(t, "/tmp/video.mp4", (*body)["video_path"])
+			require.Equal(t, "/tmp/last.png", (*body)["last_frame_path"])
+			require.Equal(t, "/tmp/log.txt", (*body)["log_path"])
 			if tc.wantTimeline == "" {
-				require.NotContains(t, body, "maestro_timeline_path")
+				require.NotContains(t, *body, "maestro_timeline_path")
 				return
 			}
-			require.Equal(t, tc.wantTimeline, body["maestro_timeline_path"])
+			require.Equal(t, tc.wantTimeline, (*body)["maestro_timeline_path"])
 		})
 	}
 }
 
-func TestCleanupRecordingMissingRunnerID(t *testing.T) {
+func TestCleanupDeviceCapturesLogOnlyDevice(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
 	env.RegisterWorkflowWithOptions(
-		testCleanupRecordingMissingRunnerWorkflow,
-		workflow.RegisterOptions{Name: "test-cleanup-recording-missing-runner"},
+		testCleanupDeviceCapturesWorkflow,
+		workflow.RegisterOptions{Name: "test-cleanup-device-captures-log-only"},
 	)
 
-	env.ExecuteWorkflow("test-cleanup-recording-missing-runner")
+	stopActivity := activities.NewStopRecordingActivity()
+	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
+	env.RegisterActivityWithOptions(
+		stopActivity.Execute,
+		activity.RegisterOptions{Name: stopActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	stopLogPayload := onStopAndroidDeviceLog(env, map[string]any{
+		"last_frame_path": "/tmp/screenshot.png",
+	})
+	body := onStoreRecordingResults(env, httpActivity.Name(), map[string]any{
+		"screenshot_urls": []string{"shot1"},
+	})
+
+	env.ExecuteWorkflow("test-cleanup-device-captures-log-only", false)
+	require.NoError(t, env.GetWorkflowError())
+
+	var out map[string]any
+	require.NoError(t, env.GetWorkflowResult(&out))
+	require.Equal(t, []any{"shot1"}, out["screenshot_urls"])
+	require.Empty(t, out["result_video_urls"])
+	require.Equal(t, true, (*stopLogPayload)["capture_last_frame"])
+	require.Equal(t, "serial-1", (*stopLogPayload)["serial"])
+	require.Equal(t, "/tmp/log.txt", (*body)["log_path"])
+	require.Equal(t, "/tmp/screenshot.png", (*body)["last_frame_path"])
+	require.NotContains(t, *body, "video_path")
+	require.NotContains(t, *body, "maestro_timeline_path")
+	env.AssertActivityNumberOfCalls(t, stopActivity.Name(), 0)
+}
+
+func TestCleanupDeviceCapturesMissingRunnerID(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		testCleanupDeviceCapturesMissingRunnerWorkflow,
+		workflow.RegisterOptions{Name: "test-cleanup-device-captures-missing-runner"},
+	)
+
+	env.ExecuteWorkflow("test-cleanup-device-captures-missing-runner")
 	require.NoError(t, env.GetWorkflowError())
 
 	var errs int
@@ -1211,8 +1241,6 @@ func TestExtractAndStoreRecordingInfoIOSUsesRecordingPID(t *testing.T) {
 		workflowengine.ActivityResult{Output: map[string]any{
 			"recording_process_pid": float64(7),
 			"video_path":            "/tmp/video.mp4",
-			"log_path":              "/tmp/log.txt",
-			"log_process_pid":       float64(8),
 		}},
 		deviceMap,
 		"runner-1",
@@ -1220,8 +1248,7 @@ func TestExtractAndStoreRecordingInfoIOSUsesRecordingPID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 7, deviceMap["recording_process_pid"])
 	require.Equal(t, 0, deviceMap["recording_ffmpeg_pid"])
-	require.Equal(t, 8, deviceMap["recording_log_pid"])
-	require.Equal(t, 7, deviceMap["recording_process_pid"])
+	require.NotContains(t, deviceMap, "log_path")
 }
 
 func TestStoreRecordingResultsSuccess(t *testing.T) {
@@ -1508,6 +1535,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 		listAppsActivity.Execute,
 		activity.RegisterOptions{Name: listAppsActivity.Name()},
 	)
+	startLogActivity := onStartAndroidDeviceLog(env)
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (map[string]any, error) {
@@ -1561,7 +1589,9 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 				"run_identifier": steps[0].With.Config["run_identifier"],
 				"recording":      deviceMap["recording"],
 				"video_path":     deviceMap["video_path"],
+				"device_log":     deviceMap["device_log"],
 				"log_path":       deviceMap["log_path"],
+				"device_log_pid": deviceMap["device_log_pid"],
 				"recording_pid":  deviceMap["recording_process_pid"],
 			}, nil
 		},
@@ -1620,9 +1650,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"recording_process_pid": float64(11),
 			"ffmpeg_process_pid":    float64(12),
-			"log_process_pid":       float64(13),
 			"video_path":            "/tmp/video.mp4",
-			"log_path":              "/tmp/log.txt",
 		}}, nil)
 
 	env.ExecuteWorkflow("test-mobile-automation-setup-success")
@@ -1641,8 +1669,12 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	require.Equal(t, "tenant/workflow-run", result["run_identifier"])
 	require.Equal(t, true, result["recording"])
 	require.Equal(t, "/tmp/video.mp4", result["video_path"])
-	require.Equal(t, "/tmp/log.txt", result["log_path"])
 	require.Equal(t, float64(11), result["recording_pid"])
+	require.Equal(t, true, result["device_log"])
+	require.Equal(t, "/tmp/log.txt", result["log_path"])
+	require.Equal(t, float64(13), result["device_log_pid"])
+	env.AssertActivityNumberOfCalls(t, startLogActivity, 1)
+	env.AssertActivityNumberOfCalls(t, recordActivity.Name(), 1)
 }
 
 func TestMobileAutomationSetupHookPreparesNestedSteps(t *testing.T) {
@@ -1698,6 +1730,7 @@ func TestMobileAutomationSetupHookPreparesNestedSteps(t *testing.T) {
 						"type":                   "android_phone",
 						"serial":                 "serial-1",
 						"recording":              true,
+						"device_log":             true,
 						"screen_prepared":        true,
 						"initial_installed_apps": []string{},
 						"installed":              map[string]string{},
@@ -1886,6 +1919,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 		recordActivity.Execute,
 		activity.RegisterOptions{Name: recordActivity.Name()},
 	)
+	onStartAndroidDeviceLog(env)
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (map[string]any, error) {
@@ -1997,9 +2031,7 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"recording_process_pid": float64(11),
 			"ffmpeg_process_pid":    float64(12),
-			"log_process_pid":       float64(13),
 			"video_path":            "/tmp/video.mp4",
-			"log_path":              "/tmp/log.txt",
 		}}, nil)
 
 	env.ExecuteWorkflow("test-mobile-automation-setup-disable-play-store")
@@ -2009,6 +2041,102 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, true, result["play_store_disabled"])
 	require.Equal(t, true, result["recording"])
+}
+
+func TestMobileAutomationSetupHookSkipsRecordingWhenNoVideo(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	registerStubActivity(env, activities.ResolveRecordActivityName)
+	registerStubActivity(env, activities.GetMobileDeviceActivityName)
+	runnerHTTPActivity := registerMobileRunnerHTTPActivity(env)
+	setupActivity := activities.NewSetupMobileDeviceActivity()
+	installActivity := activities.NewApkInstallActivity()
+	postInstallActivity := activities.NewApkPostInstallChecksActivity()
+	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
+	recordActivity := activities.NewStartRecordingActivity()
+	for _, a := range []workflowengine.ExecutableActivity{
+		setupActivity, installActivity, postInstallActivity, listAppsActivity, recordActivity,
+	} {
+		env.RegisterActivityWithOptions(a.Execute, activity.RegisterOptions{Name: a.Name()})
+	}
+	startLogActivity := onStartAndroidDeviceLog(env)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ctx = workflow.WithActivityOptions(
+				ctx,
+				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			)
+			runData := map[string]any{}
+			wfDef := &pipeline.WorkflowDefinition{Steps: []pipeline.StepDefinition{{
+				StepSpec: pipeline.StepSpec{
+					ID:  "step-1",
+					Use: mobileAutomationStepUse,
+					With: pipeline.StepInputs{Payload: map[string]any{
+						"action_id":  "action-1",
+						"version_id": "tenant/wallet/v1",
+					}},
+				},
+			}}}
+
+			if err := MobileAutomationSetupHook(
+				ctx,
+				wfDef,
+				map[string]any{
+					"app_url":                              "https://app.example",
+					"namespace":                            "tenant",
+					"global_device_id":                     "tenant/runner-1/device-1",
+					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
+					mobileNoVideoConfigKey:                 true,
+				},
+				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
+			); err != nil {
+				return nil, err
+			}
+
+			return runData["setted_devices"].(map[string]any)["tenant/runner-1/device-1"].(map[string]any), nil
+		},
+		workflow.RegisterOptions{Name: "test-mobile-automation-setup-no-video"},
+	)
+
+	onResolveMobileAction(env, "action-1", map[string]any{"code": "code-1", "category": "test"})
+	onGetMobileDevice(env, "tenant/runner-1/device-1", map[string]any{
+		"runner_id":  "tenant/runner-1",
+		"runner_url": "https://runner.example",
+		"type":       "physical",
+		"serial":     "serial-1",
+	})
+	env.OnActivity(setupActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"screen_prepared":     true,
+			"original_stay_awake": "0",
+		}}, nil).Once()
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{"com.example.before"}}, nil).Once()
+	env.OnActivity(runnerHTTPActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{"installer_path": "/tmp/app.apk", "version_id": "ver-1"},
+		}}, nil)
+	env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"package_id": "pkg-1"}}, nil)
+	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"package_id": "pkg-1"}}, nil)
+
+	env.ExecuteWorkflow("test-mobile-automation-setup-no-video")
+	require.NoError(t, env.GetWorkflowError())
+
+	var device map[string]any
+	require.NoError(t, env.GetWorkflowResult(&device))
+	require.Equal(t, false, device["recording"])
+	require.NotContains(t, device, "video_path")
+	require.Equal(t, true, device["device_log"])
+	require.Equal(t, "/tmp/log.txt", device["log_path"])
+	require.Equal(t, float64(13), device["device_log_pid"])
+	env.AssertActivityNumberOfCalls(t, startLogActivity, 1)
+	env.AssertActivityNumberOfCalls(t, recordActivity.Name(), 0)
 }
 
 func TestMobileAutomationCleanupHookReenablesDisabledPlayStore(t *testing.T) {
@@ -2089,6 +2217,7 @@ func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 		cleanupActivity.Execute,
 		activity.RegisterOptions{Name: cleanupActivity.Name()},
 	)
+	stopLogPayload := onStopAndroidDeviceLog(env, map[string]any{})
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (map[string]any, error) {
@@ -2104,7 +2233,8 @@ func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 				"log_path":              "/tmp/log.txt",
 				"recording_process_pid": 1,
 				"recording_ffmpeg_pid":  2,
-				"recording_log_pid":     3,
+				"device_log":            true,
+				"device_log_pid":        3,
 				"installed":             map[string]string{"ver-1": "pkg-1"},
 			}
 			output := map[string]any{
@@ -2162,6 +2292,7 @@ func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 	require.Equal(t, []any{"video-url"}, result["result_urls"])
 	require.Equal(t, []any{"frame-url"}, result["frame_urls"])
 	require.Equal(t, float64(0), result["cleanup_errs"])
+	require.Equal(t, false, (*stopLogPayload)["capture_last_frame"])
 }
 
 func TestStoreRecordingResultsReturnsActivityError(t *testing.T) {
@@ -2650,7 +2781,7 @@ func TestStartRecordingForDevicesPropagatesError(t *testing.T) {
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) error {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
-			return startRecordingForDevices(startRecordingForDevicesInput{
+			return startRecordingForDevices(deviceCaptureInput{
 				ctx: workflow.WithActivityOptions(ctx, ao),
 				settedDevices: map[string]any{
 					"runner-1": map[string]any{
@@ -2679,41 +2810,17 @@ func TestExtractAndStoreRecordingInfoErrorBranches(t *testing.T) {
 			name: "missing ffmpeg pid",
 			output: map[string]any{
 				"recording_process_pid": float64(1),
-				"log_process_pid":       float64(3),
 				"video_path":            "video.mp4",
-				"log_path":              "log.txt",
 			},
 			message: "missing ffmpeg_process",
-		},
-		{
-			name: "missing log pid",
-			output: map[string]any{
-				"recording_process_pid": float64(1),
-				"ffmpeg_process_pid":    float64(2),
-				"video_path":            "video.mp4",
-				"log_path":              "log.txt",
-			},
-			message: "missing log_process",
 		},
 		{
 			name: "missing video path",
 			output: map[string]any{
 				"recording_process_pid": float64(1),
 				"ffmpeg_process_pid":    float64(2),
-				"log_process_pid":       float64(3),
-				"log_path":              "log.txt",
 			},
 			message: "missing video_path",
-		},
-		{
-			name: "missing log path",
-			output: map[string]any{
-				"recording_process_pid": float64(1),
-				"ffmpeg_process_pid":    float64(2),
-				"log_process_pid":       float64(3),
-				"video_path":            "video.mp4",
-			},
-			message: "missing log_path",
 		},
 	}
 
@@ -2816,7 +2923,7 @@ func testStartRecordingSkipWorkflow(ctx workflow.Context) error {
 			"recording": true,
 		},
 	}
-	return startRecordingForDevices(startRecordingForDevicesInput{
+	return startRecordingForDevices(deviceCaptureInput{
 		ctx:           ctx,
 		settedDevices: setted,
 		ao:            &activityOptions,
@@ -2838,7 +2945,12 @@ func testStartRecordingSuccessWorkflow(ctx workflow.Context) (map[string]any, er
 	return device, err
 }
 
-func testCleanupRecordingWorkflow(ctx workflow.Context) (map[string]any, error) {
+// testCleanupDeviceCapturesWorkflow cleans up a device whose log is captured,
+// with or without a screen recording.
+func testCleanupDeviceCapturesWorkflow(
+	ctx workflow.Context,
+	recording bool,
+) (map[string]any, error) {
 	ctx = workflow.WithActivityOptions(
 		ctx,
 		workflow.ActivityOptions{StartToCloseTimeout: time.Second},
@@ -2849,15 +2961,19 @@ func testCleanupRecordingWorkflow(ctx workflow.Context) (map[string]any, error) 
 	}
 	errs := []error{}
 	deviceInfo := map[string]any{
-		"runner_id":             "tenant/runner-1",
-		"recording":             true,
-		"video_path":            "/tmp/video.mp4",
-		"log_path":              "/tmp/log.txt",
-		"recording_process_pid": 1,
-		"recording_ffmpeg_pid":  2,
-		"recording_log_pid":     3,
+		"runner_id":      "tenant/runner-1",
+		"serial":         "serial-1",
+		"device_log":     true,
+		"log_path":       "/tmp/log.txt",
+		"device_log_pid": 3,
+		"recording":      recording,
 	}
-	cleanupRecording(cleanupRecordingInput{
+	if recording {
+		deviceInfo["video_path"] = "/tmp/video.mp4"
+		deviceInfo["recording_process_pid"] = 1
+		deviceInfo["recording_ffmpeg_pid"] = 2
+	}
+	cleanupDeviceCaptures(cleanupDeviceCapturesInput{
 		mobileCtx:   ctx,
 		ctx:         ctx,
 		deviceID:    "runner-1",
@@ -2872,7 +2988,7 @@ func testCleanupRecordingWorkflow(ctx workflow.Context) (map[string]any, error) 
 	return output, nil
 }
 
-func testCleanupRecordingMissingRunnerWorkflow(ctx workflow.Context) (int, error) {
+func testCleanupDeviceCapturesMissingRunnerWorkflow(ctx workflow.Context) (int, error) {
 	errs := []error{}
 	deviceInfo := map[string]any{
 		"recording": true,
@@ -2881,7 +2997,7 @@ func testCleanupRecordingMissingRunnerWorkflow(ctx workflow.Context) (int, error
 		"result_video_urls": []string{},
 		"screenshot_urls":   []string{},
 	}
-	cleanupRecording(cleanupRecordingInput{
+	cleanupDeviceCaptures(cleanupDeviceCapturesInput{
 		ctx:         ctx,
 		deviceID:    "runner-1",
 		deviceInfo:  deviceInfo,
@@ -2892,6 +3008,70 @@ func testCleanupRecordingMissingRunnerWorkflow(ctx workflow.Context) (int, error
 	return len(errs), nil
 }
 
+// onStartAndroidDeviceLog registers the Android start-device-log activity,
+// returning a running log capture, and returns its name.
+func onStartAndroidDeviceLog(env *testsuite.TestWorkflowEnvironment) string {
+	startLog := activities.NewStartAndroidDeviceLogActivity()
+	env.RegisterActivityWithOptions(
+		startLog.Execute,
+		activity.RegisterOptions{Name: startLog.Name()},
+	)
+	env.OnActivity(startLog.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"log_path":        "/tmp/log.txt",
+			"log_process_pid": float64(13),
+		}}, nil)
+	return startLog.Name()
+}
+
+// onStopAndroidDeviceLog registers the Android stop-device-log activity
+// returning output, and records the payload it was called with.
+func onStopAndroidDeviceLog(
+	env *testsuite.TestWorkflowEnvironment,
+	output map[string]any,
+) *map[string]any {
+	stopLog := activities.NewStopAndroidDeviceLogActivity()
+	env.RegisterActivityWithOptions(
+		stopLog.Execute,
+		activity.RegisterOptions{Name: stopLog.Name()},
+	)
+	payload := map[string]any{}
+	env.OnActivity(
+		stopLog.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			got, ok := input.Payload.(map[string]any)
+			if ok {
+				payload = got
+			}
+			return ok
+		}),
+	).Return(workflowengine.ActivityResult{Output: output}, nil).Once()
+	return &payload
+}
+
+// onStoreRecordingResults mocks the runner upload of the capture results,
+// replying with responseBody, and records the uploaded body.
+func onStoreRecordingResults(
+	env *testsuite.TestWorkflowEnvironment,
+	httpActivityName string,
+	responseBody map[string]any,
+) *map[string]any {
+	body := map[string]any{}
+	env.OnActivity(
+		httpActivityName,
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if ok {
+				body, _ = payload["body"].(map[string]any)
+			}
+			return ok
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{"body": responseBody}}, nil).Once()
+	return &body
+}
+
 func testStopRecordingMissingLastFrameWorkflow(ctx workflow.Context) error {
 	ctx = workflow.WithActivityOptions(
 		ctx,
@@ -2899,10 +3079,8 @@ func testStopRecordingMissingLastFrameWorkflow(ctx workflow.Context) error {
 	)
 	info := &recordingInfo{
 		videoPath:    "/tmp/video.mp4",
-		logPath:      "/tmp/log.txt",
 		recordingPid: 1,
 		ffmpegPid:    2,
-		logPid:       3,
 	}
 	_, err := stopRecording(ctx, "runner-1/device-1", info, workflow.GetLogger(ctx))
 	return err
@@ -2919,10 +3097,8 @@ func testStopRecordingSuccessWorkflow(
 
 	info := &recordingInfo{
 		videoPath:    "/tmp/video.mp4",
-		logPath:      "/tmp/log.txt",
 		recordingPid: 1,
 		ffmpegPid:    2,
-		logPid:       3,
 	}
 	_, err := stopRecording(ctx, "runner-1/device-1", info, workflow.GetLogger(ctx))
 	return err

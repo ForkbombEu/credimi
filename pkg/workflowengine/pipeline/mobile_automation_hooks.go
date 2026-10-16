@@ -27,6 +27,7 @@ const (
 	mobileAutomationStepUse                = "mobile-automation"
 	mobileDeviceSemaphoreTicketIDConfigKey = "mobile_device_semaphore_ticket_id"
 	mobileDisableAndroidPlayStoreConfigKey = "disable_android_play_store"
+	mobileNoVideoConfigKey                 = "no_video"
 	mobilePlatformAndroid                  = "android"
 	mobilePlatformIOS                      = "ios"
 	mobileExternalSourceVersionID          = "installed_from_external_source"
@@ -50,6 +51,8 @@ type platformActivities struct {
 	PostInstall       string
 	StartRecording    string
 	StopRecording     string
+	StartDeviceLog    string
+	StopDeviceLog     string
 	InstallAssetField string
 }
 
@@ -60,6 +63,8 @@ var (
 		PostInstall:       activities.NewApkPostInstallChecksActivity().Name(),
 		StartRecording:    activities.NewStartRecordingActivity().Name(),
 		StopRecording:     activities.NewStopRecordingActivity().Name(),
+		StartDeviceLog:    activities.NewStartAndroidDeviceLogActivity().Name(),
+		StopDeviceLog:     activities.NewStopAndroidDeviceLogActivity().Name(),
 		InstallAssetField: "apk",
 	}
 	iosPlatformActivities = platformActivities{
@@ -68,6 +73,8 @@ var (
 		PostInstall:       activities.NewIOSPostInstallChecksActivity().Name(),
 		StartRecording:    activities.NewStartIOSRecordingActivity().Name(),
 		StopRecording:     activities.NewStopIOSRecordingActivity().Name(),
+		StartDeviceLog:    activities.NewStartIOSDeviceLogActivity().Name(),
+		StopDeviceLog:     activities.NewStopIOSDeviceLogActivity().Name(),
 		InstallAssetField: "app",
 	}
 )
@@ -141,7 +148,9 @@ type installAppIfNeededInput struct {
 	activities platformActivities
 }
 
-type startRecordingForDevicesInput struct {
+// deviceCaptureInput starts a capture (device log or screen recording) on
+// every device reserved by the run.
+type deviceCaptureInput struct {
 	ctx           workflow.Context
 	settedDevices map[string]any
 	ao            *workflow.ActivityOptions
@@ -173,7 +182,7 @@ type cleanupDeviceInput struct {
 	logger        log.Logger
 }
 
-type cleanupRecordingInput struct {
+type cleanupDeviceCapturesInput struct {
 	ctx         workflow.Context
 	mobileCtx   workflow.Context
 	deviceID    string
@@ -274,13 +283,21 @@ func MobileAutomationSetupHook(
 		}
 	}
 
-	if err := startRecordingForDevices(startRecordingForDevicesInput{
+	captureInput := deviceCaptureInput{
 		ctx:           ctx,
 		settedDevices: settedDevices,
 		ao:            &ao,
 		runIdentifier: workflowengine.AsString((*runData)["run_identifier"]),
-	}); err != nil {
+	}
+	// The device log is always captured; only the screen recording is optional.
+	if err := startDeviceLogForDevices(captureInput); err != nil {
 		return err
+	}
+	// no_video pipelines run for hours: a recording capped at 30 minutes is useless.
+	if !workflowengine.AsBool(config[mobileNoVideoConfigKey]) {
+		if err := startRecordingForDevices(captureInput); err != nil {
+			return err
+		}
 	}
 
 	SetRunDataValue(runData, "setted_devices", settedDevices)
@@ -1192,13 +1209,34 @@ func installAppIfNeeded(
 	return nil
 }
 
-func startRecordingForDevices(
-	input startRecordingForDevicesInput,
-) error {
+func startDeviceLogForDevices(input deviceCaptureInput) error {
 	for deviceID, dev := range input.settedDevices {
 		deviceMap := dev.(map[string]any)
-		recording := deviceMap["recording"].(bool)
-		if recording {
+		if workflowengine.AsBool(deviceMap["device_log"]) {
+			continue
+		}
+
+		result, err := startDeviceCapture(startRecordingForDeviceInput{
+			ctx:           input.ctx,
+			deviceID:      deviceID,
+			deviceMap:     deviceMap,
+			ao:            input.ao,
+			runIdentifier: input.runIdentifier,
+		}, activitiesForDeviceType(deviceTypeFromMap(deviceMap)).StartDeviceLog)
+		if err != nil {
+			return err
+		}
+		if err := extractAndStoreDeviceLogInfo(result, deviceMap, deviceID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func startRecordingForDevices(input deviceCaptureInput) error {
+	for deviceID, dev := range input.settedDevices {
+		deviceMap := dev.(map[string]any)
+		if workflowengine.AsBool(deviceMap["recording"]) {
 			continue
 		}
 
@@ -1270,11 +1308,25 @@ func disablePlayStoreForDevices(
 func startRecordingForDevice(
 	input startRecordingForDeviceInput,
 ) error {
+	deviceActivities := activitiesForDeviceType(deviceTypeFromMap(input.deviceMap))
+	recordResult, err := startDeviceCapture(input, deviceActivities.StartRecording)
+	if err != nil {
+		return err
+	}
+
+	return extractAndStoreRecordingInfo(recordResult, input.deviceMap, input.deviceID)
+}
+
+// startDeviceCapture runs a capture start activity on the runner hosting the device.
+func startDeviceCapture(
+	input startRecordingForDeviceInput,
+	activityName string,
+) (workflowengine.ActivityResult, error) {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 
 	serial, ok := input.deviceMap["serial"].(string)
 	if !ok || serial == "" {
-		return workflowengine.NewAppError(
+		return workflowengine.ActivityResult{}, workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
@@ -1285,38 +1337,57 @@ func startRecordingForDevice(
 
 	hostRunnerID, ok := mobileDeviceHostRunnerID(input.deviceMap)
 	if !ok {
-		return missingDeviceHostRunnerID(input.deviceID, input.deviceMap)
+		return workflowengine.ActivityResult{}, missingDeviceHostRunnerID(
+			input.deviceID,
+			input.deviceMap,
+		)
 	}
 	mobileAO := mobileRunnerActivityOptions(input.ao, hostRunnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAO)
-	deviceType := deviceTypeFromMap(input.deviceMap)
-	deviceActivities := activitiesForDeviceType(deviceType)
 
-	startRecordInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"device_id":   input.deviceID,
-			"serial":      serial,
-			"workflow_id": recordingWorkspaceID(mobileCtx, input.runIdentifier),
-		},
-		Config: workflowengine.ActivityTelemetryConfig(mobileCtx, nil),
-	}
-	var recordResult workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(
+	var result workflowengine.ActivityResult
+	err := workflow.ExecuteActivity(
 		mobileCtx,
-		deviceActivities.StartRecording,
-		startRecordInput,
-	).Get(mobileCtx, &recordResult); err != nil {
-		return err
+		activityName,
+		workflowengine.ActivityInput{
+			Payload: map[string]any{
+				"device_id":   input.deviceID,
+				"serial":      serial,
+				"workflow_id": recordingWorkspaceID(mobileCtx, input.runIdentifier),
+			},
+			Config: workflowengine.ActivityTelemetryConfig(mobileCtx, nil),
+		},
+	).Get(mobileCtx, &result)
+	return result, err
+}
+
+func extractAndStoreDeviceLogInfo(
+	result workflowengine.ActivityResult,
+	deviceMap map[string]any,
+	deviceID string,
+) error {
+	output, _ := result.Output.(map[string]any)
+	logPath, _ := output["log_path"].(string)
+	logPID, _ := output["log_process_pid"].(float64)
+	if logPath == "" || logPID == 0 {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"%s: missing log_path or log_process_pid in start device log response for device %s",
+					errCode.Description,
+					deviceID,
+				),
+				Details: map[string]any{"payload": result.Output},
+			},
+		)
 	}
 
-	if err := extractAndStoreRecordingInfo(
-		recordResult,
-		input.deviceMap,
-		input.deviceID,
-	); err != nil {
-		return err
-	}
-
+	deviceMap["device_log"] = true
+	deviceMap["log_path"] = logPath
+	deviceMap["device_log_pid"] = int(logPID)
 	return nil
 }
 
@@ -1367,21 +1438,6 @@ func extractAndStoreRecordingInfo(
 	}
 
 	ffmpegPID := float64(0)
-	logPID, ok := output["log_process_pid"].(float64)
-	if !ok {
-		return workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf(
-					"%s: missing log_process in start record video response for device %s",
-					errCode.Description,
-					deviceID,
-				),
-				Details: map[string]any{"payload": recordResult.Output},
-			},
-		)
-	}
 	if !deviceType.IsIOS() {
 		ffmpegPID, ok = output["ffmpeg_process_pid"].(float64)
 		if !ok {
@@ -1416,30 +1472,10 @@ func extractAndStoreRecordingInfo(
 		)
 	}
 
-	logPath, hasLogPath := output["log_path"].(string)
-	if !hasLogPath || logPath == "" {
-		return workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: fmt.Sprintf(
-					"%s: missing log_path in start record video response for device %s",
-					errCode.Description,
-					deviceID,
-				),
-				Details: map[string]any{"payload": recordResult.Output},
-			},
-		)
-	}
-
 	deviceMap["recording_process_pid"] = int(recordingProcessPID)
 	deviceMap["recording_ffmpeg_pid"] = int(ffmpegPID)
-	deviceMap["recording_log_pid"] = int(logPID)
 	deviceMap["recording"] = true
 	deviceMap["video_path"] = videoPath
-	if hasLogPath {
-		deviceMap["log_path"] = logPath
-	}
 
 	return nil
 }
@@ -1621,8 +1657,7 @@ func cleanupDevice(
 	mobileAo := withDeviceRebootBudget(mobileRunnerActivityOptions(input.mobileAo, hostRunnerID))
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAo)
 
-	cleanupRecording(cleanupRecordingInput{
-
+	cleanupDeviceCaptures(cleanupDeviceCapturesInput{
 		ctx:         input.ctx,
 		mobileCtx:   mobileCtx,
 		deviceID:    input.deviceID,
@@ -1852,74 +1887,146 @@ func shouldRunDeviceCleanup(
 	if workflowengine.AsBool(deviceMap["screen_prepared"]) {
 		return true
 	}
-	return workflowengine.AsBool(deviceMap["recording"])
+	return workflowengine.AsBool(deviceMap["recording"]) ||
+		workflowengine.AsBool(deviceMap["device_log"])
 }
 
-func cleanupRecording(
-	input cleanupRecordingInput,
+// cleanupDeviceCaptures stops the screen recording and the device log of a
+// device and stores what they produced. Each capture is best effort: a failed
+// one is reported and the other is still stored. Without a video the last
+// frame is a screenshot taken when the device log stops.
+func cleanupDeviceCaptures(
+	input cleanupDeviceCapturesInput,
 ) {
+	recording := workflowengine.AsBool(input.deviceInfo["recording"])
+	logging := workflowengine.AsBool(input.deviceInfo["device_log"])
+	if !recording && !logging {
+		return
+	}
+
 	logger := workflow.GetLogger(input.ctx)
+	appendErr := func(err error) { *input.cleanupErrs = append(*input.cleanupErrs, err) }
 
 	runnerID, ok := input.deviceInfo["runner_id"].(string)
 	if !ok || canonify.NormalizePath(runnerID) == "" {
-		*input.cleanupErrs = append(
-			*input.cleanupErrs,
-			workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-					Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
-					Message: "missing runner_id for device " + input.deviceID,
-				},
-			),
+		appendErr(workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+				Message: "missing runner_id for device " + input.deviceID,
+			},
+		))
+		return
+	}
+
+	var videoPath, lastFrame, timeline string
+	if recording {
+		info, err := extractRecordingInfo(input.deviceID, input.deviceInfo)
+		if err != nil {
+			appendErr(err)
+		} else if stopped, err := stopRecording(input.mobileCtx, input.deviceID, info, logger); err != nil {
+			appendErr(err)
+		} else {
+			videoPath = info.videoPath
+			lastFrame = stopped.lastFramePath
+			timeline = stopped.maestroTimelinePath
+		}
+	}
+
+	var logPath string
+	if logging {
+		// The log file is stored even when stopping its process failed.
+		logPath, _ = input.deviceInfo["log_path"].(string)
+		stopped, err := stopDeviceLog(
+			input.mobileCtx,
+			input.deviceID,
+			input.deviceInfo,
+			lastFrame == "",
 		)
+		if err != nil {
+			logger.Error("cleanup: stop device log failed", "error", err)
+			appendErr(err)
+		} else if lastFrame == "" {
+			lastFrame = stopped.lastFramePath
+		}
+	}
+
+	if videoPath == "" && lastFrame == "" && logPath == "" {
 		return
 	}
-
-	recording, ok := input.deviceInfo["recording"].(bool)
-	if !ok || !recording {
-		return
-	}
-
-	recordingInfo, err := extractRecordingInfo(input.deviceID, input.deviceInfo)
-	if err != nil {
-		*input.cleanupErrs = append(*input.cleanupErrs, err)
-	}
-
-	stopped, err := stopRecording(
-		input.mobileCtx,
-		input.deviceID,
-		recordingInfo,
-		logger,
-	)
-	if err != nil {
-		*input.cleanupErrs = append(*input.cleanupErrs, err)
-	}
-
 	if err := storeRecordingResults(storeRecordingResultsInput{
 		ctx:             input.ctx,
 		runnerID:        canonify.NormalizePath(runnerID),
-		videoPath:       recordingInfo.videoPath,
-		lastFrame:       stopped.lastFramePath,
-		logPath:         recordingInfo.logPath,
-		maestroTimeline: stopped.maestroTimelinePath,
-		deviceType:      recordingInfo.deviceType,
+		videoPath:       videoPath,
+		lastFrame:       lastFrame,
+		logPath:         logPath,
+		maestroTimeline: timeline,
+		deviceType:      deviceTypeFromMap(input.deviceInfo),
 		runID:           input.runID,
 		deviceID:        input.deviceID,
 		output:          input.output,
 		logger:          logger,
 	}); err != nil {
-		*input.cleanupErrs = append(*input.cleanupErrs, err)
+		appendErr(err)
 	}
+}
+
+type deviceLogStopOutput struct {
+	lastFramePath string
+}
+
+// stopDeviceLog stops the device log capture; with captureLastFrame the runner
+// also takes a screenshot to store as the run's last frame.
+func stopDeviceLog(
+	ctx workflow.Context,
+	deviceID string,
+	deviceInfo map[string]any,
+	captureLastFrame bool,
+) (deviceLogStopOutput, error) {
+	logPID, _ := deviceInfo["device_log_pid"].(int)
+	logPath, _ := deviceInfo["log_path"].(string)
+	serial, _ := deviceInfo["serial"].(string)
+	if logPID == 0 || logPath == "" || serial == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return deviceLogStopOutput{}, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: "missing device_log_pid, log_path or serial for device " + deviceID,
+			},
+		)
+	}
+
+	stopCtx := heartbeatAwareCleanupContext(ctx)
+	var stopResult workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		stopCtx,
+		activitiesForDeviceType(deviceTypeFromMap(deviceInfo)).StopDeviceLog,
+		workflowengine.ActivityInput{
+			Payload: map[string]any{
+				"device_id":          deviceID,
+				"serial":             serial,
+				"log_process_pid":    logPID,
+				"log_path":           logPath,
+				"capture_last_frame": captureLastFrame,
+			},
+			Config: workflowengine.ActivityTelemetryConfig(stopCtx, nil),
+		},
+	).Get(stopCtx, &stopResult); err != nil {
+		return deviceLogStopOutput{}, err
+	}
+
+	output, _ := stopResult.Output.(map[string]any)
+	lastFramePath, _ := output["last_frame_path"].(string)
+	return deviceLogStopOutput{lastFramePath: lastFramePath}, nil
 }
 
 type recordingInfo struct {
 	deviceType   mobileDeviceType
 	activities   platformActivities
 	videoPath    string
-	logPath      string
 	recordingPid int
 	ffmpegPid    int
-	logPid       int
 }
 
 func extractRecordingInfo(
@@ -1940,17 +2047,6 @@ func extractRecordingInfo(
 		)
 	}
 
-	logPath, hasLogPath := deviceInfo["log_path"].(string)
-	if !hasLogPath || logPath == "" {
-		return nil, workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: "missing log_path for device " + deviceID,
-			},
-		)
-	}
-
 	recordingPid, ok := deviceInfo["recording_process_pid"].(int)
 	if !ok || recordingPid == 0 {
 		return nil, workflowengine.NewAppError(
@@ -1963,23 +2059,11 @@ func extractRecordingInfo(
 	}
 
 	if deviceType.IsIOS() {
-		logPid, ok := deviceInfo["recording_log_pid"].(int)
-		if !ok || logPid == 0 {
-			return nil, workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: "missing recording_log_pid for device " + deviceID,
-				},
-			)
-		}
 		return &recordingInfo{
 			deviceType:   deviceType,
 			activities:   activitiesForDeviceType(deviceType),
 			videoPath:    videoPath,
-			logPath:      logPath,
 			recordingPid: recordingPid,
-			logPid:       logPid,
 		}, nil
 	}
 
@@ -1994,25 +2078,12 @@ func extractRecordingInfo(
 		)
 	}
 
-	recordingLogPid, ok := deviceInfo["recording_log_pid"].(int)
-	if !ok || recordingLogPid == 0 {
-		return nil, workflowengine.NewAppError(
-			workflowengine.WorkflowError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: "missing recording_log_pid for device " + deviceID,
-			},
-		)
-	}
-
 	return &recordingInfo{
 		deviceType:   deviceType,
 		activities:   activitiesForDeviceType(deviceType),
 		videoPath:    videoPath,
-		logPath:      logPath,
 		recordingPid: recordingPid,
 		ffmpegPid:    recordingFfmpegPid,
-		logPid:       recordingLogPid,
 	}, nil
 }
 
@@ -2037,7 +2108,6 @@ func stopRecording(
 		"video_path":            info.videoPath,
 		"recording_process_pid": info.recordingPid,
 		"ffmpeg_process_pid":    info.ffmpegPid,
-		"log_process_pid":       info.logPid,
 	}
 	stopActivityName := info.activities.StopRecording
 	if stopActivityName == "" {
@@ -2048,7 +2118,6 @@ func stopRecording(
 			"device_id":             deviceID,
 			"recording_process_pid": info.recordingPid,
 			"video_path":            info.videoPath,
-			"log_process_pid":       info.logPid,
 		}
 	}
 
@@ -2103,17 +2172,21 @@ func storeRecordingResults(
 	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	var storeResult workflowengine.ActivityResult
 	body := map[string]any{
-		"video_path":        input.videoPath,
-		"last_frame_path":   input.lastFrame,
 		"run_identifier":    input.runID,
 		"device_identifier": input.deviceID,
 		"platform":          installerPlatformForDeviceType(input.deviceType),
 	}
-	if input.logPath != "" {
-		body["log_path"] = input.logPath
-	}
-	if input.maestroTimeline != "" {
-		body["maestro_timeline_path"] = input.maestroTimeline
+	// Every artifact is optional: no_video runs and failed captures send only
+	// what was produced.
+	for key, value := range map[string]string{
+		"video_path":            input.videoPath,
+		"last_frame_path":       input.lastFrame,
+		"log_path":              input.logPath,
+		"maestro_timeline_path": input.maestroTimeline,
+	} {
+		if value != "" {
+			body[key] = value
+		}
 	}
 
 	if err := workflow.ExecuteActivity(
@@ -2137,16 +2210,26 @@ func storeRecordingResults(
 		return err
 	}
 
-	if err := extractAndStoreURLs(storeResult, input.output); err != nil {
+	if err := extractAndStoreURLs(
+		storeResult,
+		input.output,
+		input.videoPath != "",
+		input.lastFrame != "",
+	); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+// extractAndStoreURLs adds the stored video and screenshot URLs to output.
+// wantVideo and wantFrame say which of them the upload carried, and so must
+// come back.
 func extractAndStoreURLs(
 	storeResult workflowengine.ActivityResult,
 	output *map[string]any,
+	wantVideo bool,
+	wantFrame bool,
 ) error {
 	body, ok := storeResult.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
@@ -2165,7 +2248,7 @@ func extractAndStoreURLs(
 	resultURLs := workflowengine.AsSliceOfStrings(body["result_urls"])
 	frameURLs := workflowengine.AsSliceOfStrings(body["screenshot_urls"])
 
-	if len(resultURLs) == 0 || len(frameURLs) == 0 {
+	if (wantVideo && len(resultURLs) == 0) || (wantFrame && len(frameURLs) == 0) {
 		err := workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errorcodes.Codes[errorcodes.UnexpectedActivityOutput].Code,

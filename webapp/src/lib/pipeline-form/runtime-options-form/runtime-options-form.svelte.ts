@@ -9,7 +9,7 @@ import type { SuperForm } from 'sveltekit-superforms';
 import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
 import Ajv from 'ajv';
 import { zod } from 'sveltekit-superforms/adapters';
-import { parse as parseYaml, stringify } from 'yaml';
+import { isMap, parseDocument, parse as parseYaml, stringify } from 'yaml';
 import { z } from 'zod/v3';
 
 import { createForm } from '@/forms';
@@ -105,4 +105,29 @@ const runtimeOptionsStringSchema = z.string().superRefine((v, ctx) => {
 
 export function isRuntimeOptions(value: unknown): value is RuntimeOptions {
 	return validateRuntimeOptions(value);
+}
+
+// no_video toggle: edits the YAML document in place so user comments survive.
+// An absent key means false, so turning the flag off removes it.
+// Returns undefined when the code is not a YAML mapping (the toggle is then disabled).
+
+function parseRuntimeDocument(code: string) {
+	const doc = parseDocument(code);
+	if (doc.errors.length > 0) return undefined;
+	if (doc.contents !== null && !isMap(doc.contents)) return undefined;
+	return doc;
+}
+
+export function readNoVideo(code: string): boolean | undefined {
+	const doc = parseRuntimeDocument(code);
+	if (!doc) return undefined;
+	return doc.get('no_video') === true;
+}
+
+export function writeNoVideo(code: string, enabled: boolean): string {
+	const doc = parseRuntimeDocument(code);
+	if (!doc) return code;
+	if (enabled) doc.set('no_video', true);
+	else if (doc.contents !== null) doc.delete('no_video');
+	return doc.toString();
 }

@@ -476,59 +476,87 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
+		// Each artifact is optional: no_video runs upload only the device log
+		// and a screenshot, and a failed capture must not drop the others.
+		artifacts := []struct {
+			formField   string
+			recordField string
+			suffix      string
+			zip         bool
+			nameKey     string
+			urlsKey     string
+		}{
+			{
+				"result_video",
+				"video_results",
+				"_result_video",
+				false,
+				"video_file_name",
+				"result_urls",
+			},
+			{
+				"last_frame",
+				"screenshots",
+				"_screenshot",
+				false,
+				"last_frame_file_name",
+				"screenshot_urls",
+			},
+			{
+				"logfile",
+				logRecordFieldForPlatform(platform),
+				"_logfile",
+				true,
+				"log_file_name",
+				"log_urls",
+			},
+			// The maestro timeline exists only for runs whose flows ran while recording.
+			// "_timeline" is no longer than "_result_video": PocketBase truncates long
+			// file names, and a cut marker would leave the timeline unpaired with its video.
+			{
+				"maestro_timeline",
+				"maestro_timelines",
+				"_timeline",
+				false,
+				"maestro_timeline_file_name",
+				"",
+			},
+		}
+
 		versionName := strings.ReplaceAll(
 			strings.Trim(deviceIdentifier, "/"),
 			"/",
 			"-",
 		)
-		filename := versionName + "_result_video"
-		videoFilename, videoURLs, apierr := saveUploadedFileToRecord(
-			e, resultRecord, "result_video", "video_results", filename, false,
-		)
-		if apierr != nil {
-			return apierr
-		}
-
-		filename = versionName + "_screenshot"
-		frameFilename, frameURLs, apierr := saveUploadedFileToRecord(
-			e, resultRecord, "last_frame", "screenshots", filename, false,
-		)
-		if apierr != nil {
-			return apierr
-		}
-
 		response := map[string]any{
-			"status":               "success",
-			"device":               deviceIdentifier,
-			"video_file_name":      videoFilename,
-			"result_urls":          videoURLs,
-			"last_frame_file_name": frameFilename,
-			"screenshot_urls":      frameURLs,
+			"status": "success",
+			"device": deviceIdentifier,
 		}
-
-		filename = versionName + "_logfile"
-
-		logFilename, logURLs, apierr := saveUploadedFileToRecord(
-			e, resultRecord, "logfile", logRecordFieldForPlatform(platform), filename, true,
-		)
-		if apierr != nil {
-			return apierr
-		}
-		response["log_file_name"] = logFilename
-		response["log_urls"] = logURLs
-
-		// The maestro timeline exists only for runs whose flows ran while recording.
-		if len(e.Request.MultipartForm.File["maestro_timeline"]) > 0 {
-			timelineFilename, _, apierr := saveUploadedFileToRecord(
-				e, resultRecord, "maestro_timeline", "maestro_timelines",
-				// No longer than "_result_video": PocketBase truncates long file names,
-				// and a cut marker would leave the timeline unpaired with its video.
-				versionName+"_timeline", false,
+		stored := 0
+		for _, artifact := range artifacts {
+			if len(e.Request.MultipartForm.File[artifact.formField]) == 0 {
+				continue
+			}
+			name, urls, apierr := saveUploadedFileToRecord(
+				e, resultRecord, artifact.formField, artifact.recordField,
+				versionName+artifact.suffix, artifact.zip,
 			)
 			if apierr != nil {
 				return apierr
 			}
-			response["maestro_timeline_file_name"] = timelineFilename
+			response[artifact.nameKey] = name
+			if artifact.urlsKey != "" {
+				response[artifact.urlsKey] = urls
+			}
+			stored++
+		}
+		if stored == 0 {
+			return apierror.New(
+				http.StatusBadRequest,
+				"file",
+				"no pipeline result file uploaded",
+				"expected at least one of result_video, last_frame, logfile",
+			)
 		}
 
 		return e.JSON(http.StatusOK, response)
@@ -767,6 +795,9 @@ func saveUploadedFileToRecord(
 	}
 	defer file.Close()
 	ext := filepath.Ext(fileHeader.Filename)
+	// Runners zip long device logs before upload to keep the request under the
+	// body limit; an already zipped upload is stored as-is instead of nested.
+	preZipped := zipUpload && strings.EqualFold(ext, ".zip")
 	if zipUpload {
 		ext = ".zip"
 	}
@@ -781,7 +812,7 @@ func saveUploadedFileToRecord(
 	}
 	defer tmp.Close()
 
-	if zipUpload {
+	if zipUpload && !preZipped {
 		zipWriter := zip.NewWriter(tmp)
 		entryName := fileHeader.Filename
 		if entryName == "" {
