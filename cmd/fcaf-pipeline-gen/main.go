@@ -185,7 +185,7 @@ func generateDemo(inputDir string, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	return buildAggregate(demoValidationName, selected, outputPath, demoTestIDs, false)
+	return buildAggregate(demoValidationName, selected, outputPath, demoTestIDs, false, nil)
 }
 
 // happyFlowScenarioNames keeps the happy flow to the shared-evidence
@@ -215,7 +215,7 @@ func generateHappyFlow(inputDir string, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	return buildAggregate(happyFlowValidationName, selected, outputPath, nil, true)
+	return buildAggregate(happyFlowValidationName, selected, outputPath, nil, true, new(false))
 }
 
 func selectScenarios(inputDir string, names []string) ([]string, error) {
@@ -252,7 +252,7 @@ func generate(inputDir string, outputPath string) error {
 		return fmt.Errorf("no FCAF scenarios found in %s", inputDir)
 	}
 	sort.Strings(paths)
-	return buildAggregate(completeValidationName, paths, outputPath, nil, false)
+	return buildAggregate(completeValidationName, paths, outputPath, nil, false, new(false))
 }
 
 func buildAggregate(
@@ -261,6 +261,8 @@ func buildAggregate(
 	outputPath string,
 	allowedTestIDs []string,
 	filterTestsByEvidence bool,
+	// noVideo sets runtime.no_video when non-nil; nil leaves the key out.
+	noVideo *bool,
 ) error {
 	var allowedTests map[string]struct{}
 	if allowedTestIDs != nil {
@@ -292,6 +294,9 @@ func buildAggregate(
 			},
 		},
 		Steps: make([]map[string]any, 0, len(paths)*4),
+	}
+	if noVideo != nil {
+		aggregate.Runtime["no_video"] = *noVideo
 	}
 	aggregate.Steps = append(aggregate.Steps, onboardingPrelude())
 	walletActions, err := loadWalletActions(
