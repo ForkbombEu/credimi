@@ -893,6 +893,8 @@
 	"Results": "Results",
 	"manual_mode": "Manual mode",
 	"unavailable_in_manual_edit": "Unavailable while editing YAML manually",
+	"pipeline_no_video": "Skip video recording",
+	"pipeline_no_video_description": "Recordings stop after 30 minutes: skip the video for pipelines that run longer. The device log and a final screenshot are still stored.",
 	"pipeline_manually_saved_no_cards": "This pipeline was manually edited and saved, therefore it is not possible to display the cards here. This pipeline can only be edited manually",
 	"manual_save_warning": "Warning: this pipeline has been written or edited manually. If you save it and later open it again, you will not be able to see the cards in Pipeline Composer. You will be able to edit the YAML of the pipeline manually.",
 	"blocks_mode": "Blocks mode",

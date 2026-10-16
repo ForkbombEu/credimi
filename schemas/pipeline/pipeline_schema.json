@@ -135,6 +135,9 @@
         "global_device_id": {
           "type": "string"
         },
+        "no_video": {
+          "type": "boolean"
+        },
         "schedule": {
           "additionalProperties": false,
           "properties": {

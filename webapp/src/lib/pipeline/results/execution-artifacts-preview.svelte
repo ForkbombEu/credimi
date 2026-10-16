@@ -92,25 +92,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function resultButtons(
 		result: PipelineExecutionArtifacts['results'][number]
 	): ArtifactButtonArgs[] {
-		const buttons: ArtifactButtonArgs[] = [
-			{
+		// Only the artifacts the run produced: no_video runs have no video.
+		const buttons: ArtifactButtonArgs[] = [];
+		const videoHref = buildPipelineResultViewerHref('video', result);
+		if (videoHref) {
+			buttons.push({
 				tooltip: m.pipeline_artifact_video_tooltip(),
 				previewIcon: 'video',
 				icon: VideoIcon,
 				image: result.screenshot,
-				href: buildPipelineResultViewerHref('video', result),
+				href: videoHref,
 				target: '_blank'
-			},
-			{
+			});
+		}
+		const screenshotHref = buildPipelineResultViewerHref('screenshot', result);
+		if (screenshotHref) {
+			buttons.push({
 				tooltip: m.pipeline_artifact_screenshot_tooltip(),
 				previewIcon: 'image',
 				icon: ImageIcon,
 				image: result.screenshot,
-				href: buildPipelineResultViewerHref('screenshot', result),
+				href: screenshotHref,
 				target: '_blank'
-			}
-		];
-		if (!hideLogs) {
+			});
+		}
+		if (!hideLogs && result.log) {
 			buttons.push({
 				tooltip: m.pipeline_artifact_log_tooltip(),
 				previewIcon: 'file',

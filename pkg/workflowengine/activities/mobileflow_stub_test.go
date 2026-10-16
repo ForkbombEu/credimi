@@ -31,6 +31,10 @@ func TestMobileFlowStubActivities(t *testing.T) {
 		NewStartIOSRecordingActivity(),
 		NewStopRecordingActivity(),
 		NewStopIOSRecordingActivity(),
+		NewStartAndroidDeviceLogActivity(),
+		NewStartIOSDeviceLogActivity(),
+		NewStopAndroidDeviceLogActivity(),
+		NewStopIOSDeviceLogActivity(),
 		NewRunMobileFlowActivity(),
 	}
 

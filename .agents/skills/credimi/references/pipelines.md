@@ -118,6 +118,7 @@ Separate, older substitution: `${fixture.<key>}` (no `${{ }}`), keys `issuer_url
 | `fixture`                    | Overrides `${fixture.<key>}` values                                                                                                                                                                                           |
 | `schedule.interval`          | If set, `Start` creates a **Temporal schedule** (id `schedule_id_<Pipeline-…>`) instead of one run                                                                                                                            |
 | `disable_android_play_store` | Disables the Play Store on Android/Redroid devices before recording                                                                                                                                                           |
+| `no_video`                   | Skips the device screen recording for mobile steps; the device log and a final screenshot are still stored. Absent/`false` records as usual (recordings stop after 30 minutes) |
 
 ## Failure semantics
 

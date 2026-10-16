@@ -364,6 +364,53 @@ func (a *StopIOSRecordingActivity) Execute(
 	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
 }
 
+type deviceLogActivity struct {
+	workflowengine.BaseActivity
+}
+
+func (a *deviceLogActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *deviceLogActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(mobileAutomationDisabledError())
+}
+
+type StartAndroidDeviceLogActivity struct{ deviceLogActivity }
+
+func NewStartAndroidDeviceLogActivity() *StartAndroidDeviceLogActivity {
+	return &StartAndroidDeviceLogActivity{deviceLogActivity{
+		BaseActivity: workflowengine.BaseActivity{Name: "Start capturing Android device log"},
+	}}
+}
+
+type StartIOSDeviceLogActivity struct{ deviceLogActivity }
+
+func NewStartIOSDeviceLogActivity() *StartIOSDeviceLogActivity {
+	return &StartIOSDeviceLogActivity{deviceLogActivity{
+		BaseActivity: workflowengine.BaseActivity{Name: "Start capturing iOS device log"},
+	}}
+}
+
+type StopAndroidDeviceLogActivity struct{ deviceLogActivity }
+
+func NewStopAndroidDeviceLogActivity() *StopAndroidDeviceLogActivity {
+	return &StopAndroidDeviceLogActivity{deviceLogActivity{
+		BaseActivity: workflowengine.BaseActivity{Name: "Stop capturing Android device log"},
+	}}
+}
+
+type StopIOSDeviceLogActivity struct{ deviceLogActivity }
+
+func NewStopIOSDeviceLogActivity() *StopIOSDeviceLogActivity {
+	return &StopIOSDeviceLogActivity{deviceLogActivity{
+		BaseActivity: workflowengine.BaseActivity{Name: "Stop capturing iOS device log"},
+	}}
+}
+
 type RunMobileFlowActivity struct {
 	workflowengine.BaseActivity
 }

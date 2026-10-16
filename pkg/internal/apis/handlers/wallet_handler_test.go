@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -542,6 +543,40 @@ func TestWalletStorePipelineResult(t *testing.T) {
 		t, publicDevicePath, "android", false,
 	)
 	iosBody, iosContentType := walletStorePipelineResultBody(t, reservedDevicePath, "ios", false)
+	zippedLogBody, zippedLogContentType := walletStorePipelineResultBodyWithLog(
+		t,
+		reservedDevicePath,
+		"android",
+		false,
+		"log.txt.zip",
+		zipBytes(t, "log.txt", "test log content"),
+	)
+	requireStoredLog := func(t testing.TB, app *tests.TestApp) {
+		record, err := canonify.Resolve(app, "usera-s-organization/workflow123-run123")
+		require.NoError(t, err)
+		logs := record.GetStringSlice("logcats")
+		require.Len(t, logs, 1)
+
+		fsys, err := app.NewFilesystem()
+		require.NoError(t, err)
+		defer fsys.Close()
+		reader, err := fsys.GetReader(record.BaseFilesPath() + "/" + logs[0])
+		require.NoError(t, err)
+		defer reader.Close()
+		data, err := io.ReadAll(reader)
+		require.NoError(t, err)
+
+		archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+		require.NoError(t, err)
+		require.Len(t, archive.File, 1)
+		require.Equal(t, "log.txt", archive.File[0].Name)
+		entry, err := archive.File[0].Open()
+		require.NoError(t, err)
+		defer entry.Close()
+		content, err := io.ReadAll(entry)
+		require.NoError(t, err)
+		require.Equal(t, "test log content", string(content))
+	}
 
 	// Prepare missing file multipart request
 	var missingBody bytes.Buffer
@@ -550,6 +585,22 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	_ = missingWriter.WriteField("device_identifier", reservedDevicePath)
 	_ = missingWriter.WriteField("platform", "android")
 	require.NoError(t, missingWriter.Close())
+
+	var noVideoBody bytes.Buffer
+	noVideoWriter := multipart.NewWriter(&noVideoBody)
+	_ = noVideoWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
+	_ = noVideoWriter.WriteField("device_identifier", reservedDevicePath)
+	_ = noVideoWriter.WriteField("platform", "android")
+	for field, file := range map[string][2]string{
+		"last_frame": {"last.png", "frame"},
+		"logfile":    {"log.txt", "test log content"},
+	} {
+		part, err := noVideoWriter.CreateFormFile(field, file[0])
+		require.NoError(t, err)
+		_, err = part.Write([]byte(file[1]))
+		require.NoError(t, err)
+	}
+	require.NoError(t, noVideoWriter.Close())
 
 	var invalidPlatformBody bytes.Buffer
 	invalidPlatformWriter := multipart.NewWriter(&invalidPlatformBody)
@@ -602,6 +653,24 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			},
 			NotExpectedContent: []string{`"maestro_timeline_file_name"`},
 			TestAppFactory:     setupReservedDeviceApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				requireStoredLog(t, app)
+			},
+		},
+		{
+			Name:   "store pipeline result keeps an already zipped log as-is",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(zippedLogBody),
+			Headers: map[string]string{
+				"Content-Type": zippedLogContentType,
+			},
+			ExpectedStatus:  200,
+			ExpectedContent: []string{`"status":"success"`, `"log_file_name"`},
+			TestAppFactory:  setupReservedDeviceApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				requireStoredLog(t, app)
+			},
 		},
 		{
 			Name:   "store pipeline result with its maestro timeline",
@@ -731,6 +800,31 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			TestAppFactory: setupReservedDeviceApp,
 		},
 		{
+			Name:   "store pipeline result without video",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(noVideoBody.Bytes()),
+			Headers: map[string]string{
+				"Content-Type": noVideoWriter.FormDataContentType(),
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"status":"success"`,
+				`"last_frame_file_name"`,
+				`"screenshot_urls"`,
+				`"log_file_name"`,
+			},
+			NotExpectedContent: []string{`"video_file_name"`, `"result_urls"`},
+			TestAppFactory:     setupReservedDeviceApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				requireStoredLog(t, app)
+				record, err := canonify.Resolve(app, "usera-s-organization/workflow123-run123")
+				require.NoError(t, err)
+				require.Empty(t, record.GetStringSlice("video_results"))
+				require.Len(t, record.GetStringSlice("screenshots"), 1)
+			},
+		},
+		{
 			Name:   "store pipeline result missing files",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
@@ -741,7 +835,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedStatus: 400,
 			ExpectedContent: []string{
 				`"file"`,
-				`failed to read file for field result_video"`,
+				`no pipeline result file uploaded`,
 			},
 			TestAppFactory: setupReservedDeviceApp,
 		},
@@ -780,6 +874,32 @@ func walletStorePipelineResultBody(
 	withTimeline bool,
 ) ([]byte, string) {
 	t.Helper()
+	return walletStorePipelineResultBodyWithLog(
+		t, deviceIdentifier, platform, withTimeline, "log.txt", []byte("test log content"),
+	)
+}
+
+func zipBytes(t testing.TB, entryName, content string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.Create(entryName)
+	require.NoError(t, err)
+	_, err = w.Write([]byte(content))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+	return buf.Bytes()
+}
+
+func walletStorePipelineResultBodyWithLog(
+	t testing.TB,
+	deviceIdentifier string,
+	platform string,
+	withTimeline bool,
+	logName string,
+	logData []byte,
+) ([]byte, string) {
+	t.Helper()
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -806,9 +926,9 @@ func walletStorePipelineResultBody(
 	_, err = frameWriter.Write([]byte("test frame content"))
 	require.NoError(t, err)
 
-	logWriter, err := writer.CreateFormFile("logfile", "log.txt")
+	logWriter, err := writer.CreateFormFile("logfile", logName)
 	require.NoError(t, err)
-	_, err = logWriter.Write([]byte("test log content"))
+	_, err = logWriter.Write(logData)
 	require.NoError(t, err)
 
 	if withTimeline {
