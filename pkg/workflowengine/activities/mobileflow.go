@@ -613,7 +613,7 @@ type StartAndroidDeviceLogActivity struct{ deviceLogActivity }
 
 func NewStartAndroidDeviceLogActivity() *StartAndroidDeviceLogActivity {
 	return &StartAndroidDeviceLogActivity{deviceLogActivity{
-		BaseActivity: workflowengine.BaseActivity{Name: startAndroidDeviceLogActivityName},
+		BaseActivity: workflowengine.BaseActivity{Name: "Start capturing Android device log"},
 		run:          mobile.StartAndroidDeviceLog,
 	}}
 }
@@ -622,7 +622,7 @@ type StartIOSDeviceLogActivity struct{ deviceLogActivity }
 
 func NewStartIOSDeviceLogActivity() *StartIOSDeviceLogActivity {
 	return &StartIOSDeviceLogActivity{deviceLogActivity{
-		BaseActivity: workflowengine.BaseActivity{Name: startIOSDeviceLogActivityName},
+		BaseActivity: workflowengine.BaseActivity{Name: "Start capturing iOS device log"},
 		run:          mobile.StartIOSDeviceLog,
 	}}
 }
@@ -631,7 +631,7 @@ type StopAndroidDeviceLogActivity struct{ deviceLogActivity }
 
 func NewStopAndroidDeviceLogActivity() *StopAndroidDeviceLogActivity {
 	return &StopAndroidDeviceLogActivity{deviceLogActivity{
-		BaseActivity: workflowengine.BaseActivity{Name: stopAndroidDeviceLogActivityName},
+		BaseActivity: workflowengine.BaseActivity{Name: "Stop capturing Android device log"},
 		run:          mobile.StopAndroidDeviceLog,
 	}}
 }
@@ -640,7 +640,7 @@ type StopIOSDeviceLogActivity struct{ deviceLogActivity }
 
 func NewStopIOSDeviceLogActivity() *StopIOSDeviceLogActivity {
 	return &StopIOSDeviceLogActivity{deviceLogActivity{
-		BaseActivity: workflowengine.BaseActivity{Name: stopIOSDeviceLogActivityName},
+		BaseActivity: workflowengine.BaseActivity{Name: "Stop capturing iOS device log"},
 		run:          mobile.StopIOSDeviceLog,
 	}}
 }
