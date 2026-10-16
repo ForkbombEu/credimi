@@ -2011,6 +2011,97 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	require.Equal(t, true, result["recording"])
 }
 
+func TestMobileAutomationSetupHookSkipsRecordingWhenNoVideo(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	registerStubActivity(env, activities.ResolveRecordActivityName)
+	registerStubActivity(env, activities.GetMobileDeviceActivityName)
+	runnerHTTPActivity := registerMobileRunnerHTTPActivity(env)
+	setupActivity := activities.NewSetupMobileDeviceActivity()
+	installActivity := activities.NewApkInstallActivity()
+	postInstallActivity := activities.NewApkPostInstallChecksActivity()
+	listAppsActivity := activities.NewPreparePhysicalAndroidAppsActivity()
+	recordActivity := activities.NewStartRecordingActivity()
+	for _, a := range []workflowengine.ExecutableActivity{
+		setupActivity, installActivity, postInstallActivity, listAppsActivity, recordActivity,
+	} {
+		env.RegisterActivityWithOptions(a.Execute, activity.RegisterOptions{Name: a.Name()})
+	}
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ctx = workflow.WithActivityOptions(
+				ctx,
+				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			)
+			runData := map[string]any{}
+			wfDef := &pipeline.WorkflowDefinition{Steps: []pipeline.StepDefinition{{
+				StepSpec: pipeline.StepSpec{
+					ID:  "step-1",
+					Use: mobileAutomationStepUse,
+					With: pipeline.StepInputs{Payload: map[string]any{
+						"action_id":  "action-1",
+						"version_id": "tenant/wallet/v1",
+					}},
+				},
+			}}}
+
+			if err := MobileAutomationSetupHook(
+				ctx,
+				wfDef,
+				map[string]any{
+					"app_url":                              "https://app.example",
+					"namespace":                            "tenant",
+					"global_device_id":                     "tenant/runner-1/device-1",
+					mobileDeviceSemaphoreTicketIDConfigKey: "ticket-1",
+					mobileNoVideoConfigKey:                 true,
+				},
+				&runData,
+				&map[string]any{},
+				log.Logger(noopLogger{}),
+			); err != nil {
+				return nil, err
+			}
+
+			return runData["setted_devices"].(map[string]any)["tenant/runner-1/device-1"].(map[string]any), nil
+		},
+		workflow.RegisterOptions{Name: "test-mobile-automation-setup-no-video"},
+	)
+
+	onResolveMobileAction(env, "action-1", map[string]any{"code": "code-1", "category": "test"})
+	onGetMobileDevice(env, "tenant/runner-1/device-1", map[string]any{
+		"runner_id":  "tenant/runner-1",
+		"runner_url": "https://runner.example",
+		"type":       "physical",
+		"serial":     "serial-1",
+	})
+	env.OnActivity(setupActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"screen_prepared":     true,
+			"original_stay_awake": "0",
+		}}, nil).Once()
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{"com.example.before"}}, nil).Once()
+	env.OnActivity(runnerHTTPActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"body": map[string]any{"installer_path": "/tmp/app.apk", "version_id": "ver-1"},
+		}}, nil)
+	env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"package_id": "pkg-1"}}, nil)
+	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"package_id": "pkg-1"}}, nil)
+
+	env.ExecuteWorkflow("test-mobile-automation-setup-no-video")
+	require.NoError(t, env.GetWorkflowError())
+
+	var device map[string]any
+	require.NoError(t, env.GetWorkflowResult(&device))
+	require.Equal(t, false, device["recording"])
+	require.NotContains(t, device, "video_path")
+	env.AssertActivityNumberOfCalls(t, recordActivity.Name(), 0)
+}
+
 func TestMobileAutomationCleanupHookReenablesDisabledPlayStore(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

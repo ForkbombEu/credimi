@@ -27,6 +27,7 @@ const (
 	mobileAutomationStepUse                = "mobile-automation"
 	mobileDeviceSemaphoreTicketIDConfigKey = "mobile_device_semaphore_ticket_id"
 	mobileDisableAndroidPlayStoreConfigKey = "disable_android_play_store"
+	mobileNoVideoConfigKey                 = "no_video"
 	mobilePlatformAndroid                  = "android"
 	mobilePlatformIOS                      = "ios"
 	mobileExternalSourceVersionID          = "installed_from_external_source"
@@ -274,13 +275,16 @@ func MobileAutomationSetupHook(
 		}
 	}
 
-	if err := startRecordingForDevices(startRecordingForDevicesInput{
-		ctx:           ctx,
-		settedDevices: settedDevices,
-		ao:            &ao,
-		runIdentifier: workflowengine.AsString((*runData)["run_identifier"]),
-	}); err != nil {
-		return err
+	// no_video pipelines run for hours: a recording capped at 30 minutes is useless.
+	if !workflowengine.AsBool(config[mobileNoVideoConfigKey]) {
+		if err := startRecordingForDevices(startRecordingForDevicesInput{
+			ctx:           ctx,
+			settedDevices: settedDevices,
+			ao:            &ao,
+			runIdentifier: workflowengine.AsString((*runData)["run_identifier"]),
+		}); err != nil {
+			return err
+		}
 	}
 
 	SetRunDataValue(runData, "setted_devices", settedDevices)
