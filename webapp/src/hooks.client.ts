@@ -4,6 +4,7 @@
 
 import { version } from '$app/environment';
 import { Conformance, Pipeline } from '$lib';
+import { syncPushSubscriptionOwner } from '$lib/pipeline/web-push';
 
 import type { UsersResponse } from '@/pocketbase/types';
 
@@ -24,9 +25,21 @@ console.info(
 //
 
 pb.authStore.loadFromCookie(document.cookie);
+
+// Session expiry, sign-out and switching account all go through the auth
+// store, which explicit logout alone does not cover. An expired token counts
+// as signed out.
+let pushSubscriptionOwner = pb.authStore.isValid ? pb.authStore.record?.id : undefined;
+void syncPushSubscriptionOwner(pushSubscriptionOwner);
+
 const authStoreUnsubscribe = pb.authStore.onChange(() => {
 	currentUser.set(pb.authStore.record as UsersResponse);
 	document.cookie = pb.authStore.exportToCookie({ httpOnly: false, secure: false });
+
+	const user = pb.authStore.isValid ? pb.authStore.record?.id : undefined;
+	if (user === pushSubscriptionOwner) return;
+	pushSubscriptionOwner = user;
+	void syncPushSubscriptionOwner(user);
 });
 
 await Conformance.Standards.Store.load({ surface: 'pipeline' });

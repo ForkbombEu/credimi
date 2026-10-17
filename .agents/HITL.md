@@ -505,3 +505,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (a) keep the derived iso-codes dataset in its own file under LGPL-2.1-or-later with its own SPDX header and license text (currently in the working tree); (b) derive the list from a permissively licensed source (e.g. a government-published ISO 3166-2 dataset or a permissive package) to avoid a second license in the tree; (c) ship only the shape check and record the un-encoded expected result in `ASSERTION_REVIEW_BACKLOG.md` and the two inventory rows.
 - default risk: (a) mixes an LGPL-2.1-or-later data file into an AGPL-3.0-or-later repository; the LGPL terms attach to the file and its distributed form, and a reviewer must confirm that the codes-only derivation and the attribution satisfy them. (b) risks a less accurate or less maintained list. (c) leaves a source requirement unasserted, so an invalid subdivision still passes.
 - decision: option (a). LGPL-2.1-or-later is compatible with AGPL-3.0-or-later (LGPL 2.1 §3 allows relicensing under GPL-2.0-or-later, hence GPL-3.0, which combines with AGPL-3.0). Keep the codes-only file with its SPDX attribution and `LICENSES/LGPL-2.1-or-later.txt`; `reuse lint` passes.
+
+### 2026-10-15 - Run page: `403` for another organization's pipeline run discloses that the run exists
+
+- status: open (agent default applied; human may revisit)
+- owner: human maintainer
+- context: Opening `/my/tests/runs/<workflow_id>/<run_id>` for a run of another organization (e.g. from a push notification delivered to a browser now signed in as another user) made `GET /api/my/workflows/{workflowId}/runs/{runId}` answer `404` (Temporal `NotFound` in the caller's namespace) and the run page turned every fetch error into a `500`. The user asked to be told that the run belongs to another account instead.
+- question: May the endpoint tell a caller that a workflow/run ID pair belongs to another organization?
+- options considered: (a) on Temporal `NotFound`, look the pair up in `pipeline_results` and answer `403` `workflow belongs to another organization` when its owner is another organization (applied; `pipelineRunOwnedByAnotherOrganization` in `pkg/internal/apis/handlers/workflows_handlers.go`); (b) keep `404` and have the page only suggest that the run may belong to another account; (c) carry the recipient user in the push payload/URL and compare it client-side.
+- default risk: (a) confirms to any authenticated user that a given `(workflow_id, run_id)` exists in some other organization. It discloses no owner, name or content, and run IDs are random UUIDs, so guessing is impractical; non-pipeline runs (no `pipeline_results` row) still answer `404`.
+- decision: (a), pending maintainer confirmation.
+- follow-up: If disclosure is not acceptable, drop the lookup and switch the run page message to option (b).
