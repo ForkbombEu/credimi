@@ -141,6 +141,7 @@ Main areas:
 - `webapp`: SvelteKit/Vite frontend.
 - `docs`: documentation site.
 - `fixtures`: test fixtures; keep read-only unless a task explicitly changes fixtures.
+- `agents/news`: experimental, local-only Python news agent (Temporal Agent Harness, OpenAI Agents SDK) in the `default` namespace on task queue `news-agent`, with an unattended `scan` message and an `ask` chat whose `save_draft` tool waits for human approval. It reaches Credimi data only through the Go activities `Search news` / `Store a news draft` on `NewsToolsTaskQueue` (`pkg/workflowengine/activities/news.go`), never the PocketBase API, and only stores `published=false` drafts. The existing News pipeline (changedetection.io + n8n, `credimi-extra/news/`) is separate and unchanged. See `agents/news/README.md`.
 
 ## Dev Runtime
 
@@ -565,6 +566,12 @@ Required for webapp changes:
 - Build for route/load/layout changes or dependency changes: `cd webapp && bun run build`.
 
 The `.github/workflows/webapp.yml` workflow is currently commented out, but agents must still run local webapp validation for webapp changes.
+
+Python changes are any changes under `agents/news/**`.
+
+Required for Python changes:
+
+- Lint, format check and tests: `make news-agent.test` (tooling: `uv`, declared in `.mise.toml`).
 
 Docs changes are any changes under `docs/**`.
 

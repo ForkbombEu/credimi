@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Registry for the harness web UI (`make news-agent.ui`).
+
+[[agents]]
+key = "credimi-news"
+workflow_type = "NewsAgent"
+agent = "credimi_news_agent.workflow:NewsAgentWorkflow"
+task_queue = "news-agent"
+label = "Credimi news agent"
+description = """
+Researches the sources of agents/news/sources.toml. `ask` chats about what changed (give a source
+and dates); ask it to draft news and it saves the draft, unpublished, only after you approve the
+`save_draft` call. `scan` reviews a time window unattended and stores newsworthy drafts,
+unpublished."""

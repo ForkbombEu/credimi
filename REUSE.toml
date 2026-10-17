@@ -10,6 +10,8 @@ SPDX-PackageDownloadLocation = "https://github.com/ForkbombEu/credimi"
 [[annotations]]
 path = [
     "./**/*.mock.json",
+    "agents/news/fixtures/**/*",
+    "agents/news/uv.lock",
     ".agents/**/*",
     ".cursor/**/*",
     ".claude/**/*",

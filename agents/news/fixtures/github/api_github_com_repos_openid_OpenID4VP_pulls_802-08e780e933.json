@@ -1,0 +1,6 @@
+{
+ "url": "https://api.github.com/repos/openid/OpenID4VP/pulls/802",
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": "{\"number\": 802, \"title\": \"List encrypted_response_enc_values_supported in client metadata section.\", \"body\": \"Fixes #796.\", \"html_url\": \"https://github.com/openid/OpenID4VP/pull/802\", \"state\": \"closed\", \"merged_at\": \"2026-10-12T19:20:12Z\", \"user\": {\"login\": \"fkj\"}}"
+}
