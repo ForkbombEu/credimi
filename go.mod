@@ -4,7 +4,7 @@
 
 module github.com/forkbombeu/credimi
 
-go 1.27
+go 1.27.3
 
 require (
 	github.com/ForkbombEu/et-tu-cesr v0.0.0-20250730082655-1822692d6150
