@@ -505,3 +505,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (a) keep the derived iso-codes dataset in its own file under LGPL-2.1-or-later with its own SPDX header and license text (currently in the working tree); (b) derive the list from a permissively licensed source (e.g. a government-published ISO 3166-2 dataset or a permissive package) to avoid a second license in the tree; (c) ship only the shape check and record the un-encoded expected result in `ASSERTION_REVIEW_BACKLOG.md` and the two inventory rows.
 - default risk: (a) mixes an LGPL-2.1-or-later data file into an AGPL-3.0-or-later repository; the LGPL terms attach to the file and its distributed form, and a reviewer must confirm that the codes-only derivation and the attribution satisfy them. (b) risks a less accurate or less maintained list. (c) leaves a source requirement unasserted, so an invalid subdivision still passes.
 - decision: option (a). LGPL-2.1-or-later is compatible with AGPL-3.0-or-later (LGPL 2.1 §3 allows relicensing under GPL-2.0-or-later, hence GPL-3.0, which combines with AGPL-3.0). Keep the codes-only file with its SPDX attribution and `LICENSES/LGPL-2.1-or-later.txt`; `reuse lint` passes.
+
+### 2026-10-20 - Animated SVG illustrations on marketing pages
+
+- status: open
+- owner: human maintainer
+- context: `webapp/static/pages/why-credimi/*.svg` are illustrations for the competitor comparison page. The user asked for animation. AGENTS.md says motion is functional, not decorative, and forbids autoplay and animations over 250ms in product UI.
+- question: Do static marketing pages under `webapp/static/pages/` get an exception to the product-UI motion rules?
+- options considered: keep illustrations static; play the entrance once with no loop; subtle looping animation on marketing pages only.
+- default risk: if the exception is not documented, agents will copy looping animation into product UI.
+- decision: on 20/10/2026 the user chose subtle looping animation for this page: CSS and SMIL inside the SVG, low contrast, and switched off under `prefers-reduced-motion`.
+- follow-up: confirm the exception and move it into the Brand And Design section of AGENTS.md, or reject it and make the SVGs static.
