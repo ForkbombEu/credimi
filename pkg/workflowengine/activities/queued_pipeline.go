@@ -85,6 +85,7 @@ type queuedRuntime struct {
 	Debug                   bool   `yaml:"debug,omitempty"`
 	GlobalDeviceID          string `yaml:"global_device_id,omitempty"`
 	DisableAndroidPlayStore bool   `yaml:"disable_android_play_store,omitempty"`
+	NoVideo                 bool   `yaml:"no_video,omitempty"`
 	Temporal                struct {
 		ExecutionTimeout string                `yaml:"execution_timeout,omitempty"`
 		ActivityOptions  queuedActivityOptions `yaml:"activity_options,omitempty"`
@@ -234,6 +235,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 		config["global_device_id"] = workflowDef.Runtime.GlobalDeviceID
 	}
 	config["disable_android_play_store"] = workflowDef.Runtime.DisableAndroidPlayStore
+	config["no_video"] = workflowDef.Runtime.NoVideo
 	applySemaphoreTicketMetadata(config, payload)
 
 	memo["test"] = workflowDef.Name

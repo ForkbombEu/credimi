@@ -262,16 +262,29 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 		with["required"] = req
 	}
 	if stepKey == "mobile-automation" {
+		const versionID = "version_id"
+		parameters := map[string]any{
+			"type":                 "object",
+			"additionalProperties": map[string]any{"type": "string"},
+		}
+		actionEntry := func(source string, description string) map[string]any {
+			return map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					source:       map[string]any{"type": "string", "description": description},
+					"parameters": parameters,
+				},
+				"required":             []string{source},
+				"additionalProperties": false,
+			}
+		}
 		with := []map[string]any{
 			{
 				"type": "object",
 				"properties": map[string]any{
-					"device_id": map[string]any{"type": "string"},
-					"action_id": map[string]any{"type": "string"},
-					"parameters": map[string]any{
-						"type":                 "object",
-						"additionalProperties": map[string]any{"type": "string"},
-					},
+					"device_id":  map[string]any{"type": "string"},
+					"action_id":  map[string]any{"type": "string"},
+					"parameters": parameters,
 					"config": map[string]any{
 						"type":                 "object",
 						"additionalProperties": true,
@@ -285,35 +298,56 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 				"properties": map[string]any{
 					"device_id":  map[string]any{"type": "string"},
 					"action_id":  map[string]any{"type": "string"},
-					"version_id": map[string]any{"type": "string"},
-					"parameters": map[string]any{
-						"type":                 "object",
-						"additionalProperties": map[string]any{"type": "string"},
-					},
+					versionID:    map[string]any{"type": "string"},
+					"parameters": parameters,
 					"config": map[string]any{
 						"type":                 "object",
 						"additionalProperties": true,
 					},
 				},
-				"required":             []string{"action_id", "version_id"},
+				"required":             []string{"action_id", versionID},
 				"additionalProperties": false,
 			},
 			{
 				"type": "object",
 				"properties": map[string]any{
 					"device_id":   map[string]any{"type": "string"},
-					"version_id":  map[string]any{"type": "string"},
+					versionID:     map[string]any{"type": "string"},
 					"action_code": map[string]any{"type": "string"},
-					"parameters": map[string]any{
-						"type":                 "object",
-						"additionalProperties": map[string]any{"type": "string"},
-					},
+					"parameters":  parameters,
 					"config": map[string]any{
 						"type":                 "object",
 						"additionalProperties": true,
 					},
 				},
-				"required":             []string{"action_code", "version_id"},
+				"required":             []string{"action_code", versionID},
+				"additionalProperties": false,
+			},
+			{
+				"type": "object",
+				"properties": map[string]any{
+					"device_id": map[string]any{"type": "string"},
+					versionID:   map[string]any{"type": "string"},
+					"actions": map[string]any{
+						"type": "array",
+						"description": "Wallet actions run in order in one Maestro flow. " +
+							"Each action's parameters take precedence over the step's, " +
+							"which every action receives.",
+						"minItems": 1,
+						"items": map[string]any{
+							"oneOf": []map[string]any{
+								actionEntry("id", "Stored wallet action"),
+								actionEntry("code", "Inline Maestro code"),
+							},
+						},
+					},
+					"parameters": parameters,
+					"config": map[string]any{
+						"type":                 "object",
+						"additionalProperties": true,
+					},
+				},
+				"required":             []string{"actions", versionID},
 				"additionalProperties": false,
 			},
 		}

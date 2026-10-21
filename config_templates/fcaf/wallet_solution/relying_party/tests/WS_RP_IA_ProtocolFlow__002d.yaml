@@ -20,10 +20,10 @@ normative_references:
 - title: OAuth 2.0 JWT-Secured Authorization Request
   section: '5'
   url: https://www.rfc-editor.org/rfc/rfc9101
-- ref: pipeline.dcql.protocol-messages
+- ref: pipeline.dcql.baseline
 evidence:
   session:
-    from: pipeline.dcql.protocol-messages.outputs.capture_session
+    from: pipeline.dcql.baseline.outputs.session
 assertions:
 # Deviation from the source: its invocation URL example is an `eu-eaap://` link,
 # which is only how the source illustrates the redirects flow. This test mirrors

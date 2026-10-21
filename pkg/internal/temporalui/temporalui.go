@@ -259,8 +259,11 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 //     posts height to the parent so the iframe can size without its own scrollbar;
 //     measures body/#content (not html.scrollHeight) so shorter tabs like Timeline
 //     shrink after a tall Event History view;
-//   - keeps width at the parent iframe width (Temporal UI uses w-max / w-screen)
-//     without overflow-x:hidden, which would pair to overflow-y:auto and trap wheel;
+//   - keeps width at the parent iframe width (Temporal UI sizes the shell with
+//     h-dvh / w-screen and #content-wrapper with w-max) without overflow-x:hidden,
+//     which would pair to overflow-y:auto and trap wheel; the rule names
+//     #content-wrapper, not .w-max, because Timeline event labels are absolute
+//     w-max boxes inside 30px event buttons and width:100% clips them;
 //   - keeps Timeline start/end stamps readable in the embed: upstream rotates
 //     them 90° for the full Temporal shell, which spills or misplaces them once
 //     the shell is gone — flatten to horizontal labels and drop shell sticky top;
@@ -286,7 +289,7 @@ const embedHead = `<style id="credimi-embed">` +
 	`{display:none !important}` +
 	`[data-testid="call-stack-tab"],[data-testid="queries-tab"],` +
 	`[data-testid="relationships-tab"]{display:none !important}` +
-	`.h-dvh,.w-screen,.w-max,#content-wrapper,#content,#content > div` +
+	`.h-dvh,.w-screen,#content-wrapper,#content,#content > div` +
 	`{width:100% !important;max-width:100% !important;` +
 	`height:auto !important;max-height:none !important;min-height:0 !important;` +
 	`overflow:visible !important}` +

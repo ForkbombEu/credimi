@@ -11,83 +11,6 @@ runtime:
       retry_policy:
         maximum_attempts: 1
 steps:
-- id: create-capture-session
-  use: http-request
-  with:
-    method: POST
-    url: ${fixture.verifier_url}/openid4vp/sessions
-    expected_status: 201
-    headers:
-      Content-Type: application/json
-    body:
-      scheme: haip-vp://
-      request_uri_method: post
-      request_delivery: by_reference
-      response_type: vp_token
-      response_mode: direct_post.jwt
-      presentation_request:
-        nonce: protocol-messages
-        dcql_query:
-          credentials:
-          - id: pid
-            format: dc+sd-jwt
-            meta:
-              vct_values:
-              - urn:eudi:pid:1
-            claims:
-            - path:
-              - given_name
-- id: create-request-uri-media-type-probe
-  use: http-request
-  with:
-    method: POST
-    url: ${fixture.verifier_url}/openid4vp/sessions
-    expected_status: 201
-    headers:
-      Content-Type: application/json
-    body:
-      scheme: haip-vp://
-      request_uri_method: post
-      request_delivery: by_reference
-      response_type: vp_token
-      response_mode: direct_post.jwt
-      presentation_request:
-        nonce: protocol-messages-request-uri-media-type
-        dcql_query:
-          credentials:
-          - id: pid
-            format: dc+sd-jwt
-            meta:
-              vct_values:
-              - urn:eudi:pid:1
-            claims:
-            - path:
-              - given_name
-- id: probe-request-uri-response
-  use: http-request
-  with:
-    method: POST
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-request-uri-media-type-probe.outputs.body.session_id }}/request
-    expected_status: 200
-- id: exercise-wallet
-  use: mobile-automation
-  with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-    version_id: installed_from_external_source
-    parameters:
-      deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-- id: fetch-capture-session
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
-    expected_status: 200
-- id: fetch-signed-request-object
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}/request
-    expected_status: 200
 # transaction_data of a type no Wallet profile supports: the Wallet must reject
 # the Authorization Request with invalid_transaction_data and present nothing.
 - id: create-transaction-data-session
@@ -142,45 +65,22 @@ steps:
       - WS_RP_MS_ProtocolMessages__007
       - WS_RP_MS_ProtocolMessages__009
       - WS_RP_MS_ProtocolMessages__010
-      - WS_RP_MS_ProtocolMessages__011
-      # 002d mirrors 011's source profile (a Wallet that does not support POST
-      # retrieval) over the same POST-retrieval session; it reads
-      # capture_session, which this scenario declares.
-      - WS_RP_IA_ProtocolFlow__002d
       - WS_RP_MS_ProtocolMessages__015
       - WS_RP_MS_ProtocolMessages__016
       - WS_RP_MS_ProtocolMessages__017
-      - WS_RP_MS_ProtocolMessages__018
-      - WS_RP_MS_ProtocolMessages__020
       - WS_RP_MS_ProtocolMessages__025
       - WS_RP_MS_ProtocolMessages__026
       - WS_RP_MS_ProtocolMessages__033
       - WS_RP_MS_ProtocolMessages__034
-      - WS_RP_MS_ProtocolMessages__045
-      - WS_RP_MS_Metadata__138
-      - WS_RP_MS_ProtocolMessages__047
       - WS_RP_MS_ProtocolMessages__049
-      - WS_RP_MS_ProtocolMessages__050
       - WS_RP_MS_ProtocolMessages__051
       - WS_RP_MS_ProtocolMessages__059
       - WS_RP_MS_ProtocolMessages__060
-      - WS_RP_MS_ProtocolMessages__095
       - WS_RP_MS_ProtocolMessages__119
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.protocol-messages:
         output:
-          client_id_evidence:
-            deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-            request_object: ${{ fetch-signed-request-object.outputs.body }}
-          dcql_exchange: ${{ fetch-capture-session.outputs.body }}
-          request_uri_response: ${{ probe-request-uri-response.outputs }}
-          request_object: ${{ probe-request-uri-response.outputs.body }}
-          capture_session: ${{ fetch-capture-session.outputs.body }}
-          visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
           transaction_data_dcql_exchange: ${{ fetch-transaction-data-session.outputs.body }}
           transaction_data_request_object: ${{ fetch-transaction-data-session.outputs.body.raw.authorization_request_jwt }}
           transaction_data_visual_evidence: ${{ reject-transaction-data.outputs.flow_output.maestro_screenshot_urls }}
-          wallet_nonce_evidence:
-            request_object: ${{ fetch-signed-request-object.outputs.body }}
-            request_uri_payload: ${{ fetch-capture-session.outputs.body.observed.request_uri_payload.value }}

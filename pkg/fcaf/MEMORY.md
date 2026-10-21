@@ -3959,3 +3959,184 @@ production Capture probes, the scoped Go suites and the generator; the
 reference-Wallet verdicts above (001b fail, 107 fail, 135/145/146
 not_applicable, 017 pass, 034 contingent) remain projections that still need a
 fresh device run.
+
+## Complete pipeline review and harness fixes, 15/10/2026
+
+Complete run `fcaf_assessment_7emdx9outp.json` produced 419 pass, 117 fail,
+57 skipped and 24 not applicable outcomes. Review of every failure found two
+Credimi defects and no Capture blocker:
+
+- `WS_RP_SH_Encoding_TextualEncoding__011` already passes its protocol assertion
+  (the Wallet retained only the valid degree entry), but the shared
+  `fcaf-engagement-haip-vp` action failed before its terminal screenshot after
+  Share. Its second-PIN and success-state waits are now optional, View details
+  is conditional, and the terminal screenshot is always attempted.
+- `WS_RP_SM_RpIntegrity__003` correctly reports `fcaf.not_applicable` because
+  EUDI_forbidden unsigned DC API requests must not be processed; its additional
+  screenshot assertion made that result fail even though no Wallet can be
+  invoked. The visual evidence binding and assertion are removed.
+- `fcaf-engagement-eu-eaap` now tolerates a delayed or absent PIN control inside
+  both conditional unlock paths, so `WS_RP_IA_Engagement__001b` always reaches
+  its terminal screenshot. The run still proves its Wallet failure from no
+  `vp_request_retrieved` event.
+
+The remaining failures were first classified as reference-Wallet behavior;
+the second review below moves 033 and 071 to test defects. RI-WALLET-027 and
+028 record processing of an HTTP-500 Request-URI body and acceptance of a
+signed Request Object without `request_uri`; RI-WALLET-026 is now confirmed by
+the run rather than a projection.
+
+## Single-use credentials spent by possession proofs, 15/10/2026
+
+A second review of `fcaf_assessment_7emdx9outp.json` found that the reference
+Wallet's single-use credential instances (item 2 at the top of this file) were
+spent by the scenarios' own possession proofs:
+
+- `WS_RP_IA_MainInteraction__033` failed on a test defect, not on the Wallet:
+  its `multiple: true` inventory query returned and spent all eight fixtures
+  (screenshot 08:43, eight PIDs shared), so the combined query one minute later
+  met an empty Wallet and correctly answered "The requested document is not
+  available". The numeric axis passed vacuously the same way. The withdrawn
+  RI-WALLET-027 had recorded this as a Wallet finding.
+- `WS_RP_MS_ProtocolMessages__071` failed because its scenario issued only
+  `pid_person_b` and relied on an injected `pid_default` the generator no longer
+  emits; the Wallet correctly returned its single PID.
+- `WS_RP_IA_MainInteraction__040`, `__041` and `WS_RP_MS_ProtocolMessages__070`
+  passed vacuously: two probe presentations spent both PIDs, so the multiple
+  queries ran with one freshly injected PID.
+
+Possession is now proven without presenting: the new `oid4vci.fixtures_stored`
+validator requires, for each named `fixture_id`, an issuer session at
+`credential_issued` (the Wallet fetched the credential) paired with the
+issuance step's `credential-added` screenshot, which
+`getcredential-generic-credential-without-authentication` takes only after
+`assertVisible: "View details"` on the Wallet's document-added screen (the
+Wallet stored it). A Wallet that fetches a credential and then discards it
+fails the issuance step, stores no screenshot, and fails the precondition
+assertion instead of passing the test vacuously.
+`oid4vp.distinct_presentations` is removed with its last callers. 071 issues
+both identities itself; the multiple-credentials scenario issues both
+identities again before the `multiple: false` query, because the
+omitted-`multiple` query spends one. `cmd/fcaf-pipeline-gen` now models a
+Share of a `multiple: true` query as spending every instance of its format
+(`TestMultipleTruePresentationSpendsEveryHeldInstance`); no other scenario's
+injections changed. The aggregate is 1874 steps / 617 tests / 224 outputs.
+
+Evidence gaps closed in the same change, without weakening any assertion:
+`fcaf-engagement-haip-vp` still fails unless the presentation completes (Share
+present and the success screen reached), so its screenshots reach a test's
+visual evidence only for a completed presentation; it now stores
+`fcaf-engagement-haip-vp-request` before looking for Share, so a refusal
+screen is kept on the pipeline result for review. The second PIN and View
+details stay optional. `fcaf-dc-api-present` likewise stores `dc-api-page` and
+`dc-api-after-present` before its success-only assertions, so an unsigned or
+multisigned DC API failure is no longer evidenced only by absence
+(RI-WALLET-018).
+
+## One shared baseline PID presentation, 15/10/2026
+
+Fifteen scenarios sent the identical baseline request (haip-vp, by-reference
+Request Object retrieved with POST, direct_post.jwt, SD-JWT PID `given_name`;
+only the nonce label differed), each with its own wallet reset, injected PID
+and `fcaf-exercise-wallet-generic` presentation. They now share
+`scenarios/fcaf-wallet-solution-relying-party-dcql-baseline.yaml`, whose source
+`pipeline.dcql.baseline` exposes the session and every value the 66 rebound
+tests read (`session`, `visual_evidence`, `vp_token`, `wallet_response`,
+`request_object`, `request_uri_payload`, `session_checks`,
+`signed_request_object`, `client_id_evidence`, `wallet_nonce_evidence`, and the
+pipeline's own Request URI probe as `request_uri_response` /
+`probe_request_object`). No test pins a nonce label, so the evidence is the same
+whichever copy produced it.
+
+Ten scenarios were only the baseline and are deleted (cryptography,
+device-binding, encoding, interaction-engagement, interaction-protocol-flow,
+interaction-supportive, issuer-integrity, metadata, presentation,
+request-uri-post). Five keep their other sessions and lose only the baseline
+part (credential-formats, interaction-metadata, main-interaction,
+protocol-messages, rp-integrity). Metadata 108 and 141, owned only by the
+deleted metadata scenario but reading other evidence, move to the scenarios
+that produce it (request-object-by-value, credential-formats). Response
+encryption per-request keys and the invalid-nonce session keep their own
+sessions: their request deliberately differs (two sessions, a malformed nonce).
+
+The complete aggregate drops from 1874 to 1794 steps (826 to 789 wallet steps,
+617 tests unchanged, 213 outputs); the happy flow is 173 steps / 308 tests / 32
+outputs, having gained the baseline tests of the deleted scenarios.
+
+## Injected PID issuances run inside their presentation, 15/10/2026
+
+Each PID the generator injects for a presentation used to be its own
+`mobile-automation` step (child workflow, Maestro run, recording) before the
+presentation. The issuer session stays an `http-request` step, but the wallet
+action that accepts its offer is now one of the presentation's
+`with.before_actions`; the pipeline setup hook prepends it to the
+presentation's flow as a `runFlow` block (see AGENTS.md, pipeline contract).
+
+- A failed injected issuance now fails the presentation step. Before, the
+  presentation still ran on a wallet without the PID it needed, and a refusal
+  or no-match screen from that empty wallet could pass as evidence.
+- Before actions' screenshots are dropped, so the issuance's `credential-added`
+  screenshot no longer reaches the presentation's `visual_evidence`, where it
+  would pad `evidence.minimum_items` / `evidence.non_empty`. Injected issuances
+  were never possession evidence (`oid4vci.fixtures_stored` reads
+  scenario-authored issuances only); the issuance's `assertVisible: "View
+  details"` still has to pass.
+- Presentations driving another app (the five DC API flows run in Chrome) keep
+  their injected issuance as a separate step: a before action must drive the
+  step's own `appId`.
+
+The complete aggregate drops from 1794 to 1528 steps (789 to 523 wallet steps:
+266 issuances moved into their presentations, at most 7 in one step); the happy
+flow drops from 173 to 154 steps (19 moved). Tests and outputs are unchanged.
+
+## Scenario wallet resets run inside the first wallet step, 15/10/2026
+
+The `fcaf-reset-and-onboard` reset that isolates each scenario is no longer a
+`<scenario>-reset-wallet` step: it is the first before action of the
+scenario's first wallet step, ahead of that step's injected issuances. For the
+five DC API scenarios, whose first wallet step runs in Chrome, it is the first
+before action of the separate injected issuance instead. The pipeline's first
+step, `onboard-reference-wallet`, stays a step: it installs the wallet version.
+
+- The reset still clears the wallet and onboards it before anything in the
+  scenario touches the wallet; it now runs after the scenario's first
+  server-side steps (2.3 on average), which the wallet does not see.
+- A failed reset fails the scenario's first wallet step. Before, the scenario
+  went on with the previous scenario's credentials in the wallet, which could
+  falsify its tests (the reason grouping scenarios was rejected).
+- The reset's `fcaf-reset-and-onboard` screenshot is dropped with the other
+  before-action screenshots; no test or validator reads it.
+
+The complete aggregate drops from 1528 to 1345 steps (523 to 340 wallet steps,
+all 183 scenario resets folded, at most 8 before actions in one step); the
+happy flow drops from 154 to 141 steps (13 folded). Tests and outputs are
+unchanged.
+
+## `actions` replaces `before_actions`, 16/10/2026
+
+`with.before_actions` (extra stored actions run before the step's own action,
+their screenshots dropped) is removed. A step now either runs one action
+(`action_id` / `action_code`) or lists `with.actions: [{ id | code,
+parameters? }]`, all equal, run in order in one Maestro flow, every action
+keeping its screenshots (contract in AGENTS.md). The generator's combined steps
+list the reset, the injected issuances and the step's own action, which moves
+into the last entry with its parameters; the 24 scenario-authored inline
+flows become `code` entries.
+
+Keeping every screenshot would have padded the 285 count-based checks
+(`evidence.non_empty`, `evidence.minimum_items`) that read a combined step's
+screenshots, so the extra actions take none:
+
+- `fcaf-reset-and-onboard` no longer takes `fcaf-reset-and-onboard`, which
+  nothing read.
+- Injected PIDs use the new stored action `fcaf-issue-pid`, the issuance flow
+  of `getcredential-generic-credential-without-authentication` without its
+  final `credential-added` screenshot. Scenario-authored issuances keep the
+  generic action: their `credential-added` screenshot is possession evidence
+  (`oid4vci.fixtures_stored`, MainInteraction 033/040/041, ProtocolMessages
+  070/071) and appears in the PDF report. The two flows must keep the same
+  commands. `credimi fcaf sync` imports the new action from the manifest.
+
+A combined step's screenshots are therefore its own action's only, as before.
+Step and test counts are unchanged (complete 1345 steps / 340 wallet steps,
+happy flow 141 / 43).

@@ -39,25 +39,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { value }: Column.Props<typeof column> = $props();
 
 	const result = $derived(value?.results[0]);
+	const videoHref = $derived(result && buildPipelineResultViewerHref('video', result));
+	const screenshotHref = $derived(result && buildPipelineResultViewerHref('screenshot', result));
 </script>
 
-{#if value && (result || value.fcafReportPdf)}
+{#if value && (videoHref || screenshotHref || value.fcafReportPdf)}
 	<div class="flex items-center gap-1">
-		{#if result}
+		{#if videoHref}
 			<IconButton
 				size="mini"
 				variant="ghost"
 				icon={VideoIcon}
-				href={buildPipelineResultViewerHref('video', result)}
+				href={videoHref}
 				target="_blank"
 				class="text-primary hover:bg-secondary"
 				tooltip={m.pipeline_artifact_video_tooltip()}
 			/>
+		{/if}
+		{#if screenshotHref}
 			<IconButton
 				size="mini"
 				variant="ghost"
 				icon={ImageIcon}
-				href={buildPipelineResultViewerHref('screenshot', result)}
+				href={screenshotHref}
 				target="_blank"
 				class="text-primary hover:bg-secondary"
 				tooltip={m.pipeline_artifact_screenshot_tooltip()}

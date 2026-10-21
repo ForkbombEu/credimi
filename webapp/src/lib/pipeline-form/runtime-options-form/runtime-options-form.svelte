@@ -19,6 +19,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { RuntimeOptionsForm } from './runtime-options-form.svelte.js';
 
+	import NoVideoSwitch from './no-video-switch.svelte';
+
 	//
 
 	const { self: form }: SelfProp<RuntimeOptionsForm> = $props();
@@ -43,6 +45,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@const f = form.mountForm()}
 		<div class="space-y-6">
 			<T tag="h4">{m.parameters()}</T>
+
+			<NoVideoSwitch form={f} />
 
 			<Form form={f}>
 				<CodeEditorField

@@ -163,6 +163,30 @@ func TestComputePipelineResultsFromRecord(t *testing.T) {
 	require.Nil(t, pipelineresults.ComputePipelineResultsFromRecord(app, nil))
 }
 
+func TestComputePipelineResultsFromRecordWithoutVideo(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+
+	// Device "abc" ran with video, "nov" with no_video (screenshot and log only).
+	record := core.NewRecord(coll)
+	record.Set("video_results", []string{"abc_result_video_main.mp4"})
+	record.Set("screenshots", []string{"abc_screenshot_main.png", "nov_screenshot_x.png"})
+	record.Set("logcats", []string{"abc_logfile_main.zip", "nov_logfile_x.zip"})
+	record.Set("maestro_timelines", []string{"nov_timeline_x.jsonl"})
+
+	got := pipelineresults.ComputePipelineResultsFromRecord(app, record)
+	require.Len(t, got, 2)
+	require.Contains(t, got[0].Video, "abc_result_video_main.mp4")
+	require.Empty(t, got[1].Video)
+	require.Contains(t, got[1].Screenshot, "nov_screenshot_x.png")
+	require.Contains(t, got[1].Log, "nov_logfile_x.zip")
+	require.Empty(t, got[1].Timeline, "a timeline belongs to a video")
+}
+
 func TestComputePipelineReportURLFromRecord(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)

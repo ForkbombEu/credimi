@@ -13,14 +13,14 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.interaction-metadata
+- ref: pipeline.dcql.baseline
 evidence:
   session:
-    from: pipeline.dcql.interaction-metadata.outputs.dcql_exchange
+    from: pipeline.dcql.baseline.outputs.session
   request_object:
-    from: pipeline.dcql.interaction-metadata.outputs.request_object
+    from: pipeline.dcql.baseline.outputs.request_object
   visual_evidence:
-    from: pipeline.dcql.interaction-metadata.outputs.visual_evidence
+    from: pipeline.dcql.baseline.outputs.visual_evidence
 assertions:
 - id: request_object_aud_is_self_issued
   validator: jwt.payload_field_equals

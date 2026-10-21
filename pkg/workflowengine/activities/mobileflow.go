@@ -571,6 +571,80 @@ func (a *StopIOSRecordingActivity) Execute(
 	return workflowengine.ActivityResult{Output: res}, nil
 }
 
+// deviceLogActivity wraps one credimi-extra device-log entry point. The device
+// log is captured independently of the screen recording, so runs without video
+// still produce it.
+type deviceLogActivity struct {
+	workflowengine.BaseActivity
+	run func(context.Context, mobile.MobileActivityInput) (map[string]any, error)
+}
+
+func (a *deviceLogActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *deviceLogActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
+	runInput := buildMobileInput(
+		ctx,
+		input.Payload,
+		a.NewActivityError,
+		map[string]mobile.ErrorCode{
+			"TempFileCreationFailed": {
+				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
+				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
+			},
+		},
+		true,
+	)
+
+	res, err := a.run(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type StartAndroidDeviceLogActivity struct{ deviceLogActivity }
+
+func NewStartAndroidDeviceLogActivity() *StartAndroidDeviceLogActivity {
+	return &StartAndroidDeviceLogActivity{deviceLogActivity{
+		BaseActivity: workflowengine.BaseActivity{Name: "Start capturing Android device log"},
+		run:          mobile.StartAndroidDeviceLog,
+	}}
+}
+
+type StartIOSDeviceLogActivity struct{ deviceLogActivity }
+
+func NewStartIOSDeviceLogActivity() *StartIOSDeviceLogActivity {
+	return &StartIOSDeviceLogActivity{deviceLogActivity{
+		BaseActivity: workflowengine.BaseActivity{Name: "Start capturing iOS device log"},
+		run:          mobile.StartIOSDeviceLog,
+	}}
+}
+
+type StopAndroidDeviceLogActivity struct{ deviceLogActivity }
+
+func NewStopAndroidDeviceLogActivity() *StopAndroidDeviceLogActivity {
+	return &StopAndroidDeviceLogActivity{deviceLogActivity{
+		BaseActivity: workflowengine.BaseActivity{Name: "Stop capturing Android device log"},
+		run:          mobile.StopAndroidDeviceLog,
+	}}
+}
+
+type StopIOSDeviceLogActivity struct{ deviceLogActivity }
+
+func NewStopIOSDeviceLogActivity() *StopIOSDeviceLogActivity {
+	return &StopIOSDeviceLogActivity{deviceLogActivity{
+		BaseActivity: workflowengine.BaseActivity{Name: "Stop capturing iOS device log"},
+		run:          mobile.StopIOSDeviceLog,
+	}}
+}
+
 type RunMobileFlowActivity struct {
 	workflowengine.BaseActivity
 }

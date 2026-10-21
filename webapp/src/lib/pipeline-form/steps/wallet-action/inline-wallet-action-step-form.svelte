@@ -22,8 +22,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if form.data}
 	<div class="flex flex-col gap-4 p-4">
 		<T class="text-sm text-muted-foreground">
-			{m.Inline_action_edit_notice()}
+			{form.data.kind === 'actions' ? m.Actions_edit_notice() : m.Inline_action_edit_notice()}
 		</T>
+		{#if form.data.kind === 'actions'}
+			<WithLabel label={m.Wallet_actions()}>
+				<ol class="list-decimal pl-4 font-mono text-xs text-muted-foreground">
+					{#each form.data.actions as action, index (index)}
+						<li>{'id' in action ? action.id : m.Custom_code()}</li>
+					{/each}
+				</ol>
+			</WithLabel>
+		{/if}
 		<WithLabel label={m.Version()}>
 			<p class="text-sm">{getVersionLabel(form.data.version)}</p>
 		</WithLabel>

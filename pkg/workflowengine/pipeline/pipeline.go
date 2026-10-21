@@ -176,7 +176,7 @@ func (w *PipelineWorkflow) Workflow(
 		resultOutput: map[string]any{},
 		failedSteps:  map[string]struct{}{},
 	}
-	if hasMobileAutomationStep(wfDef.Steps) {
+	if hasMobileAutomationStep(wfDef.Steps) && !wfDef.Runtime.NoVideo {
 		state.finalOutput["result_video_warning"] = "Video recordings are limited to 30 minutes. " +
 			"Tests exceeding this duration may result in an incomplete video."
 	}
@@ -1009,7 +1009,8 @@ func (w *PipelineWorkflow) Start(
 	}
 	globalDeviceID := GlobalDeviceIDFromConfig(config)
 	deviceIDs := DeviceIDsWithGlobal(deviceInfo, globalDeviceID)
-	config["disable_android_play_store"] = wfDef.Runtime.DisableAndroidPlayStore
+	config[mobileDisableAndroidPlayStoreConfigKey] = wfDef.Runtime.DisableAndroidPlayStore
+	config[mobileNoVideoConfigKey] = wfDef.Runtime.NoVideo
 	entityIDs, err := pipeline.ParseEntityIDs(inputYaml)
 	if err != nil {
 		return result, fmt.Errorf("failed to parse entity IDs: %w", err)

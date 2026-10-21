@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
+import type {
+	WorkflowExecutionResult,
+	WorkflowExecutionSummary
+} from '$lib/workflows/queries.types';
 
 export type PipelineExecutionArtifacts = {
-	results: Array<{ video: string; screenshot: string; log: string; timeline?: string }>;
+	results: Array<WorkflowExecutionResult>;
 	maestro_screenshots?: string[];
 	report?: string;
 	fcafReport?: string;
