@@ -124,7 +124,6 @@ steps:
     test_ids:
     - WS_RP_IA_MainInteraction__053
     - WS_RP_IA_MainInteraction__055
-    - WS_RP_IA_MainInteraction__060
     - WS_RP_IA_Metadata__010
     - WS_RP_IA_MainInteraction__056
     suite: wallet_solution/relying_party

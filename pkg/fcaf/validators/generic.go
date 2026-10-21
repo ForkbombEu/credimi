@@ -124,14 +124,14 @@ func (FCAFSkippedValidator) Validate(_ context.Context, input Input) Result {
 
 // FCAFNotApplicableValidator records that a source test's Wallet expectation
 // cannot apply to the SUT, so the test reports not applicable instead of a pass
-// or a failure. The test still runs and keeps its evidence; the engine folds
-// pass + not_applicable into not_applicable, while any fail/error/blocked
-// dominates.
+// or a failure. The engine folds pass + not_applicable into not_applicable,
+// while any fail/error/blocked dominates.
 //
-// Two grounds are sanctioned (.agents/HITL.md, 2026-10-14):
+// Two grounds are sanctioned (.agents/HITL.md, 2026-10-14 and 2026-10-21):
 //
-//   - the source's own relevancy is EUDI_forbidden and it expects the Wallet to
-//     accept the excluded feature, so no conformant EUDI Wallet can satisfy it;
+//   - the source's own relevancy is EUDI_forbidden, whatever its expected
+//     result; such a test carries this assertion alone and no Wallet
+//     interaction (scenario fcaf-wallet-solution-relying-party-eudi-forbidden);
 //   - the SUT's own capabilities refute the source's precondition, so the test
 //     is not about this Wallet (WS_RP_MS_ProtocolMessages__011/018,
 //     WS_RP_MS_Metadata__134).

@@ -167,13 +167,16 @@ those two.
 
 ### FCAF Impact
 
-- Tests: `WS_RP_MS_Metadata__110`, `WS_RP_MS_Metadata__126`,
+- Tests: `WS_RP_MS_Metadata__126`,
   `WS_RP_MS_Metadata__130`, `WS_RP_MS_Metadata__133`,
   `WS_RP_MS_ProtocolMessages__039`, `WS_RP_MS_ProtocolMessages__143`,
   `WS_RP_MS_ProtocolMessages__144`, `WS_RP_SM_RpIntegrity__007`,
   `WS_RP_SM_RpIntegrity__014`.
 - The request-shape and visual-evidence assertions pass; the reference wallet
   fails the protocol assertion.
+- `WS_RP_MS_Metadata__110` no longer asserts this rejection: its source is
+  `EUDI_forbidden` and reports only `not_applicable` since 21/10/2026
+  (`.agents/HITL.md`).
 
 ## RI-WALLET-003: Malformed client_metadata is not returned to the verifier
 

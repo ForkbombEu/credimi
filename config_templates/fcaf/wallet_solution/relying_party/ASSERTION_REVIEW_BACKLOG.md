@@ -69,7 +69,7 @@ assert `fcaf.skipped` naming that input, unless stated otherwise.
   `/openid4vp/verifier-attestation-issuer/jwks.json`.
 - `openid_federation`: Capture rejects the prefix with `400
   unsupported_client_id_scheme` and publishes no entity statements:
-  `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__113`, `114`, `115`.
+  `WS_RP_MS_Metadata__114`, `115`.
 - RS384 or PS384 Request Object: Capture's KMS generates EC keys only, and the
   intended algorithm is an open upstream decision:
   `WS_RP_SM_RpIntegrity__032`,

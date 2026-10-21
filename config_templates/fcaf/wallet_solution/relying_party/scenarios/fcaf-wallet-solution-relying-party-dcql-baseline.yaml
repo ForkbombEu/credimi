@@ -109,14 +109,11 @@ steps:
     - WS_RP_IA_MainInteraction__038
     - WS_RP_IA_MainInteraction__046
     - WS_RP_IA_Metadata__012
-    - WS_RP_IA_Metadata__014
     - WS_RP_IA_ProtocolFlow__002
     - WS_RP_IA_ProtocolFlow__002d
     - WS_RP_IA_Supportive__006
     - WS_RP_MS_CredentialFormats__046
     - WS_RP_MS_CredentialFormats__048
-    - WS_RP_MS_Metadata__112
-    - WS_RP_MS_Metadata__113
     - WS_RP_MS_Metadata__114
     - WS_RP_MS_Metadata__115
     - WS_RP_MS_Metadata__116
@@ -135,7 +132,6 @@ steps:
     - WS_RP_MS_Metadata__138
     - WS_RP_MS_ProtocolMessages__011
     - WS_RP_MS_ProtocolMessages__018
-    - WS_RP_MS_ProtocolMessages__020
     - WS_RP_MS_ProtocolMessages__042
     - WS_RP_MS_ProtocolMessages__044
     - WS_RP_MS_ProtocolMessages__045
@@ -164,7 +160,6 @@ steps:
     - WS_RP_SM_RpIntegrity__032
     - WS_RP_SM_RpIntegrity__033
     - WS_RP_SM_RpIntegrity__034
-    - WS_RP_UC_Presentation__003
     - WS_RP_UC_Presentation__004
     suite: wallet_solution/relying_party
     pipeline_outputs:

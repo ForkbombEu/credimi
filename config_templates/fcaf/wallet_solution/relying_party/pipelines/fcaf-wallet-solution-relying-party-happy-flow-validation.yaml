@@ -2498,7 +2498,6 @@ steps:
             - WS_RP_IA_Metadata__011
             - WS_RP_IA_Metadata__012
             - WS_RP_IA_Metadata__013
-            - WS_RP_IA_Metadata__014
             - WS_RP_IA_ProtocolFlow__002
             - WS_RP_IA_ProtocolFlow__002d
             - WS_RP_IA_Supportive__006
@@ -2519,8 +2518,6 @@ steps:
             - WS_RP_MS_Metadata__082
             - WS_RP_MS_Metadata__104
             - WS_RP_MS_Metadata__108
-            - WS_RP_MS_Metadata__112
-            - WS_RP_MS_Metadata__113
             - WS_RP_MS_Metadata__114
             - WS_RP_MS_Metadata__115
             - WS_RP_MS_Metadata__116
@@ -2546,7 +2543,6 @@ steps:
             - WS_RP_MS_ProtocolMessages__017
             - WS_RP_MS_ProtocolMessages__018
             - WS_RP_MS_ProtocolMessages__019
-            - WS_RP_MS_ProtocolMessages__020
             - WS_RP_MS_ProtocolMessages__032
             - WS_RP_MS_ProtocolMessages__035
             - WS_RP_MS_ProtocolMessages__036
@@ -2633,5 +2629,4 @@ steps:
             - WS_RP_SM_TrustMechanisms__013
             - WS_RP_SM_TrustMechanisms__015
             - WS_RP_SM_TrustMechanisms__021
-            - WS_RP_UC_Presentation__003
             - WS_RP_UC_Presentation__004
