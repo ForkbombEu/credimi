@@ -215,7 +215,7 @@ func generateHappyFlow(inputDir string, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	return buildAggregate(happyFlowValidationName, selected, outputPath, nil, true, new(false))
+	return buildAggregate(happyFlowValidationName, selected, outputPath, nil, true, new(true))
 }
 
 func selectScenarios(inputDir string, names []string) ([]string, error) {
@@ -252,7 +252,7 @@ func generate(inputDir string, outputPath string) error {
 		return fmt.Errorf("no FCAF scenarios found in %s", inputDir)
 	}
 	sort.Strings(paths)
-	return buildAggregate(completeValidationName, paths, outputPath, nil, false, new(false))
+	return buildAggregate(completeValidationName, paths, outputPath, nil, false, new(true))
 }
 
 func buildAggregate(
