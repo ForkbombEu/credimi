@@ -18272,6 +18272,446 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-uri-probe.outputs.body.session_id }}
     - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            fixture_id: pid_person_b
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: uri_missing_scheme
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-offer-mdoc-uri-missing-scheme-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-missing-scheme-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-002
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                          multiple: true
+                nonce: mdoc-status-reference-uri-missing-scheme
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-missing-scheme-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-missing-scheme
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-missing-scheme-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-missing-scheme-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            fixture_id: pid_under_18
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: uri_space_in_host
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-offer-mdoc-uri-space-in-host-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-space-in-host-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-U18
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                          multiple: true
+                nonce: mdoc-status-reference-uri-space-in-host
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-space-in-host-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-space-in-host
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-space-in-host-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-space-in-host-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            fixture_id: pid_expiry_2032
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: uri_invalid_percent_encoding
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-offer-mdoc-uri-invalid-percent-encoding-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-invalid-percent-encoding-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-EXPIRY
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                          multiple: true
+                nonce: mdoc-status-reference-uri-invalid-percent-encoding
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-invalid-percent-encoding-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-invalid-percent-encoding
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-invalid-percent-encoding-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-invalid-percent-encoding-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            fixture_id: pid_locality_diacritics
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: uri_illegal_characters
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-offer-mdoc-uri-illegal-characters-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-illegal-characters-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-UMLAUT
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                          multiple: true
+                nonce: mdoc-status-reference-uri-illegal-characters
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-illegal-characters-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-illegal-characters
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-illegal-characters-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-illegal-characters-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            fixture_id: pid_family_name_uppercase
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: uri_empty
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-offer-mdoc-uri-empty-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-empty-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-CASE
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                          multiple: true
+                nonce: mdoc-status-reference-uri-empty
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-empty-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-empty
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-empty-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-empty-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-probe.outputs.body.session_id }}
+    - continue_on_error: true
       id: metadata-direct-post-jwt-bf077ae9-create-presentation
       use: http-request
       with:
@@ -21399,68 +21839,6 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-uri-controls-48310ca6-create-redirect-uri-present.outputs.body.session_id }}
     - continue_on_error: true
-      id: response-uri-controls-48310ca6-create-invalid-response-uri
-      use: http-request
-      with:
-        body:
-            client_id_scheme: x509_san_dns
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                nonce: response-uri-foreign-host
-            request_delivery: by_reference
-            request_mutation:
-                request_object:
-                    set:
-                        /response_uri: https://fcaf-foreign-response-uri.example/openid4vp/response
-                verification_applies: false
-            response_mode: direct_post.jwt
-            response_type: vp_token
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: response-uri-controls-48310ca6-reject-invalid-response-uri-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
-      id: response-uri-controls-48310ca6-reject-invalid-response-uri
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ response-uri-controls-48310ca6-reject-invalid-response-uri-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ response-uri-controls-48310ca6-create-invalid-response-uri.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: response-uri-controls-48310ca6-fetch-invalid-response-uri
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-uri-controls-48310ca6-create-invalid-response-uri.outputs.body.session_id }}
-    - continue_on_error: true
       id: rp-integrity-certificate-chain-ed1def1e-create-incomplete-chain
       use: http-request
       with:
@@ -21638,6 +22016,65 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ rp-integrity-certificate-chain-ed1def1e-create-self-signed-leaf.outputs.body.session_id }}
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-create-trust-anchor-in-chain
+      use: http-request
+      with:
+        body:
+            client_id_scheme: x509_hash
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: rp-integrity-trust-anchor-in-chain
+            request_behavior:
+                certificate_chain: with_trust_anchor
+            request_delivery: by_reference
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-reject-trust-anchor-in-chain-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-reject-trust-anchor-in-chain
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ rp-integrity-certificate-chain-ed1def1e-reject-trust-anchor-in-chain-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ rp-integrity-certificate-chain-ed1def1e-create-trust-anchor-in-chain.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: rp-integrity-certificate-chain-ed1def1e-fetch-trust-anchor-in-chain
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ rp-integrity-certificate-chain-ed1def1e-create-trust-anchor-in-chain.outputs.body.session_id }}
     - continue_on_error: true
       id: rp-integrity-invalid-signature-4f1ab386-create-corrupt-signature
       use: http-request
@@ -22452,6 +22889,446 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-missing-uri-probe.outputs.body.session_id }}
     - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-uri-missing-scheme-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_person_b
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: uri_missing_scheme
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-offer-uri-missing-scheme-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-missing-scheme-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-uri-missing-scheme-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-uri-missing-scheme-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-uri-missing-scheme-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-002
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: status-reference-uri-missing-scheme
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-uri-missing-scheme-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-uri-missing-scheme
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-uri-missing-scheme-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-missing-scheme-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-uri-missing-scheme-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-uri-missing-scheme-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-uri-space-in-host-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_under_18
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: uri_space_in_host
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-offer-uri-space-in-host-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-space-in-host-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-uri-space-in-host-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-uri-space-in-host-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-uri-space-in-host-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-U18
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: status-reference-uri-space-in-host
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-uri-space-in-host-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-uri-space-in-host
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-uri-space-in-host-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-space-in-host-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-uri-space-in-host-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-uri-space-in-host-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_expiry_2032
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: uri_invalid_percent_encoding
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-offer-uri-invalid-percent-encoding-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-uri-invalid-percent-encoding-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-EXPIRY
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: status-reference-uri-invalid-percent-encoding
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-uri-invalid-percent-encoding-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-uri-invalid-percent-encoding
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-uri-invalid-percent-encoding-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-uri-invalid-percent-encoding-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-uri-illegal-characters-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_locality_diacritics
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: uri_illegal_characters
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-offer-uri-illegal-characters-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-illegal-characters-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-uri-illegal-characters-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-uri-illegal-characters-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-uri-illegal-characters-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-UMLAUT
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: status-reference-uri-illegal-characters
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-uri-illegal-characters-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-uri-illegal-characters
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-uri-illegal-characters-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-illegal-characters-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-uri-illegal-characters-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-uri-illegal-characters-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-uri-empty-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_family_name_uppercase
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+            status_reference: uri_empty
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-offer-uri-empty-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-empty-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-uri-empty-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ status-reference-rejection-0adf5c5d-create-uri-empty-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-create-uri-empty-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-CASE
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                          multiple: true
+                nonce: status-reference-uri-empty
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-uri-empty-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-probe-uri-empty
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-uri-empty-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-empty-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: status-reference-rejection-0adf5c5d-fetch-uri-empty-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ status-reference-rejection-0adf5c5d-create-uri-empty-probe.outputs.body.session_id }}
+    - continue_on_error: true
       id: supportive-redirect-uri-9f399357-create-presentation
       use: http-request
       with:
@@ -23177,6 +24054,568 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ unknown-scope-f9476deb-create-unknown-scope.outputs.body.session_id }}
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-fetch-attestation-issuer-jwks
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/verifier-attestation-issuer/jwks.json
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-create-va-default
+      use: http-request
+      with:
+        body:
+            client_id_scheme: verifier_attestation
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-attestation-default
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-present-va-default-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-present-va-default
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-present-va-default-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-create-va-default.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-fetch-va-default
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-attestation-caa851a5-create-va-default.outputs.body.session_id }}
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-create-va-subject
+      use: http-request
+      with:
+        body:
+            client_id_scheme: verifier_attestation
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-attestation-subject
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+            verifier_attestation:
+                subject: other-verifier.credimi.invalid
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-subject-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-subject
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-reject-va-subject-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-create-va-subject.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-fetch-va-subject
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-attestation-caa851a5-create-va-subject.outputs.body.session_id }}
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-create-va-issuer
+      use: http-request
+      with:
+        body:
+            client_id_scheme: verifier_attestation
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-attestation-issuer
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+            verifier_attestation:
+                issuer: https://untrusted-attestation-issuer.credimi.invalid
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-issuer-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-issuer
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-reject-va-issuer-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-create-va-issuer.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-fetch-va-issuer
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-attestation-caa851a5-create-va-issuer.outputs.body.session_id }}
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-create-va-redirect-match
+      use: http-request
+      with:
+        body:
+            client_id_scheme: verifier_attestation
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-attestation-redirect-match
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+            verifier_attestation:
+                redirect_uris:
+                    - '{{response_uri}}'
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-present-va-redirect-match-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-present-va-redirect-match
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-present-va-redirect-match-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-create-va-redirect-match.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-fetch-va-redirect-match
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-attestation-caa851a5-create-va-redirect-match.outputs.body.session_id }}
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-create-va-redirect-foreign
+      use: http-request
+      with:
+        body:
+            client_id_scheme: verifier_attestation
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-attestation-redirect-foreign
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+            verifier_attestation:
+                redirect_uris:
+                    - https://foreign-verifier.credimi.invalid/openid4vp/response
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-redirect-foreign-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-redirect-foreign
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-reject-va-redirect-foreign-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-create-va-redirect-foreign.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-fetch-va-redirect-foreign
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-attestation-caa851a5-create-va-redirect-foreign.outputs.body.session_id }}
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-create-va-attestation-sig
+      use: http-request
+      with:
+        body:
+            client_id_scheme: verifier_attestation
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-attestation-attestation-sig
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+            verifier_attestation:
+                signature: corrupt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-attestation-sig-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-attestation-sig
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-reject-va-attestation-sig-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-create-va-attestation-sig.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-fetch-va-attestation-sig
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-attestation-caa851a5-create-va-attestation-sig.outputs.body.session_id }}
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-create-va-signing-key
+      use: http-request
+      with:
+        body:
+            client_id_scheme: verifier_attestation
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-attestation-signing-key
+            request_behavior:
+                signing_key: unrelated
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-signing-key-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-signing-key
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-reject-va-signing-key-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-create-va-signing-key.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-fetch-va-signing-key
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-attestation-caa851a5-create-va-signing-key.outputs.body.session_id }}
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-create-va-no-jwt
+      use: http-request
+      with:
+        body:
+            client_id_scheme: verifier_attestation
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-attestation-no-jwt
+            request_delivery: by_reference
+            request_mutation:
+                request_object_header:
+                    unset:
+                        - /jwt
+                verification_applies: false
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-no-jwt-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-reject-va-no-jwt
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-reject-va-no-jwt-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-create-va-no-jwt.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-fetch-va-no-jwt
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-attestation-caa851a5-create-va-no-jwt.outputs.body.session_id }}
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-create-va-outside-metadata
+      use: http-request
+      with:
+        body:
+            client_id_scheme: verifier_attestation
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: verifier-attestation-outside-metadata
+            request_delivery: by_reference
+            request_mutation:
+                request_object:
+                    set:
+                        /client_name: Credimi FCAF verifier outside client_metadata
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-present-va-outside-metadata-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-present-va-outside-metadata
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-present-va-outside-metadata-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+              parameters:
+                deeplink: ${{ verifier-attestation-caa851a5-create-va-outside-metadata.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: verifier-attestation-caa851a5-fetch-va-outside-metadata
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ verifier-attestation-caa851a5-create-va-outside-metadata.outputs.body.session_id }}
     - continue_on_error: true
       id: verifier-info-all-credentials-039537ba-create-capture-session
       use: http-request
@@ -24887,6 +26326,21 @@ steps:
                     status_without_status_list_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-status-without-status-list-issuance.outputs.body | optional }}
                     status_without_status_list_probe: ${{ status-reference-rejection-0adf5c5d-fetch-status-without-status-list-probe.outputs.body | optional }}
                     status_without_status_list_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-status-without-status-list.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    uri_empty_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-uri-empty-issuance.outputs.body | optional }}
+                    uri_empty_probe: ${{ status-reference-rejection-0adf5c5d-fetch-uri-empty-probe.outputs.body | optional }}
+                    uri_empty_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-uri-empty.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    uri_illegal_characters_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-uri-illegal-characters-issuance.outputs.body | optional }}
+                    uri_illegal_characters_probe: ${{ status-reference-rejection-0adf5c5d-fetch-uri-illegal-characters-probe.outputs.body | optional }}
+                    uri_illegal_characters_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-uri-illegal-characters.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    uri_invalid_percent_encoding_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-uri-invalid-percent-encoding-issuance.outputs.body | optional }}
+                    uri_invalid_percent_encoding_probe: ${{ status-reference-rejection-0adf5c5d-fetch-uri-invalid-percent-encoding-probe.outputs.body | optional }}
+                    uri_invalid_percent_encoding_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-uri-invalid-percent-encoding.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    uri_missing_scheme_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-uri-missing-scheme-issuance.outputs.body | optional }}
+                    uri_missing_scheme_probe: ${{ status-reference-rejection-0adf5c5d-fetch-uri-missing-scheme-probe.outputs.body | optional }}
+                    uri_missing_scheme_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-uri-missing-scheme.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    uri_space_in_host_issuance: ${{ status-reference-rejection-0adf5c5d-fetch-uri-space-in-host-issuance.outputs.body | optional }}
+                    uri_space_in_host_probe: ${{ status-reference-rejection-0adf5c5d-fetch-uri-space-in-host-probe.outputs.body | optional }}
+                    uri_space_in_host_visual_evidence: ${{ status-reference-rejection-0adf5c5d-probe-uri-space-in-host.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.fixtures.status-reference.mdoc:
                 output:
                     malformed_uri_issuance: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-malformed-uri-issuance.outputs.body | optional }}
@@ -24904,6 +26358,21 @@ steps:
                     status_without_status_list_issuance: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-status-without-status-list-issuance.outputs.body | optional }}
                     status_without_status_list_probe: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-status-without-status-list-probe.outputs.body | optional }}
                     status_without_status_list_visual_evidence: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-status-without-status-list.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    uri_empty_issuance: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-empty-issuance.outputs.body | optional }}
+                    uri_empty_probe: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-empty-probe.outputs.body | optional }}
+                    uri_empty_visual_evidence: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-empty.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    uri_illegal_characters_issuance: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-illegal-characters-issuance.outputs.body | optional }}
+                    uri_illegal_characters_probe: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-illegal-characters-probe.outputs.body | optional }}
+                    uri_illegal_characters_visual_evidence: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-illegal-characters.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    uri_invalid_percent_encoding_issuance: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-invalid-percent-encoding-issuance.outputs.body | optional }}
+                    uri_invalid_percent_encoding_probe: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-invalid-percent-encoding-probe.outputs.body | optional }}
+                    uri_invalid_percent_encoding_visual_evidence: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-invalid-percent-encoding.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    uri_missing_scheme_issuance: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-missing-scheme-issuance.outputs.body | optional }}
+                    uri_missing_scheme_probe: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-missing-scheme-probe.outputs.body | optional }}
+                    uri_missing_scheme_visual_evidence: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-missing-scheme.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    uri_space_in_host_issuance: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-space-in-host-issuance.outputs.body | optional }}
+                    uri_space_in_host_probe: ${{ mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-space-in-host-probe.outputs.body | optional }}
+                    uri_space_in_host_visual_evidence: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-space-in-host.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.interaction.degree-address-property:
                 output:
                     dcql_exchange: ${{ interaction-degree-sdjwt-d51c1dad-fetch-address-property-presentation.outputs.body | optional }}
@@ -25131,9 +26600,6 @@ steps:
                     wrong_content_type_visual_evidence: ${{ request-uri-response-controls-77a90e75-reject-wrong-content-type.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.protocol.response-uri-controls:
                 output:
-                    invalid_response_uri_request_object: ${{ response-uri-controls-48310ca6-fetch-invalid-response-uri.outputs.body.raw.authorization_request_jwt | optional }}
-                    invalid_response_uri_session: ${{ response-uri-controls-48310ca6-fetch-invalid-response-uri.outputs.body | optional }}
-                    invalid_response_uri_visual_evidence: ${{ response-uri-controls-48310ca6-reject-invalid-response-uri.outputs.flow_output.maestro_screenshot_urls | optional }}
                     missing_response_uri_request_object: ${{ response-uri-controls-48310ca6-fetch-missing-response-uri.outputs.body.raw.authorization_request_jwt | optional }}
                     missing_response_uri_session: ${{ response-uri-controls-48310ca6-fetch-missing-response-uri.outputs.body | optional }}
                     missing_response_uri_visual_evidence: ${{ response-uri-controls-48310ca6-reject-missing-response-uri.outputs.flow_output.maestro_screenshot_urls | optional }}
@@ -25270,6 +26736,10 @@ steps:
                     self_signed_leaf_request_object: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-self-signed-leaf.outputs.body.raw.authorization_request_jwt | optional }}
                     self_signed_leaf_session: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-self-signed-leaf.outputs.body | optional }}
                     self_signed_leaf_visual_evidence: ${{ rp-integrity-certificate-chain-ed1def1e-reject-self-signed-leaf.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    trust_anchor_in_chain_request_behavior: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-trust-anchor-in-chain.outputs.body.request_behavior | optional }}
+                    trust_anchor_in_chain_request_object: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-trust-anchor-in-chain.outputs.body.raw.authorization_request_jwt | optional }}
+                    trust_anchor_in_chain_session: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-trust-anchor-in-chain.outputs.body | optional }}
+                    trust_anchor_in_chain_visual_evidence: ${{ rp-integrity-certificate-chain-ed1def1e-reject-trust-anchor-in-chain.outputs.flow_output.maestro_screenshot_urls | optional }}
                     untrusted_root_request_behavior: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-untrusted-root.outputs.body.request_behavior | optional }}
                     untrusted_root_request_object: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-untrusted-root.outputs.body.raw.authorization_request_jwt | optional }}
                     untrusted_root_session: ${{ rp-integrity-certificate-chain-ed1def1e-fetch-untrusted-root.outputs.body | optional }}
@@ -25285,6 +26755,62 @@ steps:
                     request_object: ${{ rp-integrity-unrelated-signing-key-d22d08bc-fetch-unrelated-signing-key.outputs.body.raw.authorization_request_jwt | optional }}
                     session: ${{ rp-integrity-unrelated-signing-key-d22d08bc-fetch-unrelated-signing-key.outputs.body | optional }}
                     visual_evidence: ${{ rp-integrity-unrelated-signing-key-d22d08bc-reject-unrelated-signing-key.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.rp-integrity.verifier-attestation:
+                output:
+                    attestation_signature_corrupt_request_evidence:
+                        attestation_issuer_jwks: ${{ verifier-attestation-caa851a5-fetch-attestation-issuer-jwks.outputs.body | optional }}
+                        request_object: ${{ verifier-attestation-caa851a5-fetch-va-attestation-sig.outputs.body.raw.authorization_request_jwt | optional }}
+                    attestation_signature_corrupt_request_object: ${{ verifier-attestation-caa851a5-fetch-va-attestation-sig.outputs.body.raw.authorization_request_jwt | optional }}
+                    attestation_signature_corrupt_session: ${{ verifier-attestation-caa851a5-fetch-va-attestation-sig.outputs.body | optional }}
+                    attestation_signature_corrupt_visual_evidence: ${{ verifier-attestation-caa851a5-reject-va-attestation-sig.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    default_request_evidence:
+                        attestation_issuer_jwks: ${{ verifier-attestation-caa851a5-fetch-attestation-issuer-jwks.outputs.body | optional }}
+                        request_object: ${{ verifier-attestation-caa851a5-fetch-va-default.outputs.body.raw.authorization_request_jwt | optional }}
+                    default_request_object: ${{ verifier-attestation-caa851a5-fetch-va-default.outputs.body.raw.authorization_request_jwt | optional }}
+                    default_session: ${{ verifier-attestation-caa851a5-fetch-va-default.outputs.body | optional }}
+                    default_visual_evidence: ${{ verifier-attestation-caa851a5-present-va-default.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    jwt_header_absent_request_evidence:
+                        attestation_issuer_jwks: ${{ verifier-attestation-caa851a5-fetch-attestation-issuer-jwks.outputs.body | optional }}
+                        request_object: ${{ verifier-attestation-caa851a5-fetch-va-no-jwt.outputs.body.raw.authorization_request_jwt | optional }}
+                    jwt_header_absent_request_object: ${{ verifier-attestation-caa851a5-fetch-va-no-jwt.outputs.body.raw.authorization_request_jwt | optional }}
+                    jwt_header_absent_session: ${{ verifier-attestation-caa851a5-fetch-va-no-jwt.outputs.body | optional }}
+                    jwt_header_absent_visual_evidence: ${{ verifier-attestation-caa851a5-reject-va-no-jwt.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    metadata_outside_client_metadata_request_evidence:
+                        attestation_issuer_jwks: ${{ verifier-attestation-caa851a5-fetch-attestation-issuer-jwks.outputs.body | optional }}
+                        request_object: ${{ verifier-attestation-caa851a5-fetch-va-outside-metadata.outputs.body.raw.authorization_request_jwt | optional }}
+                    metadata_outside_client_metadata_request_object: ${{ verifier-attestation-caa851a5-fetch-va-outside-metadata.outputs.body.raw.authorization_request_jwt | optional }}
+                    metadata_outside_client_metadata_session: ${{ verifier-attestation-caa851a5-fetch-va-outside-metadata.outputs.body | optional }}
+                    metadata_outside_client_metadata_visual_evidence: ${{ verifier-attestation-caa851a5-present-va-outside-metadata.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    redirect_uris_foreign_request_evidence:
+                        attestation_issuer_jwks: ${{ verifier-attestation-caa851a5-fetch-attestation-issuer-jwks.outputs.body | optional }}
+                        request_object: ${{ verifier-attestation-caa851a5-fetch-va-redirect-foreign.outputs.body.raw.authorization_request_jwt | optional }}
+                    redirect_uris_foreign_request_object: ${{ verifier-attestation-caa851a5-fetch-va-redirect-foreign.outputs.body.raw.authorization_request_jwt | optional }}
+                    redirect_uris_foreign_session: ${{ verifier-attestation-caa851a5-fetch-va-redirect-foreign.outputs.body | optional }}
+                    redirect_uris_foreign_visual_evidence: ${{ verifier-attestation-caa851a5-reject-va-redirect-foreign.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    redirect_uris_match_request_evidence:
+                        attestation_issuer_jwks: ${{ verifier-attestation-caa851a5-fetch-attestation-issuer-jwks.outputs.body | optional }}
+                        request_object: ${{ verifier-attestation-caa851a5-fetch-va-redirect-match.outputs.body.raw.authorization_request_jwt | optional }}
+                    redirect_uris_match_request_object: ${{ verifier-attestation-caa851a5-fetch-va-redirect-match.outputs.body.raw.authorization_request_jwt | optional }}
+                    redirect_uris_match_session: ${{ verifier-attestation-caa851a5-fetch-va-redirect-match.outputs.body | optional }}
+                    redirect_uris_match_visual_evidence: ${{ verifier-attestation-caa851a5-present-va-redirect-match.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    subject_mismatch_request_evidence:
+                        attestation_issuer_jwks: ${{ verifier-attestation-caa851a5-fetch-attestation-issuer-jwks.outputs.body | optional }}
+                        request_object: ${{ verifier-attestation-caa851a5-fetch-va-subject.outputs.body.raw.authorization_request_jwt | optional }}
+                    subject_mismatch_request_object: ${{ verifier-attestation-caa851a5-fetch-va-subject.outputs.body.raw.authorization_request_jwt | optional }}
+                    subject_mismatch_session: ${{ verifier-attestation-caa851a5-fetch-va-subject.outputs.body | optional }}
+                    subject_mismatch_visual_evidence: ${{ verifier-attestation-caa851a5-reject-va-subject.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    unrelated_signing_key_request_evidence:
+                        attestation_issuer_jwks: ${{ verifier-attestation-caa851a5-fetch-attestation-issuer-jwks.outputs.body | optional }}
+                        request_object: ${{ verifier-attestation-caa851a5-fetch-va-signing-key.outputs.body.raw.authorization_request_jwt | optional }}
+                    unrelated_signing_key_request_object: ${{ verifier-attestation-caa851a5-fetch-va-signing-key.outputs.body.raw.authorization_request_jwt | optional }}
+                    unrelated_signing_key_session: ${{ verifier-attestation-caa851a5-fetch-va-signing-key.outputs.body | optional }}
+                    unrelated_signing_key_visual_evidence: ${{ verifier-attestation-caa851a5-reject-va-signing-key.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    untrusted_issuer_request_evidence:
+                        attestation_issuer_jwks: ${{ verifier-attestation-caa851a5-fetch-attestation-issuer-jwks.outputs.body | optional }}
+                        request_object: ${{ verifier-attestation-caa851a5-fetch-va-issuer.outputs.body.raw.authorization_request_jwt | optional }}
+                    untrusted_issuer_request_object: ${{ verifier-attestation-caa851a5-fetch-va-issuer.outputs.body.raw.authorization_request_jwt | optional }}
+                    untrusted_issuer_session: ${{ verifier-attestation-caa851a5-fetch-va-issuer.outputs.body | optional }}
+                    untrusted_issuer_visual_evidence: ${{ verifier-attestation-caa851a5-reject-va-issuer.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.session-binding.invalid-nonce:
                 output:
                     capture_session: ${{ session-binding-invalid-nonce-0c3e8d16-fetch-capture-session.outputs.body | optional }}

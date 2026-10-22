@@ -13,11 +13,16 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Certificate-chain defects the capture verifier can deliver.
+// Certificate-chain shapes the capture verifier can deliver.
 const (
 	chainShapeSelfSignedLeaf = "self_signed_leaf"
 	chainShapeUntrustedRoot  = "untrusted_root"
 	chainShapeIncomplete     = "incomplete"
+	// chainShapeTrustAnchorIncluded is the deployed leaf followed by the CA
+	// that issued it (request_behavior.certificate_chain: with_trust_anchor):
+	// the request is otherwise valid, so the anchor inside x5c is the only
+	// thing a Wallet can object to (WS_RP_SM_RpIntegrity__025).
+	chainShapeTrustAnchorIncluded = "trust_anchor_included"
 )
 
 // OID4VPRequestCertificateChainValidator proves which defect the delivered
@@ -44,11 +49,15 @@ func (OID4VPRequestCertificateChainValidator) Validate(_ context.Context, input 
 		return Result{Status: StatusError, Message: err.Error()}
 	}
 	switch params.Shape {
-	case chainShapeSelfSignedLeaf, chainShapeUntrustedRoot, chainShapeIncomplete:
+	case chainShapeSelfSignedLeaf,
+		chainShapeUntrustedRoot,
+		chainShapeIncomplete,
+		chainShapeTrustAnchorIncluded:
 	default:
 		return Result{
-			Status:  StatusError,
-			Message: "shape must be self_signed_leaf, untrusted_root or incomplete",
+			Status: StatusError,
+			Message: "shape must be self_signed_leaf, untrusted_root, incomplete " +
+				"or trust_anchor_included",
 		}
 	}
 
@@ -94,6 +103,39 @@ func (OID4VPRequestCertificateChainValidator) Validate(_ context.Context, input 
 			Message: fmt.Sprintf(
 				"delivered x5c carries %d certificate(s) and omits the issuer of its top-most one",
 				len(chain),
+			),
+		}
+	case chainShapeTrustAnchorIncluded:
+		if len(chain) != 2 {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"delivered x5c carries %d certificate(s), expected the leaf and its trust anchor",
+					len(chain),
+				),
+			}
+		}
+		if result := requireLinkedChain(chain); result != nil {
+			return *result
+		}
+		if !isSelfSignedCertificate(chain[1]) {
+			return Result{
+				Status:  StatusFail,
+				Message: "delivered x5c[1] is not self-signed, so it is not a trust anchor",
+			}
+		}
+		if isSelfSignedCertificate(chain[0]) {
+			return Result{
+				Status:  StatusFail,
+				Message: "delivered x5c[0] is itself self-signed, so x5c[1] did not issue it",
+			}
+		}
+		return Result{
+			Status: StatusPass,
+			Message: fmt.Sprintf(
+				"delivered x5c is the leaf %q followed by its self-signed issuer %q",
+				chain[0].Subject.String(),
+				chain[1].Subject.String(),
 			),
 		}
 	default:

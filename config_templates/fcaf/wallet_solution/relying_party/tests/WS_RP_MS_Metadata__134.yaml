@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__134
-title: FCAF WS_RP_MS_Metadata__134
+title: Decrypt an encrypted Request Object when wallet_metadata publishes jwks.
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__134.md
 suite:
@@ -11,21 +11,26 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.10'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.baseline
+# The baseline session retrieves its Request Object with POST. A Wallet whose
+# wallet_metadata publishes jwks requires an encrypted Request Object: Capture
+# then serves a Nested JWT and logs vp_request_object_encrypted with the
+# negotiated alg/enc and their source (request_object_encryption_*,
+# authorization_encryption_* or the default), and the Wallet must present. A
+# Wallet publishing no jwks is outside the source's premise: not_applicable.
 evidence:
   dcql_exchange:
     from: pipeline.dcql.baseline.outputs.session
+  visual_evidence:
+    from: pipeline.dcql.baseline.outputs.visual_evidence
 assertions:
-- id: encrypted_request_object_requirement_is_not_applicable
-  validator: fcaf.not_applicable
+- id: wallet_decrypts_the_encrypted_request_object_and_presents
+  validator: oid4vp.encrypted_request_object_processed
   input: evidence.dcql_exchange
-  params:
-    reason: >-
-      the source premise does not hold for this SUT: the reference Wallet
-      publishes no wallet_metadata.jwks, so it does not require encrypted
-      Request Objects (WS_RP_MS_Metadata__135 records the same 14/10/2026
-      observation)
+- id: presentation_visual_evidence_is_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

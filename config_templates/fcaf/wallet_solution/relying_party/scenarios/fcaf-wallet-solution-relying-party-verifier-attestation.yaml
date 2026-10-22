@@ -1,0 +1,510 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Requests under the verifier_attestation Client Identifier Prefix (OpenID4VP
+# 5.9.3): the Verifier Attestation JWT travels in the Request Object's jwt JOSE
+# header. One session per variant, each changing one binding of the fixture
+# attestation; every other binding stays valid, which
+# oid4vp.verifier_attestation_request proves on the delivered Request Object.
+# A Wallet trusts the attestation only once its issuer, published at
+# /openid4vp/verifier-attestation-issuer/jwks.json, is configured as trusted.
+name: FCAF verifier attestation Client Identifier Prefix
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+- id: fetch-attestation-issuer-jwks
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/verifier-attestation-issuer/jwks.json
+    expected_status: 200
+# The fixture attestation unchanged: sub equals the Client Identifier, cnf holds
+# the request signing key, no redirect_uris. Positive control of 116, 118,
+# 122, 124 and RpIntegrity 008.
+- id: create-va-default
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      client_id_scheme: verifier_attestation
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-attestation-default
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+- id: present-va-default
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-va-default.outputs.body.deeplink }}"
+- id: fetch-va-default
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-va-default.outputs.body.session_id }}
+    expected_status: 200
+# The attestation sub disagrees with the Client Identifier (Metadata 117).
+- id: create-va-subject
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      client_id_scheme: verifier_attestation
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-attestation-subject
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      verifier_attestation:
+        subject: other-verifier.credimi.invalid
+- id: reject-va-subject
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-va-subject.outputs.body.deeplink }}"
+- id: fetch-va-subject
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-va-subject.outputs.body.session_id }}
+    expected_status: 200
+# The attestation iss is an issuer no Wallet trusts; the signature is still the
+# fixture issuer's, so iss is the only defect (RpIntegrity 011).
+- id: create-va-issuer
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      client_id_scheme: verifier_attestation
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-attestation-issuer
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      verifier_attestation:
+        issuer: https://untrusted-attestation-issuer.credimi.invalid
+- id: reject-va-issuer
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-va-issuer.outputs.body.deeplink }}"
+- id: fetch-va-issuer
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-va-issuer.outputs.body.session_id }}
+    expected_status: 200
+# redirect_uris names this session's own response_uri. A direct_post.jwt
+# request carries response_uri, not redirect_uri, and OpenID4VP 8.2 applies the
+# Client Identifier Prefix rules for redirect_uri to response_uri, so 120 and
+# 121 compare redirect_uris with the response_uri (TEST-AUTHOR-FEEDBACK.md
+# Issue 24).
+- id: create-va-redirect-match
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      client_id_scheme: verifier_attestation
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-attestation-redirect-match
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      verifier_attestation:
+        redirect_uris:
+        - "{{response_uri}}"
+- id: present-va-redirect-match
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-va-redirect-match.outputs.body.deeplink }}"
+- id: fetch-va-redirect-match
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-va-redirect-match.outputs.body.session_id }}
+    expected_status: 200
+# redirect_uris holds only a foreign URI, so the session's response_uri breaks
+# the Section 5.9.3 exact-match rule that Section 8.2 applies to response_uri
+# (Metadata 121, MainInteraction 056).
+- id: create-va-redirect-foreign
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      client_id_scheme: verifier_attestation
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-attestation-redirect-foreign
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      verifier_attestation:
+        redirect_uris:
+        - https://foreign-verifier.credimi.invalid/openid4vp/response
+- id: reject-va-redirect-foreign
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-va-redirect-foreign.outputs.body.deeplink }}"
+- id: fetch-va-redirect-foreign
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-va-redirect-foreign.outputs.body.session_id }}
+    expected_status: 200
+# The attestation signature does not verify; the Request Object is still
+# validly signed with the cnf key (RpIntegrity 012).
+- id: create-va-attestation-sig
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      client_id_scheme: verifier_attestation
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-attestation-attestation-sig
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      verifier_attestation:
+        signature: corrupt
+- id: reject-va-attestation-sig
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-va-attestation-sig.outputs.body.deeplink }}"
+- id: fetch-va-attestation-sig
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-va-attestation-sig.outputs.body.session_id }}
+    expected_status: 200
+# The Request Object is signed with a key that is not the attestation's cnf
+# key (RpIntegrity 009).
+- id: create-va-signing-key
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      client_id_scheme: verifier_attestation
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-attestation-signing-key
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_behavior:
+        signing_key: unrelated
+- id: reject-va-signing-key
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-va-signing-key.outputs.body.deeplink }}"
+- id: fetch-va-signing-key
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-va-signing-key.outputs.body.session_id }}
+    expected_status: 200
+# The jwt JOSE header is removed, so the request carries no attestation
+# (Metadata 119).
+- id: create-va-no-jwt
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      client_id_scheme: verifier_attestation
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-attestation-no-jwt
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object_header:
+          unset:
+          - /jwt
+        verification_applies: false
+- id: reject-va-no-jwt
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-va-no-jwt.outputs.body.deeplink }}"
+- id: fetch-va-no-jwt
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-va-no-jwt.outputs.body.session_id }}
+    expected_status: 200
+# Non-key Verifier metadata (client_name) is added to the Request Object
+# outside client_metadata, which keeps the generated metadata (Metadata 123).
+- id: create-va-outside-metadata
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      client_id_scheme: verifier_attestation
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: verifier-attestation-outside-metadata
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_mutation:
+        request_object:
+          set:
+            /client_name: Credimi FCAF verifier outside client_metadata
+- id: present-va-outside-metadata
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-va-outside-metadata.outputs.body.deeplink }}"
+- id: fetch-va-outside-metadata
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-va-outside-metadata.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_IA_MainInteraction__056
+    - WS_RP_MS_Metadata__116
+    - WS_RP_MS_Metadata__117
+    - WS_RP_MS_Metadata__118
+    - WS_RP_MS_Metadata__119
+    - WS_RP_MS_Metadata__120
+    - WS_RP_MS_Metadata__121
+    - WS_RP_MS_Metadata__122
+    - WS_RP_MS_Metadata__123
+    - WS_RP_MS_Metadata__124
+    - WS_RP_SM_RpIntegrity__008
+    - WS_RP_SM_RpIntegrity__009
+    - WS_RP_SM_RpIntegrity__011
+    - WS_RP_SM_RpIntegrity__012
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.rp-integrity.verifier-attestation:
+        output:
+          default_session: ${{ fetch-va-default.outputs.body }}
+          default_request_object: ${{ fetch-va-default.outputs.body.raw.authorization_request_jwt }}
+          default_request_evidence:
+            request_object: ${{ fetch-va-default.outputs.body.raw.authorization_request_jwt }}
+            attestation_issuer_jwks: ${{ fetch-attestation-issuer-jwks.outputs.body }}
+          default_visual_evidence: ${{ present-va-default.outputs.flow_output.maestro_screenshot_urls }}
+          subject_mismatch_session: ${{ fetch-va-subject.outputs.body }}
+          subject_mismatch_request_object: ${{ fetch-va-subject.outputs.body.raw.authorization_request_jwt }}
+          subject_mismatch_request_evidence:
+            request_object: ${{ fetch-va-subject.outputs.body.raw.authorization_request_jwt }}
+            attestation_issuer_jwks: ${{ fetch-attestation-issuer-jwks.outputs.body }}
+          subject_mismatch_visual_evidence: ${{ reject-va-subject.outputs.flow_output.maestro_screenshot_urls }}
+          untrusted_issuer_session: ${{ fetch-va-issuer.outputs.body }}
+          untrusted_issuer_request_object: ${{ fetch-va-issuer.outputs.body.raw.authorization_request_jwt }}
+          untrusted_issuer_request_evidence:
+            request_object: ${{ fetch-va-issuer.outputs.body.raw.authorization_request_jwt }}
+            attestation_issuer_jwks: ${{ fetch-attestation-issuer-jwks.outputs.body }}
+          untrusted_issuer_visual_evidence: ${{ reject-va-issuer.outputs.flow_output.maestro_screenshot_urls }}
+          redirect_uris_match_session: ${{ fetch-va-redirect-match.outputs.body }}
+          redirect_uris_match_request_object: ${{ fetch-va-redirect-match.outputs.body.raw.authorization_request_jwt }}
+          redirect_uris_match_request_evidence:
+            request_object: ${{ fetch-va-redirect-match.outputs.body.raw.authorization_request_jwt }}
+            attestation_issuer_jwks: ${{ fetch-attestation-issuer-jwks.outputs.body }}
+          redirect_uris_match_visual_evidence: ${{ present-va-redirect-match.outputs.flow_output.maestro_screenshot_urls }}
+          redirect_uris_foreign_session: ${{ fetch-va-redirect-foreign.outputs.body }}
+          redirect_uris_foreign_request_object: ${{ fetch-va-redirect-foreign.outputs.body.raw.authorization_request_jwt }}
+          redirect_uris_foreign_request_evidence:
+            request_object: ${{ fetch-va-redirect-foreign.outputs.body.raw.authorization_request_jwt }}
+            attestation_issuer_jwks: ${{ fetch-attestation-issuer-jwks.outputs.body }}
+          redirect_uris_foreign_visual_evidence: ${{ reject-va-redirect-foreign.outputs.flow_output.maestro_screenshot_urls }}
+          attestation_signature_corrupt_session: ${{ fetch-va-attestation-sig.outputs.body }}
+          attestation_signature_corrupt_request_object: ${{ fetch-va-attestation-sig.outputs.body.raw.authorization_request_jwt }}
+          attestation_signature_corrupt_request_evidence:
+            request_object: ${{ fetch-va-attestation-sig.outputs.body.raw.authorization_request_jwt }}
+            attestation_issuer_jwks: ${{ fetch-attestation-issuer-jwks.outputs.body }}
+          attestation_signature_corrupt_visual_evidence: ${{ reject-va-attestation-sig.outputs.flow_output.maestro_screenshot_urls }}
+          unrelated_signing_key_session: ${{ fetch-va-signing-key.outputs.body }}
+          unrelated_signing_key_request_object: ${{ fetch-va-signing-key.outputs.body.raw.authorization_request_jwt }}
+          unrelated_signing_key_request_evidence:
+            request_object: ${{ fetch-va-signing-key.outputs.body.raw.authorization_request_jwt }}
+            attestation_issuer_jwks: ${{ fetch-attestation-issuer-jwks.outputs.body }}
+          unrelated_signing_key_visual_evidence: ${{ reject-va-signing-key.outputs.flow_output.maestro_screenshot_urls }}
+          jwt_header_absent_session: ${{ fetch-va-no-jwt.outputs.body }}
+          jwt_header_absent_request_object: ${{ fetch-va-no-jwt.outputs.body.raw.authorization_request_jwt }}
+          jwt_header_absent_request_evidence:
+            request_object: ${{ fetch-va-no-jwt.outputs.body.raw.authorization_request_jwt }}
+            attestation_issuer_jwks: ${{ fetch-attestation-issuer-jwks.outputs.body }}
+          jwt_header_absent_visual_evidence: ${{ reject-va-no-jwt.outputs.flow_output.maestro_screenshot_urls }}
+          metadata_outside_client_metadata_session: ${{ fetch-va-outside-metadata.outputs.body }}
+          metadata_outside_client_metadata_request_object: ${{ fetch-va-outside-metadata.outputs.body.raw.authorization_request_jwt }}
+          metadata_outside_client_metadata_request_evidence:
+            request_object: ${{ fetch-va-outside-metadata.outputs.body.raw.authorization_request_jwt }}
+            attestation_issuer_jwks: ${{ fetch-attestation-issuer-jwks.outputs.body }}
+          metadata_outside_client_metadata_visual_evidence: ${{ present-va-outside-metadata.outputs.flow_output.maestro_screenshot_urls }}

@@ -743,3 +743,34 @@ verifier that can issue every required variant and capture the Wallet's
 protocol response. Include canonical fixtures and expected validation outcomes
 so implementations do not invent incompatible attestation profiles.
 ```
+
+### Issue 24: Name `response_uri` in verifier-attestation redirect tests 120 and 121
+
+Suggested title:
+
+```text
+clarify(wallet-rp): compare redirect_uris with response_uri in metadata tests 120-121
+```
+
+Suggested issue body:
+
+```markdown
+`WS_RP_MS_Metadata__120` and `__121` compare "the redirect_uri request
+parameter" with the Verifier attestation JWT's `redirect_uris` claim
+(OpenID4VP Section 5.9.3). The redirect flows the wallet relying-party suite
+uses answer with `direct_post` or `direct_post.jwt`, whose Authorization
+Request carries `response_uri` and must not carry `redirect_uri` (Section 8.2).
+Section 8.2 states that the Client Identifier Prefix rules for `redirect_uri`
+apply to `response_uri` in that case, so the comparison an implementation can
+run is `response_uri` against `redirect_uris`.
+
+Proposed change: name `response_uri` (with the Section 8.2 reference) in the
+scenario and expected results of 120 and 121, or state that the tests use a
+response mode that carries `redirect_uri`.
+
+Related: 120, 121 and 122 list "Wallet has a configured list of trusted
+issuers for Verifier Attestation JWTs" as a precondition, but the other
+positive verifier_attestation tests (`__116`, `__118`, `__124`,
+`WS_RP_SM_RpIntegrity__008`) need the same trust to proceed and do not state
+it.
+```
