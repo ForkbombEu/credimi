@@ -21839,6 +21839,105 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ response-uri-controls-48310ca6-create-redirect-uri-present.outputs.body.session_id }}
     - continue_on_error: true
+      id: revoked-mdoc-3d32a2d9-create-revoked-mdoc-issuance
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+            fixture_id: pid_person_b
+            issuer_configuration_id: eu-pid-device-bound
+            status_list_enabled: true
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: revoked-mdoc-3d32a2d9-obtain-revoked-mdoc
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ revoked-mdoc-3d32a2d9-create-revoked-mdoc-issuance.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: revoked-mdoc-3d32a2d9-fetch-revoked-mdoc-issuance
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ revoked-mdoc-3d32a2d9-create-revoked-mdoc-issuance.outputs.body.session_id }}
+    - continue_on_error: true
+      id: revoked-mdoc-3d32a2d9-revoke-mdoc
+      use: http-request
+      with:
+        body:
+            status: revoked
+        expected_status: 200
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions/${{ revoked-mdoc-3d32a2d9-create-revoked-mdoc-issuance.outputs.body.session_id }}/status
+    - continue_on_error: true
+      id: revoked-mdoc-3d32a2d9-wait-past-status-list-exp
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            name: FCAF wait past the status list exp
+            ---
+            - extendedWaitUntil:
+                visible: "FCAF status list exp window has not elapsed"
+                timeout: 240000
+                optional: true
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: revoked-mdoc-3d32a2d9-create-revoked-mdoc-request
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - eu.europa.ec.eudi.pid.1
+                                - document_number
+                              values:
+                                - CREDIMI-DEMO-002
+                          format: mso_mdoc
+                          id: pid_mdoc
+                          meta:
+                            doctype_value: eu.europa.ec.eudi.pid.1
+                nonce: issuer-integrity-revoked-mdoc
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: revoked-mdoc-3d32a2d9-request-revoked-mdoc
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+        parameters:
+            deeplink: ${{ revoked-mdoc-3d32a2d9-create-revoked-mdoc-request.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: revoked-mdoc-3d32a2d9-fetch-revoked-mdoc-request
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ revoked-mdoc-3d32a2d9-create-revoked-mdoc-request.outputs.body.session_id }}
+    - continue_on_error: true
       id: rp-integrity-certificate-chain-ed1def1e-create-incomplete-chain
       use: http-request
       with:
@@ -26418,6 +26517,17 @@ steps:
                 output:
                     dcql_exchange: ${{ interaction-pid-sdjwt-ec048f5c-fetch-two-claim-presentation.outputs.body | optional }}
                     visual_evidence: ${{ interaction-pid-sdjwt-ec048f5c-present-two-claim-presentation.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.issuer-integrity.revoked-mdoc:
+                output:
+                    issuance_session: ${{ revoked-mdoc-3d32a2d9-fetch-revoked-mdoc-issuance.outputs.body | optional }}
+                    presentation_session: ${{ revoked-mdoc-3d32a2d9-fetch-revoked-mdoc-request.outputs.body | optional }}
+                    revocation_timing:
+                        presentation_session: ${{ revoked-mdoc-3d32a2d9-fetch-revoked-mdoc-request.outputs.body | optional }}
+                        revocation: ${{ revoked-mdoc-3d32a2d9-revoke-mdoc.outputs.body | optional }}
+                    stored_issuance:
+                        issuer_session: ${{ revoked-mdoc-3d32a2d9-fetch-revoked-mdoc-issuance.outputs.body | optional }}
+                        wallet_screenshots: ${{ revoked-mdoc-3d32a2d9-obtain-revoked-mdoc.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    visual_evidence: ${{ revoked-mdoc-3d32a2d9-request-revoked-mdoc.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.mdoc.absent-namespace:
                 output:
                     dcql_exchange: ${{ mdoc-absent-namespace-8c8f84c8-fetch-capture-session.outputs.body | optional }}

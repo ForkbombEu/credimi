@@ -48,12 +48,6 @@ facts undated below were probed 14/10/2026.
   device (cross-device transfer); the pipeline drives one device.
 - `WS_RP_IA_Supportive__006`: needs a deliberately resource-exhausted device
   (out of RAM and disk) answering `wallet_unavailable`.
-- `WS_RP_SM_IssuerIntegrity__012`: needs the Wallet to hold a revoked mdoc
-  past the status list's max-age. Capture revokes a stored mdoc (`POST
-  /sessions/{id}/status`, probed 22/10/2026), but the list is served with
-  `Cache-Control: max-age=43200`, so a Wallet that fetched it at issuance may
-  rely on the valid copy for 12 hours. The pipeline has no wait step, and each
-  scenario resets the Wallet, so the wait cannot overlap other scenarios.
 
 ## Blocked on Capture
 

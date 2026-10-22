@@ -4273,3 +4273,39 @@ attestation issuer (only 120-122 state it); a Wallet that refuses the
 `verifier_attestation` prefix itself with the right error code passes the
 negatives, and 056 passes on a discontinuation, without proving the tested
 check (RI-WALLET-029). 002b has no `implementation-inventory.csv` row.
+
+## IssuerIntegrity 012 implemented after the 120 s status list window, 22/10/2026
+
+The maintainer redeployed the Status List service with a 120 s window. A probe
+of a fresh mdoc reference confirmed, for the JWT and CWT forms alike: `exp =
+iat + 120`, `ttl: 120`, `Cache-Control: max-age=120`, a token re-signed on
+every fetch, an `ETag` that changes with content and `exp`, and the revoked
+bit visible on the first fetch after revocation.
+
+New scenario `revoked-mdoc` (`pipeline.issuer-integrity.revoked-mdoc`) owns
+`WS_RP_SM_IssuerIntegrity__012`, which leaves the baseline: issue a PID mdoc on
+`eu-pid-device-bound` with `status_list_enabled: true` and `pid_person_b`,
+accept it with the generic issuance action (possession: issuer session at
+`credential_issued` plus `credential-added`), `POST /sessions/{id}/status
+{"status": "revoked"}`, wait 240 s in an inline Maestro step (an optional
+`extendedWaitUntil` on text that never appears), then request the mdoc with a
+query pinning `document_number` `CREDIMI-DEMO-002` through
+`fcaf-expect-no-matching-document`. The Request Object is created after the
+wait, so its 300 s lifetime is not spent waiting.
+
+Two validators with unit tests: `oid4vci.revocation_precedes_request` blocks
+the test unless every reference was revoked (`ok`, `status: 1`) and the Wallet
+retrieved the request at least `min_delay_seconds` (180: the 120 s window plus
+60 s skew) after the revocation; `oid4vp.wallet_error_conceals_reason`
+requires an error, no `vp_token`, and none of the listed terms (`revoked`,
+`revocation`, `status list`, …) in `error`, `error_description` or
+`error_uri`. A discontinuation fails: the source asks for an error.
+
+Production smoke with a scripted wallet (the jwt-proof mdoc configuration in
+place of the key-attestation one, a synthetic screenshot URL): after the real
+245 s wait, an `access_denied` error passes, an error whose description says
+"revoked" fails, and a request retrieved right after the revocation is
+blocked. No reference-Wallet run.
+
+Counts: complete 1460 steps / 372 wallet steps / 617 tests / 216 outputs;
+happy flow 141 / 43 / 288 test IDs / 32 outputs.

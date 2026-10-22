@@ -751,6 +751,12 @@ source test permits it.
     for `suspended`, and `200` after an mdoc issuance; the list at
     `tsl.credimi.io` then had the bit set, served with `Cache-Control:
     max-age=43200`.
+- Later on 22/10/2026 the Status List service was redeployed with a 120 s
+  window: every fetch of a list (JWT and CWT) returned a freshly signed token
+  with `exp = iat + 120` and `ttl: 120`, `Cache-Control: max-age=120`, and an
+  `ETag` that changes with the content and the `exp` (`W/"jwt.0.<exp>"`
+  before revocation, `W/"jwt.1.<exp>"` after). The revoked bit showed on the
+  first fetch after `POST /sessions/{id}/status`.
 
 ### Known FCAF limitations
 
