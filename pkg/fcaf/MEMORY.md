@@ -4309,3 +4309,140 @@ blocked. No reference-Wallet run.
 
 Counts: complete 1460 steps / 372 wallet steps / 617 tests / 216 outputs;
 happy flow 141 / 43 / 288 test IDs / 32 outputs.
+
+## Wallet solution attestation provider suite, first 18 tests, 22/10/2026
+
+Second FCAF suite, `wallet_solution/attestation_provider` (Wallet to an
+OpenID4VCI Attestation Provider), sources vendored from upstream `submitted`
+`0ed4ab11` under `config_templates/fcaf_sources/wallet_solution/attestation_provider/`.
+Branch `feat/fcaf_ap`.
+
+### Suite plumbing
+
+- `cmd/fcaf-pipeline-gen` generates every suite in `generatedSuites`
+  (`-suite <sut>/<role>` for one, `-root` for the templates dir). Paths, the
+  pipeline name, the scenario step prefix (`fcaf-<suite slug>-` stripped) and
+  the validation step `suite` derive from the suite. Demo and happy-flow
+  pipelines stay relying-party only. The three relying-party pipelines
+  regenerate byte-identical.
+- `fcaf-validation` loads its catalog from `config_templates/fcaf/<suite>`
+  (default relying party) and refuses a `suite` that is not `<sut>/<role>`.
+- `credimi fcaf run|sync --suite` (Makefile `FCAF_SUITE`) picks the pipelines
+  dir; `--dir` still overrides.
+- Report PDF/JSON: catalog, source Markdown and FCAF source links follow the
+  report's `suite`; `WS_AP_*` IDs group by area like `WS_RP_*` (Go and webapp).
+- Conformance catalog: the AP pack maps to `openid4vci` / `wallet`.
+- Webapp pipeline editor: the FCAF picker offers only the tests of the step's
+  `suite`, and `pipeline_outputs` defaults come from that suite's aggregate
+  (`FCAF.PIPELINE_OUTPUTS_BY_SUITE`).
+
+### Scenario and tests
+
+`scenarios/fcaf-wallet-solution-attestation-provider-authorization-code-issuance.yaml`:
+an authorization-code issuance from `eu-pid-device-bound`
+(`urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required`, fixture
+`pid_person_b`) through the stored `getcredential-generic-credential-without-authentication`,
+then GETs of the session, the global request ledger, issuer and AS metadata,
+then a `direct_post.jwt` presentation querying `family_name: Bianchi` through
+`fcaf-engagement-haip-vp`. One source, `pipeline.ap.authorization-code-issuance`,
+exposes `issuance_exchange` ({capture_session, request_ledger,
+issuer_metadata, authorization_server_metadata}), `credential_request`,
+`proof_headers`, `issued_credential_presentation` and
+`issuance_visual_evidence`.
+
+New validators (`pkg/fcaf/validators/oid4vci_issuance.go`, `json_shape.go`):
+
+- `oid4vci.wallet_request`: requests located by path suffix (never by index,
+  Capture's chained `/authorization-servers/` excluded), checked for method,
+  host/port/path/query of a metadata endpoint, https, no query, media type and
+  required/absent parameters (redaction markers count by `present`). With
+  `ledger_fallback` it attributes a request the session lacks from the global
+  ledger: same issuer configuration, no other session, between the session's
+  PAR and its next request, narrowed by the PAR `state`; ambiguity is
+  inconclusive.
+- `oid4vci.par_scope_supported`, `oid4vci.credential_configuration_scope_requested`.
+- `oid4vci.proof_jwt_header`: `jwt` proof headers from `raw.proof_headers`;
+  no header recorded is inconclusive (Capture writes them only after Credo
+  accepted the proof), attestation proofs only is not applicable.
+- `oid4vci.issued_credential_presented`: issuance `credential_issued`, Verifier
+  `presentation_validated`, and a presented SD-JWT VC from the issuance issuer
+  whose `cnf.jwk` is the holder key Capture verified at issuance.
+- `json.field_type`, `json.object_exactly_one_member`.
+
+The authorization-code flow opens the Authorization Request in Chrome. A
+Chrome whose state was cleared (`pm clear com.android.chrome`) shows its
+first-run `Make Chrome your own` screen there; the auto-approved redirect back
+to the Wallet only lands once `Stay signed out` is tapped, so the unchanged
+issuance action fails its `View details` assertion. The shared issuance
+actions are deliberately left as they are: the device must have completed
+Chrome's first run before an authorization-code issuance, and runs must not
+clear Chrome state (the first production run below failed exactly this way).
+
+### Reference wallet 2026.09.42 verdicts
+
+Run from a reset wallet on `emulator-5554`, driving the generated aggregate
+with Maestro and evaluating its validation step with the FCAF engine: twice
+against `beta-capture-wallet.credimi.io` (issuance sessions `142006ab-…`,
+`2c6c9d8c-…`) and once against production `capture-wallet.credimi.io`, the
+scenario's own target (issuance `45bd67f6-…`, presentation `4b95669a-…`),
+after Chrome's first run was completed once on the device. Same verdicts on
+all three:
+
+- pass: Supportive 010a, MainInteraction 010a, 010b, 030a, 031a,
+  ProtocolMessages 034a, 039a, 040a, 040b, 050a–050e.
+- not applicable: ProtocolMessages 052a, 052b, 052c, DeviceBinding 010b. The
+  wallet sends `proofs.attestation` only (`typ: key-attestation+jwt`,
+  `ES256`), never a `jwt` proof, so the sources' profile applicability (a
+  key attestation conveyed in a `jwt` proof) excludes it.
+
+The wallet does run the authorization-code flow with PAR (form-encoded, PKCE
+S256, `issuer_state`, `state`, DPoP), sends `OAuth-Client-Attestation` and
+`-PoP` headers on PAR and token, and proves key possession with a key
+attestation (`checks.key_attestation_verified: true`). Capture's
+`checks.wallet_attestation_present` stays `false` despite the headers, so it is
+not evidence of client attestation.
+
+### Residual risks
+
+- The Authorization Request is attributed from the global ledger, not tied by
+  Capture: heavy concurrent traffic on the same issuer configuration within a
+  few seconds can make it ambiguous, or evict the PAR's time from the
+  1000-entry ledger; both are inconclusive. The stored FCAF report also copies the whole ledger,
+  including other callers' redacted requests and forwarded IPs. A Capture
+  change tying `/authorize` to the session by `request_uri` would remove both.
+- 052a–052c and 010b cannot pass on any wallet against Capture today unless it
+  chooses `jwt` proofs: `eu-pid-device-bound` advertises both proof types and
+  `eu-pid-jwt-proof-only` advertises `jwt` without key attestation. An issuer
+  configuration advertising only `jwt` with `key_attestations_required` would
+  let the four tests exercise a wallet that supports both.
+- 050a's precondition (no `credential_identifiers` in the Token Response) is
+  not observed: Capture records no response bodies. It holds because Credo
+  never returns them.
+- Metadata is fetched as JSON; the wallet fetched signed issuer metadata
+  (`application/jwt`). Same content, different representation.
+- No Credimi pipeline run yet (local Maestro driver only), and
+  `implementation-inventory.xlsx` is not regenerated.
+
+### Next candidates
+
+Classified from each source's objective only; read the full Markdown before
+implementing any of them.
+
+- Offer-scheme engagement: IA_Engagement_007a, 007b, ProtocolMessages 033a,
+  033c_UF need the offer deeplink rewritten to `eu-eaa-offer://` or
+  `haip-vci://`.
+- Possibly buildable now from header presence: ProtocolMessages 035a and 036a
+  (one `OAuth-Client-Attestation` / `-PoP` header on the PAR). The ledger keeps
+  one redacted value per header name, so a duplicated header is not observable.
+- Needs unredacted client attestation evidence: ProtocolMessages 035b, 036b,
+  037a–037c, 038a, DeviceBinding 001a, 001b, 002a, 002b, 003a, 003b.
+- Needs unredacted proof evidence (and, for the `jwt` ones, a wallet sending
+  `jwt` proofs): ProtocolMessages 051a–051c, 053a–053d, DeviceBinding 010a,
+  010c, 011a, 011b, 012a, 013a; ProtocolMessages 039b and MainInteraction 010c
+  need the `request_uri` value.
+- Needs issuer response scenarios: Supportive 011a, 011b_UF, MainInteraction
+  031b_UF.
+- Needs a malformed Credential Offer by value (`credential_issuer` omitted):
+  ProtocolMessages 033b_UF, alongside the 033 offer rewrite above.
+- Needs JAR in PAR: ProtocolMessages 034b–034d.
+- Not yet classified: MainInteraction 030b.

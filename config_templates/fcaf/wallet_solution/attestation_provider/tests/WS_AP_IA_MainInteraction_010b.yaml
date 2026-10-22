@@ -1,0 +1,42 @@
+id: WS_AP_IA_MainInteraction_010b
+title: Reference the pushed authorization request with request_uri in the Authorization Request.
+source:
+  path: Interaction/MainInteraction/WS_AP_IA_MainInteraction_010b.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: ETSI TS 119 472-3
+  section: '4.1'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: OpenID for Verifiable Credential Issuance 1.0
+  section: '5.1'
+  url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+- title: RFC 9126 OAuth 2.0 Pushed Authorization Requests
+  section: '4'
+  url: https://www.rfc-editor.org/rfc/rfc9126
+- title: RFC 9101 JWT-Secured Authorization Request (JAR)
+  section: '5'
+  url: https://www.rfc-editor.org/rfc/rfc9101
+evidence:
+  issuance_exchange:
+    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
+assertions:
+# request_uri is redacted by Capture; only its presence is evidence.
+- id: authorization_request_carries_request_uri
+  validator: oid4vci.wallet_request
+  input: evidence.issuance_exchange
+  params:
+    path_suffix: '/authorize'
+    ledger_fallback: true
+    parameters:
+      in: query_or_body
+      required: [request_uri]
+verdict:
+  pass_when: all_assertions_pass

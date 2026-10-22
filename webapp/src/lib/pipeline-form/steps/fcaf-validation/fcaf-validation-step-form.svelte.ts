@@ -31,10 +31,10 @@ function defaultFCAFValidationYaml(): string {
 	});
 }
 
-function filterPipelineOutputsFor(testIds: string[]): Record<string, unknown> {
+function filterPipelineOutputsFor(suite: string, testIds: string[]): Record<string, unknown> {
 	if (testIds.length === 0) return {};
-	// Full defaults map from aggregate pipeline — validators ignore unused keys.
-	return { ...(FCAF.PIPELINE_OUTPUTS as Record<string, unknown>) };
+	// Full defaults map from the suite's aggregate pipeline — validators ignore unused keys.
+	return { ...(FCAF.PIPELINE_OUTPUTS_BY_SUITE[suite] ?? {}) };
 }
 
 export class FCAFValidationStepForm extends BaseForm<
@@ -66,8 +66,20 @@ export class FCAFValidationStepForm extends BaseForm<
 		}
 	}
 
+	/** The configured suite, or the default suite while the YAML names none or is invalid. */
+	get suite(): string {
+		try {
+			const { suite } = parseFCAFValidationConfiguration(this.data.yaml);
+			return typeof suite === 'string' && suite !== '' ? suite : FCAF.SUITE;
+		} catch {
+			return FCAF.SUITE;
+		}
+	}
+
+	/** Catalog tests of the configured suite: a validation step validates one suite. */
 	get availableTests(): FCAF.TestCatalogEntry[] {
-		return this.fcafTests.data ?? [];
+		const suite = this.suite;
+		return (this.fcafTests.data ?? []).filter((test) => test.suite === suite);
 	}
 
 	get selectedTestIds(): string[] {
@@ -94,7 +106,7 @@ export class FCAFValidationStepForm extends BaseForm<
 	setTestIds(testIds: string[]) {
 		const config = parseFCAFValidationConfiguration(this.data.yaml) as Record<string, unknown>;
 		config.test_ids = [...testIds];
-		config.pipeline_outputs = filterPipelineOutputsFor(testIds);
+		config.pipeline_outputs = filterPipelineOutputsFor(this.suite, testIds);
 		delete config.test_id;
 		this.data.yaml = stringify(config);
 	}

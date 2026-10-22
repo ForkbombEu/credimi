@@ -47,27 +47,70 @@ func TestLoadTestsSkipsImplementationFolder(t *testing.T) {
 	require.Len(t, tests, 1)
 }
 
-func TestLoadGeneratedWalletRelyingPartyCatalog(t *testing.T) {
-	cat, err := Load("../../../config_templates/fcaf/wallet_solution/relying_party")
-
+func TestLoadGeneratedWalletCatalogs(t *testing.T) {
+	registry, err := validators.DefaultRegistry()
 	require.NoError(t, err)
-	require.Len(t, cat.Tests, 617)
+	for _, tt := range []struct {
+		suite string
+		tests int
+	}{
+		{suite: "wallet_solution/relying_party", tests: 617},
+		{suite: "wallet_solution/attestation_provider", tests: 18},
+	} {
+		t.Run(tt.suite, func(t *testing.T) {
+			cat, err := Load("../../../config_templates/fcaf/" + tt.suite)
+			require.NoError(t, err)
+			require.Len(t, cat.Tests, tt.tests)
 
+			for id, test := range cat.Tests {
+				require.Equal(t, tt.suite, test.Suite.SUT+"/"+test.Suite.Role, id)
+				for name, binding := range test.Evidence {
+					require.Containsf(t, binding.From, ".outputs.", "%s evidence %s", id, name)
+				}
+				for _, assertion := range test.Assertions {
+					_, exists := registry.Get(assertion.Validator)
+					require.Truef(
+						t,
+						exists,
+						"%s references unknown validator %s",
+						id,
+						assertion.Validator,
+					)
+				}
+			}
+
+			selected, err := cat.ResolveSelectedTests(nil, tt.suite, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, tt.tests)
+		})
+	}
+}
+
+// Every assertion of the attestation-provider catalog must pass its validator's
+// parameter checks; otherwise the test can only ever end in Error.
+func TestAttestationProviderAssertionParamsAreAccepted(t *testing.T) {
+	cat, err := Load("../../../config_templates/fcaf/wallet_solution/attestation_provider")
+	require.NoError(t, err)
 	registry, err := validators.DefaultRegistry()
 	require.NoError(t, err)
 	for id, test := range cat.Tests {
-		for name, binding := range test.Evidence {
-			require.Containsf(t, binding.From, ".outputs.", "%s evidence %s", id, name)
-		}
 		for _, assertion := range test.Assertions {
-			_, exists := registry.Get(assertion.Validator)
-			require.Truef(t, exists, "%s references unknown validator %s", id, assertion.Validator)
+			validator, _ := registry.Get(assertion.Validator)
+			result := validator.Validate(context.Background(), validators.Input{
+				Value:  map[string]any{},
+				Params: assertion.Params,
+			})
+			require.NotEqualf(
+				t,
+				validators.StatusError,
+				result.Status,
+				"%s assertion %s: %s",
+				id,
+				assertion.ID,
+				result.Message,
+			)
 		}
 	}
-
-	selected, err := cat.ResolveSelectedTests(nil, "wallet_solution/relying_party", nil)
-	require.NoError(t, err)
-	require.Len(t, selected, 617)
 }
 
 // Every DCQL mode a catalog test uses must pass the validator's mode gate;
@@ -100,7 +143,18 @@ func TestCatalogDCQLAssertionModesAreSupported(t *testing.T) {
 }
 
 func TestEmbeddedValidationStepsExposeDirectTestEvidence(t *testing.T) {
-	catalogRoot := "../../../config_templates/fcaf/wallet_solution/relying_party"
+	for _, suite := range []string{"wallet_solution/relying_party", "wallet_solution/attestation_provider"} {
+		t.Run(suite, func(t *testing.T) {
+			requireValidationStepsExposeDirectTestEvidence(
+				t,
+				"../../../config_templates/fcaf/"+suite,
+			)
+		})
+	}
+}
+
+func requireValidationStepsExposeDirectTestEvidence(t *testing.T, catalogRoot string) {
+	t.Helper()
 	cat, err := Load(catalogRoot)
 	require.NoError(t, err)
 

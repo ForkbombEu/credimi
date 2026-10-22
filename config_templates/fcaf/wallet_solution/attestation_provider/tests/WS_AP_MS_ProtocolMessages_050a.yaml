@@ -1,0 +1,44 @@
+id: WS_AP_MS_ProtocolMessages_050a
+title: Identify the credential by credential_configuration_id and send proofs in the Credential Request.
+source:
+  path: MessageStructure/ProtocolMessages/WS_AP_MS_ProtocolMessages_050a.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: ETSI TS 119 472-3
+  section: '4.6'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4.5'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: OpenID for Verifiable Credential Issuance 1.0
+  section: '8.2'
+  url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+evidence:
+  credential_request:
+    from: pipeline.ap.authorization-code-issuance.outputs.credential_request
+assertions:
+# The precondition holds by construction: Credo returns no credential_identifiers in the
+# Token Response. credential_response_encryption is optional, so it is not asserted.
+- id: credential_identifier_is_absent
+  validator: json.field_presence
+  input: evidence.credential_request
+  params:
+    field: credential_identifier
+    present: false
+- id: credential_configuration_id_is_present
+  validator: json.field_required
+  input: evidence.credential_request
+  params:
+    field: credential_configuration_id
+- id: proofs_is_present
+  validator: json.field_required
+  input: evidence.credential_request
+  params:
+    field: proofs
+verdict:
+  pass_when: all_assertions_pass

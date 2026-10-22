@@ -3,14 +3,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * Canonical FCAF wallet-solution/relying-party grouping.
+ * Canonical FCAF wallet-solution grouping, shared by the relying-party (RP)
+ * and attestation-provider (AP) suites.
  *
  * Test identifiers encode their owning FCAF section and subsection directly:
  *
- *   WS_RP_<CATEGORY>_<SUBGROUP>_<specifics>_<NNN>
+ *   WS_<ROLE>_<CATEGORY>_<SUBGROUP>_<specifics>_<NNN>
  *
  * e.g. `WS_RP_DM_AddressData_Emailaddress_PID_IETF-sd-jwt-vc_001`
  *      `WS_RP_IA_MainInteraction__003`
+ *      `WS_AP_IA_Supportive_010a`
  *
  * `suite.section` in the test YAML is not reliable here: some entries carry the
  * semantic dotted path (`data_model.address_data`) while others carry ARF
@@ -135,12 +137,15 @@ export function subgroupLabel(segment: string): string {
 	return SUBGROUP_LABELS[segment.toLowerCase()] ?? humanize(segment);
 }
 
+/** Role segments of wallet-solution test identifiers. */
+const FCAF_ROLE_CODES: Record<string, true> = { RP: true, AP: true };
+
 export function parseFCAFTestId(testId: string | undefined): ParsedFCAFTestId {
 	if (!testId) return { category: CATEGORIES.OTHER, key: 'other', label: 'Other' };
 
 	const parts = testId.split('_');
-	// WS_RP_<CATEGORY>_<SUBGROUP>_...
-	if (parts.length >= 4 && parts[0] === 'WS' && parts[1] === 'RP') {
+	// WS_<ROLE>_<CATEGORY>_<SUBGROUP>_...
+	if (parts.length >= 4 && parts[0] === 'WS' && FCAF_ROLE_CODES[parts[1]] === true) {
 		const code = parts[2].toUpperCase() as FCAFCategoryCode;
 		const category = CATEGORIES[code] ?? CATEGORIES.OTHER;
 		const segment = parts[3];

@@ -34,7 +34,8 @@ describe('fcaf catalog mapping', () => {
 	it('maps catalog rows to picker entries', () => {
 		expect(toFcafCatalogEntry(sample)).toEqual({
 			id: 'WS_RP_DM_Example_001',
-			title: 'Example FCAF test'
+			title: 'Example FCAF test',
+			suite: 'wallet_solution/relying_party'
 		});
 	});
 });

@@ -24,6 +24,12 @@ Clear Chrome before each independent pipeline run:
 adb -s emulator-5580 shell pm clear com.android.chrome
 ```
 
+Clearing Chrome brings back its first-run `Make Chrome your own` screen. The
+authorization-code issuance opens the Authorization Request in Chrome and only
+returns to the wallet once that screen is dismissed, so after clearing, launch
+Chrome once and tap `Stay signed out` before any authorization-code issuance.
+The FCAF issuance actions do not handle that screen.
+
 Never clear wallet state when the test needs an issued PID. Use `clearState: false`.
 
 Common starting states:

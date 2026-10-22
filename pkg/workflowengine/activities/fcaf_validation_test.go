@@ -11,6 +11,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -279,6 +281,32 @@ func TestFCAFValidationActivityRequiresAggregateOutput(t *testing.T) {
 	})
 
 	require.Error(t, err)
+}
+
+func TestResolveDefaultFCAFValidationCatalogRootFollowsSuite(t *testing.T) {
+	for _, suite := range []string{"wallet_solution/relying_party", "wallet_solution/attestation_provider"} {
+		root := resolveDefaultFCAFValidationCatalogRoot(suite)
+		require.True(
+			t,
+			strings.HasSuffix(filepath.ToSlash(root), "config_templates/fcaf/"+suite),
+			root,
+		)
+		require.DirExists(t, filepath.Join(root, "tests"))
+	}
+}
+
+func TestFCAFValidationActivityRejectsSuitePaths(t *testing.T) {
+	act := NewFCAFValidationActivity(nil, fcafTestOutputKind)
+
+	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: FCAFValidationActivityInput{
+			TestID:   "test-one",
+			Suite:    "wallet_solution/../../../tmp",
+			Pipeline: map[string]any{fcafTestSource: map[string]any{"output": map[string]any{}}},
+		},
+	})
+
+	require.ErrorContains(t, err, "is not a <sut>/<role> FCAF suite")
 }
 
 func testPIDSDJWTPresentation(t *testing.T) string {

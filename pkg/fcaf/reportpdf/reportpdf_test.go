@@ -55,14 +55,34 @@ Wallet contains PID.
 }
 
 func TestLoadMaterialsFindsCatalogAndSource(t *testing.T) {
-	const testID = "WS_RP_IA_MainInteraction__003"
+	tests := []struct {
+		suite  string
+		testID string
+	}{
+		{suite: "", testID: "WS_RP_IA_MainInteraction__003"},
+		{suite: "wallet_solution/attestation_provider", testID: "WS_AP_IA_Supportive_010a"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testID, func(t *testing.T) {
+			definitions, sources, warnings := LoadMaterials(tt.suite, []string{tt.testID})
+			require.Empty(t, warnings)
+			require.Equal(t, tt.testID, definitions[tt.testID].ID)
+			require.NotEmpty(t, sources[tt.testID].Objective)
+			require.NotEmpty(t, sources[tt.testID].Scenario)
+			require.NotEmpty(t, sources[tt.testID].ExpectedResults)
+		})
+	}
+}
 
-	definitions, sources, warnings := LoadMaterials([]string{testID})
-	require.Empty(t, warnings)
-	require.Equal(t, testID, definitions[testID].ID)
-	require.NotEmpty(t, sources[testID].Objective)
-	require.NotEmpty(t, sources[testID].Scenario)
-	require.NotEmpty(t, sources[testID].ExpectedResults)
+func TestLoadMaterialsRejectsSuitePaths(t *testing.T) {
+	definitions, sources, warnings := LoadMaterials("../relying_party", []string{"x"})
+	require.Empty(t, definitions)
+	require.Empty(t, sources)
+	require.Equal(
+		t,
+		[]string{`FCAF report suite "../relying_party" is not a <sut>/<role> suite`},
+		warnings,
+	)
 }
 
 func TestFCAFSourceURLAnchorsOnSourceHeading(t *testing.T) {
@@ -85,11 +105,21 @@ func TestFCAFSourceURLAnchorsOnSourceHeading(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.heading, func(t *testing.T) {
-			require.Equal(t, fcafTestCasesURL+"#"+tt.anchor, SourceURL(tt.heading))
+			require.Equal(
+				t,
+				"https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/test-cases/#"+tt.anchor,
+				SourceURL("", tt.heading),
+			)
 		})
 	}
 
-	require.Empty(t, SourceURL(""))
+	require.Equal(
+		t,
+		"https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/attestation_provider/test-cases/#ws_ap_ia_supportive_010a",
+		SourceURL("wallet_solution/attestation_provider", "WS_AP_IA_Supportive_010a"),
+	)
+	require.Empty(t, SourceURL("", ""))
+	require.Empty(t, SourceURL("wallet_solution/../x", "WS_AP_IA_Supportive_010a"))
 }
 
 func TestBuildDocumentAttachesPerTestVisualEvidence(t *testing.T) {

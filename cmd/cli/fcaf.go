@@ -25,6 +25,7 @@ import (
 
 var (
 	fcafDir        string
+	fcafSuite      string
 	fcafOutput     string
 	fcafFilter     string
 	fcafDeviceID   string
@@ -32,6 +33,17 @@ var (
 	fcafInterval   time.Duration
 	fcafImportsDir string
 )
+
+// defaultFCAFSuite is the FCAF suite whose pipelines run and sync by default.
+const defaultFCAFSuite = "wallet_solution/relying_party"
+
+// fcafPipelinesDir is the --dir flag, or the generated pipelines of --suite.
+func fcafPipelinesDir() string {
+	if fcafDir != "" {
+		return fcafDir
+	}
+	return filepath.Join("config_templates", "fcaf", filepath.FromSlash(fcafSuite), "pipelines")
+}
 
 type fcafRun struct {
 	Name        string    `json:"name"`
@@ -76,7 +88,9 @@ func NewFCAFCommand() *cobra.Command {
 		},
 	}
 	run.Flags().
-		StringVar(&fcafDir, "dir", "config_templates/fcaf/wallet_solution/relying_party/pipelines", "directory containing pipeline YAML files")
+		StringVar(&fcafSuite, "suite", defaultFCAFSuite, "FCAF suite <sut>/<role> whose generated pipelines to run")
+	run.Flags().
+		StringVar(&fcafDir, "dir", "", "directory containing pipeline YAML files (default config_templates/fcaf/<suite>/pipelines)")
 	run.Flags().
 		StringVar(&fcafOutput, "output", "", "optional local directory for JSON, screenshots, and HTML output")
 	run.Flags().
@@ -89,7 +103,9 @@ func NewFCAFCommand() *cobra.Command {
 	syncCmd.Flags().
 		StringVar(&fcafImportsDir, "imports-dir", "config_templates/fcaf/imports", "directory containing repository-backed FCAF imports")
 	syncCmd.Flags().
-		StringVar(&fcafDir, "dir", "config_templates/fcaf/wallet_solution/relying_party/pipelines", "directory containing pipeline YAML files")
+		StringVar(&fcafSuite, "suite", defaultFCAFSuite, "FCAF suite <sut>/<role> whose generated pipelines to sync")
+	syncCmd.Flags().
+		StringVar(&fcafDir, "dir", "", "directory containing pipeline YAML files (default config_templates/fcaf/<suite>/pipelines)")
 	syncCmd.Flags().
 		StringVar(&fcafDeviceID, "device-id", "", "registered mobile device identifier to write into mobile-automation pipelines")
 	run.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
@@ -170,7 +186,7 @@ func syncFCAF(ctx context.Context) error {
 		return err
 	}
 
-	pipelinePaths, err := filepath.Glob(filepath.Join(fcafDir, "*.yaml"))
+	pipelinePaths, err := filepath.Glob(filepath.Join(fcafPipelinesDir(), "*.yaml"))
 	if err != nil {
 		return fmt.Errorf("find FCAF pipelines: %w", err)
 	}
@@ -748,13 +764,13 @@ func runFCAF(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	paths, err := filepath.Glob(filepath.Join(fcafDir, "*.yaml"))
+	paths, err := filepath.Glob(filepath.Join(fcafPipelinesDir(), "*.yaml"))
 	if err != nil {
 		return err
 	}
 	sort.Strings(paths)
 	if len(paths) == 0 {
-		return fmt.Errorf("no YAML pipelines found in %s", fcafDir)
+		return fmt.Errorf("no YAML pipelines found in %s", fcafPipelinesDir())
 	}
 	runs := make([]fcafRun, 0, len(paths))
 	report := fcafReport{}

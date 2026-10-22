@@ -774,3 +774,115 @@ positive verifier_attestation tests (`__116`, `__118`, `__124`,
 `WS_RP_SM_RpIntegrity__008`) need the same trust to proceed and do not state
 it.
 ```
+
+## Upstream FCAF issues: wallet solution attestation provider
+
+Verified on 22/10/2026 against the attestation-provider sources vendored under
+`config_templates/fcaf_sources/wallet_solution/attestation_provider/` (upstream
+`submitted` branch at `0ed4ab11`).
+
+### Issue 25: Apply Shared_JWT_JWS, not Shared_JWT_JWE, to client attestations in DeviceBinding 001a and 001b
+
+Suggested title:
+
+```text
+fix(wallet-ap): use the JWS shared tests for client attestation headers
+```
+
+Suggested issue body:
+
+```markdown
+`WS_AP_SM_DeviceBinding_001a` and `_001b` ask to "perform all Shared_JWT_JWE test
+cases" on the `OAuth-Client-Attestation` and `OAuth-Client-Attestation-PoP`
+header values. Both headers carry signed JWTs (OAuth 2.0 Attestation-Based Client
+Authentication), not JWEs, so the JWE cases cannot apply.
+
+Proposed change: reference the Shared_JWT_JWS family in both tests.
+```
+
+### Issue 26: Name the omitted `request_uri` correctly in Supportive 011b_UF
+
+Suggested title:
+
+```text
+fix(wallet-ap): replace response_uri with request_uri in supportive 011b
+```
+
+Suggested issue body:
+
+```markdown
+The objective of `WS_AP_IA_Supportive_011b_UF` and item 2 of its own scenario step
+describe a PAR response omitting `request_uri`, but the same step 1 opens with "with the
+`response_uri` omitted". A PAR response (RFC 9126 section 2.2) has no `response_uri`;
+the step means `request_uri`.
+```
+
+### Issue 27: Give ProtocolMessages 053b and 053c distinct objectives
+
+Suggested title:
+
+```text
+fix(wallet-ap): distinguish the objectives of protocol tests 053b and 053c
+```
+
+Suggested issue body:
+
+```markdown
+`WS_AP_MS_ProtocolMessages_053b` and `_053c` share the same objective: "Verify that the
+Wallet sends a correctly formatted `aud` claim in the proof with Key Attestation in the
+Credential Request, when the `jwt` Proof Type is used." Their expected results differ,
+so the objectives should say which property of `aud` each one checks.
+```
+
+### Issue 28: List DeviceBinding 011b in the attestation-provider baseline
+
+Suggested title:
+
+```text
+fix(wallet-ap): add device-binding 011b to baseline-tests.md
+```
+
+Suggested issue body:
+
+```markdown
+`baseline-tests.md` announces 58 Attestation Provider test cases and lists 58, while the
+suite holds 59 test files: `WS_AP_SM_DeviceBinding_011b` is not listed. Either add it to
+the baseline (and update the count) or state why it is excluded.
+```
+
+### Issue 29: Say where `scope` is read when the Authorization Request is pushed
+
+Suggested title:
+
+```text
+docs(wallet-ap): name the PAR as the scope source of protocol test 050c
+```
+
+Suggested issue body:
+
+```markdown
+`WS_AP_MS_ProtocolMessages_050c` expects `credential_configuration_id` to identify a
+configuration "whose corresponding configuration contains a scope value used in the
+Authorization Request". With PAR, which this suite requires (`_039a`, `_040a`), the
+Authorization Request carries only `client_id` and `request_uri`; `scope` is in the
+pushed request. Please state that the scope is the one of the Pushed Authorization
+Request referenced by `request_uri`.
+```
+
+### Issue 30: Resolve the open TODO in DeviceBinding 010b
+
+Suggested title:
+
+```text
+fix(wallet-ap): decide whether 010b checks proof_signing_alg_values_supported
+```
+
+Suggested issue body:
+
+```markdown
+`WS_AP_SM_DeviceBinding_010b` ends with the comment "TODO consider
+`proof_signing_alg_values_supported` as well!". A submitted test should not leave the
+expected result open. Please decide whether `alg` must also be one of the
+`proof_signing_alg_values_supported` values the Credential Issuer Metadata advertises for
+the requested credential configuration, and add it as an expected result if so.
+```

@@ -299,10 +299,10 @@ Grant/start path:
 - FCAF validators run as the terminal `fcaf-validation` activity inside dynamic pipelines.
 - Legacy `/api/fcaf/run`, assessment/precondition workflows, `fcaf run --tests-file`, and catalog precondition definitions do not exist and must not be restored.
 - Test evidence bindings use exact `pipeline.<source>.outputs.<name>` references. Never reuse a sole unrelated pipeline output as fallback evidence.
-- Maintain evidence-producing source pipelines under `config_templates/fcaf/wallet_solution/relying_party/scenarios/`.
-- `go run ./cmd/fcaf-pipeline-gen` (or `make fcaf-generate`) generates the sole deployable complete-validation pipeline under `config_templates/fcaf/wallet_solution/relying_party/pipelines/`.
-- The generated pipeline runs all feasible scenarios with distinct prefixed step IDs, continues after scenario failures, merges exact named evidence sources, and performs one final validation for all catalog tests.
-- `fcaf sync` and `fcaf run` operate on the generated aggregate pipeline only. Do not move scenario sources back into the deployable pipelines directory.
+- FCAF suites live under `config_templates/fcaf/<sut>/<role>/`: `wallet_solution/relying_party` and `wallet_solution/attestation_provider`. Maintain evidence-producing source pipelines under each suite's `scenarios/`.
+- `go run ./cmd/fcaf-pipeline-gen` (or `make fcaf-generate`) generates each suite's sole deployable complete-validation pipeline under its `pipelines/` (the relying-party suite also gets its demo and happy-flow pipelines); `-suite <sut>/<role>` limits it to one suite.
+- The generated pipeline runs all feasible scenarios with distinct prefixed step IDs, continues after scenario failures, merges exact named evidence sources, and performs one final validation for all catalog tests. Its `suite` selects the catalog the `fcaf-validation` activity loads (`config_templates/fcaf/<suite>`).
+- `fcaf sync` and `fcaf run` operate on the generated aggregate pipelines only, of `--suite` (default `wallet_solution/relying_party`). Do not move scenario sources back into the deployable pipelines directory.
 - Add or change tests in the owning scenario, regenerate the aggregate, and validate direct evidence coverage before removing any scenario.
 - `with.pipeline_outputs` reaches the `fcaf-validation` activity unresolved. The activity resolves it against the step outputs in the run's own history, stores the full report (with evidence values) directly on the root run's `pipeline_results` row (`storeFCAFReport` in `pkg/workflowengine/activities/fcaf_report_store.go`), and returns a compact report without evidence values, the stored file's `report_sha256`, and an `evidence_index` of `step_id`, history `event_id` and sha256 per evidence leaf. A storage failure fails the step.
 - `pipeline-report-generation` also reads the run's history and stores the markdown report itself; storage failures become cleanup warnings.
