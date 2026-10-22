@@ -34,16 +34,17 @@ assertions:
 # The source applies to a Wallet that does not support the `request_uri_method`
 # `post`. The retrieval assertion records the method the Wallet actually used,
 # which is the fact that refutes that precondition for this SUT; the
-# `fcaf.not_applicable` assertion carries the reason. Source ER3.1 (GET), ER3.2
-# (Host header) and ER3.3 (the requested path without query or fragment) are the
-# fallback branch, and ER3.3 stays unassertable because Capture records no
-# requested target (raw.request_uri_http carries only method, headers and body;
-# see ASSERTION_REVIEW_BACKLOG.md).
-- id: request_uri_is_retrieved_by_post
+# `fcaf.not_applicable` assertion carries the reason. Source ER3.1 (GET) is the
+# fallback branch; ER3.2 (Host header) and ER3.3 (the requested path without
+# query or fragment) describe the request shape whichever method the Wallet
+# uses, so the retrieval assertion checks both on the observed request
+# (raw.request_uri_http.target, recorded by Capture since 22/10/2026).
+- id: request_uri_is_retrieved_by_post_at_the_request_uri_path
   validator: oid4vp.request_uri_retrieval
   input: evidence.session
   params:
     method: POST
+    require_path_target: true
 - id: wallet_continues_with_jar_over_get_after_post_retrieval
   validator: fcaf.not_applicable
   input: evidence.session

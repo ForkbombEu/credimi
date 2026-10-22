@@ -1,0 +1,135 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# WS_RP_SM_IssuerIntegrity__012: the Wallet holds a PID mdoc whose status is
+# revoked when the Verifier requests it. The mdoc is issued with a Token Status
+# List reference and stored, then Capture revokes it through the Status List
+# service. The Wallet may rely on a Status List Token it fetched before the
+# revocation until that token's exp (Token Status List 13.7); the deployed
+# service signs every token with exp = iat + 120 s, so the request is created
+# only after a 240 s wait (exp window, clock skew, margin), and
+# oid4vci.revocation_precedes_request checks the recorded delay.
+name: FCAF revoked mdoc presentation
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+- id: create-revoked-mdoc-issuance
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
+      status_list_enabled: true
+      fixture_id: pid_person_b
+- id: obtain-revoked-mdoc
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-revoked-mdoc-issuance.outputs.body.deeplink }}
+- id: fetch-revoked-mdoc-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-revoked-mdoc-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: revoke-mdoc
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions/${{ create-revoked-mdoc-issuance.outputs.body.session_id }}/status
+    expected_status: 200
+    headers:
+      Content-Type: application/json
+    body:
+      status: revoked
+# Waits without touching the Wallet: the text never appears and the wait is
+# optional, so the step lasts its full timeout and then succeeds.
+- id: wait-past-status-list-exp
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_code: |
+      appId: eu.europa.ec.euidi
+      name: FCAF wait past the status list exp
+      ---
+      - extendedWaitUntil:
+          visible: "FCAF status list exp window has not elapsed"
+          timeout: 240000
+          optional: true
+# The query pins the revoked mdoc's document_number, so no other credential the
+# Wallet holds can answer it.
+- id: create-revoked-mdoc-request
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: issuer-integrity-revoked-mdoc
+        dcql_query:
+          credentials:
+          - id: pid_mdoc
+            format: mso_mdoc
+            meta:
+              doctype_value: eu.europa.ec.eudi.pid.1
+            claims:
+            - path:
+              - eu.europa.ec.eudi.pid.1
+              - document_number
+              values:
+              - CREDIMI-DEMO-002
+- id: request-revoked-mdoc
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-revoked-mdoc-request.outputs.body.deeplink }}"
+- id: fetch-revoked-mdoc-request
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-revoked-mdoc-request.outputs.body.session_id }}
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_SM_IssuerIntegrity__012
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.issuer-integrity.revoked-mdoc:
+        output:
+          issuance_session: ${{ fetch-revoked-mdoc-issuance.outputs.body }}
+          stored_issuance:
+            issuer_session: ${{ fetch-revoked-mdoc-issuance.outputs.body }}
+            wallet_screenshots: ${{ obtain-revoked-mdoc.outputs.flow_output.maestro_screenshot_urls }}
+          revocation_timing:
+            revocation: ${{ revoke-mdoc.outputs.body }}
+            presentation_session: ${{ fetch-revoked-mdoc-request.outputs.body }}
+          presentation_session: ${{ fetch-revoked-mdoc-request.outputs.body }}
+          visual_evidence: ${{ request-revoked-mdoc.outputs.flow_output.maestro_screenshot_urls }}
