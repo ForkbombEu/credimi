@@ -95,7 +95,7 @@ func TestOID4VPDCAPIInvocationValidator(t *testing.T) {
 		{
 			// A definition that names only the protocol asserts what the verifier
 			// delivered, not what the Wallet did, so it keeps its pass on a
-			// session where no Wallet ran at all (WS_RP_SM_RpIntegrity__003).
+			// session where no Wallet ran at all.
 			name:       "a request-shape-only definition keeps its pass",
 			value:      dcAPIUnsignedRequest(dcAPICaptureRecord(nil)),
 			params:     map[string]any{"protocol": "openid4vp-v1-unsigned"},

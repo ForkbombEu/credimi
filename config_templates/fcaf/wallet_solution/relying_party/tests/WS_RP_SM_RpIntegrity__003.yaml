@@ -17,17 +17,12 @@ normative_references:
   section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  session:
-    from: pipeline.dc-api.unsigned.outputs.session
+  relevancy:
+    from: pipeline.eudi-forbidden.outputs.relevancy
 assertions:
-- id: verifier_delivered_an_unsigned_dc_api_request
-  validator: oid4vp.dc_api_invocation
-  input: evidence.session
-  params:
-    protocol: openid4vp-v1-unsigned
-- id: wallet_processes_the_request_without_validating_signatures
+- id: eudi_forbidden_source_is_not_applicable
   validator: fcaf.not_applicable
-  input: evidence.session
+  input: evidence.relevancy
   params:
     reason: >-
       source relevancy is EUDI_forbidden: an EUDI wallet must not support

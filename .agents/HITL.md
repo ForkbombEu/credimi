@@ -476,7 +476,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-10-14 - FCAF: an `EUDI_forbidden` source reports `not_applicable`, not a failure
 
-- status: resolved (maintainer decision 14/10/2026)
+- status: resolved (maintainer decision 14/10/2026); superseded 21/10/2026 by the entry "every `EUDI_forbidden` source reports only `not_applicable`, without a Wallet interaction" below
 - owner: human maintainer
 - context: Some FCAF wallet-solution/relying-party sources ask the Wallet to accept a feature the FCAF relevancy legend marks `EUDI_forbidden` ("Requirement is explicitly excluded or prohibited for usage with EUDI Wallets"): `WS_RP_MS_ProtocolMessages__038` and `WS_RP_SM_RpIntegrity__003` (a `redirect_uri:` Client Identifier Prefix; an unsigned request processed without signature validation) and `WS_RP_UC_Presentation__003` (a scope-based presentation request). A conformant EUDI Wallet must not support any of them, so the source's own expectation can never hold for the SUT, and reporting it as a pass or as a failure both misstate conformance. Before this decision there was no way to express "the source targets a different profile"; the only similar marker was `sdjwt.presentation_digest_algorithm_unsupported` reporting `not_applicable`.
 - question: How should a source whose own relevancy is `EUDI_forbidden`, and whose expected result is acceptance of the forbidden feature, be reported against an EUDI Wallet?
@@ -516,3 +516,12 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: if the exception is not documented, agents will copy looping animation into product UI.
 - decision: on 20/10/2026 the user chose subtle looping animation for this page: CSS and SMIL inside the SVG, low contrast, and switched off under `prefers-reduced-motion`.
 - follow-up: confirm the exception and move it into the Brand And Design section of AGENTS.md, or reject it and make the SVGs static.
+
+### 2026-10-21 - FCAF: every `EUDI_forbidden` source reports only `not_applicable`, without a Wallet interaction
+
+- status: resolved (maintainer decision 21/10/2026)
+- owner: human maintainer
+- context: The 14/10/2026 decision applied `fcaf.not_applicable` only to sources that expect the Wallet to accept the forbidden feature, and kept their request-shape and visual-evidence assertions, so those tests still drove the Wallet. Of the eleven wallet-solution/relying-party sources whose relevancy reads `EUDI_generic | EUDI_forbidden`, `WS_RP_IA_Metadata__014` and `WS_RP_MS_Metadata__113` stayed `fcaf.skipped`, and `WS_RP_MS_Metadata__110` and `WS_RP_SM_RpIntegrity__002` asserted a rejection, although `110`, `113` and `002` expect the Wallet to reject, which is what an EUDI Wallet without the feature does.
+- question: Should every `EUDI_forbidden` source report `not_applicable`, and should those tests still exercise the Wallet?
+- decision: every source whose relevancy contains `EUDI_forbidden` reports only `not_applicable`, whatever its expected result: `WS_RP_IA_MainInteraction__060`, `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__110`, `112`, `113`, `WS_RP_MS_ProtocolMessages__020`, `038`, `040`, `WS_RP_SM_RpIntegrity__002`, `003`, `WS_RP_UC_Presentation__003`. Each definition carries one `fcaf.not_applicable` assertion and no other. They are owned by `scenarios/fcaf-wallet-solution-relying-party-eudi-forbidden.yaml`, which has only the `fcaf-validation` step: its single evidence source `pipeline.eudi-forbidden` is the literal output `relevancy: EUDI_forbidden`, so neither the Verifier nor the Wallet is contacted for these tests.
+- follow-up: The Wallet steps these tests used stay, because other tests own them. A new `EUDI_forbidden` source joins the `eudi-forbidden` scenario with the same single assertion. The second `not_applicable` ground (the SUT's capabilities refute the source's precondition) is unchanged.

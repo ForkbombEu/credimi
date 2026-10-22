@@ -4140,3 +4140,46 @@ screenshots, so the extra actions take none:
 A combined step's screenshots are therefore its own action's only, as before.
 Step and test counts are unchanged (complete 1345 steps / 340 wallet steps,
 happy flow 141 / 43).
+
+## EUDI_forbidden sources report only not_applicable, 21/10/2026
+
+Maintainer decision (`.agents/HITL.md`, 2026-10-21), superseding the
+14/10/2026 rule that kept request-shape and visual-evidence assertions and
+covered only sources that expect the Wallet to accept the forbidden feature.
+All eleven sources whose relevancy reads `EUDI_generic | EUDI_forbidden` now
+carry one `fcaf.not_applicable` assertion and nothing else:
+`WS_RP_IA_MainInteraction__060`, `WS_RP_IA_Metadata__014`,
+`WS_RP_MS_Metadata__110`, `112`, `113`, `WS_RP_MS_ProtocolMessages__020`,
+`038`, `040`, `WS_RP_SM_RpIntegrity__002`, `003`,
+`WS_RP_UC_Presentation__003`.
+
+- New scenario `fcaf-wallet-solution-relying-party-eudi-forbidden.yaml` owns
+  them. It has only the `fcaf-validation` step, and its one evidence source,
+  `pipeline.eudi-forbidden`, is the literal output `relevancy:
+  EUDI_forbidden`: no Verifier session and no Wallet step serves these tests.
+  The activity passes a literal leaf through unchanged, and it adds no
+  `evidence_index` entry.
+- They left `dcql-baseline` (014, 112, 113, 020, UC 003),
+  `response-uri-controls` (060), `client-id-prefix-controls` (110),
+  `plain-redirect-uri` (038, 040), `dc-api-invalid-signature` (002) and
+  `dc-api-unsigned` (003). Every Wallet step of those scenarios is shared with
+  other tests, so none was removed; only the outputs read by these tests alone
+  were dropped (`signed_redirect_uri_request_object`,
+  `signed_redirect_uri_delivered_request`, plain-redirect-uri
+  `authorization_request`).
+- Behaviour change: 014 and 113 were `skipped` (Capture has no
+  openid_federation), and 110 and 002 asserted a rejection, which RI-WALLET-002
+  recorded as failing for 110. 110, 113 and 002 expect the Wallet to reject;
+  that is no longer assessed. 113 also left the openid_federation entry of
+  `ASSERTION_REVIEW_BACKLOG.md`, and 110 the RI-WALLET-002 test list.
+
+Verified through the engine on the regenerated complete pipeline with every
+step output unresolved (no step ran): all eleven report `not_applicable` with
+their reason, one assertion and one evidence item each.
+
+`make fcaf-generate`: complete 1345 steps / 340 wallet steps / 617 test IDs /
+214 pipeline outputs (one more, the literal source); happy flow 141 steps /
+43 wallet steps / 303 test IDs (the five that `dcql-baseline` owned left it,
+since the new scenario is not a happy-flow scenario); demo unchanged.
+`webapp/src/lib/fcaf/tests.generated.ts` still names the old sources; it was
+already stale and no repository generator writes it.

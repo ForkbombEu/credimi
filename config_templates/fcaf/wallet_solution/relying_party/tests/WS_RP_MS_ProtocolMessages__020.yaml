@@ -13,18 +13,13 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '5.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.baseline
 evidence:
-  session:
-    from: pipeline.dcql.baseline.outputs.session
+  relevancy:
+    from: pipeline.eudi-forbidden.outputs.relevancy
 assertions:
-# The source's scope-only request shape cannot be asserted here: Capture builds
-# the scope claim from the caller's `scopes`, and no fixture defines a scope
-# value that represents a DCQL query, so the scope-only Authorization Request
-# the source describes is not deliverable (ASSERTION_REVIEW_BACKLOG.md).
-- id: wallet_processes_a_scope_that_represents_a_dcql_query
+- id: eudi_forbidden_source_is_not_applicable
   validator: fcaf.not_applicable
-  input: evidence.session
+  input: evidence.relevancy
   params:
     reason: >-
       source relevancy is EUDI_forbidden: an EUDI wallet must not rely on a
