@@ -30,7 +30,7 @@ export const load = async ({ fetch }) => {
 		fetch,
 		page: 1,
 		perPage: 6,
-		sort: '@random'
+		sort: '-success_rate,-total_runs'
 	});
 	return {
 		wallets,
