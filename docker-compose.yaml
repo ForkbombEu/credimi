@@ -150,5 +150,19 @@ services:
     volumes:
       - ./pb_data/:/app/pb_data
       - /var/run/docker.sock:/var/run/docker.sock
+  news_agent:
+    profiles: ["news-agent"]
+    depends_on:
+      temporal: { condition: service_healthy }
+      credimi: { condition: service_started }
+    build: { context: ./agents/news, dockerfile: Dockerfile }
+    restart: unless-stopped
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - NEWS_AGENT_MODEL_BASE_URL=${NEWS_AGENT_MODEL_BASE_URL:-}
+      - NEWS_AGENT_MODEL_API_KEY=${NEWS_AGENT_MODEL_API_KEY:-}
+      - NEWS_AGENT_MODEL=${NEWS_AGENT_MODEL:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
 volumes:
   esdata:

@@ -30,6 +30,7 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.WorkflowListingRoutes,
 	handlers.PipelineRoutes,
 	handlers.PipelineInternalRoutes,
+	handlers.NewsAgentInternalRoutes,
 	handlers.CanonifyRoutes,
 	handlers.ConformanceCheckRoutes,
 	handlers.OrganizationRoutes,

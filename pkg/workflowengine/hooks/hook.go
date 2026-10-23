@@ -333,6 +333,13 @@ func defaultWorkers(app core.App) []workerConfig {
 			},
 			Activities: activities.CredimiActivities(app),
 		},
+		{
+			TaskQueue: workflows.NewsToolsTaskQueue,
+			Activities: []workflowengine.ExecutableActivity{
+				activities.NewSearchNewsActivity(app),
+				activities.NewStoreNewsDraftActivity(app),
+			},
+		},
 	}
 }
 

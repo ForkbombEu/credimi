@@ -1,0 +1,6 @@
+{
+ "url": "https://api.github.com/repos/openid/OpenID4VP/pulls/801",
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": "{\"number\": 801, \"title\": \"clarify invalid_request can apply to verifier metadata as well\", \"body\": \"fixes #797 \", \"html_url\": \"https://github.com/openid/OpenID4VP/pull/801\", \"state\": \"closed\", \"merged_at\": \"2026-10-12T19:45:30Z\", \"user\": {\"login\": \"awoie\"}}"
+}

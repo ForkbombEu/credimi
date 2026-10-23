@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Sources the news agent scans, and the only domains it may fetch.
+
+allowed_domains = [
+    "github.com",
+    "openid.net",
+    "openid.github.io",
+    "eu-digital-identity-wallet.github.io",
+    "ec.europa.eu",
+    "digital-strategy.ec.europa.eu",
+    "datatracker.ietf.org",
+    "www.ietf.org",
+]
+
+[[sources]]
+id = "openid4vp"
+repo = "openid/OpenID4VP"
+url = "https://github.com/openid/OpenID4VP"
+title = "OpenID for Verifiable Presentations"
+
+[[sources]]
+id = "openid4vci"
+repo = "openid/OpenID4VCI"
+url = "https://github.com/openid/OpenID4VCI"
+title = "OpenID for Verifiable Credential Issuance"
+
+[[sources]]
+id = "eudi-arf"
+repo = "eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework"
+url = "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework"
+title = "EUDI Wallet Architecture and Reference Framework (ARF)"
+
+[[sources]]
+id = "eudi-standards"
+repo = "eu-digital-identity-wallet/eudi-doc-standards-and-technical-specifications"
+url = "https://github.com/eu-digital-identity-wallet/eudi-doc-standards-and-technical-specifications"
+title = "EUDI Wallet standards and technical specifications"

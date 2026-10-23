@@ -1,0 +1,6 @@
+{
+ "url": "https://api.github.com/repos/openid/OpenID4VP/releases?per_page=20",
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": "[]"
+}
