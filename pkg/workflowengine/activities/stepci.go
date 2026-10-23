@@ -191,6 +191,10 @@ func (a *StepCIWorkflowActivity) Execute(
 			return result, ctx.Err()
 		}
 
+		// Failure details land in Temporal history unencrypted, where the run's
+		// tenant can read them: never echo the secrets passed to the runner.
+		loggedArgs := append([]string(nil), args...)
+		loggedArgs[2] = stepCIMaskedSecret
 		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
 		return result, a.NewActivityError(
 			workflowengine.ActivityError{
@@ -200,9 +204,9 @@ func (a *StepCIWorkflowActivity) Execute(
 				Category: "external_command",
 				Details: map[string]any{
 					"command": binPath,
-					"args":    args,
-					"stderr":  stderrBuf.String(),
-					"stdout":  stdoutBuf.String(),
+					"args":    loggedArgs,
+					"stderr":  maskStepCISecrets(stderrBuf.String(), input.Secrets),
+					"stdout":  maskStepCISecrets(stdoutBuf.String(), input.Secrets),
 				},
 			},
 		)
@@ -211,7 +215,7 @@ func (a *StepCIWorkflowActivity) Execute(
 
 	var output StepCICliReturns
 	if err := json.Unmarshal(stdoutBuf.Bytes(), &output); err != nil {
-		result.Output = stdoutStr
+		result.Output = maskStepCISecrets(stdoutStr, input.Secrets)
 		return result, nil //nolint:nilerr
 	}
 

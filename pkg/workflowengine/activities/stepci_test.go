@@ -71,6 +71,47 @@ func TestRenderYAMLRejectsEnvFunctions(t *testing.T) {
 	require.Equal(t, "A-36", out)
 }
 
+// Runner failures are stored unencrypted in the tenant's Temporal history, so
+// the secrets handed to the runner (e.g. OPENIDNET_TOKEN) must not appear there.
+func TestStepCIExecuteMasksSecretsInRunnerFailures(t *testing.T) {
+	const secret = "OPENIDNET-SECRET-123"
+	input := workflowengine.ActivityInput{
+		Payload: StepCIWorkflowActivityPayload{Yaml: "test"},
+		Secrets: map[string]any{"token": secret},
+	}
+
+	t.Run("non-zero exit", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeRunner(t, tmpDir, `#!/bin/sh
+echo "Authorization: Bearer $3" >&2
+echo "sent $3"
+exit 1`)
+		t.Setenv("BIN", tmpDir)
+
+		_, err := NewStepCIWorkflowActivity().Execute(context.Background(), input)
+		var appErr *temporal.ApplicationError
+		require.ErrorAs(t, err, &appErr)
+		var failure workflowengine.ActivityError
+		require.NoError(t, appErr.Details(&failure))
+		details, err := json.Marshal(failure)
+		require.NoError(t, err)
+		require.NotContains(t, string(details), secret)
+		require.Contains(t, string(details), "Authorization: Bearer")
+	})
+
+	t.Run("non-JSON output", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeRunner(t, tmpDir, `#!/bin/sh
+echo "sent $3"`)
+		t.Setenv("BIN", tmpDir)
+
+		result, err := NewStepCIWorkflowActivity().Execute(context.Background(), input)
+		require.NoError(t, err)
+		require.NotContains(t, result.Output, secret)
+		require.Contains(t, result.Output, "sent")
+	})
+}
+
 func TestStepCIExecuteOutputs(t *testing.T) {
 	t.Run("success JSON", func(t *testing.T) {
 		tmpDir := t.TempDir()
