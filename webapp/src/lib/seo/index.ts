@@ -131,11 +131,11 @@ export function plainText(html: string | null | undefined, maxLength = 160): str
 	const text = (html ?? '')
 		.replace(/<[^>]*>/g, ' ')
 		.replace(/&nbsp;/g, ' ')
-		.replace(/&amp;/g, '&')
 		.replace(/&lt;/g, '<')
 		.replace(/&gt;/g, '>')
 		.replace(/&quot;/g, '"')
 		.replace(/&#39;/g, "'")
+		.replace(/&amp;/g, '&')
 		.replace(/\s+/g, ' ')
 		.trim();
 	if (text.length <= maxLength) return text;
