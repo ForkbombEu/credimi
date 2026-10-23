@@ -159,6 +159,7 @@ Local dev process:
 - PocketBase proxies `/{path...}` to `ADDRESS_UI` in `pkg/routes/routes.go`; unknown `/api/` paths answer `404` instead, because the Vite dev server proxies `/api` back to PocketBase.
 - PocketBase proxies `/temporal-ui/...` to `ADDRESS_TEMPORAL_UI` (see "Embedded Temporal UI").
 - The webapp talks to PocketBase on its own origin (`new PocketBase()`, base `/`); there is no build-time PocketBase URL. In dev and preview the Vite server forwards `/api`, `/_/` and `/temporal-ui` to `VITE_API`, so the page, the API and the Temporal UI iframe share one origin. Every deployment must serve the webapp through PocketBase's `/{path...}` proxy.
+- Server-side loads (SSR of public pages) cannot use that origin: it is the webapp itself, and SvelteKit answers same-origin `fetch` with its own router, which has no `/api` routes. `handleFetch` in `webapp/src/hooks.server.ts` sends same-origin `/api/` requests to `VITE_API` (runtime env), default `http://localhost:8090`, where the `Procfile` runs PocketBase beside the webapp.
 - Parallel worktrees: require Worktrunk for bootstrap. Cursor sandboxes use `.cursor/worktrees.json` → `make worktree-bootstrap`; CLI worktrees use `.config/wt.toml` pre-start. Ports live in gitignored `.env.worktree`. Checkout path is per-user (not committed). Primary `make dev` keeps classic ports without Worktrunk. See developer-setup “Parallel worktrees”.
 
 Procfile dev processes (classic defaults; runtime Procfile substitutes worktree ports):
