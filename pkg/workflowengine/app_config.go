@@ -60,7 +60,17 @@ func WithAppConfig(app core.App, config map[string]any) map[string]any {
 // set these keys.
 func IsServerOwnedConfigKey(key string) bool {
 	switch key {
-	case AppURLConfigKey, AppNameConfigKey, AppLogoConfigKey:
+	case AppURLConfigKey, AppNameConfigKey, AppLogoConfigKey,
+		// The run's organization: records are resolved on its behalf.
+		"namespace",
+		// Temporary records the run deletes when it ends.
+		"temp_wallet_version", "temp_credentials", "temp_use_case_verifications",
+		// Where the run reports to GitHub and to its device semaphore.
+		"github_pr_comment",
+		"mobile_device_semaphore_ticket_id",
+		"mobile_device_semaphore_device_ids",
+		"mobile_device_semaphore_leader_device_id",
+		"mobile_device_semaphore_owner_namespace":
 		return true
 	default:
 		return false

@@ -69,10 +69,6 @@ const (
 	mobileDeviceSemaphoreDeviceIDsConfigKey      = "mobile_device_semaphore_device_ids"
 	mobileDeviceSemaphoreLeaderDeviceIDConfigKey = "mobile_device_semaphore_leader_device_id"
 	mobileDeviceSemaphoreOwnerNamespaceConfigKey = "mobile_device_semaphore_owner_namespace"
-	queuedTempWalletVersionConfigKey             = "temp_wallet_version"
-	queuedTempCredentialsConfigKey               = "temp_credentials"
-	queuedTempUseCaseVerificationsConfigKey      = "temp_use_case_verifications"
-	queuedGitHubPRCommentConfigKey               = "github_pr_comment"
 )
 
 type queuedWorkflowDefinition struct {
@@ -384,11 +380,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 }
 
 func isReservedQueuedWorkflowConfigKey(key string) bool {
-	return key == queuedTempWalletVersionConfigKey ||
-		key == queuedTempCredentialsConfigKey ||
-		key == queuedTempUseCaseVerificationsConfigKey ||
-		key == queuedGitHubPRCommentConfigKey ||
-		key == workflowengine.CollectPipelineStepFailuresConfigKey ||
+	return key == workflowengine.CollectPipelineStepFailuresConfigKey ||
 		key == workflowengine.StepIDConfigKey ||
 		workflowengine.IsServerOwnedConfigKey(key)
 }
