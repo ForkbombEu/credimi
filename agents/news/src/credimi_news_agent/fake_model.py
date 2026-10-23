@@ -50,7 +50,8 @@ def _get(item: Any, key: str) -> Any:
 
 
 def _response(output: Any) -> ModelResponse:
-    return ModelResponse(output=[output], usage=Usage(requests=1), response_id=None)
+    usage = Usage(requests=1, input_tokens=1000, output_tokens=100, total_tokens=1100)
+    return ModelResponse(output=[output], usage=usage, response_id=None)
 
 
 def _call(n: int, name: str, args: dict[str, Any]) -> ModelResponse:

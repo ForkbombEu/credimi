@@ -69,6 +69,8 @@ class ResearchSession:
     accepted: list[NewsDraft] = field(default_factory=list)
     stored: int = 0
     rejected: int = 0
+    # Whether a `list_changes` call succeeded; a scan report without one is invalid.
+    listed: bool = False
 
     def sources(self) -> list[Source]:
         wanted = set(self.source_ids)
@@ -80,8 +82,13 @@ class ResearchSession:
     def record(self, evidence: list[Evidence]) -> None:
         for ev in evidence:
             current = self.ledger.get(ev.id)
-            # Keep the richest retrieval of a URL (e.g. full PR over its list entry).
-            if current is None or len(ev.text) >= len(current.text):
+            # Opened evidence (full PR, compare, document) beats a list entry of the same URL;
+            # otherwise keep the richest retrieval.
+            if (
+                current is None
+                or (ev.opened and not current.opened)
+                or (ev.opened == current.opened and len(ev.text) >= len(current.text))
+            ):
                 self.ledger[ev.id] = ev
 
 
@@ -137,11 +144,17 @@ async def list_changes(
     except ActivityError as exc:
         return _failure(exc)
     session.record(changes.evidence)
-    return json.dumps(
-        {"repo": changes.repo, "items": [i.model_dump() for i in changes.items]}
-        if changes.items
-        else {"repo": changes.repo, "items": [], "note": "no changes in the window"}
-    )
+    session.listed = True
+    result: dict[str, Any] = {
+        "repo": changes.repo,
+        "items": [i.model_dump() for i in changes.items],
+    }
+    if not changes.items:
+        result["note"] = "no changes in the window"
+    if changes.truncated:
+        result["truncated"] = True
+        result["note"] = "more changes exist than listed; split the window"
+    return json.dumps(result)
 
 
 @agent.tool_defn(inherently_safe=True)

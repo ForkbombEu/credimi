@@ -141,7 +141,7 @@ Main areas:
 - `webapp`: SvelteKit/Vite frontend.
 - `docs`: documentation site.
 - `fixtures`: test fixtures; keep read-only unless a task explicitly changes fixtures.
-- `agents/news`: experimental, local-only Python news agent (Temporal Agent Harness, OpenAI Agents SDK) in the `default` namespace on task queue `news-agent`, with an unattended `scan` message and an `ask` chat whose `save_draft` tool waits for human approval. It reaches Credimi data only through the Go activities `Search news` / `Store a news draft` on `NewsToolsTaskQueue` (`pkg/workflowengine/activities/news.go`), never the PocketBase API, and only stores `published=false` drafts. The existing News pipeline (changedetection.io + n8n, `credimi-extra/news/`) is separate and unchanged. See `agents/news/README.md`.
+- `agents/news`: Python news agent (Temporal Agent Harness, OpenAI Agents SDK) in the `default` namespace on task queue `news-agent`, with an unattended `scan` message and an `ask` chat whose `save_draft` tool waits for human approval. It reaches Credimi data only through the Go activities `Search news` / `Store a news draft` on `NewsToolsTaskQueue` (`pkg/workflowengine/activities/news.go`), never the PocketBase API, and only stores `published=false` drafts; `news.diff` has a partial unique index (non-empty values). The same worker runs `NewsDailyScan`, started by the Temporal Schedule `news-daily-scan` (`default` namespace) that `POST`/`DELETE /api/news-agent/schedule` (internal admin key only, `pkg/internal/apis/handlers/news_agent_handler.go`, not in OpenAPI) upserts or removes; each run scans the days since its last successful completion result. Docker runs the worker only under the Compose profile `news-agent`; the harness UI is dev-only. The existing News pipeline (changedetection.io + n8n, `credimi-extra/news/`) is separate and unchanged. See `agents/news/README.md`.
 
 ## Dev Runtime
 
@@ -156,7 +156,7 @@ Local dev process:
 
 - `make dev` starts infrastructure and runs the API/UI through `hivemind`.
 - `make dev.noworkers` is the same stack with `CREDIMI_TEMPORAL_WORKERS_DISABLED=1` so Temporal workers are not registered (faster boot; pipelines/workflows will not run).
-- Classic ports (primary checkout): Temporal gRPC `localhost:7233`, PocketBase `localhost:8090`, webapp `localhost:5100`, Temporal UI `localhost:8280`, embedded Temporal UI `127.0.0.1:8281` (`TEMPORAL_UI_EMBEDDED_PORT`).
+- Classic ports (primary checkout): Temporal gRPC `localhost:7233`, PocketBase `localhost:8090`, webapp `localhost:5100`, Temporal UI `localhost:8280`, embedded Temporal UI `127.0.0.1:8281` (`TEMPORAL_UI_EMBEDDED_PORT`), news agent harness UI `127.0.0.1:8000` (`NEWS_AGENT_UI_PORT`).
 - PocketBase proxies `/{path...}` to `ADDRESS_UI` in `pkg/routes/routes.go`; unknown `/api/` paths answer `404` instead, because the Vite dev server proxies `/api` back to PocketBase.
 - PocketBase proxies `/temporal-ui/...` to `ADDRESS_TEMPORAL_UI` (see "Embedded Temporal UI").
 - The webapp talks to PocketBase on its own origin (`new PocketBase()`, base `/`); there is no build-time PocketBase URL. In dev and preview the Vite server forwards `/api`, `/_/` and `/temporal-ui` to `VITE_API`, so the page, the API and the Temporal UI iframe share one origin. Every deployment must serve the webapp through PocketBase's `/{path...}` proxy.
@@ -166,6 +166,8 @@ Procfile dev processes (classic defaults; runtime Procfile substitutes worktree 
 
 - `API`: waits for Temporal, then runs `go tool gow run -tags=credimi_extra main.go serve`.
 - `UI`: waits for PocketBase, then runs `cd webapp && bun i && bun dev`.
+- `NEWS`: waits for PocketBase, then runs the news agent worker through `scripts/news-agent-dev.sh worker`, configured by `agents/news/.env` (template `agents/news/.env.example`). Without a model, or with `CREDIMI_TEMPORAL_WORKERS_DISABLED` set, it idles and logs why.
+- `NEWSUI`: waits for Temporal, then serves the harness session manager and UI on `NEWS_AGENT_UI_PORT` (classic `8000`) through `scripts/news-agent-dev.sh ui`.
 
 Workers and Credimi URLs:
 

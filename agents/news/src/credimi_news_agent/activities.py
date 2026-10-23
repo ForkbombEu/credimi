@@ -15,6 +15,7 @@ import hashlib
 import os
 import re
 import tomllib
+from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
@@ -40,14 +41,21 @@ GITHUB_API = "https://api.github.com"
 TEXT_CAP = 60_000
 ITEM_TEXT_CAP = 6_000
 PATCH_CAP = 4_000
-MAX_ITEMS = 40
+RELEASES_PER_PAGE = 20
+PULLS_PER_PAGE = 50
+COMMITS_PER_PAGE = 30
+MAX_PAGES = 5
+MAX_ITEMS = 60
+# Merged pull requests whose own commits are filtered out of the commit list.
+MAX_PR_COMMIT_LOOKUPS = 20
+MERGE_PREFIXES = ("Merge pull request", "Merge branch", "Merge remote-tracking branch")
 
 
 def evidence_id(url: str) -> str:
     return "ev_" + hashlib.sha256(url.encode()).hexdigest()[:12]
 
 
-def make_evidence(url: str, kind: str, title: str, text: str) -> Evidence:
+def make_evidence(url: str, kind: str, title: str, text: str, *, opened: bool = False) -> Evidence:
     text = text[:TEXT_CAP]
     return Evidence(
         id=evidence_id(url),
@@ -57,6 +65,7 @@ def make_evidence(url: str, kind: str, title: str, text: str) -> Evidence:
         retrieved_at=datetime.now(UTC).isoformat(timespec="seconds"),
         sha256=hashlib.sha256(text.encode()).hexdigest(),
         text=text,
+        opened=opened,
     )
 
 
@@ -96,6 +105,52 @@ async def _github_get(client: httpx.AsyncClient, path: str, **params: str | int)
     return response.json()
 
 
+async def _github_pages(
+    client: httpx.AsyncClient,
+    path: str,
+    per_page: int,
+    more: Callable[[list], bool],
+    **params: str | int,
+) -> tuple[list, bool]:
+    """Read up to MAX_PAGES pages of a GitHub list; True when more pages were left unread.
+
+    Page 1 carries no `page` parameter, so its URL (and recorded fixture) stays as before.
+    Reading stops at a short page, or when ``more(page)`` says older pages are out of reach.
+    """
+    items: list = []
+    for n in range(1, MAX_PAGES + 1):
+        extra = {"page": n} if n > 1 else {}
+        page = await _github_get(client, path, per_page=per_page, **params, **extra)
+        items.extend(page)  # type: ignore[arg-type]
+        if len(page) < per_page or not more(page):  # type: ignore[arg-type]
+            return items, False
+    return items, True
+
+
+def _reaches(start: datetime, key: str) -> Callable[[list], bool]:
+    """Whether a page's oldest ``key`` timestamp is still inside the window (missing: no)."""
+
+    def more(page: list) -> bool:
+        stamps = []
+        for entry in page:
+            try:
+                stamps.append(_parse_ts(entry.get(key)))
+            except ValueError:
+                stamps.append(None)
+        return all(s is not None for s in stamps) and min(stamps) >= start  # type: ignore[type-var]
+
+    return more
+
+
+async def _pull_commit_shas(client: httpx.AsyncClient, repo: str, number: int) -> set[str]:
+    """SHAs of a pull request's own commits; empty when they cannot be read (best effort)."""
+    try:
+        commits = await _github_get(client, f"/repos/{repo}/pulls/{number}/commits", per_page=100)
+    except (ApplicationError, httpx.HTTPError):
+        return set()
+    return {c["sha"] for c in commits}  # type: ignore[union-attr]
+
+
 @activity.defn(name="news.load_sources")
 async def load_sources() -> SourceConfig:
     default = Path(__file__).resolve().parents[2] / "sources.toml"
@@ -121,26 +176,34 @@ async def list_github_changes(inp: ListChangesInput) -> ChangeList:
         items.append((when, item, ev))
 
     async with http.client() as client:
-        releases = await _github_get(client, f"/repos/{inp.repo}/releases", per_page=20)
-        for rel in releases:  # type: ignore[union-attr]
+        releases, releases_cut = await _github_pages(
+            client,
+            f"/repos/{inp.repo}/releases",
+            RELEASES_PER_PAGE,
+            _reaches(start, "published_at"),
+        )
+        for rel in releases:
             when = _parse_ts(rel.get("published_at"))
             if when and start <= when < end:
                 title = f"Release {rel['tag_name']}: {rel.get('name') or ''}".strip(": ")
                 add("release", when, rel["html_url"], title, rel["tag_name"], rel.get("body") or "")
 
-        pulls = await _github_get(
+        pulls, pulls_cut = await _github_pages(
             client,
             f"/repos/{inp.repo}/pulls",
+            PULLS_PER_PAGE,
+            _reaches(start, "updated_at"),
             state="closed",
             sort="updated",
             direction="desc",
-            per_page=50,
         )
         merged_shas: set[str] = set()
-        for pr in pulls:  # type: ignore[union-attr]
+        merged: list[tuple[datetime, int]] = []
+        for pr in pulls:
             when = _parse_ts(pr.get("merged_at"))
             if when and start <= when < end:
                 merged_shas.add(pr.get("merge_commit_sha") or "")
+                merged.append((when, pr["number"]))
                 add(
                     "pull_request",
                     when,
@@ -149,17 +212,21 @@ async def list_github_changes(inp: ListChangesInput) -> ChangeList:
                     str(pr["number"]),
                     f"{pr['title']}\n\n{pr.get('body') or ''}",
                 )
+        merged.sort(reverse=True)
+        for _, number in merged[:MAX_PR_COMMIT_LOOKUPS]:
+            merged_shas |= await _pull_commit_shas(client, inp.repo, number)
 
-        commits = await _github_get(
+        commits, commits_cut = await _github_pages(
             client,
             f"/repos/{inp.repo}/commits",
+            COMMITS_PER_PAGE,
+            lambda _page: True,
             since=start.isoformat().replace("+00:00", "Z"),
             until=end.isoformat().replace("+00:00", "Z"),
-            per_page=30,
         )
-        for c in commits:  # type: ignore[union-attr]
+        for c in commits:
             message = c["commit"]["message"]
-            if c["sha"] in merged_shas or message.startswith("Merge pull request"):
+            if c["sha"] in merged_shas or message.startswith(MERGE_PREFIXES):
                 continue
             when = _parse_ts(c["commit"]["committer"]["date"]) or start
             add(
@@ -167,11 +234,13 @@ async def list_github_changes(inp: ListChangesInput) -> ChangeList:
             )
 
     items.sort(key=lambda entry: entry[0], reverse=True)
+    truncated = releases_cut or pulls_cut or commits_cut or len(items) > MAX_ITEMS
     items = items[:MAX_ITEMS]
     return ChangeList(
         repo=inp.repo,
         items=[item for _, item, _ in items],
         evidence=[ev for _, _, ev in items],
+        truncated=truncated,
     )
 
 
@@ -200,6 +269,7 @@ async def get_pull_request(inp: PullRequestInput) -> Evidence:
         "pull_request",
         f"PR #{pr['number']}: {pr['title']}",  # type: ignore[index]
         "\n".join(lines),
+        opened=True,
     )
 
 
@@ -220,6 +290,7 @@ async def compare_refs(inp: CompareInput) -> Evidence:
         "compare",
         f"{inp.repo} {inp.base}...{inp.head}",
         "\n".join(lines),
+        opened=True,
     )
 
 
@@ -272,7 +343,7 @@ async def fetch_document(inp: FetchInput) -> Evidence:
         title = parser.title.strip() or inp.url
     else:
         text, title = response.text, inp.url
-    return make_evidence(inp.url, "document", title, text.strip())
+    return make_evidence(inp.url, "document", title, text.strip(), opened=True)
 
 
 ALL_ACTIVITIES = [load_sources, list_github_changes, get_pull_request, compare_refs, fetch_document]

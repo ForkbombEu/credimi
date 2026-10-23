@@ -15,22 +15,15 @@ import json
 import os
 import sys
 from datetime import date
+from typing import Any
 
-from temporal_agent_harness.harness.agent_client import (
-    AgentClient,
-    AgentTurnError,
-    AgentTurnTimeout,
-)
-from temporal_agent_harness.harness.agent_protocol import AgentConfig
 from temporal_agent_harness.harness.agent_protocol.events import AgentEventType
 from temporal_agent_harness.plugin import AgentHarnessPlugin
 from temporalio.client import Client
-from temporalio.common import WorkflowIDConflictPolicy
 from temporalio.envconfig import ClientConfig
 
-from .models import DEFAULT_MODEL, TASK_QUEUE, WORKFLOW_TYPE, ScanReport, ScanRequest
-
-TURN_TIMEOUT = 30 * 60
+from .models import DEFAULT_MODEL, ScanRequest
+from .scan_runner import ScanFailedError, run_scan
 
 
 def _day(value: str) -> str:
@@ -48,6 +41,7 @@ def _args() -> argparse.Namespace:
     p.add_argument("--max-drafts", type=int, default=3)
     p.add_argument("--max-turns", type=int, default=30)
     p.add_argument("--model", default=DEFAULT_MODEL)
+    p.add_argument("--max-tokens", type=int, default=400_000, help="model token budget")
     p.add_argument("--workflow-id", help="default: news-scan-<since>-<until>")
     args = p.parse_args()
     if args.since > args.until:
@@ -61,6 +55,16 @@ def _short(value: object, limit: int = 160) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+def _print_event(item: Any) -> None:
+    ev = item.event
+    if ev.type == AgentEventType.TOOL_START:
+        print(f"  -> {ev.tool_name} {_short(ev.tool_input)}")
+    elif ev.type == AgentEventType.TOOL_END:
+        print(f"  <- {ev.tool_name} {_short(ev.tool_output)}")
+    elif ev.type == AgentEventType.TOOL_ERROR:
+        print(f"  !! {ev.tool_name} {_short(ev.message)}")
+
+
 async def run() -> int:
     args = _args()
     request = ScanRequest(
@@ -70,45 +74,19 @@ async def run() -> int:
         max_drafts=args.max_drafts,
         max_turns=args.max_turns,
         model=args.model,
+        max_tokens=args.max_tokens,
     )
     workflow_id = args.workflow_id or f"news-scan-{args.since}-{args.until}"
     client = await Client.connect(
         **ClientConfig.load_client_connect_config(), plugins=[AgentHarnessPlugin()]
     )
-    handle = await client.start_workflow(
-        WORKFLOW_TYPE,
-        AgentConfig(),
-        id=workflow_id,
-        task_queue=TASK_QUEUE,
-        id_conflict_policy=WorkflowIDConflictPolicy.USE_EXISTING,
-    )
     ui = os.environ.get("TEMPORAL_UI_URL", "http://localhost:8280")
     print(f"workflow {workflow_id}: {ui}/namespaces/{client.namespace}/workflows/{workflow_id}")
 
-    report: ScanReport | None = None
-    failure = ""
     try:
-        stream = await AgentClient(client, workflow_id).send_message(
-            "scan", request.model_dump(), on_item=lambda item, _offset: item, timeout=TURN_TIMEOUT
-        )
-        async for item in stream:
-            if isinstance(item, AgentTurnError | AgentTurnTimeout):
-                failure = str(item)
-                continue
-            ev = item.event
-            if ev.type == AgentEventType.TOOL_START:
-                print(f"  -> {ev.tool_name} {_short(ev.tool_input)}")
-            elif ev.type == AgentEventType.TOOL_END:
-                print(f"  <- {ev.tool_name} {_short(ev.tool_output)}")
-            elif ev.type == AgentEventType.TOOL_ERROR:
-                print(f"  !! {ev.tool_name} {_short(ev.message)}")
-            elif ev.type == AgentEventType.MESSAGE_HANDLER_END:
-                report = ScanReport.model_validate(ev.output)
-    finally:
-        await handle.signal("close")
-
-    if report is None:
-        print(f"scan failed: {failure or 'no report'}", file=sys.stderr)
+        report = await run_scan(client, request, workflow_id, on_event=_print_event)
+    except ScanFailedError as exc:
+        print(f"scan failed: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(report.model_dump(), indent=2))
     return 0 if not report.error else 2

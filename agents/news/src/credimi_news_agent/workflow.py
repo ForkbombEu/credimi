@@ -24,7 +24,7 @@ from temporalio.exceptions import ApplicationError
 
 with workflow.unsafe.imports_passed_through():
     from agents import Agent as OpenAIAgent
-    from agents import Runner, TResponseInputItem
+    from agents import RunHooks, Runner, TResponseInputItem
     from agents.exceptions import AgentsException
     from temporal_agent_harness.ai_sdks.openai_agents_harness import as_openai_agent_tools
     from temporal_agent_harness.harness import agent
@@ -33,6 +33,7 @@ with workflow.unsafe.imports_passed_through():
         TextMessage,
         TextReply,
         ToolApprovalPolicy,
+        ToolErrorEvent,
     )
     from temporal_agent_harness.harness.agent_workflow import AgentWorkflowRunner
 
@@ -45,6 +46,7 @@ with workflow.unsafe.imports_passed_through():
         GO_STORE_NEWS_DRAFT,
         GO_TASK_QUEUE,
         WORKFLOW_TYPE,
+        Evidence,
         ScanDecisions,
         ScanReport,
         ScanRequest,
@@ -54,7 +56,7 @@ with workflow.unsafe.imports_passed_through():
     )
     from .render import render_payload
     from .tools import CHAT_TOOLS, GO_TIMEOUT, RETRY, SCAN_TOOLS, ResearchSession
-    from .validation import MAX_WINDOW_DAYS
+    from .validation import MAX_WINDOW_DAYS, check_scan_report
 
 _ROLE = """\
 You are the research editor of Credimi, a conformance and interoperability testing platform for
@@ -71,9 +73,10 @@ How to research:
   `fetch_document` for a referenced specification page. Investigate further when unsure.
 - Group related changes into one story instead of one item per commit.
 - `search_news` finds stories Credimi already covers, published or not.
-- State only what the evidence shows. Drafts cite the evidence ids returned by tools in every
-  key point; quotes are verbatim; `diff` is the URL of the evidence for the exact change;
-  `refer` is the source's canonical URL.
+- State only what the evidence shows. Drafts may cite only evidence you opened
+  (get_pull_request, compare_refs or fetch_document), not lines from list_changes. Every key
+  point cites evidence ids; quotes are verbatim; `diff` is the URL of the opened evidence for
+  the exact change; `refer` is the source's canonical URL.
 - Tone: factual and calm, no hype, no clickbait, no exclamation marks."""
 
 SCAN_INSTRUCTIONS = f"""{_ROLE}
@@ -85,8 +88,10 @@ news only for what is genuinely newsworthy. Call `list_changes` with the scan wi
 - Draft with `submit_draft`. If a submission is rejected, fix every listed problem or drop the
   story.
 
-Finish with your decisions: one entry per item you considered (draft, skip or duplicate) with a
-one-line rationale, and a short summary of the scan. Drafting nothing is a valid outcome."""
+Finish with your decisions: one entry per item you considered, with `ref` set to its
+evidence_id, the decision (draft, skip or duplicate) and a one-line rationale, and a short
+summary of the scan. Use `draft` only for stories whose submit_draft reply was ACCEPTED.
+Drafting nothing is a valid outcome."""
 
 CHAT_INSTRUCTIONS = f"""{_ROLE}
 
@@ -117,19 +122,39 @@ def _usage(result) -> Usage:
     return Usage(requests=u.requests, input_tokens=u.input_tokens, output_tokens=u.output_tokens)
 
 
+class TokenBudgetExceeded(AgentsException):
+    """A scan used more model tokens than its request allows."""
+
+
+class TokenBudget(RunHooks):
+    """Stops a run once its model calls used more than ``limit`` input plus output tokens."""
+
+    def __init__(self, limit: int) -> None:
+        self.limit = limit
+        self.used = 0
+
+    async def on_llm_end(self, context, agent, response) -> None:
+        self.used += response.usage.input_tokens + response.usage.output_tokens
+        if self.used > self.limit:
+            raise TokenBudgetExceeded(
+                f"token budget of {self.limit} tokens exceeded: {self.used} used"
+            )
+
+
 def _adapt_tools(runner: AgentWorkflowRunner, tools: list, session: ResearchSession) -> list:
     """Harness tools for the SDK, with invalid arguments sent back to the model.
 
     The harness adapter raises a non-retryable `InvalidToolInput` when the model's arguments
     do not match the tool schema, which fails the whole turn. Models without strict schema
     enforcement (e.g. through Ollama) omit fields, so the error becomes the tool's reply and
-    the model can call again.
+    the model can call again. The error is also published as a TOOL_ERROR event, so the
+    harness UI and CLI show it.
     """
     adapted = as_openai_agent_tools(runner, tools, injections={"session": session})
-    return [dataclasses.replace(t, on_invoke_tool=_reply_invalid_input(t)) for t in adapted]
+    return [dataclasses.replace(t, on_invoke_tool=_reply_invalid_input(runner, t)) for t in adapted]
 
 
-def _reply_invalid_input(tool):
+def _reply_invalid_input(runner: AgentWorkflowRunner, tool):
     invoke = tool.on_invoke_tool
 
     async def on_invoke_tool(ctx, input: str):  # noqa: A002
@@ -138,6 +163,16 @@ def _reply_invalid_input(tool):
         except ApplicationError as exc:
             if exc.type != "InvalidToolInput":
                 raise
+            try:
+                runner.publish(
+                    ToolErrorEvent(
+                        tool_id=getattr(ctx, "tool_call_id", "") or f"invalid-{tool.name}",
+                        tool_name=tool.name,
+                        message=exc.message,
+                    )
+                )
+            except RuntimeError:
+                pass  # no active turn to publish against
             return (
                 f"ERROR: invalid arguments for {tool.name}: {exc.message}\n"
                 "Call it again with every required field."
@@ -222,11 +257,17 @@ class NewsAgentWorkflow:
         usage = Usage()
         error = ""
         try:
-            result = await Runner.run(sdk_agent, input=prompt, max_turns=request.max_turns)
+            result = await Runner.run(
+                sdk_agent,
+                input=prompt,
+                max_turns=request.max_turns,
+                hooks=TokenBudget(request.max_tokens),
+            )
             decisions = result.final_output_as(ScanDecisions)
             usage = _usage(result)
         except AgentsException as exc:
-            # e.g. MaxTurnsExceeded: drafts accepted so far passed every check, so keep them.
+            # e.g. MaxTurnsExceeded, TokenBudgetExceeded: drafts accepted so far passed every
+            # check, so keep them.
             error = f"{type(exc).__name__}: {exc}"
 
         report = ScanReport(
@@ -240,6 +281,14 @@ class NewsAgentWorkflow:
             usage=usage,
             error=error,
         )
+        report.problems = check_scan_report(
+            decisions.decisions,
+            session.ledger,
+            [d.diff for d in session.accepted],
+            session.listed,
+        )
+        if not session.listed and report.error == "":
+            report.error = "invalid scan: no list_changes call succeeded"
         report.text = report_text(report)
         return report
 
@@ -269,6 +318,7 @@ class NewsAgentWorkflow:
             model=DEFAULT_MODEL,
             tools=_adapt_tools(self._runner, CHAT_TOOLS, session),
         )
+        before = set(session.ledger)
         try:
             result = await Runner.run(
                 sdk_agent,
@@ -290,9 +340,13 @@ class NewsAgentWorkflow:
             input_tokens=self._chat_usage.input_tokens + usage.input_tokens,
             output_tokens=self._chat_usage.output_tokens + usage.output_tokens,
         )
+        new = [ev for ev_id, ev in session.ledger.items() if ev_id not in before][:10]
         stored = await self._store(session)
         return TextReply(
-            text=str(result.final_output) + _stored_text(stored) + self._limits_text(usage)
+            text=str(result.final_output)
+            + _evidence_text(new)
+            + _stored_text(stored)
+            + self._limits_text(usage)
         )
 
     def _limits_text(self, usage: Usage | None = None) -> str:
@@ -306,6 +360,13 @@ class NewsAgentWorkflow:
             f"\n\n_Message {self._asks} of {CHAT_MAX_MESSAGES}; {used}session total "
             f"{self._chat_usage.input_tokens}/{self._chat_usage.output_tokens} tokens._"
         )
+
+
+def _evidence_text(evidence: list[Evidence]) -> str:
+    if not evidence:
+        return ""
+    lines = [f"- [{ev.title}]({ev.url})" for ev in evidence]
+    return "\n\n**Evidence retrieved for this answer:**\n" + "\n".join(lines)
 
 
 def _stored_text(stored: list[StoredDraft]) -> str:
@@ -325,6 +386,9 @@ def report_text(report: ScanReport) -> str:
         lines += [f"**Error:** {report.error}", ""]
     lines.append("**Decisions:**")
     lines += [f"- `{d.decision}` {d.ref}: {d.rationale}" for d in report.decisions] or ["- none"]
+    if report.problems:
+        lines += ["", "**Report problems:**"]
+        lines += [f"- {p}" for p in report.problems]
     lines += ["", "**Stored drafts (unpublished):**"]
     lines += [
         f"- {s.title} (news `{s.news_id}`{', already stored' if s.duplicate else ''}) {s.diff}"

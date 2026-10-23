@@ -57,6 +57,7 @@ class ScanRequest(BaseModel):
     max_drafts: int = 3
     max_turns: int = 30
     model: str = DEFAULT_MODEL
+    max_tokens: int = 400_000
 
     @field_validator("since", "until", "model")
     @classmethod
@@ -80,6 +81,8 @@ class Evidence(BaseModel):
     retrieved_at: str
     sha256: str
     text: str
+    # True when a tool opened the change itself (PR, compare, document), not just listed it.
+    opened: bool = False
 
 
 class ChangeItem(BaseModel):
@@ -107,6 +110,8 @@ class ChangeList(BaseModel):
     repo: str
     items: list[ChangeItem]
     evidence: list[Evidence]
+    # More changes exist in the window than were listed.
+    truncated: bool = False
 
 
 class PullRequestInput(BaseModel):
@@ -170,7 +175,7 @@ class NewsDraft(BaseModel):
 class ItemDecision(BaseModel):
     """What the agent decided about one change it considered."""
 
-    ref: str = Field(description="Evidence id or URL of the item.")
+    ref: str = Field(description="The evidence_id of the item (as returned by list_changes).")
     decision: Literal["draft", "skip", "duplicate"]
     rationale: str
 
@@ -214,5 +219,34 @@ class ScanReport(BaseModel):
     evidence_count: int
     usage: Usage
     error: str = ""
+    # Inconsistencies between the decisions and what the scan actually retrieved and accepted.
+    problems: list[str] = Field(default_factory=list)
     # Markdown digest of the fields above. The harness UI renders a reply's `text` only.
     text: str = ""
+
+
+class RunScanInput(BaseModel):
+    """Input of the `news.run_scan` activity: one scan, run as the given session workflow."""
+
+    request: ScanRequest
+    workflow_id: str
+
+
+class DailyScanInput(BaseModel):
+    """Input of the `NewsDailyScan` workflow started by the daily Temporal Schedule."""
+
+    source_ids: list[str] = Field(default_factory=list)
+    max_drafts: int = 3
+
+    @field_validator("source_ids", mode="before")
+    @classmethod
+    def _none_is_empty(cls, value: object) -> object:
+        return [] if value is None else value
+
+
+class DailyScanResult(BaseModel):
+    """Result of one daily run; ``until`` is the cursor the next run starts after."""
+
+    until: str
+    scan_workflow_id: str = ""
+    stored: int = 0

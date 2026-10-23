@@ -119,7 +119,7 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 		./scripts/worktree-compose.sh prepare; \
 		trap "./scripts/worktree-compose.sh stop" EXIT; \
 		./scripts/worktree-compose.sh up; \
-		DEBUG=1 $(GOTOOL) hivemind -T -l API,UI -d "$(ROOT_DIR)" "$${PROCFILE_RUNTIME}"'
+		DEBUG=1 $(GOTOOL) hivemind -T -l API,UI,NEWS,NEWSUI -d "$(ROOT_DIR)" "$${PROCFILE_RUNTIME}"'
 
 dev.noworkers: ## 🚀 run in watch mode without Temporal workers
 	CREDIMI_TEMPORAL_WORKERS_DISABLED=1 $(MAKE) dev
@@ -164,15 +164,15 @@ fcaf-sync: fcaf-generate ## Synchronize complete FCAF pipeline and credential de
 
 # Experimental news agent (agents/news), local only. It needs `make dev` running: the Go
 # activities it calls are registered by `credimi serve`. FAKE=1 uses the scripted model and the
-# recorded GitHub fixtures: no API key, no network. Without FAKE it needs OPENAI_API_KEY
-# (GITHUB_TOKEN optional).
+# recorded GitHub fixtures: no API key, no network. Without FAKE it needs a model configured in
+# agents/news/.env (see agents/news/.env.example; GITHUB_TOKEN optional).
 NEWS_AGENT_DIR ?= $(ROOT_DIR)/agents/news
-NEWS_AGENT_UI_PORT ?= 8000
 NEWS_AGENT_ENV = eval "$$("$(ROOT_DIR)/scripts/worktree-env.sh" export)"; \
 	export TEMPORAL_ADDRESS="$${TEMPORAL_ADDRESS:-localhost:$$TEMPORAL_PORT}" \
-	TEMPORAL_UI_URL="http://localhost:$$TEMPORAL_UI_PORT" \
-	$(if $(FAKE),NEWS_AGENT_FAKE_MODEL=1 NEWS_AGENT_FIXTURES_DIR="$(NEWS_AGENT_DIR)/fixtures/github",); \
-	cd "$(NEWS_AGENT_DIR)"
+	TEMPORAL_UI_URL="http://localhost:$$TEMPORAL_UI_PORT"; \
+	cd "$(NEWS_AGENT_DIR)"; \
+	set -a; [ ! -f .env ] || . ./.env; set +a \
+	$(if $(FAKE),; export NEWS_AGENT_FAKE_MODEL=1 NEWS_AGENT_FIXTURES_DIR="$(NEWS_AGENT_DIR)/fixtures/github",)
 
 news-agent.worker: ## 📰 run the experimental news agent worker (FAKE=1: no API key, offline)
 	$(call require_tools,uv)
@@ -186,12 +186,9 @@ news-agent.scan: ## 📰 start one news scan (SINCE=YYYY-MM-DD UNTIL=YYYY-MM-DD 
 		$(foreach s,$(or $(SOURCE),$(if $(FAKE),openid4vp,)),--source "$(s)") \
 		$(if $(MODEL),--model "$(MODEL)",)
 
-news-agent.ui: ## 📰 harness web UI for the news agent (http://localhost:8000; NEWS_AGENT_UI_PORT)
+news-agent.ui: ## 📰 harness web UI for the news agent (http://localhost:8000; NEWS_AGENT_UI_PORT in .env.worktree)
 	$(call require_tools,uv)
-	@$(NEWS_AGENT_ENV) && \
-		{ uv run temporal-agent-harness session-manager & SM=$$!; \
-		trap 'kill $$SM 2>/dev/null' EXIT INT TERM; \
-		uv run temporal-agent-harness serve agents.toml --host 127.0.0.1 --port $(NEWS_AGENT_UI_PORT); }
+	@eval "$$("$(ROOT_DIR)/scripts/worktree-env.sh" export)"; "$(ROOT_DIR)/scripts/news-agent-dev.sh" ui
 
 news-agent.test: ## 📰 lint and test the experimental news agent
 	$(call require_tools,uv)

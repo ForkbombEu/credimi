@@ -31,6 +31,8 @@ printf '%s\n' \
 	"# Generated runtime Procfile for ${COMPOSE_PROJECT_NAME}; do not edit." \
 	"API: ./scripts/wait-for-it.sh -s -t 0 localhost:${TEMPORAL_PORT} && go tool gow run -tags=credimi_extra main.go serve --http=0.0.0.0:${API_PORT}" \
 	"UI: ./scripts/wait-for-it.sh -s -t 0 localhost:${API_PORT} && cd webapp && bun i && PORT=${UI_PORT} bun dev" \
+	"NEWS: ./scripts/wait-for-it.sh -s -t 0 localhost:${API_PORT} && ./scripts/news-agent-dev.sh worker" \
+	"NEWSUI: ./scripts/wait-for-it.sh -s -t 0 localhost:${TEMPORAL_PORT} && ./scripts/news-agent-dev.sh ui" \
 	>"${PROCFILE_RUNTIME}"
 
 cat <<EOF
@@ -40,6 +42,7 @@ worktree ports (${COMPOSE_PROJECT_NAME}):
   temporal    localhost:${TEMPORAL_PORT}
   temporal-ui http://localhost:${TEMPORAL_UI_PORT}
   embedded temporal-ui http://localhost:${API_PORT}/temporal-ui (org-scoped proxy to 127.0.0.1:${TEMPORAL_UI_EMBEDDED_PORT})
+  news-agent  http://localhost:${NEWS_AGENT_UI_PORT}  (harness UI)
   override    ${COMPOSE_DEV_OVERRIDE_FILE}
   procfile    ${PROCFILE_RUNTIME}
 EOF

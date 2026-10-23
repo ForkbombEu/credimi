@@ -6,8 +6,8 @@ from datetime import date
 
 import pytest
 
-from credimi_news_agent.models import Evidence, KeyPoint, NewsDraft, Quote
-from credimi_news_agent.validation import validate_draft, window_error
+from credimi_news_agent.models import Evidence, ItemDecision, KeyPoint, NewsDraft, Quote
+from credimi_news_agent.validation import check_scan_report, validate_draft, window_error
 
 TODAY = date(2026, 10, 14)
 
@@ -44,8 +44,10 @@ LEDGER = {
         retrieved_at="2026-10-14T00:00:00+00:00",
         sha256="0" * 64,
         text="PR #802: List encrypted_response_enc_values_supported\n  in client metadata.",
+        opened=True,
     )
 }
+LISTED_LEDGER = {"ev_pr": LEDGER["ev_pr"].model_copy(update={"opened": False})}
 
 
 def draft(**overrides: object) -> NewsDraft:
@@ -104,3 +106,36 @@ def test_subdomain_of_allowed_domain_is_allowed_but_lookalike_is_not():
     lookalike = draft(refer="https://notgithub.com/x")
     assert validate_draft(ok, LEDGER, DOMAINS, []) == []
     assert validate_draft(lookalike, LEDGER, DOMAINS, []) != []
+
+
+def test_drafts_must_cite_opened_evidence():
+    errors = validate_draft(draft(), LISTED_LEDGER, DOMAINS, [])
+    assert any("cites only listed items" in e for e in errors), errors
+    assert any("was only listed" in e for e in errors), errors
+
+
+def decision(ref: str, kind: str = "skip") -> ItemDecision:
+    return ItemDecision(ref=ref, decision=kind, rationale="r")  # type: ignore[arg-type]
+
+
+def test_scan_report_passes_when_decisions_match_the_scan():
+    decisions = [decision("ev_pr", "draft"), decision(PR_URL, "draft")]
+    assert check_scan_report(decisions, LEDGER, [PR_URL], listed=True) == []
+
+
+def test_scan_report_without_a_listing_is_invalid():
+    assert check_scan_report([], LEDGER, [], listed=False) == [
+        "invalid scan: no list_changes call succeeded"
+    ]
+
+
+def test_scan_report_flags_items_not_retrieved():
+    assert check_scan_report([decision("ev_made_up")], LEDGER, [], listed=True) == [
+        "decision 1 (ev_made_up) is not an item retrieved in this scan"
+    ]
+
+
+def test_scan_report_flags_draft_decisions_without_an_accepted_draft():
+    assert check_scan_report([decision("ev_pr", "draft")], LEDGER, [], listed=True) == [
+        "decision 1 (ev_pr) says draft but no accepted draft covers it"
+    ]

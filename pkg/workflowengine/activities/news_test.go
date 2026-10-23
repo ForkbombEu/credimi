@@ -335,3 +335,83 @@ func TestNewsSummaryText(t *testing.T) {
 	assert.Equal(t, strings.Repeat("x", 500), newsSummaryText(strings.Repeat("x", 501)))
 	assert.Empty(t, newsSummaryText(""))
 }
+
+func TestSearchNewsActivityMultiWordQuery(t *testing.T) {
+	app := newCredimiTestApp(t)
+	errorHandling := createTestNews(
+		t,
+		app,
+		"OpenID4VP error handling",
+		"<p>Wallets now return invalid_request for malformed requests</p>",
+		"https://example.com/m1",
+		false,
+	)
+	clarification := createTestNews(
+		t,
+		app,
+		"invalid_request clarification",
+		"",
+		"https://example.com/m2",
+		false,
+	)
+	createTestNews(t, app, "Unrelated", "nothing", "https://example.com/m3", false)
+
+	items := searchNewsItems(
+		t,
+		app,
+		SearchNewsInput{Query: "OpenID4VP invalid_request, transaction"},
+	)
+	require.Equal(t, []string{errorHandling.Id, clarification.Id}, newsIDs(items))
+	assert.InDelta(t, 2, items[0]["matched_terms"], 0)
+	assert.InDelta(t, 1, items[1]["matched_terms"], 0)
+}
+
+func TestSearchNewsActivityDiffMatchRanksFirst(t *testing.T) {
+	app := newCredimiTestApp(t)
+	byDiff := createTestNews(t, app, "Release", "", "https://example.com/r1", false)
+	byWords := createTestNews(
+		t,
+		app,
+		"wallet attestation update",
+		"",
+		"https://example.com/r2",
+		false,
+	)
+
+	items := searchNewsItems(t, app, SearchNewsInput{
+		Query:    "wallet attestation",
+		DiffURLs: []string{"https://example.com/r1"},
+	})
+	require.Equal(t, []string{byDiff.Id, byWords.Id}, newsIDs(items))
+	assert.InDelta(t, 0, items[0]["matched_terms"], 0)
+	assert.InDelta(t, 2, items[1]["matched_terms"], 0)
+}
+
+func TestNewsSearchTerms(t *testing.T) {
+	assert.Nil(t, newsSearchTerms("   "))
+	assert.Equal(
+		t,
+		[]string{"openid4vp", "invalid_request", "draft"},
+		newsSearchTerms(`"OpenID4VP", invalid_request? openid4vp a ((draft`),
+	)
+	assert.Equal(
+		t,
+		[]string{"aa", "bb", "cc", "dd", "ee", "ff", "gg", "hh"},
+		newsSearchTerms("aa bb cc dd ee ff gg hh ii"),
+	)
+	assert.Equal(t, []string{"%"}, newsSearchTerms(" % "))
+}
+
+func TestInsertNewsDraftDuplicateOnSave(t *testing.T) {
+	app := newCredimiTestApp(t)
+
+	first, err := insertNewsDraft(app, validNewsDraft())
+	require.NoError(t, err)
+	require.False(t, first.Duplicate)
+	before := countNews(t, app)
+
+	second, err := insertNewsDraft(app, validNewsDraft())
+	require.NoError(t, err)
+	require.Equal(t, StoreNewsDraftOutput{ID: first.ID, Duplicate: true}, second)
+	require.Equal(t, before, countNews(t, app))
+}

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Worker for the NewsAgent workflow and its Python activities.
+"""Worker for the NewsAgent and NewsDailyScan workflows and their Python activities.
 
 Environment:
     TEMPORAL_ADDRESS / TEMPORAL_NAMESPACE   Temporal connection (defaults: localhost:7233, default)
@@ -48,8 +48,10 @@ from temporalio.envconfig import ClientConfig
 from temporalio.worker import Worker
 
 from .activities import ALL_ACTIVITIES
+from .daily import NewsDailyScanWorkflow
 from .fake_model import ScriptedModelProvider
 from .models import TASK_QUEUE
+from .scan_runner import run_scan_activity
 from .workflow import NewsAgentWorkflow
 
 
@@ -196,8 +198,8 @@ async def main() -> None:
     worker = Worker(
         client,
         task_queue=TASK_QUEUE,
-        workflows=[NewsAgentWorkflow],
-        activities=ALL_ACTIVITIES,
+        workflows=[NewsAgentWorkflow, NewsDailyScanWorkflow],
+        activities=[*ALL_ACTIVITIES, run_scan_activity],
     )
     if fake_model_enabled():
         model = "scripted"

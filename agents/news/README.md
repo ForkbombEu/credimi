@@ -4,10 +4,10 @@ SPDX-FileCopyrightText: 2026 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# News agent (experimental, local only)
+# News agent
 
-A proof of concept of agent-driven News on Credimi's own Temporal. It runs alongside the current
-News pipeline (changedetection.io + n8n, see `credimi-extra/news/`), which it does not touch.
+Agent-driven News on Credimi's own Temporal. It runs alongside the current News pipeline
+(changedetection.io + n8n, see `credimi-extra/news/`), which it does not touch.
 
 An OpenAI Agents SDK agent, hosted by the
 [Temporal Agent Harness](https://github.com/temporal-community/temporal-agent-harness)
@@ -24,13 +24,17 @@ It accepts two messages:
   with `check_draft`, then saved with `save_draft`, which waits until you approve it.
 
 ```
-CLI ──update-with-start──▶ NewsAgent workflow (Python, ns default, tq news-agent)
+CLI / news.run_scan ─update-with-start─▶ NewsAgent workflow (Python, ns default, tq news-agent)
                              ├─ model calls ............ Temporal activities (OpenAI or scripted)
                              ├─ list_changes, get_pull_request, compare_refs, fetch_document
                              │                           Python activities (GitHub REST, allowlisted fetch)
                              ├─ search_news ............ Go activity "Search news"
                              └─ after the turn ......... Go activity "Store a news draft"
                                                          (tq NewsToolsTaskQueue, in `credimi serve`)
+
+Schedule news-daily-scan ──▶ NewsDailyScan workflow (ns default, tq news-agent)
+                             └─ news.run_scan activity: one NewsAgent scan of the days since the
+                                last successful run (cursor = last completion result)
 ```
 
 ## Safeguards
@@ -39,17 +43,26 @@ CLI ──update-with-start──▶ NewsAgent workflow (Python, ns default, tq 
 |---|---|---|
 | Unintended publication | No tool can publish. The workflow stores accepted drafts after the turn; the Go activity always writes `published=false`. | `workflow.py`, `pkg/workflowengine/activities/news.go` |
 | Drafts from chat without consent | `save_draft` is the only tool that is not inherently safe, so the approval policy pauses it until you approve it in the UI. Approval shows the whole draft. **Always allow** turns the gate off for the rest of that session. | `tools.py` |
-| Unsupported claims | Every key point cites evidence ids; ids must be in the ledger of what activities actually retrieved; quotes must be verbatim; `diff` must be a retrieved URL. Rejections go back to the model. | `validation.py`, `tools.py` |
-| Duplicates | `diff` (the exact change URL) is the key: drafts with a diff already in `news` are refused, the Go store returns the existing record instead of writing. The model also sees `search_news`. | `tools.py`, `news.go` |
+| Unsupported claims | Every key point cites evidence ids; ids must be in the ledger of what activities actually retrieved, and at least one must have been opened (`get_pull_request`, `compare_refs`, `fetch_document`), not only listed; quotes must be verbatim; `diff` must be the URL of opened evidence. Rejections go back to the model. | `validation.py`, `tools.py` |
+| Wrong scan reports | Decisions must name retrieved items, `draft` decisions must match an accepted draft, and a scan without a successful `list_changes` fails. Findings are listed under **Report problems**. | `check_scan_report` in `validation.py` |
+| Duplicates | `diff` (the exact change URL) is the key: drafts with a diff already in `news` are refused, the Go store returns the existing record instead of writing, and a partial unique index on `news.diff` (non-empty values) turns a lost race into the same duplicate result. The model also sees `search_news`. | `tools.py`, `news.go`, `pb_migrations/1792000000_unique_news_diff.js` |
 | Injected HTML | The model writes Markdown; raw HTML is escaped. Sources are rendered from the ledger. The webapp sanitizes again (DOMPurify). | `render.py` |
 | Fetching anything | `fetch_document` only reaches `allowed_domains`, over https, without following redirects. `list_changes` only covers `sources.toml`. | `activities.py`, `tools.py` |
 | Wide or future windows | `list_changes` refuses windows over 92 days or ending after today; a scan cannot leave its own window. | `validation.py` |
-| Runaway cost | Scan: `max_turns` (default 30) and `max_drafts` (default 3). Chat: 15 model calls per answer, 3 drafts per session; usage in every reply. | `ScanRequest`, `models.py` |
+| Runaway cost | Scan: `max_turns` (default 30), `max_drafts` (default 3) and a token budget (`max_tokens`, default 400 000; the scan stops with `TokenBudgetExceeded` and keeps accepted drafts). Chat: 15 model calls per answer, 3 drafts per session; usage in every reply. | `ScanRequest`, `models.py`, `TokenBudget` in `workflow.py` |
 | Unbounded chat history | A chat session takes at most 20 messages, then asks for a new session (the harness does not continue-as-new). | `models.py` |
 
 ## Run it
 
-With `make dev` running (the Go activities are registered by `credimi serve`):
+`make dev` starts the worker (`NEWS`) and the harness UI (`NEWSUI`, `http://localhost:8000`)
+next to the API and the webapp, through `scripts/news-agent-dev.sh`. The worker reads its model
+settings from `agents/news/.env`; copy `agents/news/.env.example` and uncomment one option.
+Without a configured model, or with `CREDIMI_TEMPORAL_WORKERS_DISABLED` set, the worker idles and
+logs why; the rest of the stack is unaffected.
+
+The make targets below run the worker or a scan on their own (with `make dev` running, since the
+Go activities are registered by `credimi serve`); they also read `agents/news/.env`. Stop the
+`NEWS` process first if you start a second worker.
 
 ```sh
 # No API key, no network: scripted model + recorded GitHub fixtures (openid4vp, 2026-10-01..14)
@@ -62,14 +75,43 @@ make news-agent.scan SINCE=2026-10-01 UNTIL=2026-10-14 [SOURCE=openid4vp] [MODEL
 ```
 
 The scan prints each tool call, then the report (decisions, stored drafts, rejected
-submissions, usage) and a link to the run in the Temporal UI (`default` namespace). Drafts are in
-the `news` collection of the PocketBase admin (`http://localhost:8090/_/`); set `published` to
-show one on `/news`.
+submissions, report problems, usage) and a link to the run in the Temporal UI (`default`
+namespace). Drafts are in the `news` collection of the PocketBase admin
+(`http://localhost:8090/_/`); set `published` to show one on `/news`.
+
+### Daily scan
+
+`POST /api/news-agent/schedule` (internal admin key only, `Credimi-Api-Key`) creates or updates
+the Temporal Schedule `news-daily-scan` in the `default` namespace; `DELETE` removes it.
+
+```sh
+curl -X POST localhost:8090/api/news-agent/schedule -H "Credimi-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"hour_utc":6,"source_ids":["openid4vp"],"max_drafts":3,"trigger_now":true}'
+curl -X DELETE localhost:8090/api/news-agent/schedule -H "Credimi-Api-Key: $CREDIMI_INTERNAL_ADMIN_KEY"
+```
+
+All fields are optional: `hour_utc` defaults to 6, `source_ids` to every source, `max_drafts` to 3
+(1 to 10). An update keeps a paused schedule paused. Overlapping runs are skipped; missed runs are
+caught up within 12 hours.
+
+Each run starts `NewsDailyScan`, which scans from the day after the previous successful run to
+yesterday (UTC), at most 92 days, as the NewsAgent session `news-scan-<since>-<until>`. A failed
+scan fails the run and does not advance the cursor, so the next run scans those days again.
+
+### Docker
+
+`docker compose --profile news-agent up news_agent` runs the worker image built from
+`agents/news/Dockerfile`, connected to the `temporal` service. It takes `OPENAI_API_KEY` (or
+`NEWS_AGENT_MODEL_BASE_URL`, `NEWS_AGENT_MODEL_API_KEY`, `NEWS_AGENT_MODEL`) and `GITHUB_TOKEN`
+from the Compose environment. Without the profile the service does not start. The harness UI is
+not deployed.
 
 ### Harness web UI
 
-`make news-agent.ui` starts the harness session manager and its web UI on
-`http://localhost:8000` (the worker still runs separately). Open the session manager and choose
+`make dev` serves the harness session manager and its web UI on `http://localhost:8000`
+(`NEWS_AGENT_UI_PORT` in worktrees); `make news-agent.ui` starts them alone. Open the session
+manager and choose
 **New session → Credimi news agent**. The chat box sends `ask`; pick `scan` in the handler menu
 next to it to get the scan form. The state flow shows every tool call with its input and result,
 and an approval card for each `save_draft`. The UI lists only sessions it created or that are
@@ -81,20 +123,19 @@ In fake mode the scripted model only follows a fixed chat script: name a source 
 
 ### Other OpenAI-compatible models (Gemini, Ollama)
 
-The worker can use any endpoint that implements OpenAI's Chat Completions API. Set these in the
-worker's terminal only; without `NEWS_AGENT_MODEL_BASE_URL` it uses OpenAI as before.
+The worker can use any endpoint that implements OpenAI's Chat Completions API. Set these in
+`agents/news/.env` (or the worker's environment); without `NEWS_AGENT_MODEL_BASE_URL` it uses
+OpenAI as before.
 
 ```sh
 # Gemini free tier (key from https://aistudio.google.com/apikey, no billing)
-export NEWS_AGENT_MODEL_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-export NEWS_AGENT_MODEL_API_KEY="$(cat ~/.config/credimi-news/gemini.key)"
-export NEWS_AGENT_MODEL=gemini-3.5-flash
+NEWS_AGENT_MODEL_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+NEWS_AGENT_MODEL_API_KEY=...
+NEWS_AGENT_MODEL=gemini-3.5-flash
 
 # or a local model through Ollama (no key)
-export NEWS_AGENT_MODEL_BASE_URL=http://localhost:11434/v1
-export NEWS_AGENT_MODEL=qwen3:14b
-
-make news-agent.worker
+NEWS_AGENT_MODEL_BASE_URL=http://localhost:11434/v1
+NEWS_AGENT_MODEL=qwen3:14b
 ```
 
 `NEWS_AGENT_MODEL` replaces the model name the workflow asks for. In this mode the worker allows
@@ -125,9 +166,13 @@ server. To record new fixtures, run the worker with `NEWS_AGENT_RECORD_DIR=fixtu
 ## Known limits
 
 - The harness is pre-alpha; its version is pinned. Each scan is one short session, closed by the
-  CLI, because the harness does not continue-as-new.
+  CLI or the `news.run_scan` activity, because the harness does not continue-as-new.
 - Duplicate detection is exact on `diff`; two different change URLs for the same story can both
   be stored. The model's `search_news` judgement is the only semantic check.
-- The window is the cursor: there is no stored per-source position.
+- The daily cursor is the last successful run's `until`; there is no stored per-source position.
+  A retried `news.run_scan` reattaches to a running session; once that session has closed, a new
+  attempt rescans the window, and the `diff` checks keep it from storing duplicates.
+- `list_changes` reads at most 5 pages per GitHub list and returns at most 60 items; it reports
+  `truncated` beyond that, and the model is told to split the window.
 - Turns run without streaming, so the harness emits tool events but no token-level events.
 - With a real key, the OpenAI Agents SDK exports traces to OpenAI by default.

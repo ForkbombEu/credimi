@@ -11,11 +11,11 @@ statement points at evidence an activity actually retrieved during this scan.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import date
 
 from .activities import host_allowed
-from .models import Evidence, NewsDraft
+from .models import Evidence, ItemDecision, NewsDraft
 
 MAX_TITLE = 120
 MAX_TAGS = 6
@@ -72,6 +72,15 @@ def validate_draft(
         for ev_id in point.evidence_ids:
             if ev_id not in ledger:
                 errors.append(f"key point {i} cites {ev_id}, which no tool returned in this scan")
+        if (
+            point.evidence_ids
+            and all(ev_id in ledger for ev_id in point.evidence_ids)
+            and not any(ledger[ev_id].opened for ev_id in point.evidence_ids)
+        ):
+            errors.append(
+                f"key point {i} cites only listed items; open the change first "
+                "(get_pull_request, compare_refs or fetch_document)"
+            )
 
     for i, quote in enumerate(draft.quotes, start=1):
         evidence = ledger.get(quote.evidence_id)
@@ -80,12 +89,40 @@ def validate_draft(
         elif _normalize(quote.text) not in _normalize(evidence.text):
             errors.append(f"quote {i} is not an exact excerpt of {quote.evidence_id}")
 
-    fetched_urls = {ev.url for ev in ledger.values()}
-    if draft.diff not in fetched_urls:
+    by_url = {ev.url: ev for ev in ledger.values()}
+    if draft.diff not in by_url:
         errors.append("diff must be the URL of evidence retrieved in this scan")
+    elif not by_url[draft.diff].opened:
+        errors.append(
+            f"diff {draft.diff} was only listed; open it with get_pull_request, compare_refs "
+            "or fetch_document"
+        )
     if not host_allowed(draft.refer, allowed_domains):
         errors.append("refer must be an https URL on an allowed domain")
     if draft.diff in set(accepted_diffs):
         errors.append("a draft for this diff was already accepted in this scan")
 
     return errors
+
+
+def check_scan_report(
+    decisions: Sequence[ItemDecision],
+    ledger: Mapping[str, Evidence],
+    accepted_diffs: Collection[str],
+    listed: bool,
+) -> list[str]:
+    """Where the agent's decisions disagree with what the scan retrieved and accepted."""
+    problems: list[str] = []
+    if not listed:
+        problems.append("invalid scan: no list_changes call succeeded")
+    urls = {ev.url for ev in ledger.values()}
+    drafted = set(accepted_diffs) | {ev.id for ev in ledger.values() if ev.url in accepted_diffs}
+    for i, decision in enumerate(decisions, start=1):
+        if decision.ref not in ledger and decision.ref not in urls:
+            problems.append(f"decision {i} ({decision.ref}) is not an item retrieved in this scan")
+    for i, decision in enumerate(decisions, start=1):
+        if decision.decision == "draft" and decision.ref not in drafted:
+            problems.append(
+                f"decision {i} ({decision.ref}) says draft but no accepted draft covers it"
+            )
+    return problems
