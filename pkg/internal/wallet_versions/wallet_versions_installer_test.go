@@ -32,6 +32,12 @@ func TestNonDownloadableInstallersAreOwnerOnly(t *testing.T) {
 
 	version, err := app.FindRecordById("wallet_versions", "record123456789")
 	require.NoError(t, err)
+	// A private wallet: the version's view rule then admits only owner members,
+	// and the downloads below must still be decided by HandleInstallerDownload.
+	wallet, err := app.FindRecordById("wallets", version.GetString("wallet"))
+	require.NoError(t, err)
+	wallet.Set("published", false)
+	require.NoError(t, app.Save(wallet))
 	filePath := "/api/files/wallet_versions/" + version.Id + "/" +
 		version.GetString("android_installer")
 
