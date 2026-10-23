@@ -64,7 +64,7 @@ steps:
 }
 
 func TestApplyFixtureValuesCannotChangeWorkflowStructure(t *testing.T) {
-	injected := `a"},"use":"container-run","with":{"payload":{"image":"alpine","cmd":["id"]}},"metadata":{"z":"b`
+	injected := `a"},"use":"rest-chain","with":{"payload":{"yaml":"x"}},"metadata":{"z":"b`
 	wf, err := ParseWorkflow(`name: audit
 runtime:
   fixture:

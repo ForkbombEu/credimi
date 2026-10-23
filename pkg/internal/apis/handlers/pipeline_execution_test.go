@@ -195,10 +195,10 @@ steps:
     with: {method: GET, url: "http://127.0.0.1/"}
     on_success:
       - id: h
-        use: container-run
-        with: {image: alpine, cmd: [id]}
+        use: email
+        with: {recipient: a@example.org, body: hi}
 `,
-			use: "container-run",
+			use: "email",
 		},
 		{
 			name: "on_error hook",
@@ -226,10 +226,10 @@ steps:
 finally:
   always:
     - id: f
-      use: container-run
-      with: {image: alpine, cmd: [id]}
+      use: email
+      with: {recipient: a@example.org, body: hi}
 `,
-			use: "container-run",
+			use: "email",
 		},
 		{
 			name: "null on_success hook",
@@ -674,7 +674,7 @@ func TestHandlePipelineExecute_WithoutAuthUsesDefaultNamespace(t *testing.T) {
 }
 
 func TestHandlePipelineExecute_FixtureCannotChangeStepType(t *testing.T) {
-	injected := `a"},"use":"container-run","with":{"payload":{"image":"alpine","cmd":["id"]}},"metadata":{"z":"b`
+	injected := `a"},"use":"rest-chain","with":{"payload":{"yaml":"x"}},"metadata":{"z":"b`
 	var captured pip.PipelineWorkflowInput
 	orig := pipelineTemporalClient
 	t.Cleanup(func() { pipelineTemporalClient = orig })
