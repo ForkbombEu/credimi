@@ -106,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{
 			kind: 'Docs',
 			title: 'Build and run wallet × issuer × verifier pipelines',
-			href: 'https://docs.credimi.io/manual/testing-automation/build-and-run-pipelines/',
+			href: 'https://docs.credimi.io/manual/create-first-pipeline/',
 			action: 'Read docs ↗'
 		}
 	];

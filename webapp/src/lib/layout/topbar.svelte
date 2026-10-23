@@ -46,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		const items: LinkWithIcon[] = [
 			{
-				href: 'https://docs.credimi.io',
+				href: 'https://docs.credimi.io/manual/',
 				title: m.Help(),
 				target: '_blank'
 			}

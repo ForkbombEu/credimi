@@ -29,19 +29,14 @@ export const load = async ({ fetch }) => {
 	const scoreboard = await Scoreboard.Records.loadPage({
 		fetch,
 		page: 1,
-		perPage: 5,
+		perPage: 6,
 		sort: '@random'
 	});
 	return {
-		wallets: wallets.items,
-		issuers: issuers.items,
-		verifiers: verifiers.items,
+		wallets,
+		issuers,
+		verifiers,
 		scoreboard: { records: scoreboard.items },
-		counts: {
-			wallets: wallets.totalItems,
-			issuers: issuers.totalItems,
-			verifiers: verifiers.totalItems
-		},
 		seo: { ...staticPages['/'], jsonLd: [softwareApplicationJsonLd(SITE_ORIGIN)] }
 	};
 };
