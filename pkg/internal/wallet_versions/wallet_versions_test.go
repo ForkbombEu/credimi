@@ -65,6 +65,9 @@ func setupWalletVersionsApp(orgID string) func(t testing.TB) *tests.TestApp {
 		walletsColl, _ := app.FindCollectionByNameOrId("wallets")
 		walletRecord := core.NewRecord(walletsColl)
 		walletRecord.Set("owner", orgID)
+		// Published, so anonymous and other-organization callers can read the
+		// version and the tests can check that its installers stay hidden.
+		walletRecord.Set("published", true)
 		require.NoError(t, app.Save(walletRecord))
 
 		coll, _ := app.FindCollectionByNameOrId("wallet_versions")
