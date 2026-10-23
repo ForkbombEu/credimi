@@ -36,6 +36,12 @@ var fcafPackIdentity = map[string]map[string]PathIdentity{
 			Component: "wallet",
 			Version:   "", // no pinned OpenID4VP profile for this Commission pack yet
 		},
+		// The Wallet obtains attestations from an Attestation Provider over OpenID4VCI.
+		"attestation_provider": {
+			Standard:  "openid4vci",
+			Component: "wallet",
+			Version:   "", // no pinned OpenID4VCI profile for this Commission pack yet
+		},
 	},
 }
 

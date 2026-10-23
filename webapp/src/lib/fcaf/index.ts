@@ -33,7 +33,7 @@ export {
 } from './catalog.js';
 
 export {
-	FCAF_PIPELINE_OUTPUTS as PIPELINE_OUTPUTS,
+	FCAF_PIPELINE_OUTPUTS_BY_SUITE as PIPELINE_OUTPUTS_BY_SUITE,
 	FCAF_SUITE as SUITE
 } from './tests.generated.js';
 

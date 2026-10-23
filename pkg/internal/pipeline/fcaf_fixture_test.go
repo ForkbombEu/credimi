@@ -49,10 +49,10 @@ func TestCompleteFCAFPipelineResolvesValidationAfterScenarioFailures(t *testing.
 }
 
 func TestFCAFPipelineTemplatesParse(t *testing.T) {
-	root := "../../../config_templates/fcaf/wallet_solution/relying_party"
-	pipelinePaths, err := filepath.Glob(filepath.Join(root, "pipelines", "*.yaml"))
+	root := "../../../config_templates/fcaf"
+	pipelinePaths, err := filepath.Glob(filepath.Join(root, "*", "*", "pipelines", "*.yaml"))
 	require.NoError(t, err)
-	scenarioPaths, err := filepath.Glob(filepath.Join(root, "scenarios", "*.yaml"))
+	scenarioPaths, err := filepath.Glob(filepath.Join(root, "*", "*", "scenarios", "*.yaml"))
 	require.NoError(t, err)
 	paths := append([]string{}, pipelinePaths...)
 	paths = append(paths, scenarioPaths...)

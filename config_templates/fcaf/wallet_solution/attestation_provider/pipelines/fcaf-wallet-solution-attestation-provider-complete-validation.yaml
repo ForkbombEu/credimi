@@ -1,0 +1,150 @@
+name: FCAF wallet attestation-provider complete validation
+runtime:
+    global_device_id: forkbomb-bv-andrea/usb/device
+    no_video: true
+    temporal:
+        activity_options:
+            heartbeat_timeout: 10m
+            retry_policy:
+                maximum_attempts: 1
+            schedule_to_close_timeout: 50m
+            start_to_close_timeout: 50m
+steps:
+    - id: onboard-reference-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-create-issuance-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            fixture_id: pid_person_b
+            flow: authorization_code
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-obtain-issued-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ authorization-code-issuance-fd1aa51f-create-issuance-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-fetch-issuance-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ authorization-code-issuance-fd1aa51f-create-issuance-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-fetch-request-ledger
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/oid4vci/requests
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-fetch-issuer-metadata
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/.well-known/openid-credential-issuer/issuers/eu-pid-device-bound
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-fetch-authorization-server-metadata
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/.well-known/oauth-authorization-server/issuers/eu-pid-device-bound
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-create-presentation-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - family_name
+                              values:
+                                - Bianchi
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: issued_pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-ws-ap-main-interaction-031a
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-present-issued-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ authorization-code-issuance-fd1aa51f-create-presentation-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-fetch-presentation-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ authorization-code-issuance-fd1aa51f-create-presentation-session.outputs.body.session_id }}
+    - id: run-complete-fcaf-validation
+      use: fcaf-validation
+      with:
+        pipeline_outputs:
+            pipeline.ap.authorization-code-issuance:
+                output:
+                    credential_request: ${{ authorization-code-issuance-fd1aa51f-fetch-issuance-session.outputs.body.raw.credential_request | optional }}
+                    issuance_exchange:
+                        authorization_server_metadata: ${{ authorization-code-issuance-fd1aa51f-fetch-authorization-server-metadata.outputs.body | optional }}
+                        capture_session: ${{ authorization-code-issuance-fd1aa51f-fetch-issuance-session.outputs.body | optional }}
+                        issuer_metadata: ${{ authorization-code-issuance-fd1aa51f-fetch-issuer-metadata.outputs.body | optional }}
+                        request_ledger: ${{ authorization-code-issuance-fd1aa51f-fetch-request-ledger.outputs.body | optional }}
+                    issuance_visual_evidence: ${{ authorization-code-issuance-fd1aa51f-obtain-issued-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    issued_credential_presentation:
+                        issuance_session: ${{ authorization-code-issuance-fd1aa51f-fetch-issuance-session.outputs.body | optional }}
+                        presentation_session: ${{ authorization-code-issuance-fd1aa51f-fetch-presentation-session.outputs.body | optional }}
+                    proof_headers: ${{ authorization-code-issuance-fd1aa51f-fetch-issuance-session.outputs.body.raw.proof_headers | optional }}
+        suite: wallet_solution/attestation_provider
+        test_ids:
+            - WS_AP_IA_MainInteraction_010a
+            - WS_AP_IA_MainInteraction_010b
+            - WS_AP_IA_MainInteraction_030a
+            - WS_AP_IA_MainInteraction_031a
+            - WS_AP_IA_Supportive_010a
+            - WS_AP_MS_ProtocolMessages_034a
+            - WS_AP_MS_ProtocolMessages_039a
+            - WS_AP_MS_ProtocolMessages_040a
+            - WS_AP_MS_ProtocolMessages_040b
+            - WS_AP_MS_ProtocolMessages_050a
+            - WS_AP_MS_ProtocolMessages_050b
+            - WS_AP_MS_ProtocolMessages_050c
+            - WS_AP_MS_ProtocolMessages_050d
+            - WS_AP_MS_ProtocolMessages_050e
+            - WS_AP_MS_ProtocolMessages_052a
+            - WS_AP_MS_ProtocolMessages_052b
+            - WS_AP_MS_ProtocolMessages_052c
+            - WS_AP_SM_DeviceBinding_010b

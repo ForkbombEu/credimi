@@ -216,7 +216,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</WithLabel>
 
 	<div class="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-		<span>{m.Suite()}: <code class="font-mono">{FCAF.SUITE}</code></span>
+		<span>{m.Suite()}: <code class="font-mono">{form.suite}</code></span>
 		<span class="ml-2">· {form.pipelineOutputsCount} evidence sources compiled</span>
 	</div>
 

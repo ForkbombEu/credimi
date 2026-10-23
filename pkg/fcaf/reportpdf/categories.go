@@ -54,13 +54,17 @@ var subgroupLabels = map[string]string{
 	"presentation":       "Presentation",
 }
 
+// fcafRoleCodes are the role segments of wallet-solution test identifiers:
+// RP for the relying-party suite, AP for the attestation-provider suite.
+var fcafRoleCodes = map[string]bool{"RP": true, "AP": true}
+
 // parseTestID derives the FCAF area and subsection from a test identifier of
-// the form WS_RP_<CATEGORY>_<SUBGROUP>_<specifics>[_|__]<NNN>. Test identifiers
-// are the stable source of truth: the suite.section field mixes semantic paths
-// with ARF clause references and cannot be relied upon.
+// the form WS_<ROLE>_<CATEGORY>_<SUBGROUP>_<specifics>[_|__]<NNN>. Test
+// identifiers are the stable source of truth: the suite.section field mixes
+// semantic paths with ARF clause references and cannot be relied upon.
 func parseTestID(testID string) (code, subgroup, label string) {
 	parts := strings.Split(testID, "_")
-	if len(parts) >= 4 && parts[0] == "WS" && parts[1] == "RP" {
+	if len(parts) >= 4 && parts[0] == "WS" && fcafRoleCodes[parts[1]] {
 		code = strings.ToUpper(parts[2])
 		if _, ok := categoryByCode[code]; ok {
 			subgroup = strings.ToLower(parts[3])

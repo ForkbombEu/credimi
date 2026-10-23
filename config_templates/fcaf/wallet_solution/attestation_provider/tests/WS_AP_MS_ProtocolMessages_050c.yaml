@@ -1,0 +1,30 @@
+id: WS_AP_MS_ProtocolMessages_050c
+title: Request a credential configuration whose scope the Authorization Request carried.
+source:
+  path: MessageStructure/ProtocolMessages/WS_AP_MS_ProtocolMessages_050c.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: ETSI TS 119 472-3
+  section: '4.6'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4.5'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: OpenID for Verifiable Credential Issuance 1.0
+  section: '8.2'
+  url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+evidence:
+  issuance_exchange:
+    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
+assertions:
+# The Authorization Request is pushed (PAR), so its scope is read from the PAR body.
+- id: credential_configuration_scope_was_requested
+  validator: oid4vci.credential_configuration_scope_requested
+  input: evidence.issuance_exchange
+verdict:
+  pass_when: all_assertions_pass

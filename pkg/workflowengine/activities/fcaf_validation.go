@@ -13,6 +13,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -30,9 +31,16 @@ import (
 )
 
 const (
-	FCAFValidationActivityName       = "Run FCAF validation"
-	DefaultFCAFValidationCatalogRoot = "config_templates/fcaf/wallet_solution/relying_party"
+	FCAFValidationActivityName = "Run FCAF validation"
+	// DefaultFCAFValidationSuite is the suite of a validation step that names none.
+	DefaultFCAFValidationSuite = "wallet_solution/relying_party"
+	// fcafValidationTemplatesRoot holds one catalog per suite, at <root>/<sut>/<role>.
+	fcafValidationTemplatesRoot = "config_templates/fcaf"
 )
+
+// fcafValidationSuitePattern is the <sut>/<role> shape of a suite. The suite comes
+// from pipeline YAML and names a catalog directory, so it may hold no other path.
+var fcafValidationSuitePattern = regexp.MustCompile(`^[a-z0-9_]+/[a-z0-9_]+$`)
 
 type FCAFValidationActivityInput struct {
 	TestID      string         `json:"test_id,omitempty"          yaml:"test_id,omitempty"`
@@ -142,13 +150,18 @@ func (a *FCAFValidationActivity) Execute(
 	}
 	resolved, _ := resolvedValue.(map[string]any)
 
-	catalogRoot := payload.CatalogRoot
-	if catalogRoot == "" {
-		catalogRoot = resolveDefaultFCAFValidationCatalogRoot()
-	}
 	suite := payload.Suite
 	if suite == "" {
-		suite = "wallet_solution/relying_party"
+		suite = DefaultFCAFValidationSuite
+	}
+	if !fcafValidationSuitePattern.MatchString(suite) {
+		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(
+			fmt.Errorf("suite %q is not a <sut>/<role> FCAF suite", suite),
+		)
+	}
+	catalogRoot := payload.CatalogRoot
+	if catalogRoot == "" {
+		catalogRoot = resolveDefaultFCAFValidationCatalogRoot(suite)
 	}
 	loader := a.catalogLoader
 	if loader == nil {
@@ -388,16 +401,20 @@ func normalizeValidationTestIDs(payload FCAFValidationActivityInput) []string {
 	return ids
 }
 
-func resolveDefaultFCAFValidationCatalogRoot() string {
-	if _, err := os.Stat(DefaultFCAFValidationCatalogRoot); err == nil {
-		return DefaultFCAFValidationCatalogRoot
+// resolveDefaultFCAFValidationCatalogRoot returns the suite's catalog directory,
+// looked up from the working directory and each of its parents so tests run
+// from a package directory find the repository templates.
+func resolveDefaultFCAFValidationCatalogRoot(suite string) string {
+	relative := filepath.Join(fcafValidationTemplatesRoot, filepath.FromSlash(suite))
+	if _, err := os.Stat(relative); err == nil {
+		return relative
 	}
 	wd, err := os.Getwd()
 	if err != nil {
-		return DefaultFCAFValidationCatalogRoot
+		return relative
 	}
 	for dir := wd; ; dir = filepath.Dir(dir) {
-		candidate := filepath.Join(dir, DefaultFCAFValidationCatalogRoot)
+		candidate := filepath.Join(dir, relative)
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
@@ -406,5 +423,5 @@ func resolveDefaultFCAFValidationCatalogRoot() string {
 			break
 		}
 	}
-	return DefaultFCAFValidationCatalogRoot
+	return relative
 }

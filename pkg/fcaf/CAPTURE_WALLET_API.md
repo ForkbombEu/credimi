@@ -757,6 +757,32 @@ source test permits it.
   `ETag` that changes with the content and the `exp` (`W/"jwt.0.<exp>"`
   before revocation, `W/"jwt.1.<exp>"` after). The revoked bit showed on the
   first fetch after `POST /sessions/{id}/status`.
+- On 22/10/2026 the wallet-solution attestation-provider scenario ran the
+  reference Wallet 2026.09.42 through an authorization-code issuance on both
+  production and beta, which returned the same session shape. Facts the
+  validators rely on:
+  - `raw.oid4vci_requests` of the session holds the Wallet's `POST …/par`,
+    the chained `GET …/redirect`, `POST …/token` and `POST …/credential`,
+    each with `method`, `path`, `query`, `body`, `headers` (including `host`
+    and `x-forwarded-proto`) and `response.{status,content_type}`.
+  - The Wallet's browser `GET /issuers/{id}/authorize` is recorded in the
+    global `GET /oid4vci/requests` ledger only, with `session_id: null`. It
+    repeats the PAR `state` and carries `client_id` and a redacted
+    `request_uri`. Capture's own `GET /authorization-servers/{id}/authorize`
+    follows it. The ledger has no filter parameters and holds the last 1000
+    requests of every caller, about 600 KB.
+  - `raw.credential_request` is the decrypted Credential Request (the Wallet
+    sends `application/jwt`); `raw.credential_request_raw` is the redacted JWE.
+    Proof values (`proofs.jwt`, `proofs.attestation`) are redacted.
+  - `raw.proof_headers[]` records `typ`, `alg`, `kid`, `jwk`, `x5c`,
+    `proof_type`, `key_attestation_present` and `source`, and is written only
+    after Credo accepted the proof.
+  - `observed.wallet_jwks.jwks.keys` holds the holder key Capture verified;
+    the presented SD-JWT VC's `cnf.jwk` equals it.
+  - The PAR and token requests carry `OAuth-Client-Attestation` and
+    `OAuth-Client-Attestation-PoP` headers (redacted), yet
+    `checks.wallet_attestation_present` and
+    `observed.client_authentication.wallet_attestation.present` stay `false`.
 
 ### Known FCAF limitations
 
@@ -772,8 +798,8 @@ source test permits it.
 ## Safe scenario use
 
 - Change source scenarios under
-  `config_templates/fcaf/wallet_solution/relying_party/scenarios/`, never the
-  generated aggregate pipeline.
+  `config_templates/fcaf/<sut>/<role>/scenarios/`, never the generated
+  aggregate pipeline.
 - Bind each validator to the exact scenario output that captured its request or
   response; a successful result from another scenario is never fallback
   evidence.

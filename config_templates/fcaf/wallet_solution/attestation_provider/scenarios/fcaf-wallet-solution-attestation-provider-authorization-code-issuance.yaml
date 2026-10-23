@@ -1,0 +1,160 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: FCAF attestation provider authorization-code issuance
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+    log_checker: capture-wallet
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+  # One authorization-code issuance from the device-bound PID issuer, whose
+  # metadata requires key attestations for both proof types. Capture records the
+  # Wallet's PAR, token and Credential Requests on the session; `pid_person_b`
+  # (family_name Bianchi) makes the issued credential addressable by the
+  # presentation below.
+  - id: create-issuance-session
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.issuer_url}/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        issuer_configuration_id: eu-pid-device-bound
+        credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+        flow: authorization_code
+        fixture_id: pid_person_b
+
+  - id: obtain-issued-credential
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+      version_id: installed_from_external_source
+      parameters:
+        deeplink: ${{ create-issuance-session.outputs.body.deeplink }}
+
+  - id: fetch-issuance-session
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/sessions/${{ create-issuance-session.outputs.body.session_id }}
+      expected_status: 200
+
+  # The Wallet's Authorization Request runs in the browser and Capture does not
+  # tie it to the session, so the validators attribute it from the global ledger
+  # between the session's PAR and its callback. Fetched right after the
+  # issuance, before other traffic can push it out of the bounded ledger.
+  - id: fetch-request-ledger
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/oid4vci/requests
+      expected_status: 200
+
+  - id: fetch-issuer-metadata
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/.well-known/openid-credential-issuer/issuers/eu-pid-device-bound
+      expected_status: 200
+
+  - id: fetch-authorization-server-metadata
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/.well-known/oauth-authorization-server/issuers/eu-pid-device-bound
+      expected_status: 200
+
+  # WS_AP_IA_MainInteraction_031a: the stored credential must be presentable.
+  # Only the pid_person_b credential matches family_name Bianchi.
+  - id: create-presentation-session
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        scheme: haip-vp://
+        request_delivery: by_reference
+        request_uri_method: post
+        response_type: vp_token
+        response_mode: direct_post.jwt
+        presentation_request:
+          nonce: fcaf-ws-ap-main-interaction-031a
+          dcql_query:
+            credentials:
+              - id: issued_pid
+                format: dc+sd-jwt
+                meta:
+                  vct_values:
+                    - urn:eudi:pid:1
+                claims:
+                  - path:
+                      - family_name
+                    values:
+                      - Bianchi
+                  - path:
+                      - given_name
+
+  - id: present-issued-credential
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+      version_id: installed_from_external_source
+      parameters:
+        deeplink: ${{ create-presentation-session.outputs.body.deeplink }}
+
+  - id: fetch-presentation-session
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation-session.outputs.body.session_id }}
+      expected_status: 200
+
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      suite: wallet_solution/attestation_provider
+      test_ids:
+        - WS_AP_IA_Supportive_010a
+        - WS_AP_IA_MainInteraction_010a
+        - WS_AP_IA_MainInteraction_010b
+        - WS_AP_MS_ProtocolMessages_039a
+        - WS_AP_MS_ProtocolMessages_034a
+        - WS_AP_MS_ProtocolMessages_040a
+        - WS_AP_MS_ProtocolMessages_040b
+        - WS_AP_IA_MainInteraction_030a
+        - WS_AP_MS_ProtocolMessages_050a
+        - WS_AP_MS_ProtocolMessages_050b
+        - WS_AP_MS_ProtocolMessages_050c
+        - WS_AP_MS_ProtocolMessages_050d
+        - WS_AP_MS_ProtocolMessages_050e
+        - WS_AP_MS_ProtocolMessages_052a
+        - WS_AP_MS_ProtocolMessages_052b
+        - WS_AP_MS_ProtocolMessages_052c
+        - WS_AP_SM_DeviceBinding_010b
+        - WS_AP_IA_MainInteraction_031a
+      pipeline_outputs:
+        pipeline.ap.authorization-code-issuance:
+          output:
+            issuance_exchange:
+              capture_session: ${{ fetch-issuance-session.outputs.body }}
+              request_ledger: ${{ fetch-request-ledger.outputs.body }}
+              issuer_metadata: ${{ fetch-issuer-metadata.outputs.body }}
+              authorization_server_metadata: ${{ fetch-authorization-server-metadata.outputs.body }}
+            credential_request: ${{ fetch-issuance-session.outputs.body.raw.credential_request }}
+            proof_headers: ${{ fetch-issuance-session.outputs.body.raw.proof_headers }}
+            issued_credential_presentation:
+              issuance_session: ${{ fetch-issuance-session.outputs.body }}
+              presentation_session: ${{ fetch-presentation-session.outputs.body }}
+            issuance_visual_evidence: ${{ obtain-issued-credential.outputs.flow_output.maestro_screenshot_urls }}
