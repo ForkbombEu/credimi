@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { ArrowLeft, UserPlus, Users } from '@lucide/svelte';
+	import DOMPurify from 'dompurify';
 
 	import { CollectionManager } from '@/collections-components';
 	import PageCard from '@/components/layout/pageCard.svelte';
@@ -94,7 +95,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										<Description>
 											<span class="line-clamp-2">
 												<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-												{@html org.description}
+												{@html DOMPurify.sanitize(org.description)}
 											</span>
 										</Description>
 									{/if}
