@@ -63,7 +63,15 @@ var unscopedAPIEndpoints = map[string]bool{
 
 // classify decides how a request for escapedPath (below PathPrefix) is served for
 // a caller whose organization namespace is namespace.
+//
+// escapedPath must begin with the literal PathPrefix. A request whose raw bytes
+// encode the prefix (for example /%74emporal-ui/...) never matches here and is
+// rejected: the upstream Temporal UI decodes its own path, so forwarding the
+// encoded form would let a caller reach another organization's namespace.
 func classify(escapedPath, namespace string) routeKind {
+	if !strings.HasPrefix(escapedPath, PathPrefix) {
+		return routeForbidden
+	}
 	rest := strings.TrimPrefix(escapedPath, PathPrefix)
 	if rest == "" || rest == "/" {
 		return routeHome
