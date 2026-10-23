@@ -49,7 +49,7 @@ func testOutputKind(use string) (workflowengine.OutputKind, bool) {
 	switch use {
 	case "http-request":
 		return workflowengine.OutputMap, true
-	case "cesr-validate":
+	case "custom-activity":
 		return workflowengine.OutputAny, true
 	}
 	return 0, false
@@ -194,7 +194,7 @@ func TestLoadRebuildsMainStepOutputs(t *testing.T) {
 		Steps: []pipelineinternal.StepDefinition{
 			step("fetch", "http-request"),
 			broken,
-			step("cesr", "cesr-validate"),
+			step("custom", "custom-activity"),
 			step("phone", "mobile-automation"),
 			child,
 		},
@@ -215,7 +215,7 @@ func TestLoadRebuildsMainStepOutputs(t *testing.T) {
 		activityFailedEvent(10, 8),
 		childInitiatedEvent(t, 11, stepConfig("record-error")),
 		childCompletedEvent(t, 13, 11, workflowengine.WorkflowResult{Output: "hook output"}),
-		scheduledEvent(t, 14, stepConfig("cesr")),
+		scheduledEvent(t, 14, stepConfig("custom")),
 		activityCompletedEvent(t, 16, 14, workflowengine.ActivityResult{
 			Output: "valid",
 			Log:    []string{"checked"},
@@ -240,7 +240,7 @@ func TestLoadRebuildsMainStepOutputs(t *testing.T) {
 	require.Equal(t, map[string]any{
 		"fetch":  map[string]any{"body": "ok"},
 		"broken": workflowengine.ActivityResult{},
-		"cesr": workflowengine.ActivityResult{
+		"custom": workflowengine.ActivityResult{
 			Output: "valid",
 			Log:    []string{"checked"},
 		},
@@ -250,7 +250,7 @@ func TestLoadRebuildsMainStepOutputs(t *testing.T) {
 	require.Equal(t, map[string]int64{
 		"fetch":  7,
 		"broken": 10,
-		"cesr":   16,
+		"custom": 16,
 		"phone":  19,
 		"child":  22,
 	}, run.EventIDs)

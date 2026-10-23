@@ -87,12 +87,12 @@ func TestNormalizePathIdentity(t *testing.T) {
 			},
 		},
 		{
-			name:       "unmapped vlei passthrough standard; empty component",
-			fsStandard: "vlei",
+			name:       "unmapped unknown passthrough standard; empty component",
+			fsStandard: "unknown",
 			fsVersion:  "1.0",
 			fsSuite:    "acme",
 			want: PathIdentity{
-				Standard:  "vlei",
+				Standard:  "unknown",
 				Component: "",
 				Version:   "1.0",
 			},

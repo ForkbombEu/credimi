@@ -62,7 +62,7 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 	}
 }
 
-// TestLoadFromDirClassicSuiteFacetsFromMetadata asserts classic OpenID/vLEI rows
+// TestLoadFromDirClassicSuiteFacetsFromMetadata asserts classic OpenID rows
 // get protocol/role/provider from suite metadata.yaml (not the UID map), and that
 // sut stays empty (product-class axis is N/A for classic suites).
 func TestLoadFromDirClassicSuiteFacetsFromMetadata(t *testing.T) {
@@ -79,7 +79,6 @@ func TestLoadFromDirClassicSuiteFacetsFromMetadata(t *testing.T) {
 		"openid4vp_verifier": {Protocol: "openid4vp", Role: "verifier"},
 		"openid4vci_wallet":  {Protocol: "openid4vci", Role: "wallet"},
 		"openid4vci_issuer":  {Protocol: "openid4vci", Role: "issuer"},
-		"vlei":               {Protocol: "vlei"},
 	}
 
 	var classic []Check

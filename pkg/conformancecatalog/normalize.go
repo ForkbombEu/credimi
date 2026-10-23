@@ -58,7 +58,7 @@ func NormalizePathIdentity(fsStandard, fsVersion, fsSuite string) PathIdentity {
 		}
 	}
 
-	// Unmapped tops (vlei, unknown FCAF packs): keep FS labels; no invented component.
+	// Unmapped tops (unknown standards or FCAF packs): keep FS labels; no invented component.
 	return PathIdentity{
 		Standard:  fsStandard,
 		Component: "",

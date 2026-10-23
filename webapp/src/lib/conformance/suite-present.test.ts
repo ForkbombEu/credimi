@@ -30,7 +30,7 @@ describe('displayStandardName', () => {
 	});
 
 	it('falls back to humanized uid for unknown standards', () => {
-		expect(displayStandardName('vlei')).toBe('Vlei');
+		expect(displayStandardName('unknown')).toBe('Unknown');
 	});
 });
 
