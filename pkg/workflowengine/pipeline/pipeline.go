@@ -1104,11 +1104,7 @@ func (w *PipelineWorkflow) Start(
 }
 
 func isReservedWorkflowInputConfigKey(key string) bool {
-	return key == tempWalletVersionConfigKey ||
-		key == tempCredentialsConfigKey ||
-		key == tempUseCaseVerificationsConfigKey ||
-		key == GitHubPRCommentConfigKey ||
-		key == workflowengine.CollectPipelineStepFailuresConfigKey ||
+	return key == workflowengine.CollectPipelineStepFailuresConfigKey ||
 		key == workflowengine.StepIDConfigKey ||
 		workflowengine.IsServerOwnedConfigKey(key)
 }

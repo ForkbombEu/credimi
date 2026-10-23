@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { QueryClientProvider } from '@tanstack/svelte-query';
 	import { page } from '$app/state';
-	import favicon from '$lib/assets/favicon.png';
 	import GlobalConfirm from '$lib/layout/global-confirm.svelte';
 	import GlobalLoading from '$lib/layout/global-loading.svelte';
 	import { queryClient } from '$lib/query-client';
@@ -20,11 +19,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { children } = $props();
 </script>
-
-<svelte:head>
-	<link rel="icon" href={favicon} />
-	<meta name="theme-color" content="#220e7c" />
-</svelte:head>
 
 <SeoHead />
 

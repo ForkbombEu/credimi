@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import clsx from 'clsx';
+	import DOMPurify from 'dompurify';
 
 	import type { Link } from '@/components/types';
 
@@ -47,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if description}
 				<T tag="p" class="text-center">
 					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					{@html description}
+					{@html DOMPurify.sanitize(description)}
 				</T>
 			{/if}
 

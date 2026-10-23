@@ -77,7 +77,14 @@ func TestIsServerOwnedConfigKey(t *testing.T) {
 		{key: AppURLConfigKey, want: true},
 		{key: AppNameConfigKey, want: true},
 		{key: AppLogoConfigKey, want: true},
-		{key: "namespace", want: false},
+		{key: "namespace", want: true},
+		{key: "temp_wallet_version", want: true},
+		{key: "temp_credentials", want: true},
+		{key: "temp_use_case_verifications", want: true},
+		{key: "github_pr_comment", want: true},
+		{key: "mobile_device_semaphore_owner_namespace", want: true},
+		{key: "taskqueue", want: false},
+		{key: "template", want: false},
 	}
 
 	for _, tc := range tests {
