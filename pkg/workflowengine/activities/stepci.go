@@ -18,10 +18,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/go-sprout/sprout"
-	"github.com/go-sprout/sprout/group/all"
 )
 
 const (
@@ -559,10 +558,10 @@ func summarizeStepCIFailure(output StepCICliReturns) StepCIFailureSummary {
 }
 
 func RenderYAML(yamlString string, data map[string]any) (string, error) {
-	handler := sprout.New(sprout.WithGroups(all.RegistryGroup()))
-	funcs := handler.Build()
-
-	tmpl, err := template.New("yaml").Delims("[[", "]]").Funcs(funcs).Parse(yamlString)
+	tmpl, err := template.New("yaml").
+		Delims("[[", "]]").
+		Funcs(templateengine.Funcs()).
+		Parse(yamlString)
 	if err != nil {
 		return "", err
 	}

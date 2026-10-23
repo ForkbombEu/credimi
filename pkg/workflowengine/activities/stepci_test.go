@@ -53,6 +53,24 @@ func TestStepCIConfigureMissingTemplate(t *testing.T) {
 	require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code, appErr.Type())
 }
 
+// StepCI templates can carry tenant input, so they must not reach the
+// process environment, where the server keeps its secrets.
+func TestRenderYAMLRejectsEnvFunctions(t *testing.T) {
+	t.Setenv("CREDIMI_TEST_SECRET", "server-secret")
+	for _, tmpl := range []string{
+		`[[ env "CREDIMI_TEST_SECRET" ]]`,
+		`[[ expandEnv "$CREDIMI_TEST_SECRET" ]]`,
+	} {
+		out, err := RenderYAML(tmpl, nil)
+		require.ErrorContains(t, err, "not defined", tmpl)
+		require.NotContains(t, out, "server-secret")
+	}
+
+	out, err := RenderYAML(`[[ "a" | toUpper ]]-[[ uuidv4 | len ]]`, nil)
+	require.NoError(t, err)
+	require.Equal(t, "A-36", out)
+}
+
 func TestStepCIExecuteOutputs(t *testing.T) {
 	t.Run("success JSON", func(t *testing.T) {
 		tmpDir := t.TempDir()
