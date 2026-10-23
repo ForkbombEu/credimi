@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="t"><title id="t">The FCAF catalog of 617 test cases, grouped into 184 scenarios, runs in a pipeline on a real phone and produces an FCAF report with a pass or fail result per test case</title><style>
+.flow{stroke-dasharray:4 6;animation:dash 1.6s linear infinite}
+.pulse{animation:pulse 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.r1,.r2,.r3,.r4{animation:row 8s ease-in-out infinite}
+.r2{animation-delay:1s}.r3{animation-delay:2s}.r4{animation-delay:3s}
+.scan{animation:scan 4s ease-in-out infinite alternate}
+@keyframes dash{to{stroke-dashoffset:-20}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.6)}}
+@keyframes row{0%,10%{opacity:0}20%,90%{opacity:1}100%{opacity:0}}
+@keyframes scan{0%{transform:translateY(0)}100%{transform:translateY(120px)}}
+@media (prefers-reduced-motion:reduce){.flow,.pulse,.r1,.r2,.r3,.r4,.scan{animation:none;opacity:1}.motion{display:none}}
+</style><rect width="1200" height="420" rx="16" fill="#eeeaff"/>
+<g font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+<text x="50" y="58" font-size="12" font-weight="500" letter-spacing="1.7" fill="#220e7c">FROM CATALOG TO REPORT</text>
+<path d="M50 90 L290 90 L290 370 L50 370 Z" fill="#fff" stroke="#220e7c" stroke-width="2" stroke-linejoin="round"/>
+<text x="74" y="122" font-size="12" font-weight="500" letter-spacing="1.7" fill="#64748b">FCAF CATALOG</text>
+<text x="74" y="178" font-size="44" font-weight="700" fill="#220e7c">617</text>
+<text x="74" y="204" font-size="15" fill="#0f172a">test cases</text>
+<g fill="#220e7c" opacity=".18"><rect x="74" y="230" width="190" height="8" rx="4"/><rect x="74" y="248" width="160" height="8" rx="4"/><rect x="74" y="266" width="180" height="8" rx="4"/><rect x="74" y="284" width="140" height="8" rx="4"/><rect x="74" y="302" width="170" height="8" rx="4"/></g>
+<text x="74" y="346" font-size="13" fill="#64748b">as of 20/10/2026</text>
+<path class="flow" d="M296 230 L346 230" stroke="#220e7c" stroke-width="2" fill="none"/>
+<rect x="352" y="120" width="220" height="220" rx="10" fill="#fff" stroke="#220e7c" stroke-width="2"/>
+<text x="376" y="152" font-size="12" font-weight="500" letter-spacing="1.7" fill="#64748b">SCENARIOS</text>
+<text x="376" y="204" font-size="44" font-weight="700" fill="#220e7c">184</text>
+<text x="376" y="230" font-size="15" fill="#0f172a">one flow each</text>
+<g font-size="13" fill="#0f172a"><rect x="376" y="250" width="172" height="28" rx="6" fill="#eeeaff"/><text x="388" y="269">Issuance flow</text><rect x="376" y="286" width="172" height="28" rx="6" fill="#eeeaff"/><text x="388" y="305">Presentation flow</text></g>
+<path class="flow" d="M578 230 L628 230" stroke="#220e7c" stroke-width="2" fill="none"/>
+<rect x="634" y="150" width="200" height="160" rx="10" fill="#fff" stroke="#220e7c" stroke-width="2"/>
+<text x="656" y="180" font-size="12" font-weight="500" letter-spacing="1.7" fill="#64748b">PIPELINE RUN</text>
+<rect x="660" y="196" width="56" height="98" rx="10" fill="#fff" stroke="#220e7c" stroke-width="2"/><rect x="668" y="208" width="40" height="70" rx="4" fill="#220e7c"/>
+<rect class="scan motion" x="668" y="208" width="40" height="3" fill="#fff" opacity=".7" style="animation-duration:2s"/>
+<text x="730" y="222" font-size="13" fill="#0f172a">Real wallet</text><text x="730" y="240" font-size="13" fill="#64748b">Maestro</text>
+<text x="730" y="266" font-size="13" fill="#0f172a">Live services</text><text x="730" y="284" font-size="13" fill="#64748b">StepCI</text>
+<circle class="pulse" cx="812" cy="176" r="5" fill="#16a34a"/>
+<path class="flow" d="M840 230 L890 230" stroke="#220e7c" stroke-width="2" fill="none"/>
+<rect x="896" y="90" width="254" height="280" rx="10" fill="#fff" stroke="#e2e8f0"/>
+<text x="920" y="122" font-size="12" font-weight="500" letter-spacing="1.7" fill="#64748b">FCAF REPORT</text>
+<g font-size="13" fill="#0f172a">
+<rect x="920" y="142" width="206" height="44" rx="6" fill="#f8fafc" stroke="#e2e8f0"/><text x="934" y="169" font-family="'Source Code Pro', ui-monospace, monospace">test case 1</text><g class="r1"><rect x="1062" y="152" width="52" height="24" rx="12" fill="#dcfce7"/><text x="1074" y="169" fill="#16a34a" font-weight="600">pass</text></g>
+<rect x="920" y="196" width="206" height="44" rx="6" fill="#f8fafc" stroke="#e2e8f0"/><text x="934" y="223" font-family="'Source Code Pro', ui-monospace, monospace">test case 2</text><g class="r2"><rect x="1062" y="206" width="52" height="24" rx="12" fill="#dcfce7"/><text x="1074" y="223" fill="#16a34a" font-weight="600">pass</text></g>
+<rect x="920" y="250" width="206" height="44" rx="6" fill="#f8fafc" stroke="#e2e8f0"/><text x="934" y="277" font-family="'Source Code Pro', ui-monospace, monospace">test case 3</text><g class="r3"><rect x="1062" y="260" width="52" height="24" rx="12" fill="#fee2e2"/><text x="1076" y="277" fill="#dc2626" font-weight="600">fail</text></g>
+<rect x="920" y="304" width="206" height="44" rx="6" fill="#f8fafc" stroke="#e2e8f0"/><text x="934" y="331" font-family="'Source Code Pro', ui-monospace, monospace">test case 4</text><g class="r4"><rect x="1062" y="314" width="52" height="24" rx="12" fill="#dcfce7"/><text x="1074" y="331" fill="#16a34a" font-weight="600">pass</text></g>
+</g>
+<text x="50" y="400" font-size="13" fill="#64748b">Illustrative rows. Each scenario groups the test cases for one flow.</text>
+</g></svg>

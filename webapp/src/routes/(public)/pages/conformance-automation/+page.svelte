@@ -92,6 +92,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const related = [
 		{
+			kind: 'Guide',
+			title: 'FCAF conformance testing for EUDI wallets',
+			href: '/pages/fcaf-conformance',
+			action: 'Read guide ↗'
+		},
+		{
+			kind: 'Guide',
+			title: 'OpenID4VCI and OpenID4VP conformance testing',
+			href: '/pages/openid4vc-conformance',
+			action: 'Read guide ↗'
+		},
+		{
+			kind: 'Guide',
+			title: 'EUDI wallet interoperability testing',
+			href: '/pages/eudi-wallet-interoperability-testing',
+			action: 'Read guide ↗'
+		},
+		{
 			kind: 'Comparison',
 			title: 'Why Credimi',
 			href: '/pages/why-credimi',

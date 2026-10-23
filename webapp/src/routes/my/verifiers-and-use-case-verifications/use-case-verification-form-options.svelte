@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { yaml } from '@codemirror/lang-yaml';
 	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
 	import QrFieldWrapper from '$lib/layout/qr-field-wrapper.svelte';
-	import { optionalSecretsYamlSchema, stepciYamlSchema } from '$lib/utils';
+	import { optionalSecretsYamlSchema, stepciYamlSchema } from '$lib/utils/schemas';
 	import { get } from 'svelte/store';
 	import { z } from 'zod/v3';
 

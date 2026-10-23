@@ -9,7 +9,7 @@ import { error } from '@sveltejs/kit';
 import { getHubItemTypeEntityData } from '$lib/hub/utils';
 import { ogImages, plainText } from '$lib/seo';
 
-import { pb } from '@/pocketbase/index.js';
+import { notFoundAs404, pb } from '@/pocketbase/index.js';
 
 import { getCredentialIssuersDetails } from './_partials/credential-issuer-page.svelte';
 import { getCredentialsDetails } from './_partials/credential-page.svelte';
@@ -23,11 +23,10 @@ import { getWalletDetails } from './_partials/wallet-page.svelte';
 export const load = async ({ params, fetch }) => {
 	const fullPath = params.path;
 
-	const hubItem: HubItem = await pb
+	const hubItem = await pb
 		.collection('hub_items')
-		.getFirstListItem(pb.filter('path = {:path}', { path: fullPath }), {
-			fetch
-		});
+		.getFirstListItem<HubItem>(pb.filter('path = {:path}', { path: fullPath }), { fetch })
+		.catch(notFoundAs404);
 	const pageDetails = await getPageDetails(hubItem, fetch);
 
 	return {

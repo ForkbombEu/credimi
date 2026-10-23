@@ -5,7 +5,7 @@
 import type { HubItem } from '$lib/hub';
 
 import { getNestStandards } from '$lib/conformance/client';
-import { getContentBySlug } from '$lib/content';
+import { getContentBySlug } from '$lib/content/pages.server';
 import tagsIndex from '$lib/content/tags-list.generated.json';
 import { entities } from '$lib/global/entities';
 import { getSuitePageUrl, getStandardCheckUrlFromPath } from '$lib/hub/conformance/urls';
@@ -41,7 +41,7 @@ type Fetch = typeof fetch;
 /** Every public page anonymous visitors can see: anything PocketBase hides from them stays out. */
 export async function listPublicPages(fetch: Fetch): Promise<PublicPage[]> {
 	const sources = await Promise.all([
-		contentPages(fetch),
+		contentPages(),
 		hubPages(fetch),
 		conformancePages(fetch),
 		newsPages(fetch),
@@ -68,10 +68,10 @@ async function listSource(source: string, run: () => Promise<PublicPage[]>): Pro
 	}
 }
 
-function contentPages(fetch: Fetch) {
+function contentPages() {
 	return listSource('content', async () => {
 		const slugs = [...new Set(Object.values(tagsIndex).flat())];
-		const pages = await Promise.all(slugs.map((slug) => getContentBySlug(slug, fetch)));
+		const pages = await Promise.all(slugs.map((slug) => getContentBySlug(slug)));
 		return pages
 			.filter((page) => page !== undefined)
 			.map((page) => ({
