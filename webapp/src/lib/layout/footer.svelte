@@ -93,10 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label: m.Resources(),
 			links: [
 				{ label: m.Documentation(), url: 'https://docs.credimi.io/' },
-				{
-					label: 'EUDI wallet rulebook',
-					url: '/pages/documentation/eudi-wallet-regulatory-map'
-				},
+				{ label: m.extra_eudi_atlas(), url: 'https://atlas.credimi.io/' },
 				{ label: 'Why Credimi', url: '/pages/why-credimi' },
 				{ label: m.articles_tutorials(), url: 'https://docs.credimi.io/' },
 				{ label: m.videos(), url: 'https://docs.credimi.io/' }

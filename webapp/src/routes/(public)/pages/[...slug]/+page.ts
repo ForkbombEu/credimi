@@ -4,22 +4,19 @@
 
 import { error } from '@sveltejs/kit';
 import { getContentBySlug } from '$lib/content';
+import { getContentSeo } from '$lib/content/seo';
 import tagsIndex from '$lib/content/tags-list.generated.json';
 
 import type { EntryGenerator } from './$types';
 
-const DEFAULT_SITE_URL = 'https://credimi.io';
+// Served by their own routes under /pages; prerendering them here would collide with those routes.
+const DEDICATED_ROUTE_SLUGS = new Set(['why-credimi', 'conformance-automation']);
 
 export const entries: EntryGenerator = () => {
 	const slugs = [...new Set(Object.values(tagsIndex).flat())];
 
-	return slugs.map((slug) => ({ slug }));
+	return slugs.filter((slug) => !DEDICATED_ROUTE_SLUGS.has(slug)).map((slug) => ({ slug }));
 };
-
-function getSiteOrigin(url: URL) {
-	if (url.origin.startsWith('http://sveltekit-prerender')) return DEFAULT_SITE_URL;
-	return url.origin;
-}
 
 export async function load({ params, fetch, url }) {
 	const content = await getContentBySlug(params.slug, fetch);
@@ -27,20 +24,5 @@ export async function load({ params, fetch, url }) {
 		error(404);
 	}
 
-	const origin = getSiteOrigin(url);
-	const canonicalUrl = new URL(url.pathname, origin).toString();
-	const socialImageUrl = new URL(content.attributes.socialCard ?? '/hero.png', origin).toString();
-
-	return {
-		...content,
-		seo: {
-			title: `${content.attributes.title} | Credimi`,
-			description: content.attributes.description ?? '',
-			canonicalUrl,
-			socialImageUrl,
-			keywords: content.attributes.tags.join(', '),
-			publishedTime: content.attributes.date.toISOString(),
-			modifiedTime: content.attributes.updatedOn.toISOString()
-		}
-	};
+	return { ...content, seo: getContentSeo(content, url) };
 }
