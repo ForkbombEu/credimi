@@ -16,6 +16,7 @@ export function getContentSeo(content: ContentPage): PageSeo {
 		title,
 		description,
 		image: content.attributes.socialCard,
+		imageAlt: content.attributes.socialCardAlt,
 		type: 'article',
 		article: { publishedTime, modifiedTime, tags },
 		jsonLd: [
