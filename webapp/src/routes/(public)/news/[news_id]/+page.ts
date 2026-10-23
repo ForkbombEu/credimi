@@ -4,12 +4,13 @@
 
 import { plainText } from '$lib/seo';
 
+import { notFoundAs404 } from '@/pocketbase/index.js';
 import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
 
-export const load = async ({ params }) => {
-	const news = await new PocketbaseQueryAgent({
-		collection: 'news'
-	}).getOne(params.news_id);
+export const load = async ({ params, fetch }) => {
+	const news = await new PocketbaseQueryAgent({ collection: 'news' }, { fetch })
+		.getOne(params.news_id)
+		.catch(notFoundAs404);
 
 	return {
 		news,

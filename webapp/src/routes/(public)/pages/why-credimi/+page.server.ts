@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { error } from '@sveltejs/kit';
-import { getContentBySlug } from '$lib/content';
+import { getContentBySlug } from '$lib/content/pages.server';
 import { getContentSeo } from '$lib/content/seo';
 
 // static/pages/why-credimi/en.md keeps the metadata (tags, SEO, social card); the page body lives here.
-export async function load({ fetch }) {
-	const content = await getContentBySlug('why-credimi', fetch);
+export async function load() {
+	const content = await getContentBySlug('why-credimi');
 	if (!content) {
 		error(404);
 	}

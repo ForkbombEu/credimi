@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { PageSeo } from '$lib/seo';
+import { absoluteUrl, SITE_ORIGIN, type PageSeo } from '$lib/seo';
 
 import type { ContentPage } from './types';
 
@@ -34,7 +34,34 @@ export function getContentSeo(content: ContentPage): PageSeo {
 					name: 'Forkbomb BV',
 					url: 'https://forkbomb.eu'
 				}
-			}
+			},
+			{
+				'@context': 'https://schema.org',
+				'@type': 'BreadcrumbList',
+				itemListElement: [
+					['Home', '/'],
+					['Guides', '/pages/guides'],
+					[title, `/pages/${content.slug}`]
+				].map(([name, path], index) => ({
+					'@type': 'ListItem',
+					position: index + 1,
+					name,
+					item: absoluteUrl(path, SITE_ORIGIN)
+				}))
+			},
+			...(content.faq.length
+				? [
+						{
+							'@context': 'https://schema.org',
+							'@type': 'FAQPage',
+							mainEntity: content.faq.map(({ question, answer }) => ({
+								'@type': 'Question',
+								name: question,
+								acceptedAnswer: { '@type': 'Answer', text: answer }
+							}))
+						}
+					]
+				: [])
 		]
 	};
 }

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" role="img" aria-labelledby="t"><title id="t">One FCAF scenario, PID issuance, expanded into its test cases, each linked to a SHA-256 hashed evidence item in the run history that an assessor can check</title><style>
+.flow{stroke-dasharray:4 6;animation:dash 1.6s linear infinite}
+.c1,.c2,.c3{animation:ok 9s ease-in-out infinite}
+.c2{animation-delay:1.2s}.c3{animation-delay:2.4s}
+.l1,.l2,.l3{animation:hl 9s ease-in-out infinite}
+.l2{animation-delay:1.2s}.l3{animation-delay:2.4s}
+@keyframes dash{to{stroke-dashoffset:-20}}
+@keyframes ok{0%,8%{opacity:0}16%,92%{opacity:1}100%{opacity:0}}
+@keyframes hl{0%,16%,100%{stroke:#e2e8f0;stroke-width:1}4%,12%{stroke:#220e7c;stroke-width:2}}
+@media (prefers-reduced-motion:reduce){.flow,.c1,.c2,.c3,.l1,.l2,.l3{animation:none;opacity:1}.motion{display:none}}
+</style><rect width="1200" height="440" rx="16" fill="#eeeaff"/>
+<g font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+<text x="50" y="58" font-size="12" font-weight="500" letter-spacing="1.7" fill="#220e7c">ANATOMY OF A SCENARIO</text>
+<rect x="50" y="160" width="220" height="120" rx="10" fill="#220e7c"/>
+<text x="74" y="194" font-size="12" font-weight="500" letter-spacing="1.7" fill="#fff" opacity=".75">SCENARIO</text>
+<text x="74" y="228" font-size="22" font-weight="700" fill="#fff">PID issuance</text>
+<text x="74" y="256" font-size="13" fill="#fff" opacity=".8">one flow, many test cases</text>
+<g stroke="#220e7c" stroke-width="2" fill="none"><path d="M270 220 C300 220 300 130 330 130"/><path d="M270 220 L330 220"/><path d="M270 220 C300 220 300 310 330 310"/></g>
+<text x="340" y="90" font-size="12" font-weight="500" letter-spacing="1.7" fill="#64748b">TEST CASES</text>
+<text x="780" y="90" font-size="12" font-weight="500" letter-spacing="1.7" fill="#64748b">EVIDENCE IN THE RUN HISTORY</text>
+<g font-size="14" fill="#0f172a">
+<rect class="l1" x="330" y="104" width="300" height="52" rx="10" fill="#fff" stroke="#e2e8f0"/><text x="350" y="135">Credential offer received</text>
+<rect class="l2" x="330" y="194" width="300" height="52" rx="10" fill="#fff" stroke="#e2e8f0"/><text x="350" y="225">Token request accepted</text>
+<rect class="l3" x="330" y="284" width="300" height="52" rx="10" fill="#fff" stroke="#e2e8f0"/><text x="350" y="315">PID stored in the wallet</text>
+</g>
+<g stroke="#220e7c" stroke-width="2" fill="none" class="flow"><path d="M630 130 L770 130"/><path d="M630 220 L770 220"/><path d="M630 310 L770 310"/></g>
+<g font-size="13" fill="#0f172a">
+<rect x="770" y="104" width="380" height="52" rx="10" fill="#fff" stroke="#220e7c"/><text x="790" y="126">Protocol messages</text><text x="790" y="145" font-family="'Source Code Pro', ui-monospace, monospace" fill="#64748b">sha256: 9f2c…a41e</text>
+<g class="c1"><circle cx="1010" cy="130" r="9" fill="#16a34a"/><path d="M1005 130 l3.5 3.5 l6 -7" stroke="#fff" stroke-width="2" fill="none"/><text x="1026" y="135" fill="#16a34a" font-weight="600">hash matches</text></g>
+<rect x="770" y="194" width="380" height="52" rx="10" fill="#fff" stroke="#220e7c"/><text x="790" y="216">Step input and output</text><text x="790" y="235" font-family="'Source Code Pro', ui-monospace, monospace" fill="#64748b">sha256: 3b7d…0c95</text>
+<g class="c2"><circle cx="1010" cy="220" r="9" fill="#16a34a"/><path d="M1005 220 l3.5 3.5 l6 -7" stroke="#fff" stroke-width="2" fill="none"/><text x="1026" y="225" fill="#16a34a" font-weight="600">hash matches</text></g>
+<rect x="770" y="284" width="380" height="52" rx="10" fill="#fff" stroke="#220e7c"/><text x="790" y="306">Device video and screenshots</text><text x="790" y="325" font-family="'Source Code Pro', ui-monospace, monospace" fill="#64748b">sha256: e8a1…7f22</text>
+<g class="c3"><circle cx="1010" cy="310" r="9" fill="#16a34a"/><path d="M1005 310 l3.5 3.5 l6 -7" stroke="#fff" stroke-width="2" fill="none"/><text x="1026" y="315" fill="#16a34a" font-weight="600">hash matches</text></g>
+</g>
+<text x="50" y="396" font-size="13" fill="#64748b">Illustrative test case names and hashes. The FCAF report links each test case to hashed evidence in the Temporal run history.</text>
+</g></svg>
