@@ -1,5 +1,6 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLlmsTxt from "starlight-llms-txt";
 import credimiLogo from "./src/content/docs/images/logo/credimi_logo-transp_emblem.png";
 import remarkPlantuml from "./remark-plantuml.mjs";
 
@@ -11,7 +12,17 @@ export default defineConfig({
     integrations: [
         starlight({
             title: "Credimi Docs",
+            description:
+                "Documentation for Credimi, the open-source conformance and interoperability platform for EUDI wallets, credential issuers and verifiers: Hub, pipelines, conformance checks, API and self-hosting.",
             logo: { src: credimiLogo },
+            // Publishes /llms.txt, /llms-full.txt and /llms-small.txt for AI assistants.
+            plugins: [
+                starlightLlmsTxt({
+                    projectName: "Credimi",
+                    description:
+                        "Credimi tests EUDI wallets, credential issuers and verifiers for OpenID4VCI, OpenID4VP and EUDI FCAF conformance, and runs issuer to wallet to verifier interoperability pipelines on real devices with audit-grade evidence. Open source, AGPL-3.0.",
+                }),
+            ],
             sidebar: [
                 {
                     label: "Manual",

@@ -4,6 +4,7 @@
 
 import { error } from '@sveltejs/kit';
 import { listHubSuites } from '$lib/conformance';
+import { staticPages } from '$lib/seo';
 
 /** Product suite rows for the hub table SSR seed (flat `conformance_suites`). */
 export const load = async ({ fetch }) => {
@@ -13,6 +14,7 @@ export const load = async ({ fetch }) => {
 	}
 
 	return {
-		conformanceSuites: suitesResult.value
+		conformanceSuites: suitesResult.value,
+		seo: staticPages['/hub']
 	};
 };

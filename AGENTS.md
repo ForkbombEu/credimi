@@ -212,6 +212,17 @@ Key environment variables:
 
 Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databases, secrets, coverage files, binaries, or downloaded `.bin/` tools.
 
+## Public Pages, SEO And AI Discovery
+
+- The root layout sets `ssr = false`; `webapp/src/routes/(public)/+layout.ts` turns server rendering back on for public pages, so crawlers that do not run JavaScript get content and `<head>` tags. Code reachable from a public route must not touch `window`, `document`, `localStorage`, `sessionStorage` or PocketBase realtime while rendering: storage handlers resolve storage lazily (`createStorageHandlers(key, () => localStorage)`) and `setupComponentPocketbaseSubscriptions` is a no-op on the server. A link must not wrap another link (`<a>` in `<a>`): the browser repairs the server HTML and hydration fails.
+- Routes declare SEO as `seo: PageSeo` in their load data (`$lib/seo`); `$lib/seo/seo-head.svelte` in the root layout is the only place that writes title, description, canonical, `hreflang`, Open Graph, `robots` and JSON-LD. Do not add `<svelte:head>` SEO tags in pages. Fixed public routes take their copy from `staticPages`.
+- Absolute URLs use `SITE_ORIGIN` (`PUBLIC_SITE_URL`, default `https://credimi.io`), never the request origin: PocketBase proxies the UI with the internal UI host.
+- Private areas, auth pages and ephemeral run views are `noindex` (`NOINDEX_ROUTE_PREFIXES`) and disallowed in `robots.txt` (`PRIVATE_PATHS`); keep both lists in step.
+- `/robots.txt`, `/sitemap.xml`, `/llms.txt` and `/llms-full.txt` are server endpoints built from what anonymous visitors can read (`$lib/seo/public-pages.ts`). Marketing copy that `llms-full.txt` repeats lives in `$lib/content/*.ts`, shared with the pages.
+- Social cards are 1200×630 PNGs in `webapp/static/og/`, one per page family; markdown pages set theirs with the `socialCard` frontmatter field.
+- The docs site publishes its own `llms.txt` through `starlight-llms-txt` (pinned `~0.10.0`: later versions need Astro 7 and Starlight 0.41).
+- `svelte-adapter-bun` re-bundles the server with rolldown, keeps only `webapp/package.json` `dependencies` external, and inlines everything else with browser export conditions. A transitive package whose browser build touches the DOM on import must be a direct dependency: `decode-named-character-reference` is listed for that reason (the markdown stack crashed `/news` and `/organizations` on the server). After touching public-route imports, check `build/server/chunks` for `//#region node_modules/.../*.dom.js` or `*.browser.js` modules.
+
 ## Tenancy And Temporal
 
 - `organizations.canonified_name` is the Temporal namespace for that tenant.

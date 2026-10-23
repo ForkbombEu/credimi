@@ -60,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	*/
 				{
 					label: m.identity_wallet_integration(),
-					url: 'https://docs.credimi.io/Manual/compliance-checks.html'
+					url: 'https://docs.credimi.io/manual/compliance-checks'
 				},
 				{
 					label: m.conformance_compliance_tools(),
@@ -95,8 +95,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{ label: m.Documentation(), url: 'https://docs.credimi.io/' },
 				{ label: m.extra_eudi_atlas(), url: 'https://atlas.credimi.io/' },
 				{ label: 'Why Credimi', url: '/pages/why-credimi' },
-				{ label: m.articles_tutorials(), url: 'https://docs.credimi.io/' },
-				{ label: m.videos(), url: 'https://docs.credimi.io/' }
+				{
+					label: m.articles_tutorials(),
+					url: 'https://docs.credimi.io/manual/create-first-pipeline/'
+				}
 				//			{ label: m.case_studies(), url: '/resources/case-studies' },
 				//			{ label: m.press_releases(), url: '/resources/press' },
 				//			{ label: m.Blog(), url: '/blog' }
