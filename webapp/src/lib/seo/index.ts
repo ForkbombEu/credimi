@@ -83,6 +83,12 @@ export const staticPages = {
 		description:
 			'Organizations that publish EUDI wallets, credential issuers, verifiers and conformance pipelines on the Credimi Hub.',
 		image: ogImages.default
+	},
+	'/pages/guides': {
+		title: 'Guides: EUDI wallet conformance and interoperability testing',
+		description:
+			'Guides to testing EUDI wallets, credential issuers and verifiers: interoperability, FCAF conformance, OpenID4VCI and OpenID4VP, and eIDAS 2 readiness.',
+		image: ogImages.default
 	}
 } satisfies Record<string, PageSeo>;
 

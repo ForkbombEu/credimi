@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
-	import DOMPurify from 'dompurify';
+	import DOMPurify from 'isomorphic-dompurify';
 	import { onMount } from 'svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod/v3';

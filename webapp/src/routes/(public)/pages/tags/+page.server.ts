@@ -5,14 +5,14 @@
 import type { Tag } from '$lib/content/tags-i18n';
 
 import { error } from '@sveltejs/kit';
-import { getContentBySlug, URL_SEARCH_PARAM_NAME } from '$lib/content';
+import { getContentBySlug, URL_SEARCH_PARAM_NAME } from '$lib/content/pages.server';
 import tagsIndex from '$lib/content/tags-list.generated.json';
 
 //
 
 export const prerender = false;
 
-export const load = async ({ url, fetch }) => {
+export const load = async ({ url }) => {
 	const paramTag = url.searchParams.get(URL_SEARCH_PARAM_NAME);
 	if (!paramTag || !(paramTag in tagsIndex) || !isTag(paramTag)) {
 		error(404);
@@ -24,7 +24,7 @@ export const load = async ({ url, fetch }) => {
 	}
 
 	const contentPages = (
-		await Promise.all(slugsByTag.map((slug) => getContentBySlug(slug, fetch)))
+		await Promise.all(slugsByTag.map((slug) => getContentBySlug(slug)))
 	).filter((item) => item !== undefined);
 
 	return { pages: contentPages, tag: paramTag };

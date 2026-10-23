@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import clsx from 'clsx';
-	import DOMPurify from 'dompurify';
+	import DOMPurify from 'isomorphic-dompurify';
 
 	import type { Link } from '@/components/types';
 

@@ -80,11 +80,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				//			{ label: m.sandbox_environment(), url: '/developers/sandbox' },
 				{
 					label: m.test_suites_runs(),
-					url: 'https://docs.credimi.io/manual/compliance-checks'
+					url: 'https://docs.credimi.io/manual/compliance-checks/'
 				},
 				{
 					label: m.developer_tools(),
-					url: 'https://docs.credimi.io/software-architecture/workflow-yaml'
+					url: 'https://docs.credimi.io/software-architecture/workflow-yaml/'
 				}
 				//			{ label: m.Changelog(), url: '/developers/changelog' }
 			]
@@ -102,6 +102,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				//			{ label: m.case_studies(), url: '/resources/case-studies' },
 				//			{ label: m.press_releases(), url: '/resources/press' },
 				//			{ label: m.Blog(), url: '/blog' }
+			]
+		},
+		{
+			label: 'Guides',
+			links: [
+				{
+					label: 'EUDI interoperability testing',
+					url: '/pages/eudi-wallet-interoperability-testing'
+				},
+				{ label: 'EUDI wallet testing', url: '/pages/eudi-wallet-testing' },
+				{ label: 'FCAF conformance', url: '/pages/fcaf-conformance' },
+				{
+					label: 'OpenID4VCI and OpenID4VP conformance',
+					url: '/pages/openid4vc-conformance'
+				},
+				{ label: 'eIDAS 2 wallet testing', url: '/pages/eidas2-wallet-testing' },
+				{ label: 'What is conformance automation', url: '/pages/conformance-automation' },
+				{ label: 'All guides ↗', url: '/pages/guides' }
 			]
 		},
 		{
