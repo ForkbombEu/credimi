@@ -25,6 +25,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onClick?: () => void;
 		icon: IconComponent | IconType;
 		class?: ClassValue;
+		/** The thumbnail is decorative, so the control needs a name. */
+		'aria-label': string;
 	};
 
 	let { image, href, onClick, icon, class: className, ...rest }: Props = $props();
@@ -59,7 +61,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet content()}
 	{#if image}
-		<LazyImage src={image} alt="Media" class="size-full object-cover" />
+		<!-- Decorative: callers name the control with aria-label. -->
+		<LazyImage src={image} alt="" class="size-full object-cover" />
 	{/if}
 	<div class="absolute inset-0 flex items-center justify-center bg-black/50">
 		<Icon src={iconComponent} class="size-4  text-white" />

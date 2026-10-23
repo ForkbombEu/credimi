@@ -167,9 +167,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="flex flex-col items-start gap-2">
 					<div class="flex flex-row items-center gap-2">
 						<AppLogo version="full" />
-						<T tag="h4">
-							<span class="pl-1 text-sm text-white/40">{version}</span>
-						</T>
+						<span class="pl-1 text-sm text-white/40">{version}</span>
 					</div>
 					<p class="border-b border-b-muted">{m.Test_and_find_decentralized_IDs()}</p>
 				</div>
