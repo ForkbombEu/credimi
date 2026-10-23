@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import A from '@/components/ui-custom/a.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
 
 	// TODO - Better <a> styling
 
@@ -29,6 +30,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					image: '/404-computer.svg',
 					title: 'Not Found',
 					description: 'Whoops! That page doesn’t exist.'
+				};
+			case 403:
+				return {
+					status: 403,
+					image: '/404-computer.svg',
+					title: m.Access_denied(),
+					description: $page.error?.message ?? m.Access_denied()
 				};
 			case 503:
 				return {
@@ -58,7 +66,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="flex w-full flex-col items-center justify-center gap-4">
 		<T tag="h3" class="text-primary-600">{data.status} {data.title}</T>
 		<T tag="h2">{data.description}</T>
-		{#if status !== 503}
+		{#if status === 403}
+			<A href="/logout">{m.Sign_out_and_switch_account()}</A>
+		{:else if status !== 503}
 			<div class="w-full space-y-1 pt-8">
 				<T class="text-gray-400">Here are some Helpful link:</T>
 				<ul class="flex gap-6">

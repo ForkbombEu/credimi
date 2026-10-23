@@ -17,6 +17,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/dbx"
@@ -385,6 +386,104 @@ func TestHandleGetMyCheckRunSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), "workflowExecutionInfo")
+}
+
+// A run opened from another account's link (e.g. its push notification) is not
+// in the caller's namespace: the run page must tell the caller it belongs to
+// another organization, not that it is missing.
+func TestHandleGetMyWorkflowRunMissingFromNamespace(t *testing.T) {
+	cases := []struct {
+		name       string
+		ownerEmail string
+		wantStatus int
+		wantReason string
+	}{
+		{
+			name:       "pipeline run of another organization",
+			ownerEmail: "userB@example.org",
+			wantStatus: http.StatusForbidden,
+			wantReason: "workflow belongs to another organization",
+		},
+		{
+			name:       "pipeline run of the caller's organization",
+			ownerEmail: "userA@example.org",
+			wantStatus: http.StatusNotFound,
+			wantReason: "workflow not found",
+		},
+		{
+			name:       "unrecorded run",
+			wantStatus: http.StatusNotFound,
+			wantReason: "workflow not found",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app, err := tests.NewTestApp(testDataDir)
+			require.NoError(t, err)
+			defer app.Cleanup()
+
+			authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
+
+			if tc.ownerEmail != "" {
+				owner, err := app.FindAuthRecordByEmail("users", tc.ownerEmail)
+				require.NoError(t, err)
+				ownerOrgID, err := pbutils.GetUserOrganizationID(app, owner.Id)
+				require.NoError(t, err)
+
+				pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+				require.NoError(t, err)
+				pipelineRecord := core.NewRecord(pipelineColl)
+				pipelineRecord.Set("owner", ownerOrgID)
+				pipelineRecord.Set("canonified_name", "pipeline123")
+				pipelineRecord.Set("name", "pipeline123")
+				pipelineRecord.Set("description", "demo pipeline")
+				pipelineRecord.Set("yaml", "name: demo")
+				require.NoError(t, app.Save(pipelineRecord))
+
+				resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
+				require.NoError(t, err)
+				resultRecord := core.NewRecord(resultsColl)
+				resultRecord.Set("owner", ownerOrgID)
+				resultRecord.Set("pipeline", pipelineRecord.Id)
+				resultRecord.Set("workflow_id", "pipeline-1")
+				resultRecord.Set("run_id", "run-1")
+				require.NoError(t, app.Save(resultRecord))
+			}
+
+			origClient := workflowTemporalClient
+			t.Cleanup(func() { workflowTemporalClient = origClient })
+			mockClient := &temporalmocks.Client{}
+			workflowTemporalClient = func(string) (client.Client, error) {
+				return mockClient, nil
+			}
+			mockClient.
+				On("DescribeWorkflowExecution", mock.Anything, "pipeline-1", "run-1").
+				Return(nil, serviceerror.NewNotFound("workflow not found"))
+
+			req := httptest.NewRequest(
+				http.MethodGet,
+				"/api/my/workflows/pipeline-1/runs/run-1",
+				nil,
+			)
+			req.SetPathValue("workflowId", "pipeline-1")
+			req.SetPathValue("runId", "run-1")
+			rec := httptest.NewRecorder()
+
+			err = HandleGetMyWorkflowRun()(&core.RequestEvent{
+				App:  app,
+				Auth: authRecord,
+				Event: router.Event{
+					Request:  req,
+					Response: rec,
+				},
+			})
+			requireHandlerErrorHandled(t, rec, err)
+			require.Equal(t, tc.wantStatus, rec.Code)
+			require.Equal(t, tc.wantReason, decodeAPIError(t, rec).Reason)
+		})
+	}
 }
 
 // The run detail page reads its device list (and the live view button) from

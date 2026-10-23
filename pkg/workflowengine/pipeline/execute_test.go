@@ -371,7 +371,7 @@ func TestExecuteStepRejectsOversizedInput(t *testing.T) {
 				pipeline.StepInputs{Payload: map[string]any{
 					"url":    "https://example.com",
 					"method": "POST",
-					"body":   strings.Repeat("a", 4<<20),
+					"body":   strings.Repeat("a", maxStepInputBytes+1),
 				}},
 				nil,
 				ctx,
