@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { Scoreboard } from '$lib';
+import { staticPages } from '$lib/seo';
 
 export const load = async ({ fetch }) => {
 	const scoreboardPage = await Scoreboard.Records.loadPage({
@@ -12,6 +13,7 @@ export const load = async ({ fetch }) => {
 		sort: '-expanded_data.latest_execution.created'
 	});
 	return {
-		scoreboardPage
+		scoreboardPage,
+		seo: staticPages['/scoreboard']
 	};
 };

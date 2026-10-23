@@ -1064,5 +1064,11 @@
 	"Continued_as_New": "Fortsati som ny",
 	"Canceled": "Annulleret",
 	"Terminated": "Afsluttet",
-	"Unspecified": "Uspecificeret"
+	"Unspecified": "Uspecificeret",
+	"home_judged": "Vurderet mod FCAF- og protokoltestcases, med dokumentation",
+	"home_cta_title": "Kør din første test",
+	"home_cta_lead": "Start med én overensstemmelsessuite eller én pipeline, og tilføj den til CI, når den består.",
+	"home_see_fcaf_reports": "Se FCAF-rapporter",
+	"home_see_all": "Se alle",
+	"home_also_in_hub": "Også i Hubben:"
 }

@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { supportLabels, type Support } from './comparison';
+	import { supportLabels, type Support } from '$lib/content/why-credimi';
 
 	const { value }: { value: Support } = $props();
 </script>

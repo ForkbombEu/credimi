@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { absoluteUrl, plainText, SITE_ORIGIN } from '$lib/seo';
+
 import { pb } from '@/pocketbase/index.js';
 
 export const load = async ({ params, fetch }) => {
@@ -16,5 +18,27 @@ export const load = async ({ params, fetch }) => {
 		fetch
 	});
 
-	return { organization, hubItems };
+	const logo = organization.logo ? pb.files.getURL(organization, organization.logo) : undefined;
+	const description =
+		plainText(organization.description) ||
+		`${organization.name} publishes ${hubItems.length} EUDI wallets, issuers, verifiers and pipelines on the Credimi Hub.`;
+
+	return {
+		organization,
+		hubItems,
+		seo: {
+			title: organization.name,
+			description,
+			jsonLd: [
+				{
+					'@context': 'https://schema.org',
+					'@type': 'Organization',
+					name: organization.name,
+					description: plainText(organization.description, 500) || description,
+					url: organization.external_website_url || undefined,
+					logo: logo ? absoluteUrl(logo, SITE_ORIGIN) : undefined
+				}
+			]
+		}
+	};
 };

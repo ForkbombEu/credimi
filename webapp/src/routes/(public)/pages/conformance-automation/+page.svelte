@@ -16,14 +16,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Network from '@lucide/svelte/icons/network';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import Rocket from '@lucide/svelte/icons/rocket';
-	import ContentHead from '$lib/content/content-head.svelte';
+	import {
+		automated,
+		benefits,
+		ciEndpoints,
+		closing,
+		definition,
+		manual,
+		steps,
+		type BenefitId,
+		type StepId
+	} from '$lib/content/conformance-automation';
 	import { entities } from '$lib/global/entities';
 	import RoleTile, { type RoleStyle } from '$lib/layout/marketing/role-tile.svelte';
 	import StandardsCoverage from '$lib/layout/marketing/standards-coverage.svelte';
 
-	import Button from '@/components/ui-custom/button.svelte';
+	import type { IconComponent } from '@/components/types';
 
-	const { data } = $props();
+	import Button from '@/components/ui-custom/button.svelte';
 
 	// Same type roles as the other marketing pages: display, section heading, lead, body.
 	const container = 'mx-auto max-w-screen-xl px-4 md:px-8';
@@ -66,65 +76,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	];
 
-	const manual = [
-		'Runs once, before a release or an audit.',
-		'A snapshot that ages with every commit.',
-		'Steps and results live in documents and spreadsheets.',
-		'Hard to repeat the same way twice.'
-	];
+	const stepRoles: Record<StepId, RoleStyle> = {
+		checks: entities.conformance_checks,
+		pipeline: entities.pipelines,
+		trigger: gate,
+		evidence
+	};
 
-	const automated = [
-		'Runs on every change, on a schedule, or from CI.',
-		'The same suites, run the same way, every time.',
-		'Every input, output and artifact is kept with the run.',
-		'Failures surface before your users or an assessor find them.'
-	];
-
-	const steps: { role: RoleStyle; title: string; text: string }[] = [
-		{
-			role: entities.conformance_checks,
-			title: 'Choose the checks',
-			text: 'Pick suites from the catalog: the OpenID Foundation conformance suite, WE BUILD / EWC, EUDIW verifier tests and EUDI FCAF.'
-		},
-		{
-			role: entities.pipelines,
-			title: 'Build a pipeline',
-			text: 'Chain checks with real flows: StepCI calls to issuers and verifiers, Maestro flows on wallets running on phones, emulators or iOS simulators.'
-		},
-		{
-			role: gate,
-			title: 'Run it on every change',
-			text: 'Trigger runs from a pull request with the GitHub Action, from the CI endpoints, or on a schedule.'
-		},
-		{
-			role: evidence,
-			title: 'Read the evidence',
-			text: 'Each run keeps a timestamped Temporal history, protocol messages, video and logs. Published pipelines feed the public scoreboard.'
-		}
-	];
-
-	const benefits = [
-		{
-			icon: Rocket,
-			title: 'Ship without waiting for a review',
-			text: 'Check a new feature or integration in the same pipeline that checks everything else, from the first commit.'
-		},
-		{
-			icon: Network,
-			title: 'See who you actually interoperate with',
-			text: 'Run the same scenario against the wallets, issuers and verifiers published on the Hub, and see which ones complete the flow.'
-		},
-		{
-			icon: FileText,
-			title: 'Hand over reports, not screenshots',
-			text: 'Every run keeps its evidence. FCAF reports hash each evidence item and point into the run history, so an assessor can check every claim.'
-		},
-		{
-			icon: Layers,
-			title: 'Keep up as the standards move',
-			text: 'The catalog covers several versions side by side, such as OpenID4VP 1.0, Draft 23 and Draft 24. New suites plug into the pipelines you already run.'
-		}
-	];
+	const benefitIcons: Record<BenefitId, IconComponent> = {
+		speed: Rocket,
+		interop: Network,
+		reports: FileText,
+		standards: Layers
+	};
 
 	const related = [
 		{
@@ -142,13 +106,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{
 			kind: 'Docs',
 			title: 'Build and run wallet × issuer × verifier pipelines',
-			href: 'https://docs.credimi.io/manual/testing-automation/build-and-run-pipelines/',
+			href: 'https://docs.credimi.io/manual/create-first-pipeline/',
 			action: 'Read docs ↗'
 		}
 	];
 </script>
-
-<ContentHead seo={data.seo} tags={data.tags} />
 
 <!-- Hero -->
 <section class="fold-motif bg-primary text-primary-foreground">
@@ -214,15 +176,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
 			<h2 class="{h2} text-primary">What is conformance automation?</h2>
 			<div class="space-y-5 {lead} text-slate-700">
-				<p>
-					Conformance automation uses tools to check that a product follows the technical
-					standards, protocols and regulatory specifications it claims to support.
-				</p>
-				<p>
-					In digital identity, that means testing a wallet, issuer or verifier against
-					OpenID4VCI, OpenID4VP, the EUDI ARF and its conformance framework (FCAF), and
-					running the same checks again whenever the product or the standard changes.
-				</p>
+				{#each definition as paragraph (paragraph)}
+					<p>{paragraph}</p>
+				{/each}
 			</div>
 		</div>
 
@@ -275,12 +231,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#each steps as step, i (step.title)}
 				<li class="p-6 lg:p-7">
 					<div class="flex items-center justify-between">
-						<RoleTile role={step.role} />
+						<RoleTile role={stepRoles[step.id]} />
 						<span class="font-mono text-sm text-slate-500"
 							>{i + 1} / {steps.length}</span
 						>
 					</div>
-					<p class={['mt-5 text-xl font-bold', step.role.classes.text]}>{step.title}</p>
+					<p class={['mt-5 text-xl font-bold', stepRoles[step.id].classes.text]}>
+						{step.title}
+					</p>
 					<p class="mt-2 leading-relaxed text-pretty text-slate-700">{step.text}</p>
 				</li>
 			{/each}
@@ -290,9 +248,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl bg-card px-6 py-4 text-slate-700"
 		>
 			<span class="font-semibold text-slate-900">CI endpoints per role:</span>
-			<code class="font-mono text-sm text-primary">run-wallet-apk</code>
-			<code class="font-mono text-sm text-primary">run-issuer</code>
-			<code class="font-mono text-sm text-primary">run-verifier</code>
+			{#each ciEndpoints as endpoint (endpoint)}
+				<code class="font-mono text-sm text-primary">{endpoint}</code>
+			{/each}
 		</div>
 	</div>
 </section>
@@ -304,7 +262,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<ul class="mt-12 grid gap-x-16 md:grid-cols-2">
 			{#each benefits as benefit (benefit.title)}
-				{@const Icon = benefit.icon}
+				{@const Icon = benefitIcons[benefit.id]}
 				<li class="flex gap-5 border-t border-border py-8">
 					<span
 						class="grid size-12 shrink-0 place-items-center rounded-xl bg-secondary text-primary"
@@ -322,7 +280,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<blockquote
 			class="mt-12 max-w-[34ch] text-[clamp(1.6rem,2.6vw,2.25rem)] leading-tight font-bold tracking-[-0.02em] text-balance text-primary"
 		>
-			Conformance is not a certificate you earn once. It is a check you run on every release.
+			{closing}
 		</blockquote>
 	</div>
 </section>

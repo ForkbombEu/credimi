@@ -1070,5 +1070,11 @@
 	"Continued_as_New": "Continuato come nuovo",
 	"Canceled": "Annullato",
 	"Terminated": "Terminato",
-	"Unspecified": "Non specificato"
+	"Unspecified": "Non specificato",
+	"home_judged": "Valutato rispetto ai test case FCAF e di protocollo, con prove",
+	"home_cta_title": "Esegui il tuo primo test",
+	"home_cta_lead": "Inizia con una suite di conformità o una pipeline, poi aggiungila alla CI quando passa.",
+	"home_see_fcaf_reports": "Vedi i report FCAF",
+	"home_see_all": "Vedi tutti",
+	"home_also_in_hub": "Anche nell'Hub:"
 }

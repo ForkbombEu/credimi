@@ -7,11 +7,11 @@ import { getContentBySlug } from '$lib/content';
 import { getContentSeo } from '$lib/content/seo';
 
 // static/pages/why-credimi/en.md keeps the metadata (tags, SEO, social card); the page body lives here.
-export async function load({ fetch, url }) {
+export async function load({ fetch }) {
 	const content = await getContentBySlug('why-credimi', fetch);
 	if (!content) {
 		error(404);
 	}
 
-	return { tags: content.attributes.tags, seo: getContentSeo(content, url) };
+	return { seo: getContentSeo(content) };
 }

@@ -188,3 +188,16 @@ export const eudiGaps: Record<Exclude<ColumnId, 'credimi'>, string> = {
 	labs: 'Device and test-framework coverage, not identity flows: no protocol conformance, no issuer to wallet to verifier journey, no assessment evidence.',
 	suites: 'One component at a time, against a simulated counterpart. No real wallet on a real device and no end-to-end journey. Credimi runs these suites for you, side by side.'
 };
+
+export const credimiBestAt = [
+	'Proving an EUDI wallet, issuer or verifier conforms and interoperates, with evidence.',
+	'Gating releases on wallet × issuer × verifier flows in CI.',
+	'Preparing for FCAF assessment and EUDI ARF readiness.'
+];
+
+export const chooseCredimi = [
+	'You build an EUDI wallet and need proof it works with real issuers and verifiers, not only on many phones.',
+	'You run a credential issuer or verifier and want to know which wallets actually complete your flows.',
+	'You prepare for eIDAS 2 / EUDI ARF conformance and need FCAF-aligned evidence.',
+	'You are tired of keeping three tools, two scripts and a spreadsheet in sync to answer “does it interoperate?”'
+];

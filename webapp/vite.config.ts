@@ -38,6 +38,13 @@ export default defineConfig(({ mode }) => {
 			proxy
 		},
 
+		// lodash is CommonJS and is imported with named imports across the app. Vite's SSR runner
+		// rejects named imports from CommonJS, so bundle it for SSR (public pages render on the server).
+		ssr: {
+			noExternal: ['lodash'],
+			optimizeDeps: { include: ['lodash'] }
+		},
+
 		test: {
 			expect: { requireAssertions: true },
 
