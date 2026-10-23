@@ -31,45 +31,67 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-        - launchApp: { stopApp: true, clearState: false }
-        - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Welcome, .*", timeout: 30000 }
+        - launchApp:
+            stopApp: true
+            clearState: false
+        - extendedWaitUntil:
+            visible: "Welcome back|Home|Documents|Welcome, .*"
+            timeout: 30000
+        - waitForAnimationToEnd:
+            timeout: 3000
         - runFlow:
-            when: { visible: "Welcome back" }
+            when:
+              visible: "Welcome back"
             commands:
-              - tapOn: { point: "11%,40%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "Home|Documents|Welcome, .*", timeout: 30000 }
-        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+            - extendedWaitUntil:
+                visible: "1"
+                timeout: 30000
+            - inputText: "12345"
+            - tapOn: "6"
+        - extendedWaitUntil:
+            visible: "Home|Documents|Welcome, .*"
+            timeout: 30000
+        - openLink:
+            link: "${DEEPLINK}"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Welcome back|Data sharing request"
+            timeout: 100000
+        - waitForAnimationToEnd:
+            timeout: 3000
         - runFlow:
-            when: { visible: "EUDI Wallet" }
-            commands: [{ tapOn: { text: "EUDI Wallet", optional: true } }]
-        - runFlow:
-            when: { visible: "Just once" }
-            commands: [{ tapOn: { text: "Just once", optional: true } }]
-        - extendedWaitUntil: { visible: "Welcome back|Data sharing request", timeout: 100000 }
-        - runFlow:
-            when: { visible: "Welcome back" }
+            when:
+              visible: "Welcome back"
             commands:
-              - tapOn: { point: "11%,39%" }
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
-        - tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0, retryTapIfNoChange: false }
+            - extendedWaitUntil:
+                visible: "1"
+                timeout: 30000
+            - inputText: "12345"
+            - tapOn: "6"
+        - extendedWaitUntil:
+            visible: "Data sharing request"
+            timeout: 100000
+        - tapOn:
+            id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
+            retryTapIfNoChange: false
         - assertVisible: "Given Name"
         - assertVisible: "address"
         - tapOn: "address"
-        - takeScreenshot: fcaf-013-unchecked-address
+        - takeScreenshot: "fcaf-013-unchecked-address"
         - tapOn: "Share"
-        - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
-        - tapOn: { point: "11%,39%" }
-        - inputText: "123456"
-        - hideKeyboard
-        - tapOn: { point: "50%,10%" }
-        - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
-        - takeScreenshot: fcaf-013-unchecked-address-shared
+        - extendedWaitUntil:
+            visible: "PIN"
+            timeout: 30000
+        - extendedWaitUntil:
+            visible: "1"
+            timeout: 30000
+        - inputText: "12345"
+        - tapOn: "6"
+        - extendedWaitUntil:
+            visible: ".*successfully shared.*"
+            timeout: 30000
+        - takeScreenshot: "fcaf-013-unchecked-address-shared"
         - tapOn: "Close"
   - id: fetch-result
     use: http-request
@@ -85,6 +107,7 @@ steps:
         pipeline.dcql.unchecked-claim:
           output:
             dcql_exchange: ${{ fetch-result.outputs.body }}
+            wallet_response: ${{ fetch-result.outputs.body.raw.presentation_response_decrypted.vp_token }}
             visual_evidence: ${{ present-with-unchecked-address.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}
             present-with-unchecked-address: ${{ present-with-unchecked-address.outputs }}

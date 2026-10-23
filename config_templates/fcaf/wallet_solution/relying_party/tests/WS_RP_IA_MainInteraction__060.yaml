@@ -1,5 +1,5 @@
 id: WS_RP_IA_MainInteraction__060
-title: FCAF WS_RP_IA_MainInteraction__060
+title: Redirect the user agent to a redirect_uri in the initial request.
 source:
   path: Interaction/MainInteraction/WS_RP_IA_MainInteraction__060.md
 suite:
@@ -11,22 +11,18 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.main-interaction.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.main-interaction.outputs.visual_evidence
+  relevancy:
+    from: pipeline.eudi-forbidden.outputs.relevancy
 assertions:
-- id: ws_rp_ia_maininteraction__060_interaction
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: eudi_forbidden_source_is_not_applicable
+  validator: fcaf.not_applicable
+  input: evidence.relevancy
   params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__060_visual_evidence
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      source relevancy is EUDI_forbidden: an EUDI wallet must not accept a
+      redirect_uri parameter in the initial Authorization Request
 verdict:
   pass_when: all_assertions_pass

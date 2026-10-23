@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	"github.com/go-pdf/fpdf"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -542,7 +543,7 @@ func (r *renderer) renderTest(test TestEntry) {
 		}
 	}
 
-	if sourceURL := fcafSourceURL(test.Execution.TestID); sourceURL != "" {
+	if sourceURL := SourceURL(test.Source.Title); sourceURL != "" {
 		r.linkBullet("Open FCAF source test", sourceURL)
 	}
 
@@ -1029,22 +1030,36 @@ func cleanMarkdown(value string) string {
 	return strings.TrimSpace(value)
 }
 
-func fcafSourceURL(testID string) string {
-	if strings.TrimSpace(testID) == "" {
+const fcafTestCasesURL = "https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/test-cases/"
+
+var markdownAnchorSeparators = regexp.MustCompile(`[-\s]+`)
+
+// SourceURL links a test on the FCAF test-cases page. The page derives its
+// anchors from the "# " heading of each source Markdown, which does not always
+// match the source file name that Credimi test IDs come from
+// (CredentialStructure007 in WS_RP_DM_CredentialMetadata_CredentialStructure_007.md).
+func SourceURL(sourceTitle string) string {
+	anchor := markdownHeadingAnchor(sourceTitle)
+	if anchor == "" {
 		return ""
 	}
-	anchor := strings.ToLower(testID)
-	var builder strings.Builder
-	underscore := false
-	for _, character := range anchor {
-		if unicode.IsLetter(character) || unicode.IsDigit(character) {
-			builder.WriteRune(character)
-			underscore = false
-		} else if !underscore {
-			builder.WriteByte('_')
-			underscore = true
+	return fcafTestCasesURL + "#" + anchor
+}
+
+// markdownHeadingAnchor mirrors the default Python-Markdown toc slugify used
+// by the FCAF site: NFKD, drop non-ASCII, keep word characters, whitespace and
+// hyphens, trim, lowercase, then collapse runs of hyphens and whitespace into
+// one hyphen. Underscores are kept as they are.
+func markdownHeadingAnchor(heading string) string {
+	var kept strings.Builder
+	for _, character := range norm.NFKD.String(heading) {
+		switch {
+		case character > unicode.MaxASCII:
+		case character == '_', character == '-', unicode.IsSpace(character),
+			unicode.IsLetter(character), unicode.IsDigit(character):
+			kept.WriteRune(character)
 		}
 	}
-	anchor = strings.Trim(builder.String(), "_")
-	return "https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/test_cases/#" + anchor
+	anchor := strings.ToLower(strings.TrimSpace(kept.String()))
+	return markdownAnchorSeparators.ReplaceAllString(anchor, "-")
 }

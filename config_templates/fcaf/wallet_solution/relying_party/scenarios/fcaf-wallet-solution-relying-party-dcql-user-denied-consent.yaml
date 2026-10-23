@@ -32,61 +32,66 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-        - launchApp: { stopApp: true, clearState: false }
+        - launchApp:
+            stopApp: true
+            clearState: false
         - extendedWaitUntil:
             visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
             timeout: 30000
+        - waitForAnimationToEnd:
+            timeout: 3000
         - runFlow:
             when:
               visible: "Welcome back"
             commands:
-              - tapOn:
-                  point: "11%,40%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn: { point: "50%,10%" }
+            - extendedWaitUntil:
+                visible: "1"
+                timeout: 30000
+            - inputText: "12345"
+            - tapOn: "6"
         - extendedWaitUntil:
             visible: "Home|Documents|Add document|Welcome, .*"
             timeout: 30000
-        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+        - openLink:
+            link: "${DEEPLINK}"
+            autoVerify: false
+            browser: false
+        - extendedWaitUntil:
+            visible: "Welcome back|Data sharing request"
+            timeout: 100000
+        - waitForAnimationToEnd:
+            timeout: 3000
         - runFlow:
             when:
-              visible: "EUDI Wallet"
+              visible: "Welcome back"
             commands:
-              - tapOn: { text: "EUDI Wallet", optional: true }
-        - runFlow:
-            when:
-              visible: "Just once"
-            commands:
-              - tapOn: { text: "Just once", optional: true }
-        - runFlow:
-            when:
-              visible: "Always"
-            commands:
-              - tapOn: { text: "Always", optional: true }
-        - extendedWaitUntil: { visible: "Welcome back|Data sharing request", timeout: 100000 }
-        - runFlow:
-            when: { visible: "Welcome back" }
-            commands:
-              - tapOn: { point: "11%,40%" }
-              - tapOn: { text: "1", retryTapIfNoChange: false }
-              - tapOn: { text: "2", retryTapIfNoChange: false }
-              - tapOn: { text: "3", retryTapIfNoChange: false }
-              - tapOn: { text: "4", retryTapIfNoChange: false }
-              - tapOn: { text: "5", retryTapIfNoChange: false }
-              - tapOn: { text: "6", retryTapIfNoChange: false, waitToSettleTimeoutMs: 0 }
-        - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
-        - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-        - tapOn: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0, retryTapIfNoChange: false }
+            - extendedWaitUntil:
+                visible: "1"
+                timeout: 30000
+            - inputText: "12345"
+            - tapOn: "6"
+        - extendedWaitUntil:
+            visible: "Data sharing request"
+            timeout: 100000
+        - assertVisible:
+            id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
+        - tapOn:
+            id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
+            retryTapIfNoChange: false
         - assertVisible: "Given Name"
-        - takeScreenshot: fcaf-148-consent-screen-before-denial
+        - takeScreenshot: "fcaf-148-consent-screen-before-denial"
         - tapOn: "Go Back"
         - runFlow:
-            when: { visible: "Cancel the process|Are you sure" }
+            when:
+              visible: "Cancel the process|Are you sure"
             commands:
-              - tapOn: { text: "Cancel|Yes|Confirm", index: 1 }
-        - extendedWaitUntil: { visible: "Home|Welcome, .*|Oups! Something went wrong", timeout: 30000 }
-        - takeScreenshot: fcaf-148-after-consent-denial
+            - tapOn:
+                text: "Cancel|Yes|Confirm"
+                index: 1
+        - extendedWaitUntil:
+            visible: "Home|Welcome, .*|Oups! Something went wrong"
+            timeout: 30000
+        - takeScreenshot: "fcaf-148-after-consent-denial"
   - id: fetch-result
     use: http-request
     with:
@@ -104,7 +109,7 @@ steps:
         pipeline.dcql.user-denied-consent:
           output:
             dcql_exchange: ${{ fetch-result.outputs.body }}
-            wallet_response: ${{ fetch-result.outputs.body }}
+            capture_session: ${{ fetch-result.outputs.body }}
             visual_evidence: ${{ deny-consent.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}
             deny-consent: ${{ deny-consent.outputs }}

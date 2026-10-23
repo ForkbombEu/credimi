@@ -15,8 +15,6 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.standard-all
 evidence:
-  trusted_authority:
-    from: pipeline.dcql.trusted-authorities-missing-values.outputs.trusted_authority
   dcql_exchange:
     from: pipeline.dcql.trusted-authorities-missing-values.outputs.dcql_exchange
   visual_evidence:
@@ -24,11 +22,12 @@ evidence:
   dcql_exchange_session:
     from: pipeline.dcql.trusted-authorities-missing-values.outputs.dcql_exchange_session
 assertions:
-- id: ws_rp_ms_protocolmessages__090_dcql_valid
+- id: delivered_trusted_authority_has_no_values
   validator: dcql.response_satisfies_constraints
-  input: evidence.trusted_authority
+  input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: trusted_authority_property_absent
+    property: values
 - id: ws_rp_ms_protocolmessages__090_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

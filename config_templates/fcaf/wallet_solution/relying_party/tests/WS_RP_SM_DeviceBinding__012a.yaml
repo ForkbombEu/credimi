@@ -16,10 +16,11 @@ evidence:
   pid_sdjwt_presentations:
     from: pipeline.pid.presentation.sdjwt.all-claims.outputs.pid_sdjwt_presentations
 assertions:
-  - id: key_binding_jwt_uses_beta_capture_es256
-    validator: sdjwt.kb_jwt_algorithm_equals
+  - id: key_binding_jwt_uses_an_acceptable_algorithm
+    validator: sdjwt.kb_jwt_algorithm_allowed
     input: evidence.pid_sdjwt_presentations
     params:
-      algorithm: ES256
+      allowed:
+        - ES256
 verdict:
   pass_when: all_assertions_pass

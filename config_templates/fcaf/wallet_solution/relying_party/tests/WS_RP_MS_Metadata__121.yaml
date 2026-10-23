@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__121
-title: FCAF WS_RP_MS_Metadata__121
+title: Reject a verifier_attestation request whose response URI matches no attestation redirect_uris entry.
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__121.md
 suite:
@@ -11,21 +11,41 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.metadata
+- title: OpenID for Verifiable Presentations 1.0
+  section: '8.2'
+  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.metadata.outputs.dcql_exchange
+  session:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.redirect_uris_foreign_session
+  request_object:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.redirect_uris_foreign_request_object
+  request_evidence:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.redirect_uris_foreign_request_evidence
   visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
+    from: pipeline.rp-integrity.verifier-attestation.outputs.redirect_uris_foreign_visual_evidence
+# A direct_post.jwt request carries response_uri, not redirect_uri, and
+# OpenID4VP 8.2 applies the Client Identifier Prefix rules for redirect_uri to
+# response_uri, so this test compares the attestation redirect_uris with the
+# delivered response_uri (TEST-AUTHOR-FEEDBACK.md Issue 24).
 assertions:
-- id: ws_rp_ms_metadata__121_dcql_metadata_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: delivered_attestation_redirect_uris_excludes_the_response_uri
+  validator: oid4vp.verifier_attestation_request
+  input: evidence.request_evidence
   params:
-    mode: credentials_match
-- id: ws_rp_ms_metadata__121_visual_evidence_stored
+    jwt_header: present
+    subject: client_id
+    issuer: https://capture-wallet.credimi.io/openid4vp/verifier-attestation-issuer
+    request_signature: valid
+    attestation_signature: valid
+    redirect_uris: excludes_response_uri
+- id: wallet_returns_invalid_request_without_a_presentation
+  validator: oid4vp.error_response_required
+  input: evidence.session
+  params:
+    code: invalid_request
+- id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

@@ -80,6 +80,7 @@ type FailureReason struct {
 type ExecutedTest struct {
 	TestID     string             `json:"test_id"`
 	Title      string             `json:"title,omitempty"`
+	SourceURL  string             `json:"source_url,omitempty"`
 	Status     string             `json:"status"`
 	Assertions []ExecutedCheck    `json:"assertions,omitempty"`
 	Evidence   []ExecutedEvidence `json:"evidence,omitempty"`
@@ -325,7 +326,9 @@ func buildTestOutcome(test TestResult) TestOutcome {
 	switch test.Status {
 	case validators.StatusPass:
 		return TestOutcome{Status: "passed", Reason: test.Message}
-	case validators.StatusSkipped, validators.StatusNotApplicable:
+	case validators.StatusNotApplicable:
+		return TestOutcome{Status: "not_applicable", Reason: reason}
+	case validators.StatusSkipped:
 		return TestOutcome{Status: "skipped", Reason: reason}
 	default:
 		return TestOutcome{Status: "failed", Reason: reason}
@@ -349,7 +352,9 @@ func normalizeExecutionStatus(status validators.Status) string {
 		return "failed"
 	case validators.StatusBlocked:
 		return "blocked"
-	case validators.StatusSkipped, validators.StatusNotApplicable:
+	case validators.StatusNotApplicable:
+		return "not_applicable"
+	case validators.StatusSkipped:
 		return "skipped"
 	case validators.StatusInconclusive:
 		return "inconclusive"

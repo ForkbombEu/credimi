@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -58,6 +59,57 @@ func codeSet(values []string) map[string]struct{} {
 	return out
 }
 
+// e164CountryCallingCodes holds the country calling codes assigned by ITU-T
+// Recommendation E.164 (list of assigned country codes, Annex to ITU
+// Operational Bulletin No. 1114 of 15 December 2016), including the shared and
+// global-service codes of that list and +970 (Palestine), which later editions
+// assign. Spare, reserved and unassigned codes are absent.
+var e164CountryCallingCodes = codeSet(strings.Fields(`
+1 7
+20 27
+30 31 32 33 34 36 39 40 41 43 44 45 46 47 48 49
+60 61 62 63 64 65 66
+81 82 84 86
+90 91 92 93 94 95 98
+211 212 213 216 218 220 221 222 223 224 225 226 227 228 229
+230 231 232 233 234 235 236 237 238 239 240 241 242 243 244 245
+246 247 248 249 250 251 252 253 254 255 256 257 258 260 261 262
+263 264 265 266 267 268 269 290 291 297 298 299
+350 351 352 353 354 355 356 357 358 359
+370 371 372 373 374 375 376 377 378 379 380 381 382 383 385 386 387 388 389
+420 421 423
+500 501 502 503 504 505 506 507 508 509 51 52 53 54 55 56 57 58
+590 591 592 593 594 595 596 597 598 599
+670 672 673 674 675 676 677 678 679 680 681 682 683 685 686 687 688 689 690 691 692
+800 808 850 852 853 855 856 870 878 880 881 882 883 886 888
+960 961 962 963 964 965 966 967 968 970 971 972 973 974 975 976 977 979
+991 992 993 994 995 996 998
+`))
+
+// hasAssignedCountryCallingCode reports whether digits starts with a country
+// calling code of the ITU-T E.164 list and continues with at least one digit.
+func hasAssignedCountryCallingCode(digits string) bool {
+	for length := 1; length <= 3 && length < len(digits); length++ {
+		if _, ok := e164CountryCallingCodes[digits[:length]]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// validateInternationalPhone applies the PID rules for an international phone
+// number: the value starts with "+" followed by digits only, and those digits
+// start with a country calling code assigned by ITU-T E.164.
+func validateInternationalPhone(text string) error {
+	if !internationalPhonePattern.MatchString(text) {
+		return fmt.Errorf("value must start with + and contain digits only")
+	}
+	if !hasAssignedCountryCallingCode(strings.TrimPrefix(text, "+")) {
+		return fmt.Errorf("value must start with an assigned ITU-T E.164 country calling code")
+	}
+	return nil
+}
+
 func resolveObjectPath(root any, path string) (any, bool) {
 	if path == "" {
 		return nil, false
@@ -98,11 +150,27 @@ func validateFullDate(text string) error {
 	return nil
 }
 
+// rfc3339UTCDateTimePattern is the RFC 3339 §5.6 "date-time" ABNF restricted to
+// the "Z" time-offset, with the "02" digit width of §5.6 for every field.
+var rfc3339UTCDateTimePattern = regexp.MustCompile(
+	`^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})Z$`,
+)
+
 func validateRFC3339UTCDateTime(text string) error {
-	if len(text) != 20 || !strings.HasSuffix(text, "Z") {
+	fields := rfc3339UTCDateTimePattern.FindStringSubmatch(text)
+	if fields == nil {
 		return fmt.Errorf("value must use YYYY-MM-DDThh:mm:ssZ format")
 	}
-	if _, err := time.Parse("2006-01-02T15:04:05Z", text); err != nil {
+	date := fmt.Sprintf("%s-%s-%s", fields[1], fields[2], fields[3])
+	if err := validateFullDate(date); err != nil {
+		return fmt.Errorf("value is not a valid UTC date-time")
+	}
+	// The pattern guarantees decimal fields, so the conversions cannot fail.
+	hour, _ := strconv.Atoi(fields[4])
+	minute, _ := strconv.Atoi(fields[5])
+	second, _ := strconv.Atoi(fields[6])
+	// RFC 3339 §5.7 allows "60" for a leap second.
+	if hour > 23 || minute > 59 || second > 60 {
 		return fmt.Errorf("value is not a valid UTC date-time")
 	}
 	return nil
@@ -111,6 +179,11 @@ func validateRFC3339UTCDateTime(text string) error {
 func isPIDCountryCode(value string) bool {
 	if _, ok := iso3166Alpha2[value]; ok {
 		return true
+	}
+	// The PID rulebook only permits the two-character user-assigned codes
+	// AA, QM-QZ, XA-XZ and ZZ, so a longer value must not match by range.
+	if len(value) != 2 {
+		return false
 	}
 	if value == "AA" || value == "ZZ" {
 		return true
@@ -134,6 +207,17 @@ func validateCountrySubdivision(value string, country string) error {
 			"subdivision country prefix %q does not match issuing country %q",
 			matches[1],
 			country,
+		)
+	}
+	subdivisions, listed := iso3166Subdivisions[matches[1]]
+	if !listed {
+		return fmt.Errorf("country %q lists no ISO 3166-2 subdivisions", matches[1])
+	}
+	if _, ok := subdivisions[matches[2]]; !ok {
+		return fmt.Errorf(
+			"subdivision code %q is not listed in ISO 3166-2 for %q",
+			matches[2],
+			matches[1],
 		)
 	}
 	return nil

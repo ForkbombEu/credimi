@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__017
-title: FCAF WS_RP_MS_ProtocolMessages__017
+title: Reject transaction_data the Wallet does not support.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__017.md
 suite:
@@ -11,20 +11,35 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '8.5'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 - ref: pipeline.dcql.protocol-messages
 evidence:
+  request_object:
+    from: pipeline.dcql.protocol-messages.outputs.transaction_data_request_object
   dcql_exchange:
-    from: pipeline.dcql.protocol-messages.outputs.dcql_exchange
+    from: pipeline.dcql.protocol-messages.outputs.transaction_data_dcql_exchange
   visual_evidence:
-    from: pipeline.dcql.protocol-messages.outputs.visual_evidence
+    from: pipeline.dcql.protocol-messages.outputs.transaction_data_visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__017_dcql_protocol_valid
+- id: delivered_request_carries_transaction_data
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params:
+    field: transaction_data
+    present: true
+# The source's profile applicability is "Wallet does not support
+# transaction_data", which is a fact about the Wallet and is read from its own
+# captured evidence: a Wallet that bound the transaction_data it was sent
+# (checks.transaction_data_verified, transaction_data_hashes) makes the source's
+# premise false, so the invalid_transaction_data expectation below has no
+# subject and the assertion reports not_applicable instead.
+- id: ws_rp_ms_protocolmessages__017_unsupported_transaction_data_rejected
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: transaction_data_error_required
+    not_applicable_when_wallet_supports_transaction_data: true
 - id: ws_rp_ms_protocolmessages__017_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

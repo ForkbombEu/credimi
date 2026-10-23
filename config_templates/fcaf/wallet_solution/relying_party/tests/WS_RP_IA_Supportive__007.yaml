@@ -17,6 +17,8 @@ normative_references:
 evidence:
   request_object:
     from: pipeline.wallet.supportive.signed-request-without-request-uri.outputs.request_object
+  outer_request:
+    from: pipeline.wallet.supportive.signed-request-without-request-uri.outputs.outer_request
   dcql_exchange:
     from: pipeline.wallet.supportive.signed-request-without-request-uri.outputs.dcql_exchange
   visual_evidence:
@@ -29,8 +31,8 @@ assertions:
     field: typ
     value: oauth-authz-req+jwt
 - id: signed_request_omits_request_uri
-  validator: jwt.payload_field_presence
-  input: evidence.request_object
+  validator: json.field_presence
+  input: evidence.outer_request
   params:
     field: request_uri
     present: false

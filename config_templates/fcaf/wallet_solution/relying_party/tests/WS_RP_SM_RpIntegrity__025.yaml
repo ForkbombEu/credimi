@@ -1,5 +1,5 @@
 id: WS_RP_SM_RpIntegrity__025
-title: FCAF WS_RP_SM_RpIntegrity__025
+title: Reject a signed request whose x5c includes the trust anchor.
 source:
   path: SecurityMechanisms/RpIntegrity/WS_RP_SM_RpIntegrity__025.md
 suite:
@@ -10,21 +10,38 @@ applicability:
   profile: EUDI_generic
   presentation_flow: redirects
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.rp-integrity
+- title: OpenID4VC High Assurance Interoperability Profile
+  section: '5'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
 evidence:
   session:
-    from: pipeline.dcql.rp-integrity.outputs.session
+    from: pipeline.rp-integrity.certificate-chain.outputs.trust_anchor_in_chain_session
+  request_object:
+    from: pipeline.rp-integrity.certificate-chain.outputs.trust_anchor_in_chain_request_object
+  request_behavior:
+    from: pipeline.rp-integrity.certificate-chain.outputs.trust_anchor_in_chain_request_behavior
+  visual_evidence:
+    from: pipeline.rp-integrity.certificate-chain.outputs.trust_anchor_in_chain_visual_evidence
 assertions:
-- id: trust_anchor_in_x5c_is_unavailable
-  validator: fcaf.skipped
+- id: verifier_delivered_the_chain_with_its_trust_anchor
+  validator: json.field_equals
+  input: evidence.request_behavior
+  params: { field: certificate_chain, value: with_trust_anchor }
+- id: delivered_x5c_is_the_leaf_and_its_self_signed_issuer
+  validator: oid4vp.request_certificate_chain
+  input: evidence.request_object
+  params: { shape: trust_anchor_included }
+- id: signature_verifies_against_the_delivered_leaf
+  validator: jose.jws_signed_request
+  input: evidence.request_object
+# The source accepts an error with details (invalid_client), an error without
+# details, or a discontinued interaction, which is request_rejected.
+- id: wallet_rejects_or_discontinues_without_a_presentation
+  validator: dcql.response_satisfies_constraints
   input: evidence.session
-  params:
-    reason: >-
-      needs the Wallet's trust anchor certificate inside the x5c header; Capture
-      has no control that serves it, and hard-coding the anchor in the scenario
-      would break when the anchor changes
+  params: { mode: request_rejected }
+- id: visual_evidence_is_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

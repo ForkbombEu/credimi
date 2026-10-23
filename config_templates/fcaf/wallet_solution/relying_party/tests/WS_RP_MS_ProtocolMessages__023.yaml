@@ -14,19 +14,18 @@ normative_references:
     section: "5.10"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
-  presentation_request:
-    from: pipeline.wallet.protocol.request-uri-method-post.outputs.presentation_request
+  capture_session:
+    from: pipeline.wallet.protocol.request-uri-method-post.outputs.capture_session
   wallet_response:
     from: pipeline.wallet.protocol.request-uri-method-post.outputs.wallet_response
   visual_evidence:
     from: pipeline.wallet.protocol.request-uri-method-post.outputs.visual_evidence
 assertions:
-  - id: request_uri_method_is_post
-    validator: json.field_equals
-    input: evidence.presentation_request
+  - id: request_uri_is_retrieved_with_post
+    validator: oid4vp.request_uri_retrieval
+    input: evidence.capture_session
     params:
-      field: request_uri_method
-      value: post
+      method: POST
   - id: referenced_request_object_is_processed
     validator: json.field_required
     input: evidence.wallet_response

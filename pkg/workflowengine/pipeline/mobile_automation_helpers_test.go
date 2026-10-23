@@ -278,9 +278,7 @@ func TestExtractAndStoreRecordingInfoAdditional(t *testing.T) {
 	okResult := workflowengine.ActivityResult{Output: map[string]any{
 		"recording_process_pid": float64(11),
 		"ffmpeg_process_pid":    float64(12),
-		"log_process_pid":       float64(13),
 		"video_path":            "/tmp/video.mp4",
-		"log_path":              "/tmp/log.txt",
 	}}
 	err = extractAndStoreRecordingInfo(okResult, deviceMap, "runner-1")
 	require.NoError(t, err)
@@ -325,10 +323,8 @@ func TestExtractRecordingInfoAdditional(t *testing.T) {
 
 	info, err := extractRecordingInfo("runner-1", map[string]any{
 		"video_path":            "/tmp/video.mp4",
-		"log_path":              "/tmp/log.txt",
 		"recording_process_pid": 1,
 		"recording_ffmpeg_pid":  2,
-		"recording_log_pid":     3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "/tmp/video.mp4", info.videoPath)
@@ -340,7 +336,12 @@ func TestExtractAndStoreURLsAdditional(t *testing.T) {
 		"result_video_urls": []string{},
 		"screenshot_urls":   []string{},
 	}
-	err := extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{}}, &output)
+	err := extractAndStoreURLs(
+		workflowengine.ActivityResult{Output: map[string]any{}},
+		&output,
+		true,
+		true,
+	)
 	require.Error(t, err)
 
 	err = extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
@@ -348,10 +349,39 @@ func TestExtractAndStoreURLsAdditional(t *testing.T) {
 			"result_urls":     []string{"url1"},
 			"screenshot_urls": []string{"shot1"},
 		},
-	}}, &output)
+	}}, &output, true, true)
 	require.NoError(t, err)
 	require.Contains(t, output["result_video_urls"].([]string), "url1")
 	require.Contains(t, output["screenshot_urls"].([]string), "shot1")
+}
+
+func TestExtractAndStoreURLsLogOnlyUpload(t *testing.T) {
+	output := map[string]any{
+		"result_video_urls": []string{"existing-video"},
+		"screenshot_urls":   []string{"existing-shot"},
+	}
+	err := extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{},
+	}}, &output, false, false)
+	require.NoError(t, err)
+	require.Equal(t, []string{"existing-video"}, output["result_video_urls"])
+	require.Equal(t, []string{"existing-shot"}, output["screenshot_urls"])
+}
+
+func TestExtractAndStoreURLsRequiresWantedURLs(t *testing.T) {
+	output := map[string]any{}
+	err := extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{"screenshot_urls": []string{"shot1"}},
+	}}, &output, true, false)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing result or screenshot URLs")
+	require.Empty(t, output)
+
+	err = extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{"result_urls": []string{"url1"}},
+	}}, &output, false, true)
+	require.Error(t, err)
+	require.Empty(t, output)
 }
 
 func TestGetOrCreateDeviceMapExisting(t *testing.T) {
@@ -960,33 +990,27 @@ func TestExtractRecordingInfo(t *testing.T) {
 	require.Error(t, err)
 
 	_, err = extractRecordingInfo("runner-1", map[string]any{
-		"video_path": "video.mp4",
-		"log_path":   "log.txt",
+		"video_path":            "video.mp4",
+		"recording_process_pid": 1,
 	})
 	require.Error(t, err)
 
 	info, err := extractRecordingInfo("runner-1", map[string]any{
 		"video_path":            "video.mp4",
-		"log_path":              "log.txt",
 		"recording_process_pid": 1,
 		"recording_ffmpeg_pid":  2,
-		"recording_log_pid":     3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "video.mp4", info.videoPath)
-	require.Equal(t, "log.txt", info.logPath)
 	require.Equal(t, 1, info.recordingPid)
 	require.Equal(t, 2, info.ffmpegPid)
-	require.Equal(t, 3, info.logPid)
 }
 
 func TestExtractRecordingInfoIOS(t *testing.T) {
 	info, err := extractRecordingInfo("runner-1", map[string]any{
 		"type":                  "ios_simulator",
 		"video_path":            "video.mp4",
-		"log_path":              "log.txt",
 		"recording_process_pid": 1,
-		"recording_log_pid":     3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, deviceTypeIOSSimulator, info.deviceType)
@@ -1001,12 +1025,12 @@ func TestExtractAndStoreURLs(t *testing.T) {
 	}
 
 	require.Panics(t, func() {
-		_ = extractAndStoreURLs(workflowengine.ActivityResult{Output: "bad"}, &output)
+		_ = extractAndStoreURLs(workflowengine.ActivityResult{Output: "bad"}, &output, true, true)
 	})
 
 	err := extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{},
-	}}, &output)
+	}}, &output, true, true)
 	require.Error(t, err)
 
 	err = extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
@@ -1014,7 +1038,7 @@ func TestExtractAndStoreURLs(t *testing.T) {
 			"result_urls":     []string{"video-1"},
 			"screenshot_urls": []string{"frame-1"},
 		},
-	}}, &output)
+	}}, &output, true, true)
 	require.NoError(t, err)
 	require.Equal(t, []string{"video-1"}, output["result_video_urls"])
 	require.Equal(t, []string{"frame-1"}, output["screenshot_urls"])
@@ -1025,7 +1049,7 @@ func TestExtractAndStoreURLs(t *testing.T) {
 			"result_urls":     []string{"video-2", "video-2"},
 			"screenshot_urls": []string{"frame-2", "frame-2"},
 		},
-	}}, &nilOutput)
+	}}, &nilOutput, true, true)
 	require.NoError(t, err)
 	require.Equal(t, []string{"video-2"}, nilOutput["result_video_urls"])
 	require.Equal(t, []string{"frame-2"}, nilOutput["screenshot_urls"])

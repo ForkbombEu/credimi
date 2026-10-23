@@ -109,8 +109,18 @@ surfaced now because nothing had executed them.
    `response-uri-controls.create-invalid-response-uri` and is a Capture-side
    certificate issue, not a pipeline one.
 5. `client_metadata` nested inside `presentation_request` is discarded by Capture,
-   which documents it as top-level only. `dcql-protocol-messages-145` and `-146`
-   nest it, so they do not deliver the metadata conflict they describe.
+   which documents it as top-level only. CORRECTED 14/10/2026:
+   `dcql-protocol-messages-145` and `-146` now pass it at the session-body top
+   level (a live probe confirms the member is delivered in the signed Request
+   Object), so the source's "request includes client_metadata" precondition
+   holds. Both tests are `fcaf.skipped` because the harness cannot put their
+   precondition in place: it has no way to store trusted client metadata in the
+   Wallet before a request arrives (145), and no trusted-registry entry that
+   pre-registers a Capture verifier (146). CORRECTED 14/10/2026: the earlier
+   reason ("every Capture session is a new `x509_hash` client") was false. The
+   `x509_hash` Client Identifier is a stable SHA-256 of the deployed verifier
+   certificate; `GET /openid4vp/client-identifiers` returns the same value on
+   every call, so the Wallet could in principle hold metadata for it.
 6. Malformed-request tests now assert the normative outcome. A test states what the
    Wallet must do; if the reference Wallet does not do it, the test fails and the
    defect is reported upstream. It is never softened to keep a run green.
@@ -579,6 +589,13 @@ deliver the required request and capture the Wallet's actual protocol result:
 - 153-159: all require signed requests containing unsupported or malformed
   `transaction_data` and exact Wallet error capture. Cases 154-157 also require
   a supported transaction-data schema that the suite does not define.
+  CORRECTED 14/10/2026: Capture delivers every required malformed
+  `transaction_data` shape (probed live), so no Capture gap blocks these; 024,
+  025, 026, 027, 158 and 159 are implemented with
+  `transaction_data_error_required`, and 028, 135 and 154-157 are `fcaf.skipped`
+  because the wallet under test declares no transaction-data type and the suite
+  defines no supported fixture. 136 and 153 now place `transaction_data` beside
+  `dcql_query` too, with `credential_ids: [pid]` so the unknown type is the only defect.
 - DeviceBinding 002-006: the public verifier request object contains no
   `verifier_info` attestation. These cases require a generator for valid,
   malformed, invalid-proof, and unknown-type Verifier Info attestations.
@@ -673,14 +690,22 @@ case 152; do not treat the local generic error page as protocol evidence.
 
 ## Cases 153-159
 
-These seven `invalid_transaction_data` cases are not runnable with the public
-verifier. They require controlled signed request objects and exact Wallet error
-capture. 153 is the exact-error specialization of blocked case 136. Cases
-154-157 additionally require a known supported transaction-data type, schema,
-field types, ranges, and mandatory fields; no such fixture is defined. Cases
-158-159 require controlled `credential_ids` references. Keep them missing until
-the mock verifier and transaction-data fixture tracked in Issues 13 and 20 are
-available.
+CORRECTED 14/10/2026: these cases are runnable with the public verifier. A live
+probe of production Capture shows it delivers a supplied `transaction_data`
+entry to the signed Request Object as the base64url-encoded JSON string OID4VP
+Section 5.1 requires; the earlier "mock verifier" blocker was a misreading of
+the service. 024, 025, 026, 027, 158 and 159 are implemented with
+`transaction_data_error_required`, and the four
+`oid4vp.transaction_data_*` validators now decode those Section 5.1 entries
+instead of reporting the property they were asked to prove. 135 and 154-157 are
+`fcaf.skipped`: they need a supported transaction-data type, schema and fixture,
+and the wallet under test (2026-09-42-demo, wallet-core 0.30.2) declares no
+transaction-data type and rejects every non-empty entry with
+`invalid_transaction_data`. 136 and 153 nested `transaction_data` inside
+`dcql_query` as well, which delivers no top-level parameter at all (the scenario
+nesting defect of the 4t9hxzgxlf run); they now place it beside `dcql_query`
+inside `presentation_request`, and 135, 136 and 153 add `credential_ids: [pid]`
+so the unrecognized type is the only defect in the entry.
 
 ## DeviceBinding cases 002-006
 
@@ -1032,12 +1057,19 @@ live reference-Wallet run remains required before claiming a conformance result.
 ## Case 130
 
 `WS_RP_MS_ProtocolMessages__130` owns the replacement-metadata response-
-encryption scenario. The replacement retains Capture's generated JWK while
-setting `authorization_encrypted_response_enc: A256GCM`; assertions require a
-captured direct-post.jwt response, that exact metadata value and protected JWE
-`enc`, and byte-equivalent preservation of the generated JWK set. An emulator
-is not connected, so a live reference-Wallet run remains required before
-claiming a conformance result.
+encryption scenario. CORRECTED 14/10/2026: the body no longer probes a foreign
+key. It advertises `client_metadata.encrypted_response_enc_values_supported:
+[A256GCM]` beside Capture's generated JWK, which is kept, because
+`authorization_encrypted_response_enc` is not an OID4VP 1.0 section 8.3.1
+member and older scenario text relied on it; the previous body published a
+foreign `jwks` for `direct_post.jwt` without `allow_undecryptable_response`,
+which Capture refuses with HTTP 400 `invalid_client_metadata`, so no session
+ever existed. The assertions require a captured `direct_post.jwt` response
+(`oid4vp.presentation_response_http`), that A256GCM is the only advertised
+value (`metadata_enc_values_supported` + `metadata_enc_values_exclusive`) and
+the Wallet's protected JWE header `enc`, plus visual evidence. An emulator is
+not connected, so a live reference-Wallet run remains required before claiming
+a conformance result.
 
 ## Case 131 (Protocol messages)
 
@@ -1482,10 +1514,16 @@ precondition and evidence path: `WS_RP_SM_SessionBinding__003`,
 They are listed as ready to implement in the assertion-review backlog; each
 still requires its own reference-Wallet execution.
 
-The beta probes established that `presentation_request.nonce: null` omits
-`nonce` from the signed Request Object, a supplied nonce is preserved, `jwks:
-null` with `allow_undecryptable_response` removes verifier encryption keys, and
-the same static encryption JWK can be published across sessions. The
+The beta probes established that a supplied nonce is preserved, `jwks: null`
+with `allow_undecryptable_response` removes verifier encryption keys, and the
+same static encryption JWK can be published across sessions. CORRECTED
+14/10/2026: `presentation_request.nonce: null` does not omit the member —
+Capture renders any supplied nonce (`credo-openid4vp.ts`), so the served
+Request Object carries `"nonce": null`, as the 4t9hxzgxlf run showed. Omitting
+it requires `request_mutation.request_object.unset: [/nonce]`; a production
+probe on 14/10/2026 confirmed `201`, no `nonce` in
+`raw.authorization_request_jwt`, the verifier's own copy keeping its nonce, and
+`vp_request_mutation_applied` recorded. The
 `raw.request_uri_http` record preserves the request method, redacted headers,
 and exact percent-encoded POST body. The synthetic HTTP probe proves Capture's
 recording capability, not the reference Wallet's behavior.
@@ -2360,6 +2398,16 @@ carried a query, when the scope was a recognised value, when no scope was
 delivered, when the Wallet never retrieved the request, when it answered with
 another error code or a credential, and when it only discontinued.
 
+CORRECTED 14/10/2026: that verification replayed Capture records, not what the
+deployed service delivered for this session. `dcql_query: null` and `scopes`
+reach the Wallet only when they sit inside `presentation_request`: Capture
+composes the request as `presentation_request ?? vpRequestBody(body)`, so a
+top-level `dcql_query`/`scopes` is discarded whenever `presentation_request` is
+present. The 4t9hxzgxlf run delivered the default query and no scope (`JWT
+payload field "dcql_query" is not absent; JWT payload field "scope" is
+missing`, then no error). The scenario now nests both keys, and its comment
+records the rule.
+
 Still blocked and unchanged: `WS_RP_MS_ProtocolMessages__020`, `141` and
 `WS_RP_UC_Presentation__003` need a scope the Wallet resolves to a DCQL query,
 and the service defines no scope values. The transaction-data family keeps its
@@ -2453,10 +2501,14 @@ are deleted and 110/133 are removed from the metadata scenario.
   refused on beta with `redirect_uri_client_id_requires_plain_delivery`. The
   scenario therefore keeps the x509_hash-signed Request Object and uses
   `request_mutation` to set `client_id` (outer and Request Object) to
-  `redirect_uri:${fixture.verifier_url}/openid4vp/response` and `response_uri`
-  to the same URI, so the redirect_uri prefix is internally consistent and the
-  signature is the only defect. The state-keyed `/openid4vp/response` endpoint
-  still attributes a Wallet error to the session.
+  `redirect_uri:${fixture.verifier_url}/openid4vp/response`, so the redirect_uri
+  prefix is internally consistent and the signature is the only defect.
+  CORRECTED 14/10/2026: the scenario no longer pins `response_uri` to that
+  static route. `/openid4vp/response` resolves the session only by the form
+  `state` (`store.getVpSession(body.state)`), and the Authorization Request's
+  `state` is Credo's generated value, not the Capture session id, so a
+  conformant Wallet's `invalid_request` could never be attributed there; the
+  delivered `response_uri` is the session's own path endpoint.
 - `133`: `origin:` Client Identifier in a `request_uri` / `direct_post.jwt`
   request, i.e. outside the DC API.
 - `143`: `fcaf_unsupported_prefix:` Client Identifier.
@@ -2688,9 +2740,11 @@ Decisions:
   label 65535. The mdoc MSO keys its status by the text `"status"` and is not
   a CWT claims set, so the user chose to mark them blocked rather than map
   them onto the MSO, even though upstream `FCAF_FIXTURES.md` maps them to the
-  mdoc configurations. `cose.cwt_status_claim` returns `blocked` on mdoc
-  evidence and `fail` on anything else. Unblocking needs a Capture issuer
-  fixture that emits a CWT Referenced Token, with and without label 65535.
+  configurations. `cose.cwt_status_claim` returned `blocked` on mdoc
+  evidence and `fail` on anything else; it was later deleted, together with
+  the mdoc mapping 032/101/102 briefly carried (14/10/2026, see the
+  self-review section at the end). Unblocking needs a Capture issuer fixture
+  that emits a CWT Referenced Token, with and without label 65535.
 - 029 names a JWT Referenced Token. The issuer-signed JWT of the SD-JWT VC is
   one, and Capture keeps `status` in that JWT's claims set, so it reads the
   existing SD-JWT presentation.
@@ -2712,9 +2766,10 @@ Decisions:
   mdoc queries render one card per query and share with the single `Share`.
 
 New validators: `mdoc.mso_status_list_structure` (103: header pair count 2 or
-3, `idx` uint, `uri` tstr, optional `certificate` bstr, no other text key),
-`cose.cwt_status_claim`, and `oid4vp.mdoc_device_response_per_query` (041: one
-single-document DeviceResponse per value-pinned query).
+3, `idx` uint, `uri` tstr, optional `certificate` bstr, no other text key) and
+`oid4vp.mdoc_device_response_per_query` (041: one single-document
+DeviceResponse per value-pinned query). `cose.cwt_status_claim`, also added
+then, is deleted (see the self-review section at the end).
 
 Verified by running the shipped definitions through the FCAF engine on
 synthetic evidence. With a valid status, the positive cases and 029 pass and
@@ -3214,3 +3269,1043 @@ Go map order decided which `error` it found. `findWalletError` now skips the
 verifier's HTTP replies; it serves `dcql.response_satisfies_constraints`,
 `oid4vp.error_response_required`, `oid4vp.request_audience` and the digest
 check in `generic.go`.
+
+## MainInteraction 039: inline wallet flow
+
+13/10/2026. On the USB runner the step failed with `Assert that "Data sharing
+request" is visible... FAILED`, so the wallet never sent a `vp_token` and the
+failed step stored no screenshot. The wallet, Capture and the validator are
+fine: on the emulator the request lists both PIDs and the session validates
+with `pid_sdjwt` and `pid_mdoc`, and the engine passes 039.
+
+The inline flow unlocked the wallet before `openLink` by tapping the PIN field
+by coordinates and then ran `hideKeyboard`, and it never handled a `Welcome
+back` screen after the link. On Android `hideKeyboard` can act as Back, and Back
+with the keyboard open closes this wallet [INFERENCE: probable cause on the
+runner]. The flow now follows `fcaf-submit-request-object-by-value`: stop the
+app, open the link, unlock on `Welcome back` by typing `12345` and tapping `6`,
+then share and enter the PIN the same way. It keeps the two
+`request_screen_requested_document_*` assertions and adds a screenshot after
+sharing.
+
+## Inline wallet flows converted to the shared pattern
+
+13/10/2026.
+
+- 083, 085, 090 (`dcql-claims-empty`, `dcql-claim-sets-empty`,
+  `dcql-trusted-authorities-missing-values`) now call the shared
+  `fcaf-exercise-wallet-generic` with `deeplink`; their inline flows did the
+  same thing.
+- The other 15 inline flows stay inline (test-specific UI checks, or several
+  deeplinks in one step whose screenshots the tests read as one list). Unlock
+  and PIN entry follow the shared flows (wait for `1`, type `12345`, tap `6`);
+  every `hideKeyboard`, `50%,10%` tap and app-chooser tap is gone; a settle wait
+  precedes each `Welcome back` check; `EUDI Remote Verifier` assertions (117,
+  118) are dropped because Capture shows `Fake Verifier`; 087 gained the shared
+  launch-and-unlock prelude. `pid-candidate-selection` keeps its `15%,53%` tap:
+  the candidate cards expose no text or id. String values are double-quoted so
+  the generator's Share-tap regex still counts them.
+- Ten bindings read `<step>.outputs.screenshot_urls`, which mobile steps never
+  produce (the cleanup hook writes it to the run output); they now read
+  `flow_output.maestro_screenshot_urls` (ProtocolMessages 090–094).
+
+### Emulator run
+
+Every converted flow ran through Maestro against production Capture, with the
+scenario's own requests and fresh PIDs. Maestro ignores `ADB_SERVER_SOCKET`; it
+reaches the Windows emulator through a TCP relay from `127.0.0.1:5037` to the
+Windows adb server (free the port with `adb -H localhost -P 5037 kill-server`,
+run Maestro with `ADB_SERVER_SOCKET` unset). If Gboard collapses to its
+floating handle, enable "Show on-screen keyboard": the shared flows tap the `6`
+key.
+
+Pass: ProtocolMessages 013, 083–086, 090–094, 117, 118; MainInteraction 005,
+007, 008, 013, 039; DeviceBinding 008, 009.
+
+Wallet findings: 014 and 087 (RI-WALLET-005), 148 and 149 (RI-WALLET-006), 081
+(RI-WALLET-007), Supportive 001 (RI-WALLET-008).
+
+Harness fixes found by the run:
+
+- 083, 085, 086, 090 asserted `credentials_match`, which requires a well-formed
+  query and a presentation, on requests the wallet must reject. They now check
+  the delivered defect: 083 `empty_claims`, 085 `empty_array` on `claim_sets`,
+  090 the new `trusted_authority_property_absent` mode on `values`, and 086
+  mirrors 084 with `property_type` on `claim_sets` for all seven variants (it
+  previously evidenced only `null`).
+- `oid4vp.no_presentation_returned` failed on any posted response. The sources
+  accept an error response, so it now passes when the wallet's own error is
+  posted without a `vp_token`; 090 and the 081 number/string variants are
+  `invalid_request` responses.
+- The claims path pointer check accepted strings only; OpenID4VP Section 7 also
+  allows `null` and non-negative integers, so 118's valid query was reported
+  invalid.
+- 118 requested `nationality`, the mdoc element; the SD-JWT VC PID claim is
+  `nationalities`, so the wallet found no match.
+- 117 asked for two queries on the same PID, which hits RI-WALLET-005 and is not
+  what its source tests (two credentials); it now requests the SD-JWT VC and
+  the mdoc PID, and the generator adds the mdoc issuance (1747 steps). Both 014
+  and 117 flows now expand the second consent card before checking its claim.
+- The holder-binding scenario read `vp_token` at the session top level;
+  Capture stores it under `raw.presentation_response_decrypted`.
+- Supportive 001 now sends `response_mode: direct_post`, as its source says,
+  and reads the wallet's form body from `raw.presentation_response`. The
+  reference wallet refuses plain `direct_post` under every scheme ("HAIP profile
+  requires an encrypted response mode"), so 001 fails for that wallet.
+
+### Rule: encode the source, not what the reference wallet can pass
+
+Confirmed by the maintainer on 13/10/2026. A test implements its FCAF source as
+written. When the reference wallet cannot do what the source asks (a response
+mode, an error response, a request shape), the test fails for that wallet and
+the gap is recorded in `REFERENCE-WALLET-ISSUES.md`. Never change a request,
+response mode or assertion so the reference wallet passes.
+
+Capture note: before upstream `2422e58` (14/10/2026), a presentation that
+failed Credo verification left Capture's own error in
+`raw.presentation_response_decrypted` instead of the Wallet's payload, for
+plain `direct_post` and for `direct_post.jwt` alike, so `findWalletError` read a
+verifier rejection as a Wallet refusal. Fixed upstream
+([credimi-capture-wallet#10](https://github.com/ForkbombEu/credimi-capture-wallet/issues/10));
+see the emulator note at the end of this file.
+
+## Report 4t9hxzgxlf follow-up: test fixes
+
+14/10/2026. The online run `fcaf_assessment_4t9hxzgxlf.json` failed 150 of the
+615 selected tests: 72 `wallet`, 68 `test_problem`, 6 `skip`, 3
+`applicability`, 1 `unclear`. This pass fixed the test-side ones across 81
+definitions (no code/test/scenario was loosened to make the reference Wallet
+pass). The wallet defects are in `REFERENCE-WALLET-ISSUES.md`; the clusters
+below overlap, because several tests carry more than one cause.
+
+**Evidence read from paths Capture never populates** (12): IA Metadata 008/017,
+IA ProtocolFlow 001, MS ProtocolMessages 005/022/023/031/148/152, SM
+SessionBinding 001/002, IA Supportive 007. The assertions read a top-level
+`vp_token`/`error`/`state`, a create-response `request`/`state`, or a
+session-root `request_uri_payload`, none of which Capture records. Bindings now
+point at `raw.presentation_response_decrypted` (Authorization Response),
+`raw.authorization_request_jwt` (the served Request Object),
+`raw.outer_request_delivered.request` (by-value delivery) and
+`observed.request_uri_payload.value`, and the Wallet's own retrieval method is
+asserted with `oid4vp.request_uri_retrieval` instead of the verifier's echo.
+New validator `oid4vp.state_echoed` (`pkg/fcaf/validators/oid4vp_state_echo.go`)
+compares the served Request Object's `state` with the decrypted response for
+031; the edited scenarios also expose `state_echo` (request-uri post),
+`capture_session` (metadata direct-post.jwt), `session_checks` (session-binding
+valid nonce) and `outer_request` (supportive 007) outputs. 148 and 152 use
+`oid4vp.error_response_required` and still fail on the Wallet's missing error
+response (RI-WALLET-006 and the "local error screen, nothing posted" family);
+SessionBinding 002's absence half now passes and its `invalid_request` half is
+the Wallet's to prove.
+
+**DCQL mode mismatches and validator preconditions** (18): DM CredentialMetadata
+CredentialStructure 009, IA MainInteraction 004/014/017, IA ProtocolFlow 002,
+MS ProtocolMessages 015/073/074/075/076/102/104/119/123/141/147/151, SM
+TrustMechanisms 008. The mode either demanded the opposite of its source or was
+absent. Now: 009 `no_match`; 004 `trusted_authorities_no_match` with
+`fcaf-expect-request-rejected` (the source allows discontinuation); 014
+`claims_union` with `forbidden_paths` for the age claims (the mode existed and
+was used by no test); 017 its own mdoc claimless session
+(`pipeline.dcql.claims-omitted-mdoc`) and the new mode
+`mdoc_without_claim_disclosures`; 102 `credential_sets_required_true_no_match`;
+104 `credential_sets_required_false_with_match`; 015/141
+`invalid_request_required`; 123 `wallet_error_required`; 147
+`access_denied_required`; 002 `credentials_match`; 073 gained the missing
+positive `pipeline.dcql.meta-vct-match` session (both halves had read one
+mismatching session); TrustMechanisms 008 keeps the protocol assertion only.
+`dcql.go` fixes: `credential_sets_required_false_with_match` required every set
+to be `required: false`, impossible for 104's query, and now requires at least
+one; a present-but-empty `meta` is accepted for `dc+sd-jwt` (076); and
+`request_rejected` no longer re-validates the DCQL credentials array
+(074/075/119) — the well-formedness precondition now belongs to `no_match`
+alone. CORRECTED 14/10/2026 (self-review): the three
+`credential_sets_required_{true_match,omitted,false_with_match}` modes now
+require the vp_token to answer a credential query named by an option of a set
+whose `required` is not false (103/104 kept only a non-empty-vp_token check
+before), and they consult the Verifier's recorded judgement like the rest of the
+family; `require_response` on any mode other than `property_equals` returns
+`StatusError` instead of being silently ignored; and the loose error-code
+helpers (`validateErrorCode`, `validateWalletErrorExpected`,
+`validateClaimPathMemberTypeError`) fail when an error carries a non-empty
+`vp_token`, as `request_rejected`/`no_match` do.
+
+**transaction_data nested inside dcql_query** (12: 024, 025, 026, 027, 135,
+154–159; plus the scenarios of 136 and 153). Nine scenarios put `transaction_data`
+inside the `dcql_query` object; Capture copies the stray member into the signed
+query and delivers no top-level `transaction_data` Authorization Request
+parameter at all (probed live, 14/10/2026), so the run's verdicts for
+024/136/153/158/159 rested on a request the Wallet never saw. The entries are
+now siblings of `dcql_query` inside `presentation_request`, the four
+`oid4vp.transaction_data_*` validators base64url-decode the Section 5.1 entry
+strings and fail a non-decodable entry instead of reporting the property they
+were asked to prove, and 024/025/026/027/158/159 require exactly
+`invalid_transaction_data`. 028/135/154–157 are `fcaf.skipped`: the wallet
+under test declares no transaction-data type and rejects every non-empty
+entry.
+
+**Redirect-following flows** (6): IA MainInteraction 057/061/064/067, MS
+ProtocolMessages 127/128. Their steps drove `fcaf-exercise-wallet-generic`,
+which screenshots the Wallet's terminal screen and never dismisses it, so
+Capture recorded no redirect visit; the reference Wallet opens the returned
+`redirect_uri` only after that screen is dismissed (RI-WALLET-008's `Close`
+tap). Four steps now carry an inline `action_code` — shared launch/unlock/PIN
+prelude, terminal-screen wait with screenshot, dismissal, then a Capture
+`Presentation complete` wait before the step's own screenshot. 064 remains
+unproven: it needs the Wallet to parse `redirect_uri` out of the verifier's
+HTTP 400 reply.
+
+**Holder-binding scenario split** (6): IA MainInteraction 005/007/008, MS
+ProtocolMessages 081, SM DeviceBinding 008/009. The single 16-variant inline
+Maestro step aborted at variant 1, so 14 sessions never reached
+`request_retrieved`, no `fcaf-081-*` screenshot existed, and every assertion
+that read those outputs failed. Each variant is now its own mobile step
+(shared `fcaf-exercise-wallet-generic` for valid-true/valid-false,
+`fcaf-expect-request-rejected` for the 14 malformed ones) and each test binds
+its own variant's screenshots; the generator injects three PID issuances for
+the scenario. 008 is `fcaf.skipped` (no credential without cryptographic holder
+binding is issuable; credo-ts#2936), and 081 now fails only through the four
+boolean-like strings RI-WALLET-007 documents.
+
+**mdoc status claims** (3): MS CredentialFormats 032, MS Metadata 101/102.
+`cose.cwt_status_claim` misread Token Status List §6.3: on mdoc the Status
+CBOR structure sits under the MSO's text label `status`, while CBOR label
+65535 is the CWT claims set, so the validator never addressed the CWT
+Referenced Token the three sources name, and it is deleted. CORRECTED
+14/10/2026 (self-review): the intermediate mapping is reverted, so 032/101/102
+are `fcaf.skipped` again with a reason that names the unbuilt precondition (a
+CWT/COSE Referenced Token whose status claim sits at CBOR label 65535),
+re-aligning with the 30/09/2026 decision above. The mdoc status assertions,
+102's statusless-mdoc probe (shape `status_absent`, `status_list_enabled:
+false`, fixture `pid_family_name_uppercase`) and 102's dead visual binding are
+gone; 102 and 032 now bind the nearest Referenced Token
+(`pipeline.credential-status.mdoc.outputs.pid_mdoc`), whose mdoc form is
+WS_RP_MS_CredentialFormats__033's subject, not theirs. The `status_absent`
+shape keeps no catalog user (the primitive and its unit test stay). The mdoc
+MSO status family (092-100) is unaffected. 032 still declares
+`applicability.credential_format: iso_mdoc` although its source names a CWT
+Referenced Token - pre-existing, left unchanged so run-time selection does not
+move.
+
+**Date-like values re-resolved by the platform** (2): IA MainInteraction
+032/033. The webapp Run action re-serializes the stored pipeline YAML with the
+`yaml` npm `core` schema, which emits date-like strings unquoted;
+`pkg/internal/pipeline/parser.go` then resolved the plain scalar as
+`!!timestamp`, and the http-request activity marshalled it back as RFC3339, so
+the Wallet received `2012-03-04T00:00:00Z` where the credential holds
+`2012-03-04` and no conformant Wallet could match. `StepInputs.UnmarshalYAML`
+retags `!!timestamp` scalars as strings and `serializeYaml`
+(`webapp/src/lib/pipeline/utils.ts`) writes with `schema: 'yaml-1.1'`.
+Regression tests: `TestParseWorkflow_KeepsDateLikeBodyValuesVerbatim` and the
+webapp `utils.test.ts`. Neither test is a Wallet defect and no scenario value
+changed. UPDATED 14/10/2026 (self-review): `serializeYaml` now writes with
+`schema: 'yaml-1.1'` plus a custom implicit `!!int` tag that also quotes the
+numeric shapes only gopkg.in/yaml.v3 resolves (`0o17`/`0O17`, `0X1F`/`0B101`,
+`1_000`/`1e1_0`/`0_x_1f`), so the plain `yaml-1.1` schema no longer lets
+`0o17` reach the parser as the integer 15; and `StepInputs.UnmarshalYAML`
+retags the timestamp scalars in a deep copy of the `with` node
+(`copyNode`), so an anchored node aliased elsewhere in the document is no
+longer mutated - a literal or alias-reached date-like scalar outside `with`
+now always decodes as `time.Time` (yaml.v3's default).
+
+**Skips and applicability** (9). `fcaf.not_applicable` is new
+(`pkg/fcaf/validators/generic.go`, in `DefaultRegistry`): it mirrors
+`fcaf.skipped`, requires a reason and returns `StatusNotApplicable`. Two
+grounds are sanctioned (also named in `FCAFNotApplicableValidator`'s doc
+comment and in the 2026-10-14 HITL entry): the source's own relevancy is
+`EUDI_forbidden`, so its "the Wallet accepts the forbidden feature"
+expectation is not reported as a breach while its request-shape assertions
+stay; and the SUT's own capabilities refute the source's precondition, so the
+property cannot be put to this Wallet at all. Applied for the first ground to
+MS Metadata 112, MS ProtocolMessages 020/038/040, IA MainInteraction 060, SM
+RpIntegrity 003 and UC Presentation 003; for the second to MS ProtocolMessages
+011/018/028/151, MS Metadata 134/135 and the transaction-data family 154-157.
+Both grounds require a reason; `fcaf.skipped` stays for preconditions the
+harness cannot build, and its reason must name the unbuilt precondition, never
+the Wallet's behaviour. The engine folds `pass + not_applicable` into
+`not_applicable` while any `fail`/`error`/`blocked`/`inconclusive` dominates,
+and reports count it apart from `skipped`. `fcaf.skipped` covers preconditions
+the harness cannot build: IA MainInteraction 028 (no non-selectively-disclosable
+credential), 056 (no `dNSName` SAN), IA Supportive 006 (no resource-exhausted
+device), SM IssuerIntegrity 012 (no revoked-mdoc fixture), UC Presentation 004
+(no second device). 145/146 are skipped because the harness cannot store trusted
+client metadata in the Wallet before a request arrives, nor pre-register a
+Capture verifier in a trusted registry; their `client_metadata`
+now reaches the served request. 151 sends an mso_mdoc-only request and reports
+`not_applicable` through `oid4vp.error_response_required
+{not_applicable_when_wallet_supports_format: mso_mdoc}`, because the reference
+Wallet does support `mso_mdoc` and the source's premise is false for this SUT.
+SM RpIntegrity 028 was rebound from the plain `redirect_uri:` scenario to the
+unsigned DC API construction (`pipeline.dc-api.unsigned`, protocol
+`openid4vp-v1-unsigned`) and still fails: the Wallet never answers an unsigned
+request. UPDATED 14/10/2026 (self-review): the engine's derived views now carry
+the status through - `ExecutedTest.Status`, `TestOutcome.Status` and every
+assertion status become `not_applicable` (they were `skipped`, so the PDF's
+`statusLabel`/`statusColor` `Not applicable` branch was unreachable), and
+`Presentation.SummaryFilters` gained the `not_applicable` key (label
+`Not applicable`) so the webapp filter pills do not drop the tests the status
+moved out of `Skipped`. The report-level `Status` still comes out `failed` when
+the only non-passing tests are `not_applicable` or `skipped` (pre-existing,
+unchanged).
+
+**Other fixes**: MS ProtocolMessages 009 and 016 passed `DEEPLINK` instead of
+`deeplink` to `fcaf-exercise-wallet-generic`, so the deeplink was never opened;
+MS ProtocolMessages 110 no longer points `response_uri` at the static
+`/openid4vp/response`; MS ProtocolMessages 130 advertises
+`client_metadata.encrypted_response_enc_values_supported: [A256GCM]` beside
+Capture's generated JWK instead of probing a foreign key (the old body was
+refused `400 invalid_client_metadata`, so no session existed); IA Metadata 016
+delivers an empty `client_metadata` through `request_mutation` and requires
+`invalid_request_required`; SM SessionEncryption 002/003 expect one
+`vp_presentation_response_received` event (the count included the Wallet's own
+error response) and 007/008/009 carry `request_object` in their
+`encryption_evidence` bundle. `knownUnsupportedDCQLModeTests` was removed from
+`pkg/fcaf/catalog/loader_test.go`; all four entries are fixed.
+
+**Corrections applied in place to older entries**: item 5 above (145/146 now
+deliver their `client_metadata`); Case 110 (the static `/openid4vp/response`
+route resolves the session only by the form `state`, which is Credo's generated
+value, not the Capture session id, so pinning `response_uri` there made the
+test unsatisfiable); Case 130 (no probe JWK; `encrypted_response_enc_values_supported`
+instead of `authorization_encrypted_response_enc`); Case 030 (the 22/09/2026
+replay was against Capture records, not against what the deployed service
+delivered — `dcql_query` and `scopes` must sit inside `presentation_request`);
+the Case 002 note (`presentation_request.nonce: null` does not omit the member,
+it is served as `"nonce": null`; omission needs
+`request_mutation.request_object.unset`); and `CAPTURE_WALLET_API.md`'s
+"honoured in both positions" and `/openid4vp/response` claims (Capture composes
+`presentation_request ?? vpRequestBody(body)`).
+
+No emulator or runner was available for this pass: every outcome above comes
+from the run's own Capture records, live production probes, engine replays with
+the updated definitions, or the tests' own parser/webapp regression tests. A
+fresh reference-Wallet run is still required to confirm the projections. The
+committed aggregate (f10dbd95) had 1751 steps, 615 test ids and 222 pipeline
+outputs.
+
+## Vacuous-pass guard
+
+14/10/2026, after f10dbd95. Negative assertions passed in run 4t9hxzgxlf
+without any Wallet behaviour behind them: 081's 14 malformed variants passed
+`oid4vp.no_presentation_returned` on sessions still at `created`, and the
+no-match probes (MS Metadata 084–102, TrustMechanisms 004/008, MainInteraction
+004) passed because the flow failed on its exact-text wait before any Share, so
+nothing was ever posted.
+
+- Validators (`pkg/fcaf/validators/wallet_engagement.go`): a pass whose
+  evidence is a Capture verifier session record that proves the Wallet never
+  engaged becomes `blocked` ("wallet never retrieved the request, so its
+  rejection is not evidenced"). By-reference sessions engage on
+  `vp_request_retrieved` / a captured retrieval or response; DC API sessions on
+  a reported invocation. Guarded: `oid4vp.no_presentation_returned`,
+  `sdjwt.presentation_digest_algorithm_unsupported`,
+  `oid4vp.malformed_status_credential_absent`,
+  `oid4vp.unsupported_response_type_handled`, the wallet-outcome paths of
+  `oid4vp.dc_api_invocation` (request-shape-only use stays unguarded), and the
+  19 `dcql.response_satisfies_constraints` modes that can pass on an absent
+  response. Not guardable from Capture: by-value and plain deeplink delivery
+  (Capture records no retrieval) and `oid4vp.request_uri_not_retrieved`, whose
+  pass is by definition a Wallet that never contacted the verifier. Assertions
+  bound to `raw.authorization_request_delivered` see no session; their tests
+  also bind the per-variant session, which carries the guard.
+- Flows: `fcaf-expect-request-rejected` and `fcaf-expect-no-matching-document`
+  (and the inline negative flows of the six trusted-authorities / claims /
+  claim-sets type scenarios) wait, in optional windows, for a decisive Wallet
+  screen before accepting Home/Documents as discontinuation; a consent screen
+  listing `Requested data` is shared with the PIN, so a tolerant Wallet's
+  presentation reaches Capture and the negative validators fail on real
+  evidence; the terminal screenshot is always stored. UPDATED 14/10/2026
+  (self-review): the wait is now three phases - 30 s probe, then a
+  decisive-only window of 100 s (no `Home|Documents` in it, so a slow Wallet
+  gets the whole window instead of the instant phase 1 timed out), then a
+  30 s non-fatal window that also accepts `Home|Documents`. Worst case per
+  silent discontinuation is 3 s settle + 30 s + 100 s ~= 133 s, which is the
+  runtime cost of no longer calling a tolerant Wallet's delay a
+  discontinuation. The no-match flow also stores `no-match-notice` when the
+  notice is on screen, and the new `evidence.screenshot_named` validator
+  requires it for the sources that require the Wallet to inform the user
+  (TrustMechanisms 004, MainInteraction 032, ProtocolMessages 014). Keep
+  screenshot names short: PocketBase cuts the snake-cased
+  `<step id>_<name>` stem at 100 characters, so `fcaf-expect-no-matching-document`
+  (longest bound step id 78) allows 21 characters - `no-match-notice` (15) and
+  the renamed terminal `no-match-document` (17) fit - and
+  `fcaf-expect-request-rejected` (longest bound step id 84) allows 15 - the
+  renamed terminal `request-refused` (15) has a stem of exactly 100, still
+  untruncated.
+- Generator: a conditional Share counts as a consumed PID, so every use of the
+  two negative actions gets a fresh matching-format PID. The aggregate grows to
+  1852 steps, the happy flow to 210 steps / 298 test IDs.
+- Expected verdict changes on the reference Wallet: the 081 variants and the
+  status-reference probes now resolve on real evidence (RI-WALLET-007 and
+  RI-WALLET-009 surface as failures instead of passes); a Wallet that never
+  receives a by-reference request reports `blocked`, not `pass`.
+
+### Emulator smoke of the guard flows, 14/10/2026
+
+Wallet 2026.09.42 on the Windows emulator `emulator-5554`, production Capture,
+one run per flow. Maestro reaches the Windows adb server through a TCP relay
+from `127.0.0.1:5037` to `172.22.16.1:5037` (run Maestro with
+`ADB_SERVER_SOCKET` unset). Gboard had collapsed to its floating handle; select
+`Show on-screen keyboard` from it, otherwise the PIN flows cannot tap `6`.
+
+- Callback redirect (057/061/067): share, `Close`, Capture recorded
+  `redirect_uri_visit_count: 1`.
+- HTTP 400 redirect (064): the Wallet never opens the `redirect_uri`
+  (RI-WALLET-023).
+- `fcaf-expect-request-rejected` (081): the `"true"` variant is shared and
+  recorded (`presentation_validated`, RI-WALLET-007); the `"yes"` variant is
+  answered with `invalid_request` and nothing is shared.
+- Status reference (084): the offer reaches `View details` and the probe
+  shares the `status: {}` credential; `oid4vp.malformed_status_credential_absent`
+  now fails (RI-WALLET-009).
+- aki no-match (TrustMechanisms 004/008, MainInteraction 004): the Wallet
+  shares a non-matching PID (RI-WALLET-022). Before upstream `2422e58` Capture
+  stored its own `invalid_request` instead of the Wallet's `vp_token`, so every
+  no-match validator passed; after the redeploy the session keeps the
+  `vp_token` (`vp_token_observed: true`) and `trusted_authorities_no_match`,
+  `no_match` and `oid4vp.no_presentation_returned` fail.
+
+## Passed-test audit of run 4t9hxzgxlf, 14/10/2026
+
+The 439 tests that passed in `fcaf_assessment_4t9hxzgxlf.json` were re-audited
+against their sources in 12 slices: 354 genuine passes, 80 false positives, 3
+`skip` (`WS_RP_SM_RpIntegrity__016`/`018`/`020`, unbuildable trust-chain
+preconditions), 2 `unclear` (`WS_RP_MS_ProtocolMessages__006`/`007`). Every
+false positive and the two unclear are fixed; the audit judged the CURRENT
+definitions and used the run only as evidence.
+
+**False-positive classes** (with test ids).
+
+1. The DCQL template mode `credentials_match` on a generic positive session
+   stood in for an unrelated property: `WS_RP_IA_MainInteraction__006`/`010`/`024`
+   (unbound / mixed-binding / encrypted credential),
+   `WS_RP_MS_Metadata__111`-`128` and `134` (verifier_attestation /
+   openid_federation / x509_san_dns), and
+   `WS_RP_MS_ProtocolMessages__011`/`017`/`018`/`020`/`040`/`095`; also
+   `WS_RP_DM_CredentialMetadata_CredentialStructure_007`/`010`,
+   `WS_RP_IA_MainInteraction__012`, `WS_RP_IA_Metadata__015`,
+   `WS_RP_MS_Metadata__094`,
+   `WS_RP_MS_ProtocolMessages__058`/`066`/`070`/`071`/`086`/`103`/`106`/`118`
+   and `WS_RP_SH_Encoding_TextualEncoding_004`.
+2. Loose modes that also accept an absent response or silence:
+   `request_rejected` and `invalid_request_generic` pass on an empty response,
+   so `WS_RP_MS_ProtocolMessages__006`/`007`/`010`/`014`/`021`/`033`/`034`/`053`/`062`/`068`/`079`
+   moved to `invalid_request_required` or the engagement-guarded
+   `request_rejected`; `WS_RP_MS_ProtocolMessages__086`/`103`/`118` moved from a
+   mode that passed on an absent response to `property_type`/
+   `credential_sets_required_omitted`/`claim_path_allowed_components`.
+   CORRECTED 14/10/2026 (self-review): the pass on an empty response stays, but
+   `request_rejected`/`no_match` and every loose error-code mode now fail when
+   an error carries a non-empty `vp_token` (OpenID4VP 8.5 defines no error
+   response that also presents), and 053 - which could never pass because
+   `request_rejected` demanded a well-formed `credentials` array - passes on
+   the malformed-credentials session it owns. 103's
+   `credential_sets_required_omitted` is no longer a bare non-empty-vp_token
+   check: it requires the presentation to answer the option's credential query
+   and consults the Verifier's judgement.
+3. `evidence.non_empty` over screenshots standing in for Wallet behaviour:
+   `WS_RP_IA_Engagement__001`/`001a`, `WS_RP_MS_CredentialFormats__044`,
+   `WS_RP_MS_Metadata__129`/`131`,
+   `WS_RP_MS_ProtocolMessages__058`/`066`/`125`/`126`,
+   `WS_RP_SM_RpIntegrity__026`/`029`/`031`,
+   `WS_RP_SH_Encoding_TextualEncoding_004`.
+4. Preconditions not delivered: `WS_RP_MS_ProtocolMessages__034` (holder
+   binding sat on the Request Object top level, not the DCQL entry),
+   `070`/`071` (only one matching credential in the Wallet),
+   `WS_RP_IA_MainInteraction__013` (nothing was deselected) and `018` (3 of the
+   25 requested claim paths was asserted).
+5. Unbuildable preconditions now `fcaf.skipped`: verifier_attestation
+   (`WS_RP_MS_Metadata__116`-`124`), openid_federation (`113`/`114`/`115`),
+   x509_san_dns (`125`/`127`/`128`), unbound credential
+   (`WS_RP_IA_MainInteraction__006`/`008`/`010`), encrypted data
+   (`WS_RP_IA_MainInteraction__024`), ETSI trust list
+   (`WS_RP_MS_ProtocolMessages__095`), trust chain
+   (`WS_RP_SM_RpIntegrity__016`/`018`/`020`; the wallet-side rationale - it
+   accepts a chain ending in an untrusted root, so even a complete chain would
+   not evidence validation - is REFERENCE-WALLET-ISSUES.md RI-WALLET-019) and
+   `WS_RP_SM_DeviceBinding__002`-`006`.
+6. Sources that could not be exercised now `fcaf.not_applicable`, on two
+   grounds. Relevancy `EUDI_forbidden` (the source expects the Wallet to accept
+   the feature its own relevancy forbids): `WS_RP_IA_MainInteraction__060`,
+   `WS_RP_MS_Metadata__112`, `WS_RP_MS_ProtocolMessages__020`/`040`. SUT
+   capability refutes the source's precondition:
+   `WS_RP_MS_ProtocolMessages__011`/`018`/`028`, `WS_RP_MS_Metadata__134`, and
+   (14/10/2026 self-review) `WS_RP_MS_ProtocolMessages__135`/`154`-`157`.
+   CORRECTED 14/10/2026: 011, 018 and 134 read `EUDI_generic | EUDI_required`
+   in their sources, so they were never EUDI_forbidden cases; listing them here
+   weakened the "only a literal EUDI_forbidden relevancy" lock.
+
+**Validators** (`pkg/fcaf/validators/`).
+`dcqlModesAwaitingWalletResponse` (`dcql.go`) now also guards the error-code
+modes (`invalid_request_generic`, `invalid_scope`, `access_denied`,
+`invalid_client`, `transaction_data_error`), because `validateErrorCode`'s
+absent-response branch passed with neither an error nor a `vp_token`;
+`wallet_error_expected`, `vp_formats_not_supported` and the pre-existing
+`claim_path_member_type_error` are listed defensively (dispatched but absent
+from the mode allow-list, so unreachable until it is fixed).
+`verifierRejectedPresentation` (`dcql.go`) makes the whole
+`credentials_match`/`without_*`/`multiple_*` family (51 tests, 53 assertions)
+fail when the Capture session records `presentation_valid` or
+`dcql_query_matched` not `true`. CORRECTED 14/10/2026 (self-review): it now
+decides on `checks.dcql_query_matched` alone, because `presentation_valid`
+bundles the vp_token format, nonce and holder-binding checks those sources
+assert separately. A judged `dcql_query_matched=false` beside a boolean
+`presentation_valid` fails; Capture's initial values with a recorded response
+block ("the verifier never judged the presented credential"); an absent or
+non-bool `dcql_query_matched` records no judgement and leaves the mode to its
+own checks; the `credential_sets_required_{true_match,omitted,false_with_match}`
+modes consult it too. `vp_token_json_object` now requires every
+entry to be an array; `vp_token_presentation_arrays` requires every element to
+be a string or a JSON object. `dcql.response_satisfies_constraints` mode
+`property_equals` gained an optional `require_response` boolean (default
+`true`), and setting it on any other mode is now `StatusError` rather than
+silently ignored. `value.go` embeds the ITU-T E.164 assigned country calling
+codes and requires them in `sdjwt.claim_international_phone` /
+`mdoc.element_international_phone`; it also derives the ISO 3166-2:2020 6.1
+subdivision list (new `iso3166_2.go`, LGPL-2.1-or-later - licensing is an open
+HITL item) so `sdjwt.claim_country_subdivision` /
+`mdoc.element_country_subdivision` reject an unlisted subdivision.
+`mdoc.element_date_encoding` requires the preferred RFC 8949 4.2 tag encoding.
+`sdjwt.kb_jwt_algorithm_allowed` replaces `sdjwt.kb_jwt_algorithm_equals`
+(012a uses `allowed: [ES256]`, the HITL-approved beta set).
+
+**Scenarios.** `request-object-payload-controls` sets
+`require_cryptographic_holder_binding` inside `dcql_query.credentials[0]`
+(OpenID4VP 6.1) and 034 reads it there; `verifier-response-controls`'s three
+negative steps (066/125/126) inline the 064 prelude and store a named error
+screenshot (`no-redirect-wallet-error` / `non-json-wallet-error` /
+`http-error-wallet-error`) instead of `fcaf-exercise-wallet-generic`;
+`request-uri-method-default` exposes `outer_request_delivered` for 002c;
+`pid-multiple-credentials` now owns 070 (two PIDs); 018 moved from
+`dcql-main-interaction` to `engagement-haip-vp` (its evidence);
+`standard-all` runs credential_sets/claim_sets queries for CredentialStructure
+007/010; `unchecked-claim` exposes `wallet_response` for MainInteraction 013.
+The regenerated aggregate is 1852 steps / 615 tests / 222 outputs; the happy
+flow is 210 steps / 298 test IDs (070 left it at 300; the 14/10/2026
+self-review then moved 040 to the plain-redirect-uri scenario, like its sibling
+038, so it left the happy flow too).
+
+**Emulator, 14/10/2026** (wallet 2026.09.42, production Capture). The new
+inline verifier-response-controls flow for `WS_RP_IA_MainInteraction__066` runs;
+on a 200 reply without `redirect_uri` the reference Wallet shows its success
+screen and no error, so 066 fails (source: "raises an invalid_request error or
+terminates transaction" - a success screen is neither; see
+REFERENCE-WALLET-ISSUES RI-WALLET-025). `WS_RP_IA_MainInteraction__013`: the
+Wallet offers no per-claim deselection for DCQL requests
+(`WalletCorePresentationController.kt` returns
+`requestAllowsClaimSelection = false` for `ProcessedDcqlRequest`), so the
+source's "user unselects a claim" step is not deliverable
+(RI-WALLET-024). 125 is projected to fail and 126 to pass from the run's own
+screenshots (the run stored the success screen for 066/125 and the
+`Oups! ... Verifier rejected the response` screen for 126); both need a fresh
+run to confirm.
+
+**Residual / unclear.** 006/007 keep `unclear` until a fresh run (their pass now
+needs a real `invalid_request`). `WS_RP_MS_CredentialFormats__034` still infers
+its `values` filter (needs a second mdoc plus a new `mdoc.element_equals`
+validator). `WS_RP_IA_MainInteraction__026` is expected to FAIL (needs
+`access_denied`; RI-WALLET-001/010 family). Mixed3's VR-3 is truncated in the
+report: `vp_token_json_object`'s array clause was reconstructed from 127a's
+source. `oid4vp.request_uri_retrieval` cannot check the requested path (Capture
+records only `{body, headers, method}`). `mdoc_without_claim_disclosures` was
+left out of the `credentials_match` checks change. Three optional validators
+(`oid4vp.transaction_data_support`, `oid4vp.request_uri_method_fallback`,
+`mdoc.mso_status_member_absent`) were deliberately not added.
+
+## Self-review fixes, 14/10/2026
+
+A self-review of the passed-test-audit fixes (`f10dbd95..6be01551`) found the
+regressions below plus smaller tightenings; every item is applied in this
+working tree. The aggregate is regenerated (1852 steps / 615 tests / 222
+outputs; happy flow 210 steps / 298 test IDs) and the generator's count pins
+match it.
+
+- `request_rejected` judges only the Wallet's outcome again: the
+  well-formed-query precondition now lives in `no_match` alone, so
+  ProtocolMessages 053 - bound to the deliberately malformed `credentials`
+  fixture - can pass. In exchange `request_rejected`/`no_match` and the loose
+  error-code helpers fail when an error carries a non-empty `vp_token`
+  (OpenID4VP 8.5 has no error response that also presents).
+- `verifierRejectedPresentation` decides on `checks.dcql_query_matched` alone
+  (the property the sources behind it ask for); a judged false beside a boolean
+  `presentation_valid` fails, Capture's initial values with a recorded response
+  block as unjudged, and an absent/non-bool value leaves the mode to its own
+  checks. `credential_sets_required_omitted` and
+  `credential_sets_required_false_with_match` (103/104) now require the
+  presentation to answer a `required`-not-false set's option and consult that
+  verdict; `require_response` outside `property_equals` is a `StatusError`.
+- The engine's derived views carry `not_applicable` through
+  (`ExecutedTest.Status`, `TestOutcome.Status`, assertion statuses), so the
+  PDF's `Not applicable` branch is reachable, and `Presentation.SummaryFilters`
+  gained the `not_applicable` key so the webapp pills keep those tests out of
+  `Skipped`. Report-level `Status` still says `failed` when the only
+  non-passing tests are `not_applicable`/`skipped` (pre-existing).
+- `evidence.screenshot_named` returns `blocked`, not `fail`, when every
+  candidate stem sits at PocketBase's 100-character cap: the evidence was lost
+  by storage, not by the Wallet.
+- Flows: the wallet-text waits in callback-redirect, unknown-parameter-controls
+  (x2) and verifier-response-controls (064) are `optional: true` and their
+  dismiss taps are conditional, so a Wallet with other wording still reaches
+  the `*-visit` screenshot that `oid4vp.redirect_uri_visited` decides. The
+  negative flows' second phase is decisive-only with a 100 s window (30 s probe
+  + 100 s decisive + 30 s non-fatal Home/Documents wait), so a slow tolerant
+  Wallet is no longer recorded as having discontinued the interaction; the
+  worst case per silent discontinuation is ~133 s (3 s settle + 30 s + 100 s),
+  which is the runtime cost. The shared terminal screenshots were renamed
+  `expect-request-rejected` -> `request-refused` (15) and
+  `expect-no-matching-document` -> `no-match-document` (17) to fit the
+  100-character stem budget; `wallet-refused` is now asserted by no test (the
+  two takeScreenshot blocks stay as report decoration).
+- Definitions: 032/101/102 back to `fcaf.skipped` for the unbuilt CWT
+  Referenced Token; 028/135/154-157 `fcaf.not_applicable` because the SUT
+  declares no transaction-data type (wallet-behaviour clauses dropped); 145/146
+  and the verifier_attestation family 116-124 reworded to the real mechanism
+  (no way to pre-store trusted metadata / no trusted registry / no dNSName SAN,
+  and the request-signing library rejects every x5c prefix but `x509_hash`);
+  060 rebound to `pipeline.protocol.response-uri-controls` and 040 to
+  `pipeline.wallet.protocol.plain-redirect-uri`, both now asserting their
+  source's request shape before the `not_applicable` assertion; 058/066 moved
+  from `invalid_request_generic` to the engagement-guarded `request_rejected`,
+  which is the sources' error-with-details / error-without-details /
+  discontinuation triad; CredentialStructure 007's scenario asks for
+  `excluded_pid` (a claim the Wallet holds) as its second query, so a Wallet
+  that ignores `credential_sets` answers a query no option references and fails.
+- Platform: `serializeYaml` keeps `schema: 'yaml-1.1'` and adds a custom
+  implicit `!!int` tag that quotes the numeric shapes only gopkg.in/yaml.v3
+  resolves (`0o17`/`0O17`, `0X1F`/`0B101`, `1_000`/`1e1_0`/`0_x_1f`), and
+  `StepInputs.UnmarshalYAML` retags timestamp scalars in a deep copy of the
+  `with` node, so an anchored node aliased elsewhere in the document is no
+  longer mutated.
+
+Residual, not fixed here: the
+`len(Snakecase(step id)) + 1 + len(Snakecase(name)) <= 100` screenshot-name
+invariant is still not enforced in `cmd/fcaf-pipeline-gen` (the validator now
+degrades such a case to `blocked`); `fcaf-expect-credential-rejected.yaml`
+still stores the 18-character `credential-rejected` on a step whose stem
+overflows; three other webapp sites still stringify with the default schema;
+and `graft` still carries nodes for the deleted
+`pkg/fcaf/validators/mdoc_mso_status.go`. No emulator run backed this pass -
+the behaviour was proven by the scoped Go suites, the flows' `maestro
+check-syntax`, and live Capture probes; a fresh reference-Wallet run is still
+required to confirm the projections.
+
+## Assertion-review backlog burn-down, 14/10/2026
+
+Every remaining `Ready to work` item in
+`config_templates/fcaf/wallet_solution/relying_party/ASSERTION_REVIEW_BACKLOG.md`
+is implemented in this working tree, so that section is deleted and only the
+blocked and maintainer-decision entries remain. The regenerated aggregate is
+1869 steps / 617 tests / 224 outputs; the happy flow is 210 steps / 299 test
+IDs. The generator's count pins are updated to match.
+
+- Engagement 001b / ProtocolFlow 002d: a new one-test scenario
+  `engagement-eu-eaap` (scheme `eu-eaap://`, shared action
+  `fcaf-engagement-eu-eaap`, evidence source
+  `pipeline.wallet.engagement.eu-eaap` with `wallet_engagement` +
+  `visual_evidence`) implements `WS_RP_IA_Engagement__001b`: the deeplink-shape
+  and POST-retrieval assertions pass on production (probed 14/10/2026: `201`
+  with `deeplink: eu-eaap://?client_id=...`), and the engagement-screenshot
+  assertion fails on the reference Wallet because it registers no `eu-eaap://`
+  handler (EUDI_required; RI-WALLET-026). `WS_RP_IA_ProtocolFlow__002d` rides
+  `dcql-protocol-messages` and asserts
+  `oid4vp.request_uri_retrieval{method: post}` before `fcaf.not_applicable`
+  with 011's reason (the suite's default `haip-vp://` scheme; ER3.3 stays
+  unassertable because Capture records no requested target).
+- Request-object delivery (Metadata 135/107): the new
+  `metadata-request-object-delivery` scenario moves both off the shared
+  `metadata-request-controls` session. 135 sets
+  `request_behavior.request_object_encryption: none` (probe: `201`,
+  `vp_request_object_encryption_skipped`, a plain JWS with
+  `raw.authorization_request_jwe` absent) and
+  `oid4vp.unencrypted_request_object_rejected` now requires that member absent
+  before accepting the JWS, because Capture records the inner signed JWT in
+  `raw.authorization_request_jwt` even when it served a JWE (a control session
+  kept a 4-dot Nested JWT in `authorization_request_jwe`); its verdict stays
+  `not_applicable` (the Wallet publishes no jwks). 107 gets its own
+  `create-absent-client-metadata` session (`request_uri_method: post`,
+  `client_metadata: null`, `response_mode: direct_post`); the
+  `client_metadata`-absence assertion now runs on the delivered Request Object
+  and `require_response_parameter` is dropped for the unencrypted form; it is
+  expected to fail on the reference Wallet (RI-WALLET-008: plain `direct_post`
+  refused).
+- CredentialFormats 034: `mdoc.element_equals{namespace, element, value}` and a
+  second same-doctype mdoc PID (`fixture_id: pid_person_b`, `given_name
+  Giulia`) in `dcql-credential-formats`, so the `values: [Mario]` constraint
+  selects `pid_default` instead of passing on either credential; verified by
+  production issuance and verifier probes and by the generator. A conforming
+  Wallet presents `pid_default` and passes; one that ignores the constraint or
+  presents Giulia fails (Wallet finding, not a blocker).
+- ProtocolMessages 017: `dcql.response_satisfies_constraints` gained
+  `not_applicable_when_wallet_supports_transaction_data` on its
+  transaction_data error modes; when the capture proves the Wallet processed
+  the transaction_data it was sent (`checks.transaction_data_verified: true`,
+  or `transaction_data_hashes` in the Wallet's Authorization Response) the
+  assertion reports `not_applicable`, because the source's profile
+  applicability is "Wallet does not support transaction_data"; otherwise the
+  `invalid_transaction_data` requirement decides. The gate applies only to 017:
+  158/159 carry `Profile applicability: None` and keep the plain requirement,
+  018 keeps its static `not_applicable`, and the param is refused
+  (`StatusError`) on every other mode.
+- ProtocolMessages 145/146: `fcaf.skipped` -> `fcaf.not_applicable`. Their
+  preconditions are Wallet state (trusted metadata already stored for the
+  Verifier A; a trusted registry in which Verifier A is pre-registered) that
+  the reference Wallet does not hold for the Capture verifier, so the
+  `invalid_client` expectation has no subject; each test also asserts the
+  delivered Request Object carries `client_metadata` at top level, exposed by
+  its scenario as the new `request_object` output
+  (`raw.authorization_request_jwt`).
+
+No emulator run backed this pass - the constructions were proven by live
+production Capture probes, the scoped Go suites and the generator; the
+reference-Wallet verdicts above (001b fail, 107 fail, 135/145/146
+not_applicable, 017 pass, 034 contingent) remain projections that still need a
+fresh device run.
+
+## Complete pipeline review and harness fixes, 15/10/2026
+
+Complete run `fcaf_assessment_7emdx9outp.json` produced 419 pass, 117 fail,
+57 skipped and 24 not applicable outcomes. Review of every failure found two
+Credimi defects and no Capture blocker:
+
+- `WS_RP_SH_Encoding_TextualEncoding__011` already passes its protocol assertion
+  (the Wallet retained only the valid degree entry), but the shared
+  `fcaf-engagement-haip-vp` action failed before its terminal screenshot after
+  Share. Its second-PIN and success-state waits are now optional, View details
+  is conditional, and the terminal screenshot is always attempted.
+- `WS_RP_SM_RpIntegrity__003` correctly reports `fcaf.not_applicable` because
+  EUDI_forbidden unsigned DC API requests must not be processed; its additional
+  screenshot assertion made that result fail even though no Wallet can be
+  invoked. The visual evidence binding and assertion are removed.
+- `fcaf-engagement-eu-eaap` now tolerates a delayed or absent PIN control inside
+  both conditional unlock paths, so `WS_RP_IA_Engagement__001b` always reaches
+  its terminal screenshot. The run still proves its Wallet failure from no
+  `vp_request_retrieved` event.
+
+The remaining failures were first classified as reference-Wallet behavior;
+the second review below moves 033 and 071 to test defects. RI-WALLET-027 and
+028 record processing of an HTTP-500 Request-URI body and acceptance of a
+signed Request Object without `request_uri`; RI-WALLET-026 is now confirmed by
+the run rather than a projection.
+
+## Single-use credentials spent by possession proofs, 15/10/2026
+
+A second review of `fcaf_assessment_7emdx9outp.json` found that the reference
+Wallet's single-use credential instances (item 2 at the top of this file) were
+spent by the scenarios' own possession proofs:
+
+- `WS_RP_IA_MainInteraction__033` failed on a test defect, not on the Wallet:
+  its `multiple: true` inventory query returned and spent all eight fixtures
+  (screenshot 08:43, eight PIDs shared), so the combined query one minute later
+  met an empty Wallet and correctly answered "The requested document is not
+  available". The numeric axis passed vacuously the same way. The withdrawn
+  RI-WALLET-027 had recorded this as a Wallet finding.
+- `WS_RP_MS_ProtocolMessages__071` failed because its scenario issued only
+  `pid_person_b` and relied on an injected `pid_default` the generator no longer
+  emits; the Wallet correctly returned its single PID.
+- `WS_RP_IA_MainInteraction__040`, `__041` and `WS_RP_MS_ProtocolMessages__070`
+  passed vacuously: two probe presentations spent both PIDs, so the multiple
+  queries ran with one freshly injected PID.
+
+Possession is now proven without presenting: the new `oid4vci.fixtures_stored`
+validator requires, for each named `fixture_id`, an issuer session at
+`credential_issued` (the Wallet fetched the credential) paired with the
+issuance step's `credential-added` screenshot, which
+`getcredential-generic-credential-without-authentication` takes only after
+`assertVisible: "View details"` on the Wallet's document-added screen (the
+Wallet stored it). A Wallet that fetches a credential and then discards it
+fails the issuance step, stores no screenshot, and fails the precondition
+assertion instead of passing the test vacuously.
+`oid4vp.distinct_presentations` is removed with its last callers. 071 issues
+both identities itself; the multiple-credentials scenario issues both
+identities again before the `multiple: false` query, because the
+omitted-`multiple` query spends one. `cmd/fcaf-pipeline-gen` now models a
+Share of a `multiple: true` query as spending every instance of its format
+(`TestMultipleTruePresentationSpendsEveryHeldInstance`); no other scenario's
+injections changed. The aggregate is 1874 steps / 617 tests / 224 outputs.
+
+Evidence gaps closed in the same change, without weakening any assertion:
+`fcaf-engagement-haip-vp` still fails unless the presentation completes (Share
+present and the success screen reached), so its screenshots reach a test's
+visual evidence only for a completed presentation; it now stores
+`fcaf-engagement-haip-vp-request` before looking for Share, so a refusal
+screen is kept on the pipeline result for review. The second PIN and View
+details stay optional. `fcaf-dc-api-present` likewise stores `dc-api-page` and
+`dc-api-after-present` before its success-only assertions, so an unsigned or
+multisigned DC API failure is no longer evidenced only by absence
+(RI-WALLET-018).
+
+## One shared baseline PID presentation, 15/10/2026
+
+Fifteen scenarios sent the identical baseline request (haip-vp, by-reference
+Request Object retrieved with POST, direct_post.jwt, SD-JWT PID `given_name`;
+only the nonce label differed), each with its own wallet reset, injected PID
+and `fcaf-exercise-wallet-generic` presentation. They now share
+`scenarios/fcaf-wallet-solution-relying-party-dcql-baseline.yaml`, whose source
+`pipeline.dcql.baseline` exposes the session and every value the 66 rebound
+tests read (`session`, `visual_evidence`, `vp_token`, `wallet_response`,
+`request_object`, `request_uri_payload`, `session_checks`,
+`signed_request_object`, `client_id_evidence`, `wallet_nonce_evidence`, and the
+pipeline's own Request URI probe as `request_uri_response` /
+`probe_request_object`). No test pins a nonce label, so the evidence is the same
+whichever copy produced it.
+
+Ten scenarios were only the baseline and are deleted (cryptography,
+device-binding, encoding, interaction-engagement, interaction-protocol-flow,
+interaction-supportive, issuer-integrity, metadata, presentation,
+request-uri-post). Five keep their other sessions and lose only the baseline
+part (credential-formats, interaction-metadata, main-interaction,
+protocol-messages, rp-integrity). Metadata 108 and 141, owned only by the
+deleted metadata scenario but reading other evidence, move to the scenarios
+that produce it (request-object-by-value, credential-formats). Response
+encryption per-request keys and the invalid-nonce session keep their own
+sessions: their request deliberately differs (two sessions, a malformed nonce).
+
+The complete aggregate drops from 1874 to 1794 steps (826 to 789 wallet steps,
+617 tests unchanged, 213 outputs); the happy flow is 173 steps / 308 tests / 32
+outputs, having gained the baseline tests of the deleted scenarios.
+
+## Injected PID issuances run inside their presentation, 15/10/2026
+
+Each PID the generator injects for a presentation used to be its own
+`mobile-automation` step (child workflow, Maestro run, recording) before the
+presentation. The issuer session stays an `http-request` step, but the wallet
+action that accepts its offer is now one of the presentation's
+`with.before_actions`; the pipeline setup hook prepends it to the
+presentation's flow as a `runFlow` block (see AGENTS.md, pipeline contract).
+
+- A failed injected issuance now fails the presentation step. Before, the
+  presentation still ran on a wallet without the PID it needed, and a refusal
+  or no-match screen from that empty wallet could pass as evidence.
+- Before actions' screenshots are dropped, so the issuance's `credential-added`
+  screenshot no longer reaches the presentation's `visual_evidence`, where it
+  would pad `evidence.minimum_items` / `evidence.non_empty`. Injected issuances
+  were never possession evidence (`oid4vci.fixtures_stored` reads
+  scenario-authored issuances only); the issuance's `assertVisible: "View
+  details"` still has to pass.
+- Presentations driving another app (the five DC API flows run in Chrome) keep
+  their injected issuance as a separate step: a before action must drive the
+  step's own `appId`.
+
+The complete aggregate drops from 1794 to 1528 steps (789 to 523 wallet steps:
+266 issuances moved into their presentations, at most 7 in one step); the happy
+flow drops from 173 to 154 steps (19 moved). Tests and outputs are unchanged.
+
+## Scenario wallet resets run inside the first wallet step, 15/10/2026
+
+The `fcaf-reset-and-onboard` reset that isolates each scenario is no longer a
+`<scenario>-reset-wallet` step: it is the first before action of the
+scenario's first wallet step, ahead of that step's injected issuances. For the
+five DC API scenarios, whose first wallet step runs in Chrome, it is the first
+before action of the separate injected issuance instead. The pipeline's first
+step, `onboard-reference-wallet`, stays a step: it installs the wallet version.
+
+- The reset still clears the wallet and onboards it before anything in the
+  scenario touches the wallet; it now runs after the scenario's first
+  server-side steps (2.3 on average), which the wallet does not see.
+- A failed reset fails the scenario's first wallet step. Before, the scenario
+  went on with the previous scenario's credentials in the wallet, which could
+  falsify its tests (the reason grouping scenarios was rejected).
+- The reset's `fcaf-reset-and-onboard` screenshot is dropped with the other
+  before-action screenshots; no test or validator reads it.
+
+The complete aggregate drops from 1528 to 1345 steps (523 to 340 wallet steps,
+all 183 scenario resets folded, at most 8 before actions in one step); the
+happy flow drops from 154 to 141 steps (13 folded). Tests and outputs are
+unchanged.
+
+## `actions` replaces `before_actions`, 16/10/2026
+
+`with.before_actions` (extra stored actions run before the step's own action,
+their screenshots dropped) is removed. A step now either runs one action
+(`action_id` / `action_code`) or lists `with.actions: [{ id | code,
+parameters? }]`, all equal, run in order in one Maestro flow, every action
+keeping its screenshots (contract in AGENTS.md). The generator's combined steps
+list the reset, the injected issuances and the step's own action, which moves
+into the last entry with its parameters; the 24 scenario-authored inline
+flows become `code` entries.
+
+Keeping every screenshot would have padded the 285 count-based checks
+(`evidence.non_empty`, `evidence.minimum_items`) that read a combined step's
+screenshots, so the extra actions take none:
+
+- `fcaf-reset-and-onboard` no longer takes `fcaf-reset-and-onboard`, which
+  nothing read.
+- Injected PIDs use the new stored action `fcaf-issue-pid`, the issuance flow
+  of `getcredential-generic-credential-without-authentication` without its
+  final `credential-added` screenshot. Scenario-authored issuances keep the
+  generic action: their `credential-added` screenshot is possession evidence
+  (`oid4vci.fixtures_stored`, MainInteraction 033/040/041, ProtocolMessages
+  070/071) and appears in the PDF report. The two flows must keep the same
+  commands. `credimi fcaf sync` imports the new action from the manifest.
+
+A combined step's screenshots are therefore its own action's only, as before.
+Step and test counts are unchanged (complete 1345 steps / 340 wallet steps,
+happy flow 141 / 43).
+
+## EUDI_forbidden sources report only not_applicable, 21/10/2026
+
+Maintainer decision (`.agents/HITL.md`, 2026-10-21), superseding the
+14/10/2026 rule that kept request-shape and visual-evidence assertions and
+covered only sources that expect the Wallet to accept the forbidden feature.
+All eleven sources whose relevancy reads `EUDI_generic | EUDI_forbidden` now
+carry one `fcaf.not_applicable` assertion and nothing else:
+`WS_RP_IA_MainInteraction__060`, `WS_RP_IA_Metadata__014`,
+`WS_RP_MS_Metadata__110`, `112`, `113`, `WS_RP_MS_ProtocolMessages__020`,
+`038`, `040`, `WS_RP_SM_RpIntegrity__002`, `003`,
+`WS_RP_UC_Presentation__003`.
+
+- New scenario `fcaf-wallet-solution-relying-party-eudi-forbidden.yaml` owns
+  them. It has only the `fcaf-validation` step, and its one evidence source,
+  `pipeline.eudi-forbidden`, is the literal output `relevancy:
+  EUDI_forbidden`: no Verifier session and no Wallet step serves these tests.
+  The activity passes a literal leaf through unchanged, and it adds no
+  `evidence_index` entry.
+- They left `dcql-baseline` (014, 112, 113, 020, UC 003),
+  `response-uri-controls` (060), `client-id-prefix-controls` (110),
+  `plain-redirect-uri` (038, 040), `dc-api-invalid-signature` (002) and
+  `dc-api-unsigned` (003). Every Wallet step of those scenarios is shared with
+  other tests, so none was removed; only the outputs read by these tests alone
+  were dropped (`signed_redirect_uri_request_object`,
+  `signed_redirect_uri_delivered_request`, plain-redirect-uri
+  `authorization_request`).
+- Behaviour change: 014 and 113 were `skipped` (Capture has no
+  openid_federation), and 110 and 002 asserted a rejection, which RI-WALLET-002
+  recorded as failing for 110. 110, 113 and 002 expect the Wallet to reject;
+  that is no longer assessed. 113 also left the openid_federation entry of
+  `ASSERTION_REVIEW_BACKLOG.md`, and 110 the RI-WALLET-002 test list.
+
+Verified through the engine on the regenerated complete pipeline with every
+step output unresolved (no step ran): all eleven report `not_applicable` with
+their reason, one assertion and one evidence item each.
+
+`make fcaf-generate`: complete 1345 steps / 340 wallet steps / 617 test IDs /
+214 pipeline outputs (one more, the literal source); happy flow 141 steps /
+43 wallet steps / 303 test IDs (the five that `dcql-baseline` owned left it,
+since the new scenario is not a happy-flow scenario); demo unchanged.
+`webapp/src/lib/fcaf/tests.generated.ts` still names the old sources; it was
+already stale and no repository generator writes it.
+
+## Capture controls of 22/10/2026: twenty blocked tests implemented, IssuerIntegrity 012 still skipped
+
+22/10/2026. Upstream Capture `faf1938` (local reference resynced) unblocked
+21 tests. Production `https://capture-wallet.credimi.io` was probed for every
+new control before any scenario was written:
+
+| Control | Probe result |
+| --- | --- |
+| `client_id_scheme: verifier_attestation` (default) | `201`; served Request Object header carries `jwt` (`typ verifier-attestation+jwt`, `iss .../openid4vp/verifier-attestation-issuer`, `sub capture-wallet.credimi.io`, `cnf.jwk`, no `redirect_uris`); Request Object verifies against `cnf.jwk`, attestation against `/openid4vp/verifier-attestation-issuer/jwks.json`; same with POST + `wallet_nonce` retrieval |
+| `verifier_attestation.subject` / `.issuer` | `201`; only `sub` / only `iss` changed, both signatures valid |
+| `verifier_attestation.redirect_uris: ["{{response_uri}}"]` / foreign URI | `201`; claim equals the session's `response_uri` / holds only the foreign URI |
+| `verifier_attestation.signature: corrupt` | `201`; attestation signature fails, Request Object still valid against `cnf` |
+| `request_behavior.signing_key: unrelated` (with verifier_attestation) | `201`; Request Object fails against `cnf`, attestation valid |
+| `request_mutation.request_object_header.unset: ["/jwt"]` | `201`; header is `{alg, typ}` only |
+| `request_mutation.request_object.set: {"/client_name": …}` | `201`; `client_name` top level, absent from `client_metadata`, both signatures valid |
+| `x509_san_dns` | still `500` (no SAN-DNS names) |
+| `certificate_chain: with_trust_anchor` | `201`; `x5c` = [`CN=Fake Verifier`, self-signed CA `CN=PID Issuer CA 02`], the second issuing the first, signature valid, `x509_hash` Client Identifier unchanged |
+| `raw.request_uri_http.target` | recorded for GET and POST: `/openid4vp/sessions/<id>/request`, no query |
+| POST retrieval with `jwks` + `authorization_encryption_*` only | Nested JWT `ECDH-ES`/`A256GCM`; `vp_request_object_encrypted` with `alg_source`/`enc_source` `authorization_encryption` |
+| `status_reference` `uri_*` (SD-JWT VC and mdoc) | all five `201`; issued via `eu-pid-jwt-proof-only` pre-authorized flow: `//tsl…`, `https://tsl.cre dimi.io/…`, `…%GG`, `…<token>\|1`, `""` (`malformed_uri` is `not a uri`) |
+| `POST /sessions/{id}/status` | `409` before issuance, `400 status_list_not_enabled`, `400 unsupported_status`; after an mdoc issuance `200`, list bit set at once, served `Cache-Control: max-age=43200` |
+
+Fixture document numbers (re-checked by issuance): `pid_default` 001,
+`pid_person_b` 002, `pid_under_18` U18, `pid_expiry_2032` EXPIRY,
+`pid_family_name_uppercase` CASE.
+
+Implemented:
+
+- A. New scenario `verifier-attestation` (`pipeline.rp-integrity.verifier-attestation`):
+  one session per variant, haip-vp, POST retrieval, `direct_post.jwt`, plus the
+  issuer JWKS. New validator `oid4vp.verifier_attestation_request` asserts the
+  delivered shape (jwt header, `sub` vs Client Identifier, `iss`, Request Object
+  signature vs `cnf.jwk`, attestation signature vs issuer JWKS, `redirect_uris`
+  vs `response_uri`), every binding but the tested one valid. Positives (116,
+  118, 120, 122, 123, 124, RpIntegrity 008) need `credentials_match`; negatives
+  need `oid4vp.error_response_required` with the source's code
+  (`invalid_request` 117/119/121/009, `invalid_client` 011/012). 123 also
+  asserts `client_name` outside `client_metadata`; 124 runs
+  `oid4vp.verifier_metadata_exclusive`. 120/121 compare `redirect_uris` with the
+  `direct_post.jwt` `response_uri` (OpenID4VP 8.2; TEST-AUTHOR-FEEDBACK Issue
+  24). RpIntegrity 010 untouched.
+- B. MainInteraction 056 moved from the unbuildable `x509_san_dns` session of
+  `response-uri-controls` (removed) to the redirect_uris_foreign session it
+  shares with 121, with `request_rejected`, as its sibling 053. The old reason
+  ("strict matching exists only for x509_san_dns") was wrong: 8.2 applies the
+  prefix's redirect-URI rule, here the 5.9.3 exact match, to `response_uri`.
+- C. RpIntegrity 025: `with_trust_anchor` session in `rp-integrity-certificate-chain`;
+  `oid4vp.request_certificate_chain` gained shape `trust_anchor_included`
+  (exactly two, linked, `x5c[1]` self-signed); outcome `request_rejected`.
+- D. Metadata 089/099: five `uri_*` issuances and probes per format, plus the
+  kept `malformed_uri` case. `pid_default` is avoided (the generator injects
+  it); `uri_illegal_characters` reuses `pid_locality_diacritics` and `uri_empty`
+  `pid_family_name_uppercase`, told apart by status shape.
+  `oid4vp.malformed_status_credential_absent` recognises each `uri_*` shape by
+  name with one RFC 3986 analysis; `malformed_uri` is now strict (illegal
+  characters or a space anywhere, bad percent-encoding, no scheme or host).
+- E. `oid4vp.request_uri_retrieval` gained `require_path_target` (target equals
+  the `request_uri` path, no query or fragment): new 002b assertion, and 002d's
+  retrieval assertion (still `not_applicable` overall).
+- F. Metadata 134: new `oid4vp.encrypted_request_object_processed`; with
+  published `jwks` it requires `authorization_encryption_*` lists, the
+  `vp_request_object_encrypted` event (alg/enc advertised, sources in the
+  message), a 5-part JWE and a presentation; without `jwks`, `not_applicable`.
+- G. Not completed: IssuerIntegrity 012 stays `fcaf.skipped`. Revocation works,
+  but the pipeline has no wait step to outlast the 12-hour max-age and every
+  scenario resets the Wallet (maintainer choice, 22/10/2026). The backlog entry
+  moved to the harness section.
+
+Counts after `make fcaf-generate` (rebased on the EUDI_forbidden change above):
+complete 1452 steps (was 1345), 369 wallet steps (was 340), 617 tests, 215
+outputs (was 214); happy flow 141 steps / 43 wallet steps / 289 test IDs (was
+303: the 13 verifier_attestation tests and 025 left the baseline) / 32 outputs.
+
+Smoke: the touched scenarios were replayed from their YAML against production,
+driven by a scripted wallet (POST retrieval, SD-JWT PID issued on
+`eu-pid-jwt-proof-only`, KB-JWT, `ECDH-ES` JWE response), and their resolved
+outputs were evaluated through `catalog.Load` + `engine.ExecuteCatalog`. A
+conforming wallet passes all twenty; a tolerant one fails every negative on the
+outcome while the request-shape assertions still pass; a wallet holding the
+`uri_space_in_host`/`uri_illegal_characters` tokens fails 089 on exactly those
+probes; 134 passes with `jwks` and is `not_applicable` without. 002b failed
+only its presentation assertion, because the scripted wallet cannot answer the
+scenario's mdoc query. No reference-Wallet device run backs any verdict.
+
+Residual risk: the positives also need the Wallet to trust the fixture
+attestation issuer (only 120-122 state it); a Wallet that refuses the
+`verifier_attestation` prefix itself with the right error code passes the
+negatives, and 056 passes on a discontinuation, without proving the tested
+check (RI-WALLET-029). 002b has no `implementation-inventory.csv` row.
+
+## IssuerIntegrity 012 implemented after the 120 s status list window, 22/10/2026
+
+The maintainer redeployed the Status List service with a 120 s window. A probe
+of a fresh mdoc reference confirmed, for the JWT and CWT forms alike: `exp =
+iat + 120`, `ttl: 120`, `Cache-Control: max-age=120`, a token re-signed on
+every fetch, an `ETag` that changes with content and `exp`, and the revoked
+bit visible on the first fetch after revocation.
+
+New scenario `revoked-mdoc` (`pipeline.issuer-integrity.revoked-mdoc`) owns
+`WS_RP_SM_IssuerIntegrity__012`, which leaves the baseline: issue a PID mdoc on
+`eu-pid-device-bound` with `status_list_enabled: true` and `pid_person_b`,
+accept it with the generic issuance action (possession: issuer session at
+`credential_issued` plus `credential-added`), `POST /sessions/{id}/status
+{"status": "revoked"}`, wait 240 s in an inline Maestro step (an optional
+`extendedWaitUntil` on text that never appears), then request the mdoc with a
+query pinning `document_number` `CREDIMI-DEMO-002` through
+`fcaf-expect-no-matching-document`. The Request Object is created after the
+wait, so its 300 s lifetime is not spent waiting.
+
+Two validators with unit tests: `oid4vci.revocation_precedes_request` blocks
+the test unless every reference was revoked (`ok`, `status: 1`) and the Wallet
+retrieved the request at least `min_delay_seconds` (180: the 120 s window plus
+60 s skew) after the revocation; `oid4vp.wallet_error_conceals_reason`
+requires an error, no `vp_token`, and none of the listed terms (`revoked`,
+`revocation`, `status list`, …) in `error`, `error_description` or
+`error_uri`. A discontinuation fails: the source asks for an error.
+
+Production smoke with a scripted wallet (the jwt-proof mdoc configuration in
+place of the key-attestation one, a synthetic screenshot URL): after the real
+245 s wait, an `access_denied` error passes, an error whose description says
+"revoked" fails, and a request retrieved right after the revocation is
+blocked. No reference-Wallet run.
+
+Counts: complete 1460 steps / 372 wallet steps / 617 tests / 216 outputs;
+happy flow 141 / 43 / 288 test IDs / 32 outputs.

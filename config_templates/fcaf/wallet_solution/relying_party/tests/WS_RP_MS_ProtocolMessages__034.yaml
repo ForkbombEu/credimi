@@ -16,12 +16,20 @@ normative_references:
 evidence:
   session: { from: pipeline.protocol.request-object-payload-controls.outputs.no_state_without_holder_binding_session }
   request_object: { from: pipeline.protocol.request-object-payload-controls.outputs.no_state_without_holder_binding_request_object }
+  delivered_request: { from: pipeline.protocol.request-object-payload-controls.outputs.no_state_without_holder_binding_delivered_request }
   visual_evidence: { from: pipeline.protocol.request-object-payload-controls.outputs.no_state_without_holder_binding_visual_evidence }
 assertions:
+# OpenID4VP Section 6.1: require_cryptographic_holder_binding is a member of
+# each dcql_query credential entry, so the Section 5.3 precondition is read
+# there and not on the Request Object top level.
 - id: request_disables_cryptographic_holder_binding
-  validator: jwt.payload_field_equals
-  input: evidence.request_object
-  params: { field: require_cryptographic_holder_binding, value: false }
+  validator: dcql.response_satisfies_constraints
+  input: evidence.delivered_request
+  params:
+    mode: property_equals
+    property: require_cryptographic_holder_binding
+    expected_value: false
+    require_response: false
 - id: request_omits_state
   validator: jwt.payload_field_presence
   input: evidence.request_object
@@ -33,7 +41,7 @@ assertions:
 - id: wallet_rejects_request
   validator: dcql.response_satisfies_constraints
   input: evidence.session
-  params: { mode: request_rejected }
+  params: { mode: invalid_request_required }
 - id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

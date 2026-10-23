@@ -1,0 +1,168 @@
+name: FCAF baseline PID presentation
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+    log_checker: capture-wallet
+  global_device_id: forkbomb-bv-andrea/usb/device
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+# The one baseline exchange every test that needs a plain HAIP SD-JWT PID
+# presentation reads: a by-reference Request Object retrieved with POST,
+# answered with direct_post.jwt, asking for given_name. Fifteen scenarios used
+# to repeat this identical request, each with its own wallet reset, PID and
+# presentation; the evidence a test reads from it is the same whichever copy
+# produced it.
+steps:
+- id: create-capture-session
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: dcql-baseline
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+# A second session of the same request, retrieved by the pipeline itself so the
+# Request URI response can be inspected without consuming the Wallet's.
+- id: create-request-uri-media-type-probe
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      scheme: haip-vp://
+      request_uri_method: post
+      request_delivery: by_reference
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: dcql-baseline-request-uri-media-type
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+- id: probe-request-uri-response
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-request-uri-media-type-probe.outputs.body.session_id }}/request
+    expected_status: 200
+- id: exercise-wallet
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-capture-session.outputs.body.deeplink }}
+- id: fetch-capture-session
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
+    expected_status: 200
+- id: fetch-signed-request-object
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}/request
+    expected_status: 200
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_IA_MainInteraction__006
+    - WS_RP_IA_MainInteraction__010
+    - WS_RP_IA_MainInteraction__024
+    - WS_RP_IA_MainInteraction__035
+    - WS_RP_IA_MainInteraction__036
+    - WS_RP_IA_MainInteraction__037
+    - WS_RP_IA_MainInteraction__038
+    - WS_RP_IA_MainInteraction__046
+    - WS_RP_IA_Metadata__012
+    - WS_RP_IA_ProtocolFlow__002
+    - WS_RP_IA_ProtocolFlow__002d
+    - WS_RP_IA_Supportive__006
+    - WS_RP_MS_CredentialFormats__046
+    - WS_RP_MS_CredentialFormats__048
+    - WS_RP_MS_Metadata__114
+    - WS_RP_MS_Metadata__115
+    - WS_RP_MS_Metadata__125
+    - WS_RP_MS_Metadata__127
+    - WS_RP_MS_Metadata__128
+    - WS_RP_MS_Metadata__134
+    - WS_RP_MS_Metadata__138
+    - WS_RP_MS_ProtocolMessages__011
+    - WS_RP_MS_ProtocolMessages__018
+    - WS_RP_MS_ProtocolMessages__042
+    - WS_RP_MS_ProtocolMessages__044
+    - WS_RP_MS_ProtocolMessages__045
+    - WS_RP_MS_ProtocolMessages__047
+    - WS_RP_MS_ProtocolMessages__050
+    - WS_RP_MS_ProtocolMessages__095
+    - WS_RP_SH_Cryptography_CryptographicHash_001
+    - WS_RP_SH_Encoding_TextualEncoding_001
+    - WS_RP_SH_Encoding_TextualEncoding_005
+    - WS_RP_SM_DeviceBinding__002
+    - WS_RP_SM_DeviceBinding__003
+    - WS_RP_SM_DeviceBinding__004
+    - WS_RP_SM_DeviceBinding__005
+    - WS_RP_SM_DeviceBinding__006
+    - WS_RP_SM_RpIntegrity_CryptographicSignature_002
+    - WS_RP_SM_RpIntegrity_CryptographicSignature_003
+    - WS_RP_SM_RpIntegrity_CryptographicSignature_004
+    - WS_RP_SM_RpIntegrity__001
+    - WS_RP_SM_RpIntegrity__010
+    - WS_RP_SM_RpIntegrity__032
+    - WS_RP_SM_RpIntegrity__033
+    - WS_RP_SM_RpIntegrity__034
+    - WS_RP_UC_Presentation__004
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.dcql.baseline:
+        output:
+          session: ${{ fetch-capture-session.outputs.body }}
+          visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+          vp_token: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted.vp_token }}
+          wallet_response: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted }}
+          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
+          request_uri_payload: ${{ fetch-capture-session.outputs.body.observed.request_uri_payload.value }}
+          session_checks: ${{ fetch-capture-session.outputs.body.checks }}
+          signed_request_object: ${{ fetch-signed-request-object.outputs.body }}
+          client_id_evidence:
+            deeplink: ${{ create-capture-session.outputs.body.deeplink }}
+            request_object: ${{ fetch-signed-request-object.outputs.body }}
+          wallet_nonce_evidence:
+            request_object: ${{ fetch-signed-request-object.outputs.body }}
+            request_uri_payload: ${{ fetch-capture-session.outputs.body.observed.request_uri_payload.value }}
+          request_uri_response: ${{ probe-request-uri-response.outputs }}
+          probe_request_object: ${{ probe-request-uri-response.outputs.body }}

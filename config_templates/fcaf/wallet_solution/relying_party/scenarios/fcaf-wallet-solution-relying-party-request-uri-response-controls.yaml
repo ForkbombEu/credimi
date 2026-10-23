@@ -86,9 +86,7 @@ steps:
         output:
           wrong_content_type_session: ${{ fetch-wrong-content-type.outputs.body }}
           wrong_content_type_response: ${{ fetch-wrong-content-type.outputs.body.raw.request_uri_response_http }}
-          wrong_content_type_behavior: ${{ fetch-wrong-content-type.outputs.body.request_behavior.request_uri_response }}
           wrong_content_type_visual_evidence: ${{ reject-wrong-content-type.outputs.flow_output.maestro_screenshot_urls }}
           http_error_session: ${{ fetch-http-error.outputs.body }}
           http_error_response: ${{ fetch-http-error.outputs.body.raw.request_uri_response_http }}
-          http_error_behavior: ${{ fetch-http-error.outputs.body.request_behavior.request_uri_response }}
           http_error_visual_evidence: ${{ reject-http-error.outputs.flow_output.maestro_screenshot_urls }}

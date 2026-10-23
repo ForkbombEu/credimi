@@ -72,9 +72,12 @@ steps:
             signed_request_object: ${{ get-presentation-result.outputs.body.raw.authorization_request_jwt }}
             session_checks: ${{ get-presentation-result.outputs.body.checks }}
             presentation_request: ${{ create-presentation.outputs.body }}
-            request_object: ${{ create-presentation.outputs.body.request }}
-            request_uri_payload: ${{ get-presentation-result.outputs.body.request_uri_payload }}
-            wallet_response: ${{ get-presentation-result.outputs.body }}
+            request_object: ${{ get-presentation-result.outputs.body.raw.authorization_request_jwt }}
+            request_uri_payload: ${{ get-presentation-result.outputs.body.observed.request_uri_payload.value }}
+            state_echo:
+              request_object: ${{ get-presentation-result.outputs.body.raw.authorization_request_jwt }}
+              response: ${{ get-presentation-result.outputs.body.raw.presentation_response_decrypted }}
+            wallet_response: ${{ get-presentation-result.outputs.body.raw.presentation_response_decrypted }}
             visual_evidence: ${{ submit-request-uri-method-post.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}
             submit-request-uri-method-post: ${{ submit-request-uri-method-post.outputs }}

@@ -49,9 +49,8 @@ assertions:
   input: evidence.second_request_object
   params: {field: alg, value: ECDH-ES}
 - id: wallet_rejects_or_discontinues_the_reused_key_request
-  validator: dcql.response_satisfies_constraints
+  validator: oid4vp.no_presentation_returned
   input: evidence.second_capture_session
-  params: {mode: request_rejected}
 - id: wallet_processing_has_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

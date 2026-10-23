@@ -24,7 +24,7 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: access_denied_required
 - id: ws_rp_ms_protocolmessages__147_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

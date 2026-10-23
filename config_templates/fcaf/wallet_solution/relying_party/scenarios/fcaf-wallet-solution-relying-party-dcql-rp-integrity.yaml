@@ -11,45 +11,6 @@ runtime:
       retry_policy:
         maximum_attempts: 1
 steps:
-- id: create-capture-session
-  use: http-request
-  with:
-    method: POST
-    url: ${fixture.verifier_url}/openid4vp/sessions
-    expected_status: 201
-    headers:
-      Content-Type: application/json
-    body:
-      scheme: haip-vp://
-      request_uri_method: post
-      request_delivery: by_reference
-      response_type: vp_token
-      response_mode: direct_post.jwt
-      presentation_request:
-        nonce: rp-integrity
-        dcql_query:
-          credentials:
-          - id: pid
-            format: dc+sd-jwt
-            meta:
-              vct_values:
-              - urn:eudi:pid:1
-            claims:
-            - path:
-              - given_name
-- id: exercise-wallet
-  use: mobile-automation
-  with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-    version_id: installed_from_external_source
-    parameters:
-      deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-- id: fetch-capture-session
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
-    expected_status: 200
 - id: create-did-session
   use: http-request
   with:
@@ -100,29 +61,12 @@ steps:
   use: fcaf-validation
   with:
     test_ids:
-      - WS_RP_SM_RpIntegrity_CryptographicSignature_002
-      - WS_RP_SM_RpIntegrity_CryptographicSignature_003
-      - WS_RP_SM_RpIntegrity_CryptographicSignature_004
-      - WS_RP_SM_RpIntegrity__001
-      - WS_RP_SM_RpIntegrity__008
-      - WS_RP_SM_RpIntegrity__009
-      - WS_RP_SM_RpIntegrity__010
-      - WS_RP_SM_RpIntegrity__011
-      - WS_RP_SM_RpIntegrity__012
       - WS_RP_SM_RpIntegrity__024
-      - WS_RP_SM_RpIntegrity__025
       - WS_RP_SM_RpIntegrity__027
-      - WS_RP_SM_RpIntegrity__032
-      - WS_RP_SM_RpIntegrity__033
-      - WS_RP_SM_RpIntegrity__034
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.rp-integrity:
         output:
-          session: ${{ fetch-capture-session.outputs.body }}
-          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
-          wallet_response: ${{ fetch-capture-session.outputs.body.raw.presentation_response_decrypted }}
-          visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
           did_session: ${{ fetch-did-session.outputs.body }}
           did_request_evidence:
             request_object: ${{ fetch-did-session.outputs.body.raw.authorization_request_jwt }}

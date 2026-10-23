@@ -17,6 +17,11 @@ steps:
       Content-Type: application/json
     body:
       response_mode: direct_post.jwt
+      client_metadata:
+        vp_formats:
+          jwt_vp_json:
+            alg:
+            - ES256
       presentation_request:
         nonce: fcaf-145
         dcql_query:
@@ -29,11 +34,6 @@ steps:
             claims:
             - path:
               - given_name
-        client_metadata:
-          vp_formats:
-            jwt_vp_json:
-              alg:
-              - ES256
 - id: exercise-wallet
   use: mobile-automation
   with:
@@ -57,4 +57,5 @@ steps:
       pipeline.dcql.protocol-messages-145:
         output:
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

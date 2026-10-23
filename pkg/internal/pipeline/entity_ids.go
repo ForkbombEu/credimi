@@ -49,6 +49,14 @@ func ParseEntityIDs(yamlStr string) (workflowengine.EntityIDs, error) {
 				actionsSet[canonify.NormalizePath(s)] = struct{}{}
 			}
 		}
+		if rawActions, ok := step.With.Payload["actions"].([]any); ok {
+			for _, rawAction := range rawActions {
+				action, _ := rawAction.(map[string]any)
+				if s, ok := action["id"].(string); ok && s != "" {
+					actionsSet[canonify.NormalizePath(s)] = struct{}{}
+				}
+			}
+		}
 
 		// Versions
 		if rawVersionID, ok := step.With.Payload["version_id"]; ok {

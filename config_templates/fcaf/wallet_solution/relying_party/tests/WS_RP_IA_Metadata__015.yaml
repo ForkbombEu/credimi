@@ -18,6 +18,8 @@ evidence:
     from: pipeline.wallet.metadata.did.outputs.request_evidence
   request_object:
     from: pipeline.wallet.metadata.did.outputs.request_object
+  capture_session:
+    from: pipeline.wallet.metadata.did.outputs.capture_session
   visual_evidence:
     from: pipeline.wallet.metadata.did.outputs.visual_evidence
 assertions:
@@ -27,6 +29,18 @@ assertions:
   - id: verifier_metadata_is_exclusive_to_client_metadata
     validator: oid4vp.verifier_metadata_exclusive
     input: evidence.request_object
+  # Expected result 5: "Wallet uses client_metadata for all non-key Verifier
+  # metadata; presentation flow proceeds." The two assertions above describe
+  # the Verifier's own construction, so the Wallet's side is the Authorization
+  # Response it posted for the mso_mdoc query of that DID-signed request
+  # (WS_RP_SM_RpIntegrity__006, which shares this session, reports the same
+  # event count). A screenshot of the terminal screen cannot stand in for it:
+  # the reference Wallet showed its error screen on this session.
+  - id: wallet_completes_the_presentation
+    validator: dcql.response_satisfies_constraints
+    input: evidence.capture_session
+    params:
+      mode: credentials_match
   - id: wallet_processes_did_request
     validator: evidence.non_empty
     input: evidence.visual_evidence

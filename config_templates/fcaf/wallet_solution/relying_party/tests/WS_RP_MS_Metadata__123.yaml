@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__123
-title: FCAF WS_RP_MS_Metadata__123
+title: Ignore non-key Verifier metadata outside client_metadata under verifier_attestation.
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__123.md
 suite:
@@ -11,21 +11,46 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.metadata
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.metadata.outputs.dcql_exchange
+  session:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.metadata_outside_client_metadata_session
+  request_object:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.metadata_outside_client_metadata_request_object
+  request_evidence:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.metadata_outside_client_metadata_request_evidence
   visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
+    from: pipeline.rp-integrity.verifier-attestation.outputs.metadata_outside_client_metadata_visual_evidence
 assertions:
-- id: ws_rp_ms_metadata__123_dcql_metadata_valid
+- id: delivered_attestation_is_otherwise_valid
+  validator: oid4vp.verifier_attestation_request
+  input: evidence.request_evidence
+  params:
+    jwt_header: present
+    subject: client_id
+    issuer: https://capture-wallet.credimi.io/openid4vp/verifier-attestation-issuer
+    request_signature: valid
+    attestation_signature: valid
+    redirect_uris: absent
+- id: delivered_request_carries_client_name_outside_client_metadata
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params:
+    field: client_name
+    value: Credimi FCAF verifier outside client_metadata
+- id: delivered_request_carries_client_metadata
+  validator: jwt.payload_field_presence
+  input: evidence.request_object
+  params:
+    field: client_metadata
+    present: true
+- id: wallet_presents_using_client_metadata
   validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+  input: evidence.session
   params:
     mode: credentials_match
-- id: ws_rp_ms_metadata__123_visual_evidence_stored
+- id: presentation_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

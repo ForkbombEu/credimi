@@ -7,6 +7,8 @@ import { FCAF_CATEGORY_ORDER, parseFCAFTestId, type FCAFCategory } from './categ
 export type TestResult = {
 	test_id?: string;
 	title?: string;
+	/** FCAF source test link, set by the backend from the source heading */
+	source_url?: string;
 	status?: string;
 	assertions?: Array<{
 		id?: string;
@@ -160,15 +162,6 @@ export function screenshotsForTest(
 	return screenshots
 		.filter(({ test_ids }) => test_ids?.includes(testId) ?? false)
 		.map(({ url, label }) => ({ url, label }));
-}
-
-export function sourceUrl(testId: string | undefined): string | undefined {
-	if (!testId) return undefined;
-	const anchor = testId
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '_')
-		.replace(/^_+|_+$/g, '');
-	return `https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/test_cases/#${anchor}`;
 }
 
 export function groupExecutedTests(tests: TestResult[]): CategoryGroup[] {

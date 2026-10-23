@@ -14,9 +14,32 @@ normative_references:
     section: "5.2, 8.2, 8.3"
     url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
 evidence:
+  authorization_request:
+    from: pipeline.wallet.metadata.direct-post-jwt.outputs.authorization_request
+  capture_session:
+    from: pipeline.wallet.metadata.direct-post-jwt.outputs.capture_session
   wallet_response:
     from: pipeline.wallet.metadata.direct-post-jwt.outputs.wallet_response
 assertions:
+  - id: response_mode_is_direct_post_jwt
+    validator: json.field_equals
+    input: evidence.authorization_request
+    params:
+      field: response_mode
+      value: direct_post.jwt
+  - id: response_uri_is_https
+    validator: json.field_string_prefix
+    input: evidence.authorization_request
+    params:
+      field: response_uri
+      prefix: https://
+  - id: authorization_response_posted_to_response_uri
+    validator: oid4vp.presentation_response_http
+    input: evidence.capture_session
+    params:
+      method: POST
+      media_type: application/x-www-form-urlencoded
+      require_response_parameter: true
   - id: vp_token_posted
     validator: json.field_required
     input: evidence.wallet_response

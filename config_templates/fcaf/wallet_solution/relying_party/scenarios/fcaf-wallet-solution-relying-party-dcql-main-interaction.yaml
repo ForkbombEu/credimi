@@ -11,45 +11,6 @@ runtime:
             schedule_to_close_timeout: 50m
             start_to_close_timeout: 50m
 steps:
-    - id: create-capture-session
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - given_name
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                nonce: main-interaction
-            request_delivery: by_reference
-            request_uri_method: post
-            response_mode: direct_post.jwt
-            response_type: vp_token
-            scheme: haip-vp://
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - id: exercise-wallet
-      use: mobile-automation
-      with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-        parameters:
-            deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - id: fetch-capture-session
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
     - id: main-interaction-019-create-presentation
       use: http-request
       with:
@@ -575,40 +536,47 @@ steps:
         action_code: |
             appId: eu.europa.ec.euidi
             ---
-            - launchApp:
-                stopApp: true
-                clearState: false
-                permissions:
-                  camera: allow
-                  notifications: allow
-            - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+            # Same unlock and share sequence as fcaf-submit-request-object-by-value,
+            # plus the check that both requested credentials are listed.
+            - stopApp
+            - openLink:
+                link: "${DEEPLINK}"
+                autoVerify: false
+                browser: false
+            - waitForAnimationToEnd:
+                timeout: 5000
+            - extendedWaitUntil:
+                visible: "Welcome back|Share|Cancel|Close"
+                timeout: 100000
+            - waitForAnimationToEnd:
+                timeout: 3000
             - runFlow:
-                when: { visible: "Welcome back" }
+                when:
+                  visible: "Welcome back"
                 commands:
-                  - tapOn: { point: "11%,40%" }
-                  - inputText: "123456"
-                  - hideKeyboard
-                  - tapOn: { point: "50%,10%" }
-            - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
-            - runFlow:
-                when: { visible: "EUDI Wallet" }
-                commands:
-                  - tapOn: { text: "EUDI Wallet", optional: true }
-            - runFlow:
-                when: { visible: "Just once" }
-                commands:
-                  - tapOn: { text: "Just once", optional: true }
-            - extendedWaitUntil: { visible: "Data sharing request", timeout: 100000 }
+                  - extendedWaitUntil:
+                      visible: "1"
+                      timeout: 30000
+                  - inputText: "12345"
+                  - tapOn: "6"
+            - extendedWaitUntil:
+                visible: "Data sharing request"
+                timeout: 100000
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
             - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
             - takeScreenshot: fcaf-main-interaction-039-two-credentials
-            - tapOn: "Share"
-            - extendedWaitUntil: { visible: "PIN", timeout: 30000 }
-            - tapOn: { point: "11%,39%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-            - extendedWaitUntil: { visible: ".*successfully shared.*", timeout: 30000 }
+            - tapOn:
+                text: "Share"
+                enabled: true
+            - extendedWaitUntil:
+                visible: "1"
+                timeout: 30000
+            - inputText: "12345"
+            - tapOn: "6"
+            - extendedWaitUntil:
+                visible: ".*successfully shared.*"
+                timeout: 30000
+            - takeScreenshot: fcaf-main-interaction-039-shared
             - tapOn: "Close"
         parameters:
             DEEPLINK: ${{ main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
@@ -654,10 +622,6 @@ steps:
                 output:
                     dcql_exchange: ${{ main-interaction-030-fetch-result.outputs.body }}
                     visual_evidence: ${{ main-interaction-030-present-available-option.outputs.flow_output.maestro_screenshot_urls }}
-            pipeline.dcql.main-interaction:
-                output:
-                    dcql_exchange: ${{ fetch-capture-session.outputs.body }}
-                    visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
             pipeline.dcql.main-interaction-two-distinct-credentials:
                 output:
                     dcql_exchange: ${{ main-interaction-039-fetch-two-credentials-result.outputs.body }}
@@ -680,18 +644,14 @@ steps:
                     visual_evidence: ${{ main-interaction-027-exercise-no-match.outputs.flow_output.maestro_screenshot_urls }}
         suite: wallet_solution/relying_party
         test_ids:
-            - WS_RP_IA_MainInteraction__006
-            - WS_RP_IA_MainInteraction__010
             - WS_RP_IA_MainInteraction__015
             - WS_RP_IA_MainInteraction__016
             - WS_RP_IA_MainInteraction__017
-            - WS_RP_IA_MainInteraction__018
             - WS_RP_IA_MainInteraction__019
             - WS_RP_IA_MainInteraction__020
             - WS_RP_IA_MainInteraction__021
             - WS_RP_IA_MainInteraction__022
             - WS_RP_IA_MainInteraction__023
-            - WS_RP_IA_MainInteraction__024
             - WS_RP_IA_MainInteraction__025
             - WS_RP_IA_MainInteraction__026
             - WS_RP_IA_MainInteraction__027
@@ -700,13 +660,7 @@ steps:
             - WS_RP_IA_MainInteraction__030
             - WS_RP_IA_MainInteraction__031
             - WS_RP_IA_MainInteraction__034
-            - WS_RP_IA_MainInteraction__035
-            - WS_RP_IA_MainInteraction__036
-            - WS_RP_IA_MainInteraction__037
-            - WS_RP_IA_MainInteraction__038
             - WS_RP_IA_MainInteraction__039
             - WS_RP_IA_MainInteraction__042
             - WS_RP_IA_MainInteraction__043
-            - WS_RP_IA_MainInteraction__046
-            - WS_RP_IA_MainInteraction__060
             - WS_RP_IA_MainInteraction__065

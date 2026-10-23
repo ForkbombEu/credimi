@@ -249,14 +249,3 @@ func TestMSOStatusListStructure(t *testing.T) {
 		})
 	}
 }
-
-func TestCOSECWTStatusClaimBlocksOnMobileSecurityObject(t *testing.T) {
-	validator := COSECWTStatusClaimValidator{}
-	mdoc := validator.Validate(context.Background(), Input{
-		Value: msoStatusPresentation(t, tokenStatusList()),
-	})
-	require.Equal(t, StatusBlocked, mdoc.Status, mdoc.Message)
-
-	notCOSE := validator.Validate(context.Background(), Input{Value: "not-a-token"})
-	require.Equal(t, StatusFail, notCOSE.Status, notCOSE.Message)
-}

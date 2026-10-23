@@ -13,9 +13,12 @@ steps:
 # dcql_query: null omits the query from the request the Wallet receives, which
 # is how OpenID4VP Section 5.1 sends a scope-based request. The Verifier keeps
 # a query internally, because the Authorization Response is matched against the
-# request object this service signs; that copy is never delivered. `scopes` is
-# joined into the delivered `scope` claim, so the Wallet sees a request whose
-# only statement of what is wanted is a scope value no profile defines.
+# request object this service signs; that copy is never delivered. Both keys
+# must sit inside `presentation_request`: when that object is present, Capture
+# builds the request from it alone and discards the top-level `scopes` and
+# `dcql_query`. `scopes` is joined into the delivered `scope` claim, so the
+# Wallet sees a request whose only statement of what is wanted is a scope value
+# no profile defines.
 - id: create-unknown-scope
   use: http-request
   with:
@@ -28,11 +31,11 @@ steps:
       request_delivery: by_reference
       response_type: vp_token
       response_mode: direct_post.jwt
-      scopes:
-        - urn:credimi:fcaf:unknown-scope
-      dcql_query: null
       presentation_request:
         nonce: protocol-messages-unknown-scope
+        dcql_query: null
+        scopes:
+          - urn:credimi:fcaf:unknown-scope
 - id: reject-unknown-scope
   use: mobile-automation
   with:

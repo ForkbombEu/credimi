@@ -93,6 +93,69 @@ func TestOID4VPDCAPIInvocationValidator(t *testing.T) {
 			wantStatus: StatusFail,
 		},
 		{
+			// A definition that names only the protocol asserts what the verifier
+			// delivered, not what the Wallet did, so it keeps its pass on a
+			// session where no Wallet ran at all.
+			name:       "a request-shape-only definition keeps its pass",
+			value:      dcAPIUnsignedRequest(dcAPICaptureRecord(nil)),
+			params:     map[string]any{"protocol": "openid4vp-v1-unsigned"},
+			wantStatus: StatusPass,
+		},
+		{
+			name: "a request-shape-only definition keeps its pass without a browser API",
+			value: dcAPIUnsignedRequest(
+				dcAPICaptureRecord(dcAPIInvocation(dcAPIOutcomeAPIUnavailable, false)),
+			),
+			params:     map[string]any{"protocol": "openid4vp-v1-unsigned"},
+			wantStatus: StatusPass,
+		},
+		{
+			// The wallet-outcome half: an invocation was required and the
+			// session records none, which the validator reports itself.
+			name:  "a required invocation that was never reported fails",
+			value: dcAPIUnsignedRequest(dcAPICaptureRecord(nil)),
+			params: map[string]any{
+				"allowed_outcomes": []any{"rejected"},
+				"vp_token_present": false,
+			},
+			wantStatus: StatusFail,
+		},
+		{
+			name: "a reported refusal satisfies the wallet-outcome assertion",
+			value: dcAPIUnsignedRequest(
+				dcAPICaptureRecord(dcAPIInvocation(dcAPIOutcomeRejected, false)),
+			),
+			params: map[string]any{
+				"allowed_outcomes": []any{"rejected", "no_vp_token", "failed"},
+				"vp_token_present": false,
+			},
+			wantStatus: StatusPass,
+		},
+		{
+			name: "a browser without an API never invoked a wallet",
+			value: dcAPIUnsignedRequest(
+				dcAPICaptureRecord(dcAPIInvocation(dcAPIOutcomeAPIUnavailable, false)),
+			),
+			params:     map[string]any{"invoked": true},
+			wantStatus: StatusFail,
+		},
+		{
+			// The wallet-outcome path the guard exists for: the validator reads a
+			// vp_token anywhere in the record as proof of invocation, while the
+			// capture record itself reports no invocation and no captured
+			// response, so the pass has no evidence behind it.
+			name: "a wallet-outcome pass with no captured response is blocked",
+			value: func() map[string]any {
+				session := dcAPIUnsignedRequest(dcAPICaptureRecord(nil))
+				session["request_evidence"] = map[string]any{
+					"vp_token": map[string]any{"pid": []any{"ey.e30.sig~"}},
+				}
+				return session
+			}(),
+			params:     map[string]any{"invoked": true},
+			wantStatus: StatusBlocked,
+		},
+		{
 			name:       "a redirect session is not a DC API session",
 			value:      map[string]any{"response_mode": "direct_post"},
 			params:     map[string]any{"invoked": true},
@@ -178,7 +241,7 @@ func TestOID4VPDCAPIInvocationValidator(t *testing.T) {
 
 func TestSDJWTKBJWTClaimStringPrefixValidator(t *testing.T) {
 	presentation := func(audience any) map[string]any {
-		token := testSDJWT(t, testPIDVCT, map[string]any{"given_name": "Mario"})
+		token := testSDJWT(t, map[string]any{"given_name": "Mario"})
 		if audience != nil {
 			token += encodeTestKBJWT(t, map[string]any{"nonce": "n", "aud": audience})
 		}

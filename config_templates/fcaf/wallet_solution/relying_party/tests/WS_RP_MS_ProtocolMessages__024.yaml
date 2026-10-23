@@ -23,7 +23,7 @@ assertions:
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange
     params:
-      mode: transaction_data_error
+      mode: transaction_data_error_required
   - id: transaction_data_rejection_visual_evidence_is_stored
     validator: evidence.non_empty
     input: evidence.visual_evidence

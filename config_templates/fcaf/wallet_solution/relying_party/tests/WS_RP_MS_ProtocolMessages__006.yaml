@@ -26,10 +26,10 @@ assertions:
   validator: oid4vp.request_uri_retrieval
   input: evidence.session
   params: { method: POST }
-- id: wallet_rejects_request
+- id: wallet_returns_invalid_request
   validator: dcql.response_satisfies_constraints
   input: evidence.session
-  params: { mode: request_rejected }
+  params: { mode: invalid_request_required }
 - id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

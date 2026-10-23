@@ -17,11 +17,11 @@ normative_references:
     url: https://openid.net/specs/openid4vp-high-assurance-interoperability-profile-1_0.html
 evidence:
   sdjwt_exchange:
-    from: pipeline.dcql.format-mso-mdoc.outputs.dcql_exchange
+    from: pipeline.dcql.format-mso-mdoc.outputs.sdjwt_dcql_exchange
   mdoc_exchange:
     from: pipeline.dcql.format-mso-mdoc.outputs.dcql_exchange
   sdjwt_visual_evidence:
-    from: pipeline.dcql.format-mso-mdoc.outputs.visual_evidence
+    from: pipeline.dcql.format-mso-mdoc.outputs.sdjwt_visual_evidence
   mdoc_visual_evidence:
     from: pipeline.dcql.format-mso-mdoc.outputs.visual_evidence
 assertions:

@@ -66,6 +66,31 @@ func TestEnrichReportJSONAttachesPresentationToObjectRoot(t *testing.T) {
 	require.Contains(t, string(enriched), `"status": "passed"`)
 }
 
+func TestEnrichReportJSONLinksExecutedTestsToTheirFCAFSourceHeading(t *testing.T) {
+	t.Parallel()
+
+	// The source heading of this test reads CredentialStructure007, so a link
+	// derived from the Credimi test ID would miss the FCAF page anchor.
+	const testID = "WS_RP_DM_CredentialMetadata_CredentialStructure_007"
+	enriched, report, err := EnrichReportJSON(nil, nil, []byte(`{"executed_tests":[`+
+		`{"test_id":"`+testID+`","status":"passed","extra":"kept"},`+
+		`{"test_id":"WS_RP_UNKNOWN__001","status":"failed"}]}`))
+	require.NoError(t, err)
+
+	want := "https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/" +
+		"test-cases/#ws_rp_dm_credentialmetadata_credentialstructure007"
+	require.Equal(t, want, report.ExecutedTests[0].SourceURL)
+	require.Empty(t, report.ExecutedTests[1].SourceURL)
+
+	var stored struct {
+		ExecutedTests []map[string]any `json:"executed_tests"`
+	}
+	require.NoError(t, json.Unmarshal(enriched, &stored))
+	require.Equal(t, want, stored.ExecutedTests[0]["source_url"])
+	require.Equal(t, "kept", stored.ExecutedTests[0]["extra"])
+	require.NotContains(t, stored.ExecutedTests[1], "source_url")
+}
+
 func TestEnrichReportJSONRejectsMistypedReportFields(t *testing.T) {
 	t.Parallel()
 

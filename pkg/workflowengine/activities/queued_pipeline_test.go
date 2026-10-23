@@ -276,7 +276,7 @@ func TestStartQueuedPipelineActivityAlreadyStarted(t *testing.T) {
 	require.Equal(t, "r1", output.RunID)
 }
 
-func TestStartQueuedPipelineActivityPropagatesDisableAndroidPlayStore(t *testing.T) {
+func TestStartQueuedPipelineActivityPropagatesRuntimeMobileFlags(t *testing.T) {
 	act, captured := newCapturingQueuedPipelineActivity(t, "wf-4", "run-4")
 
 	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
@@ -287,12 +287,15 @@ func TestStartQueuedPipelineActivityPropagatesDisableAndroidPlayStore(t *testing
 			YAML: `name: test
 runtime:
   disable_android_play_store: true
+  no_video: true
 steps: []
 `,
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, true, capturedWorkflowConfig(t, captured)["disable_android_play_store"])
+	config := capturedWorkflowConfig(t, captured)
+	require.Equal(t, true, config["disable_android_play_store"])
+	require.Equal(t, true, config["no_video"])
 }
 
 func TestStartQueuedPipelineActivitySkipsReservedYAMLConfig(t *testing.T) {

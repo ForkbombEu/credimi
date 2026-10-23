@@ -11,45 +11,6 @@ runtime:
       retry_policy:
         maximum_attempts: 1
 steps:
-- id: create-capture-session
-  use: http-request
-  with:
-    method: POST
-    url: ${fixture.verifier_url}/openid4vp/sessions
-    expected_status: 201
-    headers:
-      Content-Type: application/json
-    body:
-      scheme: haip-vp://
-      request_uri_method: post
-      request_delivery: by_reference
-      response_type: vp_token
-      response_mode: direct_post.jwt
-      presentation_request:
-        nonce: interaction-metadata
-        dcql_query:
-          credentials:
-          - id: pid
-            format: dc+sd-jwt
-            meta:
-              vct_values:
-              - urn:eudi:pid:1
-            claims:
-            - path:
-              - given_name
-- id: exercise-wallet
-  use: mobile-automation
-  with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-    version_id: installed_from_external_source
-    parameters:
-      deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-- id: fetch-capture-session
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-capture-session.outputs.body.session_id }}
-    expected_status: 200
 - id: create-aud-mismatch-session
   use: http-request
   with:
@@ -99,17 +60,12 @@ steps:
   with:
     test_ids:
       - WS_RP_IA_Metadata__011
-      - WS_RP_IA_Metadata__012
       - WS_RP_IA_Metadata__013
-      - WS_RP_IA_Metadata__014
       - WS_RP_IA_Metadata__017
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.dcql.interaction-metadata:
         output:
-          dcql_exchange: ${{ fetch-capture-session.outputs.body }}
-          visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
-          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
           aud_mismatch_session: ${{ fetch-aud-mismatch-session.outputs.body }}
           aud_mismatch_request_object: ${{ fetch-aud-mismatch-session.outputs.body.raw.authorization_request_jwt }}
           aud_mismatch_visual_evidence: ${{ reject-aud-mismatch.outputs.flow_output.maestro_screenshot_urls }}

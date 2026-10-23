@@ -74,6 +74,13 @@ func (OID4VPWalletMetadataValidator) Validate(_ context.Context, input Input) Re
 // uses to require an encrypted Request Object. Such a Wallet must answer the
 // unencrypted Request Object it received with invalid_request and no
 // presentation. Its input is the captured presentation session.
+//
+// The session must have served a plain Request Object: Capture records the
+// served JWE in raw.authorization_request_jwe and keeps the signed Request
+// Object in raw.authorization_request_jwt even when the delivery was encrypted,
+// so a session whose Wallet requires encryption needs
+// request_behavior.request_object_encryption: none before the JWS proves what
+// the Wallet received.
 type OID4VPUnencryptedRequestObjectRejectedValidator struct{}
 
 func (OID4VPUnencryptedRequestObjectRejectedValidator) ID() string {
@@ -107,6 +114,14 @@ func (OID4VPUnencryptedRequestObjectRejectedValidator) Validate(
 	}
 
 	raw, _ := normalizeJSONObject(session["raw"])
+	if servedJWE, _ := raw["authorization_request_jwe"].(string); servedJWE != "" {
+		return Result{
+			Status: StatusFail,
+			Message: "the served Request Object is an encrypted JWE " +
+				"(raw.authorization_request_jwe is present), so the delivery is not the " +
+				"unencrypted Request Object the source asserts on",
+		}
+	}
 	requestObject, _ := raw["authorization_request_jwt"].(string)
 	if strings.Count(requestObject, ".") != 2 {
 		return Result{

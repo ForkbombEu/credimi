@@ -1,4 +1,4 @@
-name: FCAF issuer-integrity
+name: FCAF engagement EU EAAP
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
@@ -11,6 +11,9 @@ runtime:
       retry_policy:
         maximum_attempts: 1
 steps:
+# The source (WS_RP_IA_Engagement__001b) invokes the Wallet through the
+# `eu-eaap://` custom URL scheme, which is the same by-reference presentation
+# request the HAIP VP engagement scenario builds, delivered under that scheme.
 - id: create-capture-session
   use: http-request
   with:
@@ -20,13 +23,13 @@ steps:
     headers:
       Content-Type: application/json
     body:
-      scheme: haip-vp://
+      scheme: eu-eaap://
       request_uri_method: post
       request_delivery: by_reference
       response_type: vp_token
       response_mode: direct_post.jwt
       presentation_request:
-        nonce: issuer-integrity
+        nonce: engagement-eu-eaap
         dcql_query:
           credentials:
           - id: pid
@@ -37,13 +40,13 @@ steps:
             claims:
             - path:
               - given_name
-- id: exercise-wallet
+- id: invoke-wallet
   use: mobile-automation
   with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-eu-eaap
     version_id: installed_from_external_source
     parameters:
       deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
 - id: fetch-capture-session
   use: http-request
   with:
@@ -53,11 +56,11 @@ steps:
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
-    test_ids:
-      - WS_RP_SM_IssuerIntegrity__012
     suite: wallet_solution/relying_party
+    test_ids:
+    - WS_RP_IA_Engagement__001b
     pipeline_outputs:
-      pipeline.dcql.issuer-integrity:
+      pipeline.wallet.engagement.eu-eaap:
         output:
-          dcql_exchange: ${{ fetch-capture-session.outputs.body }}
-          visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}
+          wallet_engagement: ${{ fetch-capture-session.outputs.body }}
+          visual_evidence: ${{ invoke-wallet.outputs.flow_output.maestro_screenshot_urls }}

@@ -127,9 +127,7 @@ steps:
     test_ids:
       - WS_RP_MS_Metadata__105
       - WS_RP_MS_Metadata__106
-      - WS_RP_MS_Metadata__107
       - WS_RP_MS_Metadata__109
-      - WS_RP_MS_Metadata__135
       - WS_RP_MS_Metadata__136
       - WS_RP_SM_RpIntegrity__021
     suite: wallet_solution/relying_party
@@ -137,7 +135,6 @@ steps:
       pipeline.protocol.metadata-request-controls:
         output:
           default_post_retrieval_session: ${{ fetch-default-post-retrieval.outputs.body }}
-          default_post_retrieval_outer_request: ${{ fetch-default-post-retrieval.outputs.body.raw.outer_request_delivered }}
           default_post_retrieval_request_uri_payload: ${{ fetch-default-post-retrieval.outputs.body.observed.request_uri_payload.value }}
           default_post_retrieval_visual_evidence: ${{ exercise-default-post-retrieval.outputs.flow_output.maestro_screenshot_urls }}
           unrecognised_client_metadata_session: ${{ fetch-unrecognised-client-metadata.outputs.body }}

@@ -1,5 +1,5 @@
 id: WS_RP_MS_Metadata__122
-title: FCAF WS_RP_MS_Metadata__122
+title: Process a verifier_attestation request whose attestation has no redirect_uris claim.
 source:
   path: MessageStructure/Metadata/WS_RP_MS_Metadata__122.md
 suite:
@@ -11,21 +11,34 @@ applicability:
   presentation_flow: redirects
 normative_references:
 - title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
+  section: '5.9.3'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.metadata
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.metadata.outputs.dcql_exchange
+  session:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.default_session
+  request_object:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.default_request_object
+  request_evidence:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.default_request_evidence
   visual_evidence:
-    from: pipeline.dcql.metadata.outputs.visual_evidence
+    from: pipeline.rp-integrity.verifier-attestation.outputs.default_visual_evidence
 assertions:
-- id: ws_rp_ms_metadata__122_dcql_metadata_valid
+- id: delivered_attestation_has_no_redirect_uris
+  validator: oid4vp.verifier_attestation_request
+  input: evidence.request_evidence
+  params:
+    jwt_header: present
+    subject: client_id
+    issuer: https://capture-wallet.credimi.io/openid4vp/verifier-attestation-issuer
+    request_signature: valid
+    attestation_signature: valid
+    redirect_uris: absent
+- id: wallet_presents_without_a_redirect_uri_constraint
   validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+  input: evidence.session
   params:
     mode: credentials_match
-- id: ws_rp_ms_metadata__122_visual_evidence_stored
+- id: presentation_visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

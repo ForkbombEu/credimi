@@ -1,5 +1,5 @@
 id: WS_RP_IA_Supportive__006
-title: FCAF WS_RP_IA_Supportive__006
+title: Return wallet_unavailable when the device is out of resources.
 source:
   path: Interaction/Supportive/WS_RP_IA_Supportive__006.md
 suite:
@@ -13,20 +13,19 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.interaction-supportive
+- ref: pipeline.dcql.baseline
 evidence:
   wallet_response:
-    from: pipeline.dcql.interaction-supportive.outputs.wallet_response
-  visual_evidence:
-    from: pipeline.dcql.interaction-supportive.outputs.visual_evidence
+    from: pipeline.dcql.baseline.outputs.session
 assertions:
-- id: ws_rp_ia_supportive__006_redirect_uri_followed
-  validator: json.field_required
+- id: resource_exhausted_wallet_is_unavailable
+  validator: fcaf.skipped
   input: evidence.wallet_response
   params:
-    field: vp_token
-- id: ws_rp_ia_supportive__006_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      requires a deliberately resource-exhausted wallet device (out of RAM and
+      disk space) so the wallet cannot process the request and answers error
+      wallet_unavailable; the harness has no way to put the device into that
+      state
 verdict:
   pass_when: all_assertions_pass

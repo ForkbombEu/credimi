@@ -4,14 +4,14 @@
 
 import { BaseForm, type InitFormOptions } from '$pipeline-form/steps/types.js';
 
-import type { InlineWalletActionStepData, WalletActionStepData } from './types.js';
+import type { PassThroughWalletActionStepData, WalletActionStepData } from './types.js';
 
 import Component from './inline-wallet-action-step-form.svelte';
-import { isInlineWalletActionStepData } from './types.js';
+import { isPassThroughWalletActionStepData } from './types.js';
 
 /**
- * Pass-through editor for inline action_code steps.
- * Preserves Maestro code on save; a full editor comes later.
+ * Pass-through editor for inline action_code steps and multi-action `actions`
+ * steps. Preserves their actions on save; a full editor comes later.
  */
 export class InlineWalletActionStepForm extends BaseForm<
 	WalletActionStepData,
@@ -19,16 +19,17 @@ export class InlineWalletActionStepForm extends BaseForm<
 > {
 	readonly Component = Component;
 
-	data = $state<InlineWalletActionStepData | undefined>(undefined);
+	data = $state<PassThroughWalletActionStepData | undefined>(undefined);
 
 	constructor(opts?: InitFormOptions<WalletActionStepData>) {
 		super(opts);
-		if (opts?.initial && isInlineWalletActionStepData(opts.initial)) {
+		if (opts?.initial && isPassThroughWalletActionStepData(opts.initial)) {
 			this.data = { ...opts.initial };
 		}
 	}
 
 	canSave() {
+		if (this.data?.kind === 'actions') return this.data.actions.length > 0;
 		return this.data !== undefined && this.data.actionCode.trim().length > 0;
 	}
 

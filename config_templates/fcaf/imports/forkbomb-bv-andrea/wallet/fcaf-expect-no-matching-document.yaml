@@ -6,10 +6,21 @@ tags:
   - no-match
 ---
 # Shared terminal flow for negative cases whose expected outcome is the Wallet
-# telling the End-User it holds no credential satisfying the request. It is
-# separate from fcaf-expect-request-rejected because that flow accepts an error
-# screen or a return to Home, neither of which proves the request reached
-# credential selection and found nothing.
+# telling the End-User it holds no credential satisfying the request.
+#
+# It used to fail its step unless the exact notice
+# `The requested document is not available in your EUDI Wallet` appeared. On a
+# tolerant Wallet that instead shows the consent screen with a matching
+# credential, that failure discarded the proof: nothing was posted, the
+# screenshot was never taken, and the source's "no presentation" assertion
+# passed on a Wallet that had actually found a match. The flow now never fails
+# its step. It waits (bounded and optional, in a 30 s probe followed by a 100 s
+# window) for a decisive screen, so neither a screenshot of an unchanged Home
+# nor a slow Wallet misread as having discontinued the interaction can pass;
+# it shares when the consent screen lists Requested data so the Verifier
+# records a real Authorization Response, and always stores a screenshot of the
+# terminal state. The protocol assertion decides the verdict; the screenshot
+# shows which screen appeared.
 - launchApp:
     stopApp: true
     clearState: false
@@ -37,9 +48,79 @@ tags:
     link: "${deeplink}"
     autoVerify: false
     browser: false
+# A settle wait so every `when`-style lookup below starts from a screen that is
+# no longer being composed.
+- waitForAnimationToEnd:
+    timeout: 3000
+# Phase 1: bounded, optional wait for a decisive Wallet screen. A second
+# `Welcome back` lock screen counts as a reaction to the link even though it says
+# nothing yet about the request's outcome.
 - extendedWaitUntil:
-    visible: "The requested document is not available in your EUDI Wallet.*"
+    visible: "Welcome back|The requested document is not available.*|Requested data|invalid request|Oups! Something went wrong|Presentation blocked"
     timeout: 30000
-- assertNotVisible:
-    id: eu.europa.ec.euidi:id/request_screen_requested_document_0
-- takeScreenshot: expect-no-matching-document
+    optional: true
+# A second lock screen after openLink is unlocked with the shared unlock
+# sequence before the request screen is awaited again.
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
+      - waitForAnimationToEnd:
+          timeout: 3000
+# Phase 2: the decisive screens only, optional and long, so a slow Wallet gets
+# the whole window to render its reaction before Home/Documents counts as a
+# discontinuation. While this wait accepted Home/Documents it returned the
+# instant phase 1 timed out, so a Wallet that needed longer than phase 1's
+# window was recorded as having discontinued.
+- extendedWaitUntil:
+    visible: "The requested document is not available.*|Requested data|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 100000
+    optional: true
+# Phase 3: only now accept the discontinuation outcomes. It is optional too, so
+# a Wallet parked on a screen this flow does not know still reaches the
+# screenshot instead of failing the step and with it the evidence.
+- extendedWaitUntil:
+    visible: "The requested document is not available.*|Requested data|invalid request|Oups! Something went wrong|Presentation blocked|Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+    optional: true
+# The decisive screen the sources that require the notice ask for ("the Wallet
+# informs the user it has no matching credential available"): a screenshot taken
+# only while that notice is on screen. It is separate from the terminal
+# screenshot below, which is taken whatever the Wallet showed so a Wallet that
+# never displayed the notice is still recorded.
+#
+# The name must survive PocketBase's 100-character cap on the snake-cased
+# `<stepID>-<screenshot name>` stem (tools/filesystem/file.go truncates
+# cleanName to 100 before appending the random part). The longest step id that
+# uses this action is 78 characters, so a name must stay within 21 characters;
+# `no-match-notice` (15) and the terminal `no-match-document` (17) both fit.
+- runFlow:
+    when:
+      visible: "The requested document is not available.*"
+    commands:
+      - takeScreenshot: no-match-notice
+# Phase 4: a tolerant Wallet that lists Requested data has found a matching
+# credential; share it so the Verifier records the presentation the source test
+# must refute. The terminal wait is optional because this flow must reach its
+# screenshot even when the Wallet stops on an unexpected screen.
+- runFlow:
+    when:
+      visible: "Requested data"
+    commands:
+      - tapOn: "Share"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - inputText: "12345"
+      - tapOn: "6"
+      - extendedWaitUntil:
+          visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
+          timeout: 30000
+          optional: true
+# The terminal screenshot is stored whatever screen the Wallet showed; its name
+# (17 characters) fits the budget stated above.
+- takeScreenshot: no-match-document

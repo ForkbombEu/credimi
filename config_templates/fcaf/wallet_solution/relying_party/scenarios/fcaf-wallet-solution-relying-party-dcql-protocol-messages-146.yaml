@@ -17,6 +17,8 @@ steps:
       Content-Type: application/json
     body:
       response_mode: direct_post.jwt
+      client_metadata:
+        authorization_encrypted_response_alg: RSA-OAEP
       presentation_request:
         nonce: fcaf-146
         dcql_query:
@@ -29,8 +31,6 @@ steps:
             claims:
             - path:
               - given_name
-        client_metadata:
-          authorization_encrypted_response_alg: RSA-OAEP
 - id: exercise-wallet
   use: mobile-automation
   with:
@@ -54,4 +54,5 @@ steps:
       pipeline.dcql.protocol-messages-146:
         output:
           dcql_exchange: ${{ fetch-capture-session.outputs.body }}
+          request_object: ${{ fetch-capture-session.outputs.body.raw.authorization_request_jwt }}
           visual_evidence: ${{ exercise-wallet.outputs.flow_output.maestro_screenshot_urls }}

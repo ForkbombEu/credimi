@@ -1,5 +1,5 @@
 id: WS_RP_SM_IssuerIntegrity__012
-title: FCAF WS_RP_SM_IssuerIntegrity__012
+title: Refuse to present a revoked mdoc without revealing the reason.
 source:
   path: SecurityMechanisms/IssuerIntegrity/WS_RP_SM_IssuerIntegrity__012.md
 suite:
@@ -9,19 +9,55 @@ suite:
 applicability:
   profile: EUDI_generic
   presentation_flow: redirects
+  credential_format: iso_mdoc
 normative_references:
-- title: OpenID for Verifiable Presentations 1.0
-  section: '6.1'
-  url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.issuer-integrity
+- title: OpenID4VC High Assurance Interoperability Profile
+  section: '5.3.1'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: Token Status List
+  section: '13.7'
+  url: https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-13.html
 evidence:
-  dcql_exchange:
-    from: pipeline.dcql.issuer-integrity.outputs.dcql_exchange
+  issuance_session:
+    from: pipeline.issuer-integrity.revoked-mdoc.outputs.issuance_session
+  stored_issuance:
+    from: pipeline.issuer-integrity.revoked-mdoc.outputs.stored_issuance
+  revocation_timing:
+    from: pipeline.issuer-integrity.revoked-mdoc.outputs.revocation_timing
+  presentation_session:
+    from: pipeline.issuer-integrity.revoked-mdoc.outputs.presentation_session
   visual_evidence:
-    from: pipeline.dcql.issuer-integrity.outputs.visual_evidence
+    from: pipeline.issuer-integrity.revoked-mdoc.outputs.visual_evidence
 assertions:
-- id: ws_rp_sm_issuerintegrity__012_dcql_valid
-  validator: dcql.response_satisfies_constraints
-  input: evidence.dcql_exchange
+- id: issuer_offered_an_mdoc_pid_with_a_status_list_reference
+  validator: json.field_equals
+  input: evidence.issuance_session
+  params: { field: credential_configuration_id, value: "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required" }
+# Precondition: the Wallet holds the mdoc. Requesting it would spend it, so the
+# proof is the issuer session at credential_issued plus the credential-added
+# screenshot of the issuance flow.
+- id: wallet_stored_the_mdoc_before_revocation
+  validator: oid4vci.fixtures_stored
+  input: evidence.stored_issuance
+  params:
+    fixtures: [pid_person_b]
+    stored_screenshot: credential-added
+# Precondition: the mdoc's status is revoked, and the request reached the Wallet
+# after any Status List Token fetched before the revocation had expired
+# (exp = iat + 120 s on the deployed service, plus 60 s clock skew).
+- id: status_was_revoked_before_the_request
+  validator: oid4vci.revocation_precedes_request
+  input: evidence.revocation_timing
+  params: { min_delay_seconds: 180 }
+# Expected result 3: an error to the Verifier, no presentation, and no stated
+# reason. A discontinuation is not an error and fails.
+- id: wallet_returns_an_error_without_revealing_the_revocation
+  validator: oid4vp.wallet_error_conceals_reason
+  input: evidence.presentation_session
+  params:
+    terms: [revoked, revocation, revoke, status list, status_list, suspended]
+- id: visual_evidence_is_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

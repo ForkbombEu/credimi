@@ -288,6 +288,7 @@ func presentationSummaryFilters(report Report) []PresentationFilter {
 		{Key: "failed", Label: "Failed"},
 		{Key: "blocked", Label: "Blocked"},
 		{Key: "skipped", Label: "Skipped"},
+		{Key: "not_applicable", Label: "Not applicable"},
 		{Key: "inconclusive", Label: "Inconclusive"},
 	}
 	filters := make([]PresentationFilter, 0, len(candidates))

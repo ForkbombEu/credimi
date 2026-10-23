@@ -44,6 +44,20 @@ func TestSDJWTPresentationDigestAlgorithmValidator(t *testing.T) {
 			want:    StatusPass,
 		},
 		{
+			name: "wallet never retrieved the request",
+			session: neverRetrievedSession(
+				map[string]any{"status": "created", "checks": map[string]any{}},
+			),
+			want: StatusBlocked,
+		},
+		{
+			name: "wallet retrieved the request and returned nothing",
+			session: retrievedSessionWithoutResponse(
+				map[string]any{"status": "request_retrieved"},
+			),
+			want: StatusPass,
+		},
+		{
 			name:    "wallet presented a sha-256 credential instead",
 			session: digestSession("presentation_validated", "sha-256"),
 			want:    StatusPass,

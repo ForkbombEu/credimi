@@ -90,13 +90,29 @@ func TestOID4VPUnsupportedResponseTypeValidator(t *testing.T) {
 			wantStatus: StatusPass,
 		},
 		{
+			name: "wallet never retrieved the request",
+			value: neverRetrievedSession(map[string]any{
+				"presentation_request": map[string]any{"response_type": "code"},
+			}),
+			expected:   "code",
+			wantStatus: StatusBlocked,
+		},
+		{
+			name: "wallet retrieved the request and discontinued the interaction",
+			value: retrievedSessionWithoutResponse(map[string]any{
+				"presentation_request": map[string]any{"response_type": "code"},
+			}),
+			expected:   "code",
+			wantStatus: StatusPass,
+		},
+		{
 			name: "wrong response type",
 			value: map[string]any{
 				"presentation_request": map[string]any{"response_type": "vp_token"},
 				"observed":             map[string]any{},
 			},
 			expected:   "code",
-			wantStatus: StatusFail,
+			wantStatus: StatusError,
 		},
 		{
 			name: "missing response type",
@@ -105,7 +121,7 @@ func TestOID4VPUnsupportedResponseTypeValidator(t *testing.T) {
 				"observed":             map[string]any{},
 			},
 			expected:   "code",
-			wantStatus: StatusFail,
+			wantStatus: StatusError,
 		},
 		{
 			name: "credential returned for unsupported response type",

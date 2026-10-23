@@ -13,7 +13,8 @@ import (
 )
 
 // OID4VPRequestURIRetrievalValidator verifies the captured request_uri
-// retrieval method, HTTPS endpoint, and optional request headers and form body.
+// retrieval method, HTTPS endpoint, and optional request headers, form body,
+// and request target.
 // Capture Wallet attaches this record only after its session-specific /request
 // endpoint has handled the request.
 type OID4VPRequestURIRetrievalValidator struct{}
@@ -30,6 +31,10 @@ func (OID4VPRequestURIRetrievalValidator) Validate(_ context.Context, input Inpu
 		MediaType string `json:"media_type"`
 		Accept    string `json:"accept"`
 		FormUTF8  bool   `json:"form_utf8"`
+		// RequirePathTarget asserts the Wallet requested exactly the path of
+		// the delivered request_uri, without a query or fragment (FCAF
+		// WS_RP_IA_ProtocolFlow__002b/002d ER3.3).
+		RequirePathTarget bool `json:"require_path_target"`
 	}](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
@@ -88,6 +93,11 @@ func (OID4VPRequestURIRetrievalValidator) Validate(_ context.Context, input Inpu
 			),
 		}
 	}
+	if params.RequirePathTarget {
+		if result := requirePathTarget(retrieval, parsedURI); result != nil {
+			return *result
+		}
+	}
 	if params.MediaType != "" {
 		mediaType, err := responseMediaType(headers)
 		if err != nil {
@@ -118,29 +128,73 @@ func (OID4VPRequestURIRetrievalValidator) Validate(_ context.Context, input Inpu
 		}
 	}
 	if params.FormUTF8 {
-		form, err := responseForm(retrieval)
-		if err != nil {
-			return Result{Status: StatusFail, Message: err.Error()}
-		}
-		for key, values := range form {
-			if !utf8.ValidString(key) {
-				return Result{
-					Status:  StatusFail,
-					Message: "request_uri form contains an invalid UTF-8 key",
-				}
-			}
-			for _, value := range values {
-				if !utf8.ValidString(value) {
-					return Result{
-						Status:  StatusFail,
-						Message: "request_uri form contains an invalid UTF-8 value",
-					}
-				}
-			}
+		if result := requireUTF8Form(retrieval); result != nil {
+			return *result
 		}
 	}
 
 	return Result{Status: StatusPass, Message: "request_uri retrieval HTTP evidence matches"}
+}
+
+// requireUTF8Form requires every key and value of the captured form body to be
+// valid UTF-8.
+func requireUTF8Form(retrieval map[string]any) *Result {
+	form, err := responseForm(retrieval)
+	if err != nil {
+		return &Result{Status: StatusFail, Message: err.Error()}
+	}
+	for key, values := range form {
+		if !utf8.ValidString(key) {
+			return &Result{
+				Status:  StatusFail,
+				Message: "request_uri form contains an invalid UTF-8 key",
+			}
+		}
+		for _, value := range values {
+			if !utf8.ValidString(value) {
+				return &Result{
+					Status:  StatusFail,
+					Message: "request_uri form contains an invalid UTF-8 value",
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// requirePathTarget compares the request target Capture recorded with the path
+// of the delivered request_uri. Capture records the target as received behind
+// its reverse proxy, path plus query, so any query the Wallet appended shows
+// up here; a fragment never reaches the server, so a "#" can only be a
+// literal character the Wallet sent.
+func requirePathTarget(retrieval map[string]any, requestURI *url.URL) *Result {
+	target, ok := retrieval["target"].(string)
+	if !ok || target == "" {
+		return &Result{
+			Status:  StatusFail,
+			Message: "request_uri retrieval target is not recorded",
+		}
+	}
+	if strings.ContainsAny(target, "?#") {
+		return &Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"request_uri retrieval target %q carries a query or fragment part",
+				target,
+			),
+		}
+	}
+	if path := requestURI.EscapedPath(); target != path {
+		return &Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"request_uri retrieval target is %q, expected the request_uri path %q",
+				target,
+				path,
+			),
+		}
+	}
+	return nil
 }
 
 // OID4VPRequestURINotRetrievedValidator verifies that the Wallet did not

@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { type Pipeline, type PipelineFinally, type PipelineStep } from '$lib/pipeline/types';
+import { serializeYaml } from '$lib/pipeline/utils';
 import * as _ from 'lodash';
-import { stringify } from 'yaml';
 
 import type { EnrichedFollowUp } from '../get-enriched-pipeline.js';
 import type { RuntimeOptions } from '../runtime-options-form/runtime-options-form.svelte.js';
@@ -53,7 +53,7 @@ export function createPipelineYaml(
 		pipeline.finally = finallyDefinition;
 	}
 
-	return formatPipelineYamlDocument(stringify(pipeline));
+	return formatPipelineYamlDocument(serializeYaml(pipeline));
 }
 
 function createFinallyDefinition(

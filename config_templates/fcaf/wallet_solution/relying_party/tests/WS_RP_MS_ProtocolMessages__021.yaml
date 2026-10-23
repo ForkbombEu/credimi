@@ -23,7 +23,7 @@ assertions:
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange
     params:
-      mode: invalid_request_generic
+      mode: invalid_request_required
   - id: conflict_rejection_visual_evidence_is_stored
     validator: evidence.non_empty
     input: evidence.visual_evidence

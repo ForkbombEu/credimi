@@ -141,14 +141,38 @@ func TestSDJWTKBJWTPresentRejectsTrailingPayloadBytes(t *testing.T) {
 	require.Contains(t, result.Message, "trailing bytes")
 }
 
-func TestSDJWTKBJWTAlgorithmEqualsValidator(t *testing.T) {
+func TestSDJWTKBJWTAlgorithmAllowedValidator(t *testing.T) {
+	ecdsaAlgorithms := []string{"ES256", "ES384", "ES512"}
 	tests := []struct {
 		name       string
 		algorithm  string
+		allowed    []string
 		wantStatus Status
 	}{
-		{name: "accepts beta Capture Wallet ES256", algorithm: "ES256", wantStatus: StatusPass},
-		{name: "rejects another algorithm", algorithm: "ES384", wantStatus: StatusFail},
+		{
+			name:       "accepts beta Capture Wallet ES256",
+			algorithm:  "ES256",
+			allowed:    []string{"ES256"},
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "accepts a second algorithm of the list",
+			algorithm:  "ES384",
+			allowed:    ecdsaAlgorithms,
+			wantStatus: StatusPass,
+		},
+		{
+			name:       "rejects an algorithm outside the list",
+			algorithm:  "ES384",
+			allowed:    []string{"ES256"},
+			wantStatus: StatusFail,
+		},
+		{
+			name:       "rejects the empty list selection",
+			algorithm:  "ES256",
+			allowed:    []string{"ES384", "RS256"},
+			wantStatus: StatusFail,
+		},
 	}
 
 	for _, tt := range tests {
@@ -165,11 +189,14 @@ func TestSDJWTKBJWTAlgorithmEqualsValidator(t *testing.T) {
 				},
 			)
 
-			result := SDJWTKBJWTAlgorithmEqualsValidator{}.Validate(
+			result := SDJWTKBJWTAlgorithmAllowedValidator{}.Validate(
 				context.Background(),
-				Input{Value: presentation, Params: map[string]any{"algorithm": "ES256"}},
+				Input{Value: presentation, Params: map[string]any{"allowed": tt.allowed}},
 			)
 			require.Equal(t, tt.wantStatus, result.Status, result.Message)
+			if tt.wantStatus == StatusFail {
+				require.Contains(t, result.Message, "not an acceptable algorithm")
+			}
 		})
 	}
 }
@@ -255,9 +282,9 @@ func TestSDJWTKBJWTValidatorsReadEveryPresentation(t *testing.T) {
 			require.Equal(t, test.status, present.Status, present.Message)
 			require.Contains(t, present.Message, test.message)
 
-			algorithm := SDJWTKBJWTAlgorithmEqualsValidator{}.Validate(
+			algorithm := SDJWTKBJWTAlgorithmAllowedValidator{}.Validate(
 				context.Background(),
-				Input{Value: test.value, Params: map[string]any{"algorithm": "ES256"}},
+				Input{Value: test.value, Params: map[string]any{"allowed": []string{"ES256"}}},
 			)
 			require.Equal(t, test.status, algorithm.Status, algorithm.Message)
 			require.Contains(t, algorithm.Message, test.message)
@@ -265,12 +292,23 @@ func TestSDJWTKBJWTValidatorsReadEveryPresentation(t *testing.T) {
 	}
 }
 
-func TestSDJWTKBJWTAlgorithmEqualsRequiresAlgorithm(t *testing.T) {
-	result := SDJWTKBJWTAlgorithmEqualsValidator{}.Validate(
+func TestSDJWTKBJWTAlgorithmAllowedRequiresAllowed(t *testing.T) {
+	result := SDJWTKBJWTAlgorithmAllowedValidator{}.Validate(
 		context.Background(),
 		Input{Value: newKeyBindingPresentation(t, keyBindingFixtureOptions{})},
 	)
 
 	require.Equal(t, StatusError, result.Status)
-	require.Equal(t, "algorithm is required", result.Message)
+	require.Equal(t, "allowed param is required", result.Message)
+
+	empty := SDJWTKBJWTAlgorithmAllowedValidator{}.Validate(
+		context.Background(),
+		Input{
+			Value:  newKeyBindingPresentation(t, keyBindingFixtureOptions{}),
+			Params: map[string]any{"allowed": []string{}},
+		},
+	)
+
+	require.Equal(t, StatusError, empty.Status)
+	require.Equal(t, "allowed param is required", empty.Message)
 }

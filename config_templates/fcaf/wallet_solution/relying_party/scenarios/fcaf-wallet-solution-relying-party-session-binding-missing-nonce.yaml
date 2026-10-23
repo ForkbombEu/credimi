@@ -30,7 +30,6 @@ steps:
       response_type: vp_token
       response_mode: direct_post.jwt
       presentation_request:
-        nonce: null
         dcql_query:
           credentials:
           - id: pid
@@ -41,6 +40,12 @@ steps:
             claims:
             - path:
               - given_name
+      # WS_RP_SM_SessionBinding__002 needs a served Request Object with no nonce member at all.
+      # A null nonce is still delivered as `"nonce": null`; unset removes the member instead.
+      request_mutation:
+        request_object:
+          unset: [/nonce]
+        verification_applies: false
 - id: exercise-wallet
   use: mobile-automation
   with:

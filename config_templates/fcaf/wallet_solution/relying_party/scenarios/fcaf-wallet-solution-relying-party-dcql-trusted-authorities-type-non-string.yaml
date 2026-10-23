@@ -323,41 +323,66 @@ steps:
     action_code: |
       appId: eu.europa.ec.euidi
       ---
-      - stopApp
-      - launchApp: { clearState: false }
-      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
+      - "stopApp"
+      - launchApp:
+          clearState: false
+      - extendedWaitUntil:
+          visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 3000
       - runFlow:
-          when: { visible: "Welcome back" }
+          when:
+            visible: "Welcome back"
           commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - openLink: { link: "${DEEPLINK_NULL}", autoVerify: false, browser: false }
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      - extendedWaitUntil:
+          visible: "Home|Documents|Add document|Welcome, .*"
+          timeout: 30000
+      - openLink:
+          link: "${DEEPLINK_NULL}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
-      - tapOn: { text: "EUDI Wallet", optional: true }
-      - tapOn: { text: "Just once", optional: true }
-      - tapOn: { text: "Always", optional: true }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
-      - takeScreenshot: fcaf-091-null
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+      # gets the whole window to render its reaction before Home/Documents
+      # counts as a discontinuation. While this wait accepted Home/Documents it
+      # returned the instant phase 1 timed out, so a Wallet that needed longer
+      # than phase 1's window was recorded as having discontinued.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 100000
+          optional: true
+      # Phase 3: only now accept the discontinuation outcomes. It is optional
+      # too, so a Wallet parked on a screen this flow does not know still
+      # reaches the screenshot instead of failing the step and with it the
+      # evidence.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          timeout: 30000
+          optional: true
+      - takeScreenshot: "fcaf-091-null"
       - runFlow:
           when:
             visible: "Requested data"
@@ -367,16 +392,16 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-091-null-presented
+              optional: true
+          - takeScreenshot: "fcaf-091-null-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -387,31 +412,46 @@ steps:
           - tapOn: "Cancel"
           - waitForAnimationToEnd:
               timeout: 3000
-      - openLink: { link: "${DEEPLINK_TRUE}", autoVerify: false, browser: false }
+      - openLink:
+          link: "${DEEPLINK_TRUE}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
-      - tapOn: { text: "EUDI Wallet", optional: true }
-      - tapOn: { text: "Just once", optional: true }
-      - tapOn: { text: "Always", optional: true }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
-      - takeScreenshot: fcaf-091-true
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+      # gets the whole window to render its reaction before Home/Documents
+      # counts as a discontinuation. While this wait accepted Home/Documents it
+      # returned the instant phase 1 timed out, so a Wallet that needed longer
+      # than phase 1's window was recorded as having discontinued.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 100000
+          optional: true
+      # Phase 3: only now accept the discontinuation outcomes. It is optional
+      # too, so a Wallet parked on a screen this flow does not know still
+      # reaches the screenshot instead of failing the step and with it the
+      # evidence.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          timeout: 30000
+          optional: true
+      - takeScreenshot: "fcaf-091-true"
       - runFlow:
           when:
             visible: "Requested data"
@@ -421,16 +461,16 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-091-true-presented
+              optional: true
+          - takeScreenshot: "fcaf-091-true-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -441,31 +481,46 @@ steps:
           - tapOn: "Cancel"
           - waitForAnimationToEnd:
               timeout: 3000
-      - openLink: { link: "${DEEPLINK_FALSE}", autoVerify: false, browser: false }
+      - openLink:
+          link: "${DEEPLINK_FALSE}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
-      - tapOn: { text: "EUDI Wallet", optional: true }
-      - tapOn: { text: "Just once", optional: true }
-      - tapOn: { text: "Always", optional: true }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
-      - takeScreenshot: fcaf-091-false
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+      # gets the whole window to render its reaction before Home/Documents
+      # counts as a discontinuation. While this wait accepted Home/Documents it
+      # returned the instant phase 1 timed out, so a Wallet that needed longer
+      # than phase 1's window was recorded as having discontinued.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 100000
+          optional: true
+      # Phase 3: only now accept the discontinuation outcomes. It is optional
+      # too, so a Wallet parked on a screen this flow does not know still
+      # reaches the screenshot instead of failing the step and with it the
+      # evidence.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          timeout: 30000
+          optional: true
+      - takeScreenshot: "fcaf-091-false"
       - runFlow:
           when:
             visible: "Requested data"
@@ -475,16 +530,16 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-091-false-presented
+              optional: true
+          - takeScreenshot: "fcaf-091-false-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -495,31 +550,46 @@ steps:
           - tapOn: "Cancel"
           - waitForAnimationToEnd:
               timeout: 3000
-      - openLink: { link: "${DEEPLINK_ZERO}", autoVerify: false, browser: false }
+      - openLink:
+          link: "${DEEPLINK_ZERO}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
-      - tapOn: { text: "EUDI Wallet", optional: true }
-      - tapOn: { text: "Just once", optional: true }
-      - tapOn: { text: "Always", optional: true }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
-      - takeScreenshot: fcaf-091-zero
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+      # gets the whole window to render its reaction before Home/Documents
+      # counts as a discontinuation. While this wait accepted Home/Documents it
+      # returned the instant phase 1 timed out, so a Wallet that needed longer
+      # than phase 1's window was recorded as having discontinued.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 100000
+          optional: true
+      # Phase 3: only now accept the discontinuation outcomes. It is optional
+      # too, so a Wallet parked on a screen this flow does not know still
+      # reaches the screenshot instead of failing the step and with it the
+      # evidence.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          timeout: 30000
+          optional: true
+      - takeScreenshot: "fcaf-091-zero"
       - runFlow:
           when:
             visible: "Requested data"
@@ -529,16 +599,16 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-091-zero-presented
+              optional: true
+          - takeScreenshot: "fcaf-091-zero-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -549,31 +619,46 @@ steps:
           - tapOn: "Cancel"
           - waitForAnimationToEnd:
               timeout: 3000
-      - openLink: { link: "${DEEPLINK_NUMBER}", autoVerify: false, browser: false }
+      - openLink:
+          link: "${DEEPLINK_NUMBER}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
-      - tapOn: { text: "EUDI Wallet", optional: true }
-      - tapOn: { text: "Just once", optional: true }
-      - tapOn: { text: "Always", optional: true }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
-      - takeScreenshot: fcaf-091-number
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+      # gets the whole window to render its reaction before Home/Documents
+      # counts as a discontinuation. While this wait accepted Home/Documents it
+      # returned the instant phase 1 timed out, so a Wallet that needed longer
+      # than phase 1's window was recorded as having discontinued.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 100000
+          optional: true
+      # Phase 3: only now accept the discontinuation outcomes. It is optional
+      # too, so a Wallet parked on a screen this flow does not know still
+      # reaches the screenshot instead of failing the step and with it the
+      # evidence.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          timeout: 30000
+          optional: true
+      - takeScreenshot: "fcaf-091-number"
       - runFlow:
           when:
             visible: "Requested data"
@@ -583,16 +668,16 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-091-number-presented
+              optional: true
+          - takeScreenshot: "fcaf-091-number-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -603,31 +688,46 @@ steps:
           - tapOn: "Cancel"
           - waitForAnimationToEnd:
               timeout: 3000
-      - openLink: { link: "${DEEPLINK_ARRAY}", autoVerify: false, browser: false }
+      - openLink:
+          link: "${DEEPLINK_ARRAY}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
-      - tapOn: { text: "EUDI Wallet", optional: true }
-      - tapOn: { text: "Just once", optional: true }
-      - tapOn: { text: "Always", optional: true }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
-      - takeScreenshot: fcaf-091-array
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+      # gets the whole window to render its reaction before Home/Documents
+      # counts as a discontinuation. While this wait accepted Home/Documents it
+      # returned the instant phase 1 timed out, so a Wallet that needed longer
+      # than phase 1's window was recorded as having discontinued.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 100000
+          optional: true
+      # Phase 3: only now accept the discontinuation outcomes. It is optional
+      # too, so a Wallet parked on a screen this flow does not know still
+      # reaches the screenshot instead of failing the step and with it the
+      # evidence.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          timeout: 30000
+          optional: true
+      - takeScreenshot: "fcaf-091-array"
       - runFlow:
           when:
             visible: "Requested data"
@@ -637,16 +737,16 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-091-array-presented
+              optional: true
+          - takeScreenshot: "fcaf-091-array-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -657,31 +757,46 @@ steps:
           - tapOn: "Cancel"
           - waitForAnimationToEnd:
               timeout: 3000
-      - openLink: { link: "${DEEPLINK_OBJECT}", autoVerify: false, browser: false }
+      - openLink:
+          link: "${DEEPLINK_OBJECT}"
+          autoVerify: false
+          browser: false
       - waitForAnimationToEnd:
           timeout: 5000
       - runFlow:
           when:
             visible: "Welcome back"
           commands:
-          - tapOn:
-              point: "11%,40%"
-          - inputText: "123456"
-          - hideKeyboard
-          - tapOn:
-              point: "50%,10%"
-      - tapOn: { text: "EUDI Wallet", optional: true }
-      - tapOn: { text: "Just once", optional: true }
-      - tapOn: { text: "Always", optional: true }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
-      - takeScreenshot: fcaf-091-object
+          - extendedWaitUntil:
+              visible: "1"
+              timeout: 30000
+          - inputText: "12345"
+          - tapOn: "6"
+      # Phase 1: give the Wallet time to react before accepting Home/Documents.
+      # A screenshot taken while it is still on Home is not evidence that it
+      # engaged with the request, so a decisive screen is awaited first.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 30000
+          optional: true
+      # Phase 2: the decisive screens only, optional and long, so a slow Wallet
+      # gets the whole window to render its reaction before Home/Documents
+      # counts as a discontinuation. While this wait accepted Home/Documents it
+      # returned the instant phase 1 timed out, so a Wallet that needed longer
+      # than phase 1's window was recorded as having discontinued.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request"
+          timeout: 100000
+          optional: true
+      # Phase 3: only now accept the discontinuation outcomes. It is optional
+      # too, so a Wallet parked on a screen this flow does not know still
+      # reaches the screenshot instead of failing the step and with it the
+      # evidence.
+      - extendedWaitUntil:
+          visible: "Requested data|invalid request|Presentation blocked|Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*"
+          timeout: 30000
+          optional: true
+      - takeScreenshot: "fcaf-091-object"
       - runFlow:
           when:
             visible: "Requested data"
@@ -691,16 +806,16 @@ steps:
               when:
                 visible: "PIN"
               commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
+              - extendedWaitUntil:
+                  visible: "1"
+                  timeout: 30000
+              - inputText: "12345"
+              - tapOn: "6"
           - extendedWaitUntil:
               visible: ".*successfully shared.*|Oups! Something went wrong"
               timeout: 60000
-          - takeScreenshot: fcaf-091-object-presented
+              optional: true
+          - takeScreenshot: "fcaf-091-object-presented"
           - tapOn:
               text: "Close|TRY AGAIN"
               optional: true
@@ -777,7 +892,7 @@ steps:
           random_number: ${{ fetch-number.outputs.body.raw.authorization_request_delivered }}
           array_value: ${{ fetch-array.outputs.body.raw.authorization_request_delivered }}
           object_value: ${{ fetch-object.outputs.body.raw.authorization_request_delivered }}
-          visual_evidence: ${{ exercise-trusted-authorities-type-non-string.outputs.screenshot_urls }}
+          visual_evidence: ${{ exercise-trusted-authorities-type-non-string.outputs.flow_output.maestro_screenshot_urls }}
           null_value_session: ${{ fetch-null.outputs.body }}
           true_value_session: ${{ fetch-true.outputs.body }}
           false_value_session: ${{ fetch-false.outputs.body }}
@@ -808,7 +923,7 @@ outputs:
     path: $.output.fetch-object.outputs.body.raw.authorization_request_delivered
     decoder: raw
   visual_evidence:
-    path: $.output.exercise-trusted-authorities-type-non-string.outputs.screenshot_urls
+    path: $.output.exercise-trusted-authorities-type-non-string.outputs.flow_output.maestro_screenshot_urls
     decoder: raw
   null_value_session:
     path: $.output.fetch-null.outputs.body

@@ -18,11 +18,15 @@ export interface WorkflowQueueSummary {
 	device_ids?: string[];
 }
 
-/** Mobile/pipeline artifact URLs (`pipelineresults.PipelineResults` in Go). */
+/**
+ * Mobile/pipeline artifact URLs (`pipelineresults.PipelineResults` in Go).
+ * Every field is optional: no_video runs have no video, and a failed capture
+ * may leave out the screenshot or the log.
+ */
 export interface WorkflowExecutionResult {
-	video: string;
-	screenshot: string;
-	log: string;
+	video?: string;
+	screenshot?: string;
+	log?: string;
 	timeline?: string;
 }
 

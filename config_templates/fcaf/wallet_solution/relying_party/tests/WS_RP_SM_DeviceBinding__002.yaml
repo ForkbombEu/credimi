@@ -13,21 +13,20 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.device-binding
+- ref: pipeline.dcql.baseline
 evidence:
-  pid_sdjwt_presentations:
-    from: pipeline.dcql.device-binding.outputs.pid_sdjwt_presentations
-  visual_evidence:
-    from: pipeline.dcql.device-binding.outputs.visual_evidence
+  dcql_exchange:
+    from: pipeline.dcql.baseline.outputs.session
 assertions:
-- id: ws_rp_sm_devicebinding__002_cnf_conforms
-  validator: sdjwt.cnf_conforms
-  input: evidence.pid_sdjwt_presentations
-- id: ws_rp_sm_devicebinding__002_key_binding_matches
-  validator: sdjwt.key_binding_matches_cnf
-  input: evidence.pid_sdjwt_presentations
-- id: ws_rp_sm_devicebinding__002_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+- id: ws_rp_sm_devicebinding__002_verifier_info_attestation_unavailable
+  validator: fcaf.skipped
+  input: evidence.dcql_exchange
+  params:
+    reason: >-
+      needs an Authorization Request whose key-bound Verifier Info attestation
+      carries a signature object with both the nonce and client_id, so that the
+      Wallet validating (or not) the attestation is observable; Capture
+      delivers verifier_info verbatim and signs none of its own, and the
+      delivered Request Object carries no verifier_info attestation
 verdict:
   pass_when: all_assertions_pass

@@ -53,62 +53,9 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - stopApp
-      - launchApp: { clearState: false }
-      - extendedWaitUntil: { visible: "Welcome back|Home|Documents|Add document|Welcome, .*", timeout: 30000 }
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - openLink: { link: "${DEEPLINK_MISSING_TRUSTED_AUTHORITIES_VALUES}", autoVerify: false, browser: false }
-      - waitForAnimationToEnd:
-          timeout: 5000
-      - runFlow:
-          when: { visible: "Welcome back" }
-          commands:
-            - tapOn: { point: "11%,40%" }
-            - inputText: "123456"
-            - hideKeyboard
-            - tapOn: { point: "50%,10%" }
-      - extendedWaitUntil: { visible: "Oups! Something went wrong|The requested document is not available in your EUDI Wallet.*|Data sharing request|Home|Documents|Welcome, .*", timeout: 30000 }
-      - takeScreenshot: fcaf-090-trusted-authorities-missing-values-rejected
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-          - tapOn: "Share"
-          - runFlow:
-              when:
-                visible: "PIN"
-              commands:
-              - tapOn:
-                  point: "11%,39%"
-              - inputText: "123456"
-              - hideKeyboard
-              - tapOn:
-                  point: "50%,10%"
-          - extendedWaitUntil:
-              visible: ".*successfully shared.*|Oups! Something went wrong"
-              timeout: 60000
-          - takeScreenshot: fcaf-090-trusted-authorities-missing-values-rejected-presented
-          - tapOn:
-              text: "Close|TRY AGAIN"
-              optional: true
-      - runFlow:
-          when:
-            visible: "Data sharing request"
-          commands:
-          - tapOn: "Cancel"
-          - waitForAnimationToEnd:
-              timeout: 3000
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
     parameters:
-      DEEPLINK_MISSING_TRUSTED_AUTHORITIES_VALUES: ${{ create-missing-trusted-authorities-values.outputs.body.deeplink }}
+      deeplink: ${{ create-missing-trusted-authorities-values.outputs.body.deeplink }}
 - id: fetch-missing-trusted-authorities-values
   use: http-request
   with:
@@ -124,19 +71,15 @@ steps:
     pipeline_outputs:
       pipeline.dcql.trusted-authorities-missing-values:
         output:
-          trusted_authority: ${{ evidence-missing-trusted-authorities-values.outputs.trusted_authority }}
           dcql_exchange: ${{ fetch-missing-trusted-authorities-values.outputs.body.raw.authorization_request_delivered }}
-          visual_evidence: ${{ reject-missing-trusted-authorities-values.outputs.screenshot_urls }}
+          visual_evidence: ${{ reject-missing-trusted-authorities-values.outputs.flow_output.maestro_screenshot_urls }}
           dcql_exchange_session: ${{ fetch-missing-trusted-authorities-values.outputs.body }}
 outputs:
-  trusted_authority:
-    path: $.output.fetch-missing-trusted-authorities-values.outputs.body.raw.authorization_request_delivered.trusted_authority
-    decoder: raw
   dcql_exchange:
     path: $.output.fetch-missing-trusted-authorities-values.outputs.body.raw.authorization_request_delivered
     decoder: raw
   visual_evidence:
-    path: $.output.reject-missing-trusted-authorities-values.outputs.screenshot_urls
+    path: $.output.reject-missing-trusted-authorities-values.outputs.flow_output.maestro_screenshot_urls
     decoder: raw
   dcql_exchange_session:
     path: $.output.fetch-missing-trusted-authorities-values.outputs.body

@@ -21,7 +21,7 @@ steps:
         request_uri_method: post
         request_delivery: by_reference
         response_type: vp_token
-        response_mode: direct_post.jwt
+        response_mode: direct_post
         redirect_uri: ${fixture.verifier_url}/openid4vp/redirect
         presentation_request:
           nonce: fcaf-supportive-redirect-uri
@@ -48,27 +48,27 @@ steps:
       action_code: |
         appId: eu.europa.ec.euidi
         ---
-        - stopApp
-        - openLink: { link: "${DEEPLINK}", autoVerify: false, browser: false }
+        - "stopApp"
+        - openLink:
+            link: "${DEEPLINK}"
+            autoVerify: false
+            browser: false
         - waitForAnimationToEnd:
             timeout: 5000
-        - tapOn:
-            text: "EUDI Wallet"
-            optional: true
-        - tapOn:
-            text: "Just once"
-            optional: true
         - extendedWaitUntil:
             visible: "Welcome back|Share|Cancel|Close"
             timeout: 100000
+        - waitForAnimationToEnd:
+            timeout: 3000
         - runFlow:
             when:
               visible: "Welcome back"
             commands:
-              - tapOn:
-                  point: "11%,40%"
-              - inputText: "123456"
-              - hideKeyboard
+            - extendedWaitUntil:
+                visible: "1"
+                timeout: 30000
+            - inputText: "12345"
+            - tapOn: "6"
         - extendedWaitUntil:
             visible: "Share"
             timeout: 30000
@@ -78,8 +78,11 @@ steps:
         - extendedWaitUntil:
             visible: "verify your identity|PIN"
             timeout: 30000
-        - inputText: "123456"
-        - hideKeyboard
+        - extendedWaitUntil:
+            visible: "1"
+            timeout: 30000
+        - inputText: "12345"
+        - tapOn: "6"
         - extendedWaitUntil:
             visible: "Close"
             timeout: 30000
@@ -88,7 +91,7 @@ steps:
             visible: "Presentation complete"
             timeout: 30000
         - assertVisible: "Presentation complete"
-        - takeScreenshot: fcaf-supportive-redirect-uri-opened
+        - takeScreenshot: "fcaf-supportive-redirect-uri-opened"
   - id: get-presentation-result
     use: http-request
     with:
@@ -106,7 +109,7 @@ steps:
         pipeline.wallet.supportive.redirect-uri:
           output:
             dcql_exchange: ${{ get-presentation-result.outputs.body }}
-            wallet_response: ${{ get-presentation-result.outputs.body }}
+            wallet_response: ${{ get-presentation-result.outputs.body.raw.presentation_response }}
             capture_session: ${{ get-presentation-result.outputs.body }}
             visual_evidence: ${{ submit-and-follow-redirect.outputs.flow_output.maestro_screenshot_urls }}
             create-presentation: ${{ create-presentation.outputs }}

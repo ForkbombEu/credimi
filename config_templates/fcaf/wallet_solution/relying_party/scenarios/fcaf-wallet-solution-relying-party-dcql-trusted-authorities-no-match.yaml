@@ -32,7 +32,7 @@ steps:
       version_id: installed_from_external_source
       parameters:
         deeplink: ${{ create-capture-session.outputs.body.deeplink }}
-      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
   - id: get-capture-session
     use: http-request
     with:

@@ -122,6 +122,40 @@ func (FCAFSkippedValidator) Validate(_ context.Context, input Input) Result {
 	return Result{Status: StatusSkipped, Message: params.Reason}
 }
 
+// FCAFNotApplicableValidator records that a source test's Wallet expectation
+// cannot apply to the SUT, so the test reports not applicable instead of a pass
+// or a failure. The engine folds pass + not_applicable into not_applicable,
+// while any fail/error/blocked dominates.
+//
+// Two grounds are sanctioned (.agents/HITL.md, 2026-10-14 and 2026-10-21):
+//
+//   - the source's own relevancy is EUDI_forbidden, whatever its expected
+//     result; such a test carries this assertion alone and no Wallet
+//     interaction (scenario fcaf-wallet-solution-relying-party-eudi-forbidden);
+//   - the SUT's own capabilities refute the source's precondition, so the test
+//     is not about this Wallet (WS_RP_MS_ProtocolMessages__011/018,
+//     WS_RP_MS_Metadata__134).
+//
+// A precondition the harness cannot build is a different case: that is
+// fcaf.skipped, and its reason must name the unbuilt precondition, never the
+// Wallet's behaviour.
+type FCAFNotApplicableValidator struct{}
+
+func (FCAFNotApplicableValidator) ID() string { return "fcaf.not_applicable" }
+
+func (FCAFNotApplicableValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		Reason string `json:"reason"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
+	if params.Reason == "" {
+		return Result{Status: StatusError, Message: "reason param is required"}
+	}
+	return Result{Status: StatusNotApplicable, Message: params.Reason}
+}
+
 type JSONFieldRequiredValidator struct{}
 
 func (JSONFieldRequiredValidator) ID() string {
@@ -695,8 +729,8 @@ func (JOSEJWEEncryptedResponseValidator) Validate(_ context.Context, input Input
 
 // OID4VPNoPresentationValidator fails when a Verifier session shows that the
 // Wallet answered an Authorization Request with a presentation. FCAF negative
-// tests require the Wallet to reject the request instead, so any Authorization
-// Response, valid or not, is a failure of the test's normative requirement.
+// tests accept a rejection either as no Authorization Response at all or as an
+// error response without a vp_token; any other response fails.
 type OID4VPNoPresentationValidator struct{}
 
 func (OID4VPNoPresentationValidator) ID() string {
@@ -704,17 +738,29 @@ func (OID4VPNoPresentationValidator) ID() string {
 }
 
 func (OID4VPNoPresentationValidator) Validate(_ context.Context, input Input) Result {
-	session, ok := input.Value.(map[string]any)
+	return guardWalletEngagement(input.Value, validateNoPresentationReturned(input.Value))
+}
+
+func validateNoPresentationReturned(value any) Result {
+	session, ok := value.(map[string]any)
 	if !ok {
 		return Result{
 			Status:  StatusFail,
-			Message: fmt.Sprintf("session evidence is %T, expected object", input.Value),
+			Message: fmt.Sprintf("session evidence is %T, expected object", value),
 		}
 	}
 	if _, submitted := session["decoded_presentations"]; submitted {
 		return Result{
 			Status:  StatusFail,
 			Message: "wallet returned a presentation for a request it had to reject",
+		}
+	}
+	if presentation, _ := findObjectKey(session, "vp_token"); isEmptyDCQLValue(presentation) {
+		if code := normalizeString(findWalletError(session)); code != "" {
+			return Result{
+				Status:  StatusPass,
+				Message: fmt.Sprintf("wallet rejected the request with error %q", code),
+			}
 		}
 	}
 	if checks, ok := session["checks"].(map[string]any); ok {
@@ -762,6 +808,10 @@ func (SDJWTPresentationDigestAlgorithmValidator) ID() string {
 }
 
 func (SDJWTPresentationDigestAlgorithmValidator) Validate(_ context.Context, input Input) Result {
+	return guardWalletEngagement(input.Value, validatePresentationDigestAlgorithm(input))
+}
+
+func validatePresentationDigestAlgorithm(input Input) Result {
 	params, err := DecodeParams[struct {
 		DigestAlgorithm string `json:"digest_algorithm"`
 		RequireError    bool   `json:"require_error"`

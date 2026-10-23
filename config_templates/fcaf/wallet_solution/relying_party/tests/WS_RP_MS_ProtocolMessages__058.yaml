@@ -1,5 +1,5 @@
 id: WS_RP_MS_ProtocolMessages__058
-title: FCAF WS_RP_MS_ProtocolMessages__058
+title: Reject an empty credential_sets array.
 source:
   path: MessageStructure/ProtocolMessages/WS_RP_MS_ProtocolMessages__058.md
 suite:
@@ -20,11 +20,16 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.credential-sets-empty.outputs.visual_evidence
 assertions:
+# The source accepts any of: an invalid_request error with details, an error
+# without details, or discontinuation of the interaction, so the assertion
+# accepts any error code and is engagement-guarded (a pass needs the Wallet to
+# have retrieved the request). A silent discontinuation leaves no protocol
+# evidence behind, which is why no screenshot is required here.
 - id: ws_rp_ms_protocolmessages__058_dcql_protocol_valid
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: invalid_request_generic
+    mode: request_rejected
 - id: ws_rp_ms_protocolmessages__058_visual_evidence_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

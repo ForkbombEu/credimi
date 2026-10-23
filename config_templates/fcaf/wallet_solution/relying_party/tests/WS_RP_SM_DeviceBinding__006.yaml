@@ -13,21 +13,20 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.device-binding
+- ref: pipeline.dcql.baseline
 evidence:
-  pid_sdjwt_presentations:
-    from: pipeline.dcql.device-binding.outputs.pid_sdjwt_presentations
-  visual_evidence:
-    from: pipeline.dcql.device-binding.outputs.visual_evidence
+  dcql_exchange:
+    from: pipeline.dcql.baseline.outputs.session
 assertions:
-- id: ws_rp_sm_devicebinding__006_cnf_conforms
-  validator: sdjwt.cnf_conforms
-  input: evidence.pid_sdjwt_presentations
-- id: ws_rp_sm_devicebinding__006_key_binding_matches
-  validator: sdjwt.key_binding_matches_cnf
-  input: evidence.pid_sdjwt_presentations
-- id: ws_rp_sm_devicebinding__006_visual_evidence_stored
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+- id: ws_rp_sm_devicebinding__006_verifier_info_attestation_unavailable
+  validator: fcaf.skipped
+  input: evidence.dcql_exchange
+  params:
+    reason: >-
+      needs a Verifier Info attestation of a type the active profile does not
+      define, plus evidence that the Wallet inspects the attestation type and
+      keeps processing the request; Capture delivers verifier_info verbatim but
+      signs and inspects none of its own, and the public verifier Request
+      Object carries no verifier_info attestation
 verdict:
   pass_when: all_assertions_pass

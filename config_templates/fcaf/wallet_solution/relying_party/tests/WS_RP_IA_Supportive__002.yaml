@@ -16,12 +16,11 @@ normative_references:
 evidence:
   session: { from: pipeline.protocol.request-uri-response-controls.outputs.http_error_session }
   request_uri_response: { from: pipeline.protocol.request-uri-response-controls.outputs.http_error_response }
-  response_behavior: { from: pipeline.protocol.request-uri-response-controls.outputs.http_error_behavior }
   visual_evidence: { from: pipeline.protocol.request-uri-response-controls.outputs.http_error_visual_evidence }
 assertions:
 - id: request_uri_response_is_http_error
   validator: json.field_equals
-  input: evidence.response_behavior
+  input: evidence.request_uri_response
   params: { field: status, value: 500 }
 - id: request_uri_response_is_recorded
   validator: evidence.present

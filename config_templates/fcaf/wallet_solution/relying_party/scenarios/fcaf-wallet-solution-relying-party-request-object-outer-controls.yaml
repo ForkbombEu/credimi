@@ -74,6 +74,7 @@ steps:
       pipeline.protocol.request-object-outer-controls:
         output:
           conflicting_nonce_session: ${{ fetch-conflicting-nonce.outputs.body }}
+          conflicting_nonce_session_checks: ${{ fetch-conflicting-nonce.outputs.body.checks }}
           conflicting_nonce_request_object: ${{ fetch-conflicting-nonce.outputs.body.raw.authorization_request_jwt }}
           conflicting_nonce_outer_request: ${{ fetch-conflicting-nonce.outputs.body.raw.outer_request_delivered }}
           conflicting_nonce_visual_evidence: ${{ exercise-conflicting-nonce.outputs.flow_output.maestro_screenshot_urls }}

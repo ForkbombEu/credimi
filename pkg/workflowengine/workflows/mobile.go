@@ -50,11 +50,20 @@ type MobileAutomationWorkflowPayload struct {
 }
 
 type MobileAutomationWorkflowPipelinePayload struct {
-	ActionID   string            `json:"action_id,omitempty"   yaml:"action_id,omitempty"`
-	VersionID  string            `json:"version_id,omitempty"  yaml:"version_id,omitempty"`
-	ActionCode string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
-	Parameters map[string]string `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
-	DeviceID   string            `json:"device_id,omitempty"   yaml:"device_id,omitempty"`
+	ActionID   string                   `json:"action_id,omitempty"   yaml:"action_id,omitempty"`
+	VersionID  string                   `json:"version_id,omitempty"  yaml:"version_id,omitempty"`
+	ActionCode string                   `json:"action_code,omitempty" yaml:"action_code,omitempty"`
+	Parameters map[string]string        `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
+	DeviceID   string                   `json:"device_id,omitempty"   yaml:"device_id,omitempty"`
+	Actions    []MobileAutomationAction `json:"actions,omitempty"     yaml:"actions,omitempty"`
+}
+
+// MobileAutomationAction is one wallet action of a step that runs several in
+// one Maestro flow: a stored action (`id`) or inline Maestro code (`code`).
+type MobileAutomationAction struct {
+	ID         string            `json:"id,omitempty"         yaml:"id,omitempty"`
+	Code       string            `json:"code,omitempty"       yaml:"code,omitempty"`
+	Parameters map[string]string `json:"parameters,omitempty" yaml:"parameters,omitempty"`
 }
 
 func NewMobileAutomationWorkflow() *MobileAutomationWorkflow {
@@ -475,6 +484,16 @@ func waitForAddedInstalledApps(
 	}
 }
 
+// maestroDriverPackages are installed by the Maestro flow itself: Android
+// runs keep the driver between flows (--no-reinstall-driver), so it shows up
+// as a new app next to the one the flow installed from the store.
+var maestroDriverPackages = map[string]struct{}{
+	"dev.mobile.maestro":      {},
+	"dev.mobile.maestro.test": {},
+}
+
+// diffAddedApps returns the apps in after that are not in before, ignoring
+// the Maestro driver.
 func diffAddedApps(before, after []string) []string {
 	beforeSet := make(map[string]struct{}, len(before))
 	for _, appID := range before {
@@ -492,6 +511,9 @@ func diffAddedApps(before, after []string) []string {
 			continue
 		}
 		if _, exists := beforeSet[trimmed]; exists {
+			continue
+		}
+		if _, driver := maestroDriverPackages[trimmed]; driver {
 			continue
 		}
 		added = append(added, trimmed)

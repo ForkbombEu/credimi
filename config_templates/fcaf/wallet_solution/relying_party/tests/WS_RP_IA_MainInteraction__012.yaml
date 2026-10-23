@@ -20,11 +20,19 @@ evidence:
   visual_evidence:
     from: pipeline.dcql.claims-without-id-without-claim-sets.outputs.visual_evidence
 assertions:
+# The source requires the Wallet to *hide* the address and phone claims and to
+# send "only the specific claims requested"; credentials_match only proves that
+# a presentation exists for the query, so the hidden claims are asserted
+# through forbidden_paths, which both PID SD-JWT VC claims are selectively
+# disclosable in (Capture's PID_SD_JWT_CLAIMS).
 - id: ws_rp_ia_maininteraction__012_dcql_valid
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: claims_subset
+    forbidden_paths:
+    - - address
+    - - phone_number
 - id: ws_rp_ia_maininteraction__012_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

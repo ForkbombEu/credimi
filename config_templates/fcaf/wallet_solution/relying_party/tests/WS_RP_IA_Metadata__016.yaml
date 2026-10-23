@@ -33,7 +33,7 @@ assertions:
   - id: empty_client_metadata_returns_invalid_request
     validator: dcql.response_satisfies_constraints
     input: evidence.dcql_exchange
-    params: {mode: invalid_request_generic}
+    params: {mode: invalid_request_required}
   - id: rejection_has_visual_evidence
     validator: evidence.non_empty
     input: evidence.visual_evidence

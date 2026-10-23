@@ -13,20 +13,19 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.main-interaction
+- ref: pipeline.dcql.holder-binding-type-boundary
 evidence:
   dcql_exchange:
     from: pipeline.dcql.holder-binding-type-boundary.outputs.dcql_exchange
-  visual_evidence:
-    from: pipeline.dcql.holder-binding-type-boundary.outputs.visual_evidence
 assertions:
-- id: ws_rp_ia_maininteraction__008_interaction
-  validator: dcql.response_satisfies_constraints
+- id: unbound_sdjwt_credential_is_unavailable
+  validator: fcaf.skipped
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
-- id: ws_rp_ia_maininteraction__008_visual_evidence
-  validator: evidence.non_empty
-  input: evidence.visual_evidence
+    reason: >-
+      needs a credential of the queried type that has no cryptographic holder
+      binding, so that the presentation carries no Key Binding JWT; Capture
+      issues only holder-bound credentials, because Credo refuses unbound
+      issuance until credo-ts#2936 (open, checked 13/10/2026)
 verdict:
   pass_when: all_assertions_pass

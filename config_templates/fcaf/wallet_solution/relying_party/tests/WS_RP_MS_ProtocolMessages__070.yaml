@@ -13,18 +13,30 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '6.1'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
-- ref: pipeline.dcql.standard-all
+- ref: pipeline.fixtures.pid-multiple-credentials
 evidence:
+  # The source's precondition is a Wallet holding more than one credential
+  # matching the request; the single-credential credentials-match session could
+  # not distinguish an omitted `multiple` from an explicit false. Possession is
+  # proven from the issuer sessions, because presenting would spend it.
+  query_issuances:
+    from: pipeline.fixtures.pid-multiple-credentials.outputs.omitted_query_issuances
   dcql_exchange:
-    from: pipeline.dcql.credentials-match.outputs.dcql_exchange
+    from: pipeline.fixtures.pid-multiple-credentials.outputs.multiple_omitted_exchange
   visual_evidence:
-    from: pipeline.dcql.credentials-match.outputs.visual_evidence
+    from: pipeline.fixtures.pid-multiple-credentials.outputs.multiple_omitted_visual_evidence
 assertions:
-- id: ws_rp_ms_protocolmessages__070_dcql_valid
+- id: wallet_holds_two_distinct_pids_for_the_same_query
+  validator: oid4vci.fixtures_stored
+  input: evidence.query_issuances
+  params:
+    fixtures: [pid_default, pid_person_b]
+    stored_screenshot: credential-added
+- id: ws_rp_ms_protocolmessages__070_omitted_multiple_defaults_to_false
   validator: dcql.response_satisfies_constraints
   input: evidence.dcql_exchange
   params:
-    mode: credentials_match
+    mode: multiple_default_false
 - id: ws_rp_ms_protocolmessages__070_visual_evidence
   validator: evidence.non_empty
   input: evidence.visual_evidence

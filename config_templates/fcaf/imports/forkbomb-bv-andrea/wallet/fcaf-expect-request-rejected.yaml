@@ -6,10 +6,23 @@ tags:
   - rejected
 ---
 # Shared terminal flow for negative cases whose accepted outcome is an error
-# screen OR a silent return to Home. It deliberately differs from
-# fcaf-exercise-wallet-generic, whose post-openLink wait excludes Home and
+# screen, a no-match notice, or a silent return to Home. It deliberately differs
+# from fcaf-exercise-wallet-generic, whose post-openLink wait excludes Home and
 # Documents so that positive flows cannot skip the consent screen. Do not add
 # Home or Documents to that action; use this one instead.
+#
+# The Wallet is still showing Home the instant after openLink, so a screenshot
+# taken then is not evidence that it reacted: only a decisive screen (consent
+# request, no-match notice, Wallet error, blocked presentation) proves the
+# request reached the Wallet. Home/Documents is therefore accepted only after
+# two bounded, optional waits for a decisive screen: a 30 s probe and, when that
+# finds nothing, a further 100 s window, so a Wallet slower than 33 s is not
+# misread as having discontinued the interaction. A tolerant Wallet that shows
+# the consent screen is answered with Share and the PIN, so the Verifier records
+# a real Authorization Response and the source's negative assertion fails on
+# evidence instead of passing on a Wallet that never engaged. The flow itself
+# never fails its step: every wait is optional, the screenshot is the evidence
+# of which screen appeared, and the protocol assertion decides the verdict.
 - launchApp:
     stopApp: true
     clearState: false
@@ -37,7 +50,67 @@ tags:
     link: "${deeplink}"
     autoVerify: false
     browser: false
+# A settle wait so every `when`-style lookup below starts from a screen that is
+# no longer being composed.
+- waitForAnimationToEnd:
+    timeout: 3000
+# Phase 1: bounded, optional wait for a decisive Wallet screen. A second
+# `Welcome back` lock screen counts as a reaction to the link even though it says
+# nothing yet about the request's outcome.
 - extendedWaitUntil:
-    visible: "invalid request|Oups! Something went wrong|Home|Documents"
+    visible: "Welcome back|Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 30000
+    optional: true
+# A second lock screen after openLink is unlocked with the shared unlock
+# sequence before the request screen is awaited again.
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
+      - waitForAnimationToEnd:
+          timeout: 3000
+# Phase 2: the decisive screens only, optional and long, so a slow Wallet gets
+# the whole window to render its reaction before Home/Documents counts as a
+# discontinuation. While this wait accepted Home/Documents it returned the
+# instant phase 1 timed out, so a Wallet that needed longer than phase 1's
+# window was recorded as having discontinued.
+- extendedWaitUntil:
+    visible: "Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
     timeout: 100000
-- takeScreenshot: expect-request-rejected
+    optional: true
+# Phase 3: only now accept the discontinuation outcomes. It is optional too, so
+# a Wallet parked on a screen this flow does not know still reaches the
+# screenshot instead of failing the step and with it the evidence.
+- extendedWaitUntil:
+    visible: "Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked|Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+    optional: true
+# Phase 4: a tolerant Wallet that lists Requested data has accepted the request;
+# share it so the Verifier records the Authorization Response the source test
+# must refute. The terminal wait is optional because this flow must reach its
+# screenshot even when the Wallet stops on an unexpected screen.
+- runFlow:
+    when:
+      visible: "Requested data"
+    commands:
+      - tapOn: "Share"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - inputText: "12345"
+      - tapOn: "6"
+      - extendedWaitUntil:
+          visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
+          timeout: 30000
+          optional: true
+# The terminal screenshot is stored whatever screen the Wallet showed, so a
+# Wallet that stopped on a screen listed above is still recorded. The name must
+# leave room for the step id: the longest step id that uses this action is 84
+# characters and PocketBase keeps only the first 100 characters of the
+# snake-cased `<step id>-<screenshot name>` stem
+# (tools/filesystem/file.go), so the name may not exceed 15 characters.
+- takeScreenshot: request-refused

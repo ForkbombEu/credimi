@@ -28,20 +28,131 @@ func (DCQLResponseConstraintsValidator) ID() string {
 
 //nolint:gocyclo // DCQL modes share decoding and evidence normalization in one registry validator.
 func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input) Result {
-	params, err := DecodeParams[struct {
-		Mode              string  `json:"mode"`
-		ForbiddenPaths    [][]any `json:"forbidden_paths"`
-		Property          string  `json:"property"`
-		ExpectedType      string  `json:"expected_type"`
-		Valid             bool    `json:"valid"`
-		ExpectedValue     any     `json:"expected_value"`
-		ExpectedFormat    string  `json:"expected_format"`
-		ExpectedClaimPath []any   `json:"expected_claim_path"`
-		ClaimSetCount     int     `json:"claim_set_count"`
-	}](input.Params)
+	params, err := DecodeParams[dcqlModeParams](input.Params)
 	if err != nil {
 		return Result{Status: StatusError, Message: err.Error()}
 	}
+	// Only property_equals consults RequireResponse, so a definition that sets
+	// it on another mode would silently lose it. Fail closed instead.
+	if params.RequireResponse != nil && params.Mode != "property_equals" {
+		return Result{
+			Status: StatusError,
+			Message: fmt.Sprintf(
+				"require_response is only supported by property_equals mode, not %q",
+				params.Mode,
+			),
+		}
+	}
+	// Only transactionDataErrorMode consults
+	// NotApplicableWhenWalletSupportsTransactionData, so a definition that sets
+	// it on another mode would silently lose it. Fail closed instead.
+	if params.NotApplicableWhenWalletSupportsTransactionData &&
+		!transactionDataErrorMode(params.Mode) {
+		return Result{
+			Status: StatusError,
+			Message: fmt.Sprintf(
+				"not_applicable_when_wallet_supports_transaction_data is only supported by the transaction_data error modes, not %q",
+				params.Mode,
+			),
+		}
+	}
+	result := validateDCQLResponseMode(params, input)
+	if !dcqlModeAssertsWalletResponse(params.Mode) {
+		return result
+	}
+	return guardWalletEngagement(input.Value, result)
+}
+
+// dcqlModeParams is the parameter block the modes of
+// dcql.response_satisfies_constraints decode.
+type dcqlModeParams struct {
+	Mode              string  `json:"mode"`
+	ForbiddenPaths    [][]any `json:"forbidden_paths"`
+	Property          string  `json:"property"`
+	ExpectedType      string  `json:"expected_type"`
+	Valid             bool    `json:"valid"`
+	ExpectedValue     any     `json:"expected_value"`
+	ExpectedFormat    string  `json:"expected_format"`
+	ExpectedClaimPath []any   `json:"expected_claim_path"`
+	ClaimSetCount     int     `json:"claim_set_count"`
+	// RequireResponse is optional and defaults to true. Only property_equals
+	// consults it (the other modes reject it with StatusError, so a definition
+	// cannot set it and silently lose it). The request-shape modes assert a
+	// property of the delivered query and normally also require the Wallet's
+	// answer; a negative control whose source demands a rejection sets it to
+	// false, because the rejection is asserted by its own mode and no
+	// presentation exists to inspect.
+	RequireResponse *bool `json:"require_response"`
+	// NotApplicableWhenWalletSupportsTransactionData is optional and defaults
+	// to false. Only the transaction_data error modes consult it (the other
+	// modes reject it with StatusError, so a definition cannot set it and
+	// silently lose it). It marks a source whose own profile applicability is
+	// "Wallet does not support transaction_data": when the Wallet's captured
+	// evidence proves the opposite, the mode reports not_applicable instead of
+	// demanding the invalid_transaction_data rejection the source prescribes
+	// for a Wallet without that support.
+	NotApplicableWhenWalletSupportsTransactionData bool `json:"not_applicable_when_wallet_supports_transaction_data"`
+}
+
+// dcqlModesAwaitingWalletResponse is the set of modes whose pass can be reached
+// without the Wallet answering the request at all, with neither a vp_token nor
+// an error. Those modes state what the Wallet did with a malformed, unmatched or
+// unsatisfiable request — it presented nothing, or matched no credential — so
+// their pass needs a Capture verifier session record that shows the Wallet
+// received the request; guardWalletEngagement blocks the ones that do not.
+//
+// The modes outside the set already require a non-empty vp_token (the positive
+// controls and the claim/credential matching modes), and their own precondition
+// says so.
+//
+// The explicit error-code modes belong to the set too: validateErrorCode and
+// validateWalletErrorExpected pass through their absent-response branch when the
+// evidence carries neither an error nor a vp_token ("wallet did not return
+// vp_token for %s case"), which is exactly the outcome a Wallet that never
+// received the request produces. Their pass therefore needs the same
+// engagement evidence as the modes above (validateRequiredErrorCode and
+// validateWalletErrorRequired fail on that branch and stay unguarded).
+//
+// claim_path_member_type_error, wallet_error_expected and
+// vp_formats_not_supported are listed defensively: all three are dispatched but
+// absent from the allow-list at the top of Validate, so no definition reaches
+// their pass today and the guard only speaks if that list is fixed.
+var dcqlModesAwaitingWalletResponse = map[string]struct{}{
+	"no_match":                                 {},
+	"request_rejected":                         {},
+	"trusted_authorities_no_match":             {},
+	"credential_sets_required_true_no_match":   {},
+	"credential_sets_optional_no_match":        {},
+	"credential_sets_combined_option_no_match": {},
+	"claims_path_no_match":                     {},
+	"claims_values_no_match":                   {},
+	"mdoc_claim_path_no_match":                 {},
+	"empty_claims":                             {},
+	"empty_array":                              {},
+	"claim_sets_no_match":                      {},
+	"claim_sets_without_claims":                {},
+	"trusted_authority_property_absent":        {},
+	"trusted_authority_property_type":          {},
+	"trusted_authority_array_item_type":        {},
+	"trusted_authority_empty_string_item":      {},
+	"property_type":                            {},
+	"invalid_request_generic":                  {},
+	"invalid_scope":                            {},
+	"access_denied":                            {},
+	"invalid_client":                           {},
+	"vp_formats_not_supported":                 {},
+	"transaction_data_error":                   {},
+	"wallet_error_expected":                    {},
+	"claim_path_member_type_error":             {},
+}
+
+func dcqlModeAssertsWalletResponse(mode string) bool {
+	_, guarded := dcqlModesAwaitingWalletResponse[mode]
+	return guarded
+}
+
+//nolint:gocyclo // DCQL modes share decoding and evidence normalization in one registry validator.
+func validateDCQLResponseMode(params dcqlModeParams, input Input) Result {
 	switch params.Mode {
 	case "credential_sets",
 		"claim_sets_preferred_option",
@@ -90,11 +201,13 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"without_trusted_authorities",
 		"without_claims",
 		"without_claim_disclosures",
+		"mdoc_without_claim_disclosures",
 		"empty_claims",
 		"empty_array",
 		"property_type",
 		"property_equals",
 		"trusted_authority_property_type",
+		"trusted_authority_property_absent",
 		"trusted_authority_array_item_type",
 		"trusted_authority_empty_string_item",
 		"multiple_default_false",
@@ -236,7 +349,7 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		"credential_sets_required_true_no_match",
 		"credential_sets_required_omitted",
 		"credential_sets_required_false_with_match":
-		return validateCredentialSetsRequired(query, responseValue, params.Mode)
+		return validateCredentialSetsRequired(root, query, responseValue, params.Mode)
 	case "required_credentials_no_partial_presentation":
 		return validateRequiredCredentialsNoPartialPresentation(query, responseValue, errorValue)
 	case "credential_sets_required_optional",
@@ -447,6 +560,9 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				}
 			}
 		}
+		if verdict, decided := verifierRejectedPresentation(root); decided {
+			return verdict
+		}
 	case "empty_claims", "empty_array":
 		property := "claims"
 		if params.Mode == "empty_array" {
@@ -498,23 +614,44 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				),
 			}
 		}
+	case "mdoc_without_claim_disclosures":
+		return validateMDocWithoutClaimDisclosures(query, responseValue)
 	case "no_match", "request_rejected":
-		credentials, ok := query["credentials"].([]any)
-		if !ok || len(credentials) == 0 {
-			return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
-		}
-		if err := validateDCQLCredentialQueries(credentials); err != nil {
-			return Result{Status: StatusFail, Message: err.Error()}
-		}
-		if errorText, _ := errorValue.(string); errorText == invalidRequestError {
-			break
-		}
-		if !isEmptyDCQLValue(responseValue) {
-			return Result{
-				Status:  StatusFail,
-				Message: "wallet returned a credential for a no-match DCQL query",
+		// Both modes expect the Wallet to answer without a presentation. The
+		// query precondition belongs to no_match, which asserts that a
+		// well-formed query matched no credential. request_rejected exists for
+		// requests the sources deliberately malform (meta, claims path,
+		// credentials), so it cannot demand a well-formed query: doing so would
+		// abort before the Wallet's outcome is examined. The request's own
+		// defect is asserted separately on the request object.
+		if params.Mode == "no_match" {
+			credentials, ok := query["credentials"].([]any)
+			if !ok || len(credentials) == 0 {
+				return Result{
+					Status:  StatusFail,
+					Message: "dcql_query does not contain credentials",
+				}
+			}
+			if err := validateDCQLCredentialQueries(credentials); err != nil {
+				return Result{Status: StatusFail, Message: err.Error()}
 			}
 		}
+		// A response carrying a vp_token is a presentation, not a rejection,
+		// whatever the error member says: OpenID4VP 8.5 defines no error
+		// response that also carries a vp_token. This is checked before the
+		// error so an error cannot excuse a presented credential.
+		if !isEmptyDCQLValue(responseValue) {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"wallet returned a credential for a %s DCQL query, expected a rejection",
+					params.Mode,
+				),
+			}
+		}
+		// Without a vp_token any error (with or without details) is the
+		// rejection the sources accept; a silent discontinuation falls through
+		// to the pass the engagement guard then confirms.
 	case "trusted_authorities_match":
 		return validateTrustedAuthoritiesMatch(query, responseValue)
 	case "trusted_authorities_no_match":
@@ -531,9 +668,16 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 		return validateUnknownFieldStripped(query, responseValue, params.Property)
 	case "vp_formats_not_supported":
 		return validateErrorCode(responseValue, errorValue, "vp_formats_not_supported")
-	case "transaction_data_error":
-		return validateErrorCode(responseValue, errorValue, "invalid_transaction_data")
-	case "transaction_data_error_required":
+	case "transaction_data_error", "transaction_data_error_required":
+		// The source's applicability is a fact about the Wallet under test, so
+		// it is read from the Wallet's captured evidence before the error the
+		// source prescribes is demanded.
+		if result, decided := transactionDataSupportVerdict(params, root); decided {
+			return result
+		}
+		if params.Mode == "transaction_data_error" {
+			return validateErrorCode(responseValue, errorValue, "invalid_transaction_data")
+		}
 		return validateRequiredErrorCode(responseValue, errorValue, "invalid_transaction_data")
 	case "invalid_request_required":
 		return validateRequiredErrorCode(responseValue, errorValue, invalidRequestError)
@@ -666,7 +810,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				}
 			}
 		}
-		if isEmptyDCQLValue(responseValue) {
+		if (params.RequireResponse == nil || *params.RequireResponse) &&
+			isEmptyDCQLValue(responseValue) {
 			return Result{
 				Status:  StatusFail,
 				Message: fmt.Sprintf("wallet returned no credential for %s", params.Property),
@@ -917,6 +1062,8 @@ func (DCQLResponseConstraintsValidator) Validate(_ context.Context, input Input)
 				),
 			}
 		}
+	case "trusted_authority_property_absent":
+		return validateTrustedAuthorityPropertyAbsent(query, responseValue, params.Property)
 	case "trusted_authority_empty_string_item":
 		if params.Property == "" {
 			return Result{
@@ -1440,9 +1587,23 @@ func validateVPTokenSignedPresentation(
 	}
 }
 
+// validateVPTokenJSONObject checks the vp_token object clause of the source of
+// WS_RP_MS_ProtocolMessages__127a together with the array clause it states
+// beside it: the vp_token is a JSON object and every entry of that object holds
+// an array. The element types of those arrays are the subject of 127b
+// (validateVPTokenPresentationArrays).
 func validateVPTokenJSONObject(responseValue any) Result {
-	if _, ok := normalizeJSONObject(responseValue); !ok {
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
 		return Result{Status: StatusFail, Message: "wallet response vp_token is not a JSON object"}
+	}
+	for _, key := range sortedKeys(response) {
+		if _, isArray := response[key].([]any); !isArray {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("vp_token[%q] is not an array", key),
+			}
+		}
 	}
 	return Result{Status: StatusPass, Message: "wallet response vp_token is a JSON object"}
 }
@@ -1469,10 +1630,32 @@ func validateVPTokenQueryIDs(query map[string]any, responseValue any) Result {
 	return Result{Status: StatusPass, Message: "vp_token keys exactly match credential query IDs"}
 }
 
+// validateVPTokenPresentationArrays checks both clauses the source of
+// WS_RP_MS_ProtocolMessages__127b states for each vp_token entry: the value is a
+// non-empty array and every element of that array is a string or a JSON object.
 func validateVPTokenPresentationArrays(query map[string]any, responseValue any) Result {
-	_, result := validatedVPTokenPresentations(query, responseValue)
+	response, result := validatedVPTokenPresentations(query, responseValue)
 	if result != nil {
 		return *result
+	}
+	for _, queryID := range queryCredentialIDs(query) {
+		presentations := response[queryID].([]any)
+		for index, rawPresentation := range presentations {
+			if _, isString := rawPresentation.(string); isString {
+				continue
+			}
+			if _, isObject := normalizeJSONObject(rawPresentation); isObject {
+				continue
+			}
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"vp_token[%q][%d] is neither a string nor a JSON object",
+					queryID,
+					index,
+				),
+			}
+		}
 	}
 	return Result{
 		Status:  StatusPass,
@@ -1652,7 +1835,10 @@ func validateDCQLCredentialQueries(credentials []any) error {
 		}
 		switch format {
 		case "dc+sd-jwt":
-			if !nonEmptyStringArray(meta["vct_values"]) {
+			// A present-but-empty meta object is the source's
+			// "no further constraints" form (WS_RP_MS_ProtocolMessages__076);
+			// vct_values is only required once meta carries another member.
+			if len(meta) > 0 && !nonEmptyStringArray(meta["vct_values"]) {
 				return fmt.Errorf(
 					"credentials[%d].meta.vct_values is not a non-empty string array",
 					index,
@@ -1673,7 +1859,7 @@ func validateDCQLCredentialQueries(credentials []any) error {
 			}
 			for claimIndex, rawClaim := range items {
 				claim, ok := normalizeJSONObject(rawClaim)
-				if !ok || !nonEmptyStringArray(claim["path"]) {
+				if !ok || !validClaimsPathPointer(claim["path"]) {
 					return fmt.Errorf(
 						"credentials[%d].claims[%d].path is invalid",
 						index,
@@ -1684,6 +1870,152 @@ func validateDCQLCredentialQueries(credentials []any) error {
 		}
 	}
 	return nil
+}
+
+// validateMDocWithoutClaimDisclosures checks the response to a claimless
+// mso_mdoc credential query: the source requires the wallet to return the
+// credential (a parseable mdoc DeviceResponse for the requested docType) while
+// disclosing no personal data element at all.
+func validateMDocWithoutClaimDisclosures(query map[string]any, responseValue any) Result {
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	response, ok := normalizeJSONObject(responseValue)
+	if !ok {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet vp_token is not an object keyed by credential query ID",
+		}
+	}
+	for index, rawCredential := range credentials {
+		credential, ok := normalizeJSONObject(rawCredential)
+		if !ok {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d] is not an object", index),
+			}
+		}
+		if format, _ := credential["format"].(string); format != "mso_mdoc" {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d].format is not mso_mdoc", index),
+			}
+		}
+		if _, exists := credential["claims"]; exists {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d] contains claims", index),
+			}
+		}
+		meta, _ := normalizeJSONObject(credential["meta"])
+		docType, _ := meta["doctype_value"].(string)
+		if docType == "" {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d].meta.doctype_value is missing", index),
+			}
+		}
+		id, _ := credential["id"].(string)
+		if id == "" {
+			return Result{
+				Status:  StatusFail,
+				Message: fmt.Sprintf("credentials[%d] has no id", index),
+			}
+		}
+		presentations, ok := response[id].([]any)
+		if !ok || len(presentations) == 0 {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"vp_token has no presentation for credential query %q",
+					id,
+				),
+			}
+		}
+		for presentationIndex, rawPresentation := range presentations {
+			presentation, ok := mdocPresentation(rawPresentation)
+			if !ok {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] is not an mdoc presentation",
+						id,
+						presentationIndex,
+					),
+				}
+			}
+			if _, exists := presentation.Document(docType); !exists {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] does not contain document type %q",
+						id,
+						presentationIndex,
+						docType,
+					),
+				}
+			}
+			if disclosed := mdocDisclosedElementCount(presentation); disclosed != 0 {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"vp_token[%q][%d] disclosed %d personal data element(s) although claims was omitted",
+						id,
+						presentationIndex,
+						disclosed,
+					),
+				}
+			}
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: "wallet returned the mdoc credential without disclosing personal data elements",
+	}
+}
+
+// mdocDisclosedElementCount counts the personal data elements a presentation
+// carries across all of its namespaces.
+func mdocDisclosedElementCount(presentation *evidence.MDocPresentation) int {
+	if presentation == nil {
+		return 0
+	}
+	count := 0
+	for _, elements := range presentation.Namespaces {
+		count += len(elements)
+	}
+	return count
+}
+
+// validClaimsPathPointer reports whether value is an OpenID4VP claims path
+// pointer (Section 7): a non-empty array whose members are strings, null, or
+// non-negative integers.
+func validClaimsPathPointer(value any) bool {
+	items, ok := value.([]any)
+	if !ok || len(items) == 0 {
+		return false
+	}
+	for _, item := range items {
+		switch member := item.(type) {
+		case nil:
+		case string:
+			if member == "" {
+				return false
+			}
+		case float64:
+			if member < 0 || member != float64(int64(member)) {
+				return false
+			}
+		case int:
+			if member < 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func nonEmptyStringArray(value any) bool {
@@ -1911,12 +2243,28 @@ func validateCredentialSetsOptions(
 	}
 }
 
-func validateCredentialSetsRequired(query map[string]any, responseValue any, mode string) Result {
+func validateCredentialSetsRequired(
+	root, query map[string]any,
+	responseValue any,
+	mode string,
+) Result {
 	sets, ok := query["credential_sets"].([]any)
 	if !ok || len(sets) == 0 {
 		return Result{Status: StatusFail, Message: "dcql_query does not contain credential_sets"}
 	}
 	response, responseOK := normalizeJSONObject(responseValue)
+	optionalSetSeen := false
+	// The modes that assert the Wallet presented the set check that the vp_token
+	// answers one of its options; the no-match mode only looks for the absence of
+	// a presentation.
+	matchesSet := mode == "credential_sets_required_true_match" ||
+		mode == "credential_sets_required_omitted" ||
+		mode == "credential_sets_required_false_with_match"
+	// requiredOptions collects the options of the sets the Wallet must satisfy:
+	// a set whose required is not false (OpenID4VP 6.2). Its options name the
+	// credential queries whose presentations satisfy it, so the mode can check
+	// that the Wallet answered those queries and not others.
+	requiredOptions := make([][]string, 0, len(sets))
 	for index, rawSet := range sets {
 		set, ok := normalizeJSONObject(rawSet)
 		if !ok {
@@ -1926,27 +2274,58 @@ func validateCredentialSetsRequired(query map[string]any, responseValue any, mod
 			}
 		}
 		required, exists := set["required"]
-		if mode == "credential_sets_required_true_match" && (!exists || required != true) {
-			return Result{Status: StatusFail, Message: "required is not true"}
-		}
-		if mode == "credential_sets_required_true_no_match" && (!exists || required != true) {
+		if (mode == "credential_sets_required_true_match" ||
+			mode == "credential_sets_required_true_no_match") &&
+			(!exists || required != true) {
 			return Result{Status: StatusFail, Message: "required is not true"}
 		}
 		if mode == "credential_sets_required_omitted" && exists {
 			return Result{Status: StatusFail, Message: "required is present"}
 		}
-		if mode == "credential_sets_required_false_with_match" && required != false {
-			return Result{Status: StatusFail, Message: "required is not false"}
+		// A required:false set is the source's optional, possibly
+		// unsatisfiable set; it is asserted next to the satisfiable sets, not
+		// instead of them.
+		if exists && required == false {
+			optionalSetSeen = true
+			continue
+		}
+		if matchesSet {
+			requiredOptions = append(requiredOptions, credentialSetOptionIDs(set)...)
 		}
 	}
-	if mode == "credential_sets_required_true_match" ||
-		mode == "credential_sets_required_omitted" ||
-		mode == "credential_sets_required_false_with_match" {
+	if mode == "credential_sets_required_false_with_match" && !optionalSetSeen {
+		return Result{Status: StatusFail, Message: "no credential set has required false"}
+	}
+	if matchesSet {
+		if len(requiredOptions) == 0 {
+			return Result{
+				Status: StatusFail,
+				Message: "dcql_query has no credential set whose required is not false " +
+					"and names a credential query",
+			}
+		}
 		if !responseOK || isEmptyDCQLValue(response) {
 			return Result{
 				Status:  StatusFail,
 				Message: "wallet returned no vp_token for a satisfiable credential set",
 			}
+		}
+		// The Wallet must present the credential queries an option of a
+		// required set names: an omitted "required" behaves as required=true
+		// (source 103) and a required:false set is answered by the next
+		// satisfiable set (source 104). A vp_token answering a different
+		// credential query is not the match those sources describe.
+		if !credentialSetOptionSatisfied(requiredOptions, response) {
+			return Result{
+				Status: StatusFail,
+				Message: "vp_token does not contain a presentation for a required " +
+					"credential set option",
+			}
+		}
+		// The mode asserts that the Verifier accepted what the Wallet presented,
+		// so its recorded judgement decides, as for credentials_match.
+		if verdict, decided := verifierRejectedPresentation(root); decided {
+			return verdict
 		}
 		return Result{Status: StatusPass, Message: "wallet presented the credential set"}
 	}
@@ -1960,6 +2339,53 @@ func validateCredentialSetsRequired(query map[string]any, responseValue any, mod
 		Status:  StatusPass,
 		Message: "wallet stopped without presenting a missing required credential set",
 	}
+}
+
+// credentialSetOptionIDs returns the credential query IDs each option of a
+// credential set names. An option is satisfied when the vp_token carries a
+// presentation for every ID in it.
+func credentialSetOptionIDs(set map[string]any) [][]string {
+	options, ok := set["options"].([]any)
+	if !ok {
+		return nil
+	}
+	ids := make([][]string, 0, len(options))
+	for _, rawOption := range options {
+		option, ok := rawOption.([]any)
+		if !ok {
+			continue
+		}
+		optionIDs := make([]string, 0, len(option))
+		for _, rawID := range option {
+			id, ok := rawID.(string)
+			if ok && id != "" {
+				optionIDs = append(optionIDs, id)
+			}
+		}
+		if len(optionIDs) > 0 {
+			ids = append(ids, optionIDs)
+		}
+	}
+	return ids
+}
+
+// credentialSetOptionSatisfied reports whether the vp_token satisfies any of the
+// credential set options, which it does when it carries a presentation for every
+// credential query the option names.
+func credentialSetOptionSatisfied(options [][]string, response map[string]any) bool {
+	for _, option := range options {
+		satisfied := true
+		for _, id := range option {
+			if isEmptyDCQLValue(response[id]) {
+				satisfied = false
+				break
+			}
+		}
+		if satisfied {
+			return true
+		}
+	}
+	return false
 }
 
 func validateRequiredCredentialsNoPartialPresentation(
@@ -2496,6 +2922,76 @@ func validateClaimSetsPreferredOption(
 	return Result{
 		Status:  StatusPass,
 		Message: "wallet disclosed only the preferred satisfiable claim_set",
+	}
+}
+
+// validateTrustedAuthorityPropertyAbsent checks that every trusted_authorities
+// entry of the delivered query lacks property, and that the Wallet returned no
+// credential for that malformed query.
+func validateTrustedAuthorityPropertyAbsent(
+	query map[string]any,
+	responseValue any,
+	property string,
+) Result {
+	if property == "" {
+		return Result{
+			Status:  StatusError,
+			Message: "property is required for trusted_authority_property_absent mode",
+		}
+	}
+	credentials, ok := query["credentials"].([]any)
+	if !ok || len(credentials) == 0 {
+		return Result{Status: StatusFail, Message: "dcql_query does not contain credentials"}
+	}
+	for credentialIndex, rawCredential := range credentials {
+		credential, _ := normalizeJSONObject(rawCredential)
+		authorities, ok := credential["trusted_authorities"].([]any)
+		if !ok || len(authorities) == 0 {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"credentials[%d].trusted_authorities is not a non-empty array",
+					credentialIndex,
+				),
+			}
+		}
+		for authorityIndex, rawAuthority := range authorities {
+			authority, ok := normalizeJSONObject(rawAuthority)
+			if !ok {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"credentials[%d].trusted_authorities[%d] is not an object",
+						credentialIndex,
+						authorityIndex,
+					),
+				}
+			}
+			if _, exists := authority[property]; exists {
+				return Result{
+					Status: StatusFail,
+					Message: fmt.Sprintf(
+						"credentials[%d].trusted_authorities[%d] contains %s",
+						credentialIndex,
+						authorityIndex,
+						property,
+					),
+				}
+			}
+		}
+	}
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"wallet returned a credential for a trusted authority without %s",
+				property,
+			),
+		}
+	}
+	return Result{
+		Status:  StatusPass,
+		Message: fmt.Sprintf("trusted authority without %s returned no credential", property),
 	}
 }
 
@@ -3878,7 +4374,7 @@ func validateClaimsWithoutValues(query map[string]any, responseValue any) Result
 					),
 				}
 			}
-			if !nonEmptyStringArray(claim["path"]) {
+			if !validClaimsPathPointer(claim["path"]) {
 				return Result{
 					Status: StatusFail,
 					Message: fmt.Sprintf(
@@ -4134,6 +4630,14 @@ func sdjwtMatchesIssuerClaim(presentation *evidence.SDJWTPresentation, values []
 // validateClaimPathMemberTypeError checks that wallet rejects DCQL queries with invalid claim-path
 // member types (boolean, negative integer, unsupported object types).
 func validateClaimPathMemberTypeError(responseValue, errorValue any) Result {
+	// A vp_token is a presentation, not a rejection, whatever the error member
+	// says (OpenID4VP 8.5 defines no error response that also carries one).
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{
+			Status:  StatusFail,
+			Message: "wallet returned vp_token for query with invalid claim-path member type",
+		}
+	}
 	if errStr := normalizeString(errorValue); errStr != "" {
 		if errStr == invalidRequestError {
 			return Result{
@@ -4152,12 +4656,6 @@ func validateClaimPathMemberTypeError(responseValue, errorValue any) Result {
 			),
 		}
 	}
-	if !isEmptyDCQLValue(responseValue) {
-		return Result{
-			Status:  StatusFail,
-			Message: "wallet returned vp_token for query with invalid claim-path member type",
-		}
-	}
 	return Result{
 		Status:  StatusPass,
 		Message: "wallet did not return vp_token for invalid claim-path member type",
@@ -4167,6 +4665,12 @@ func validateClaimPathMemberTypeError(responseValue, errorValue any) Result {
 // validateWalletErrorExpected checks that wallet returns an expected error code.
 // If expected is nil, any error code is accepted.
 func validateWalletErrorExpected(responseValue, errorValue, expected any) Result {
+	// A vp_token is a presentation, not an error reply, whatever the error
+	// member says (OpenID4VP 8.5 defines no error response that also carries
+	// one).
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{Status: StatusFail, Message: "wallet returned vp_token, expected error"}
+	}
 	if errStr := normalizeString(errorValue); errStr != "" {
 		if expected != nil {
 			expectedStr, ok := expected.(string)
@@ -4184,9 +4688,6 @@ func validateWalletErrorExpected(responseValue, errorValue, expected any) Result
 			}
 		}
 		return Result{Status: StatusPass, Message: fmt.Sprintf("wallet returned error %s", errStr)}
-	}
-	if !isEmptyDCQLValue(responseValue) {
-		return Result{Status: StatusFail, Message: "wallet returned vp_token, expected error"}
 	}
 	return Result{
 		Status:  StatusPass,
@@ -4208,8 +4709,70 @@ func validateWalletErrorRequired(responseValue, errorValue any) Result {
 	}
 }
 
+// verifierRejectedPresentation reports how the Verifier's recorded judgement on
+// the Wallet's Authorization Response settles the matching modes, when the
+// evidence carries a Capture verifier session that records one.
+//
+// The judgement those modes rely on is checks.dcql_query_matched, the property
+// the sources behind them ask for ("responds to request without error",
+// "concludes matching without error"): it says whether the delivered credential
+// query was satisfied. checks.presentation_valid bundles the vp_token format,
+// nonce and holder-binding checks that those sources assert separately, so it
+// does not decide them. A recorded dcql_query_matched=false fails the mode
+// however well-formed the vp_token is, while a matching judgement leaves the
+// mode to its own checks.
+//
+// Capture creates a session with presentation_valid=null and
+// dcql_query_matched=false and rewrites both once a response has been judged
+// (state.ts writes the initial object, server.ts the judgement), so a false
+// dcql_query_matched only reports a Wallet breach once presentation_valid
+// carries a verdict. A session whose checks still hold Capture's initial values
+// is blocked when it records the response it never judged, because the evidence
+// cannot settle what the sources ask. A checks object without a boolean
+// dcql_query_matched records no judgement, and evidence that is not a Capture
+// session record at all leaves the mode to its own checks: both report
+// decided=false.
+func verifierRejectedPresentation(value any) (Result, bool) {
+	session, ok := captureVerifierSession(value)
+	if !ok {
+		return Result{}, false
+	}
+	checks, ok := normalizeJSONObject(session["checks"])
+	if !ok {
+		return Result{}, false
+	}
+	matched, recorded := checks["dcql_query_matched"].(bool)
+	if !recorded || matched {
+		return Result{}, false
+	}
+	if _, judged := checks["presentation_valid"].(bool); judged {
+		return Result{
+			Status:  StatusFail,
+			Message: "the verifier recorded dcql_query_matched=false for the delivered query",
+		}, true
+	}
+	if !captureSessionRecordedAResponse(session) {
+		return Result{}, false
+	}
+	return Result{
+		Status: StatusBlocked,
+		Message: "the verifier never judged the presented credential (its checks still " +
+			"carry Capture's initial values)",
+	}, true
+}
+
 // validateErrorCode checks that wallet returns a specific OAuth2/OID4VP error code.
 func validateErrorCode(responseValue, errorValue any, expectedCode string) Result {
+	// A response carrying a vp_token is a presentation, not an error reply,
+	// whatever the error member says (OpenID4VP 8.5 defines no error response
+	// that also carries a vp_token), so it is rejected before the error code is
+	// read.
+	if !isEmptyDCQLValue(responseValue) {
+		return Result{
+			Status:  StatusFail,
+			Message: fmt.Sprintf("wallet returned vp_token, expected error %s", expectedCode),
+		}
+	}
 	if errStr := normalizeString(errorValue); errStr != "" {
 		if errStr == expectedCode {
 			return Result{
@@ -4222,15 +4785,9 @@ func validateErrorCode(responseValue, errorValue any, expectedCode string) Resul
 			Message: fmt.Sprintf("wallet returned error %s, expected %s", errStr, expectedCode),
 		}
 	}
-	if isEmptyDCQLValue(responseValue) {
-		return Result{
-			Status:  StatusPass,
-			Message: fmt.Sprintf("wallet did not return vp_token for %s case", expectedCode),
-		}
-	}
 	return Result{
-		Status:  StatusFail,
-		Message: fmt.Sprintf("wallet returned vp_token, expected error %s", expectedCode),
+		Status:  StatusPass,
+		Message: fmt.Sprintf("wallet did not return vp_token for %s case", expectedCode),
 	}
 }
 

@@ -271,32 +271,3 @@ func (MDocMSOStatusListStructureValidator) Validate(_ context.Context, input Inp
 		),
 	}
 }
-
-// COSECWTStatusClaimValidator stands for the CWT Referenced Token checks that
-// address the Status claim by its CBOR label 65535. An ISO mdoc does not carry
-// one: its issuer-signed payload is a text-keyed Mobile Security Object whose
-// status sits under the key "status". The validator therefore reports the
-// presented mdoc as blocked evidence instead of reading "status" as if it were
-// label 65535.
-type COSECWTStatusClaimValidator struct{}
-
-// ID returns the validator identifier.
-func (COSECWTStatusClaimValidator) ID() string { return "cose.cwt_status_claim" }
-
-// Validate blocks on mdoc evidence and fails on anything else, because no CWT
-// Referenced Token parser exists to evaluate label 65535.
-func (COSECWTStatusClaimValidator) Validate(_ context.Context, input Input) Result {
-	presentation, ok := mdocPresentation(input.Value)
-	if !ok || len(presentation.Documents) == 0 {
-		return Result{
-			Status:  StatusFail,
-			Message: "evidence is not a presented COSE Referenced Token",
-		}
-	}
-	return Result{
-		Status: StatusBlocked,
-		Message: "issuer-signed payload is an ISO mdoc Mobile Security Object keyed by text, " +
-			"not a CWT claims set; the Status claim at CBOR label 65535 needs a CWT " +
-			"Referenced Token fixture",
-	}
-}
