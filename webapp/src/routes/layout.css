@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 @import 'tailwindcss';
 
 @import 'tw-animate-css';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/source-code-pro';
 
 @plugin '@tailwindcss/typography';
 @plugin 'tailwind-scrollbar';
@@ -95,6 +97,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 }
 
 @theme inline {
+	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'Source Code Pro Variable', ui-monospace, monospace;
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
@@ -217,4 +221,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.439 0 0);
+}
+
+/* Diagonal-fold motif (brand: page headers and marketing surfaces only), two flat planes on a dark surface. */
+@layer components {
+	.fold-motif {
+		position: relative;
+		overflow: hidden;
+	}
+
+	.fold-motif::before,
+	.fold-motif::after {
+		position: absolute;
+		inset: 0 0 0 45%;
+		pointer-events: none;
+		content: '';
+	}
+
+	.fold-motif::before {
+		background: oklch(1 0 0 / 0.06);
+		clip-path: polygon(0 0, 100% 0, 100% 100%, 55% 52%);
+	}
+
+	.fold-motif::after {
+		background: oklch(1 0 0 / 0.04);
+		clip-path: polygon(55% 52%, 100% 100%, 15% 100%);
+	}
 }
