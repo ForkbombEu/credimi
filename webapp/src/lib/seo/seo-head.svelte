@@ -30,6 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const title = $derived(seo.title ? `${seo.title} | ${appName}` : appName);
 	const description = $derived(seo.description ?? SITE_DESCRIPTION);
 	const image = $derived(absoluteUrl(seo.image ?? ogImages.default, origin));
+	const imageAlt = $derived(seo.imageAlt ?? seo.title ?? appName);
 	const canonical = $derived(absoluteUrl(page.url.pathname, origin));
 	const indexable = $derived(
 		!seo.noindex && page.status < 400 && isIndexableRoute(page.route.id)
@@ -61,6 +62,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<meta property="og:image" content={image} />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content={imageAlt} />
 	<meta property="og:locale" content={getLocale()} />
 	{#if seo.article}
 		<meta property="article:published_time" content={seo.article.publishedTime} />
@@ -74,6 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<meta name="twitter:title" content={seo.title ?? appName} />
 	<meta name="twitter:description" content={description} />
 	<meta name="twitter:image" content={image} />
+	<meta name="twitter:image:alt" content={imageAlt} />
 
 	{#each jsonLd as data, i (i)}
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- serialized JSON with `<` escaped (jsonLdScriptTag) -->

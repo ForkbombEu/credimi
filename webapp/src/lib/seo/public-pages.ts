@@ -58,18 +58,18 @@ export async function listPublicPages(fetch: Fetch): Promise<PublicPage[]> {
 	return [...core, ...sources.flat()];
 }
 
-/** A failing source drops its own pages instead of failing the whole listing. */
-async function safely(source: string, run: () => Promise<PublicPage[]>): Promise<PublicPage[]> {
+/** A failing source fails the whole listing: crawlers keep the last good sitemap after an error,
+ * but replace it with a truncated one. */
+async function listSource(source: string, run: () => Promise<PublicPage[]>): Promise<PublicPage[]> {
 	try {
 		return await run();
 	} catch (error) {
-		console.error(`[seo] could not list ${source} pages`, error);
-		return [];
+		throw new Error(`could not list ${source} pages`, { cause: error });
 	}
 }
 
 function contentPages(fetch: Fetch) {
-	return safely('content', async () => {
+	return listSource('content', async () => {
 		const slugs = [...new Set(Object.values(tagsIndex).flat())];
 		const pages = await Promise.all(slugs.map((slug) => getContentBySlug(slug, fetch)));
 		return pages
@@ -85,7 +85,7 @@ function contentPages(fetch: Fetch) {
 }
 
 function hubPages(fetch: Fetch) {
-	return safely('hub', async () => {
+	return listSource('hub', async () => {
 		const items = await pb.collection('hub_items').getFullList<HubItem>({
 			fetch,
 			// Custom checks open a private run page, not a public Hub page.
@@ -107,7 +107,7 @@ function hubPages(fetch: Fetch) {
 }
 
 function conformancePages(fetch: Fetch) {
-	return safely('conformance', async () => {
+	return listSource('conformance', async () => {
 		const standards = await getNestStandards({ fetch, surface: 'pipeline' });
 		if (standards instanceof Error) throw standards;
 
@@ -133,7 +133,7 @@ function conformancePages(fetch: Fetch) {
 }
 
 function newsPages(fetch: Fetch) {
-	return safely('news', async () => {
+	return listSource('news', async () => {
 		const news = await pb.collection('news').getFullList({ fetch, sort: '-created' });
 		return news.map((item) => ({
 			path: `/news/${item.id}`,
@@ -146,7 +146,7 @@ function newsPages(fetch: Fetch) {
 }
 
 function organizationPages(fetch: Fetch) {
-	return safely('organizations', async () => {
+	return listSource('organizations', async () => {
 		const organizations = await pb
 			.collection('organizations')
 			.getFullList({ fetch, filter: 'published = true', sort: 'name' });

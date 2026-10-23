@@ -40,6 +40,8 @@ export type PageSeo = {
 	description?: string;
 	/** Root-relative or absolute image URL. */
 	image?: string;
+	/** What the image shows; defaults to the page title. */
+	imageAlt?: string;
 	type?: 'website' | 'article';
 	noindex?: boolean;
 	article?: { publishedTime: string; modifiedTime: string; tags: string[] };
