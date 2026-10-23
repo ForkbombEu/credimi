@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import TableOfContents from '@lucide/svelte/icons/table-of-contents';
 	import { URL_SEARCH_PARAM_NAME } from '$lib/content';
-	import ContentHead from '$lib/content/content-head.svelte';
 	import { getTagTranslation } from '$lib/content/tags-i18n';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
@@ -31,8 +30,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return heading.textContent?.trim() ?? '';
 	}
 </script>
-
-<ContentHead seo={data.seo} tags={attributes.tags} />
 
 <PageTop containerClass="border-t-0" contentClass="pt-8 !space-y-12">
 	<Breadcrumbs />

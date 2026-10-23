@@ -75,5 +75,5 @@ export type StartCheckResultWithMeta = StartCheckResult & { standardAndVersion: 
 
 export const LatestCheckRunsStorage = createStorageHandlers<StartCheckResultWithMeta[]>(
 	`${appName}-latestCheckRuns`,
-	localStorage
+	() => localStorage
 );

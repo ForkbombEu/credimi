@@ -69,9 +69,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <BaseTopbar class="border-none bg-card">
 	{#snippet left()}
 		<div class="flex min-w-0 items-center space-x-4 overflow-hidden">
-			<Button variant="link" href={href('/')} class="shrink-0">
-				<AppLogo />
-			</Button>
+			<!-- AppLogo is itself a link: wrapping it in another <a> breaks server-rendered HTML. -->
+			<div class="shrink-0">
+				<AppLogo href={href('/')} />
+			</div>
 
 			<div class="hidden md:flex md:flex-row md:items-center md:gap-1">
 				{#each leftItems as item (item)}

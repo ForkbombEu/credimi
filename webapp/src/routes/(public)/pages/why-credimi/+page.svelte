@@ -12,7 +12,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Cloud from '@lucide/svelte/icons/cloud';
 	import FileCheck from '@lucide/svelte/icons/file-check';
 	import Smartphone from '@lucide/svelte/icons/smartphone';
-	import ContentHead from '$lib/content/content-head.svelte';
+	import {
+		columns,
+		competitors,
+		eudiGaps,
+		chooseCredimi,
+		credimiBestAt,
+		matrices,
+		supportLabels,
+		type ColumnId,
+		type Support
+	} from '$lib/content/why-credimi';
 	import { entities, type EntityData } from '$lib/global/entities';
 	import RoleTile, { type RoleStyle } from '$lib/layout/marketing/role-tile.svelte';
 	import StandardsCoverage from '$lib/layout/marketing/standards-coverage.svelte';
@@ -22,18 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 
 	import CapabilityMatrix from './_partials/capability-matrix.svelte';
-	import {
-		columns,
-		competitors,
-		eudiGaps,
-		matrices,
-		supportLabels,
-		type ColumnId,
-		type Support
-	} from './_partials/comparison';
 	import SupportDot from './_partials/support-dot.svelte';
-
-	const { data } = $props();
 
 	// Type roles: display, section heading, lead, body. One family (Inter), contrast from size and weight.
 	const container = 'mx-auto max-w-screen-xl px-4 md:px-8';
@@ -124,12 +123,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		products: competitors.filter((competitor) => competitor.column === id)
 	}));
 
-	const credimiBestAt = [
-		'Proving an EUDI wallet, issuer or verifier conforms and interoperates, with evidence.',
-		'Gating releases on wallet × issuer × verifier flows in CI.',
-		'Preparing for FCAF assessment and EUDI ARF readiness.'
-	];
-
 	const legend: Support[] = ['core', 'partial', 'none'];
 
 	const hubFeatures: { entity: EntityData; text: string }[] = [
@@ -145,13 +138,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			entity: entities.pipelines,
 			text: 'Reuse the same entry, without changes, as a step in your automated pipelines.'
 		}
-	];
-
-	const chooseCredimi = [
-		'You build an EUDI wallet and need proof it works with real issuers and verifiers, not only on many phones.',
-		'You run a credential issuer or verifier and want to know which wallets actually complete your flows.',
-		'You prepare for eIDAS 2 / EUDI ARF conformance and need FCAF-aligned evidence.',
-		'You are tired of keeping three tools, two scripts and a spreadsheet in sync to answer “does it interoperate?”'
 	];
 
 	const related = [
@@ -179,8 +165,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return columns[id].products.join(', ');
 	}
 </script>
-
-<ContentHead seo={data.seo} tags={data.tags} />
 
 {#snippet diagram(src: string, alt: string, height: number)}
 	<figure class="mt-12 overflow-x-auto rounded-2xl border border-border bg-card">

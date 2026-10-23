@@ -11,8 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import GlobalConfirm from '$lib/layout/global-confirm.svelte';
 	import GlobalLoading from '$lib/layout/global-loading.svelte';
 	import { queryClient } from '$lib/query-client';
+	import SeoHead from '$lib/seo/seo-head.svelte';
 
-	import { appName } from '@/brand';
 	import { Toaster } from '@/components/ui/sonner';
 	import { locales, localizeHref } from '@/i18n/paraglide/runtime';
 
@@ -23,10 +23,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>
-		{appName}
-	</title>
+	<meta name="theme-color" content="#220e7c" />
 </svelte:head>
+
+<SeoHead />
 
 <QueryClientProvider client={queryClient}>
 	{@render children()}

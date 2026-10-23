@@ -2,23 +2,26 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { HubItem } from '$lib/hub';
+
 import { Scoreboard } from '$lib';
+import { SITE_ORIGIN, softwareApplicationJsonLd, staticPages } from '$lib/seo';
 
 import { pb } from '@/pocketbase';
 import { Collections } from '@/pocketbase/types';
 
 export const load = async ({ fetch }) => {
-	const wallets = await pb.collection('hub_items').getList(1, 3, {
+	const wallets = await pb.collection('hub_items').getList<HubItem>(1, 3, {
 		filter: `type = '${Collections.Wallets}'`,
 		fetch,
 		sort: '@random'
 	});
-	const issuers = await pb.collection('hub_items').getList(1, 3, {
+	const issuers = await pb.collection('hub_items').getList<HubItem>(1, 3, {
 		filter: `type = '${Collections.CredentialIssuers}'`,
 		fetch,
 		sort: '@random'
 	});
-	const verifiers = await pb.collection('hub_items').getList(1, 3, {
+	const verifiers = await pb.collection('hub_items').getList<HubItem>(1, 3, {
 		filter: `type = '${Collections.Verifiers}'`,
 		fetch,
 		sort: '@random'
@@ -33,6 +36,12 @@ export const load = async ({ fetch }) => {
 		wallets: wallets.items,
 		issuers: issuers.items,
 		verifiers: verifiers.items,
-		scoreboard: { records: scoreboard.items }
+		scoreboard: { records: scoreboard.items },
+		counts: {
+			wallets: wallets.totalItems,
+			issuers: issuers.totalItems,
+			verifiers: verifiers.totalItems
+		},
+		seo: { ...staticPages['/'], jsonLd: [softwareApplicationJsonLd(SITE_ORIGIN)] }
 	};
 };
