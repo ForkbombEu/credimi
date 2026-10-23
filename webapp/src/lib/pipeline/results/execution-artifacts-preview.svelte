@@ -9,8 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { BadgeCheckIcon, FileCogIcon, FileIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
-	import { FCAF } from '$lib';
 	import MediaPreview from '$lib/components/media-preview.svelte';
+	import * as FCAF from '$lib/fcaf';
 	import { mergeProps } from 'bits-ui';
 
 	import type { IconComponent } from '@/components/types';
@@ -179,6 +179,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{image}
 					{href}
 					icon={previewIcon}
+					aria-label={tooltip}
 					class={previewClass}
 					{...mergeProps(extraProps, props)}
 				/>

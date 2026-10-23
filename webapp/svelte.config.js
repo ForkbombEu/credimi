@@ -24,6 +24,8 @@ const config = {
 		// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
 		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 		adapter: adapter(),
+		// Component styles split into many tiny files, each a render-blocking request; inline them.
+		inlineStyleThreshold: 5 * 1024,
 		alias: {
 			'@': './src/modules',
 			$zencode: './client_zencode',

@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
-	import { yamlStringSchema } from '$lib/utils';
+	import { yamlStringSchema } from '$lib/utils/schemas';
 	import { categoryLabels } from '$lib/wallet/actions';
 	import { z } from 'zod/v3';
 
