@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Conformance, Hub } from '$lib';
+import * as Conformance from '$lib/conformance';
 import { entities } from '$lib/global';
+import * as Hub from '$lib/hub';
 
 import type { Item } from './types';
 

@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet name(record: HubItemsResponse)}
 	{@const typed = record as HubItem}
-	{@const { logo, href } = getHubItemData(typed)}
+	{@const { logo, href } = getHubItemData(typed, '100x100')}
 	{@const isCurrentUserOwner = userOrganization.current?.id === typed.organization_id}
 
 	<TableNameCell {logo} name={typed.name} textToCopy={getPath(typed)} {href}>
