@@ -79,13 +79,26 @@ func didMethodP256Key(method map[string]any) (*ecdsa.PublicKey, error) {
 	if !ok {
 		return nil, fmt.Errorf("did method JWK is missing")
 	}
+	key, err := p256PublicKeyFromJWK(jwk)
+	if err != nil {
+		return nil, fmt.Errorf("did method: %w", err)
+	}
+	return key, nil
+}
+
+// p256PublicKeyFromJWK parses a P-256 EC public key from an already-decoded
+// JWK, rejecting coordinates that are not exactly one P-256 coordinate. Both
+// the DID document and the verifier attestation cnf.jwk publish keys this way,
+// so the length check keeps the uncompressed-point buffer a fixed size instead
+// of one derived from untrusted input.
+func p256PublicKeyFromJWK(jwk map[string]any) (*ecdsa.PublicKey, error) {
 	if jwk["kty"] != "EC" || jwk["crv"] != "P-256" {
-		return nil, fmt.Errorf("did method is not P-256 EC")
+		return nil, fmt.Errorf("JWK is not P-256 EC")
 	}
 	x, xok := jwk["x"].(string)
 	y, yok := jwk["y"].(string)
 	if !xok || !yok {
-		return nil, fmt.Errorf("did method EC coordinates are missing")
+		return nil, fmt.Errorf("JWK EC coordinates are missing")
 	}
 	xb, err := decodeP256Coordinate("x", x)
 	if err != nil {
@@ -101,7 +114,7 @@ func didMethodP256Key(method map[string]any) (*ecdsa.PublicKey, error) {
 	encoded = append(encoded, yb...)
 	key, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), encoded)
 	if err != nil {
-		return nil, fmt.Errorf("parse DID method EC key: %w", err)
+		return nil, fmt.Errorf("parse JWK EC key: %w", err)
 	}
 	return key, nil
 }
@@ -112,15 +125,15 @@ const p256CoordinateBytes = 32
 
 // decodeP256Coordinate rejects a JWK coordinate that is not exactly one P-256
 // coordinate, which keeps the uncompressed-point buffer a fixed size instead of
-// one derived from the published document.
+// one derived from the published key.
 func decodeP256Coordinate(name string, encoded string) ([]byte, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
 	if err != nil {
-		return nil, fmt.Errorf("decode DID %s coordinate: %w", name, err)
+		return nil, fmt.Errorf("decode JWK %s coordinate: %w", name, err)
 	}
 	if len(decoded) != p256CoordinateBytes {
 		return nil, fmt.Errorf(
-			"DID %s coordinate is %d bytes, expected %d",
+			"JWK %s coordinate is %d bytes, expected %d",
 			name,
 			len(decoded),
 			p256CoordinateBytes,

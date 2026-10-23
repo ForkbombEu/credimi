@@ -54,22 +54,18 @@ facts undated below were probed 14/10/2026.
 Each entry names the input Capture does not supply; the test IDs listed with it
 assert `fcaf.skipped` naming that input, unless stated otherwise.
 
-- `verifier_attestation` and `x509_san_dns` sessions: production answers `500
-  internal_error`, "there are no SAN-DNS names", for both prefixes (re-probed
-  14/10/2026; the deployed verifier certificate carries
-  `URI:https://capture-wallet.credimi.io/` and no `dNSName`). Needs a deployed
-  certificate whose SAN matches the domain: `WS_RP_SM_RpIntegrity__008`, `009`,
-  `011`, `012`, `WS_RP_MS_Metadata__116`–`124` and
-  `WS_RP_IA_MainInteraction__056` (which is defined but currently bound to this
-  unbuildable session). `WS_RP_MS_Metadata__125`, `127`, `128` additionally need
-  a registry-issued `dNSName` certificate, which upstream states does not exist.
-  `WS_RP_SM_RpIntegrity__010` has one further requirement that is not part of
-  this blocker: an operator must configure the Wallet to trust the fixture
-  attestation issuer at
-  `/openid4vp/verifier-attestation-issuer/jwks.json`.
+- `x509_san_dns` sessions: production answers `500 internal_error`, "there are
+  no SAN-DNS names" (re-probed 22/10/2026; the deployed verifier certificate
+  carries `URI:https://capture-wallet.credimi.io/` and no `dNSName`).
+  `WS_RP_MS_Metadata__125`, `127`, `128` additionally need a registry-issued
+  `dNSName` certificate, which upstream states does not exist.
+- Wallet-trusted Verifier attestation issuer: `WS_RP_SM_RpIntegrity__010`
+  needs an operator to configure the Wallet to trust the fixture attestation
+  issuer at `/openid4vp/verifier-attestation-issuer/jwks.json`.
+  `verifier_attestation` sessions themselves are deployed (probed 22/10/2026).
 - `openid_federation`: Capture rejects the prefix with `400
   unsupported_client_id_scheme` and publishes no entity statements:
-  `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__113`, `114`, `115`.
+  `WS_RP_MS_Metadata__114`, `115`.
 - RS384 or PS384 Request Object: Capture's KMS generates EC keys only, and the
   intended algorithm is an open upstream decision:
   `WS_RP_SM_RpIntegrity__032`,
@@ -78,11 +74,9 @@ assert `fcaf.skipped` naming that input, unless stated otherwise.
   serves the deployed certificate as a single-element `x5c` (leaf only,
   re-checked 14/10/2026) and `request_behavior.certificate_chain` only generates
   synthetic untrusted chains. Needs a control that serves the deployed chain
-  (leaf plus `PID Issuer CA 02`).
-- Trust anchor inside `x5c` for `WS_RP_SM_RpIntegrity__025`: needs a verifier
-  control that serves the Wallet's trust anchor, `PID Issuer CA 02`, in the
-  chain; a scenario cannot build it from the leaf's AIA and would break when the
-  anchor changes.
+  (leaf plus `PID Issuer CA 02`). Note, unreviewed against these sources:
+  `certificate_chain: "with_trust_anchor"` (built for 025) serves exactly
+  [leaf, `PID Issuer CA 02`] since 22/10/2026.
 - Verifier certificates issued by a trust registry: a WRPAC/WRPRC access or
   registration certificate for `WS_RP_SM_TrustMechanisms__101`, `101b_UF`,
   `101c_UF`, and a Wallet-trusted certificate for an EdDSA signing key for
@@ -98,14 +92,8 @@ assert `fcaf.skipped` naming that input, unless stated otherwise.
   `WS_RP_IA_MainInteraction__024`.
 - Credential large enough to exceed user-agent URL limits:
   `WS_RP_IA_MainInteraction__046`.
-- Revoked ISO mdoc (Capture publishes a Token Status List allocation only):
-  `WS_RP_SM_IssuerIntegrity__012`.
 - COSE CWT Referenced Token fixture: `WS_RP_MS_Metadata__101`, `102`,
   `WS_RP_MS_CredentialFormats__032`.
-- `status_reference` malformed-URI shapes beyond the unparseable one
-  (missing scheme, unencoded space, invalid percent-encoding, illegal character,
-  empty string): `WS_RP_MS_Metadata__089`, `099`, which currently assert only
-  the unparseable shape.
 - SD-JWT VC JSON serialization: Capture's issuer and verifier support compact
   serialization only, so the credential cannot be delivered in JSON form.
   `WS_RP_MS_CredentialFormats__048` is also profile-conditional (a Wallet profile
@@ -121,13 +109,3 @@ assert `fcaf.skipped` naming that input, unless stated otherwise.
   it verbatim and signs none, and the EUDI Relying Party Registration
   Certificate has no TS5 attachment structure, so no profile format exists for
   the caller to sign: `WS_RP_SM_DeviceBinding__002`–`006`.
-- `request_uri` target recording: `raw.request_uri_http` carries only `method`,
-  `headers` and `body` (re-checked 14/10/2026), so ER3.3 of
-  `WS_RP_IA_ProtocolFlow__002b` and `002d` (the requested path, without query or
-  fragment) cannot be asserted. Capture must record the requested target.
-- `WS_RP_MS_Metadata__134` for a Wallet publishing `jwks`: encryption is
-  deployed (probed 14/10/2026: POST Request URI retrieval returns the Nested JWT
-  in `raw.authorization_request_jwe`), but Capture negotiates the RFC 8414
-  `request_object_encryption_*` members while the source names
-  `authorization_encryption_*`, so a Wallet advertising only the source's
-  members is answered `400`. Upstream decision.

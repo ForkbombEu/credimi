@@ -4140,3 +4140,172 @@ screenshots, so the extra actions take none:
 A combined step's screenshots are therefore its own action's only, as before.
 Step and test counts are unchanged (complete 1345 steps / 340 wallet steps,
 happy flow 141 / 43).
+
+## EUDI_forbidden sources report only not_applicable, 21/10/2026
+
+Maintainer decision (`.agents/HITL.md`, 2026-10-21), superseding the
+14/10/2026 rule that kept request-shape and visual-evidence assertions and
+covered only sources that expect the Wallet to accept the forbidden feature.
+All eleven sources whose relevancy reads `EUDI_generic | EUDI_forbidden` now
+carry one `fcaf.not_applicable` assertion and nothing else:
+`WS_RP_IA_MainInteraction__060`, `WS_RP_IA_Metadata__014`,
+`WS_RP_MS_Metadata__110`, `112`, `113`, `WS_RP_MS_ProtocolMessages__020`,
+`038`, `040`, `WS_RP_SM_RpIntegrity__002`, `003`,
+`WS_RP_UC_Presentation__003`.
+
+- New scenario `fcaf-wallet-solution-relying-party-eudi-forbidden.yaml` owns
+  them. It has only the `fcaf-validation` step, and its one evidence source,
+  `pipeline.eudi-forbidden`, is the literal output `relevancy:
+  EUDI_forbidden`: no Verifier session and no Wallet step serves these tests.
+  The activity passes a literal leaf through unchanged, and it adds no
+  `evidence_index` entry.
+- They left `dcql-baseline` (014, 112, 113, 020, UC 003),
+  `response-uri-controls` (060), `client-id-prefix-controls` (110),
+  `plain-redirect-uri` (038, 040), `dc-api-invalid-signature` (002) and
+  `dc-api-unsigned` (003). Every Wallet step of those scenarios is shared with
+  other tests, so none was removed; only the outputs read by these tests alone
+  were dropped (`signed_redirect_uri_request_object`,
+  `signed_redirect_uri_delivered_request`, plain-redirect-uri
+  `authorization_request`).
+- Behaviour change: 014 and 113 were `skipped` (Capture has no
+  openid_federation), and 110 and 002 asserted a rejection, which RI-WALLET-002
+  recorded as failing for 110. 110, 113 and 002 expect the Wallet to reject;
+  that is no longer assessed. 113 also left the openid_federation entry of
+  `ASSERTION_REVIEW_BACKLOG.md`, and 110 the RI-WALLET-002 test list.
+
+Verified through the engine on the regenerated complete pipeline with every
+step output unresolved (no step ran): all eleven report `not_applicable` with
+their reason, one assertion and one evidence item each.
+
+`make fcaf-generate`: complete 1345 steps / 340 wallet steps / 617 test IDs /
+214 pipeline outputs (one more, the literal source); happy flow 141 steps /
+43 wallet steps / 303 test IDs (the five that `dcql-baseline` owned left it,
+since the new scenario is not a happy-flow scenario); demo unchanged.
+`webapp/src/lib/fcaf/tests.generated.ts` still names the old sources; it was
+already stale and no repository generator writes it.
+
+## Capture controls of 22/10/2026: twenty blocked tests implemented, IssuerIntegrity 012 still skipped
+
+22/10/2026. Upstream Capture `faf1938` (local reference resynced) unblocked
+21 tests. Production `https://capture-wallet.credimi.io` was probed for every
+new control before any scenario was written:
+
+| Control | Probe result |
+| --- | --- |
+| `client_id_scheme: verifier_attestation` (default) | `201`; served Request Object header carries `jwt` (`typ verifier-attestation+jwt`, `iss .../openid4vp/verifier-attestation-issuer`, `sub capture-wallet.credimi.io`, `cnf.jwk`, no `redirect_uris`); Request Object verifies against `cnf.jwk`, attestation against `/openid4vp/verifier-attestation-issuer/jwks.json`; same with POST + `wallet_nonce` retrieval |
+| `verifier_attestation.subject` / `.issuer` | `201`; only `sub` / only `iss` changed, both signatures valid |
+| `verifier_attestation.redirect_uris: ["{{response_uri}}"]` / foreign URI | `201`; claim equals the session's `response_uri` / holds only the foreign URI |
+| `verifier_attestation.signature: corrupt` | `201`; attestation signature fails, Request Object still valid against `cnf` |
+| `request_behavior.signing_key: unrelated` (with verifier_attestation) | `201`; Request Object fails against `cnf`, attestation valid |
+| `request_mutation.request_object_header.unset: ["/jwt"]` | `201`; header is `{alg, typ}` only |
+| `request_mutation.request_object.set: {"/client_name": …}` | `201`; `client_name` top level, absent from `client_metadata`, both signatures valid |
+| `x509_san_dns` | still `500` (no SAN-DNS names) |
+| `certificate_chain: with_trust_anchor` | `201`; `x5c` = [`CN=Fake Verifier`, self-signed CA `CN=PID Issuer CA 02`], the second issuing the first, signature valid, `x509_hash` Client Identifier unchanged |
+| `raw.request_uri_http.target` | recorded for GET and POST: `/openid4vp/sessions/<id>/request`, no query |
+| POST retrieval with `jwks` + `authorization_encryption_*` only | Nested JWT `ECDH-ES`/`A256GCM`; `vp_request_object_encrypted` with `alg_source`/`enc_source` `authorization_encryption` |
+| `status_reference` `uri_*` (SD-JWT VC and mdoc) | all five `201`; issued via `eu-pid-jwt-proof-only` pre-authorized flow: `//tsl…`, `https://tsl.cre dimi.io/…`, `…%GG`, `…<token>\|1`, `""` (`malformed_uri` is `not a uri`) |
+| `POST /sessions/{id}/status` | `409` before issuance, `400 status_list_not_enabled`, `400 unsupported_status`; after an mdoc issuance `200`, list bit set at once, served `Cache-Control: max-age=43200` |
+
+Fixture document numbers (re-checked by issuance): `pid_default` 001,
+`pid_person_b` 002, `pid_under_18` U18, `pid_expiry_2032` EXPIRY,
+`pid_family_name_uppercase` CASE.
+
+Implemented:
+
+- A. New scenario `verifier-attestation` (`pipeline.rp-integrity.verifier-attestation`):
+  one session per variant, haip-vp, POST retrieval, `direct_post.jwt`, plus the
+  issuer JWKS. New validator `oid4vp.verifier_attestation_request` asserts the
+  delivered shape (jwt header, `sub` vs Client Identifier, `iss`, Request Object
+  signature vs `cnf.jwk`, attestation signature vs issuer JWKS, `redirect_uris`
+  vs `response_uri`), every binding but the tested one valid. Positives (116,
+  118, 120, 122, 123, 124, RpIntegrity 008) need `credentials_match`; negatives
+  need `oid4vp.error_response_required` with the source's code
+  (`invalid_request` 117/119/121/009, `invalid_client` 011/012). 123 also
+  asserts `client_name` outside `client_metadata`; 124 runs
+  `oid4vp.verifier_metadata_exclusive`. 120/121 compare `redirect_uris` with the
+  `direct_post.jwt` `response_uri` (OpenID4VP 8.2; TEST-AUTHOR-FEEDBACK Issue
+  24). RpIntegrity 010 untouched.
+- B. MainInteraction 056 moved from the unbuildable `x509_san_dns` session of
+  `response-uri-controls` (removed) to the redirect_uris_foreign session it
+  shares with 121, with `request_rejected`, as its sibling 053. The old reason
+  ("strict matching exists only for x509_san_dns") was wrong: 8.2 applies the
+  prefix's redirect-URI rule, here the 5.9.3 exact match, to `response_uri`.
+- C. RpIntegrity 025: `with_trust_anchor` session in `rp-integrity-certificate-chain`;
+  `oid4vp.request_certificate_chain` gained shape `trust_anchor_included`
+  (exactly two, linked, `x5c[1]` self-signed); outcome `request_rejected`.
+- D. Metadata 089/099: five `uri_*` issuances and probes per format, plus the
+  kept `malformed_uri` case. `pid_default` is avoided (the generator injects
+  it); `uri_illegal_characters` reuses `pid_locality_diacritics` and `uri_empty`
+  `pid_family_name_uppercase`, told apart by status shape.
+  `oid4vp.malformed_status_credential_absent` recognises each `uri_*` shape by
+  name with one RFC 3986 analysis; `malformed_uri` is now strict (illegal
+  characters or a space anywhere, bad percent-encoding, no scheme or host).
+- E. `oid4vp.request_uri_retrieval` gained `require_path_target` (target equals
+  the `request_uri` path, no query or fragment): new 002b assertion, and 002d's
+  retrieval assertion (still `not_applicable` overall).
+- F. Metadata 134: new `oid4vp.encrypted_request_object_processed`; with
+  published `jwks` it requires `authorization_encryption_*` lists, the
+  `vp_request_object_encrypted` event (alg/enc advertised, sources in the
+  message), a 5-part JWE and a presentation; without `jwks`, `not_applicable`.
+- G. Not completed: IssuerIntegrity 012 stays `fcaf.skipped`. Revocation works,
+  but the pipeline has no wait step to outlast the 12-hour max-age and every
+  scenario resets the Wallet (maintainer choice, 22/10/2026). The backlog entry
+  moved to the harness section.
+
+Counts after `make fcaf-generate` (rebased on the EUDI_forbidden change above):
+complete 1452 steps (was 1345), 369 wallet steps (was 340), 617 tests, 215
+outputs (was 214); happy flow 141 steps / 43 wallet steps / 289 test IDs (was
+303: the 13 verifier_attestation tests and 025 left the baseline) / 32 outputs.
+
+Smoke: the touched scenarios were replayed from their YAML against production,
+driven by a scripted wallet (POST retrieval, SD-JWT PID issued on
+`eu-pid-jwt-proof-only`, KB-JWT, `ECDH-ES` JWE response), and their resolved
+outputs were evaluated through `catalog.Load` + `engine.ExecuteCatalog`. A
+conforming wallet passes all twenty; a tolerant one fails every negative on the
+outcome while the request-shape assertions still pass; a wallet holding the
+`uri_space_in_host`/`uri_illegal_characters` tokens fails 089 on exactly those
+probes; 134 passes with `jwks` and is `not_applicable` without. 002b failed
+only its presentation assertion, because the scripted wallet cannot answer the
+scenario's mdoc query. No reference-Wallet device run backs any verdict.
+
+Residual risk: the positives also need the Wallet to trust the fixture
+attestation issuer (only 120-122 state it); a Wallet that refuses the
+`verifier_attestation` prefix itself with the right error code passes the
+negatives, and 056 passes on a discontinuation, without proving the tested
+check (RI-WALLET-029). 002b has no `implementation-inventory.csv` row.
+
+## IssuerIntegrity 012 implemented after the 120 s status list window, 22/10/2026
+
+The maintainer redeployed the Status List service with a 120 s window. A probe
+of a fresh mdoc reference confirmed, for the JWT and CWT forms alike: `exp =
+iat + 120`, `ttl: 120`, `Cache-Control: max-age=120`, a token re-signed on
+every fetch, an `ETag` that changes with content and `exp`, and the revoked
+bit visible on the first fetch after revocation.
+
+New scenario `revoked-mdoc` (`pipeline.issuer-integrity.revoked-mdoc`) owns
+`WS_RP_SM_IssuerIntegrity__012`, which leaves the baseline: issue a PID mdoc on
+`eu-pid-device-bound` with `status_list_enabled: true` and `pid_person_b`,
+accept it with the generic issuance action (possession: issuer session at
+`credential_issued` plus `credential-added`), `POST /sessions/{id}/status
+{"status": "revoked"}`, wait 240 s in an inline Maestro step (an optional
+`extendedWaitUntil` on text that never appears), then request the mdoc with a
+query pinning `document_number` `CREDIMI-DEMO-002` through
+`fcaf-expect-no-matching-document`. The Request Object is created after the
+wait, so its 300 s lifetime is not spent waiting.
+
+Two validators with unit tests: `oid4vci.revocation_precedes_request` blocks
+the test unless every reference was revoked (`ok`, `status: 1`) and the Wallet
+retrieved the request at least `min_delay_seconds` (180: the 120 s window plus
+60 s skew) after the revocation; `oid4vp.wallet_error_conceals_reason`
+requires an error, no `vp_token`, and none of the listed terms (`revoked`,
+`revocation`, `status list`, …) in `error`, `error_description` or
+`error_uri`. A discontinuation fails: the source asks for an error.
+
+Production smoke with a scripted wallet (the jwt-proof mdoc configuration in
+place of the key-attestation one, a synthetic screenshot URL): after the real
+245 s wait, an `access_denied` error passes, an error whose description says
+"revoked" fails, and a request retrieved right after the revocation is
+blocked. No reference-Wallet run.
+
+Counts: complete 1460 steps / 372 wallet steps / 617 tests / 216 outputs;
+happy flow 141 / 43 / 288 test IDs / 32 outputs.

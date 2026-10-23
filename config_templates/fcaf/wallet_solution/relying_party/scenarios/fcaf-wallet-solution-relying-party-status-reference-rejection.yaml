@@ -346,6 +346,346 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-missing-uri-probe.outputs.body.session_id }}
     expected_status: 200
+# The five malformed-URI sub-cases of WS_RP_MS_Metadata__089, one issuance
+# and one probe each. pid_default is avoided because the generator injects it
+# for presentations; uri_illegal_characters and uri_empty reuse the fixtures of
+# missing_index and status_without_status_list, and the probe validator tells
+# the credentials apart by the status shape each one carries.
+- id: create-uri-missing-scheme-issuance
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+      status_list_enabled: true
+      status_reference: uri_missing_scheme
+      fixture_id: pid_person_b
+- id: offer-uri-missing-scheme-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-uri-missing-scheme-issuance.outputs.body.deeplink }}
+  continue_on_error: true
+- id: fetch-uri-missing-scheme-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-uri-missing-scheme-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: create-uri-missing-scheme-probe
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_uri_method: post
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: status-reference-uri-missing-scheme
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            multiple: true
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - document_number
+              values:
+              - CREDIMI-DEMO-002
+- id: probe-uri-missing-scheme
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-uri-missing-scheme-probe.outputs.body.deeplink }}"
+- id: fetch-uri-missing-scheme-probe
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-uri-missing-scheme-probe.outputs.body.session_id }}
+    expected_status: 200
+- id: create-uri-space-in-host-issuance
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+      status_list_enabled: true
+      status_reference: uri_space_in_host
+      fixture_id: pid_under_18
+- id: offer-uri-space-in-host-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-uri-space-in-host-issuance.outputs.body.deeplink }}
+  continue_on_error: true
+- id: fetch-uri-space-in-host-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-uri-space-in-host-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: create-uri-space-in-host-probe
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_uri_method: post
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: status-reference-uri-space-in-host
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            multiple: true
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - document_number
+              values:
+              - CREDIMI-DEMO-U18
+- id: probe-uri-space-in-host
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-uri-space-in-host-probe.outputs.body.deeplink }}"
+- id: fetch-uri-space-in-host-probe
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-uri-space-in-host-probe.outputs.body.session_id }}
+    expected_status: 200
+- id: create-uri-invalid-percent-encoding-issuance
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+      status_list_enabled: true
+      status_reference: uri_invalid_percent_encoding
+      fixture_id: pid_expiry_2032
+- id: offer-uri-invalid-percent-encoding-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-uri-invalid-percent-encoding-issuance.outputs.body.deeplink }}
+  continue_on_error: true
+- id: fetch-uri-invalid-percent-encoding-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-uri-invalid-percent-encoding-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: create-uri-invalid-percent-encoding-probe
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_uri_method: post
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: status-reference-uri-invalid-percent-encoding
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            multiple: true
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - document_number
+              values:
+              - CREDIMI-DEMO-EXPIRY
+- id: probe-uri-invalid-percent-encoding
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}"
+- id: fetch-uri-invalid-percent-encoding-probe
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-uri-invalid-percent-encoding-probe.outputs.body.session_id }}
+    expected_status: 200
+- id: create-uri-illegal-characters-issuance
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+      status_list_enabled: true
+      status_reference: uri_illegal_characters
+      fixture_id: pid_locality_diacritics
+- id: offer-uri-illegal-characters-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-uri-illegal-characters-issuance.outputs.body.deeplink }}
+  continue_on_error: true
+- id: fetch-uri-illegal-characters-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-uri-illegal-characters-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: create-uri-illegal-characters-probe
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_uri_method: post
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: status-reference-uri-illegal-characters
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            multiple: true
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - document_number
+              values:
+              - CREDIMI-DEMO-UMLAUT
+- id: probe-uri-illegal-characters
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-uri-illegal-characters-probe.outputs.body.deeplink }}"
+- id: fetch-uri-illegal-characters-probe
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-uri-illegal-characters-probe.outputs.body.session_id }}
+    expected_status: 200
+- id: create-uri-empty-issuance
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+      status_list_enabled: true
+      status_reference: uri_empty
+      fixture_id: pid_family_name_uppercase
+- id: offer-uri-empty-credential
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-uri-empty-issuance.outputs.body.deeplink }}
+  continue_on_error: true
+- id: fetch-uri-empty-issuance
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.issuer_url}/sessions/${{ create-uri-empty-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: create-uri-empty-probe
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_uri_method: post
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: status-reference-uri-empty
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            multiple: true
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - document_number
+              values:
+              - CREDIMI-DEMO-CASE
+- id: probe-uri-empty
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-uri-empty-probe.outputs.body.deeplink }}"
+- id: fetch-uri-empty-probe
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-uri-empty-probe.outputs.body.session_id }}
+    expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
@@ -374,3 +714,18 @@ steps:
           missing_uri_issuance: ${{ fetch-missing-uri-issuance.outputs.body }}
           missing_uri_probe: ${{ fetch-missing-uri-probe.outputs.body }}
           missing_uri_visual_evidence: ${{ probe-missing-uri.outputs.flow_output.maestro_screenshot_urls }}
+          uri_missing_scheme_issuance: ${{ fetch-uri-missing-scheme-issuance.outputs.body }}
+          uri_missing_scheme_probe: ${{ fetch-uri-missing-scheme-probe.outputs.body }}
+          uri_missing_scheme_visual_evidence: ${{ probe-uri-missing-scheme.outputs.flow_output.maestro_screenshot_urls }}
+          uri_space_in_host_issuance: ${{ fetch-uri-space-in-host-issuance.outputs.body }}
+          uri_space_in_host_probe: ${{ fetch-uri-space-in-host-probe.outputs.body }}
+          uri_space_in_host_visual_evidence: ${{ probe-uri-space-in-host.outputs.flow_output.maestro_screenshot_urls }}
+          uri_invalid_percent_encoding_issuance: ${{ fetch-uri-invalid-percent-encoding-issuance.outputs.body }}
+          uri_invalid_percent_encoding_probe: ${{ fetch-uri-invalid-percent-encoding-probe.outputs.body }}
+          uri_invalid_percent_encoding_visual_evidence: ${{ probe-uri-invalid-percent-encoding.outputs.flow_output.maestro_screenshot_urls }}
+          uri_illegal_characters_issuance: ${{ fetch-uri-illegal-characters-issuance.outputs.body }}
+          uri_illegal_characters_probe: ${{ fetch-uri-illegal-characters-probe.outputs.body }}
+          uri_illegal_characters_visual_evidence: ${{ probe-uri-illegal-characters.outputs.flow_output.maestro_screenshot_urls }}
+          uri_empty_issuance: ${{ fetch-uri-empty-issuance.outputs.body }}
+          uri_empty_probe: ${{ fetch-uri-empty-probe.outputs.body }}
+          uri_empty_visual_evidence: ${{ probe-uri-empty.outputs.flow_output.maestro_screenshot_urls }}

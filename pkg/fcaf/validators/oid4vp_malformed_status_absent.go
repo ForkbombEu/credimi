@@ -8,21 +8,32 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/evidence"
 )
 
-// Status shapes the probe can tell apart. The first five are malformed
+// Status shapes the probe can tell apart. The first ten are malformed
 // status-reference shapes the capture issuer emits when asked
 // (`status_reference`); `status_absent` is the default issuance with
 // `status_list_enabled: false`, whose token carries no status element at all.
+//
+// The five `uri_*` shapes name one RFC 3986 defect each, so a token retained
+// with a specific defect can be attributed to the issuance that carried it: one
+// fixture may be issued several times on a device, and only the exact defect
+// tells the malformed copy from a valid duplicate.
 const (
-	statusShapeMissingStatusList = "missing_status_list"
-	statusShapeNegativeIndex     = "negative_index"
-	statusShapeMissingIndex      = "missing_index"
-	statusShapeMalformedURI      = "malformed_uri"
-	statusShapeMissingURI        = "missing_uri"
-	statusShapeStatusAbsent      = "status_absent"
+	statusShapeMissingStatusList         = "missing_status_list"
+	statusShapeNegativeIndex             = "negative_index"
+	statusShapeMissingIndex              = "missing_index"
+	statusShapeMalformedURI              = "malformed_uri"
+	statusShapeMissingURI                = "missing_uri"
+	statusShapeURIMissingScheme          = "uri_missing_scheme"
+	statusShapeURISpaceInHost            = "uri_space_in_host"
+	statusShapeURIInvalidPercentEncoding = "uri_invalid_percent_encoding"
+	statusShapeURIIllegalCharacters      = "uri_illegal_characters"
+	statusShapeURIEmpty                  = "uri_empty"
+	statusShapeStatusAbsent              = "status_absent"
 )
 
 // OID4VPMalformedStatusCredentialAbsentValidator proves that a Wallet did not
@@ -74,11 +85,18 @@ func (p malformedStatusParams) definitionError() string {
 		statusShapeMissingIndex,
 		statusShapeMalformedURI,
 		statusShapeMissingURI,
+		statusShapeURIMissingScheme,
+		statusShapeURISpaceInHost,
+		statusShapeURIInvalidPercentEncoding,
+		statusShapeURIIllegalCharacters,
+		statusShapeURIEmpty,
 		statusShapeStatusAbsent:
 		return ""
 	default:
 		return "shape must be missing_status_list, negative_index, missing_index, " +
-			"malformed_uri, missing_uri or status_absent"
+			"malformed_uri, missing_uri, uri_missing_scheme, uri_space_in_host, " +
+			"uri_invalid_percent_encoding, uri_illegal_characters, uri_empty " +
+			"or status_absent"
 	}
 }
 
@@ -257,7 +275,9 @@ func credentialQueryForDocType(
 }
 
 // hasMalformedStatusShape reports whether the presented claims exhibit the
-// defect the issuer was asked to emit.
+// defect the issuer was asked to emit. The `uri_*` shapes read
+// `status_list.uri` through analyzeStatusURI, so each one names a single RFC
+// 3986 defect rather than "somehow invalid".
 func hasMalformedStatusShape(claims map[string]any, shape string) bool {
 	status, found := resolveObjectPath(claims, "status")
 	if !found {
@@ -290,8 +310,14 @@ func hasMalformedStatusShape(claims map[string]any, shape string) bool {
 		if !ok {
 			return true
 		}
-		parsed, err := url.Parse(text)
-		return err != nil || !parsed.IsAbs() || parsed.Host == ""
+		return analyzeStatusURI(text).malformed()
+	case statusShapeURIMissingScheme,
+		statusShapeURISpaceInHost,
+		statusShapeURIInvalidPercentEncoding,
+		statusShapeURIIllegalCharacters,
+		statusShapeURIEmpty:
+		text, ok := list["uri"].(string)
+		return ok && matchesStatusURIShape(text, shape)
 	}
 	return false
 }
@@ -333,8 +359,206 @@ func hasMalformedMDocStatusShape(status *evidence.MDocCBORValue, shape string) b
 		if uri.MajorType != 3 || !ok {
 			return true
 		}
-		parsed, err := url.Parse(text)
-		return err != nil || !parsed.IsAbs() || parsed.Host == ""
+		return analyzeStatusURI(text).malformed()
+	case statusShapeURIMissingScheme,
+		statusShapeURISpaceInHost,
+		statusShapeURIInvalidPercentEncoding,
+		statusShapeURIIllegalCharacters,
+		statusShapeURIEmpty:
+		uri, uriFound := list.Member("uri")
+		if !uriFound || uri.MajorType != 3 {
+			return false
+		}
+		text, ok := uri.Value.(string)
+		return ok && matchesStatusURIShape(text, shape)
 	}
 	return false
+}
+
+// statusURIDefects lists the RFC 3986 defects a status-list URI carries. One
+// URI can carry several at once (a space in the host is also a character
+// outside the permitted set), so each probe shape reads its own field instead
+// of switching on a single classification.
+type statusURIDefects struct {
+	empty                  bool
+	missingScheme          bool
+	spaceInHost            bool
+	invalidPercentEncoding bool
+	// illegalInPath covers the path, query and fragment: the parts the
+	// `uri_illegal_characters` shape names. The authority is checked separately
+	// because a space there is the `uri_space_in_host` shape instead.
+	illegalInPath bool
+	// illegalAnywhere covers the whole URI, which is what `malformed_uri`
+	// rejects.
+	illegalAnywhere bool
+	noHost          bool
+	unparseable     bool
+}
+
+// malformed reports whether the URI is not a well-formed absolute RFC 3986 URI
+// with an authority host.
+func (d statusURIDefects) malformed() bool {
+	return d.empty || d.missingScheme || d.noHost ||
+		d.invalidPercentEncoding || d.illegalAnywhere || d.unparseable
+}
+
+// analyzeStatusURI decomposes raw into scheme, authority and remainder and
+// records every defect the probe can name. An empty URI reports only `empty`,
+// so it never doubles as a missing scheme.
+func analyzeStatusURI(raw string) statusURIDefects {
+	var defects statusURIDefects
+	if raw == "" {
+		defects.empty = true
+		return defects
+	}
+
+	schemeEnd, hasScheme := statusURISchemeEnd(raw)
+	defects.missingScheme = !hasScheme
+	defects.invalidPercentEncoding = !statusURIPercentEncodingValid(raw)
+	defects.illegalAnywhere = statusURIHasIllegalCharacter(raw)
+
+	authorityStart := -1
+	switch {
+	case hasScheme && strings.HasPrefix(raw[schemeEnd:], "//"):
+		authorityStart = schemeEnd + len("//")
+	case !hasScheme && strings.HasPrefix(raw, "//"):
+		authorityStart = len("//")
+	}
+	if authorityStart < 0 {
+		defects.noHost = true
+		remainder := raw
+		if hasScheme {
+			remainder = raw[schemeEnd:]
+		}
+		defects.illegalInPath = statusURIHasIllegalCharacter(remainder)
+	} else {
+		authorityEnd := len(raw)
+		if delimiter := strings.IndexAny(raw[authorityStart:], "/?#"); delimiter >= 0 {
+			authorityEnd = authorityStart + delimiter
+		}
+		host := statusURIHost(raw[authorityStart:authorityEnd])
+		defects.noHost = host == ""
+		defects.spaceInHost = strings.ContainsRune(host, ' ')
+		defects.illegalInPath = statusURIHasIllegalCharacter(raw[authorityEnd:])
+	}
+
+	if _, err := url.Parse(raw); err != nil {
+		defects.unparseable = true
+	}
+	return defects
+}
+
+// matchesStatusURIShape reports whether raw exhibits the named `uri_*` shape.
+// Shapes outside that family report false.
+func matchesStatusURIShape(raw, shape string) bool {
+	defects := analyzeStatusURI(raw)
+	switch shape {
+	case statusShapeURIMissingScheme:
+		return defects.missingScheme
+	case statusShapeURISpaceInHost:
+		return defects.spaceInHost
+	case statusShapeURIInvalidPercentEncoding:
+		return defects.invalidPercentEncoding
+	case statusShapeURIIllegalCharacters:
+		return defects.illegalInPath
+	case statusShapeURIEmpty:
+		return defects.empty
+	}
+	return false
+}
+
+// statusURISchemeEnd returns the index just past the ':' that terminates an
+// RFC 3986 scheme. It reports false when the URI has no scheme, i.e. when an
+// ALPHA start is missing or a '/', '?' or '#' arrives before the ':'.
+func statusURISchemeEnd(raw string) (int, bool) {
+	if raw == "" || !isASCIIAlpha(raw[0]) {
+		return 0, false
+	}
+	for index := 1; index < len(raw); index++ {
+		character := raw[index]
+		switch {
+		case character == ':':
+			return index + 1, true
+		case isASCIIAlpha(character),
+			character >= '0' && character <= '9',
+			character == '+',
+			character == '-',
+			character == '.':
+		default:
+			return 0, false
+		}
+	}
+	return 0, false
+}
+
+// statusURIHost strips any userinfo and port from an authority so a space in
+// either is not mistaken for a space in the host.
+func statusURIHost(authority string) string {
+	if at := strings.LastIndexByte(authority, '@'); at >= 0 {
+		authority = authority[at+1:]
+	}
+	if strings.HasPrefix(authority, "[") {
+		if end := strings.IndexByte(authority, ']'); end >= 0 {
+			return authority[:end+1]
+		}
+		return authority
+	}
+	if colon := strings.IndexByte(authority, ':'); colon >= 0 {
+		return authority[:colon]
+	}
+	return authority
+}
+
+// statusURIPercentEncodingValid reports whether every '%' starts a two-digit
+// hexadecimal escape.
+func statusURIPercentEncodingValid(raw string) bool {
+	for index := 0; index < len(raw); index++ {
+		if raw[index] != '%' {
+			continue
+		}
+		if index+2 >= len(raw) ||
+			!isASCIIHexDigit(raw[index+1]) ||
+			!isASCIIHexDigit(raw[index+2]) {
+			return false
+		}
+		index += 2
+	}
+	return true
+}
+
+// statusURIHasIllegalCharacter reports whether text holds a byte outside RFC
+// 3986's permitted set: unreserved, gen-delims, sub-delims and '%'. A space is
+// outside it wherever it appears.
+func statusURIHasIllegalCharacter(text string) bool {
+	for index := range len(text) {
+		if !isStatusURIPermittedByte(text[index]) {
+			return true
+		}
+	}
+	return false
+}
+
+func isStatusURIPermittedByte(character byte) bool {
+	switch {
+	case isASCIIAlpha(character), character >= '0' && character <= '9':
+		return true
+	}
+	switch character {
+	case '-', '.', '_', '~', // unreserved
+		':', '/', '?', '#', '[', ']', '@', // gen-delims
+		'!', '$', '&', '\'', '(', ')', '*', '+', ',', ';', '=', // sub-delims
+		'%':
+		return true
+	}
+	return false
+}
+
+func isASCIIAlpha(character byte) bool {
+	return character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z'
+}
+
+func isASCIIHexDigit(character byte) bool {
+	return character >= '0' && character <= '9' ||
+		character >= 'a' && character <= 'f' ||
+		character >= 'A' && character <= 'F'
 }

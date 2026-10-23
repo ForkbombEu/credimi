@@ -133,6 +133,49 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-self-signed-leaf.outputs.body.session_id }}
     expected_status: 200
+# E, x5c carries the deployed leaf followed by the CA that issued it, the trust
+# anchor itself; the request is signed by the normal verifier key and keeps the
+# x509_hash Client Identifier, so the anchor is the only defect (HAIP 5).
+- id: create-trust-anchor-in-chain
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_delivery: by_reference
+      client_id_scheme: x509_hash
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: rp-integrity-trust-anchor-in-chain
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - given_name
+      request_behavior:
+        certificate_chain: with_trust_anchor
+- id: reject-trust-anchor-in-chain
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-trust-anchor-in-chain.outputs.body.deeplink }}"
+- id: fetch-trust-anchor-in-chain
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-trust-anchor-in-chain.outputs.body.session_id }}
+    expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
@@ -140,6 +183,7 @@ steps:
     - WS_RP_SM_RpIntegrity__017
     - WS_RP_SM_RpIntegrity__019
     - WS_RP_SM_RpIntegrity__026
+    - WS_RP_SM_RpIntegrity__025
     suite: wallet_solution/relying_party
     pipeline_outputs:
       pipeline.rp-integrity.certificate-chain:
@@ -156,3 +200,7 @@ steps:
           self_signed_leaf_request_object: ${{ fetch-self-signed-leaf.outputs.body.raw.authorization_request_jwt }}
           self_signed_leaf_request_behavior: ${{ fetch-self-signed-leaf.outputs.body.request_behavior }}
           self_signed_leaf_visual_evidence: ${{ reject-self-signed-leaf.outputs.flow_output.maestro_screenshot_urls }}
+          trust_anchor_in_chain_session: ${{ fetch-trust-anchor-in-chain.outputs.body }}
+          trust_anchor_in_chain_request_object: ${{ fetch-trust-anchor-in-chain.outputs.body.raw.authorization_request_jwt }}
+          trust_anchor_in_chain_request_behavior: ${{ fetch-trust-anchor-in-chain.outputs.body.request_behavior }}
+          trust_anchor_in_chain_visual_evidence: ${{ reject-trust-anchor-in-chain.outputs.flow_output.maestro_screenshot_urls }}

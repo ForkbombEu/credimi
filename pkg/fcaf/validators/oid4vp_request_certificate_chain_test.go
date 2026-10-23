@@ -41,6 +41,7 @@ func TestOID4VPRequestCertificateChainValidator(t *testing.T) {
 	single := requestObjectWithChain(t, selfSignedLeaf)
 	unlinked := requestObjectWithChain(t, leafUnderIntermediate, root)
 	strayParent := requestObjectWithChain(t, leafUnderIntermediate, strayLeaf)
+	fullChain := requestObjectWithChain(t, leafUnderIntermediate, intermediate, root)
 
 	tests := []struct {
 		name       string
@@ -60,6 +61,22 @@ func TestOID4VPRequestCertificateChainValidator(t *testing.T) {
 
 		{"self-signed leaf", single, chainShapeSelfSignedLeaf, StatusPass},
 		{"two certificates are not a lone leaf", untrusted, chainShapeSelfSignedLeaf, StatusFail},
+
+		{"leaf followed by its trust anchor", untrusted, chainShapeTrustAnchorIncluded, StatusPass},
+		{
+			"intermediate is not a trust anchor",
+			incomplete,
+			chainShapeTrustAnchorIncluded,
+			StatusFail,
+		},
+		{
+			"anchor at the end of a longer chain",
+			fullChain,
+			chainShapeTrustAnchorIncluded,
+			StatusFail,
+		},
+		{"leaf alone carries no anchor", single, chainShapeTrustAnchorIncluded, StatusFail},
+		{"root that did not issue the leaf", unlinked, chainShapeTrustAnchorIncluded, StatusFail},
 
 		{"evidence is not a compact Request Object", 42, chainShapeIncomplete, StatusFail},
 	}

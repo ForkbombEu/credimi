@@ -16,19 +16,41 @@ normative_references:
 - title: OpenID for Verifiable Presentations 1.0
   section: '8.2'
   url: https://openid.net/specs/openid-4-verifiable-presentations-1_0.html
+# Section 8.2 applies the Client Identifier Prefix rules for redirect_uri to
+# response_uri. Under verifier_attestation (5.9.3) the redirect URI must
+# exactly match one of the attestation's redirect_uris; the attestation lists
+# only a foreign URI, so the session's own response_uri is invalid. Shares the
+# session of WS_RP_MS_Metadata__121.
 evidence:
   session:
-    from: pipeline.protocol.response-uri-controls.outputs.invalid_response_uri_session
+    from: pipeline.rp-integrity.verifier-attestation.outputs.redirect_uris_foreign_session
+  request_object:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.redirect_uris_foreign_request_object
+  request_evidence:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.redirect_uris_foreign_request_evidence
+  visual_evidence:
+    from: pipeline.rp-integrity.verifier-attestation.outputs.redirect_uris_foreign_visual_evidence
 assertions:
-- id: x509_san_dns_client_identifier_is_unavailable
-  validator: fcaf.skipped
-  input: evidence.session
+- id: delivered_request_uses_direct_post_jwt
+  validator: jwt.payload_field_equals
+  input: evidence.request_object
+  params: { field: response_mode, value: direct_post.jwt }
+- id: delivered_response_uri_matches_no_attestation_redirect_uri
+  validator: oid4vp.verifier_attestation_request
+  input: evidence.request_evidence
   params:
-    reason: >-
-      needs a client_id_scheme: x509_san_dns session, because the strict
-      response_uri matching rule of OID4VP 5.9 exists only for that Client
-      Identifier Prefix; the deployed verifier certificate carries no dNSName
-      SAN, so Capture answers 500 there are no SAN-DNS names and never creates
-      the session
+    jwt_header: present
+    subject: client_id
+    issuer: https://capture-wallet.credimi.io/openid4vp/verifier-attestation-issuer
+    request_signature: valid
+    attestation_signature: valid
+    redirect_uris: excludes_response_uri
+- id: wallet_returns_an_error_without_a_presentation
+  validator: dcql.response_satisfies_constraints
+  input: evidence.session
+  params: { mode: request_rejected }
+- id: visual_evidence_is_stored
+  validator: evidence.non_empty
+  input: evidence.visual_evidence
 verdict:
   pass_when: all_assertions_pass

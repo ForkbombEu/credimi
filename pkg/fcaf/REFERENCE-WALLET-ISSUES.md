@@ -167,13 +167,16 @@ those two.
 
 ### FCAF Impact
 
-- Tests: `WS_RP_MS_Metadata__110`, `WS_RP_MS_Metadata__126`,
+- Tests: `WS_RP_MS_Metadata__126`,
   `WS_RP_MS_Metadata__130`, `WS_RP_MS_Metadata__133`,
   `WS_RP_MS_ProtocolMessages__039`, `WS_RP_MS_ProtocolMessages__143`,
   `WS_RP_MS_ProtocolMessages__144`, `WS_RP_SM_RpIntegrity__007`,
   `WS_RP_SM_RpIntegrity__014`.
 - The request-shape and visual-evidence assertions pass; the reference wallet
   fails the protocol assertion.
+- `WS_RP_MS_Metadata__110` no longer asserts this rejection: its source is
+  `EUDI_forbidden` and reports only `not_applicable` since 21/10/2026
+  (`.agents/HITL.md`).
 
 ## RI-WALLET-003: Malformed client_metadata is not returned to the verifier
 
@@ -1221,3 +1224,47 @@ The Wallet returns an error or discontinues, as HAIP 5.1 and RFC 9101 require.
 ### FCAF Impact
 
 - Test: `WS_RP_IA_Supportive__007` fails on this Wallet.
+
+## RI-WALLET-029: The `verifier_attestation` Client Identifier Prefix is not supported
+
+### Summary
+
+Wallet 2026.09.42 advertises `client_id_prefixes_supported: ["x509_san_dns",
+"x509_hash"]` in the `wallet_metadata` it POSTs to the Request URI (recorded
+28/09/2026, see RI-WALLET-002), so it cannot process a Request Object under the
+`verifier_attestation:` prefix (OpenID4VP 5.9.3), which the FCAF sources below
+mark `EUDI_required`.
+
+### Reproduction
+
+Scenario `fcaf-wallet-solution-relying-party-verifier-attestation.yaml` against
+production Capture: `client_id_scheme: verifier_attestation`, by-reference
+delivery retrieved with POST, `direct_post.jwt`, one session per variant of the
+fixture attestation.
+
+### Observed
+
+Projection, not yet observed: no device run of this scenario exists. The
+expectation follows from the advertised prefixes and from RI-WALLET-002, where
+the same Wallet refuses unsupported prefixes with an error screen and posts
+nothing to the verifier.
+
+### Expected
+
+The Wallet processes valid `verifier_attestation` requests from a trusted
+attestation issuer, and answers each broken binding with the error its source
+names.
+
+### FCAF Impact
+
+- Expected to fail on the positive cases: `WS_RP_MS_Metadata__116`, `118`,
+  `120`, `122`, `123`, `124`, `WS_RP_SM_RpIntegrity__008`.
+- Expected to fail on the negative cases as well, because no error reaches the
+  verifier (RI-WALLET-002): `WS_RP_MS_Metadata__117`, `119`, `121`,
+  `WS_RP_SM_RpIntegrity__009`, `011`, `012`. `WS_RP_IA_MainInteraction__056`
+  accepts a discontinuation, so it can pass on the same refusal; that pass
+  says nothing about `response_uri` validation, because the Wallet refuses
+  the prefix before reaching it.
+- The positives also need the Wallet to trust the fixture attestation issuer
+  (`/openid4vp/verifier-attestation-issuer/jwks.json`); supporting the prefix
+  alone is not enough.

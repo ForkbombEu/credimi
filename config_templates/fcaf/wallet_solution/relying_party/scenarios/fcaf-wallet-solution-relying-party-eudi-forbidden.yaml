@@ -1,0 +1,25 @@
+# Sources whose FCAF relevancy is EUDI_forbidden report only not_applicable
+# (.agents/HITL.md, 2026-10-21). Nothing is sent to the Verifier or the Wallet:
+# the only evidence is the relevancy itself.
+name: FCAF EUDI_forbidden sources
+steps:
+- id: run-fcaf-validators
+  use: fcaf-validation
+  with:
+    test_ids:
+    - WS_RP_IA_MainInteraction__060
+    - WS_RP_IA_Metadata__014
+    - WS_RP_MS_Metadata__110
+    - WS_RP_MS_Metadata__112
+    - WS_RP_MS_Metadata__113
+    - WS_RP_MS_ProtocolMessages__020
+    - WS_RP_MS_ProtocolMessages__038
+    - WS_RP_MS_ProtocolMessages__040
+    - WS_RP_SM_RpIntegrity__002
+    - WS_RP_SM_RpIntegrity__003
+    - WS_RP_UC_Presentation__003
+    suite: wallet_solution/relying_party
+    pipeline_outputs:
+      pipeline.eudi-forbidden:
+        output:
+          relevancy: EUDI_forbidden

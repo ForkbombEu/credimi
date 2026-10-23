@@ -26,6 +26,7 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 	"google.golang.org/protobuf/proto"
 )
@@ -342,6 +343,12 @@ func TestExecuteStepActivity(t *testing.T) {
 func TestExecuteStepRejectsOversizedInput(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
+	// The 4 MiB input is decoded and measured in workflow code. Under -race on a
+	// contended CI runner that takes more than the SDK's default 1 s deadlock
+	// detection timeout, which then fails the workflow with TMPRL1101 before the
+	// size guard's CRE229 error can surface. The guard, not that timing, is what
+	// this test checks.
+	env.SetWorkerOptions(worker.Options{DeadlockDetectionTimeout: 30 * time.Second})
 
 	httpActivity := activities.NewHTTPActivity()
 	env.RegisterActivityWithOptions(
