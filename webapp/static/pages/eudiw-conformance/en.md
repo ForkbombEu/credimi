@@ -24,7 +24,7 @@ facts:
 cta:
   title: 'Run FCAF test cases before your assessment'
   text: 'Browse the FCAF test cases on the Hub, then build a pipeline that runs them against your wallet.'
-  href: '/hub?tab=conformance-checks'
+  href: '/hub/conformance-checks/fcaf/wallet_solution/relying_party'
   label: 'Explore FCAF test cases'
 date: 2026-10-24
 updatedOn: 2026-10-24
@@ -121,7 +121,7 @@ Prepare it early. Writing the ICS forces you to state which flows, credential fo
 
 While FCAF matures, you can already work against it:
 
-1. **Read the test cases for your wallet.** Start with the baseline test cases on [conformance.eudi.dev](https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/), and the same test cases on the [Credimi Hub](/hub?tab=conformance-checks), where each has its own page.
+1. **Read the test cases for your wallet.** Start with the baseline test cases on [conformance.eudi.dev](https://conformance.eudi.dev/latest/fcaf/suts/wallet_solution/), and the same test cases in the [FCAF suite on the Credimi Hub](/hub/conformance-checks/fcaf/wallet_solution/relying_party), where each has its own page.
 2. **Draft your ICS.** Declare the capabilities and profiles you support.
 3. **Run the test cases against real counterparts.** Functional tests are about how your wallet talks to issuers and verifiers, so run them against real ones, on real devices.
 4. **Keep the evidence.** Store each run with what it was judged on, so you can show a laboratory or CAB what you tested and when.

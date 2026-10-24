@@ -24,10 +24,10 @@ facts:
 cta:
   title: 'Check your issuer or verifier on every release'
   text: 'Pick an issuer, verifier or wallet on the Hub and run OpenID4VCI or OpenID4VP checks against it.'
-  href: '/hub'
-  label: 'Explore the Hub'
+  href: '/hub?tab=conformance-checks'
+  label: 'Explore conformance checks'
 date: 2026-10-23
-updatedOn: 2026-10-23
+updatedOn: 2026-10-24
 socialCard: /og/openid4vc-conformance.png
 socialCardAlt: 'Check OpenID4VCI and OpenID4VP on every release: OpenID4VCI 1.0, OpenID4VP 1.0 and Drafts 23 and 24, run in CI with run-issuer and run-verifier.'
 tags:
@@ -46,6 +46,8 @@ OpenID4VCI and OpenID4VP conformance testing tells you whether your credential i
 The [OpenID Foundation conformance suite](https://openid.net/certification/about-conformance-suite/) is the reference test for OpenID protocols. It is maintained by the OpenID Foundation and it is the route to OpenID certification. Credimi integrates the suite, so you can run it from the same place as your other tests, keep the results with the rest of your evidence, and repeat the run whenever your implementation changes.
 
 Credimi does not grant OpenID certification, and it is not a conformity assessment body. Certification remains with the OpenID Foundation. What Credimi gives you is a way to run the suite often, early and automatically, so that when you go for certification or join an interoperability event, you already know where you stand.
+
+Each suite has a public page on the Hub that lists its test cases, for example the OpenID Foundation suite for [OpenID4VCI 1.0 issuers](/hub/conformance-checks/openid4vci_issuer/1.0/openid_conformance_suite), [OpenID4VP 1.0 verifiers](/hub/conformance-checks/openid4vp_verifier/1.0/openid_conformance_suite) and [OpenID4VP 1.0 wallets](/hub/conformance-checks/openid4vp_wallet/1.0/openid_conformance_suite).
 
 ## WE BUILD / EWC and EUDIW verifier tests alongside it
 
