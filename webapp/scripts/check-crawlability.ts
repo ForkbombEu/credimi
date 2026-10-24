@@ -59,12 +59,37 @@ function attr(html: string, pattern: RegExp): string | undefined {
 	return html.match(pattern)?.[1];
 }
 
-function visibleWords(html: string): number {
-	return html
-		.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
-		.replace(/<[^>]+>/g, ' ')
-		.split(/\s+/)
-		.filter(Boolean).length;
+/** H1 texts and visible word count of a document, read with Bun's HTML parser, not regexes. */
+async function readHtml(html: string): Promise<{ h1s: string[]; words: number }> {
+	const h1s: string[] = [];
+	let text = '';
+	// Two passes: text handlers still see the contents of elements removed in the same pass.
+	const visible = await new HTMLRewriter()
+		.on('script, style, template', { element: (element) => void element.remove() })
+		.transform(new Response(html))
+		.text();
+	await new HTMLRewriter()
+		.on('h1', {
+			element: () => void h1s.push(''),
+			text: (chunk) => void (h1s[h1s.length - 1] += chunk.text)
+		})
+		.on('body', { text: (chunk) => void (text += chunk.text) })
+		.transform(new Response(visible))
+		.text();
+	return {
+		h1s: h1s.map((h1) => decodeEntities(h1).replace(/\s+/g, ' ').trim()),
+		words: text.split(/\s+/).filter(Boolean).length
+	};
+}
+
+/** The entities SvelteKit escapes in text; `&amp;` last, so `&amp;lt;` stays `&lt;`. */
+function decodeEntities(text: string): string {
+	return text
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;/g, "'")
+		.replace(/&amp;/g, '&');
 }
 
 async function get(url: string, agent: string) {
@@ -91,8 +116,7 @@ async function checkPage(path: string) {
 		const title = attr(body, /<title>([^<]+)<\/title>/);
 		const canonical = attr(body, /<link rel="canonical" href="([^"]+)"/);
 		const robots = attr(body, /<meta name="robots" content="([^"]+)"/);
-		const h1s = body.match(/<h1[\s>][\s\S]*?<\/h1>/g) ?? [];
-		const words = visibleWords(body);
+		const { h1s, words } = await readHtml(body);
 
 		if (!title) fail(where, 'no <title>');
 		if (!attr(body, /<meta name="description" content="([^"]+)"/))
@@ -105,7 +129,7 @@ async function checkPage(path: string) {
 		if (!attr(body, /<html[^>]*\slang="([^"]+)"/)) fail(where, 'no html lang');
 		if (words < MIN_WORDS) fail(where, `${words} words before JavaScript`);
 
-		const h1 = h1s[0]?.replace(/<[^>]+>/g, '').trim();
+		const h1 = h1s[0];
 		variants.add(`${title}|${h1}|${canonical}`);
 		const hreflang = new Map(
 			[...body.matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)"/g)].map(
@@ -142,10 +166,7 @@ async function checkHreflang() {
 				)
 			)
 				fail(where, `${href} does not link back to ${path}`);
-			const targetH1 = body
-				.match(/<h1[\s>][\s\S]*?<\/h1>/)?.[0]
-				.replace(/<[^>]+>/g, '')
-				.trim();
+			const [targetH1] = (await readHtml(body)).h1s;
 			if (lang !== 'en' && targetH1 === h1) fail(where, `${href} is the untranslated page`);
 		}
 	}
