@@ -984,7 +984,7 @@
 	"home_tour_run_text": "Hvert trin styrer wallet-appen på enheden. Du får skærmoptagelsen ved siden af hver handling og kontrol, der blev kørt.",
 	"home_tour_run_alt": "Optaget enhedsskærm med en anmodning om datadeling ved siden af listen over beståede wallet-handlinger",
 	"home_tour_trace_title": "Følg hvert trin i kørslen",
-	"home_tour_trace_text": "Hver aktivitet, hvert nyt forsøg og hvert HTTP-kald registreres med input og output, så du kan se, hvor en kørsel blev langsom eller fejlede.",
+	"home_tour_trace_text": "Hvert trin registreres med tidsstempel, input og output i en historik, der kun kan tilføjes til. Intet overskrives, og kørslen kan afspilles igen ud fra den registrering.",
 	"home_tour_trace_alt": "Tidslinje for en gennemført pipeline-kørsel, fra wallet-onboarding til FCAF-validering",
 	"home_tour_judge_title": "Læs FCAF-rapporten med dokumentation",
 	"home_tour_judge_text": "Testcases er grupperet efter FCAF-kategori. Åbn en for at se hver kontrol og de skærmbilleder, den blev vurderet ud fra, og download rapporten som JSON eller PDF.",

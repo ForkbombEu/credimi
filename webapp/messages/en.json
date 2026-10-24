@@ -1015,7 +1015,7 @@
 	"home_tour_run_text": "Each step drives the wallet app on the device. You get the screen recording next to every action and assertion it ran.",
 	"home_tour_run_alt": "Recorded device screen showing a data sharing request, beside the list of wallet actions that passed",
 	"home_tour_trace_title": "Follow every step of the run",
-	"home_tour_trace_text": "Each activity, retry and HTTP call is recorded with its inputs and outputs, so you can see where a run slowed down or failed.",
+	"home_tour_trace_text": "Every step is recorded with its timestamp, inputs and outputs in an append-only history. Nothing is overwritten, and the run can be replayed from that record.",
 	"home_tour_trace_alt": "Timeline of a completed pipeline run, from wallet onboarding to FCAF validation",
 	"home_tour_judge_title": "Read the FCAF report, with evidence",
 	"home_tour_judge_text": "Test cases are grouped by FCAF category. Open one to see each assertion and the screenshots it was judged on, then download the report as JSON or PDF.",

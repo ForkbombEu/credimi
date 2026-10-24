@@ -135,7 +135,7 @@ Credimi is an open-source platform that runs FCAF test cases inside automated pi
 
 - **Catalog.** As of 20/10/2026 the Credimi catalog holds 617 FCAF test cases in 184 scenarios, taken from the FCAF Wallet Solution content.
 - **Real flows.** Pipelines drive your wallet app on Android devices, emulators and iOS simulators with Maestro, and call live credential issuers and verifiers with StepCI. Each run is then judged against the FCAF and protocol test cases.
-- **Evidence.** Every run keeps a timestamped history of each step, the protocol messages, video, screenshots and logs. The FCAF report links each test case to SHA-256 hashed evidence in that history.
+- **Evidence.** Every step's inputs and outputs, including the protocol messages, are recorded with a timestamp in the run's append-only history, from which the run can be replayed. Video, screenshots and logs are stored with the run. The FCAF report links each test case to SHA-256 hashed evidence in that history.
 - **Report.** Each run produces an FCAF report as PDF and JSON: an executive summary with the evidence hash, then one page per test case with its assertions and normative references. See a [complete example](https://credimi.io/api/files/pipeline_results/lm9cvfbiltat7mp/fcaf_assessment_hiyu281nr4.pdf) (PDF, 21 MB, 617 test cases).
 - **Every release.** The `run-wallet-apk` endpoint and the GitHub Action run the same scenarios on every commit.
 

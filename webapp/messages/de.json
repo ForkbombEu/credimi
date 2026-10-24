@@ -984,7 +984,7 @@
 	"home_tour_run_text": "Jeder Schritt steuert die Wallet-App auf dem Gerät. Sie erhalten die Bildschirmaufnahme neben jeder ausgeführten Aktion und Prüfung.",
 	"home_tour_run_alt": "Aufgezeichneter Gerätebildschirm mit einer Datenfreigabe-Anfrage neben der Liste bestandener Wallet-Aktionen",
 	"home_tour_trace_title": "Jeden Schritt des Laufs verfolgen",
-	"home_tour_trace_text": "Jede Aktivität, jeder Wiederholungsversuch und jeder HTTP-Aufruf wird mit Ein- und Ausgaben aufgezeichnet. So sehen Sie, wo ein Lauf langsam wurde oder fehlschlug.",
+	"home_tour_trace_text": "Jeder Schritt wird mit Zeitstempel, Ein- und Ausgaben in einem nur erweiterbaren Verlauf aufgezeichnet. Nichts wird überschrieben, und der Lauf lässt sich aus dieser Aufzeichnung erneut abspielen.",
 	"home_tour_trace_alt": "Zeitleiste eines abgeschlossenen Pipeline-Laufs, vom Wallet-Onboarding bis zur FCAF-Validierung",
 	"home_tour_judge_title": "Den FCAF-Bericht mit Nachweisen lesen",
 	"home_tour_judge_text": "Testfälle sind nach FCAF-Kategorie gruppiert. Öffnen Sie einen, um jede Prüfung und die zugrunde liegenden Screenshots zu sehen, und laden Sie den Bericht als JSON oder PDF herunter.",

@@ -984,7 +984,7 @@
 	"home_tour_run_text": "Chaque étape pilote l'application du wallet sur l'appareil. Vous obtenez l'enregistrement de l'écran à côté de chaque action et vérification exécutée.",
 	"home_tour_run_alt": "Écran enregistré de l'appareil montrant une demande de partage de données, à côté de la liste des actions du wallet réussies",
 	"home_tour_trace_title": "Suivez chaque étape de l'exécution",
-	"home_tour_trace_text": "Chaque activité, nouvelle tentative et requête HTTP est enregistrée avec ses entrées et sorties, pour voir où une exécution a ralenti ou échoué.",
+	"home_tour_trace_text": "Chaque étape est enregistrée avec son horodatage, ses entrées et ses sorties dans un historique en ajout seul. Rien n'est écrasé, et l'exécution peut être rejouée à partir de cet enregistrement.",
 	"home_tour_trace_alt": "Chronologie d'une exécution terminée, de l'enrôlement du wallet à la validation FCAF",
 	"home_tour_judge_title": "Lisez le rapport FCAF, avec les preuves",
 	"home_tour_judge_text": "Les cas de test sont regroupés par catégorie FCAF. Ouvrez-en un pour voir chaque vérification et les captures d'écran sur lesquelles il a été jugé, puis téléchargez le rapport en JSON ou PDF.",

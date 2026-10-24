@@ -120,9 +120,11 @@ interoperability testing](/pages/eudi-wallet-interoperability-testing).
 
 ## The FCAF report and its evidence
 
-Each run keeps a timestamped Temporal history of every step input and output, the protocol messages
-exchanged (offers, requests and responses), and the device video, screenshots, last frame and
-device logs captured along the way.
+Each run is recorded in its Temporal history: every step's inputs and outputs, including the
+protocol messages exchanged (offers, requests and responses), each with a timestamp. The history is
+append-only, so nothing in it is overwritten, and the run can be replayed from it to check that it
+leads to the same result. The device video, screenshots, last frame and device logs are stored with
+the run.
 
 The FCAF report links each test case to SHA-256 hashed evidence in that run history. An assessor
 does not have to take a pass or fail on trust: they can follow the link from a test case to the
