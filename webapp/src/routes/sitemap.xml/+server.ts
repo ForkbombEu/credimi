@@ -20,7 +20,7 @@ export const GET = async ({ fetch }) => {
 	const escape = (value: string) => value.replace(/[&<>"']/g, (char) => xmlEscapes[char]);
 
 	const urls = pages.map((page) => {
-		const alternates = localeAlternates(page.path, origin)
+		const alternates = localeAlternates(page.path, origin, page.locales)
 			.map(
 				(alternate) =>
 					`<xhtml:link rel="alternate" hreflang="${alternate.hreflang}" href="${escape(alternate.href)}"/>`

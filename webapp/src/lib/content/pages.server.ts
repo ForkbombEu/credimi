@@ -93,5 +93,9 @@ export async function getContentBySlug(slug: string): Promise<ContentPage | unde
 		highlighted = highlighted.replace(block, () => rendered);
 	}
 
-	return { attributes: parsed.data, body: highlighted, slug, headings, faq };
+	const locales = Object.keys(markdownFiles)
+		.filter((path) => path.startsWith(`/static/pages/${slug}/`))
+		.map((path) => path.slice(path.lastIndexOf('/') + 1, -'.md'.length));
+
+	return { attributes: parsed.data, body: highlighted, slug, headings, faq, locales };
 }
