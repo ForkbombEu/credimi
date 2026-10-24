@@ -52,10 +52,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{ label: m.about_credimi(), url: 'https://forkbomb.solutions/about-us/' },
 				{ label: m.contact_us(), url: 'mailto:credimi@forkbomb.eu' },
 				{ label: 'GitHub', url: 'https://github.com/forkbombeu/credimi' },
-				{ label: m.legal_privacy(), url: 'https://docs.credimi.io/legal/privacy-policy' },
+				{ label: m.legal_privacy(), url: 'https://docs.credimi.io/legal/privacy-policy/' },
 				{
 					label: m.terms_and_conditions(),
-					url: 'https://docs.credimi.io/legal/terms-and-conditions'
+					url: 'https://docs.credimi.io/legal/terms-and-conditions/'
 				}
 			]
 		}

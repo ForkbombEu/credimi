@@ -27,7 +27,7 @@ cta:
   href: '/hub'
   label: 'Explore the Hub'
 date: 2026-10-23
-updatedOn: 2026-10-23
+updatedOn: 2026-10-24
 socialCard: /og/eudi-wallet-interoperability-testing.png
 socialCardAlt: 'Find out which EUDI wallets, issuers and verifiers work together: wallets on Android and iOS, issuers over OpenID4VCI with SD-JWT VC and mDoc, verifiers over OpenID4VP and DCQL.'
 tags:
@@ -62,6 +62,8 @@ In each case, the component you own is fixed and the counterparts change. That i
 ## Start by hand on the Hub
 
 The [Hub](/hub) is public. It lists live wallets, credential issuers, verifiers, credentials and verification use cases, and each entry exposes a working flow through a QR code or a deeplink. Organizations that publish there include wwwallet, iGrant.io, Validated ID, Hovi, Findynet Cooperative, ShareID and UAB Odifis.
+
+A complete flow published as a pipeline looks like [EUDIW issuance (PID SD-JWT) and verification](/hub/pipelines/forkbomb-bv-andrea/eudiw-issuance-pid-sd-jwt-and-verification): one issuer, one wallet on a device and one verifier, with the result of every run on the [scoreboard](/scoreboard).
 
 A manual interoperability check takes four steps:
 
@@ -148,7 +150,7 @@ Yes. Use the `run-wallet-apk`, `run-issuer` or `run-verifier` endpoint, or the G
 
 ### Is Credimi open source?
 
-Yes. Credimi is released under AGPL-3.0 by Forkbomb BV, and its [source code](https://github.com/forkbombeu/credimi) is public. You can use it at credimi.io or self-host it. Credimi is supported by NGI TRUSTCHAIN, part of the European Commission Next Generation Internet programme.
+Yes. Credimi is released under AGPL-3.0 by Forkbomb BV, and its [source code](https://github.com/forkbombeu/credimi) is public. You can use it at credimi.io or [self-host it](https://docs.credimi.io/software-architecture/docker-deployment/). Credimi is supported by NGI TRUSTCHAIN, part of the European Commission Next Generation Internet programme.
 
 <div class="content-related">
 <p class="content-related-title">Read next:</p>

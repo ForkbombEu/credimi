@@ -24,10 +24,10 @@ facts:
 cta:
   title: 'See where your wallet stands against FCAF'
   text: 'Browse the FCAF test cases on the Hub, then build your first pipeline.'
-  href: '/hub?tab=conformance-checks'
+  href: '/hub/conformance-checks/fcaf/wallet_solution/relying_party'
   label: 'Explore FCAF test cases'
 date: 2026-10-23
-updatedOn: 2026-10-23
+updatedOn: 2026-10-24
 socialCard: /og/fcaf-conformance.png
 socialCardAlt: 'Run all 617 FCAF test cases on real devices: 184 scenarios, real flows with Maestro and StepCI, SHA-256 hashed evidence.'
 tags:
@@ -109,9 +109,13 @@ against real issuers and verifiers](/pages/eudi-wallet-testing) explains the dev
 
 ## FCAF test case pages on the Hub
 
-Every FCAF test case has its own page on the [Hub](/hub?tab=conformance-checks), in the conformance
-checks tab. You can read what a test case checks before you run it, and link to it from your own
-issue tracker or release notes.
+Every FCAF test case has its own page on the Hub, in the
+[FCAF Wallet Solution suite](/hub/conformance-checks/fcaf/wallet_solution/relying_party). You can
+read what a test case checks before you run it, and link to it from your own issue tracker or
+release notes. For example, [WS_RP_SM_DeviceBinding__007](/hub/conformance-checks/fcaf/wallet_solution/relying_party/WS_RP_SM_DeviceBinding__007)
+validates the SD-JWT VC confirmation claim, and the published
+[FCAF data model mdoc validation](/hub/pipelines/fcaf-1/fcaf-wallet-relying-party-data-model-mdoc-validation)
+pipeline shows how test cases are put together into a run.
 
 The rest of the Hub lists live wallets, credential issuers, verifiers, credentials and verification
 use cases, each with a working flow by QR code or deeplink. Those are the counterparts your scenarios
@@ -197,7 +201,7 @@ for an assessment.
 
 Yes. You choose the suites and scenarios that go into your pipeline, so you can start with the
 flows for your role and add more as you go. Credimi is open source under AGPL-3.0; you can use it
-at credimi.io or [self-host it](https://github.com/forkbombeu/credimi).
+at credimi.io or [self-host it](https://docs.credimi.io/software-architecture/docker-deployment/).
 
 <div class="content-related">
 <p class="content-related-title">Read next:</p>

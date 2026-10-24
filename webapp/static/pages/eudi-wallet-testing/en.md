@@ -27,7 +27,7 @@ cta:
   href: '/hub'
   label: 'Explore the Hub'
 date: 2026-10-23
-updatedOn: 2026-10-23
+updatedOn: 2026-10-24
 socialCard: /og/eudi-wallet-testing.png
 socialCardAlt: 'Test your EUDI wallet against real issuers and verifiers: real devices, live services from the Hub, and evidence for every run.'
 tags:
@@ -65,7 +65,10 @@ there include wwwallet, iGrant.io, Validated ID, Hovi, Findynet Cooperative, Sha
 The EUDI ecosystem has three roles: the wallet, the credential issuer and the verifier (relying
 party). Credimi tests all three, alone and together.
 
-- Test your wallet against issuers and verifiers published on [the Hub](/hub).
+- Test your wallet against issuers and verifiers published on [the Hub](/hub), as the published
+  [EUDIW issuance (PID SD-JWT) and verification](/hub/pipelines/forkbomb-bv-andrea/eudiw-issuance-pid-sd-jwt-and-verification)
+  pipeline does on Android, and [this one](/hub/pipelines/filippo-s-organization/capture-wallet-metadata-issue-and-verification-of-credential-ios)
+  on iOS.
 - Test your issuer against wallets that complete the issuance.
 - Test your verifier against wallets that complete the presentation.
 

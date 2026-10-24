@@ -27,7 +27,7 @@ cta:
   href: '/hub'
   label: 'Explore the Hub'
 date: 2026-10-23
-updatedOn: 2026-10-23
+updatedOn: 2026-10-24
 socialCard: /og/eidas2-wallet-testing.png
 socialCardAlt: 'Turn eIDAS 2 obligations into checks you can run: from eIDAS 2 and the EUDI ARF to FCAF test cases and hashed evidence.'
 tags:
@@ -73,7 +73,7 @@ The [EUDI Trust & Conformance Atlas](https://atlas.credimi.io/) maps that rulebo
 
 ## Run the checks on real devices
 
-Credimi is open-source (AGPL-3.0) conformance and interoperability testing for EUDI wallets, credential issuers and verifiers, alone and together. You use it at credimi.io or self-host it.
+Credimi is open-source (AGPL-3.0) conformance and interoperability testing for EUDI wallets, credential issuers and verifiers, alone and together. You use it at credimi.io or [self-host it](https://docs.credimi.io/software-architecture/docker-deployment/).
 
 A Credimi pipeline turns a test case into a run:
 
@@ -108,7 +108,7 @@ A passing test is only useful if someone else can check it. Every Credimi run ke
 - device logs;
 - SHA-256 hashed FCAF evidence.
 
-The FCAF report links each test case to hashed evidence in the run history, so an assessor can follow a result back to the artifacts that produced it. Published pipelines also feed the public [scoreboard](/scoreboard).
+The FCAF report links each test case to hashed evidence in the run history, so an assessor can follow a result back to the artifacts that produced it: see a [complete FCAF report](https://credimi.io/api/files/pipeline_results/lm9cvfbiltat7mp/fcaf_assessment_hiyu281nr4.pdf) (PDF, 21 MB, 617 test cases). Published pipelines also feed the public [scoreboard](/scoreboard).
 
 Be precise about what this evidence is. Credimi does not certify anything and is not a conformity assessment body. The evidence supports your own preparation and your conversation with an assessor; it does not replace the assessment. See [why Credimi](/pages/why-credimi) for how this compares with other approaches.
 
