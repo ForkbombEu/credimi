@@ -73,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							>{version}</span
 						>
 					</div>
-					<p class="border-b border-b-muted">{m.Test_and_find_decentralized_IDs()}</p>
+					<p class="max-w-md text-primary-foreground/85">{m.footer_tagline()}</p>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<LanguageSelect />
