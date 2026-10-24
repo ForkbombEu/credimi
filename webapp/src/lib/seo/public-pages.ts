@@ -34,6 +34,8 @@ export type PublicPage = {
 	lastmod?: string;
 	/** Hub entity label, e.g. "Wallet". */
 	kind?: string;
+	/** Locales the page exists in; omitted when it exists in all of them. */
+	locales?: string[];
 };
 
 type Fetch = typeof fetch;
@@ -79,7 +81,8 @@ function contentPages() {
 				title: page.attributes.title,
 				description: page.attributes.description ?? '',
 				lastmod: page.attributes.updatedOn.toISOString(),
-				section: 'guides' as const
+				section: 'guides' as const,
+				locales: page.locales
 			}));
 	});
 }

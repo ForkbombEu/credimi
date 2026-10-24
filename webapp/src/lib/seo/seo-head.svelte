@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import {
 		absoluteUrl,
+		canonicalUrl,
 		isIndexableRoute,
 		jsonLdScriptTag,
 		localeAlternates,
@@ -31,11 +32,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const description = $derived(seo.description ?? SITE_DESCRIPTION);
 	const image = $derived(absoluteUrl(seo.image ?? ogImages.default, origin));
 	const imageAlt = $derived(seo.imageAlt ?? seo.title ?? appName);
-	const canonical = $derived(absoluteUrl(page.url.pathname, origin));
+	const canonical = $derived(canonicalUrl(page.url.pathname, origin, getLocale(), seo.locales));
 	const indexable = $derived(
 		!seo.noindex && page.status < 400 && isIndexableRoute(page.route.id)
 	);
-	const alternates = $derived(indexable ? localeAlternates(page.url.pathname, origin) : []);
+	const alternates = $derived(
+		indexable ? localeAlternates(page.url.pathname, origin, seo.locales) : []
+	);
 	const jsonLd = $derived(
 		indexable ? [organizationJsonLd(origin), websiteJsonLd(origin), ...(seo.jsonLd ?? [])] : []
 	);

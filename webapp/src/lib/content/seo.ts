@@ -19,6 +19,7 @@ export function getContentSeo(content: ContentPage): PageSeo {
 		imageAlt: content.attributes.socialCardAlt,
 		type: 'article',
 		article: { publishedTime, modifiedTime, tags },
+		locales: content.locales,
 		jsonLd: [
 			{
 				'@context': 'https://schema.org',

@@ -45,4 +45,6 @@ export type ContentPage = {
 	headings: { id: string; text: string }[];
 	/** Questions under the "FAQ" heading, as plain text, for FAQPage structured data. */
 	faq: { question: string; answer: string }[];
+	/** Locales with their own markdown file; other locales show the base-locale text. */
+	locales: string[];
 };

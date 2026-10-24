@@ -28,6 +28,7 @@
 		"test": "npm run test:unit -- --run && npm run test:e2e",
 		"test:e2e": "playwright test",
 		"test:e2e:ui": "playwright test --ui",
+		"check:crawl": "bun scripts/check-crawlability.ts",
 		"serve": "bun run build && bun run preview --host --port 5100",
 		"generate:collections-models": "bun run ./src/modules/pocketbase/collections-models/generate.collections-models.ts",
 		"generate:types": "pocketbase-typegen --db ../pb_data/data.db --out src/modules/pocketbase/types/index.generated.ts && bun run generate:catalog-pb-types && bun run generate:types-extra",
