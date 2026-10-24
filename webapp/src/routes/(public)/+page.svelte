@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 	const { wallets, issuers, verifiers, scoreboard } = $derived(data);
 
-	const container = 'mx-auto max-w-screen-xl px-4 md:px-8';
+	const container = 'mx-auto max-w-site px-4 md:px-8';
 	const h2 =
 		'text-[clamp(1.75rem,3.2vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em] text-balance';
 

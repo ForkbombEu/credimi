@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class={className}>
-	<div class="mx-auto max-w-screen-xl px-4 py-6 md:px-6 md:py-12 lg:px-8 {contentClass}">
+	<div class="mx-auto max-w-site px-4 py-6 md:px-6 md:py-12 lg:px-8 {contentClass}">
 		{@render children()}
 	</div>
 </div>

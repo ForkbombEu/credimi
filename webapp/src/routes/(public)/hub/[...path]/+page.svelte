@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if isCurrentUserOwner}
 	<div class="border-t-2 border-t-primary bg-secondary py-2">
 		<div
-			class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 text-sm md:px-8"
+			class="mx-auto flex max-w-site flex-wrap items-center justify-between gap-3 px-4 text-sm md:px-8"
 		>
 			<T>{m.This_item_is_yours({ item: display.labels.singular })}</T>
 			<div class="flex items-center gap-3">

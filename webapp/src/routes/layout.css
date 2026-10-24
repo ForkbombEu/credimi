@@ -100,6 +100,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 @theme inline {
 	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 	--font-mono: 'Source Code Pro Variable', ui-monospace, monospace;
+	/* Page content width (max-w-site): 1440px. Text keeps its own ~70ch measure. */
+	--container-site: 90rem;
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);

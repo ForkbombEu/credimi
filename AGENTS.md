@@ -704,7 +704,7 @@ Typography:
 
 Layout:
 
-- Max content width is 1280px.
+- Max content width is 1440px (`max-w-site`, `--container-site` in `webapp/src/routes/layout.css`); body text keeps a ~70ch measure.
 - Page side padding is 24-32px on desktop and 16px on mobile.
 - Topbar is sticky, white, with a 1px bottom border and no shadow.
 - Footer is a full-bleed deep-indigo slab.

@@ -63,7 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="bg-primary text-muted">
-	<div class="mx-auto max-w-7xl">
+	<div class="mx-auto max-w-site">
 		<div class="px-8 py-12">
 			<div class="flex flex-col justify-between gap-6 sm:flex-row">
 				<div class="flex flex-col items-start gap-2">

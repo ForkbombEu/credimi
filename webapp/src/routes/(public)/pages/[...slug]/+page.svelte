@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const lead = $derived(attributes.lead ?? attributes.description);
 
 	// Same frame as /pages/why-credimi: indigo hero, then full-width sections with alternating washes.
-	const container = 'mx-auto max-w-screen-xl px-4 md:px-8';
+	const container = 'mx-auto max-w-site px-4 md:px-8';
 
 	// Each H2 opens a section. A section of plain text puts its heading beside the text on wide
 	// screens; diagrams, tables and code keep the full width. "Read next" closes the page.
