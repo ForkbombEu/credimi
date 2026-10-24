@@ -258,7 +258,7 @@
 	"Category": "Kategorie",
 	"Format": "Format",
 	"Compare_by_test_results": "Vergleichen Sie anhand der Testergebnisse:",
-	"Test_and_find_decentralized_IDs": "Dezentrale IDs testen und finden",
+	"footer_tagline": "Konformitäts- und Interoperabilitätstests für EUDI-Wallets, Issuer und Verifier.",
 	"Proudly_developed_by_ForkBomb_BV": "Mit Stolz entwickelt von ForkBomb BV",
 	"Upload_a_new_compliance_test": "Neuen Konformitätstest hochladen",
 	"Upload_test": "Test hochladen",
