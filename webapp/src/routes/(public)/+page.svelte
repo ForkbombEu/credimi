@@ -44,6 +44,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	]);
 
 	const moreSections = [entities.custom_checks, entities.pipelines, entities.conformance_checks];
+
+	// Guide pages are written in English only.
+	const guides = [
+		{
+			href: '/pages/eudiw-conformance',
+			title: 'EUDIW conformance: certification, FCAF and how to prepare',
+			text: 'What the certification rules require and where FCAF stands today.'
+		},
+		{
+			href: '/pages/fcaf-conformance',
+			title: 'FCAF conformance testing for EUDI wallets',
+			text: 'Run the FCAF test cases on real devices, with hashed evidence.'
+		},
+		{
+			href: '/pages/eudi-wallet-interoperability-testing',
+			title: 'EUDI wallet interoperability testing',
+			text: 'Find out which wallets, issuers and verifiers work together.'
+		}
+	];
 </script>
 
 <!-- Hero -->
@@ -155,8 +174,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </section>
 
-<!-- CTA: light band, so the page does not run into the indigo footer -->
+<!-- Guides: the explanations behind the product, for visitors new to FCAF and EUDI conformance -->
 <section class="bg-secondary">
+	<div class="{container} py-16 md:py-24">
+		<div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
+			<h2 class="{h2} text-primary">{m.home_guides_title()}</h2>
+			<a href="/pages/guides" class="font-medium text-primary underline underline-offset-4">
+				{m.home_see_all()} ↗
+			</a>
+		</div>
+		<div class="mt-8 grid gap-4 md:grid-cols-3">
+			{#each guides as guide (guide.href)}
+				<a
+					href={guide.href}
+					class="flex flex-col gap-2 rounded-2xl border border-border bg-card p-6 transition-colors duration-150 hover:border-primary"
+				>
+					<strong class="flex-1 text-lg leading-snug font-semibold text-slate-900">
+						{guide.title}
+					</strong>
+					<span class="text-slate-700">{guide.text}</span>
+				</a>
+			{/each}
+		</div>
+	</div>
+</section>
+
+<!-- CTA: light band, so the page does not run into the indigo footer -->
+<section class="bg-background">
 	<div class="{container} py-16 md:py-24">
 		<div class="max-w-[48rem]">
 			<h2 class="{h2} text-primary">{m.home_cta_title()}</h2>
