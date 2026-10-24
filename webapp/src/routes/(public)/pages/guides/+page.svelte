@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	const { data } = $props();
 
-	const container = 'mx-auto max-w-screen-xl px-4 md:px-8';
+	const container = 'mx-auto max-w-site px-4 md:px-8';
 </script>
 
 <section class="fold-motif bg-primary text-primary-foreground">

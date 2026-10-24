@@ -15,10 +15,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const lead = $derived(attributes.lead ?? attributes.description);
 
 	// Same frame as /pages/why-credimi: indigo hero, then full-width sections with alternating washes.
-	const container = 'mx-auto max-w-screen-xl px-4 md:px-8';
+	const container = 'mx-auto max-w-site px-4 md:px-8';
 
-	// Each H2 opens a section. A section without a diagram puts its heading beside the text on
-	// wide screens; the "Read next" block closes the page after the call to action.
+	// Each H2 opens a section. A section of plain text puts its heading beside the text on wide
+	// screens; diagrams, tables and code keep the full width. "Read next" closes the page.
 	const sections = $derived(
 		body.split(/(?=<h2[\s>])|(?=<div class="content-related">)/).map((html) => {
 			const match = html.match(/^(<h2[\s\S]*?<\/h2>)([\s\S]*)$/);
@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				html,
 				heading: match?.[1],
 				text: match?.[2] ?? '',
-				split: Boolean(match) && !html.includes('<figure'),
+				split: Boolean(match) && !/<(figure|table|pre)[\s>]/.test(html),
 				related: html.startsWith('<div class="content-related">')
 			};
 		})
@@ -265,6 +265,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		color: var(--color-slate-900);
 	}
 
+	.guide-body :global(:is(h3, .faq-item)) {
+		scroll-margin-top: 5rem;
+	}
+
+	/* Shareable section links: shown on hover or focus, always on touch screens. */
+	.guide-body :global(.heading-anchor) {
+		margin-left: 0.35em;
+		font-weight: 500;
+		color: var(--muted-foreground);
+		text-decoration: none;
+		opacity: 0;
+		transition: opacity 150ms ease-out;
+	}
+
+	.guide-body :global(:is(h2, h3, summary):hover .heading-anchor),
+	.guide-body :global(.heading-anchor:focus-visible),
+	.guide-body :global(:target .heading-anchor) {
+		opacity: 1;
+	}
+
+	@media (hover: none) {
+		.guide-body :global(.heading-anchor) {
+			opacity: 0.6;
+		}
+	}
+
 	.guide-body :global(:is(p, ul, ol)) {
 		max-width: 68ch;
 		margin-top: 1.25rem;
@@ -311,6 +337,67 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		color: var(--primary);
 		text-decoration: underline;
 		text-underline-offset: 4px;
+	}
+
+	.guide-body :global(pre) {
+		/* Code sections are full width; 68ch of body text is too narrow for 0.875rem code. */
+		max-width: 52rem;
+		margin-top: 1.25rem;
+		padding: 1.25rem 1.5rem;
+		overflow-x: auto;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		background: var(--card) !important;
+		font-size: 0.875rem;
+		line-height: 1.6;
+	}
+
+	.guide-body :global(pre code) {
+		padding: 0;
+		background: none;
+		color: var(--color-slate-800);
+	}
+
+	.guide-body :global(table) {
+		width: 100%;
+		max-width: 64rem;
+		margin-top: 1.5rem;
+		overflow: hidden;
+		border-collapse: separate;
+		border-spacing: 0;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		background: var(--card);
+		font-size: 0.95rem;
+		line-height: 1.5;
+	}
+
+	.guide-body :global(:is(th, td)) {
+		padding: 0.75rem 1rem;
+		border-bottom: 1px solid var(--border);
+		text-align: left;
+		vertical-align: top;
+		color: var(--color-slate-700);
+	}
+
+	.guide-body :global(th) {
+		font-size: 0.75rem;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-slate-900);
+		background: var(--muted);
+	}
+
+	.guide-body :global(tr:last-child td) {
+		border-bottom: 0;
+	}
+
+	@media (max-width: 640px) {
+		.guide-body :global(table) {
+			display: block;
+			overflow-x: auto;
+		}
 	}
 
 	.guide-body :global(code) {

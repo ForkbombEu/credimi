@@ -120,9 +120,11 @@ interoperability testing](/pages/eudi-wallet-interoperability-testing).
 
 ## The FCAF report and its evidence
 
-Each run keeps a timestamped Temporal history of every step input and output, the protocol messages
-exchanged (offers, requests and responses), and the device video, screenshots, last frame and
-device logs captured along the way.
+Each run is recorded in its Temporal history: every step's inputs and outputs, including the
+protocol messages exchanged (offers, requests and responses), each with a timestamp. The history is
+append-only, so nothing in it is overwritten, and the run can be replayed from it to check that it
+leads to the same result. The device video, screenshots, last frame and device logs are stored with
+the run.
 
 The FCAF report links each test case to SHA-256 hashed evidence in that run history. An assessor
 does not have to take a pass or fail on trust: they can follow the link from a test case to the
@@ -131,6 +133,17 @@ artifacts it came from and check that the hash matches.
 <figure>
 <img src="/pages/fcaf-conformance/scenario-anatomy.svg" alt="One FCAF scenario, PID issuance, expanded into its test cases, each linked to a SHA-256 hashed evidence item in the run history that an assessor can check" width="1200" height="440" loading="lazy" />
 <figcaption>Inside one scenario: each test case points to hashed evidence in the Temporal run history.</figcaption>
+</figure>
+
+Every run also produces the report as a PDF and as JSON. The PDF opens with an executive summary:
+passed, failed, blocked, inconclusive, skipped and not applicable counts, plus the SHA-256 of the
+JSON artifact that holds the raw protocol evidence. Each test case then gets its own page with the
+objective, preconditions, test scenario, expected results, every assertion with the evidence it
+was judged on, and the normative references from FCAF and the implementing regulations.
+
+<figure>
+<img src="/screens/fcaf-pdf-report.webp" alt="Three pages of an FCAF PDF report: the cover with result and run identifiers, the executive summary with test counts and the SHA-256 of the evidence, and one test case page with its assertions and normative references" width="1800" height="811" loading="lazy" />
+<figcaption>Cover, executive summary and one test case page from a complete-validation run on 23/10/2026: 368 over 617 tests passed, 1,207 pages. <a href="https://credimi.io/api/files/pipeline_results/lm9cvfbiltat7mp/fcaf_assessment_hiyu281nr4.pdf">Open the full report (PDF, 21 MB)</a>.</figcaption>
 </figure>
 
 <div class="content-quote"><p>Every FCAF result in Credimi points to the evidence it came from.</p></div>
