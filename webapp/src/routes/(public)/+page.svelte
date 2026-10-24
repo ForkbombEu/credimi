@@ -63,6 +63,49 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			text: 'Find out which wallets, issuers and verifiers work together.'
 		}
 	];
+
+	// Real screens of a completed FCAF run on credimi.io (demo organisation, 16/10/2026).
+	const tour = [
+		{
+			src: '/screens/pipeline-builder.webp',
+			width: 1600,
+			height: 1000,
+			title: m.home_tour_build_title(),
+			text: m.home_tour_build_text(),
+			alt: m.home_tour_build_alt()
+		},
+		{
+			src: '/screens/device-run.webp',
+			// Portrait phone screen: narrower, so it does not tower over its text.
+			narrow: true,
+			width: 1000,
+			height: 1093,
+			title: m.home_tour_run_title(),
+			text: m.home_tour_run_text(),
+			alt: m.home_tour_run_alt()
+		},
+		{
+			src: '/screens/run-timeline.webp',
+			width: 1600,
+			height: 1000,
+			title: m.home_tour_trace_title(),
+			text: m.home_tour_trace_text(),
+			alt: m.home_tour_trace_alt()
+		},
+		{
+			src: '/screens/fcaf-report.webp',
+			width: 1400,
+			height: 1167,
+			title: m.home_tour_judge_title(),
+			text: m.home_tour_judge_text(),
+			alt: m.home_tour_judge_alt(),
+			// A full complete-validation run, failures included, as a buyer would receive it.
+			link: {
+				href: 'https://credimi.io/api/files/pipeline_results/lm9cvfbiltat7mp/fcaf_assessment_hiyu281nr4.pdf',
+				label: m.home_tour_judge_pdf()
+			}
+		}
+	];
 </script>
 
 <!-- Hero -->
@@ -106,6 +149,55 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </section>
 
+<!-- Tour: the private run views, shown before sign-in -->
+<section class="bg-background">
+	<div class="{container} py-16 md:py-24">
+		<div class="border-b border-border pb-4">
+			<h2 class="{h2} text-primary">{m.home_tour_title()}</h2>
+			<p class="mt-4 max-w-[48rem] text-lg leading-relaxed text-pretty text-slate-700">
+				{m.home_tour_lead()}
+			</p>
+		</div>
+		<ol class="mt-12 space-y-16 md:space-y-24">
+			{#each tour as step, i (step.src)}
+				<li class="grid items-center gap-8 lg:grid-cols-12 lg:gap-12">
+					<div class={['lg:col-span-5', i % 2 === 1 && 'lg:order-2']}>
+						<span class="font-mono text-sm text-muted-foreground">
+							{String(i + 1).padStart(2, '0')}
+						</span>
+						<h3 class="mt-2 text-2xl leading-snug font-bold text-slate-900">
+							{step.title}
+						</h3>
+						<p class="mt-3 text-lg leading-relaxed text-pretty text-slate-700">
+							{step.text}
+						</p>
+						{#if 'link' in step}
+							<a
+								href={step.link.href}
+								class="mt-4 inline-block font-medium text-primary underline underline-offset-4"
+							>
+								{step.link.label} ↗
+							</a>
+						{/if}
+					</div>
+					<img
+						src={step.src}
+						width={step.width}
+						height={step.height}
+						alt={step.alt}
+						loading="lazy"
+						decoding="async"
+						class={[
+							'h-auto w-full rounded-[10px] border border-border bg-card lg:col-span-7',
+							'narrow' in step && 'mx-auto max-w-xl'
+						]}
+					/>
+				</li>
+			{/each}
+		</ol>
+	</div>
+</section>
+
 <!-- Hub -->
 <section class="bg-secondary">
 	<div class="{container} py-16 md:py-24">
@@ -115,6 +207,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{m.Explore_Hub()} ↗
 			</a>
 		</div>
+		<p class="mt-4 max-w-[48rem] text-lg leading-relaxed text-pretty text-slate-700">
+			{m.home_hub_lead()}
+		</p>
 		<div class="mt-10 space-y-10">
 			{#each rows as row (row.tab)}
 				{#if row.list.items.length}
@@ -168,6 +263,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{m.View_Scoreboard()} ↗
 			</a>
 		</div>
+		<p class="mt-4 max-w-[48rem] text-lg leading-relaxed text-pretty text-slate-700">
+			{m.home_scoreboard_lead()}
+		</p>
 		<div class="mt-8">
 			<ScoreboardSection {...scoreboard} />
 		</div>
@@ -201,8 +299,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!-- CTA: light band, so the page does not run into the indigo footer -->
 <section class="bg-background">
-	<div class="{container} py-16 md:py-24">
-		<div class="max-w-[48rem]">
+	<div class="{container} grid gap-12 py-16 md:py-24 lg:grid-cols-2">
+		<div>
 			<h2 class="{h2} text-primary">{m.home_cta_title()}</h2>
 			<p class="mt-5 text-xl leading-relaxed text-pretty text-slate-700">
 				{m.home_cta_lead()}
@@ -215,6 +313,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{m.home_see_fcaf_reports()}
 				</Button>
 			</div>
+		</div>
+		<div class="rounded-[10px] border border-border bg-secondary p-8">
+			<h2 class="text-2xl font-bold text-slate-900">{m.home_oss_title()}</h2>
+			<p class="mt-3 text-lg leading-relaxed text-pretty text-slate-700">
+				{m.home_oss_text()}
+			</p>
+			<a
+				href="https://github.com/forkbombeu/credimi"
+				class="mt-6 inline-block font-medium text-primary underline underline-offset-4"
+			>
+				{m.home_oss_star()} ↗
+			</a>
 		</div>
 	</div>
 </section>
