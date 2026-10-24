@@ -265,6 +265,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		color: var(--color-slate-900);
 	}
 
+	.guide-body :global(:is(h3, .faq-item)) {
+		scroll-margin-top: 5rem;
+	}
+
+	/* Shareable section links: shown on hover or focus, always on touch screens. */
+	.guide-body :global(.heading-anchor) {
+		margin-left: 0.35em;
+		font-weight: 500;
+		color: var(--muted-foreground);
+		text-decoration: none;
+		opacity: 0;
+		transition: opacity 150ms ease-out;
+	}
+
+	.guide-body :global(:is(h2, h3, summary):hover .heading-anchor),
+	.guide-body :global(.heading-anchor:focus-visible),
+	.guide-body :global(:target .heading-anchor) {
+		opacity: 1;
+	}
+
+	@media (hover: none) {
+		.guide-body :global(.heading-anchor) {
+			opacity: 0.6;
+		}
+	}
+
 	.guide-body :global(:is(p, ul, ol)) {
 		max-width: 68ch;
 		margin-top: 1.25rem;
@@ -314,13 +340,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.guide-body :global(pre) {
-		max-width: 68ch;
+		/* Code sections are full width; 68ch of body text is too narrow for 0.875rem code. */
+		max-width: 52rem;
 		margin-top: 1.25rem;
 		padding: 1.25rem 1.5rem;
 		overflow-x: auto;
 		border: 1px solid var(--border);
 		border-radius: 10px;
-		background: var(--card);
+		background: var(--card) !important;
 		font-size: 0.875rem;
 		line-height: 1.6;
 	}
