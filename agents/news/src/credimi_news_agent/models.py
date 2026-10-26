@@ -30,6 +30,10 @@ CHAT_MAX_TURNS = 15
 CHAT_MAX_MESSAGES = 20
 CHAT_MAX_DRAFTS = 3
 
+# A scan whose final report fails `check_scan_report` gets one more turn, started by a user
+# message with this prefix that lists the problems.
+REPORT_REPAIR_PREFIX = "Your final report has problems:"
+
 
 class Source(BaseModel):
     """One monitored source from ``sources.toml``."""

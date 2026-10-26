@@ -28,6 +28,12 @@ source id and two YYYY-MM-DD dates in the message, e.g. "openid4vp 2026-10-01 20
    approval in the harness UI); and an answer saying how it went.
 
 When a step has nothing to work on it answers straight away.
+
+Two scan variants, chosen by the request's model name, claim a draft they never submitted (as
+small local models do): after ``get_pull_request`` they give final decisions with ``draft``.
+On the workflow's repair message, ``scripted-unsubmitted-repaired`` submits the draft and
+reports it again; ``scripted-unsubmitted`` repeats the same claim. Any other model name runs
+the scan script above.
 """
 
 from __future__ import annotations
@@ -43,6 +49,11 @@ from openai.types.responses import (
     ResponseOutputMessage,
     ResponseOutputText,
 )
+
+from .models import REPORT_REPAIR_PREFIX
+
+UNSUBMITTED = "scripted-unsubmitted"
+UNSUBMITTED_REPAIRED = "scripted-unsubmitted-repaired"
 
 
 def _get(item: Any, key: str) -> Any:
@@ -105,6 +116,11 @@ class _Conversation:
         all_calls = [i for i in items if _get(i, "type") == "function_call"]
         # Call ids must stay unique across the whole conversation.
         self.next_id = len(all_calls) + 1
+        self.earlier = [
+            (_get(c, "name"), outputs.get(_get(c, "call_id"), ""))
+            for c in items[:start]
+            if _get(c, "type") == "function_call"
+        ]
         self.calls = [
             (_get(c, "name"), outputs.get(_get(c, "call_id"), ""))
             for c in items[start:]
@@ -120,6 +136,9 @@ class _Conversation:
 
     def output_of(self, name: str) -> str:
         return next((o for nm, o in self.calls if nm == name), "")
+
+    def earlier_output_of(self, name: str) -> str:
+        return next((o for nm, o in self.earlier if nm == name), "")
 
 
 def _first_pull_request(listed_out: str) -> tuple[str, dict[str, Any]] | None:
@@ -148,7 +167,34 @@ def _draft(pr_ev: dict[str, Any], evidence_id: str) -> dict[str, Any]:
     }
 
 
-def _scan(conv: _Conversation) -> ModelResponse:
+def _claimed_draft(pr_ev: dict[str, Any]) -> ModelResponse:
+    return _final(
+        [{"ref": pr_ev["evidence_id"], "decision": "draft", "rationale": "Scripted draft."}],
+        "Scripted scan: one draft.",
+    )
+
+
+def _repair(conv: _Conversation, variant: str) -> ModelResponse:
+    pr_out = conv.earlier_output_of("get_pull_request")
+    if variant not in (UNSUBMITTED, UNSUBMITTED_REPAIRED) or not pr_out:
+        # e.g. list_changes failed: nothing the script can fix.
+        return _final([], "Scripted repair: nothing to change.")
+    pr_ev = json.loads(pr_out)
+    if variant == UNSUBMITTED:
+        return _claimed_draft(pr_ev)
+    name, out = conv.last
+    if not conv.calls:
+        return conv.call("submit_draft", _draft(pr_ev, pr_ev["evidence_id"]))
+    if out.startswith("ACCEPTED"):
+        return _claimed_draft(pr_ev)
+    return _final(
+        [{"ref": pr_ev["evidence_id"], "decision": "skip", "rationale": out}], "Draft rejected."
+    )
+
+
+def _scan(conv: _Conversation, variant: str) -> ModelResponse:
+    if conv.user.startswith(REPORT_REPAIR_PREFIX):
+        return _repair(conv, variant)
     name, out = conv.last
     if not conv.calls:
         source = re.search(r"source `([^`]+)`", conv.user)
@@ -174,6 +220,8 @@ def _scan(conv: _Conversation) -> ModelResponse:
         pr_ev = json.loads(pr_out)
     except json.JSONDecodeError:
         return _final([], f"get_pull_request failed: {pr_out[:200]}")
+    if name == "get_pull_request" and variant in (UNSUBMITTED, UNSUBMITTED_REPAIRED):
+        return _claimed_draft(pr_ev)
     if name == "get_pull_request":
         return conv.call("search_news", {"query": pr_ev["title"].split(": ", 1)[-1][:60]})
     submits = [o for nm, o in conv.calls if nm == "submit_draft"]
@@ -245,14 +293,19 @@ def _chat(conv: _Conversation, instructions: str) -> ModelResponse:
     return _text(f"The draft was not saved: {out}")
 
 
-def next_response(items: list[Any], tool_names: set[str], instructions: str) -> ModelResponse:
+def next_response(
+    items: list[Any], tool_names: set[str], instructions: str, variant: str = ""
+) -> ModelResponse:
     conv = _Conversation(items)
     if "save_draft" in tool_names:
         return _chat(conv, instructions)
-    return _scan(conv)
+    return _scan(conv, variant)
 
 
 class ScriptedModel(Model):
+    def __init__(self, variant: str = "") -> None:
+        self.variant = variant
+
     async def get_response(
         self,
         system_instructions: str | None,
@@ -264,7 +317,7 @@ class ScriptedModel(Model):
     ) -> ModelResponse:
         items = input if isinstance(input, list) else [{"role": "user", "content": input}]
         return next_response(
-            items, {getattr(t, "name", "") for t in tools}, system_instructions or ""
+            items, {getattr(t, "name", "") for t in tools}, system_instructions or "", self.variant
         )
 
     def stream_response(self, *args: Any, **kwargs: Any) -> AsyncIterator[Any]:
@@ -273,4 +326,4 @@ class ScriptedModel(Model):
 
 class ScriptedModelProvider(ModelProvider):
     def get_model(self, model_name: str | None) -> Model:
-        return ScriptedModel()
+        return ScriptedModel(model_name or "")

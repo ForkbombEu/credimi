@@ -45,6 +45,7 @@ with workflow.unsafe.imports_passed_through():
         DEFAULT_MODEL,
         GO_STORE_NEWS_DRAFT,
         GO_TASK_QUEUE,
+        REPORT_REPAIR_PREFIX,
         WORKFLOW_TYPE,
         Evidence,
         ScanDecisions,
@@ -56,7 +57,7 @@ with workflow.unsafe.imports_passed_through():
     )
     from .render import render_payload
     from .tools import CHAT_TOOLS, GO_TIMEOUT, RETRY, SCAN_TOOLS, ResearchSession
-    from .validation import MAX_WINDOW_DAYS, check_scan_report
+    from .validation import MAX_WINDOW_DAYS, check_scan_report, window_error
 
 _ROLE = """\
 You are the research editor of Credimi, a conformance and interoperability testing platform for
@@ -120,6 +121,25 @@ def _context(session: ResearchSession) -> str:
 def _usage(result) -> Usage:
     u = result.context_wrapper.usage
     return Usage(requests=u.requests, input_tokens=u.input_tokens, output_tokens=u.output_tokens)
+
+
+def _add_usage(a: Usage, b: Usage) -> Usage:
+    return Usage(
+        requests=a.requests + b.requests,
+        input_tokens=a.input_tokens + b.input_tokens,
+        output_tokens=a.output_tokens + b.output_tokens,
+    )
+
+
+def _repair_prompt(problems: list[str]) -> str:
+    lines = "\n".join(f"- {p}" for p in problems)
+    return (
+        f"{REPORT_REPAIR_PREFIX}\n{lines}\n"
+        "Fix them, then give your decisions again. If list_changes never succeeded, call it with "
+        "the scan window. A `draft` decision needs an ACCEPTED submit_draft: open the change, "
+        "submit the draft, or change the decision to skip. Every `ref` is an evidence_id "
+        "returned by your tools."
+    )
 
 
 class TokenBudgetExceeded(AgentsException):
@@ -228,6 +248,11 @@ class NewsAgentWorkflow:
     @agent.accepts
     async def scan(self, request: ScanRequest) -> ScanReport:
         """Research the sources over a time window and store newsworthy drafts, unpublished."""
+        today = workflow.now().date()
+        if problem := window_error(request.since, request.until, today, None):
+            raise ApplicationError(
+                f"invalid window {request.since}..{request.until}: {problem}", non_retryable=True
+            )
         config = await self._load_sources()
         known = {s.id for s in config.sources}
         if unknown := [i for i in request.source_ids if i not in known]:
@@ -236,7 +261,7 @@ class NewsAgentWorkflow:
             )
         session = ResearchSession(
             config=config,
-            today=workflow.now().date(),
+            today=today,
             max_drafts=request.max_drafts,
             source_ids=request.source_ids,
             window=(request.since, request.until),
@@ -253,22 +278,42 @@ class NewsAgentWorkflow:
             f"Draft at most {request.max_drafts} stories.\n{_context(session)}"
         )
 
+        def problems_of(decisions: ScanDecisions) -> list[str]:
+            return check_scan_report(
+                decisions.decisions,
+                session.ledger,
+                [d.diff for d in session.accepted],
+                session.listed,
+            )
+
         decisions = ScanDecisions(decisions=[], summary="")
         usage = Usage()
         error = ""
-        try:
-            result = await Runner.run(
-                sdk_agent,
-                input=prompt,
-                max_turns=request.max_turns,
-                hooks=TokenBudget(request.max_tokens),
-            )
+        budget = TokenBudget(request.max_tokens)
+        run_input: str | list[TResponseInputItem] = prompt
+        # The first run, then at most one repair run fed the problems of the first report.
+        for repair in (False, True):
+            try:
+                result = await Runner.run(
+                    sdk_agent,
+                    input=run_input,
+                    max_turns=request.max_turns - usage.requests,
+                    hooks=budget,
+                )
+            except AgentsException as exc:
+                # e.g. MaxTurnsExceeded, TokenBudgetExceeded: drafts accepted so far passed every
+                # check, so keep them.
+                error = f"{type(exc).__name__}: {exc}"
+                break
             decisions = result.final_output_as(ScanDecisions)
-            usage = _usage(result)
-        except AgentsException as exc:
-            # e.g. MaxTurnsExceeded, TokenBudgetExceeded: drafts accepted so far passed every
-            # check, so keep them.
-            error = f"{type(exc).__name__}: {exc}"
+            usage = _add_usage(usage, _usage(result))
+            problems = problems_of(decisions)
+            if repair or not problems or usage.requests >= request.max_turns:
+                break
+            run_input = [
+                *result.to_input_list(),
+                {"role": "user", "content": _repair_prompt(problems)},
+            ]
 
         report = ScanReport(
             workflow_id=workflow.info().workflow_id,
@@ -281,14 +326,13 @@ class NewsAgentWorkflow:
             usage=usage,
             error=error,
         )
-        report.problems = check_scan_report(
-            decisions.decisions,
-            session.ledger,
-            [d.diff for d in session.accepted],
-            session.listed,
-        )
-        if not session.listed and report.error == "":
+        report.problems = problems_of(decisions)
+        # A report that still has problems fails the scan, so the daily cursor does not move
+        # past stories it claimed but never stored. Accepted drafts are stored all the same.
+        if report.error == "" and not session.listed:
             report.error = "invalid scan: no list_changes call succeeded"
+        elif report.error == "" and report.problems:
+            report.error = "invalid report: " + "; ".join(report.problems)
         report.text = report_text(report)
         return report
 
@@ -335,11 +379,7 @@ class NewsAgentWorkflow:
             )
         self._conversation = result.to_input_list()
         usage = _usage(result)
-        self._chat_usage = Usage(
-            requests=self._chat_usage.requests + usage.requests,
-            input_tokens=self._chat_usage.input_tokens + usage.input_tokens,
-            output_tokens=self._chat_usage.output_tokens + usage.output_tokens,
-        )
+        self._chat_usage = _add_usage(self._chat_usage, usage)
         new = [ev for ev_id, ev in session.ledger.items() if ev_id not in before][:10]
         stored = await self._store(session)
         return TextReply(

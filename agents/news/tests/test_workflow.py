@@ -90,12 +90,12 @@ async def env(monkeypatch):
 async def scan(
     client: Client, source_ids: list[str] | None = None, **overrides: Any
 ) -> tuple[ScanReport | None, list[str], str]:
-    request = ScanRequest(
-        since="2026-10-01",
-        until="2026-10-14",
-        source_ids=["openid4vp"] if source_ids is None else source_ids,
-        **overrides,
-    )
+    fields: dict[str, Any] = {
+        "since": "2026-10-01",
+        "until": "2026-10-14",
+        "source_ids": ["openid4vp"] if source_ids is None else source_ids,
+    }
+    request = ScanRequest(**(fields | overrides))
     tools: list[str] = []
 
     def on_event(item: Any) -> None:
@@ -173,6 +173,47 @@ async def test_scan_stops_at_its_token_budget(env):
     assert failure == ""
     assert report.error.startswith("TokenBudgetExceeded"), report.error
     assert news.records == []
+
+
+async def test_scan_repairs_a_report_that_claims_an_unsubmitted_draft(env):
+    news = FakeCredimiNews()
+    agent_worker, go_worker = workers(env, news)
+    async with agent_worker, go_worker:
+        report, tools, failure = await scan(env.client, model="scripted-unsubmitted-repaired")
+
+    assert failure == ""
+    # The first report claims a draft without submit_draft; the repair turn submits it.
+    assert tools == ["list_changes", "get_pull_request", "submit_draft"]
+    assert report.problems == []
+    assert report.error == ""
+    assert [d.decision for d in report.decisions] == ["draft"]
+    assert len(news.records) == 1
+    # 3 model calls in the first run (two tools, final), 2 in the repair (submit, final).
+    assert report.usage.requests == 5
+
+
+async def test_scan_fails_when_the_repaired_report_still_has_problems(env):
+    news = FakeCredimiNews()
+    agent_worker, go_worker = workers(env, news)
+    async with agent_worker, go_worker:
+        report, tools, failure = await scan(env.client, model="scripted-unsubmitted")
+
+    assert failure == ""
+    assert tools == ["list_changes", "get_pull_request"]
+    assert len(report.problems) == 1
+    assert "says draft but no accepted draft covers it" in report.problems[0]
+    assert report.error == f"invalid report: {report.problems[0]}"
+    assert report.stored == [] and news.records == []
+
+
+async def test_scan_rejects_an_invalid_window_before_any_model_call(env):
+    news = FakeCredimiNews()
+    agent_worker, go_worker = workers(env, news)
+    async with agent_worker, go_worker:
+        report, tools, failure = await scan(env.client, until="2010-10-26")
+
+    assert report is None and tools == []
+    assert "invalid window 2026-10-01..2010-10-26: since is after until" in failure
 
 
 async def ask(
