@@ -1,6 +1,6 @@
 ---
 name: fcaf-definitions
-description: Implement, review, run, and maintain Credimi FCAF wallet-solution relying-party test definitions, aggregate pipeline scenarios, Maestro flows, validators, and implementation-inventory entries. Use when selecting the next FCAF test, translating an FCAF Markdown scenario into Credimi artifacts, verifying assertions against the reference Android wallet, or coordinating parallel FCAF test work.
+description: Implement, review, run, and maintain Credimi FCAF wallet-solution test definitions (relying_party and attestation_provider suites), aggregate pipeline scenarios, Maestro flows, validators, and implementation-inventory entries. Use when selecting the next FCAF test, translating an FCAF Markdown scenario into Credimi artifacts, verifying assertions against the reference Android wallet, or coordinating parallel FCAF test work.
 ---
 
 # FCAF definitions
@@ -24,7 +24,16 @@ upstream under `docs/fcaf/suts/<sut>/<role>/` of the FCAF repository.
 
 ## Select work
 
-- Prefer the next unimplemented `EUDI_required` wallet-solution/relying-party row.
+- Prefer the next unimplemented `EUDI_required` row of the suite the user names
+  (wallet-solution relying-party by default; all 59 attestation-provider tests are
+  implemented).
+- Shared test cases (`docs/fcaf/suts/shared`: Shared_JSON, Shared_JWT_JWS,
+  Shared_JWT_JWE) are not tests of their own; run them with the `shared.json`,
+  `shared.jwt_jws` and `shared.jwt_jwe` validators on the received bytes or compact
+  string, never on re-serialized JSON.
+- Attestation-provider scenarios create Capture issuance sessions with
+  `evidence_mode: "full"` and read only that session's captures; locate requests
+  with a `select` by path suffix, never by array index.
 - Skip TSL/MTSL, Digital Credentials API, W3C Digital Credentials API, and CAW tests unless the user changes scope.
 - Detect duplicate inventory rows before implementing. An older `adapt manual` row may coexist with a newer ready row.
 - Announce the test ID before editing. For parallel work, reserve one test number per agent.

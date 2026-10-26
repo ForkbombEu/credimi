@@ -692,10 +692,12 @@ FCAF scenarios target `https://capture-wallet.credimi.io` (production) since
 30/09/2026; earlier observations below were recorded on
 `https://beta-capture-wallet.credimi.io`. The public contract describes the
 service surface, but deployment configuration can differ. In particular,
-`request_mutation`, `request_behavior`, `response_scenario`, and malformed
-`status_reference` fixtures are only usable when the deployment enables
-`FCAF_SCENARIOS_ENABLED=true`. A published input does not by itself prove that
-the Wallet received it or that the desired Wallet outcome was captured.
+`request_mutation`, `request_behavior`, `response_scenario`, malformed
+`status_reference` fixtures, and the issuance controls `evidence_mode: "full"`,
+`issuance_response_scenario`, and `offer_mutation` are only usable when the
+deployment enables `FCAF_SCENARIOS_ENABLED=true`. A published input does not
+by itself prove that the Wallet received it or that the desired Wallet outcome
+was captured.
 
 Classify each FCAF candidate at three boundaries:
 
@@ -936,30 +938,87 @@ source test permits it.
   first fetch after `POST /sessions/{id}/status`.
 - On 22/10/2026 the wallet-solution attestation-provider scenario ran the
   reference Wallet 2026.09.42 through an authorization-code issuance on both
-  production and beta, which returned the same session shape. Facts the
-  validators rely on:
+  production and beta, which returned the same session shape, all in the
+  default `redacted` evidence mode:
   - `raw.oid4vci_requests` of the session holds the Wallet's `POST …/par`,
     the chained `GET …/redirect`, `POST …/token` and `POST …/credential`,
     each with `method`, `path`, `query`, `body`, `headers` (including `host`
     and `x-forwarded-proto`) and `response.{status,content_type}`.
-  - The Wallet's browser `GET /issuers/{id}/authorize` is recorded in the
-    global `GET /oid4vci/requests` ledger only, with `session_id: null`. It
-    repeats the PAR `state` and carries `client_id` and a redacted
-    `request_uri`. Capture's own `GET /authorization-servers/{id}/authorize`
-    follows it. The ledger has no filter parameters and holds the last 1000
-    requests of every caller, about 600 KB.
+  - SUPERSEDED 26/10/2026: the Wallet's browser `GET /issuers/{id}/authorize`
+    was recorded in the global `GET /oid4vci/requests` ledger only, with
+    `session_id: null`. Since `759bab5` Capture attributes it to the session
+    by the PAR `request_uri` (see the 26/10/2026 entry).
   - `raw.credential_request` is the decrypted Credential Request (the Wallet
     sends `application/jwt`); `raw.credential_request_raw` is the redacted JWE.
-    Proof values (`proofs.jwt`, `proofs.attestation`) are redacted.
+    Proof values (`proofs.jwt`, `proofs.attestation`) are redacted in this
+    mode; a `full` session keeps them in clear.
   - `raw.proof_headers[]` records `typ`, `alg`, `kid`, `jwk`, `x5c`,
     `proof_type`, `key_attestation_present` and `source`, and is written only
     after Credo accepted the proof.
   - `observed.wallet_jwks.jwks.keys` holds the holder key Capture verified;
     the presented SD-JWT VC's `cnf.jwk` equals it.
-  - The PAR and token requests carry `OAuth-Client-Attestation` and
-    `OAuth-Client-Attestation-PoP` headers (redacted), yet
-    `checks.wallet_attestation_present` and
-    `observed.client_authentication.wallet_attestation.present` stay `false`.
+  - SUPERSEDED 26/10/2026: the PAR and token requests carried
+    `OAuth-Client-Attestation` and `OAuth-Client-Attestation-PoP` headers
+    (redacted), yet `checks.wallet_attestation_present` and
+    `observed.client_authentication.wallet_attestation.present` stayed
+    `false`. Production now records both as present.
+- Resynced from upstream master on 26/10/2026 (`759bab5`). The contract adds
+  the FCAF ws_ap evidence: `evidence_mode: "full"`, `header_counts`,
+  `raw_headers`, `raw_body`, `response` and `raw.credential_request_proofs`;
+  attribution of `/authorize` by `request_uri` and of nonce responses by a
+  proof's `nonce`; `GET /sessions/{id}/requests`; `offer_scheme`,
+  `offer_mutation`, `issuance_response_scenario`; and
+  `/ui/sessions/{id}/engage`.
+- On 26/10/2026 production `capture-wallet.credimi.io` served the whole
+  `759bab5` contract; beta `beta-capture-wallet.credimi.io` served none of it:
+  it ignored `evidence_mode` and `offer_scheme` (no echo, default
+  `openid-credential-offer://` deeplink), its OpenAPI lacks the new members, and
+  `GET /sessions/{id}/requests` answered `404`. The ws_ap scenarios therefore
+  target production. Facts the validators rely on, from reference Wallet
+  2026.09.42 and scripted clients against production:
+  - A `full` session attributes the Wallet's `PAR`, browser `/authorize`
+    (`query.request_uri` in clear), `/redirect`, `/token`, `/nonce` and
+    `/credential`. The nonce entry is appended last; ordering by `at` puts it
+    before the Credential Request. PAR and token entries carry
+    `unmatched: true` although attributed, so `unmatched` is not a filter.
+  - `raw_headers` names keep Node's casing (`Oauth-Client-Attestation`), so
+    header lookups are case-insensitive. The Client Attestation and PoP are
+    in clear there and in `headers`; `observed.client_authentication` decodes
+    both and `checks.wallet_attestation_present`,
+    `wallet_attestation_pop_present`, `wallet_attestation_client_id_matches`
+    and `wallet_attestation_pop_audience_matches` were `true`.
+  - The PAR `raw_body` is `{content_type, base64}`; the Wallet's encrypted
+    Credential Request `raw_body` is `{content_type: "application/jwt",
+    text}`, so the decrypted request bytes are not recorded and Shared_JSON
+    cannot run on them. The decrypted request is in that entry's `body`.
+  - `raw.credential_request` and `raw.proof_headers` stay absent when Credo
+    rejects the Credential Request; `raw.credential_request_proofs` and the
+    `/credential` entry's `body` are recorded in both cases.
+  - `unattributed_requests` holds every caller's ledger entries of the
+    window: Chrome's font fetches for the engagement page, other clients'
+    metadata fetches and Capture's own `/authorization-servers/…/authorize`.
+  - `/ui/sessions/{id}/engage` served the page ("Add a credential", "Open in
+    wallet") and logged `credential_offer_engagement_page_served`. Chrome
+    154 asks `Do you trust this site with your data?` before handing a
+    `haip-vci://` link to the Wallet; for the `eu-eaa-offer://` link it does
+    nothing, because no installed app handles that scheme.
+  - A PAR carrying a JAR `request` (signed Request Object, `issuer_state`
+    alongside) is attributed and answered `400 {"error":"invalid_request",
+    "error_description":"Using JWT-secured authorization request is not
+    supported."}`.
+  - A Credential Request whose `jwt` proof carries only `key_attestation`
+    (no `jwk`, `kid` or `x5c`) is answered `400 invalid_proof` (`Unable to
+    verify jws with unsupported jws signer method 'custom'`), after Capture
+    recorded the proof in `raw.credential_request_proofs`.
+  - `issuance_response_scenario.par` omitting `/request_uri` delivered
+    `201 {"expires_in":90}`. `issuance_response_scenario.credential` delivered
+    `400 {"error":"credential_request_denied"}` as `application/json` to a
+    scripted client that asked for no response encryption. To the reference
+    Wallet, whose Credential Request carries `credential_response_encryption`,
+    it delivered status `400` with `Content-Type: application/jwt`: Capture
+    encrypts the scenario's error body like a Credential Response
+    (`issuance_response_scenario_applied` keeps the scenario and the
+    original `200`).
 
 ### Known FCAF limitations
 
@@ -971,6 +1030,11 @@ source test permits it.
 | `client_id_scheme: x509_san_dns` | Session creation returns `500 internal_error`: `the domain of the OpenID4VCI issuer does not match a SAN DNS name in the x5c certificate` (25/09, 28/09 and 22/10/2026). `verifier_attestation` failed identically until it was deployed without the certificate dependency (probed working 22/10/2026). | Blocked by the deployed certificate. Upstream adds that the EUDI service-provider registry issues no `dNSName` SAN certificate, so a registry-trusted `x509_san_dns` request is not expected. |
 | `http://` Request URI | `request_mutation` can only point the outer `request_uri` at a URI known before the session exists, so the wrong-scheme URI must target another, previously created session to capture a Wallet that connects anyway. On 28/09/2026 beta answered `http://` requests with `308` to the `https://` URL, so a Wallet that follows the redirect is still captured on that session. | Constraint on the scenario, not a blocker. |
 | `client_id_scheme: decentralized_identifier` | On 28/09/2026 a beta session without `request_behavior` was signed with the X.509 verifier key (`kid: credimi-fake-verifier-key`, `x5c`), which the verification method in `/openid4vp/did.json` does not verify. Production signed with the DID key on 30/09/2026. | Beta deployment defect, not on production. `REFERENCE-WALLET-ISSUES.md` MOCK-VERIFIER-002 |
+| JAR in PAR | Credo answers a PAR carrying `request` with `400 invalid_request` (`Using JWT-secured authorization request is not supported.`), probed 26/10/2026. `WS_AP_MS_ProtocolMessages_034b`–`034d` still read the captured PAR. | Every later ws_ap test is blocked for a JAR Wallet, until Credo supports JAR or Capture adds a shim. |
+| `jwt` proof with key attestation | Issuer metadata advertises `ES256` only (`proof_signing_alg_values_supported`), so an `ES384` or `ES512` proof is captured but rejected. A `jwt` proof whose key is conveyed by `key_attestation` alone is rejected with `invalid_proof` (`unsupported jws signer method 'custom'`), probed 26/10/2026. | The proof tests read `raw.credential_request_proofs`, recorded before Credo verifies; the Credential Response and storage tests are blocked for such a Wallet. |
+| ws_ap on beta | Beta lacked the `759bab5` issuance contract on 26/10/2026 (`evidence_mode`, `offer_scheme`, `offer_mutation`, `issuance_response_scenario`, `GET /sessions/{id}/requests`). | ws_ap scenarios target production. |
+| Unattributed requests | Metadata fetches, unused nonces and unmatched paths carry no session; `unattributed_requests` lists every caller's in the window. | `WS_AP_MS_ProtocolMessages_033b_UF` and `WS_AP_IA_Supportive_011b_UF` assume an otherwise idle deployment and say so in their result. |
+| Encrypted Credential Error Response | When the Wallet requests `credential_response_encryption`, `issuance_response_scenario.credential` with an error status is delivered as an `application/jwt` JWE (26/10/2026). OpenID4VCI 1.0 section 8.3.1: "Credential Error Responses are never encrypted", so this is not the valid Credential Error Response `WS_AP_IA_MainInteraction_031b_UF` sets up. | `031b_UF` is blocked for every Wallet that encrypts Credential Responses until Capture stops encrypting error statuses. `REFERENCE-WALLET-ISSUES.md` MOCK-ISSUER-001 |
 
 ## Safe scenario use
 

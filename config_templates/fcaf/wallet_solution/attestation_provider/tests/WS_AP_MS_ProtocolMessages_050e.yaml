@@ -1,5 +1,5 @@
 id: WS_AP_MS_ProtocolMessages_050e
-title: Send proofs with either a jwt or an attestation member, not both.
+title: Send either a jwt or an attestation proof, not both.
 source:
   path: MessageStructure/ProtocolMessages/WS_AP_MS_ProtocolMessages_050e.md
 suite:
@@ -16,19 +16,22 @@ normative_references:
   section: '4.5.1'
   url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
 - title: OpenID for Verifiable Credential Issuance 1.0
-  section: '8.2'
+  section: '8.2, F'
   url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
 evidence:
-  credential_request:
-    from: pipeline.ap.authorization-code-issuance.outputs.credential_request
+  issuance_exchange:
+    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
 assertions:
-# Capture redacts the proof values; a member counts as present when its redaction
-# marker records it present.
-- id: proofs_has_exactly_one_proof_type
+- id: proofs_carries_exactly_one_proof_type
   validator: json.object_exactly_one_member
-  input: evidence.credential_request
+  input: evidence.issuance_exchange
   params:
+    select:
+      request: /credential
+      path: body
     field: proofs
-    members: [jwt, attestation]
+    members:
+    - jwt
+    - attestation
 verdict:
   pass_when: all_assertions_pass

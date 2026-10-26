@@ -55,7 +55,7 @@ func TestLoadGeneratedWalletCatalogs(t *testing.T) {
 		tests int
 	}{
 		{suite: "wallet_solution/relying_party", tests: 617},
-		{suite: "wallet_solution/attestation_provider", tests: 18},
+		{suite: "wallet_solution/attestation_provider", tests: 59},
 	} {
 		t.Run(tt.suite, func(t *testing.T) {
 			cat, err := Load("../../../config_templates/fcaf/" + tt.suite)

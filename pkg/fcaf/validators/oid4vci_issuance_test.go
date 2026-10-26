@@ -80,25 +80,23 @@ func testCredentialRequestBody() map[string]any {
 }
 
 // testAuthorizeRequest is the Wallet's browser Authorization Request, which
-// Capture records in the global ledger only.
-func testAuthorizeRequest(at string, state string) map[string]any {
-	request := testCapturedRequest(
+// Capture attributes to the session by the PAR request_uri.
+func testAuthorizeRequest(at string) map[string]any {
+	return testCapturedRequest(
 		at,
 		"GET",
 		"/issuers/eu-pid-device-bound/authorize",
 		map[string]any{
 			"client_id":   "eudiw-abca",
-			"state":       state,
-			"request_uri": redacted(true),
+			"state":       testPARState,
+			"request_uri": "urn:ietf:params:oauth:request_uri:5620ecbd",
 		},
 		map[string]any{},
 		nil,
 	)
-	request["session_id"] = nil
-	return request
 }
 
-func testExchange(sessionRequests []any, ledger []any) map[string]any {
+func testExchange(sessionRequests []any) map[string]any {
 	return map[string]any{
 		"capture_session": map[string]any{
 			"session_id":              testSessionID,
@@ -108,7 +106,6 @@ func testExchange(sessionRequests []any, ledger []any) map[string]any {
 				"credential_request": testCredentialRequestBody(),
 			},
 		},
-		"request_ledger": ledger,
 		"issuer_metadata": map[string]any{
 			"credential_endpoint": testIssuerBase + "/credential",
 			"credential_configurations_supported": map[string]any{
@@ -123,9 +120,13 @@ func testExchange(sessionRequests []any, ledger []any) map[string]any {
 	}
 }
 
+// testSessionRequests lists the session's requests as Capture records them:
+// the nonce request it attributes at Credential Request time comes last,
+// although it was sent before the Credential Request.
 func testSessionRequests() []any {
 	return []any{
 		testPAR(),
+		testAuthorizeRequest("2026-10-22T07:38:24.600Z"),
 		testCapturedRequest(
 			"2026-10-22T07:38:24.819Z",
 			"GET",
@@ -142,29 +143,15 @@ func testSessionRequests() []any {
 			testCredentialRequestBody(),
 			map[string]any{"content-type": "application/jwt"},
 		),
-	}
-}
-
-// testLedger is the global ledger: the session's PAR, which Capture records
-// there too, then the given entries.
-func testLedger(entries ...any) []any {
-	return append([]any{testPAR()}, entries...)
-}
-
-// testAuthorizeLedger adds the Wallet's Authorization Request and Capture's
-// own redirect to its chained OAuth server after the PAR.
-func testAuthorizeLedger(extra ...any) []any {
-	return testLedger(append([]any{
-		testAuthorizeRequest("2026-10-22T07:38:24.600Z", testPARState),
 		testCapturedRequest(
-			"2026-10-22T07:38:24.730Z",
-			"GET",
-			"/authorization-servers/eu-pid-device-bound/authorize",
-			map[string]any{"client_id": "credimi-capture-wallet"},
+			"2026-10-22T07:38:29.001Z",
+			"POST",
+			"/issuers/eu-pid-device-bound/nonce",
+			nil,
 			map[string]any{},
 			nil,
 		),
-	}, extra...)...)
+	}
 }
 
 func validateWalletRequest(value any, params map[string]any) Result {
@@ -200,14 +187,14 @@ func TestOID4VCIWalletRequestPushedAuthorizationRequest(t *testing.T) {
 	withPAR := func(mutate func(map[string]any)) map[string]any {
 		par := testPAR()
 		mutate(par)
-		return testExchange([]any{par}, nil)
+		return testExchange([]any{par})
 	}
 	for _, tt := range []struct {
 		name   string
 		value  any
 		status Status
 	}{
-		{"conforming PAR", testExchange(testSessionRequests(), nil), StatusPass},
+		{"conforming PAR", testExchange(testSessionRequests()), StatusPass},
 		{"GET method", withPAR(func(par map[string]any) { par["method"] = "GET" }), StatusFail},
 		{"query component", withPAR(func(par map[string]any) { par["query"] = map[string]any{"x": "1"} }), StatusFail},
 		{"other host", withPAR(func(par map[string]any) {
@@ -233,7 +220,7 @@ func TestOID4VCIWalletRequestPushedAuthorizationRequest(t *testing.T) {
 			delete(par["body"].(map[string]any), "code_challenge")
 		}), StatusFail},
 		{"null scope", withPAR(func(par map[string]any) { par["body"].(map[string]any)["scope"] = nil }), StatusFail},
-		{"no PAR recorded", testExchange(nil, nil), StatusFail},
+		{"no PAR recorded", testExchange(nil), StatusFail},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			result := validateWalletRequest(tt.value, parParams)
@@ -254,7 +241,7 @@ func TestOID4VCIWalletRequestOptionalParameters(t *testing.T) {
 	require.Equal(
 		t,
 		StatusPass,
-		validateWalletRequest(testExchange(testSessionRequests(), nil), params).Status,
+		validateWalletRequest(testExchange(testSessionRequests()), params).Status,
 	)
 
 	par := testPAR()
@@ -262,15 +249,14 @@ func TestOID4VCIWalletRequestOptionalParameters(t *testing.T) {
 	require.Equal(
 		t,
 		StatusFail,
-		validateWalletRequest(testExchange([]any{par}, nil), params).Status,
+		validateWalletRequest(testExchange([]any{par}), params).Status,
 	)
 }
 
-func TestOID4VCIWalletRequestAuthorizationRequestFromLedger(t *testing.T) {
+func TestOID4VCIWalletRequestAuthorizationRequest(t *testing.T) {
 	params := map[string]any{
-		"path_suffix":     "/authorize",
-		"ledger_fallback": true,
-		"methods":         []any{"GET", "POST"},
+		"path_suffix": "/authorize",
+		"methods":     []any{"GET", "POST"},
 		"endpoint": map[string]any{
 			"metadata": "authorization_server_metadata",
 			"field":    "authorization_endpoint",
@@ -280,51 +266,32 @@ func TestOID4VCIWalletRequestAuthorizationRequestFromLedger(t *testing.T) {
 			"required": []any{"request_uri", "client_id"},
 		},
 	}
-	withoutState := testAuthorizeRequest("2026-10-22T07:38:20.000Z", "")
-	delete(withoutState["query"].(map[string]any), "state")
-	otherSession := testAuthorizeRequest("2026-10-22T07:38:21.000Z", "other")
-	otherSession["session_id"] = "another-session"
-	otherIssuer := testAuthorizeRequest("2026-10-22T07:38:21.000Z", "other")
-	otherIssuer["issuer_configuration_id"] = "eu-pid-jwt-proof-only"
-	afterCallback := testAuthorizeRequest("2026-10-22T07:40:00.000Z", "late")
-	beforePAR := testAuthorizeRequest("2026-10-22T07:30:00.000Z", "early")
-	redactedAbsent := testAuthorizeRequest("2026-10-22T07:38:24.600Z", testPARState)
-	redactedAbsent["query"].(map[string]any)["request_uri"] = redacted(false)
-
+	withoutRequestURI := testAuthorizeRequest("2026-10-22T07:38:24.600Z")
+	delete(withoutRequestURI["query"].(map[string]any), "request_uri")
+	chained := testCapturedRequest(
+		"2026-10-22T07:38:24.730Z",
+		"GET",
+		"/authorization-servers/eu-pid-device-bound/authorize",
+		map[string]any{"client_id": "credimi-capture-wallet"},
+		map[string]any{},
+		nil,
+	)
 	for _, tt := range []struct {
-		name   string
-		ledger []any
-		status Status
+		name     string
+		requests []any
+		status   Status
 	}{
-		{"single request in the PAR window", testAuthorizeLedger(), StatusPass},
-		{"requests outside the window, issuer or session are ignored",
-			testAuthorizeLedger(otherSession, otherIssuer, afterCallback, beforePAR), StatusPass},
-		{"PAR state singles out the Wallet request", testAuthorizeLedger(withoutState), StatusPass},
-		{"two requests without the PAR state are ambiguous", testLedger(
-			testAuthorizeRequest("2026-10-22T07:38:20.000Z", "a"),
-			testAuthorizeRequest("2026-10-22T07:38:21.000Z", "b"),
-		), StatusInconclusive},
-		{"no request in the window", testLedger(afterCallback), StatusFail},
-		{"request_uri recorded as absent", testLedger(redactedAbsent), StatusFail},
-		{"ledger evicted past the PAR", []any{
-			testAuthorizeRequest("2026-10-22T07:38:24.600Z", testPARState),
-		}, StatusInconclusive},
+		{"attributed Authorization Request", testSessionRequests(), StatusPass},
+		{"Capture's chained authorization request is not the Wallet's",
+			append(testSessionRequests(), chained), StatusPass},
+		{"no request_uri", []any{testPAR(), withoutRequestURI}, StatusFail},
+		{"no Authorization Request", []any{testPAR(), chained}, StatusFail},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			result := validateWalletRequest(testExchange(testSessionRequests(), tt.ledger), params)
+			result := validateWalletRequest(testExchange(tt.requests), params)
 			require.Equal(t, tt.status, result.Status, result.Message)
 		})
 	}
-
-	noLedger := testExchange(testSessionRequests(), nil)
-	delete(noLedger, "request_ledger")
-	result := validateWalletRequest(noLedger, params)
-	require.Equal(
-		t,
-		StatusInconclusive,
-		result.Status,
-		"an exchange without the ledger cannot attribute it",
-	)
 }
 
 func TestOID4VCIWalletRequestCredentialRequest(t *testing.T) {
@@ -339,10 +306,10 @@ func TestOID4VCIWalletRequestCredentialRequest(t *testing.T) {
 	require.Equal(
 		t,
 		StatusPass,
-		validateWalletRequest(testExchange(testSessionRequests(), nil), params).Status,
+		validateWalletRequest(testExchange(testSessionRequests()), params).Status,
 	)
 
-	exchange := testExchange(testSessionRequests(), nil)
+	exchange := testExchange(testSessionRequests())
 	exchange["issuer_metadata"].(map[string]any)["credential_endpoint"] = testIssuerBase + "/credential?tenant=a"
 	require.Equal(t, StatusFail, validateWalletRequest(exchange, params).Status,
 		"a query component of the endpoint must be requested")
@@ -355,7 +322,7 @@ func TestOID4VCIPARScopeSupportedValidator(t *testing.T) {
 	withScope := func(scope any) map[string]any {
 		par := testPAR()
 		par["body"].(map[string]any)["scope"] = scope
-		return testExchange([]any{par}, nil)
+		return testExchange([]any{par})
 	}
 	for _, tt := range []struct {
 		name   string
@@ -367,7 +334,7 @@ func TestOID4VCIPARScopeSupportedValidator(t *testing.T) {
 		{"one unknown scope value", withScope(testSDJWTConfig + " openid"), StatusFail},
 		{"empty scope", withScope(" "), StatusFail},
 		{"non-string scope", withScope([]any{testSDJWTConfig}), StatusFail},
-		{"no PAR", testExchange(nil, nil), StatusFail},
+		{"no PAR", testExchange(nil), StatusFail},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			result := OID4VCIPARScopeSupportedValidator{}.Validate(
@@ -381,10 +348,13 @@ func TestOID4VCIPARScopeSupportedValidator(t *testing.T) {
 
 func TestOID4VCICredentialConfigurationScopeRequestedValidator(t *testing.T) {
 	withConfiguration := func(id any) map[string]any {
-		exchange := testExchange(testSessionRequests(), nil)
-		raw := exchange["capture_session"].(map[string]any)["raw"].(map[string]any)
-		raw["credential_request"].(map[string]any)["credential_configuration_id"] = id
-		return exchange
+		requests := testSessionRequests()
+		for _, entry := range requests {
+			if request := entry.(map[string]any); request["path"] == "/issuers/eu-pid-device-bound/credential" {
+				request["body"].(map[string]any)["credential_configuration_id"] = id
+			}
+		}
+		return testExchange(requests)
 	}
 	for _, tt := range []struct {
 		name   string
@@ -404,77 +374,6 @@ func TestOID4VCICredentialConfigurationScopeRequestedValidator(t *testing.T) {
 			require.Equal(t, tt.status, result.Status, result.Message)
 		})
 	}
-}
-
-func TestOID4VCIProofJWTHeaderValidator(t *testing.T) {
-	jwtHeader := func(mutate func(map[string]any)) []any {
-		header := map[string]any{
-			"typ":                     "openid4vci-proof+jwt",
-			"alg":                     "ES256",
-			"jwk":                     map[string]any{"kty": "EC"},
-			"proof_type":              "jwt",
-			"key_attestation_present": true,
-			"source":                  "credential_request.proofs.jwt[0].header",
-		}
-		mutate(header)
-		return []any{header}
-	}
-	unchanged := func(map[string]any) {}
-	attestationOnly := []any{
-		map[string]any{
-			"typ":                     "key-attestation+jwt",
-			"alg":                     "ES256",
-			"proof_type":              "attestation",
-			"key_attestation_present": false,
-		},
-	}
-	presence := map[string]any{"required_members": []any{"alg", "typ", "key_attestation"}}
-	typString := map[string]any{"string_members": []any{"typ"}}
-	typValue := map[string]any{"member_equals": map[string]any{"typ": "openid4vci-proof+jwt"}}
-	algValue := map[string]any{
-		"member_one_of": map[string]any{"alg": []any{"ES256", "ES384", "ES512"}},
-	}
-
-	for _, tt := range []struct {
-		name   string
-		value  any
-		params map[string]any
-		status Status
-	}{
-		{"members present", jwtHeader(unchanged), presence, StatusPass},
-		{"key attestation absent", jwtHeader(func(h map[string]any) { h["key_attestation_present"] = false }), presence, StatusFail},
-		{"typ null", jwtHeader(func(h map[string]any) { h["typ"] = nil }), presence, StatusFail},
-		{"typ string", jwtHeader(unchanged), typString, StatusPass},
-		{"typ number", jwtHeader(func(h map[string]any) { h["typ"] = 1.0 }), typString, StatusFail},
-		{"typ value", jwtHeader(unchanged), typValue, StatusPass},
-		{"typ of a key attestation", jwtHeader(func(h map[string]any) { h["typ"] = "key-attestation+jwt" }), typValue, StatusFail},
-		{"ES512", jwtHeader(func(h map[string]any) { h["alg"] = "ES512" }), algValue, StatusPass},
-		{"ES256K", jwtHeader(func(h map[string]any) { h["alg"] = "ES256K" }), algValue, StatusFail},
-		{"RS256", jwtHeader(func(h map[string]any) { h["alg"] = "RS256" }), algValue, StatusFail},
-		{"attestation proofs only", attestationOnly, presence, StatusNotApplicable},
-		{"no proof header recorded", nil, presence, StatusInconclusive},
-		{"no check", jwtHeader(unchanged), map[string]any{}, StatusError},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			result := OID4VCIProofJWTHeaderValidator{}.Validate(
-				context.Background(),
-				Input{Value: tt.value, Params: tt.params},
-			)
-			require.Equal(t, tt.status, result.Status, result.Message)
-		})
-	}
-
-	mixed := append(jwtHeader(func(h map[string]any) { h["alg"] = "EdDSA" }), attestationOnly...)
-	result := OID4VCIProofJWTHeaderValidator{}.Validate(
-		context.Background(),
-		Input{Value: mixed, Params: algValue},
-	)
-	require.Equal(
-		t,
-		StatusFail,
-		result.Status,
-		"a jwt proof among other proof types is still checked",
-	)
 }
 
 func TestOID4VCIIssuedCredentialPresentedValidator(t *testing.T) {

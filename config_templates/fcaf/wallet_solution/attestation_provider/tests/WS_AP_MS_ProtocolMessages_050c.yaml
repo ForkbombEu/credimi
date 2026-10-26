@@ -1,5 +1,5 @@
 id: WS_AP_MS_ProtocolMessages_050c
-title: Request a credential configuration whose scope the Authorization Request carried.
+title: Request a credential_configuration_id whose scope the Authorization Request carried.
 source:
   path: MessageStructure/ProtocolMessages/WS_AP_MS_ProtocolMessages_050c.md
 suite:
@@ -22,7 +22,6 @@ evidence:
   issuance_exchange:
     from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
 assertions:
-# The Authorization Request is pushed (PAR), so its scope is read from the PAR body.
 - id: credential_configuration_scope_was_requested
   validator: oid4vci.credential_configuration_scope_requested
   input: evidence.issuance_exchange

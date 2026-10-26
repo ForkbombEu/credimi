@@ -29,9 +29,12 @@ assertions:
   validator: oid4vci.wallet_request
   input: evidence.issuance_exchange
   params:
-    path_suffix: '/par'
-    methods: [POST]
-    endpoint: {metadata: authorization_server_metadata, field: pushed_authorization_request_endpoint}
+    path_suffix: /par
+    methods:
+    - POST
+    endpoint:
+      metadata: authorization_server_metadata
+      field: pushed_authorization_request_endpoint
     require_tls: true
     forbid_query: true
 verdict:

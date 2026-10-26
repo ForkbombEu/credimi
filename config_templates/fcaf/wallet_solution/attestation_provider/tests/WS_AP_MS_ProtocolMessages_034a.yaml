@@ -1,5 +1,5 @@
 id: WS_AP_MS_ProtocolMessages_034a
-title: Send the Pushed Authorization Request body as application/x-www-form-urlencoded.
+title: Send the Pushed Authorization Request form-encoded.
 source:
   path: MessageStructure/ProtocolMessages/WS_AP_MS_ProtocolMessages_034a.md
 suite:
@@ -25,12 +25,11 @@ evidence:
   issuance_exchange:
     from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
 assertions:
-- id: par_body_is_form_encoded
+- id: par_is_form_encoded
   validator: oid4vci.wallet_request
   input: evidence.issuance_exchange
   params:
-    path_suffix: '/par'
-    methods: [POST]
+    path_suffix: /par
     media_type: application/x-www-form-urlencoded
 verdict:
   pass_when: all_assertions_pass

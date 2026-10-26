@@ -21,18 +21,14 @@ normative_references:
 evidence:
   issued_credential_presentation:
     from: pipeline.ap.authorization-code-issuance.outputs.issued_credential_presentation
-  issuance_visual_evidence:
-    from: pipeline.ap.authorization-code-issuance.outputs.issuance_visual_evidence
 assertions:
 # The presented SD-JWT VC must carry the issuer and the holder key Capture verified at
-# issuance, so a credential the Wallet held before cannot stand in for this one.
-- id: issued_credential_is_presented
+# issuance, so a credential the Wallet held before cannot stand in for this one. The
+# issuance step's credential-added screenshot is the screen informing the End-user.
+- id: issued_credential_is_stored_and_presented
   validator: oid4vci.issued_credential_presented
   input: evidence.issued_credential_presentation
-- id: wallet_informs_the_user
-  validator: evidence.screenshot_named
-  input: evidence.issuance_visual_evidence
   params:
-    name: credential-added
+    informed_screenshot: credential-added
 verdict:
   pass_when: all_assertions_pass

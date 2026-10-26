@@ -66,7 +66,12 @@ func (JSONFieldTypeValidator) ID() string { return "json.field_type" }
 
 // Validate passes when input[field] exists and has JSON type params.type. A
 // Capture redaction marker in its place is inconclusive: it hides the type.
+// With a select param, each selected value is the input (see onSelection).
 func (JSONFieldTypeValidator) Validate(_ context.Context, input Input) Result {
+	return onSelection(input, validateJSONFieldType)
+}
+
+func validateJSONFieldType(input Input) Result {
 	params, err := DecodeParams[struct {
 		Field string `json:"field"`
 		Type  string `json:"type"`
@@ -131,7 +136,12 @@ func (JSONObjectExactlyOneMemberValidator) ID() string { return "json.object_exa
 
 // Validate passes when input[field] is an object in which exactly one of
 // params.members is present (see memberPresent).
+// With a select param, each selected value is the input (see onSelection).
 func (JSONObjectExactlyOneMemberValidator) Validate(_ context.Context, input Input) Result {
+	return onSelection(input, validateJSONObjectExactlyOneMember)
+}
+
+func validateJSONObjectExactlyOneMember(input Input) Result {
 	params, err := DecodeParams[struct {
 		Field   string   `json:"field"`
 		Members []string `json:"members"`

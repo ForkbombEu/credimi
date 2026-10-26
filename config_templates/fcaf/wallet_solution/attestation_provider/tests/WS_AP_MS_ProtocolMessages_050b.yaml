@@ -19,13 +19,16 @@ normative_references:
   section: '8.2'
   url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
 evidence:
-  credential_request:
-    from: pipeline.ap.authorization-code-issuance.outputs.credential_request
+  issuance_exchange:
+    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
 assertions:
 - id: credential_configuration_id_is_a_string
   validator: json.field_type
-  input: evidence.credential_request
+  input: evidence.issuance_exchange
   params:
+    select:
+      request: /credential
+      path: body
     field: credential_configuration_id
     type: string
 verdict:

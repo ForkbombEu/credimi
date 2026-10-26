@@ -25,15 +25,16 @@ evidence:
   issuance_exchange:
     from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
 assertions:
-# Capture does not tie the browser Authorization Request to the issuance session; it is
-# attributed from the global request ledger between the session's PAR and its callback.
 - id: authorization_request_targets_the_authorization_endpoint
   validator: oid4vci.wallet_request
   input: evidence.issuance_exchange
   params:
-    path_suffix: '/authorize'
-    ledger_fallback: true
-    methods: [GET, POST]
-    endpoint: {metadata: authorization_server_metadata, field: authorization_endpoint}
+    path_suffix: /authorize
+    methods:
+    - GET
+    - POST
+    endpoint:
+      metadata: authorization_server_metadata
+      field: authorization_endpoint
 verdict:
   pass_when: all_assertions_pass

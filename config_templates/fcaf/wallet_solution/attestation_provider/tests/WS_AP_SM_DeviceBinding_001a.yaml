@@ -1,0 +1,41 @@
+id: WS_AP_SM_DeviceBinding_001a
+title: Serialize the Client Attestation as a compact signed JWT.
+source:
+  path: SecurityMechanisms/DeviceBinding/WS_AP_SM_DeviceBinding_001a.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: security_mechanisms.device_binding
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: Commission Implementing Regulation (EU) 2024/2979, as amended
+  section: 'annex Ib'
+- title: ETSI TS 119 472-3
+  section: '4.4'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4.3'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: OpenID for Verifiable Credential Issuance 1.0
+  section: '5.1.4, E'
+  url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+- title: OAuth 2.0 Attestation-Based Client Authentication
+  section: '5.1'
+  url: https://datatracker.ietf.org/doc/draft-ietf-oauth-attestation-based-client-auth/
+evidence:
+  issuance_exchange:
+    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
+assertions:
+# DEVIATION: the source applies Shared_JWT_JWE to the Client Attestation, which its objective
+# and the attestation-based client authentication draft define as a signed JWT. It is
+# validated with Shared_JWT_JWS (pkg/fcaf/TEST-AUTHOR-FEEDBACK.md).
+- id: client_attestation_passes_shared_jwt_jws
+  validator: shared.jwt_jws
+  input: evidence.issuance_exchange
+  params:
+    select:
+      request: /par
+      path: raw_headers[OAuth-Client-Attestation]
+verdict:
+  pass_when: all_assertions_pass

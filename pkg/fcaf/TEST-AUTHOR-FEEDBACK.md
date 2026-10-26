@@ -886,3 +886,25 @@ expected result open. Please decide whether `alg` must also be one of the
 `proof_signing_alg_values_supported` values the Credential Issuer Metadata advertises for
 the requested credential configuration, and add it as an expected result if so.
 ```
+
+### Issue 31: Resolve the encryption TODO in MainInteraction 030b
+
+Suggested title:
+
+```text
+fix(wallet-ap): define main-interaction 030b for encrypted Credential Requests
+```
+
+Suggested issue body:
+
+```markdown
+`WS_AP_IA_MainInteraction_030b` expects a Credential Request with `Content-Type:
+application/json` whose body passes every Shared_JSON test case, and ends with "TODO
+Distinguish Credential Request encryption applicable or not?". OpenID4VCI 1.0 sections
+8.2 and 10 send an encrypted Credential Request as `application/jwt` (a compact JWE)
+when the Credential Issuer advertises `credential_request_encryption`, and the EUDI
+reference Wallet does so. As written, the test fails every Wallet that encrypts.
+Please scope the test to unencrypted requests, or add the encrypted case: `Content-Type:
+application/jwt`, Shared_JWT_JWE on the body, and Shared_JSON on the decrypted
+plaintext.
+```

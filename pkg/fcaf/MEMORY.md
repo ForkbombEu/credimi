@@ -4425,8 +4425,8 @@ not evidence of client attestation.
 
 ### Next candidates
 
-Classified from each source's objective only; read the full Markdown before
-implementing any of them.
+SUPERSEDED 26/10/2026: all 59 tests are implemented; see the next section.
+The classification below is kept as the 22/10/2026 record.
 
 - Offer-scheme engagement: IA_Engagement_007a, 007b, ProtocolMessages 033a,
   033c_UF need the offer deeplink rewritten to `eu-eaa-offer://` or
@@ -4446,3 +4446,121 @@ implementing any of them.
   ProtocolMessages 033b_UF, alongside the 033 offer rewrite above.
 - Needs JAR in PAR: ProtocolMessages 034b–034d.
 - Not yet classified: MainInteraction 030b.
+
+## Wallet solution attestation provider suite, all 59 tests, 26/10/2026
+
+Branch `feat/fcaf_ap`, uncommitted on top of `eeec8673`. Sources unchanged
+(upstream `submitted` still `0ed4ab11`); the shared families are now vendored
+under `config_templates/fcaf_sources/shared/` from the same commit.
+
+### Capture contract
+
+- `pkg/fcaf/CAPTURE_WALLET_API.md` resynced from upstream master `759bab5`
+  (FCAF ws_ap evidence, `evidence_mode`, `offer_scheme`, `offer_mutation`,
+  `issuance_response_scenario`, `GET /sessions/{id}/requests`,
+  `/ui/sessions/{id}/engage`). Superseded Credimi notes are marked, the
+  26/10/2026 production observations and four new limitations are recorded.
+- Production serves the contract, beta none of it, so every ws_ap scenario
+  targets production (user decision, `.agents/HITL.md`).
+- Capture now attributes the browser `/authorize` by `request_uri`, so the
+  global-ledger attribution (`ledger_fallback`, `request_ledger`) is removed.
+
+### Scenarios (each test owned once)
+
+- A `authorization-code-issuance` (52 tests): one `full` issuance
+  (`pid_person_b`), the session GET, both metadata, and a `direct_post.jwt`
+  presentation for 031a.
+- B `offer-scheme-engagement` (007a, 007b): `haip-vci://` and
+  `eu-eaa-offer://` offers engaged from `/ui/sessions/{id}/engage` with the new
+  stored action `fcaf-engage-credential-offer` (imports manifest + README).
+- C `credential-offer-by-value` (033a, 033b_UF, 033c_UF): `eu-eaa-offer://`,
+  valid offer and `offer_mutation` unsetting `/credential_issuer` or
+  `/credential_configuration_ids`.
+- D `par-response-without-request-uri` (011b_UF) and E
+  `credential-request-denied` (031b_UF), each with a 20 s inline observation
+  wait before the requests are read; E probes for the denied `pid_person_b`
+  (family_name Bianchi) after the generator injects another PID.
+
+### Validators
+
+New, with unit tests (`ws_ap_validators_test.go`, synthetic keys and
+certificates only): `select` resolution (`capture_select.go`, request by path
+suffix ordered by `at`, `raw_headers[Name]`, `absent` status for
+applicability, redaction is inconclusive), `shared.json` (bytes),
+`shared.jwt_jws`, `shared.jwt_jwe`, `jose.member`, `jose.signature_algorithm`,
+`jose.signature_valid` (x5c, the attestation's `cnf.jwk`, the key
+attestation's `attested_keys[0]`), `http.header_count`, `json.value_shape`,
+`uri.syntax`, `oid4vci.request_values_equal`, `oid4vci.issuer_response`
+(scenario setup, blocked on mismatch), `oid4vci.nonce_from_nonce_endpoint`,
+`oid4vci.no_request_after`, `oid4vci.offer_engagement`,
+`oid4vci.credential_request_body`. The generic `json.field_presence`,
+`json.field_required`, `json.field_type` and `json.object_exactly_one_member`
+accept `select`. `oid4vci.proof_jwt_header` (read `raw.proof_headers`,
+written only after Credo accepts) is removed. A missing request or Credential
+Request after an issuer error status is blocked, naming the rejected request.
+Applicability: 034b–d need a PAR `request`; 051–053 and DB_010–012 a `jwt`
+proof (DB_011a/b one carrying `key_attestation`); DB_013a an `attestation`
+proof; otherwise not applicable.
+
+### Reference wallet 2026.09.42 verdicts (production, 26/10/2026)
+
+Generated aggregate interpreted step by step on `emulator-5554` (Pixel_7),
+Maestro for every Wallet step (all green), the FCAF engine on the resolved
+`pipeline_outputs`: 34 pass, 20 not applicable, 4 blocked, 1 fail.
+
+- pass: 007a; Supportive 010a, 011a, 011b_UF; MainInteraction 010a–010c,
+  030a, 031a; ProtocolMessages 034a, 035a, 035b, 036a, 036b, 037a–037c, 038a,
+  039a, 039b, 040a, 040b, 050a–050e; DeviceBinding 001a, 001b, 002a, 002b,
+  003a, 003b, 013a.
+- fail: 007b, the Wallet registers no `eu-eaa-offer` handler
+  (`REFERENCE-WALLET-ISSUES.md` RI-WALLET-030).
+- blocked: 033a, 033b_UF, 033c_UF (Wallet not invoked through
+  `eu-eaa-offer://`, their precondition); 031b_UF (Capture encrypts the
+  scenario's error response for a Wallet that asks for response encryption,
+  MOCK-ISSUER-001; the Wallet otherwise stopped and stored nothing).
+- not applicable: 030b (encrypted Credential Request, source TODO); 034b–034d
+  (no JAR); 051a–c, 052a–c, 053a–d, DeviceBinding 010a–c, 011a, 011b, 012a
+  (attestation proofs only).
+
+The Wallet uses PAR (form-encoded, PKCE S256, `issuer_state`, `state`, DPoP),
+client attestation (`OAuth-Client-Attestation` and `-PoP`, ES256, x5c-signed
+WIA, PoP signed with its `cnf.jwk`) on PAR and token, no JAR, and
+`proofs.attestation` (key attestation with `x5c`, nonce from the Nonce
+Endpoint), never `jwt` proofs. It encrypts its Credential Request
+(`application/jwt`) and asks for response encryption.
+
+Branches the Wallet does not reach were run on real production captures from
+scripted clients: a JAR PAR (034b–034d pass; every later test blocked with
+Credo's `400`), and a full flow with a `jwt` proof carrying a self-signed key
+attestation (051–053, DB_010a–c, 011a/b, 012a, 030b and 050a–e pass;
+Credo rejects the proof, which Capture records first).
+
+### Residual risks
+
+- 033b_UF and 011b_UF read unattributed requests as the Wallet's; another
+  client's metadata fetch or `/authorize` in the window would fail a
+  conforming Wallet (HITL entry).
+- "Blocked after any issuer error" can hide a Wallet-caused `4xx` behind
+  blocked (HITL entry); the message names the rejected request.
+- The offer-by-value tests stay blocked on any Wallet without
+  `eu-eaa-offer://` (HITL entry on using a registered scheme).
+- The engagement flow recognises the reference Wallet's screens and Chrome
+  154's `Do you trust this site with your data?` prompt by text.
+- The stored FCAF report now holds full-mode evidence: Client Attestations,
+  PoPs, proofs and key attestations in clear (tokens, codes and credentials
+  stay redacted), plus other callers' unattributed requests for B, C, D, E.
+- No Credimi-hosted pipeline run: `fcaf-engage-credential-offer` must be
+  imported as a `wallet_actions` record first; `implementation-inventory.xlsx`
+  is not regenerated.
+- `TestCESRValidate_Execute` (`pkg/workflowengine/activities`) fails locally on
+  the downloaded latest `et-tu-cesr` error text; unrelated to FCAF.
+
+### Next steps
+
+1. Import `fcaf-engage-credential-offer` on credimi.io and run the aggregate
+   there.
+2. Report MOCK-ISSUER-001 to credimi-capture-wallet (no encryption for error
+   statuses) and decide the three open HITL entries.
+3. A Capture configuration advertising only `jwt` proofs with key attestation,
+   and Credo support for key-attestation-only `jwt` proofs and JAR, would let
+   a Wallet reach the issuance tests those branches now block.

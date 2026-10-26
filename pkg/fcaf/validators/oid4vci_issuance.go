@@ -19,37 +19,56 @@ import (
 // The OpenID4VCI validators read a Capture issuance exchange: an object with
 //
 //   - capture_session: GET /sessions/{id}, whose raw.oid4vci_requests lists the
-//     Wallet's requests Capture tied to the session;
-//   - request_ledger: GET /oid4vci/requests, the global request ledger, which
-//     also holds the requests Capture did not tie to a session (the Wallet's
-//     browser Authorization Request among them);
+//     Wallet's requests Capture attributed to the session (in a session created
+//     with evidence_mode "full", with header, proof and attestation values in
+//     clear);
+//   - session_requests: GET /sessions/{id}/requests, whose
+//     unattributed_requests are the ledger requests with no session recorded
+//     inside its window (metadata fetches, unused nonces, unmatched paths);
+//   - session_creation: the POST /sessions response, with the delivered
+//     deeplink;
+//   - screenshots: the Maestro screenshot URLs of the Wallet step;
 //   - issuer_metadata and authorization_server_metadata: the metadata the
 //     Wallet resolved.
 //
-// Capture redacts sensitive values to {redacted, present, length}; only their
-// presence is evidence.
+// Requests are located by path suffix and ordered by their `at` time, never by
+// array position: Capture appends an attributed nonce request after the
+// requests already recorded. Capture redacts sensitive values to
+// {redacted, present, length}; only their presence is evidence.
 
 // chainedAuthorizationServerPrefix is the path of Capture's internal
 // auto-approving OAuth server. The issuer's authorization endpoint redirects the
 // browser there, so its requests are Capture talking to itself, not the Wallet.
 const chainedAuthorizationServerPrefix = "/authorization-servers/"
 
-// capturedRequest is one HTTP request of the Capture ledger.
+// capturedRequest is one HTTP request of a Capture capture.
 type capturedRequest struct {
-	at      time.Time
-	method  string
-	path    string
-	query   map[string]any
-	body    any
-	headers map[string]any
+	at       time.Time
+	id       string
+	method   string
+	path     string
+	query    map[string]any
+	body     any
+	headers  map[string]any
+	response map[string]any
+	raw      map[string]any
 }
 
 // oid4vciExchange is a decoded Capture issuance exchange.
 type oid4vciExchange struct {
-	session   map[string]any
-	ledger    []any
-	hasLedger bool
-	metadata  map[string]map[string]any
+	object       map[string]any
+	session      map[string]any
+	requests     []capturedRequest
+	unattributed []capturedRequest
+	window       *captureWindow
+	metadata     map[string]map[string]any
+}
+
+// captureWindow is the interval GET /sessions/{id}/requests covers: from the
+// session's creation to the time of the response.
+type captureWindow struct {
+	from time.Time
+	to   time.Time
 }
 
 func decodeOID4VCIExchange(value any) (oid4vciExchange, error) {
@@ -64,8 +83,22 @@ func decodeOID4VCIExchange(value any) (oid4vciExchange, error) {
 	if !ok {
 		return oid4vciExchange{}, fmt.Errorf("issuance exchange has no capture_session object")
 	}
-	exchange := oid4vciExchange{session: session, metadata: map[string]map[string]any{}}
-	exchange.ledger, exchange.hasLedger = object["request_ledger"].([]any)
+	exchange := oid4vciExchange{
+		object:   object,
+		session:  session,
+		metadata: map[string]map[string]any{},
+	}
+	raw, _ := session["raw"].(map[string]any)
+	exchange.requests = decodeCapturedRequests(raw["oid4vci_requests"])
+	if listing, ok := normalizeJSONObject(object["session_requests"]); ok {
+		exchange.unattributed = decodeCapturedRequests(listing["unattributed_requests"])
+		window, _ := listing["window"].(map[string]any)
+		from, fromErr := parseCaptureTime(window["from"])
+		to, toErr := parseCaptureTime(window["to"])
+		if fromErr == nil && toErr == nil {
+			exchange.window = &captureWindow{from: from, to: to}
+		}
+	}
 	for _, key := range []string{"issuer_metadata", "authorization_server_metadata"} {
 		if metadata, ok := normalizeJSONObject(object[key]); ok {
 			exchange.metadata[key] = metadata
@@ -74,33 +107,34 @@ func decodeOID4VCIExchange(value any) (oid4vciExchange, error) {
 	return exchange, nil
 }
 
-func decodeCapturedRequest(value any) (capturedRequest, bool) {
-	object, ok := normalizeJSONObject(value)
-	if !ok {
-		return capturedRequest{}, false
-	}
-	request := capturedRequest{body: object["body"]}
-	request.method, _ = object["method"].(string)
-	request.path, _ = object["path"].(string)
-	request.query, _ = object["query"].(map[string]any)
-	request.headers, _ = object["headers"].(map[string]any)
-	if at, ok := object["at"].(string); ok {
-		request.at, _ = time.Parse(time.RFC3339Nano, at)
-	}
-	return request, request.path != ""
-}
-
-// sessionRequests returns the requests Capture tied to the session, in order.
-func (e oid4vciExchange) sessionRequests() []capturedRequest {
-	raw, _ := e.session["raw"].(map[string]any)
-	entries, _ := raw["oid4vci_requests"].([]any)
+// decodeCapturedRequests decodes a list of captured requests ordered by `at`;
+// requests with the same time keep their recorded order.
+func decodeCapturedRequests(value any) []capturedRequest {
+	entries, _ := value.([]any)
 	requests := make([]capturedRequest, 0, len(entries))
 	for _, entry := range entries {
 		if request, ok := decodeCapturedRequest(entry); ok {
 			requests = append(requests, request)
 		}
 	}
+	sort.SliceStable(requests, func(i, j int) bool { return requests[i].at.Before(requests[j].at) })
 	return requests
+}
+
+func decodeCapturedRequest(value any) (capturedRequest, bool) {
+	object, ok := normalizeJSONObject(value)
+	if !ok {
+		return capturedRequest{}, false
+	}
+	request := capturedRequest{body: object["body"], raw: object}
+	request.id, _ = object["id"].(string)
+	request.method, _ = object["method"].(string)
+	request.path, _ = object["path"].(string)
+	request.query, _ = object["query"].(map[string]any)
+	request.headers, _ = object["headers"].(map[string]any)
+	request.response, _ = object["response"].(map[string]any)
+	request.at, _ = parseCaptureTime(object["at"])
+	return request, request.path != ""
 }
 
 // walletRequest reports whether a request path is a Wallet request ending in
@@ -110,9 +144,11 @@ func walletRequest(path, suffix string) bool {
 		!strings.HasPrefix(path, chainedAuthorizationServerPrefix)
 }
 
+// sessionRequestsEndingIn returns the session's Wallet requests ending in
+// suffix, ordered by time.
 func (e oid4vciExchange) sessionRequestsEndingIn(suffix string) []capturedRequest {
 	var matches []capturedRequest
-	for _, request := range e.sessionRequests() {
+	for _, request := range e.requests {
 		if walletRequest(request.path, suffix) {
 			matches = append(matches, request)
 		}
@@ -129,95 +165,48 @@ func (e oid4vciExchange) pushedAuthorizationRequest() (capturedRequest, bool) {
 	return requests[0], true
 }
 
-// ledgerRequestsAfterPAR attributes ledger requests ending in suffix to the
-// session when Capture did not tie them to it. Candidates belong to the
-// session's issuer configuration, carry no other session, and arrive between
-// the session's PAR and the next request Capture tied to the session (for the
-// authorization-code flow, the callback that only follows a completed
-// Authorization Request). Several candidates are narrowed to the one repeating
-// the PAR's state; anything else is ambiguous.
-func (e oid4vciExchange) ledgerRequestsAfterPAR(suffix string) ([]capturedRequest, string, error) {
-	if !e.hasLedger {
-		return nil, "", fmt.Errorf("the exchange has no request_ledger")
-	}
-	par, ok := e.pushedAuthorizationRequest()
-	if !ok || par.at.IsZero() {
-		return nil, "", fmt.Errorf(
-			"the session records no timed Pushed Authorization Request to anchor the ledger search",
-		)
-	}
-	var end time.Time
-	for _, request := range e.sessionRequests() {
-		if request.at.After(par.at) {
-			end = request.at
-			break
-		}
-	}
-	sessionID, _ := e.session["session_id"].(string)
-	issuerConfiguration, _ := e.session["issuer_configuration_id"].(string)
-	var candidates []capturedRequest
-	var oldest time.Time
-	for _, entry := range e.ledger {
-		if request, ok := decodeCapturedRequest(entry); ok && !request.at.IsZero() &&
-			(oldest.IsZero() || request.at.Before(oldest)) {
-			oldest = request.at
-		}
-	}
-	// The ledger is bounded: once later traffic has evicted the PAR's time, a
-	// missing request is not evidence of a Wallet that sent none.
-	if oldest.IsZero() || oldest.After(par.at) {
-		return nil, "", fmt.Errorf(
-			"the request ledger no longer reaches back to the PAR at %s",
-			par.at.Format(time.RFC3339Nano),
-		)
-	}
-	for _, entry := range e.ledger {
-		object, ok := entry.(map[string]any)
-		if !ok {
+// issuerRejection returns the first Wallet request of the session the issuer
+// answered with an error status. A request of a later flow step can then be
+// missing because the issuer stopped the flow, as Credo does for a PAR that
+// carries a JAR `request`, not because the Wallet failed to send it.
+func (e oid4vciExchange) issuerRejection() (capturedRequest, bool) {
+	for _, request := range e.requests {
+		if strings.HasPrefix(request.path, chainedAuthorizationServerPrefix) {
 			continue
 		}
-		if owner, _ := object["session_id"].(string); owner != "" && owner != sessionID {
-			continue
-		}
-		if configuration, _ := object["issuer_configuration_id"].(string); configuration != issuerConfiguration {
-			continue
-		}
-		request, ok := decodeCapturedRequest(entry)
-		if !ok || !walletRequest(request.path, suffix) || request.at.Before(par.at) {
-			continue
-		}
-		if !end.IsZero() && request.at.After(end) {
-			continue
-		}
-		candidates = append(candidates, request)
-	}
-	window := fmt.Sprintf("between the PAR at %s and ", par.at.Format(time.RFC3339Nano))
-	if end.IsZero() {
-		window += "the end of the ledger"
-	} else {
-		window += "the next session request at " + end.Format(time.RFC3339Nano)
-	}
-	if len(candidates) <= 1 {
-		return candidates, "attributed from the global ledger " + window, nil
-	}
-	parBody, _ := par.body.(map[string]any)
-	state, _ := parBody["state"].(string)
-	var sameState []capturedRequest
-	for _, candidate := range candidates {
-		if value, _ := requestParameters(candidate, "query_or_body")["state"].(string); state != "" &&
-			value == state {
-			sameState = append(sameState, candidate)
+		if status, _ := request.response["status"].(float64); status >= 400 {
+			return request, true
 		}
 	}
-	if len(sameState) == 1 {
-		return sameState, "attributed from the global ledger by the PAR state " + window, nil
+	return capturedRequest{}, false
+}
+
+// missingEvidence reports that the session lacks what a test inspects: blocked
+// when the issuer rejected an earlier request of the flow, fail otherwise.
+func (e oid4vciExchange) missingEvidence(message string) Result {
+	rejected, ok := e.issuerRejection()
+	if !ok {
+		return Result{Status: StatusFail, Message: message}
 	}
-	return nil, "", fmt.Errorf(
-		"%d ledger requests ending in %s arrived %s and none is singled out by the PAR state",
-		len(candidates),
-		suffix,
-		window,
-	)
+	reason := ""
+	if body, _ := rejected.response["body"].(map[string]any); body != nil {
+		if description, _ := body["error_description"].(string); description != "" {
+			reason = ": " + description
+		} else if code, _ := body["error"].(string); code != "" {
+			reason = ": " + code
+		}
+	}
+	return Result{
+		Status: StatusBlocked,
+		Message: fmt.Sprintf(
+			"%s, because the issuer answered the %s %s request with %v%s, which stopped the flow",
+			message,
+			rejected.method,
+			rejected.path,
+			rejected.response["status"],
+			reason,
+		),
+	}
 }
 
 // requestParameters returns the request members of the given location:
@@ -258,19 +247,17 @@ type walletRequestParameters struct {
 }
 
 type walletRequestParams struct {
-	PathSuffix     string                   `json:"path_suffix"`
-	LedgerFallback bool                     `json:"ledger_fallback"`
-	Methods        []string                 `json:"methods"`
-	Endpoint       *walletRequestEndpoint   `json:"endpoint"`
-	RequireTLS     bool                     `json:"require_tls"`
-	ForbidQuery    bool                     `json:"forbid_query"`
-	MediaType      string                   `json:"media_type"`
-	Parameters     *walletRequestParameters `json:"parameters"`
+	PathSuffix  string                   `json:"path_suffix"`
+	Methods     []string                 `json:"methods"`
+	Endpoint    *walletRequestEndpoint   `json:"endpoint"`
+	RequireTLS  bool                     `json:"require_tls"`
+	ForbidQuery bool                     `json:"forbid_query"`
+	MediaType   string                   `json:"media_type"`
+	Parameters  *walletRequestParameters `json:"parameters"`
 }
 
 // Validate locates every Wallet request whose path ends in params.path_suffix
-// in the session (or, with ledger_fallback, attributed from the global ledger)
-// and requires each to pass every configured check:
+// in the session and requires each to pass every configured check:
 //
 //   - methods: the HTTP method is one of these;
 //   - endpoint: scheme host, port, path and query members of the metadata
@@ -325,21 +312,11 @@ func (OID4VCIWalletRequestValidator) Validate(_ context.Context, input Input) Re
 	}
 
 	requests := exchange.sessionRequestsEndingIn(params.PathSuffix)
-	source := "recorded in the issuance session"
-	if len(requests) == 0 && params.LedgerFallback {
-		requests, source, err = exchange.ledgerRequestsAfterPAR(params.PathSuffix)
-		if err != nil {
-			return Result{Status: StatusInconclusive, Message: err.Error()}
-		}
-	}
 	if len(requests) == 0 {
-		return Result{
-			Status: StatusFail,
-			Message: fmt.Sprintf(
-				"no Wallet request ending in %s was recorded; Capture ties rejected requests to no session",
-				params.PathSuffix,
-			),
-		}
+		return exchange.missingEvidence(fmt.Sprintf(
+			"the issuance session records no Wallet request ending in %s",
+			params.PathSuffix,
+		))
 	}
 
 	for index, request := range requests {
@@ -347,12 +324,11 @@ func (OID4VCIWalletRequestValidator) Validate(_ context.Context, input Input) Re
 			return Result{
 				Status: StatusFail,
 				Message: fmt.Sprintf(
-					"request %d of %d %s %s (%s): %s",
+					"request %d of %d %s %s: %s",
 					index+1,
 					len(requests),
 					request.method,
 					request.path,
-					source,
 					problem,
 				),
 			}
@@ -361,12 +337,11 @@ func (OID4VCIWalletRequestValidator) Validate(_ context.Context, input Input) Re
 	return Result{
 		Status: StatusPass,
 		Message: fmt.Sprintf(
-			"%d Wallet request(s) ending in %s, %s, pass every check",
+			"%d Wallet request(s) ending in %s pass every check",
 			len(requests),
 			params.PathSuffix,
-			source,
 		),
-		Details: map[string]any{"requests": len(requests), "source": source},
+		Details: map[string]any{"requests": len(requests)},
 	}
 }
 
@@ -612,10 +587,21 @@ func (OID4VCICredentialConfigurationScopeRequestedValidator) Validate(
 	if !ok {
 		return Result{Status: StatusInconclusive, Message: "the exchange has no issuer_metadata"}
 	}
-	raw, _ := exchange.session["raw"].(map[string]any)
-	credentialRequest, ok := raw["credential_request"].(map[string]any)
-	if !ok {
-		return Result{Status: StatusFail, Message: "the session records no Credential Request"}
+	// The request as received (decrypted when the Wallet encrypted it): Capture
+	// writes raw.credential_request only once Credo accepted the request.
+	requests := exchange.sessionRequestsEndingIn("/credential")
+	if len(requests) == 0 {
+		return exchange.missingEvidence("the session records no Credential Request")
+	}
+	credentialRequest, ok := requests[len(requests)-1].body.(map[string]any)
+	if !ok || isRedactionMarker(credentialRequest) {
+		return Result{
+			Status: StatusFail,
+			Message: fmt.Sprintf(
+				"the Credential Request body is %s, expected a JSON object",
+				jsonTypeName(requests[len(requests)-1].body),
+			),
+		}
 	}
 	id, ok := credentialRequest["credential_configuration_id"].(string)
 	if !ok {
@@ -662,143 +648,6 @@ func (OID4VCICredentialConfigurationScopeRequestedValidator) Validate(
 	}
 }
 
-// keyAttestationMember is the JOSE header member Capture records as
-// key_attestation_present instead of copying the attestation.
-const keyAttestationMember = "key_attestation"
-
-// OID4VCIProofJWTHeaderValidator checks the JOSE headers of the Wallet's `jwt`
-// proofs from the session's raw.proof_headers.
-type OID4VCIProofJWTHeaderValidator struct{}
-
-func (OID4VCIProofJWTHeaderValidator) ID() string { return "oid4vci.proof_jwt_header" }
-
-type proofJWTHeaderParams struct {
-	RequiredMembers []string            `json:"required_members"`
-	StringMembers   []string            `json:"string_members"`
-	MemberEquals    map[string]string   `json:"member_equals"`
-	MemberOneOf     map[string][]string `json:"member_one_of"`
-}
-
-// Validate requires every `jwt` proof header to carry required_members (the
-// key_attestation member as recorded by key_attestation_present), to hold
-// strings in string_members and the listed values in member_equals and
-// member_one_of. Capture writes raw.proof_headers only after Credo accepted a
-// proof, so an absent record is inconclusive. A Wallet that sent proofs of
-// other types only is outside the `jwt` proof type the sources apply to.
-func (OID4VCIProofJWTHeaderValidator) Validate(_ context.Context, input Input) Result {
-	params, err := DecodeParams[proofJWTHeaderParams](input.Params)
-	if err != nil {
-		return Result{Status: StatusError, Message: err.Error()}
-	}
-	if len(
-		params.RequiredMembers,
-	)+len(
-		params.StringMembers,
-	)+len(
-		params.MemberEquals,
-	)+len(
-		params.MemberOneOf,
-	) == 0 {
-		return Result{Status: StatusError, Message: "at least one header check param is required"}
-	}
-	entries, _ := input.Value.([]any)
-	if len(entries) == 0 {
-		return Result{
-			Status: StatusInconclusive,
-			Message: "Capture recorded no proof header; it records them only after Credo accepted the " +
-				"proof, so the proof the Wallet sent is not evidenced",
-		}
-	}
-	var headers []map[string]any
-	proofTypes := map[string]bool{}
-	for _, entry := range entries {
-		header, ok := entry.(map[string]any)
-		if !ok {
-			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("proof header is %s, expected object", jsonTypeName(entry)),
-			}
-		}
-		proofType, _ := header["proof_type"].(string)
-		proofTypes[proofType] = true
-		if proofType == "jwt" {
-			headers = append(headers, header)
-		}
-	}
-	if len(headers) == 0 {
-		types := make([]string, 0, len(proofTypes))
-		for proofType := range proofTypes {
-			types = append(types, proofType)
-		}
-		sort.Strings(types)
-		return Result{
-			Status: StatusNotApplicable,
-			Message: fmt.Sprintf(
-				"the Wallet sent %s proofs only; the source applies to a Wallet that conveys a key attestation in a jwt proof",
-				strings.Join(types, ", "),
-			),
-			Details: map[string]any{"proof_types": types},
-		}
-	}
-	for index, header := range headers {
-		if problem := checkProofJWTHeader(header, params); problem != "" {
-			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("jwt proof %d of %d: %s", index+1, len(headers), problem),
-			}
-		}
-	}
-	return Result{
-		Status:  StatusPass,
-		Message: fmt.Sprintf("%d jwt proof header(s) pass every check", len(headers)),
-	}
-}
-
-func checkProofJWTHeader(header map[string]any, params proofJWTHeaderParams) string {
-	for _, member := range params.RequiredMembers {
-		if member == keyAttestationMember {
-			if present, _ := header["key_attestation_present"].(bool); !present {
-				return "the key_attestation header is absent"
-			}
-			continue
-		}
-		if !memberPresent(header, member) {
-			return fmt.Sprintf("the %s header is absent", member)
-		}
-	}
-	for _, member := range params.StringMembers {
-		if _, ok := header[member].(string); !ok {
-			return fmt.Sprintf(
-				"the %s header is a JSON %s, expected string",
-				member,
-				jsonTypeName(header[member]),
-			)
-		}
-	}
-	for _, member := range sortedKeys(params.MemberEquals) {
-		if value, _ := header[member].(string); value != params.MemberEquals[member] {
-			return fmt.Sprintf(
-				"the %s header is %v, expected %q",
-				member,
-				header[member],
-				params.MemberEquals[member],
-			)
-		}
-	}
-	for _, member := range sortedKeys(params.MemberOneOf) {
-		value, _ := header[member].(string)
-		if !slices.Contains(params.MemberOneOf[member], value) {
-			return fmt.Sprintf(
-				"the %s header is %v, expected one of %v",
-				member,
-				header[member],
-				params.MemberOneOf[member],
-			)
-		}
-	}
-	return ""
-}
-
 // OID4VCIIssuedCredentialPresentedValidator proves that a Wallet stored the
 // credential it received in a valid Credential Response and can present it.
 type OID4VCIIssuedCredentialPresentedValidator struct{}
@@ -807,12 +656,20 @@ func (OID4VCIIssuedCredentialPresentedValidator) ID() string {
 	return "oid4vci.issued_credential_presented"
 }
 
-// Validate reads {issuance_session, presentation_session}: the issuance must
-// have reached credential_issued, the Verifier must have validated the
-// presentation, and one presented SD-JWT VC must come from the issuance
-// session's issuer and be bound (cnf.jwk) to the holder key Capture verified at
-// issuance. The key binding singles out the credential this issuance stored.
+// Validate reads {issuance_session, presentation_session, screenshots}: the
+// issuance must have reached credential_issued, the Verifier must have
+// validated the presentation, and one presented SD-JWT VC must come from the
+// issuance session's issuer and be bound (cnf.jwk) to the holder key Capture
+// verified at issuance. The key binding singles out the credential this
+// issuance stored. With params.informed_screenshot, the issuance step must also
+// have stored the screenshot of the screen that informs the End-user.
 func (OID4VCIIssuedCredentialPresentedValidator) Validate(_ context.Context, input Input) Result {
+	params, err := DecodeParams[struct {
+		InformedScreenshot string `json:"informed_screenshot"`
+	}](input.Params)
+	if err != nil {
+		return Result{Status: StatusError, Message: err.Error()}
+	}
 	object, ok := normalizeJSONObject(input.Value)
 	if !ok {
 		return Result{
@@ -824,18 +681,16 @@ func (OID4VCIIssuedCredentialPresentedValidator) Validate(_ context.Context, inp
 	if !ok {
 		return Result{Status: StatusFail, Message: "no issuance_session object"}
 	}
+	if status, _ := issuance["status"].(string); status != issuanceCompletedStatus {
+		exchange, _ := decodeOID4VCIExchange(map[string]any{"capture_session": issuance})
+		return exchange.missingEvidence(fmt.Sprintf(
+			"the issuance session is %q, so no Credential Response was delivered",
+			status,
+		))
+	}
 	presentation, ok := normalizeJSONObject(object["presentation_session"])
 	if !ok {
 		return Result{Status: StatusFail, Message: "no presentation_session object"}
-	}
-	if status, _ := issuance["status"].(string); status != issuanceCompletedStatus {
-		return Result{
-			Status: StatusFail,
-			Message: fmt.Sprintf(
-				"the issuance session is %q, so no Credential Response was delivered",
-				status,
-			),
-		}
 	}
 	holderKeys := observedHolderKeys(issuance)
 	if len(holderKeys) == 0 {
@@ -870,15 +725,35 @@ func (OID4VCIIssuedCredentialPresentedValidator) Validate(_ context.Context, inp
 				continue
 			}
 			for _, key := range holderKeys {
-				if sameECPublicKey(jwk, key) {
+				if !sameECPublicKey(jwk, key) {
+					continue
+				}
+				message := fmt.Sprintf(
+					"the Verifier validated credential query %q with the credential issued by %s to the holder key verified at issuance",
+					queryID,
+					issuer,
+				)
+				if params.InformedScreenshot == "" {
+					return Result{Status: StatusPass, Message: message}
+				}
+				names, failure := screenshotFileNames(object["screenshots"])
+				if failure != nil {
+					return Result{Status: StatusFail, Message: message + ", but " + failure.Message}
+				}
+				if !screenshotNamed(names, params.InformedScreenshot) {
 					return Result{
-						Status: StatusPass,
+						Status: StatusFail,
 						Message: fmt.Sprintf(
-							"the Verifier validated credential query %q with the credential issued by %s to the holder key verified at issuance",
-							queryID,
-							issuer,
+							"%s, but the issuance step stored no %q screenshot informing the End-user (%s)",
+							message,
+							params.InformedScreenshot,
+							strings.Join(names, ", "),
 						),
 					}
+				}
+				return Result{
+					Status:  StatusPass,
+					Message: message + "; the End-user was informed (" + params.InformedScreenshot + ")",
 				}
 			}
 		}

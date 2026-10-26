@@ -6,6 +6,7 @@ name: FCAF attestation provider authorization-code issuance
 runtime:
   fixture:
     issuer_url: https://capture-wallet.credimi.io
+    verifier_url: https://capture-wallet.credimi.io
     log_checker: capture-wallet
   temporal:
     activity_options:
@@ -15,10 +16,15 @@ runtime:
         maximum_attempts: 1
 steps:
   # One authorization-code issuance from the device-bound PID issuer, whose
-  # metadata requires key attestations for both proof types. Capture records the
-  # Wallet's PAR, token and Credential Requests on the session; `pid_person_b`
-  # (family_name Bianchi) makes the issued credential addressable by the
-  # presentation below.
+  # metadata requires key attestations for both proof types.
+  # evidence_mode "full" keeps the session's own requests in clear: the Client
+  # Attestation and PoP headers, the PAR body bytes and response, the
+  # Authorization Request's request_uri, and the Credential Request proofs as
+  # received (raw.credential_request_proofs, recorded before Credo verifies
+  # anything). The deployment must set FCAF_SCENARIOS_ENABLED; otherwise the
+  # session is refused with evidence_mode_not_enabled and every test of this
+  # scenario is blocked. `pid_person_b` (family_name Bianchi) makes the issued
+  # credential addressable by the presentation below.
   - id: create-issuance-session
     use: http-request
     with:
@@ -31,6 +37,7 @@ steps:
         issuer_configuration_id: eu-pid-device-bound
         credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
         flow: authorization_code
+        evidence_mode: full
         fixture_id: pid_person_b
 
   - id: obtain-issued-credential
@@ -41,22 +48,13 @@ steps:
       parameters:
         deeplink: ${{ create-issuance-session.outputs.body.deeplink }}
 
+  # Read right after the issuance: the ledger behind the capture keeps only
+  # its latest 1,000 entries.
   - id: fetch-issuance-session
     use: http-request
     with:
       method: GET
       url: ${fixture.issuer_url}/sessions/${{ create-issuance-session.outputs.body.session_id }}
-      expected_status: 200
-
-  # The Wallet's Authorization Request runs in the browser and Capture does not
-  # tie it to the session, so the validators attribute it from the global ledger
-  # between the session's PAR and its callback. Fetched right after the
-  # issuance, before other traffic can push it out of the bounded ledger.
-  - id: fetch-request-ledger
-    use: http-request
-    with:
-      method: GET
-      url: ${fixture.issuer_url}/oid4vci/requests
       expected_status: 200
 
   - id: fetch-issuer-metadata
@@ -127,34 +125,65 @@ steps:
       suite: wallet_solution/attestation_provider
       test_ids:
         - WS_AP_IA_Supportive_010a
+        - WS_AP_IA_Supportive_011a
         - WS_AP_IA_MainInteraction_010a
         - WS_AP_IA_MainInteraction_010b
-        - WS_AP_MS_ProtocolMessages_039a
+        - WS_AP_IA_MainInteraction_010c
+        - WS_AP_IA_MainInteraction_030a
+        - WS_AP_IA_MainInteraction_030b
+        - WS_AP_IA_MainInteraction_031a
         - WS_AP_MS_ProtocolMessages_034a
+        - WS_AP_MS_ProtocolMessages_034b
+        - WS_AP_MS_ProtocolMessages_034c
+        - WS_AP_MS_ProtocolMessages_034d
+        - WS_AP_MS_ProtocolMessages_035a
+        - WS_AP_MS_ProtocolMessages_035b
+        - WS_AP_MS_ProtocolMessages_036a
+        - WS_AP_MS_ProtocolMessages_036b
+        - WS_AP_MS_ProtocolMessages_037a
+        - WS_AP_MS_ProtocolMessages_037b
+        - WS_AP_MS_ProtocolMessages_037c
+        - WS_AP_MS_ProtocolMessages_038a
+        - WS_AP_MS_ProtocolMessages_039a
+        - WS_AP_MS_ProtocolMessages_039b
         - WS_AP_MS_ProtocolMessages_040a
         - WS_AP_MS_ProtocolMessages_040b
-        - WS_AP_IA_MainInteraction_030a
         - WS_AP_MS_ProtocolMessages_050a
         - WS_AP_MS_ProtocolMessages_050b
         - WS_AP_MS_ProtocolMessages_050c
         - WS_AP_MS_ProtocolMessages_050d
         - WS_AP_MS_ProtocolMessages_050e
+        - WS_AP_MS_ProtocolMessages_051a
+        - WS_AP_MS_ProtocolMessages_051b
+        - WS_AP_MS_ProtocolMessages_051c
         - WS_AP_MS_ProtocolMessages_052a
         - WS_AP_MS_ProtocolMessages_052b
         - WS_AP_MS_ProtocolMessages_052c
+        - WS_AP_MS_ProtocolMessages_053a
+        - WS_AP_MS_ProtocolMessages_053b
+        - WS_AP_MS_ProtocolMessages_053c
+        - WS_AP_MS_ProtocolMessages_053d
+        - WS_AP_SM_DeviceBinding_001a
+        - WS_AP_SM_DeviceBinding_001b
+        - WS_AP_SM_DeviceBinding_002a
+        - WS_AP_SM_DeviceBinding_002b
+        - WS_AP_SM_DeviceBinding_003a
+        - WS_AP_SM_DeviceBinding_003b
+        - WS_AP_SM_DeviceBinding_010a
         - WS_AP_SM_DeviceBinding_010b
-        - WS_AP_IA_MainInteraction_031a
+        - WS_AP_SM_DeviceBinding_010c
+        - WS_AP_SM_DeviceBinding_011a
+        - WS_AP_SM_DeviceBinding_011b
+        - WS_AP_SM_DeviceBinding_012a
+        - WS_AP_SM_DeviceBinding_013a
       pipeline_outputs:
         pipeline.ap.authorization-code-issuance:
           output:
             issuance_exchange:
               capture_session: ${{ fetch-issuance-session.outputs.body }}
-              request_ledger: ${{ fetch-request-ledger.outputs.body }}
               issuer_metadata: ${{ fetch-issuer-metadata.outputs.body }}
               authorization_server_metadata: ${{ fetch-authorization-server-metadata.outputs.body }}
-            credential_request: ${{ fetch-issuance-session.outputs.body.raw.credential_request }}
-            proof_headers: ${{ fetch-issuance-session.outputs.body.raw.proof_headers }}
             issued_credential_presentation:
               issuance_session: ${{ fetch-issuance-session.outputs.body }}
               presentation_session: ${{ fetch-presentation-session.outputs.body }}
-            issuance_visual_evidence: ${{ obtain-issued-credential.outputs.flow_output.maestro_screenshot_urls }}
+              screenshots: ${{ obtain-issued-credential.outputs.flow_output.maestro_screenshot_urls }}

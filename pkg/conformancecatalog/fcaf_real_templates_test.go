@@ -52,7 +52,7 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 		require.Empty(t, ch.Version, ch.Path)
 		roles[ch.Role]++
 	}
-	require.Equal(t, 18, roles["attestation_provider"])
+	require.Equal(t, 59, roles["attestation_provider"])
 
 	var fcafSuites []SuiteRecord
 	for _, s := range loaded.Suites {

@@ -1,5 +1,5 @@
 id: WS_AP_MS_ProtocolMessages_052c
-title: Type the jwt proof as openid4vci-proof+jwt.
+title: Type the jwt proof openid4vci-proof+jwt.
 source:
   path: MessageStructure/ProtocolMessages/WS_AP_MS_ProtocolMessages_052c.md
 suite:
@@ -24,16 +24,21 @@ normative_references:
   section: '4.1.9'
   url: https://www.rfc-editor.org/rfc/rfc7515
 evidence:
-  proof_headers:
-    from: pipeline.ap.authorization-code-issuance.outputs.proof_headers
+  issuance_exchange:
+    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
 assertions:
-# Profile applicability: a Wallet that conveys a key attestation in a jwt proof. Capture
-# records proof headers only after Credo accepted the proof (inconclusive otherwise);
-# a Wallet that sent attestation proofs only is not applicable.
-- id: jwt_proof_typ_is_openid4vci_proof_jwt
-  validator: oid4vci.proof_jwt_header
-  input: evidence.proof_headers
+- id: jwt_proof_typ_is_correct
+  validator: jose.member
+  input: evidence.issuance_exchange
   params:
-    member_equals: {typ: openid4vci-proof+jwt}
+    select:
+      path: raw.credential_request_proofs.jwt[].compact
+      require: raw.credential_request_proofs
+      absent: not_applicable
+      reason: the Wallet sent no jwt proof; the source applies to a Wallet that uses the jwt proof type
+        to convey a key attestation
+    part: header
+    equals:
+      typ: openid4vci-proof+jwt
 verdict:
   pass_when: all_assertions_pass

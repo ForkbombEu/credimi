@@ -106,15 +106,15 @@ func TestGenerateAttestationProviderFCAFPipeline(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, attestationProviderSuite, with["suite"])
 	testIDs := stringSlice(with["test_ids"])
-	require.Len(t, testIDs, 18)
+	require.Len(t, testIDs, 59)
 	for _, id := range testIDs {
 		require.True(t, strings.HasPrefix(id, "WS_AP_"), id)
 	}
 	for _, step := range definition.Steps[1 : len(definition.Steps)-1] {
 		id, _ := step["id"].(string)
-		require.True(
+		require.False(
 			t,
-			strings.HasPrefix(id, "authorization-code-issuance-"),
+			strings.HasPrefix(id, "fcaf-wallet-solution-attestation-provider-"),
 			"scenario step ids drop the suite file-name prefix: %s",
 			id,
 		)

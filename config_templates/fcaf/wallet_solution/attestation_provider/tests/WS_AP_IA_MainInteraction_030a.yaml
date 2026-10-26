@@ -26,8 +26,11 @@ assertions:
   validator: oid4vci.wallet_request
   input: evidence.issuance_exchange
   params:
-    path_suffix: '/credential'
-    methods: [POST]
-    endpoint: {metadata: issuer_metadata, field: credential_endpoint}
+    path_suffix: /credential
+    methods:
+    - POST
+    endpoint:
+      metadata: issuer_metadata
+      field: credential_endpoint
 verdict:
   pass_when: all_assertions_pass
