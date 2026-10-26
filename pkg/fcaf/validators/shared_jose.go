@@ -187,11 +187,14 @@ func unpairedSurrogateEscape(data []byte) (string, bool) {
 	return "", false
 }
 
+// hexRune reads the four hexadecimal digits of a \uXXXX escape. Parsing with
+// a 16-bit size bounds the value to a UTF-16 code unit, so it always fits a
+// rune.
 func hexRune(text string, start int) (rune, bool) {
 	if start+4 > len(text) {
 		return 0, false
 	}
-	value, err := strconv.ParseUint(text[start:start+4], 16, 32)
+	value, err := strconv.ParseUint(text[start:start+4], 16, 16)
 	if err != nil {
 		return 0, false
 	}
