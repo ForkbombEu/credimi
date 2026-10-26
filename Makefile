@@ -71,7 +71,7 @@ endef
 # (via scripts/worktree-compose.sh for make dev / worktree-down / purge).
 
 all: help
-.PHONY: submodules version dev dev.noworkers worktree-bootstrap worktree-down worktree-destroy test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check fcaf-run fcaf-sync
+.PHONY: submodules version dev dev.noworkers worktree-bootstrap worktree-down worktree-destroy test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check fcaf-run fcaf-sync news-agent.worker news-agent.scan news-agent.ui news-agent.test
 
 $(BIN):
 	@mkdir -p $@
@@ -119,7 +119,7 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 		./scripts/worktree-compose.sh prepare; \
 		trap "./scripts/worktree-compose.sh stop" EXIT; \
 		./scripts/worktree-compose.sh up; \
-		DEBUG=1 $(GOTOOL) hivemind -T -l API,UI -d "$(ROOT_DIR)" "$${PROCFILE_RUNTIME}"'
+		DEBUG=1 $(GOTOOL) hivemind -T -l API,UI,NEWS,NEWSUI -d "$(ROOT_DIR)" "$${PROCFILE_RUNTIME}"'
 
 dev.noworkers: ## 🚀 run in watch mode without Temporal workers
 	CREDIMI_TEMPORAL_WORKERS_DISABLED=1 $(MAKE) dev
@@ -161,6 +161,39 @@ fcaf-run: fcaf-generate ## Run complete FCAF validation through Credimi and stor
 
 fcaf-sync: fcaf-generate ## Synchronize complete FCAF pipeline and credential definitions without running them
 	$(GOCMD) run . fcaf sync $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" --dir "$(or $(FCAF_DIR),config_templates/fcaf/wallet_solution/relying_party/pipelines)" --imports-dir "$(or $(FCAF_IMPORTS_DIR),config_templates/fcaf/imports)" $(if $(FCAF_DEVICE_ID),--device-id "$(FCAF_DEVICE_ID)",)
+
+# Experimental news agent (agents/news), local only. It needs `make dev` running: the Go
+# activities it calls are registered by `credimi serve`. FAKE=1 uses the scripted model and the
+# recorded GitHub fixtures: no API key, no network. Without FAKE it needs a model configured in
+# agents/news/.env (see agents/news/.env.example; GITHUB_TOKEN optional).
+NEWS_AGENT_DIR ?= $(ROOT_DIR)/agents/news
+NEWS_AGENT_ENV = eval "$$("$(ROOT_DIR)/scripts/worktree-env.sh" export)"; \
+	export TEMPORAL_ADDRESS="$${TEMPORAL_ADDRESS:-localhost:$$TEMPORAL_PORT}" \
+	TEMPORAL_UI_URL="http://localhost:$$TEMPORAL_UI_PORT"; \
+	cd "$(NEWS_AGENT_DIR)"; \
+	set -a; [ ! -f .env ] || . ./.env; set +a \
+	$(if $(FAKE),; export NEWS_AGENT_FAKE_MODEL=1 NEWS_AGENT_FIXTURES_DIR="$(NEWS_AGENT_DIR)/fixtures/github",)
+
+news-agent.worker: ## 📰 run the experimental news agent worker (FAKE=1: no API key, offline)
+	$(call require_tools,uv)
+	@$(NEWS_AGENT_ENV) && uv run python -m credimi_news_agent.worker
+
+news-agent.scan: ## 📰 start one news scan (SINCE=YYYY-MM-DD UNTIL=YYYY-MM-DD [SOURCE=id] [MODEL=name])
+	$(call require_tools,uv)
+	@$(NEWS_AGENT_ENV) && uv run python -m credimi_news_agent.cli \
+		--since "$(or $(SINCE),$(if $(FAKE),2026-10-01,))" \
+		--until "$(or $(UNTIL),$(if $(FAKE),2026-10-14,))" \
+		$(foreach s,$(or $(SOURCE),$(if $(FAKE),openid4vp,)),--source "$(s)") \
+		$(if $(MODEL),--model "$(MODEL)",)
+
+news-agent.ui: ## 📰 harness web UI for the news agent (http://localhost:8000; NEWS_AGENT_UI_PORT in .env.worktree)
+	$(call require_tools,uv)
+	@eval "$$("$(ROOT_DIR)/scripts/worktree-env.sh" export)"; "$(ROOT_DIR)/scripts/news-agent-dev.sh" ui
+
+news-agent.test: ## 📰 lint and test the experimental news agent
+	$(call require_tools,uv)
+	cd "$(NEWS_AGENT_DIR)" && uv run ruff check . && uv run ruff format --check . && uv run pytest -q
+
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)

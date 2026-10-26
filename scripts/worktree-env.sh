@@ -100,6 +100,7 @@ UI_PORT=${UI_PORT}
 TEMPORAL_PORT=${TEMPORAL_PORT}
 TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT}
 TEMPORAL_UI_EMBEDDED_PORT=${TEMPORAL_UI_EMBEDDED_PORT}
+NEWS_AGENT_UI_PORT=${NEWS_AGENT_UI_PORT}
 ADDRESS_UI=http://localhost:${UI_PORT}
 ADDRESS_TEMPORAL_UI=http://localhost:${TEMPORAL_UI_EMBEDDED_PORT}
 TEMPORAL_ADDRESS=localhost:${TEMPORAL_PORT}
@@ -130,6 +131,7 @@ UI_PORT=${UI_PORT}
 TEMPORAL_PORT=${TEMPORAL_PORT}
 TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT}
 TEMPORAL_UI_EMBEDDED_PORT=${TEMPORAL_UI_EMBEDDED_PORT}
+NEWS_AGENT_UI_PORT=${NEWS_AGENT_UI_PORT}
 EOF
 }
 
@@ -154,6 +156,7 @@ cmd_write() {
 		TEMPORAL_PORT="$(pick_port "temporal")"
 		TEMPORAL_UI_PORT="$(pick_port "temporal-ui")"
 		TEMPORAL_UI_EMBEDDED_PORT="$(pick_port "temporal-ui-embedded")"
+		NEWS_AGENT_UI_PORT="$(pick_port "news-agent-ui")"
 		write_ports_file "# Generated unique ports for worktree ${COMPOSE_PROJECT_NAME} (branch ${branch})
 # Seeds from Worktrunk hash_port; collision walk applied. Edit freely; not overwritten."
 	fi

@@ -10,6 +10,7 @@ docs/.vitepress/cache/
 .bin
 .env
 .env.*
+!agents/news/.env.example
 pb.env
 /didimo
 /credimi
