@@ -17,7 +17,8 @@ import (
 )
 
 // MergeConfigs merges global config with step-level config. Step keys win,
-// except the server-owned Credimi base URL keys, which keep their global value.
+// except server-owned keys (workflowengine.IsServerOwnedConfigKey), which keep
+// their global value.
 func MergeConfigs(global, step map[string]any) map[string]any {
 	res := make(map[string]any)
 	for k, v := range global {

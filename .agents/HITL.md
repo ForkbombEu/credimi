@@ -547,6 +547,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - decision: (a) as an interim, pending the maintainer's confirmation; (c) is the durable fix and needs a credimi-capture-wallet change.
 - resolution: (c) landed upstream: Capture attributes `/authorize` by the PAR `request_uri`. On 26/10/2026 `ledger_fallback` and the `request_ledger` evidence were removed; the tests read the session's own requests.
 
+### 2026-10-23 - Server rendering for public pages, public origin and AI crawler policy
+
+- status: open
+- owner: human maintainer
+- context: The SEO and AI-discovery work found every public page outside `/pages` served as an empty client-side shell (root layout `ssr = false`), so crawlers that do not run JavaScript, including most AI crawlers, saw no title or content. Requests reach the webapp through the PocketBase proxy with `Host` set to the internal UI address and no forwarded host or protocol, so request-derived URLs point at the internal host.
+- question: (1) May the `(public)` route group render on the server? (2) Is a build-time `PUBLIC_SITE_URL`, defaulting to `https://credimi.io`, the right source for canonical and sitemap URLs? (3) Should AI training crawlers (GPTBot, ClaudeBot, Google-Extended, CCBot, …) be allowed, not only AI search agents?
+- options considered: (1) SSR for `(public)` only (applied), SSR app-wide, or prerendering only; (2) `PUBLIC_SITE_URL` (applied), PocketBase Settings Application URL (admin-only, not readable by anonymous SSR), or forwarding `X-Forwarded-Host`/`-Proto` from the Go proxy and configuring the adapter's host and protocol headers; (3) allow all AI crawlers (applied, the user asked for content to reach AI models) or allow search and user agents only.
+- default risk: (1) a public component that touches browser-only APIs while rendering returns 500, or crashes the server process when a promise rejects unhandled (the realtime subscription did, fixed); (2) a self-hosted build that does not set `PUBLIC_SITE_URL` canonicalizes to credimi.io; (3) content is used for model training.
+- decision: applied as above on the user's request "all my content suggested by AI harnesses and models".
+- follow-up: confirm, then keep the "Public Pages, SEO And AI Discovery" section of AGENTS.md as the canonical rule.
+
 ### 2026-10-26 - FCAF attestation provider: Capture deployment the ws_ap scenarios target
 
 - status: resolved (user decision 26/10/2026)

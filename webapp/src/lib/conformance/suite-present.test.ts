@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	displayNameFromUid,
-	displayStandardName,
 	entityForComponent,
 	suiteHubHref,
 	suiteLogo,
@@ -17,20 +16,17 @@ import {
 
 describe('displayNameFromUid', () => {
 	it('humanizes underscore and hyphen UIDs', () => {
-		expect(displayNameFromUid('openid4vp_wallet')).toBe('Openid4vp Wallet');
+		expect(displayNameFromUid('wallet_solution')).toBe('Wallet Solution');
 		expect(displayNameFromUid('draft-24')).toBe('Draft 24');
 		expect(displayNameFromUid('1.0')).toBe('1.0');
 	});
-});
 
-describe('displayStandardName', () => {
-	it('uses authored product-standard labels when present', () => {
-		expect(displayStandardName('openid4vp')).toBe('OpenID4VP');
-		expect(displayStandardName('openid4vci')).toBe('OpenID4VCI');
-	});
-
-	it('falls back to humanized uid for unknown standards', () => {
-		expect(displayStandardName('vlei')).toBe('Vlei');
+	it('spells standard acronyms as written', () => {
+		expect(displayNameFromUid('fcaf')).toBe('FCAF');
+		expect(displayNameFromUid('openid4vp_wallet')).toBe('OpenID4VP Wallet');
+		expect(displayNameFromUid('openid4vci')).toBe('OpenID4VCI');
+		expect(displayNameFromUid('openid_conformance_suite')).toBe('OpenID Conformance Suite');
+		expect(displayNameFromUid('vlei')).toBe('vLEI');
 	});
 });
 
@@ -41,7 +37,7 @@ describe('suiteTitle', () => {
 
 	it('falls back to humanized suite uid when name is empty', () => {
 		expect(suiteTitle({ suite_name: '   ', suite: 'openid_conformance_suite' })).toBe(
-			'Openid Conformance Suite'
+			'OpenID Conformance Suite'
 		);
 	});
 });

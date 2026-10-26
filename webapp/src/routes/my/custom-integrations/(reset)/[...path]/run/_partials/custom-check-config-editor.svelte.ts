@@ -6,7 +6,8 @@ import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
 
 import { getValueSnapshot, validate } from '@sjsf/form';
 import { resolve } from '$app/paths';
-import { runWithLoading, yamlStringSchema } from '$lib/utils';
+import { runWithLoading } from '$lib/utils';
+import { yamlStringSchema } from '$lib/utils/schemas';
 import { watch } from 'runed';
 import { toast } from 'svelte-sonner';
 import { fromStore } from 'svelte/store';

@@ -11,7 +11,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Sheet from '@/components/ui-custom/sheet.svelte';
 
-	import ReportView from './report-view.svelte';
 	import { loadReport } from './report.js';
 
 	type Props = {
@@ -29,7 +28,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@render sheetTrigger({ props, openSheet })}
 		{/snippet}
 		{#snippet content()}
-			{#await loadReport(reportUrl) then report}
+			<!-- The view pulls in the code highlighter; load it only when the sheet opens. -->
+			{#await Promise.all( [loadReport(reportUrl), import('./report-view.svelte')] ) then [report, { default: ReportView }]}
 				{#if report}
 					<ReportView {report} {reportUrl} {pdfUrl} />
 				{:else}

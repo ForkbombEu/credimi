@@ -20,7 +20,6 @@ export {
 export { titleForCheckPath } from './nest';
 export {
 	displayNameFromUid,
-	displayStandardName,
 	entityForComponent,
 	suiteHubHref,
 	suiteLogo,

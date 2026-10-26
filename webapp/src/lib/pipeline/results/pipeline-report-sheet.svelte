@@ -9,7 +9,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { ExternalLinkIcon } from '@lucide/svelte';
 	import { buildPipelineReportPageHref } from '$lib/pipeline/results/pipeline-report-page';
-	import PipelineReportView from '$lib/pipeline/results/pipeline-report-view.svelte';
 
 	import type { GenericRecord } from '@/utils/types';
 
@@ -27,11 +26,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const hasReport = $derived(Boolean(reportUrl));
 
 	const reportPageHref = $derived(reportUrl ? buildPipelineReportPageHref(reportUrl) : undefined);
-
-	const reportPromise = $derived.by(() => {
-		if (!reportUrl) return undefined;
-		return fetch(reportUrl).then((res) => res.text());
-	});
 </script>
 
 {#if hasReport}
@@ -40,7 +34,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@render sheetTrigger({ props, openSheet })}
 		{/snippet}
 		{#snippet content()}
-			{#await reportPromise then report}
+			<!-- Fetched once the sheet opens: the report and its markdown view are only needed there. -->
+			{#await Promise.all( [fetch(reportUrl!).then( (res) => res.text() ), import('./pipeline-report-view.svelte')] ) then [report, { default: PipelineReportView }]}
 				{#if report}
 					<PipelineReportView
 						content={report}

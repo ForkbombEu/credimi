@@ -6,24 +6,22 @@ import { entities, type EntityData } from '$lib/global/entities';
 
 import type { ConformanceSuiteRecord } from './record';
 
+/** Words a plain capitalization would misspell (`fcaf` is not `Fcaf`). */
+const UID_WORD_SPELLINGS: Record<string, string> = {
+	fcaf: 'FCAF',
+	openid: 'OpenID',
+	openid4vci: 'OpenID4VCI',
+	openid4vp: 'OpenID4VP',
+	vlei: 'vLEI'
+};
+
 /** Humanize a path UID for display when authored metadata is not on the catalog row. */
 export function displayNameFromUid(uid: string): string {
 	return uid
 		.split(/[_-]+/)
 		.filter(Boolean)
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.map((part) => UID_WORD_SPELLINGS[part] ?? part.charAt(0).toUpperCase() + part.slice(1))
 		.join(' ');
-}
-
-/** Display labels for normalized product standards (hub Product-axis). */
-const STANDARD_DISPLAY_NAMES: Record<string, string> = {
-	openid4vp: 'OpenID4VP',
-	openid4vci: 'OpenID4VCI'
-};
-
-/** Prefer authored product-standard labels; fall back to humanized uid. */
-export function displayStandardName(uid: string): string {
-	return STANDARD_DISPLAY_NAMES[uid] ?? displayNameFromUid(uid);
 }
 
 /** Prefer authored `suite_name`; fall back to humanized suite uid. */

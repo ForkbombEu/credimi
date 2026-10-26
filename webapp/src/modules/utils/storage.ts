@@ -8,19 +8,23 @@ import { NotBrowserError } from './errors';
 
 //
 
-export function createStorageHandlers<T = { [x: string]: boolean }>(key: string, storage: Storage) {
+/** `getStorage` is called only inside the browser guard, so importing a handler is safe during SSR. */
+export function createStorageHandlers<T = { [x: string]: boolean }>(
+	key: string,
+	getStorage: () => Storage
+) {
 	function browserGuard() {
 		if (!browser) throw new NotBrowserError();
 	}
 
 	function set(data?: T) {
 		browserGuard();
-		storage.setItem(key, JSON.stringify(data ?? { [key]: true }));
+		getStorage().setItem(key, JSON.stringify(data ?? { [key]: true }));
 	}
 
 	function get(): T | null {
 		browserGuard();
-		const data = storage.getItem(key);
+		const data = getStorage().getItem(key);
 		return data ? JSON.parse(data) : null;
 	}
 
@@ -31,7 +35,7 @@ export function createStorageHandlers<T = { [x: string]: boolean }>(key: string,
 
 	function remove() {
 		browserGuard();
-		storage.removeItem(key);
+		getStorage().removeItem(key);
 	}
 
 	return {
@@ -43,7 +47,7 @@ export function createStorageHandlers<T = { [x: string]: boolean }>(key: string,
 }
 
 export function createSessionStorageHandlers<T = { [x: string]: boolean }>(key: string) {
-	const handlers = createStorageHandlers<T>(key, sessionStorage);
+	const handlers = createStorageHandlers<T>(key, () => sessionStorage);
 
 	return {
 		start: handlers.set,

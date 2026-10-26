@@ -48,7 +48,7 @@ export const entities = {
 		},
 		classes: {
 			bg: 'bg-blue-100',
-			text: 'text-blue-600',
+			text: 'text-blue-700',
 			border: 'border-blue-600'
 		}
 	},
@@ -62,7 +62,7 @@ export const entities = {
 		},
 		classes: {
 			bg: 'bg-green-100',
-			text: 'text-green-600',
+			text: 'text-green-700',
 			border: 'border-green-600'
 		}
 	},
@@ -76,7 +76,7 @@ export const entities = {
 		},
 		classes: {
 			bg: 'bg-lime-100',
-			text: 'text-lime-600',
+			text: 'text-lime-800',
 			border: 'border-lime-600'
 		}
 	},
@@ -90,7 +90,7 @@ export const entities = {
 		},
 		classes: {
 			bg: 'bg-red-100',
-			text: 'text-red-600',
+			text: 'text-red-700',
 			border: 'border-red-600'
 		}
 	},
@@ -104,7 +104,7 @@ export const entities = {
 		},
 		classes: {
 			bg: 'bg-orange-100',
-			text: 'text-orange-600',
+			text: 'text-orange-700',
 			border: 'border-orange-600'
 		}
 	},
@@ -118,7 +118,7 @@ export const entities = {
 		},
 		classes: {
 			bg: 'bg-orange-100',
-			text: 'text-orange-600',
+			text: 'text-orange-700',
 			border: 'border-orange-600'
 		}
 	},
@@ -132,7 +132,7 @@ export const entities = {
 		},
 		classes: {
 			bg: 'bg-red-100',
-			text: 'text-red-500',
+			text: 'text-red-700',
 			border: 'border-red-500'
 		}
 	},
@@ -146,7 +146,7 @@ export const entities = {
 		},
 		classes: {
 			bg: 'bg-purple-100',
-			text: 'text-purple-600',
+			text: 'text-purple-700',
 			border: 'border-purple-600'
 		}
 	},

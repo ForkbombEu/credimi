@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ClassValue } from 'svelte/elements';
 
+	import { plainText } from '$lib/seo';
 	import { marked } from 'marked';
 
 	import RenderHTML from '@/components/ui-custom/renderHTML.svelte';
@@ -25,12 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const content = $derived(marked.parse(description ?? '', { async: false }));
 
-	const isEmpty = $derived.by(() => {
-		const parser = new DOMParser();
-		const doc = parser.parseFromString(content, 'text/html');
-		const textContent = doc.body.textContent || '';
-		return textContent.trim() === '';
-	});
+	const isEmpty = $derived(plainText(content) === '');
 </script>
 
 <PageSection indexItem={s.description} empty={isEmpty} class={className}>
