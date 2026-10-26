@@ -167,7 +167,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const originalLogoUrl = $derived.by(() => {
 		if (!record || !record.logo) return undefined;
-		return pb.files.getURL(record, record.logo);
+		return pb.files.getURL(record, record.logo, { thumb: '100x100' });
 	});
 
 	//

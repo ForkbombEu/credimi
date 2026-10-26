@@ -45,7 +45,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<WithLabel label={entities.custom_checks.labels.singular}>
 			<ItemCard
 				avatar={form.data.integration.logo
-					? pb.files.getURL(form.data.integration, form.data.integration.logo)
+					? pb.files.getURL(form.data.integration, form.data.integration.logo, {
+							thumb: '100x100'
+						})
 					: undefined}
 				title={form.data.integration.name}
 				subtitle={ownerSubtitle(form.data.integration)}
@@ -83,7 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@const integration = record as CustomChecksResponse}
 			<ItemCard
 				avatar={integration.logo
-					? pb.files.getURL(integration, integration.logo)
+					? pb.files.getURL(integration, integration.logo, { thumb: '100x100' })
 					: undefined}
 				title={integration.name}
 				subtitle={ownerSubtitle(integration)}

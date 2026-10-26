@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <DashboardCard
 	record={verifier}
-	avatar={(v) => pb.files.getURL(v, v.logo)}
+	avatar={(v) => pb.files.getURL(v, v.logo, { thumb: '100x100' })}
 	links={{
 		URL: verifier.url
 	}}
