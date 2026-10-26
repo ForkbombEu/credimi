@@ -559,21 +559,23 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-10-26 - FCAF attestation provider: offer-by-value tests and the eu-eaa-offer scheme
 
-- status: open
+- status: resolved (user decision 26/10/2026)
 - owner: human maintainer
 - context: `WS_AP_MS_ProtocolMessages_033a` (valid Credential Offer by value), `WS_AP_MS_ProtocolMessages_033b_UF` (offer without `credential_issuer`) and `WS_AP_MS_ProtocolMessages_033c_UF` (offer without `credential_configuration_ids`) deliver their offer with `eu-eaa-offer://`, as their Technology sections and the task specify. The reference Wallet 2026.09.42 registers `haip-vci` and `openid-credential-offer` but not `eu-eaa-offer`, so it is never invoked and the three tests report blocked (`WS_AP_IA_Engagement_007b` reports the missing scheme as a failure). The two UF sources' precondition only says "a custom URL scheme"; with `haip-vci://` the reference Wallet shows its error screen and sends no request for both malformed offers (probed 26/10/2026).
 - question: Should `WS_AP_MS_ProtocolMessages_033b_UF` and `WS_AP_MS_ProtocolMessages_033c_UF` (and possibly `WS_AP_MS_ProtocolMessages_033a`) use a scheme the Wallet under test registers, so the offer-handling behaviour is evaluated even when `eu-eaa-offer://` is missing?
 - options considered: (a) keep `eu-eaa-offer://` (implemented; blocked on the reference Wallet); (b) use `haip-vci://` for the UF tests; (c) add a second session per test with a fallback scheme.
 - default risk: (a) leaves the three tests unevaluated on any Wallet without `eu-eaa-offer://`; (b) and (c) evaluate the offer under a scheme the sources' Technology does not name.
+- decision: (a), keep `eu-eaa-offer://`; a Wallet without the scheme leaves the three tests blocked.
 
 ### 2026-10-26 - FCAF attestation provider: tests after an issuer rejection report blocked
 
-- status: open
+- status: resolved (user decision 26/10/2026)
 - owner: human maintainer
 - context: Credo answers a PAR carrying a JAR `request` with `400`, and a `jwt` proof with only a key attestation with `400 invalid_proof`, so a conforming Wallet's later requests are never sent. The ws_ap validators report a missing request, Credential Request or issued credential as blocked when an earlier request of the session got an error status from the issuer, naming that request and error, and as failed otherwise. For a JAR Wallet this turns every test after the PAR into blocked, for example `WS_AP_IA_MainInteraction_010a`, `WS_AP_IA_MainInteraction_010b`, `WS_AP_IA_MainInteraction_010c`, `WS_AP_IA_Supportive_011a`, `WS_AP_MS_ProtocolMessages_039a`, `WS_AP_MS_ProtocolMessages_039b`, `WS_AP_IA_MainInteraction_030a`, `WS_AP_IA_MainInteraction_030b`, `WS_AP_MS_ProtocolMessages_050a` to `WS_AP_MS_ProtocolMessages_050e` and `WS_AP_IA_MainInteraction_031a`.
 - question: Is "blocked after any issuer error status" the right rule, given that it also turns a Wallet-caused `4xx` (for example a malformed token request) into blocked for the later tests?
 - options considered: (a) any issuer `4xx`/`5xx` before the missing step (implemented); (b) only known Capture/Credo limitations (JAR, key-attestation-only proof); (c) always fail.
 - default risk: (a) can hide a Wallet defect behind blocked, though the message names the rejected request; (b) needs a list kept in step with Credo; (c) reports Credo limitations as Wallet failures.
+- decision: (a), any issuer error status before the missing step reports blocked, naming the rejected request.
 
 ### 2026-10-26 - FCAF attestation provider: reading unattributed ledger requests as the Wallet's
 
