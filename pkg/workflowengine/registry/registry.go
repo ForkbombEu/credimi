@@ -39,13 +39,6 @@ var Registry = map[string]TaskFactory{
 		PayloadType: reflect.TypeOf(activities.HTTPActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
-	"container-run": {
-		Kind:                TaskActivity,
-		NewFunc:             func(core.App) any { return activities.NewDockerActivity() },
-		PayloadType:         reflect.TypeOf(activities.DockerActivityPayload{}),
-		OutputKind:          workflowengine.OutputMap,
-		InheritedConfigKeys: []string{"HostIP"},
-	},
 	"email": {
 		Kind:        TaskActivity,
 		NewFunc:     func(core.App) any { return activities.NewSendMailActivity() },

@@ -5,163 +5,326 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Sparkle } from '@lucide/svelte';
-	import { entities } from '$lib/global/index.js';
-	import PageContent from '$lib/layout/pageContent.svelte';
-	import PageTop from '$lib/layout/pageTop.svelte';
-
-	import type { HubItemsResponse } from '@/pocketbase/types';
+	import FileCheck from '@lucide/svelte/icons/file-check';
+	import {
+		credentialIssuersAndCredentialsSection,
+		entities,
+		verifiersAndUseCaseVerificationsSection
+	} from '$lib/global/index.js';
+	import { HubItemCard } from '$lib/hub';
+	import RoleTile from '$lib/layout/marketing/role-tile.svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
-	import { featureFlags } from '@/features';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
-	import { HubItemCard } from '../../lib/hub';
 	import ScoreboardSection from './_partials/scoreboard-section.svelte';
-
-	//
 
 	let { data } = $props();
 	const { wallets, issuers, verifiers, scoreboard } = $derived(data);
+
+	const container = 'mx-auto max-w-site px-4 md:px-8';
+	const h2 =
+		'text-[clamp(1.75rem,3.2vw,2.75rem)] leading-[1.1] font-bold tracking-[-0.025em] text-balance';
+
+	// `tab` is the /hub tab that lists the whole collection.
+	const rows = $derived([
+		{
+			role: entities.credential_issuers,
+			tab: credentialIssuersAndCredentialsSection.slug,
+			list: issuers
+		},
+		{
+			role: entities.verifiers,
+			tab: verifiersAndUseCaseVerificationsSection.slug,
+			list: verifiers
+		},
+		{ role: entities.wallets, tab: entities.wallets.slug, list: wallets }
+	]);
+
+	const moreSections = [entities.custom_checks, entities.pipelines, entities.conformance_checks];
+
+	// Guide pages are written in English only.
+	const guides = [
+		{
+			href: '/pages/eudiw-conformance',
+			title: 'EUDIW conformance: certification, FCAF and how to prepare',
+			text: 'What the certification rules require and where FCAF stands today.'
+		},
+		{
+			href: '/pages/fcaf-conformance',
+			title: 'FCAF conformance testing for EUDI wallets',
+			text: 'Run the FCAF test cases on real devices, with hashed evidence.'
+		},
+		{
+			href: '/pages/eudi-wallet-interoperability-testing',
+			title: 'EUDI wallet interoperability testing',
+			text: 'Find out which wallets, issuers and verifiers work together.'
+		}
+	];
+
+	// Real screens of a completed FCAF run on credimi.io (demo organisation, 16/10/2026).
+	const tour = [
+		{
+			src: '/screens/pipeline-builder.webp',
+			width: 1600,
+			height: 1000,
+			title: m.home_tour_build_title(),
+			text: m.home_tour_build_text(),
+			alt: m.home_tour_build_alt()
+		},
+		{
+			src: '/screens/device-run.webp',
+			// Portrait phone screen: narrower, so it does not tower over its text.
+			narrow: true,
+			width: 1000,
+			height: 1093,
+			title: m.home_tour_run_title(),
+			text: m.home_tour_run_text(),
+			alt: m.home_tour_run_alt()
+		},
+		{
+			src: '/screens/run-timeline.webp',
+			width: 1600,
+			height: 1000,
+			title: m.home_tour_trace_title(),
+			text: m.home_tour_trace_text(),
+			alt: m.home_tour_trace_alt()
+		},
+		{
+			src: '/screens/fcaf-report.webp',
+			width: 1400,
+			height: 1167,
+			title: m.home_tour_judge_title(),
+			text: m.home_tour_judge_text(),
+			alt: m.home_tour_judge_alt(),
+			// A full complete-validation run, failures included, as a buyer would receive it.
+			link: {
+				href: 'https://credimi.io/api/files/pipeline_results/lm9cvfbiltat7mp/fcaf_assessment_hiyu281nr4.pdf',
+				label: m.home_tour_judge_pdf()
+			}
+		}
+	];
 </script>
 
-{#if $featureFlags.DEMO}
-	<div class="flex justify-end px-6 pt-4"></div>
-{/if}
-
-<PageTop>
-	<div class="space-y-6">
-		<div class="space-y-2">
-			<T tag="h1" class="text-balance">
+<!-- Hero -->
+<section class="fold-motif bg-primary text-primary-foreground">
+	<div class="{container} relative pt-16 pb-12 md:pt-24 md:pb-16">
+		<div>
+			<!-- Own, wider measure: at the body width the title broke into three lines with a lone "and Hub". -->
+			<h1
+				class="max-w-[62rem] text-[clamp(2.25rem,4.6vw,4rem)] leading-[1.05] font-bold tracking-[-0.03em] text-balance"
+			>
 				{m.EUDIW_Conformance_Interoperability_and_Hub()}
-			</T>
-			<div class="flex flex-col gap-2 py-2">
-				<T tag="h3" class="font-normal! text-balance">
-					{m.Explore_the_hub_and_try_credentials_wallets_and_services()}
-				</T>
-				<T tag="h3" class="font-normal! text-balance">
-					{m.Test_the_conformance_and_interoperability_of_your_EUDIW()}
-				</T>
+			</h1>
+			<div
+				class="mt-7 max-w-[46rem] space-y-2 text-xl leading-relaxed text-pretty text-primary-foreground/85"
+			>
+				<p>{m.Explore_the_hub_and_try_credentials_wallets_and_services()}</p>
+				<p>{m.Test_the_conformance_and_interoperability_of_your_EUDIW()}</p>
+			</div>
+			<p class="mt-5 flex items-center gap-3 font-semibold">
+				<FileCheck class="size-5 shrink-0 text-green-400" aria-hidden="true" />
+				{m.home_judged()}
+			</p>
+			<div class="mt-9 flex flex-wrap gap-3">
+				<Button href="/hub" size="lg" variant="secondary">{m.Explore_Hub()}</Button>
+				<Button
+					href={$currentUser ? '/my/pipelines' : '/login'}
+					size="lg"
+					variant="outline"
+					class="border-primary-foreground/40 bg-transparent whitespace-normal text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+				>
+					{m.automated_conformance_interop()}
+					<Badge
+						variant="outline"
+						class="border-primary-foreground/50 text-xs text-primary-foreground"
+					>
+						{m.Beta()}
+					</Badge>
+				</Button>
 			</div>
 		</div>
-		<div class="flex flex-col items-start gap-x-4 gap-y-2 lg:flex-row lg:flex-wrap">
-			<Button variant="default" href="/hub" class="w-fit max-w-full">
-				<entities.hub.icon />
-				{m.Explore_Hub()}
-			</Button>
-			<Button
-				variant="secondary"
-				href={$currentUser ? '/my/pipelines' : '/login'}
-				class=" w-fit max-w-full border border-primary whitespace-normal"
-			>
-				<Sparkle />
-				{m.automated_conformance_interop()}
-				<Badge variant="outline" class="border-primary text-xs text-primary">
-					{m.Beta()}
-				</Badge>
-			</Button>
-		</div>
 	</div>
-</PageTop>
+</section>
 
-<PageContent class="bg-secondary" contentClass="space-y-12">
-	<div class="space-y-6">
-		<div class="flex items-center justify-between">
-			<T tag="h3">{m.Find_solutions()}</T>
-			<Button variant="default" href="/hub">
-				<Icon src={entities.hub.icon} />
-				{m.Explore_Hub()}
-			</Button>
+<!-- Tour: the private run views, shown before sign-in -->
+<section class="bg-background">
+	<div class="{container} py-16 md:py-24">
+		<div class="border-b border-border pb-4">
+			<h2 class="{h2} text-primary">{m.home_tour_title()}</h2>
+			<p class="mt-4 max-w-[48rem] text-lg leading-relaxed text-pretty text-slate-700">
+				{m.home_tour_lead()}
+			</p>
 		</div>
-
-		<div class="space-y-4">
-			{@render row(issuers, 0)}
-			{@render row(verifiers, 1)}
-			{@render row(wallets, 2)}
-		</div>
+		<ol class="mt-12 space-y-16 md:space-y-24">
+			{#each tour as step, i (step.src)}
+				<li class="grid items-center gap-8 lg:grid-cols-12 lg:gap-12">
+					<div class={['lg:col-span-5', i % 2 === 1 && 'lg:order-2']}>
+						<span class="font-mono text-sm text-muted-foreground">
+							{String(i + 1).padStart(2, '0')}
+						</span>
+						<h3 class="mt-2 text-2xl leading-snug font-bold text-slate-900">
+							{step.title}
+						</h3>
+						<p class="mt-3 text-lg leading-relaxed text-pretty text-slate-700">
+							{step.text}
+						</p>
+						{#if 'link' in step}
+							<a
+								href={step.link.href}
+								class="mt-4 inline-block font-medium text-primary underline underline-offset-4"
+							>
+								{step.link.label} ↗
+							</a>
+						{/if}
+					</div>
+					<img
+						src={step.src}
+						width={step.width}
+						height={step.height}
+						alt={step.alt}
+						loading="lazy"
+						decoding="async"
+						class={[
+							'h-auto w-full rounded-[10px] border border-border bg-card lg:col-span-7',
+							'narrow' in step && 'mx-auto max-w-xl'
+						]}
+					/>
+				</li>
+			{/each}
+		</ol>
 	</div>
+</section>
 
-	<div class="space-y-6">
-		<div class="flex items-center justify-between">
-			<T tag="h3">{m.Compare_by_test_results()}</T>
-			<Button variant="default" href="/scoreboard">
-				<Icon src={entities.scoreboard.icon} />
-				{m.View_Scoreboard()}
-			</Button>
+<!-- Hub -->
+<section class="bg-secondary">
+	<div class="{container} py-16 md:py-24">
+		<div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
+			<h2 class="{h2} text-primary">{m.Find_solutions()}</h2>
+			<a href="/hub" class="font-medium text-primary underline underline-offset-4">
+				{m.Explore_Hub()} ↗
+			</a>
 		</div>
-		<ScoreboardSection {...scoreboard} />
-	</div>
-</PageContent>
-
-{#snippet row(items: HubItemsResponse[], index: number)}
-	<!-- Try: https://stackoverflow.com/questions/22955465/overflow-y-scroll-is-hiding-overflowing-elements-on-the-horizontal-line -->
-	<div
-		class={[
-			'-mx-2 -mt-3 scrollbar-none overflow-x-scroll px-2 pt-3',
-			{
-				'md:-translate-x-3': index === 0 || index === 2,
-				'md:translate-x-3': index === 1
-			}
-		]}
-	>
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-			{#each items as item (item.id)}
-				<HubItemCard {item} />
+		<p class="mt-4 max-w-[48rem] text-lg leading-relaxed text-pretty text-slate-700">
+			{m.home_hub_lead()}
+		</p>
+		<div class="mt-10 space-y-10">
+			{#each rows as row (row.tab)}
+				{#if row.list.items.length}
+					<div>
+						<div class="flex items-center gap-3">
+							<RoleTile role={row.role} size="sm" />
+							<h3 class="text-xl font-bold text-slate-900">
+								{row.role.labels.plural}
+							</h3>
+							<span class="font-mono text-sm text-muted-foreground">
+								{row.list.totalItems}
+							</span>
+							<a
+								href="/hub?tab={row.tab}"
+								aria-label="{m.home_see_all()} {row.role.labels.plural}"
+								class="ml-auto text-sm font-medium text-primary underline underline-offset-4"
+							>
+								{m.home_see_all()} ↗
+							</a>
+						</div>
+						<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+							{#each row.list.items as item (item.id)}
+								<HubItemCard {item} />
+							{/each}
+						</div>
+					</div>
+				{/if}
+			{/each}
+		</div>
+		<div class="mt-12 flex flex-wrap items-center gap-3">
+			<span class="font-semibold text-slate-900">{m.home_also_in_hub()}</span>
+			{#each moreSections as section (section.slug)}
+				<a
+					href="/hub?tab={section.slug}"
+					class="inline-flex items-center gap-2.5 rounded-md border border-border bg-card py-1.5 pr-4 pl-1.5 text-sm font-medium text-slate-900 transition-colors duration-150 ease-out hover:border-primary hover:text-primary"
+				>
+					<RoleTile role={section} size="sm" />
+					{section.labels.plural} ↗
+				</a>
 			{/each}
 		</div>
 	</div>
-{/snippet}
+</section>
 
-<!-- 
-<PageContent class="border-y-primaryborder-y-2" contentClass="!space-y-8">
-	<div id="waitlist" class="scroll-mt-20">
-		 <T tag="h2" class="text-balance"> 
-		 	{m._Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List()} 
-		 </T> 
-		 <T class="mt-1 text-balance font-medium"> 
-		 	{m.Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_()} 
-		 </T> 
+<!-- Scoreboard -->
+<section class="bg-background">
+	<div class="{container} py-16 md:py-24">
+		<div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
+			<h2 class="{h2} text-primary">{m.Compare_by_test_results()}</h2>
+			<a href="/scoreboard" class="font-medium text-primary underline underline-offset-4">
+				{m.View_Scoreboard()} ↗
+			</a>
+		</div>
+		<p class="mt-4 max-w-[48rem] text-lg leading-relaxed text-pretty text-slate-700">
+			{m.home_scoreboard_lead()}
+		</p>
+		<div class="mt-8">
+			<ScoreboardSection {...scoreboard} />
+		</div>
 	</div>
+</section>
 
-	 {#if !formSuccess} 
-	 	<Form {form} hide={['submit_button']} class=" !space-y-3" hideRequiredIndicator> 
-	 		<div class="flex w-full max-w-3xl flex-col gap-2 md:flex-row md:gap-6"> 
-	 			<div class="grow"> 
-	 				<Field 
-	 					{form} 
-	 					name="name" 
-	 					options={{ 
-	 						label: m.Your_name(), 
-	 						placeholder: m.John_Doe(), 
-	 						class: 'bg-secondary/40 ' 
-	 					}} 
-	 				/> 
-	 			</div> 
-	 			<div class="grow"> 
-	 				<Field 
-	 					{form} 
-	 					name="email" 
-	 					options={{ 
-	 						label: m.Your_email(), 
-	 						placeholder: m.e_g_hellomycompany_com(), 
-	 						class: 'bg-secondary/40' 
-	 					}} 
-	 				/> 
-	 			</div> 
-	 		</div> 
-	 		<SubmitButton>{m.Join_the_Waitlist()}</SubmitButton> 
-	 	</Form> 
-	 {:else} 
-	 	<Alert variant="info"> 
-	 		<p class="font-bold">{m.Request_sent_()}</p> 
-	 		<p> 
-	 			{m.Thanks_for_your_interest_We_will_write_to_you_soon()} 
-	 		</p> 
-	 	</Alert> 
-	 {/if} 
-</PageContent>
--->
+<!-- Guides: the explanations behind the product, for visitors new to FCAF and EUDI conformance -->
+<section class="bg-secondary">
+	<div class="{container} py-16 md:py-24">
+		<div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
+			<h2 class="{h2} text-primary">{m.home_guides_title()}</h2>
+			<a href="/pages/guides" class="font-medium text-primary underline underline-offset-4">
+				{m.home_see_all()} ↗
+			</a>
+		</div>
+		<div class="mt-8 grid gap-4 md:grid-cols-3">
+			{#each guides as guide (guide.href)}
+				<a
+					href={guide.href}
+					class="flex flex-col gap-2 rounded-2xl border border-border bg-card p-6 transition-colors duration-150 hover:border-primary"
+				>
+					<strong class="flex-1 text-lg leading-snug font-semibold text-slate-900">
+						{guide.title}
+					</strong>
+					<span class="text-slate-700">{guide.text}</span>
+				</a>
+			{/each}
+		</div>
+	</div>
+</section>
+
+<!-- CTA: light band, so the page does not run into the indigo footer -->
+<section class="bg-background">
+	<div class="{container} grid gap-12 py-16 md:py-24 lg:grid-cols-2">
+		<div>
+			<h2 class="{h2} text-primary">{m.home_cta_title()}</h2>
+			<p class="mt-5 text-xl leading-relaxed text-pretty text-slate-700">
+				{m.home_cta_lead()}
+			</p>
+			<div class="mt-8 flex flex-wrap gap-3">
+				<Button href={$currentUser ? '/my' : '/login'} size="lg">
+					{$currentUser ? m.Go_to_Dashboard() : m.Log_in()}
+				</Button>
+				<Button href="/scoreboard" size="lg" variant="outline">
+					{m.home_see_fcaf_reports()}
+				</Button>
+			</div>
+		</div>
+		<div class="rounded-[10px] border border-border bg-secondary p-8">
+			<h2 class="text-2xl font-bold text-slate-900">{m.home_oss_title()}</h2>
+			<p class="mt-3 text-lg leading-relaxed text-pretty text-slate-700">
+				{m.home_oss_text()}
+			</p>
+			<a
+				href="https://github.com/forkbombeu/credimi"
+				class="mt-6 inline-block font-medium text-primary underline underline-offset-4"
+			>
+				{m.home_oss_star()} ↗
+			</a>
+		</div>
+	</div>
+</section>

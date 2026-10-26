@@ -8,7 +8,7 @@ import { redirect as svelteKitRedirect } from '@sveltejs/kit';
 import { goto as svelteKitGoto } from '$app/navigation';
 import { Record } from 'effect';
 
-import { getLocale, locales, localizeHref, localizeUrl } from '@/i18n/paraglide/runtime.js';
+import { getLocale, locales, localizeHref } from '@/i18n/paraglide/runtime.js';
 
 import * as m from './paraglide/messages.js';
 import { paraglideMiddleware } from './paraglide/server';
@@ -27,7 +27,9 @@ export const handleParaglide: Handle = ({ event, resolve }) =>
 	});
 
 export const goto = (url: string) => svelteKitGoto(localizeHref(url));
-export const redirect = (url: string) => svelteKitRedirect(303, localizeUrl(url));
+// Relative on purpose: on the server, absolute URLs carry the internal UI origin PocketBase proxies to.
+export const redirect = (url: string, status: 301 | 303 | 308 = 303) =>
+	svelteKitRedirect(status, localizeHref(url));
 
 //
 

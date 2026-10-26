@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { XIcon } from '@lucide/svelte';
 	import {
-		displayStandardName,
+		displayNameFromUid,
 		entityForComponent,
 		SuiteBrowse,
 		type SuiteFacetKey
@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function facetOptionLabel(key: SuiteFacetKey, value: string): string {
 		switch (key) {
 			case 'standard':
-				return displayStandardName(value);
+				return displayNameFromUid(value);
 			case 'component': {
 				const entity = entityForComponent(value);
 				return entity?.labels.singular ?? value;

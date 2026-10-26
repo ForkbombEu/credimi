@@ -13,16 +13,7 @@ type CustomIntegrationConfigStore = Record<string, Record<string, unknown>>;
 const STORAGE_KEY = 'pipeline_custom_integration_configs';
 const storage = createStorageHandlers<CustomIntegrationConfigStore>(
 	STORAGE_KEY,
-	new Proxy({} as Storage, {
-		get(_target, prop, receiver) {
-			const target = globalThis.localStorage;
-			if (target == null) {
-				return undefined;
-			}
-			const value = Reflect.get(target, prop, receiver);
-			return typeof value === 'function' ? value.bind(target) : value;
-		}
-	})
+	() => localStorage
 );
 
 export function getStoredConfig(checkId: string): Record<string, unknown> | undefined {

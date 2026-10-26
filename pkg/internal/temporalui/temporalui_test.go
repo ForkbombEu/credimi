@@ -65,6 +65,11 @@ func TestClassify(t *testing.T) {
 			want: routeForbidden,
 		},
 		{
+			name: "encoded prefix bypass",
+			path: "/%74emporal-ui/api/v1/namespaces/other",
+			want: routeForbidden,
+		},
+		{
 			name: "dot-dot segment",
 			path: "/temporal-ui/api/v1/namespaces/acme/../other",
 			want: routeForbidden,

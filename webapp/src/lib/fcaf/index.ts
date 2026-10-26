@@ -4,7 +4,8 @@
 
 /**
  * Public FCAF surface. Prefer `import { FCAF } from '$lib'` from routes and
- * cross-module callers; use relative imports inside this folder.
+ * cross-module callers; use relative imports inside this folder. Code on the
+ * first load of public pages imports `$lib/fcaf` instead (see AGENTS.md).
  *
  * Keep this barrel small: only what outside callers need. Report helpers and
  * ReportView stay private to `$lib/fcaf`.

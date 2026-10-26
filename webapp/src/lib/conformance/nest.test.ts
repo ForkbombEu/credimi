@@ -80,12 +80,12 @@ describe('nestSuites', () => {
 		expect(nested).toHaveLength(2);
 
 		const wallet = nested.find((s) => s.uid === 'openid4vp_wallet');
-		expect(wallet?.name).toBe('Openid4vp Wallet');
+		expect(wallet?.name).toBe('OpenID4VP Wallet');
 		expect(wallet?.versions).toHaveLength(1);
 		expect(wallet?.versions[0]?.uid).toBe('1.0');
 		const nestedSuite = wallet?.versions[0]?.suites[0];
 		expect(nestedSuite?.uid).toBe('openid_conformance_suite');
-		expect(nestedSuite?.name).toBe('Openid Conformance Suite');
+		expect(nestedSuite?.name).toBe('OpenID Conformance Suite');
 		expect(nestedSuite?.members).toEqual([
 			{
 				path: 'openid4vp_wallet/1.0/openid_conformance_suite/a',
@@ -190,7 +190,7 @@ describe('nestSuites', () => {
 		]);
 		const standard = nested[0];
 		const nestedSuite = standard?.versions[0]?.suites[0];
-		expect(standard).toMatchObject({ uid: 'vlei', name: 'Vlei' });
+		expect(standard).toMatchObject({ uid: 'vlei', name: 'vLEI' });
 		expect(standard).not.toHaveProperty('description');
 		expect(standard).not.toHaveProperty('standard_url');
 		expect(nestedSuite?.description).toBe('');

@@ -119,7 +119,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="bg-secondary pb-0">
-	<div class="mx-auto max-w-7xl px-4 md:px-8">
+	<div class="mx-auto max-w-site px-4 md:px-8">
 		<PublicPageHeader
 			entity="hub"
 			description={m.Explore_the_hub_and_try_credentials_wallets_and_services()}
@@ -184,7 +184,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if params.tab === 'conformance-checks'}
 	<div class="min-h-[300px] grow bg-secondary">
-		<div class="mx-auto max-w-7xl px-4 pb-8 md:px-8">
+		<div class="mx-auto max-w-site px-4 pb-8 md:px-8">
 			<div class="rounded-b-lg bg-white">
 				<ConformanceChecksTable
 					browse={suiteBrowse}
@@ -205,7 +205,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		{#snippet top({ Search })}
 			<div class="bg-secondary pb-0">
-				<div class="mx-auto max-w-7xl px-4 md:px-8">
+				<div class="mx-auto max-w-site px-4 md:px-8">
 					<div
 						class={[
 							'rounded-t-md bg-white px-4 pt-4 pb-6',
@@ -223,7 +223,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		{#snippet contentWrapper(children)}
 			<div class="min-h-[300px] grow bg-secondary">
-				<div class="mx-auto max-w-7xl px-4 pb-8 md:px-8">
+				<div class="mx-auto max-w-site px-4 pb-8 md:px-8">
 					{@render children()}
 				</div>
 			</div>

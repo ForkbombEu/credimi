@@ -31,6 +31,10 @@ const (
 	conformanceCheckStepUse = "conformance-check"
 
 	conformanceTemplateActivityChangeID = "credimi-2026-10-conformance-template-activity"
+	// conformanceCheckHookStepsChangeID gates resolving the catalog template for
+	// conformance-check steps in on_error/on_success hooks. Before it, hook steps
+	// kept their user-supplied with.config.template.
+	conformanceCheckHookStepsChangeID = "credimi-2026-10-conformance-check-hook-steps"
 )
 
 // conformanceTemplate holds everything ConformanceCheckSetupHook reads from disk
@@ -50,7 +54,6 @@ func ConformanceCheckSetupHook(
 	_ log.Logger,
 ) error {
 	logger := workflow.GetLogger(ctx)
-	steps := &wfDef.Steps
 
 	version := workflow.GetVersion(
 		ctx,
@@ -59,100 +62,153 @@ func ConformanceCheckSetupHook(
 		1,
 	)
 
-	for i := range *steps {
-		step := &(*steps)[i]
-
+	for i := range wfDef.Steps {
+		step := &wfDef.Steps[i].StepSpec
 		if step.Use != conformanceCheckStepUse {
 			continue
 		}
 		logger.Info("ConformanceCheckHook: processing step", "step", step.ID)
-		rawPayload, err := DecodePayload(step)
-		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-			return workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf(
-						"error decoding payload for step %s: %s",
-						step.ID,
-						err.Error(),
-					),
-				},
-			)
-		}
-		payload, err := workflowengine.DecodePayload[workflows.StartCheckWorkflowPipelinePayload](
-			rawPayload,
-		)
-		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-
-			return workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf(
-						"error decoding payload for step %s: %s",
-						step.ID,
-						err.Error(),
-					),
-				},
-			)
-		}
-
-		if payload.CheckID == "" {
-			return workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-					Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
-					Message: fmt.Sprintf("missing check_id for step %s", step.ID),
-				},
-			)
-		}
-
-		resolved, err := loadConformanceTemplate(ctx, version, payload.CheckID, step.ID)
-		if err != nil {
+		if err := setupConformanceCheckStep(ctx, version, step, config); err != nil {
 			return err
 		}
-
-		suite, standard, checkName := splitConformanceCheckID(payload.CheckID)
-		memo := map[string]any{
-			"author":   suite,
-			"standard": standard,
-			"test":     checkName,
-			workflowengine.CredimiCapabilitiesMemoKey: workflowengine.CredimiCapabilities{
-				Logs: workflows.ConformanceSuiteHasLogs(suite),
-				QR: conformancecatalog.SuiteHasQR(
-					conformancecatalog.SuitePathPrefixFromCheckID(payload.CheckID),
-				),
-			},
-		}
-		SetConfigValue(&step.With.Config, "memo", memo)
-
-		userMail, ok := config["user_mail"].(string)
-		if !ok {
-			return workflowengine.NewAppError(
-				workflowengine.WorkflowError{
-					Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
-					Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
-					Message: "missing or invalid user_mail in workflow config",
-				},
-			)
-		}
-
-		defaultPayload := make(map[string]any)
-		SetPayloadValue(&defaultPayload, "user_mail", userMail)
-		SetPayloadValue(&defaultPayload, "suite", suite)
-		SetPayloadValue(&defaultPayload, "standard", standard)
-		for k, v := range resolved.SuiteExtra {
-			SetPayloadValue(&defaultPayload, k, v)
-		}
-
-		MergePayload(&defaultPayload, &step.With.Payload)
-		step.With.Payload = defaultPayload
-		SetConfigValue(&step.With.Config, "template", resolved.Template)
 	}
 
+	// The StepCI template of a conformance check is server-owned: it is rendered
+	// with Go templates and run against external services. Hook steps must get
+	// the catalog template too, never one from the pipeline YAML.
+	hookSteps := conformanceCheckHookSteps(wfDef.Steps)
+	if len(hookSteps) == 0 {
+		return nil
+	}
+	if workflow.GetVersion(
+		ctx,
+		conformanceCheckHookStepsChangeID,
+		workflow.DefaultVersion,
+		1,
+	) == workflow.DefaultVersion {
+		return nil
+	}
+	for _, step := range hookSteps {
+		logger.Info("ConformanceCheckHook: processing hook step", "step", step.ID)
+		if err := setupConformanceCheckStep(ctx, version, step, config); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// conformanceCheckHookSteps returns the conformance-check steps nested in
+// on_error and on_success hooks.
+func conformanceCheckHookSteps(steps []pipeline.StepDefinition) []*pipeline.StepSpec {
+	var hookSteps []*pipeline.StepSpec
+	for i := range steps {
+		for _, hook := range steps[i].OnError {
+			if hook != nil && hook.Use == conformanceCheckStepUse {
+				hookSteps = append(hookSteps, &hook.StepSpec)
+			}
+		}
+		for _, hook := range steps[i].OnSuccess {
+			if hook != nil && hook.Use == conformanceCheckStepUse {
+				hookSteps = append(hookSteps, &hook.StepSpec)
+			}
+		}
+	}
+	return hookSteps
+}
+
+// setupConformanceCheckStep fills a conformance-check step with the catalog
+// template, memo and default payload of its check_id.
+func setupConformanceCheckStep(
+	ctx workflow.Context,
+	version workflow.Version,
+	step *pipeline.StepSpec,
+	config map[string]any,
+) error {
+	rawPayload, err := DecodePayload(&pipeline.StepDefinition{StepSpec: *step})
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"error decoding payload for step %s: %s",
+					step.ID,
+					err.Error(),
+				),
+			},
+		)
+	}
+	payload, err := workflowengine.DecodePayload[workflows.StartCheckWorkflowPipelinePayload](
+		rawPayload,
+	)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+
+		return workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf(
+					"error decoding payload for step %s: %s",
+					step.ID,
+					err.Error(),
+				),
+			},
+		)
+	}
+
+	if payload.CheckID == "" {
+		return workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+				Message: fmt.Sprintf("missing check_id for step %s", step.ID),
+			},
+		)
+	}
+
+	resolved, err := loadConformanceTemplate(ctx, version, payload.CheckID, step.ID)
+	if err != nil {
+		return err
+	}
+
+	suite, standard, checkName := splitConformanceCheckID(payload.CheckID)
+	memo := map[string]any{
+		"author":   suite,
+		"standard": standard,
+		"test":     checkName,
+		workflowengine.CredimiCapabilitiesMemoKey: workflowengine.CredimiCapabilities{
+			Logs: workflows.ConformanceSuiteHasLogs(suite),
+			QR: conformancecatalog.SuiteHasQR(
+				conformancecatalog.SuitePathPrefixFromCheckID(payload.CheckID),
+			),
+		},
+	}
+	SetConfigValue(&step.With.Config, "memo", memo)
+
+	userMail, ok := config["user_mail"].(string)
+	if !ok {
+		return workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+				Summary: errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Description,
+				Message: "missing or invalid user_mail in workflow config",
+			},
+		)
+	}
+
+	defaultPayload := make(map[string]any)
+	SetPayloadValue(&defaultPayload, "user_mail", userMail)
+	SetPayloadValue(&defaultPayload, "suite", suite)
+	SetPayloadValue(&defaultPayload, "standard", standard)
+	for k, v := range resolved.SuiteExtra {
+		SetPayloadValue(&defaultPayload, k, v)
+	}
+
+	MergePayload(&defaultPayload, &step.With.Payload)
+	step.With.Payload = defaultPayload
+	SetConfigValue(&step.With.Config, "template", resolved.Template)
 	return nil
 }
 

@@ -30,13 +30,15 @@ export function getHubItemTypeFilter(type: HubItemType): string {
 	return `type = '${type}'`;
 }
 
-export function getHubItemLogo(item: HubItem): string | undefined {
+/** `thumb`: a PocketBase thumb size for small avatars; 100x100 is the one every file field has. */
+export function getHubItemLogo(item: HubItem, thumb?: '100x100'): string | undefined {
 	return item.avatar_file
 		? pb.files.getURL(
 				item.type === 'pipelines'
 					? { collectionName: 'organizations', id: item.organization_id }
 					: { collectionName: item.type, id: item.id },
-				item.avatar_file
+				item.avatar_file,
+				thumb ? { thumb } : undefined
 			)
 		: item.avatar_url
 			? item.avatar_url
@@ -57,10 +59,10 @@ export function getHubItemUrl(item: HubItem) {
 
 //
 
-export function getHubItemData(item: HubItem) {
+export function getHubItemData(item: HubItem, thumb?: '100x100') {
 	return {
 		href: getHubItemUrl(item),
-		logo: getHubItemLogo(item),
+		logo: getHubItemLogo(item, thumb),
 		display: getHubItemTypeEntityData(item.type)
 	};
 }

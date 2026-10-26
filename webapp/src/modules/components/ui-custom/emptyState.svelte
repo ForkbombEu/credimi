@@ -27,18 +27,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	class={cn(
-		'flex flex-col items-center justify-center rounded-lg border p-10 text-center text-primary/40',
+		'flex flex-col items-center justify-center rounded-lg border p-10 text-center text-muted-foreground',
 		className
 	)}
 >
-	<div class="mb-6 opacity-50">
+	<div class="mb-6 text-primary/40">
 		<Icon src={icon} size={70} />
 	</div>
 
+	<!-- Not a heading: empty states sit at any depth and would break the page outline. -->
 	{#if title}
-		<T tag="h4">
-			{title}
-		</T>
+		<p class="text-xl font-semibold tracking-tight text-slate-700">{title}</p>
 	{/if}
 
 	{#if description}

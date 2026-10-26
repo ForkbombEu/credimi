@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let {
 		content,
-		contentClass = 'mx-auto max-w-7xl p-4',
+		contentClass = 'mx-auto max-w-site p-4',
 		actionsClass = 'fixed right-6 bottom-6 flex gap-2',
 		actions
 	}: Props = $props();

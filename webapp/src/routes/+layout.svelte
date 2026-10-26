@@ -7,12 +7,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { QueryClientProvider } from '@tanstack/svelte-query';
 	import { page } from '$app/state';
-	import favicon from '$lib/assets/favicon.png';
 	import GlobalConfirm from '$lib/layout/global-confirm.svelte';
 	import GlobalLoading from '$lib/layout/global-loading.svelte';
 	import { queryClient } from '$lib/query-client';
+	import SeoHead from '$lib/seo/seo-head.svelte';
 
-	import { appName } from '@/brand';
 	import { Toaster } from '@/components/ui/sonner';
 	import { locales, localizeHref } from '@/i18n/paraglide/runtime';
 
@@ -21,12 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { children } = $props();
 </script>
 
-<svelte:head>
-	<link rel="icon" href={favicon} />
-	<title>
-		{appName}
-	</title>
-</svelte:head>
+<SeoHead />
 
 <QueryClientProvider client={queryClient}>
 	{@render children()}

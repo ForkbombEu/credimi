@@ -9,12 +9,13 @@ import { pb } from '@/pocketbase';
 export const load = async ({ params, fetch }) => {
 	if (!browser) return;
 
-	const userAuthorization = await pb
-		.collection('orgAuthorizations')
-		.getFirstListItem(`user = "${pb.authStore.model!.id}" && organization = "${params.id}"`, {
-			fetch,
-			requestKey: null
-		});
+	const userAuthorization = await pb.collection('orgAuthorizations').getFirstListItem(
+		pb.filter('user = {:user} && organization = {:organization}', {
+			user: pb.authStore.model!.id,
+			organization: params.id
+		}),
+		{ fetch, requestKey: null }
+	);
 
 	const userRole = await pb.collection('orgRoles').getOne(userAuthorization.role, { fetch });
 
