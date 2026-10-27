@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions
+    url: https://github.com/ForkbombEu/credimi/discussions
+    about: Ask questions and discuss ideas before opening an issue.
