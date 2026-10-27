@@ -1,0 +1,42 @@
+id: WS_AP_SM_DeviceBinding_002a
+title: Sign the Client Attestation with ES256, ES384 or ES512.
+source:
+  path: SecurityMechanisms/DeviceBinding/WS_AP_SM_DeviceBinding_002a.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: security_mechanisms.device_binding
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: Commission Implementing Regulation (EU) 2024/2979, as amended
+  section: 'annex Ia, Ib'
+- title: ETSI TS 119 472-3
+  section: '4.4'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4.3'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: OpenID for Verifiable Credential Issuance 1.0
+  section: '5.1.4, E'
+  url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+- title: OAuth 2.0 Attestation-Based Client Authentication
+  section: '5.1'
+  url: https://datatracker.ietf.org/doc/draft-ietf-oauth-attestation-based-client-auth/
+- title: ECCG Agreed Cryptographic Mechanisms
+  section: '5.2'
+evidence:
+  issuance_exchange:
+    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
+assertions:
+# ES256, ES384 and ES512 are all on the ECCG agreed mechanisms list, so the intersection the
+# source requires is these three.
+- id: client_attestation_alg_is_acceptable
+  validator: jose.signature_algorithm
+  input: evidence.issuance_exchange
+  params:
+    select:
+      request: /par
+      path: raw_headers[OAuth-Client-Attestation]
+verdict:
+  pass_when: all_assertions_pass

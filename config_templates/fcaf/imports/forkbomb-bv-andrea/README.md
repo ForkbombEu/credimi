@@ -46,7 +46,7 @@ The public wallet action exports included here are:
 - `choose-eudi-wallet`
 - `fcaf-engagement-haip-vp`
 
-The FCAF scenarios additionally share seven flows. They must exist as
+The FCAF scenarios additionally share eight flows. They must exist as
 `wallet_actions` records before the aggregate pipeline runs:
 
 - `fcaf-expect-request-rejected`: the Wallet answers with an error screen or
@@ -78,6 +78,11 @@ The FCAF scenarios additionally share seven flows. They must exist as
   commands of `getcredential-generic-credential-without-authentication` except
   the final `credential-added` screenshot, so the step's screenshots evidence
   the presentation alone; keep the two flows' commands in step.
+- `fcaf-engage-credential-offer`: the attestation-provider engagement flow.
+  It opens Capture's `/ui/sessions/{id}/engage` page (`engage_url`) in
+  Chrome, follows its "Open in wallet" link, accepts the offer whenever the
+  Wallet shows it, and screenshots `wallet-invoked` or `wallet-not-invoked`,
+  which `oid4vci.offer_engagement` reads. It never asserts an outcome.
 
 The remaining wallet files are local reusable Maestro helpers. The files are
 not database records and contain no instance-specific PocketBase IDs. Importers

@@ -1,0 +1,117 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: FCAF attestation provider Credential Offer URL schemes
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+    log_checker: capture-wallet
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+  # WS_AP_IA_Engagement_007a and 007b: the issuer provides its Credential Offer
+  # link with the haip-vci:// and the eu-eaa-offer:// custom URL schemes. The
+  # End-user opens Capture's engagement page for each session in the
+  # User-agent and follows its link (fcaf-engage-credential-offer), and the
+  # session records whether the Wallet then acted on the offer.
+  - id: create-haip-vci-session
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.issuer_url}/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        issuer_configuration_id: eu-pid-device-bound
+        credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+        flow: authorization_code
+        evidence_mode: full
+        offer_scheme: haip-vci://
+
+  - id: engage-haip-vci-offer
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+      version_id: installed_from_external_source
+      parameters:
+        engage_url: ${fixture.issuer_url}/ui/sessions/${{ create-haip-vci-session.outputs.body.session_id }}/engage
+
+  - id: fetch-haip-vci-session
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/sessions/${{ create-haip-vci-session.outputs.body.session_id }}
+      expected_status: 200
+
+  - id: fetch-haip-vci-requests
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/sessions/${{ create-haip-vci-session.outputs.body.session_id }}/requests
+      expected_status: 200
+
+  - id: create-eu-eaa-offer-session
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.issuer_url}/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        issuer_configuration_id: eu-pid-device-bound
+        credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+        flow: authorization_code
+        evidence_mode: full
+        offer_scheme: eu-eaa-offer://
+
+  - id: engage-eu-eaa-offer
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+      version_id: installed_from_external_source
+      parameters:
+        engage_url: ${fixture.issuer_url}/ui/sessions/${{ create-eu-eaa-offer-session.outputs.body.session_id }}/engage
+
+  - id: fetch-eu-eaa-offer-session
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/sessions/${{ create-eu-eaa-offer-session.outputs.body.session_id }}
+      expected_status: 200
+
+  - id: fetch-eu-eaa-offer-requests
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/sessions/${{ create-eu-eaa-offer-session.outputs.body.session_id }}/requests
+      expected_status: 200
+
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      suite: wallet_solution/attestation_provider
+      test_ids:
+        - WS_AP_IA_Engagement_007a
+        - WS_AP_IA_Engagement_007b
+      pipeline_outputs:
+        pipeline.ap.offer-scheme-engagement:
+          output:
+            haip_vci_engagement:
+              session_creation: ${{ create-haip-vci-session.outputs.body }}
+              capture_session: ${{ fetch-haip-vci-session.outputs.body }}
+              session_requests: ${{ fetch-haip-vci-requests.outputs.body }}
+              screenshots: ${{ engage-haip-vci-offer.outputs.flow_output.maestro_screenshot_urls }}
+            haip_vci_visual_evidence: ${{ engage-haip-vci-offer.outputs.flow_output.maestro_screenshot_urls }}
+            eu_eaa_offer_engagement:
+              session_creation: ${{ create-eu-eaa-offer-session.outputs.body }}
+              capture_session: ${{ fetch-eu-eaa-offer-session.outputs.body }}
+              session_requests: ${{ fetch-eu-eaa-offer-requests.outputs.body }}
+              screenshots: ${{ engage-eu-eaa-offer.outputs.flow_output.maestro_screenshot_urls }}
+            eu_eaa_offer_visual_evidence: ${{ engage-eu-eaa-offer.outputs.flow_output.maestro_screenshot_urls }}

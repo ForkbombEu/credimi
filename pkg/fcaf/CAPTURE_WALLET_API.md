@@ -11,7 +11,7 @@ additional deployment facts required to decide whether an FCAF test is
 implementable. The upstream API and the applicable OpenID specifications remain
 the wire-contract authorities.
 Synced from the upstream [Capture Wallet API reference](https://github.com/ForkbombEu/credimi-capture-wallet/blob/master/CAPTURE_WALLET_API.md)
-at `faf1938` on 22/10/2026.
+at `759bab5` on 26/10/2026.
 
 ## Published service contract
 
@@ -28,7 +28,7 @@ The base URL is configured by `--issuer-base-url`; production uses `https://capt
 - JSON is the default representation unless a route states another media type.
 - Unknown session IDs return `404` with an error object. Invalid protocol input normally returns `400`.
 - Session and event responses are evidence records: their `observed`, `checks`, `raw`, and event `detail` members can grow as the service captures more protocol information. Do not rely on undocumented members.
-- Never store access tokens, DPoP proofs, credential offers containing pre-authorized codes, or raw presentation payloads in logs or fixtures.
+- Never store access tokens, refresh tokens, authorization codes, pre-authorized codes, `tx_code`, `code_verifier`, DPoP proofs, issued credentials, credential offers containing pre-authorized codes, or raw presentation payloads in logs or fixtures. Two captures hold raw Wallet input on purpose and must be treated as sensitive evidence: an issuance session created with `evidence_mode: "full"` keeps the OpenID4VCI material listed under [FCAF ws_ap evidence](#fcaf-ws_ap-evidence) in clear in its own capture, while still redacting tokens, codes, `tx_code`, `code_verifier`, issued credentials, and the `Authorization`, `DPoP`, and cookie headers; and a presentation capture preserves raw Wallet form payloads. The global `/oid4vci/requests` ledger is always redacted.
 
 ## Service and discovery
 
@@ -38,7 +38,7 @@ The base URL is configured by `--issuer-base-url`; production uses `https://capt
 | `GET` | `/openapi.json` | OpenAPI 3.1 contract for the public REST and protocol surface. |
 | `GET` | `/docs` | Interactive API documentation. |
 | `GET` | `/issuers` | Lists the always-on issuer configurations, metadata URLs, warnings, and credential configuration IDs. |
-| `GET` | `/oid4vci/requests` | Bounded chronological OpenID4VCI request ledger. Sensitive fields are redacted to presence/length metadata. |
+| `GET` | `/oid4vci/requests` | Bounded chronological ledger of OpenID4VCI requests and of every request no route handled (`unmatched: true`). Sensitive fields are redacted to presence/length metadata, whatever a session's `evidence_mode`. |
 
 For each `{issuerConfigurationId}`:
 
@@ -66,6 +66,10 @@ For each `{issuerConfigurationId}`:
 | `fixture_id` | Predefined PID claim set the issued credential carries | `pid_default` |
 | `status_reference` | Shape of the `status` structure in an issued SD-JWT VC or mdoc; anything but `valid` is test-only | `valid` |
 | `digest_algorithm` | Hash function the issued SD-JWT VC digests its disclosures with: `sha-256`, `sha-384`, `sha-512` | `sha-256` |
+| `evidence_mode` | `redacted`, `full`; `full` is test-only | `redacted` |
+| `issuance_response_scenario` | HTTP responses the PAR and Credential endpoints deliver; test-only | — |
+| `offer_scheme` | URL scheme of the offer deeplink: `openid-credential-offer://`, `eu-eaa-offer://`, `haip-vci://` | `openid-credential-offer://` |
+| `offer_mutation` | JSON Pointer `set`/`unset` edits to the by-value Credential Offer; test-only | — |
 
 It returns `201` with `session_id`, issuer and authorization-server identifiers, the selected flow and configuration, `fixture_id`, `offer_url`, `deeplink`, and `status: "created"`. A configuration belonging to another issuer is rejected.
 
@@ -104,6 +108,12 @@ An issued credential with no `status` claim at all is `status_list_enabled: fals
 
 `digest_algorithm` sets the `_sd_alg` of an issued SD-JWT VC. `sha-256` is the Section 4.1.1 default and is omitted from the response and the capture; `sha-384` and `sha-512` are recorded as `digest_algorithm` in both. Credential Issuer Metadata keeps advertising SHA-256 only, so a credential digested with anything else is one a Wallet can present only if it supports that hash function, which is what `WS_RP_SH_Cryptography_CryptographicHash_010` asks for. An unsupported value is refused with `unsupported_digest_algorithm` and the supported list; `sha-1` is not offered, because SD-JWT requires a hash function that is secure at issuance. An mdoc configuration is refused with `digest_algorithm_unsupported_for_mdoc`: those digests belong to the Mobile Security Object, not to `_sd_alg`.
 
+`evidence_mode: "full"` keeps the session's own OpenID4VCI evidence unredacted, as described under [FCAF ws_ap evidence](#fcaf-ws_ap-evidence). It is refused with `evidence_mode_not_enabled` unless the deployment sets `FCAF_SCENARIOS_ENABLED`, and an unknown value with `unsupported_evidence_mode` and the supported list. `full` is returned and recorded as `evidence_mode`; the default `redacted` is omitted from both and keeps every existing captured value redacted as before.
+
+`offer_scheme` is the URL scheme of `deeplink`, passed to Credo-TS as the offer `baseUri`; a by-value offer keeps it. An unknown value is refused with `unsupported_offer_scheme` and the supported list. A scheme other than the default is returned and recorded as `offer_scheme`, and in the `credential_offer_generated` event.
+
+`offer_mutation` edits the Credential Offer carried by value in `deeplink`, for the FCAF tests that need an offer with a member missing or wrong. It takes `set` and `unset` with the rules of a [`request_mutation`](#deliberate-request-mutations) target, for example `{"unset":["/credential_issuer"]}` or `{"unset":["/credential_configuration_ids"]}`. It is refused with `offer_mutation_not_enabled` unless the deployment sets `FCAF_SCENARIOS_ENABLED`, with `invalid_offer_mutation` when the shape or a pointer is not valid, and with `offer_mutation_requires_by_value_offer` for `credential_offer_mode: "credential_offer_uri"`, whose offer Credo-TS serves itself. Credo keeps the generated offer: `GET /sessions/{sessionId}/offer`, `credential_offer` in `GET /sessions/{sessionId}/deeplink`, and the Credential Offer endpoint still return it, and the capture records `offer_mutation`, `raw.credential_offer` (generated), `raw.credential_offer_delivered` (in the deeplink), and a `credential_offer_mutation_applied` event with the pointers touched.
+
 [FCAF_FIXTURES.md](FCAF_FIXTURES.md) catalogues every credential, claim-set fixture, and status-list fixture together with the conformance tests each serves.
 
 | Method | Path | Purpose |
@@ -113,6 +123,7 @@ An issued credential with no `status` claim at all is `status_list_enabled: fals
 | `GET` | `/sessions/{sessionId}/deeplink` | `{ deeplink, credential_offer }`; records a deeplink-generation event. |
 | `GET` | `/sessions/{sessionId}/jwks` | Verified wallet holder-binding JWKS. Returns `409` until a holder key has been observed. |
 | `GET` | `/sessions/{sessionId}/events` | Chronological issuance events (`at`, `type`, `detail`). |
+| `GET` | `/sessions/{sessionId}/requests` | The session's attributed requests and every unattributed ledger request since it was created; see [FCAF ws_ap evidence](#fcaf-ws_ap-evidence). |
 | `POST` | `/sessions/{sessionId}/status` | `{"status":"revoked"}`: revoke every reference allocated to the session through the Status List service. Test-only; see below. |
 
 ### Revoking issued credentials
@@ -169,6 +180,171 @@ The token endpoint accepts either:
 The credential request normally uses `application/json` with `credential_configuration_id` and one `proofs.jwt` or `proofs.attestation` entry. For encrypted credential requests, send an `application/jwt` compact JWE; the encrypted response is also a compact JWE. The selected issuer's metadata determines supported proof and encryption capabilities.
 
 Credo enforces the wallet's PKCE: a PAR request without `code_challenge` gets `400 invalid_request`, and a token request whose `code_verifier` does not match gets `400 invalid_grant`. A Credential Request without a valid DPoP-bound access token gets `401`. Time claims of Wallet Attestations, Client Attestation PoPs, and DPoP proofs are checked with a 60-second clock skew.
+
+### FCAF ws_ap evidence
+
+The EUDI FCAF Wallet Solution → Attestation Provider (`ws_ap`) tests evaluate what a Wallet sends
+to, and how it reacts to, this issuer. The service never decides them: Credo-TS keeps verifying
+every request as usual, and the capture records what arrived and what was returned so that Credimi
+can evaluate it. Decoded values are decoded only; whether a signature verifies, an algorithm is
+acceptable, or a claim conforms is for the consumer to establish from the raw values.
+
+Each request is attributed to its issuance session when it arrives, before Credo-TS handles it, so
+a request Credo rejects is still in the session's `raw.oid4vci_requests`. Attribution uses the same
+Credo issuance-session lookups Credo's endpoints use: `issuer_state` at PAR, the PAR `request_uri`
+at `/authorize`, the chained `state` at `/redirect`, the `pre-authorized_code` or `code` at
+`/token`, and the grant the access token names at `/credential` (the token is decoded for this,
+not verified). A request that identifies no session, or one Credo cannot match, stays in the
+ledger with `session_id: null`.
+
+A request that finds no configured issuer resource or other route, such as
+`/.well-known/openid-credential-issuer` with no or an unconfigured path suffix,
+`/.well-known/oauth-authorization-server`, or any other unknown path, is still recorded in the
+ledger, with `unmatched: true`, the same redaction, and the `404`
+it received. It is attributed only when its path names an existing session, as in
+`/sessions/{sessionId}/…` or `/ui/sessions/{sessionId}/…`.
+
+`GET /sessions/{sessionId}/requests` returns `{session_id, window, requests,
+unattributed_requests}`: `requests` is the session's `raw.oid4vci_requests` ordered by `at`, in
+the session's evidence mode, and `unattributed_requests` every ledger entry with `session_id: null`
+recorded inside `window`, which runs from the session's creation to the response time. A metadata
+fetch, a nonce request no Credential Request used, and an unmatched request carry no session
+context, so they appear there, redacted, for every session open at the time; the consumer decides
+which belong to the Wallet under test. The ledger keeps only its latest 1,000 entries.
+
+`GET /ui/sessions/{sessionId}/engage`, available while `GUI_ENABLED` is on, is a minimal page with
+only the session's delivered `deeplink`, as an "Open in wallet" button and a QR code, and logs a
+`credential_offer_engagement_page_served` event. An End-User engaging from it gives a Wallet that
+derives a metadata URL from the engaging page's origin or referrer this service's own host, so
+that request, if made, is recorded as above.
+
+Every capture, in both modes, records `header_counts`: the occurrences of each header field by
+lower-case name, counted from the raw header list. Node joins repeated header fields into one
+value, so `headers` alone cannot show that a field was sent exactly once.
+
+A session created with `evidence_mode: "full"` exposes, in its own `raw.oid4vci_requests`, a
+`full` form of each request with the same `id` and `at` as the ledger entry:
+
+| Member | Content |
+| --- | --- |
+| `raw_headers` | Every header field in received order, `{name, value}`, with the original name casing. `Authorization`, `DPoP`, `Cookie`, and `Proxy-Authorization` values are replaced with presence and length metadata. |
+| `headers` | As in the ledger, but with the `OAuth-Client-Attestation` and `OAuth-Client-Attestation-PoP` values in clear. |
+| `query`, `body` | Proofs, attestations, `client_assertion`, and the `/authorize` `request_uri` in clear. Access and refresh tokens, authorization and pre-authorized codes, `tx_code`, `code_verifier`, `client_secret`, and `password` stay redacted. |
+| `raw_body` | PAR, token, and Credential Requests only: `content_type`, the declared `Content-Type`, and `base64`, the exact received body bytes, so duplicate member names, invalid UTF-8, or a byte order mark stay visible. An `application/jwt` body is kept as `text` instead. A token request body is described as `{content_type, redacted: true, length}`, because it carries the codes and verifier that stay redacted. |
+| `response.body` | The PAR `request_uri` and `expires_in`, the Nonce Endpoint `c_nonce`, the token response members other than tokens, and Credential error responses, in clear. Access and refresh tokens and issued credentials stay redacted. |
+
+A body is read for `raw_body` even when its media type matches no parser, and a request whose
+body a parser rejects, such as malformed JSON, is still captured and attributed, with `body: null`
+and the error response the service returned.
+
+Every capture, in both modes, records the delivered response in `response`: `status`,
+`content_type`, and `body`, taken from the bytes finally written, after any response encryption.
+A JSON body is redacted by the same rules as the request in that mode, so the ledger shows a PAR
+`request_uri`, tokens, and issued credentials as presence and length metadata and keeps `c_nonce`
+in clear. Any other body, such as a redirect page carrying an authorization code or an encrypted
+Credential Response, is always reduced to presence and length. `body` is absent when the response
+had none.
+
+The Nonce Endpoint takes no session context, so a nonce response is first recorded in the ledger
+with `session_id: null`. When a Credential Request arrives, every string `nonce` in its proofs
+(each `proofs.jwt` payload, its `key_attestation` payload, and each `proofs.attestation` payload) is
+matched against the `response.body.c_nonce` of unattributed nonce responses from the same issuer.
+A match gets the session's `session_id` and is appended to its `raw.oid4vci_requests`, after the
+requests already there; order those entries by `at`. A nonce response no Credential Request used
+stays unattributed in `GET /oid4vci/requests`, where a consumer can still match it by `c_nonce` and
+`at`. A `c_nonce` returned in a token response is part of that token request's own capture.
+
+`observed.client_authentication` records the first request carrying `OAuth-Client-Attestation` or
+`OAuth-Client-Attestation-PoP`, in both modes: `method: "wallet_attestation"`, and for each of
+`wallet_attestation` and `wallet_attestation_pop` whether it is `present`, its `source`, the
+decoded JOSE `header` and `claims`, and the decode `error`. When a header is repeated, the first
+value is decoded and `source` ends in `[0]`. `wallet_attestation.cnf_jwk` is the attestation's
+`cnf.jwk`; `client_id_matches` compares its `sub` with the request's `client_id`, and is `null` when
+the request states none; `wallet_attestation_pop.audience_matches` compares the PoP `aud` with the
+authorization server identifier; `challenge` is the PoP `challenge`. The same comparisons are in
+`checks.wallet_attestation_present`, `wallet_attestation_pop_present`,
+`wallet_attestation_client_id_matches`, and `wallet_attestation_pop_audience_matches`.
+
+In a `full` session, `raw.credential_request_proofs` records the latest Credential Request's proofs
+when the request arrives, after an encrypted request is decrypted and before Credo-TS verifies
+anything, so a proof Credo rejects is kept as fully as one it accepts. It carries `request_id`, the
+`id` of the request's `raw.oid4vci_requests` entry, and `at`; `proofs`, the member exactly as
+received with its JSON types, so a non-array `jwt` or a non-string element is visible; `jwt`, one
+entry per string in `proofs.jwt` (or `proofs.jwt` itself when it is a string) with its `compact`
+value, decoded `header` and `payload`, decode `error`, and `source` such as `proofs.jwt[0]`, plus
+`key_attestation` decoded the same way when the JOSE header carries one as a string; and
+`attestation`, the Key Attestations of `proofs.attestation` decoded the same way. The Key
+Attestation's `x5c`, `attested_keys`, and `nonce` are in its decoded `header` and `payload`.
+`raw.proof_headers` and the proof `checks` are unchanged: they are still written only once Credo
+has accepted the proof.
+
+| Evidence | FCAF tests |
+| --- | --- |
+| PAR `header_counts["oauth-client-attestation"]` and `["oauth-client-attestation-pop"]` | `WS_AP_MS_ProtocolMessages_035a`, `_036a` |
+| `full`: PAR `raw_headers` attestation and PoP compact values | `WS_AP_MS_ProtocolMessages_035b`, `_036b`; `WS_AP_SM_DeviceBinding_001a`, `_001b`, `_002b`, `_003b` |
+| `observed.client_authentication.wallet_attestation` `header`, `claims` | `WS_AP_MS_ProtocolMessages_037a`, `_037b`, `_037c`; `WS_AP_SM_DeviceBinding_002a` |
+| `observed.client_authentication.wallet_attestation_pop` `header`, `claims`, `audience_matches`, `challenge` | `WS_AP_MS_ProtocolMessages_038a`; `WS_AP_SM_DeviceBinding_003a` |
+| `observed.client_authentication.wallet_attestation.cnf_jwk` | `WS_AP_SM_DeviceBinding_003b` |
+| `full`: `/authorize` `query.request_uri` | `WS_AP_MS_ProtocolMessages_039b` |
+| `full`: Credential Request `raw_body` and its `content_type` | `WS_AP_IA_MainInteraction_030b` |
+| `full`: `raw.credential_request_proofs.proofs` | `WS_AP_MS_ProtocolMessages_051a`, `_051b`, `_051c` |
+| `full`: `raw.credential_request_proofs.jwt[]` `payload` | `WS_AP_MS_ProtocolMessages_053a`, `_053b`, `_053c`, `_053d` |
+| `full`: `raw.credential_request_proofs.jwt[]` `compact` and `key_attestation` | `WS_AP_SM_DeviceBinding_010a`, `_010c`, `_011a`, `_011b` |
+| `full`: `raw.credential_request_proofs.attestation[]` | `WS_AP_SM_DeviceBinding_011a`, `_011b` |
+| `full`: PAR `response.body.request_uri` and the `/authorize` `query.request_uri` | `WS_AP_IA_MainInteraction_010c`, `WS_AP_IA_Supportive_011a` |
+| Attributed nonce `response.body.c_nonce` and `raw.credential_request_proofs` `jwt[].payload.nonce` (`full`) | `WS_AP_SM_DeviceBinding_012a` |
+| Attributed nonce `response.body.c_nonce` and `raw.credential_request_proofs` `attestation[].payload.nonce` (`full`) | `WS_AP_SM_DeviceBinding_013a` |
+| `issuance_response_scenario.par` omitting `/request_uri`; later `raw.oid4vci_requests` and ledger entries | `WS_AP_IA_Supportive_011b_UF` |
+| `issuance_response_scenario.credential` denying with `credential_request_denied`; later `raw.oid4vci_requests` entries | `WS_AP_IA_MainInteraction_031b_UF` |
+| `offer_scheme: "haip-vci://"` and `"eu-eaa-offer://"` deeplinks; the session's later `raw.oid4vci_requests` | `WS_AP_IA_Engagement_007a`, `_007b` |
+| Default by-value `deeplink` and `GET /sessions/{sessionId}/offer`; the session's later requests | `WS_AP_MS_ProtocolMessages_033a` |
+| `offer_mutation` `{"unset":["/credential_configuration_ids"]}`, `raw.credential_offer_delivered`; the absence of later requests | `WS_AP_MS_ProtocolMessages_033c_UF` |
+| `offer_mutation` `{"unset":["/credential_issuer"]}` engaged from `/ui/sessions/{sessionId}/engage`; `unattributed_requests` of `GET /sessions/{sessionId}/requests` | `WS_AP_MS_ProtocolMessages_033b_UF` |
+
+#### Issuer response scenarios
+
+`issuance_response_scenario` controls what the Wallet receives from the session's PAR and Credential
+endpoints, so a test can check how a Wallet reacts to a defective or refusing issuer. It is refused
+with `issuance_response_scenario_not_enabled` unless the deployment sets `FCAF_SCENARIOS_ENABLED`,
+and with `invalid_issuance_response_scenario` when the shape, an endpoint name, a member, or a
+pointer is not valid. Each of `par` and `credential` takes the members of the verifier's
+[`response_scenario`](#verifier-response-scenarios) plus `omit_parameters`:
+
+| Member | Effect |
+| --- | --- |
+| `status` | The delivered HTTP status, 100 to 599. |
+| `content_type` | The delivered media type. |
+| `body` | The exact delivered body, replacing the response Credo-TS produced. |
+| `extra_parameters` | Members merged into the produced JSON body. |
+| `omit_parameters` | RFC 6901 JSON Pointers removed from the produced JSON body, after `extra_parameters`. |
+
+The required FCAF cases are data, not named modes:
+
+```json
+{ "issuance_response_scenario": { "par": { "omit_parameters": ["/request_uri"] } } }
+```
+
+delivers the PAR `201` with `expires_in` and no `request_uri`, and
+
+```json
+{ "issuance_response_scenario": { "credential": {
+  "status": 400, "content_type": "application/json",
+  "body": "{\"error\":\"credential_request_denied\"}" } } }
+```
+
+answers every Credential Request with that Credential Error Response.
+
+The scenario is applied at the HTTP boundary only. Credo-TS still handles the request and its state
+moves as usual, so the session's `status` and `checks` describe what really happened: a denied
+Credential Request whose credential Credo issued leaves the session `credential_issued`. An
+encrypted Credential Response is encrypted after the scenario is applied. Each application logs an
+`issuance_response_scenario_applied` event with `endpoint`, `request_id` (the
+`raw.oid4vci_requests` entry), the `scenario`, and `original` and `delivered` responses, each
+`{status, content_type, body}` with the body redacted for the session's evidence mode. The
+delivered response is also the request's captured `response`. Every later request of the session,
+including a retried `/token` or `/credential`, is attributed and captured as usual; a request that
+carries nothing identifying the session, such as an `/authorize` without the omitted `request_uri`,
+stays in the ledger with `session_id: null`.
 
 ## OpenID4VP presentation capture
 
@@ -493,6 +669,7 @@ These routes support the server-rendered operator UI. They are not a stable prog
 | `GET` | `/ui/help` |
 | `POST` | `/ui/sessions` |
 | `GET` | `/ui/sessions/{sessionId}` |
+| `GET` | `/ui/sessions/{sessionId}/engage` |
 | `POST` | `/ui/openid4vp/sessions` |
 | `GET` | `/ui/openid4vp/sessions/{sessionId}` |
 | `GET` | `/ui/openid4vp/sessions/{sessionId}/dc_api_presentation` |
@@ -515,10 +692,12 @@ FCAF scenarios target `https://capture-wallet.credimi.io` (production) since
 30/09/2026; earlier observations below were recorded on
 `https://beta-capture-wallet.credimi.io`. The public contract describes the
 service surface, but deployment configuration can differ. In particular,
-`request_mutation`, `request_behavior`, `response_scenario`, and malformed
-`status_reference` fixtures are only usable when the deployment enables
-`FCAF_SCENARIOS_ENABLED=true`. A published input does not by itself prove that
-the Wallet received it or that the desired Wallet outcome was captured.
+`request_mutation`, `request_behavior`, `response_scenario`, malformed
+`status_reference` fixtures, and the issuance controls `evidence_mode: "full"`,
+`issuance_response_scenario`, and `offer_mutation` are only usable when the
+deployment enables `FCAF_SCENARIOS_ENABLED=true`. A published input does not
+by itself prove that the Wallet received it or that the desired Wallet outcome
+was captured.
 
 Classify each FCAF candidate at three boundaries:
 
@@ -757,6 +936,89 @@ source test permits it.
   `ETag` that changes with the content and the `exp` (`W/"jwt.0.<exp>"`
   before revocation, `W/"jwt.1.<exp>"` after). The revoked bit showed on the
   first fetch after `POST /sessions/{id}/status`.
+- On 22/10/2026 the wallet-solution attestation-provider scenario ran the
+  reference Wallet 2026.09.42 through an authorization-code issuance on both
+  production and beta, which returned the same session shape, all in the
+  default `redacted` evidence mode:
+  - `raw.oid4vci_requests` of the session holds the Wallet's `POST …/par`,
+    the chained `GET …/redirect`, `POST …/token` and `POST …/credential`,
+    each with `method`, `path`, `query`, `body`, `headers` (including `host`
+    and `x-forwarded-proto`) and `response.{status,content_type}`.
+  - SUPERSEDED 26/10/2026: the Wallet's browser `GET /issuers/{id}/authorize`
+    was recorded in the global `GET /oid4vci/requests` ledger only, with
+    `session_id: null`. Since `759bab5` Capture attributes it to the session
+    by the PAR `request_uri` (see the 26/10/2026 entry).
+  - `raw.credential_request` is the decrypted Credential Request (the Wallet
+    sends `application/jwt`); `raw.credential_request_raw` is the redacted JWE.
+    Proof values (`proofs.jwt`, `proofs.attestation`) are redacted in this
+    mode; a `full` session keeps them in clear.
+  - `raw.proof_headers[]` records `typ`, `alg`, `kid`, `jwk`, `x5c`,
+    `proof_type`, `key_attestation_present` and `source`, and is written only
+    after Credo accepted the proof.
+  - `observed.wallet_jwks.jwks.keys` holds the holder key Capture verified;
+    the presented SD-JWT VC's `cnf.jwk` equals it.
+  - SUPERSEDED 26/10/2026: the PAR and token requests carried
+    `OAuth-Client-Attestation` and `OAuth-Client-Attestation-PoP` headers
+    (redacted), yet `checks.wallet_attestation_present` and
+    `observed.client_authentication.wallet_attestation.present` stayed
+    `false`. Production now records both as present.
+- Resynced from upstream master on 26/10/2026 (`759bab5`). The contract adds
+  the FCAF ws_ap evidence: `evidence_mode: "full"`, `header_counts`,
+  `raw_headers`, `raw_body`, `response` and `raw.credential_request_proofs`;
+  attribution of `/authorize` by `request_uri` and of nonce responses by a
+  proof's `nonce`; `GET /sessions/{id}/requests`; `offer_scheme`,
+  `offer_mutation`, `issuance_response_scenario`; and
+  `/ui/sessions/{id}/engage`.
+- On 26/10/2026 production `capture-wallet.credimi.io` served the whole
+  `759bab5` contract; beta `beta-capture-wallet.credimi.io` served none of it:
+  it ignored `evidence_mode` and `offer_scheme` (no echo, default
+  `openid-credential-offer://` deeplink), its OpenAPI lacks the new members, and
+  `GET /sessions/{id}/requests` answered `404`. The ws_ap scenarios therefore
+  target production. Facts the validators rely on, from reference Wallet
+  2026.09.42 and scripted clients against production:
+  - A `full` session attributes the Wallet's `PAR`, browser `/authorize`
+    (`query.request_uri` in clear), `/redirect`, `/token`, `/nonce` and
+    `/credential`. The nonce entry is appended last; ordering by `at` puts it
+    before the Credential Request. PAR and token entries carry
+    `unmatched: true` although attributed, so `unmatched` is not a filter.
+  - `raw_headers` names keep Node's casing (`Oauth-Client-Attestation`), so
+    header lookups are case-insensitive. The Client Attestation and PoP are
+    in clear there and in `headers`; `observed.client_authentication` decodes
+    both and `checks.wallet_attestation_present`,
+    `wallet_attestation_pop_present`, `wallet_attestation_client_id_matches`
+    and `wallet_attestation_pop_audience_matches` were `true`.
+  - The PAR `raw_body` is `{content_type, base64}`; the Wallet's encrypted
+    Credential Request `raw_body` is `{content_type: "application/jwt",
+    text}`, so the decrypted request bytes are not recorded and Shared_JSON
+    cannot run on them. The decrypted request is in that entry's `body`.
+  - `raw.credential_request` and `raw.proof_headers` stay absent when Credo
+    rejects the Credential Request; `raw.credential_request_proofs` and the
+    `/credential` entry's `body` are recorded in both cases.
+  - `unattributed_requests` holds every caller's ledger entries of the
+    window: Chrome's font fetches for the engagement page, other clients'
+    metadata fetches and Capture's own `/authorization-servers/…/authorize`.
+  - `/ui/sessions/{id}/engage` served the page ("Add a credential", "Open in
+    wallet") and logged `credential_offer_engagement_page_served`. Chrome
+    154 asks `Do you trust this site with your data?` before handing a
+    `haip-vci://` link to the Wallet; for the `eu-eaa-offer://` link it does
+    nothing, because no installed app handles that scheme.
+  - A PAR carrying a JAR `request` (signed Request Object, `issuer_state`
+    alongside) is attributed and answered `400 {"error":"invalid_request",
+    "error_description":"Using JWT-secured authorization request is not
+    supported."}`.
+  - A Credential Request whose `jwt` proof carries only `key_attestation`
+    (no `jwk`, `kid` or `x5c`) is answered `400 invalid_proof` (`Unable to
+    verify jws with unsupported jws signer method 'custom'`), after Capture
+    recorded the proof in `raw.credential_request_proofs`.
+  - `issuance_response_scenario.par` omitting `/request_uri` delivered
+    `201 {"expires_in":90}`. `issuance_response_scenario.credential` delivered
+    `400 {"error":"credential_request_denied"}` as `application/json` to a
+    scripted client that asked for no response encryption. To the reference
+    Wallet, whose Credential Request carries `credential_response_encryption`,
+    it delivered status `400` with `Content-Type: application/jwt`: Capture
+    encrypts the scenario's error body like a Credential Response
+    (`issuance_response_scenario_applied` keeps the scenario and the
+    original `200`).
 
 ### Known FCAF limitations
 
@@ -768,12 +1030,17 @@ source test permits it.
 | `client_id_scheme: x509_san_dns` | Session creation returns `500 internal_error`: `the domain of the OpenID4VCI issuer does not match a SAN DNS name in the x5c certificate` (25/09, 28/09 and 22/10/2026). `verifier_attestation` failed identically until it was deployed without the certificate dependency (probed working 22/10/2026). | Blocked by the deployed certificate. Upstream adds that the EUDI service-provider registry issues no `dNSName` SAN certificate, so a registry-trusted `x509_san_dns` request is not expected. |
 | `http://` Request URI | `request_mutation` can only point the outer `request_uri` at a URI known before the session exists, so the wrong-scheme URI must target another, previously created session to capture a Wallet that connects anyway. On 28/09/2026 beta answered `http://` requests with `308` to the `https://` URL, so a Wallet that follows the redirect is still captured on that session. | Constraint on the scenario, not a blocker. |
 | `client_id_scheme: decentralized_identifier` | On 28/09/2026 a beta session without `request_behavior` was signed with the X.509 verifier key (`kid: credimi-fake-verifier-key`, `x5c`), which the verification method in `/openid4vp/did.json` does not verify. Production signed with the DID key on 30/09/2026. | Beta deployment defect, not on production. `REFERENCE-WALLET-ISSUES.md` MOCK-VERIFIER-002 |
+| JAR in PAR | Credo answers a PAR carrying `request` with `400 invalid_request` (`Using JWT-secured authorization request is not supported.`), probed 26/10/2026. `WS_AP_MS_ProtocolMessages_034b`–`034d` still read the captured PAR. | Every later ws_ap test is blocked for a JAR Wallet, until Credo supports JAR or Capture adds a shim. |
+| `jwt` proof with key attestation | Issuer metadata advertises `ES256` only (`proof_signing_alg_values_supported`), so an `ES384` or `ES512` proof is captured but rejected. A `jwt` proof whose key is conveyed by `key_attestation` alone is rejected with `invalid_proof` (`unsupported jws signer method 'custom'`), probed 26/10/2026. | The proof tests read `raw.credential_request_proofs`, recorded before Credo verifies; the Credential Response and storage tests are blocked for such a Wallet. |
+| ws_ap on beta | Beta lacked the `759bab5` issuance contract on 26/10/2026 (`evidence_mode`, `offer_scheme`, `offer_mutation`, `issuance_response_scenario`, `GET /sessions/{id}/requests`). | ws_ap scenarios target production. |
+| Unattributed requests | Metadata fetches, unused nonces and unmatched paths carry no session; `unattributed_requests` lists every caller's in the window. | `WS_AP_MS_ProtocolMessages_033b_UF` and `WS_AP_IA_Supportive_011b_UF` report inconclusive when a forbidden path matches an unattributed request, which may be another client's; only a forbidden request attributed to the session fails (`.agents/HITL.md`, 27/10/2026). |
+| Encrypted Credential Error Response | When the Wallet requests `credential_response_encryption`, `issuance_response_scenario.credential` with an error status is delivered as an `application/jwt` JWE (26/10/2026). OpenID4VCI 1.0 section 8.3.1: "Credential Error Responses are never encrypted", so this is not the valid Credential Error Response `WS_AP_IA_MainInteraction_031b_UF` sets up. | `031b_UF` is blocked for every Wallet that encrypts Credential Responses until Capture stops encrypting error statuses. `REFERENCE-WALLET-ISSUES.md` MOCK-ISSUER-001 |
 
 ## Safe scenario use
 
 - Change source scenarios under
-  `config_templates/fcaf/wallet_solution/relying_party/scenarios/`, never the
-  generated aggregate pipeline.
+  `config_templates/fcaf/<sut>/<role>/scenarios/`, never the generated
+  aggregate pipeline.
 - Bind each validator to the exact scenario output that captured its request or
   response; a successful result from another scenario is never fallback
   evidence.

@@ -1,0 +1,47 @@
+id: WS_AP_MS_ProtocolMessages_033c_UF
+title: Do not engage issuance for a Credential Offer without credential_configuration_ids.
+source:
+  path: MessageStructure/ProtocolMessages/WS_AP_MS_ProtocolMessages_033c_UF.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: ETSI TS 119 472-3
+  section: '4.1'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4.2'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: OpenID for Verifiable Credential Issuance 1.0
+  section: '4.1.1'
+  url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+evidence:
+  offer_without_ids_engagement:
+    from: pipeline.ap.credential-offer-by-value.outputs.offer_without_ids_engagement
+  offer_without_ids_visual_evidence:
+    from: pipeline.ap.credential-offer-by-value.outputs.offer_without_ids_visual_evidence
+assertions:
+# Not engaging means no request of this issuance (PAR, authorization, token, credential).
+# Fetching metadata is not forbidden by this source. A Wallet that is not invoked leaves
+# the test blocked (precondition 2), never passed.
+- id: user_agent_presents_the_offer_link
+  validator: evidence.screenshot_named
+  input: evidence.offer_without_ids_visual_evidence
+  params:
+    name: offer-link-presented
+- id: wallet_does_not_engage
+  validator: oid4vci.offer_engagement
+  input: evidence.offer_without_ids_engagement
+  params:
+    scheme: eu-eaa-offer://
+    offer_present:
+    - credential_issuer
+    offer_absent:
+    - credential_configuration_ids
+    when_not_invoked: blocked
+    forbid_session_requests: true
+verdict:
+  pass_when: all_assertions_pass

@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: FCAF attestation provider PAR response without request_uri
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+    log_checker: capture-wallet
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+  # WS_AP_IA_Supportive_011b_UF: the PAR endpoint answers 201 with expires_in
+  # and no request_uri (issuance_response_scenario.par). An Authorization
+  # Request the Wallet sent anyway carries no request_uri Capture could
+  # attribute, so the test also reads the session window's unattributed
+  # requests to this issuer's authorization endpoint.
+  - id: create-issuance-session
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.issuer_url}/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        issuer_configuration_id: eu-pid-device-bound
+        credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+        flow: authorization_code
+        evidence_mode: full
+        issuance_response_scenario:
+          par:
+            omit_parameters:
+              - /request_uri
+
+  # Accepts the offer and expects the Wallet's error screen or a return to
+  # Home, never the View details success screen.
+  - id: accept-offer
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+      version_id: installed_from_external_source
+      parameters:
+        deeplink: ${{ create-issuance-session.outputs.body.deeplink }}
+
+  # Leaves the Wallet 20 s to send an Authorization Request anyway before the
+  # session's requests are read. Waits without touching the Wallet: the text
+  # never appears and the wait is optional.
+  - id: observe-wallet-after-par-response
+    use: mobile-automation
+    with:
+      version_id: installed_from_external_source
+      action_code: |
+        appId: eu.europa.ec.euidi
+        name: FCAF observe the Wallet after the PAR response
+        ---
+        - extendedWaitUntil:
+            visible: "FCAF observation window has not elapsed"
+            timeout: 20000
+            optional: true
+
+  - id: fetch-issuance-session
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/sessions/${{ create-issuance-session.outputs.body.session_id }}
+      expected_status: 200
+
+  - id: fetch-issuance-requests
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/sessions/${{ create-issuance-session.outputs.body.session_id }}/requests
+      expected_status: 200
+
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      suite: wallet_solution/attestation_provider
+      test_ids:
+        - WS_AP_IA_Supportive_011b_UF
+      pipeline_outputs:
+        pipeline.ap.par-response-without-request-uri:
+          output:
+            issuance_exchange:
+              capture_session: ${{ fetch-issuance-session.outputs.body }}
+              session_requests: ${{ fetch-issuance-requests.outputs.body }}
+            issuance_visual_evidence: ${{ accept-offer.outputs.flow_output.maestro_screenshot_urls }}

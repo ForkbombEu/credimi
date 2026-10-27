@@ -1,0 +1,596 @@
+name: FCAF wallet attestation-provider complete validation
+runtime:
+    global_device_id: forkbomb-bv-andrea/usb/device
+    no_video: true
+    temporal:
+        activity_options:
+            heartbeat_timeout: 10m
+            retry_policy:
+                maximum_attempts: 1
+            schedule_to_close_timeout: 50m
+            start_to_close_timeout: 50m
+steps:
+    - id: onboard-reference-wallet
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+        version_id: forkbomb-bv-andrea/eudiw-beta-wallet/2026-09-42-demo
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-create-issuance-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            evidence_mode: full
+            fixture_id: pid_person_b
+            flow: authorization_code
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-obtain-issued-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ authorization-code-issuance-fd1aa51f-create-issuance-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-fetch-issuance-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ authorization-code-issuance-fd1aa51f-create-issuance-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-fetch-issuer-metadata
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/.well-known/openid-credential-issuer/issuers/eu-pid-device-bound
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-fetch-authorization-server-metadata
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/.well-known/oauth-authorization-server/issuers/eu-pid-device-bound
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-create-presentation-session
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - family_name
+                              values:
+                                - Bianchi
+                            - path:
+                                - given_name
+                          format: dc+sd-jwt
+                          id: issued_pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-ws-ap-main-interaction-031a
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-present-issued-credential
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ authorization-code-issuance-fd1aa51f-create-presentation-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: authorization-code-issuance-fd1aa51f-fetch-presentation-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ authorization-code-issuance-fd1aa51f-create-presentation-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-create-valid-offer-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            evidence_mode: full
+            flow: authorization_code
+            issuer_configuration_id: eu-pid-device-bound
+            offer_scheme: eu-eaa-offer://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-engage-valid-offer
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+              parameters:
+                engage_url: https://capture-wallet.credimi.io/ui/sessions/${{ credential-offer-by-value-30064ee6-create-valid-offer-session.outputs.body.session_id }}/engage
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-fetch-valid-offer-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-offer-by-value-30064ee6-create-valid-offer-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-fetch-valid-offer-requests
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-offer-by-value-30064ee6-create-valid-offer-session.outputs.body.session_id }}/requests
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-create-offer-without-issuer-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            evidence_mode: full
+            flow: authorization_code
+            issuer_configuration_id: eu-pid-device-bound
+            offer_mutation:
+                unset:
+                    - /credential_issuer
+            offer_scheme: eu-eaa-offer://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-engage-offer-without-issuer
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+        parameters:
+            engage_url: https://capture-wallet.credimi.io/ui/sessions/${{ credential-offer-by-value-30064ee6-create-offer-without-issuer-session.outputs.body.session_id }}/engage
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-fetch-offer-without-issuer-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-offer-by-value-30064ee6-create-offer-without-issuer-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-fetch-offer-without-issuer-requests
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-offer-by-value-30064ee6-create-offer-without-issuer-session.outputs.body.session_id }}/requests
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-create-offer-without-ids-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            evidence_mode: full
+            flow: authorization_code
+            issuer_configuration_id: eu-pid-device-bound
+            offer_mutation:
+                unset:
+                    - /credential_configuration_ids
+            offer_scheme: eu-eaa-offer://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-engage-offer-without-ids
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+        parameters:
+            engage_url: https://capture-wallet.credimi.io/ui/sessions/${{ credential-offer-by-value-30064ee6-create-offer-without-ids-session.outputs.body.session_id }}/engage
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-fetch-offer-without-ids-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-offer-by-value-30064ee6-create-offer-without-ids-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-offer-by-value-30064ee6-fetch-offer-without-ids-requests
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-offer-by-value-30064ee6-create-offer-without-ids-session.outputs.body.session_id }}/requests
+    - continue_on_error: true
+      id: credential-request-denied-2122ce7a-create-issuance-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            evidence_mode: full
+            fixture_id: pid_person_b
+            flow: authorization_code
+            issuance_response_scenario:
+                credential:
+                    body: '{"error":"credential_request_denied"}'
+                    content_type: application/json
+                    status: 400
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-request-denied-2122ce7a-accept-offer
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+              parameters:
+                deeplink: ${{ credential-request-denied-2122ce7a-create-issuance-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-request-denied-2122ce7a-observe-wallet-after-denial
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            name: FCAF observe the Wallet after the denied Credential Request
+            ---
+            - extendedWaitUntil:
+                visible: "FCAF observation window has not elapsed"
+                timeout: 20000
+                optional: true
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-request-denied-2122ce7a-fetch-issuance-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-request-denied-2122ce7a-create-issuance-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: credential-request-denied-2122ce7a-fetch-issuance-requests
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ credential-request-denied-2122ce7a-create-issuance-session.outputs.body.session_id }}/requests
+    - continue_on_error: true
+      id: credential-request-denied-2122ce7a-create-stored-credential-probe
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - family_name
+                              values:
+                                - Bianchi
+                          format: dc+sd-jwt
+                          id: denied_pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-ws-ap-main-interaction-031b-uf
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: haip-vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/openid4vp/sessions
+    - continue_on_error: true
+      id: credential-request-denied-2122ce7a-probe-stored-credential-issue-pid-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: credential-request-denied-2122ce7a-probe-stored-credential
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ credential-request-denied-2122ce7a-probe-stored-credential-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
+              parameters:
+                deeplink: ${{ credential-request-denied-2122ce7a-create-stored-credential-probe.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: credential-request-denied-2122ce7a-fetch-stored-credential-probe
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ credential-request-denied-2122ce7a-create-stored-credential-probe.outputs.body.session_id }}
+    - continue_on_error: true
+      id: offer-scheme-engagement-55c51c7f-create-haip-vci-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            evidence_mode: full
+            flow: authorization_code
+            issuer_configuration_id: eu-pid-device-bound
+            offer_scheme: haip-vci://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: offer-scheme-engagement-55c51c7f-engage-haip-vci-offer
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+              parameters:
+                engage_url: https://capture-wallet.credimi.io/ui/sessions/${{ offer-scheme-engagement-55c51c7f-create-haip-vci-session.outputs.body.session_id }}/engage
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: offer-scheme-engagement-55c51c7f-fetch-haip-vci-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ offer-scheme-engagement-55c51c7f-create-haip-vci-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: offer-scheme-engagement-55c51c7f-fetch-haip-vci-requests
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ offer-scheme-engagement-55c51c7f-create-haip-vci-session.outputs.body.session_id }}/requests
+    - continue_on_error: true
+      id: offer-scheme-engagement-55c51c7f-create-eu-eaa-offer-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            evidence_mode: full
+            flow: authorization_code
+            issuer_configuration_id: eu-pid-device-bound
+            offer_scheme: eu-eaa-offer://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: offer-scheme-engagement-55c51c7f-engage-eu-eaa-offer
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
+        parameters:
+            engage_url: https://capture-wallet.credimi.io/ui/sessions/${{ offer-scheme-engagement-55c51c7f-create-eu-eaa-offer-session.outputs.body.session_id }}/engage
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: offer-scheme-engagement-55c51c7f-fetch-eu-eaa-offer-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ offer-scheme-engagement-55c51c7f-create-eu-eaa-offer-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: offer-scheme-engagement-55c51c7f-fetch-eu-eaa-offer-requests
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ offer-scheme-engagement-55c51c7f-create-eu-eaa-offer-session.outputs.body.session_id }}/requests
+    - continue_on_error: true
+      id: par-response-without-request-uri-5f3c4ae9-create-issuance-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            evidence_mode: full
+            flow: authorization_code
+            issuance_response_scenario:
+                par:
+                    omit_parameters:
+                        - /request_uri
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: par-response-without-request-uri-5f3c4ae9-accept-offer
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-rejected
+              parameters:
+                deeplink: ${{ par-response-without-request-uri-5f3c4ae9-create-issuance-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: par-response-without-request-uri-5f3c4ae9-observe-wallet-after-par-response
+      use: mobile-automation
+      with:
+        action_code: |
+            appId: eu.europa.ec.euidi
+            name: FCAF observe the Wallet after the PAR response
+            ---
+            - extendedWaitUntil:
+                visible: "FCAF observation window has not elapsed"
+                timeout: 20000
+                optional: true
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: par-response-without-request-uri-5f3c4ae9-fetch-issuance-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ par-response-without-request-uri-5f3c4ae9-create-issuance-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: par-response-without-request-uri-5f3c4ae9-fetch-issuance-requests
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ par-response-without-request-uri-5f3c4ae9-create-issuance-session.outputs.body.session_id }}/requests
+    - id: run-complete-fcaf-validation
+      use: fcaf-validation
+      with:
+        pipeline_outputs:
+            pipeline.ap.authorization-code-issuance:
+                output:
+                    issuance_exchange:
+                        authorization_server_metadata: ${{ authorization-code-issuance-fd1aa51f-fetch-authorization-server-metadata.outputs.body | optional }}
+                        capture_session: ${{ authorization-code-issuance-fd1aa51f-fetch-issuance-session.outputs.body | optional }}
+                        issuer_metadata: ${{ authorization-code-issuance-fd1aa51f-fetch-issuer-metadata.outputs.body | optional }}
+                    issued_credential_presentation:
+                        issuance_session: ${{ authorization-code-issuance-fd1aa51f-fetch-issuance-session.outputs.body | optional }}
+                        presentation_session: ${{ authorization-code-issuance-fd1aa51f-fetch-presentation-session.outputs.body | optional }}
+                        screenshots: ${{ authorization-code-issuance-fd1aa51f-obtain-issued-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.ap.credential-offer-by-value:
+                output:
+                    offer_without_ids_engagement:
+                        capture_session: ${{ credential-offer-by-value-30064ee6-fetch-offer-without-ids-session.outputs.body | optional }}
+                        screenshots: ${{ credential-offer-by-value-30064ee6-engage-offer-without-ids.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        session_creation: ${{ credential-offer-by-value-30064ee6-create-offer-without-ids-session.outputs.body | optional }}
+                        session_requests: ${{ credential-offer-by-value-30064ee6-fetch-offer-without-ids-requests.outputs.body | optional }}
+                    offer_without_ids_visual_evidence: ${{ credential-offer-by-value-30064ee6-engage-offer-without-ids.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    offer_without_issuer_engagement:
+                        capture_session: ${{ credential-offer-by-value-30064ee6-fetch-offer-without-issuer-session.outputs.body | optional }}
+                        screenshots: ${{ credential-offer-by-value-30064ee6-engage-offer-without-issuer.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        session_creation: ${{ credential-offer-by-value-30064ee6-create-offer-without-issuer-session.outputs.body | optional }}
+                        session_requests: ${{ credential-offer-by-value-30064ee6-fetch-offer-without-issuer-requests.outputs.body | optional }}
+                    offer_without_issuer_visual_evidence: ${{ credential-offer-by-value-30064ee6-engage-offer-without-issuer.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    valid_offer_engagement:
+                        capture_session: ${{ credential-offer-by-value-30064ee6-fetch-valid-offer-session.outputs.body | optional }}
+                        screenshots: ${{ credential-offer-by-value-30064ee6-engage-valid-offer.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        session_creation: ${{ credential-offer-by-value-30064ee6-create-valid-offer-session.outputs.body | optional }}
+                        session_requests: ${{ credential-offer-by-value-30064ee6-fetch-valid-offer-requests.outputs.body | optional }}
+                    valid_offer_visual_evidence: ${{ credential-offer-by-value-30064ee6-engage-valid-offer.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.ap.credential-request-denied:
+                output:
+                    issuance_exchange:
+                        capture_session: ${{ credential-request-denied-2122ce7a-fetch-issuance-session.outputs.body | optional }}
+                        session_requests: ${{ credential-request-denied-2122ce7a-fetch-issuance-requests.outputs.body | optional }}
+                    issuance_visual_evidence: ${{ credential-request-denied-2122ce7a-accept-offer.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    stored_credential_probe: ${{ credential-request-denied-2122ce7a-fetch-stored-credential-probe.outputs.body | optional }}
+            pipeline.ap.offer-scheme-engagement:
+                output:
+                    eu_eaa_offer_engagement:
+                        capture_session: ${{ offer-scheme-engagement-55c51c7f-fetch-eu-eaa-offer-session.outputs.body | optional }}
+                        screenshots: ${{ offer-scheme-engagement-55c51c7f-engage-eu-eaa-offer.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        session_creation: ${{ offer-scheme-engagement-55c51c7f-create-eu-eaa-offer-session.outputs.body | optional }}
+                        session_requests: ${{ offer-scheme-engagement-55c51c7f-fetch-eu-eaa-offer-requests.outputs.body | optional }}
+                    eu_eaa_offer_visual_evidence: ${{ offer-scheme-engagement-55c51c7f-engage-eu-eaa-offer.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    haip_vci_engagement:
+                        capture_session: ${{ offer-scheme-engagement-55c51c7f-fetch-haip-vci-session.outputs.body | optional }}
+                        screenshots: ${{ offer-scheme-engagement-55c51c7f-engage-haip-vci-offer.outputs.flow_output.maestro_screenshot_urls | optional }}
+                        session_creation: ${{ offer-scheme-engagement-55c51c7f-create-haip-vci-session.outputs.body | optional }}
+                        session_requests: ${{ offer-scheme-engagement-55c51c7f-fetch-haip-vci-requests.outputs.body | optional }}
+                    haip_vci_visual_evidence: ${{ offer-scheme-engagement-55c51c7f-engage-haip-vci-offer.outputs.flow_output.maestro_screenshot_urls | optional }}
+            pipeline.ap.par-response-without-request-uri:
+                output:
+                    issuance_exchange:
+                        capture_session: ${{ par-response-without-request-uri-5f3c4ae9-fetch-issuance-session.outputs.body | optional }}
+                        session_requests: ${{ par-response-without-request-uri-5f3c4ae9-fetch-issuance-requests.outputs.body | optional }}
+                    issuance_visual_evidence: ${{ par-response-without-request-uri-5f3c4ae9-accept-offer.outputs.flow_output.maestro_screenshot_urls | optional }}
+        suite: wallet_solution/attestation_provider
+        test_ids:
+            - WS_AP_IA_Engagement_007a
+            - WS_AP_IA_Engagement_007b
+            - WS_AP_IA_MainInteraction_010a
+            - WS_AP_IA_MainInteraction_010b
+            - WS_AP_IA_MainInteraction_010c
+            - WS_AP_IA_MainInteraction_030a
+            - WS_AP_IA_MainInteraction_030b
+            - WS_AP_IA_MainInteraction_031a
+            - WS_AP_IA_MainInteraction_031b_UF
+            - WS_AP_IA_Supportive_010a
+            - WS_AP_IA_Supportive_011a
+            - WS_AP_IA_Supportive_011b_UF
+            - WS_AP_MS_ProtocolMessages_033a
+            - WS_AP_MS_ProtocolMessages_033b_UF
+            - WS_AP_MS_ProtocolMessages_033c_UF
+            - WS_AP_MS_ProtocolMessages_034a
+            - WS_AP_MS_ProtocolMessages_034b
+            - WS_AP_MS_ProtocolMessages_034c
+            - WS_AP_MS_ProtocolMessages_034d
+            - WS_AP_MS_ProtocolMessages_035a
+            - WS_AP_MS_ProtocolMessages_035b
+            - WS_AP_MS_ProtocolMessages_036a
+            - WS_AP_MS_ProtocolMessages_036b
+            - WS_AP_MS_ProtocolMessages_037a
+            - WS_AP_MS_ProtocolMessages_037b
+            - WS_AP_MS_ProtocolMessages_037c
+            - WS_AP_MS_ProtocolMessages_038a
+            - WS_AP_MS_ProtocolMessages_039a
+            - WS_AP_MS_ProtocolMessages_039b
+            - WS_AP_MS_ProtocolMessages_040a
+            - WS_AP_MS_ProtocolMessages_040b
+            - WS_AP_MS_ProtocolMessages_050a
+            - WS_AP_MS_ProtocolMessages_050b
+            - WS_AP_MS_ProtocolMessages_050c
+            - WS_AP_MS_ProtocolMessages_050d
+            - WS_AP_MS_ProtocolMessages_050e
+            - WS_AP_MS_ProtocolMessages_051a
+            - WS_AP_MS_ProtocolMessages_051b
+            - WS_AP_MS_ProtocolMessages_051c
+            - WS_AP_MS_ProtocolMessages_052a
+            - WS_AP_MS_ProtocolMessages_052b
+            - WS_AP_MS_ProtocolMessages_052c
+            - WS_AP_MS_ProtocolMessages_053a
+            - WS_AP_MS_ProtocolMessages_053b
+            - WS_AP_MS_ProtocolMessages_053c
+            - WS_AP_MS_ProtocolMessages_053d
+            - WS_AP_SM_DeviceBinding_001a
+            - WS_AP_SM_DeviceBinding_001b
+            - WS_AP_SM_DeviceBinding_002a
+            - WS_AP_SM_DeviceBinding_002b
+            - WS_AP_SM_DeviceBinding_003a
+            - WS_AP_SM_DeviceBinding_003b
+            - WS_AP_SM_DeviceBinding_010a
+            - WS_AP_SM_DeviceBinding_010b
+            - WS_AP_SM_DeviceBinding_010c
+            - WS_AP_SM_DeviceBinding_011a
+            - WS_AP_SM_DeviceBinding_011b
+            - WS_AP_SM_DeviceBinding_012a
+            - WS_AP_SM_DeviceBinding_013a

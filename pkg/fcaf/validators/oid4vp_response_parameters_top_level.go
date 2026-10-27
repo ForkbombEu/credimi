@@ -98,7 +98,7 @@ func (OID4VPResponseParametersTopLevelValidator) Validate(
 	}
 }
 
-func sortedKeys(object map[string]any) []string {
+func sortedKeys[V any](object map[string]V) []string {
 	keys := make([]string, 0, len(object))
 	for key := range object {
 		keys = append(keys, key)

@@ -227,7 +227,13 @@ func (JSONFieldStringPrefixValidator) Validate(_ context.Context, input Input) R
 	}
 }
 
+// Validate checks input[field]; with a select param, each selected value is
+// the input (see onSelection).
 func (JSONFieldPresenceValidator) Validate(_ context.Context, input Input) Result {
+	return onSelection(input, validateJSONFieldPresence)
+}
+
+func validateJSONFieldPresence(input Input) Result {
 	params, err := DecodeParams[struct {
 		Field   string `json:"field"`
 		Present bool   `json:"present"`
@@ -564,7 +570,13 @@ func (JSONFieldEqualsValidator) Validate(_ context.Context, input Input) Result 
 	}
 }
 
+// Validate checks input[field]; with a select param, each selected value is
+// the input (see onSelection).
 func (JSONFieldRequiredValidator) Validate(_ context.Context, input Input) Result {
+	return onSelection(input, validateJSONFieldRequired)
+}
+
+func validateJSONFieldRequired(input Input) Result {
 	params, err := DecodeParams[struct {
 		Field string `json:"field"`
 	}](input.Params)
