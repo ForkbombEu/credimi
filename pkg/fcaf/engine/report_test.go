@@ -85,6 +85,43 @@ func TestPopulateExecutedTestsFailsWhenAssertionFails(t *testing.T) {
 	require.Equal(t, `claim "email" is missing`, report.ExecutedTests[0].Outcome.Reason)
 }
 
+func TestPopulateExecutedTestsKeepsBlockedAndInconclusiveApartFromFailed(t *testing.T) {
+	report := Report{Tests: []TestResult{
+		{
+			ID:     "blocked-test",
+			Status: validators.StatusBlocked,
+			Assertions: []AssertionResult{{
+				ID:      "wallet_requests_authorization",
+				Status:  validators.StatusBlocked,
+				Message: "the Wallet was not invoked",
+			}},
+		},
+		{
+			ID:         "inconclusive-test",
+			Status:     validators.StatusInconclusive,
+			Assertions: []AssertionResult{{ID: "a", Status: validators.StatusInconclusive}},
+		},
+		{
+			ID:         "error-test",
+			Status:     validators.StatusError,
+			Assertions: []AssertionResult{{ID: "a", Status: validators.StatusError}},
+		},
+	}}
+
+	report.PopulateDerivedViews()
+
+	require.Equal(t, "blocked", report.ExecutedTests[0].Status)
+	require.Equal(t, "blocked", report.ExecutedTests[0].Outcome.Status)
+	require.Equal(t, "the Wallet was not invoked", report.ExecutedTests[0].Outcome.Reason)
+	require.Equal(t, "inconclusive", report.ExecutedTests[1].Status)
+	require.Equal(t, "failed", report.ExecutedTests[2].Status)
+	require.Equal(t, []PresentationFilter{
+		{Key: "failed", Label: "Failed", Count: 1},
+		{Key: "blocked", Label: "Blocked", Count: 1},
+		{Key: "inconclusive", Label: "Inconclusive", Count: 1},
+	}, BuildPresentation(report, nil).SummaryFilters)
+}
+
 func TestPopulateExecutedTestsCarriesPerTestVisualEvidence(t *testing.T) {
 	first := Report{Tests: []TestResult{{
 		ID:     "cryptography-test",

@@ -194,6 +194,9 @@ func ExecuteStep(
 			input,
 		).Get(ctxChild, &result)
 		if err != nil {
+			if out := failedTaskWorkflowOutput(ctx, err); out != nil {
+				return out, err
+			}
 			return result, err
 		}
 		return result.Output, nil
@@ -216,6 +219,23 @@ func Execute(
 	}
 	with.Config[workflowengine.StepIDConfigKey] = s.ID
 	return ExecuteStep(s.ID, s.Use, with, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
+}
+
+// failedTaskWorkflowChangeID gates the output a failed task workflow step keeps: runs that
+// started before it store the zero WorkflowResult, as they did when they were scheduled.
+const failedTaskWorkflowChangeID = "credimi-2026-10-failed-task-workflow-output"
+
+// failedTaskWorkflowOutput returns the output a failed task workflow reported in its failure
+// Details.output, such as the screenshots a failed mobile flow took, so a step that failed
+// still exposes the evidence it produced. It is nil when the failure carries none.
+func failedTaskWorkflowOutput(ctx workflow.Context, err error) map[string]any {
+	out := workflowengine.ExtractOutputFromError(err)
+	if out == nil ||
+		workflow.GetVersion(ctx, failedTaskWorkflowChangeID, workflow.DefaultVersion, 1) ==
+			workflow.DefaultVersion {
+		return nil
+	}
+	return out
 }
 
 // maxStepInputBytes keeps a step's scheduling command below the 4 MiB gRPC message limit
