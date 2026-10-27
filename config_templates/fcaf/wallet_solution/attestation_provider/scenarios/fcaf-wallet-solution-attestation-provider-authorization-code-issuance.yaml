@@ -153,28 +153,12 @@ steps:
         - WS_AP_MS_ProtocolMessages_050c
         - WS_AP_MS_ProtocolMessages_050d
         - WS_AP_MS_ProtocolMessages_050e
-        - WS_AP_MS_ProtocolMessages_051a
-        - WS_AP_MS_ProtocolMessages_051b
-        - WS_AP_MS_ProtocolMessages_051c
-        - WS_AP_MS_ProtocolMessages_052a
-        - WS_AP_MS_ProtocolMessages_052b
-        - WS_AP_MS_ProtocolMessages_052c
-        - WS_AP_MS_ProtocolMessages_053a
-        - WS_AP_MS_ProtocolMessages_053b
-        - WS_AP_MS_ProtocolMessages_053c
-        - WS_AP_MS_ProtocolMessages_053d
         - WS_AP_SM_DeviceBinding_001a
         - WS_AP_SM_DeviceBinding_001b
         - WS_AP_SM_DeviceBinding_002a
         - WS_AP_SM_DeviceBinding_002b
         - WS_AP_SM_DeviceBinding_003a
         - WS_AP_SM_DeviceBinding_003b
-        - WS_AP_SM_DeviceBinding_010a
-        - WS_AP_SM_DeviceBinding_010b
-        - WS_AP_SM_DeviceBinding_010c
-        - WS_AP_SM_DeviceBinding_011a
-        - WS_AP_SM_DeviceBinding_011b
-        - WS_AP_SM_DeviceBinding_012a
         - WS_AP_SM_DeviceBinding_013a
       pipeline_outputs:
         pipeline.ap.authorization-code-issuance:

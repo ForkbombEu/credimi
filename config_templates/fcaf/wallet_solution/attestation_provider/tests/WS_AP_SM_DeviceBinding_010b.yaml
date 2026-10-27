@@ -24,7 +24,7 @@ normative_references:
   section: '5.2'
 evidence:
   issuance_exchange:
-    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
+    from: pipeline.ap.jwt-key-attestation-issuance.outputs.issuance_exchange
 assertions:
 # The issuer advertises ES256 only (proof_signing_alg_values_supported); the source asks for
 # the ECCG and ES256/ES384/ES512 lists and leaves the advertised list as a TODO.

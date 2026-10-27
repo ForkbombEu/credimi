@@ -4601,7 +4601,10 @@ Still open:
   `eu-eaa-offer://` offer of the failed engagement, not the main issuance.
 - 033a passes its step when the Wallet is invoked but fails the issuance; the
   action asserts only invocation.
-- Not applicable (20) needs Capture changes: an issuer configuration without
-  `credential_request_encryption` (030b), one advertising only `jwt` proofs
-  with `key_attestations_required` (051–053, DeviceBinding 010–012), and JAR
-  support in Credo plus `require_signed_request_object` (034b–034d).
+- `WS_AP_IA_MainInteraction_030b` still needs an issuer without
+  `credential_request_encryption`; 034b–034d still need JAR support in Credo
+  plus `require_signed_request_object`.
+- Capture now has `eu-pid-jwt-key-attestation`, which offers only `jwt` proofs
+  with `key_attestations_required`. The dedicated
+  `jwt-key-attestation-issuance` scenario owns 051–053 and DeviceBinding
+  010–012 (16 tests); it awaits a real Wallet run.

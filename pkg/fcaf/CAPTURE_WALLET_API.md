@@ -23,7 +23,7 @@ This is a companion to the machine-readable [OpenAPI document](/openapi.json). T
 
 The base URL is configured by `--issuer-base-url`; production uses `https://capture-wallet.credimi.io`. Paths below are relative to that URL.
 
-- Issuer configuration IDs are `eu-pid-device-bound` and `eu-pid-jwt-proof-only`.
+- Issuer configuration IDs are `eu-pid-device-bound`, `eu-pid-jwt-key-attestation`, and `eu-pid-jwt-proof-only`.
 - `sessionId` is a UUID returned by a session-creation response.
 - JSON is the default representation unless a route states another media type.
 - Unknown session IDs return `404` with an error object. Invalid protocol input normally returns `400`.
@@ -58,7 +58,7 @@ For each `{issuerConfigurationId}`:
 
 | Field | Values | Default |
 | --- | --- | --- |
-| `issuer_configuration_id` | `eu-pid-device-bound`, `eu-pid-jwt-proof-only` | `eu-pid-device-bound` |
+| `issuer_configuration_id` | `eu-pid-device-bound`, `eu-pid-jwt-key-attestation`, `eu-pid-jwt-proof-only` | `eu-pid-device-bound` |
 | `flow` | `pre_authorized_code`, `authorization_code` | `authorization_code` |
 | `credential_offer_mode` | `credential_offer`, `credential_offer_uri` | `credential_offer` |
 | `credential_configuration_id` | A configuration advertised by the selected issuer metadata | First configuration for the issuer |
@@ -72,6 +72,12 @@ For each `{issuerConfigurationId}`:
 | `offer_mutation` | JSON Pointer `set`/`unset` edits to the by-value Credential Offer; test-only | — |
 
 It returns `201` with `session_id`, issuer and authorization-server identifiers, the selected flow and configuration, `fixture_id`, `offer_url`, `deeplink`, and `status: "created"`. A configuration belonging to another issuer is rejected.
+
+`eu-pid-jwt-key-attestation` offers the SD-JWT VC and mdoc PID configurations
+with `proof_types_supported` limited to `jwt` and
+`key_attestations_required: {}`. It is the issuer for the FCAF ws_ap tests
+whose profile applies when the Wallet conveys its Key Attestation in a JWT
+proof.
 
 `fixture_id` names a predefined PID claim set; an unknown value is rejected with `unsupported_fixture_id` and the supported list. Every fixture is a fully valid, normally signed PID and differs from the baseline along one value axis, which is what the DCQL value-matching tests need: `pid_default`, `pid_person_b` (a second complete identity), `pid_under_18` (`age_over_18: false`), `pid_family_name_uppercase`, `pid_family_name_trailing_space`, `pid_locality_diacritics`, `pid_locality_no_diacritics`, `pid_multiple_nationalities`, and `pid_expiry_2032`. Each carries a distinct `document_number`. There is no caller-supplied claim override, so an issued credential always corresponds to a named fixture, and the selected one is recorded as `fixture_id` in the issuance capture.
 
@@ -1031,7 +1037,7 @@ source test permits it.
 | `http://` Request URI | `request_mutation` can only point the outer `request_uri` at a URI known before the session exists, so the wrong-scheme URI must target another, previously created session to capture a Wallet that connects anyway. On 28/09/2026 beta answered `http://` requests with `308` to the `https://` URL, so a Wallet that follows the redirect is still captured on that session. | Constraint on the scenario, not a blocker. |
 | `client_id_scheme: decentralized_identifier` | On 28/09/2026 a beta session without `request_behavior` was signed with the X.509 verifier key (`kid: credimi-fake-verifier-key`, `x5c`), which the verification method in `/openid4vp/did.json` does not verify. Production signed with the DID key on 30/09/2026. | Beta deployment defect, not on production. `REFERENCE-WALLET-ISSUES.md` MOCK-VERIFIER-002 |
 | JAR in PAR | Credo answers a PAR carrying `request` with `400 invalid_request` (`Using JWT-secured authorization request is not supported.`), probed 26/10/2026. `WS_AP_MS_ProtocolMessages_034b`–`034d` still read the captured PAR. | Every later ws_ap test is blocked for a JAR Wallet, until Credo supports JAR or Capture adds a shim. |
-| `jwt` proof with key attestation | Issuer metadata advertises `ES256` only (`proof_signing_alg_values_supported`), so an `ES384` or `ES512` proof is captured but rejected. A `jwt` proof whose key is conveyed by `key_attestation` alone is rejected with `invalid_proof` (`unsupported jws signer method 'custom'`), probed 26/10/2026. | The proof tests read `raw.credential_request_proofs`, recorded before Credo verifies; the Credential Response and storage tests are blocked for such a Wallet. |
+| `jwt` proof with key attestation | The `eu-pid-jwt-key-attestation` issuer offers only JWT proofs with `key_attestations_required`, so the dedicated FCAF scenario exercises the proof and key-attestation tests. Credo can still reject a JWT proof whose key is conveyed only by `key_attestation` with `invalid_proof` (`unsupported jws signer method 'custom'`). | `raw.credential_request_proofs` is recorded before Credo verifies, so the 16 proof-structure tests remain evaluable; the Credential Response and storage tests are blocked for such a Wallet. |
 | ws_ap on beta | Beta lacked the `759bab5` issuance contract on 26/10/2026 (`evidence_mode`, `offer_scheme`, `offer_mutation`, `issuance_response_scenario`, `GET /sessions/{id}/requests`). | ws_ap scenarios target production. |
 | Unattributed requests | Metadata fetches, unused nonces and unmatched paths carry no session; `unattributed_requests` lists every caller's in the window. | `WS_AP_MS_ProtocolMessages_033b_UF` and `WS_AP_IA_Supportive_011b_UF` report inconclusive when a forbidden path matches an unattributed request, which may be another client's; only a forbidden request attributed to the session fails (`.agents/HITL.md`, 27/10/2026). |
 | Encrypted Credential Error Response | When the Wallet requested `credential_response_encryption`, `issuance_response_scenario.credential` with an error status was delivered as an `application/jwt` JWE (26/10/2026). OpenID4VCI 1.0 section 8.3.1: "Credential Error Responses are never encrypted", so this was not the valid Credential Error Response `WS_AP_IA_MainInteraction_031b_UF` sets up. | Resolved by 27/10/2026: the Credimi run of that day received the `400` as `application/json` and `031b_UF` passed. `REFERENCE-WALLET-ISSUES.md` MOCK-ISSUER-001 |
