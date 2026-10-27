@@ -103,10 +103,19 @@ export class FCAFValidationStepForm extends BaseForm<
 		}
 	}
 
+	/**
+	 * Writes the selection. Once the catalog is loaded, ids outside the configured
+	 * suite are dropped: they remain after the suite is changed in the YAML, and
+	 * the activity, which loads only that suite's catalog, would reject them.
+	 */
 	setTestIds(testIds: string[]) {
 		const config = parseFCAFValidationConfiguration(this.data.yaml) as Record<string, unknown>;
-		config.test_ids = [...testIds];
-		config.pipeline_outputs = filterPipelineOutputsFor(this.suite, testIds);
+		const suite = this.suite;
+		const ids = this.fcafTests.data
+			? testIds.filter((id) => this.availableTests.some((test) => test.id === id))
+			: testIds;
+		config.test_ids = [...ids];
+		config.pipeline_outputs = filterPipelineOutputsFor(suite, ids);
 		delete config.test_id;
 		this.data.yaml = stringify(config);
 	}

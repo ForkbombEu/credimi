@@ -29,7 +29,8 @@ evidence:
 assertions:
 # The source names the omitted member response_uri but describes request_uri; the issuer
 # omits request_uri. An Authorization Request without request_uri cannot be attributed, so
-# unattributed requests to this issuer's authorization endpoint after the PAR count too.
+# unattributed requests to this issuer's authorization endpoint after the PAR are read too:
+# one may be another client's, so a match is inconclusive and only its absence passes.
 # Informing the user is "if applicable" and not asserted; the screenshot is kept for review.
 - id: issuer_omits_the_request_uri
   validator: oid4vci.issuer_response

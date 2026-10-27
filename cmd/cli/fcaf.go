@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -37,12 +38,26 @@ var (
 // defaultFCAFSuite is the FCAF suite whose pipelines run and sync by default.
 const defaultFCAFSuite = "wallet_solution/relying_party"
 
-// fcafPipelinesDir is the --dir flag, or the generated pipelines of --suite.
-func fcafPipelinesDir() string {
+// fcafSuitePattern is a <sut>/<role> suite, the same shape the fcaf-validation
+// activity accepts; it names a directory under config_templates/fcaf and may
+// hold no other path.
+var fcafSuitePattern = regexp.MustCompile(`^[a-z0-9_]+/[a-z0-9_]+$`)
+
+// fcafPipelinesDir is the --dir flag, or the generated pipelines of --suite,
+// which must be an existing suite directory.
+func fcafPipelinesDir() (string, error) {
 	if fcafDir != "" {
-		return fcafDir
+		return fcafDir, nil
 	}
-	return filepath.Join("config_templates", "fcaf", filepath.FromSlash(fcafSuite), "pipelines")
+	if !fcafSuitePattern.MatchString(fcafSuite) {
+		return "", fmt.Errorf("--suite %q is not a <sut>/<role> FCAF suite", fcafSuite)
+	}
+	dir := filepath.Join("config_templates", "fcaf", filepath.FromSlash(fcafSuite), "pipelines")
+	info, err := os.Stat(dir)
+	if err != nil || !info.IsDir() {
+		return "", fmt.Errorf("--suite %q has no pipelines directory %s", fcafSuite, dir)
+	}
+	return dir, nil
 }
 
 type fcafRun struct {
@@ -177,6 +192,10 @@ func syncFCAF(ctx context.Context) error {
 			"CREDIMI_API_KEY is required; generate a local key and set it in .env or use --api-key",
 		)
 	}
+	pipelinesDir, err := fcafPipelinesDir()
+	if err != nil {
+		return err
+	}
 	token, err := authenticate(ctx)
 	if err != nil {
 		return err
@@ -186,7 +205,7 @@ func syncFCAF(ctx context.Context) error {
 		return err
 	}
 
-	pipelinePaths, err := filepath.Glob(filepath.Join(fcafPipelinesDir(), "*.yaml"))
+	pipelinePaths, err := filepath.Glob(filepath.Join(pipelinesDir, "*.yaml"))
 	if err != nil {
 		return fmt.Errorf("find FCAF pipelines: %w", err)
 	}
@@ -756,6 +775,10 @@ func runFCAF(ctx context.Context) error {
 			"CREDIMI_API_KEY is required; generate a local key and set it in .env or use --api-key",
 		)
 	}
+	pipelinesDir, err := fcafPipelinesDir()
+	if err != nil {
+		return err
+	}
 	token, err := authenticate(ctx)
 	if err != nil {
 		return err
@@ -764,13 +787,13 @@ func runFCAF(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	paths, err := filepath.Glob(filepath.Join(fcafPipelinesDir(), "*.yaml"))
+	paths, err := filepath.Glob(filepath.Join(pipelinesDir, "*.yaml"))
 	if err != nil {
 		return err
 	}
 	sort.Strings(paths)
 	if len(paths) == 0 {
-		return fmt.Errorf("no YAML pipelines found in %s", fcafPipelinesDir())
+		return fmt.Errorf("no YAML pipelines found in %s", pipelinesDir)
 	}
 	runs := make([]fcafRun, 0, len(paths))
 	report := fcafReport{}

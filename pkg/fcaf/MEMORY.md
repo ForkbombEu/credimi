@@ -4537,9 +4537,9 @@ Credo rejects the proof, which Capture records first).
 
 ### Residual risks
 
-- 033b_UF and 011b_UF read unattributed requests as the Wallet's; another
-  client's metadata fetch or `/authorize` in the window would fail a
-  conforming Wallet (HITL entry).
+- 033b_UF and 011b_UF report inconclusive when a forbidden path matches an
+  unattributed request, which may be another client's (HITL entry, decision
+  (b) of 27/10/2026); a Wallet that does send it is never failed there.
 - "Blocked after any issuer error" can hide a Wallet-caused `4xx` behind
   blocked (HITL entry); the message names the rejected request.
 - The offer-by-value tests stay blocked on any Wallet without

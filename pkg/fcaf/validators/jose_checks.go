@@ -317,6 +317,18 @@ func (JOSESignatureValidator) Validate(_ context.Context, input Input) Result {
 				),
 			}
 		}
+		if problem := ecdsaCurveMismatch(alg, key); problem != "" {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"%s is signed with %s, but %s %s",
+					selected[index].label,
+					alg,
+					keySource,
+					problem,
+				),
+			}
+		}
 		if err := method.Verify(token.signingInput, token.signature, key); err != nil {
 			return Result{
 				Status: StatusFail,
@@ -338,6 +350,37 @@ func (JOSESignatureValidator) Validate(_ context.Context, input Input) Result {
 			params.Key.Source,
 		),
 	}
+}
+
+// ecdsaAlgCurves are the curves RFC 7518 section 3.4 fixes for each ECDSA alg.
+// golang-jwt checks only the signature length, which a smaller curve's
+// zero-padded R and S also satisfy.
+var ecdsaAlgCurves = map[string]elliptic.Curve{
+	"ES256": elliptic.P256(),
+	"ES384": elliptic.P384(),
+	"ES512": elliptic.P521(),
+}
+
+// ecdsaCurveMismatch describes why key cannot verify an ECDSA alg, or returns
+// "" when alg is not ECDSA or key uses the curve alg requires.
+func ecdsaCurveMismatch(alg string, key any) string {
+	curve, ecdsaAlg := ecdsaAlgCurves[alg]
+	if !ecdsaAlg {
+		return ""
+	}
+	public, ok := key.(*ecdsa.PublicKey)
+	if !ok {
+		return fmt.Sprintf("is a %T key, not an ECDSA key", key)
+	}
+	if public.Curve != curve {
+		return fmt.Sprintf(
+			"is a %s key, while %s requires %s",
+			public.Curve.Params().Name,
+			alg,
+			curve.Params().Name,
+		)
+	}
+	return ""
 }
 
 func signatureVerificationKey(

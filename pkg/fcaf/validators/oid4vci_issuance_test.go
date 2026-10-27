@@ -268,6 +268,8 @@ func TestOID4VCIWalletRequestAuthorizationRequest(t *testing.T) {
 	}
 	withoutRequestURI := testAuthorizeRequest("2026-10-22T07:38:24.600Z")
 	delete(withoutRequestURI["query"].(map[string]any), "request_uri")
+	withoutBody := testAuthorizeRequest("2026-10-22T07:38:24.600Z")
+	withoutBody["body"] = nil
 	chained := testCapturedRequest(
 		"2026-10-22T07:38:24.730Z",
 		"GET",
@@ -282,6 +284,7 @@ func TestOID4VCIWalletRequestAuthorizationRequest(t *testing.T) {
 		status   Status
 	}{
 		{"attributed Authorization Request", testSessionRequests(), StatusPass},
+		{"GET Authorization Request without a recorded body", []any{testPAR(), withoutBody}, StatusPass},
 		{"Capture's chained authorization request is not the Wallet's",
 			append(testSessionRequests(), chained), StatusPass},
 		{"no request_uri", []any{testPAR(), withoutRequestURI}, StatusFail},

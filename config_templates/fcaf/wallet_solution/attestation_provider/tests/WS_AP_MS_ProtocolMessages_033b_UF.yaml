@@ -25,9 +25,9 @@ evidence:
     from: pipeline.ap.credential-offer-by-value.outputs.offer_without_issuer_visual_evidence
 assertions:
 # The offer is engaged from the issuer's own page, so a Wallet deriving a metadata URL from
-# its origin or referrer reaches this host. Metadata requests carry no session: any
-# /.well-known/ request to the issuer host in the session window counts, which assumes the
-# deployment served no other client meanwhile (run on an otherwise idle deployment).
+# its origin or referrer reaches this host. Metadata requests carry no session: a /.well-known/
+# request to the issuer host in the session window may be another client's, so a match is
+# inconclusive and only its absence passes.
 # Precondition 2: a Wallet that is not invoked leaves the test blocked, never passed.
 - id: user_agent_presents_the_offer_link
   validator: evidence.screenshot_named

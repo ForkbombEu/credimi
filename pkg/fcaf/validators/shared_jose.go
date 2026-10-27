@@ -203,7 +203,8 @@ func hexRune(text string, start int) (rune, bool) {
 
 // compactParts splits a compact serialization into its parts and requires
 // each to be unpadded base64url (RFC 7515 section 2, RFC 4648 section 5)
-// without line breaks, whitespace or other characters.
+// without line breaks, whitespace or other characters, in the canonical form
+// an encoder produces (no stray bits in the last character).
 func compactParts(compact string, want int) ([]string, error) {
 	parts := strings.Split(compact, ".")
 	if len(parts) != want {
@@ -223,8 +224,8 @@ func compactParts(compact string, want int) ([]string, error) {
 				)
 			}
 		}
-		if len(part)%4 == 1 {
-			return nil, fmt.Errorf("part %d has a length no base64url encoding produces", index+1)
+		if _, err := base64.RawURLEncoding.Strict().DecodeString(part); err != nil {
+			return nil, fmt.Errorf("part %d is not canonical unpadded base64url: %w", index+1, err)
 		}
 	}
 	return parts, nil

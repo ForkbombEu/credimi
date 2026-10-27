@@ -136,6 +136,19 @@ describe('FCAF validation test selection', () => {
 		expect(form.availableTests.map((test) => test.id)).toEqual(['WS_AP_IA_Supportive_010a']);
 	});
 
+	it('drops the previous suite test ids once the suite changes', () => {
+		const form = new FCAFValidationStepForm(createInitFormOptions({ intent: 'add' }));
+		form.setTestIds(['WS_RP_IA_Engagement__001']);
+
+		form.data.yaml = form.data.yaml.replace(
+			'suite: wallet_solution/relying_party',
+			'suite: wallet_solution/attestation_provider'
+		);
+		form.toggleTestId('WS_AP_IA_Supportive_010a');
+
+		expect(form.selectedTestIds).toEqual(['WS_AP_IA_Supportive_010a']);
+	});
+
 	it('applies full pipeline_outputs defaults when any tests are selected', () => {
 		const form = new FCAFValidationStepForm(createInitFormOptions({ intent: 'add' }));
 

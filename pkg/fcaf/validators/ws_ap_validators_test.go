@@ -9,6 +9,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha512"
 	"crypto/x509"
 	"encoding/base64"
 	"math/big"
@@ -265,7 +266,8 @@ func TestSharedJWTJWSValidator(t *testing.T) {
 		{"four parts", "a.b.c.d", nil, StatusFail, "Shared_JWT_JWS_01"},
 		{"padded signature", wsCompactJWS(`{"alg":"ES256"}`, `{}`, "c2ln="), nil, StatusFail, "not an unpadded base64url character"},
 		{"space in a part", wsCompactJWS(`{"alg":"ES256"}`, `{}`, "c2 ln"), nil, StatusFail, "base64url character"},
-		{"impossible part length", wsCompactJWS(`{"alg":"ES256"}`, `{}`, "abcde"), nil, StatusFail, "length no base64url encoding produces"},
+		{"impossible part length", wsCompactJWS(`{"alg":"ES256"}`, `{}`, "abcde"), nil, StatusFail, "not canonical unpadded base64url"},
+		{"stray bits in the signature", wsCompactJWS(`{"alg":"ES256"}`, `{}`, "AB"), nil, StatusFail, "not canonical unpadded base64url"},
 		{"header is not JSON", wsCompactJWS(`not json`, `{}`, "c2ln"), nil, StatusFail, "Shared_JSON_01"},
 		{"duplicate header member", wsCompactJWS(`{"alg":"ES256","alg":"ES256"}`, `{}`, "c2ln"), nil, StatusFail, "Shared_JSON_02"},
 		{"header without alg", wsCompactJWS(`{"typ":"JWT"}`, `{}`, "c2ln"), nil, StatusFail, "no alg member"},
@@ -677,6 +679,17 @@ func TestJOSESignatureValidator(t *testing.T) {
 	}, claims)
 	tamperedToken := wsTamperPayload(t, x5cToken, `{"iss":"https://attacker.test"}`)
 	withoutX5C := wsSignedJWT(t, jwt.SigningMethodES256, signingKey, nil, claims)
+	// An ES384 label over a P-256 signature whose R and S are zero-padded to
+	// the 48 bytes golang-jwt checks: the signature math verifies.
+	es384OverP256 := func() string {
+		signingInput := wsBase64(`{"alg":"ES384","x5c":["`+
+			base64.StdEncoding.EncodeToString(leaf)+`"]}`) + "." + wsBase64(`{}`)
+		digest := sha512.Sum384([]byte(signingInput))
+		r, s, err := ecdsa.Sign(rand.Reader, signingKey, digest[:])
+		require.NoError(t, err)
+		signature := append(r.FillBytes(make([]byte, 48)), s.FillBytes(make([]byte, 48))...)
+		return signingInput + "." + base64.RawURLEncoding.EncodeToString(signature)
+	}()
 
 	clientAttestation := wsSignedJWT(t, jwt.SigningMethodES256, attestationKey, nil, map[string]any{
 		"cnf": map[string]any{"jwk": wsECJWK(popKey)},
@@ -733,6 +746,7 @@ func TestJOSESignatureValidator(t *testing.T) {
 		{"x5c signature verifies", x5cToken, map[string]any{"key": map[string]any{"source": "x5c"}}, StatusPass, ""},
 		{"x5c tampered payload", tamperedToken, map[string]any{"key": map[string]any{"source": "x5c"}}, StatusFail, "does not verify"},
 		{"x5c header without certificate", withoutX5C, map[string]any{"key": map[string]any{"source": "x5c"}}, StatusFail, "no x5c certificate"},
+		{"ES384 label over a P-256 key", es384OverP256, map[string]any{"key": map[string]any{"source": "x5c"}}, StatusFail, "requires P-384"},
 		{
 			name:   "sibling cnf.jwk verifies the PoP",
 			value:  headers(popToken),
@@ -1250,6 +1264,18 @@ func TestOID4VCINoRequestAfterValidator(t *testing.T) {
 			message: "/issuers/eu-pid-device-bound/token",
 		},
 		{
+			name: "retried anchor request",
+			value: wsObservedExchange(
+				append(testSessionRequests(), testCapturedRequest(
+					"2026-10-22T07:38:35.000Z", "POST", "/issuers/eu-pid-device-bound/credential", nil, map[string]any{}, nil,
+				)),
+				"2026-10-22T07:38:40Z",
+			),
+			params:  map[string]any{"after": "/credential"},
+			status:  StatusFail,
+			message: "the Wallet sent POST /issuers/eu-pid-device-bound/credential",
+		},
+		{
 			name: "unattributed authorize matched by path prefix",
 			value: withUnattributed(
 				"2026-10-22T07:38:40Z",
@@ -1258,7 +1284,7 @@ func TestOID4VCINoRequestAfterValidator(t *testing.T) {
 			params: map[string]any{"after": "/credential", "unattributed": map[string]any{
 				"path_prefixes": []any{"/issuers/eu-pid-device-bound/"},
 			}},
-			status:  StatusFail,
+			status:  StatusInconclusive,
 			message: "/issuers/eu-pid-device-bound/authorize",
 		},
 		{
@@ -1282,7 +1308,7 @@ func TestOID4VCINoRequestAfterValidator(t *testing.T) {
 			params: map[string]any{"after": "/credential", "unattributed": map[string]any{
 				"path_suffixes": []any{"/authorize"},
 			}},
-			status:  StatusFail,
+			status:  StatusInconclusive,
 			message: "/issuers/eu-pid-device-bound/authorize",
 		},
 		{
@@ -1473,7 +1499,7 @@ func TestOID4VCIOfferEngagementValidator(t *testing.T) {
 					"path_suffixes": []any{"openid-credential-issuer"},
 				}
 			}),
-			status:  StatusFail,
+			status:  StatusInconclusive,
 			message: "openid-credential-issuer",
 		},
 		{

@@ -537,8 +537,8 @@ func (OID4VCINonceFromNonceEndpointValidator) Validate(_ context.Context, input 
 
 // requestFilter selects unattributed ledger requests that may belong to the
 // Wallet: the issuer's host and the given path prefixes or suffixes. Ledger
-// requests carry no session, so a filter is an assumption that the deployment
-// served no other client for these paths in the window.
+// requests carry no session and may be another client's, so a match is
+// inconclusive, while no match shows the Wallet sent no such request.
 type requestFilter struct {
 	PathPrefixes []string `json:"path_prefixes"`
 	PathSuffixes []string `json:"path_suffixes"`
@@ -623,9 +623,10 @@ func describeRequests(requests []capturedRequest) string {
 
 // OID4VCINoRequestAfterValidator requires the Wallet to make no further
 // request after an anchor request, such as the Credential Request an issuer
-// denied. Requests the session cannot hold, like an Authorization Request
-// without request_uri, are looked up among the unattributed requests of the
-// session window.
+// denied. The anchor is the first matching request, so a retry of it is itself
+// a further request. Requests the session cannot hold, like an Authorization
+// Request without request_uri, are looked up among the unattributed requests
+// of the session window.
 type OID4VCINoRequestAfterValidator struct{}
 
 func (OID4VCINoRequestAfterValidator) ID() string { return "oid4vci.no_request_after" }
@@ -657,18 +658,21 @@ func (OID4VCINoRequestAfterValidator) Validate(_ context.Context, input Input) R
 			),
 		}
 	}
-	anchor := anchors[len(anchors)-1]
+	anchor := anchors[0]
 	session, ledger := exchange.laterRequests(anchor.at, params.PathSuffixes, params.Unattributed)
-	if len(session)+len(ledger) > 0 {
+	if len(session) > 0 {
 		return Result{
 			Status: StatusFail,
 			Message: fmt.Sprintf(
 				"after the %s request at %s the Wallet sent %s",
 				anchor.path,
 				anchor.at.Format(time.RFC3339Nano),
-				describeRequests(append(session, ledger...)),
+				describeRequests(session),
 			),
 		}
+	}
+	if len(ledger) > 0 {
+		return unattributedMatch(anchor.at, ledger)
 	}
 	if result := requireObservation(exchange, anchor.at, params.ObserveSeconds); result != nil {
 		return *result
@@ -679,10 +683,25 @@ func (OID4VCINoRequestAfterValidator) Validate(_ context.Context, input Input) R
 		anchor.at.Format(time.RFC3339Nano),
 	)
 	if !params.Unattributed.empty() {
-		message += "; unattributed requests of the window were read as the Wallet's, " +
-			"assuming no other client used the deployment"
+		message += "; no unattributed request of the window matches either"
 	}
 	return Result{Status: StatusPass, Message: message}
+}
+
+// unattributedMatch reports forbidden requests found only among the
+// unattributed requests of the session window. Capture lists every caller's
+// unattributed requests there, so on a shared deployment a match may be another
+// client's and cannot fail the Wallet: the result is inconclusive.
+func unattributedMatch(after time.Time, ledger []capturedRequest) Result {
+	return Result{
+		Status: StatusInconclusive,
+		Message: fmt.Sprintf(
+			"after %s Capture recorded %s without a session; an unattributed request may be "+
+				"another client's, so it does not show the Wallet sent it",
+			after.Format(time.RFC3339Nano),
+			describeRequests(ledger),
+		),
+	}
 }
 
 // requireObservation makes the absence of a later request depend on evidence

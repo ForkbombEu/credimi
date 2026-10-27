@@ -144,16 +144,18 @@ func (OID4VCIOfferEngagementValidator) Validate(_ context.Context, input Input) 
 		if !params.ForbidSessionRequests {
 			session = nil
 		}
-		if len(session)+len(ledger) > 0 {
-			message := fmt.Sprintf(
-				"after the End-user engaged at %s the Wallet sent %s",
-				engaged.Format(time.RFC3339Nano),
-				describeRequests(append(session, ledger...)),
-			)
-			if len(ledger) > 0 {
-				message += " (unattributed requests are assumed to be the Wallet's on an otherwise idle deployment)"
+		if len(session) > 0 {
+			return Result{
+				Status: StatusFail,
+				Message: fmt.Sprintf(
+					"after the End-user engaged at %s the Wallet sent %s",
+					engaged.Format(time.RFC3339Nano),
+					describeRequests(session),
+				),
 			}
-			return Result{Status: StatusFail, Message: message}
+		}
+		if len(ledger) > 0 {
+			return unattributedMatch(engaged, ledger)
 		}
 		if result := requireObservation(exchange, engaged, params.ObserveSeconds); result != nil {
 			return *result
@@ -167,8 +169,7 @@ func (OID4VCIOfferEngagementValidator) Validate(_ context.Context, input Input) 
 		message += " and sent no request for the issuance"
 	}
 	if !params.ForbidUnattributed.empty() {
-		message += "; no unattributed request in the window matches the forbidden paths, " +
-			"assuming no other client used the deployment"
+		message += "; no unattributed request in the window matches the forbidden paths"
 	}
 	return Result{Status: StatusPass, Message: message}
 }

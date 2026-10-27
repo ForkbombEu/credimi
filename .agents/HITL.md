@@ -590,9 +590,10 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-10-26 - FCAF attestation provider: reading unattributed ledger requests as the Wallet's
 
-- status: open
+- status: resolved (user decision 27/10/2026)
 - owner: human maintainer
 - context: `WS_AP_MS_ProtocolMessages_033b_UF` (no metadata request) and `WS_AP_IA_Supportive_011b_UF` (no Authorization Request without `request_uri`) can only see the forbidden requests among `GET /sessions/{id}/requests` `unattributed_requests`, which hold every caller's requests in the window. The validators filter by issuer host and path and treat a match as the Wallet's.
 - question: Is the "otherwise idle deployment" assumption acceptable for these two verdicts?
-- options considered: (a) assume an idle deployment and say so in the result (implemented); (b) report inconclusive whenever any unrelated request is in the window; (c) a dedicated Capture deployment for these runs.
-- default risk: (a) another client's metadata fetch or `/authorize` within the window fails a conforming Wallet.
+- options considered: (a) assume an idle deployment and say so in the result (former implementation); (b) report inconclusive when a forbidden path matches an unattributed request; (c) a dedicated Capture deployment for these runs.
+- default risk: (a) another client's metadata fetch or `/authorize` within the window fails a conforming Wallet; (b) a Wallet that does send the forbidden request is reported inconclusive, never failed, by these two checks; (c) needs a separate deployment.
+- decision: (b). A forbidden request attributed to the session still fails; a match among unattributed requests reports inconclusive, and no match passes (`unattributedMatch` in `pkg/fcaf/validators/oid4vci_ws_ap.go`).

@@ -390,7 +390,11 @@ func checkWalletRequest(
 		}
 	}
 	if params.Parameters != nil {
-		if location := params.Parameters.In; location != "query" {
+		// query_or_body needs the body recorded only when there is one: a GET
+		// carries its parameters in the query alone.
+		location := params.Parameters.In
+		bodyNeeded := location == "body" || location == "query_or_body" && request.body != nil
+		if bodyNeeded {
 			if _, ok := request.body.(map[string]any); !ok || isRedactionMarker(request.body) {
 				return fmt.Sprintf(
 					"the request body is %s, so its parameters are not recorded",
