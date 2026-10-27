@@ -31,18 +31,23 @@ export function getHubItemTypeFilter(type: HubItemType): string {
 }
 
 /** `thumb`: a PocketBase thumb size for small avatars; 100x100 is the one every file field has. */
-export function getHubItemLogo(item: HubItem, thumb?: '100x100'): string | undefined {
-	return item.avatar_file
-		? pb.files.getURL(
-				item.type === 'pipelines'
-					? { collectionName: 'organizations', id: item.organization_id }
-					: { collectionName: item.type, id: item.id },
-				item.avatar_file,
-				thumb ? { thumb } : undefined
-			)
-		: item.avatar_url
-			? item.avatar_url
-			: undefined;
+export function getHubItemLogo(item: HubItem, thumb?: string): string | undefined {
+	if (item.avatar_file) {
+		return pb.files.getURL(
+			item.type === 'pipelines'
+				? { collectionName: 'organizations', id: item.organization_id }
+				: { collectionName: item.type, id: item.id },
+			item.avatar_file,
+			thumb ? { thumb } : undefined
+		);
+	}
+	if (item.avatar_url) {
+		if (!thumb) return item.avatar_url;
+		// credimi.io serves `?thumb=100x100` on file URLs; append for remote logos too.
+		const sep = item.avatar_url.includes('?') ? '&' : '?';
+		return `${item.avatar_url}${sep}thumb=${thumb}`;
+	}
+	return undefined;
 }
 
 //
@@ -59,7 +64,7 @@ export function getHubItemUrl(item: HubItem) {
 
 //
 
-export function getHubItemData(item: HubItem, thumb?: '100x100') {
+export function getHubItemData(item: HubItem, thumb?: string) {
 	return {
 		href: getHubItemUrl(item),
 		logo: getHubItemLogo(item, thumb),

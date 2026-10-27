@@ -114,7 +114,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#each records as request (request.id)}
 						{@const organization = request.expand?.organization}
 						{#if organization}
-							{@const avatarUrl = pb.files.getURL(organization, organization.logo)}
+							{@const avatarUrl = pb.files.getURL(organization, organization.logo, {
+								thumb: '100x100'
+							})}
 							<PlainCard>
 								{#snippet left()}
 									<Avatar src={avatarUrl}></Avatar>

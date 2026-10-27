@@ -41,7 +41,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet records({ records })}
 		<div class="space-y-6">
 			{#each records as record (record.id)}
-				<DashboardCard {record} avatar={(r) => pb.files.getURL(r, r.logo)}>
+				<DashboardCard
+					{record}
+					avatar={(r) => pb.files.getURL(r, r.logo, { thumb: '100x100' })}
+				>
 					{#snippet actions()}
 						<Button href={getCustomCheckPublicUrl(record)}>
 							<PlayIcon />
