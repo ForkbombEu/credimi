@@ -39,6 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					url: '/pages/eudi-wallet-interoperability-testing'
 				},
 				{ label: 'OpenID4VCI and OpenID4VP', url: '/pages/openid4vc-conformance' },
+				{ label: 'EUDI Atlas', url: '/pages/eudi-atlas' },
 				{ label: 'All guides ↗', url: '/pages/guides' }
 			]
 		},
