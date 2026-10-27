@@ -24,7 +24,7 @@ normative_references:
   section: '5.2'
 evidence:
   issuance_exchange:
-    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
+    from: pipeline.ap.jwt-key-attestation-issuance.outputs.issuance_exchange
 assertions:
 - id: jwt_proof_signature_verifies
   validator: jose.signature_valid

@@ -279,6 +279,39 @@ func TestLoadSkipsFailedChildPipelineWithoutContinueOnError(t *testing.T) {
 	require.Empty(t, run.Outputs)
 }
 
+func TestLoadKeepsTheOutputAFailedTaskWorkflowReports(t *testing.T) {
+	def := &pipelineinternal.WorkflowDefinition{
+		Name: "history",
+		Steps: []pipelineinternal.StepDefinition{
+			{StepSpec: pipelineinternal.StepSpec{ID: "engage", Use: "mobile-automation"}},
+			{StepSpec: pipelineinternal.StepSpec{ID: "silent", Use: "mobile-automation"}},
+		},
+	}
+	events := []*historypb.HistoryEvent{
+		startedEvent(t, def),
+		childInitiatedEvent(t, 5, stepConfig("engage")),
+		childFailedEvent(7, 5, workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code: "CRE201",
+			Details: map[string]any{"output": map[string]any{
+				"flow_output": map[string]any{"maestro_screenshot_urls": []any{"not-invoked.png"}},
+			}},
+		})),
+		childInitiatedEvent(t, 8, stepConfig("silent")),
+		childFailedEvent(10, 8, workflowengine.NewAppError(workflowengine.WorkflowError{
+			Code: "CRE201",
+		})),
+	}
+
+	run, err := Load(context.Background(), mockHistory(events), "wf-1", "run-1", testOutputKind)
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"engage": map[string]any{
+			"flow_output": map[string]any{"maestro_screenshot_urls": []any{"not-invoked.png"}},
+		},
+		"silent": workflowengine.WorkflowResult{},
+	}, run.Outputs)
+}
+
 func TestLoadErrors(t *testing.T) {
 	t.Run("missing definition", func(t *testing.T) {
 		events := []*historypb.HistoryEvent{startedEvent(t, nil)}

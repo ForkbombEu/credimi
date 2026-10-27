@@ -1306,6 +1306,8 @@ Wallet can be invoked through the required custom URL scheme `eu-eaa-offer://`.
 - `WS_AP_MS_ProtocolMessages_033a`, `033b_UF` and `033c_UF` are blocked: their
   precondition is a Wallet invoked through `eu-eaa-offer://` (see
   `.agents/HITL.md`, 26/10/2026, offer-by-value tests).
+- Since 27/10/2026 `fcaf-engage-credential-offer` fails when the Wallet is not
+  invoked, so the four engagement steps fail together with these tests.
 
 ## MOCK-ISSUER-001: Capture encrypts the Credential Error Response of an issuance response scenario
 
@@ -1349,3 +1351,11 @@ for.
   delivered. On 26/10/2026 the reference Wallet showed `Oups! Something went
   wrong`, sent no further request, and did not store the credential, but that
   is its reaction to an encrypted `400`, not to the source's response.
+
+### Status
+
+Resolved on production by 27/10/2026: in the Credimi run of that day
+(`fcaf_assessment_65gn920s2j`) the `/credential` response of the
+credential-request-denied session was status `400` with media type
+`application/json` and `error: credential_request_denied`, and
+`WS_AP_IA_MainInteraction_031b_UF` passed.

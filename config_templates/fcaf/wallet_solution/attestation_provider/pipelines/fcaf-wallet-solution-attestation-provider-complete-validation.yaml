@@ -342,6 +342,45 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/openid4vp/sessions/${{ credential-request-denied-2122ce7a-create-stored-credential-probe.outputs.body.session_id }}
     - continue_on_error: true
+      id: jwt-key-attestation-issuance-d607cf80-create-jwt-key-attestation-issuance-session
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.jwt-key-attestation-required
+            evidence_mode: full
+            fixture_id: pid_person_b
+            flow: authorization_code
+            issuer_configuration_id: eu-pid-jwt-key-attestation
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: jwt-key-attestation-issuance-d607cf80-obtain-jwt-key-attestation-credential
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+              parameters:
+                deeplink: ${{ jwt-key-attestation-issuance-d607cf80-create-jwt-key-attestation-issuance-session.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: jwt-key-attestation-issuance-d607cf80-fetch-jwt-key-attestation-issuance-session
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/sessions/${{ jwt-key-attestation-issuance-d607cf80-create-jwt-key-attestation-issuance-session.outputs.body.session_id }}
+    - continue_on_error: true
+      id: jwt-key-attestation-issuance-d607cf80-fetch-jwt-key-attestation-issuer-metadata
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: https://capture-wallet.credimi.io/.well-known/openid-credential-issuer/issuers/eu-pid-jwt-key-attestation
+    - continue_on_error: true
       id: offer-scheme-engagement-55c51c7f-create-haip-vci-session
       use: http-request
       with:
@@ -513,6 +552,11 @@ steps:
                         session_requests: ${{ credential-request-denied-2122ce7a-fetch-issuance-requests.outputs.body | optional }}
                     issuance_visual_evidence: ${{ credential-request-denied-2122ce7a-accept-offer.outputs.flow_output.maestro_screenshot_urls | optional }}
                     stored_credential_probe: ${{ credential-request-denied-2122ce7a-fetch-stored-credential-probe.outputs.body | optional }}
+            pipeline.ap.jwt-key-attestation-issuance:
+                output:
+                    issuance_exchange:
+                        capture_session: ${{ jwt-key-attestation-issuance-d607cf80-fetch-jwt-key-attestation-issuance-session.outputs.body | optional }}
+                        issuer_metadata: ${{ jwt-key-attestation-issuance-d607cf80-fetch-jwt-key-attestation-issuer-metadata.outputs.body | optional }}
             pipeline.ap.offer-scheme-engagement:
                 output:
                     eu_eaa_offer_engagement:

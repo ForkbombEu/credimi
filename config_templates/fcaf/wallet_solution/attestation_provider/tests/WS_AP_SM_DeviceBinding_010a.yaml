@@ -22,7 +22,7 @@ normative_references:
   url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
 evidence:
   issuance_exchange:
-    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
+    from: pipeline.ap.jwt-key-attestation-issuance.outputs.issuance_exchange
 assertions:
 - id: jwt_proof_passes_shared_jwt_jws
   validator: shared.jwt_jws

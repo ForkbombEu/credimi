@@ -25,7 +25,7 @@ normative_references:
   url: https://www.rfc-editor.org/rfc/rfc7515
 evidence:
   issuance_exchange:
-    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
+    from: pipeline.ap.jwt-key-attestation-issuance.outputs.issuance_exchange
 assertions:
 # Proofs are read from raw.credential_request_proofs, recorded before Credo verifies them.
 # kid, jwk, x5c and trust_chain are optional, so they are not asserted.
