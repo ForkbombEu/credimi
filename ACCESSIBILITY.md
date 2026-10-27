@@ -5,10 +5,19 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 # Accessibility Statement
 
+## Our values
+
+We build for citizens, not for "users". Credimi exists to verify that the
+digital identity systems around us respect democracy and the digital rights
+of every citizen, and we hold ourselves to that same standard. Accessibility
+is part of that: a system that excludes anyone serves no one. We care about
+this deeply, especially on a project with this kind of social and civic
+impact.
+
 ## Our commitment
 
-We are working to make Credimi usable by everyone, including people with
-disabilities. Accessibility is a requirement for every change, not an
+We are working to make Credimi usable by every citizen, including people
+with disabilities. Accessibility is a requirement for every change, not an
 afterthought.
 
 ## What we do
