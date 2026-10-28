@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -70,6 +71,48 @@ func authoringFixture(t *testing.T) (*tests.TestApp, BuildRequest, string) {
 	}, org.GetString(
 		"canonified_name",
 	)
+}
+
+func TestListBuildOptionsRequiresOwnershipAndAndroidAPK(t *testing.T) {
+	app, request, _ := authoringFixture(t)
+	selection, err := Select(app, "", request)
+	require.NoError(t, err)
+
+	versions, err := app.FindCollectionByNameOrId("wallet_versions")
+	require.NoError(t, err)
+	withoutAPK := core.NewRecord(versions)
+	withoutAPK.Set("owner", selection.Organization.Id)
+	withoutAPK.Set("wallet", selection.Wallet.Id)
+	withoutAPK.Set("tag", "without-apk")
+	require.NoError(t, app.Save(withoutAPK))
+
+	options, err := ListBuildOptions(app, request.Actor)
+	require.NoError(t, err)
+	require.Len(t, options, 1)
+	assert.Equal(t, request.WalletVersionIdentifier, options[0].Identifier)
+	assert.Equal(t, "Authoring test wallet", options[0].WalletName)
+	assert.Equal(t, "userA's organization", options[0].OrganizationName)
+	assert.Equal(t, "build-1", options[0].VersionTag)
+
+	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	options, err = ListBuildOptions(app, Actor{ActorID: other.Id, ActorCollection: "users"})
+	require.NoError(t, err)
+	assert.Empty(t, options)
+
+	authorization, err := app.FindFirstRecordByFilter(
+		"orgAuthorizations",
+		"user = {:user} && organization = {:organization}",
+		dbx.Params{"user": request.ActorID, "organization": selection.Organization.Id},
+	)
+	require.NoError(t, err)
+	member, err := app.FindFirstRecordByData("orgRoles", "name", "member")
+	require.NoError(t, err)
+	authorization.Set("role", member.Id)
+	require.NoError(t, app.Save(authorization))
+	options, err = ListBuildOptions(app, request.Actor)
+	require.NoError(t, err)
+	assert.Empty(t, options)
 }
 
 func TestAuthoringBuildPermissionAndCapability(t *testing.T) {

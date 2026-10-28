@@ -8,8 +8,17 @@ import os
 from pathlib import Path
 
 import uvicorn
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from temporal_agent_harness.web import create_agent_harness_app
+
+START_PAGE = Path(__file__).with_name("start.html")
+START_PAGE_HEADERS = {
+    "Cache-Control": "no-store",
+    "Content-Security-Policy": (
+        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+        "connect-src http: https:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    ),
+}
 
 
 def create_app():
@@ -20,6 +29,10 @@ def create_app():
 
     @app.middleware("http")
     async def authenticated_start_only(request, call_next):
+        if request.method == "GET" and request.url.path == "/start":
+            return FileResponse(START_PAGE, headers=START_PAGE_HEADERS)
+        if request.method == "GET" and request.url.path == "/" and not request.query_params:
+            return RedirectResponse("/start")
         if request.method == "POST" and request.url.path.rstrip("/") == "/api/sessions":
             return JSONResponse(
                 status_code=403,

@@ -28,6 +28,15 @@ var ActionAuthorRoutes = routing.RouteGroup{
 	},
 	Routes: []routing.RouteDefinition{
 		{
+			Method:         http.MethodGet,
+			Path:           "/wallet-versions",
+			Handler:        HandleActionAuthorWalletVersions,
+			OperationID:    "actionAuthor.listWalletVersions",
+			Summary:        "List wallet versions available for authoring",
+			Description:    "List Android wallet versions in organizations where the authenticated caller is an owner. These are the only versions accepted by the session start endpoint.",
+			ResponseSchema: ActionAuthorWalletVersionsResponse{},
+		},
+		{
 			Method:         http.MethodPost,
 			Path:           "/sessions",
 			Handler:        HandleActionAuthorStart,
@@ -60,6 +69,28 @@ var ActionAuthorArtifactRoutes = routing.RouteGroup{
 			ResponseContentType: "application/vnd.android.package-archive",
 		},
 	},
+}
+
+// ActionAuthorWalletVersionsResponse lists builds selectable by the authenticated actor.
+type ActionAuthorWalletVersionsResponse struct {
+	WalletVersions []actionauthor.BuildOption `json:"wallet_versions"`
+}
+
+// HandleActionAuthorWalletVersions lists only versions the caller can use to start authoring.
+func HandleActionAuthorWalletVersions() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		if e.Auth == nil {
+			return authoringAPIError(actionauthor.ErrForbidden)
+		}
+		versions, err := actionauthor.ListBuildOptions(e.App, actionauthor.Actor{
+			ActorID:         e.Auth.Id,
+			ActorCollection: e.Auth.Collection().Name,
+		})
+		if err != nil {
+			return authoringAPIError(err)
+		}
+		return e.JSON(http.StatusOK, ActionAuthorWalletVersionsResponse{WalletVersions: versions})
+	}
 }
 
 // ActionAuthorStartRequest selects the wallet version and action slot for a new session.

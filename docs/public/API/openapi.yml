@@ -76,6 +76,39 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Start an authenticated wallet-action authoring session
+  /api/action-author/wallet-versions:
+    get:
+      description: List Android wallet versions in organizations where the authenticated
+        caller is an owner. These are the only versions accepted by the session start
+        endpoint.
+      operationId: actionAuthor.listWalletVersions
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorWalletVersionsResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: List wallet versions available for authoring
   /api/apikey/authenticate:
     get:
       description: Authenticate an API key and return Bearer token
@@ -814,6 +847,17 @@ paths:
       summary: Terminate a specific workflow run
 components:
   schemas:
+    ActionauthorBuildOption:
+      properties:
+        identifier:
+          type: string
+        organization_name:
+          type: string
+        version_tag:
+          type: string
+        wallet_name:
+          type: string
+      type: object
     ApierrorAPIError:
       properties:
         code:
@@ -853,6 +897,14 @@ components:
           type: string
         workflow_namespace:
           type: string
+      type: object
+    HandlersActionAuthorWalletVersionsResponse:
+      properties:
+        wallet_versions:
+          items:
+            $ref: '#/components/schemas/ActionauthorBuildOption'
+          nullable: true
+          type: array
       type: object
     HandlersActivityType:
       properties:

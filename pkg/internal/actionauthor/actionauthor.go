@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -60,6 +61,67 @@ type Selection struct {
 	Organization *core.Record
 	Actor        Actor
 	Identifier   string
+}
+
+// BuildOption describes one Android build the actor can select for authoring.
+type BuildOption struct {
+	Identifier       string `json:"identifier"`
+	WalletName       string `json:"wallet_name"`
+	OrganizationName string `json:"organization_name"`
+	VersionTag       string `json:"version_tag"`
+}
+
+// ListBuildOptions returns only builds authorized by the same owner role as Select.
+func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
+	if in.ActorCollection != "users" && in.ActorCollection != core.CollectionNameSuperusers {
+		return nil, ErrForbidden
+	}
+	actor, err := app.FindRecordById(in.ActorCollection, in.ActorID)
+	if err != nil {
+		return nil, ErrForbidden
+	}
+	filter := "android_installer != ''"
+	params := dbx.Params{}
+	if !actor.IsSuperuser() {
+		filter += " && owner.orgAuthorizations_via_organization.user = {:user}" +
+			" && owner.orgAuthorizations_via_organization.role.name = 'owner'"
+		params["user"] = actor.Id
+	}
+	versions, err := app.FindRecordsByFilter("wallet_versions", filter, "created", 0, 0, params)
+	if err != nil {
+		return nil, fmt.Errorf("list authoring wallet versions: %w", err)
+	}
+	if failures := app.ExpandRecords(
+		versions,
+		[]string{"wallet", "owner"},
+		nil,
+	); len(
+		failures,
+	) > 0 {
+		return nil, fmt.Errorf("expand authoring wallet versions: %v", failures)
+	}
+	options := make([]BuildOption, 0, len(versions))
+	for _, version := range versions {
+		wallet := version.ExpandedOne("wallet")
+		organization := version.ExpandedOne("owner")
+		if wallet == nil || organization == nil || wallet.GetString("owner") != organization.Id {
+			continue
+		}
+		options = append(options, BuildOption{
+			Identifier: strings.Join([]string{
+				organization.GetString("canonified_name"),
+				wallet.GetString("canonified_name"),
+				version.GetString("canonified_tag"),
+			}, "/"),
+			WalletName:       wallet.GetString("name"),
+			OrganizationName: organization.GetString("name"),
+			VersionTag:       version.GetString("tag"),
+		})
+	}
+	sort.Slice(options, func(i, j int) bool {
+		return options[i].Identifier < options[j].Identifier
+	})
+	return options, nil
 }
 
 // Select authorizes the same owner role required by wallet_actions creation.

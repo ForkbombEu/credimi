@@ -520,3 +520,56 @@ async def test_selected_apk_rejects_another_package(env, tmp_path):
         finally:
             await handle.signal("close")
             await handle.result()
+
+
+class BudgetRecoveryModel(ScriptedModel):
+    async def get_response(self, input, **kwargs):  # noqa: A002
+        outputs = [item for item in input if item.get("type") == "function_call_output"]
+        conversation = _Conversation(input)
+        if not outputs:
+            return conversation.call("set_target", TARGET)
+        if not any(
+            item.get("role") == "user" and PIN in str(item.get("content")) for item in input
+        ):
+            return _text("Original onboarding request is missing.")
+        if len(outputs) == 1:
+            return conversation.call("reset_app", {})
+        return _text("Exploration resumed.")
+
+
+class BudgetRecoveryProvider(ModelProvider):
+    def get_model(self, model_name):
+        return BudgetRecoveryModel()
+
+
+@pytest.mark.parametrize(
+    "env",
+    [BudgetRecoveryProvider()],
+    indirect=True,
+)
+async def test_budget_exhaustion_preserves_completed_exploration(env, tmp_path, monkeypatch):
+    monkeypatch.setenv("ACTION_AUTHOR_TOKEN_BUDGET", "1500")
+    activities = ActionAuthorActivities(FakeDevice(serial=SERIAL), tmp_path / "out")
+    async with Worker(
+        env.client,
+        task_queue=TASK_QUEUE,
+        workflows=[ActionAuthorWorkflow],
+        activities=activities.all(),
+    ):
+        workflow_id = f"action-author-budget-recovery-{uuid.uuid4()}"
+        handle = await env.client.start_workflow(
+            WORKFLOW_TYPE, args=[AgentConfig(), CONTEXT], id=workflow_id, task_queue=TASK_QUEUE
+        )
+        try:
+            first, first_tools, _ = await ask(
+                env.client, workflow_id, f"Write onboarding with PIN {PIN}"
+            )
+            assert "TokenBudgetExceeded" in first
+            assert first_tools == ["set_target"]
+            second, second_tools, _ = await ask(env.client, workflow_id, "Continue.")
+            assert "TokenBudgetExceeded" in second
+            assert second_tools == ["reset_app"]
+            assert env.author_store.saved == []
+        finally:
+            await handle.signal("close")
+            await handle.result()

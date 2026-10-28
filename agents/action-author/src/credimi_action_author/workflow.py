@@ -30,6 +30,7 @@ with workflow.unsafe.imports_passed_through():
     from agents import Agent as OpenAIAgent
     from agents import RunHooks, Runner, TResponseInputItem
     from agents.exceptions import AgentsException
+    from agents.items import ItemHelpers
     from temporal_agent_harness.ai_sdks.openai_agents.workflow import stateless_mcp_server
     from temporal_agent_harness.ai_sdks.openai_agents_harness import as_openai_agent_tools
     from temporal_agent_harness.harness import agent
@@ -272,10 +273,18 @@ class ActionAuthorWorkflow:
                 hooks=budget,
             )
         except AgentsException as exc:
-            # e.g. MaxTurnsExceeded, TokenBudgetExceeded: the conversation is left as it was;
-            # an action accepted before the failure stays accepted.
+            # Budget hooks stop before the new response's tools execute. Keep only
+            # the SDK's completed items so a human can continue from the actual device state.
+            if isinstance(exc, TokenBudgetExceeded) and exc.run_data is not None:
+                self._conversation = ItemHelpers.input_to_new_input_list(exc.run_data.input)
+                self._conversation.extend(item.to_input_item() for item in exc.run_data.new_items)
             error = f"{type(exc).__name__}: {exc}"
             text = f"I could not finish: {error}"
+            if isinstance(exc, TokenBudgetExceeded) and exc.run_data is not None:
+                text += (
+                    "\nCompleted exploration is retained. Send Continue to resume; "
+                    "the next message has its own token budget."
+                )
         else:
             self._conversation = result.to_input_list()
             text = str(result.final_output or "").strip() or "(The model gave no answer.)"

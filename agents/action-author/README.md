@@ -79,14 +79,18 @@ ACTION_AUTHOR_CHATGPT=0
 ACTION_AUTHOR_FAKE_MODEL=0
 ACTION_AUTHOR_MODEL_BASE_URL=https://api.anthropic.com/v1/
 ACTION_AUTHOR_MODEL_API_KEY=your-workspace-scoped-key
-ACTION_AUTHOR_MODEL=claude-sonnet-4-6
+ACTION_AUTHOR_MODEL=claude-sonnet-5-5
 ```
 
 This uses Claude API billing, not the ChatGPT subscription. The current configuration does
 not expose the extra workspace header required by non-workspace-scoped personal/service
 keys. This is compatibility-mode evaluation, not a native Anthropic adapter: prompt caching
-is unavailable through that endpoint. The action-author tests cover the compatible request
-path; a live Claude authoring run has not yet been verified.
+is unavailable through that endpoint. A physical-device run on 28/10/2026 resumed a
+budget-exhausted Sonnet 4.6 exploration with Sonnet 5.5 and produced an accepted onboarding
+candidate on its first submission: both clean-state Maestro replays passed (35.4s and 34.5s,
+12 commands each). The continuation used 6 model calls and 273,741/2,408 input/output tokens.
+After explicit human approval, the exact candidate was persisted as an unpublished wallet
+action; stored code, category and build/replay provenance were verified against the candidate.
 
 For the ChatGPT subscription, run `make action-author.login` once in a local terminal and
 approve ChatGPT plan usage for `credimi-action-author`. This uses OpenAI's documented OAuth
@@ -106,6 +110,12 @@ subscription model, allowing that model's supported default; explicit reasoning 
 Budgets per `ask` message: `ACTION_AUTHOR_TOKEN_BUDGET` (default 600 000 input+output tokens)
 and `ACTION_AUTHOR_MAX_MODEL_CALLS` (default 80). Every reply ends with the model calls and
 tokens in/out of the message and of the session; the worker logs the same line per message.
+
+If a message reaches its token budget, completed exploration and tool results are retained.
+Send `Continue` in the same session to resume from the current device state with a new
+per-message budget. The model response that crossed the limit is not executed, and no action
+is saved automatically. Keep the same device and installed build; do not clear the app between
+messages. Continuation still incurs model charges and is not context compaction or caching.
 
 Agent-device MCP activities have one attempt and a three-minute total deadline, including queue
 wait. Device interactions are not automatically retried: a lost response must not duplicate a
@@ -132,28 +142,26 @@ make action-author.schema            # regenerate the schema consumed by agents.
 make action-author.test              # ruff + pytest, no physical device required
 ```
 
-Start a session through Credimi, not through the harness's unauthenticated session creator.
-Create a Credimi user API key in the dashboard, or use an existing one for your owner account.
-This is separate from the Claude API key configured on the worker. In a Bash terminal:
+Open `http://localhost:8001/`. The harness opens its authenticated start page. Enter the
+Credimi URL (normally `http://localhost:8090`) and a **Credimi user API key** from your
+dashboard, then select a wallet version. This is separate from the Claude API key configured
+on the worker. The page exchanges the user key for a bearer token and lists only Android
+versions in organizations where you are an owner (superusers see all Android versions).
+Select **Start authoring session** to open the chat.
 
-```bash
-read -rsp 'Credimi user API key: ' CREDIMI_USER_API_KEY; echo
-curl --fail-with-body http://localhost:8090/api/action-author/sessions \
-  -H "Credimi-Api-Key: $CREDIMI_USER_API_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{"wallet_version_identifier":"your-org/your-wallet/your-version","slot":"onboarding"}'
-unset CREDIMI_USER_API_KEY
-```
+The API key is cleared after version lookup and is never stored in browser storage, workflow
+inputs, or the URL. The authenticated caller must be an owner of the wallet's organization
+(or a superuser). The start endpoint still derives the actor and organization from Credimi
+authentication; the browser cannot supply either. The response is `202` with `workflow_id`,
+`run_id`, `workflow_namespace` and the canonical `wallet_version_identifier`. Optional API
+field `app_id` rejects a selected APK with a different package ID; it does not select an
+installer. Set `ACTION_AUTHOR_CREDIMI_URL` to the trusted Credimi origin used by the worker
+when it is not `http://localhost:8090`.
 
-The authenticated caller must be an owner of the wallet's organization (or a superuser).
-The response is `202` with `workflow_id`, `run_id`, `workflow_namespace` and the canonical
-`wallet_version_identifier`. Optional `app_id` rejects a selected APK with a different
-package ID; it does not select an installer. Set `ACTION_AUTHOR_CREDIMI_URL` to the trusted
-Credimi origin when it is not `http://localhost:8090`.
-
-Open `http://localhost:8001/?s=<workflow_id>` and send the authoring request. The local UI
-rejects direct session creation, so actor and organization cannot be supplied through its
-New session form. Keep the UI on loopback: it is not a hosted multi-user authentication layer.
+Select **Existing sessions** to return to the packaged session picker. The local UI still
+rejects direct session creation through its original API, so actor and organization cannot
+be supplied through the stock New session form. Keep the UI on loopback: it is not a hosted
+multi-user authentication layer.
 
 The selected APK is streamed through `GET /api/action-author/installer` using a short-lived,
 single-build `Credimi-Artifact-Grant` header. Downloads do not follow redirects or use an

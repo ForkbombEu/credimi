@@ -25,3 +25,24 @@ async def test_harness_cannot_start_sessions_with_caller_supplied_actor():
             },
         )
     assert response.status_code == 403
+
+
+async def test_harness_landing_page_opens_authenticated_start():
+    app = create_app()
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://harness"
+    ) as client:
+        response = await client.get("/")
+    assert response.status_code == 307
+    assert response.headers["location"] == "/start"
+
+
+async def test_start_page_is_not_cached_or_embeddable():
+    app = create_app()
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://harness"
+    ) as client:
+        response = await client.get("/start")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
