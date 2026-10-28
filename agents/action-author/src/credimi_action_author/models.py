@@ -1,0 +1,126 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""Typed contracts shared by the workflow, its tools, the activities and the scripted model.
+
+Models the LLM fills in (``Param``) declare no defaults, so the OpenAI strict JSON schema keeps
+every field required.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from pydantic import BaseModel, Field
+
+# Local PoC: the `default` namespace. Production needs the Credimi organization namespace.
+TASK_QUEUE = "action-author"
+WORKFLOW_TYPE = "ActionAuthor"
+DEFAULT_MODEL = "gpt-5.1"
+
+# Name of the agent-device MCP provider registered on the worker (StatelessMCPServerProvider).
+AGENT_DEVICE_MCP = "agent-device"
+# agent-device session used by the model's MCP calls and closed by every Maestro tool.
+AGENT_DEVICE_SESSION = "action-author"
+
+# Chat (`ask`) limits. A session takes at most CHAT_MAX_MESSAGES messages, which also bounds its
+# Temporal history (the harness does not continue-as-new).
+CHAT_MAX_MESSAGES = 20
+# Defaults of the per-`ask` budgets; the worker can override them (see worker.py).
+DEFAULT_TOKEN_BUDGET = 600_000
+DEFAULT_MAX_MODEL_CALLS = 80
+# submit_action calls allowed per target (app id + slot).
+MAX_SUBMISSIONS = 3
+# Successful replays from a cleared app needed to accept an action.
+REPLAY_RUNS = 2
+
+
+@dataclass(frozen=True)
+class Slot:
+    """The contract of one wallet action slot: what the action starts from and must reach."""
+
+    name: str
+    category: str
+    precondition: str
+    outcome: str
+    required_params: tuple[str, ...]
+
+
+SLOTS: dict[str, Slot] = {
+    "onboarding": Slot(
+        name="onboarding",
+        category="onboarding",
+        precondition="app data cleared (`pm clear`): the app starts as freshly installed",
+        outcome="the wallet home screen is visible, with the PIN set",
+        required_params=("PIN",),
+    ),
+}
+
+
+class Param(BaseModel):
+    """One action parameter, e.g. name "PIN", value "123456"."""
+
+    name: str
+    value: str
+
+
+class Usage(BaseModel):
+    requests: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+    def add(self, other: Usage) -> Usage:
+        return Usage(
+            requests=self.requests + other.requests,
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+        )
+
+    def text(self) -> str:
+        return (
+            f"{self.requests} model calls, {self.input_tokens}/{self.output_tokens} tokens in/out"
+        )
+
+
+class DeviceInfo(BaseModel):
+    """The worker's device and budgets, read once per session from the worker's environment."""
+
+    serial: str
+    token_budget: int = DEFAULT_TOKEN_BUDGET
+    max_model_calls: int = DEFAULT_MAX_MODEL_CALLS
+
+
+class ScreenRequest(BaseModel):
+    """Input of the activities that touch the device; params are only used for redaction."""
+
+    app_id: str = ""
+    params: dict[str, str] = Field(default_factory=dict)
+
+
+class ReplayRequest(BaseModel):
+    """Self-contained YAML plus input values retained only for report redaction."""
+
+    app_id: str
+    slot: str
+    yaml: str
+    params: dict[str, str]
+    apk_sha256: str
+    runs: int = REPLAY_RUNS
+
+
+class RunOutcome(BaseModel):
+    """One `maestro test` run of a candidate action."""
+
+    passed: bool
+    seconds: float
+    completed: int = 0
+    failed_command: str = ""
+    tail: str = ""
+    screen: str = ""
+
+
+class ReplayResult(BaseModel):
+    accepted: bool
+    runs: list[RunOutcome]
+    path: str = ""

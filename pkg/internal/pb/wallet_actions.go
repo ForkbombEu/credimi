@@ -5,6 +5,9 @@
 package pb
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"regexp"
 
 	validation "github.com/pocketbase/ozzo-validation/v4"
@@ -24,6 +27,7 @@ var playStoreDetailsLinkPattern = regexp.MustCompile(
 func RegisterWalletActionHooks(app core.App) {
 	app.OnRecordCreate(walletActionsCollectionName).BindFunc(validateWalletActionCategory)
 	app.OnRecordUpdate(walletActionsCollectionName).BindFunc(validateWalletActionCategory)
+	app.OnRecordUpdate(walletActionsCollectionName).BindFunc(clearStaleAuthoringProvenance)
 }
 
 func validateWalletActionCategory(e *core.RecordEvent) error {
@@ -41,4 +45,19 @@ func validateWalletActionCategory(e *core.RecordEvent) error {
 			),
 		},
 	)
+}
+
+func clearStaleAuthoringProvenance(e *core.RecordEvent) error {
+	raw := e.Record.GetString("authoring_provenance")
+	if raw != "" {
+		var provenance struct {
+			YAMLSHA256 string `json:"yaml_sha256"`
+		}
+		digest := sha256.Sum256([]byte(e.Record.GetString("code")))
+		if json.Unmarshal([]byte(raw), &provenance) != nil ||
+			provenance.YAMLSHA256 != hex.EncodeToString(digest[:]) {
+			e.Record.Set("authoring_provenance", nil)
+		}
+	}
+	return e.Next()
 }

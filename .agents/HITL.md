@@ -597,3 +597,36 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (a) assume an idle deployment and say so in the result (former implementation); (b) report inconclusive when a forbidden path matches an unattributed request; (c) a dedicated Capture deployment for these runs.
 - default risk: (a) another client's metadata fetch or `/authorize` within the window fails a conforming Wallet; (b) a Wallet that does send the forbidden request is reported inconclusive, never failed, by these two checks; (c) needs a separate deployment.
 - decision: (b). A forbidden request attributed to the session still fails; a match among unattributed requests reports inconclusive, and no match passes (`unattributedMatch` in `pkg/fcaf/validators/oid4vci_ws_ap.go`).
+
+### 2026-10-27 - Action author model provider for local first tests
+
+- status: resolved (user decision 27/10/2026)
+- owner: human maintainer
+- context: phase 0 still needs a real-model authoring run, but no separate Anthropic API key is available; the user has a ChatGPT/Codex subscription and approved local-only testing.
+- question: May the action-author worker use OpenAI's documented ChatGPT-plan OAuth and Responses API for local tests?
+- options considered: (a) worker-side ChatGPT OAuth provider using the existing harness Responses activities; (b) a Codex CLI subprocess; (c) reuse Codex's cached credentials; (d) defer until an API key is available.
+- default risk: (b) replaces the harness-owned model/tool loop; (c) mixes client registrations and token refresh ownership; (d) leaves phase 0 unproven. The selected flow is restricted to local/open-source use and requires streamed Responses; tools use `additional_tools` developer inputs to preserve the harness's bare-name tool identities.
+- decision: (a), local only. No production/hosted multi-user authorization is implied; usage and cost evaluation remain deferred until the implementation is stronger.
+
+### 2026-10-28 - Action author phase 1: authenticated organization binding
+
+- status: resolved (user selected authenticated Credimi start on 28/10/2026)
+- owner: human maintainer
+- context: phase 0 authoring/replay has passed and the harness is upgraded to 0.8.0. The user requested warning cleanup followed by phase 1. The original proposal specifies Credimi wallet-version/APK selection and approval-gated, owner-scoped Go persistence; it does not define how the local harness session acquires a trusted organization. The current local worker uses the `default` namespace.
+- question: Should phase 1 add an authenticated Credimi session-start endpoint and use the caller's authorized organization namespace, retaining the harness UI for review and approval, or remain a local single-user API-key bridge?
+- options considered: (a) authenticated Credimi start endpoint, organization namespace, Go activities holding `core.App` for owner-scoped resolution and persistence (recommended; requires a new API contract and namespace integration); (b) local Python activities calling the existing PocketBase API with a worker-held user API key (no new API/namespace change, but departs from the proposed Go persistence boundary and is not a hosted multi-user design).
+- default risk: accepting a model- or client-supplied owner in the unauthenticated local harness could authorize writes to the wrong organization. Neither an internal-admin key nor a model-selected owner is a safe substitute for caller authorization.
+- phase 1 invariants: selected existing wallet version and APK provenance; literal supplied test PIN in accepted YAML; two successful clean-state replays before saving; human approval of the exact accepted YAML; unpublished creation; explicit approval before replacement. Runner reservation/execution/final cleanup remain phase 2, and embedded Credimi chat remains phase 3.
+- decision: (a). Authenticated `POST /api/action-author/sessions` derives the actor and authorized organization from Credimi; Python workers and the review UI use that organization namespace. Go `core.App` activities resolve the existing wallet version and save only the human-confirmed, twice-replayed candidate. The local harness rejects direct session creation. Short-lived, build-bound installer grants avoid giving the Python worker a Credimi API key.
+- persistence: new actions are unpublished; replacing an existing action requires its record ID and current code SHA256. Hidden provenance binds the build, APK, candidate and workflow/run; native code edits invalidate it. PocketBase strips non-superuser writes to hidden fields before request hooks, so a native update can answer 200 without changing provenance.
+- verification: isolated Credimi/Temporal/UI smoke exercised a real APK download and metadata inspection, simulated installation and two replays, then human-only saving and browser reload. Physical-device execution was not repeated. Runner lifecycle and cleanup are intentionally unchanged.
+
+### 2026-10-28 - Action author phase 1 validation: existing x/net vulnerability
+
+- status: resolved (user approved the security upgrade on 28/10/2026; `make lint` passes)
+- owner: human maintainer
+- context: phase 1's full Go tests pass, but `make lint` stops at govulncheck on GO-2026-6860 in the unchanged `golang.org/x/net v0.60.0`; the reported call path is `activities.extractOutputRules` → `html.Parse`. The advisory identifies `v0.62.0` as fixed.
+- question: Should the public dependency upgrade be a separate maintenance change or explicitly included in the action-author branch?
+- options considered: (a) upgrade and validate x/net separately; (b) extend this branch with the upgrade. Do not suppress the advisory or change the HTTP activity merely to bypass the check.
+- default risk: the existing HTML parser has an availability vulnerability; phase 1 must not be described as having a green aggregate lint gate until it is resolved.
+- decision: (b). Upgrade `golang.org/x/net` to `v0.62.0` and the related x/* versions required by its module graph. Preserve Forkbomb dependencies. Module hygiene, module verification, vet, reachable-code vulnerability scanning and golangci-lint all pass after the upgrade.

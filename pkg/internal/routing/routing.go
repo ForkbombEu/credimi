@@ -41,6 +41,8 @@ type RouteDefinition struct {
 	Handler               HandlerFactory
 	RequestSchema         any
 	ResponseSchema        any
+	ResponseStatus        int
+	ResponseContentType   string
 	Description           string
 	Summary               string
 	Examples              []string

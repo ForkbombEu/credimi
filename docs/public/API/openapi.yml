@@ -15,6 +15,67 @@ servers:
 - description: Localhost server
   url: http://localhost:8090/
 paths:
+  /api/action-author/installer:
+    get:
+      description: Stream the single Android APK authorized by the required Credimi-Artifact-Grant
+        header. The short-lived capability is issued to the organization-scoped workflow,
+        binds the selected build and actor, and is reauthorized at download. The response
+        is not cached.
+      operationId: actionAuthor.downloadInstaller
+      responses:
+        "200":
+          content:
+            application/vnd.android.package-archive:
+              schema:
+                type: string
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: Download the selected authoring APK
+  /api/action-author/sessions:
+    post:
+      description: Authorize the caller for the selected wallet organization and start
+        a local authoring session in its Temporal namespace. Only the onboarding slot
+        is supported. Review and explicit human confirmation happen in the local harness
+        UI; this endpoint does not save an action.
+      operationId: actionAuthor.startSession
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersActionAuthorStartRequest'
+        required: true
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorStartResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: Start an authenticated wallet-action authoring session
   /api/apikey/authenticate:
     get:
       description: Authenticate an API key and return Bearer token
@@ -771,6 +832,26 @@ components:
         error:
           $ref: '#/components/schemas/ApierrorAPIError'
         message:
+          type: string
+      type: object
+    HandlersActionAuthorStartRequest:
+      properties:
+        app_id:
+          type: string
+        slot:
+          type: string
+        wallet_version_identifier:
+          type: string
+      type: object
+    HandlersActionAuthorStartResponse:
+      properties:
+        run_id:
+          type: string
+        wallet_version_identifier:
+          type: string
+        workflow_id:
+          type: string
+        workflow_namespace:
           type: string
       type: object
     HandlersActivityType:

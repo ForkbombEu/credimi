@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Registry for the harness web UI (`make action-author.ui`).
+
+[[agents]]
+key = "credimi-action-author"
+workflow_type = "ActionAuthor"
+schema = "action-author.schema.json"
+task_queue = "action-author"
+label = "Credimi action author"
+description = """
+Authors an action for the wallet version selected through authenticated Credimi session start.
+Ask with the slot's input values, e.g. "Write the onboarding action with PIN 123456".
+After two clean replays, review the accepted YAML and confirm its Candidate SHA256 through
+save_wallet_action to save an unpublished Credimi action. Saving is never a model tool."""
