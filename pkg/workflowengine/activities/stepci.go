@@ -18,10 +18,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/go-sprout/sprout"
-	"github.com/go-sprout/sprout/group/all"
 )
 
 const (
@@ -192,6 +191,10 @@ func (a *StepCIWorkflowActivity) Execute(
 			return result, ctx.Err()
 		}
 
+		// Failure details land in Temporal history unencrypted, where the run's
+		// tenant can read them: never echo the secrets passed to the runner.
+		loggedArgs := append([]string(nil), args...)
+		loggedArgs[2] = stepCIMaskedSecret
 		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
 		return result, a.NewActivityError(
 			workflowengine.ActivityError{
@@ -201,9 +204,9 @@ func (a *StepCIWorkflowActivity) Execute(
 				Category: "external_command",
 				Details: map[string]any{
 					"command": binPath,
-					"args":    args,
-					"stderr":  stderrBuf.String(),
-					"stdout":  stdoutBuf.String(),
+					"args":    loggedArgs,
+					"stderr":  maskStepCISecrets(stderrBuf.String(), input.Secrets),
+					"stdout":  maskStepCISecrets(stdoutBuf.String(), input.Secrets),
 				},
 			},
 		)
@@ -212,7 +215,7 @@ func (a *StepCIWorkflowActivity) Execute(
 
 	var output StepCICliReturns
 	if err := json.Unmarshal(stdoutBuf.Bytes(), &output); err != nil {
-		result.Output = stdoutStr
+		result.Output = maskStepCISecrets(stdoutStr, input.Secrets)
 		return result, nil //nolint:nilerr
 	}
 
@@ -559,10 +562,10 @@ func summarizeStepCIFailure(output StepCICliReturns) StepCIFailureSummary {
 }
 
 func RenderYAML(yamlString string, data map[string]any) (string, error) {
-	handler := sprout.New(sprout.WithGroups(all.RegistryGroup()))
-	funcs := handler.Build()
-
-	tmpl, err := template.New("yaml").Delims("[[", "]]").Funcs(funcs).Parse(yamlString)
+	tmpl, err := template.New("yaml").
+		Delims("[[", "]]").
+		Funcs(templateengine.Funcs()).
+		Parse(yamlString)
 	if err != nil {
 		return "", err
 	}

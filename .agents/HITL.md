@@ -535,3 +535,65 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - question: Should every `EUDI_forbidden` source report `not_applicable`, and should those tests still exercise the Wallet?
 - decision: every source whose relevancy contains `EUDI_forbidden` reports only `not_applicable`, whatever its expected result: `WS_RP_IA_MainInteraction__060`, `WS_RP_IA_Metadata__014`, `WS_RP_MS_Metadata__110`, `112`, `113`, `WS_RP_MS_ProtocolMessages__020`, `038`, `040`, `WS_RP_SM_RpIntegrity__002`, `003`, `WS_RP_UC_Presentation__003`. Each definition carries one `fcaf.not_applicable` assertion and no other. They are owned by `scenarios/fcaf-wallet-solution-relying-party-eudi-forbidden.yaml`, which has only the `fcaf-validation` step: its single evidence source `pipeline.eudi-forbidden` is the literal output `relevancy: EUDI_forbidden`, so neither the Verifier nor the Wallet is contacted for these tests.
 - follow-up: The Wallet steps these tests used stay, because other tests own them. A new `EUDI_forbidden` source joins the `eudi-forbidden` scenario with the same single assertion. The second `not_applicable` ground (the SUT's capabilities refute the source's precondition) is unchanged.
+
+### 2026-10-22 - FCAF attestation provider: attributing the Authorization Request from Capture's global request ledger
+
+- status: resolved (upstream credimi-capture-wallet `759bab5`, 26/10/2026)
+- owner: human maintainer
+- context: `WS_AP_IA_MainInteraction_010a`, `_010b` and `WS_AP_MS_ProtocolMessages_039a` check the Wallet's Authorization Request (`GET /issuers/{id}/authorize`). The Wallet sends it from Chrome and Capture records it only in the global `GET /oid4vci/requests` ledger with `session_id: null`; the issuance session holds the PAR, callback, token and Credential Requests. The ledger has no filter and keeps the last 1000 requests of every caller.
+- question: May an FCAF verdict rest on a request attributed to the session from the global ledger, and may the stored FCAF report copy that whole ledger?
+- options considered: (a) attribute it in the validator: same issuer configuration, no other session, between the session's PAR and its next request, narrowed by the PAR `state`, inconclusive when ambiguous (implemented in `oid4vci.wallet_request` `ledger_fallback`); (b) mark the three tests `fcaf.skipped` until Capture ties `/authorize` to the session; (c) change Capture to resolve the `request_uri` and record the request on the session.
+- default risk: (a) concurrent traffic on the same issuer configuration within seconds can make the attribution ambiguous, and enough later traffic can evict the PAR's time from the ledger; both report inconclusive, never pass. The report also stores other callers' redacted requests and forwarded IP addresses. (b) leaves three runnable tests unexecuted.
+- decision: (a) as an interim, pending the maintainer's confirmation; (c) is the durable fix and needs a credimi-capture-wallet change.
+- resolution: (c) landed upstream: Capture attributes `/authorize` by the PAR `request_uri`. On 26/10/2026 `ledger_fallback` and the `request_ledger` evidence were removed; the tests read the session's own requests.
+
+### 2026-10-23 - Server rendering for public pages, public origin and AI crawler policy
+
+- status: open
+- owner: human maintainer
+- context: The SEO and AI-discovery work found every public page outside `/pages` served as an empty client-side shell (root layout `ssr = false`), so crawlers that do not run JavaScript, including most AI crawlers, saw no title or content. Requests reach the webapp through the PocketBase proxy with `Host` set to the internal UI address and no forwarded host or protocol, so request-derived URLs point at the internal host.
+- question: (1) May the `(public)` route group render on the server? (2) Is a build-time `PUBLIC_SITE_URL`, defaulting to `https://credimi.io`, the right source for canonical and sitemap URLs? (3) Should AI training crawlers (GPTBot, ClaudeBot, Google-Extended, CCBot, …) be allowed, not only AI search agents?
+- options considered: (1) SSR for `(public)` only (applied), SSR app-wide, or prerendering only; (2) `PUBLIC_SITE_URL` (applied), PocketBase Settings Application URL (admin-only, not readable by anonymous SSR), or forwarding `X-Forwarded-Host`/`-Proto` from the Go proxy and configuring the adapter's host and protocol headers; (3) allow all AI crawlers (applied, the user asked for content to reach AI models) or allow search and user agents only.
+- default risk: (1) a public component that touches browser-only APIs while rendering returns 500, or crashes the server process when a promise rejects unhandled (the realtime subscription did, fixed); (2) a self-hosted build that does not set `PUBLIC_SITE_URL` canonicalizes to credimi.io; (3) content is used for model training.
+- decision: applied as above on the user's request "all my content suggested by AI harnesses and models".
+- follow-up: confirm, then keep the "Public Pages, SEO And AI Discovery" section of AGENTS.md as the canonical rule.
+
+### 2026-10-26 - FCAF attestation provider: Capture deployment the ws_ap scenarios target
+
+- status: resolved (user decision 26/10/2026)
+- owner: human maintainer
+- context: The ws_ap task asked for runs against `beta-capture-wallet.credimi.io`, but on 26/10/2026 beta served none of the `759bab5` issuance contract (`evidence_mode`, `offer_scheme`, `offer_mutation`, `issuance_response_scenario`, `GET /sessions/{id}/requests`), while production `capture-wallet.credimi.io` served all of it.
+- question: Which host do the ws_ap scenarios and emulator runs use?
+- options considered: production; wait for beta.
+- default risk: on beta every ws_ap scenario is refused or silently loses its evidence.
+- decision: production `capture-wallet.credimi.io`, the existing scenario's host.
+
+### 2026-10-26 - FCAF attestation provider: offer-by-value tests and the eu-eaa-offer scheme
+
+- status: resolved (user decision 26/10/2026)
+- owner: human maintainer
+- context: `WS_AP_MS_ProtocolMessages_033a` (valid Credential Offer by value), `WS_AP_MS_ProtocolMessages_033b_UF` (offer without `credential_issuer`) and `WS_AP_MS_ProtocolMessages_033c_UF` (offer without `credential_configuration_ids`) deliver their offer with `eu-eaa-offer://`, as their Technology sections and the task specify. The reference Wallet 2026.09.42 registers `haip-vci` and `openid-credential-offer` but not `eu-eaa-offer`, so it is never invoked and the three tests report blocked (`WS_AP_IA_Engagement_007b` reports the missing scheme as a failure). The two UF sources' precondition only says "a custom URL scheme"; with `haip-vci://` the reference Wallet shows its error screen and sends no request for both malformed offers (probed 26/10/2026).
+- question: Should `WS_AP_MS_ProtocolMessages_033b_UF` and `WS_AP_MS_ProtocolMessages_033c_UF` (and possibly `WS_AP_MS_ProtocolMessages_033a`) use a scheme the Wallet under test registers, so the offer-handling behaviour is evaluated even when `eu-eaa-offer://` is missing?
+- options considered: (a) keep `eu-eaa-offer://` (implemented; blocked on the reference Wallet); (b) use `haip-vci://` for the UF tests; (c) add a second session per test with a fallback scheme.
+- default risk: (a) leaves the three tests unevaluated on any Wallet without `eu-eaa-offer://`; (b) and (c) evaluate the offer under a scheme the sources' Technology does not name.
+- decision: (a), keep `eu-eaa-offer://`; a Wallet without the scheme leaves the three tests blocked.
+
+### 2026-10-26 - FCAF attestation provider: tests after an issuer rejection report blocked
+
+- status: resolved (user decision 26/10/2026)
+- owner: human maintainer
+- context: Credo answers a PAR carrying a JAR `request` with `400`, and a `jwt` proof with only a key attestation with `400 invalid_proof`, so a conforming Wallet's later requests are never sent. The ws_ap validators report a missing request, Credential Request or issued credential as blocked when an earlier request of the session got an error status from the issuer, naming that request and error, and as failed otherwise. For a JAR Wallet this turns every test after the PAR into blocked, for example `WS_AP_IA_MainInteraction_010a`, `WS_AP_IA_MainInteraction_010b`, `WS_AP_IA_MainInteraction_010c`, `WS_AP_IA_Supportive_011a`, `WS_AP_MS_ProtocolMessages_039a`, `WS_AP_MS_ProtocolMessages_039b`, `WS_AP_IA_MainInteraction_030a`, `WS_AP_IA_MainInteraction_030b`, `WS_AP_MS_ProtocolMessages_050a` to `WS_AP_MS_ProtocolMessages_050e` and `WS_AP_IA_MainInteraction_031a`.
+- question: Is "blocked after any issuer error status" the right rule, given that it also turns a Wallet-caused `4xx` (for example a malformed token request) into blocked for the later tests?
+- options considered: (a) any issuer `4xx`/`5xx` before the missing step (implemented); (b) only known Capture/Credo limitations (JAR, key-attestation-only proof); (c) always fail.
+- default risk: (a) can hide a Wallet defect behind blocked, though the message names the rejected request; (b) needs a list kept in step with Credo; (c) reports Credo limitations as Wallet failures.
+- decision: (a), any issuer error status before the missing step reports blocked, naming the rejected request.
+
+### 2026-10-26 - FCAF attestation provider: reading unattributed ledger requests as the Wallet's
+
+- status: resolved (user decision 27/10/2026)
+- owner: human maintainer
+- context: `WS_AP_MS_ProtocolMessages_033b_UF` (no metadata request) and `WS_AP_IA_Supportive_011b_UF` (no Authorization Request without `request_uri`) can only see the forbidden requests among `GET /sessions/{id}/requests` `unattributed_requests`, which hold every caller's requests in the window. The validators filter by issuer host and path and treat a match as the Wallet's.
+- question: Is the "otherwise idle deployment" assumption acceptable for these two verdicts?
+- options considered: (a) assume an idle deployment and say so in the result (former implementation); (b) report inconclusive when a forbidden path matches an unattributed request; (c) a dedicated Capture deployment for these runs.
+- default risk: (a) another client's metadata fetch or `/authorize` within the window fails a conforming Wallet; (b) a Wallet that does send the forbidden request is reported inconclusive, never failed, by these two checks; (c) needs a separate deployment.
+- decision: (b). A forbidden request attributed to the session still fails; a match among unattributed requests reports inconclusive, and no match passes (`unattributedMatch` in `pkg/fcaf/validators/oid4vci_ws_ap.go`).

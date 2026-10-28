@@ -1,0 +1,45 @@
+id: WS_AP_MS_ProtocolMessages_053b
+title: Send the aud claim of the jwt proof as a string.
+source:
+  path: MessageStructure/ProtocolMessages/WS_AP_MS_ProtocolMessages_053b.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: Commission Implementing Regulation (EU) 2024/2979, as amended
+  section: 'annex Ib'
+- title: ETSI TS 119 472-3
+  section: '4.6.1.2'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4.5.1'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: OpenID for Verifiable Credential Issuance 1.0
+  section: 'F.1'
+  url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+- title: RFC 7519 JSON Web Token (JWT)
+  section: '4'
+  url: https://www.rfc-editor.org/rfc/rfc7519
+evidence:
+  issuance_exchange:
+    from: pipeline.ap.jwt-key-attestation-issuance.outputs.issuance_exchange
+assertions:
+# The source objective repeats 053c's; the expected result (a string) is what is checked.
+- id: jwt_proof_aud_is_a_string
+  validator: jose.member
+  input: evidence.issuance_exchange
+  params:
+    select:
+      path: raw.credential_request_proofs.jwt[].compact
+      require: raw.credential_request_proofs
+      absent: not_applicable
+      reason: the Wallet sent no jwt proof; the source applies to a Wallet that uses the jwt proof type
+        to convey a key attestation
+    part: payload
+    string:
+    - aud
+verdict:
+  pass_when: all_assertions_pass

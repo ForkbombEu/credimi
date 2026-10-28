@@ -62,7 +62,7 @@ func Render(ctx context.Context, document Document) ([]byte, error) {
 	pdf.SetAuthor("Credimi", true)
 	pdf.SetCreator("Credimi", true)
 	pdf.SetProducer("Credimi FCAF report generator", true)
-	pdf.SetSubject("FCAF wallet-solution relying-party conformance evidence", true)
+	pdf.SetSubject("FCAF "+suiteLabel(document.Report.Suite)+" conformance evidence", true)
 	pdf.SetKeywords("FCAF, EUDI, EUDIW, conformance, evidence", true)
 
 	r := &renderer{
@@ -188,7 +188,7 @@ func (r *renderer) renderCover() {
 	r.pdf.Ln(5)
 	r.pdf.SetFont("Inter", "", 11)
 	r.pdf.SetTextColor(70, 68, 86)
-	suite := firstNonEmpty(r.document.Report.Suite, "wallet_solution/relying_party")
+	suite := firstNonEmpty(r.document.Report.Suite, DefaultSuite)
 	r.pdf.MultiCell(bodyWidth, 6, suite, "", "L", false)
 
 	r.pdf.SetXY(pageMargin, 177)
@@ -310,7 +310,9 @@ func (r *renderer) renderExecutiveSummary() {
 	r.pdf.AddPage()
 	r.heading(1, "Executive summary")
 	r.paragraph(
-		"This report records the automated FCAF wallet-solution relying-party assessment performed by Credimi. It presents test definitions, validation outcomes, exact evidence references, and visual artifacts captured during the pipeline execution.",
+		"This report records the automated FCAF " + suiteLabel(
+			r.document.Report.Suite,
+		) + " assessment performed by Credimi. It presents test definitions, validation outcomes, exact evidence references, and visual artifacts captured during the pipeline execution.",
 	)
 	r.paragraph(
 		"This document is supporting conformance evidence. It does not replace certification, conformity assessment body review, or external security evaluation where those are required.",
@@ -543,7 +545,7 @@ func (r *renderer) renderTest(test TestEntry) {
 		}
 	}
 
-	if sourceURL := SourceURL(test.Source.Title); sourceURL != "" {
+	if sourceURL := SourceURL(r.document.Report.Suite, test.Source.Title); sourceURL != "" {
 		r.linkBullet("Open FCAF source test", sourceURL)
 	}
 
@@ -1030,20 +1032,30 @@ func cleanMarkdown(value string) string {
 	return strings.TrimSpace(value)
 }
 
-const fcafTestCasesURL = "https://conformance.eudi.dev/latest-draft/fcaf/suts/wallet_solution/relying_party/test-cases/"
+// fcafSutsURL is the FCAF site root of the per-suite test-cases pages, each at
+// <sut>/<role>/test-cases/.
+const fcafSutsURL = "https://conformance.eudi.dev/latest-draft/fcaf/suts/"
 
 var markdownAnchorSeparators = regexp.MustCompile(`[-\s]+`)
 
-// SourceURL links a test on the FCAF test-cases page. The page derives its
-// anchors from the "# " heading of each source Markdown, which does not always
-// match the source file name that Credimi test IDs come from
-// (CredentialStructure007 in WS_RP_DM_CredentialMetadata_CredentialStructure_007.md).
-func SourceURL(sourceTitle string) string {
+// SourceURL links a test on the FCAF test-cases page of its suite
+// (DefaultSuite when empty). The page derives its anchors from the "# "
+// heading of each source Markdown, which does not always match the source file
+// name that Credimi test IDs come from (CredentialStructure007 in
+// WS_RP_DM_CredentialMetadata_CredentialStructure_007.md).
+func SourceURL(suite string, sourceTitle string) string {
+	suite, valid := reportSuite(suite)
 	anchor := markdownHeadingAnchor(sourceTitle)
-	if anchor == "" {
+	if anchor == "" || !valid {
 		return ""
 	}
-	return fcafTestCasesURL + "#" + anchor
+	return fcafSutsURL + suite + "/test-cases/#" + anchor
+}
+
+// suiteLabel names a suite in prose, e.g. "wallet-solution relying-party" for
+// wallet_solution/relying_party (DefaultSuite when empty).
+func suiteLabel(suite string) string {
+	return strings.NewReplacer("_", "-", "/", " ").Replace(firstNonEmpty(suite, DefaultSuite))
 }
 
 // markdownHeadingAnchor mirrors the default Python-Markdown toc slugify used

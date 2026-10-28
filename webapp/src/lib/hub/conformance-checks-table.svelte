@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { SearchIcon } from '@lucide/svelte';
 	import { createColumnHelper, getCoreRowModel } from '@tanstack/table-core';
 	import {
-		displayStandardName,
+		displayNameFromUid,
 		entityForComponent,
 		suiteHubHref,
 		suiteLogo,
@@ -17,6 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		SuiteBrowse,
 		type ConformanceSuiteRecord
 	} from '$lib/conformance';
+
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import SortHeaderPill from '@/components/ui-custom/sort-header-pill.svelte';
 	import { createSvelteTable, FlexRender, renderComponent } from '@/components/ui/data-table';
@@ -57,7 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			id: 'standard',
 			header: m.Standard(),
 			enableSorting: true,
-			cell: ({ row }) => displayStandardName(row.original.standard)
+			cell: ({ row }) => displayNameFromUid(row.original.standard)
 		}),
 		columnHelper.accessor('component', {
 			id: 'component',

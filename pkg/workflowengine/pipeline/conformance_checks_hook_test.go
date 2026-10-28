@@ -743,6 +743,95 @@ func TestConformanceCheckSetupHookActivityMatchesInline(t *testing.T) {
 	require.Equal(t, inline, viaActivity)
 }
 
+// Conformance-check steps in on_error/on_success hooks must run the catalog
+// StepCI template: a template from the pipeline YAML is rendered with Go
+// templates on the server and would let tenants run their own requests.
+func TestConformanceCheckSetupHookOwnsHookStepTemplates(t *testing.T) {
+	t.Setenv("ROOT_DIR", filepath.Dir(testConfigTemplatesDir(t)))
+	checkID := "openid4vp_wallet/draft-24/openid_conformance_suite/" +
+		"sd_jwt_vc+did+request_uri_signed+direct_post"
+	catalog, err := resolveConformanceTemplate(checkID, "probe")
+	require.NoError(t, err)
+	require.NotEmpty(t, catalog.Template)
+
+	hookStep := func(id string) pipeline.StepSpec {
+		return pipeline.StepSpec{
+			ID:  id,
+			Use: conformanceCheckStepUse,
+			With: pipeline.StepInputs{
+				Config:  map[string]any{"template": `[[ env "HOME" ]]`},
+				Payload: map[string]any{"check_id": checkID},
+			},
+		}
+	}
+	hookWorkflow := func(ctx workflow.Context) (map[string]any, error) {
+		wfDef := &pipeline.WorkflowDefinition{Steps: []pipeline.StepDefinition{{
+			StepSpec: pipeline.StepSpec{ID: "main", Use: "email"},
+			OnError: []*pipeline.OnErrorStepDefinition{
+				{StepSpec: hookStep("on-error")},
+			},
+			OnSuccess: []*pipeline.OnSuccessStepDefinition{
+				{StepSpec: hookStep("on-success")},
+			},
+		}}}
+		runData := map[string]any{}
+		finalOutput := map[string]any{}
+		if err := ConformanceCheckSetupHook(
+			ctx,
+			wfDef,
+			map[string]any{"user_mail": "test@example.com"},
+			&runData,
+			&finalOutput,
+			log.Logger(noopLogger{}),
+		); err != nil {
+			return nil, err
+		}
+		return map[string]any{
+			"on-error":   wfDef.Steps[0].OnError[0].With.Config["template"],
+			"on-success": wfDef.Steps[0].OnSuccess[0].With.Config["template"],
+		}, nil
+	}
+
+	run := func(t *testing.T, hookVersion workflow.Version) (map[string]any, int) {
+		t.Helper()
+		env := newConformanceHookTestEnv()
+		env.RegisterWorkflowWithOptions(
+			hookWorkflow,
+			workflow.RegisterOptions{Name: "test-conformance-hook-steps"},
+		)
+		env.OnGetVersion(
+			conformanceCheckHookStepsChangeID,
+			workflow.DefaultVersion,
+			1,
+		).Return(hookVersion)
+		calls := 0
+		env.SetOnActivityStartedListener(
+			func(info *activity.Info, _ context.Context, _ converter.EncodedValues) {
+				if info.ActivityType.Name == NewConformanceTemplateActivity().Name() {
+					calls++
+				}
+			},
+		)
+		env.ExecuteWorkflow("test-conformance-hook-steps")
+		require.NoError(t, env.GetWorkflowError())
+		var templates map[string]any
+		require.NoError(t, env.GetWorkflowResult(&templates))
+		return templates, calls
+	}
+
+	t.Run("new runs replace hook-step templates with the catalog one", func(t *testing.T) {
+		templates, calls := run(t, 1)
+		require.Equal(t, catalog.Template, templates["on-error"])
+		require.Equal(t, catalog.Template, templates["on-success"])
+		require.Equal(t, 2, calls)
+	})
+
+	t.Run("runs started before the change replay without new commands", func(t *testing.T) {
+		_, calls := run(t, workflow.DefaultVersion)
+		require.Equal(t, 0, calls)
+	})
+}
+
 func testConfigTemplatesDir(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)

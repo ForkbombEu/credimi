@@ -49,7 +49,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	} satisfies Record<string, IndexItem>;
 
-	const organizationLogoUrl = $derived(pb.files.getURL(organization, organization.logo));
+	const organizationLogoUrl = $derived(
+		pb.files.getURL(organization, organization.logo, { thumb: '100x100' })
+	);
 </script>
 
 <PageTop contentClass="!space-y-4">

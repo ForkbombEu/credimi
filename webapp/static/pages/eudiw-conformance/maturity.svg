@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" role="img" aria-labelledby="t"><title id="t">FCAF maturity stages: submitted, reviewed (beta), release candidate and released baseline, with the baseline test cases at the submitted stage today and a release candidate targeted for the first quarter of 2027</title><style>
+.flow{stroke-dasharray:4 6;animation:dash 1.6s linear infinite}
+.glow{animation:glow 8s ease-in-out infinite}
+.g2{animation-delay:2s}.g3{animation-delay:4s}.g4{animation-delay:6s}
+.pulse{animation:pulse 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes dash{to{stroke-dashoffset:-20}}
+@keyframes glow{0%,30%,100%{stroke:#e2e8f0;stroke-width:1}6%,22%{stroke:#220e7c;stroke-width:2}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.7)}}
+@media (prefers-reduced-motion:reduce){.flow,.glow,.pulse{animation:none}}
+</style>
+<rect width="1200" height="380" rx="16" fill="#eeeaff"/>
+<text x="50" y="58" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="500" letter-spacing="1.7" fill="#220e7c">FCAF MATURITY STAGES</text>
+<g font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+<rect class="glow" x="50" y="84" width="245" height="150" rx="10" fill="#fff" stroke="#e2e8f0"/>
+<text x="72" y="118" font-size="13" fill="#64748b">1</text>
+<text x="72" y="146" font-size="20" font-weight="700" fill="#0f172a">Submitted</text>
+<text x="72" y="174" font-size="14" fill="#64748b">Working draft; baseline</text>
+<text x="72" y="194" font-size="14" fill="#64748b">test cases for pilot testing</text>
+<text x="72" y="220" font-family="'Source Code Pro', ui-monospace, monospace" font-size="13" fill="#220e7c">v0.0.x</text>
+<rect class="glow g2" x="335" y="84" width="245" height="150" rx="10" fill="#fff" stroke="#e2e8f0"/>
+<text x="357" y="118" font-size="13" fill="#64748b">2</text>
+<text x="357" y="146" font-size="20" font-weight="700" fill="#0f172a">Reviewed (beta)</text>
+<text x="357" y="174" font-size="14" fill="#64748b">Technically correct,</text>
+<text x="357" y="194" font-size="14" fill="#64748b">implementable in isolation</text>
+<text x="357" y="220" font-family="'Source Code Pro', ui-monospace, monospace" font-size="13" fill="#220e7c">vX.Y.Z-beta.n</text>
+<rect class="glow g3" x="620" y="84" width="245" height="150" rx="10" fill="#fff" stroke="#e2e8f0"/>
+<text x="642" y="118" font-size="13" fill="#64748b">3</text>
+<text x="642" y="146" font-size="20" font-weight="700" fill="#0f172a">Release candidate</text>
+<text x="642" y="174" font-size="14" fill="#64748b">Consolidated; validation</text>
+<text x="642" y="194" font-size="14" fill="#64748b">and pilot use</text>
+<text x="642" y="220" font-family="'Source Code Pro', ui-monospace, monospace" font-size="13" fill="#220e7c">vX.Y.Z-rc.n</text>
+<rect class="glow g4" x="905" y="84" width="245" height="150" rx="10" fill="#fff" stroke="#e2e8f0"/>
+<text x="927" y="118" font-size="13" fill="#64748b">4</text>
+<text x="927" y="146" font-size="20" font-weight="700" fill="#0f172a">Released baseline</text>
+<text x="927" y="174" font-size="14" fill="#64748b">Stable; regulatory use</text>
+<text x="927" y="194" font-size="14" fill="#64748b">in certification</text>
+<text x="927" y="220" font-family="'Source Code Pro', ui-monospace, monospace" font-size="13" fill="#220e7c">vX.Y.Z (v1.0.0 first)</text>
+</g>
+<g stroke="#220e7c" stroke-width="2" fill="none"><path class="flow" d="M297 159H331"/><path class="flow" d="M582 159H616"/><path class="flow" d="M867 159H901"/></g>
+<g font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+<circle class="pulse" cx="72" cy="278" r="6" fill="#16a34a"/>
+<text x="88" y="283" font-size="14" font-weight="600" fill="#0f172a">Today: v0.0.10 (13/03/2026)</text>
+<circle cx="642" cy="278" r="6" fill="none" stroke="#220e7c" stroke-width="2"/>
+<text x="658" y="283" font-size="14" font-weight="600" fill="#0f172a">Target: first quarter of 2027</text>
+<circle cx="927" cy="278" r="6" fill="none" stroke="#220e7c" stroke-width="2" stroke-dasharray="3 3"/>
+<text x="943" y="283" font-size="14" font-weight="600" fill="#0f172a">v1.0.0: no date published</text>
+<text x="50" y="340" font-size="13" fill="#64748b">Source: conformance.eudi.dev home page and roadmap. The roadmap is indicative and subject to change.</text>
+</g>
+</svg>

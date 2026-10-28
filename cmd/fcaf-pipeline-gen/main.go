@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package main generates complete and demo FCAF aggregate pipelines.
+// Package main generates the complete FCAF aggregate pipeline of every FCAF
+// suite, plus the relying-party demo and happy-flow pipelines.
 package main
 
 import (
@@ -12,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -36,11 +38,15 @@ type aggregateDefinition struct {
 
 var nonSlugCharacter = regexp.MustCompile(`[^a-z0-9]+`)
 
+// Suites are FCAF suite directories under the templates root, named
+// <sut>/<role> as in the fcaf-validation `suite` input.
 const (
-	completeValidationName  = "FCAF wallet relying-party complete validation"
-	demoValidationName      = "FCAF wallet relying-party demo validation"
-	happyFlowValidationName = "FCAF wallet relying-party happy flow validation"
+	relyingPartySuite        = "wallet_solution/relying_party"
+	attestationProviderSuite = "wallet_solution/attestation_provider"
 )
+
+// generatedSuites lists every suite whose scenarios make an aggregate pipeline.
+var generatedSuites = []string{relyingPartySuite, attestationProviderSuite}
 
 // The reference wallet consumes a credential instance per presentation and the
 // Capture issuer advertises no batch issuance, so every presentation that can
@@ -144,40 +150,78 @@ var demoTestIDs = []string{
 }
 
 func main() {
-	inputDir := flag.String(
-		"input",
-		"config_templates/fcaf/wallet_solution/relying_party/scenarios",
-		"directory containing FCAF scenario pipeline YAML",
+	root := flag.String(
+		"root",
+		"config_templates/fcaf",
+		"directory holding the FCAF suites as <sut>/<role>/{scenarios,tests,pipelines}",
 	)
-	outputPath := flag.String(
-		"output",
-		"config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-complete-validation.yaml",
-		"generated complete validation pipeline YAML",
-	)
-	demoOutputPath := flag.String(
-		"demo-output",
-		"config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-demo-validation.yaml",
-		"generated demo validation pipeline YAML",
-	)
-	happyFlowOutputPath := flag.String(
-		"happy-flow-output",
-		"config_templates/fcaf/wallet_solution/relying_party/pipelines/fcaf-wallet-solution-relying-party-happy-flow-validation.yaml",
-		"generated happy flow validation pipeline YAML",
+	only := flag.String(
+		"suite",
+		"",
+		"generate one suite only, e.g. "+relyingPartySuite+"; empty generates every suite",
 	)
 	flag.Parse()
 
-	if err := generate(*inputDir, *outputPath); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	suites := generatedSuites
+	if *only != "" {
+		if !slices.Contains(generatedSuites, *only) {
+			fmt.Fprintf(os.Stderr, "unknown FCAF suite %q; known: %v\n", *only, generatedSuites)
+			os.Exit(2)
+		}
+		suites = []string{*only}
 	}
-	if err := generateDemo(*inputDir, *demoOutputPath); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	for _, suite := range suites {
+		if err := generateSuite(*root, suite); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
-	if err := generateHappyFlow(*inputDir, *happyFlowOutputPath); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+}
+
+// generateSuite writes a suite's complete validation pipeline and, for the
+// relying-party suite, its demo and happy-flow pipelines.
+func generateSuite(root string, suite string) error {
+	inputDir := filepath.Join(root, suite, "scenarios")
+	if err := generate(suite, inputDir, suitePipelinePath(root, suite, "complete")); err != nil {
+		return err
 	}
+	if suite != relyingPartySuite {
+		return nil
+	}
+	if err := generateDemo(inputDir, suitePipelinePath(root, suite, "demo")); err != nil {
+		return err
+	}
+	return generateHappyFlow(inputDir, suitePipelinePath(root, suite, "happy-flow"))
+}
+
+// suiteSlug is the suite path as used in file names and scenario prefixes,
+// e.g. wallet-solution-relying-party.
+func suiteSlug(suite string) string {
+	return strings.NewReplacer("/", "-", "_", "-").Replace(suite)
+}
+
+// suitePipelinePath is where a generated pipeline of the given kind lives,
+// e.g. pipelines/fcaf-wallet-solution-relying-party-complete-validation.yaml.
+func suitePipelinePath(root string, suite string, kind string) string {
+	return filepath.Join(
+		root,
+		suite,
+		"pipelines",
+		"fcaf-"+suiteSlug(suite)+"-"+kind+"-validation.yaml",
+	)
+}
+
+// suitePipelineName names a generated pipeline of the given kind, e.g.
+// "FCAF wallet relying-party complete validation".
+func suitePipelineName(suite string, kind string) string {
+	sut, role, _ := strings.Cut(suite, "/")
+	sut = strings.TrimSuffix(sut, "_solution")
+	return fmt.Sprintf(
+		"FCAF %s %s %s validation",
+		strings.ReplaceAll(sut, "_", "-"),
+		strings.ReplaceAll(role, "_", "-"),
+		strings.ReplaceAll(kind, "-", " "),
+	)
 }
 
 func generateDemo(inputDir string, outputPath string) error {
@@ -185,7 +229,15 @@ func generateDemo(inputDir string, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	return buildAggregate(demoValidationName, selected, outputPath, demoTestIDs, false, nil)
+	return buildAggregate(
+		relyingPartySuite,
+		suitePipelineName(relyingPartySuite, "demo"),
+		selected,
+		outputPath,
+		demoTestIDs,
+		false,
+		nil,
+	)
 }
 
 // happyFlowScenarioNames keeps the happy flow to the shared-evidence
@@ -215,7 +267,15 @@ func generateHappyFlow(inputDir string, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	return buildAggregate(happyFlowValidationName, selected, outputPath, nil, true, new(true))
+	return buildAggregate(
+		relyingPartySuite,
+		suitePipelineName(relyingPartySuite, "happy-flow"),
+		selected,
+		outputPath,
+		nil,
+		true,
+		new(true),
+	)
 }
 
 func selectScenarios(inputDir string, names []string) ([]string, error) {
@@ -243,7 +303,7 @@ func selectScenarios(inputDir string, names []string) ([]string, error) {
 	return selected, nil
 }
 
-func generate(inputDir string, outputPath string) error {
+func generate(suite string, inputDir string, outputPath string) error {
 	paths, err := filepath.Glob(filepath.Join(inputDir, "*.yaml"))
 	if err != nil {
 		return fmt.Errorf("find FCAF scenarios: %w", err)
@@ -252,10 +312,19 @@ func generate(inputDir string, outputPath string) error {
 		return fmt.Errorf("no FCAF scenarios found in %s", inputDir)
 	}
 	sort.Strings(paths)
-	return buildAggregate(completeValidationName, paths, outputPath, nil, false, new(true))
+	return buildAggregate(
+		suite,
+		suitePipelineName(suite, "complete"),
+		paths,
+		outputPath,
+		nil,
+		false,
+		new(true),
+	)
 }
 
 func buildAggregate(
+	suite string,
 	name string,
 	paths []string,
 	outputPath string,
@@ -321,7 +390,7 @@ func buildAggregate(
 		if err != nil {
 			return err
 		}
-		prefix := scenarioPrefix(path)
+		prefix := scenarioPrefix(suite, path)
 		fixture := nestedMap(definition.Runtime, "fixture")
 		stepIDs, err := scenarioStepIDs(path, definition.Steps, prefix)
 		if err != nil {
@@ -432,7 +501,7 @@ func buildAggregate(
 		"use": validationTask,
 		"with": map[string]any{
 			"test_ids":         selectedTests,
-			"suite":            "wallet_solution/relying_party",
+			"suite":            suite,
 			"pipeline_outputs": pipelineOutputs,
 		},
 	})
@@ -1135,9 +1204,9 @@ func stringSlice(value any) []string {
 	}
 }
 
-func scenarioPrefix(path string) string {
+func scenarioPrefix(suite string, path string) string {
 	name := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-	name = strings.TrimPrefix(name, "fcaf-wallet-solution-relying-party-")
+	name = strings.TrimPrefix(name, "fcaf-"+suiteSlug(suite)+"-")
 	name = nonSlugCharacter.ReplaceAllString(strings.ToLower(name), "-")
 	name = strings.Trim(name, "-")
 	if len(name) > 36 {

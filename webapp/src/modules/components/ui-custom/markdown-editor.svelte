@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { Carta, MarkdownEditor, type Plugin } from 'carta-md';
 	import 'carta-md/default.css';
-	import DOMPurify from 'dompurify';
+	import DOMPurify from 'isomorphic-dompurify';
 	import { onMount } from 'svelte';
 
 	import MarkdownEditorIcon from './markdown-editor-image-icon.svelte';

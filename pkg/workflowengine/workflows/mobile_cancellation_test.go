@@ -224,11 +224,11 @@ func TestMobileAutomationWorkflowStoresScreenshotsOfFailedFlow(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Maestro flow failed.")
-	failure := workflowengine.ParseWorkflowError(err)
+	flowOutput := workflowengine.AsMap(workflowengine.ExtractOutputFromError(err)["flow_output"])
 	require.Equal(
 		t,
 		[]string{"https://app.example/api/files/before-failure.png"},
-		workflowengine.AsSliceOfStrings(failure.Details["maestro_screenshot_urls"]),
+		workflowengine.AsSliceOfStrings(flowOutput["maestro_screenshot_urls"]),
 	)
 	env.AssertExpectations(t)
 }

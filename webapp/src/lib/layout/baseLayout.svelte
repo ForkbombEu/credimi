@@ -15,8 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="flex min-h-screen flex-col">
 	<Topbar />
-	<div class="flex grow flex-col">
+	<main class="flex grow flex-col">
 		{@render children()}
-	</div>
+	</main>
 	<Footer />
 </div>

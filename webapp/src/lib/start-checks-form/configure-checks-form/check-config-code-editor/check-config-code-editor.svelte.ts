@@ -6,7 +6,7 @@ import type { CheckConfigFormEditor } from '$lib/start-checks-form/configure-che
 import type { BaseEditor } from '$start-checks-form/_utils';
 import type { SuperForm, TaintedFields } from 'sveltekit-superforms';
 
-import { yamlStringSchema } from '$lib/utils';
+import { yamlStringSchema } from '$lib/utils/schemas';
 import { nanoid } from 'nanoid';
 import { watch } from 'runed';
 import { fromStore } from 'svelte/store';

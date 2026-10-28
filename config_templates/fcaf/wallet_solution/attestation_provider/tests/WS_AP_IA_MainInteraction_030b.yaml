@@ -1,0 +1,32 @@
+id: WS_AP_IA_MainInteraction_030b
+title: Send the Credential Request as application/json that passes every Shared_JSON case.
+source:
+  path: Interaction/MainInteraction/WS_AP_IA_MainInteraction_030b.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: interaction.main_interaction
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: ETSI TS 119 472-3
+  section: '4.6'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: OpenID for Verifiable Credential Issuance 1.0
+  section: '8.2'
+  url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+evidence:
+  issuance_exchange:
+    from: pipeline.ap.authorization-code-issuance.outputs.issuance_exchange
+assertions:
+# Shared_JSON runs on the received body bytes (raw_body). The source leaves open whether an
+# encrypted Credential Request (application/jwt to an issuer advertising
+# credential_request_encryption) is in scope; such a request is reported not applicable.
+- id: credential_request_is_well_formed_json
+  validator: oid4vci.credential_request_body
+  input: evidence.issuance_exchange
+verdict:
+  pass_when: all_assertions_pass

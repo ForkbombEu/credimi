@@ -34,7 +34,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet records({ records })}
 		<PageGrid>
 			{#each records as organization (organization.id)}
-				{@const logoUrl = pb.files.getURL(organization, organization.logo)}
+				{@const logoUrl = pb.files.getURL(organization, organization.logo, {
+					thumb: '100x100'
+				})}
 				<CardLink href={`/organizations/${organization.canonified_name}`} class="!p-4">
 					<div class="flex items-center gap-4">
 						<Avatar

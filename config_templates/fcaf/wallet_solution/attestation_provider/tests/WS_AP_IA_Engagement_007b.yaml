@@ -1,0 +1,45 @@
+id: WS_AP_IA_Engagement_007b
+title: Be invoked through a Credential Offer link with the eu-eaa-offer:// custom URL scheme.
+source:
+  path: Interaction/Engagement/WS_AP_IA_Engagement_007b.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: interaction.engagement
+applicability:
+  profile: EUDI_specific
+  issuance_flow: authorization_code
+normative_references:
+- title: ETSI TS 119 472-3
+  section: '4.1'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4.2'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+evidence:
+  eu_eaa_offer_engagement:
+    from: pipeline.ap.offer-scheme-engagement.outputs.eu_eaa_offer_engagement
+  eu_eaa_offer_visual_evidence:
+    from: pipeline.ap.offer-scheme-engagement.outputs.eu_eaa_offer_visual_evidence
+assertions:
+# The User-agent shows the issuer page with the offer link; the End-user follows it.
+# Invocation is the Wallet screen replacing the page and the Wallet starting the issuance
+# with a PAR attributed to this session.
+# eu-eaa-offer:// is required (EUDI_required): a Wallet the platform does not invoke fails.
+- id: user_agent_presents_the_offer_link
+  validator: evidence.screenshot_named
+  input: evidence.eu_eaa_offer_visual_evidence
+  params:
+    name: offer-link-presented
+- id: wallet_is_invoked
+  validator: oid4vci.offer_engagement
+  input: evidence.eu_eaa_offer_engagement
+  params:
+    scheme: eu-eaa-offer://
+    offer_present:
+    - credential_issuer
+    - credential_configuration_ids
+    when_not_invoked: fail
+    expect_requests:
+    - /par
+verdict:
+  pass_when: all_assertions_pass

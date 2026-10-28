@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { userOrganization } from '$lib/app-state';
-	import { yamlStringSchema } from '$lib/utils';
+	import { yamlStringSchema } from '$lib/utils/schemas';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type { WalletActionsResponse } from '@/pocketbase/types';

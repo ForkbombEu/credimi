@@ -1,6 +1,6 @@
 ---
 name: fcaf-definitions
-description: Implement, review, run, and maintain Credimi FCAF wallet-solution relying-party test definitions, aggregate pipeline scenarios, Maestro flows, validators, and implementation-inventory entries. Use when selecting the next FCAF test, translating an FCAF Markdown scenario into Credimi artifacts, verifying assertions against the reference Android wallet, or coordinating parallel FCAF test work.
+description: Implement, review, run, and maintain Credimi FCAF wallet-solution test definitions (relying_party and attestation_provider suites), aggregate pipeline scenarios, Maestro flows, validators, and implementation-inventory entries. Use when selecting the next FCAF test, translating an FCAF Markdown scenario into Credimi artifacts, verifying assertions against the reference Android wallet, or coordinating parallel FCAF test work.
 ---
 
 # FCAF definitions
@@ -18,13 +18,22 @@ Implement one FCAF test number end to end. Treat protocol evidence and visual ev
 5. Read the exact source test under the sibling FCAF repository. Do not infer the objective from neighboring IDs or the generated inventory.
 6. Inspect neighboring implemented tests and validators, but do not copy a pattern until its semantics match.
 
-Source requirements normally live under:
-
-`/home/puria/src/github.com/eu-digital-identity-wallet/eudi-doc-functional-conformance-assessment/main/docs/fcaf/suts/wallet_solution/relying_party/`
+Source requirements are vendored under `config_templates/fcaf_sources/<sut>/<role>/`
+(`wallet_solution/relying_party`, `wallet_solution/attestation_provider`), and
+upstream under `docs/fcaf/suts/<sut>/<role>/` of the FCAF repository.
 
 ## Select work
 
-- Prefer the next unimplemented `EUDI_required` wallet-solution/relying-party row.
+- Prefer the next unimplemented `EUDI_required` row of the suite the user names
+  (wallet-solution relying-party by default; all 59 attestation-provider tests are
+  implemented).
+- Shared test cases (`docs/fcaf/suts/shared`: Shared_JSON, Shared_JWT_JWS,
+  Shared_JWT_JWE) are not tests of their own; run them with the `shared.json`,
+  `shared.jwt_jws` and `shared.jwt_jwe` validators on the received bytes or compact
+  string, never on re-serialized JSON.
+- Attestation-provider scenarios create Capture issuance sessions with
+  `evidence_mode: "full"` and read only that session's captures; locate requests
+  with a `select` by path suffix, never by array index.
 - Skip TSL/MTSL, Digital Credentials API, W3C Digital Credentials API, and CAW tests unless the user changes scope.
 - Detect duplicate inventory rows before implementing. An older `adapt manual` row may coexist with a newer ready row.
 - Announce the test ID before editing. For parallel work, reserve one test number per agent.
@@ -32,21 +41,22 @@ Source requirements normally live under:
 
 ## Build the artifact set
 
-Create or update applicable source artifacts under:
-
-`config_templates/fcaf/wallet_solution/relying_party/`
+Create or update applicable source artifacts under the suite directory
+`config_templates/fcaf/<sut>/<role>/` (`wallet_solution/relying_party` or
+`wallet_solution/attestation_provider`).
 
 The usual set is:
 
-1. `scenarios/fcaf-wallet-solution-relying-party-<flow>.yaml`
+1. `scenarios/fcaf-<sut>-<role>-<flow>.yaml` (underscores as hyphens), whose
+   `fcaf-validation` step names the `suite`
 2. `tests/<FCAF-ID>.yaml`
 3. `pkg/fcaf/implementation-inventory.csv`
 
 Scenario pipeline must end in `fcaf-validation`, own each selected test exactly once, and expose every test evidence binding under its exact `pipeline.<source>.outputs.<name>` key. Validators consume these aggregate outputs directly. Do not add catalog precondition YAML, assessment workflows, or unrelated-output fallback behavior.
 
-After changing scenarios or tests, run `make fcaf-generate`. This regenerates the sole deployable pipeline:
+After changing scenarios or tests, run `make fcaf-generate`. This regenerates each suite's sole deployable pipeline:
 
-`pipelines/fcaf-wallet-solution-relying-party-complete-validation.yaml`
+`pipelines/fcaf-<sut>-<role>-complete-validation.yaml`
 
 Keep inline `action_code` synchronized with emulator-tested behavior. Prefer extracting shared behavior only when runner resolution is deterministic.
 

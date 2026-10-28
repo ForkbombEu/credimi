@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" role="img" aria-labelledby="t"><title id="t">One wallet run produces a stack of evidence: Temporal step history with timestamps, protocol messages, device video, screenshots, device logs and SHA-256 hashed FCAF evidence, which feed the FCAF report</title><style>
+.flow{stroke-dasharray:4 6;animation:dash 1.6s linear infinite}
+.item{animation:appear 9s ease-out infinite}
+.i2{animation-delay:.6s}.i3{animation-delay:1.2s}.i4{animation-delay:1.8s}.i5{animation-delay:2.4s}.i6{animation-delay:3s}
+.report{animation:report 9s ease-in-out infinite}
+@keyframes dash{to{stroke-dashoffset:-20}}
+@keyframes appear{0%{opacity:0;transform:translateX(-16px)}8%,88%{opacity:1;transform:translateX(0)}100%{opacity:0}}
+@keyframes report{0%,40%{stroke:#e2e8f0;stroke-width:1}48%,88%{stroke:#220e7c;stroke-width:2}100%{stroke:#e2e8f0;stroke-width:1}}
+@media (prefers-reduced-motion:reduce){.flow,.item,.report{animation:none}.motion{display:none}}
+</style><rect width="1200" height="440" rx="16" fill="#eeeaff"/>
+<g font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+<rect x="50" y="150" width="220" height="140" rx="10" fill="#fff" stroke="#220e7c" stroke-width="2"/><text x="76" y="186" font-size="12" font-weight="500" letter-spacing="1.7" fill="#220e7c">ONE RUN</text><text x="76" y="218" font-size="18" font-weight="600" fill="#0f172a">Wallet pipeline</text><text x="76" y="244" font-size="14" fill="#64748b">Issuer, wallet, verifier</text><text x="76" y="266" font-size="14" fill="#64748b">on a real device</text>
+<line x1="280" y1="220" x2="340" y2="220" stroke="#220e7c" stroke-width="2" class="flow"/>
+<g font-size="15" fill="#0f172a">
+<g class="item"><rect x="350" y="46" width="440" height="48" rx="10" fill="#fff" stroke="#e2e8f0"/><text x="372" y="76">Temporal step history</text><text x="768" y="76" font-size="13" text-anchor="end" fill="#64748b" font-family="'Source Code Pro', ui-monospace, monospace">12:04:31.208</text></g>
+<g class="item i2"><rect x="350" y="104" width="440" height="48" rx="10" fill="#fff" stroke="#e2e8f0"/><text x="372" y="134">Protocol messages</text><text x="768" y="134" font-size="13" text-anchor="end" fill="#64748b">offers, requests, responses</text></g>
+<g class="item i3"><rect x="350" y="162" width="440" height="48" rx="10" fill="#fff" stroke="#e2e8f0"/><text x="372" y="192">Device video</text></g>
+<g class="item i4"><rect x="350" y="220" width="440" height="48" rx="10" fill="#fff" stroke="#e2e8f0"/><text x="372" y="250">Screenshots and last frame</text></g>
+<g class="item i5"><rect x="350" y="278" width="440" height="48" rx="10" fill="#fff" stroke="#e2e8f0"/><text x="372" y="308">Device logs</text></g>
+<g class="item i6"><rect x="350" y="336" width="440" height="48" rx="10" fill="#fff" stroke="#220e7c"/><text x="372" y="366">FCAF evidence</text><text x="768" y="366" font-size="13" text-anchor="end" fill="#220e7c" font-family="'Source Code Pro', ui-monospace, monospace">SHA-256</text></g>
+</g>
+<line x1="800" y1="220" x2="880" y2="220" stroke="#220e7c" stroke-width="2" class="flow"/>
+<rect x="890" y="130" width="260" height="180" rx="10" fill="#fff" stroke="#e2e8f0" class="report"/><text x="916" y="166" font-size="12" font-weight="500" letter-spacing="1.7" fill="#220e7c">FCAF REPORT</text><text x="916" y="198" font-size="15" fill="#0f172a">Each test case links to</text><text x="916" y="220" font-size="15" fill="#0f172a">hashed evidence in the</text><text x="916" y="242" font-size="15" fill="#0f172a">run history</text>
+<circle cx="926" cy="276" r="8" fill="#16a34a"/><text x="942" y="281" font-size="13" fill="#64748b">passed</text><circle cx="1016" cy="276" r="8" fill="#dc2626"/><text x="1032" y="281" font-size="13" fill="#64748b">failed</text>
+</g></svg>

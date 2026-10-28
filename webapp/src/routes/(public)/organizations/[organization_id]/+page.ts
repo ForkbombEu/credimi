@@ -2,19 +2,49 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pb } from '@/pocketbase/index.js';
+import { absoluteUrl, plainText, SITE_ORIGIN } from '$lib/seo';
+
+import { notFoundAs404, pb } from '@/pocketbase/index.js';
 
 export const load = async ({ params, fetch }) => {
 	const organization = await pb
 		.collection('organizations')
-		.getFirstListItem(`canonified_name = "${params.organization_id}"`, {
-			fetch
-		});
+		.getFirstListItem(
+			pb.filter('canonified_name = {:name}', { name: params.organization_id }),
+			{
+				fetch
+			}
+		)
+		.catch(notFoundAs404);
 
 	const hubItems = await pb.collection('hub_items').getFullList({
-		filter: `organization_id = '${organization.id}'`,
+		filter: pb.filter('organization_id = {:id}', { id: organization.id }),
 		fetch
 	});
 
-	return { organization, hubItems };
+	const logo = organization.logo
+		? pb.files.getURL(organization, organization.logo, { thumb: '100x100' })
+		: undefined;
+	const description =
+		plainText(organization.description) ||
+		`${organization.name} publishes ${hubItems.length} EUDI wallets, issuers, verifiers and pipelines on the Credimi Hub.`;
+
+	return {
+		organization,
+		hubItems,
+		seo: {
+			title: organization.name,
+			description,
+			jsonLd: [
+				{
+					'@context': 'https://schema.org',
+					'@type': 'Organization',
+					name: organization.name,
+					description: plainText(organization.description, 500) || description,
+					url: organization.external_website_url || undefined,
+					logo: logo ? absoluteUrl(logo, SITE_ORIGIN) : undefined
+				}
+			]
+		}
+	};
 };

@@ -1268,3 +1268,94 @@ names.
 - The positives also need the Wallet to trust the fixture attestation issuer
   (`/openid4vp/verifier-attestation-issuer/jwks.json`); supporting the prefix
   alone is not enough.
+
+## RI-WALLET-030: The `eu-eaa-offer://` Credential Offer scheme has no handler
+
+### Summary
+
+The reference Android Wallet registers no handler for the `eu-eaa-offer://`
+custom URL scheme, so an issuer-initiated Credential Offer delivered with it
+never reaches the Wallet.
+
+### Reproduction
+
+26/10/2026, wallet 2026.09.42 on `emulator-5554`, production Capture: create an
+issuance session with `offer_scheme: "eu-eaa-offer://"`, open
+`/ui/sessions/{id}/engage` in Chrome and tap "Open in wallet"
+(`fcaf-engage-credential-offer`).
+
+### Observed
+
+- `dumpsys package eu.europa.ec.euidi` lists the schemes `haip-vci`,
+  `openid-credential-offer`, `haip-vp`, `openid4vp`, `eudi-openid4vp`,
+  `mdoc-openid4vp`, `eudi-wallet`, `eudi-rqes`, `rqes` and
+  `eu.europa.ec.euidi`, and no `eu-eaa-offer`.
+- Chrome stays on the engagement page; the session records no Wallet request.
+  The same flow with `haip-vci://` shows Chrome's `Do you trust this site with
+  your data?` prompt, then the Wallet's `Issuance request` screen, and the
+  issuance completes.
+
+### Expected
+
+`WS_AP_IA_Engagement_007b` (relevancy `EUDI_specific | EUDI_required`): the
+Wallet can be invoked through the required custom URL scheme `eu-eaa-offer://`.
+
+### FCAF Impact
+
+- `WS_AP_IA_Engagement_007b` fails.
+- `WS_AP_MS_ProtocolMessages_033a`, `033b_UF` and `033c_UF` are blocked: their
+  precondition is a Wallet invoked through `eu-eaa-offer://` (see
+  `.agents/HITL.md`, 26/10/2026, offer-by-value tests).
+- Since 27/10/2026 `fcaf-engage-credential-offer` fails when the Wallet is not
+  invoked, so the four engagement steps fail together with these tests.
+
+## MOCK-ISSUER-001: Capture encrypts the Credential Error Response of an issuance response scenario
+
+### Summary
+
+With `issuance_response_scenario.credential` set to an error status, Capture
+encrypts the error body as a JWE whenever the Wallet's Credential Request asks
+for `credential_response_encryption`, so the Wallet never receives a valid
+Credential Error Response.
+
+### Reproduction
+
+26/10/2026, production Capture, wallet 2026.09.42: create a `full` issuance
+session with `issuance_response_scenario.credential` `{"status":400,
+"content_type":"application/json","body":"{\"error\":\"credential_request_denied\"}"}`
+and accept the offer (scenario
+`fcaf-wallet-solution-attestation-provider-credential-request-denied`).
+
+### Observed
+
+- The Wallet's Credential Request carries `credential_response_encryption`
+  (`ECDH-ES`, `A256GCM`).
+- The `/credential` entry's `response` is status `400`, `Content-Type:
+  application/jwt; charset=utf-8`, body redacted (374 bytes).
+  `issuance_response_scenario_applied` records the scenario and the original
+  `200` response.
+- A scripted client without `credential_response_encryption` receives the
+  JSON error as configured.
+
+### Expected
+
+OpenID4VCI 1.0 section 8.3.1: "Credential Error Responses are never encrypted,
+even if a valid Credential Response would have been." The scenario's error
+response must be delivered as `application/json` whatever the request asked
+for.
+
+### FCAF Impact
+
+- `WS_AP_IA_MainInteraction_031b_UF` is blocked
+  (`oid4vci.issuer_response`): the response the source sets up is not
+  delivered. On 26/10/2026 the reference Wallet showed `Oups! Something went
+  wrong`, sent no further request, and did not store the credential, but that
+  is its reaction to an encrypted `400`, not to the source's response.
+
+### Status
+
+Resolved on production by 27/10/2026: in the Credimi run of that day
+(`fcaf_assessment_65gn920s2j`) the `/credential` response of the
+credential-request-denied session was status `400` with media type
+`application/json` and `error: credential_request_denied`, and
+`WS_AP_IA_MainInteraction_031b_UF` passed.

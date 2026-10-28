@@ -4,6 +4,7 @@
 
 import type { RecordSubscription } from 'pocketbase';
 
+import { browser } from '$app/environment';
 import { onDestroy } from 'svelte';
 
 import type { PocketbaseQueryExpandOption } from '@/pocketbase/query';
@@ -33,6 +34,8 @@ export function setupComponentPocketbaseSubscriptions<C extends CollectionName>(
 	expandOption?: PocketbaseQueryExpandOption<C>;
 	other?: CollectionName[];
 }) {
+	// Realtime needs EventSource; during server rendering the subscription would reject unhandled.
+	if (!browser) return;
 	const { collection, callback, expandOption = [], other = [] } = init;
 	const collections: CollectionName[] = [
 		collection,

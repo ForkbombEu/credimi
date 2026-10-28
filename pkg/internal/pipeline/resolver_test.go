@@ -70,6 +70,21 @@ func TestMergeConfigs(t *testing.T) {
 			step:     map[string]any{"app_url": "https://attacker.example"},
 			expected: map[string]any{},
 		},
+		{
+			// A step of one organization must not act on another organization's
+			// records: namespace scopes record lookups, temp_* drives deletes.
+			name:   "step cannot redirect the run to another organization",
+			global: map[string]any{"namespace": "attacker-org"},
+			step: map[string]any{
+				"namespace": "victim-org",
+				"temp_wallet_version": map[string]any{
+					"record_id": "victim-wallet",
+					"cleanup":   true,
+				},
+				"mobile_device_semaphore_owner_namespace": "victim-org",
+			},
+			expected: map[string]any{"namespace": "attacker-org"},
+		},
 	}
 
 	for _, tc := range tests {

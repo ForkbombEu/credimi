@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { PUBLIC_TURNSTILE_SITE_KEY } from '$env/static/public';
+	import DOMPurify from 'isomorphic-dompurify';
 	import { onMount } from 'svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod/v3';
@@ -110,9 +111,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div>
 					<T>
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-						{@html m.you_have_been_invited_by_organization_to_join_the_platform({
-							organizationName: organization.name
-						})}
+						{@html DOMPurify.sanitize(
+							m.you_have_been_invited_by_organization_to_join_the_platform({
+								organizationName: organization.name
+							})
+						)}
 					</T>
 					<T>{m.Please_register_using_the_provided_email_account_()}</T>
 				</div>

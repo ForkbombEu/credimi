@@ -61,7 +61,21 @@ func TestParseTestID(t *testing.T) {
 			label:    "Other",
 		},
 		{
-			name:     "non ws rp prefix falls back to other",
+			name:     "attestation provider role",
+			testID:   "WS_AP_IA_Supportive_010a",
+			code:     "IA",
+			subgroup: "supportive",
+			label:    "Supportive",
+		},
+		{
+			name:     "unknown wallet-solution role falls back to other",
+			testID:   "WS_XX_IA_Supportive_010a",
+			code:     "OTHER",
+			subgroup: "other",
+			label:    "Other",
+		},
+		{
+			name:     "non ws prefix falls back to other",
 			testID:   "SOMETHING_ELSE",
 			code:     "OTHER",
 			subgroup: "other",

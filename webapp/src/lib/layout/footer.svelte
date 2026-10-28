@@ -16,142 +16,65 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { extras } from './topbar-links';
 
-	//	 NOTE: docs.credimi.io uses lowercase slugs (e.g. /manual/compliance-checks).
-	//	 Do not use old MkDocs-style paths like /Manual/compliance-checks.html (404).
+	// One link per destination: product, guides, companion tools, company.
 	const footer_data = [
 		{
 			label: m.Platform(),
 			links: [
-				{ label: m.Overview(), url: 'https://docs.credimi.io/' },
-				{
-					label: m.Conformance_automation(),
-					url: 'https://docs.credimi.io/manual/compliance-checks'
-				},
-				{ label: m.api_documentation(), url: 'https://docs.credimi.io/API/index.html' },
-				{
-					label: m.platform_architecture(),
-					url: 'https://docs.credimi.io/software-architecture'
-				},
-				{
-					label: m.deployment_options(),
-					url: 'https://docs.credimi.io/software-architecture/developer-setup'
-				}
-
-				//			,{ label: m.compliance_standards(), url: '/platform/compliance' }
-			]
-		},
-		/*	{
-			label: m.Solutions(),
-			links: [
-				{ label: m.didital_identity_for_governments(), url: '/solutions/government' },
-				{ label: m.financial_services(), url: '/solutions/finance' },
-				{ label: m.workforce_verification(), url: '/solutions/workforce' },
-				{ label: m.education_credentials(), url: '/solutions/education' },
-				{ label: m.transportation_smart_mobility(), url: '/solutions/transportation' }
-			]
-		},
-	*/
-		{
-			label: m.Capabilities(),
-			links: [
-				/*		
-				{ label: m.credential_issuance(), url: '/capabilities/issuance' },
-				{ label: m.credential_verification(), url: '/capabilities/verification' }, 
-	*/
-				{
-					label: m.identity_wallet_integration(),
-					url: 'https://docs.credimi.io/Manual/compliance-checks.html'
-				},
-				{
-					label: m.conformance_compliance_tools(),
-					url: 'https://docs.credimi.io/software-architecture/workflow-yaml'
-				},
-				{
-					label: m.ecosystem_governance(),
-					url: 'https://docs.credimi.io/manual/browse-hub'
-				}
-			]
-		},
-		{
-			label: m.Developers(),
-			links: [
-				{ label: m.get_started_with_api(), url: 'https://docs.credimi.io/API/index.html' },
-				//			{ label: m.sdks_libraries(), url: '/developers/sdks' },
-				//			{ label: m.sandbox_environment(), url: '/developers/sandbox' },
-				{
-					label: m.test_suites_runs(),
-					url: 'https://docs.credimi.io/manual/compliance-checks'
-				},
-				{
-					label: m.developer_tools(),
-					url: 'https://docs.credimi.io/software-architecture/workflow-yaml'
-				}
-				//			{ label: m.Changelog(), url: '/developers/changelog' }
-			]
-		},
-		{
-			label: m.Resources(),
-			links: [
-				{ label: m.Documentation(), url: 'https://docs.credimi.io/' },
-				{ label: m.extra_eudi_atlas(), url: 'https://atlas.credimi.io/' },
+				{ label: m.Hub(), url: '/hub' },
+				{ label: m.Scoreboard(), url: '/scoreboard' },
 				{ label: 'Why Credimi', url: '/pages/why-credimi' },
-				{ label: m.articles_tutorials(), url: 'https://docs.credimi.io/' },
-				{ label: m.videos(), url: 'https://docs.credimi.io/' }
-				//			{ label: m.case_studies(), url: '/resources/case-studies' },
-				//			{ label: m.press_releases(), url: '/resources/press' },
-				//			{ label: m.Blog(), url: '/blog' }
+				{ label: m.Documentation(), url: 'https://docs.credimi.io/' },
+				{ label: m.api_documentation(), url: 'https://docs.credimi.io/API/index.html' }
 			]
 		},
 		{
-			label: m.Community(),
+			label: 'Guides',
 			links: [
-				{ label: m.join_our_slack(), url: 'mailto:credimi@forkbomb.eu' },
-				{ label: 'GitHub', url: 'https://github.com/forkbombeu/credimi' },
-				{ label: m.events_webinars(), url: 'https://forkbomb.solutions/webinars/' },
+				{ label: 'EUDIW conformance', url: '/pages/eudiw-conformance' },
+				{ label: 'FCAF conformance', url: '/pages/fcaf-conformance' },
+				{ label: 'EUDI wallet testing', url: '/pages/eudi-wallet-testing' },
 				{
-					label: m.conformance_community_forum(),
-					url: 'https://github.com/forkbombeu/credimi/discussions'
+					label: 'EUDI interoperability testing',
+					url: '/pages/eudi-wallet-interoperability-testing'
 				},
-				{ label: m.partner_network(), url: 'https://forkbomb.solutions/about-us/' }
-			]
-		},
-		{
-			label: m.Company(),
-			links: [
-				{ label: m.about_credimi(), url: 'https://forkbomb.solutions/about-us/' },
-				//			{ label: m.our_vision_and_approach(), url: '/about/approach' },
-				{ label: m.careers(), url: 'https://forkbomb.solutions/about-us/' },
-				//			{ label: m.security(), url: '/security' },
-				{ label: m.contact_us(), url: 'mailto:credimi@forkbomb.eu' },
-				{
-					label: m.legal_privacy(),
-					url: 'https://docs.credimi.io/legal/privacy-policy'
-				},
-				{
-					label: m.terms_and_conditions(),
-					url: 'https://docs.credimi.io/legal/terms-and-conditions'
-				}
+				{ label: 'OpenID4VCI and OpenID4VP', url: '/pages/openid4vc-conformance' },
+				{ label: 'EUDI Atlas', url: '/pages/eudi-atlas' },
+				{ label: 'All guides ↗', url: '/pages/guides' }
 			]
 		},
 		{
 			label: m.Extras(),
 			links: extras.map(({ title, href }) => ({ label: title, url: href }))
+		},
+		{
+			label: m.Company(),
+			links: [
+				{ label: m.about_credimi(), url: 'https://forkbomb.solutions/about-us/' },
+				{ label: m.contact_us(), url: 'mailto:credimi@forkbomb.eu' },
+				{ label: 'GitHub', url: 'https://github.com/forkbombeu/credimi' },
+				{ label: m.legal_privacy(), url: 'https://docs.credimi.io/legal/privacy-policy/' },
+				{
+					label: m.terms_and_conditions(),
+					url: 'https://docs.credimi.io/legal/terms-and-conditions/'
+				}
+			]
 		}
 	];
 </script>
 
 <div class="bg-primary text-muted">
-	<div class="mx-auto max-w-7xl">
+	<div class="mx-auto max-w-site">
 		<div class="px-8 py-12">
 			<div class="flex flex-col justify-between gap-6 sm:flex-row">
 				<div class="flex flex-col items-start gap-2">
 					<div class="flex flex-row items-center gap-2">
 						<AppLogo version="full" />
-						<T tag="h4">
-							<span class="pl-1 text-sm text-white/40">{version}</span>
-						</T>
+						<span class="pl-1 font-mono text-sm text-primary-foreground/70"
+							>{version}</span
+						>
 					</div>
-					<p class="border-b border-b-muted">{m.Test_and_find_decentralized_IDs()}</p>
+					<p class="max-w-md text-primary-foreground/85">{m.footer_tagline()}</p>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<LanguageSelect />
@@ -168,7 +91,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<div class="flex flex-col gap-2">
 							<T tag="small">{category.label}</T>
 							{#each category.links as item (item.label)}
-								<a href={item.url} class="text-xs text-muted-foreground">
+								<a
+									href={item.url}
+									class="text-sm text-primary-foreground/75 transition-colors duration-150 hover:text-primary-foreground"
+								>
 									{item.label}
 								</a>
 							{/each}

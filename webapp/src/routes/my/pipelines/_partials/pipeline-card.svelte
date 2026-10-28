@@ -105,7 +105,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const avatar = $derived.by(() => {
 		const owner = pipeline.expand?.owner;
 		if (!owner) return undefined;
-		return pb.files.getURL(owner, owner.logo);
+		return pb.files.getURL(owner, owner.logo, { thumb: '100x100' });
 	});
 </script>
 

@@ -14,18 +14,9 @@ import (
 )
 
 func TestFCAFGeneratedPipelineTemplateParses(t *testing.T) {
-	root := filepath.Join(
-		"..",
-		"..",
-		"..",
-		"config_templates",
-		"fcaf",
-		"wallet_solution",
-		"relying_party",
-		"pipelines",
-	)
+	root := filepath.Join("..", "..", "..", "config_templates", "fcaf")
 
-	files, err := filepath.Glob(filepath.Join(root, "*.yaml"))
+	files, err := filepath.Glob(filepath.Join(root, "*", "*", "pipelines", "*.yaml"))
 	require.NoError(t, err)
 	require.NotEmpty(t, files)
 

@@ -5,7 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { columns, type Matrix } from './comparison';
+	import { columns, type Matrix } from '$lib/content/why-credimi';
+
 	import SupportDot from './support-dot.svelte';
 
 	const { matrix }: { matrix: Matrix } = $props();

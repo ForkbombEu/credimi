@@ -16,9 +16,6 @@ import (
 	"io"
 	"strings"
 	"text/template"
-
-	"github.com/go-sprout/sprout"
-	"github.com/go-sprout/sprout/group/all"
 )
 
 type TypeOfFieldType string
@@ -66,10 +63,7 @@ var metadataStore = make(map[string]PlaceholderMetadata)
 // It also preprocesses the template to handle custom placeholders and
 // metadata extraction.
 func RenderTemplate(reader io.Reader, data map[string]interface{}) (string, error) {
-	handler := sprout.New(
-		sprout.WithGroups(all.RegistryGroup()),
-	)
-	funcs := handler.Build()
+	funcs := Funcs()
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, reader); err != nil {
@@ -288,10 +282,7 @@ func jwk(alg string) (string, error) {
 }
 
 func preprocessTemplate(content string) (string, error) {
-	handler := sprout.New(
-		sprout.WithGroups(all.RegistryGroup()),
-	)
-	funcs := handler.Build()
+	funcs := Funcs()
 
 	funcs["credimi"] = credimi
 	funcs["jwk"] = jwk
