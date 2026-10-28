@@ -68,25 +68,32 @@ Models, chosen in one place (`worker.model_provider`):
 | --- | --- |
 | `ACTION_AUTHOR_CHATGPT=1` | local browser OAuth against your ChatGPT subscription; Responses API, no API-key billing |
 | `ACTION_AUTHOR_FAKE_MODEL=1` (or `FAKE=1` on make) | scripted, no key (see `fake_model.py`) |
-| `ACTION_AUTHOR_MODEL_BASE_URL` (+ `_API_KEY`, `ACTION_AUTHOR_MODEL`) | OpenAI-compatible Chat Completions: Anthropic, Ollama, freellmapi, Gemini |
+| `ACTION_AUTHOR_ANTHROPIC=1` + `ACTION_AUTHOR_MODEL_API_KEY`, `ACTION_AUTHOR_MODEL` | native Claude Messages, automatic caching and selective context editing |
+| `ACTION_AUTHOR_MODEL_BASE_URL` (+ `_API_KEY`, `ACTION_AUTHOR_MODEL`) | OpenAI-compatible Chat Completions: Ollama, freellmapi, Gemini; Anthropic's official host selects the native provider |
 | `OPENAI_API_KEY` | OpenAI (`gpt-5.1`) |
 
-For Claude evaluation, use a workspace-scoped Claude API key through
-[Anthropic's OpenAI-compatible endpoint](https://platform.claude.com/docs/en/cli-sdks-libraries/libraries/openai-sdk):
+For Claude, use a workspace-scoped API key with the native Anthropic Messages provider:
 
 ```dotenv
 ACTION_AUTHOR_CHATGPT=0
 ACTION_AUTHOR_FAKE_MODEL=0
-ACTION_AUTHOR_MODEL_BASE_URL=https://api.anthropic.com/v1/
+ACTION_AUTHOR_ANTHROPIC=1
 ACTION_AUTHOR_MODEL_API_KEY=your-workspace-scoped-key
 ACTION_AUTHOR_MODEL=claude-sonnet-5-5
 ```
 
-This uses Claude API billing, not the ChatGPT subscription. The current configuration does
-not expose the extra workspace header required by non-workspace-scoped personal/service
-keys. This is compatibility-mode evaluation, not a native Anthropic adapter: prompt caching
-is unavailable through that endpoint. A physical-device run on 28/10/2026 resumed a
-budget-exhausted Sonnet 4.6 exploration with Sonnet 5.5 and produced an accepted onboarding
+This uses Claude API billing, not the ChatGPT subscription. Non-workspace-scoped keys requiring
+an extra workspace header are not exposed by the current configuration. Existing configurations
+with `ACTION_AUTHOR_MODEL_BASE_URL=https://api.anthropic.com/v1/` automatically select native
+Messages instead of Chat Completions. Other compatible providers are unchanged.
+
+Restart the worker after changing providers and start a fresh session when changing model IDs.
+Claude's signed thinking blocks are preserved across Temporal model activities. New sessions
+keep system instructions stable and append changing authoring state to the new user message;
+do not switch providers back and forth within a conversation containing signed thinking.
+
+The initial physical-device acceptance on 28/10/2026 used compatibility mode: a budget-exhausted
+Sonnet 4.6 exploration resumed with Sonnet 5.5 and produced an accepted onboarding
 candidate on its first submission: both clean-state Maestro replays passed (35.4s and 34.5s,
 12 commands each). The continuation used 6 model calls and 273,741/2,408 input/output tokens.
 After explicit human approval, the exact candidate was persisted as an unpublished wallet
@@ -293,10 +300,35 @@ Slot contracts live in `models.SLOTS`. One for now:
   The last successful replay leaves the local wallet onboarded; this is not a clean-device handoff.
   Embedded Credimi chat remains phase 3.
 
-## Phase 0c
+## Native Claude caching and context
 
-- A native Anthropic model and prompt caching are not implemented. Add the provider in
-  `worker.model_provider`; the compatibility-mode configuration above is for evaluation only.
-- Check that prompt caching works through the harness model activity (the instructions plus the
-  agent-device tool schemas are a large, stable prefix) and measure the cost of one accepted
-  onboarding action.
+Native Messages enables automatic prompt caching (`cache_control`) with a five-minute TTL.
+`ACTION_AUTHOR_ANTHROPIC_CACHE_TTL=1h` selects an hour; `off` disables caching. Cache writes cost
+more than ordinary input, while cache reads cost less; see
+[Anthropic's pricing](https://platform.claude.com/docs/en/about-claude/pricing).
+Token budgets count all input, including cache reads and writes, plus output. Caching reduces
+cost/latency, not the token budget itself. Replies and worker logs report cache read/write tokens
+separately.
+
+Selective server-side context editing uses Anthropic's `context-management-2025-06-27` beta.
+Above `ACTION_AUTHOR_ANTHROPIC_CONTEXT_TOKENS` (default 30,000 input tokens per request), it can
+clear old `snapshot`, `screenshot`, `maestro_inspect_screen`, `find`, `get` and `is` results.
+It retains the most recent three tool uses, never clears tool inputs, and excludes interaction
+results, parameters, generated YAML, validation/replay reports and the Maestro cheat sheet.
+The full conversation remains in Temporal, and the UI still shows the original evidence.
+Set the threshold to `0` to disable editing.
+
+Editing is selective, not a hard context limit: protected evidence may still grow. Clearing
+invalidates some cached prefixes, so each edit must remove at least 5,000 input tokens;
+replies/logs report cleared tokens. No local rewriting of signed history or model-generated
+summarization is used. Native requests are text/function-tool based and non-streaming at the
+model boundary; the harness still streams tool progress and final replies to its UI.
+
+A read-only live harness check on 28/10/2026 exercised native Messages against the retained
+authoring conversation. The second request reused 45,477 cache tokens out of 45,557 total input
+tokens and reported 9,030 cleared observation tokens. The harness UI displayed those counts.
+Neither request called device tools or saved an action. This proves native caching/context
+editing, not a new native-provider physical-device authoring run.
+
+See [prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) and
+[context editing](https://platform.claude.com/docs/en/build-with-claude/context-editing).

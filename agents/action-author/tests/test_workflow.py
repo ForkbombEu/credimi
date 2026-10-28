@@ -13,6 +13,8 @@ import sys
 import uuid
 from typing import Any
 
+import anthropic
+import httpx2 as httpx
 import pytest
 import yaml
 from agents import ModelProvider, set_tracing_disabled
@@ -26,6 +28,7 @@ from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
 from credimi_action_author.activities import ActionAuthorActivities
+from credimi_action_author.anthropic_model import AnthropicModel
 from credimi_action_author.contracts import (
     GO_ACTIVITY_QUEUE,
     RESOLVE_BUILD,
@@ -569,6 +572,99 @@ async def test_budget_exhaustion_preserves_completed_exploration(env, tmp_path, 
             second, second_tools, _ = await ask(env.client, workflow_id, "Continue.")
             assert "TokenBudgetExceeded" in second
             assert second_tools == ["reset_app"]
+            assert env.author_store.saved == []
+        finally:
+            await handle.signal("close")
+            await handle.result()
+
+
+class NativeLoopProvider(ModelProvider):
+    def __init__(self):
+        self.requests = []
+        self.client = anthropic.AsyncAnthropic(
+            api_key="test-only",
+            max_retries=0,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(self.respond)),
+        )
+        self.model = AnthropicModel(self.client, "claude-sonnet-5-5")
+
+    def respond(self, request):
+        body = json.loads(request.content)
+        if self.requests:
+            assert body["system"] == self.requests[0]["system"]
+            assert body["messages"][0] == self.requests[0]["messages"][0]
+        self.requests.append(body)
+        results = [
+            block
+            for message in body["messages"]
+            for block in message["content"]
+            if block["type"] == "tool_result"
+        ]
+        if len(results) < 2:
+            name, arguments = ("set_target", TARGET) if not results else ("reset_app", {})
+            content = [
+                {
+                    "type": "tool_use",
+                    "id": f"native_call_{len(results)}",
+                    "name": name,
+                    "input": arguments,
+                }
+            ]
+        else:
+            assert any(
+                block.get("signature") == "signed-native-state"
+                for message in body["messages"]
+                for block in message["content"]
+            )
+            content = [{"type": "text", "text": "Native exploration ready."}]
+        return httpx.Response(
+            200,
+            json={
+                "id": f"msg_native_{len(self.requests)}",
+                "type": "message",
+                "role": "assistant",
+                "model": "claude-sonnet-5-5",
+                "content": [
+                    {"type": "thinking", "thinking": "", "signature": "signed-native-state"},
+                    *content,
+                ],
+                "stop_reason": "tool_use" if len(results) < 2 else "end_turn",
+                "stop_sequence": None,
+                "usage": {
+                    "input_tokens": 100,
+                    "output_tokens": 20,
+                    "cache_creation_input_tokens": 200,
+                    "cache_read_input_tokens": 700,
+                },
+            },
+        )
+
+    def get_model(self, model_name):
+        return self.model
+
+
+@pytest.mark.parametrize("env", [NativeLoopProvider()], indirect=True)
+async def test_native_tool_loop_keeps_signed_prefix_and_human_save_boundary(env, tmp_path):
+    activities = ActionAuthorActivities(FakeDevice(serial=SERIAL), tmp_path / "out")
+    async with Worker(
+        env.client,
+        task_queue=TASK_QUEUE,
+        workflows=[ActionAuthorWorkflow],
+        activities=activities.all(),
+    ):
+        workflow_id = f"action-author-native-{uuid.uuid4()}"
+        handle = await env.client.start_workflow(
+            WORKFLOW_TYPE, args=[AgentConfig(), CONTEXT], id=workflow_id, task_queue=TASK_QUEUE
+        )
+        try:
+            first, tools, _ = await ask(env.client, workflow_id, f"Write onboarding with PIN {PIN}")
+            assert tools == ["set_target", "reset_app"]
+            assert "Native exploration ready." in first
+            second, tools, _ = await ask(
+                env.client, workflow_id, "Continue reviewing the same wallet."
+            )
+            assert "Native exploration ready." in second
+            assert tools == []
             assert env.author_store.saved == []
         finally:
             await handle.signal("close")

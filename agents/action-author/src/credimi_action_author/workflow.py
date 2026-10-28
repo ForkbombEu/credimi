@@ -118,8 +118,16 @@ class TokenBudget(RunHooks):
 
     async def on_llm_end(self, context, agent, response) -> None:
         u = response.usage
+        details = u.input_tokens_details
         self.usage = self.usage.add(
-            Usage(requests=1, input_tokens=u.input_tokens, output_tokens=u.output_tokens)
+            Usage(
+                requests=1,
+                input_tokens=u.input_tokens,
+                output_tokens=u.output_tokens,
+                cache_read_tokens=getattr(details, "cached_tokens", 0) or 0,
+                cache_write_tokens=getattr(details, "cache_write_tokens", 0) or 0,
+                context_cleared_tokens=getattr(details, "context_cleared_tokens", 0) or 0,
+            )
         )
         used = self.usage.input_tokens + self.usage.output_tokens
         if used > self.limit:
@@ -252,10 +260,17 @@ class ActionAuthorWorkflow:
                 return TextReply(text=f"Cannot prepare the selected Credimi APK: {exc.cause}")
         session = self._session
         accepted_before = session.accepted_yaml
+        state = session.describe()
+        user_text = message.text
+        # Signed thinking binds to the prefix, including system instructions.
+        # Put mutable authoring state in the new user turn instead.
+        if workflow.patched("action-author-stable-model-instructions-v1"):
+            user_text += f"\n\nCurrent authoring state: {state}"
+            state = ""
         sdk_agent = OpenAIAgent(
             name="CredimiActionAuthor",
             instructions=f"{INSTRUCTIONS}\n\nDevice: Android, serial {session.serial}.\n"
-            f"{session.describe()}"
+            f"{state}"
             f"\nSelected build: {self._context.wallet_version_identifier}; "
             f"APK SHA256 {session.apk_sha256}; package {session.bound_app_id}. "
             "Never target another build. Saving requires the human save_wallet_action handler.",
@@ -268,7 +283,7 @@ class ActionAuthorWorkflow:
         try:
             result = await Runner.run(
                 sdk_agent,
-                input=[*self._conversation, {"role": "user", "content": message.text}],
+                input=[*self._conversation, {"role": "user", "content": user_text}],
                 max_turns=session.max_model_calls,
                 hooks=budget,
             )

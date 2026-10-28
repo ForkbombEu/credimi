@@ -69,18 +69,29 @@ class Usage(BaseModel):
     requests: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    context_cleared_tokens: int = 0
 
     def add(self, other: Usage) -> Usage:
         return Usage(
             requests=self.requests + other.requests,
             input_tokens=self.input_tokens + other.input_tokens,
             output_tokens=self.output_tokens + other.output_tokens,
+            cache_read_tokens=self.cache_read_tokens + other.cache_read_tokens,
+            cache_write_tokens=self.cache_write_tokens + other.cache_write_tokens,
+            context_cleared_tokens=self.context_cleared_tokens + other.context_cleared_tokens,
         )
 
     def text(self) -> str:
-        return (
+        text = (
             f"{self.requests} model calls, {self.input_tokens}/{self.output_tokens} tokens in/out"
         )
+        if self.cache_read_tokens or self.cache_write_tokens:
+            text += f", cache read/write {self.cache_read_tokens}/{self.cache_write_tokens}"
+        if self.context_cleared_tokens:
+            text += f", context cleared {self.context_cleared_tokens} tokens"
+        return text
 
 
 class DeviceInfo(BaseModel):

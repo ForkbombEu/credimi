@@ -20,6 +20,10 @@ Environment:
     ACTION_AUTHOR_MODEL_API_KEY             key for that endpoint (Ollama accepts any value)
     ACTION_AUTHOR_MODEL                     model name there, e.g. qwen3:14b; replaces the model
                                             name the workflow asks for
+    ACTION_AUTHOR_ANTHROPIC=1                native Claude Messages (also selected by the official
+                                            Anthropic MODEL_BASE_URL); uses MODEL_API_KEY/MODEL
+    ACTION_AUTHOR_ANTHROPIC_CACHE_TTL         5m (default), 1h, or off
+    ACTION_AUTHOR_ANTHROPIC_CONTEXT_TOKENS    stale-observation clearing threshold (30000; 0 off)
     ACTION_AUTHOR_FAKE_MODEL=1              scripted model (no API key, no cost)
     ACTION_AUTHOR_TOKEN_BUDGET              tokens per `ask` turn (default 600000)
     ACTION_AUTHOR_MAX_MODEL_CALLS           model calls per `ask` turn (default 80)
@@ -34,6 +38,7 @@ import logging
 import os
 import sys
 from datetime import timedelta
+from urllib.parse import urlparse
 
 from agents import Model, ModelProvider, ModelSettings, OpenAIProvider, set_tracing_disabled
 from openai import AsyncOpenAI
@@ -140,14 +145,32 @@ def chatgpt_enabled() -> bool:
     return os.environ.get("ACTION_AUTHOR_CHATGPT", "").lower() in {"1", "true", "yes"}
 
 
+def native_anthropic_enabled() -> bool:
+    return os.environ.get("ACTION_AUTHOR_ANTHROPIC", "").lower() in {"1", "true", "yes"} or (
+        urlparse(compatible_endpoint()).hostname == "api.anthropic.com"
+    )
+
+
 def model_provider() -> ModelProvider | None:
-    """The one place that picks the model: scripted, ChatGPT, compatible endpoint, or OpenAI."""
+    """Pick scripted, ChatGPT, native Claude, another compatible endpoint, or OpenAI."""
     if fake_model_enabled():
         return ScriptedModelProvider()
     if chatgpt_enabled():
         from .chatgpt_model import ChatGPTModelProvider
 
         return ChatGPTModelProvider(os.environ.get("ACTION_AUTHOR_CHATGPT_MODEL", "gpt-6.1-sol"))
+    if native_anthropic_enabled():
+        from .anthropic_model import AnthropicModelProvider
+
+        key = os.environ.get("ACTION_AUTHOR_MODEL_API_KEY", "")
+        if not key:
+            raise ValueError("set ACTION_AUTHOR_MODEL_API_KEY for native Claude")
+        return AnthropicModelProvider(
+            os.environ.get("ACTION_AUTHOR_MODEL") or "claude-sonnet-5-5",
+            key,
+            cache_ttl=os.environ.get("ACTION_AUTHOR_ANTHROPIC_CACHE_TTL", "5m"),
+            context_tokens=int(os.environ.get("ACTION_AUTHOR_ANTHROPIC_CONTEXT_TOKENS", "30000")),
+        )
     if base_url := compatible_endpoint():
         client = AsyncOpenAI(
             base_url=base_url,
@@ -168,6 +191,8 @@ def model_label() -> str:
         return (
             f"ChatGPT subscription {os.environ.get('ACTION_AUTHOR_CHATGPT_MODEL', 'gpt-6.1-sol')}"
         )
+    if native_anthropic_enabled():
+        return f"native Claude {os.environ.get('ACTION_AUTHOR_MODEL') or 'claude-sonnet-5-5'}"
     if compatible_endpoint():
         return (
             f"{os.environ.get('ACTION_AUTHOR_MODEL') or 'as requested'} at {compatible_endpoint()}"
@@ -176,11 +201,19 @@ def model_label() -> str:
 
 
 def openai_plugin(serial: str, agent_device_command: list[str]) -> OpenAIAgentsPlugin:
+    retry_policy = None
+    if chatgpt_enabled():
+        retry_policy = RetryPolicy(maximum_attempts=3)
+    elif native_anthropic_enabled():
+        # Bad input and truncated replies cannot recover by issuing the same paid request.
+        retry_policy = RetryPolicy(non_retryable_error_types=["UserError", "ModelBehaviorError"])
     return OpenAIAgentsPlugin(
         model_params=ModelActivityParameters(
             # Local models are slow; a turn's model call may take minutes.
-            start_to_close_timeout=timedelta(minutes=10 if compatible_endpoint() else 3),
-            retry_policy=RetryPolicy(maximum_attempts=3) if chatgpt_enabled() else None,
+            start_to_close_timeout=timedelta(
+                minutes=10 if compatible_endpoint() or native_anthropic_enabled() else 3
+            ),
+            retry_policy=retry_policy,
         ),
         model_provider=model_provider(),
         mcp_server_providers=[
@@ -203,7 +236,12 @@ def device_from_env() -> tuple[Device, list[str]]:
 
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
-    if fake_model_enabled() or compatible_endpoint() or chatgpt_enabled():
+    if (
+        fake_model_enabled()
+        or compatible_endpoint()
+        or chatgpt_enabled()
+        or native_anthropic_enabled()
+    ):
         # No API key to export traces with; keep OAuth traffic out of tracing.
         set_tracing_disabled(True)
     elif not os.environ.get("OPENAI_API_KEY"):

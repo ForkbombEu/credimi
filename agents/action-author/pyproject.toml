@@ -17,6 +17,7 @@ dependencies = [
     "pyyaml>=6.0",
     "pyjwt[crypto]>=2.10",
     "uvicorn>=0.30",
+    "anthropic>=2.3.0",
 ]
 
 [dependency-groups]
