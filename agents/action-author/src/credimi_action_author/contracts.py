@@ -49,7 +49,7 @@ class PrepareBuildRequest(BaseModel):
 
 
 class SaveActionApproval(BaseModel):
-    """Human confirmation of the exact accepted candidate, never a model tool."""
+    """Confirmed internal save input and replay-compatible legacy handler contract."""
 
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=3)

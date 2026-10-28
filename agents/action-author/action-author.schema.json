@@ -19,7 +19,7 @@
       }
     },
     "save_wallet_action": {
-      "description": "Human approval: save the reviewed, replayed candidate. Not callable by the model.\n\nCopy Candidate SHA256 from the accepted reply. A replacement also requires\nthe existing record ID and its current code SHA256; it is never selected by name.",
+      "description": "Replay-compatible legacy save handler; new turns use the Accept/Refuse callback.",
       "mid_turn": "reject",
       "input": {
         "$ref": "#/$defs/SaveActionApproval"
@@ -74,7 +74,7 @@
     },
     "SaveActionApproval": {
       "additionalProperties": false,
-      "description": "Human confirmation of the exact accepted candidate, never a model tool.",
+      "description": "Confirmed internal save input and replay-compatible legacy handler contract.",
       "properties": {
         "name": {
           "minLength": 3,

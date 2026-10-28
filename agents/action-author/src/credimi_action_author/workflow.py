@@ -7,8 +7,8 @@
 Credimi authenticates session start and binds a selected wallet version and organization.
 ``ask`` explores its verified, locally installed APK and authors an action. ``submit_action``
 replays it twice from cleared app data before accepting and writing it to
-``out/<appId>/<slot>.yaml``. The human-only ``save_wallet_action`` handler persists the exact
-reviewed candidate; the model cannot save.
+``out/<appId>/<slot>.yaml``. A workflow-owned Accept/Refuse callback confirms the exact
+reviewed candidate before persisting it; the model cannot approve or save.
 
 The OpenAI Agents SDK drives the reason/act loop (model calls and MCP calls are Temporal
 activities). The conversation and the session state persist across messages.
@@ -31,17 +31,21 @@ with workflow.unsafe.imports_passed_through():
     from agents import RunHooks, Runner, TResponseInputItem
     from agents.exceptions import AgentsException
     from agents.items import ItemHelpers
+    from pydantic import StrictBool, TypeAdapter
     from temporal_agent_harness.ai_sdks.openai_agents.workflow import stateless_mcp_server
     from temporal_agent_harness.ai_sdks.openai_agents_harness import as_openai_agent_tools
     from temporal_agent_harness.harness import agent
     from temporal_agent_harness.harness.agent_protocol import (
         AgentConfig,
+        ReplyDelta,
         TextMessage,
         TextReply,
         ToolApprovalPolicy,
+        ToolEndEvent,
         ToolErrorEvent,
+        ToolStartEvent,
     )
-    from temporal_agent_harness.harness.agent_workflow import AgentWorkflowRunner
+    from temporal_agent_harness.harness.agent_workflow import AgentWorkflowRunner, CallbackToolError
     from temporalio.workflow import ActivityConfig
 
     from .activities import DEVICE_INFO
@@ -178,9 +182,10 @@ def _reply_invalid_input(runner: AgentWorkflowRunner, tool):
 class ActionAuthorWorkflow:
     @agent.init
     def __init__(self, config: AgentConfig, context: AuthoringContext) -> None:
+        self._stream = WorkflowStream()
         self._runner = AgentWorkflowRunner(
             config,
-            stream=WorkflowStream(),
+            stream=self._stream,
             # Exploration/replay are safe only on the dedicated test device. Saving
             # is a separate human handler, never an automatically approved model tool.
             approval_policy_default=ToolApprovalPolicy.allow_inherently_safe(),
@@ -190,6 +195,28 @@ class ActionAuthorWorkflow:
         self._asks = 0
         self._context = context
         self._build: ResolvedBuild | None = None
+        self._automatic_review = False
+
+    @agent.teardown
+    async def _drain_stream(self) -> None:
+        if workflow.patched("action-author-drain-stream-on-close-v1"):
+            self._stream.detach_pollers()
+            await workflow.wait_condition(workflow.all_handlers_finished)
+
+    @workflow.query
+    def authoring_events(self, from_offset: int = 0) -> dict:
+        """Read recorded events after completion, when stream polling updates are unavailable."""
+        state = self._stream.get_state()
+        start = max(0, from_offset - state.base_offset)
+        page = state.log[start : start + 25]
+        return {
+            "items": [
+                {"data": item.data, "offset": state.base_offset + start + index}
+                for index, item in enumerate(page)
+            ],
+            "next_offset": state.base_offset + start + len(page),
+            "end_offset": state.base_offset + len(state.log),
+        }
 
     async def _load_session(self) -> AuthorSession:
         info: DeviceInfo = await workflow.execute_activity(
@@ -247,6 +274,9 @@ class ActionAuthorWorkflow:
     async def ask(self, message: TextMessage) -> TextReply:
         """Ask for a wallet action, e.g. "Write the onboarding action for eu.europa.ec.euidi with
         PIN 123456". The agent explores the app on the phone, then replays its action twice."""
+        self._automatic_review = workflow.patched("action-author-automatic-save-review-v1")
+        if self._automatic_review and self._session and self._session.accepted_yaml:
+            return await self._review_save("The validated candidate is ready to save.")
         if self._asks >= CHAT_MAX_MESSAGES:
             return TextReply(
                 text=f"This session reached its limit of {CHAT_MAX_MESSAGES} messages. "
@@ -267,13 +297,28 @@ class ActionAuthorWorkflow:
         if workflow.patched("action-author-stable-model-instructions-v1"):
             user_text += f"\n\nCurrent authoring state: {state}"
             state = ""
+        if self._automatic_review:
+            user_text += (
+                "\n\nIf the user explicitly requested an action name (for example, "
+                "'write action \"First setup\"' or 'store it as \"Demo onboarding\"'), pass "
+                "that exact name as set_target.action_name. Otherwise omit action_name: "
+                "the default is Onboarding. After acceptance the workflow presents the "
+                "human Accept/Refuse save confirmation automatically. Do not tell the "
+                "user to copy a hash, choose a handler, or fill a save form."
+            )
         sdk_agent = OpenAIAgent(
             name="CredimiActionAuthor",
             instructions=f"{INSTRUCTIONS}\n\nDevice: Android, serial {session.serial}.\n"
             f"{state}"
             f"\nSelected build: {self._context.wallet_version_identifier}; "
             f"APK SHA256 {session.apk_sha256}; package {session.bound_app_id}. "
-            "Never target another build. Saving requires the human save_wallet_action handler.",
+            + (
+                "Never target another build. After two successful replays, the workflow "
+                "will ask the user to Accept or Refuse saving. Do not request manual save fields."
+                if self._automatic_review
+                else "Never target another build. "
+                "Saving requires the human save_wallet_action handler."
+            ),
             model=DEFAULT_MODEL,
             tools=_adapt_tools(self._runner, TOOLS, session),
             mcp_servers=[self._agent_device(session)],
@@ -321,22 +366,105 @@ class ActionAuthorWorkflow:
                 f"\n\nCandidate SHA256: `{digest}`."
                 f"\nValidated build: `{self._context.wallet_version_identifier}`; "
                 f"APK SHA256: `{session.apk_sha256}`. "
-                "Review the YAML and replays, then select the save_wallet_action handler "
-                "and confirm this candidate hash to save into Credimi."
+                + (
+                    "Review the YAML, then Accept or Refuse saving in the confirmation below."
+                    if self._automatic_review
+                    else "Review the YAML and replays, then select the save_wallet_action handler "
+                    "and confirm this candidate hash to save into Credimi."
+                )
             )
         text += (
             f"\n\n_Message {self._asks} of {CHAT_MAX_MESSAGES}. This answer: {usage.text()}. "
             f"Session: {session.usage.text()}._"
         )
+        if self._automatic_review and session.accepted_yaml:
+            return await self._review_save(text)
         return TextReply(text=text)
+
+    async def _review_save(self, text: str) -> TextReply:
+        session = self._session
+        build = self._build
+        if session is None or build is None or session.accepted_replays != 2:
+            return TextReply(text="Not saved: no candidate has passed both replays.")
+        name = session.action_name
+        digest = hashlib.sha256(session.accepted_yaml.encode()).hexdigest()
+        proposal = {
+            "name": name,
+            "wallet": build.wallet_id,
+            "build": build.version_identifier,
+            "category": session.bound_slot,
+            "candidate_sha256": digest,
+            "replay_count": session.accepted_replays,
+            "published": False,
+        }
+        self._runner.publish(ReplyDelta(text=text + "\n\nConfirm whether to save this action."))
+        while True:
+            tool_id = f"save-review-{workflow.uuid4()}"
+            self._runner.publish(
+                ToolStartEvent(
+                    tool_id=tool_id,
+                    tool_name="confirm_wallet_action_save",
+                    tool_input=proposal,
+                )
+            )
+            try:
+                accepted = await self._runner.await_callback_result(
+                    tool_id=tool_id,
+                    tool_name="confirm_wallet_action_save",
+                    tool_input=proposal,
+                    output_adapter=TypeAdapter(StrictBool),
+                    output_schema={"type": "boolean"},
+                    timeout=None,
+                )
+            except CallbackToolError:
+                self._runner.publish(
+                    ToolErrorEvent(
+                        tool_id=tool_id,
+                        tool_name="confirm_wallet_action_save",
+                        message="Save confirmation was canceled.",
+                    )
+                )
+                return TextReply(text=text + "\n\nNot saved: confirmation was canceled.")
+            self._runner.publish(
+                ToolEndEvent(
+                    tool_id=tool_id,
+                    tool_name="confirm_wallet_action_save",
+                    tool_output="Accepted" if accepted else "Refused",
+                )
+            )
+            if not accepted:
+                session.accepted_yaml = ""
+                session.accepted_path = ""
+                session.accepted_replays = 0
+                return TextReply(text=text + "\n\nNot saved. You can request changes in this chat.")
+            if (
+                hashlib.sha256(session.accepted_yaml.encode()).hexdigest() != digest
+                or session.action_name != name
+                or session.accepted_replays != 2
+                or session.apk_sha256 != build.apk_sha256
+            ):
+                return TextReply(text="Not saved: the candidate changed after it was presented.")
+            receipt = await self._persist_candidate(
+                SaveActionApproval(name=name, candidate_sha256=digest, confirm=True)
+            )
+            if receipt.text.startswith("Saved wallet action"):
+                return TextReply(text=text + "\n\n" + receipt.text)
+            self._runner.publish(
+                ReplyDelta(
+                    text="\n\n"
+                    + receipt.text
+                    + "\nAccept to retry saving, or Refuse to keep editing."
+                )
+            )
 
     @agent.accepts
     async def save_wallet_action(self, approval: SaveActionApproval) -> TextReply:
-        """Human approval: save the reviewed, replayed candidate. Not callable by the model.
+        """Replay-compatible legacy save handler; new turns use the Accept/Refuse callback."""
+        if self._automatic_review:
+            return TextReply(text="Use the candidate's Accept/Refuse confirmation to save.")
+        return await self._persist_candidate(approval)
 
-        Copy Candidate SHA256 from the accepted reply. A replacement also requires
-        the existing record ID and its current code SHA256; it is never selected by name.
-        """
+    async def _persist_candidate(self, approval: SaveActionApproval) -> TextReply:
         session, build = self._session, self._build
         if not approval.confirm:
             return TextReply(text="Not saved: human confirmation was not given.")
@@ -381,6 +509,13 @@ class ActionAuthorWorkflow:
             return TextReply(text=f"Not saved: {exc.cause}")
         receipt = result["output"]
         status = "published" if receipt["published"] else "unpublished"
+        if workflow.patched("action-author-close-after-save-v1"):
+            # Invoke the harness's registered close handler locally. Signaling our own
+            # execution through SignalExternalWorkflow is rejected by the real server.
+            close = workflow.get_signal_handler("close")
+            if close is None:
+                raise RuntimeError("the harness close handler is not registered")
+            close()
         return TextReply(
             text=f"Saved wallet action `{receipt['record_id']}` ({status}). "
             f"Validated build `{build.version_identifier}`, candidate SHA256 `{digest}`."

@@ -153,6 +153,12 @@ def next_response(items: list[Any]) -> ModelResponse:
         )
     app_id, pin_value = app.group(1), pin.group(1)
     name, out = conv.last
+    request = conv.user.split("\n\nCurrent authoring state:", 1)[0]
+    requested_name = re.search(
+        r'(?:write\s+action|(?:store|save)\s+(?:it\s+)?as)\s+["\']([^"\']+)["\']',
+        request,
+        re.IGNORECASE,
+    )
     if not conv.calls:
         return conv.call(
             "set_target",
@@ -160,6 +166,7 @@ def next_response(items: list[Any]) -> ModelResponse:
                 "app_id": app_id,
                 "slot": "onboarding",
                 "parameters": [{"name": "PIN", "value": pin_value}],
+                **({"action_name": requested_name.group(1)} if requested_name else {}),
             },
         )
     if out.startswith("ERROR"):

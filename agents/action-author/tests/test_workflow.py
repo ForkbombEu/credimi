@@ -9,6 +9,7 @@ device for the activities."""
 import asyncio
 import hashlib
 import json
+import shutil
 import sys
 import uuid
 from typing import Any
@@ -18,12 +19,15 @@ import httpx2 as httpx
 import pytest
 import yaml
 from agents import ModelProvider, set_tracing_disabled
+from httpx import ASGITransport, AsyncClient
 from temporal_agent_harness.harness.agent_client import AgentClient
-from temporal_agent_harness.harness.agent_protocol import AgentConfig
+from temporal_agent_harness.harness.agent_protocol import AgentConfig, ToolApprovalPolicy
 from temporal_agent_harness.harness.agent_protocol.events import AgentEventType
 from temporal_agent_harness.plugin import AgentHarnessPlugin
+from temporal_agent_harness.web.session_manager_worker import create_session_manager_worker
 from temporalio import activity
-from temporalio.client import Client
+from temporalio.client import Client, WorkflowExecutionStatus
+from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
@@ -43,6 +47,7 @@ from credimi_action_author.fake_model import (
     onboarding_action,
 )
 from credimi_action_author.models import AGENT_DEVICE_SESSION, TASK_QUEUE, WORKFLOW_TYPE
+from credimi_action_author.ui import create_app
 from credimi_action_author.workflow import ActionAuthorWorkflow
 
 APP_ID = "eu.europa.ec.euidi"
@@ -60,6 +65,7 @@ CONTEXT = AuthoringContext(
 class FakeCredimi:
     def __init__(self):
         self.saved = []
+        self.save_unavailable = False
 
     @activity.defn(name=RESOLVE_BUILD)
     async def resolve(self, request: dict) -> dict:
@@ -77,6 +83,8 @@ class FakeCredimi:
 
     @activity.defn(name=SAVE_ACTION)
     async def save(self, request: dict) -> dict:
+        if self.save_unavailable:
+            raise ApplicationError("save temporarily unavailable", non_retryable=True)
         self.saved.append(request["payload"])
         return {"output": {"record_id": "stored-action", "published": False}}
 
@@ -87,12 +95,19 @@ async def env(monkeypatch, tmp_path, request):
     monkeypatch.setenv("ACTION_AUTHOR_FAKE_MCP_LOG", str(tmp_path / "mcp.jsonl"))
     from credimi_action_author.worker import openai_plugin
 
-    if provider := getattr(request, "param", None):
+    provider = getattr(request, "param", None)
+    if provider is not None and provider != "local-server":
         monkeypatch.setattr("credimi_action_author.worker.model_provider", lambda: provider)
     set_tracing_disabled(True)
-    env = await WorkflowEnvironment.start_time_skipping(
-        plugins=[openai_plugin(SERIAL, FAKE_MCP), AgentHarnessPlugin()]
-    )
+    plugins = [openai_plugin(SERIAL, FAKE_MCP), AgentHarnessPlugin()]
+    if provider == "local-server":
+        env = await WorkflowEnvironment.start_local(
+            plugins=plugins, dev_server_existing_path=shutil.which("temporal")
+        )
+    else:
+        env = await WorkflowEnvironment.start_time_skipping(plugins=plugins)
+    monkeypatch.setenv("TEMPORAL_ADDRESS", env.client.service_client.config.target_host)
+    monkeypatch.setenv("TEMPORAL_NAMESPACE", env.client.namespace)
     env.author_store = FakeCredimi()
     try:
         async with Worker(
@@ -106,7 +121,7 @@ async def env(monkeypatch, tmp_path, request):
 
 
 async def ask(client: Client, workflow_id: str, text: str) -> tuple[str, list[str], list[str]]:
-    """Send one chat message; returns the reply, the finished tools in order and approvals."""
+    """Exercise authoring without saving; refuse any automatic save review."""
     agent_client = AgentClient(client, workflow_id)
     reply = ""
     tools: list[str] = []
@@ -118,7 +133,13 @@ async def ask(client: Client, workflow_id: str, text: str) -> tuple[str, list[st
         event = getattr(item, "event", None)
         if event is None:
             raise AssertionError(f"turn failed: {item}")
-        if event.type == AgentEventType.TOOL_END:
+        if event.type == AgentEventType.CALLBACK_REQUESTED:
+            assert event.tool_name == "confirm_wallet_action_save"
+            await agent_client.provide_callback_result(event.tool_id, result=False)
+        if (
+            event.type == AgentEventType.TOOL_END
+            and event.tool_name != "confirm_wallet_action_save"
+        ):
             tools.append(event.tool_name)
         if event.type == AgentEventType.TOOL_APPROVAL_REQUESTED:
             approvals.append(event.tool_name)
@@ -150,6 +171,7 @@ async def test_accepted_action_embeds_pin_but_ordinary_prose_remains_masked(env,
         await handle.signal("close")
 
     assert approvals == []
+    assert "ACCEPTED" in reply
 
     accepted = out_dir / APP_ID / "onboarding.yaml"
     saved = accepted.read_text()
@@ -439,7 +461,34 @@ async def send_handler(client, workflow_id, name, payload):
     return reply
 
 
-async def test_only_human_confirmation_of_current_candidate_can_save(env, tmp_path):
+async def pending_review(browser_client, workflow_id, previous_id=""):
+    async with asyncio.timeout(15):
+        while True:
+            response = await browser_client.get(f"/api/status/{workflow_id}")
+            response.raise_for_status()
+            for pending in response.json()["pending_callbacks"]:
+                if (
+                    pending["tool_name"] == "confirm_wallet_action_save"
+                    and pending["tool_id"] != previous_id
+                ):
+                    return pending
+            await asyncio.sleep(0.02)
+
+
+@pytest.mark.parametrize("env", ["local-server"], indirect=True)
+@pytest.mark.parametrize(
+    ("prompt", "expected_name"),
+    [
+        ("Write the onboarding action", "Onboarding"),
+        ('Write action "First setup" for onboarding', "First setup"),
+        ('Write the onboarding action and store it as "Demo onboarding"', "Demo onboarding"),
+    ],
+)
+async def test_accept_saves_the_named_candidate_and_preserves_closed_history(
+    env, tmp_path, prompt, expected_name
+):
+    from temporal_agent_harness.harness.agent_client import CallbackResultError
+
     activities = ActionAuthorActivities(FakeDevice(serial=SERIAL), tmp_path / "out")
     async with Worker(
         env.client,
@@ -449,44 +498,254 @@ async def test_only_human_confirmation_of_current_candidate_can_save(env, tmp_pa
     ):
         workflow_id = f"action-author-approval-{uuid.uuid4()}"
         handle = await env.client.start_workflow(
-            WORKFLOW_TYPE, args=[AgentConfig(), CONTEXT], id=workflow_id, task_queue=TASK_QUEUE
+            WORKFLOW_TYPE,
+            args=[
+                AgentConfig(
+                    approval_policy=ToolApprovalPolicy(dangerously_skip_all_approvals=True)
+                ),
+                CONTEXT,
+            ],
+            id=workflow_id,
+            task_queue=TASK_QUEUE,
         )
+        turn = None
         try:
-            approval = {
-                "name": "Reviewed onboarding",
-                "candidate_sha256": "0" * 64,
-                "confirm": True,
-            }
-            await send_handler(env.client, workflow_id, "save_wallet_action", approval)
-            assert env.author_store.saved == []
-            await ask(
-                env.client, workflow_id, f"Write the onboarding action for {APP_ID} with PIN {PIN}"
-            )
-            saved_yaml = (tmp_path / "out" / APP_ID / "onboarding.yaml").read_text()
-            approval["candidate_sha256"] = hashlib.sha256(saved_yaml.encode()).hexdigest()
-            await send_handler(
-                env.client, workflow_id, "save_wallet_action", {**approval, "confirm": False}
-            )
-            await send_handler(
-                env.client,
-                workflow_id,
-                "save_wallet_action",
-                {**approval, "candidate_sha256": "0" * 64},
-            )
-            await send_handler(
-                env.client,
-                workflow_id,
-                "save_wallet_action",
-                {**approval, "replace_action_id": "existing"},
-            )
-            assert env.author_store.saved == []
-            await send_handler(env.client, workflow_id, "save_wallet_action", approval)
+            app = create_app()
+            app.state.temporal = env.client
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://harness"
+            ) as browser_client:
+                turn = asyncio.create_task(
+                    browser_client.post(
+                        "/api/chat",
+                        json={
+                            "session_id": workflow_id,
+                            "message": {
+                                "type": "ask",
+                                "payload": {"text": f"{prompt} for {APP_ID} with PIN {PIN}"},
+                            },
+                        },
+                    )
+                )
+                review = await pending_review(browser_client, workflow_id)
+                saved_yaml = (tmp_path / "out" / APP_ID / "onboarding.yaml").read_text()
+                digest = hashlib.sha256(saved_yaml.encode()).hexdigest()
+                assert review["tool_input"] == {
+                    "name": expected_name,
+                    "wallet": "wallet",
+                    "build": CONTEXT.wallet_version_identifier,
+                    "category": "onboarding",
+                    "candidate_sha256": digest,
+                    "replay_count": 2,
+                    "published": False,
+                }
+                assert env.author_store.saved == []
+                assert not turn.done()
+                agent_client = AgentClient(env.client, workflow_id)
+                for invalid in ("true", 1, {"confirm": True}):
+                    with pytest.raises(CallbackResultError) as failure:
+                        await agent_client.provide_callback_result(
+                            review["tool_id"], result=invalid
+                        )
+                    assert failure.value.error_type == "MalformedCallbackResult"
+                with pytest.raises(CallbackResultError) as failure:
+                    await agent_client.provide_callback_result("another-candidate", result=True)
+                assert failure.value.error_type == "UnknownCallback"
+                interface = (await browser_client.get(f"/api/agent-interface/{workflow_id}")).json()
+                assert [handler["name"] for handler in interface] == ["ask"]
+                result = await browser_client.post(
+                    "/api/callback-result",
+                    json={
+                        "session_id": workflow_id,
+                        "tool_id": review["tool_id"],
+                        "result": True,
+                    },
+                )
+                assert result.status_code == 200
+                receipt = await asyncio.wait_for(turn, timeout=5)
+                assert receipt.status_code == 200
+                assert "Saved wallet action" in receipt.text
+                await asyncio.wait_for(handle.result(), timeout=3)
+                history = await browser_client.get(
+                    "/api/attach", params={"session_id": workflow_id}
+                )
+                events = [
+                    json.loads(line[6:])
+                    for line in history.text.splitlines()
+                    if line.startswith("data: ")
+                ]
+                saved_event = next(
+                    event
+                    for event in events
+                    if "Saved wallet action" in event.get("output", {}).get("text", "")
+                )
+                resumed = await browser_client.get(
+                    "/api/attach",
+                    params={
+                        "session_id": workflow_id,
+                        "from_offset": saved_event["resume_offset"] - 1,
+                    },
+                )
+                assert "Saved wallet action" in resumed.text
+                async with (
+                    create_session_manager_worker(env.client),
+                    app.router.lifespan_context(app),
+                ):
+                    listed = (await browser_client.get("/api/sessions")).json()
+                    closed = next(row for row in listed if row["workflow_id"] == workflow_id)
+                    assert closed["closed"] is True
+                    assert closed["execution_status"] == "COMPLETED"
             assert [record["code"] for record in env.author_store.saved] == [saved_yaml]
+            assert env.author_store.saved[0]["name"] == expected_name
             assert env.author_store.saved[0]["replay_count"] == 2
             assert env.author_store.saved[0]["apk_sha256"] == "a" * 64
+            assert env.author_store.saved[0]["replace_action_id"] == ""
+            assert (await handle.describe()).status == WorkflowExecutionStatus.COMPLETED
         finally:
-            await handle.signal("close")
-            await handle.result()
+            if (await handle.describe()).status == WorkflowExecutionStatus.RUNNING:
+                await handle.signal("close")
+                await handle.result()
+            if turn:
+                await asyncio.gather(turn, return_exceptions=True)
+
+
+@pytest.mark.parametrize("env", ["local-server"], indirect=True)
+async def test_refusal_and_failed_save_require_a_new_explicit_decision(env, tmp_path):
+    from temporal_agent_harness.harness.agent_client import CallbackResultError
+
+    activities = ActionAuthorActivities(FakeDevice(serial=SERIAL), tmp_path / "out")
+    async with Worker(
+        env.client,
+        task_queue=TASK_QUEUE,
+        workflows=[ActionAuthorWorkflow],
+        activities=activities.all(),
+    ):
+        workflow_id = f"action-author-refusal-{uuid.uuid4()}"
+        handle = await env.client.start_workflow(
+            WORKFLOW_TYPE, args=[AgentConfig(), CONTEXT], id=workflow_id, task_queue=TASK_QUEUE
+        )
+        turn = None
+        try:
+            app = create_app()
+            app.state.temporal = env.client
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://harness"
+            ) as browser_client:
+
+                def start_turn(pin):
+                    return asyncio.create_task(
+                        browser_client.post(
+                            "/api/chat",
+                            json={
+                                "session_id": workflow_id,
+                                "message": {
+                                    "type": "ask",
+                                    "payload": {
+                                        "text": f"Write onboarding for {APP_ID} with PIN {pin}"
+                                    },
+                                },
+                            },
+                        )
+                    )
+
+                agent_client = AgentClient(env.client, workflow_id)
+                turn = start_turn(PIN)
+                first = await pending_review(browser_client, workflow_id)
+                await agent_client.provide_callback_result(first["tool_id"], result=False)
+                assert "Not saved" in (await asyncio.wait_for(turn, timeout=5)).text
+                assert env.author_store.saved == []
+                assert (await handle.describe()).status == WorkflowExecutionStatus.RUNNING
+                with pytest.raises(CallbackResultError):
+                    await agent_client.provide_callback_result(first["tool_id"], result=True)
+                bypass = await send_handler(
+                    env.client,
+                    workflow_id,
+                    "save_wallet_action",
+                    {
+                        "name": "Bypass",
+                        "candidate_sha256": first["tool_input"]["candidate_sha256"],
+                        "confirm": True,
+                    },
+                )
+                assert "Accept/Refuse" in bypass
+                assert env.author_store.saved == []
+
+                turn = start_turn("654321")
+                revised = await pending_review(browser_client, workflow_id, first["tool_id"])
+                assert (
+                    revised["tool_input"]["candidate_sha256"]
+                    != first["tool_input"]["candidate_sha256"]
+                )
+                with pytest.raises(CallbackResultError):
+                    await agent_client.provide_callback_result(first["tool_id"], result=True)
+                env.author_store.save_unavailable = True
+                await agent_client.provide_callback_result(revised["tool_id"], result=True)
+                retry = await pending_review(browser_client, workflow_id, revised["tool_id"])
+                assert retry["tool_input"] == revised["tool_input"]
+                assert env.author_store.saved == []
+                assert (await handle.describe()).status == WorkflowExecutionStatus.RUNNING
+                env.author_store.save_unavailable = False
+                await agent_client.provide_callback_result(retry["tool_id"], result=True)
+                response = await asyncio.wait_for(turn, timeout=5)
+                assert "Saved wallet action" in response.text
+                await asyncio.wait_for(handle.result(), timeout=3)
+                assert len(env.author_store.saved) == 1
+                _, commands = list(yaml.safe_load_all(env.author_store.saved[0]["code"]))
+                assert [item["inputText"] for item in commands if "inputText" in item] == [
+                    "654321",
+                    "654321",
+                ]
+        finally:
+            if (await handle.describe()).status == WorkflowExecutionStatus.RUNNING:
+                await handle.signal("close")
+                await handle.result()
+            if turn:
+                await asyncio.gather(turn, return_exceptions=True)
+
+
+@pytest.mark.parametrize("env", ["local-server"], indirect=True)
+async def test_ending_a_session_with_a_pending_review_does_not_save(env, tmp_path):
+    activities = ActionAuthorActivities(FakeDevice(serial=SERIAL), tmp_path / "out")
+    async with Worker(
+        env.client,
+        task_queue=TASK_QUEUE,
+        workflows=[ActionAuthorWorkflow],
+        activities=activities.all(),
+    ):
+        workflow_id = f"action-author-cancel-review-{uuid.uuid4()}"
+        handle = await env.client.start_workflow(
+            WORKFLOW_TYPE, args=[AgentConfig(), CONTEXT], id=workflow_id, task_queue=TASK_QUEUE
+        )
+        app = create_app()
+        app.state.temporal = env.client
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://harness"
+        ) as browser_client:
+            turn = asyncio.create_task(
+                browser_client.post(
+                    "/api/chat",
+                    json={
+                        "session_id": workflow_id,
+                        "message": {
+                            "type": "ask",
+                            "payload": {"text": f"Write onboarding for {APP_ID} with PIN {PIN}"},
+                        },
+                    },
+                )
+            )
+            try:
+                await pending_review(browser_client, workflow_id)
+                await handle.signal("close")
+                response = await asyncio.wait_for(turn, timeout=5)
+                assert "Not saved" in response.text
+                await asyncio.wait_for(handle.result(), timeout=3)
+                assert env.author_store.saved == []
+                assert (await handle.describe()).status == WorkflowExecutionStatus.COMPLETED
+            finally:
+                if (await handle.describe()).status == WorkflowExecutionStatus.RUNNING:
+                    await handle.signal("close")
+                    await handle.result()
+                await asyncio.gather(turn, return_exceptions=True)
 
 
 @pytest.mark.parametrize(

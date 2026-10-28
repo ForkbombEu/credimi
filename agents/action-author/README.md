@@ -154,7 +154,10 @@ Credimi URL (normally `http://localhost:8090`) and a **Credimi user API key** fr
 dashboard, then select a wallet version. This is separate from the Claude API key configured
 on the worker. The page exchanges the user key for a bearer token and lists only Android
 versions in organizations where you are an owner (superusers see all Android versions).
-Select **Start authoring session** to open the chat.
+Select **Start authoring session**. Setup stays open until that exact workflow is listed as
+running and answers both the status and interface queries. It waits up to 60 seconds; if the
+worker is unavailable or the namespace differs, **Retry opening session** retries the already
+created workflow instead of creating another. The bearer token is cleared after creation.
 
 The API key is cleared after version lookup and is never stored in browser storage, workflow
 inputs, or the URL. The authenticated caller must be an owner of the wallet's organization
@@ -165,33 +168,56 @@ field `app_id` rejects a selected APK with a different package ID; it does not s
 installer. Set `ACTION_AUTHOR_CREDIMI_URL` to the trusted Credimi origin used by the worker
 when it is not `http://localhost:8090`.
 
-Select **Existing sessions** to return to the packaged session picker. The local UI still
-rejects direct session creation through its original API, so actor and organization cannot
-be supplied through the stock New session form. Keep the UI on loopback: it is not a hosted
-multi-user authentication layer.
+Select **Existing sessions** to return to the packaged session picker. Both **New session**
+and **Start a new session** in the harness return to authenticated setup; they do not open
+the stock caller-supplied-actor form. Direct creation through the harness API remains rejected.
+Keep the UI on loopback: it is not a hosted multi-user authentication layer.
 
 The selected APK is streamed through `GET /api/action-author/installer` using a short-lived,
 single-build `Credimi-Artifact-Grant` header. Downloads do not follow redirects or use an
 environment proxy; the worker checks SHA256, package/version metadata and the installed
 APK's SHA256. Later replays reject an installed APK that has changed.
 
-After two successful replays, review the exact YAML and Candidate SHA256 in the reply.
-Select the `save_wallet_action` handler, provide a name and that hash, and set `confirm`.
-Saving is not a model tool. Missing confirmation, a stale candidate, or an unreplayed
-candidate cannot save. New records are unpublished. Replacing an action additionally requires
-its `replace_action_id` and the SHA256 of its current code in `expected_existing_sha256`;
-a changed record conflicts instead of being overwritten. The existing publication state
-is retained on explicit replacement.
+After two successful replays, the chat shows the reviewed candidate and asks whether to save
+it. Choose **Accept** or **Refuse**; do not select a handler or copy a hash into a form.
+The name defaults to **Onboarding**. To choose another name, include it in your request,
+for example `Write action "First setup" for onboarding` or
+`Write the onboarding action and store it as "Demo onboarding"`.
+
+**Accept** saves that exact candidate as an unpublished action, then closes the session after
+delivering the receipt. **Refuse** saves nothing and leaves the chat open for revisions.
+The workflow supplies the selected wallet/build, name, category, candidate hash and replay
+evidence; only your boolean decision comes from the browser. Automatic tool-approval settings
+cannot approve this confirmation. A stale, already answered or malformed decision cannot save.
+Reloading the page restores the pending confirmation. If saving fails, the chat offers a fresh
+**Accept**/**Refuse** decision for the same candidate without rerunning exploration or replays.
+
+This flow creates a new action; it never selects an existing action to overwrite by name.
+The backend's explicit replacement contract still requires the existing record ID and current
+code SHA256. The legacy save handler is retained for recorded workflow replay and hidden from
+the chat's handler selector; it cannot bypass the callback for new authoring turns.
 
 Verify the saved record in the selected wallet's actions: code must match the accepted YAML,
 category must be `onboarding`, and a newly created record must remain unpublished. Ordinary
 PocketBase reads hide provenance; the confirmation reply identifies the validated build
-and candidate hash. Stop the authoring session and then the local UI/worker when finished.
+and candidate hash. A successful save closes the workflow after draining the final reply;
+failed saves leave the session open for correction. To discard a session without saving,
+open **Sessions**, hover its row, select **End session**, and confirm. This is a graceful
+close: in-flight work drains rather than being terminated. Close the local UI/worker when done.
 
 Saved provenance records the wallet version, APK/package, YAML hash, workflow/run and two
 successful replays. It is hidden from ordinary PocketBase responses and non-superuser writes;
 PocketBase silently ignores attempts to write hidden fields. Editing the action's code
 through the native API clears provenance that no longer matches.
+
+Closing does not delete Temporal history or an already saved action. Recent closed authoring
+runs remain in the session picker (up to 200 closed runs, alongside upstream running-session
+discovery), and the UI serves recorded events through read-only workflow queries because the
+upstream live stream uses updates, which cannot run on completed workflows. Browser transcript
+caching remains upstream behavior; Temporal history follows the namespace's retention policy.
+The adapter reuses the pinned harness's SSE encoding helpers and customizes its callback card;
+re-check stream delivery, closed-session history, callback selectors and new-session buttons
+on harness upgrades.
 
 For deterministic tests, `FAKE=1` selects the scripted model. Without a configured serial,
 the device is also fake; it does not demonstrate real-phone installation or replay.
@@ -274,7 +300,7 @@ Slot contracts live in `models.SLOTS`. One for now:
 - Device tools are marked inherently safe, so they do not wait for human approval. This includes
   `reset_app` and `submit_action`, which **wipe the app under test** (`pm clear`): use a dedicated
   test phone only. The selected build binds the app and slot; the model cannot retarget another
-  app. Persisting a candidate requires the separate human-only `save_wallet_action` handler.
+  app. Persisting a candidate requires a separate human Accept/Refuse callback, never a model tool.
 - The model can tap anything inside the app under test, and `back`/`press` can leave it; the
   system UI of the phone is reachable that way. Only `open` is scoped to the app.
 - The PIN is in the user's message, workflow history, model context, saved YAML and accepted-action

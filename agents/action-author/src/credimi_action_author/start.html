@@ -126,6 +126,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			const status = document.querySelector('#status');
 			let bearerToken = '';
 			let connectedOrigin = '';
+			let pendingWorkflowId = '';
 
 			originInput.value = window.location.protocol === 'https:'
 				? 'https://localhost:8090'
@@ -138,11 +139,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 
 			function setBusy(busy) {
-				connectButton.disabled = busy;
+				connectButton.disabled = busy || Boolean(pendingWorkflowId);
 				startButton.disabled = busy;
-				originInput.disabled = busy;
+				originInput.disabled = busy || Boolean(pendingWorkflowId);
 				keyInput.disabled = busy || !versionSection.hidden;
-				versionSelect.disabled = busy || versionSection.hidden;
+				versionSelect.disabled = busy || versionSection.hidden || Boolean(pendingWorkflowId);
 			}
 
 			function credimiOrigin() {
@@ -209,21 +210,75 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}
 			}
 
+			async function harnessJSON(path, deadline) {
+				try {
+					const response = await fetch(path, {
+						cache: 'no-store',
+						signal: AbortSignal.timeout(Math.max(1, Math.min(5000, deadline - Date.now()))),
+					});
+					return response.ok ? await response.json() : null;
+				} catch {
+					// Discovery and workflow queries can fail transiently during worker startup.
+					return null;
+				}
+			}
+
+			async function waitForSession(workflowId) {
+				const deadline = Date.now() + 60000;
+				const id = encodeURIComponent(workflowId);
+				while (Date.now() < deadline) {
+					const sessions = await harnessJSON('/api/sessions', deadline);
+					const session = Array.isArray(sessions)
+						? sessions.find((entry) => entry.workflow_id === workflowId)
+						: null;
+					if (session?.closed) {
+						throw new Error(`Session ${workflowId} has closed. Reload setup to start a new session.`);
+					}
+					if (session?.execution_status === 'RUNNING') {
+						const [agentStatus, agentInterface] = await Promise.all([
+							harnessJSON(`/api/status/${id}`, deadline),
+							harnessJSON(`/api/agent-interface/${id}`, deadline),
+						]);
+						if (agentStatus?.agent_id && Array.isArray(agentInterface)
+							&& agentInterface.some((handler) => handler.name === 'ask')) {
+							return;
+						}
+					}
+					if (Date.now() < deadline) {
+						await new Promise((resolve) => setTimeout(resolve, 500));
+					}
+				}
+				throw new Error(
+					`Session ${workflowId} was created but is not reachable yet. `
+					+ 'Check that the worker and UI use the selected organization namespace, then retry opening it.'
+				);
+			}
+
 			async function start() {
-				showStatus('Starting the authorized authoring session…');
-				const result = await request('/api/action-author/sessions', {
-					method: 'POST',
-					headers: {
-						Authorization: `Bearer ${bearerToken}`,
-						'Content-Type': 'application/json',
-					},
-					body: JSON.stringify({
-						wallet_version_identifier: versionSelect.value,
-						slot: 'onboarding',
-					}),
-				});
-				showStatus('Session started. Opening the authoring chat…', 'success');
-				window.location.assign(`/?s=${encodeURIComponent(result.workflow_id)}`);
+				if (!pendingWorkflowId) {
+					showStatus('Starting the authorized authoring session…');
+					const result = await request('/api/action-author/sessions', {
+						method: 'POST',
+						headers: {
+							Authorization: `Bearer ${bearerToken}`,
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({
+							wallet_version_identifier: versionSelect.value,
+							slot: 'onboarding',
+						}),
+					});
+					if (typeof result.workflow_id !== 'string' || !result.workflow_id.trim()) {
+						throw new Error('Credimi did not return an authoring workflow ID.');
+					}
+					pendingWorkflowId = result.workflow_id;
+					bearerToken = '';
+				}
+				showStatus('Session created. Waiting for its workflow to become reachable…');
+				startButton.textContent = 'Waiting for session…';
+				await waitForSession(pendingWorkflowId);
+				showStatus('Session ready. Opening the authoring chat…', 'success');
+				window.location.assign(`/?s=${encodeURIComponent(pendingWorkflowId)}`);
 			}
 
 			form.addEventListener('submit', async (event) => {
@@ -233,7 +288,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					if (versionSection.hidden) await connect();
 					else await start();
 				} catch (error) {
-					clearConnection();
+					if (pendingWorkflowId) startButton.textContent = 'Retry opening session';
+					else clearConnection();
 					showStatus(error instanceof Error ? error.message : 'The request failed.', 'error');
 				} finally {
 					setBusy(false);

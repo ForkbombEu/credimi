@@ -62,6 +62,7 @@ class AuthorSession:
     attempts: int = 0
     accepted_yaml: str = ""
     accepted_path: str = ""
+    action_name: str = "Onboarding"
     usage: Usage = field(default_factory=Usage)
     # Shared with the MCP reference: update in place so target changes take effect
     # within the same model/tool turn, not only on the next user message.
@@ -100,7 +101,12 @@ def _contract(slot: str) -> str:
 
 @agent.tool_defn(inherently_safe=True)
 async def set_target(
-    app_id: str, slot: str, parameters: list[Param], session: agent.Injected[AuthorSession]
+    app_id: str,
+    slot: str,
+    parameters: list[Param],
+    action_name: str = "",
+    *,
+    session: agent.Injected[AuthorSession],
 ) -> str:
     """Set the app, the action slot and the parameter values the user gave. Call it first.
 
@@ -108,6 +114,7 @@ async def set_target(
         app_id: Android package of the wallet, e.g. "eu.europa.ec.euidi".
         slot: Action slot, e.g. "onboarding".
         parameters: Every parameter value the user gave, e.g. [{"name": "PIN", "value": "..."}].
+        action_name: Exact name explicitly requested by the user; omit for the default Onboarding.
     """
     app_id, slot = app_id.strip(), slot.strip()
     if session.bound_app_id and app_id != session.bound_app_id:
@@ -124,6 +131,10 @@ async def set_target(
         return f"ERROR: missing values for {missing}; ask the user for them"
     if unknown := sorted(set(values) - set(contract.required_params)):
         return f"ERROR: unknown parameters {unknown}; slot {slot} takes {contract.required_params}"
+    if action_name.strip():
+        if len(action_name.strip()) < 3:
+            return "ERROR: the requested action name must contain at least three characters"
+        session.action_name = action_name.strip()
     if (app_id, slot, values) != (session.app_id, session.slot, session.params):
         session.app_id, session.slot, session.params = app_id, slot, values
         session.attempts, session.accepted_yaml, session.accepted_path = 0, "", ""

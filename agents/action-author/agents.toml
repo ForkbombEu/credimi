@@ -13,5 +13,6 @@ label = "Credimi action author"
 description = """
 Authors an action for the wallet version selected through authenticated Credimi session start.
 Ask with the slot's input values, e.g. "Write the onboarding action with PIN 123456".
-After two clean replays, review the accepted YAML and confirm its Candidate SHA256 through
-save_wallet_action to save an unpublished Credimi action. Saving is never a model tool."""
+After two clean replays, review the accepted YAML and choose Accept or Refuse to save an
+unpublished Credimi action. The name defaults to Onboarding unless your request specifies
+another name. No form fields or hash copying are required. The model cannot approve saving."""
