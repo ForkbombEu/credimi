@@ -121,12 +121,7 @@ func getDeeplinkFromYAML(
 	}
 	client, err := deeplinkTemporalClient("default")
 	if err != nil {
-		return deeplinkWorkflowResponse{}, apierror.New(
-			http.StatusInternalServerError,
-			"temporal",
-			"failed to get temporal client",
-			err.Error(),
-		)
+		return deeplinkWorkflowResponse{}, temporalUnavailableError()
 	}
 	result, err := deeplinkWaitForWorkflowResult(
 		ctx,

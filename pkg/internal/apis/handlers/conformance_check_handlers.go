@@ -156,12 +156,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 			"default",
 		)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"failed to get temporal client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 		result, err := workflowengine.WaitForWorkflowResult(
 			e.Request.Context(),

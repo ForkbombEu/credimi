@@ -256,12 +256,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 					)
 				}
 			}
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 		updateCtx, cancel := context.WithTimeout(e.Request.Context(), time.Minute)
 		defer cancel()

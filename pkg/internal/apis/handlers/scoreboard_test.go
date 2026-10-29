@@ -738,7 +738,7 @@ func TestHandleScheduleAggregateScoreboard(t *testing.T) {
 			},
 		})
 		requireHandlerErrorHandled(t, rec, err)
-		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 	})
 
 	t.Run("fail - schedule creation fails", func(t *testing.T) {
@@ -893,6 +893,6 @@ func TestHandleCancelAggregateScoreboardSchedule(t *testing.T) {
 			},
 		})
 		requireHandlerErrorHandled(t, rec, err)
-		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 	})
 }
