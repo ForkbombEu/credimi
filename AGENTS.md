@@ -204,8 +204,8 @@ Key environment variables:
 - `TEMPORAL_ADDRESS`: Temporal host and port.
 - `ADDRESS_UI`: UI reverse proxy target.
 - `CREDIMI_TEMPORAL_WORKERS_DISABLED`: when `1`/`true`/`yes`, skips Temporal namespace creation, worker registration and worker-manager workflow starts (used by `make dev.noworkers`).
-- `MOBILE_RUNNER_SEMAPHORE_DISABLED`: disables the mobile-runner semaphore path when configured.
-- `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`: mobile-runner queue wait timeout.
+- `MOBILE_DEVICE_SEMAPHORE_DISABLED`: when `1`/`true`/`yes`, `Report mobile device semaphore done` does nothing.
+- `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`: how long a mobile-runner ticket may stay queued (`time.ParseDuration`, e.g. `48h`; unset or `0` means no timeout). Read by `semaphoreclient.WaitTimeoutSeconds` where tickets are enqueued (queue handler, CI endpoints, `EnqueuePipelineRunTicketActivity`) and sent as `wait_timeout_seconds` in `EnqueueRun`.
 - `MOBILE_RUNNER_SELECTOR_HEARTBEAT_TTL`: how recent a runner heartbeat must be for its devices to be offered in catalog selectors (default 60s).
 - `CREDIMI_INTERNAL_ADMIN_KEY` is not a Credimi server variable. The internal admin key is an `internal_admin` key in the `api_keys` collection (owned by a superuser, checked by `RequireInternalAdminAPIKey` / `RequireInternalAdminOrAuth`) that authenticates the runner-facing and operator internal routes and `POST /api/conformance-catalog/rebuild`. Its callers (admin-managed runners, operators, scripts) hold the plaintext, conventionally as `CREDIMI_INTERNAL_ADMIN_KEY` in their own environment. Credimi never sends it to runners.
 - `CREDIMI_RUNNER_CREDENTIAL_SECRET`: required secret the per-runner credentials (`mobilerunner.Credential`) are derived from. Rotating it invalidates every runner credential until each runner's next registration or heartbeat, whose response carries the new one. `make dev` sets a dev default.
@@ -240,7 +240,7 @@ Do not commit local `pb_data/`, `.env`, `.env.worktree`, generated local databas
 - Both paths use `hooks.EnsureNamespaceReady`, which registers missing namespaces and the custom search attributes from `workflowengine.CustomSearchAttributeTypes`.
 - Mobile-device semaphore workflows run in the Temporal `default` namespace.
 - Pipeline workflows run in the owner organization namespace.
-- The `mobile-automation` child workflow runs in the same namespace as the pipeline and uses a runner-specific task queue.
+- The `mobile-automation` child workflow runs in the same namespace as the pipeline, on `PipelineTaskQueue`; it sends its activities to the runner-specific task queue.
 
 Namespace changes are high risk. Inspect startup hooks, route handlers, workflow starts, and worker registration before editing.
 
@@ -298,6 +298,8 @@ Semaphore:
     - The lifecycle heartbeat queries the semaphore state first and sends a pause or resume only when the device's online state disagrees with `Paused`. Heartbeats carry a fresh request ID every 30s, so each update they send is distinct.
     - The workflow counts repeated pauses toward its continue-as-new budget, and also continues-as-new when the server suggests it. Before continuing it drains in-flight handlers (`AllHandlersFinished`) and snapshots state. This is gated by `workflow.GetVersion("mobile-device-semaphore-count-all-updates")`, so runs started before the change keep their old behavior until their next continue-as-new.
     - Before that snapshot it also waits for running `RunGranted`/`RunStarted`/`RunDoneSignal` handlers and handles every signal still pending, gated by `workflow.GetVersion("credimi-2026-10-semaphore-drain-signals")`.
+- Queue wait timeout (`credimi-2026-10-semaphore-queue-wait-timeout`): a ticket still `queued` `wait_timeout_seconds` after its `enqueued_at` is removed from the queue and marked `failed` with an `error_message` starting `queue wait timeout`; `starting` and `running` tickets never expire. The semaphore releases the ticket's resources as a cancel does (`cleanupRunTicketResources`) and fails the ticket on its other devices with a `RunDoneSignal` that carries the message. `GET /api/pipeline/queue/{ticket}` returns `error_message` for a `failed` ticket.
+- `CancelRun` on a `running` ticket (`credimi-2026-10-semaphore-cancel-running-pipeline`) cancels the pipeline through `Cancel workflow` without a cancellation policy, on every cancel request (a failed cancel is retried by the next one), so the pipeline still cleans its devices and its `RunDone` frees them. The ticket stays `running` until then.
 
 Grant/start path:
 
@@ -310,6 +312,7 @@ Grant/start path:
     - `mobile_device_semaphore_leader_device_id`
     - `mobile_device_semaphore_owner_namespace`
 - The pipeline reports completion to the leader semaphore through `ReportMobileDeviceSemaphoreDoneActivity` in `pkg/workflowengine/pipeline/semaphore_done.go`.
+- `MobileAutomationSetupHook` publishes `setted_devices` before setting up any device and records each device's runner, type and serial before touching it (`credimi-2026-10-pipeline-early-device-tracking`), so `MobileAutomationCleanupHook` also cleans a device whose setup failed; an emulator or simulator that never started is skipped. Apps installed by a step whose post-install check failed are removed through the `initial_installed_apps` diff (`track_installed_apps`): the install activity returns no package ID.
 - `pipeline_results` creation after Temporal start is best-effort: `StartQueuedPipelineActivity` writes the row directly through `pipelineresults.Create`, and a failure is reported in the activity output without failing the start.
 - `pipelineresults.Create` is idempotent on `(workflow_id, run_id)`.
 - PocketBase uniqueness constraint: `(owner, workflow_id, run_id)` in `pb_migrations/1765364510_created_pipeline_results.js`.
@@ -474,9 +477,9 @@ Temporal runner worker contract:
 - `workflows.MobileAutomationTaskQueue` exists in `pkg/workflowengine/workflows/mobile.go`, but pipeline execution uses the dynamic task queue.
 - Runner workers must poll `${runner_id}-TaskQueue` in the organization namespace
   and dispatch each activity by its explicit `device_id`.
-- Runner workers must register workflow `mobile-automation`.
-- `mobile-automation` is denylisted from the pipeline worker in `pkg/workflowengine/registry/registry.go`.
-- Runner workers must register activities in `pkg/workflowengine/activities/mobileflow.go`.
+- Runner workers register activities only, those in `pkg/workflowengine/activities/mobileflow.go`.
+- The `mobile-automation` child workflow is registered on the pipeline worker like every `registry.Registry` workflow (`startPipelineWorker` in `pkg/workflowengine/hooks/hook.go`), runs on `PipelineTaskQueue`, and sends its activities to `${runner_id}-TaskQueue` through `config.taskqueue`.
+- Runner activities are scheduled only from workflows in the organization namespace, where runner workers poll; the semaphore in `default` never schedules them.
 
 Worker-manager start eligibility:
 
