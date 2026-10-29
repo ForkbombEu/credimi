@@ -9,6 +9,9 @@ package semaphoreclient
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
@@ -21,6 +24,30 @@ import (
 
 // ErrRunTicketNotFound signals that a run ticket could not be located in a device queue.
 var ErrRunTicketNotFound = errors.New("run ticket not found")
+
+const (
+	// WaitTimeoutEnv names the variable bounding how long a ticket may stay
+	// queued before the semaphore fails it.
+	WaitTimeoutEnv = "MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT"
+	// DefaultWaitTimeout applies when WaitTimeoutEnv is unset or invalid: no timeout.
+	DefaultWaitTimeout time.Duration = 0
+)
+
+// WaitTimeoutSeconds returns the queue wait timeout to put in an enqueue
+// request: WaitTimeoutEnv as a time.ParseDuration value ("0" disables it), or
+// DefaultWaitTimeout (no timeout) when the variable is unset or invalid.
+func WaitTimeoutSeconds() int {
+	timeout := DefaultWaitTimeout
+	if raw := strings.TrimSpace(os.Getenv(WaitTimeoutEnv)); raw != "" {
+		if parsed, err := time.ParseDuration(raw); err == nil {
+			timeout = parsed
+		}
+	}
+	if timeout <= 0 {
+		return 0
+	}
+	return int(timeout / time.Second)
+}
 
 // UpdateID builds the stable update ID of a semaphore update for a ticket.
 func UpdateID(prefix, deviceID, ticketID string) string {
