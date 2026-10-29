@@ -11,8 +11,6 @@ github.com/DarthSim/godotenv v1.3.1 h1:NMWdswlRx2M9uPY4Ux8p/Q/rDs7A97OG89fECiQ/T
 github.com/DarthSim/godotenv v1.3.1/go.mod h1:B3ySe1HYTUFFR6+TPyHyxPWjUdh48il0Blebg9p1cCc=
 github.com/DarthSim/hivemind v1.1.0 h1:om9ELlhZ07p+yZ+OzYzaXd5RYw/j+X7UwgWyNLpOcBY=
 github.com/DarthSim/hivemind v1.1.0/go.mod h1:hXtCeYrLuyrV8/5z8d9sue+hbi2Y4rzaVgKneVpP/Ow=
-github.com/ForkbombEu/et-tu-cesr v0.0.0-20250730082655-1822692d6150 h1:KKoJNod2ptCU5BMcFOejyTVHrwAWQBYO+5KiDxlxutU=
-github.com/ForkbombEu/et-tu-cesr v0.0.0-20250730082655-1822692d6150/go.mod h1:/ymXi+kk28rMKCuw899aGADdYCxbiSU0dKRz9G+gdrE=
 github.com/Masterminds/semver/v3 v3.5.0 h1:kQceYJfbupGfZOKZQg0kou0DgAKhzDg2NZPAwZ/2OOE=
 github.com/Masterminds/semver/v3 v3.5.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=

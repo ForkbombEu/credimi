@@ -110,7 +110,6 @@ Important related dependencies:
 - `github.com/forkbombeu/credimi-extra`: private Go module used for mobile automation and runner-facing workflows.
 - `github.com/forkbombeu/credimi-conformance-assessment`: conformance report/domain assessment code.
 - `github.com/forkbombeu/eudi-conformance-evidence`: evidence generation and parsing for EUDI conformance artifacts.
-- `github.com/ForkbombEu/et-tu-cesr`: CESR tooling and binary integration.
 - `github.com/forkbombeu/avdctl`: Android virtual device support used through the mobile automation stack.
 - `github.com/ForkbombEu/stepci-captured-runner`: external binary downloaded into `.bin/` by `make tools`.
 - `github.com/forkbombeu/credimi_plugins`: ecosystem plugins/resources referenced by the product.

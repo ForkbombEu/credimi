@@ -26,7 +26,6 @@ describe('displayNameFromUid', () => {
 		expect(displayNameFromUid('openid4vp_wallet')).toBe('OpenID4VP Wallet');
 		expect(displayNameFromUid('openid4vci')).toBe('OpenID4VCI');
 		expect(displayNameFromUid('openid_conformance_suite')).toBe('OpenID Conformance Suite');
-		expect(displayNameFromUid('vlei')).toBe('vLEI');
 	});
 });
 

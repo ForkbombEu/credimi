@@ -24,7 +24,6 @@ const (
 	EWCSuite                  = "ewc"
 	WebuildSuite              = "webuild"
 	EudiwSuite                = "eudiw"
-	VLEISuite                 = "vlei"
 	OpenID4VPWalletStandard   = "openid4vp_wallet"
 	OpenID4VCIWalletStandard  = "openid4vci_wallet"
 	OpenID4VPVerifierStandard = "openid4vp_verifier"
