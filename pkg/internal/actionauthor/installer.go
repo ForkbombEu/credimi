@@ -20,11 +20,12 @@ import (
 // GrantHeader carries a short-lived capability for one selected authoring APK.
 const GrantHeader = "Credimi-Artifact-Grant"
 
+const grantTTL = 10 * time.Minute
+
 type installerGrant struct {
 	BuildRequest
 	Namespace string `json:"namespace"`
 	Filename  string `json:"filename"`
-	APKSHA256 string `json:"apk_sha256"`
 	Expires   int64  `json:"expires"`
 }
 
@@ -41,9 +42,9 @@ func grantKey(app core.App) ([]byte, error) {
 	return key.Sum(nil), nil
 }
 
-// IssueGrant authorizes one installer, never all files readable by a user. The
+// issueGrant authorizes one installer, never all files readable by a user. The
 // short-lived capability stays out of model context and is checked again at download.
-func IssueGrant(app core.App, selection Selection, digest string) (string, error) {
+func issueGrant(app core.App, selection Selection) (string, error) {
 	key, err := grantKey(app)
 	if err != nil {
 		return "", err
@@ -53,12 +54,9 @@ func IssueGrant(app core.App, selection Selection, digest string) (string, error
 			Actor:                   selection.Actor,
 			WalletVersionIdentifier: selection.Identifier,
 		},
-		Namespace: selection.Organization.GetString(
-			"canonified_name",
-		),
+		Namespace: selection.Organization.GetString("canonified_name"),
 		Filename:  selection.Version.GetString("android_installer"),
-		APKSHA256: digest,
-		Expires:   time.Now().Add(10 * time.Minute).Unix(),
+		Expires:   time.Now().Add(grantTTL).Unix(),
 	}
 	payload, err := json.Marshal(claims)
 	if err != nil {

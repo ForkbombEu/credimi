@@ -6,6 +6,7 @@ package activities
 
 import (
 	"context"
+	"errors"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -49,11 +50,11 @@ func (a *ResolveActionAuthorBuildActivity) Execute(
 	}
 	info := activity.GetInfo(ctx)
 	if info.Namespace == "" {
-		return result, a.NewMissingOrInvalidPayloadError(actionauthor.ErrForbidden)
+		return result, actionAuthorError(&a.BaseActivity, actionauthor.ErrForbidden)
 	}
 	build, err := actionauthor.Resolve(a.app, info.Namespace, payload)
 	if err != nil {
-		return result, a.NewCodedError(errorcodes.DatabaseOperationFailed, false, err)
+		return result, actionAuthorError(&a.BaseActivity, err)
 	}
 	result.Output = build
 	return result, nil
@@ -88,7 +89,7 @@ func (a *SaveAuthoredWalletActionActivity) Execute(
 	}
 	info := activity.GetInfo(ctx)
 	if info.Namespace == "" {
-		return result, a.NewMissingOrInvalidPayloadError(actionauthor.ErrForbidden)
+		return result, actionAuthorError(&a.BaseActivity, actionauthor.ErrForbidden)
 	}
 	receipt, err := actionauthor.Save(
 		a.app,
@@ -98,8 +99,23 @@ func (a *SaveAuthoredWalletActionActivity) Execute(
 		payload,
 	)
 	if err != nil {
-		return result, a.NewCodedError(errorcodes.DatabaseOperationFailed, false, err)
+		return result, actionAuthorError(&a.BaseActivity, err)
 	}
 	result.Output = receipt
 	return result, nil
+}
+
+// actionAuthorError makes authorization, validation and approval failures
+// non-retryable and leaves database and storage failures retryable.
+func actionAuthorError(a *workflowengine.BaseActivity, err error) error {
+	switch {
+	case errors.Is(err, actionauthor.ErrForbidden):
+		return a.NewCodedError(errorcodes.RecordNotAccessible, false, err)
+	case errors.Is(err, actionauthor.ErrInvalid):
+		return a.NewCodedError(errorcodes.MissingOrInvalidPayload, false, err)
+	case errors.Is(err, actionauthor.ErrConflict):
+		return a.NewCodedError(errorcodes.DatabaseOperationFailed, false, err)
+	default:
+		return a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
+	}
 }

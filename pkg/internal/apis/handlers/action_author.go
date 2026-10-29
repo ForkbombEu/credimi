@@ -19,6 +19,13 @@ import (
 	"go.temporal.io/sdk/client"
 )
 
+// The Python action-author worker (agents/action-author) serves this workflow
+// type on this task queue in the selected organization namespace.
+const (
+	actionAuthorWorkflowType = "ActionAuthor"
+	actionAuthorTaskQueue    = "action-author"
+)
+
 // ActionAuthorRoutes starts sessions after authenticating and authorizing their Credimi actor.
 var ActionAuthorRoutes = routing.RouteGroup{
 	BaseURL:                "/api/action-author",
@@ -170,10 +177,17 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 				"cannot connect to Temporal",
 			)
 		}
-		workflowID := "ActionAuthor-" + uuid.NewString()
-		run, err := temporal.ExecuteWorkflow(e.Request.Context(), client.StartWorkflowOptions{
-			ID: workflowID, TaskQueue: "action-author",
-		}, "ActionAuthor", map[string]any{}, ActionAuthorInitData{BuildRequest: request, Slot: input.Slot, AppID: input.AppID})
+		run, err := temporal.ExecuteWorkflow(
+			e.Request.Context(),
+			client.StartWorkflowOptions{
+				ID:        actionAuthorWorkflowType + "-" + uuid.NewString(),
+				TaskQueue: actionAuthorTaskQueue,
+			},
+			actionAuthorWorkflowType,
+			// The Python harness agent takes its config, then the trusted session context.
+			map[string]any{},
+			ActionAuthorInitData{BuildRequest: request, Slot: input.Slot, AppID: input.AppID},
+		)
 		if err != nil {
 			return apierror.New(
 				http.StatusServiceUnavailable,
@@ -182,11 +196,12 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 				"cannot start authoring session",
 			)
 		}
-		return e.JSON(
-			http.StatusAccepted,
-			ActionAuthorStartResponse{WorkflowID: run.GetID(), RunID: run.GetRunID(),
-				WorkflowNamespace: namespace, WalletVersionIdentifier: selection.Identifier},
-		)
+		return e.JSON(http.StatusAccepted, ActionAuthorStartResponse{
+			WorkflowID:              run.GetID(),
+			RunID:                   run.GetRunID(),
+			WorkflowNamespace:       namespace,
+			WalletVersionIdentifier: selection.Identifier,
+		})
 	}
 }
 

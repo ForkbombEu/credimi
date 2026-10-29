@@ -6,13 +6,12 @@ package pb
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -44,10 +43,9 @@ func TestWalletActionProvenanceCannotBeForgedAndIsClearedAfterCodeEdit(t *testin
 		require.NoError(t, app.Save(actions))
 	}
 	code := "appId: eu.europa.ec.euidi\n---\n- assertVisible: Home\n"
-	digest := sha256.Sum256([]byte(code))
 	provenance := map[string]any{
 		"workflow_id": "reviewed-workflow",
-		"yaml_sha256": hex.EncodeToString(digest[:]),
+		"yaml_sha256": actionauthor.CodeSHA256(code),
 	}
 	record := core.NewRecord(actions)
 	record.Set("owner", org.Id)

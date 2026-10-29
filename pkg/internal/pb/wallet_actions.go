@@ -5,11 +5,10 @@
 package pb
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"regexp"
 
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -24,6 +23,8 @@ var playStoreDetailsLinkPattern = regexp.MustCompile(
 	`(?m)^\s*-\s*openLink:\s*["']market://details\?id=[^"']+["']\s*$`,
 )
 
+// RegisterWalletActionHooks validates wallet action categories and clears authoring
+// provenance that no longer matches the action's code.
 func RegisterWalletActionHooks(app core.App) {
 	app.OnRecordCreate(walletActionsCollectionName).BindFunc(validateWalletActionCategory)
 	app.OnRecordUpdate(walletActionsCollectionName).BindFunc(validateWalletActionCategory)
@@ -47,15 +48,12 @@ func validateWalletActionCategory(e *core.RecordEvent) error {
 	)
 }
 
+// clearStaleAuthoringProvenance drops provenance that no longer describes the stored code.
 func clearStaleAuthoringProvenance(e *core.RecordEvent) error {
-	raw := e.Record.GetString("authoring_provenance")
-	if raw != "" {
-		var provenance struct {
-			YAMLSHA256 string `json:"yaml_sha256"`
-		}
-		digest := sha256.Sum256([]byte(e.Record.GetString("code")))
+	if raw := e.Record.GetString("authoring_provenance"); raw != "" {
+		var provenance actionauthor.Provenance
 		if json.Unmarshal([]byte(raw), &provenance) != nil ||
-			provenance.YAMLSHA256 != hex.EncodeToString(digest[:]) {
+			provenance.YAMLSHA256 != actionauthor.CodeSHA256(e.Record.GetString("code")) {
 			e.Record.Set("authoring_provenance", nil)
 		}
 	}

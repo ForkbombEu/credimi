@@ -73,21 +73,32 @@ type BuildOption struct {
 
 // ListBuildOptions returns only builds authorized by the same owner role as Select.
 func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
-	if in.ActorCollection != "users" && in.ActorCollection != core.CollectionNameSuperusers {
-		return nil, ErrForbidden
-	}
-	actor, err := app.FindRecordById(in.ActorCollection, in.ActorID)
+	actor, err := findActor(app, in)
 	if err != nil {
-		return nil, ErrForbidden
+		return nil, err
 	}
-	filter := "android_installer != ''"
-	params := dbx.Params{}
+	filter := []dbx.Expression{dbx.NewExp("[[android_installer]] != ''")}
 	if !actor.IsSuperuser() {
-		filter += " && owner.orgAuthorizations_via_organization.user = {:user}" +
-			" && owner.orgAuthorizations_via_organization.role.name = 'owner'"
-		params["user"] = actor.Id
+		// Resolve owned organizations first: PocketBase's `=` on a back-relation
+		// matches only when every authorization of the organization matches.
+		authorizations, findErr := app.FindRecordsByFilter(
+			"orgAuthorizations",
+			"user = {:user} && role.name = 'owner'",
+			"",
+			0,
+			0,
+			dbx.Params{"user": actor.Id},
+		)
+		if findErr != nil {
+			return nil, fmt.Errorf("list owned organizations: %w", findErr)
+		}
+		owned := make([]any, 0, len(authorizations))
+		for _, authorization := range authorizations {
+			owned = append(owned, authorization.GetString("organization"))
+		}
+		filter = append(filter, dbx.In("owner", owned...))
 	}
-	versions, err := app.FindRecordsByFilter("wallet_versions", filter, "created", 0, 0, params)
+	versions, err := app.FindAllRecords("wallet_versions", filter...)
 	if err != nil {
 		return nil, fmt.Errorf("list authoring wallet versions: %w", err)
 	}
@@ -124,17 +135,26 @@ func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 	return options, nil
 }
 
+// findActor accepts only user and superuser principals that still exist.
+func findActor(app core.App, in Actor) (*core.Record, error) {
+	if in.ActorCollection != "users" && in.ActorCollection != core.CollectionNameSuperusers {
+		return nil, ErrForbidden
+	}
+	actor, err := app.FindRecordById(in.ActorCollection, in.ActorID)
+	if err != nil {
+		return nil, ErrForbidden
+	}
+	return actor, nil
+}
+
 // Select authorizes the same owner role required by wallet_actions creation.
 // An empty namespace is used only by the authenticated start endpoint; activities
 // must pass their actual Temporal namespace, not a value from their payload.
 func Select(app core.App, namespace string, in BuildRequest) (Selection, error) {
 	var selection Selection
-	if in.ActorCollection != "users" && in.ActorCollection != core.CollectionNameSuperusers {
-		return selection, ErrForbidden
-	}
-	actor, err := app.FindRecordById(in.ActorCollection, in.ActorID)
+	actor, err := findActor(app, in.Actor)
 	if err != nil {
-		return selection, ErrForbidden
+		return selection, err
 	}
 	segments := strings.Split(
 		strings.Trim(canonify.NormalizePath(in.WalletVersionIdentifier), "/"),
@@ -184,8 +204,8 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 	return selection, nil
 }
 
-// APKDigest streams the selected object rather than retaining the installer in memory.
-func APKDigest(app core.App, selection Selection) (string, error) {
+// apkDigest streams the selected object rather than retaining the installer in memory.
+func apkDigest(app core.App, selection Selection) (string, error) {
 	fsys, err := app.NewFilesystem()
 	if err != nil {
 		return "", fmt.Errorf("open installer filesystem: %w", err)
@@ -211,11 +231,11 @@ func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 	if err != nil {
 		return Build{}, err
 	}
-	digest, err := APKDigest(app, selection)
+	digest, err := apkDigest(app, selection)
 	if err != nil {
 		return Build{}, err
 	}
-	grant, err := IssueGrant(app, selection, digest)
+	grant, err := issueGrant(app, selection)
 	if err != nil {
 		return Build{}, err
 	}
@@ -224,11 +244,9 @@ func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 		VersionID:         selection.Version.Id,
 		VersionIdentifier: selection.Identifier,
 		OwnerNamespace:    selection.Organization.GetString("canonified_name"),
-		InstallerName: selection.Version.GetString(
-			"android_installer",
-		),
-		APKSHA256:     digest,
-		DownloadGrant: grant,
+		InstallerName:     selection.Version.GetString("android_installer"),
+		APKSHA256:         digest,
+		DownloadGrant:     grant,
 	}, nil
 }
 
@@ -300,36 +318,39 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 	if err != nil {
 		return receipt, err
 	}
-	digest, err := APKDigest(app, selection)
+	digest, err := apkDigest(app, selection)
 	if err != nil {
 		return receipt, err
 	}
 	if digest != in.APKSHA256 {
 		return receipt, fmt.Errorf("%w: selected APK changed", ErrConflict)
 	}
-	provenance := Provenance{WalletVersionID: selection.Version.Id,
-		WalletVersionIdentifier: selection.Identifier, APKSHA256: digest, PackageID: in.PackageID,
-		YAMLSHA256: in.CandidateSHA256, WorkflowID: workflowID, RunID: runID, ReplayCount: 2}
+	provenance := Provenance{
+		WalletVersionID:         selection.Version.Id,
+		WalletVersionIdentifier: selection.Identifier,
+		APKSHA256:               digest,
+		PackageID:               in.PackageID,
+		YAMLSHA256:              in.CandidateSHA256,
+		WorkflowID:              workflowID,
+		RunID:                   runID,
+		ReplayCount:             in.ReplayCount,
+	}
 	err = app.RunInTransaction(func(tx core.App) error {
 		// Recheck authorization and record binding inside the write transaction.
-		current, selectErr := Select(tx, namespace, in.BuildRequest)
-		if selectErr != nil {
-			return selectErr
+		current, err := Select(tx, namespace, in.BuildRequest)
+		if err != nil {
+			return err
 		}
+		installer := selection.Version.GetString("android_installer")
 		if current.Version.Id != selection.Version.Id ||
-			current.Version.GetString(
-				"android_installer",
-			) != selection.Version.GetString(
-				"android_installer",
-			) {
+			current.Version.GetString("android_installer") != installer {
 			return fmt.Errorf("%w: selected version changed", ErrConflict)
 		}
 		var record *core.Record
-		created := false
 		if in.ReplaceActionID != "" {
-			record, selectErr = tx.FindRecordById("wallet_actions", in.ReplaceActionID)
+			record, err = tx.FindRecordById("wallet_actions", in.ReplaceActionID)
 		} else {
-			record, selectErr = tx.FindFirstRecordByFilter(
+			record, err = tx.FindFirstRecordByFilter(
 				"wallet_actions",
 				"owner = {:owner} && wallet = {:wallet} && name = {:name}",
 				dbx.Params{
@@ -339,23 +360,34 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 				},
 			)
 		}
-		if selectErr != nil && !errors.Is(selectErr, sql.ErrNoRows) {
-			return fmt.Errorf("find wallet action: %w", selectErr)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("find wallet action: %w", err)
 		}
-		if record != nil {
+		created := record == nil
+		if created {
+			if in.ReplaceActionID != "" {
+				return fmt.Errorf("%w: replacement action no longer exists", ErrConflict)
+			}
+			collection, err := tx.FindCollectionByNameOrId("wallet_actions")
+			if err != nil {
+				return fmt.Errorf("find wallet actions collection: %w", err)
+			}
+			record = core.NewRecord(collection)
+			record.Set("owner", current.Organization.Id)
+			record.Set("wallet", current.Wallet.Id)
+			record.Set("published", false)
+		} else {
 			if record.GetString("owner") != current.Organization.Id ||
 				record.GetString("wallet") != current.Wallet.Id {
 				return ErrForbidden
 			}
+			existingSHA256 := CodeSHA256(record.GetString("code"))
 			var previous Provenance
-			if err := json.Unmarshal(
-				[]byte(record.GetString("authoring_provenance")),
-				&previous,
-			); err == nil &&
+			// A retried save of this workflow run finds its own write and returns it.
+			if json.Unmarshal([]byte(record.GetString("authoring_provenance")), &previous) == nil &&
 				previous.WorkflowID == workflowID && previous.RunID == runID &&
 				previous.YAMLSHA256 == in.CandidateSHA256 && previous.APKSHA256 == in.APKSHA256 &&
-				record.GetString("name") == in.Name &&
-				CodeSHA256(record.GetString("code")) == in.CandidateSHA256 {
+				record.GetString("name") == in.Name && existingSHA256 == in.CandidateSHA256 {
 				receipt = Receipt{
 					RecordID:   record.Id,
 					Name:       record.GetString("name"),
@@ -364,28 +396,14 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 				}
 				return nil
 			}
-			if in.ReplaceActionID == "" ||
-				CodeSHA256(record.GetString("code")) != in.ExpectedExistingSHA256 {
+			if in.ReplaceActionID == "" || existingSHA256 != in.ExpectedExistingSHA256 {
 				return fmt.Errorf(
 					"%w: action %s has code SHA256 %s; explicit replacement confirmation required",
 					ErrConflict,
 					record.Id,
-					CodeSHA256(record.GetString("code")),
+					existingSHA256,
 				)
 			}
-		} else {
-			if in.ReplaceActionID != "" {
-				return fmt.Errorf("%w: replacement action no longer exists", ErrConflict)
-			}
-			collection, collectionErr := tx.FindCollectionByNameOrId("wallet_actions")
-			if collectionErr != nil {
-				return collectionErr
-			}
-			record = core.NewRecord(collection)
-			record.Set("owner", current.Organization.Id)
-			record.Set("wallet", current.Wallet.Id)
-			record.Set("published", false)
-			created = true
 		}
 		record.Set("name", in.Name)
 		record.Set("code", in.Code)

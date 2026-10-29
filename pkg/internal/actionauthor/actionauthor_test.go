@@ -68,9 +68,7 @@ func authoringFixture(t *testing.T) (*tests.TestApp, BuildRequest, string) {
 	return app, BuildRequest{
 		Actor:                   Actor{ActorID: actor.Id, ActorCollection: "users"},
 		WalletVersionIdentifier: identifier,
-	}, org.GetString(
-		"canonified_name",
-	)
+	}, org.GetString("canonified_name")
 }
 
 func TestListBuildOptionsRequiresOwnershipAndAndroidAPK(t *testing.T) {
@@ -86,6 +84,19 @@ func TestListBuildOptionsRequiresOwnershipAndAndroidAPK(t *testing.T) {
 	withoutAPK.Set("tag", "without-apk")
 	require.NoError(t, app.Save(withoutAPK))
 
+	// Another member of the organization neither hides the owner's builds nor sees them.
+	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	member, err := app.FindFirstRecordByData("orgRoles", "name", "member")
+	require.NoError(t, err)
+	authorizations, err := app.FindCollectionByNameOrId("orgAuthorizations")
+	require.NoError(t, err)
+	membership := core.NewRecord(authorizations)
+	membership.Set("user", other.Id)
+	membership.Set("organization", selection.Organization.Id)
+	membership.Set("role", member.Id)
+	require.NoError(t, app.Save(membership))
+
 	options, err := ListBuildOptions(app, request.Actor)
 	require.NoError(t, err)
 	require.Len(t, options, 1)
@@ -94,8 +105,6 @@ func TestListBuildOptionsRequiresOwnershipAndAndroidAPK(t *testing.T) {
 	assert.Equal(t, "userA's organization", options[0].OrganizationName)
 	assert.Equal(t, "build-1", options[0].VersionTag)
 
-	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
-	require.NoError(t, err)
 	options, err = ListBuildOptions(app, Actor{ActorID: other.Id, ActorCollection: "users"})
 	require.NoError(t, err)
 	assert.Empty(t, options)
@@ -105,8 +114,6 @@ func TestListBuildOptionsRequiresOwnershipAndAndroidAPK(t *testing.T) {
 		"user = {:user} && organization = {:organization}",
 		dbx.Params{"user": request.ActorID, "organization": selection.Organization.Id},
 	)
-	require.NoError(t, err)
-	member, err := app.FindFirstRecordByData("orgRoles", "name", "member")
 	require.NoError(t, err)
 	authorization.Set("role", member.Id)
 	require.NoError(t, app.Save(authorization))
@@ -170,16 +177,14 @@ func TestAuthoringBuildPermissionAndCapability(t *testing.T) {
 func acceptedRequest(request BuildRequest, digest string) SaveRequest {
 	code := "appId: eu.europa.ec.euidi\n---\n- launchApp\n- inputText: \"001234\"\n- assertVisible: Home\n- takeScreenshot: done\n"
 	return SaveRequest{
-		BuildRequest: request,
-		Name:         "Reviewed onboarding",
-		Code:         code,
-		CandidateSHA256: CodeSHA256(
-			code,
-		),
-		APKSHA256:   digest,
-		PackageID:   "eu.europa.ec.euidi",
-		Slot:        "onboarding",
-		ReplayCount: 2,
+		BuildRequest:    request,
+		Name:            "Reviewed onboarding",
+		Code:            code,
+		CandidateSHA256: CodeSHA256(code),
+		APKSHA256:       digest,
+		PackageID:       "eu.europa.ec.euidi",
+		Slot:            "onboarding",
+		ReplayCount:     2,
 	}
 }
 
