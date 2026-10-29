@@ -12,12 +12,16 @@ let card = null;
 let submitting = false;
 let refreshing = false;
 
+// The card floats over the page instead of sitting in the chat's callback queue: the queue is a
+// clipped, animated fold, and a closed or narrow chat panel hid the buttons entirely.
 const styles = document.createElement('style');
 styles.textContent = `
 ${nativeSelector} { display: none !important; }
 .action-save-review { background: var(--surface-1, Canvas); color: var(--text-1, CanvasText);
   border: 1px solid var(--border, ButtonBorder); border-radius: 6px; padding: 16px;
-  margin: 12px 0; display: grid; gap: 12px; font-family: inherit; }
+  position: fixed; right: 24px; bottom: 24px; z-index: 1000; box-sizing: border-box;
+  width: min(420px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .35); display: grid; gap: 12px; font-family: inherit; }
 .action-save-review h3, .action-save-review p { margin: 0; }
 .action-save-review p { overflow-wrap: anywhere; }
 .action-save-review .review-buttons { display: flex; gap: 8px; }
@@ -78,7 +82,7 @@ async function decide(accepted) {
 function render() {
   const nativeCard = document.querySelector(nativeSelector);
   if (nativeCard) nativeCard.hidden = true;
-  if (!pending || !nativeCard) return;
+  if (!pending) return;
   if (card?.dataset.toolId !== pending.tool_id) {
     card?.remove();
     card = document.createElement('section');
@@ -104,7 +108,7 @@ function render() {
     }
     card.append(heading, details, status, buttons);
   }
-  if (card.nextElementSibling !== nativeCard) nativeCard.before(card);
+  if (!card.isConnected) document.body.append(card);
 }
 
 async function refresh() {
