@@ -466,6 +466,46 @@ func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
 	require.Equal(t, 7, stub.enqueueRequests[0].MaxPipelinesInQueue)
 }
 
+func TestPipelineQueueEnqueuePassesQueueWaitTimeout(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+	t.Setenv(semaphoreclient.WaitTimeoutEnv, "30m")
+
+	stub := &queueStub{}
+	installQueueStubs(t, stub)
+
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      device_id: usera-s-organization/runner-1/device-1\n"
+
+	scenario := tests.ApiScenario{
+		Name:   "enqueue passes the queue wait timeout",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/queue",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"yaml":                validYaml,
+		}),
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			"\"status\":\"queued\"",
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			return setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+		},
+	}
+
+	scenario.Test(t)
+
+	require.Len(t, stub.enqueueRequests, 1)
+	require.Equal(t, 1800, stub.enqueueRequests[0].WaitTimeoutSeconds)
+}
+
 // The dashboard queues runs from YAML, so this is the only place that can
 // prove the chosen runners answer before a ticket is parked on a semaphore.
 func TestPipelineQueueEnqueueRejectsUnreachableRunner(t *testing.T) {
@@ -1323,13 +1363,14 @@ func TestPipelineQueueStatus_MultiRunnerDoesNot404WhenAnyRunnerFound(t *testing.
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
 			"\"status\":\"failed\"",
+			// A failed ticket says why, e.g. a queue wait timeout.
+			"\"error_message\":\"boom\"",
 		},
 		NotExpectedContent: []string{
 			"\"device_ids\"",
 			"\"runners\"",
 			"\"leader_device_id\"",
 			"\"required_device_ids\"",
-			"\"error_message\"",
 		},
 		TestAppFactory: setupPipelineQueueApp,
 	}

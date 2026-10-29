@@ -76,19 +76,22 @@ const (
 )
 
 type MobileDeviceSemaphoreEnqueueRunRequest struct {
-	TicketID            string                                `json:"ticket_id"`
-	OwnerNamespace      string                                `json:"owner_namespace"`
-	EnqueuedAt          time.Time                             `json:"enqueued_at"`
-	DeviceID            string                                `json:"device_id"`
-	RequiredDeviceIDs   []string                              `json:"required_device_ids"`
-	LeaderDeviceID      string                                `json:"leader_device_id"`
-	MaxPipelinesInQueue int                                   `json:"max_pipelines_in_queue,omitempty"`
-	PipelineIdentifier  string                                `json:"pipeline_identifier,omitempty"`
-	YAML                string                                `json:"yaml,omitempty"`
-	PipelineConfig      map[string]any                        `json:"pipeline_config,omitempty"`
-	Memo                map[string]any                        `json:"memo,omitempty"`
-	Cleanup             *MobileDeviceSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
-	Notification        *MobileDeviceSemaphoreNotification    `json:"notification,omitempty"`
+	TicketID            string    `json:"ticket_id"`
+	OwnerNamespace      string    `json:"owner_namespace"`
+	EnqueuedAt          time.Time `json:"enqueued_at"`
+	DeviceID            string    `json:"device_id"`
+	RequiredDeviceIDs   []string  `json:"required_device_ids"`
+	LeaderDeviceID      string    `json:"leader_device_id"`
+	MaxPipelinesInQueue int       `json:"max_pipelines_in_queue,omitempty"`
+	// WaitTimeoutSeconds bounds how long the ticket may stay queued, counted
+	// from EnqueuedAt; zero means no limit.
+	WaitTimeoutSeconds int                                   `json:"wait_timeout_seconds,omitempty"`
+	PipelineIdentifier string                                `json:"pipeline_identifier,omitempty"`
+	YAML               string                                `json:"yaml,omitempty"`
+	PipelineConfig     map[string]any                        `json:"pipeline_config,omitempty"`
+	Memo               map[string]any                        `json:"memo,omitempty"`
+	Cleanup            *MobileDeviceSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
+	Notification       *MobileDeviceSemaphoreNotification    `json:"notification,omitempty"`
 }
 
 // MobileDeviceSemaphoreCleanupMetadata carries resources owned by a queued run
@@ -228,6 +231,9 @@ type MobileDeviceSemaphoreRunDoneSignal struct {
 	WorkflowID     string `json:"workflow_id,omitempty"`
 	RunID          string `json:"run_id,omitempty"`
 	WorkflowResult string `json:"workflow_result,omitempty"`
+	// ErrorMessage is set when a peer device failed the ticket before it
+	// started, for example because its queue wait timed out.
+	ErrorMessage string `json:"error_message,omitempty"`
 }
 
 type MobileDeviceSemaphoreRunTicketState struct {

@@ -29,6 +29,12 @@ const (
 	// Runs that continued-as-new before this change did not drain buffered
 	// run signals first; draining adds commands their history lacks.
 	mobileDeviceSemaphoreDrainSignalsChange = "credimi-2026-10-semaphore-drain-signals"
+	// Runs started before this change let queued tickets wait forever; the
+	// expiry timers would add commands their history lacks.
+	mobileDeviceSemaphoreQueueWaitTimeoutChange = "credimi-2026-10-semaphore-queue-wait-timeout"
+	// Runs started before this change only flagged a canceled running ticket;
+	// canceling its pipeline would add activities their history lacks.
+	mobileDeviceSemaphoreCancelRunningChange = "credimi-2026-10-semaphore-cancel-running-pipeline"
 )
 
 type MobileDeviceSemaphoreWorkflow struct {
@@ -91,6 +97,18 @@ func (w *MobileDeviceSemaphoreWorkflow) ExecuteWorkflow(
 		workflow.DefaultVersion,
 		1,
 	) == 1
+	runtime.queueWaitTimeouts = workflow.GetVersion(
+		ctx,
+		mobileDeviceSemaphoreQueueWaitTimeoutChange,
+		workflow.DefaultVersion,
+		1,
+	) == 1
+	runtime.cancelRunningPipelines = workflow.GetVersion(
+		ctx,
+		mobileDeviceSemaphoreCancelRunningChange,
+		workflow.DefaultVersion,
+		1,
+	) == 1
 	defer func() {
 		if runtime.shouldContinue || runtime.shutdownCompleted {
 			return
@@ -147,6 +165,7 @@ func (w *MobileDeviceSemaphoreWorkflow) ExecuteWorkflow(
 	runtime.startRunSafetyNet()
 	runtime.startRunReconciler()
 	runtime.startPauseTimeoutWatcher()
+	runtime.startQueuedTicketExpirer()
 
 	if err := runtime.awaitContinue(); err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -167,12 +186,19 @@ type mobileDeviceSemaphoreRuntime struct {
 	shutdownAfterSeconds int
 	updateCount          int
 	countAllUpdates      bool
-	shouldContinue       bool
-	continueInput        workflowengine.WorkflowInput
-	runStarterRequested  bool
-	queuePositionsDirty  bool
-	shutdownRequested    bool
-	shutdownCompleted    bool
+	// queueWaitTimeouts and cancelRunningPipelines record the GetVersion
+	// decisions of this run.
+	queueWaitTimeouts      bool
+	cancelRunningPipelines bool
+	// queueWaitGeneration changes whenever a ticket joins the queue, so the
+	// expirer recomputes its next deadline.
+	queueWaitGeneration int
+	shouldContinue      bool
+	continueInput       workflowengine.WorkflowInput
+	runStarterRequested bool
+	queuePositionsDirty bool
+	shutdownRequested   bool
+	shutdownCompleted   bool
 	// signalDrains handle signals still buffered in each run signal channel.
 	signalDrains []func(workflow.Context) bool
 	// signalHandlersRunning counts run signal handlers currently executing.
@@ -298,8 +324,8 @@ func (r *mobileDeviceSemaphoreRuntime) registerCancelRunHandler() error {
 	return workflow.SetUpdateHandler(
 		r.ctx,
 		MobileDeviceSemaphoreCancelRunUpdate,
-		func(_ workflow.Context, req MobileDeviceSemaphoreRunCancelRequest) (MobileDeviceSemaphoreRunStatusView, error) {
-			return r.handleCancelRun(req)
+		func(ctx workflow.Context, req MobileDeviceSemaphoreRunCancelRequest) (MobileDeviceSemaphoreRunStatusView, error) {
+			return r.handleCancelRun(ctx, req)
 		},
 	)
 }
@@ -645,6 +671,7 @@ func (r *mobileDeviceSemaphoreRuntime) handleEnqueueRun(
 		Status:  mobileDeviceSemaphoreRunQueued,
 	}
 	r.runQueue = insertRunQueue(r.runQueue, req.TicketID, r.runTickets)
+	r.queueWaitGeneration++
 	position, lineLen := r.runQueuePosition(req.TicketID)
 
 	r.updateCount++
@@ -719,6 +746,7 @@ func (r *mobileDeviceSemaphoreRuntime) handlePauseDevice(
 					}
 					return "runner paused: " + r.pauseReason
 				}(),
+				true,
 				shutdownResp,
 			) {
 				resp.RunningPipelinesCanceled++
@@ -746,6 +774,7 @@ func (r *mobileDeviceSemaphoreRuntime) handlePauseDevice(
 }
 
 func (r *mobileDeviceSemaphoreRuntime) handleCancelRun(
+	ctx workflow.Context,
 	req MobileDeviceSemaphoreRunCancelRequest,
 ) (MobileDeviceSemaphoreRunStatusView, error) {
 	if req.TicketID == "" || req.OwnerNamespace == "" {
@@ -776,12 +805,18 @@ func (r *mobileDeviceSemaphoreRuntime) handleCancelRun(
 		r.flushQueuedPositionUpdates(r.ctx)
 		return view, nil
 	case mobileDeviceSemaphoreRunRunning:
+		// Every cancel retries the pipeline cancel: an earlier one may have
+		// failed, and canceling a pipeline twice is harmless.
+		cancelPipeline := r.cancelRunningPipelines
 		state.CancelRequested = true
 		r.runTickets[req.TicketID] = state
 		r.updateCount++
 		r.maybeScheduleContinue()
 		r.requestRunStart()
-		return r.buildRunStatusView(req.TicketID, state), nil
+		if !cancelPipeline {
+			return r.buildRunStatusView(req.TicketID, state), nil
+		}
+		return r.cancelRunningPipeline(ctx, req, state), nil
 	default:
 		return r.buildRunStatusView(req.TicketID, state), nil
 	}
@@ -1495,6 +1530,14 @@ func (r *mobileDeviceSemaphoreRuntime) handleRunDoneSignal(
 	if !ok {
 		return
 	}
+	if signal.ErrorMessage != "" {
+		// A peer failed the ticket before it started; a copy this device
+		// already closed stays as it is.
+		if isTerminalRunStatus(state.Status) {
+			return
+		}
+		state.ErrorMessage = signal.ErrorMessage
+	}
 	workflowResult := strings.TrimSpace(signal.WorkflowResult)
 	if workflowResult == "" {
 		workflowResult = "completed"
@@ -1567,7 +1610,7 @@ func (r *mobileDeviceSemaphoreRuntime) shutdownRunnerWithOptions(
 					response.CleanupFailures,
 					r.cleanupRunTicketResources(ctx, state)...,
 				)
-			} else if r.cancelTrackedWorkflow(ctx, ticketID, state, reason, &response) {
+			} else if r.cancelTrackedWorkflow(ctx, ticketID, state, reason, true, &response) {
 				response.RunningPipelinesCanceled++
 			}
 			if signalPeers {
@@ -1582,7 +1625,7 @@ func (r *mobileDeviceSemaphoreRuntime) shutdownRunnerWithOptions(
 			r.updateCount++
 			r.markQueuePositionsDirty()
 		case mobileDeviceSemaphoreRunRunning:
-			if r.cancelTrackedWorkflow(ctx, ticketID, state, reason, &response) {
+			if r.cancelTrackedWorkflow(ctx, ticketID, state, reason, true, &response) {
 				response.RunningPipelinesCanceled++
 			}
 			if signalPeers && signalRunningPeers {
@@ -1676,11 +1719,16 @@ func (r *mobileDeviceSemaphoreRuntime) cleanupRunTicketResources(
 	return output.CleanupFailures
 }
 
+// cancelTrackedWorkflow cancels the ticket's pipeline. With skipDeviceCleanup
+// it first tells the pipeline to leave this device alone, because the device
+// is paused or shut down; without it the pipeline cleans its devices as on
+// any other cancel.
 func (r *mobileDeviceSemaphoreRuntime) cancelTrackedWorkflow(
 	ctx workflow.Context,
 	ticketID string,
 	state MobileDeviceSemaphoreRunTicketState,
 	reason string,
+	skipDeviceCleanup bool,
 	response *MobileDeviceSemaphoreShutdownDeviceResponse,
 ) bool {
 	if strings.TrimSpace(state.WorkflowID) == "" ||
@@ -1693,52 +1741,8 @@ func (r *mobileDeviceSemaphoreRuntime) cancelTrackedWorkflow(
 	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
 	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
 
-	signalActivity := activities.NewSignalWorkflowActivity()
-	var signalResult workflowengine.ActivityResult
-	signalErr := workflow.ExecuteActivity(activityCtx, signalActivity.Name(), workflowengine.ActivityInput{
-		Payload: activities.SignalWorkflowActivityInput{
-			WorkflowID:        state.WorkflowID,
-			RunID:             state.RunID,
-			WorkflowNamespace: state.WorkflowNamespace,
-			SignalName:        pipelineinternal.PipelineCancellationPolicySignal,
-			Payload: pipelineinternal.PipelineCancellationPolicy{
-				Reason:               reason,
-				SkipDeviceCleanup:    true,
-				SkipDeviceCleanupIDs: []string{r.deviceID},
-			},
-		},
-	}).
-		Get(activityCtx, &signalResult)
-	if signalErr != nil {
-		response.PipelineCancelFailures = append(
-			response.PipelineCancelFailures,
-			fmt.Sprintf(
-				"ticket %s pipeline cancellation policy signal failed: %v",
-				ticketID,
-				signalErr,
-			),
-		)
-	} else {
-		signalOutput, decodeErr := decodeSignalWorkflowOutput(signalResult.Output)
-		if decodeErr != nil {
-			response.PipelineCancelFailures = append(
-				response.PipelineCancelFailures,
-				fmt.Sprintf(
-					"ticket %s pipeline cancellation policy signal decode failed: %v",
-					ticketID,
-					decodeErr,
-				),
-			)
-		} else if signalOutput.Status != "SIGNALED" && signalOutput.Status != "NOT_FOUND" {
-			response.PipelineCancelFailures = append(
-				response.PipelineCancelFailures,
-				fmt.Sprintf(
-					"ticket %s pipeline cancellation policy signal returned unexpected status: %s",
-					ticketID,
-					signalOutput.Status,
-				),
-			)
-		}
+	if skipDeviceCleanup {
+		r.signalSkipDeviceCleanup(activityCtx, ticketID, state, reason, response)
 	}
 
 	var result workflowengine.ActivityResult
@@ -1769,6 +1773,64 @@ func (r *mobileDeviceSemaphoreRuntime) cancelTrackedWorkflow(
 	}
 
 	return output.Canceled || output.Status == "NOT_FOUND"
+}
+
+// signalSkipDeviceCleanup sends the pipeline the cancellation policy that
+// skips this device's cleanup.
+func (r *mobileDeviceSemaphoreRuntime) signalSkipDeviceCleanup(
+	activityCtx workflow.Context,
+	ticketID string,
+	state MobileDeviceSemaphoreRunTicketState,
+	reason string,
+	response *MobileDeviceSemaphoreShutdownDeviceResponse,
+) {
+	signalActivity := activities.NewSignalWorkflowActivity()
+	var signalResult workflowengine.ActivityResult
+	signalErr := workflow.ExecuteActivity(activityCtx, signalActivity.Name(), workflowengine.ActivityInput{
+		Payload: activities.SignalWorkflowActivityInput{
+			WorkflowID:        state.WorkflowID,
+			RunID:             state.RunID,
+			WorkflowNamespace: state.WorkflowNamespace,
+			SignalName:        pipelineinternal.PipelineCancellationPolicySignal,
+			Payload: pipelineinternal.PipelineCancellationPolicy{
+				Reason:               reason,
+				SkipDeviceCleanup:    true,
+				SkipDeviceCleanupIDs: []string{r.deviceID},
+			},
+		},
+	}).
+		Get(activityCtx, &signalResult)
+	if signalErr != nil {
+		response.PipelineCancelFailures = append(
+			response.PipelineCancelFailures,
+			fmt.Sprintf(
+				"ticket %s pipeline cancellation policy signal failed: %v",
+				ticketID,
+				signalErr,
+			),
+		)
+		return
+	}
+	signalOutput, decodeErr := decodeSignalWorkflowOutput(signalResult.Output)
+	if decodeErr != nil {
+		response.PipelineCancelFailures = append(
+			response.PipelineCancelFailures,
+			fmt.Sprintf(
+				"ticket %s pipeline cancellation policy signal decode failed: %v",
+				ticketID,
+				decodeErr,
+			),
+		)
+	} else if signalOutput.Status != "SIGNALED" && signalOutput.Status != "NOT_FOUND" {
+		response.PipelineCancelFailures = append(
+			response.PipelineCancelFailures,
+			fmt.Sprintf(
+				"ticket %s pipeline cancellation policy signal returned unexpected status: %s",
+				ticketID,
+				signalOutput.Status,
+			),
+		)
+	}
 }
 
 func (r *mobileDeviceSemaphoreRuntime) signalRunCanceledForShutdown(
@@ -2391,4 +2453,172 @@ func copyStringBoolMap(values map[string]bool) map[string]bool {
 		result[key] = value
 	}
 	return result
+}
+
+// cancelRunningPipeline cancels a running ticket's pipeline the normal way:
+// the pipeline still cleans its devices and reports RunDone, which frees the
+// device. The ticket stays running until then.
+func (r *mobileDeviceSemaphoreRuntime) cancelRunningPipeline(
+	ctx workflow.Context,
+	req MobileDeviceSemaphoreRunCancelRequest,
+	state MobileDeviceSemaphoreRunTicketState,
+) MobileDeviceSemaphoreRunStatusView {
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		reason = "run canceled"
+	}
+	response := &MobileDeviceSemaphoreShutdownDeviceResponse{}
+	if !r.cancelTrackedWorkflow(ctx, req.TicketID, state, reason, false, response) {
+		workflow.GetLogger(ctx).Error(
+			"cancel running pipeline failed",
+			"ticket_id",
+			req.TicketID,
+			"failures",
+			response.PipelineCancelFailures,
+		)
+	}
+	current, ok := r.runTickets[req.TicketID]
+	if !ok {
+		return MobileDeviceSemaphoreRunStatusView{
+			TicketID: req.TicketID,
+			Status:   mobileDeviceSemaphoreRunNotFound,
+		}
+	}
+	return r.buildRunStatusView(req.TicketID, current)
+}
+
+// startQueuedTicketExpirer fails tickets that stay queued past their wait
+// timeout. Tickets already starting or running never expire.
+func (r *mobileDeviceSemaphoreRuntime) startQueuedTicketExpirer() {
+	if !r.queueWaitTimeouts {
+		return
+	}
+	workflow.Go(r.ctx, func(ctx workflow.Context) {
+		logger := workflow.GetLogger(ctx)
+		for {
+			if err := workflow.Await(ctx, func() bool {
+				_, ok := r.nextQueuedWaitDeadline()
+				return r.shouldContinue || r.shutdownRequested || ok
+			}); err != nil {
+				logger.Error("queued ticket expirer await failed", "error", err)
+				return
+			}
+			if r.shouldContinue || r.shutdownRequested {
+				return
+			}
+			deadline, _ := r.nextQueuedWaitDeadline()
+			if wait := deadline.Sub(workflow.Now(ctx)); wait > 0 {
+				generation := r.queueWaitGeneration
+				if _, err := workflow.AwaitWithTimeout(ctx, wait, func() bool {
+					return r.shouldContinue || r.shutdownRequested ||
+						r.queueWaitGeneration != generation
+				}); err != nil {
+					return
+				}
+				continue
+			}
+			r.expireDueQueuedTickets(ctx)
+		}
+	})
+}
+
+// queuedWaitDeadline is the time a queued ticket expires at.
+func queuedWaitDeadline(state MobileDeviceSemaphoreRunTicketState) (time.Time, bool) {
+	if state.Status != mobileDeviceSemaphoreRunQueued ||
+		state.Request.WaitTimeoutSeconds <= 0 ||
+		state.Request.EnqueuedAt.IsZero() {
+		return time.Time{}, false
+	}
+	timeout := time.Duration(state.Request.WaitTimeoutSeconds) * time.Second
+	return state.Request.EnqueuedAt.Add(timeout), true
+}
+
+func (r *mobileDeviceSemaphoreRuntime) nextQueuedWaitDeadline() (time.Time, bool) {
+	var next time.Time
+	found := false
+	for _, state := range r.runTickets {
+		deadline, ok := queuedWaitDeadline(state)
+		if !ok {
+			continue
+		}
+		if !found || deadline.Before(next) {
+			next = deadline
+			found = true
+		}
+	}
+	return next, found
+}
+
+func (r *mobileDeviceSemaphoreRuntime) expireDueQueuedTickets(ctx workflow.Context) {
+	now := workflow.Now(ctx)
+	for _, ticketID := range r.sortedRunTicketIDs() {
+		// Expiring a ticket runs activities: read each ticket afresh.
+		state, ok := r.runTickets[ticketID]
+		if !ok {
+			continue
+		}
+		deadline, ok := queuedWaitDeadline(state)
+		if !ok || deadline.After(now) {
+			continue
+		}
+		r.expireQueuedTicket(ctx, ticketID, state, now)
+	}
+	r.flushQueuedPositionUpdates(ctx)
+}
+
+// expireQueuedTicket fails a ticket whose queue wait timed out, releases the
+// resources a cancel would release, and fails it on the other devices too.
+func (r *mobileDeviceSemaphoreRuntime) expireQueuedTicket(
+	ctx workflow.Context,
+	ticketID string,
+	state MobileDeviceSemaphoreRunTicketState,
+	now time.Time,
+) {
+	timeout := time.Duration(state.Request.WaitTimeoutSeconds) * time.Second
+	reason := fmt.Sprintf(
+		"queue wait timeout: the run waited more than %s for device %s",
+		timeout,
+		r.deviceID,
+	)
+	r.runQueue = removeFromQueue(r.runQueue, ticketID)
+	state.Status = mobileDeviceSemaphoreRunFailed
+	state.ErrorMessage = reason
+	state.DoneAt = &now
+	r.runTickets[ticketID] = state
+	r.updateCount++
+	r.maybeScheduleContinue()
+	r.markQueuePositionsDirty()
+	r.notifyGitHubPRComment(ctx, ticketID, state, mobileDeviceSemaphoreRunFailed, nil, "", reason)
+
+	logger := workflow.GetLogger(ctx)
+	for _, failure := range r.cleanupRunTicketResources(ctx, state) {
+		logger.Error("expired ticket cleanup failed", "ticket_id", ticketID, "error", failure)
+	}
+	for _, deviceID := range sortedDeviceIDs(state.Request.RequiredDeviceIDs) {
+		if deviceID == r.deviceID {
+			continue
+		}
+		future := workflow.SignalExternalWorkflow(
+			ctx,
+			MobileDeviceSemaphoreWorkflowID(deviceID),
+			"",
+			MobileDeviceSemaphoreRunDoneSignalName,
+			MobileDeviceSemaphoreRunDoneSignal{
+				TicketID:       ticketID,
+				WorkflowResult: string(mobileDeviceSemaphoreRunFailed),
+				ErrorMessage:   reason,
+			},
+		)
+		if err := future.Get(ctx, nil); err != nil {
+			logger.Error(
+				"signal expired ticket failed",
+				"ticket_id",
+				ticketID,
+				"target_device_id",
+				deviceID,
+				"error",
+				err,
+			)
+		}
+	}
 }

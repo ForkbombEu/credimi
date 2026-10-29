@@ -193,3 +193,22 @@ func TestCancelRun(t *testing.T) {
 		require.Equal(t, mobiledevicesemaphore.MobileDeviceSemaphoreRunCanceled, status.Status)
 	})
 }
+
+func TestWaitTimeoutSeconds(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  int
+	}{
+		{name: "default when unset", value: "", want: 0},
+		{name: "duration", value: "30m", want: 1800},
+		{name: "zero disables the timeout", value: "0", want: 0},
+		{name: "default when invalid", value: "soon", want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(WaitTimeoutEnv, tt.value)
+			require.Equal(t, tt.want, WaitTimeoutSeconds())
+		})
+	}
+}
