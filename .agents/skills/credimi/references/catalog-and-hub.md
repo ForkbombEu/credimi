@@ -97,5 +97,4 @@ Public, no auth:
 ## Notes and gaps
 
 - `services` no longer exists (renamed to `organization_info`); `standards` was deleted. Do not build on them.
-- The vLEI suite directory contains only `metadata.yaml`, so the classic loader projects **zero** checks for it; where its manual check definition lives is unresolved.
 - `migrations/pb_schema.json` is a stale snapshot; do not treat it as the current schema.

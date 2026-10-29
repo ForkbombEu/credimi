@@ -15,19 +15,18 @@ Shipped matrix under `config_templates/` (a suite directory must have `version.y
 | `openid4vci_wallet/1.0/webuild`, `openid4vp_wallet/1.0/webuild`, `openid4vci_issuer/1.0/webuild`, `openid4vp_verifier/1.0/webuild` | WEBUILD           | `webuild.api.forkbomb.eu` (wallet standards) / `webuild.wallet-client.forkbomb.eu` (verifier, issuer)             |
 | `openid4vci_wallet/draft-15/ewc`, `openid4vp_wallet/draft-23/ewc`                                                                  | EWC               | `ewc.api.forkbomb.eu` (`/verificationStatus`, `/issueStatus`, `/session-status/{sessionId}`, `/logs/{sessionId}`) |
 | `openid4vp_verifier/draft-23/eudiw`                                                                                                | EUDIW             | `verifier-backend.eudiw.dev/ui/presentations` + Credimi callback page `/tests/wallet/eudiw`                        |
-| `vlei/version/vlei`                                                                                                                | vLEI              | Local Go CESR validation                                                                                          |
 | `fcaf/wallet_solution/relying_party`                                                                                               | FCAF              | Local Go engine (`pkg/fcaf/engine`) via the `fcaf-validation` pipeline step                                       |
 
-Provider slugs are constants in `pkg/workflowengine/workflows/conformance_check.go:21-33`; short labels come from `config_templates/providers.yaml` (`openid_conformance_suite`→OpenID, `webuild`→WEBUILD, `ewc`→EWC, `eudiw`→EUDIW, `vlei`→vLEI, `fcaf`→FCAF).
+Provider slugs are constants in `pkg/workflowengine/workflows/conformance_check.go:21-33`; short labels come from `config_templates/providers.yaml` (`openid_conformance_suite`→OpenID, `webuild`→WEBUILD, `ewc`→EWC, `eudiw`→EUDIW, `fcaf`→FCAF).
 
-`visible_in` decides where a suite/check shows up (`manual`, `pipeline`; empty = both). eudiw and vlei are `manual`-only; FCAF and most OpenID suites are `pipeline`-only (`pkg/conformancecatalog/catalog.go:178-198`).
+`visible_in` decides where a suite/check shows up (`manual`, `pipeline`; empty = both). eudiw is `manual`-only; FCAF and most OpenID suites are `pipeline`-only (`pkg/conformancecatalog/catalog.go:178-198`).
 
 Prerequisites: the `stepci-captured-runner` binary for every classic provider (env `BIN`, default `.bin/`), `OPENIDNET_TOKEN` for the OpenID certification API, and the PocketBase Settings **Application URL**: starters copy it into workflow config as `app_url` (`workflowengine.WithAppConfig`), and workflows use it only to build links (Temporal UI, emails, the EUDIW callback page). Live check logs reach the webapp through the `Send realtime logs` activity on the PocketBase realtime topic `<workflowID>{openidnet,eudiw,ewc}-logs`.
 
 ## How a check runs
 
 1. Start: `POST /api/compliance/{protocol}/{version}/save-variables-and-start` (auth required) — `pkg/internal/apis/handlers/compliance_handlers.go:38`, handler `HandleSaveVariablesAndStart`.
-2. Dispatch by suite: `workflowRegistry` maps `ewc`, `webuild`, `openid_conformance_suite`, `eudiw`, `vlei` to their workflows (`start_conformance_check_handler.go:93-134`).
+2. Dispatch by suite: `workflowRegistry` maps `ewc`, `webuild`, `openid_conformance_suite`, `eudiw` to their workflows (`start_conformance_check_handler.go:93-134`).
 3. Execution: the conformance workflow renders the suite's StepCI YAML, runs it through the StepCI activity, then either polls the OpenID certification log API or spawns a child status workflow (`PARENT_CLOSE_POLICY_ABANDON`) for EWC/WE BUILD (`pkg/workflowengine/workflows/conformance_check.go:258-523`).
 4. Polling: OpenID every 5s against `/api/log/<rid>` until `FINISHED`/`INTERRUPTED`, failing on `INTERRUPTED` or `testmodule_result == FAILED`; EWC/WE BUILD statuses `success`/`pending`/`failed` (pending requires `reason == "ok"`).
 5. The check can also be run from a pipeline with the `conformance-check` step (`check_id` + optional `test`, `parameters`).

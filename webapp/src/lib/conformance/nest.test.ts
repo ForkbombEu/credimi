@@ -181,16 +181,16 @@ describe('nestSuites', () => {
 	it('leaves suite logo and description empty when suite rows lack them', () => {
 		const nested = nestSuites([
 			suite({
-				fs_standard: 'vlei',
+				fs_standard: 'unknown',
 				fs_version: 'version',
 				suite: 'suite',
-				path_prefix: 'vlei/version/suite',
-				members: [{ path: 'vlei/version/suite/one', title: 'One', file: 'one.yaml' }]
+				path_prefix: 'unknown/version/suite',
+				members: [{ path: 'unknown/version/suite/one', title: 'One', file: 'one.yaml' }]
 			})
 		]);
 		const standard = nested[0];
 		const nestedSuite = standard?.versions[0]?.suites[0];
-		expect(standard).toMatchObject({ uid: 'vlei', name: 'vLEI' });
+		expect(standard).toMatchObject({ uid: 'unknown', name: 'Unknown' });
 		expect(standard).not.toHaveProperty('description');
 		expect(standard).not.toHaveProperty('standard_url');
 		expect(nestedSuite?.description).toBe('');
