@@ -7,7 +7,7 @@ import anthropic
 import httpx2 as httpx
 import pytest
 from agents import ModelResponse, ModelSettings
-from agents.exceptions import ModelBehaviorError, UserError
+from agents.exceptions import UserError
 from openai import APIStatusError
 from temporalio.contrib.pydantic import pydantic_data_converter
 
@@ -94,9 +94,14 @@ async def test_cached_input_still_counts_toward_budget_and_reports_clearing():
 
 
 @pytest.mark.parametrize("reason", ["max_tokens", "pause_turn"])
-def test_incomplete_response_never_dispatches_partial_tools(reason):
-    with pytest.raises(ModelBehaviorError, match=reason):
-        response_from_message(native_message(stop_reason=reason), MODEL)
+async def test_incomplete_response_counts_its_tokens_but_dispatches_no_tools(reason):
+    response = response_from_message(native_message(stop_reason=reason), MODEL)
+    assert [item.type for item in response.output] == ["reasoning", "message"]
+    assert reason in response.output[-1].content[0].text
+    budget = TokenBudget(10_000)
+    await budget.on_llm_end(None, None, response)
+    assert budget.usage.input_tokens == 1000
+    assert budget.usage.output_tokens == 25
 
 
 def test_context_clearing_preserves_interactions_yaml_and_replay_evidence():

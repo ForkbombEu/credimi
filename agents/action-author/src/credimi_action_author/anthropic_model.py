@@ -122,23 +122,28 @@ def messages_from_items(items: str | list[dict[str, Any]], model: str) -> list[d
     return messages
 
 
+def _text_item(item_id: str, text: str) -> ResponseOutputMessage:
+    return ResponseOutputMessage(
+        id=item_id,
+        type="message",
+        role="assistant",
+        status="completed",
+        content=[ResponseOutputText(type="output_text", text=text, annotations=[])],
+    )
+
+
 def response_from_message(message: Any, model: str) -> ModelResponse:
+    # A truncated reply may end in an unfinished tool call. Returning it as plain text keeps
+    # its usage in the token budget and the turn's completed work in the conversation.
+    truncated = message.stop_reason in {"max_tokens", "pause_turn"}
     output = []
     for index, block in enumerate(message.content):
         item_id = f"{message.id}_{index}"
         if block.type == "text":
-            output.append(
-                ResponseOutputMessage(
-                    id=item_id,
-                    type="message",
-                    role="assistant",
-                    status="completed",
-                    content=[
-                        ResponseOutputText(type="output_text", text=block.text, annotations=[])
-                    ],
-                )
-            )
+            output.append(_text_item(item_id, block.text))
         elif block.type == "tool_use":
+            if truncated:
+                continue
             output.append(
                 ResponseFunctionToolCall(
                     id=item_id,
@@ -186,9 +191,16 @@ def response_from_message(message: Any, model: str) -> ModelResponse:
         writes,
         cleared,
     )
-    if message.stop_reason in {"max_tokens", "pause_turn"}:
-        raise ModelBehaviorError(
-            f"Claude stopped with {message.stop_reason}; no partial tools executed"
+    if truncated:
+        logger.warning(
+            "Claude stopped with %s; its unfinished tool call was dropped", message.stop_reason
+        )
+        output.append(
+            _text_item(
+                f"{message.id}_truncated",
+                f"(Claude stopped with {message.stop_reason} before finishing this reply; "
+                "no unfinished tool call was executed. Send Continue to resume.)",
+            )
         )
     return ModelResponse(
         output=output,
