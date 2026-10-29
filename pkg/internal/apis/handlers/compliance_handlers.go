@@ -79,12 +79,7 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 		}
 		c, err := complianceTemporalClient(req.Namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 		ctx := e.Request.Context()
 		switch req.Signal {
@@ -644,12 +639,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 		}
 		c, err := complianceTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		author, err := getWorkflowAuthor(e.Request.Context(), c, workflowID, runID)

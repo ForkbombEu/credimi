@@ -222,11 +222,11 @@ func TestHandleListMyCheckRunsTemporalClientError(t *testing.T) {
 		},
 	})
 	requireHandlerErrorHandled(t, rec, err)
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
-	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
-	require.Equal(t, "unable to create client", apiErr.Reason)
+	require.Equal(t, http.StatusServiceUnavailable, apiErr.Code)
+	require.Equal(t, "temporal_unavailable", apiErr.Reason)
 }
 
 func TestHandleListMyCheckRunsListError(t *testing.T) {
@@ -1018,7 +1018,7 @@ func TestHandleTerminateMyCheckRunClientError(t *testing.T) {
 		},
 	})
 	requireHandlerErrorHandled(t, rec, err)
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 }
 
 func TestHandleTerminateMyCheckRunNotFound(t *testing.T) {
@@ -1311,7 +1311,7 @@ func TestHandleMyCheckLogsClientError(t *testing.T) {
 		},
 	})
 	requireHandlerErrorHandled(t, rec, err)
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 }
 
 func TestHandleMyCheckLogsDescribeNotFound(t *testing.T) {
@@ -1820,11 +1820,11 @@ func TestHandleListMyWorkflowsTemporalClientError(t *testing.T) {
 		},
 	})
 	requireHandlerErrorHandled(t, rec, err)
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 
 	apiErr := decodeAPIError(t, rec)
-	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
-	require.Equal(t, "unable to create client", apiErr.Reason)
+	require.Equal(t, http.StatusServiceUnavailable, apiErr.Code)
+	require.Equal(t, "temporal_unavailable", apiErr.Reason)
 }
 
 func TestHandleListMyWorkflowsQueuedStatusReturnsEmpty(t *testing.T) {
@@ -2214,7 +2214,7 @@ func TestHandleRerunMyCheckTemporalClientErrorAdditional(t *testing.T) {
 		},
 	})
 	requireHandlerErrorHandled(t, rec, err)
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 }
 
 func TestHandleRerunMyCheckGetInputErrorAdditional(t *testing.T) {

@@ -253,7 +253,7 @@ func TestSchedulePipelineRetentionWorkflow(t *testing.T) {
 
 		mux.ServeHTTP(rec, req)
 
-		require.Equal(t, http.StatusInternalServerError, rec.Code)
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 	})
 
 	t.Run("fail - update existing schedule fails", func(t *testing.T) {
