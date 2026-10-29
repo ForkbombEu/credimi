@@ -7,7 +7,7 @@
 They run inline in the workflow, read and update the workflow-owned ``AuthorSession`` (injected
 per call, hidden from the model) and delegate all device I/O to activities.
 
-All of them are inherently safe for this PoC, so none waits for a human approval:
+None of them waits for a human approval:
 `reset_app` and `submit_action` wipe only the app under test, on a dedicated test device.
 
 No ``from __future__ import annotations``: the harness reads tool annotations concretely to

@@ -31,7 +31,7 @@ Sections are newest first and dated `DD/MM/YYYY`.
 
 ### Changed
 
-- Upgraded `temporal-agent-harness` from 0.6.0, pinned by the initial PoC, to 0.8.0. The
+- Upgraded `temporal-agent-harness` from 0.6.0 to 0.8.0. The
   action-author dependency is now upgraded independently of the news agent.
 - After upgrading, restart both `make action-author.worker` and `make action-author.ui`
   to load the new package and browser assets. The existing ChatGPT subscription provider,

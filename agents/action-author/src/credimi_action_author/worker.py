@@ -262,7 +262,7 @@ async def main() -> None:
     if client.namespace == "default" and not fake_model_enabled():
         sys.exit(
             "error: set TEMPORAL_NAMESPACE to the selected wallet's organization namespace; "
-            "phase 1 must not consume old default-namespace PoC sessions"
+            "Credimi starts authoring sessions there, not in the default namespace"
         )
     worker = Worker(
         client,

@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# Action author agent (phase 1, local execution)
+# Action author agent
 
 An agent that writes Maestro **wallet actions** for Credimi. From a chat message such as
 
@@ -26,7 +26,7 @@ selected wallet owner's organization namespace. Go activities on that namespace'
 `PipelineTaskQueue` hold `core.App`: they authorize the actor, resolve the selected build
 and persist approved actions. The Python worker does not receive a Credimi API key.
 The harness owns the model/tool loop; device calls remain separate Temporal activities.
-Device execution is local in this phase, not on Credimi runners.
+Devices are local phones attached to the worker host; Credimi runners are not used yet.
 
 The UI uses its own `action-author-session-manager` workflow, so an existing news-agent
 session manager cannot replace its registry. Both managers use the harness's session-manager
@@ -130,7 +130,7 @@ organization's canonical name in `agents/action-author/.env`, alongside the devi
 and one model option.
 
 Start `make dev` in a separate terminal if the API, UI and Temporal are not already running.
-Do not use `make dev.noworkers`: phase 1 needs the organization Go activities.
+Do not use `make dev.noworkers`: authoring needs the organization Go activities.
 
 ```sh
 # Both processes must use the selected wallet owner's organization namespace.
@@ -314,9 +314,9 @@ Slot contracts live in `models.SLOTS`. One for now:
 - The token budget is checked after each model call, so a turn may end slightly above it.
 - The session (conversation, attempts, accepted action) lives in the workflow; there is no
   continue-as-new, hence the 20-message cap.
-- Runner selection, device reservation and pipeline-compatible final cleanup remain phase 2.
-  The last successful replay leaves the local wallet onboarded; this is not a clean-device handoff.
-  Embedded Credimi chat remains phase 3.
+- Runner devices, device reservation and automatic cleanup are not implemented. The last
+  successful replay leaves the local wallet onboarded; this is not a clean-device handoff.
+- The chat runs in the local harness UI, not inside Credimi.
 
 ## Native Claude caching and context
 
