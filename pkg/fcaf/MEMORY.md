@@ -4564,3 +4564,47 @@ Credo rejects the proof, which Capture records first).
 3. A Capture configuration advertising only `jwt` proofs with key attestation,
    and Credo support for key-attestation-only `jwt` proofs and JAR, would let
    a Wallet reach the issuance tests those branches now block.
+
+## Attestation provider suite, first credimi.io run, 27/10/2026
+
+`fcaf_assessment_65gn920s2j.json` (pipeline result `cvuoohne8op6122`): 35 pass,
+1 fail (007b), 3 blocked (033a, 033b_UF, 033c_UF), 20 not applicable, the
+verdicts of the 26/10/2026 emulator run except 031b_UF, which now passes:
+Capture delivers the scenario's `400` as `application/json` to a Wallet that
+asks for response encryption (MOCK-ISSUER-001 resolved).
+
+Defects found and fixed:
+
+- Report: `buildTestOutcome` turned blocked and inconclusive tests into
+  `failed` in `executed_tests` and `outcome`, so the presentation filters,
+  webapp and PDF showed 4 failed against a summary of 1 fail and 3 blocked.
+  They now keep `blocked` / `inconclusive`; error stays `failed`.
+- No step failed although the Wallet was never invoked through
+  `eu-eaa-offer://`. `fcaf-engage-credential-offer` now fails after its
+  `wallet-not-invoked` screenshot. To keep that evidence, the mobile workflow
+  returns a failed flow's screenshots as `flow_output.maestro_screenshot_urls`
+  in the failure's `Details.output` (no longer `Details.maestro_screenshot_urls`),
+  and a failed task-workflow step stores its failure's `Details.output` as its
+  outputs (`failedTaskWorkflowOutput`, gated by
+  `credimi-2026-10-failed-task-workflow-output`; `pipelinehistory` mirrors it),
+  so `${{ <step>.outputs.flow_output.maestro_screenshot_urls | optional }}`
+  still resolves for the failed step. The stored `wallet_actions` record on
+  credimi.io must be updated from the import file.
+
+Still open:
+
+- The report's flat `evidence` map is keyed by name; three AP sources expose
+  `issuance_exchange` and `issuance_visual_evidence`, so it keeps only one of
+  each (031b_UF and 011b_UF evidence values are not in it; their per-test
+  `executed_tests[].evidence` and the `evidence_index` hashes are correct).
+- `presentation.deeplink` is the first deeplink of that map, the
+  `eu-eaa-offer://` offer of the failed engagement, not the main issuance.
+- 033a passes its step when the Wallet is invoked but fails the issuance; the
+  action asserts only invocation.
+- `WS_AP_IA_MainInteraction_030b` still needs an issuer without
+  `credential_request_encryption`; 034b–034d still need JAR support in Credo
+  plus `require_signed_request_object`.
+- Capture now has `eu-pid-jwt-key-attestation`, which offers only `jwt` proofs
+  with `key_attestations_required`. The dedicated
+  `jwt-key-attestation-issuance` scenario owns 051–053 and DeviceBinding
+  010–012 (16 tests); it awaits a real Wallet run.

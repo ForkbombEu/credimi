@@ -528,7 +528,7 @@ func TestHandleDeeplinkTemporalClientError(t *testing.T) {
 		},
 	})
 	requireHandlerErrorHandled(t, rec, err)
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 }
 
 func TestHandleSendTemporalSignalMissingParams(t *testing.T) {
@@ -1114,8 +1114,8 @@ func TestHandleSendTemporalSignalDispatch(t *testing.T) {
 			name:       "temporal client creation failure",
 			signal:     "sig",
 			clientErr:  errors.New("dial failed"),
-			wantStatus: http.StatusInternalServerError,
-			wantReason: "unable to create client",
+			wantStatus: http.StatusServiceUnavailable,
+			wantReason: "temporal_unavailable",
 		},
 		{
 			name:       "issuer stop signal is acknowledged without contacting temporal",

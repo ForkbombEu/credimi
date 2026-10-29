@@ -144,12 +144,7 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 
 		temporalClient, err := pipelineTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				fmt.Sprintf("unable to get temporal client for namespace '%s': %v", namespace, err),
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		ctx, cancel := context.WithTimeout(e.Request.Context(), PipelineExecuteTimeout)

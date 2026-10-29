@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: FCAF attestation provider JWT proof with key attestation
+runtime:
+  fixture:
+    issuer_url: https://capture-wallet.credimi.io
+    log_checker: capture-wallet
+  temporal:
+    activity_options:
+      schedule_to_close_timeout: 50m
+      start_to_close_timeout: 50m
+      retry_policy:
+        maximum_attempts: 1
+steps:
+  # The issuer advertises only jwt proofs with key_attestations_required. It
+  # exercises the sources that apply precisely when the Wallet conveys its key
+  # attestation in a jwt proof. Capture stores raw.credential_request_proofs
+  # before Credo verifies the proof, so the evidence remains available if Credo
+  # rejects the issuance after receiving it.
+  - id: create-jwt-key-attestation-issuance-session
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.issuer_url}/sessions
+      expected_status: 201
+      headers:
+        Content-Type: application/json
+      body:
+        issuer_configuration_id: eu-pid-jwt-key-attestation
+        credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.jwt-key-attestation-required
+        flow: authorization_code
+        evidence_mode: full
+        fixture_id: pid_person_b
+
+  - id: obtain-jwt-key-attestation-credential
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+      version_id: installed_from_external_source
+      parameters:
+        deeplink: ${{ create-jwt-key-attestation-issuance-session.outputs.body.deeplink }}
+
+  - id: fetch-jwt-key-attestation-issuance-session
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/sessions/${{ create-jwt-key-attestation-issuance-session.outputs.body.session_id }}
+      expected_status: 200
+
+  - id: fetch-jwt-key-attestation-issuer-metadata
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.issuer_url}/.well-known/openid-credential-issuer/issuers/eu-pid-jwt-key-attestation
+      expected_status: 200
+
+  - id: run-fcaf-validators
+    use: fcaf-validation
+    with:
+      suite: wallet_solution/attestation_provider
+      test_ids:
+        - WS_AP_MS_ProtocolMessages_051a
+        - WS_AP_MS_ProtocolMessages_051b
+        - WS_AP_MS_ProtocolMessages_051c
+        - WS_AP_MS_ProtocolMessages_052a
+        - WS_AP_MS_ProtocolMessages_052b
+        - WS_AP_MS_ProtocolMessages_052c
+        - WS_AP_MS_ProtocolMessages_053a
+        - WS_AP_MS_ProtocolMessages_053b
+        - WS_AP_MS_ProtocolMessages_053c
+        - WS_AP_MS_ProtocolMessages_053d
+        - WS_AP_SM_DeviceBinding_010a
+        - WS_AP_SM_DeviceBinding_010b
+        - WS_AP_SM_DeviceBinding_010c
+        - WS_AP_SM_DeviceBinding_011a
+        - WS_AP_SM_DeviceBinding_011b
+        - WS_AP_SM_DeviceBinding_012a
+      pipeline_outputs:
+        pipeline.ap.jwt-key-attestation-issuance:
+          output:
+            issuance_exchange:
+              capture_session: ${{ fetch-jwt-key-attestation-issuance-session.outputs.body }}
+              issuer_metadata: ${{ fetch-jwt-key-attestation-issuer-metadata.outputs.body }}

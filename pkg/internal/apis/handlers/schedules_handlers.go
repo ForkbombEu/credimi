@@ -450,12 +450,7 @@ func handleSchedule(
 
 		c, err := scheduleTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		ctx := e.Request.Context()

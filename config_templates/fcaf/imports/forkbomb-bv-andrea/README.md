@@ -82,7 +82,9 @@ The FCAF scenarios additionally share eight flows. They must exist as
   It opens Capture's `/ui/sessions/{id}/engage` page (`engage_url`) in
   Chrome, follows its "Open in wallet" link, accepts the offer whenever the
   Wallet shows it, and screenshots `wallet-invoked` or `wallet-not-invoked`,
-  which `oid4vci.offer_engagement` reads. It never asserts an outcome.
+  which `oid4vci.offer_engagement` reads. It fails when the Wallet is not
+  invoked (after the `wallet-not-invoked` screenshot) and otherwise asserts no
+  outcome.
 
 The remaining wallet files are local reusable Maestro helpers. The files are
 not database records and contain no instance-specific PocketBase IDs. Importers

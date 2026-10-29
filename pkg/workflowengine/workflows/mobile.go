@@ -186,9 +186,10 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			return workflowengine.WorkflowResult{}, executeErr
 		}
 
-		details := map[string]any{"output": output}
-		// Screenshots taken before the flow failed are evidence too. Storing
-		// them is best effort: the flow failure is what the step reports.
+		// Screenshots taken before the flow failed are evidence too, so they are
+		// returned as the failed step's flow_output, where pipelines read them
+		// for a successful step. Storing them is best effort: the flow failure is
+		// what the step reports.
 		failedPaths := workflowengine.AsSliceOfStrings(
 			workflowengine.ParseWorkflowError(executeErr).Details["maestro_screenshot_paths"],
 		)
@@ -203,14 +204,16 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 				workflow.GetLogger(ctx).
 					Warn("store screenshots of failed mobile flow", "error", err)
 			} else {
-				details["maestro_screenshot_urls"] = stored["maestro_screenshot_urls"]
+				output.FlowOutput = map[string]any{
+					"maestro_screenshot_urls": stored["maestro_screenshot_urls"],
+				}
 			}
 		}
 
 		return workflowengine.WorkflowResult{}, newMobileWorkflowError(
 			executeErr,
 			input.RunMetadata,
-			details,
+			map[string]any{"output": output},
 		)
 	}
 	flowOutput, err := storeMobileFlowScreenshots(

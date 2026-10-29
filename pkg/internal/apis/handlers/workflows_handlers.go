@@ -183,12 +183,7 @@ func HandleListMyWorkflows() func(*core.RequestEvent) error {
 
 		c, err := listWorkflowsTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 		statusParam := e.Request.URL.Query().Get("status")
 		statusFilters, statusOK := parseWorkflowStatusFilters(statusParam)
@@ -452,12 +447,7 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 
 		c, err := workflowTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 		workflowExecution, err := c.DescribeWorkflowExecution(
 			e.Request.Context(),
@@ -595,12 +585,7 @@ func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 
 		c, err := workflowTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		historyIterator := c.GetWorkflowHistory(
@@ -694,12 +679,7 @@ func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 		}
 		c, err := workflowTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		list, err := c.ListWorkflow(
@@ -789,12 +769,7 @@ func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 
 		c, err := workflowTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		workflowExecution, err := c.DescribeWorkflowExecution(
@@ -912,12 +887,7 @@ func HandleCancelMyWorkflowRun() func(*core.RequestEvent) error {
 
 		c, err := workflowTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		err = c.CancelWorkflow(e.Request.Context(), workflowID, runID)
@@ -985,12 +955,7 @@ func HandleExportMyWorkflowRun() func(*core.RequestEvent) error {
 
 		c, err := workflowTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		workflowInput, err := workflowRunInputGetter(e.Request.Context(), workflowID, runID, c)
@@ -1101,12 +1066,7 @@ func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 
 		c, err := workflowTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		_, err = c.DescribeWorkflowExecution(e.Request.Context(), workflowID, runID)
@@ -1208,12 +1168,7 @@ func HandleTerminateMyWorkflowRun() func(*core.RequestEvent) error {
 
 		c, err := workflowTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		err = c.TerminateWorkflow(

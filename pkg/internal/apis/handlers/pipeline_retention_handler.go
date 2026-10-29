@@ -75,12 +75,7 @@ func HandleSchedulePipelineRetentionWorkflow() func(*core.RequestEvent) error {
 
 		c, err := scheduleTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"failed to create temporal client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		ctx := e.Request.Context()
@@ -140,12 +135,7 @@ func HandleDeletePipelineRetentionSchedule() func(*core.RequestEvent) error {
 
 		c, err := scheduleTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"failed to create temporal client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		ctx := e.Request.Context()

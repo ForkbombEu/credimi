@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 	const { hubItem, pageDetails } = $derived(data);
 
-	const { logo, display } = $derived(getHubItemData(hubItem));
+	const { logo, display } = $derived(getHubItemData(hubItem, '256x256'));
 
 	const isCurrentUserOwner = $derived(userOrganization.current?.id === hubItem.organization_id);
 </script>

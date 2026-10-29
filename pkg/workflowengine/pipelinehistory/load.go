@@ -272,10 +272,10 @@ func (l *loader) recordActivityFailure(scheduledEventID, eventID int64) {
 	}
 }
 
-// recordChildFailure mirrors executeRegularStep for task workflows, which store the zero
-// WorkflowResult, and handleChildPipelineStepError for child pipelines, which store the
-// failure's Details.output only for continue_on_error steps that neither timed out nor
-// were canceled.
+// recordChildFailure mirrors executeRegularStep for task workflows, which store the failure's
+// Details.output when it carries one and the zero WorkflowResult otherwise, and
+// handleChildPipelineStepError for child pipelines, which store the failure's Details.output
+// only for continue_on_error steps that neither timed out nor were canceled.
 func (l *loader) recordChildFailure(
 	initiatedEventID, eventID int64,
 	failureOutput map[string]any,
@@ -287,6 +287,10 @@ func (l *loader) recordChildFailure(
 	}
 	step := l.steps[id]
 	if step.use != childPipelineUse {
+		if failureOutput != nil {
+			l.record(id, eventID, failureOutput)
+			return
+		}
 		l.record(id, eventID, workflowengine.WorkflowResult{})
 		return
 	}

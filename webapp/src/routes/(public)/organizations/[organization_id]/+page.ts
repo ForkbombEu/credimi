@@ -22,7 +22,9 @@ export const load = async ({ params, fetch }) => {
 		fetch
 	});
 
-	const logo = organization.logo ? pb.files.getURL(organization, organization.logo) : undefined;
+	const logo = organization.logo
+		? pb.files.getURL(organization, organization.logo, { thumb: '100x100' })
+		: undefined;
 	const description =
 		plainText(organization.description) ||
 		`${organization.name} publishes ${hubItems.length} EUDI wallets, issuers, verifiers and pipelines on the Credimi Hub.`;

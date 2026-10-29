@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { user = pb.authStore.model as UsersResponse, ...rest }: Props = $props();
 	if (!user) throw new Error('missing user');
 
-	const src = $derived(pb.files.getURL(user, user.avatar));
+	const src = $derived(pb.files.getURL(user, user.avatar, { thumb: '100x100' }));
 	const fallback = $derived(user.name.slice(0, 2));
 </script>
 

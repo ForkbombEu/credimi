@@ -47,7 +47,9 @@ export const customCheckStepConfig: TypedConfig<'custom-check', CustomIntegratio
 	cardData: ({ integration }) => ({
 		title: integration.name,
 		copyText: getPath(integration, true),
-		avatar: integration.logo ? pb.files.getURL(integration, integration.logo) : undefined,
+		avatar: integration.logo
+			? pb.files.getURL(integration, integration.logo, { thumb: '100x100' })
+			: undefined,
 		publicUrl: localizeHref(getCustomCheckPublicUrl(integration))
 	}),
 	makeId: ({ check_id }) => getLastPathSegment(check_id ?? 'custom-check-unknown')
