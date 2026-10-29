@@ -630,3 +630,29 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (a) upgrade and validate x/net separately; (b) extend this branch with the upgrade. Do not suppress the advisory or change the HTTP activity merely to bypass the check.
 - default risk: the existing HTML parser has an availability vulnerability; phase 1 must not be described as having a green aggregate lint gate until it is resolved.
 - decision: (b). Upgrade `golang.org/x/net` to `v0.62.0` and the related x/* versions required by its module graph. Preserve Forkbomb dependencies. Module hygiene, module verification, vet, reachable-code vulnerability scanning and golangci-lint all pass after the upgrade.
+
+### 2026-10-29 - Action author code review: open conventions and deferred findings
+
+- status: resolved (user decisions 29/10/2026)
+- owner: human maintainer
+- context: a full review of `agents/action-author` and the branch's Go code fixed the bugs listed in the review report. The items below are conventions without a documented rule, or findings deliberately left unfixed.
+- questions:
+  1. Temporal-client failures in handlers: `POST /api/action-author/sessions` answers `503 temporal_unavailable`, `conformance_check_handlers` answers `500`. Which is the repository convention?
+  2. Binary responses in route definitions: the installer route is the first user of `ResponseContentType` with an empty `ResponseSchema`. Is that the pattern for future binary endpoints?
+  3. Installer grants are signed with a key derived from the `users` auth-token secret, so rotating it invalidates outstanding (10-minute) grants, and a grant may be used any number of times within its lifetime. Is that acceptable, or should grants be single-use (server-side state)?
+  4. The model's requested action name is kept for the session until another `set_target` names a new one. Should a target change without a name reset it to `Onboarding`?
+  5. `maestro_inspect_screen` can run before `set_target`, although device operations are otherwise refused until a target is chosen. Enforcing it needs a new workflow patch id.
+  6. The harness publishes tool inputs (`set_target` parameters, `fill` text) unmasked to the event stream; masking them needs an upstream harness change.
+  7. Anthropic replies truncated by `max_tokens`/`pause_turn` raise before usage reaches the per-message token budget, so those tokens are not counted.
+  8. Should the README's historical prose (version-upgrade notes, dated acceptance narratives) move to a changelog?
+- options considered: keep current behaviour (default) or change per item; none is a regression introduced by the review.
+- default risk: items 3 and 6 are the only security-relevant ones; both are limited to the local loopback authoring setup and a dedicated test PIN.
+- decisions:
+  1. `503`, domain `temporal`, reason `temporal_unavailable`, is the convention whenever a Credimi route-group handler cannot reach Temporal. Existing endpoints move to it on the separate branch `fix/temporal-unavailable-503`, merged before this branch.
+  2. Keep `ResponseContentType` with an empty `ResponseSchema` as the pattern for binary responses.
+  3. Keep reusable 10-minute grants signed from the `users` token secret; revisit single-use grants when runners download from machines outside local control.
+  4. Keep the requested name for the whole session.
+  5. Fixed: `maestro_inspect_screen` refuses to run before `set_target`, behind patch id `action-author-inspect-requires-target-v1`.
+  6. Accepted: Credimi test PINs (typically `123456`) are not secrets, so unmasked tool inputs in the harness stream are acceptable. Masking was removed entirely.
+  7. Fixed: a Claude reply truncated by `max_tokens`/`pause_turn` becomes a normal reply without its unfinished tool call, so its tokens count toward the budget and the turn's completed work is retained; `Continue` resumes.
+  8. Done: historical README prose moved to `agents/action-author/CHANGELOG.md`.

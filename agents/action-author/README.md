@@ -18,8 +18,8 @@ reviewed candidate into Credimi as an unpublished `wallet_actions` record.
 
 An OpenAI Agents SDK agent, hosted by the
 [Temporal Agent Harness](https://github.com/temporal-community/temporal-agent-harness)
-(`temporal-agent-harness==0.8.0`, pre-alpha). The initial PoC pinned 0.6.0; the
-action-author dependency is now upgraded independently of the news agent.
+(`temporal-agent-harness==0.8.0`, pre-alpha). Version history and past verification runs are
+in [CHANGELOG.md](CHANGELOG.md).
 
 Credimi starts the Python `ActionAuthor` workflow on task queue `action-author` in the
 selected wallet owner's organization namespace. Go activities on that namespace's
@@ -37,10 +37,6 @@ The 0.8 registry reads `action-author.schema.json`, generated from the workflow 
 The UI and test targets regenerate this file automatically. The packaged 0.8 UI supplies
 the session picker, structured forms, timeline and reload-resilient session rendering;
 we retain the custom launcher to keep this agent's session manager separate.
-
-After upgrading, restart both `make action-author.worker` and `make action-author.ui`
-to load the new package and browser assets. The existing ChatGPT subscription provider,
-device pinning, validation and replay rules are unchanged.
 
 The workflow preloads Pydantic's `annotated_types` metadata dependency through its
 sandbox pass-through imports before updates execute. To detect late-import regressions:
@@ -62,12 +58,12 @@ cp agents/action-author/.env.example agents/action-author/.env
 # set ACTION_AUTHOR_DEVICE_SERIAL (adb devices) and one model option
 ```
 
-Models, chosen in one place (`worker.model_provider`):
+Models, chosen in one place (`worker.provider_kind`). If several are set, the first row wins:
 
 | Env | Model |
 | --- | --- |
-| `ACTION_AUTHOR_CHATGPT=1` | local browser OAuth against your ChatGPT subscription; Responses API, no API-key billing |
 | `ACTION_AUTHOR_FAKE_MODEL=1` (or `FAKE=1` on make) | scripted, no key (see `fake_model.py`) |
+| `ACTION_AUTHOR_CHATGPT=1` | local browser OAuth against your ChatGPT subscription; Responses API, no API-key billing |
 | `ACTION_AUTHOR_ANTHROPIC=1` + `ACTION_AUTHOR_MODEL_API_KEY`, `ACTION_AUTHOR_MODEL` | native Claude Messages, automatic caching and selective context editing |
 | `ACTION_AUTHOR_MODEL_BASE_URL` (+ `_API_KEY`, `ACTION_AUTHOR_MODEL`) | OpenAI-compatible Chat Completions: Ollama, freellmapi, Gemini; Anthropic's official host selects the native provider |
 | `OPENAI_API_KEY` | OpenAI (`gpt-5.1`) |
@@ -83,27 +79,21 @@ ACTION_AUTHOR_MODEL=claude-sonnet-5-5
 ```
 
 This uses Claude API billing, not the ChatGPT subscription. Non-workspace-scoped keys requiring
-an extra workspace header are not exposed by the current configuration. Existing configurations
-with `ACTION_AUTHOR_MODEL_BASE_URL=https://api.anthropic.com/v1/` automatically select native
-Messages instead of Chat Completions. Other compatible providers are unchanged.
+an extra workspace header are not exposed by the current configuration.
+`ACTION_AUTHOR_MODEL_BASE_URL=https://api.anthropic.com/v1/` selects native Messages, not
+Chat Completions.
 
 Restart the worker after changing providers and start a fresh session when changing model IDs.
 Claude's signed thinking blocks are preserved across Temporal model activities. New sessions
 keep system instructions stable and append changing authoring state to the new user message;
 do not switch providers back and forth within a conversation containing signed thinking.
 
-The initial physical-device acceptance on 28/10/2026 used compatibility mode: a budget-exhausted
-Sonnet 4.6 exploration resumed with Sonnet 5.5 and produced an accepted onboarding
-candidate on its first submission: both clean-state Maestro replays passed (35.4s and 34.5s,
-12 commands each). The continuation used 6 model calls and 273,741/2,408 input/output tokens.
-After explicit human approval, the exact candidate was persisted as an unpublished wallet
-action; stored code, category and build/replay provenance were verified against the candidate.
-
 For the ChatGPT subscription, run `make action-author.login` once in a local terminal and
 approve ChatGPT plan usage for `credimi-action-author`. This uses OpenAI's documented OAuth
 flow for local/open-source apps, **not** Codex CLI or its cached credentials. The credential
 file is owner-only at `~/.config/credimi-action-author/chatgpt.json`; override with
-`ACTION_AUTHOR_CHATGPT_CREDENTIALS`. The worker refreshes tokens without putting them in
+`ACTION_AUTHOR_CHATGPT_CREDENTIALS` in `.env` (read by both the login and worker targets).
+The worker refreshes tokens without putting them in
 Temporal history. Set `ACTION_AUTHOR_CHATGPT_MODEL` to override the default `gpt-6.1-sol`.
 Login URLs never contain saved ID tokens. Credential files are created atomically with `0600`
 permissions; new credential directories use `0700`, while existing parent permissions stay unchanged.
@@ -118,11 +108,12 @@ Budgets per `ask` message: `ACTION_AUTHOR_TOKEN_BUDGET` (default 600 000 input+o
 and `ACTION_AUTHOR_MAX_MODEL_CALLS` (default 80). Every reply ends with the model calls and
 tokens in/out of the message and of the session; the worker logs the same line per message.
 
-If a message reaches its token budget, completed exploration and tool results are retained.
-Send `Continue` in the same session to resume from the current device state with a new
-per-message budget. The model response that crossed the limit is not executed, and no action
-is saved automatically. Keep the same device and installed build; do not clear the app between
-messages. Continuation still incurs model charges and is not context compaction or caching.
+If a message reaches its token budget or model-call limit, completed exploration and tool
+results are retained. Send `Continue` in the same session to resume from the current device
+state with fresh per-message budgets. The model response that crossed the limit is not
+executed, and no action is saved automatically. Keep the same device and installed build; do
+not clear the app between messages. Continuation still incurs model charges and is not
+context compaction or caching.
 
 Agent-device MCP activities have one attempt and a three-minute total deadline, including queue
 wait. Device interactions are not automatically retried: a lost response must not duplicate a
@@ -149,7 +140,8 @@ make action-author.schema            # regenerate the schema consumed by agents.
 make action-author.test              # ruff + pytest, no physical device required
 ```
 
-Open `http://localhost:8001/`. The harness opens its authenticated start page. Enter the
+Open `http://localhost:8001/` (`ACTION_AUTHOR_UI_PORT` changes the port; the UI binds to loopback
+only). The harness opens its authenticated start page. Enter the
 Credimi URL (normally `http://localhost:8090`) and a **Credimi user API key** from your
 dashboard, then select a wallet version. This is separate from the Claude API key configured
 on the worker. The page exchanges the user key for a bearer token and lists only Android
@@ -185,7 +177,8 @@ for example `Write action "First setup" for onboarding` or
 `Write the onboarding action and store it as "Demo onboarding"`.
 
 **Accept** saves that exact candidate as an unpublished action, then closes the session after
-delivering the receipt. **Refuse** saves nothing and leaves the chat open for revisions.
+delivering the receipt. **Refuse** saves nothing and leaves the chat open for revisions, with
+the submission budget restored.
 The workflow supplies the selected wallet/build, name, category, candidate hash and replay
 evidence; only your boolean decision comes from the browser. Automatic tool-approval settings
 cannot approve this confirmation. A stale, already answered or malformed decision cannot save.
@@ -241,7 +234,7 @@ The agent-device MCP server is wrapped on the worker (`device.AgentDeviceServer`
   device/tenant fields) are removed from the schemas the model sees and overwritten on every
   call, and the process runs with `AGENT_DEVICE_ANDROID_DEVICE_ALLOWLIST=<serial>`;
 - `open` only opens the app under test (no URLs, no Metro hints);
-- text outputs are masked (parameter values become `${NAME}`) and capped at 20 000 characters.
+- text outputs are capped at 20 000 characters.
 
 The shared MCP context is refreshed by each successful `set_target`, including changes within
 one chat turn. Device operations are refused until a target has been selected.
@@ -283,9 +276,8 @@ activity (15 minutes, heartbeats, no retry).
 6. the last command other than `takeScreenshot` is `assertVisible` or `extendedWaitUntil` with
    `visible`.
 
-Input values remain masked as `${NAME}` in device-tool outputs, replay reports and ordinary
-reply prose. The saved YAML and the accepted-action code block are intentionally shown verbatim
-with the requested literal test PIN, so the action runs without external parameters.
+The saved YAML and the accepted-action code block show the requested literal test PIN, so the
+action runs without external parameters.
 
 ## Slots
 
@@ -303,9 +295,9 @@ Slot contracts live in `models.SLOTS`. One for now:
   app. Persisting a candidate requires a separate human Accept/Refuse callback, never a model tool.
 - The model can tap anything inside the app under test, and `back`/`press` can leave it; the
   system UI of the phone is reachable that way. Only `open` is scoped to the app.
-- The PIN is in the user's message, workflow history, model context, saved YAML and accepted-action
-  code block. Only device-tool outputs, replay reports and ordinary reply prose are masked.
-  Use test PINs only; do not publish actions containing a personal PIN.
+- The PIN is stored and shown in clear: in the user's message, workflow history, model context,
+  tool outputs, replay reports, replies, saved YAML and accepted-action code block. This is
+  intended for test PINs, which are not secrets.
 - Maestro `takeScreenshot` files go to a temporary directory that is deleted after the replay;
   Maestro's own debug artifacts stay in `~/.local/state/maestro/tests/`.
 
@@ -349,12 +341,6 @@ invalidates some cached prefixes, so each edit must remove at least 5,000 input 
 replies/logs report cleared tokens. No local rewriting of signed history or model-generated
 summarization is used. Native requests are text/function-tool based and non-streaming at the
 model boundary; the harness still streams tool progress and final replies to its UI.
-
-A read-only live harness check on 28/10/2026 exercised native Messages against the retained
-authoring conversation. The second request reused 45,477 cache tokens out of 45,557 total input
-tokens and reported 9,030 cleared observation tokens. The harness UI displayed those counts.
-Neither request called device tools or saved an action. This proves native caching/context
-editing, not a new native-provider physical-device authoring run.
 
 See [prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) and
 [context editing](https://platform.claude.com/docs/en/build-with-claude/context-editing).
