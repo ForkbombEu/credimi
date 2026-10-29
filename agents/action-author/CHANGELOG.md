@@ -19,6 +19,9 @@ Sections are newest first and dated `DD/MM/YYYY`.
   it as on Android.
 - Sessions carry a `platform` (`android` or `ios`), chosen on the start page; a worker refuses a
   session for the other platform before installing anything.
+- The wallet actions list in the Credimi dashboard shows a robot icon on actions saved by the
+  agent. Credimi computes it from the hidden provenance (`__agent_authored__`), so the icon
+  disappears when someone edits the action's code.
 
 ### Changed
 

@@ -237,7 +237,9 @@ Saved provenance records the wallet version, platform, installer SHA256, package
 YAML hash, workflow/run and two successful replays. It is hidden from ordinary PocketBase
 responses and non-superuser writes;
 PocketBase silently ignores attempts to write hidden fields. Editing the action's code
-through the native API clears provenance that no longer matches.
+through the native API clears provenance that no longer matches. Credimi exposes only whether
+provenance is present, as the computed field `__agent_authored__`; the wallet dashboard shows a
+robot icon on those actions.
 
 Closing does not delete Temporal history or an already saved action. Recent closed authoring
 runs remain in the session picker (up to 200 closed runs, alongside upstream running-session
