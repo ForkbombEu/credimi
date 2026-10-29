@@ -545,6 +545,7 @@ HTTP errors have two families, split by surface:
 - Credimi route groups (`routing.RouteGroup`, every group binds `middlewares.ErrorHandlingMiddleware`): handlers return only `apierror.New(code, domain, reason, message)`. The middleware renders `apierror.Response`: `{ apiVersion:"2.0", message, error:{ code, domain, reason, message } }`. The OpenAPI spec (`docs/public/API/openapi.yml`, `go generate ./pkg/gen.go`) documents that envelope.
 - PocketBase-native surfaces (record and auth hooks such as `OnRecordCreateRequest`, `turnstile.go`, the PocketBase collection API): use `apis.New*Error` / `e.*Error`, rendered by PocketBase as `{ status, message, data }`, which the PocketBase JS SDK parses.
 - Do not use PocketBase errors on Credimi route groups. As a backstop, `ErrorHandlingMiddleware` renders a stray `*router.ApiError` with its own status (domain `request`, reason = HTTP status text); any other error is a `500` with domain `internal` and reason `UnhandledException`.
+- A route-group handler that cannot obtain a Temporal client returns `temporalUnavailableError()` (`pkg/internal/apis/handlers/temporal_unavailable.go`): `503`, domain `temporal`, reason `temporal_unavailable`. Errors from the workflow call itself keep the endpoint's own codes.
 
 An endpoint's status codes and reasons are part of its contract. Follow the contract you are modifying, and ask before changing them on endpoints you are not otherwise touching.
 

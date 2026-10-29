@@ -648,7 +648,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: keep current behaviour (default) or change per item; none is a regression introduced by the review.
 - default risk: items 3 and 6 are the only security-relevant ones; both are limited to the local loopback authoring setup and a dedicated test PIN.
 - decisions:
-  1. `503`, domain `temporal`, reason `temporal_unavailable`, is the convention whenever a Credimi route-group handler cannot reach Temporal. Existing endpoints move to it on the separate branch `fix/temporal-unavailable-503`, merged before this branch.
+  1. `503`, domain `temporal`, reason `temporal_unavailable`, is the convention whenever a Credimi route-group handler cannot reach Temporal. Existing endpoints moved to the shared `temporalUnavailableError()` in #1551; the action-author session endpoint uses it too, and AGENTS.md documents the rule.
   2. Keep `ResponseContentType` with an empty `ResponseSchema` as the pattern for binary responses.
   3. Keep reusable 10-minute grants signed from the `users` token secret; revisit single-use grants when runners download from machines outside local control.
   4. Keep the requested name for the whole session.

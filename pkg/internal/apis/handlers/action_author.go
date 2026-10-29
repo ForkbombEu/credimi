@@ -170,12 +170,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		request.WalletVersionIdentifier = selection.Identifier
 		temporal, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusServiceUnavailable,
-				"action_author",
-				"temporal_unavailable",
-				"cannot connect to Temporal",
-			)
+			return temporalUnavailableError()
 		}
 		run, err := temporal.ExecuteWorkflow(
 			e.Request.Context(),
