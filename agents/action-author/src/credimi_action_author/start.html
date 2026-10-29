@@ -139,7 +139,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 
 			function setBusy(busy) {
-				connectButton.disabled = busy || Boolean(pendingWorkflowId);
+				// After lookup, submitting the form starts a session; the lookup button is done.
+				connectButton.disabled = busy || !versionSection.hidden;
 				startButton.disabled = busy;
 				originInput.disabled = busy || Boolean(pendingWorkflowId);
 				keyInput.disabled = busy || !versionSection.hidden;
@@ -205,8 +206,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					showStatus(`${versions.length} authorized wallet version${versions.length === 1 ? '' : 's'} found.`, 'success');
 				} finally {
 					keyInput.value = '';
-					form.reset();
-					originInput.value = connectedOrigin || 'http://localhost:8090';
 				}
 			}
 

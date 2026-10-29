@@ -147,9 +147,7 @@ async def test_terminal_refresh_requires_login_without_erasing_credentials(tmp_p
     monkeypatch.setenv("ACTION_AUTHOR_CHATGPT_CREDENTIALS", str(path))
 
     def expired(old):
-        error = RuntimeError("OpenAI OAuth failed: invalid_grant (HTTP 400).")
-        error.oauth_error = "invalid_grant"
-        raise error
+        raise auth.OAuthError("invalid_grant", 400)
 
     monkeypatch.setattr(auth, "_refreshed", expired)
     with pytest.raises(RuntimeError, match="action-author.login"):
@@ -165,9 +163,9 @@ def test_refresh_error_preserves_oauth_code_without_response_body():
         def json(self):
             return {"error": "invalid_grant", "error_description": "sensitive details"}
 
-    with pytest.raises(RuntimeError) as caught:
+    with pytest.raises(auth.OAuthError) as caught:
         auth._token_response(Response())
-    assert caught.value.oauth_error == "invalid_grant"
+    assert caught.value.code == "invalid_grant"
     assert "sensitive details" not in str(caught.value)
 
 
@@ -183,10 +181,13 @@ def test_existing_credential_parent_permissions_are_preserved(tmp_path):
 def test_relogin_does_not_print_or_open_an_id_token_url(monkeypatch, capsys):
     record = saved_record(id_token="synthetic-sensitive-id-token")
     monkeypatch.setattr(auth, "_load", lambda *args: record)
+    closed = []
     monkeypatch.setattr(
         auth,
         "ThreadingHTTPServer",
-        lambda *args: SimpleNamespace(server_address=("127.0.0.1", 1455)),
+        lambda *args: SimpleNamespace(
+            server_address=("127.0.0.1", 1455), server_close=lambda: closed.append(True)
+        ),
     )
     opened = []
 
@@ -202,3 +203,4 @@ def test_relogin_does_not_print_or_open_an_id_token_url(monkeypatch, capsys):
     query = parse_qs(urlparse(opened[0]).query)
     assert query["client_id"] == [record["client_id"]]
     assert query["login_hint"] == [record["email"]]
+    assert closed == [True]

@@ -4,27 +4,28 @@
 
 """Worker for the ActionAuthor workflow, its activities and the agent-device MCP server.
 
-Environment:
+Environment (model options are checked in this order; the first enabled one is used):
     TEMPORAL_ADDRESS / TEMPORAL_NAMESPACE   Temporal connection; use the wallet owner's namespace
     ACTION_AUTHOR_DEVICE_SERIAL             adb serial of the Android phone; required unless
                                             ACTION_AUTHOR_FAKE_MODEL=1 (then, without it, the
                                             device side is faked too)
-    OPENAI_API_KEY                          plain OpenAI (unless a compatible endpoint is set)
-    ACTION_AUTHOR_CHATGPT=1                   local ChatGPT subscription through browser OAuth;
+    ACTION_AUTHOR_FAKE_MODEL=1              scripted model (no API key, no cost)
+    ACTION_AUTHOR_CHATGPT=1                 local ChatGPT subscription through browser OAuth;
                                             no Codex CLI, API key or OpenAI-billed requests
-    ACTION_AUTHOR_CHATGPT_MODEL               subscription model (default gpt-6.1-sol)
-    ACTION_AUTHOR_CHATGPT_CREDENTIALS         optional local credential path (default
+    ACTION_AUTHOR_CHATGPT_MODEL             subscription model (default gpt-6.1-sol)
+    ACTION_AUTHOR_CHATGPT_CREDENTIALS       optional local credential path (default
                                             ~/.config/credimi-action-author/chatgpt.json)
+    ACTION_AUTHOR_ANTHROPIC=1               native Claude Messages (also selected by the official
+                                            Anthropic MODEL_BASE_URL); uses MODEL_API_KEY/MODEL
+    ACTION_AUTHOR_ANTHROPIC_CACHE_TTL       5m (default), 1h, or off
+    ACTION_AUTHOR_ANTHROPIC_CONTEXT_TOKENS  stale-observation clearing threshold (30000; 0 off)
     ACTION_AUTHOR_MODEL_BASE_URL            any OpenAI-compatible Chat Completions endpoint
                                             (Ollama, freellmapi, Gemini's OpenAI endpoint, ...)
-    ACTION_AUTHOR_MODEL_API_KEY             key for that endpoint (Ollama accepts any value)
+    ACTION_AUTHOR_MODEL_API_KEY             key for that endpoint or native Claude
+                                            (Ollama accepts any value)
     ACTION_AUTHOR_MODEL                     model name there, e.g. qwen3:14b; replaces the model
                                             name the workflow asks for
-    ACTION_AUTHOR_ANTHROPIC=1                native Claude Messages (also selected by the official
-                                            Anthropic MODEL_BASE_URL); uses MODEL_API_KEY/MODEL
-    ACTION_AUTHOR_ANTHROPIC_CACHE_TTL         5m (default), 1h, or off
-    ACTION_AUTHOR_ANTHROPIC_CONTEXT_TOKENS    stale-observation clearing threshold (30000; 0 off)
-    ACTION_AUTHOR_FAKE_MODEL=1              scripted model (no API key, no cost)
+    OPENAI_API_KEY                          plain OpenAI, when no other option is set
     ACTION_AUTHOR_TOKEN_BUDGET              tokens per `ask` turn (default 600000)
     ACTION_AUTHOR_MAX_MODEL_CALLS           model calls per `ask` turn (default 80)
     ACTION_AUTHOR_OUT_DIR                   where accepted actions are written
@@ -62,10 +63,20 @@ from .workflow import ActionAuthorWorkflow
 
 AGENT_DEVICE_COMMAND = ["agent-device", "mcp"]
 FAKE_AGENT_DEVICE_COMMAND = [sys.executable, "-m", "credimi_action_author.fake_device"]
+DEFAULT_CHATGPT_MODEL = "gpt-6.1-sol"
+DEFAULT_CLAUDE_MODEL = "claude-sonnet-5-5"
+
+
+def _env(name: str, default: str = "") -> str:
+    return os.environ.get(name, "").strip() or default
+
+
+def _flag(name: str) -> bool:
+    return _env(name).lower() in {"1", "true", "yes"}
 
 
 def fake_model_enabled() -> bool:
-    return os.environ.get("ACTION_AUTHOR_FAKE_MODEL", "").lower() in {"1", "true", "yes"}
+    return _flag("ACTION_AUTHOR_FAKE_MODEL")
 
 
 # Gemini's documented placeholder for a tool call whose thought signature was not kept.
@@ -137,81 +148,79 @@ class _RenamedModels(ModelProvider):
         return _PortableModel(self._inner.get_model(name), name)
 
 
-def compatible_endpoint() -> str:
-    return os.environ.get("ACTION_AUTHOR_MODEL_BASE_URL", "")
-
-
-def chatgpt_enabled() -> bool:
-    return os.environ.get("ACTION_AUTHOR_CHATGPT", "").lower() in {"1", "true", "yes"}
-
-
-def native_anthropic_enabled() -> bool:
-    return os.environ.get("ACTION_AUTHOR_ANTHROPIC", "").lower() in {"1", "true", "yes"} or (
-        urlparse(compatible_endpoint()).hostname == "api.anthropic.com"
-    )
+def provider_kind() -> str:
+    """The configured model option; the first enabled one wins, in this order."""
+    if fake_model_enabled():
+        return "scripted"
+    if _flag("ACTION_AUTHOR_CHATGPT"):
+        return "chatgpt"
+    base_url = _env("ACTION_AUTHOR_MODEL_BASE_URL")
+    if _flag("ACTION_AUTHOR_ANTHROPIC") or urlparse(base_url).hostname == "api.anthropic.com":
+        return "anthropic"
+    if base_url:
+        return "compatible"
+    return "openai"
 
 
 def model_provider() -> ModelProvider | None:
     """Pick scripted, ChatGPT, native Claude, another compatible endpoint, or OpenAI."""
-    if fake_model_enabled():
+    kind = provider_kind()
+    if kind == "scripted":
         return ScriptedModelProvider()
-    if chatgpt_enabled():
+    if kind == "chatgpt":
         from .chatgpt_model import ChatGPTModelProvider
 
-        return ChatGPTModelProvider(os.environ.get("ACTION_AUTHOR_CHATGPT_MODEL", "gpt-6.1-sol"))
-    if native_anthropic_enabled():
+        return ChatGPTModelProvider(_env("ACTION_AUTHOR_CHATGPT_MODEL", DEFAULT_CHATGPT_MODEL))
+    if kind == "anthropic":
         from .anthropic_model import AnthropicModelProvider
 
-        key = os.environ.get("ACTION_AUTHOR_MODEL_API_KEY", "")
+        key = _env("ACTION_AUTHOR_MODEL_API_KEY")
         if not key:
             raise ValueError("set ACTION_AUTHOR_MODEL_API_KEY for native Claude")
         return AnthropicModelProvider(
-            os.environ.get("ACTION_AUTHOR_MODEL") or "claude-sonnet-5-5",
+            _env("ACTION_AUTHOR_MODEL", DEFAULT_CLAUDE_MODEL),
             key,
-            cache_ttl=os.environ.get("ACTION_AUTHOR_ANTHROPIC_CACHE_TTL", "5m"),
-            context_tokens=int(os.environ.get("ACTION_AUTHOR_ANTHROPIC_CONTEXT_TOKENS", "30000")),
+            cache_ttl=_env("ACTION_AUTHOR_ANTHROPIC_CACHE_TTL", "5m"),
+            context_tokens=int(_env("ACTION_AUTHOR_ANTHROPIC_CONTEXT_TOKENS", "30000")),
         )
-    if base_url := compatible_endpoint():
+    if kind == "compatible":
         client = AsyncOpenAI(
-            base_url=base_url,
-            api_key=os.environ.get("ACTION_AUTHOR_MODEL_API_KEY", "unused"),
+            base_url=_env("ACTION_AUTHOR_MODEL_BASE_URL"),
+            api_key=_env("ACTION_AUTHOR_MODEL_API_KEY", "unused"),
             # Activity retries own the retry policy.
             max_retries=0,
         )
         # Compatible endpoints implement Chat Completions, not OpenAI's Responses API.
         provider = OpenAIProvider(openai_client=client, use_responses=False)
-        return _RenamedModels(provider, os.environ.get("ACTION_AUTHOR_MODEL", ""))
+        return _RenamedModels(provider, _env("ACTION_AUTHOR_MODEL"))
     return None
 
 
 def model_label() -> str:
-    if fake_model_enabled():
-        return "scripted"
-    if chatgpt_enabled():
-        return (
-            f"ChatGPT subscription {os.environ.get('ACTION_AUTHOR_CHATGPT_MODEL', 'gpt-6.1-sol')}"
-        )
-    if native_anthropic_enabled():
-        return f"native Claude {os.environ.get('ACTION_AUTHOR_MODEL') or 'claude-sonnet-5-5'}"
-    if compatible_endpoint():
-        return (
-            f"{os.environ.get('ACTION_AUTHOR_MODEL') or 'as requested'} at {compatible_endpoint()}"
-        )
-    return "openai"
+    kind = provider_kind()
+    if kind == "chatgpt":
+        return f"ChatGPT subscription {_env('ACTION_AUTHOR_CHATGPT_MODEL', DEFAULT_CHATGPT_MODEL)}"
+    if kind == "anthropic":
+        return f"native Claude {_env('ACTION_AUTHOR_MODEL', DEFAULT_CLAUDE_MODEL)}"
+    if kind == "compatible":
+        model = _env("ACTION_AUTHOR_MODEL", "as requested")
+        return f"{model} at {_env('ACTION_AUTHOR_MODEL_BASE_URL')}"
+    return kind
 
 
 def openai_plugin(serial: str, agent_device_command: list[str]) -> OpenAIAgentsPlugin:
+    kind = provider_kind()
     retry_policy = None
-    if chatgpt_enabled():
+    if kind == "chatgpt":
         retry_policy = RetryPolicy(maximum_attempts=3)
-    elif native_anthropic_enabled():
+    elif kind == "anthropic":
         # Bad input and truncated replies cannot recover by issuing the same paid request.
         retry_policy = RetryPolicy(non_retryable_error_types=["UserError", "ModelBehaviorError"])
     return OpenAIAgentsPlugin(
         model_params=ModelActivityParameters(
             # Local models are slow; a turn's model call may take minutes.
             start_to_close_timeout=timedelta(
-                minutes=10 if compatible_endpoint() or native_anthropic_enabled() else 3
+                minutes=10 if kind in {"anthropic", "compatible"} else 3
             ),
             retry_policy=retry_policy,
         ),
@@ -236,17 +245,12 @@ def device_from_env() -> tuple[Device, list[str]]:
 
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
-    if (
-        fake_model_enabled()
-        or compatible_endpoint()
-        or chatgpt_enabled()
-        or native_anthropic_enabled()
-    ):
+    if provider_kind() != "openai":
         # No API key to export traces with; keep OAuth traffic out of tracing.
         set_tracing_disabled(True)
     elif not os.environ.get("OPENAI_API_KEY"):
         sys.exit(
-            "error: set OPENAI_API_KEY, ACTION_AUTHOR_CHATGPT=1, "
+            "error: set OPENAI_API_KEY, ACTION_AUTHOR_CHATGPT=1, ACTION_AUTHOR_ANTHROPIC=1, "
             "ACTION_AUTHOR_MODEL_BASE_URL, or ACTION_AUTHOR_FAKE_MODEL=1"
         )
     device, command = device_from_env()

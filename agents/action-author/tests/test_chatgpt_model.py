@@ -141,9 +141,16 @@ async def test_subscription_tool_executes_and_its_result_reaches_the_next_model_
     assert result.final_output == "harness-ok"
 
 
-async def test_subscription_limit_stream_failure_is_not_retryable():
+@pytest.mark.parametrize(
+    ("code", "status", "should_retry"),
+    [
+        ("subscription_sharing_usage_limit_exceeded", 429, "false"),
+        ("server_error", 500, None),
+    ],
+)
+async def test_stream_failure_keeps_harness_retry_classification(code, status, should_retry):
     response = {
-        "id": "resp_limited",
+        "id": "resp_failed",
         "created_at": 1,
         "model": "gpt-test",
         "object": "response",
@@ -152,10 +159,7 @@ async def test_subscription_limit_stream_failure_is_not_retryable():
         "status": "failed",
         "tool_choice": "auto",
         "tools": [],
-        "error": {
-            "code": "subscription_sharing_usage_limit_exceeded",
-            "message": "The app usage limit was reached.",
-        },
+        "error": {"code": code, "message": "The request failed."},
     }
     stream = (
         "event: response.failed\n"
@@ -186,8 +190,8 @@ async def test_subscription_limit_stream_failure_is_not_retryable():
             tracing=ModelTracing.DISABLED,
         )
     await http.aclose()
-    assert caught.value.status_code == 429
-    assert caught.value.response.headers["x-should-retry"] == "false"
+    assert caught.value.status_code == status
+    assert caught.value.response.headers.get("x-should-retry") == should_retry
 
 
 def test_provider_uses_selected_subscription_model():

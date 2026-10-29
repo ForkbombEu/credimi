@@ -45,6 +45,14 @@ TERMINAL_REFRESH_ERRORS = {
 _refresh_lock = asyncio.Lock()
 
 
+class OAuthError(RuntimeError):
+    """An OAuth endpoint error; `code` is the standard error code, never the description."""
+
+    def __init__(self, code: str, status: int) -> None:
+        super().__init__(f"OpenAI OAuth failed: {code} (HTTP {status}).")
+        self.code = code
+
+
 def credential_path() -> Path:
     configured = os.environ.get("ACTION_AUTHOR_CHATGPT_CREDENTIALS", "").strip()
     return (
@@ -95,9 +103,7 @@ def _token_response(response: httpx.Response) -> dict[str, Any]:
         raise RuntimeError(f"OpenAI OAuth returned HTTP {response.status_code}.") from exc
     if response.is_error:
         code = payload.get("error", "oauth_error") if isinstance(payload, dict) else "oauth_error"
-        error = RuntimeError(f"OpenAI OAuth failed: {code} (HTTP {response.status_code}).")
-        error.oauth_error = code
-        raise error
+        raise OAuthError(str(code), response.status_code)
     if not isinstance(payload, dict):
         raise RuntimeError("OpenAI OAuth returned an invalid response.")
     return payload
@@ -213,8 +219,8 @@ async def chatgpt_access_token() -> str:
             return record["access_token"]
         try:
             refreshed = await asyncio.to_thread(_refreshed, record)
-        except RuntimeError as exc:
-            if getattr(exc, "oauth_error", "") in TERMINAL_REFRESH_ERRORS:
+        except OAuthError as exc:
+            if exc.code in TERMINAL_REFRESH_ERRORS:
                 raise RuntimeError(
                     "ChatGPT authorization expired. Run `make action-author.login` again."
                 ) from exc
@@ -224,7 +230,13 @@ async def chatgpt_access_token() -> str:
 
 
 def _authorization_url(
-    client_id: str, host_id: str, redirect_uri: str, state: str, nonce: str, challenge: str
+    client_id: str,
+    host_id: str,
+    redirect_uri: str,
+    state: str,
+    nonce: str,
+    challenge: str,
+    login_hint: str,
 ) -> str:
     parameters = {
         "client_id": client_id,
@@ -240,11 +252,9 @@ def _authorization_url(
     }
     if client_id == "dynamic_agent_client":
         parameters["agent_name_hint"] = "credimi-action-author"
-    else:
+    elif login_hint:
         # Prefill the account without putting an identity token in the printed URL.
-        previous = _load()
-        if previous.get("email"):
-            parameters["login_hint"] = previous["email"]
+        parameters["login_hint"] = login_hint
     return f"{AUTHORIZE_URL}?{urlencode(parameters)}"
 
 
@@ -283,14 +293,15 @@ def chatgpt_login() -> None:
     server = ThreadingHTTPServer(("127.0.0.1", 0), Callback)
     port = server.server_address[1]
     redirect_uri = f"http://127.0.0.1:{port}/auth/callback"
-    url = _authorization_url(client_id, host_id, redirect_uri, state, nonce, challenge)
+    login_hint = previous.get("email", "") if previous else ""
+    url = _authorization_url(client_id, host_id, redirect_uri, state, nonce, challenge, login_hint)
     print("Opening ChatGPT sign-in. Authorize ChatGPT plan usage for credimi-action-author.")
     print("If no browser opens, use the printed local sign-in URL (it contains no tokens).")
     print(url)
-    webbrowser.open(url)
     server.timeout = 1
     deadline = time.monotonic() + 300
     try:
+        webbrowser.open(url)
         while not received.is_set():
             if time.monotonic() >= deadline:
                 raise RuntimeError(

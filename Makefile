@@ -175,14 +175,12 @@ ACTION_AUTHOR_ENV = eval "$$("$(ROOT_DIR)/scripts/worktree-env.sh" export)"; \
 
 action-author.login: ## 📱 connect the local action author to your ChatGPT subscription
 	$(call require_tools,uv)
-	cd "$(ACTION_AUTHOR_DIR)" && uv run python -m credimi_action_author.chatgpt_auth
+	@cd "$(ACTION_AUTHOR_DIR)" && set -a && { [ ! -f .env ] || . ./.env; } && set +a && \
+		uv run python -m credimi_action_author.chatgpt_auth
 
 action-author.worker: ## 📱 run the experimental action author worker (needs ACTION_AUTHOR_DEVICE_SERIAL; FAKE=1: scripted model)
 	$(call require_tools,uv)
 	@$(ACTION_AUTHOR_ENV) && \
-		if [ -z "$${ACTION_AUTHOR_DEVICE_SERIAL:-}$${ACTION_AUTHOR_FAKE_MODEL:-}" ]; then \
-			echo "set ACTION_AUTHOR_DEVICE_SERIAL (adb devices) in agents/action-author/.env, or FAKE=1" >&2; exit 2; \
-		fi && \
 		if [ -n "$${ACTION_AUTHOR_DEVICE_SERIAL:-}" ]; then \
 			for tool in adb apkanalyzer agent-device maestro; do \
 				command -v "$$tool" >/dev/null || { echo "required action-author tool not found: $$tool" >&2; exit 2; }; \

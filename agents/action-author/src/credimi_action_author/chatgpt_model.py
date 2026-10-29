@@ -7,7 +7,7 @@
 from typing import Any
 
 import httpx
-from agents import Model, ModelProvider, ModelResponse, OpenAIProvider
+from agents import Model, ModelProvider, ModelResponse
 from agents.models.openai_responses import OpenAIResponsesModel, _usage_from_response
 from openai import APIStatusError, AsyncOpenAI
 from openai.types.responses import (
@@ -38,10 +38,24 @@ _UNSUPPORTED = (
     "user",
     "previous_response_id",
 )
-
-
-async def _bearer() -> str:
-    return await chatgpt_access_token()
+# Failed-stream codes mapped to the HTTP status the harness classifies retries by.
+# Only transient outages and ordinary rate limits are retried; everything else needs a person.
+_STREAM_ERROR_STATUS = {
+    "server_error": 500,
+    "rate_limit_exceeded": 429,
+    "subscription_sharing_usage_unavailable": 503,
+    "subscription_sharing_usage_limit_exceeded": 429,
+    "subscription_sharing_user_not_eligible": 403,
+    "subscription_sharing_route_not_supported": 403,
+    "chatpass_v2_scope_not_authorized": 403,
+    "chatpass_v2_invalid_authorization_context": 403,
+    "subscription_sharing_invalid_user": 401,
+}
+_RETRYABLE_STREAM_ERRORS = {
+    "server_error",
+    "rate_limit_exceeded",
+    "subscription_sharing_usage_unavailable",
+}
 
 
 class ChatGPTResponsesModel(OpenAIResponsesModel):
@@ -96,19 +110,10 @@ class ChatGPTResponsesModel(OpenAIResponsesModel):
                 if isinstance(event, (ResponseFailedEvent, ResponseIncompleteEvent)):
                     error = event.response.error
                     code = error.code if error else event.type
-                    status = 503 if code == "subscription_sharing_usage_unavailable" else 400
-                    if code == "subscription_sharing_usage_limit_exceeded":
-                        status = 429
-                    elif code in {
-                        "subscription_sharing_user_not_eligible",
-                        "subscription_sharing_route_not_supported",
-                        "chatpass_v2_scope_not_authorized",
-                        "chatpass_v2_invalid_authorization_context",
-                    }:
-                        status = 403
-                    elif code == "subscription_sharing_invalid_user":
-                        status = 401
-                    headers = {} if status == 503 else {"x-should-retry": "false"}
+                    status = _STREAM_ERROR_STATUS.get(code, 400)
+                    headers = (
+                        {} if code in _RETRYABLE_STREAM_ERRORS else {"x-should-retry": "false"}
+                    )
                     raise APIStatusError(
                         error.message if error else f"ChatGPT Responses stream ended: {event.type}",
                         response=httpx.Response(
@@ -125,14 +130,10 @@ class ChatGPTResponsesModel(OpenAIResponsesModel):
 
 class ChatGPTModelProvider(ModelProvider):
     def __init__(self, model: str) -> None:
-        client = AsyncOpenAI(api_key=_bearer, max_retries=0)
-        self.inner = OpenAIProvider(openai_client=client, use_responses=True)
+        # The token callable refreshes local OAuth credentials per request.
+        self.client = AsyncOpenAI(api_key=chatgpt_access_token, max_retries=0)
         self.model = model
 
     def get_model(self, model_name: str | None) -> Model:
         name = self.model or model_name or ""
-        # OpenAIProvider constructs this same SDK model; substituting the subclass
-        # keeps all serialization, streaming and error handling in one implementation.
-        base = self.inner.get_model(name)
-        assert isinstance(base, OpenAIResponsesModel)
-        return ChatGPTResponsesModel(model=name, openai_client=base._get_client())
+        return ChatGPTResponsesModel(model=name, openai_client=self.client)
