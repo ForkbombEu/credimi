@@ -6,8 +6,10 @@
 
 Environment (model options are checked in this order; the first enabled one is used):
     TEMPORAL_ADDRESS / TEMPORAL_NAMESPACE   Temporal connection; use the wallet owner's namespace
-    ACTION_AUTHOR_DEVICE_SERIAL             adb serial of the Android phone; required unless
-                                            ACTION_AUTHOR_FAKE_MODEL=1 (then, without it, the
+    ACTION_AUTHOR_DEVICE_SERIAL             adb serial of the Android phone, or
+    ACTION_AUTHOR_IOS_SIMULATOR_UDID        UDID of a shut-down iOS simulator the worker clones
+                                            (macOS); one of the two is required unless
+                                            ACTION_AUTHOR_FAKE_MODEL=1 (then, without either, the
                                             device side is faked too)
     ACTION_AUTHOR_FAKE_MODEL=1              scripted model (no API key, no cost)
     ACTION_AUTHOR_CHATGPT=1                 local ChatGPT subscription through browser OAuth;
@@ -55,9 +57,10 @@ from temporalio.envconfig import ClientConfig
 from temporalio.worker import Worker
 
 from .activities import ActionAuthorActivities
-from .device import Device, LocalDevice, agent_device_factory
+from .device import AndroidDevice, Device, agent_device_factory
 from .fake_device import FakeDevice
 from .fake_model import ScriptedModelProvider
+from .ios import IOSSimulatorDevice
 from .models import AGENT_DEVICE_MCP, TASK_QUEUE
 from .workflow import ActionAuthorWorkflow
 
@@ -208,7 +211,7 @@ def model_label() -> str:
     return kind
 
 
-def openai_plugin(serial: str, agent_device_command: list[str]) -> OpenAIAgentsPlugin:
+def openai_plugin(device: Device, agent_device_command: list[str]) -> OpenAIAgentsPlugin:
     kind = provider_kind()
     retry_policy = None
     if kind == "chatgpt":
@@ -227,20 +230,32 @@ def openai_plugin(serial: str, agent_device_command: list[str]) -> OpenAIAgentsP
         model_provider=model_provider(),
         mcp_server_providers=[
             StatelessMCPServerProvider(
-                AGENT_DEVICE_MCP, agent_device_factory(agent_device_command, serial)
+                AGENT_DEVICE_MCP, agent_device_factory(agent_device_command, device)
             )
         ],
     )
 
 
 def device_from_env() -> tuple[Device, list[str]]:
-    """The phone and the agent-device MCP command, or offline fakes for the scripted model."""
+    """The Android phone or iOS simulator and the agent-device MCP command, or offline fakes for
+    the scripted model."""
     serial = os.environ.get("ACTION_AUTHOR_DEVICE_SERIAL", "").strip()
+    simulator = os.environ.get("ACTION_AUTHOR_IOS_SIMULATOR_UDID", "").strip()
+    if serial and simulator:
+        sys.exit(
+            "error: set only one of ACTION_AUTHOR_DEVICE_SERIAL and "
+            "ACTION_AUTHOR_IOS_SIMULATOR_UDID: a worker drives one device"
+        )
     if serial:
-        return LocalDevice(serial), AGENT_DEVICE_COMMAND
+        return AndroidDevice(serial), AGENT_DEVICE_COMMAND
+    if simulator:
+        return IOSSimulatorDevice(simulator), AGENT_DEVICE_COMMAND
     if fake_model_enabled():
         return FakeDevice(), FAKE_AGENT_DEVICE_COMMAND
-    sys.exit("error: set ACTION_AUTHOR_DEVICE_SERIAL (adb devices), or ACTION_AUTHOR_FAKE_MODEL=1")
+    sys.exit(
+        "error: set ACTION_AUTHOR_DEVICE_SERIAL (adb devices), ACTION_AUTHOR_IOS_SIMULATOR_UDID "
+        "(xcrun simctl list devices), or ACTION_AUTHOR_FAKE_MODEL=1"
+    )
 
 
 async def main() -> None:
@@ -254,10 +269,16 @@ async def main() -> None:
             "ACTION_AUTHOR_MODEL_BASE_URL, or ACTION_AUTHOR_FAKE_MODEL=1"
         )
     device, command = device_from_env()
+    simulator = device if isinstance(device, IOSSimulatorDevice) else None
+    if simulator is not None:
+        # The iOS simulator: refuse a running base, and drop clones a killed worker left.
+        await simulator.check_base()
+        for udid in await simulator.remove_stale_clones():
+            print(f"action author worker: deleted stale simulator clone {udid}", flush=True)
     activities = ActionAuthorActivities(device)
     client = await Client.connect(
         **ClientConfig.load_client_connect_config(),
-        plugins=[openai_plugin(device.serial, command), AgentHarnessPlugin()],
+        plugins=[openai_plugin(device, command), AgentHarnessPlugin()],
     )
     if client.namespace == "default" and not fake_model_enabled():
         sys.exit(
@@ -272,10 +293,15 @@ async def main() -> None:
     )
     print(
         f"action author worker: namespace={client.namespace} task_queue={TASK_QUEUE} "
-        f"model={model_label()} device={device.serial} agent-device={' '.join(command)}",
+        f"model={model_label()} device={device.platform} {device.configured_device} "
+        f"agent-device={' '.join(command)}",
         flush=True,
     )
-    await worker.run()
+    try:
+        await worker.run()
+    finally:
+        if simulator is not None:
+            await simulator.cleanup()
 
 
 if __name__ == "__main__":

@@ -4,8 +4,8 @@
 
 """Worker activities: everything that touches the phone or the filesystem.
 
-``ActionAuthorActivities`` wraps a ``Device`` (the real ``LocalDevice``, or a fake in tests and
-offline runs).
+``ActionAuthorActivities`` wraps a ``Device`` (``AndroidDevice``, ``IOSSimulatorDevice``, or a
+fake in tests and offline runs).
 """
 
 from __future__ import annotations
@@ -95,7 +95,8 @@ class ActionAuthorActivities:
     @activity.defn(name=DEVICE_INFO)
     async def device_info(self) -> DeviceInfo:
         return DeviceInfo(
-            serial=self._device.serial,
+            serial=self._device.configured_device,
+            platform=self._device.platform,
             token_budget=_env_int("ACTION_AUTHOR_TOKEN_BUDGET", DEFAULT_TOKEN_BUDGET),
             max_model_calls=_env_int("ACTION_AUTHOR_MAX_MODEL_CALLS", DEFAULT_MAX_MODEL_CALLS),
         )
@@ -124,7 +125,8 @@ class ActionAuthorActivities:
 
     @activity.defn(name=RESET_APP)
     async def reset_app(self, req: ScreenRequest) -> str:
-        """Close the agent-device session and clear the app's data (slot precondition)."""
+        """Close the agent-device session and reset the app to a fresh install (slot
+        precondition): `pm clear` on Android, a new simulator clone on iOS."""
         if not APP_ID.fullmatch(req.app_id):
             raise ValueError(f"invalid app id {req.app_id!r}")
         await self._device.close_session()
@@ -132,7 +134,7 @@ class ActionAuthorActivities:
 
     async def _run_once(self, req: ReplayRequest, flow: Path) -> RunOutcome:
         await self._device.close_session()
-        await self._device.verify_build(req.app_id, req.apk_sha256)
+        await self._device.verify_build(req.app_id, req.installer_sha256)
         await self._device.clear_app(req.app_id)
         start = time.monotonic()
         code, output = await self._device.maestro_test(flow, MAESTRO_TEST_TIMEOUT)

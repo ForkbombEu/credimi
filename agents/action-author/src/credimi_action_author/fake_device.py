@@ -72,23 +72,25 @@ UITarget = RefTarget | SelectorTarget | PointTarget
 class FakeDevice:
     """Records every command; Maestro runs pass unless ``fail_runs`` says otherwise."""
 
+    platform = "android"
+
     def __init__(self, serial: str = FAKE_SERIAL, fail_runs: int = 0) -> None:
-        self.serial = serial
+        self.serial = self.configured_device = serial
         self.fail_runs = fail_runs
         self.calls: list[tuple] = []
         self.installed_sha256 = ""
 
     async def prepare_build(self, req: PrepareBuildRequest) -> InstalledBuild:
-        self.installed_sha256 = req.build.apk_sha256
+        self.installed_sha256 = req.build.installer_sha256
         return InstalledBuild(
             package_id="eu.europa.ec.euidi",
             version_code="1",
             version_name="test",
-            apk_sha256=self.installed_sha256,
+            installer_sha256=self.installed_sha256,
         )
 
-    async def verify_build(self, app_id: str, apk_sha256: str) -> None:
-        if app_id != "eu.europa.ec.euidi" or apk_sha256 != self.installed_sha256:
+    async def verify_build(self, app_id: str, installer_sha256: str) -> None:
+        if app_id != "eu.europa.ec.euidi" or installer_sha256 != self.installed_sha256:
             raise ValueError("installed wallet changed since the Credimi build was selected")
 
     async def close_session(self) -> str:
@@ -141,15 +143,16 @@ def _server() -> MCPServer:
         session: str = "",
         platform: str = "",
         serial: str = "",
+        udid: str = "",
     ) -> str:
         """Open an app in a session."""
-        record("open", app=app, session=session, platform=platform, serial=serial)
+        record("open", app=app, session=session, platform=platform, serial=serial, udid=udid)
         return f"Opened: {app}"
 
     @server.tool()
-    def snapshot(session: str = "", platform: str = "", serial: str = "") -> str:
+    def snapshot(session: str = "", platform: str = "", serial: str = "", udid: str = "") -> str:
         """Capture the accessibility tree."""
-        record("snapshot", session=session, platform=platform, serial=serial)
+        record("snapshot", session=session, platform=platform, serial=serial, udid=udid)
         return '@e1 [text] "Welcome to your Wallet"\n@e2 [text-field] "PIN 123456"'
 
     @server.tool()

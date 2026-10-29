@@ -163,9 +163,10 @@ fcaf-sync: fcaf-generate ## Synchronize complete FCAF pipeline (FCAF_SUITE, defa
 	$(GOCMD) run . fcaf sync $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" $(if $(FCAF_SUITE),--suite "$(FCAF_SUITE)",) $(if $(FCAF_DIR),--dir "$(FCAF_DIR)",) --imports-dir "$(or $(FCAF_IMPORTS_DIR),config_templates/fcaf/imports)" $(if $(FCAF_DEVICE_ID),--device-id "$(FCAF_DEVICE_ID)",)
 
 # Experimental action author agent (agents/action-author), local only. It needs Temporal running
-# (`make dev`, or `scripts/worktree-compose.sh up`) and a phone on adb: set
-# ACTION_AUTHOR_DEVICE_SERIAL in agents/action-author/.env (see .env.example). FAKE=1 uses the
-# scripted model (no API key); without a serial it also fakes the device (fully offline).
+# (`make dev`, or `scripts/worktree-compose.sh up`) and one device, set in
+# agents/action-author/.env (see .env.example): a phone on adb (ACTION_AUTHOR_DEVICE_SERIAL) or,
+# on macOS, a shut-down iOS simulator to clone (ACTION_AUTHOR_IOS_SIMULATOR_UDID). FAKE=1 uses
+# the scripted model (no API key); without a device it also fakes the device (fully offline).
 ACTION_AUTHOR_DIR ?= $(ROOT_DIR)/agents/action-author
 ACTION_AUTHOR_ENV = eval "$$("$(ROOT_DIR)/scripts/worktree-env.sh" export)"; \
 	export TEMPORAL_ADDRESS="$${TEMPORAL_ADDRESS:-localhost:$$TEMPORAL_PORT}"; \
@@ -178,14 +179,15 @@ action-author.login: ## 📱 connect the local action author to your ChatGPT sub
 	@cd "$(ACTION_AUTHOR_DIR)" && set -a && { [ ! -f .env ] || . ./.env; } && set +a && \
 		uv run python -m credimi_action_author.chatgpt_auth
 
-action-author.worker: ## 📱 run the experimental action author worker (needs ACTION_AUTHOR_DEVICE_SERIAL; FAKE=1: scripted model)
+action-author.worker: ## 📱 run the experimental action author worker (needs ACTION_AUTHOR_DEVICE_SERIAL or ACTION_AUTHOR_IOS_SIMULATOR_UDID; FAKE=1: scripted model)
 	$(call require_tools,uv)
 	@$(ACTION_AUTHOR_ENV) && \
-		if [ -n "$${ACTION_AUTHOR_DEVICE_SERIAL:-}" ]; then \
-			for tool in adb apkanalyzer agent-device maestro; do \
-				command -v "$$tool" >/dev/null || { echo "required action-author tool not found: $$tool" >&2; exit 2; }; \
-			done; \
-		fi && \
+		tools=""; \
+		if [ -n "$${ACTION_AUTHOR_DEVICE_SERIAL:-}" ]; then tools="adb apkanalyzer agent-device maestro"; fi; \
+		if [ -n "$${ACTION_AUTHOR_IOS_SIMULATOR_UDID:-}" ]; then tools="xcrun plutil ditto agent-device maestro"; fi; \
+		for tool in $$tools; do \
+			command -v "$$tool" >/dev/null || { echo "required action-author tool not found: $$tool" >&2; exit 2; }; \
+		done && \
 		uv run python -m credimi_action_author.worker
 
 action-author.schema: ## generate the harness agent schema used by the local UI registry

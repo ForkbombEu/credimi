@@ -53,9 +53,10 @@ class AuthorSession:
     serial: str
     token_budget: int
     max_model_calls: int
+    platform: str = "android"
     bound_app_id: str = ""
     bound_slot: str = ""
-    apk_sha256: str = ""
+    installer_sha256: str = ""
     accepted_replays: int = 0
     app_id: str = ""
     slot: str = ""
@@ -111,18 +112,18 @@ async def set_target(
     """Set the app, the action slot and the parameter values the user gave. Call it first.
 
     Args:
-        app_id: Android package of the wallet, e.g. "eu.europa.ec.euidi".
+        app_id: The wallet's Android package or iOS bundle ID, e.g. "eu.europa.ec.euidi".
         slot: Action slot, e.g. "onboarding".
         parameters: Every parameter value the user gave, e.g. [{"name": "PIN", "value": "..."}].
         action_name: Exact name explicitly requested by the user; omit for the default Onboarding.
     """
     app_id, slot = app_id.strip(), slot.strip()
     if session.bound_app_id and app_id != session.bound_app_id:
-        return f"ERROR: selected Credimi APK is {session.bound_app_id}; cannot target another app"
+        return f"ERROR: selected Credimi build is {session.bound_app_id}; cannot target another app"
     if session.bound_slot and slot != session.bound_slot:
         return f"ERROR: this session is bound to slot {session.bound_slot}"
     if not APP_ID.fullmatch(app_id):
-        return f"ERROR: {app_id!r} is not an Android package name"
+        return f"ERROR: {app_id!r} is not an Android package or iOS bundle ID"
     if slot not in SLOTS:
         return f"ERROR: unknown slot {slot!r}; known slots: {sorted(SLOTS)}"
     values = {p.name.strip(): p.value for p in parameters}
@@ -161,7 +162,8 @@ async def maestro_cheat_sheet() -> str:
 @agent.tool_defn(inherently_safe=True)
 async def maestro_inspect_screen(session: agent.Injected[AuthorSession]) -> str:
     """The current screen as Maestro sees it: one line per element it can match, with bounds,
-    id (resource-id), text, desc (content-desc) and hint. Use these for selectors.
+    id (Android resource-id, iOS accessibility identifier), text, desc (Android content-desc,
+    iOS accessibility label) and hint. Use these for selectors.
 
     It closes the agent-device session first; call `open` again before more agent-device tools.
     """
@@ -182,7 +184,8 @@ async def maestro_inspect_screen(session: agent.Injected[AuthorSession]) -> str:
 
 @agent.tool_defn(inherently_safe=True)
 async def reset_app(session: agent.Injected[AuthorSession]) -> str:
-    """Clear the app's data so it starts as freshly installed (the slot precondition).
+    """Reset the app to a fresh install (the slot precondition): its data is cleared on Android,
+    and the iOS simulator is replaced by a fresh clone with the wallet installed.
 
     It closes the agent-device session; call `open` again to explore from the first screen.
     """
@@ -198,7 +201,7 @@ async def reset_app(session: agent.Injected[AuthorSession]) -> str:
         )
     except ActivityError as exc:
         return _failure(exc)
-    return f"OK: {session.app_id} data cleared ({out}). Call `open` to start it."
+    return f"OK: {session.app_id} reset to a fresh install ({out}). Call `open` to start it."
 
 
 def _problems(yaml: str, session: AuthorSession) -> list[str]:
@@ -260,7 +263,7 @@ async def submit_action(yaml: str, session: agent.Injected[AuthorSession]) -> st
                 app_id=session.app_id,
                 slot=session.slot,
                 yaml=yaml,
-                apk_sha256=session.apk_sha256,
+                installer_sha256=session.installer_sha256,
             ),
             start_to_close_timeout=REPLAY_TIMEOUT,
             heartbeat_timeout=HEARTBEAT_TIMEOUT,

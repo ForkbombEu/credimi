@@ -13,6 +13,10 @@ RESOLVE_BUILD = "Resolve action author build"
 SAVE_ACTION = "Save authored wallet action"
 PREPARE_BUILD = "action_author.prepare_build"
 
+# The device a worker drives: an adb Android phone, or clones of a local iOS simulator.
+Platform = Literal["android", "ios"]
+PLATFORM_LABELS: dict[str, str] = {"android": "Android phone", "ios": "iOS simulator"}
+
 
 class AuthoringContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -20,9 +24,11 @@ class AuthoringContext(BaseModel):
     actor_id: str = Field(min_length=1)
     actor_collection: Literal["users", "_superusers"]
     slot: Literal["onboarding"]
+    platform: Platform
     app_id: str = ""
 
     def build_payload(self) -> dict[str, str]:
+        """The Go `BuildRequest`: actor, wallet version and platform."""
         return self.model_dump(exclude={"slot", "app_id"})
 
 
@@ -31,8 +37,9 @@ class ResolvedBuild(BaseModel):
     version_id: str
     version_identifier: str
     owner_namespace: str
+    platform: Platform
     installer_name: str
-    apk_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    installer_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     download_grant: str = Field(repr=False)
 
 
@@ -40,7 +47,7 @@ class InstalledBuild(BaseModel):
     package_id: str
     version_code: str
     version_name: str
-    apk_sha256: str
+    installer_sha256: str
 
 
 class PrepareBuildRequest(BaseModel):

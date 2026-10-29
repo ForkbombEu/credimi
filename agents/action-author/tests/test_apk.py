@@ -8,22 +8,23 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from credimi_action_author import apk
+from credimi_action_author import apk, installer
 from credimi_action_author.activities import ActionAuthorActivities
 from credimi_action_author.contracts import PrepareBuildRequest, ResolvedBuild
 from credimi_action_author.fake_device import FakeDevice
 from credimi_action_author.models import ReplayRequest
 
 
-def selected_build(content=b"selected APK"):
+def selected_build(content=b"selected APK", platform="android"):
     return PrepareBuildRequest(
         build=ResolvedBuild(
             wallet_id="wallet",
             version_id="version",
             version_identifier="organization/wallet/version",
             owner_namespace="organization",
+            platform=platform,
             installer_name="selected.apk",
-            apk_sha256=hashlib.sha256(content).hexdigest(),
+            installer_sha256=hashlib.sha256(content).hexdigest(),
             download_grant="test-only-capability",
         )
     )
@@ -40,10 +41,10 @@ async def test_changed_or_redirected_installer_is_not_accepted(monkeypatch, tmp_
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(serve))
-    monkeypatch.setattr(apk.httpx, "AsyncClient", lambda **kwargs: client)
+    monkeypatch.setattr(installer.httpx, "AsyncClient", lambda **kwargs: client)
     monkeypatch.setenv("ACTION_AUTHOR_CREDIMI_URL", "http://credimi.example")
     with pytest.raises((ValueError, httpx.HTTPStatusError)):
-        await apk.download_apk(selected_build(), tmp_path / "installer.apk")
+        await installer.download_installer(selected_build(), tmp_path / "installer.apk")
     assert [request.url.host for request in requests] == ["credimi.example"]
 
 
@@ -56,9 +57,9 @@ async def test_download_retains_exact_selected_bytes(monkeypatch, tmp_path):
         return httpx.Response(200, content=content)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(serve))
-    monkeypatch.setattr(apk.httpx, "AsyncClient", lambda **kwargs: client)
+    monkeypatch.setattr(installer.httpx, "AsyncClient", lambda **kwargs: client)
     destination = tmp_path / "installer.apk"
-    await apk.download_apk(selected_build(content), destination)
+    await installer.download_installer(selected_build(content), destination)
     assert destination.read_bytes() == content
 
 
@@ -72,13 +73,18 @@ async def test_package_mismatch_stops_before_install(monkeypatch):
         commands.append(arguments)
         return "org.other.wallet"
 
-    monkeypatch.setattr(apk, "download_apk", download)
-    monkeypatch.setattr(apk, "_command", command)
+    monkeypatch.setattr(apk, "download_installer", download)
+    monkeypatch.setattr(apk, "command", command)
     request = selected_build()
     request.expected_app_id = "eu.europa.ec.euidi"
     with pytest.raises(ValueError, match="requested package"):
         await apk.prepare_apk(SimpleNamespace(serial="fake"), request)
     assert [arguments[0] for arguments in commands] == ["apkanalyzer"]
+
+
+async def test_android_phone_refuses_an_ios_build():
+    with pytest.raises(ValueError, match="only Android builds"):
+        await apk.prepare_apk(SimpleNamespace(serial="fake"), selected_build(platform="ios"))
 
 
 async def test_changed_installed_build_never_clears_or_replays(tmp_path):
@@ -89,7 +95,7 @@ async def test_changed_installed_build_never_clears_or_replays(tmp_path):
         app_id="eu.europa.ec.euidi",
         slot="onboarding",
         yaml="unused",
-        apk_sha256="a" * 64,
+        installer_sha256="a" * 64,
     )
     with pytest.raises(ValueError, match="installed wallet changed"):
         await activities._run_once(request, tmp_path / "unused.yaml")

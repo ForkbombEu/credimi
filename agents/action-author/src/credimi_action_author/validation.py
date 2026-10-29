@@ -61,8 +61,9 @@ STORE_LINK = re.compile(
     r"^\s*(market:|itms-apps:|itms:|https?://(play\.google\.com|apps\.apple\.com|itunes\.apple\.com))",
     re.IGNORECASE,
 )
+# Android package or iOS bundle ID; bundle IDs may contain hyphens.
 # Use with `fullmatch`: `$` would also accept a trailing newline.
-APP_ID = re.compile(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+")
+APP_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+")
 
 
 def _command(item: Any) -> tuple[str, Any] | None:

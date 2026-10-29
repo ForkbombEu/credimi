@@ -2,15 +2,20 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""The phone, as seen from the worker: agent-device over MCP for exploration, and the commands
-the Maestro tools and the replay run (agent-device close, adb pm clear, maestro).
+"""The test device, as seen from the worker: agent-device over MCP for exploration, and the
+commands the Maestro tools and the replay run (agent-device close, app reset, maestro).
 
-Every command is pinned to the worker's device serial. The model never chooses the device:
+Every command is pinned to the worker's device. The model never chooses the device:
 ``AgentDeviceServer`` drops the device-selection fields from the tool schemas and overwrites them
-on every call, and the agent-device process only sees that serial in its Android allowlist.
+on every call (``serial`` on Android, ``udid`` on iOS). On Android the agent-device process also
+sees only that serial in its device allowlist; agent-device has no iOS equivalent, so on iOS
+the overwrite alone pins the simulator.
 
 Device turn-taking: Maestro's Android driver cannot start while an agent-device session holds
 the device, so every Maestro command first closes the agent-device session (the app stays open).
+On iOS both can drive the simulator at once; the same order is kept for one code path.
+
+``AndroidDevice`` drives an adb phone; ``ios.IOSSimulatorDevice`` drives clones of a simulator.
 """
 
 from __future__ import annotations
@@ -101,13 +106,15 @@ TOOL_OUTPUT_LIMIT = 20_000
 MAESTRO_MCP_TIMEOUT = 180.0
 
 
-def agent_device_env(serial: str) -> dict[str, str]:
-    return {
+def agent_device_env(platform: str, serial: str) -> dict[str, str]:
+    env = {
         **os.environ,
-        "AGENT_DEVICE_ANDROID_DEVICE_ALLOWLIST": serial,
-        "AGENT_DEVICE_PLATFORM": "android",
+        "AGENT_DEVICE_PLATFORM": platform,
         "AGENT_DEVICE_SESSION": AGENT_DEVICE_SESSION,
     }
+    if platform == "android":
+        env["AGENT_DEVICE_ANDROID_DEVICE_ALLOWLIST"] = serial
+    return env
 
 
 def _is_device_form(schema: Any) -> bool:
@@ -143,21 +150,29 @@ def _error(text: str) -> CallToolResult:
 class AgentDeviceServer(MCPServerStdio):
     """``agent-device mcp`` restricted to the exploration tools and pinned to one device.
 
-    ``app_id`` (when set) is the only app `open` may start.
+    ``target`` returns the device to drive at each call: the adb serial on Android, the UDID of
+    the current simulator clone on iOS (a reset replaces the clone). ``app_id`` (when set) is
+    the only app `open` may start.
     """
 
     def __init__(
         self,
         command: list[str],
-        serial: str,
+        platform: str,
+        target: Callable[[], str],
         app_id: str = "",
     ) -> None:
         super().__init__(
             name="agent-device",
-            params={"command": command[0], "args": command[1:], "env": agent_device_env(serial)},
+            params={
+                "command": command[0],
+                "args": command[1:],
+                "env": agent_device_env(platform, target()),
+            },
             client_session_timeout_seconds=120,
         )
-        self._serial = serial
+        self._platform = platform
+        self._target = target
         self._app_id = app_id
 
     async def list_tools(self, run_context=None, agent=None) -> list[MCPTool]:
@@ -174,13 +189,17 @@ class AgentDeviceServer(MCPServerStdio):
             return _error(f"tool {tool_name!r} is not available; use {list(AGENT_DEVICE_TOOLS)}")
         if not self._app_id:
             return _error("call set_target before interacting with the device")
+        device = self._target()
+        if not device:
+            return _error("the device is not ready; call reset_app")
         args = _visible_args(arguments or {})
         app = args.get("app")
         if (tool_name == "open" and app != self._app_id) or (
             tool_name == "close" and app not in (None, "", self._app_id)
         ):
             return _error(f"{tool_name} only the app under test: app={self._app_id!r}")
-        args |= {"serial": self._serial, "platform": "android", "session": AGENT_DEVICE_SESSION}
+        selector = "udid" if self._platform == "ios" else "serial"
+        args |= {selector: device, "platform": self._platform, "session": AGENT_DEVICE_SESSION}
         result = await super().call_tool(tool_name, args, meta)
         # The model reads only the text blocks; drop the structured duplicate so the untruncated
         # copy does not travel back through the activity result into the workflow history.
@@ -195,26 +214,34 @@ class AgentDeviceServer(MCPServerStdio):
 
 
 def agent_device_factory(
-    command: list[str], serial: str
+    command: list[str], device: Device
 ) -> Callable[[dict[str, Any] | None], MCPServer]:
     """The StatelessMCPServerProvider factory. The workflow's factory argument carries the app
-    under test; the serial is the worker's."""
+    under test; the device is the worker's."""
 
     def factory(arg: dict[str, Any] | None) -> MCPServer:
         arg = arg or {}
-        return AgentDeviceServer(command, serial, arg.get("app_id", ""))
+        return AgentDeviceServer(
+            command, device.platform, lambda: device.serial, arg.get("app_id", "")
+        )
 
     return factory
 
 
 class Device(Protocol):
-    """What the activities need from the phone. ``LocalDevice`` is the real one."""
+    """What the activities need from the device: ``AndroidDevice``, ``IOSSimulatorDevice``, or
+    the offline ``FakeDevice``. ``serial`` is the device agent-device and Maestro drive now."""
 
-    serial: str
+    platform: str
+    # What the worker was configured with: the adb serial, or the base simulator's UDID.
+    configured_device: str
+
+    @property
+    def serial(self) -> str: ...
 
     async def prepare_build(self, req: PrepareBuildRequest) -> InstalledBuild: ...
 
-    async def verify_build(self, app_id: str, apk_sha256: str) -> None: ...
+    async def verify_build(self, app_id: str, installer_sha256: str) -> None: ...
 
     async def close_session(self) -> str: ...
 
@@ -276,37 +303,43 @@ async def maestro_mcp_call(tool: str, arguments: dict[str, Any]) -> str:
     return text
 
 
-class LocalDevice:
+async def close_agent_device(device_args: list[str]) -> str:
+    """End the agent-device session (and its UI automation) without stopping the app.
+
+    ``device_args`` selects the device (``--serial`` or ``--udid`` and ``--platform``). A
+    session that is already closed is fine; any other failure raises.
+    """
+    code, out = await _run(
+        ["agent-device", "close", *device_args, "--session", AGENT_DEVICE_SESSION, "--json"],
+        timeout=60,
+    )
+    if code != 0:
+        try:
+            error = json.loads(out).get("error", {})
+        except (ValueError, AttributeError):
+            error = {}
+        if not isinstance(error, dict) or error.get("code") != "SESSION_NOT_FOUND":
+            raise RuntimeError(f"agent-device close failed (exit {code}): {out.strip()}")
+    return out.strip()
+
+
+def require_tools(*tools: str) -> None:
+    for tool in tools:
+        if shutil.which(tool) is None:
+            raise RuntimeError(f"{tool} is not on PATH")
+
+
+class AndroidDevice:
     """An Android device on this host's adb, driven by agent-device, adb and maestro."""
 
+    platform = "android"
+
     def __init__(self, serial: str) -> None:
-        self.serial = serial
-        for tool in ("agent-device", "adb", "maestro", "apkanalyzer"):
-            if shutil.which(tool) is None:
-                raise RuntimeError(f"{tool} is not on PATH")
+        self.serial = self.configured_device = serial
+        require_tools("agent-device", "adb", "maestro", "apkanalyzer")
 
     async def close_session(self) -> str:
-        # Ends the agent-device session (and its UI automation) without stopping the app.
-        code, out = await _run(
-            [
-                "agent-device",
-                "close",
-                "--serial",
-                self.serial,
-                "--session",
-                AGENT_DEVICE_SESSION,
-                "--json",
-            ],
-            timeout=60,
-        )
-        if code != 0:
-            try:
-                error = json.loads(out).get("error", {})
-            except (ValueError, AttributeError):
-                error = {}
-            if not isinstance(error, dict) or error.get("code") != "SESSION_NOT_FOUND":
-                raise RuntimeError(f"agent-device close failed (exit {code}): {out.strip()}")
-        return out.strip()
+        return await close_agent_device(["--serial", self.serial])
 
     async def clear_app(self, app_id: str) -> str:
         code, out = await _run(["adb", "-s", self.serial, "shell", "pm", "clear", app_id], 60)
@@ -330,8 +363,8 @@ class LocalDevice:
 
         return await prepare_apk(self, req)
 
-    async def verify_build(self, app_id: str, apk_sha256: str) -> None:
+    async def verify_build(self, app_id: str, installer_sha256: str) -> None:
         from .apk import installed_digest
 
-        if await installed_digest(self.serial, app_id) != apk_sha256:
+        if await installed_digest(self.serial, app_id) != installer_sha256:
             raise ValueError("installed wallet changed since the Credimi build was selected")

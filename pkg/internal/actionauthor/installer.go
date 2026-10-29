@@ -17,7 +17,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// GrantHeader carries a short-lived capability for one selected authoring APK.
+// GrantHeader carries a short-lived capability for one selected authoring installer.
 const GrantHeader = "Credimi-Artifact-Grant"
 
 const grantTTL = 10 * time.Minute
@@ -53,9 +53,10 @@ func issueGrant(app core.App, selection Selection) (string, error) {
 		BuildRequest: BuildRequest{
 			Actor:                   selection.Actor,
 			WalletVersionIdentifier: selection.Identifier,
+			Platform:                selection.Platform,
 		},
 		Namespace: selection.Organization.GetString("canonified_name"),
-		Filename:  selection.Version.GetString("android_installer"),
+		Filename:  selection.Installer(),
 		Expires:   time.Now().Add(grantTTL).Unix(),
 	}
 	payload, err := json.Marshal(claims)
@@ -68,12 +69,15 @@ func issueGrant(app core.App, selection Selection) (string, error) {
 	return encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
 }
 
-type installerReader struct {
+// Installer streams one granted installer and reports the platform it was built for.
+type Installer struct {
 	io.ReadCloser
+	Platform   string
 	filesystem io.Closer
 }
 
-func (r *installerReader) Close() error {
+// Close releases both the installer reader and its filesystem.
+func (r *Installer) Close() error {
 	err := r.ReadCloser.Close()
 	fsErr := r.filesystem.Close()
 	if err != nil {
@@ -82,8 +86,9 @@ func (r *installerReader) Close() error {
 	return fsErr
 }
 
-// OpenInstaller reauthorizes the grant's actor and build before opening the selected APK.
-func OpenInstaller(app core.App, token string) (io.ReadCloser, error) {
+// OpenInstaller reauthorizes the grant's actor, build and platform before opening
+// the selected installer.
+func OpenInstaller(app core.App, token string) (*Installer, error) {
 	if len(token) > 8192 {
 		return nil, ErrForbidden
 	}
@@ -114,7 +119,7 @@ func OpenInstaller(app core.App, token string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	if selection.Version.GetString("android_installer") != claims.Filename {
+	if selection.Installer() != claims.Filename {
 		return nil, ErrForbidden
 	}
 	fsys, err := app.NewFilesystem()
@@ -124,7 +129,7 @@ func OpenInstaller(app core.App, token string) (io.ReadCloser, error) {
 	file, err := fsys.GetReader(selection.Version.BaseFilesPath() + "/" + claims.Filename)
 	if err != nil {
 		_ = fsys.Close()
-		return nil, fmt.Errorf("open granted APK: %w", err)
+		return nil, fmt.Errorf("open granted installer: %w", err)
 	}
-	return &installerReader{ReadCloser: file, filesystem: fsys}, nil
+	return &Installer{ReadCloser: file, Platform: selection.Platform, filesystem: fsys}, nil
 }

@@ -68,21 +68,57 @@ func authoringFixture(t *testing.T) (*tests.TestApp, BuildRequest, string) {
 	return app, BuildRequest{
 		Actor:                   Actor{ActorID: actor.Id, ActorCollection: "users"},
 		WalletVersionIdentifier: identifier,
+		Platform:                PlatformAndroid,
 	}, org.GetString("canonified_name")
 }
 
-func TestListBuildOptionsRequiresOwnershipAndAndroidAPK(t *testing.T) {
+// seedVersion adds a build of the fixture wallet with the given installers and returns its identifier.
+func seedVersion(
+	t *testing.T,
+	app *tests.TestApp,
+	selection Selection,
+	tag string,
+	android, ios []byte,
+) string {
+	t.Helper()
+	versions, err := app.FindCollectionByNameOrId("wallet_versions")
+	require.NoError(t, err)
+	version := core.NewRecord(versions)
+	version.Set("owner", selection.Organization.Id)
+	version.Set("wallet", selection.Wallet.Id)
+	version.Set("tag", tag)
+	if android != nil {
+		apk, err := filesystem.NewFileFromBytes(android, "selected.apk")
+		require.NoError(t, err)
+		version.Set("android_installer", []*filesystem.File{apk})
+	}
+	if ios != nil {
+		zipped, err := filesystem.NewFileFromBytes(ios, "Selected.zip")
+		require.NoError(t, err)
+		version.Set("ios_installer", []*filesystem.File{zipped})
+	}
+	require.NoError(t, app.Save(version))
+	return strings.Join([]string{
+		selection.Organization.GetString("canonified_name"),
+		selection.Wallet.GetString("canonified_name"),
+		version.GetString("canonified_tag"),
+	}, "/")
+}
+
+func TestListBuildOptionsRequiresOwnershipAndInstaller(t *testing.T) {
 	app, request, _ := authoringFixture(t)
 	selection, err := Select(app, "", request)
 	require.NoError(t, err)
 
 	versions, err := app.FindCollectionByNameOrId("wallet_versions")
 	require.NoError(t, err)
-	withoutAPK := core.NewRecord(versions)
-	withoutAPK.Set("owner", selection.Organization.Id)
-	withoutAPK.Set("wallet", selection.Wallet.Id)
-	withoutAPK.Set("tag", "without-apk")
-	require.NoError(t, app.Save(withoutAPK))
+	withoutInstaller := core.NewRecord(versions)
+	withoutInstaller.Set("owner", selection.Organization.Id)
+	withoutInstaller.Set("wallet", selection.Wallet.Id)
+	withoutInstaller.Set("tag", "without-installer")
+	require.NoError(t, app.Save(withoutInstaller))
+	iosOnly := seedVersion(t, app, selection, "ios-only", nil, []byte("ios app zip"))
+	both := seedVersion(t, app, selection, "both", []byte("apk"), []byte("ios app zip"))
 
 	// Another member of the organization neither hides the owner's builds nor sees them.
 	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
@@ -99,11 +135,22 @@ func TestListBuildOptionsRequiresOwnershipAndAndroidAPK(t *testing.T) {
 
 	options, err := ListBuildOptions(app, request.Actor)
 	require.NoError(t, err)
-	require.Len(t, options, 1)
-	assert.Equal(t, request.WalletVersionIdentifier, options[0].Identifier)
-	assert.Equal(t, "Authoring test wallet", options[0].WalletName)
-	assert.Equal(t, "userA's organization", options[0].OrganizationName)
-	assert.Equal(t, "build-1", options[0].VersionTag)
+	platforms := map[string][]string{}
+	for _, option := range options {
+		platforms[option.Identifier] = option.Platforms
+	}
+	assert.Equal(t, map[string][]string{
+		request.WalletVersionIdentifier: {PlatformAndroid},
+		iosOnly:                         {PlatformIOS},
+		both:                            {PlatformAndroid, PlatformIOS},
+	}, platforms)
+	for _, option := range options {
+		if option.Identifier == request.WalletVersionIdentifier {
+			assert.Equal(t, "Authoring test wallet", option.WalletName)
+			assert.Equal(t, "userA's organization", option.OrganizationName)
+			assert.Equal(t, "build-1", option.VersionTag)
+		}
+	}
 
 	options, err = ListBuildOptions(app, Actor{ActorID: other.Id, ActorCollection: "users"})
 	require.NoError(t, err)
@@ -122,17 +169,80 @@ func TestListBuildOptionsRequiresOwnershipAndAndroidAPK(t *testing.T) {
 	assert.Empty(t, options)
 }
 
+func TestSelectRequiresPlatformInstaller(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	iosOnly := seedVersion(t, app, selection, "ios-only", nil, []byte("ios app zip"))
+	for _, tc := range []struct {
+		name       string
+		identifier string
+		platform   string
+		message    string
+	}{
+		{"missing platform", request.WalletVersionIdentifier, "", "platform must be android or ios"},
+		{"invalid platform", request.WalletVersionIdentifier, "windows", "platform must be android or ios"},
+		{"android build without iOS app", request.WalletVersionIdentifier, PlatformIOS, "selected version has no iOS app"},
+		{"iOS build without Android APK", iosOnly, PlatformAndroid, "selected version has no Android APK"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := request
+			in.WalletVersionIdentifier = tc.identifier
+			in.Platform = tc.platform
+			_, err := Select(app, namespace, in)
+			require.ErrorIs(t, err, ErrInvalid)
+			assert.ErrorContains(t, err, tc.message)
+		})
+	}
+
+	// Authorization is still checked before the platform installer.
+	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	unauthorized := request
+	unauthorized.ActorID = other.Id
+	unauthorized.Platform = PlatformIOS
+	_, err = Select(app, namespace, unauthorized)
+	require.ErrorIs(t, err, ErrForbidden)
+}
+
+func TestAuthoringBuildResolvesPlatformInstaller(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	iosRequest := request
+	iosRequest.WalletVersionIdentifier = seedVersion(
+		t, app, selection, "ios-build", []byte("other APK bytes"), []byte("selected iOS app zip"),
+	)
+	iosRequest.Platform = PlatformIOS
+	for _, tc := range []struct {
+		name     string
+		request  BuildRequest
+		content  string
+		platform string
+	}{
+		{"android", request, "selected APK bytes", PlatformAndroid},
+		{"ios", iosRequest, "selected iOS app zip", PlatformIOS},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			build, err := Resolve(app, namespace, tc.request)
+			require.NoError(t, err)
+			assert.Equal(t, tc.platform, build.Platform)
+			assert.Equal(t, CodeSHA256(tc.content), build.InstallerSHA256)
+			installer, err := OpenInstaller(app, build.DownloadGrant)
+			require.NoError(t, err)
+			content, err := io.ReadAll(installer)
+			require.NoError(t, err)
+			require.NoError(t, installer.Close())
+			assert.Equal(t, tc.platform, installer.Platform)
+			assert.Equal(t, tc.content, string(content))
+		})
+	}
+}
+
 func TestAuthoringBuildPermissionAndCapability(t *testing.T) {
 	app, request, namespace := authoringFixture(t)
 	build, err := Resolve(app, namespace, request)
 	require.NoError(t, err)
-	file, err := OpenInstaller(app, build.DownloadGrant)
-	require.NoError(t, err)
-	content, err := io.ReadAll(file)
-	require.NoError(t, err)
-	require.NoError(t, file.Close())
-	assert.Equal(t, []byte("selected APK bytes"), content)
-	assert.Equal(t, CodeSHA256(string(content)), build.APKSHA256)
 
 	_, err = Resolve(app, "another-organization", request)
 	require.ErrorIs(t, err, ErrForbidden)
@@ -145,23 +255,31 @@ func TestAuthoringBuildPermissionAndCapability(t *testing.T) {
 	_, err = OpenInstaller(app, "invalid."+build.DownloadGrant)
 	require.ErrorIs(t, err, ErrForbidden)
 
-	// A correctly signed but expired capability must fail, not just malformed ones.
+	// Correctly signed capabilities must fail when expired or retargeted at another platform.
 	encoded, _, _ := strings.Cut(build.DownloadGrant, ".")
 	payload, err := base64.RawURLEncoding.DecodeString(encoded)
 	require.NoError(t, err)
 	var claims installerGrant
 	require.NoError(t, json.Unmarshal(payload, &claims))
-	claims.Expires = time.Now().Add(-time.Minute).Unix()
-	payload, err = json.Marshal(claims)
-	require.NoError(t, err)
-	encoded = base64.RawURLEncoding.EncodeToString(payload)
 	key, err := grantKey(app)
 	require.NoError(t, err)
-	mac := hmac.New(sha256.New, key)
-	_, err = io.WriteString(mac, encoded)
-	require.NoError(t, err)
-	_, err = OpenInstaller(app, encoded+"."+base64.RawURLEncoding.EncodeToString(mac.Sum(nil)))
+	sign := func(claims installerGrant) string {
+		payload, err := json.Marshal(claims)
+		require.NoError(t, err)
+		encoded := base64.RawURLEncoding.EncodeToString(payload)
+		mac := hmac.New(sha256.New, key)
+		_, err = io.WriteString(mac, encoded)
+		require.NoError(t, err)
+		return encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	}
+	expired := claims
+	expired.Expires = time.Now().Add(-time.Minute).Unix()
+	_, err = OpenInstaller(app, sign(expired))
 	require.ErrorIs(t, err, ErrForbidden)
+	retargeted := claims
+	retargeted.Platform = PlatformIOS
+	_, err = OpenInstaller(app, sign(retargeted))
+	require.ErrorIs(t, err, ErrInvalid)
 
 	authorization, err := app.FindFirstRecordByFilter(
 		"orgAuthorizations",
@@ -181,7 +299,7 @@ func acceptedRequest(request BuildRequest, digest string) SaveRequest {
 		Name:            "Reviewed onboarding",
 		Code:            code,
 		CandidateSHA256: CodeSHA256(code),
-		APKSHA256:       digest,
+		InstallerSHA256: digest,
 		PackageID:       "eu.europa.ec.euidi",
 		Slot:            "onboarding",
 		ReplayCount:     2,
@@ -192,7 +310,7 @@ func TestAuthoringSaveIsUnpublishedIdempotentAndCompareAndSwap(t *testing.T) {
 	app, request, namespace := authoringFixture(t)
 	build, err := Resolve(app, namespace, request)
 	require.NoError(t, err)
-	in := acceptedRequest(request, build.APKSHA256)
+	in := acceptedRequest(request, build.InstallerSHA256)
 	receipt, err := Save(app, namespace, "workflow", "run", in)
 	require.NoError(t, err)
 	assert.True(t, receipt.Created)
@@ -218,8 +336,48 @@ func TestAuthoringSaveIsUnpublishedIdempotentAndCompareAndSwap(t *testing.T) {
 	_, err = Save(app, namespace, "stale-workflow", "stale-run", in)
 	require.ErrorIs(t, err, ErrConflict)
 	in.ExpectedExistingSHA256 = in.CandidateSHA256
-	in.APKSHA256 = strings.Repeat("0", 64)
+	in.InstallerSHA256 = strings.Repeat("0", 64)
 	_, err = Save(app, namespace, "new-workflow", "new-run", in)
+	require.ErrorIs(t, err, ErrConflict)
+	assert.ErrorContains(t, err, "selected installer changed")
+}
+
+func TestAuthoringSaveRecordsIOSProvenance(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	request.WalletVersionIdentifier = seedVersion(
+		t, app, selection, "ios-build", []byte("other APK bytes"), []byte("selected iOS app zip"),
+	)
+	request.Platform = PlatformIOS
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+
+	// The Android digest of the same version does not authorize the iOS save.
+	in := acceptedRequest(request, CodeSHA256("other APK bytes"))
+	_, err = Save(app, namespace, "workflow", "run", in)
+	require.ErrorIs(t, err, ErrConflict)
+
+	in = acceptedRequest(request, build.InstallerSHA256)
+	receipt, err := Save(app, namespace, "workflow", "run", in)
+	require.NoError(t, err)
+	assert.Equal(t, PlatformIOS, receipt.Provenance.Platform)
+	assert.Equal(t, CodeSHA256("selected iOS app zip"), receipt.Provenance.InstallerSHA256)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	var stored map[string]any
+	require.NoError(t, json.Unmarshal([]byte(record.GetString("authoring_provenance")), &stored))
+	assert.Equal(t, "ios", stored["platform"])
+	assert.Equal(t, build.InstallerSHA256, stored["installer_sha256"])
+	assert.NotContains(t, stored, "apk_sha256")
+
+	// A retry of the same run is idempotent only for the same platform.
+	retried, err := Save(app, namespace, "workflow", "run", in)
+	require.NoError(t, err)
+	assert.Equal(t, receipt.RecordID, retried.RecordID)
+	android := acceptedRequest(request, CodeSHA256("other APK bytes"))
+	android.Platform = PlatformAndroid
+	_, err = Save(app, namespace, "workflow", "run", android)
 	require.ErrorIs(t, err, ErrConflict)
 }
 
@@ -233,7 +391,7 @@ func TestAuthoringSaveRejectsUnreplayedOrChangedCandidate(t *testing.T) {
 		func(in *SaveRequest) { in.PackageID = "org.wrong.wallet" },
 		func(in *SaveRequest) { in.ReplaceActionID = "unconfirmed" },
 	} {
-		in := acceptedRequest(request, build.APKSHA256)
+		in := acceptedRequest(request, build.InstallerSHA256)
 		mutate(&in)
 		_, err := Save(app, namespace, "workflow", "run", in)
 		require.ErrorIs(t, err, ErrInvalid)
@@ -243,7 +401,7 @@ func TestAuthoringSaveRejectsUnreplayedOrChangedCandidate(t *testing.T) {
 		"another-organization",
 		"workflow",
 		"run",
-		acceptedRequest(request, build.APKSHA256),
+		acceptedRequest(request, build.InstallerSHA256),
 	)
 	require.ErrorIs(t, err, ErrForbidden)
 }

@@ -656,3 +656,18 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   6. Accepted: Credimi test PINs (typically `123456`) are not secrets, so unmasked tool inputs in the harness stream are acceptable. Masking was removed entirely.
   7. Fixed: a Claude reply truncated by `max_tokens`/`pause_turn` becomes a normal reply without its unfinished tool call, so its tokens count toward the budget and the turn's completed work is retained; `Continue` resumes.
   8. Done: historical README prose moved to `agents/action-author/CHANGELOG.md`.
+
+### 2026-10-29 - Action author on iOS simulators (local Mac mode)
+
+- status: resolved (user decisions 29/10/2026); items 4 and 5 open for review
+- owner: human maintainer
+- context: the local action author drove only adb phones. The user asked for the same agent on iOS simulators, before the runner plan (`ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`), keeping agent-device for exploration. A spike on a clone of the Mac's `credimi` simulator showed agent-device (0.21.32) and Maestro (2.11/2.12) driving one simulator at once, `simctl clone`+boot in about 11 s, the first Maestro run on a fresh clone in about 37 s, and that Maestro's `back` is a no-op on iOS.
+- decisions:
+  1. `ios_installer` is a zipped simulator `.app` (user). The worker extracts it with `ditto` and accepts exactly one `.app`, at the top level or under `Payload/`, like the runner's `unzipIOSAppIfNeeded`.
+  2. Reset by simulator clone, as pipelines do (user): no new `credimi-extra` activity. The worker clones the base simulator into a session template with the app installed, and every reset or replay boots a fresh clone of the template.
+  3. Provenance and the build contract name the installer (user): `apk_sha256` became `installer_sha256`, plus `platform`. No migration: `authoring_provenance` is JSON and the branch is unmerged.
+  4. Agent decision: `POST /api/action-author/sessions` requires `platform` (`android`|`ios`), chosen on the start page; the worker refuses a session for the other platform before resolving the build. Alternative: infer the platform from the worker, which Credimi cannot see at start.
+  5. Agent decision: on iOS the build check binds the template to the bundle ID and zip digest the worker installed and checks the clone still has the bundle; an installed `.app` cannot be hashed back to the zip, unlike Android's APK SHA256.
+- default risk: agent-device has no iOS device allowlist, so iOS pinning relies only on the wrapper overwriting `udid`. Clones of a killed worker are removed at the next worker start, not before.
+- verification (29/10/2026): worker on the Mac (iOS 26.5 clone of `credimi`) against local Credimi and Temporal through an SSH tunnel, version `forkbomb-bv-andrea/eudiw-beta-wallet/2026-10-43-demo`, Claude `claude-sonnet-5-5`. agent-device explored the onboarding, the first submission passed both replays (48.2 s, 39.3 s), and Accept saved unpublished action `7ouelbtgpwgd5kn` with provenance `platform: ios`. The worker deleted its template and clone on stop.
+- follow-up: `ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md` now covers both platforms on runners (device type decides the platform; the run's clone becomes the template; agent source embedded in the runner binary for native macOS).

@@ -14,6 +14,8 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
+from .contracts import Platform
+
 # The worker polls this queue in the selected wallet owner's organization namespace.
 TASK_QUEUE = "action-author"
 WORKFLOW_TYPE = "ActionAuthor"
@@ -52,7 +54,7 @@ SLOTS: dict[str, Slot] = {
     "onboarding": Slot(
         name="onboarding",
         category="onboarding",
-        precondition="app data cleared (`pm clear`): the app starts as freshly installed",
+        precondition="app data cleared: the app starts as freshly installed",
         outcome="the wallet home screen is visible, with the PIN set",
         required_params=("PIN",),
     ),
@@ -99,6 +101,8 @@ class DeviceInfo(BaseModel):
     """The worker's device and budgets, read once per session from the worker's environment."""
 
     serial: str
+    # Histories recorded before iOS support carry no platform: they ran on an Android phone.
+    platform: Platform = "android"
     token_budget: int = DEFAULT_TOKEN_BUDGET
     max_model_calls: int = DEFAULT_MAX_MODEL_CALLS
 
@@ -115,7 +119,7 @@ class ReplayRequest(BaseModel):
     app_id: str
     slot: str
     yaml: str
-    apk_sha256: str
+    installer_sha256: str
     runs: int = REPLAY_RUNS
 
 

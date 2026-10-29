@@ -40,7 +40,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorWalletVersions,
 			OperationID:    "actionAuthor.listWalletVersions",
 			Summary:        "List wallet versions available for authoring",
-			Description:    "List Android wallet versions in organizations where the authenticated caller is an owner. These are the only versions accepted by the session start endpoint.",
+			Description:    "List wallet versions with an Android APK or iOS simulator app in organizations where the authenticated caller is an owner, with the platforms each version supports. These are the only versions accepted by the session start endpoint.",
 			ResponseSchema: ActionAuthorWalletVersionsResponse{},
 		},
 		{
@@ -49,7 +49,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Start an authenticated wallet-action authoring session",
-			Description:    "Authorize the caller for the selected wallet organization and start a local authoring session in its Temporal namespace. Only the onboarding slot is supported. Review and explicit human confirmation happen in the local harness UI; this endpoint does not save an action.",
+			Description:    "Authorize the caller for the selected wallet organization and platform (android or ios) and start a local authoring session in its Temporal namespace. The selected version must have an installer for that platform. Only the onboarding slot is supported. Review and explicit human confirmation happen in the local harness UI; this endpoint does not save an action.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
@@ -57,7 +57,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 	},
 }
 
-// ActionAuthorArtifactRoutes serves APKs authorized by build-bound capabilities.
+// ActionAuthorArtifactRoutes serves installers authorized by build-bound capabilities.
 var ActionAuthorArtifactRoutes = routing.RouteGroup{
 	BaseURL:                "/api/action-author",
 	AuthenticationRequired: false,
@@ -70,10 +70,10 @@ var ActionAuthorArtifactRoutes = routing.RouteGroup{
 			Path:                "/installer",
 			Handler:             HandleActionAuthorInstaller,
 			OperationID:         "actionAuthor.downloadInstaller",
-			Summary:             "Download the selected authoring APK",
-			Description:         "Stream the single Android APK authorized by the required Credimi-Artifact-Grant header. The short-lived capability is issued to the organization-scoped workflow, binds the selected build and actor, and is reauthorized at download. The response is not cached.",
+			Summary:             "Download the selected authoring installer",
+			Description:         "Stream the single installer authorized by the required Credimi-Artifact-Grant header: an Android APK (application/vnd.android.package-archive) or a zipped iOS simulator app (application/zip). The short-lived capability is issued to the organization-scoped workflow, binds the selected build, platform and actor, and is reauthorized at download. The response is not cached.",
 			ResponseSchema:      "",
-			ResponseContentType: "application/vnd.android.package-archive",
+			ResponseContentType: "application/octet-stream",
 		},
 	},
 }
@@ -100,9 +100,10 @@ func HandleActionAuthorWalletVersions() func(*core.RequestEvent) error {
 	}
 }
 
-// ActionAuthorStartRequest selects the wallet version and action slot for a new session.
+// ActionAuthorStartRequest selects the wallet version, platform and action slot for a new session.
 type ActionAuthorStartRequest struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier" validate:"required"`
+	Platform                string `json:"platform"                  validate:"required,oneof=android ios"`
 	Slot                    string `json:"slot"                      validate:"required,oneof=onboarding"`
 	AppID                   string `json:"app_id,omitempty"`
 }
@@ -115,7 +116,7 @@ type ActionAuthorStartResponse struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 }
 
-// ActionAuthorInitData binds trusted actor data to the requested slot and optional package ID.
+// ActionAuthorInitData binds trusted actor data to the requested build, platform, slot and optional package ID.
 type ActionAuthorInitData struct {
 	actionauthor.BuildRequest
 	Slot  string `json:"slot"`
@@ -157,6 +158,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		}
 		request := actionauthor.BuildRequest{
 			WalletVersionIdentifier: input.WalletVersionIdentifier,
+			Platform:                input.Platform,
 			Actor: actionauthor.Actor{
 				ActorID:         e.Auth.Id,
 				ActorCollection: e.Auth.Collection().Name,
@@ -200,7 +202,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 	}
 }
 
-// HandleActionAuthorInstaller streams the single APK authorized by the supplied capability.
+// HandleActionAuthorInstaller streams the single installer authorized by the supplied capability.
 func HandleActionAuthorInstaller() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		file, err := actionauthor.OpenInstaller(
@@ -211,7 +213,11 @@ func HandleActionAuthorInstaller() func(*core.RequestEvent) error {
 			return authoringAPIError(err)
 		}
 		defer file.Close()
+		contentType := "application/vnd.android.package-archive"
+		if file.Platform == actionauthor.PlatformIOS {
+			contentType = "application/zip"
+		}
 		e.Response.Header().Set("Cache-Control", "no-store")
-		return e.Stream(http.StatusOK, "application/vnd.android.package-archive", file)
+		return e.Stream(http.StatusOK, contentType, file)
 	}
 }

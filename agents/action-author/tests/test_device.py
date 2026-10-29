@@ -16,7 +16,7 @@ import pytest
 
 from credimi_action_author import device as device_module
 from credimi_action_author.activities import ActionAuthorActivities
-from credimi_action_author.device import AgentDeviceServer, LocalDevice, _run, _visible_args
+from credimi_action_author.device import AgentDeviceServer, AndroidDevice, _run, _visible_args
 from credimi_action_author.models import AGENT_DEVICE_SESSION
 
 FAKE_MCP = [sys.executable, "-m", "credimi_action_author.fake_device"]
@@ -26,7 +26,7 @@ FAKE_MCP = [sys.executable, "-m", "credimi_action_author.fake_device"]
 async def server(monkeypatch, tmp_path):
     log = tmp_path / "mcp.jsonl"
     monkeypatch.setenv("ACTION_AUTHOR_FAKE_MCP_LOG", str(log))
-    server = AgentDeviceServer(FAKE_MCP, "pinned", "eu.europa.ec.euidi")
+    server = AgentDeviceServer(FAKE_MCP, "android", lambda: "pinned", "eu.europa.ec.euidi")
     await server.connect()
     yield server, log
     await server.cleanup()
@@ -85,10 +85,30 @@ async def test_calls_are_pinned_and_scoped(server):
         assert call["args"]["platform"] == "android"
 
 
+async def test_ios_calls_follow_the_current_simulator_clone(tmp_path, monkeypatch):
+    log = tmp_path / "mcp.jsonl"
+    monkeypatch.setenv("ACTION_AUTHOR_FAKE_MCP_LOG", str(log))
+    clone = [""]
+    srv = AgentDeviceServer(FAKE_MCP, "ios", lambda: clone[0], "eu.europa.ec.euidi")
+    async with srv:
+        not_ready = await srv.call_tool("open", {"app": "eu.europa.ec.euidi"})
+        clone[0] = "clone-1"
+        await srv.call_tool("open", {"app": "eu.europa.ec.euidi", "udid": "other"})
+        clone[0] = "clone-2"
+        await srv.call_tool("snapshot", {"serial": "other"})
+    assert not_ready.is_error and "reset_app" in text(not_ready)
+    calls = [json.loads(line) for line in log.read_text().splitlines()]
+    assert [(c["tool"], c["args"]["udid"], c["args"]["serial"]) for c in calls] == [
+        ("open", "clone-1", ""),
+        ("snapshot", "clone-2", ""),
+    ]
+    assert {c["args"]["platform"] for c in calls} == {"ios"}
+
+
 async def test_device_operations_require_target_selection(tmp_path, monkeypatch):
     log = tmp_path / "mcp.jsonl"
     monkeypatch.setenv("ACTION_AUTHOR_FAKE_MCP_LOG", str(log))
-    srv = AgentDeviceServer(FAKE_MCP, "pinned")
+    srv = AgentDeviceServer(FAKE_MCP, "android", lambda: "pinned")
     async with srv:
         result = await srv.call_tool("open", {"app": "com.android.settings"})
     assert result.is_error
@@ -107,7 +127,7 @@ async def test_device_operations_require_target_selection(tmp_path, monkeypatch)
 async def test_failed_close_prevents_maestro_handoff(monkeypatch, code, output):
     monkeypatch.setattr(device_module.shutil, "which", lambda name: "/unused")
     monkeypatch.setattr(device_module, "_run", AsyncMock(return_value=(code, output)))
-    device = LocalDevice("test")
+    device = AndroidDevice("test")
     inspect = AsyncMock(return_value="wallet screen")
     monkeypatch.setattr(device, "inspect_screen", inspect)
     with pytest.raises(RuntimeError, match="agent-device close failed"):
@@ -122,7 +142,7 @@ async def test_already_closed_session_allows_maestro_handoff(monkeypatch):
         "_run",
         AsyncMock(return_value=(1, '{"error":{"code":"SESSION_NOT_FOUND"}}')),
     )
-    device = LocalDevice("test")
+    device = AndroidDevice("test")
     monkeypatch.setattr(device, "inspect_screen", AsyncMock(return_value="wallet screen"))
     assert await ActionAuthorActivities(device)._screen() == "wallet screen"
 

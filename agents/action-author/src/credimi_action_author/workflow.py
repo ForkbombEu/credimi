@@ -5,7 +5,7 @@
 """ActionAuthor: a Temporal Agent Harness agent that writes Maestro wallet actions.
 
 Credimi authenticates session start and binds a selected wallet version and organization.
-``ask`` explores its verified, locally installed APK and authors an action. ``submit_action``
+``ask`` explores its verified, locally installed build and authors an action. ``submit_action``
 replays it twice from cleared app data before accepting and writing it to
 ``out/<appId>/<slot>.yaml``. A workflow-owned Accept/Refuse callback confirms the exact
 reviewed candidate before persisting it; the model cannot approve or save.
@@ -51,6 +51,7 @@ with workflow.unsafe.imports_passed_through():
     from .activities import DEVICE_INFO
     from .contracts import (
         GO_ACTIVITY_QUEUE,
+        PLATFORM_LABELS,
         PREPARE_BUILD,
         RESOLVE_BUILD,
         SAVE_ACTION,
@@ -76,7 +77,7 @@ with workflow.unsafe.imports_passed_through():
 INSTRUCTIONS = f"""\
 You write Maestro wallet actions for Credimi, a conformance testing platform for EU Digital
 Identity wallets. An action is a Maestro flow that brings a wallet app from the slot's
-precondition to its outcome on a real Android phone.
+precondition to its outcome on a test device: an Android phone or an iOS simulator.
 
 How to work:
 1. Call `set_target` with the app id, the slot and every parameter value the user gave. If
@@ -88,8 +89,8 @@ How to work:
    close it anyway. `maestro_inspect_screen` shows the selectors Maestro will match on the
    current screen; `maestro_cheat_sheet` shows the syntax.
 4. Write the action: a header with `appId` (and optionally name, tags), `---`, then commands.
-   - Selectors: prefer `id:` (resource-id), then visible text; coordinates (`point:`) only as a
-     last resort.
+   - Selectors: prefer `id:` (Android resource-id, iOS accessibility identifier), then visible
+     text; coordinates (`point:`) only as a last resort.
    - Embed the PIN the user supplied directly as a quoted string in each PIN `inputText`
      command (e.g. `inputText: "123456"`). Never use `${{PIN}}` or external substitution.
    - Wait with `extendedWaitUntil` (visible + timeout), not sleeps.
@@ -97,7 +98,7 @@ How to work:
      `takeScreenshot`.
    - The replay starts from cleared app data: start with `launchApp`.
 5. Call `check_action`, fix every problem, then `submit_action` with the same YAML.
-   `submit_action` replays it twice on the phone; read its report and fix the action if a
+   `submit_action` replays it twice on the device; read its report and fix the action if a
    replay failed. You have {MAX_SUBMISSIONS} submissions per target. Stop after ACCEPTED or when
    they are spent, and tell the user the result in a few lines.
 
@@ -107,6 +108,24 @@ Slots:
     f"parameters: {', '.join(s.required_params)}."
     for s in SLOTS.values()
 )
+
+# Platform rules appended to the instructions after the device line.
+PLATFORM_NOTES = {
+    "android": "",
+    "ios": (
+        "iOS notes: every `reset_app` and every replay starts on a fresh clone of the simulator "
+        "with the wallet freshly installed. Maestro's `back` does nothing on iOS: navigate back "
+        "with `tapOn` on the app's own back button. System alerts (permissions, notifications) "
+        'are separate elements: tap their button by text, e.g. `tapOn: "Allow"`, wrapped in '
+        "`runFlow: when: visible:` if they do not always appear.\n"
+    ),
+}
+
+
+def _device_line(session: AuthorSession) -> str:
+    if session.platform == "ios":
+        return f"Device: iOS simulator, cloned from {session.serial}."
+    return f"Device: Android phone, serial {session.serial}."
 
 
 class TokenBudgetExceeded(AgentsException):
@@ -222,6 +241,12 @@ class ActionAuthorWorkflow:
         info: DeviceInfo = await workflow.execute_activity(
             DEVICE_INFO, start_to_close_timeout=timedelta(seconds=10), result_type=DeviceInfo
         )
+        if info.platform != self._context.platform:
+            raise ValueError(
+                f"this worker drives an {PLATFORM_LABELS[info.platform]}, but the session "
+                f"selected the {self._context.platform} build; start a new session for "
+                f"platform {info.platform}"
+            )
         result = await workflow.execute_activity(
             RESOLVE_BUILD,
             {"config": {}, "payload": self._context.build_payload()},
@@ -233,25 +258,28 @@ class ActionAuthorWorkflow:
         build = ResolvedBuild.model_validate(result["output"])
         if build.owner_namespace != workflow.info().namespace:
             raise ValueError("selected build does not belong to the authoring namespace")
+        if build.platform != self._context.platform:
+            raise ValueError("Credimi resolved a build for another platform")
         installed: InstalledBuild = await workflow.execute_activity(
             PREPARE_BUILD,
             PrepareBuildRequest(build=build, expected_app_id=self._context.app_id),
-            start_to_close_timeout=timedelta(minutes=5),
-            schedule_to_close_timeout=timedelta(minutes=6),
+            start_to_close_timeout=timedelta(minutes=10),
+            schedule_to_close_timeout=timedelta(minutes=11),
             heartbeat_timeout=timedelta(minutes=1),
             retry_policy=RetryPolicy(maximum_attempts=1),
             result_type=InstalledBuild,
         )
-        if installed.apk_sha256 != build.apk_sha256:
-            raise ValueError("prepared APK does not match the selected Credimi build")
+        if installed.installer_sha256 != build.installer_sha256:
+            raise ValueError("prepared installer does not match the selected Credimi build")
         self._build = build.model_copy(update={"download_grant": ""})
         return AuthorSession(
             serial=info.serial,
             token_budget=info.token_budget,
             max_model_calls=info.max_model_calls,
+            platform=info.platform,
             bound_app_id=installed.package_id,
             bound_slot=self._context.slot,
-            apk_sha256=installed.apk_sha256,
+            installer_sha256=installed.installer_sha256,
         )
 
     def _agent_device(self, session: AuthorSession):
@@ -286,11 +314,11 @@ class ActionAuthorWorkflow:
             try:
                 self._session = await self._load_session()
             except ActivityError as exc:
-                return TextReply(text=f"Cannot prepare the selected Credimi APK: {exc.cause}")
+                return TextReply(text=f"Cannot prepare the selected Credimi build: {exc.cause}")
             except ValueError as exc:
                 # Includes Pydantic validation of the resolved build; a bare exception would
                 # fail the workflow task and retry this update forever.
-                return TextReply(text=f"Cannot prepare the selected Credimi APK: {exc}")
+                return TextReply(text=f"Cannot prepare the selected Credimi build: {exc}")
         session = self._session
         accepted_before = session.accepted_yaml
         state = session.describe()
@@ -311,10 +339,11 @@ class ActionAuthorWorkflow:
             )
         sdk_agent = OpenAIAgent(
             name="CredimiActionAuthor",
-            instructions=f"{INSTRUCTIONS}\n\nDevice: Android, serial {session.serial}.\n"
+            instructions=f"{INSTRUCTIONS}\n\n{_device_line(session)}\n"
+            f"{PLATFORM_NOTES[session.platform]}"
             f"{state}"
             f"\nSelected build: {self._context.wallet_version_identifier}; "
-            f"APK SHA256 {session.apk_sha256}; package {session.bound_app_id}. "
+            f"installer SHA256 {session.installer_sha256}; app {session.bound_app_id}. "
             + (
                 "Never target another build. After two successful replays, the workflow "
                 "will ask the user to Accept or Refuse saving. Do not request manual save fields."
@@ -371,7 +400,7 @@ class ActionAuthorWorkflow:
                 f"```yaml\n{session.accepted_yaml.rstrip()}\n```"
                 f"\n\nCandidate SHA256: `{digest}`."
                 f"\nValidated build: `{self._context.wallet_version_identifier}`; "
-                f"APK SHA256: `{session.apk_sha256}`. "
+                f"installer SHA256: `{session.installer_sha256}`. "
                 + (
                     "Review the YAML, then Accept or Refuse saving in the confirmation below."
                     if self._automatic_review
@@ -488,7 +517,7 @@ class ActionAuthorWorkflow:
             "name": approval.name,
             "code": session.accepted_yaml,
             "candidate_sha256": digest,
-            "apk_sha256": build.apk_sha256,
+            "installer_sha256": build.installer_sha256,
             "package_id": session.bound_app_id,
             "slot": session.bound_slot,
             "replay_count": session.accepted_replays,

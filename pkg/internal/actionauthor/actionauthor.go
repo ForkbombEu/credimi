@@ -37,20 +37,35 @@ type Actor struct {
 	ActorCollection string `json:"actor_collection"`
 }
 
-// BuildRequest selects an existing wallet version on behalf of its authenticated actor.
+// Supported authoring platforms; each selects the wallet version installer field.
+const (
+	PlatformAndroid = "android"
+	PlatformIOS     = "ios"
+)
+
+// installerFields maps each platform to its wallet_versions installer field and
+// the message returned when the selected version lacks that installer.
+var installerFields = map[string]struct{ field, missing string }{
+	PlatformAndroid: {field: "android_installer", missing: "selected version has no Android APK"},
+	PlatformIOS:     {field: "ios_installer", missing: "selected version has no iOS app"},
+}
+
+// BuildRequest selects an existing wallet version and platform on behalf of its authenticated actor.
 type BuildRequest struct {
 	Actor
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
+	Platform                string `json:"platform"`
 }
 
-// Build binds an authorized wallet version to its APK digest and download capability.
+// Build binds an authorized wallet version to its platform installer digest and download capability.
 type Build struct {
 	WalletID          string `json:"wallet_id"`
 	VersionID         string `json:"version_id"`
 	VersionIdentifier string `json:"version_identifier"`
 	OwnerNamespace    string `json:"owner_namespace"`
+	Platform          string `json:"platform"`
 	InstallerName     string `json:"installer_name"`
-	APKSHA256         string `json:"apk_sha256"`
+	InstallerSHA256   string `json:"installer_sha256"`
 	DownloadGrant     string `json:"download_grant"`
 }
 
@@ -61,14 +76,21 @@ type Selection struct {
 	Organization *core.Record
 	Actor        Actor
 	Identifier   string
+	Platform     string
 }
 
-// BuildOption describes one Android build the actor can select for authoring.
+// Installer returns the stored filename of the selected platform's installer.
+func (s Selection) Installer() string {
+	return s.Version.GetString(installerFields[s.Platform].field)
+}
+
+// BuildOption describes one build the actor can select for authoring and its installer platforms.
 type BuildOption struct {
-	Identifier       string `json:"identifier"`
-	WalletName       string `json:"wallet_name"`
-	OrganizationName string `json:"organization_name"`
-	VersionTag       string `json:"version_tag"`
+	Identifier       string   `json:"identifier"`
+	WalletName       string   `json:"wallet_name"`
+	OrganizationName string   `json:"organization_name"`
+	VersionTag       string   `json:"version_tag"`
+	Platforms        []string `json:"platforms"`
 }
 
 // ListBuildOptions returns only builds authorized by the same owner role as Select.
@@ -77,7 +99,9 @@ func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 	if err != nil {
 		return nil, err
 	}
-	filter := []dbx.Expression{dbx.NewExp("[[android_installer]] != ''")}
+	filter := []dbx.Expression{
+		dbx.Or(dbx.NewExp("[[android_installer]] != ''"), dbx.NewExp("[[ios_installer]] != ''")),
+	}
 	if !actor.IsSuperuser() {
 		// Resolve owned organizations first: PocketBase's `=` on a back-relation
 		// matches only when every authorization of the organization matches.
@@ -118,6 +142,12 @@ func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 		if wallet == nil || organization == nil || wallet.GetString("owner") != organization.Id {
 			continue
 		}
+		platforms := make([]string, 0, len(installerFields))
+		for _, platform := range []string{PlatformAndroid, PlatformIOS} {
+			if version.GetString(installerFields[platform].field) != "" {
+				platforms = append(platforms, platform)
+			}
+		}
 		options = append(options, BuildOption{
 			Identifier: strings.Join([]string{
 				organization.GetString("canonified_name"),
@@ -127,6 +157,7 @@ func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 			WalletName:       wallet.GetString("name"),
 			OrganizationName: organization.GetString("name"),
 			VersionTag:       version.GetString("tag"),
+			Platforms:        platforms,
 		})
 	}
 	sort.Slice(options, func(i, j int) bool {
@@ -191,8 +222,12 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 			return selection, ErrForbidden
 		}
 	}
-	if version.GetString("android_installer") == "" {
-		return selection, fmt.Errorf("%w: selected version has no Android APK", ErrInvalid)
+	installer, ok := installerFields[in.Platform]
+	if !ok {
+		return selection, fmt.Errorf("%w: platform must be android or ios", ErrInvalid)
+	}
+	if version.GetString(installer.field) == "" {
+		return selection, fmt.Errorf("%w: %s", ErrInvalid, installer.missing)
 	}
 	selection = Selection{
 		Version:      version,
@@ -200,38 +235,37 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 		Organization: organization,
 		Actor:        in.Actor,
 		Identifier:   strings.Join(segments, "/"),
+		Platform:     in.Platform,
 	}
 	return selection, nil
 }
 
-// apkDigest streams the selected object rather than retaining the installer in memory.
-func apkDigest(app core.App, selection Selection) (string, error) {
+// installerDigest streams the selected platform's installer rather than retaining it in memory.
+func installerDigest(app core.App, selection Selection) (string, error) {
 	fsys, err := app.NewFilesystem()
 	if err != nil {
 		return "", fmt.Errorf("open installer filesystem: %w", err)
 	}
 	defer fsys.Close()
-	file, err := fsys.GetReader(
-		selection.Version.BaseFilesPath() + "/" + selection.Version.GetString("android_installer"),
-	)
+	file, err := fsys.GetReader(selection.Version.BaseFilesPath() + "/" + selection.Installer())
 	if err != nil {
-		return "", fmt.Errorf("open selected APK: %w", err)
+		return "", fmt.Errorf("open selected installer: %w", err)
 	}
 	defer file.Close()
 	digest := sha256.New()
 	if _, err = io.Copy(digest, file); err != nil {
-		return "", fmt.Errorf("hash selected APK: %w", err)
+		return "", fmt.Errorf("hash selected installer: %w", err)
 	}
 	return hex.EncodeToString(digest.Sum(nil)), nil
 }
 
-// Resolve hashes the authorized APK and issues a short-lived, build-bound download grant.
+// Resolve hashes the authorized platform installer and issues a short-lived, build-bound download grant.
 func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 	selection, err := Select(app, namespace, in)
 	if err != nil {
 		return Build{}, err
 	}
-	digest, err := apkDigest(app, selection)
+	digest, err := installerDigest(app, selection)
 	if err != nil {
 		return Build{}, err
 	}
@@ -244,8 +278,9 @@ func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 		VersionID:         selection.Version.Id,
 		VersionIdentifier: selection.Identifier,
 		OwnerNamespace:    selection.Organization.GetString("canonified_name"),
-		InstallerName:     selection.Version.GetString("android_installer"),
-		APKSHA256:         digest,
+		Platform:          selection.Platform,
+		InstallerName:     selection.Installer(),
+		InstallerSHA256:   digest,
 		DownloadGrant:     grant,
 	}, nil
 }
@@ -256,7 +291,7 @@ type SaveRequest struct {
 	Name                   string `json:"name"`
 	Code                   string `json:"code"`
 	CandidateSHA256        string `json:"candidate_sha256"`
-	APKSHA256              string `json:"apk_sha256"`
+	InstallerSHA256        string `json:"installer_sha256"`
 	PackageID              string `json:"package_id"`
 	Slot                   string `json:"slot"`
 	ReplaceActionID        string `json:"replace_action_id"`
@@ -268,7 +303,8 @@ type SaveRequest struct {
 type Provenance struct {
 	WalletVersionID         string `json:"wallet_version_id"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
-	APKSHA256               string `json:"apk_sha256"`
+	Platform                string `json:"platform"`
+	InstallerSHA256         string `json:"installer_sha256"`
 	PackageID               string `json:"package_id"`
 	YAMLSHA256              string `json:"yaml_sha256"`
 	WorkflowID              string `json:"workflow_id"`
@@ -302,7 +338,7 @@ func validateAcceptedAction(in *SaveRequest) error {
 		AppID string `yaml:"appId"`
 	}
 	if err := decoder.Decode(&header); err != nil || header.AppID != in.PackageID {
-		return fmt.Errorf("%w: accepted APK/package mismatch", ErrInvalid)
+		return fmt.Errorf("%w: accepted installer/package mismatch", ErrInvalid)
 	}
 	return nil
 }
@@ -318,17 +354,18 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 	if err != nil {
 		return receipt, err
 	}
-	digest, err := apkDigest(app, selection)
+	digest, err := installerDigest(app, selection)
 	if err != nil {
 		return receipt, err
 	}
-	if digest != in.APKSHA256 {
-		return receipt, fmt.Errorf("%w: selected APK changed", ErrConflict)
+	if digest != in.InstallerSHA256 {
+		return receipt, fmt.Errorf("%w: selected installer changed", ErrConflict)
 	}
 	provenance := Provenance{
 		WalletVersionID:         selection.Version.Id,
 		WalletVersionIdentifier: selection.Identifier,
-		APKSHA256:               digest,
+		Platform:                selection.Platform,
+		InstallerSHA256:         digest,
 		PackageID:               in.PackageID,
 		YAMLSHA256:              in.CandidateSHA256,
 		WorkflowID:              workflowID,
@@ -341,9 +378,8 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 		if err != nil {
 			return err
 		}
-		installer := selection.Version.GetString("android_installer")
-		if current.Version.Id != selection.Version.Id ||
-			current.Version.GetString("android_installer") != installer {
+		installer := selection.Installer()
+		if current.Version.Id != selection.Version.Id || current.Installer() != installer {
 			return fmt.Errorf("%w: selected version changed", ErrConflict)
 		}
 		var record *core.Record
@@ -386,7 +422,8 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 			// A retried save of this workflow run finds its own write and returns it.
 			if json.Unmarshal([]byte(record.GetString("authoring_provenance")), &previous) == nil &&
 				previous.WorkflowID == workflowID && previous.RunID == runID &&
-				previous.YAMLSHA256 == in.CandidateSHA256 && previous.APKSHA256 == in.APKSHA256 &&
+				previous.YAMLSHA256 == in.CandidateSHA256 && previous.Platform == in.Platform &&
+				previous.InstallerSHA256 == in.InstallerSHA256 &&
 				record.GetString("name") == in.Name && existingSHA256 == in.CandidateSHA256 {
 				receipt = Receipt{
 					RecordID:   record.Id,

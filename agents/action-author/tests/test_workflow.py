@@ -64,6 +64,7 @@ CONTEXT = AuthoringContext(
     actor_id="test-user",
     actor_collection="users",
     slot="onboarding",
+    platform="android",
 )
 
 
@@ -80,8 +81,9 @@ class FakeCredimi:
                 "version_id": "build",
                 "version_identifier": CONTEXT.wallet_version_identifier,
                 "owner_namespace": activity.info().workflow_namespace,
+                "platform": "android",
                 "installer_name": "test.apk",
-                "apk_sha256": "a" * 64,
+                "installer_sha256": "a" * 64,
                 "download_grant": "test-only-grant",
             }
         }
@@ -104,7 +106,7 @@ async def env(monkeypatch, tmp_path, request):
     if provider is not None and provider != "local-server":
         monkeypatch.setattr("credimi_action_author.worker.model_provider", lambda: provider)
     set_tracing_disabled(True)
-    plugins = [openai_plugin(SERIAL, FAKE_MCP), AgentHarnessPlugin()]
+    plugins = [openai_plugin(FakeDevice(serial=SERIAL), FAKE_MCP), AgentHarnessPlugin()]
     if provider == "local-server":
         env = await WorkflowEnvironment.start_local(
             plugins=plugins, dev_server_existing_path=shutil.which("temporal")
@@ -602,7 +604,8 @@ async def test_accept_saves_the_named_candidate_and_preserves_closed_history(
             assert [record["code"] for record in env.author_store.saved] == [saved_yaml]
             assert env.author_store.saved[0]["name"] == expected_name
             assert env.author_store.saved[0]["replay_count"] == 2
-            assert env.author_store.saved[0]["apk_sha256"] == "a" * 64
+            assert env.author_store.saved[0]["installer_sha256"] == "a" * 64
+            assert env.author_store.saved[0]["platform"] == "android"
             assert env.author_store.saved[0]["replace_action_id"] == ""
             assert (await handle.describe()).status == WorkflowExecutionStatus.COMPLETED
         finally:
@@ -786,6 +789,30 @@ async def test_selected_apk_rejects_another_package(env, tmp_path):
         finally:
             await handle.signal("close")
             await handle.result()
+
+
+async def test_a_build_for_another_platform_is_refused_before_installing(env, tmp_path):
+    device = FakeDevice(serial=SERIAL)
+    async with Worker(
+        env.client,
+        task_queue=TASK_QUEUE,
+        workflows=[ActionAuthorWorkflow],
+        activities=ActionAuthorActivities(device, tmp_path / "out").all(),
+    ):
+        workflow_id = f"action-author-platform-{uuid.uuid4()}"
+        context = CONTEXT.model_copy(update={"platform": "ios"})
+        handle = await env.client.start_workflow(
+            WORKFLOW_TYPE, args=[AgentConfig(), context], id=workflow_id, task_queue=TASK_QUEUE
+        )
+        try:
+            reply, tools, _ = await ask(env.client, workflow_id, "Write the onboarding action.")
+        finally:
+            await handle.signal("close")
+            await handle.result()
+    assert "this worker drives an Android phone" in reply
+    assert "platform android" in reply
+    assert tools == []
+    assert device.installed_sha256 == ""
 
 
 class SubmitUntilAcceptedModel(ScriptedModel):

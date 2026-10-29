@@ -57,6 +57,14 @@
           "title": "Slot",
           "type": "string"
         },
+        "platform": {
+          "enum": [
+            "android",
+            "ios"
+          ],
+          "title": "Platform",
+          "type": "string"
+        },
         "app_id": {
           "default": "",
           "title": "App Id",
@@ -67,7 +75,8 @@
         "wallet_version_identifier",
         "actor_id",
         "actor_collection",
-        "slot"
+        "slot",
+        "platform"
       ],
       "title": "AuthoringContext",
       "type": "object"

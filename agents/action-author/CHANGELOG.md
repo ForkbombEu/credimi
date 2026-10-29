@@ -11,6 +11,21 @@ Sections are newest first and dated `DD/MM/YYYY`.
 
 ## 29/10/2026
 
+### Added
+
+- iOS simulator support on macOS: set `ACTION_AUTHOR_IOS_SIMULATOR_UDID` instead of
+  `ACTION_AUTHOR_DEVICE_SERIAL`. The worker installs the version's zipped simulator `.app` into a
+  clone of that simulator and gives every reset and replay a fresh clone; agent-device explores
+  it as on Android.
+- Sessions carry a `platform` (`android` or `ios`), chosen on the start page; a worker refuses a
+  session for the other platform before installing anything.
+
+### Changed
+
+- The build contract and saved provenance name the installer, not the APK: `apk_sha256` is now
+  `installer_sha256`, and provenance also records the platform. Restart the worker and start new
+  sessions after upgrading.
+
 ### Fixed
 
 - A Claude reply cut off by the output limit no longer fails the message: its tokens count toward the budget, its unfinished tool call is dropped, and `Continue` resumes with the completed exploration.
