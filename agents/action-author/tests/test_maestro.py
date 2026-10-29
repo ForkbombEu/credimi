@@ -139,13 +139,13 @@ Assertion is false: "Nonexistent thing" is visible
 
 def test_parse_completed_and_skipped_lines():
     run = parse_run_output(PASSED)
-    assert [(r.command, r.status, r.depth) for r in run.results] == [
-        ('Launch app "eu.europa.ec.euidi"', "COMPLETED", 0),
-        ("Tap on point (11%,42%)", "COMPLETED", 1),
-        ("Input text ${PIN}", "COMPLETED", 1),
-        ('Run flow when "Welcome to your Wallet" is visible', "COMPLETED", 0),
-        ('Run flow when "Welcome back" is visible', "SKIPPED", 0),
-        ("Take screenshot fcaf-onboarding-complete", "COMPLETED", 0),
+    assert [(r.command, r.status) for r in run.results] == [
+        ('Launch app "eu.europa.ec.euidi"', "COMPLETED"),
+        ("Tap on point (11%,42%)", "COMPLETED"),
+        ("Input text ${PIN}", "COMPLETED"),
+        ('Run flow when "Welcome to your Wallet" is visible', "COMPLETED"),
+        ('Run flow when "Welcome back" is visible', "SKIPPED"),
+        ("Take screenshot fcaf-onboarding-complete", "COMPLETED"),
     ]
     assert run.failed is None
     assert run.completed == 5

@@ -2,12 +2,12 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""validate_action: each rule, accepted and refused; redact."""
+"""validate_action: each rule, accepted and refused."""
 
 import pytest
 
 from credimi_action_author.fake_model import onboarding_action
-from credimi_action_author.validation import redact, validate_action
+from credimi_action_author.validation import validate_action
 
 APP = "eu.europa.ec.euidi"
 PARAMS = {"PIN": "123456"}
@@ -174,12 +174,6 @@ def test_extended_wait_without_visible_is_not_an_outcome_assertion():
 def test_assert_visible_ends_an_action():
     tail = '- assertVisible: "Home"\n- takeScreenshot: a\n- takeScreenshot: b\n'
     assert problems(action('- launchApp\n- inputText: "123456"\n', tail=tail)) == []
-
-
-def test_redact_masks_every_value_longest_first():
-    params = {"PIN": "1234", "LONG": "123456"}
-    assert redact("typed 123456 then 1234", params) == "typed ${LONG} then ${PIN}"
-    assert redact("nothing here", {"PIN": ""}) == "nothing here"
 
 
 @pytest.mark.parametrize(

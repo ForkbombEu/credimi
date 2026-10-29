@@ -13,7 +13,7 @@ from typing import Any
 
 # Maestro MCP prepends this notice to its replies; it is noise for the model.
 _VIEWER_NOTICE = re.compile(r"^Important: Maestro Viewer is available at .*$", re.MULTILINE)
-_RESULT_LINE = re.compile(r"^(?P<indent>\s*)(?P<command>.+?)\.\.\. (?P<status>[A-Z]+)\s*$")
+_RESULT_LINE = re.compile(r"^\s*(?P<command>.+?)\.\.\. (?P<status>[A-Z]+)\s*$")
 _STATUSES = {"COMPLETED", "FAILED", "SKIPPED", "WARNED"}
 # JVM warnings Maestro prints on every start.
 _NOISE = re.compile(r"^(WARNING:|kotlin-logging:|SLF4J)")
@@ -42,6 +42,7 @@ def _node_line(node: dict[str, Any], defaults: dict[str, Any]) -> str | None:
         parts.append(f"desc={json.dumps(a11y, ensure_ascii=False)}")
     if hint:
         parts.append(f"hint={json.dumps(hint, ensure_ascii=False)}")
+    # Maestro abbreviates the node attribute `scrollable` to `scroll`, but not its default.
     flags = [
         name
         for name in ("clickable", "focused", "selected", "checked", "scrollable")
@@ -64,6 +65,8 @@ def compact_hierarchy(raw: str, limit: int = 8_000) -> str:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
+        return raw[:limit]
+    if not isinstance(data, dict):
         return raw[:limit]
     defaults = (data.get("ui_schema") or {}).get("defaults") or {}
     lines: list[str] = []
@@ -88,7 +91,6 @@ def compact_hierarchy(raw: str, limit: int = 8_000) -> str:
 class CommandResult:
     command: str
     status: str
-    depth: int
 
 
 @dataclass
@@ -113,11 +115,7 @@ def parse_run_output(output: str) -> RunOutput:
         m = _RESULT_LINE.match(line)
         if m and m.group("status") in _STATUSES:
             out.results.append(
-                CommandResult(
-                    command=m.group("command").strip(),
-                    status=m.group("status"),
-                    depth=len(m.group("indent")) // 2,
-                )
+                CommandResult(command=m.group("command").strip(), status=m.group("status"))
             )
     return out
 

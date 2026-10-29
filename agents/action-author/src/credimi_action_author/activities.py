@@ -5,7 +5,7 @@
 """Worker activities: everything that touches the phone or the filesystem.
 
 ``ActionAuthorActivities`` wraps a ``Device`` (the real ``LocalDevice``, or a fake in tests and
-offline runs). Every output returned to the workflow has the parameter values masked.
+offline runs).
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 from .contracts import PREPARE_BUILD, InstalledBuild, PrepareBuildRequest
 from .device import Device
@@ -32,7 +33,7 @@ from .models import (
     RunOutcome,
     ScreenRequest,
 )
-from .validation import APP_ID, redact
+from .validation import APP_ID
 
 DEVICE_INFO = "action_author.device_info"
 CHEAT_SHEET = "action_author.maestro_cheat_sheet"
@@ -50,7 +51,11 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 
 def _env_int(name: str, default: int) -> int:
     value = os.environ.get(name, "").strip()
-    return int(value) if value else default
+    try:
+        return int(value) if value else default
+    except ValueError:
+        # The workflow does not bound this activity's retries: fail it instead of looping.
+        raise ApplicationError(f"{name} must be an integer", non_retryable=True) from None
 
 
 async def _with_heartbeats[T](coro, every: float = HEARTBEAT_EVERY) -> T:
@@ -107,20 +112,20 @@ class ActionAuthorActivities:
             self._cheat_sheet = text[:CHEAT_SHEET_LIMIT]
         return self._cheat_sheet
 
-    async def _screen(self, params: dict[str, str]) -> str:
+    async def _screen(self) -> str:
         await self._device.close_session()
         raw = await self._device.inspect_screen()
-        return redact(compact_hierarchy(raw, SCREEN_LIMIT), params)
+        return compact_hierarchy(raw, SCREEN_LIMIT)
 
     @activity.defn(name=INSPECT_SCREEN)
     async def maestro_inspect_screen(self, req: ScreenRequest) -> str:
         """The current screen as Maestro sees it (closes the agent-device session first)."""
-        return await _with_heartbeats(self._screen(req.params))
+        return await _with_heartbeats(self._screen())
 
     @activity.defn(name=RESET_APP)
     async def reset_app(self, req: ScreenRequest) -> str:
         """Close the agent-device session and clear the app's data (slot precondition)."""
-        if not APP_ID.match(req.app_id):
+        if not APP_ID.fullmatch(req.app_id):
             raise ValueError(f"invalid app id {req.app_id!r}")
         await self._device.close_session()
         return await self._device.clear_app(req.app_id)
@@ -137,15 +142,15 @@ class ActionAuthorActivities:
         if code == 0 and failed is None:
             return RunOutcome(passed=True, seconds=seconds, completed=parsed.completed)
         try:
-            screen = await self._screen(req.params)
+            screen = await self._screen()
         except Exception as exc:  # noqa: BLE001 - the replay verdict matters more
             screen = f"(could not inspect the screen: {exc})"
         return RunOutcome(
             passed=False,
             seconds=seconds,
             completed=parsed.completed,
-            failed_command=redact(failed.command if failed else f"exit code {code}", req.params),
-            tail=redact(output_tail(output), req.params),
+            failed_command=failed.command if failed else f"exit code {code}",
+            tail=output_tail(output),
             screen=screen,
         )
 
@@ -168,6 +173,6 @@ class ActionAuthorActivities:
     async def replay_action(self, req: ReplayRequest) -> ReplayResult:
         """Replay a validated action ``req.runs`` times, each from a cleared app; on success write
         it to ``out/<appId>/<slot>.yaml``. The YAML embeds its input values; no ``-e`` is used."""
-        if not APP_ID.match(req.app_id) or req.slot not in SLOTS:
+        if not APP_ID.fullmatch(req.app_id) or req.slot not in SLOTS:
             raise ValueError(f"invalid app id {req.app_id!r} or slot {req.slot!r}")
         return await _with_heartbeats(self._replay(req))

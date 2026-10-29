@@ -32,7 +32,6 @@ from mcp.types import CallToolResult, TextContent
 from .contracts import InstalledBuild, PrepareBuildRequest
 from .maestro import strip_viewer_notice
 from .models import AGENT_DEVICE_SESSION
-from .validation import redact
 
 # agent-device MCP tools the model may use; the others (install, settings, shell-like tools,
 # other devices) are hidden and refused.
@@ -144,7 +143,7 @@ def _error(text: str) -> CallToolResult:
 class AgentDeviceServer(MCPServerStdio):
     """``agent-device mcp`` restricted to the exploration tools and pinned to one device.
 
-    ``app_id`` (when set) is the only app `open` may start; ``params`` are masked in outputs.
+    ``app_id`` (when set) is the only app `open` may start.
     """
 
     def __init__(
@@ -152,7 +151,6 @@ class AgentDeviceServer(MCPServerStdio):
         command: list[str],
         serial: str,
         app_id: str = "",
-        params: dict[str, str] | None = None,
     ) -> None:
         super().__init__(
             name="agent-device",
@@ -161,7 +159,6 @@ class AgentDeviceServer(MCPServerStdio):
         )
         self._serial = serial
         self._app_id = app_id
-        self._params = params or {}
 
     async def list_tools(self, run_context=None, agent=None) -> list[MCPTool]:
         tools = await super().list_tools(run_context, agent)
@@ -179,18 +176,18 @@ class AgentDeviceServer(MCPServerStdio):
             return _error("call set_target before interacting with the device")
         args = _visible_args(arguments or {})
         app = args.get("app")
-        if self._app_id and (
-            (tool_name == "open" and app != self._app_id)
-            or (tool_name == "close" and app not in (None, "", self._app_id))
+        if (tool_name == "open" and app != self._app_id) or (
+            tool_name == "close" and app not in (None, "", self._app_id)
         ):
             return _error(f"{tool_name} only the app under test: app={self._app_id!r}")
         args |= {"serial": self._serial, "platform": "android", "session": AGENT_DEVICE_SESSION}
         result = await super().call_tool(tool_name, args, meta)
-        # The model reads the text blocks; drop the structured copy so it is not stored unmasked.
+        # The model reads only the text blocks; drop the structured duplicate so the untruncated
+        # copy does not travel back through the activity result into the workflow history.
         result.structured_content = None
         for block in result.content:
             if isinstance(block, TextContent):
-                text = redact(block.text, self._params)
+                text = block.text
                 if len(text) > TOOL_OUTPUT_LIMIT:
                     text = text[:TOOL_OUTPUT_LIMIT] + "\n[... truncated]"
                 block.text = text
@@ -201,11 +198,11 @@ def agent_device_factory(
     command: list[str], serial: str
 ) -> Callable[[dict[str, Any] | None], MCPServer]:
     """The StatelessMCPServerProvider factory. The workflow's factory argument carries the app
-    under test and the parameter values to mask; the serial is the worker's."""
+    under test; the serial is the worker's."""
 
     def factory(arg: dict[str, Any] | None) -> MCPServer:
         arg = arg or {}
-        return AgentDeviceServer(command, serial, arg.get("app_id", ""), arg.get("params") or {})
+        return AgentDeviceServer(command, serial, arg.get("app_id", ""))
 
     return factory
 

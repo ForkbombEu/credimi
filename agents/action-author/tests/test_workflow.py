@@ -46,7 +46,12 @@ from credimi_action_author.fake_model import (
     _text,
     onboarding_action,
 )
-from credimi_action_author.models import AGENT_DEVICE_SESSION, TASK_QUEUE, WORKFLOW_TYPE
+from credimi_action_author.models import (
+    AGENT_DEVICE_SESSION,
+    MAX_SUBMISSIONS,
+    TASK_QUEUE,
+    WORKFLOW_TYPE,
+)
 from credimi_action_author.ui import create_app
 from credimi_action_author.workflow import ActionAuthorWorkflow
 
@@ -148,7 +153,7 @@ async def ask(client: Client, workflow_id: str, text: str) -> tuple[str, list[st
     return reply, tools, approvals
 
 
-async def test_accepted_action_embeds_pin_but_ordinary_prose_remains_masked(env, tmp_path):
+async def test_accepted_action_embeds_the_literal_pin_and_replays_the_saved_yaml(env, tmp_path):
     device = FakeDevice(serial=SERIAL)
     out_dir = tmp_path / "out"
     activities = ActionAuthorActivities(device, out_dir)
@@ -179,7 +184,6 @@ async def test_accepted_action_embeds_pin_but_ordinary_prose_remains_masked(env,
     assert [command["inputText"] for command in commands if "inputText" in command] == [PIN, PIN]
     assert "${PIN}" not in saved
     assert f"```yaml\n{saved.rstrip()}\n```" in reply
-    assert PIN not in reply.split("**Accepted action**")[0]
 
     # Both cleared-state replays execute the self-contained artifact.
     replays = [c for c in device.calls if c[0] == "maestro_test"]
@@ -235,9 +239,8 @@ async def test_a_failed_replay_is_rejected_with_the_failing_command(env, tmp_pat
 class SequenceModel(ScriptedModel):
     """Exercise the real harness/SDK using required feedback from each boundary."""
 
-    def __init__(self, steps, secrets):
+    def __init__(self, steps):
         self.steps = steps
-        self.secrets = secrets
 
     async def get_response(self, input, **kwargs):  # noqa: A002
         conversation = _Conversation(input)
@@ -246,7 +249,6 @@ class SequenceModel(ScriptedModel):
         ):
             assert name == expected_name
             assert expected_output in output, (name, output)
-            assert all(secret not in output for secret in self.secrets), (name, output)
         if len(conversation.calls) == len(self.steps):
             return _text(conversation.last[1])
         name, arguments, _ = self.steps[len(conversation.calls)]
@@ -254,12 +256,11 @@ class SequenceModel(ScriptedModel):
 
 
 class SequenceProvider(ModelProvider):
-    def __init__(self, steps, secrets=(PIN,)):
+    def __init__(self, steps):
         self.steps = steps
-        self.secrets = secrets
 
     def get_model(self, model_name):
-        return SequenceModel(self.steps, self.secrets)
+        return SequenceModel(self.steps)
 
 
 TARGET = {
@@ -282,6 +283,7 @@ BAD_HEADER = CORRECTED.replace("name: Onboarding with a new PIN", "1: invalid\nu
         SequenceProvider(
             [
                 ("open", {"app": APP_ID}, "call set_target"),
+                ("maestro_inspect_screen", {}, "call set_target"),
                 ("set_target", TARGET, "OK."),
                 ("open", {"app": "com.android.settings"}, "only the app under test"),
                 ("open", {"app": APP_ID}, "Opened:"),
@@ -289,9 +291,9 @@ BAD_HEADER = CORRECTED.replace("name: Onboarding with a new PIN", "1: invalid\nu
                 (
                     "fill",
                     {"target": {"kind": "selector", "selector": "id=pin"}, "text": PIN},
-                    "Filled PIN ${PIN}",
+                    f"Filled PIN {PIN}",
                 ),
-                ("snapshot", {}, "PIN ${PIN}"),
+                ("snapshot", {}, f"PIN {PIN}"),
                 ("maestro_inspect_screen", {}, "pin_screen_title"),
                 ("check_action", {"yaml": BAD_HEADER}, "PROBLEMS"),
                 ("check_action", {"yaml": COMMENT_ONLY}, "PROBLEMS"),
@@ -324,8 +326,12 @@ async def test_no_phone_gate_rejects_bad_candidates_and_recovers_after_failed_re
 
     assert "ACCEPTED" in reply
     assert not approvals
-    assert PIN not in reply.split("**Accepted action**")[0]
     replays = [call for call in device.calls if call[0] == "maestro_test"]
+    # The refused inspection before `set_target` never reaches the phone: one inspection
+    # after the target, one for the failed replay's report.
+    assert [call for call in device.calls if call[0] == "inspect_screen"] == [
+        ("inspect_screen",)
+    ] * 2
     assert len(replays) == 3
     assert "missing_home" in replays[0][1]
     assert all("missing_home" not in call[1] for call in replays[1:])
@@ -360,15 +366,14 @@ async def test_no_phone_gate_rejects_bad_candidates_and_recovers_after_failed_re
                 (
                     "fill",
                     {"target": {"kind": "point", "x": 100, "y": 200}, "text": "654321"},
-                    "Filled PIN ${PIN}",
+                    "Filled PIN 654321",
                 ),
             ],
-            secrets=(PIN, "654321"),
         )
     ],
     indirect=True,
 )
-async def test_same_turn_target_change_updates_app_scope_and_redaction(env, tmp_path):
+async def test_same_turn_target_change_updates_app_scope(env, tmp_path):
     activities = ActionAuthorActivities(FakeDevice(serial=SERIAL), tmp_path / "out")
     async with Worker(
         env.client,
@@ -380,10 +385,9 @@ async def test_same_turn_target_change_updates_app_scope_and_redaction(env, tmp_
         handle = await env.client.start_workflow(
             WORKFLOW_TYPE, args=[AgentConfig(), CONTEXT], id=workflow_id, task_queue=TASK_QUEUE
         )
-        reply, _, _ = await ask(env.client, workflow_id, "Select and change the onboarding target.")
+        await ask(env.client, workflow_id, "Select and change the onboarding target.")
         await handle.signal("close")
         await handle.result()
-    assert "654321" not in reply
     calls = [json.loads(line) for line in (tmp_path / "mcp.jsonl").read_text().splitlines()]
     assert [call["args"]["app"] for call in calls if call["tool"] == "open"] == [
         APP_ID,
@@ -784,6 +788,52 @@ async def test_selected_apk_rejects_another_package(env, tmp_path):
             await handle.result()
 
 
+class SubmitUntilAcceptedModel(ScriptedModel):
+    """Submits the corrected action on every new message until a replay accepts it."""
+
+    async def get_response(self, input, **kwargs):  # noqa: A002
+        conversation = _Conversation(input)
+        if not conversation.calls:
+            return conversation.call("set_target", TARGET)
+        _, output = conversation.last
+        new_message = input[-1].get("role") == "user"
+        if new_message or ("the replay failed" in output) or output.startswith("OK."):
+            return conversation.call("submit_action", {"yaml": CORRECTED})
+        return _text(output)
+
+
+class SubmitUntilAcceptedProvider(ModelProvider):
+    def get_model(self, model_name):
+        return SubmitUntilAcceptedModel()
+
+
+@pytest.mark.parametrize("env", [SubmitUntilAcceptedProvider()], indirect=True)
+async def test_refusing_the_last_submission_restores_the_submission_budget(env, tmp_path):
+    # The first two submissions fail their first replay; the third is accepted.
+    activities = ActionAuthorActivities(FakeDevice(serial=SERIAL, fail_runs=2), tmp_path / "out")
+    async with Worker(
+        env.client,
+        task_queue=TASK_QUEUE,
+        workflows=[ActionAuthorWorkflow],
+        activities=activities.all(),
+    ):
+        workflow_id = f"action-author-refusal-budget-{uuid.uuid4()}"
+        handle = await env.client.start_workflow(
+            WORKFLOW_TYPE, args=[AgentConfig(), CONTEXT], id=workflow_id, task_queue=TASK_QUEUE
+        )
+        try:
+            # `ask` refuses every save review.
+            first, _, _ = await ask(env.client, workflow_id, f"Write onboarding with PIN {PIN}")
+            assert f"ACCEPTED (attempt {MAX_SUBMISSIONS} of {MAX_SUBMISSIONS})" in first
+            assert "Not saved" in first
+            second, _, _ = await ask(env.client, workflow_id, "Revise it.")
+            assert f"ACCEPTED (attempt 1 of {MAX_SUBMISSIONS})" in second
+            assert env.author_store.saved == []
+        finally:
+            await handle.signal("close")
+            await handle.result()
+
+
 class BudgetRecoveryModel(ScriptedModel):
     async def get_response(self, input, **kwargs):  # noqa: A002
         outputs = [item for item in input if item.get("type") == "function_call_output"]
@@ -809,8 +859,17 @@ class BudgetRecoveryProvider(ModelProvider):
     [BudgetRecoveryProvider()],
     indirect=True,
 )
-async def test_budget_exhaustion_preserves_completed_exploration(env, tmp_path, monkeypatch):
-    monkeypatch.setenv("ACTION_AUTHOR_TOKEN_BUDGET", "1500")
+@pytest.mark.parametrize(
+    ("limit", "value", "stop"),
+    [
+        ("ACTION_AUTHOR_TOKEN_BUDGET", "1500", "TokenBudgetExceeded"),
+        ("ACTION_AUTHOR_MAX_MODEL_CALLS", "1", "MaxTurnsExceeded"),
+    ],
+)
+async def test_per_message_limits_preserve_completed_exploration(
+    env, tmp_path, monkeypatch, limit, value, stop
+):
+    monkeypatch.setenv(limit, value)
     activities = ActionAuthorActivities(FakeDevice(serial=SERIAL), tmp_path / "out")
     async with Worker(
         env.client,
@@ -826,10 +885,11 @@ async def test_budget_exhaustion_preserves_completed_exploration(env, tmp_path, 
             first, first_tools, _ = await ask(
                 env.client, workflow_id, f"Write onboarding with PIN {PIN}"
             )
-            assert "TokenBudgetExceeded" in first
+            assert stop in first
+            assert "Send Continue to resume" in first
             assert first_tools == ["set_target"]
             second, second_tools, _ = await ask(env.client, workflow_id, "Continue.")
-            assert "TokenBudgetExceeded" in second
+            assert stop in second
             assert second_tools == ["reset_app"]
             assert env.author_store.saved == []
         finally:

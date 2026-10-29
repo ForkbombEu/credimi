@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-# Local PoC: the `default` namespace. Production needs the Credimi organization namespace.
+# The worker polls this queue in the selected wallet owner's organization namespace.
 TASK_QUEUE = "action-author"
 WORKFLOW_TYPE = "ActionAuthor"
 DEFAULT_MODEL = "gpt-5.1"
@@ -27,10 +27,11 @@ AGENT_DEVICE_SESSION = "action-author"
 # Chat (`ask`) limits. A session takes at most CHAT_MAX_MESSAGES messages, which also bounds its
 # Temporal history (the harness does not continue-as-new).
 CHAT_MAX_MESSAGES = 20
-# Defaults of the per-`ask` budgets; the worker can override them (see worker.py).
+# Defaults of the per-`ask` budgets; the worker environment can override them
+# (ACTION_AUTHOR_TOKEN_BUDGET, ACTION_AUTHOR_MAX_MODEL_CALLS).
 DEFAULT_TOKEN_BUDGET = 600_000
 DEFAULT_MAX_MODEL_CALLS = 80
-# submit_action calls allowed per target (app id + slot).
+# submit_action calls allowed per target (app id, slot and parameter values) or after a refusal.
 MAX_SUBMISSIONS = 3
 # Successful replays from a cleared app needed to accept an action.
 REPLAY_RUNS = 2
@@ -103,19 +104,17 @@ class DeviceInfo(BaseModel):
 
 
 class ScreenRequest(BaseModel):
-    """Input of the activities that touch the device; params are only used for redaction."""
+    """Input of the activities that touch the device."""
 
     app_id: str = ""
-    params: dict[str, str] = Field(default_factory=dict)
 
 
 class ReplayRequest(BaseModel):
-    """Self-contained YAML plus input values retained only for report redaction."""
+    """Self-contained YAML replayed on the device against the installed build."""
 
     app_id: str
     slot: str
     yaml: str
-    params: dict[str, str]
     apk_sha256: str
     runs: int = REPLAY_RUNS
 

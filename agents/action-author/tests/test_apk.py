@@ -89,7 +89,6 @@ async def test_changed_installed_build_never_clears_or_replays(tmp_path):
         app_id="eu.europa.ec.euidi",
         slot="onboarding",
         yaml="unused",
-        params={"PIN": "001234"},
         apk_sha256="a" * 64,
     )
     with pytest.raises(ValueError, match="installed wallet changed"):

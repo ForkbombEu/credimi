@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Checks a candidate Maestro wallet action without running it, and masks parameter values.
+"""Checks a candidate Maestro wallet action without running it.
 
 ``validate_action`` returns every problem it finds (empty list: valid):
 
@@ -61,7 +61,8 @@ STORE_LINK = re.compile(
     r"^\s*(market:|itms-apps:|itms:|https?://(play\.google\.com|apps\.apple\.com|itunes\.apple\.com))",
     re.IGNORECASE,
 )
-APP_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$")
+# Use with `fullmatch`: `$` would also accept a trailing newline.
+APP_ID = re.compile(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+")
 
 
 def _command(item: Any) -> tuple[str, Any] | None:
@@ -187,11 +188,3 @@ def validate_action(text: str, app_id: str, slot: str, params: dict[str, str]) -
             "`assertVisible`, or `extendedWaitUntil` with `visible`"
         )
     return problems
-
-
-def redact(text: str, params: dict[str, str]) -> str:
-    """Replace every parameter value with ``${NAME}``, longest values first."""
-    for name, value in sorted(params.items(), key=lambda p: -len(p[1])):
-        if value:
-            text = text.replace(value, "${" + name + "}")
-    return text

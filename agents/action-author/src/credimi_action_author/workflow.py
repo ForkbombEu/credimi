@@ -29,7 +29,7 @@ with workflow.unsafe.imports_passed_through():
     import annotated_types  # noqa: F401
     from agents import Agent as OpenAIAgent
     from agents import RunHooks, Runner, TResponseInputItem
-    from agents.exceptions import AgentsException
+    from agents.exceptions import AgentsException, MaxTurnsExceeded
     from agents.items import ItemHelpers
     from pydantic import StrictBool, TypeAdapter
     from temporal_agent_harness.ai_sdks.openai_agents.workflow import stateless_mcp_server
@@ -65,6 +65,7 @@ with workflow.unsafe.imports_passed_through():
         CHAT_MAX_MESSAGES,
         DEFAULT_MODEL,
         MAX_SUBMISSIONS,
+        REPLAY_RUNS,
         SLOTS,
         WORKFLOW_TYPE,
         DeviceInfo,
@@ -91,7 +92,6 @@ How to work:
      last resort.
    - Embed the PIN the user supplied directly as a quoted string in each PIN `inputText`
      command (e.g. `inputText: "123456"`). Never use `${{PIN}}` or external substitution.
-     Device-tool replies mask PIN values; use the original value from the user's request.
    - Wait with `extendedWaitUntil` (visible + timeout), not sleeps.
    - End with an assertion of the outcome (`assertVisible` or `extendedWaitUntil`), then
      `takeScreenshot`.
@@ -255,8 +255,7 @@ class ActionAuthorWorkflow:
         )
 
     def _agent_device(self, session: AuthorSession):
-        # The worker pins the serial; the factory argument scopes `open` to the app under test
-        # and masks the parameter values in the outputs.
+        # The worker pins the serial; the factory argument scopes `open` to the app under test.
         return stateless_mcp_server(
             AGENT_DEVICE_MCP,
             config=ActivityConfig(
@@ -288,6 +287,10 @@ class ActionAuthorWorkflow:
                 self._session = await self._load_session()
             except ActivityError as exc:
                 return TextReply(text=f"Cannot prepare the selected Credimi APK: {exc.cause}")
+            except ValueError as exc:
+                # Includes Pydantic validation of the resolved build; a bare exception would
+                # fail the workflow task and retry this update forever.
+                return TextReply(text=f"Cannot prepare the selected Credimi APK: {exc}")
         session = self._session
         accepted_before = session.accepted_yaml
         state = session.describe()
@@ -333,17 +336,21 @@ class ActionAuthorWorkflow:
                 hooks=budget,
             )
         except AgentsException as exc:
-            # Budget hooks stop before the new response's tools execute. Keep only
-            # the SDK's completed items so a human can continue from the actual device state.
-            if isinstance(exc, TokenBudgetExceeded) and exc.run_data is not None:
+            # Budget hooks stop before the new response's tools execute, and the turn limit
+            # stops before the next model call. Keep only the SDK's completed items so a
+            # human can continue from the actual device state.
+            resumable = (
+                isinstance(exc, TokenBudgetExceeded | MaxTurnsExceeded) and exc.run_data is not None
+            )
+            if resumable:
                 self._conversation = ItemHelpers.input_to_new_input_list(exc.run_data.input)
                 self._conversation.extend(item.to_input_item() for item in exc.run_data.new_items)
             error = f"{type(exc).__name__}: {exc}"
             text = f"I could not finish: {error}"
-            if isinstance(exc, TokenBudgetExceeded) and exc.run_data is not None:
+            if resumable:
                 text += (
                     "\nCompleted exploration is retained. Send Continue to resume; "
-                    "the next message has its own token budget."
+                    "the next message has its own budgets."
                 )
         else:
             self._conversation = result.to_input_list()
@@ -357,7 +364,6 @@ class ActionAuthorWorkflow:
             session.usage.text(),
             f"; {error}" if error else "",
         )
-        text = session.mask(text)
         if session.accepted_yaml and session.accepted_yaml != accepted_before:
             digest = hashlib.sha256(session.accepted_yaml.encode()).hexdigest()
             text += (
@@ -384,7 +390,7 @@ class ActionAuthorWorkflow:
     async def _review_save(self, text: str) -> TextReply:
         session = self._session
         build = self._build
-        if session is None or build is None or session.accepted_replays != 2:
+        if session is None or build is None or session.accepted_replays != REPLAY_RUNS:
             return TextReply(text="Not saved: no candidate has passed both replays.")
         name = session.action_name
         digest = hashlib.sha256(session.accepted_yaml.encode()).hexdigest()
@@ -433,27 +439,19 @@ class ActionAuthorWorkflow:
                 )
             )
             if not accepted:
-                session.accepted_yaml = ""
-                session.accepted_path = ""
-                session.accepted_replays = 0
+                session.discard_candidate()
+                if workflow.patched("action-author-refusal-restores-submissions-v1"):
+                    # A refusal on the last submission must not leave the chat unable to revise.
+                    session.attempts = 0
                 return TextReply(text=text + "\n\nNot saved. You can request changes in this chat.")
-            if (
-                hashlib.sha256(session.accepted_yaml.encode()).hexdigest() != digest
-                or session.action_name != name
-                or session.accepted_replays != 2
-                or session.apk_sha256 != build.apk_sha256
-            ):
-                return TextReply(text="Not saved: the candidate changed after it was presented.")
-            receipt = await self._persist_candidate(
+            saved, receipt = await self._persist_candidate(
                 SaveActionApproval(name=name, candidate_sha256=digest, confirm=True)
             )
-            if receipt.text.startswith("Saved wallet action"):
-                return TextReply(text=text + "\n\n" + receipt.text)
+            if saved:
+                return TextReply(text=f"{text}\n\n{receipt}")
             self._runner.publish(
                 ReplyDelta(
-                    text="\n\n"
-                    + receipt.text
-                    + "\nAccept to retry saving, or Refuse to keep editing."
+                    text=f"\n\n{receipt}\nAccept to retry saving, or Refuse to keep editing."
                 )
             )
 
@@ -462,27 +460,28 @@ class ActionAuthorWorkflow:
         """Replay-compatible legacy save handler; new turns use the Accept/Refuse callback."""
         if self._automatic_review:
             return TextReply(text="Use the candidate's Accept/Refuse confirmation to save.")
-        return await self._persist_candidate(approval)
+        _, receipt = await self._persist_candidate(approval)
+        return TextReply(text=receipt)
 
-    async def _persist_candidate(self, approval: SaveActionApproval) -> TextReply:
+    async def _persist_candidate(self, approval: SaveActionApproval) -> tuple[bool, str]:
+        """Save the accepted candidate; (saved, receipt or reason it was not saved)."""
         session, build = self._session, self._build
         if not approval.confirm:
-            return TextReply(text="Not saved: human confirmation was not given.")
+            return False, "Not saved: human confirmation was not given."
         if (
             session is None
             or build is None
             or not session.accepted_yaml
-            or session.accepted_replays != 2
+            or session.accepted_replays != REPLAY_RUNS
         ):
-            return TextReply(text="Not saved: no candidate has passed both replays.")
+            return False, "Not saved: no candidate has passed both replays."
         digest = hashlib.sha256(session.accepted_yaml.encode()).hexdigest()
         if approval.candidate_sha256 != digest:
-            return TextReply(
-                text="Not saved: candidate hash changed; review the current accepted YAML."
-            )
+            return False, "Not saved: candidate hash changed; review the current accepted YAML."
         if bool(approval.replace_action_id) != bool(approval.expected_existing_sha256):
-            return TextReply(
-                text="Not saved: replacement requires the record ID and its current code SHA256."
+            return (
+                False,
+                "Not saved: replacement requires the record ID and its current code SHA256.",
             )
         payload = {
             **self._context.build_payload(),
@@ -506,7 +505,7 @@ class ActionAuthorWorkflow:
                 retry_policy=RetryPolicy(maximum_attempts=3),
             )
         except ActivityError as exc:
-            return TextReply(text=f"Not saved: {exc.cause}")
+            return False, f"Not saved: {exc.cause}"
         receipt = result["output"]
         status = "published" if receipt["published"] else "unpublished"
         if workflow.patched("action-author-close-after-save-v1"):
@@ -516,7 +515,7 @@ class ActionAuthorWorkflow:
             if close is None:
                 raise RuntimeError("the harness close handler is not registered")
             close()
-        return TextReply(
-            text=f"Saved wallet action `{receipt['record_id']}` ({status}). "
+        return True, (
+            f"Saved wallet action `{receipt['record_id']}` ({status}). "
             f"Validated build `{build.version_identifier}`, candidate SHA256 `{digest}`."
         )

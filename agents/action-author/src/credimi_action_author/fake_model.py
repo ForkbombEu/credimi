@@ -15,8 +15,8 @@ Script, for the latest user message (it needs an app id and "PIN <digits>" in it
 3. ``maestro_cheat_sheet``, then ``maestro_inspect_screen``;
 4. ``check_action`` with an external PIN reference (the check must refuse it);
 5. ``check_action`` again with the supplied PIN embedded, then ``submit_action``;
-6. an answer quoting the submit_action reply; ordinary prose is masked, while the accepted
-   action is shown verbatim with its literal test PIN.
+6. an answer quoting the submit_action reply, with the accepted action shown verbatim with
+   its literal test PIN.
 
 The action is the FCAF onboarding flow, with the supplied PIN embedded.
 """
@@ -144,8 +144,10 @@ class _Conversation:
 
 def next_response(items: list[Any]) -> ModelResponse:
     conv = _Conversation(items)
-    app = _APP_ID.search(conv.user)
-    pin = _PIN.search(conv.user)
+    # Only the user's words: the workflow appends its authoring state and instructions.
+    request = conv.user.split("\n\nCurrent authoring state:", 1)[0]
+    app = _APP_ID.search(request)
+    pin = _PIN.search(request)
     if not app or not pin:
         return _text(
             "Scripted model: name the app id and the PIN, e.g. `write the onboarding action "
@@ -153,7 +155,6 @@ def next_response(items: list[Any]) -> ModelResponse:
         )
     app_id, pin_value = app.group(1), pin.group(1)
     name, out = conv.last
-    request = conv.user.split("\n\nCurrent authoring state:", 1)[0]
     requested_name = re.search(
         r'(?:write\s+action|(?:store|save)\s+(?:it\s+)?as)\s+["\']([^"\']+)["\']',
         request,

@@ -28,6 +28,7 @@ with workflow.unsafe.imports_passed_through():
     from .activities import CHEAT_SHEET, INSPECT_SCREEN, REPLAY_ACTION, RESET_APP
     from .models import (
         MAX_SUBMISSIONS,
+        REPLAY_RUNS,
         SLOTS,
         Param,
         ReplayRequest,
@@ -35,7 +36,7 @@ with workflow.unsafe.imports_passed_through():
         ScreenRequest,
         Usage,
     )
-    from .validation import APP_ID, redact, validate_action
+    from .validation import APP_ID, validate_action
 
 DEVICE_TIMEOUT = timedelta(minutes=4)
 # Two `maestro test` runs of at most 5 minutes each, plus clearing and inspecting.
@@ -68,8 +69,8 @@ class AuthorSession:
     # within the same model/tool turn, not only on the next user message.
     device_context: dict[str, Any] = field(default_factory=dict)
 
-    def mask(self, text: str) -> str:
-        return redact(text, self.params)
+    def discard_candidate(self) -> None:
+        self.accepted_yaml, self.accepted_path, self.accepted_replays = "", "", 0
 
     def describe(self) -> str:
         if not self.app_id:
@@ -87,8 +88,7 @@ class AuthorSession:
 
 
 def _failure(exc: ActivityError) -> str:
-    cause = exc.cause
-    return f"ERROR: {cause.message if cause is not None and hasattr(cause, 'message') else exc}"
+    return f"ERROR: {getattr(exc.cause, 'message', None) or exc}"
 
 
 def _contract(slot: str) -> str:
@@ -121,7 +121,7 @@ async def set_target(
         return f"ERROR: selected Credimi APK is {session.bound_app_id}; cannot target another app"
     if session.bound_slot and slot != session.bound_slot:
         return f"ERROR: this session is bound to slot {session.bound_slot}"
-    if not APP_ID.match(app_id):
+    if not APP_ID.fullmatch(app_id):
         return f"ERROR: {app_id!r} is not an Android package name"
     if slot not in SLOTS:
         return f"ERROR: unknown slot {slot!r}; known slots: {sorted(SLOTS)}"
@@ -137,9 +137,9 @@ async def set_target(
         session.action_name = action_name.strip()
     if (app_id, slot, values) != (session.app_id, session.slot, session.params):
         session.app_id, session.slot, session.params = app_id, slot, values
-        session.attempts, session.accepted_yaml, session.accepted_path = 0, "", ""
-        session.accepted_replays = 0
-    session.device_context.update(app_id=session.app_id, params=session.params)
+        session.attempts = 0
+        session.discard_candidate()
+    session.device_context.update(app_id=session.app_id)
     return f"OK. {session.describe()}\n{_contract(slot)}"
 
 
@@ -165,10 +165,12 @@ async def maestro_inspect_screen(session: agent.Injected[AuthorSession]) -> str:
 
     It closes the agent-device session first; call `open` again before more agent-device tools.
     """
+    if not session.app_id and workflow.patched("action-author-inspect-requires-target-v1"):
+        return "ERROR: call set_target first"
     try:
         return await workflow.execute_activity(
             INSPECT_SCREEN,
-            ScreenRequest(app_id=session.app_id, params=session.params),
+            ScreenRequest(app_id=session.app_id),
             start_to_close_timeout=DEVICE_TIMEOUT,
             heartbeat_timeout=HEARTBEAT_TIMEOUT,
             retry_policy=RETRY,
@@ -213,7 +215,7 @@ async def check_action(yaml: str, session: agent.Injected[AuthorSession]) -> str
         yaml: The whole flow: header (appId, name, tags), `---`, then the command list.
     """
     if problems := _problems(yaml, session):
-        return session.mask("PROBLEMS:\n" + "\n".join(f"- {p}" for p in problems))
+        return "PROBLEMS:\n" + "\n".join(f"- {p}" for p in problems)
     return "OK: the action passes every check. Call submit_action with the same YAML."
 
 
@@ -250,9 +252,7 @@ async def submit_action(yaml: str, session: agent.Injected[AuthorSession]) -> st
     session.attempts += 1
     attempt = f"(attempt {session.attempts} of {MAX_SUBMISSIONS})"
     if problems := _problems(yaml, session):
-        return session.mask(
-            f"REJECTED {attempt} before replay:\n" + "\n".join(f"- {p}" for p in problems)
-        )
+        return f"REJECTED {attempt} before replay:\n" + "\n".join(f"- {p}" for p in problems)
     try:
         result: ReplayResult = await workflow.execute_activity(
             REPLAY_ACTION,
@@ -260,7 +260,6 @@ async def submit_action(yaml: str, session: agent.Injected[AuthorSession]) -> st
                 app_id=session.app_id,
                 slot=session.slot,
                 yaml=yaml,
-                params=session.params,
                 apk_sha256=session.apk_sha256,
             ),
             start_to_close_timeout=REPLAY_TIMEOUT,
@@ -270,11 +269,15 @@ async def submit_action(yaml: str, session: agent.Injected[AuthorSession]) -> st
         )
     except ActivityError as exc:
         return f"REJECTED {attempt}: replay could not run: {_failure(exc)}"
-    report = session.mask(_replay_report(result))
-    if not result.accepted or len(result.runs) != 2 or not all(run.passed for run in result.runs):
+    report = _replay_report(result)
+    if (
+        not result.accepted
+        or len(result.runs) != REPLAY_RUNS
+        or not all(run.passed for run in result.runs)
+    ):
         return f"REJECTED {attempt}: the replay failed.\n{report}"
     session.accepted_yaml, session.accepted_path = yaml, result.path
-    session.accepted_replays = 2
+    session.accepted_replays = REPLAY_RUNS
     return f"ACCEPTED {attempt}: saved to {result.path}.\n{report}"
 
 

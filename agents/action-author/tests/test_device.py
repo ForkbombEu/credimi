@@ -26,7 +26,7 @@ FAKE_MCP = [sys.executable, "-m", "credimi_action_author.fake_device"]
 async def server(monkeypatch, tmp_path):
     log = tmp_path / "mcp.jsonl"
     monkeypatch.setenv("ACTION_AUTHOR_FAKE_MCP_LOG", str(log))
-    server = AgentDeviceServer(FAKE_MCP, "pinned", "eu.europa.ec.euidi", {"PIN": "123456"})
+    server = AgentDeviceServer(FAKE_MCP, "pinned", "eu.europa.ec.euidi")
     await server.connect()
     yield server, log
     await server.cleanup()
@@ -64,7 +64,7 @@ async def test_only_exploration_tools_without_device_fields_are_listed(server):
     assert set(tools["open"].input_schema["properties"]) == {"app"}
 
 
-async def test_calls_are_pinned_scoped_and_masked(server):
+async def test_calls_are_pinned_and_scoped(server):
     srv, log = server
     opened = await srv.call_tool("open", {"app": "eu.europa.ec.euidi", "serial": "other"})
     snap = await srv.call_tool("snapshot", {"session": "mine", "debug": True, "target": "tv"})
@@ -73,7 +73,7 @@ async def test_calls_are_pinned_scoped_and_masked(server):
     close_other = await srv.call_tool("close", {"app": "com.android.settings"})
 
     assert text(opened) == "Opened: eu.europa.ec.euidi"
-    assert "PIN ${PIN}" in text(snap) and "123456" not in text(snap)
+    assert "PIN 123456" in text(snap)
     assert other_app.is_error and "only the app under test" in text(other_app)
     assert install.is_error and "not available" in text(install)
     assert close_other.is_error and "only the app under test" in text(close_other)
@@ -111,7 +111,7 @@ async def test_failed_close_prevents_maestro_handoff(monkeypatch, code, output):
     inspect = AsyncMock(return_value="wallet screen")
     monkeypatch.setattr(device, "inspect_screen", inspect)
     with pytest.raises(RuntimeError, match="agent-device close failed"):
-        await ActionAuthorActivities(device)._screen({})
+        await ActionAuthorActivities(device)._screen()
     inspect.assert_not_awaited()
 
 
@@ -124,7 +124,7 @@ async def test_already_closed_session_allows_maestro_handoff(monkeypatch):
     )
     device = LocalDevice("test")
     monkeypatch.setattr(device, "inspect_screen", AsyncMock(return_value="wallet screen"))
-    assert await ActionAuthorActivities(device)._screen({}) == "wallet screen"
+    assert await ActionAuthorActivities(device)._screen() == "wallet screen"
 
 
 @pytest.mark.parametrize("cancel", [False, True])
