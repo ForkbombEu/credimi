@@ -271,6 +271,66 @@ func TestPipelineWorkflowFailsStepsThatNeedAFailedStepOutput(t *testing.T) {
 	)
 }
 
+func TestPipelineWorkflowKeepsTheOutputAFailedTaskWorkflowReports(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+	registerFailingWorkflow(
+		t,
+		env,
+		"failing-flow",
+		"failing-flow-workflow",
+		workflowengine.WorkflowError{
+			Code:    "CRE201",
+			Summary: "command execution failed",
+			Details: map[string]any{"output": map[string]any{
+				"flow_output": map[string]any{"screenshot": "wallet-not-invoked.png"},
+			}},
+		},
+	)
+	captured := []string{}
+	registerRuntimeCaptureActivity(t, env, "capture-runtime", &captured)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
+				Name: "failed-flow-evidence",
+				Steps: []pipeline.StepDefinition{
+					{
+						StepSpec:        pipeline.StepSpec{ID: "engage", Use: "failing-flow"},
+						ContinueOnError: true,
+					},
+					{
+						StepSpec: pipeline.StepSpec{
+							ID:  "validate",
+							Use: "capture-runtime",
+							With: pipeline.StepInputs{Payload: map[string]any{
+								"text": "${{ engage.outputs.flow_output.screenshot | optional }}",
+							}},
+						},
+					},
+				},
+			},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{"app_url": "https://example.test"},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	require.Equal(t, []string{"wallet-not-invoked.png"}, captured)
+	err := env.GetWorkflowError()
+	require.ErrorContains(t, err, "engage failed with CRE201")
+}
+
 // TestPipelineWorkflowFailsWithoutDefinition asserts a clear error when workflow_definition is missing.
 func TestPipelineWorkflowFailsWithoutDefinition(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}

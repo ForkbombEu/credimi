@@ -29,7 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			a.category.localeCompare(b.category)
 		);
 
-		const actionsWithOrganizations = await getActionsWithOrganizations(actions);
+		const actionsWithOrganizations = await getActionsWithOrganizations(actions, fetchFn);
 
 		return pageDetails('wallets', {
 			wallet,
@@ -38,11 +38,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		});
 	}
 
-	async function getActionsWithOrganizations(actions: WalletActionsResponse[]) {
+	async function getActionsWithOrganizations(
+		actions: WalletActionsResponse[],
+		fetchFn: typeof fetch
+	) {
 		const actionsOrganizationIds = Array.dedupe(actions.map((a) => a.owner));
 
 		const actionsOrganizations = await Promise.all(
-			actionsOrganizationIds.map((id) => pb.collection('organizations').getOne(id))
+			actionsOrganizationIds.map((id) =>
+				pb.collection('organizations').getOne(id, { fetch: fetchFn })
+			)
 		);
 
 		return actions.map((action) => ({

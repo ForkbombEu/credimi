@@ -11,7 +11,7 @@ require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/antchfx/htmlquery v1.3.6
 	github.com/forkbombeu/credimi-conformance-assessment v1.3.1
-	github.com/forkbombeu/credimi-extra v1.19.1
+	github.com/forkbombeu/credimi-extra v1.19.3
 	github.com/forkbombeu/eudi-conformance-evidence v1.7.0
 	github.com/fxamacker/cbor/v2 v2.9.0
 	github.com/go-pdf/fpdf v0.9.0
@@ -34,10 +34,10 @@ require (
 	github.com/swaggest/openapi-go v0.2.60
 	go.temporal.io/api v1.63.6
 	go.temporal.io/sdk v1.49.0
-	golang.org/x/crypto v0.57.0
+	golang.org/x/crypto v0.58.0
 	golang.org/x/image v0.45.0
-	golang.org/x/net v0.60.0
-	golang.org/x/text v0.42.0
+	golang.org/x/net v0.62.0
+	golang.org/x/text v0.43.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/yaml.v3 v3.0.1
@@ -143,12 +143,12 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260811182544-a038080d80e5 // indirect
-	golang.org/x/term v0.46.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157 // indirect
+	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
-	golang.org/x/tools v0.49.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	golang.org/x/vuln v1.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect

@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="shrink-0 border-b {className}">
-	<div class="mx-auto flex max-w-screen-xl items-center justify-between p-2">
+	<div class="mx-auto flex max-w-site items-center justify-between p-2">
 		<div class="flex h-full shrink-0 flex-row items-center">
 			{@render left?.()}
 		</div>

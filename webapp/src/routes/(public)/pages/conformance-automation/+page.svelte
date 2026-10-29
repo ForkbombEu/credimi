@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 
 	// Same type roles as the other marketing pages: display, section heading, lead, body.
-	const container = 'mx-auto max-w-screen-xl px-4 md:px-8';
+	const container = 'mx-auto max-w-site px-4 md:px-8';
 	const h2 =
 		'text-[clamp(2rem,3.6vw,3.25rem)] leading-[1.08] font-bold tracking-[-0.025em] text-balance';
 	const lead = 'text-xl leading-relaxed text-pretty';
@@ -91,6 +91,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const related = [
+		{
+			kind: 'Guide',
+			title: 'FCAF conformance testing for EUDI wallets',
+			href: '/pages/fcaf-conformance',
+			action: 'Read guide ↗'
+		},
+		{
+			kind: 'Guide',
+			title: 'OpenID4VCI and OpenID4VP conformance testing',
+			href: '/pages/openid4vc-conformance',
+			action: 'Read guide ↗'
+		},
+		{
+			kind: 'Guide',
+			title: 'EUDI wallet interoperability testing',
+			href: '/pages/eudi-wallet-interoperability-testing',
+			action: 'Read guide ↗'
+		},
 		{
 			kind: 'Comparison',
 			title: 'Why Credimi',

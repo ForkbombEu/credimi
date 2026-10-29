@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/fcaf/catalog"
@@ -15,9 +16,26 @@ import (
 )
 
 const (
-	defaultCatalogRoot = "config_templates/fcaf/wallet_solution/relying_party"
-	defaultSourceRoot  = "config_templates/fcaf_sources/wallet_solution/relying_party"
+	// DefaultSuite is the suite of a report that names none.
+	DefaultSuite       = "wallet_solution/relying_party"
+	catalogTemplates   = "config_templates/fcaf"
+	sourceTemplates    = "config_templates/fcaf_sources"
+	suiteFormatMessage = "FCAF report suite %q is not a <sut>/<role> suite"
 )
+
+// suitePattern is the <sut>/<role> shape of a suite. The suite comes from the
+// stored report and names catalog and source directories, so it may hold no
+// other path.
+var suitePattern = regexp.MustCompile(`^[a-z0-9_]+/[a-z0-9_]+$`)
+
+// reportSuite returns suite, or DefaultSuite when it is empty, and whether it
+// is a valid <sut>/<role> suite.
+func reportSuite(suite string) (string, bool) {
+	if suite == "" {
+		suite = DefaultSuite
+	}
+	return suite, suitePattern.MatchString(suite)
+}
 
 type SourceDetails struct {
 	Title           string
@@ -30,7 +48,9 @@ type SourceDetails struct {
 	ExpectedResults string
 }
 
-func LoadMaterials(testIDs []string) (
+// LoadMaterials reads the catalog definition and the FCAF source Markdown of
+// each test of a report of the given suite (DefaultSuite when empty).
+func LoadMaterials(suite string, testIDs []string) (
 	map[string]dsl.TestDefinition,
 	map[string]SourceDetails,
 	[]string,
@@ -39,7 +59,11 @@ func LoadMaterials(testIDs []string) (
 	sources := map[string]SourceDetails{}
 	warnings := []string{}
 
-	catalogRoot, found := resolveProjectPath(defaultCatalogRoot)
+	suite, valid := reportSuite(suite)
+	if !valid {
+		return definitions, sources, []string{fmt.Sprintf(suiteFormatMessage, suite)}
+	}
+	catalogRoot, found := resolveProjectPath(filepath.Join(catalogTemplates, suite))
 	if !found {
 		warnings = append(warnings, "FCAF catalog root was not found")
 	} else {
@@ -58,7 +82,7 @@ func LoadMaterials(testIDs []string) (
 		}
 	}
 
-	sourceRoot, found := resolveProjectPath(defaultSourceRoot)
+	sourceRoot, found := resolveProjectPath(filepath.Join(sourceTemplates, suite))
 	if !found {
 		warnings = append(warnings, "FCAF source root was not found")
 		return definitions, sources, warnings

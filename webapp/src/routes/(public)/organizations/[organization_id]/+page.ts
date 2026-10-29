@@ -4,21 +4,27 @@
 
 import { absoluteUrl, plainText, SITE_ORIGIN } from '$lib/seo';
 
-import { pb } from '@/pocketbase/index.js';
+import { notFoundAs404, pb } from '@/pocketbase/index.js';
 
 export const load = async ({ params, fetch }) => {
 	const organization = await pb
 		.collection('organizations')
-		.getFirstListItem(`canonified_name = "${params.organization_id}"`, {
-			fetch
-		});
+		.getFirstListItem(
+			pb.filter('canonified_name = {:name}', { name: params.organization_id }),
+			{
+				fetch
+			}
+		)
+		.catch(notFoundAs404);
 
 	const hubItems = await pb.collection('hub_items').getFullList({
-		filter: `organization_id = '${organization.id}'`,
+		filter: pb.filter('organization_id = {:id}', { id: organization.id }),
 		fetch
 	});
 
-	const logo = organization.logo ? pb.files.getURL(organization, organization.logo) : undefined;
+	const logo = organization.logo
+		? pb.files.getURL(organization, organization.logo, { thumb: '100x100' })
+		: undefined;
 	const description =
 		plainText(organization.description) ||
 		`${organization.name} publishes ${hubItems.length} EUDI wallets, issuers, verifiers and pipelines on the Credimi Hub.`;

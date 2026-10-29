@@ -6,35 +6,38 @@ import type { FCAFTestCatalogEntry } from '$lib/conformance';
 
 import { FCAF_CATEGORY_ORDER, parseFCAFTestId, type FCAFCategory } from './categories.js';
 
+/** What grouping reads from a test: its id (the FCAF taxonomy) and title. */
+export type CatalogTest = Pick<FCAFTestCatalogEntry, 'id' | 'title'>;
+
 /**
  * Tests grouped under one FCAF category, mirroring the generated report:
  * category (Data model, Interaction, ...) > subgroup (Address data, ...).
  */
-export type CatalogSubgroup = {
+export type CatalogSubgroup<T extends CatalogTest = FCAFTestCatalogEntry> = {
 	key: string;
 	label: string;
-	tests: FCAFTestCatalogEntry[];
+	tests: T[];
 };
 
-export type CatalogCategoryGroup = {
+export type CatalogCategoryGroup<T extends CatalogTest = FCAFTestCatalogEntry> = {
 	/** Category code (DM, MS, IA, ...). */
 	key: string;
 	label: string;
 	color: FCAFCategory;
-	groups: CatalogSubgroup[];
+	groups: CatalogSubgroup<T>[];
 	/** Flat test list for the whole category, for counts and filtering. */
-	tests: FCAFTestCatalogEntry[];
+	tests: T[];
 };
 
-export function groupSelectedTests(testIds: string[]): CatalogCategoryGroup[] {
+export function groupSelectedTests(testIds: string[]): CatalogCategoryGroup<CatalogTest>[] {
 	// Card summaries only have selected ids; synthesize minimal entries for grouping.
 	return groupCatalogTests(testIds.map((id) => ({ id, title: '' })));
 }
 
-export function groupCatalogTests(tests: FCAFTestCatalogEntry[]): CatalogCategoryGroup[] {
+export function groupCatalogTests<T extends CatalogTest>(tests: T[]): CatalogCategoryGroup<T>[] {
 	const byCategory = new Map<
 		string,
-		{ color: FCAFCategory; groups: Map<string, CatalogSubgroup> }
+		{ color: FCAFCategory; groups: Map<string, CatalogSubgroup<T>> }
 	>();
 	for (const test of tests) {
 		const parsed = parseFCAFTestId(test.id);

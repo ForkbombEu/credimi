@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { userOrganization } from '$lib/app-state';
 	import EntityTag from '$lib/global/entity-tag.svelte';
+	import { plainText } from '$lib/seo';
 	import { String } from 'effect';
-	import { truncate } from 'lodash';
 	import removeMd from 'remove-markdown';
 
 	import type { HubItemsResponse } from '@/pocketbase/types';
@@ -32,14 +32,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { item: record, class: className = '' }: Props = $props();
 
 	const item = $derived(record as HubItem);
-	const { href, logo, display } = $derived(getHubItemData(item));
+	const { href, logo, display } = $derived(getHubItemData(item, '100x100'));
 
 	const isCurrentUserOwner = $derived(userOrganization.current?.id === item.organization_id);
 
-	const description = $derived.by(() => {
-		const cleaned = removeMd(item.description ?? '');
-		return truncate(cleaned, { length: 100 });
-	});
+	const description = $derived(plainText(removeMd(item.description ?? ''), 100));
 </script>
 
 <a

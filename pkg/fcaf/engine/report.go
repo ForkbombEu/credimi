@@ -331,7 +331,9 @@ func buildTestOutcome(test TestResult) TestOutcome {
 	case validators.StatusSkipped:
 		return TestOutcome{Status: "skipped", Reason: reason}
 	default:
-		return TestOutcome{Status: "failed", Reason: reason}
+		// Blocked and inconclusive keep their own status, so the summary filters,
+		// the webapp and the PDF tell them apart from a Wallet failure.
+		return TestOutcome{Status: normalizeExecutionStatus(test.Status), Reason: reason}
 	}
 }
 

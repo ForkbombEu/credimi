@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { ArrowLeft, UserPlus, Users } from '@lucide/svelte';
-	import DOMPurify from 'dompurify';
+	import DOMPurify from 'isomorphic-dompurify';
 
 	import { CollectionManager } from '@/collections-components';
 	import PageCard from '@/components/layout/pageCard.svelte';

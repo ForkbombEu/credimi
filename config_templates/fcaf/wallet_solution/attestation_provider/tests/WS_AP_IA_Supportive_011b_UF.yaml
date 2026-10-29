@@ -1,0 +1,58 @@
+id: WS_AP_IA_Supportive_011b_UF
+title: Do not send an Authorization Request after a PAR response without request_uri.
+source:
+  path: Interaction/Supportive/WS_AP_IA_Supportive_011b_UF.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: interaction.supportive
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: ETSI TS 119 472-3
+  section: '4.1'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: OpenID for Verifiable Credential Issuance 1.0
+  section: '5.1.4'
+  url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+- title: RFC 9126 OAuth 2.0 Pushed Authorization Requests
+  section: '2'
+  url: https://www.rfc-editor.org/rfc/rfc9126
+evidence:
+  issuance_exchange:
+    from: pipeline.ap.par-response-without-request-uri.outputs.issuance_exchange
+  issuance_visual_evidence:
+    from: pipeline.ap.par-response-without-request-uri.outputs.issuance_visual_evidence
+assertions:
+# The source names the omitted member response_uri but describes request_uri; the issuer
+# omits request_uri. An Authorization Request without request_uri cannot be attributed, so
+# unattributed requests to this issuer's authorization endpoint after the PAR are read too:
+# one may be another client's, so a match is inconclusive and only its absence passes.
+# Informing the user is "if applicable" and not asserted; the screenshot is kept for review.
+- id: issuer_omits_the_request_uri
+  validator: oid4vci.issuer_response
+  input: evidence.issuance_exchange
+  params:
+    request: /par
+    status: 201
+    media_type: application/json
+    required_members:
+    - expires_in
+    absent_members:
+    - request_uri
+- id: no_authorization_request_follows
+  validator: oid4vci.no_request_after
+  input: evidence.issuance_exchange
+  params:
+    after: /par
+    path_suffixes:
+    - /authorize
+    unattributed:
+      path_suffixes:
+      - /authorize
+    observe_seconds: 15
+verdict:
+  pass_when: all_assertions_pass

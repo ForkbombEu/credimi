@@ -207,12 +207,7 @@ func HandleStartAggregateScoreboard() func(*core.RequestEvent) error {
 
 			c, err := scheduleTemporalClient(namespace)
 			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"temporal",
-					"failed to create temporal client",
-					err.Error(),
-				)
+				return temporalUnavailableError()
 			}
 
 			ctx := e.Request.Context()
@@ -308,12 +303,7 @@ func HandleCancelAggregateScoreboardSchedule() func(*core.RequestEvent) error {
 
 		c, err := scheduleTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"failed to create temporal client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		ctx := e.Request.Context()
@@ -1169,10 +1159,12 @@ func scoreboardLogoURL(app core.App, collection string, record *core.Record) str
 	if logo == "" {
 		return ""
 	}
+	// Scoreboard rows show small avatars; 100x100 is the thumb size every PocketBase file field
+	// serves (non-image files such as SVG come back unchanged).
 	return utils.JoinURL(
 		app.Settings().Meta.AppURL,
 		"api", "files", collection, record.Id, logo,
-	)
+	) + "?thumb=100x100"
 }
 
 func hasFatalScoreboardSaveErrors(saveErrors []error) bool {

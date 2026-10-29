@@ -330,7 +330,7 @@ func TestHandleListPipelineExecutionOverviewTemporalClientError(t *testing.T) {
 		},
 	})
 	requireHandlerErrorHandled(t, rec, err)
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 }
 
 func TestHandleListPipelineExecutionOverviewQueuedRunsError(t *testing.T) {

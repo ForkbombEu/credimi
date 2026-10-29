@@ -51,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const logoPreviewUrl = $derived.by(() => {
 		if (logoMode === 'original' && walletResponse) {
-			return pb.files.getURL(walletResponse, walletResponse.logo);
+			return pb.files.getURL(walletResponse, walletResponse.logo, { thumb: '100x100' });
 		} else if (logoMode === 'new_file' && formState.current.logo) {
 			return URL.createObjectURL(formState.current.logo);
 		} else if (logoMode === 'url') {

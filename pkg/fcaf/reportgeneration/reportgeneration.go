@@ -71,10 +71,10 @@ func attachSourceURLs(root map[string]any, report *engine.Report) {
 	for _, test := range report.ExecutedTests {
 		testIDs = append(testIDs, test.TestID)
 	}
-	_, sources, _ := reportpdf.LoadMaterials(testIDs)
+	_, sources, _ := reportpdf.LoadMaterials(report.Suite, testIDs)
 	for index := range report.ExecutedTests {
 		test := &report.ExecutedTests[index]
-		sourceURL := reportpdf.SourceURL(sources[test.TestID].Title)
+		sourceURL := reportpdf.SourceURL(report.Suite, sources[test.TestID].Title)
 		rawTest, ok := rawTests[index].(map[string]any)
 		if sourceURL == "" || !ok {
 			continue
@@ -111,7 +111,7 @@ func GeneratePipelineFCAFReportPDF(
 			testIDs = append(testIDs, test.TestID)
 		}
 	}
-	definitions, sources, warnings := reportpdf.LoadMaterials(testIDs)
+	definitions, sources, warnings := reportpdf.LoadMaterials(report.Suite, testIDs)
 	images, imageWarnings, err := LoadPipelineFCAFReportImages(app, record, report)
 	if err != nil {
 		return nil, err

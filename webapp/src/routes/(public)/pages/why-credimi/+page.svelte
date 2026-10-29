@@ -35,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import SupportDot from './_partials/support-dot.svelte';
 
 	// Type roles: display, section heading, lead, body. One family (Inter), contrast from size and weight.
-	const container = 'mx-auto max-w-screen-xl px-4 md:px-8';
+	const container = 'mx-auto max-w-site px-4 md:px-8';
 	const h2 =
 		'text-[clamp(2rem,3.6vw,3.25rem)] leading-[1.08] font-bold tracking-[-0.025em] text-balance';
 	const lead = 'text-xl leading-relaxed text-pretty';
@@ -141,6 +141,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	];
 
 	const related = [
+		{
+			kind: 'Guide',
+			title: 'EUDI wallet interoperability testing',
+			href: '/pages/eudi-wallet-interoperability-testing',
+			action: 'Read guide ↗'
+		},
+		{
+			kind: 'Guide',
+			title: 'Test your EUDI wallet against real issuers and verifiers',
+			href: '/pages/eudi-wallet-testing',
+			action: 'Read guide ↗'
+		},
+		{
+			kind: 'Guide',
+			title: 'FCAF conformance testing for EUDI wallets',
+			href: '/pages/fcaf-conformance',
+			action: 'Read guide ↗'
+		},
 		{
 			kind: 'Atlas',
 			title: 'EUDI Trust & Conformance Atlas: the Wallet rulebook, mapped',

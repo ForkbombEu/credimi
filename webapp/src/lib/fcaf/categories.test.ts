@@ -36,6 +36,14 @@ describe('parseFCAFTestId', () => {
 		expect(parseFCAFTestId('WS_RP_SM_RpIntegrity_ABC_001').label).toBe('RP integrity');
 	});
 
+	it('groups attestation-provider identifiers like relying-party ones', () => {
+		const { category, key, label } = parseFCAFTestId('WS_AP_IA_Supportive_010a');
+		expect(category.code).toBe('IA');
+		expect(key).toBe('supportive');
+		expect(label).toBe('Supportive');
+		expect(parseFCAFTestId('WS_XX_IA_Supportive_010a').category.code).toBe('OTHER');
+	});
+
 	it('falls back to Other for unknown prefixes', () => {
 		const { category, label } = parseFCAFTestId('SOMETHING_ELSE');
 		expect(category.code).toBe('OTHER');

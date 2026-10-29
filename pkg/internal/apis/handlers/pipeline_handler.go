@@ -378,12 +378,7 @@ func listPipelineExecutionHistoryPage(
 ) ([]*pipelineWorkflowSummary, *apierror.APIError) {
 	temporalClient, err := pipelineTemporalClient(scope.Namespace)
 	if err != nil {
-		return nil, apierror.New(
-			http.StatusInternalServerError,
-			"temporal",
-			"unable to create temporal client",
-			err.Error(),
-		)
+		return nil, temporalUnavailableError()
 	}
 
 	summaries, err := listPipelineExecutionHistory(ctx, pipelineExecutionHistoryRequest{
@@ -432,12 +427,7 @@ func HandleGetPipelineExecution() func(*core.RequestEvent) error {
 
 		temporalClient, err := pipelineTemporalClient(scope.Namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create temporal client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		execution, apiErr := describeWorkflowExecution(
@@ -662,12 +652,7 @@ func HandleListPipelineExecutionOverview() func(*core.RequestEvent) error {
 
 		temporalClient, err := pipelineTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create temporal client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		executions, err := listPipelineWorkflowExecutions(

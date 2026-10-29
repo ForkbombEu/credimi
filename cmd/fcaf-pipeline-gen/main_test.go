@@ -27,7 +27,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 		"relying_party",
 	)
 	output := filepath.Join(t.TempDir(), "complete.yaml")
-	require.NoError(t, generate(filepath.Join(root, "scenarios"), output))
+	require.NoError(t, generate(relyingPartySuite, filepath.Join(root, "scenarios"), output))
 
 	data, err := os.ReadFile(output)
 	require.NoError(t, err)
@@ -82,6 +82,47 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	))
 	require.NoError(t, err)
 	require.Equal(t, committed, data, "generated aggregate pipeline is stale")
+}
+
+func TestGenerateAttestationProviderFCAFPipeline(t *testing.T) {
+	root := filepath.Join("..", "..", "config_templates", "fcaf")
+	output := filepath.Join(t.TempDir(), "complete.yaml")
+	require.NoError(t, generate(
+		attestationProviderSuite,
+		filepath.Join(root, attestationProviderSuite, "scenarios"),
+		output,
+	))
+
+	data, err := os.ReadFile(output)
+	require.NoError(t, err)
+	var definition pipelineDefinition
+	require.NoError(t, yaml.Unmarshal(data, &definition))
+	require.Equal(t, "FCAF wallet attestation-provider complete validation", definition.Name)
+	require.Equal(t, "onboard-reference-wallet", definition.Steps[0]["id"])
+
+	validation := definition.Steps[len(definition.Steps)-1]
+	require.Equal(t, validationTask, validation["use"])
+	with, ok := validation["with"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, attestationProviderSuite, with["suite"])
+	testIDs := stringSlice(with["test_ids"])
+	require.Len(t, testIDs, 59)
+	for _, id := range testIDs {
+		require.True(t, strings.HasPrefix(id, "WS_AP_"), id)
+	}
+	for _, step := range definition.Steps[1 : len(definition.Steps)-1] {
+		id, _ := step["id"].(string)
+		require.False(
+			t,
+			strings.HasPrefix(id, "fcaf-wallet-solution-attestation-provider-"),
+			"scenario step ids drop the suite file-name prefix: %s",
+			id,
+		)
+	}
+
+	committed, err := os.ReadFile(suitePipelinePath(root, attestationProviderSuite, "complete"))
+	require.NoError(t, err)
+	require.Equal(t, committed, data, "generated attestation-provider pipeline is stale")
 }
 
 func TestGenerateDemoFCAFPipeline(t *testing.T) {

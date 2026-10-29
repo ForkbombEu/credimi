@@ -46,6 +46,8 @@ export type PageSeo = {
 	noindex?: boolean;
 	article?: { publishedTime: string; modifiedTime: string; tags: string[] };
 	jsonLd?: JsonLd[];
+	/** Locales the page content exists in; omitted when the page is translated into all of them. */
+	locales?: string[];
 };
 
 /** A JSON-LD script tag; `<` is escaped so record data (names, descriptions) cannot close the element. */
@@ -83,6 +85,12 @@ export const staticPages = {
 		description:
 			'Organizations that publish EUDI wallets, credential issuers, verifiers and conformance pipelines on the Credimi Hub.',
 		image: ogImages.default
+	},
+	'/pages/guides': {
+		title: 'Guides: EUDI wallet conformance and interoperability testing',
+		description:
+			'Guides to testing EUDI wallets, credential issuers and verifiers: interoperability, FCAF conformance, OpenID4VCI and OpenID4VP, and eIDAS 2 readiness.',
+		image: ogImages.default
 	}
 } satisfies Record<string, PageSeo>;
 
@@ -110,22 +118,48 @@ export function absoluteUrl(pathOrUrl: string, origin: string): string {
 	return new URL(pathOrUrl, origin).toString();
 }
 
-/** Every locale variant of a path, keyed by hreflang, plus x-default. */
+/**
+ * The locale variants of a path that exist, keyed by hreflang, plus x-default. `available` lists the
+ * locales a page is written in (markdown guides exist in English only); the default is every locale,
+ * for pages whose interface is translated.
+ */
 export function localeAlternates(
 	path: string,
-	origin: string
+	origin: string,
+	available: readonly string[] = locales
 ): { hreflang: string; href: string }[] {
 	const basePath = deLocalizeHref(path);
 	return [
-		...locales.map((locale) => ({
-			hreflang: locale,
-			href: absoluteUrl(localizeHref(basePath, { locale }), origin)
-		})),
-		{
-			hreflang: 'x-default',
-			href: absoluteUrl(localizeHref(basePath, { locale: baseLocale }), origin)
-		}
+		...locales
+			.filter((locale) => available.includes(locale))
+			.map((locale) => ({ hreflang: locale, href: localeUrl(basePath, locale, origin) })),
+		{ hreflang: 'x-default', href: localeUrl(basePath, baseLocale, origin) }
 	];
+}
+
+/**
+ * Absolute URL of a path in a locale. `localizeHref('/')` gives `/it/`, which SvelteKit redirects
+ * to `/it` (308); hreflang must name the URL that answers 200, so the trailing slash is dropped.
+ */
+function localeUrl(basePath: string, locale: (typeof locales)[number], origin: string): string {
+	const href = localizeHref(basePath, { locale });
+	return absoluteUrl(href.length > 1 ? href.replace(/\/$/, '') : href, origin);
+}
+
+/**
+ * The canonical URL of a path shown in `locale`. A page that does not exist in that locale falls back
+ * to its base-locale text, so the base-locale URL is canonical and the fallback is not indexed as a
+ * translation.
+ */
+export function canonicalUrl(
+	path: string,
+	origin: string,
+	locale: string,
+	available: readonly string[] = locales
+): string {
+	return available.includes(locale)
+		? absoluteUrl(path, origin)
+		: localeUrl(deLocalizeHref(path), baseLocale, origin);
 }
 
 /** Plain text from stored HTML, cut at a word boundary: for meta descriptions and llms.txt. */

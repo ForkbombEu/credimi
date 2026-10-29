@@ -53,12 +53,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 		namespace := strings.TrimSpace(input.OrganizationID)
 		temporalClient, err := pipelineMobileFlowTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"failed to get temporal client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 
 		deviceID, device, apiErr := pipelineMobileFlowDevice(

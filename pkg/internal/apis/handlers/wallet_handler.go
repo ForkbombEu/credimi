@@ -163,12 +163,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 			orgName,
 		)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"failed to get temporal client",
-				err.Error(),
-			)
+			return temporalUnavailableError()
 		}
 		updateCtx, cancel := context.WithTimeout(e.Request.Context(), 60*time.Second)
 		defer cancel()

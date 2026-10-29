@@ -15,6 +15,8 @@ import { awaitTask, listChecks, type ListChecksError, type ListChecksOptions } f
 export type FCAFTestCatalogEntry = {
 	id: string;
 	title: string;
+	/** FCAF suite `<sut>/<role>`, as in the fcaf-validation step `suite`. */
+	suite: string;
 };
 
 /** Standard uid for FCAF rows in `conformance_checks`. */
@@ -33,7 +35,8 @@ export function fcafTestIdFromPath(path: string): string {
 export function toFcafCatalogEntry(record: ConformanceCheckRecord): FCAFTestCatalogEntry {
 	return {
 		id: fcafTestIdFromPath(record.path),
-		title: record.title
+		title: record.title,
+		suite: `${record.fs_version}/${record.suite}`
 	};
 }
 

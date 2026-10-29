@@ -12,11 +12,18 @@ vi.mock('$lib/query-client', () => ({
 const mockedTests = [
 	{
 		id: 'WS_RP_IA_Engagement__001',
-		title: 'Engagement'
+		title: 'Engagement',
+		suite: 'wallet_solution/relying_party'
 	},
 	{
 		id: 'WS_RP_SM_DeviceBinding__007',
-		title: 'Device binding'
+		title: 'Device binding',
+		suite: 'wallet_solution/relying_party'
+	},
+	{
+		id: 'WS_AP_IA_Supportive_010a',
+		title: 'Pushed Authorization Request endpoint',
+		suite: 'wallet_solution/attestation_provider'
 	}
 ];
 
@@ -114,6 +121,32 @@ describe('FCAF validation test selection', () => {
 
 		form.clearTestIds();
 		expect(form.selectedTestIds).toEqual([]);
+	});
+
+	it('offers only the tests of the configured suite', () => {
+		const form = new FCAFValidationStepForm(createInitFormOptions({ intent: 'add' }));
+
+		expect(form.suite).toBe('wallet_solution/relying_party');
+		expect(form.availableTests.map((test) => test.id)).not.toContain(
+			'WS_AP_IA_Supportive_010a'
+		);
+
+		form.data.yaml = 'suite: wallet_solution/attestation_provider\ntest_ids: []\n';
+		expect(form.suite).toBe('wallet_solution/attestation_provider');
+		expect(form.availableTests.map((test) => test.id)).toEqual(['WS_AP_IA_Supportive_010a']);
+	});
+
+	it('drops the previous suite test ids once the suite changes', () => {
+		const form = new FCAFValidationStepForm(createInitFormOptions({ intent: 'add' }));
+		form.setTestIds(['WS_RP_IA_Engagement__001']);
+
+		form.data.yaml = form.data.yaml.replace(
+			'suite: wallet_solution/relying_party',
+			'suite: wallet_solution/attestation_provider'
+		);
+		form.toggleTestId('WS_AP_IA_Supportive_010a');
+
+		expect(form.selectedTestIds).toEqual(['WS_AP_IA_Supportive_010a']);
 	});
 
 	it('applies full pipeline_outputs defaults when any tests are selected', () => {

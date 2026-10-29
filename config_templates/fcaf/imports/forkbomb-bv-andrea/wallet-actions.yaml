@@ -66,3 +66,7 @@ actions:
     category: verify-credential
     tags: fcaf, engagement, eu-eaap
     file: wallet/fcaf-engagement-eu-eaap.yaml
+  - name: fcaf-engage-credential-offer
+    category: get-credential-generic
+    tags: fcaf, engagement, credential
+    file: wallet/fcaf-engage-credential-offer.yaml

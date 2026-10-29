@@ -639,7 +639,7 @@ func TestSaveScoreboardResults(t *testing.T) {
 		require.Len(t, expandedData.Wallets, 1)
 		require.Equal(
 			t,
-			"https://credimi.test/api/files/wallets/"+publicWallet.Id+"/wallet-logo.png",
+			"https://credimi.test/api/files/wallets/"+publicWallet.Id+"/wallet-logo.png?thumb=100x100",
 			expandedData.Wallets[0].LogoURL,
 		)
 		require.Equal(t, publicWallet.Id, expandedData.Wallets[0].ID)

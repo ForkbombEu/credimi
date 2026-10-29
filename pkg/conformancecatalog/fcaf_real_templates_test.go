@@ -26,6 +26,11 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 		}
 	}
 	require.Greater(t, len(fcaf), 100, "expected hundreds of FCAF tests from config_templates")
+	standardByRole := map[string]string{
+		"relying_party":        "openid4vp",
+		"attestation_provider": "openid4vci",
+	}
+	roles := map[string]int{}
 	for _, ch := range fcaf {
 		require.True(t, strings.HasPrefix(ch.Path, "fcaf/"), ch.Path)
 		parts := strings.Split(ch.Path, "/")
@@ -39,13 +44,15 @@ func TestLoadFromDirIndexesRealFCAFTests(t *testing.T) {
 		require.NotEmpty(t, ch.Title)
 		require.Contains(t, ch.VisibleIn, SurfacePipeline)
 		require.Equal(t, "wallet_solution", ch.SUT, ch.Path)
-		require.Equal(t, "relying_party", ch.Role, ch.Path)
+		require.Equal(t, parts[2], ch.Role, "a test's role names its suite: %s", ch.Path)
 		require.Equal(t, "fcaf", ch.Provider, ch.Path)
 		require.Empty(t, ch.Protocol, ch.Path)
-		require.Equal(t, "openid4vp", ch.Standard, ch.Path)
+		require.Equal(t, standardByRole[ch.Role], ch.Standard, ch.Path)
 		require.Equal(t, "wallet", ch.Component, ch.Path)
 		require.Empty(t, ch.Version, ch.Path)
+		roles[ch.Role]++
 	}
+	require.Equal(t, 59, roles["attestation_provider"])
 
 	var fcafSuites []SuiteRecord
 	for _, s := range loaded.Suites {

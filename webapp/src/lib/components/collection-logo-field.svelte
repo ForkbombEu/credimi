@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		try {
 			const { logo } = z.object({ logo: z.string().optional() }).parse(initialData);
 			if (!logo) return undefined;
-			return pb.files.getURL({ collectionName, id: recordId }, logo);
+			return pb.files.getURL({ collectionName, id: recordId }, logo, { thumb: '100x100' });
 		} catch (e) {
 			console.error(e);
 			return undefined;

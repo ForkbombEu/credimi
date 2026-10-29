@@ -1,0 +1,46 @@
+id: WS_AP_IA_Engagement_007a
+title: Be invoked through a Credential Offer link with the haip-vci:// custom URL scheme.
+source:
+  path: Interaction/Engagement/WS_AP_IA_Engagement_007a.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: interaction.engagement
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: ETSI TS 119 472-3
+  section: '4.1'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4.2'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+evidence:
+  haip_vci_engagement:
+    from: pipeline.ap.offer-scheme-engagement.outputs.haip_vci_engagement
+  haip_vci_visual_evidence:
+    from: pipeline.ap.offer-scheme-engagement.outputs.haip_vci_visual_evidence
+assertions:
+# The User-agent shows the issuer page with the offer link; the End-user follows it.
+# Invocation is the Wallet screen replacing the page and the Wallet starting the issuance
+# with a PAR attributed to this session.
+# The source applies "if supported by Wallet": a Wallet the platform does not
+# invoke for haip-vci:// is not applicable, not failed.
+- id: user_agent_presents_the_offer_link
+  validator: evidence.screenshot_named
+  input: evidence.haip_vci_visual_evidence
+  params:
+    name: offer-link-presented
+- id: wallet_is_invoked
+  validator: oid4vci.offer_engagement
+  input: evidence.haip_vci_engagement
+  params:
+    scheme: haip-vci://
+    offer_present:
+    - credential_issuer
+    - credential_configuration_ids
+    when_not_invoked: not_applicable
+    expect_requests:
+    - /par
+verdict:
+  pass_when: all_assertions_pass

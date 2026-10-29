@@ -17,7 +17,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { organization, ...rest }: Props = $props();
 
-	let src = $derived(pb.files.getURL(organization, organization.logo ?? ''));
+	let src = $derived(
+		pb.files.getURL(organization, organization.logo ?? '', { thumb: '100x100' })
+	);
 	let fallback = $derived(organization.name.slice(0, 2));
 </script>
 

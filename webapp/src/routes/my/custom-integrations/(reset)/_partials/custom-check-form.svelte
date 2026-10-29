@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { PlusIcon, UploadIcon } from '@lucide/svelte';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
-	import { jsonStringSchema, stepciYamlSchema } from '$lib/utils';
+	import { jsonStringSchema, stepciYamlSchema } from '$lib/utils/schemas';
 	import { String } from 'effect';
 	import _ from 'lodash';
 	import { InputData, jsonInputForTargetLanguage, quicktype } from 'quicktype-core';
@@ -167,7 +167,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const originalLogoUrl = $derived.by(() => {
 		if (!record || !record.logo) return undefined;
-		return pb.files.getURL(record, record.logo);
+		return pb.files.getURL(record, record.logo, { thumb: '100x100' });
 	});
 
 	//

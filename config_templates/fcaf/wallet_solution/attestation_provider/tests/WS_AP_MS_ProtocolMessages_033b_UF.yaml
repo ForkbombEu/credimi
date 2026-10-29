@@ -1,0 +1,52 @@
+id: WS_AP_MS_ProtocolMessages_033b_UF
+title: Do not engage issuance for a Credential Offer without credential_issuer.
+source:
+  path: MessageStructure/ProtocolMessages/WS_AP_MS_ProtocolMessages_033b_UF.md
+suite:
+  sut: wallet_solution
+  role: attestation_provider
+  section: message_structure.protocol_messages
+applicability:
+  profile: EUDI_generic
+  issuance_flow: authorization_code
+normative_references:
+- title: ETSI TS 119 472-3
+  section: '4.1'
+- title: OpenID4VC High Assurance Interoperability Profile 1.0
+  section: '4.2'
+  url: https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html
+- title: OpenID for Verifiable Credential Issuance 1.0
+  section: '4.1.1, 12.2.2'
+  url: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html
+evidence:
+  offer_without_issuer_engagement:
+    from: pipeline.ap.credential-offer-by-value.outputs.offer_without_issuer_engagement
+  offer_without_issuer_visual_evidence:
+    from: pipeline.ap.credential-offer-by-value.outputs.offer_without_issuer_visual_evidence
+assertions:
+# The offer is engaged from the issuer's own page, so a Wallet deriving a metadata URL from
+# its origin or referrer reaches this host. Metadata requests carry no session: a /.well-known/
+# request to the issuer host in the session window may be another client's, so a match is
+# inconclusive and only its absence passes.
+# Precondition 2: a Wallet that is not invoked leaves the test blocked, never passed.
+- id: user_agent_presents_the_offer_link
+  validator: evidence.screenshot_named
+  input: evidence.offer_without_issuer_visual_evidence
+  params:
+    name: offer-link-presented
+- id: wallet_does_not_engage
+  validator: oid4vci.offer_engagement
+  input: evidence.offer_without_issuer_engagement
+  params:
+    scheme: eu-eaa-offer://
+    offer_present:
+    - credential_configuration_ids
+    offer_absent:
+    - credential_issuer
+    when_not_invoked: blocked
+    forbid_session_requests: true
+    forbid_unattributed:
+      path_prefixes:
+      - /.well-known/
+verdict:
+  pass_when: all_assertions_pass

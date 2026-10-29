@@ -99,12 +99,7 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 
 		temporalClient, err := pipelineLiveViewTemporalClient(namespace)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				"Could not reach the workflow engine. Try again in a moment.",
-			)
+			return temporalUnavailableError()
 		}
 
 		ctx := e.Request.Context()

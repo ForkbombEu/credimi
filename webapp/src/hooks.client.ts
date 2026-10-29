@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { version } from '$app/environment';
-import { Conformance, Pipeline } from '$lib';
+import * as ConformanceStore from '$lib/conformance/store.svelte.js';
+import * as DeviceCatalog from '$lib/pipeline/device/catalog.svelte.js';
 import { syncPushSubscriptionOwner } from '$lib/pipeline/web-push';
 
 import type { UsersResponse } from '@/pocketbase/types';
@@ -42,11 +43,13 @@ const authStoreUnsubscribe = pb.authStore.onChange(() => {
 	void syncPushSubscriptionOwner(user);
 });
 
-await Conformance.Standards.Store.load({ surface: 'pipeline' });
+// Not awaited: a top-level await here held back hydration of every page until the catalog
+// arrived. Its readers (scoreboard suite names) are reactive and update when it lands.
+ConformanceStore.load({ surface: 'pipeline' }).catch(console.error);
 
-Pipeline.Device.Catalog.init();
+DeviceCatalog.init();
 
 window.addEventListener('pagehide', () => {
 	authStoreUnsubscribe();
-	Pipeline.Device.Catalog.dispose();
+	DeviceCatalog.dispose();
 });
