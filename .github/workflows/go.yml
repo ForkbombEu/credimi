@@ -90,7 +90,7 @@ jobs:
           govulncheck -C . -format sarif ./... > govulncheck.sarif || true
 
       - name: Upload govulncheck SARIF
-        uses: github/codeql-action/upload-sarif@v4.39.0
+        uses: github/codeql-action/upload-sarif@v4.39.1
         with:
           sarif_file: govulncheck.sarif
 
@@ -145,7 +145,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
 
       - name: git config for credimi-extra
         env:
