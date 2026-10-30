@@ -51,7 +51,7 @@ flowchart LR
 Credimi Go steps (1–6) come before the runner steps (7–12). Step 13 removes the old Python code from credimi. Each step leaves its repo building and its tests passing.
 
 ### 1. credimi: base on the merged semaphore fixes
-- PR #1553 (queue wait timeout, graceful cancel of running tickets, early device tracking in `mobile_automation_hooks.go`) must already be on `main`.
+- PR #1553 (queue wait timeout, graceful cancel of running tickets, early device tracking in `mobile_automation_hooks.go`) must already be on `main`. On 30/10/2026 it is still open (review required); until it merges, follow the "#1553 not merged yet" contingency below.
 - Run `git fetch origin && git merge origin/main` on `feat/action-author-poc`, resolve conflicts, and run `make test`.
 - Steps 2–4 build on the post-#1553 `processStep` and `EnqueueRun` fields.
 
@@ -120,6 +120,7 @@ Create `pkg/workflowengine/authorsession/session.go`. No existing workflow pairs
   The input config carries the four `mobile_device_semaphore_*` keys, which `StartQueuedPipelineActivity` injects.
 - **Sequence:**
   1. Build `runData := map[string]any{"run_identifier": <own workflow ID>, "setted_devices": settedDevices}`, where `settedDevices := map[string]any{}`. Register **first** a `defer` that runs in a `workflow.NewDisconnectedContext`:
+     - for `ios_simulator` only, first execute the Python activity `action_author.release_device` on `<prepared.RunnerID>-ActionAuthor` (`{platform: "ios", template: <prepared.Serial>}`; `StartToClose 2m`, `MaximumAttempts 3`): it deletes every `credimi-action-author-<template>-*` clone. The child's own teardown does not run when the child is terminated (2h timeout, parent close), so the parent owns this cleanup; skip it when the device was never prepared, and log a failure without failing;
      - `pipeline.MobileAutomationCleanupHook(dctx, nil, &cleanupAO, input.Config, runData, &output)`; log any returned error and don't fail on it;
      - then `pipeline.ReportMobileDeviceSemaphoreDone(dctx, logger, input.Config, id, runID, result)`, where `result` is `"completed"` or `"failed"` (the values pipelines pass — confirm in `pipeline.go`).
 
@@ -231,8 +232,7 @@ In `pkg/internal/apis/handlers/action_author.go`:
   - `pkg/internal/actionauthor/installer.go` (`installerGrant`, `grantKey`, `issueGrant`, `Installer`, `OpenInstaller`, …);
   - the `GET /api/action-author/installer` route, handler and tests;
   - `Build.DownloadGrant` and `Build.InstallerName`, plus their assignments in `Resolve`;
-  - `RouteDefinition.ResponseContentType` (`pkg/internal/routing/routing.go:45`) and its use in `pkg/generate_client/generate_client.go` (`RouteInfo.ResponseContentType`, the content-type default in `addOperationResponses`). The installer route is its only user: confirm with `grep -rn ResponseContentType pkg`.
-- **Keep:** `ResponseStatus`, used by the `202`.
+- **Keep:** `ResponseStatus`, used by the `202`, and `RouteDefinition.ResponseContentType` with its generator support: it loses its only user, but `.agents/HITL.md` (29/10/2026, decision 2) keeps it as the pattern for binary endpoints. Ask before deleting it.
 - `Resolve` keeps returning `Platform` and `InstallerSHA256` from `installerDigest`, for provenance; `Save` keeps comparing them.
 
 ### 7. runner: move the Python agent into credimi-runner
@@ -273,8 +273,9 @@ Copy `credimi-2/agents/action-author/{src,tests,pyproject.toml,uv.lock,README.md
   - iOS: `agent-device close` on the current clone, delete it (`simctl shutdown` + `delete`), `simctl clone <template> <clone_prefix>-<n>`, boot, `bootstatus -b`, then poll `simctl get_app_container` (30 × 1 s) for the app; returns the new UDID. This is today's `IOSSimulatorDevice._new_clone`, with the template and current clone passed in instead of held by the device object.
 - **iOS template (`ios_prepare_template`, once per session).** The prepared device is the run's own clone `S` (`device.serial`), which the pipeline cleanup deletes at the end. The pipeline's post-install check launched the app once, so the activity restores a fresh install in `S` and turns it into the template: `simctl terminate S <app>` (ignore "not running"), `simctl uninstall S <app>`, `simctl install S <device.installer_path>`, `simctl keychain S reset`, `simctl get_app_container S <app>`, `simctl shutdown S`. The workflow stores `template = S`; clones are named `credimi-action-author-<S>-<n>`. `simctl clone` copies `S`'s data, so deleting `S` later does not affect a clone, and avdctl's cleanup deletes only `S` by UDID.
 - **iOS clone cleanup.** Pipeline cleanup deletes only `S`, never the agent's clones:
-  - the workflow's `@agent.teardown` runs `release_device` (`{platform, serial}`: on iOS delete the current clone; on Android nothing);
-  - when the worker starts, it deletes every simulator named `credimi-action-author-<UDID>-*` whose `<UDID>` no longer exists (its session ended). A live session whose clone is lost to a crash gets `the device is not ready` and calls `reset_app`, which clones `S` again.
+  - the workflow's `@agent.teardown` runs `release_device` (`{platform, template}`: on iOS delete the session's clones; on Android nothing), so a normal close frees the simulator at once;
+  - the parent session runs the same activity before pipeline cleanup (step 3), which also covers a terminated child;
+  - when the worker starts, it deletes every simulator named `credimi-action-author-<UDID>-*` whose `<UDID>` no longer exists (a worker killed mid-cleanup). A live session whose clone is lost to a crash gets `the device is not ready` and calls `reset_app`, which clones `S` again.
 - **Verify the build before each replay:** Android keeps `installed_digest` against `build.installer_sha256` (now through `adb` on the runner host); iOS checks that the new clone lists `device.package_id` (the reset's own poll). The pipeline installed exactly the resolved installer, so no download happens on the worker.
 - **Replays (`tools.submit_action`):** a failed static check or replay still uses the existing attempt budget. Run `REPLAY_RUNS` (2) times, sequentially:
   1. Execute the activity `reset_app` (local).
@@ -395,6 +396,7 @@ Add tests in the existing files: `config_test.go` (Registry coverage), `secret_m
   5. Keep a **Cancel** button while queued or starting: `DELETE /api/pipeline/queue/{ticket}?device_ids=...`.
   6. Clear the token once the chat opens. Don't persist it.
 - **Session list:** the `ui.py` closed-history augmentation (`WorkflowType='ActionAuthor'`) stays. The New-session redirect to `/start` stays.
+- **Save review card:** keep `save-review.js` as it is now: the Accept/Refuse card is a fixed overlay at the bottom right, outside the chat panel (commit `f3207466`; inside the chat's callback fold it was clipped or hidden with a narrow or closed panel).
 
 ### 13. credimi: remove the old Python agent
 Do this after steps 7–12 exist on the runner branch.
@@ -406,7 +408,8 @@ Do this after steps 7–12 exist on the runner branch.
   - the `Action author session` workflow;
   - the child `ActionAuthor` on `<runner_id>-ActionAuthor`;
   - the runner owns the Python agent in `credimi-runner/agent`;
-  - the platform follows the device type (`ios_simulator` → `ios`, with clone-per-reset on the runner host).
+  - the platform follows the device type (`ios_simulator` → `ios`, with clone-per-reset on the runner host);
+  - saved actions keep hidden `authoring_provenance`; Credimi exposes only `__agent_authored__` (enrich hook in `pkg/internal/pb/wallet_actions.go`), shown as the robot icon in the wallet dashboard.
 - Move the iOS rules of the local mode into `credimi-runner/agent/README.md` (the "iOS simulator" section) and close the HITL entry "Action author on iOS simulators" with a pointer to it.
 
 ## Critical files & anchors
@@ -434,6 +437,7 @@ Do this after steps 7–12 exist on the runner branch.
   - The session handler returns `403 runner_not_supported` (tenant runner), `403 runner_not_owned`, `503` (offline runner), and `202` with a ticket for an owner on an admin-managed runner.
   - The session handler derives `android` for `android_phone`/`android_emulator`/`redroid` and `ios` for `ios_simulator`, and returns `422 device_type_not_supported` for `ios_phone`; an iOS device with an Android-only version returns `400`.
   - `GET /api/action-author/devices` shows only admin-managed runners of orgs the caller owns, with each device's `platform`, and no `ios_phone`.
+  - The session workflow runs `action_author.release_device` before pipeline cleanup for `ios_simulator`, also when the child is terminated, and not for Android.
 - runner (`/home/filippo/forkbomb/credimi-runner`): `task lint && task test && task agent:test` (Go coverage above 85%). New Python tests (time-skipping environment with fake device activities registered under the runner names):
   - a replay sequence calls `reset_app` then `Run a mobile test flow` twice, on `<runner>-TaskQueue`;
   - a failing flow's `details.stdout` produces the failed command in the report;
@@ -464,7 +468,7 @@ Do this after steps 7–12 exist on the runner branch.
 **End to end, iOS** (native macOS runner, Xcode with an iOS runtime, Node.js; this Mac's base simulator `credimi`, shut down):
 1. Install the runner branch natively (`task build`, `credimi-runner tools install`), with `[[devices]] type = "ios_simulator"` and `[devices.ios_simulator] udid = "<credimi UDID>"`, and the same `[agent]` and credimi settings as Android. The runner log shows `action-author: … worker` ready.
 2. In `task agent:ui`, the device list shows the simulator as `iOS simulator`, and only versions with `ios` in `platforms` are offered (`forkbomb-bv-andrea/eudiw-beta-wallet/2026-10-43-demo` has both installers).
-3. **Expected:** queued/starting, then the chat opens; `xcrun simctl list devices` shows the run's clone `S` (shut down, the template) and one `credimi-action-author-<S>-<n>` clone booted. Ask `Write the onboarding action with PIN 123456`: both replays pass, each on a new clone; Accept saves an unpublished action with provenance `platform = ios`, `installer_sha256` and `replay_count = 2`; the session closes.
+3. **Expected:** queued/starting, then the chat opens; `xcrun simctl list devices` shows the run's clone `S` (shut down, the template) and one `credimi-action-author-<S>-<n>` clone booted. Ask `Write the onboarding action with PIN 123456`: both replays pass, each on a new clone; the Accept/Refuse card appears at the bottom right; Accept saves an unpublished action with provenance `platform = ios`, `installer_sha256` and `replay_count = 2`, and the wallet dashboard shows it with the robot icon; the session closes.
 4. After the session: no `credimi-action-author-*` clone and no `S` remain (agent teardown, then pipeline cleanup), `credimi` is still shut down, and `GET /api/pipeline/queue/{ticket}` is no longer `running`.
 5. Kill the agent process during a session: the runner restarts it, the chat continues, and the next device tool reports `the device is not ready` until `reset_app` clones `S` again.
 
