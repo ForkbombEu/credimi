@@ -2,6 +2,7 @@ appId: eu.europa.ec.euidi
 name: FCAF engagement - EU EAAP custom URL scheme
 tags:
   - fcaf
+  - ws_rp
   - engagement
   - eu-eaap
 ---

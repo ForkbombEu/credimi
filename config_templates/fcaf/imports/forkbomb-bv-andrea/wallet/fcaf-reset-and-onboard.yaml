@@ -2,6 +2,7 @@ appId: eu.europa.ec.euidi
 name: FCAF reset and onboard the wallet - clear state and set the PIN
 tags:
   - fcaf
+  - ws_rp
   - helper
   - reset
   - onboarding

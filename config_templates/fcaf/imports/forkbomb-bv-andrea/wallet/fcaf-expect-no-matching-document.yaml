@@ -2,6 +2,7 @@ appId: eu.europa.ec.euidi
 name: FCAF expect no matching document in the wallet
 tags:
   - fcaf
+  - ws_rp
   - expect
   - no-match
 ---

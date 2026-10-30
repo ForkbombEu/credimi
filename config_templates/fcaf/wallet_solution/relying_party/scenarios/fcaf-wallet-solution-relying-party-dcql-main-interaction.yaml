@@ -533,53 +533,9 @@ steps:
     - id: main-interaction-039-present-two-credentials
       use: mobile-automation
       with:
-        action_code: |
-            appId: eu.europa.ec.euidi
-            ---
-            # Same unlock and share sequence as fcaf-submit-request-object-by-value,
-            # plus the check that both requested credentials are listed.
-            - stopApp
-            - openLink:
-                link: "${DEEPLINK}"
-                autoVerify: false
-                browser: false
-            - waitForAnimationToEnd:
-                timeout: 5000
-            - extendedWaitUntil:
-                visible: "Welcome back|Share|Cancel|Close"
-                timeout: 100000
-            - waitForAnimationToEnd:
-                timeout: 3000
-            - runFlow:
-                when:
-                  visible: "Welcome back"
-                commands:
-                  - extendedWaitUntil:
-                      visible: "1"
-                      timeout: 30000
-                  - inputText: "12345"
-                  - tapOn: "6"
-            - extendedWaitUntil:
-                visible: "Data sharing request"
-                timeout: 100000
-            - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-            - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
-            - takeScreenshot: fcaf-main-interaction-039-two-credentials
-            - tapOn:
-                text: "Share"
-                enabled: true
-            - extendedWaitUntil:
-                visible: "1"
-                timeout: 30000
-            - inputText: "12345"
-            - tapOn: "6"
-            - extendedWaitUntil:
-                visible: ".*successfully shared.*"
-                timeout: 30000
-            - takeScreenshot: fcaf-main-interaction-039-shared
-            - tapOn: "Close"
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-present-two-credentials
         parameters:
-            DEEPLINK: ${{ main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
+            deeplink: ${{ main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - id: main-interaction-039-fetch-two-credentials-result
       use: http-request

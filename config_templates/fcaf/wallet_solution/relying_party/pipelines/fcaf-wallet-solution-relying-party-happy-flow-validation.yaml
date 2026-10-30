@@ -1192,53 +1192,9 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session.outputs.body.deeplink }}
-            - code: |
-                appId: eu.europa.ec.euidi
-                ---
-                # Same unlock and share sequence as fcaf-submit-request-object-by-value,
-                # plus the check that both requested credentials are listed.
-                - stopApp
-                - openLink:
-                    link: "${DEEPLINK}"
-                    autoVerify: false
-                    browser: false
-                - waitForAnimationToEnd:
-                    timeout: 5000
-                - extendedWaitUntil:
-                    visible: "Welcome back|Share|Cancel|Close"
-                    timeout: 100000
-                - waitForAnimationToEnd:
-                    timeout: 3000
-                - runFlow:
-                    when:
-                      visible: "Welcome back"
-                    commands:
-                      - extendedWaitUntil:
-                          visible: "1"
-                          timeout: 30000
-                      - inputText: "12345"
-                      - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: "Data sharing request"
-                    timeout: 100000
-                - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_0 }
-                - assertVisible: { id: eu.europa.ec.euidi:id/request_screen_requested_document_1 }
-                - takeScreenshot: fcaf-main-interaction-039-two-credentials
-                - tapOn:
-                    text: "Share"
-                    enabled: true
-                - extendedWaitUntil:
-                    visible: "1"
-                    timeout: 30000
-                - inputText: "12345"
-                - tapOn: "6"
-                - extendedWaitUntil:
-                    visible: ".*successfully shared.*"
-                    timeout: 30000
-                - takeScreenshot: fcaf-main-interaction-039-shared
-                - tapOn: "Close"
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-present-two-credentials
               parameters:
-                DEEPLINK: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
+                deeplink: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-fetch-two-credentials-result

@@ -10,6 +10,12 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Relying-party stored wallet actions, 30/10/2026
+
+Extracted 26 inline `action_code` occurrences across 22 relying-party scenarios into 25 reusable actions under `config_templates/fcaf/imports/forkbomb-bv-andrea/wallet/`; the two identical invalid-DCQL flows share `fcaf-reject-invalid-dcql`. Replaced every inline occurrence with a stored `action_id`, registered the new actions in `wallet-actions.yaml`, and added `ws_rp` to all 37 actions referenced by the regenerated relying-party pipelines, in both the manifest and Maestro headers.
+
+Validation: `make fcaf-generate`; `go test ./cmd/fcaf-pipeline-gen ./pkg/fcaf/... ./pkg/internal/pipeline`; `pre-commit run check-yaml`; comparison of every extracted flow body with its original inline block confirmed no Maestro command changes beyond the intentional `DEEPLINK`/`DEEPLINK_*` to `deeplink`/`deeplink_*` normalization and quoting two ID selectors for standalone YAML validity; generated-pipeline checks found no inline or embedded Maestro code, no uppercase deeplink parameters, and no missing registrations or tags. `git diff --check` passed. No emulator run was needed because each parameter and its Maestro references were renamed in lockstep with no command changes. No next test candidate is associated with this refactor.
+
 ## Reference wallet 2026.09.42-Demo (verified 25/09/2026)
 
 The Maestro actions were re-verified on `eu.europa.ec.euidi` 2026.09.42 build 42

@@ -2,6 +2,7 @@ appId: com.android.chrome
 name: FCAF DC API expect the Wallet to refuse the request
 tags:
   - fcaf
+  - ws_rp
   - dc-api
   - expect
   - rejected
