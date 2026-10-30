@@ -266,7 +266,7 @@ func acceptedRequest(request BuildRequest, digest string) SaveRequest {
 	}
 }
 
-func TestAuthoringSaveIsUnpublishedIdempotentAndCompareAndSwap(t *testing.T) {
+func TestAuthoringSaveIsUnpublishedIdempotentAndNeverReplaces(t *testing.T) {
 	app, request, namespace := authoringFixture(t)
 	build, err := Resolve(app, namespace, request)
 	require.NoError(t, err)
@@ -282,20 +282,23 @@ func TestAuthoringSaveIsUnpublishedIdempotentAndCompareAndSwap(t *testing.T) {
 	retried, err := Save(app, namespace, "workflow", "run", in)
 	require.NoError(t, err)
 	assert.Equal(t, receipt.RecordID, retried.RecordID)
+	// Another run, or a changed candidate, never replaces the existing action
+	// and does not reveal its id or code.
 	_, err = Save(app, namespace, "another-workflow", "another-run", in)
 	require.ErrorIs(t, err, ErrConflict)
-
-	in.ReplaceActionID = receipt.RecordID
-	in.ExpectedExistingSHA256 = in.CandidateSHA256
-	in.Code += "# reviewed replacement\n"
-	in.CandidateSHA256 = CodeSHA256(in.Code)
-	replacement, err := Save(app, namespace, "replacement-workflow", "replacement-run", in)
-	require.NoError(t, err)
-	assert.Equal(t, receipt.RecordID, replacement.RecordID)
-	assert.False(t, replacement.Published)
-	_, err = Save(app, namespace, "stale-workflow", "stale-run", in)
+	assert.NotContains(t, err.Error(), receipt.RecordID)
+	assert.NotContains(t, err.Error(), in.CandidateSHA256)
+	changed := in
+	changed.Code += "# reviewed replacement\n"
+	changed.CandidateSHA256 = CodeSHA256(changed.Code)
+	_, err = Save(app, namespace, "workflow", "run", changed)
 	require.ErrorIs(t, err, ErrConflict)
-	in.ExpectedExistingSHA256 = in.CandidateSHA256
+	assert.ErrorContains(t, err, "an action with this name already exists")
+	record, err = app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	assert.Equal(t, in.Code, record.GetString("code"))
+
+	in.Name = "Another onboarding"
 	in.InstallerSHA256 = strings.Repeat("0", 64)
 	_, err = Save(app, namespace, "new-workflow", "new-run", in)
 	require.ErrorIs(t, err, ErrConflict)
@@ -349,7 +352,7 @@ func TestAuthoringSaveRejectsUnreplayedOrChangedCandidate(t *testing.T) {
 		func(in *SaveRequest) { in.ReplayCount = 1 },
 		func(in *SaveRequest) { in.Code += "# not approved\n" },
 		func(in *SaveRequest) { in.PackageID = "org.wrong.wallet" },
-		func(in *SaveRequest) { in.ReplaceActionID = "unconfirmed" },
+		func(in *SaveRequest) { in.Name = " " },
 	} {
 		in := acceptedRequest(request, build.InstallerSHA256)
 		mutate(&in)

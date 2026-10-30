@@ -290,18 +290,16 @@ func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 	}, nil
 }
 
-// SaveRequest carries the trusted workflow's accepted candidate and replacement precondition.
+// SaveRequest carries the trusted workflow's accepted candidate.
 type SaveRequest struct {
 	BuildRequest
-	Name                   string `json:"name"`
-	Code                   string `json:"code"`
-	CandidateSHA256        string `json:"candidate_sha256"`
-	InstallerSHA256        string `json:"installer_sha256"`
-	PackageID              string `json:"package_id"`
-	Slot                   string `json:"slot"`
-	ReplaceActionID        string `json:"replace_action_id"`
-	ExpectedExistingSHA256 string `json:"expected_existing_sha256"`
-	ReplayCount            int    `json:"replay_count"`
+	Name            string `json:"name"`
+	Code            string `json:"code"`
+	CandidateSHA256 string `json:"candidate_sha256"`
+	InstallerSHA256 string `json:"installer_sha256"`
+	PackageID       string `json:"package_id"`
+	Slot            string `json:"slot"`
+	ReplayCount     int    `json:"replay_count"`
 }
 
 // Provenance identifies the exact build and workflow that validated an action.
@@ -334,9 +332,8 @@ func CodeSHA256(code string) string {
 
 func validateAcceptedAction(in *SaveRequest) error {
 	if strings.TrimSpace(in.Name) == "" || in.Slot != "onboarding" || in.ReplayCount != 2 ||
-		in.CandidateSHA256 != CodeSHA256(in.Code) || in.PackageID == "" ||
-		(in.ReplaceActionID == "") != (in.ExpectedExistingSHA256 == "") {
-		return fmt.Errorf("%w: missing accepted candidate or replacement confirmation", ErrInvalid)
+		in.CandidateSHA256 != CodeSHA256(in.Code) || in.PackageID == "" {
+		return fmt.Errorf("%w: missing accepted candidate", ErrInvalid)
 	}
 	decoder := yaml.NewDecoder(strings.NewReader(in.Code))
 	var header struct {
@@ -348,7 +345,9 @@ func validateAcceptedAction(in *SaveRequest) error {
 	return nil
 }
 
-// Save performs the compare-and-swap and provenance write in one transaction.
+// Save creates the accepted action and its provenance in one transaction. It
+// never replaces an existing action: a name already in use by the wallet is a
+// conflict, except for a retry of the same workflow run that wrote it.
 // The caller is the trusted workflow's explicit human-confirmation handler.
 func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Receipt, error) {
 	var receipt Receipt
@@ -387,49 +386,26 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 		if current.Version.Id != selection.Version.Id || current.Installer() != installer {
 			return fmt.Errorf("%w: selected version changed", ErrConflict)
 		}
-		var record *core.Record
-		if in.ReplaceActionID != "" {
-			record, err = tx.FindRecordById("wallet_actions", in.ReplaceActionID)
-		} else {
-			record, err = tx.FindFirstRecordByFilter(
-				"wallet_actions",
-				"owner = {:owner} && wallet = {:wallet} && name = {:name}",
-				dbx.Params{
-					"owner":  current.Organization.Id,
-					"wallet": current.Wallet.Id,
-					"name":   in.Name,
-				},
-			)
-		}
+		record, err := tx.FindFirstRecordByFilter(
+			"wallet_actions",
+			"owner = {:owner} && wallet = {:wallet} && name = {:name}",
+			dbx.Params{
+				"owner":  current.Organization.Id,
+				"wallet": current.Wallet.Id,
+				"name":   in.Name,
+			},
+		)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("find wallet action: %w", err)
 		}
-		created := record == nil
-		if created {
-			if in.ReplaceActionID != "" {
-				return fmt.Errorf("%w: replacement action no longer exists", ErrConflict)
-			}
-			collection, err := tx.FindCollectionByNameOrId("wallet_actions")
-			if err != nil {
-				return fmt.Errorf("find wallet actions collection: %w", err)
-			}
-			record = core.NewRecord(collection)
-			record.Set("owner", current.Organization.Id)
-			record.Set("wallet", current.Wallet.Id)
-			record.Set("published", false)
-		} else {
-			if record.GetString("owner") != current.Organization.Id ||
-				record.GetString("wallet") != current.Wallet.Id {
-				return ErrForbidden
-			}
-			existingSHA256 := CodeSHA256(record.GetString("code"))
+		if record != nil {
 			var previous Provenance
 			// A retried save of this workflow run finds its own write and returns it.
 			if json.Unmarshal([]byte(record.GetString("authoring_provenance")), &previous) == nil &&
 				previous.WorkflowID == workflowID && previous.RunID == runID &&
 				previous.YAMLSHA256 == in.CandidateSHA256 && previous.Platform == in.Platform &&
 				previous.InstallerSHA256 == in.InstallerSHA256 &&
-				record.GetString("name") == in.Name && existingSHA256 == in.CandidateSHA256 {
+				CodeSHA256(record.GetString("code")) == in.CandidateSHA256 {
 				receipt = Receipt{
 					RecordID:   record.Id,
 					Name:       record.GetString("name"),
@@ -438,15 +414,16 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 				}
 				return nil
 			}
-			if in.ReplaceActionID == "" || existingSHA256 != in.ExpectedExistingSHA256 {
-				return fmt.Errorf(
-					"%w: action %s has code SHA256 %s; explicit replacement confirmation required",
-					ErrConflict,
-					record.Id,
-					existingSHA256,
-				)
-			}
+			return fmt.Errorf("%w: an action with this name already exists", ErrConflict)
 		}
+		collection, err := tx.FindCollectionByNameOrId("wallet_actions")
+		if err != nil {
+			return fmt.Errorf("find wallet actions collection: %w", err)
+		}
+		record = core.NewRecord(collection)
+		record.Set("owner", current.Organization.Id)
+		record.Set("wallet", current.Wallet.Id)
+		record.Set("published", false)
 		record.Set("name", in.Name)
 		record.Set("code", in.Code)
 		record.Set("category", "onboarding")
@@ -457,7 +434,7 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 		receipt = Receipt{
 			RecordID:   record.Id,
 			Name:       record.GetString("name"),
-			Created:    created,
+			Created:    true,
 			Published:  record.GetBool("published"),
 			Provenance: provenance,
 		}
