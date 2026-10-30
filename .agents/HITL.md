@@ -597,3 +597,167 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (a) assume an idle deployment and say so in the result (former implementation); (b) report inconclusive when a forbidden path matches an unattributed request; (c) a dedicated Capture deployment for these runs.
 - default risk: (a) another client's metadata fetch or `/authorize` within the window fails a conforming Wallet; (b) a Wallet that does send the forbidden request is reported inconclusive, never failed, by these two checks; (c) needs a separate deployment.
 - decision: (b). A forbidden request attributed to the session still fails; a match among unattributed requests reports inconclusive, and no match passes (`unattributedMatch` in `pkg/fcaf/validators/oid4vci_ws_ap.go`).
+
+### 2026-10-27 - Action author model provider for local first tests
+
+- status: resolved (user decision 27/10/2026)
+- owner: human maintainer
+- context: phase 0 still needs a real-model authoring run, but no separate Anthropic API key is available; the user has a ChatGPT/Codex subscription and approved local-only testing.
+- question: May the action-author worker use OpenAI's documented ChatGPT-plan OAuth and Responses API for local tests?
+- options considered: (a) worker-side ChatGPT OAuth provider using the existing harness Responses activities; (b) a Codex CLI subprocess; (c) reuse Codex's cached credentials; (d) defer until an API key is available.
+- default risk: (b) replaces the harness-owned model/tool loop; (c) mixes client registrations and token refresh ownership; (d) leaves phase 0 unproven. The selected flow is restricted to local/open-source use and requires streamed Responses; tools use `additional_tools` developer inputs to preserve the harness's bare-name tool identities.
+- decision: (a), local only. No production/hosted multi-user authorization is implied; usage and cost evaluation remain deferred until the implementation is stronger.
+
+### 2026-10-28 - Action author phase 1: authenticated organization binding
+
+- status: resolved (user selected authenticated Credimi start on 28/10/2026)
+- owner: human maintainer
+- context: phase 0 authoring/replay has passed and the harness is upgraded to 0.8.0. The user requested warning cleanup followed by phase 1. The original proposal specifies Credimi wallet-version/APK selection and approval-gated, owner-scoped Go persistence; it does not define how the local harness session acquires a trusted organization. The current local worker uses the `default` namespace.
+- question: Should phase 1 add an authenticated Credimi session-start endpoint and use the caller's authorized organization namespace, retaining the harness UI for review and approval, or remain a local single-user API-key bridge?
+- options considered: (a) authenticated Credimi start endpoint, organization namespace, Go activities holding `core.App` for owner-scoped resolution and persistence (recommended; requires a new API contract and namespace integration); (b) local Python activities calling the existing PocketBase API with a worker-held user API key (no new API/namespace change, but departs from the proposed Go persistence boundary and is not a hosted multi-user design).
+- default risk: accepting a model- or client-supplied owner in the unauthenticated local harness could authorize writes to the wrong organization. Neither an internal-admin key nor a model-selected owner is a safe substitute for caller authorization.
+- phase 1 invariants: selected existing wallet version and APK provenance; literal supplied test PIN in accepted YAML; two successful clean-state replays before saving; human approval of the exact accepted YAML; unpublished creation; explicit approval before replacement. Runner reservation/execution/final cleanup remain phase 2, and embedded Credimi chat remains phase 3.
+- decision: (a). Authenticated `POST /api/action-author/sessions` derives the actor and authorized organization from Credimi; Python workers and the review UI use that organization namespace. Go `core.App` activities resolve the existing wallet version and save only the human-confirmed, twice-replayed candidate. The local harness rejects direct session creation. Short-lived, build-bound installer grants avoid giving the Python worker a Credimi API key.
+- persistence: new actions are unpublished; replacing an existing action requires its record ID and current code SHA256. Hidden provenance binds the build, APK, candidate and workflow/run; native code edits invalidate it. PocketBase strips non-superuser writes to hidden fields before request hooks, so a native update can answer 200 without changing provenance.
+- verification: isolated Credimi/Temporal/UI smoke exercised a real APK download and metadata inspection, simulated installation and two replays, then human-only saving and browser reload. Physical-device execution was not repeated. Runner lifecycle and cleanup are intentionally unchanged.
+
+### 2026-10-28 - Action author phase 1 validation: existing x/net vulnerability
+
+- status: resolved (user approved the security upgrade on 28/10/2026; `make lint` passes)
+- owner: human maintainer
+- context: phase 1's full Go tests pass, but `make lint` stops at govulncheck on GO-2026-6860 in the unchanged `golang.org/x/net v0.60.0`; the reported call path is `activities.extractOutputRules` → `html.Parse`. The advisory identifies `v0.62.0` as fixed.
+- question: Should the public dependency upgrade be a separate maintenance change or explicitly included in the action-author branch?
+- options considered: (a) upgrade and validate x/net separately; (b) extend this branch with the upgrade. Do not suppress the advisory or change the HTTP activity merely to bypass the check.
+- default risk: the existing HTML parser has an availability vulnerability; phase 1 must not be described as having a green aggregate lint gate until it is resolved.
+- decision: (b). Upgrade `golang.org/x/net` to `v0.62.0` and the related x/* versions required by its module graph. Preserve Forkbomb dependencies. Module hygiene, module verification, vet, reachable-code vulnerability scanning and golangci-lint all pass after the upgrade.
+
+### 2026-10-29 - Action author code review: open conventions and deferred findings
+
+- status: resolved (user decisions 29/10/2026)
+- owner: human maintainer
+- context: a full review of `agents/action-author` and the branch's Go code fixed the bugs listed in the review report. The items below are conventions without a documented rule, or findings deliberately left unfixed.
+- questions:
+  1. Temporal-client failures in handlers: `POST /api/action-author/sessions` answers `503 temporal_unavailable`, `conformance_check_handlers` answers `500`. Which is the repository convention?
+  2. Binary responses in route definitions: the installer route is the first user of `ResponseContentType` with an empty `ResponseSchema`. Is that the pattern for future binary endpoints?
+  3. Installer grants are signed with a key derived from the `users` auth-token secret, so rotating it invalidates outstanding (10-minute) grants, and a grant may be used any number of times within its lifetime. Is that acceptable, or should grants be single-use (server-side state)?
+  4. The model's requested action name is kept for the session until another `set_target` names a new one. Should a target change without a name reset it to `Onboarding`?
+  5. `maestro_inspect_screen` can run before `set_target`, although device operations are otherwise refused until a target is chosen. Enforcing it needs a new workflow patch id.
+  6. The harness publishes tool inputs (`set_target` parameters, `fill` text) unmasked to the event stream; masking them needs an upstream harness change.
+  7. Anthropic replies truncated by `max_tokens`/`pause_turn` raise before usage reaches the per-message token budget, so those tokens are not counted.
+  8. Should the README's historical prose (version-upgrade notes, dated acceptance narratives) move to a changelog?
+- options considered: keep current behaviour (default) or change per item; none is a regression introduced by the review.
+- default risk: items 3 and 6 are the only security-relevant ones; both are limited to the local loopback authoring setup and a dedicated test PIN.
+- decisions:
+  1. `503`, domain `temporal`, reason `temporal_unavailable`, is the convention whenever a Credimi route-group handler cannot reach Temporal. Existing endpoints moved to the shared `temporalUnavailableError()` in #1551; the action-author session endpoint uses it too, and AGENTS.md documents the rule.
+  2. Keep `ResponseContentType` with an empty `ResponseSchema` as the pattern for binary responses.
+  3. Keep reusable 10-minute grants signed from the `users` token secret; revisit single-use grants when runners download from machines outside local control.
+  4. Keep the requested name for the whole session.
+  5. Fixed: `maestro_inspect_screen` refuses to run before `set_target`, behind patch id `action-author-inspect-requires-target-v1`.
+  6. Accepted: Credimi test PINs (typically `123456`) are not secrets, so unmasked tool inputs in the harness stream are acceptable. Masking was removed entirely.
+  7. Fixed: a Claude reply truncated by `max_tokens`/`pause_turn` becomes a normal reply without its unfinished tool call, so its tokens count toward the budget and the turn's completed work is retained; `Continue` resumes.
+  8. Done: historical README prose moved to `agents/action-author/CHANGELOG.md`.
+
+### 2026-10-29 - Action author on iOS simulators (local Mac mode)
+
+- status: closed (30/10/2026): the local mode is deleted (plan step 13); its iOS rules, adapted to runner devices, live in `credimi-runner/agent/README.md`, section "iOS simulator". Items 4 and 5 are superseded there: the device type decides the platform, and the reset's app poll checks the clone.
+- owner: human maintainer
+- context: the local action author drove only adb phones. The user asked for the same agent on iOS simulators, before the runner plan (`ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`), keeping agent-device for exploration. A spike on a clone of the Mac's `credimi` simulator showed agent-device (0.21.32) and Maestro (2.11/2.12) driving one simulator at once, `simctl clone`+boot in about 11 s, the first Maestro run on a fresh clone in about 37 s, and that Maestro's `back` is a no-op on iOS.
+- decisions:
+  1. `ios_installer` is a zipped simulator `.app` (user). The worker extracts it with `ditto` and accepts exactly one `.app`, at the top level or under `Payload/`, like the runner's `unzipIOSAppIfNeeded`.
+  2. Reset by simulator clone, as pipelines do (user): no new `credimi-extra` activity. The worker clones the base simulator into a session template with the app installed, and every reset or replay boots a fresh clone of the template.
+  3. Provenance and the build contract name the installer (user): `apk_sha256` became `installer_sha256`, plus `platform`. No migration: `authoring_provenance` is JSON and the branch is unmerged.
+  4. Agent decision: `POST /api/action-author/sessions` requires `platform` (`android`|`ios`), chosen on the start page; the worker refuses a session for the other platform before resolving the build. Alternative: infer the platform from the worker, which Credimi cannot see at start.
+  5. Agent decision: on iOS the build check binds the template to the bundle ID and zip digest the worker installed and checks the clone still has the bundle; an installed `.app` cannot be hashed back to the zip, unlike Android's APK SHA256.
+- default risk: agent-device has no iOS device allowlist, so iOS pinning relies only on the wrapper overwriting `udid`. Clones of a killed worker are removed at the next worker start, not before.
+- verification (29/10/2026): worker on the Mac (iOS 26.5 clone of `credimi`) against local Credimi and Temporal through an SSH tunnel, version `forkbomb-bv-andrea/eudiw-beta-wallet/2026-10-43-demo`, Claude `claude-sonnet-5-5`. agent-device explored the onboarding, the first submission passed both replays (48.2 s, 39.3 s), and Accept saved unpublished action `7ouelbtgpwgd5kn` with provenance `platform: ios`. The worker deleted its template and clone on stop.
+- follow-up: the runners plan (`ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`, implemented and removed; see git history) covered both platforms on runners (device type decides the platform; the run's clone becomes the template; agent source embedded in the runner binary for native macOS).
+
+### 2026-10-30 - Action author on runners: plan details resolved from code
+
+- status: open (agent defaults applied; human may revisit)
+- owner: human maintainer
+- context: steps 2-6 of the runners plan (`ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`, removed after implementation; see git history), done while PR #1553 is still open (plan contingency: no `WaitTimeoutSeconds`, no early device tracking). Some plan details disagree with the code they reference.
+- questions and options considered:
+  1. The plan has `processStep` call `PrepareMobileDevice`, which fails without an installed package (`missing installed package for <version>`). Pipelines with `version_id: installed_from_external_source` install nothing, so that check would fail them, and `processStep` publishes `setted_devices` to run data between the device setup and the install, which decides whether a failed install is cleaned. Options: (a) `processStep` and `PrepareMobileDevice` share an unexported core with a tracking callback, and only `PrepareMobileDevice` adds the package and iOS installer-path checks; (b) apply the checks to pipelines too.
+  2. The plan names the session results `"completed"`/`"failed"`; pipelines report `success`/`failed`/`canceled` (`pipeline.go`). Options: reuse the pipeline values, or add new ones the semaphore never saw.
+  3. The plan says to map queue-limit errors of `POST /api/action-author/sessions` "the way `enqueuePipelineRun` does (`isQueueLimitExceeded`, `429`)", but `enqueuePipelineRun` answers `409`, domain `queue_limit`, reason `queue limit exceeded`. Options: `409` like the queue endpoint, or `429` as written.
+  4. The plan does not say how other enqueue failures answer. Options: keep the endpoint's existing `503 start_failed` (`cannot start authoring session`) and cancel the ticket best-effort, as `enqueuePipelineRun` rolls back ambiguous failures; or a new reason.
+  5. The `mobile_devices.type` select does not list `ios_phone`, which the plan rejects with `422 device_type_not_supported`. Options: keep the check for records written without validation or a future type value, or drop it.
+- default risk: (1b) and new result values would change pipeline behavior or semaphore history; a different queue-limit status splits one semaphore condition across two codes for the same clients.
+- decisions (agent defaults):
+  1. (a): pipeline behavior and history are unchanged; the session path keeps the plan's checks.
+  2. Pipeline values: `success` when the agent ended in any way, `failed` when setup failed, `canceled` when the session was canceled.
+  3. `409` with the queue endpoint's exact error, so one semaphore condition has one answer.
+  4. `503 start_failed` plus a best-effort `CancelRun` of the ticket, so an enqueue that timed out does not hold the device for a session nobody watches.
+  5. Keep the check (tested with a record saved without validation); `GET /api/action-author/devices` also skips unsupported types.
+- follow-up: when #1553 merges, move its early tracking into the shared core (plan contingency). The installer grant is deleted (plan step 6), so decision 3 of the 29/10/2026 code-review entry no longer applies; `RouteDefinition.ResponseContentType` stays without a user, per decision 2 of that entry.
+
+### 2026-10-30 - Action author review fixes: save caller contract and start-endpoint answers
+
+- status: open (agent defaults applied; human may revisit)
+- owner: human maintainer
+- context: fixes of the security, Credimi and runner reviews of the action author on runners, before end-to-end testing.
+- questions and options considered:
+  1. How the `Save authored wallet action` activity trusts its caller. Options: trust the payload's actor and build (any workflow of the namespace could save as anyone); or accept only the `ActionAuthor` child (`ActionAuthorSession-<ticket>-author`) of a running `Action author session` of the same namespace and take actor, version and platform from the session's start input.
+  2. How a save answers an existing action with the same name. Options: the explicit replacement precondition (`replace_action_id`, `expected_existing_sha256`), which the harness callback path never used; or a conflict that names neither the action id nor its code SHA256.
+  3. How `POST /api/action-author/sessions` answers a device whose runner is `disabled`. Options: a new `403 runner_disabled`; or the existing offline answer (`503`, domain `device_id`, reason `device runner is offline`).
+  4. How it answers a device of an organization the caller does not own. Options: `403 runner_not_owned` after the type check (reveals existence and type); or `404 device_not_found` before any device detail.
+- default risk: (1) costs two `DescribeWorkflowExecution` calls and one history read per save; a Temporal lookup failure is retried, a non-matching caller is a non-retryable `CRE234`. (3) a disabled runner looks unreachable rather than administratively disabled.
+- decisions (agent defaults):
+  1. The session contract; a payload value that differs from the session's is `CRE234`, an omitted one is filled from the session.
+  2. Conflict without id or hash; actions are never replaced by the authoring path, and a retry of the same workflow run still returns its own record.
+  3. The offline `503`: the device list hides disabled runners, `mobilerunner.RecentlyAlive` and the worker start already treat a disabled runner as offline, so one condition keeps one answer.
+  4. `404 device_not_found`, the same answer as an unknown device; superusers see every runner and still get `403 runner_not_owned` when the runner and the wallet belong to different organizations.
+- follow-up: the iOS `release_device` activity has a 30 s schedule-to-start timeout, so a runner without the agent worker no longer blocks cleanup and RunDone.
+
+### 2026-10-30 - Action author chat UI back in credimi, namespace bound at runtime
+
+- status: open (user decisions applied; human may revisit)
+- owner: human maintainer
+- context: the harness chat UI lived in `credimi-runner/agent` and needed `TEMPORAL_NAMESPACE` and `ACTION_AUTHOR_TASK_QUEUE` of one runner, while its start page offered devices of every runner. It moved to `agents/action-author-ui` (`make action-author.ui`), which needs only `TEMPORAL_ADDRESS`; the runner keeps only the agent worker.
+- questions and options considered:
+  1. Where the namespace comes from. Options: an environment variable per UI process; or Credimi's answers (`namespace` per device in `GET /api/action-author/devices`, `workflow_namespace` of `POST /api/action-author/sessions`), posted by the start page to `POST /api/action-author/namespace`.
+  2. How many namespaces one UI process serves. Options: one binding at a time, switched by the start page; or a client per namespace with namespace-aware routing of every harness API call.
+  3. Who runs the harness session-manager workflow. Options: a separate `temporal-agent-harness session-manager` process per namespace; or an in-process worker per binding.
+  4. Which task queue the harness registry names. Options: a real runner queue (unknown to the UI); or a placeholder, since the UI never starts agents.
+  5. What the start page does when it cannot bind after Credimi queued the session. Options: leave the session queued; or cancel the ticket, since nobody could watch the chat.
+- default risk: (2) sessions of the previously bound organization leave the list until the UI is bound to it again; a UI restart drops the binding, so chat links redirect to `/start?unbound=1`.
+- decisions:
+  1. Credimi's answers (user decision); the namespace must match the canonified organization name pattern.
+  2. One binding (user decision: one user belongs to one organization).
+  3. In-process worker, stopped when the binding changes or the UI stops; the UI's own lifespan replaces the harness startup, which connected to one fixed namespace.
+  4. Placeholder `credimi-runner-ActionAuthor`; Credimi starts each chat on `<runner_id>-ActionAuthor`.
+  5. Cancel the ticket (agent default).
+- follow-up: harness large-payload offload is local to the worker host; if a chat shows undecodable events when the UI and the runner run on different hosts, the UI needs the runner's offload storage.
+
+### 2026-10-30 - Action author sessions require a polling agent worker
+
+- status: open (agent defaults; human may revisit)
+- owner: human maintainer
+- context: a session was queued on a runner whose `[agent]` was disabled. Nothing polled `<runner_id>-ActionAuthor`, the chat workflow never ran a task, and the dev UI's queries hit `consistent query buffer is full` every 2 s.
+- questions and options considered:
+  1. How Credimi knows the agent runs. Options: a runner heartbeat field; or Temporal `DescribeTaskQueue` (workflow task queue type) of `<runner_id>-ActionAuthor` in the runner organization's namespace.
+  2. How fresh a poller must be. Options: any listed poller; or one seen within a window.
+  3. What a describe failure answers on start. Options: `temporal_unavailable`; or the same `503 agent_unavailable`.
+  4. What the device list does when Temporal is unreachable. Options: fail the list; or report `agent_available=false` for every device.
+- default risk: (2) an agent that stopped less than two minutes ago is still reported available; its session then waits for the agent like before. (4) a Temporal outage greys out every device without an error.
+- decisions (agent defaults):
+  1. `DescribeTaskQueue`, no new runner field (`actionAuthorAgentAvailable` in `pkg/internal/apis/handlers/action_author_agent.go`, task queue from `authorsession.AuthorTaskQueueSuffix`).
+  2. A poller whose `LastAccessTime` is within 2 minutes; Temporal keeps idle pollers listed for a while after they stop.
+  3. `503 agent_unavailable`, logged; a missing Temporal client still answers `temporal_unavailable`.
+  4. `agent_available=false`; the list stays usable and the start endpoint gives the precise reason.
+
+### 2026-10-30 - Action author chat UI waits for the chat's first workflow task
+
+- status: open (agent defaults; human may revisit)
+- owner: human maintainer
+- context: the start page queried `/api/status` and `/api/agent-interface` of a chat no worker had run; Temporal answered `consistent query buffer is full` every 2 s and uvicorn printed a traceback each time.
+- questions and options considered:
+  1. How the page knows the chat can answer queries. Options: the harness `GET /api/workflow-status/<id>` (only `execution_status` and `closed`, no history length); or a UI route that describes the workflow.
+  2. When the 60 s "not answering" timer starts. Options: when the ticket becomes `running`; or when the chat workflow is first seen running.
+  3. How Temporal service errors reach the browser. Options: the default 500 with a traceback; or one middleware answer.
+- default risk: (2) a chat that Credimi never starts (session stuck before the child) keeps the "Preparing the device" message instead of the agent warning; the ticket's own failure still ends the wait.
+- decisions (agent defaults):
+  1. `GET /api/action-author/chat-ready/<workflow_id>` answers `{ready: history_length > 2, running, execution_status}` (`NOT_FOUND` for a chat not started yet); the page sends the chat queries only when `ready` and `running`.
+  2. When the chat is first seen running: device preparation and wallet install run while the ticket is already `running` and can exceed 60 s, which would blame a healthy runner.
+  3. The outermost `own_origin_only` middleware turns any `temporalio.service.RPCError` into `503 {"error": "temporal_unavailable", "message"}` with `Retry-After: 2`, framing headers kept, and one `temporal <STATUS> on <path>: <message>` warning.

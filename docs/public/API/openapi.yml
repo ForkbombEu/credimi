@@ -15,6 +15,125 @@ servers:
 - description: Localhost server
   url: http://localhost:8090/
 paths:
+  /api/action-author/devices:
+    get:
+      description: 'List the Android devices and iOS simulators of enabled admin-managed
+        runners owned by organizations where the authenticated caller is an owner
+        (superusers: every admin-managed runner), with the authoring platform each
+        device implies. agent_available reports whether the runner''s action author
+        polled its task queue in the last two minutes (false when Temporal is unreachable);
+        only devices with is_online and agent_available can start a session. Sorted
+        by runner name, then device name.'
+      operationId: actionAuthor.listDevices
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorDevicesResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: List devices available for authoring
+  /api/action-author/sessions:
+    post:
+      description: 'Authorize the caller for the selected wallet organization and
+        queue an authoring session on the selected device through the mobile-device
+        semaphore. The device type decides the platform (Android devices: android,
+        iOS simulators: ios), and the version must have an installer for it. The device
+        must belong to an enabled, online admin-managed runner of the wallet''s organization;
+        a device of an organization the caller does not own answers 404 device_not_found,
+        and a disabled runner answers like an offline one (503). A runner whose action
+        author has not polled <runner_id>-ActionAuthor in the last two minutes answers
+        503 agent_unavailable. Only the onboarding slot is supported. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>:
+        once running, its workflow_id is the session and <workflow_id>-author is the
+        chat workflow. Review and explicit human confirmation happen in the harness
+        UI; this endpoint does not save an action.'
+      operationId: actionAuthor.startSession
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersActionAuthorStartRequest'
+        required: true
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorStartResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: Queue a wallet-action authoring session on a runner device
+  /api/action-author/wallet-versions:
+    get:
+      description: List wallet versions with an Android APK or iOS simulator app in
+        organizations where the authenticated caller is an owner, with the platforms
+        each version supports. These are the only versions accepted by the session
+        start endpoint.
+      operationId: actionAuthor.listWalletVersions
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorWalletVersionsResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: List wallet versions available for authoring
   /api/apikey/authenticate:
     get:
       description: Authenticate an API key and return Bearer token
@@ -753,6 +872,22 @@ paths:
       summary: Terminate a specific workflow run
 components:
   schemas:
+    ActionauthorBuildOption:
+      properties:
+        identifier:
+          type: string
+        organization_name:
+          type: string
+        platforms:
+          items:
+            type: string
+          nullable: true
+          type: array
+        version_tag:
+          type: string
+        wallet_name:
+          type: string
+      type: object
     ApierrorAPIError:
       properties:
         code:
@@ -772,6 +907,67 @@ components:
           $ref: '#/components/schemas/ApierrorAPIError'
         message:
           type: string
+      type: object
+    HandlersActionAuthorDevice:
+      properties:
+        agent_available:
+          type: boolean
+        is_online:
+          type: boolean
+        name:
+          type: string
+        namespace:
+          type: string
+        path:
+          type: string
+        platform:
+          type: string
+        runner_name:
+          type: string
+        type:
+          type: string
+      type: object
+    HandlersActionAuthorDevicesResponse:
+      properties:
+        devices:
+          items:
+            $ref: '#/components/schemas/HandlersActionAuthorDevice'
+          nullable: true
+          type: array
+      type: object
+    HandlersActionAuthorStartRequest:
+      properties:
+        app_id:
+          type: string
+        device_id:
+          type: string
+        slot:
+          type: string
+        wallet_version_identifier:
+          type: string
+      type: object
+    HandlersActionAuthorStartResponse:
+      properties:
+        device_id:
+          type: string
+        position:
+          type: integer
+        status:
+          type: string
+        ticket_id:
+          type: string
+        wallet_version_identifier:
+          type: string
+        workflow_namespace:
+          type: string
+      type: object
+    HandlersActionAuthorWalletVersionsResponse:
+      properties:
+        wallet_versions:
+          items:
+            $ref: '#/components/schemas/ActionauthorBuildOption'
+          nullable: true
+          type: array
       type: object
     HandlersActivityType:
       properties:

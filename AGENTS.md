@@ -312,6 +312,13 @@ Grant/start path:
 - `pipeline_results` creation after Temporal start is best-effort: `StartQueuedPipelineActivity` writes the row directly through `pipelineresults.Create`, and a failure is reported in the activity output without failing the start.
 - `pipelineresults.Create` is idempotent on `(workflow_id, run_id)`.
 - PocketBase uniqueness constraint: `(owner, workflow_id, run_id)` in `pb_migrations/1765364510_created_pipeline_results.js`.
+- A ticket with `run_kind: action_author` (`mobiledevicesemaphore.RunKindActionAuthor`) carries its `authorsession.SessionInput` in `action_author` and no YAML. The activity starts the `Action author session` workflow instead (`pkg/workflowengine/authorsession`): ID `ActionAuthorSession-<ticket>`, `PipelineTaskQueue`, the same ID policies, a 3h execution timeout, only the injected config keys, and no `pipeline_results` row. The session reports completion with the same `ReportMobileDeviceSemaphoreDone`.
+
+## Action Author Sessions
+
+An action author session is a semaphore ticket with `run_kind=action_author` on an admin-managed runner device. The `Action author session` workflow (`pkg/workflowengine/authorsession`) prepares the device with the pipeline's own code, then runs the child workflow `ActionAuthor` on the task queue `<runner_id>-ActionAuthor`. The runner owns the Python agent (`credimi-runner/agent`). The developer chat UI is `agents/action-author-ui` (`make action-author.ui`, needs only `TEMPORAL_ADDRESS`): it binds to the organization namespace of the device chosen on its start page (`namespace` in `GET /api/action-author/devices`, `workflow_namespace` in the session response) and never starts agent workflows. The platform follows the device type: `android_phone`, `android_emulator` and `redroid` are `android`, `ios_simulator` is `ios` (the runner resets the app with a fresh simulator clone per reset on its host), and `ios_phone` is rejected. Saved wallet actions keep the hidden `authoring_provenance`; Credimi exposes only `__agent_authored__` (enrich hook in `pkg/internal/pb/wallet_actions.go`), which the wallet dashboard shows as the robot icon.
+
+Credimi treats a runner's agent as running when a poller of the workflow task queue `<runner_id>-ActionAuthor` (in the runner organization's namespace) was seen in the last two minutes (`actionAuthorAgentAvailable`, `pkg/internal/apis/handlers/action_author_agent.go`). `POST /api/action-author/sessions` refuses other runners with `503 agent_unavailable` after the online check (a describe failure answers the same); `GET /api/action-author/devices` reports it per device as `agent_available` (false when Temporal is unreachable), and only devices with `is_online` and `agent_available` are selectable.
 
 ## FCAF Embedded Validation
 
@@ -544,6 +551,7 @@ HTTP errors have two families, split by surface:
 - Credimi route groups (`routing.RouteGroup`, every group binds `middlewares.ErrorHandlingMiddleware`): handlers return only `apierror.New(code, domain, reason, message)`. The middleware renders `apierror.Response`: `{ apiVersion:"2.0", message, error:{ code, domain, reason, message } }`. The OpenAPI spec (`docs/public/API/openapi.yml`, `go generate ./pkg/gen.go`) documents that envelope.
 - PocketBase-native surfaces (record and auth hooks such as `OnRecordCreateRequest`, `turnstile.go`, the PocketBase collection API): use `apis.New*Error` / `e.*Error`, rendered by PocketBase as `{ status, message, data }`, which the PocketBase JS SDK parses.
 - Do not use PocketBase errors on Credimi route groups. As a backstop, `ErrorHandlingMiddleware` renders a stray `*router.ApiError` with its own status (domain `request`, reason = HTTP status text); any other error is a `500` with domain `internal` and reason `UnhandledException`.
+- A route-group handler that cannot obtain a Temporal client returns `temporalUnavailableError()` (`pkg/internal/apis/handlers/temporal_unavailable.go`): `503`, domain `temporal`, reason `temporal_unavailable`. Errors from the workflow call itself keep the endpoint's own codes.
 
 An endpoint's status codes and reasons are part of its contract. Follow the contract you are modifying, and ask before changing them on endpoints you are not otherwise touching.
 

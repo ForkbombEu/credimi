@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { yaml } from '@codemirror/lang-yaml';
-	import { UploadIcon } from '@lucide/svelte';
+	import { BotIcon, UploadIcon } from '@lucide/svelte';
 	import { Wallet } from '$lib';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { CodeEditorField, SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
@@ -87,6 +88,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Badge class="mr-1.5" variant="outline">
 						{category}
 					</Badge>
+				{/if}
+			{/snippet}
+			{#snippet afterName({ record })}
+				{#if Wallet.Action.isAgentAuthored(record)}
+					<Tooltip>
+						{#snippet child({ props })}
+							<span
+								{...props}
+								class="ml-0.5 inline-flex translate-y-px text-primary"
+								aria-label={m.Agent_authored_action()}
+								data-testid="agent-authored-action"
+							>
+								<BotIcon class="size-4" strokeWidth={1.5} />
+							</span>
+						{/snippet}
+						{#snippet content()}
+							<p>{m.Agent_authored_action()}</p>
+						{/snippet}
+					</Tooltip>
 				{/if}
 			{/snippet}
 		</DashboardCardManagerUI>

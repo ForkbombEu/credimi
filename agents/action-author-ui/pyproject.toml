@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+[project]
+name = "credimi-action-author-ui"
+version = "0.1.0"
+description = "Local Temporal Agent Harness chat UI for Credimi action author sessions"
+requires-python = ">=3.12"
+license = "AGPL-3.0-or-later"
+dependencies = [
+    # Pre-1.0 and experimental: APIs change between releases, so the version is pinned exactly.
+    # It must match the harness version of the runner's agent (credimi-runner/agent).
+    "temporal-agent-harness[ui]==0.8.0",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+
+[build-system]
+# Pinned like the runtime dependencies, so the project builds reproducibly.
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/credimi_action_author_ui"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

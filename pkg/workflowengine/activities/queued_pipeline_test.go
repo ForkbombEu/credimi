@@ -51,12 +51,13 @@ func (f fakeWorkflowRun) GetWithOptions(
 }
 
 type capturingTemporalClient struct {
-	run         client.WorkflowRun
-	executeErr  error
-	describeRun string
-	lastOptions client.StartWorkflowOptions
-	lastArgs    []interface{}
-	described   []string
+	run          client.WorkflowRun
+	executeErr   error
+	describeRun  string
+	lastOptions  client.StartWorkflowOptions
+	lastArgs     []interface{}
+	lastWorkflow interface{}
+	described    []string
 }
 
 // ExecuteWorkflow records workflow start options for assertions and returns the stubbed run.
@@ -67,6 +68,7 @@ func (c *capturingTemporalClient) ExecuteWorkflow(
 	args ...interface{},
 ) (client.WorkflowRun, error) {
 	c.lastOptions = options
+	c.lastWorkflow = workflow
 	c.lastArgs = append([]interface{}(nil), args...)
 	if c.executeErr != nil {
 		return nil, c.executeErr

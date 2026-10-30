@@ -1099,6 +1099,8 @@ func (r *mobileDeviceSemaphoreRuntime) startPipelineForTicket(
 			YAML:               state.Request.YAML,
 			PipelineConfig:     state.Request.PipelineConfig,
 			Memo:               state.Request.Memo,
+			RunKind:            state.Request.RunKind,
+			ActionAuthor:       state.Request.ActionAuthor,
 		},
 	}
 
@@ -2368,6 +2370,7 @@ func copyRunTicketRequest(
 	copyRequest.RequiredDeviceIDs = copyStringSlice(request.RequiredDeviceIDs)
 	copyRequest.PipelineConfig = copyStringAnyMap(request.PipelineConfig)
 	copyRequest.Memo = copyStringAnyMap(request.Memo)
+	copyRequest.ActionAuthor = copyStringAnyMap(request.ActionAuthor)
 	return copyRequest
 }
 

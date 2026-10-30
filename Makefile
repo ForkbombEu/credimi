@@ -71,7 +71,7 @@ endef
 # (via scripts/worktree-compose.sh for make dev / worktree-down / purge).
 
 all: help
-.PHONY: submodules version dev dev.noworkers worktree-bootstrap worktree-down worktree-destroy test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check fcaf-run fcaf-sync
+.PHONY: submodules version dev dev.noworkers worktree-bootstrap worktree-down worktree-destroy test test.all lint tidy purge build docker docker-tunnel doc clean tools help w devtools coverage-check fcaf-run fcaf-sync action-author.ui action-author.ui-test
 
 $(BIN):
 	@mkdir -p $@
@@ -161,6 +161,20 @@ fcaf-run: fcaf-generate ## Run complete FCAF validation (FCAF_SUITE, default wal
 
 fcaf-sync: fcaf-generate ## Synchronize complete FCAF pipeline (FCAF_SUITE, default wallet_solution/relying_party) and credential definitions without running them
 	$(GOCMD) run . fcaf sync $(if $(API_KEY),--api-key "$(API_KEY)",) --instance "$(or $(INSTANCE),http://localhost:8090)" $(if $(FCAF_SUITE),--suite "$(FCAF_SUITE)",) $(if $(FCAF_DIR),--dir "$(FCAF_DIR)",) --imports-dir "$(or $(FCAF_IMPORTS_DIR),config_templates/fcaf/imports)" $(if $(FCAF_DEVICE_ID),--device-id "$(FCAF_DEVICE_ID)",)
+
+# Action author chat UI (agents/action-author-ui): a local harness UI for sessions that Credimi
+# starts on admin-managed runner devices. It needs only Temporal; the namespace follows the device.
+ACTION_AUTHOR_UI_DIR ?= $(ROOT_DIR)/agents/action-author-ui
+action-author.ui: ## 📱 action author chat UI (http://localhost:8001, or ACTION_AUTHOR_UI_PORT)
+	$(call require_tools,uv)
+	@temporal_address="$${TEMPORAL_ADDRESS:-}"; \
+		eval "$$("$(ROOT_DIR)/scripts/worktree-env.sh" export)"; \
+		export TEMPORAL_ADDRESS="$${temporal_address:-localhost:$$TEMPORAL_PORT}"; \
+		unset PORT TEMPORAL_NAMESPACE; cd "$(ACTION_AUTHOR_UI_DIR)" && uv run python -m credimi_action_author_ui.app
+action-author.ui-test: ## 📱 lint and test the action author chat UI
+	$(call require_tools,uv)
+	cd "$(ACTION_AUTHOR_UI_DIR)" && uv run ruff check . && uv run ruff format --check . && uv run pytest -q
+
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)

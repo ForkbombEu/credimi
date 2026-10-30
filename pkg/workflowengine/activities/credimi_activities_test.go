@@ -11,7 +11,7 @@ import (
 )
 
 func TestCredimiActivitiesRegistersEveryNameOnce(t *testing.T) {
-	names := make([]string, 0, 10)
+	names := make([]string, 0, 12)
 	for _, act := range CredimiActivities(nil) {
 		names = append(names, act.Name())
 	}
@@ -26,5 +26,7 @@ func TestCredimiActivitiesRegistersEveryNameOnce(t *testing.T) {
 		StoreCredentialIssuerActivityName,
 		StoreIssuerCredentialActivityName,
 		DeletePipelineResultFilesActivityName,
+		ResolveActionAuthorBuildActivityName,
+		SaveAuthoredWalletActionActivityName,
 	}, names)
 }
