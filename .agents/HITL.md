@@ -729,3 +729,20 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   4. Placeholder `credimi-runner-ActionAuthor`; Credimi starts each chat on `<runner_id>-ActionAuthor`.
   5. Cancel the ticket (agent default).
 - follow-up: harness large-payload offload is local to the worker host; if a chat shows undecodable events when the UI and the runner run on different hosts, the UI needs the runner's offload storage.
+
+### 2026-10-30 - Action author sessions require a polling agent worker
+
+- status: open (agent defaults; human may revisit)
+- owner: human maintainer
+- context: a session was queued on a runner whose `[agent]` was disabled. Nothing polled `<runner_id>-ActionAuthor`, the chat workflow never ran a task, and the dev UI's queries hit `consistent query buffer is full` every 2 s.
+- questions and options considered:
+  1. How Credimi knows the agent runs. Options: a runner heartbeat field; or Temporal `DescribeTaskQueue` (workflow task queue type) of `<runner_id>-ActionAuthor` in the runner organization's namespace.
+  2. How fresh a poller must be. Options: any listed poller; or one seen within a window.
+  3. What a describe failure answers on start. Options: `temporal_unavailable`; or the same `503 agent_unavailable`.
+  4. What the device list does when Temporal is unreachable. Options: fail the list; or report `agent_available=false` for every device.
+- default risk: (2) an agent that stopped less than two minutes ago is still reported available; its session then waits for the agent like before. (4) a Temporal outage greys out every device without an error.
+- decisions (agent defaults):
+  1. `DescribeTaskQueue`, no new runner field (`actionAuthorAgentAvailable` in `pkg/internal/apis/handlers/action_author_agent.go`, task queue from `authorsession.AuthorTaskQueueSuffix`).
+  2. A poller whose `LastAccessTime` is within 2 minutes; Temporal keeps idle pollers listed for a while after they stop.
+  3. `503 agent_unavailable`, logged; a missing Temporal client still answers `temporal_unavailable`.
+  4. `agent_available=false`; the list stays usable and the start endpoint gives the precise reason.

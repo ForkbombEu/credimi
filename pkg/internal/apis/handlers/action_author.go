@@ -52,7 +52,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorDevices,
 			OperationID:    "actionAuthor.listDevices",
 			Summary:        "List devices available for authoring",
-			Description:    "List the Android devices and iOS simulators of enabled admin-managed runners owned by organizations where the authenticated caller is an owner (superusers: every admin-managed runner), with the authoring platform each device implies. Sorted by runner name, then device name.",
+			Description:    "List the Android devices and iOS simulators of enabled admin-managed runners owned by organizations where the authenticated caller is an owner (superusers: every admin-managed runner), with the authoring platform each device implies. agent_available reports whether the runner's action author polled its task queue in the last two minutes (false when Temporal is unreachable); only devices with is_online and agent_available can start a session. Sorted by runner name, then device name.",
 			ResponseSchema: ActionAuthorDevicesResponse{},
 		},
 		{
@@ -61,7 +61,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Queue a wallet-action authoring session on a runner device",
-			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios), and the version must have an installer for it. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). Only the onboarding slot is supported. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. Review and explicit human confirmation happen in the harness UI; this endpoint does not save an action.",
+			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios), and the version must have an installer for it. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor in the last two minutes answers 503 agent_unavailable. Only the onboarding slot is supported. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. Review and explicit human confirmation happen in the harness UI; this endpoint does not save an action.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
@@ -97,6 +97,9 @@ type ActionAuthorDevice struct {
 	Type       string `json:"type"`
 	Platform   string `json:"platform"`
 	IsOnline   bool   `json:"is_online"`
+	// AgentAvailable reports whether the runner's action author polled its
+	// task queue in the last two minutes; select only online devices with it.
+	AgentAvailable bool `json:"agent_available"`
 }
 
 // ActionAuthorDevicesResponse lists the devices accepted by the session start endpoint.
@@ -133,6 +136,8 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 			if err != nil {
 				return authoringAPIError(fmt.Errorf("find runner organization: %w", err))
 			}
+			namespace := owner.GetString("canonified_name")
+			agentAvailable := runnerActionAuthorAvailable(e, runner, namespace)
 			devices, err := e.App.FindAllRecords(
 				"mobile_devices",
 				dbx.HashExp{"runner": runner.Id},
@@ -150,13 +155,14 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 					return authoringAPIError(fmt.Errorf("build device path: %w", err))
 				}
 				response.Devices = append(response.Devices, ActionAuthorDevice{
-					Path:       path,
-					Namespace:  owner.GetString("canonified_name"),
-					Name:       device.GetString("name"),
-					RunnerName: runner.GetString("name"),
-					Type:       device.GetString("type"),
-					Platform:   platform,
-					IsOnline:   runnerOnline && device.GetBool("online"),
+					Path:           path,
+					Namespace:      namespace,
+					Name:           device.GetString("name"),
+					RunnerName:     runner.GetString("name"),
+					Type:           device.GetString("type"),
+					Platform:       platform,
+					IsOnline:       runnerOnline && device.GetBool("online"),
+					AgentAvailable: agentAvailable,
 				})
 			}
 		}
@@ -308,6 +314,10 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		); apiErr != nil {
 			return apiErr
 		}
+		namespace := selection.Organization.GetString("canonified_name")
+		if apiErr := requireActionAuthorAgent(e, runner, namespace); apiErr != nil {
+			return apiErr
+		}
 
 		session, err := sessionInputMap(authorsession.SessionInput{
 			DeviceID:                deviceID,
@@ -321,7 +331,6 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(err)
 		}
-		namespace := selection.Organization.GetString("canonified_name")
 		ticketID := uuid.NewString()
 		c, err := queueTemporalClient(workflowengine.MobileDeviceSemaphoreDefaultNamespace)
 		if err != nil {

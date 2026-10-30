@@ -20,7 +20,10 @@ paths:
       description: 'List the Android devices and iOS simulators of enabled admin-managed
         runners owned by organizations where the authenticated caller is an owner
         (superusers: every admin-managed runner), with the authoring platform each
-        device implies. Sorted by runner name, then device name.'
+        device implies. agent_available reports whether the runner''s action author
+        polled its task queue in the last two minutes (false when Temporal is unreachable);
+        only devices with is_online and agent_available can start a session. Sorted
+        by runner name, then device name.'
       operationId: actionAuthor.listDevices
       parameters:
       - description: Bearer token for authentication.
@@ -57,8 +60,9 @@ paths:
         iOS simulators: ios), and the version must have an installer for it. The device
         must belong to an enabled, online admin-managed runner of the wallet''s organization;
         a device of an organization the caller does not own answers 404 device_not_found,
-        and a disabled runner answers like an offline one (503). Only the onboarding
-        slot is supported. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>:
+        and a disabled runner answers like an offline one (503). A runner whose action
+        author has not polled <runner_id>-ActionAuthor in the last two minutes answers
+        503 agent_unavailable. Only the onboarding slot is supported. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>:
         once running, its workflow_id is the session and <workflow_id>-author is the
         chat workflow. Review and explicit human confirmation happen in the harness
         UI; this endpoint does not save an action.'
@@ -906,6 +910,8 @@ components:
       type: object
     HandlersActionAuthorDevice:
       properties:
+        agent_available:
+          type: boolean
         is_online:
           type: boolean
         name:

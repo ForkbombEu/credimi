@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
@@ -20,8 +21,11 @@ import (
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"github.com/stretchr/testify/require"
+	taskqueuepb "go.temporal.io/api/taskqueue/v1"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -189,7 +193,37 @@ func stubActionAuthorQueue(
 			Position: 1,
 		}, nil
 	}
+	stubActionAuthorAgent(t, func(string) (*workflowservice.DescribeTaskQueueResponse, error) {
+		return freshActionAuthorPoller(), nil
+	})
 	return enqueued
+}
+
+// stubActionAuthorAgent answers task queue descriptions with describe.
+func stubActionAuthorAgent(
+	t *testing.T,
+	describe func(taskQueue string) (*workflowservice.DescribeTaskQueueResponse, error),
+) {
+	t.Helper()
+	orig := describeActionAuthorTaskQueue
+	t.Cleanup(func() { describeActionAuthorTaskQueue = orig })
+	describeActionAuthorTaskQueue = func(
+		_ context.Context,
+		_ client.Client,
+		taskQueue string,
+	) (*workflowservice.DescribeTaskQueueResponse, error) {
+		return describe(taskQueue)
+	}
+}
+
+func actionAuthorPollerAt(at time.Time) *workflowservice.DescribeTaskQueueResponse {
+	return &workflowservice.DescribeTaskQueueResponse{
+		Pollers: []*taskqueuepb.PollerInfo{{LastAccessTime: timestamppb.New(at)}},
+	}
+}
+
+func freshActionAuthorPoller() *workflowservice.DescribeTaskQueueResponse {
+	return actionAuthorPollerAt(time.Now().Add(-10 * time.Second))
 }
 
 func startSessionBody(deviceID, version string) string {
@@ -461,6 +495,83 @@ func TestActionAuthorStartMapsQueueFailures(t *testing.T) {
 	}
 }
 
+func TestActionAuthorStartRequiresRunningAgent(t *testing.T) {
+	token := authoringToken(t, "userA")
+	for _, tc := range []struct {
+		name     string
+		describe func() (*workflowservice.DescribeTaskQueueResponse, error)
+		status   int
+		expected []string
+	}{
+		{
+			name: "no poller",
+			describe: func() (*workflowservice.DescribeTaskQueueResponse, error) {
+				return &workflowservice.DescribeTaskQueueResponse{}, nil
+			},
+			status: http.StatusServiceUnavailable,
+			expected: []string{
+				`"agent_unavailable"`,
+				"the runner's action author is not enabled or not running",
+			},
+		},
+		{
+			name: "stale poller",
+			describe: func() (*workflowservice.DescribeTaskQueueResponse, error) {
+				return actionAuthorPollerAt(time.Now().Add(-3 * time.Minute)), nil
+			},
+			status:   http.StatusServiceUnavailable,
+			expected: []string{`"agent_unavailable"`},
+		},
+		{
+			name: "describe error",
+			describe: func() (*workflowservice.DescribeTaskQueueResponse, error) {
+				return nil, errors.New("consistent query buffer is full")
+			},
+			status:   http.StatusServiceUnavailable,
+			expected: []string{`"agent_unavailable"`},
+		},
+		{
+			name:     "fresh poller",
+			describe: func() (*workflowservice.DescribeTaskQueueResponse, error) { return freshActionAuthorPoller(), nil },
+			status:   http.StatusAccepted,
+			expected: []string{`"ticket_id"`},
+		},
+	} {
+		enqueued := stubActionAuthorQueue(t, true)
+		var namespaces, taskQueues []string
+		queueTemporalClient = func(namespace string) (client.Client, error) {
+			namespaces = append(namespaces, namespace)
+			return nil, nil
+		}
+		stubActionAuthorAgent(
+			t,
+			func(taskQueue string) (*workflowservice.DescribeTaskQueueResponse, error) {
+				taskQueues = append(taskQueues, taskQueue)
+				return tc.describe()
+			},
+		)
+		(&tests.ApiScenario{
+			Name:   tc.name,
+			Method: http.MethodPost,
+			URL:    "/api/action-author/sessions",
+			Body: strings.NewReader(
+				startSessionBody(authoringAdminRunner+"/android-emulator", authoringAndroidVersion),
+			),
+			Headers:         map[string]string{"Authorization": "Bearer " + token},
+			ExpectedStatus:  tc.status,
+			ExpectedContent: tc.expected,
+			TestAppFactory:  setupActionAuthorApp,
+		}).Test(t)
+		require.Equal(t, []string{authoringAdminRunner + "-ActionAuthor"}, taskQueues, tc.name)
+		require.Equal(t, authoringNamespace, namespaces[0], tc.name)
+		if tc.status == http.StatusAccepted {
+			require.NotEmpty(t, enqueued.TicketID, tc.name)
+		} else {
+			require.Empty(t, enqueued.TicketID, tc.name)
+		}
+	}
+}
+
 func TestActionAuthorDevicesListsOwnedAdminRunnerDevices(t *testing.T) {
 	for _, tc := range []struct {
 		user     string
@@ -477,6 +588,7 @@ func TestActionAuthorDevicesListsOwnedAdminRunnerDevices(t *testing.T) {
 		},
 		{user: "userC", expected: []ActionAuthorDevice{}},
 	} {
+		stubActionAuthorQueue(t, true)
 		var response ActionAuthorDevicesResponse
 		(&tests.ApiScenario{
 			Name:           tc.user,
@@ -498,6 +610,81 @@ func TestActionAuthorDevicesListsOwnedAdminRunnerDevices(t *testing.T) {
 	}
 }
 
+func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "admin@example.org")
+	require.NoError(t, err)
+	token, err := superuser.NewAuthToken()
+	require.NoError(t, err)
+	app.Cleanup()
+
+	for _, tc := range []struct {
+		name      string
+		clientErr error
+		expected  map[string]bool
+	}{
+		{
+			name:     "agent on the admin runner only",
+			expected: map[string]bool{"admin-runner": true, "foreign-admin-runner": false},
+		},
+		{
+			name:      "temporal unreachable",
+			clientErr: errors.New("dial failed"),
+			expected:  map[string]bool{"admin-runner": false, "foreign-admin-runner": false},
+		},
+	} {
+		stubActionAuthorQueue(t, true)
+		// Namespaces each task queue was described in.
+		describes := map[string][]string{}
+		namespace := ""
+		queueTemporalClient = func(ns string) (client.Client, error) {
+			namespace = ns
+			return nil, tc.clientErr
+		}
+		stubActionAuthorAgent(
+			t,
+			func(taskQueue string) (*workflowservice.DescribeTaskQueueResponse, error) {
+				describes[taskQueue] = append(describes[taskQueue], namespace)
+				if taskQueue == authoringAdminRunner+"-ActionAuthor" {
+					return freshActionAuthorPoller(), nil
+				}
+				return &workflowservice.DescribeTaskQueueResponse{}, nil
+			},
+		)
+		var response ActionAuthorDevicesResponse
+		(&tests.ApiScenario{
+			Name:            tc.name,
+			Method:          http.MethodGet,
+			URL:             "/api/action-author/devices",
+			Headers:         map[string]string{"Authorization": "Bearer " + token},
+			ExpectedStatus:  http.StatusOK,
+			ExpectedContent: []string{`"agent_available"`},
+			TestAppFactory:  setupActionAuthorApp,
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+				body, err := io.ReadAll(res.Body)
+				require.NoError(t, err)
+				require.NoError(t, json.Unmarshal(body, &response))
+			},
+		}).Test(t)
+
+		available := map[string]bool{}
+		for _, device := range response.Devices {
+			available[device.RunnerName] = device.AgentAvailable
+		}
+		require.Equal(t, tc.expected, available, tc.name)
+		if tc.clientErr != nil {
+			require.Empty(t, describes, tc.name)
+		} else {
+			// Once per runner in its organization's namespace, however many devices it has.
+			require.Equal(t, map[string][]string{
+				authoringAdminRunner + "-ActionAuthor":   {authoringNamespace},
+				authoringForeignRunner + "-ActionAuthor": {authoringForeignNS},
+			}, describes, tc.name)
+		}
+	}
+}
+
 func TestActionAuthorDevicesListsEveryAdminRunnerForSuperusers(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -506,6 +693,7 @@ func TestActionAuthorDevicesListsEveryAdminRunnerForSuperusers(t *testing.T) {
 	token, err := superuser.NewAuthToken()
 	require.NoError(t, err)
 	app.Cleanup()
+	stubActionAuthorQueue(t, true)
 
 	var response ActionAuthorDevicesResponse
 	(&tests.ApiScenario{
@@ -542,12 +730,13 @@ func TestActionAuthorDevicesListsEveryAdminRunnerForSuperusers(t *testing.T) {
 // authoringDevice is a device of userA's admin-managed runner.
 func authoringDevice(name, deviceType, platform string, online bool) ActionAuthorDevice {
 	return ActionAuthorDevice{
-		Path:       authoringAdminRunner + "/" + name,
-		Namespace:  authoringNamespace,
-		Name:       name,
-		RunnerName: "admin-runner",
-		Type:       deviceType,
-		Platform:   platform,
-		IsOnline:   online,
+		Path:           authoringAdminRunner + "/" + name,
+		Namespace:      authoringNamespace,
+		Name:           name,
+		RunnerName:     "admin-runner",
+		Type:           deviceType,
+		Platform:       platform,
+		IsOnline:       online,
+		AgentAvailable: true,
 	}
 }
