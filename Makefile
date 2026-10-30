@@ -167,8 +167,9 @@ fcaf-sync: fcaf-generate ## Synchronize complete FCAF pipeline (FCAF_SUITE, defa
 ACTION_AUTHOR_UI_DIR ?= $(ROOT_DIR)/agents/action-author-ui
 action-author.ui: ## 📱 action author chat UI (http://localhost:8001, or ACTION_AUTHOR_UI_PORT)
 	$(call require_tools,uv)
-	@eval "$$("$(ROOT_DIR)/scripts/worktree-env.sh" export)"; \
-		export TEMPORAL_ADDRESS="$${TEMPORAL_ADDRESS:-localhost:$$TEMPORAL_PORT}"; \
+	@temporal_address="$${TEMPORAL_ADDRESS:-}"; \
+		eval "$$("$(ROOT_DIR)/scripts/worktree-env.sh" export)"; \
+		export TEMPORAL_ADDRESS="$${temporal_address:-localhost:$$TEMPORAL_PORT}"; \
 		unset PORT TEMPORAL_NAMESPACE; cd "$(ACTION_AUTHOR_UI_DIR)" && uv run python -m credimi_action_author_ui.app
 action-author.ui-test: ## 📱 lint and test the action author chat UI
 	$(call require_tools,uv)

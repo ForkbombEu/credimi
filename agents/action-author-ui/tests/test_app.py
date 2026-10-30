@@ -3,11 +3,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import asyncio
+import base64
+import json
 import shutil
 import uuid
 
 import httpx
 import pytest
+from temporal_agent_harness.harness.agent_protocol import AgentEvent, ReplyDelta
 from temporal_agent_harness.plugin import AgentHarnessPlugin
 from temporalio import workflow
 from temporalio.client import Client, WorkflowExecutionStatus
@@ -131,7 +134,21 @@ async def test_start_page_is_not_cached_or_embeddable():
         response = await client.get("/start")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store"
-    assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
+    assert response.headers["x-frame-options"] == "DENY"
+    policy = response.headers["content-security-policy"]
+    assert policy.startswith("default-src 'none';")
+    assert policy.count("frame-ancestors") == 1
+    assert "frame-ancestors 'none'" in policy
+
+
+async def test_chat_page_is_not_embeddable():
+    app = create_app()
+    app.state.binding = object()
+    async with ui_client(app=app) as client:
+        response = await client.get("/?s=x")
+    assert response.status_code == 200
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["content-security-policy"] == "frame-ancestors 'none'"
 
 
 def test_registry_never_needs_a_runner_queue():
@@ -178,7 +195,18 @@ async def test_unbound_ui_sends_the_user_to_the_start_page():
 
 
 @pytest.mark.parametrize(
-    "body", [{"namespace": "Bad NS"}, {"namespace": 1}, {}, ["org"], {"namespace": "-org"}]
+    "body",
+    [
+        {"namespace": "Bad NS"},
+        {"namespace": 1},
+        {},
+        ["org"],
+        {"namespace": "-org"},
+        {"namespace": "-x"},
+        {"namespace": "a/b"},
+        {"namespace": ""},
+        {"namespace": "a" * 1001},
+    ],
 )
 async def test_binding_needs_an_organization_name(body):
     async def connect(_namespace):
@@ -188,6 +216,22 @@ async def test_binding_needs_an_organization_name(body):
         response = await client.post("/api/action-author/namespace", json=body, headers=SAME_ORIGIN)
     assert response.status_code == 400
     assert response.json()["error"] == "invalid_namespace"
+
+
+@pytest.mark.parametrize("namespace", ["a" * 80, "организация-1"])
+async def test_binding_accepts_canonified_organization_names(namespace):
+    connected = []
+
+    async def connect(name):
+        connected.append(name)
+        raise RuntimeError("down")
+
+    async with ui_client(app=create_app(connect=connect)) as client:
+        response = await client.post(
+            "/api/action-author/namespace", json={"namespace": namespace}, headers=SAME_ORIGIN
+        )
+    assert response.status_code == 503
+    assert connected == [namespace]
 
 
 async def test_binding_failure_keeps_the_ui_unbound():
@@ -206,9 +250,46 @@ async def test_binding_failure_keeps_the_ui_unbound():
 
 @workflow.defn(name="ActionAuthor")
 class FinishedSession:
+    """A closed ActionAuthor run whose recorded events stay readable by query."""
+
+    def __init__(self) -> None:
+        self._log: list[str] = []
+
     @workflow.run
-    async def run(self) -> None:
-        return None
+    async def run(self, events: list[str]) -> None:
+        self._log = events
+
+    # Same page shape as the runner's ActionAuthor.authoring_events.
+    @workflow.query
+    def authoring_events(self, from_offset: int = 0) -> dict:
+        start = max(0, from_offset)
+        page = self._log[start : start + 25]
+        return {
+            "items": [{"data": data, "offset": start + index} for index, data in enumerate(page)],
+            "next_offset": start + len(page),
+            "end_offset": len(self._log),
+        }
+
+
+async def _encoded_reply(temporal: Client, text: str) -> str:
+    event = AgentEvent(
+        agent_id="agent",
+        turn_id="turn-1",
+        turn_number=1,
+        timestamp=1.0,
+        event=ReplyDelta(text=text),
+    )
+    (payload,) = await temporal.data_converter.encode([event])
+    return base64.b64encode(payload.SerializeToString()).decode("ascii")
+
+
+def _sse_events(body: str) -> list[dict]:
+    return [
+        json.loads(line[len("data: ") :])
+        for frame in body.split("\n\n")
+        for line in frame.splitlines()
+        if line.startswith("data: ")
+    ]
 
 
 @pytest.mark.skipif(shutil.which("temporal") is None, reason="needs the temporal CLI")
@@ -225,6 +306,8 @@ async def test_binding_follows_the_organization_namespace():
 
         org_b = await connect("org-b")
         session_id = f"session-{uuid.uuid4()}"
+        events = [await _encoded_reply(org_b, text) for text in ("Hello", " world")]
+        # Queries on the closed run replay it, so the worker stays up.
         async with Worker(
             org_b,
             task_queue="test-runner",
@@ -233,39 +316,59 @@ async def test_binding_follows_the_organization_namespace():
             workflow_runner=UnsandboxedWorkflowRunner(),
         ):
             await org_b.execute_workflow(
-                FinishedSession.run, id=session_id, task_queue="test-runner"
+                FinishedSession.run, events, id=session_id, task_queue="test-runner"
             )
 
-        app = create_app(connect=connect)
-        try:
-            async with ui_client(app=app) as client:
-                bound = await client.post(
-                    "/api/action-author/namespace",
-                    json={"namespace": "org-a"},
-                    headers=SAME_ORIGIN,
-                )
-                assert bound.json() == {"namespace": "org-a"}
-                sessions = await client.get("/api/sessions", headers=SAME_ORIGIN)
-                assert (sessions.status_code, sessions.json()) == (200, [])
-                manager = await env.client.get_workflow_handle(MANAGER_WORKFLOW_ID).describe()
-                assert manager.status == WorkflowExecutionStatus.RUNNING
+            app = create_app(connect=connect)
+            try:
+                async with ui_client(app=app) as client:
+                    bound = await client.post(
+                        "/api/action-author/namespace",
+                        json={"namespace": "org-a"},
+                        headers=SAME_ORIGIN,
+                    )
+                    assert bound.json() == {"namespace": "org-a"}
+                    sessions = await client.get("/api/sessions", headers=SAME_ORIGIN)
+                    assert (sessions.status_code, sessions.json()) == (200, [])
+                    manager = await env.client.get_workflow_handle(MANAGER_WORKFLOW_ID).describe()
+                    assert manager.status == WorkflowExecutionStatus.RUNNING
 
-                bound = await client.post(
-                    "/api/action-author/namespace",
-                    json={"namespace": "org-b"},
-                    headers=SAME_ORIGIN,
-                )
-                assert bound.status_code == 200
-                namespace = await client.get("/api/action-author/namespace")
-                assert namespace.json() == {"namespace": "org-b"}
-                listed = []
-                for _ in range(50):
-                    response = await client.get("/api/sessions", headers=SAME_ORIGIN)
-                    assert response.status_code == 200
-                    listed = [s for s in response.json() if s["workflow_id"] == session_id]
-                    if listed:
-                        break
-                    await asyncio.sleep(0.1)
-                assert [s["closed"] for s in listed] == [True]
-        finally:
-            await _unbind(app)
+                    bound = await client.post(
+                        "/api/action-author/namespace",
+                        json={"namespace": "org-b"},
+                        headers=SAME_ORIGIN,
+                    )
+                    assert bound.status_code == 200
+                    namespace = await client.get("/api/action-author/namespace")
+                    assert namespace.json() == {"namespace": "org-b"}
+                    listed = []
+                    for _ in range(50):
+                        response = await client.get("/api/sessions", headers=SAME_ORIGIN)
+                        assert response.status_code == 200
+                        listed = [s for s in response.json() if s["workflow_id"] == session_id]
+                        if listed:
+                            break
+                        await asyncio.sleep(0.1)
+                    assert [s["closed"] for s in listed] == [True]
+
+                    attached = await client.get(
+                        "/api/attach", params={"session_id": session_id}, headers=SAME_ORIGIN
+                    )
+                    assert attached.status_code == 200
+                    assert attached.headers["content-type"].startswith("text/event-stream")
+                    assert [
+                        (e["type"], e["text"], e["resume_offset"])
+                        for e in _sse_events(attached.text)
+                    ] == [("reply_delta", "Hello", 1), ("reply_delta", " world", 2)]
+
+                    resumed = await client.get(
+                        "/api/attach",
+                        params={"session_id": session_id, "from_offset": 1},
+                        headers=SAME_ORIGIN,
+                    )
+                    assert resumed.status_code == 200
+                    assert [(e["text"], e["resume_offset"]) for e in _sse_events(resumed.text)] == [
+                        (" world", 2)
+                    ]
+            finally:
+                await _unbind(app)

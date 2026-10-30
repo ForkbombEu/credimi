@@ -65,8 +65,9 @@ MANAGER_WORKFLOW_ID = "action-author-session-manager"
 # `<runner_id>-ActionAuthor`.
 AGENT_TASK_QUEUE = "credimi-runner-ActionAuthor"
 NAMESPACE_PATH = "/api/action-author/namespace"
-# Canonified Credimi organization names: lowercase letters, digits and `-`.
-NAMESPACE_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
+# Names Credimi's canonify produces for organizations (pkg/internal/canonify): Unicode
+# letters and digits joined by `-`, never leading with `-`; at most 1000 characters.
+NAMESPACE_PATTERN = re.compile(r"[^\W_](?:[^\W_]|-){0,999}")
 
 AGENT_LABEL = "Credimi action author"
 AGENT_DESCRIPTION = (
@@ -92,6 +93,8 @@ START_PAGE_HEADERS = {
         "connect-src http: https:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
     ),
 }
+# Every response refuses framing; /start's own CSP already says frame-ancestors 'none'.
+NO_FRAMING_CSP = "frame-ancestors 'none'"
 # Keep the packaged UI's new-session buttons on the authenticated setup path.
 AUTHENTICATED_START_SCRIPT = """<script>
 document.addEventListener('click', (event) => {
@@ -219,6 +222,16 @@ def _foreign_request(method: str, path: str, host: str, origin: str | None, port
     if (method not in SAFE_METHODS or path.startswith("/api/")) and origin != f"http://{host}":
         return "origin"
     return ""
+
+
+def _refuse_framing(response) -> None:
+    """Keep any page of the UI out of other sites' frames."""
+    response.headers["X-Frame-Options"] = "DENY"
+    policy = response.headers.get("Content-Security-Policy")
+    if not policy:
+        response.headers["Content-Security-Policy"] = NO_FRAMING_CSP
+    elif "frame-ancestors" not in policy:
+        response.headers["Content-Security-Policy"] = f"{policy}; {NO_FRAMING_CSP}"
 
 
 def _reset_state(app) -> None:
@@ -420,16 +433,19 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
             port,
         )
         if refused == "host":
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=421,
                 content={"error": "misdirected_request", "message": "unknown Host"},
             )
-        if refused:
-            return JSONResponse(
+        elif refused:
+            response = JSONResponse(
                 status_code=403,
                 content={"error": "cross_origin_request", "message": "foreign Origin"},
             )
-        return await call_next(request)
+        else:
+            response = await call_next(request)
+        _refuse_framing(response)
+        return response
 
     return app
 
