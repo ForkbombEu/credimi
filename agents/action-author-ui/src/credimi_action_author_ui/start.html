@@ -1,0 +1,451 @@
+<!--
+SPDX-FileCopyrightText: 2026 Forkbomb BV
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<title>Start action authoring · Credimi</title>
+		<style>
+			:root {
+				--brand-primary: rgb(63 55 157);
+				--brand-primary-700: rgb(54 47 135);
+				--brand-secondary: rgb(243 242 250);
+				--fg: rgb(28 28 38);
+				--muted: rgb(91 89 107);
+				--border: rgb(211 209 222);
+				--error: rgb(165 42 42);
+				--success: rgb(32 110 72);
+				color: var(--fg);
+				font-family: Inter, sans-serif;
+				background: var(--brand-secondary);
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; min-height: 100vh; }
+			header {
+				display: flex; align-items: center; justify-content: space-between;
+				padding: 20px 32px; border-bottom: 1px solid var(--border); background: white;
+			}
+			header strong { color: var(--brand-primary); font-size: 18px; }
+			main { width: min(680px, calc(100% - 32px)); margin: 64px auto; }
+			.eyebrow {
+				margin: 0 0 8px; font-size: 12px; font-weight: 500;
+				letter-spacing: 0.14em; text-transform: uppercase; color: var(--brand-primary);
+			}
+			h1 { margin: 0 0 12px; font-size: 30px; line-height: 1.2; }
+			.lead { margin: 0 0 24px; color: var(--muted); line-height: 1.6; }
+			form, .notice {
+				padding: 24px; border: 1px solid var(--border); border-radius: 10px; background: white;
+			}
+			label { display: block; margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+			.field { margin-bottom: 20px; }
+			.hint { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+			input, select {
+				width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--border);
+				border-radius: 6px; background: white; color: var(--fg); font: inherit;
+			}
+			input:focus, select:focus, button:focus-visible, a:focus-visible {
+				outline: 2px solid var(--brand-primary); outline-offset: 2px;
+			}
+			button {
+				min-height: 40px; padding: 0 18px; border: 1px solid var(--brand-primary);
+				border-radius: 6px; background: var(--brand-primary); color: white;
+				font: 500 14px Inter, sans-serif; cursor: pointer;
+			}
+			button:hover { background: var(--brand-primary-700); }
+			button:disabled { opacity: 0.55; cursor: wait; }
+			#version-section { margin-top: 16px; }
+			#version-section[hidden], #status[hidden], #cancel[hidden], #existing[hidden] { display: none; }
+			.actions { display: flex; gap: 12px; flex-wrap: wrap; }
+			button.secondary { background: white; color: var(--brand-primary); }
+			button.secondary:hover { background: var(--brand-secondary); }
+			#status { margin: 16px 0 0; line-height: 1.5; }
+			#status[data-kind='error'] { color: var(--error); }
+			#status[data-kind='success'] { color: var(--success); }
+			code { font-family: 'Source Code Pro', monospace; font-size: 0.92em; }
+			.security { margin: 16px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+			@media (max-width: 600px) {
+				header { padding: 16px; }
+				main { margin: 32px auto; }
+				form { padding: 20px; }
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<strong>Credimi action author</strong>
+			<button id="existing" class="secondary" type="button" hidden>Existing sessions</button>
+		</header>
+		<main>
+			<p class="eyebrow">Runner wallet tooling</p>
+			<h1>Start an authoring session:</h1>
+			<p class="lead">
+				Select a device of an admin-managed Credimi runner and an existing wallet version.
+				Credimi checks your organization ownership, reserves the device and installs the
+				wallet before the chat opens. This page then follows the device's organization, so
+				Existing sessions lists that organization's sessions.
+			</p>
+			<form id="start-form">
+				<div class="field">
+					<label for="credimi-url">Credimi URL</label>
+					<input id="credimi-url" name="credimi_url" type="url" required />
+				</div>
+				<div class="field">
+					<label for="api-key">Credimi user API key</label>
+					<input id="api-key" name="api_key" type="password" autocomplete="off" required />
+					<p class="hint">
+						Use a user key from your Credimi dashboard, not an internal admin or model-provider key.
+					</p>
+				</div>
+				<button id="connect" type="submit">Find devices and wallet versions</button>
+				<div id="version-section" hidden>
+					<div class="field">
+						<label for="device">Device</label>
+						<select id="device" name="device_id" required disabled></select>
+						<p class="hint">Devices of admin-managed runners of your organizations; offline devices cannot be selected.</p>
+					</div>
+					<div class="field">
+						<label for="wallet-version">Wallet version</label>
+						<select id="wallet-version" name="wallet_version_identifier" required disabled></select>
+						<p class="hint">Only versions with an installer for the selected device's platform are listed. Slot: onboarding.</p>
+					</div>
+					<div class="actions">
+						<button id="start" type="submit">Start authoring session</button>
+						<button id="cancel" class="secondary" type="button" hidden>Cancel</button>
+					</div>
+				</div>
+				<p id="status" role="status" aria-live="polite" hidden></p>
+			</form>
+			<p class="security">
+				Your key is used only in this page's memory and is cleared after the lookup; the session
+				token is cleared when the chat opens. Neither is stored, added to the URL, or sent to
+				the Temporal workflow.
+			</p>
+		</main>
+		<script>
+			'use strict';
+
+			console.log(
+				'%cCredimi action author · start',
+				'background:#3F379D;color:#FFFFFF;border-radius:6px;padding:4px 10px;font-weight:700'
+			);
+
+			const POLL_INTERVAL = 2000;
+			const PLATFORM_LABELS = { android: 'Android', ios: 'iOS simulator' };
+			const form = document.querySelector('#start-form');
+			const originInput = document.querySelector('#credimi-url');
+			const keyInput = document.querySelector('#api-key');
+			const connectButton = document.querySelector('#connect');
+			const startButton = document.querySelector('#start');
+			const cancelButton = document.querySelector('#cancel');
+			const existingButton = document.querySelector('#existing');
+			const versionSection = document.querySelector('#version-section');
+			const deviceSelect = document.querySelector('#device');
+			const versionSelect = document.querySelector('#wallet-version');
+			const status = document.querySelector('#status');
+			let devices = [];
+			let versions = [];
+			let bearerToken = '';
+			let connectedOrigin = '';
+			// The queued session: its ticket and device, until it fails, is canceled, or opens.
+			let ticket = null;
+			let cancelRequested = false;
+
+			originInput.value = window.location.protocol === 'https:'
+				? 'https://localhost:8090'
+				: 'http://localhost:8090';
+
+			function showStatus(message, kind = '') {
+				status.textContent = message;
+				status.dataset.kind = kind;
+				status.hidden = !message;
+			}
+
+			function setBusy(busy) {
+				// After lookup, submitting the form starts a session; the lookup button is done.
+				connectButton.disabled = busy || !versionSection.hidden;
+				startButton.disabled = busy || !versionSelect.options.length;
+				originInput.disabled = busy;
+				keyInput.disabled = busy || !versionSection.hidden;
+				deviceSelect.disabled = busy || versionSection.hidden;
+				versionSelect.disabled = deviceSelect.disabled;
+			}
+
+			function credimiOrigin() {
+				const url = new URL(originInput.value);
+				if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+					throw new Error('Credimi URL must use HTTP or HTTPS.');
+				}
+				if (url.username || url.password || url.search || url.hash) {
+					throw new Error('Credimi URL must not contain credentials, query parameters, or a fragment.');
+				}
+				return url.origin + url.pathname.replace(/\/+$/, '');
+			}
+
+			async function request(path, options = {}) {
+				const response = await fetch(connectedOrigin + path, {
+					...options,
+					headers: { Accept: 'application/json', ...options.headers },
+				});
+				let body = {};
+				try { body = await response.json(); } catch { /* An HTTP error may have no JSON body. */ }
+				if (!response.ok) {
+					throw new Error(body.message || body.error?.message || `Credimi returned ${response.status}.`);
+				}
+				return body;
+			}
+
+			function authorized(options = {}) {
+				return { ...options, headers: { Authorization: `Bearer ${bearerToken}`, ...options.headers } };
+			}
+
+			function clearConnection() {
+				bearerToken = '';
+				connectedOrigin = '';
+				ticket = null;
+				versionSection.hidden = true;
+				cancelButton.hidden = true;
+				keyInput.disabled = false;
+				deviceSelect.replaceChildren();
+				versionSelect.replaceChildren();
+				devices = [];
+				versions = [];
+				startButton.textContent = 'Start authoring session';
+				existingButton.hidden = true;
+			}
+
+			function selectedDevice() {
+				return devices.find((device) => device.path === deviceSelect.value);
+			}
+
+			function showDevices() {
+				deviceSelect.replaceChildren();
+				for (const device of devices) {
+					const option = document.createElement('option');
+					option.value = device.path;
+					option.textContent = `${device.name} — ${device.runner_name} (${PLATFORM_LABELS[device.platform] || device.platform})`
+						+ (device.is_online ? '' : ' · offline');
+					option.disabled = !device.is_online;
+					deviceSelect.append(option);
+				}
+				const online = devices.find((device) => device.is_online);
+				if (online) deviceSelect.value = online.path;
+			}
+
+			function showVersions() {
+				const platform = selectedDevice()?.platform;
+				versionSelect.replaceChildren();
+				for (const version of versions) {
+					if (!platform || !(version.platforms || []).includes(platform)) continue;
+					const option = document.createElement('option');
+					option.value = version.identifier;
+					option.textContent = `${version.wallet_name} · ${version.version_tag} · ${version.organization_name} (${version.identifier})`;
+					versionSelect.append(option);
+				}
+				startButton.disabled = !versionSelect.options.length;
+				return versionSelect.options.length;
+			}
+
+			async function connect() {
+				const apiKey = keyInput.value;
+				try {
+					connectedOrigin = credimiOrigin();
+					showStatus('Checking your Credimi access…');
+					const auth = await request('/api/apikey/authenticate', {
+						headers: { 'Credimi-Api-Key': apiKey },
+					});
+					bearerToken = auth.token;
+					const [catalog, deviceList] = await Promise.all([
+						request('/api/action-author/wallet-versions', authorized()),
+						request('/api/action-author/devices', authorized()),
+					]);
+					versions = catalog.wallet_versions || [];
+					devices = deviceList.devices || [];
+					if (!devices.length) {
+						throw new Error('No admin-managed runner device is available to your organizations.');
+					}
+					if (!versions.length) {
+						throw new Error('No wallet versions with an installer are available for your owner organizations.');
+					}
+					versionSection.hidden = false;
+					existingButton.hidden = false;
+					showDevices();
+					if (showVersions()) {
+						showStatus(`${devices.length} device${devices.length === 1 ? '' : 's'} and ${versions.length} wallet version${versions.length === 1 ? '' : 's'} found.`, 'success');
+					} else {
+						showStatus('No wallet version has an installer for this device.', 'error');
+					}
+				} finally {
+					keyInput.value = '';
+				}
+			}
+
+			// Point this UI at the organization namespace where Credimi runs the device's sessions.
+			async function bindNamespace(namespace) {
+				const response = await fetch('/api/action-author/namespace', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ namespace }),
+				});
+				let body = {};
+				try { body = await response.json(); } catch { /* An HTTP error may have no JSON body. */ }
+				if (!response.ok) {
+					throw new Error(body.message || 'The authoring UI could not connect to Temporal.');
+				}
+			}
+
+			async function harnessJSON(path) {
+				try {
+					const response = await fetch(path, { cache: 'no-store', signal: AbortSignal.timeout(5000) });
+					return response.ok ? await response.json() : null;
+				} catch {
+					// Discovery and workflow queries can fail transiently while the session starts.
+					return null;
+				}
+			}
+
+			// Whether the chat workflow is running and answers both the status and interface queries.
+			async function sessionReady(workflowId) {
+				const sessions = await harnessJSON('/api/sessions');
+				const session = Array.isArray(sessions)
+					? sessions.find((entry) => entry.workflow_id === workflowId)
+					: null;
+				if (session?.closed) {
+					throw new Error(`Session ${workflowId} has closed. Start a new session.`);
+				}
+				if (session?.execution_status !== 'RUNNING') return false;
+				const id = encodeURIComponent(workflowId);
+				const [agentStatus, agentInterface] = await Promise.all([
+					harnessJSON(`/api/status/${id}`),
+					harnessJSON(`/api/agent-interface/${id}`),
+				]);
+				return Boolean(agentStatus?.agent_id && Array.isArray(agentInterface)
+					&& agentInterface.some((handler) => handler.name === 'ask'));
+			}
+
+			function ticketPath() {
+				return `/api/pipeline/queue/${encodeURIComponent(ticket.id)}?device_ids=${encodeURIComponent(ticket.device)}`;
+			}
+
+			// Poll the queued session until its chat opens; the chat workflow's ID.
+			async function waitForChat() {
+				while (true) {
+					const queued = await request(ticketPath(), authorized());
+					const preparing = queued.status === 'queued' || queued.status === 'starting';
+					cancelButton.hidden = !preparing;
+					if (queued.status === 'queued') {
+						showStatus(`Waiting for the device (position ${(queued.position ?? 0) + 1})`);
+					} else if (queued.status === 'starting') {
+						showStatus('Preparing the device and installing the wallet…');
+					} else if (queued.status === 'running') {
+						const chat = `${queued.workflow_id}-author`;
+						if (queued.workflow_id && await sessionReady(chat)) return chat;
+						// The session prepares the device, then starts the chat.
+						showStatus('Preparing the device and installing the wallet…');
+					} else {
+						throw new Error(queued.error_message || `The session ${queued.status === 'canceled' ? 'was canceled' : 'failed'}.`);
+					}
+					await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+				}
+			}
+
+			async function start() {
+				const device = selectedDevice();
+				showStatus('Queueing the authoring session…');
+				const result = await request('/api/action-author/sessions', authorized({
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						device_id: device.path,
+						wallet_version_identifier: versionSelect.value,
+						slot: 'onboarding',
+					}),
+				}));
+				if (typeof result.ticket_id !== 'string' || !result.ticket_id.trim()) {
+					throw new Error('Credimi did not return a session ticket.');
+				}
+				ticket = { id: result.ticket_id, device: result.device_id || device.path };
+				cancelRequested = false;
+				if (typeof result.workflow_namespace !== 'string' || !result.workflow_namespace) {
+					await cancel();
+					throw new Error('Credimi did not return the session namespace.');
+				}
+				try {
+					await bindNamespace(result.workflow_namespace);
+				} catch (error) {
+					// The chat could not be shown here: do not leave the device reserved.
+					await cancel();
+					throw error;
+				}
+				startButton.textContent = 'Waiting for the session…';
+				const chat = await waitForChat();
+				bearerToken = '';
+				ticket = null;
+				cancelButton.hidden = true;
+				showStatus('Session ready. Opening the authoring chat…', 'success');
+				window.location.assign(`/?s=${encodeURIComponent(chat)}`);
+			}
+
+			async function cancel() {
+				if (!ticket || cancelRequested) return;
+				cancelRequested = true;
+				cancelButton.disabled = true;
+				try {
+					await request(ticketPath(), authorized({ method: 'DELETE' }));
+					showStatus('Canceling the queued session…');
+				} catch (error) {
+					cancelRequested = false;
+					showStatus(error instanceof Error ? error.message : 'Cancel failed.', 'error');
+				} finally {
+					cancelButton.disabled = false;
+				}
+			}
+
+			form.addEventListener('submit', async (event) => {
+				event.preventDefault();
+				setBusy(true);
+				try {
+					if (versionSection.hidden) await connect();
+					else await start();
+				} catch (error) {
+					cancelButton.hidden = true;
+					if (ticket) {
+						// The queued session ended without opening: offer a new one.
+						ticket = null;
+						startButton.textContent = 'Retry';
+					} else if (versionSection.hidden) {
+						clearConnection();
+					}
+					showStatus(error instanceof Error ? error.message : 'The request failed.', 'error');
+				} finally {
+					setBusy(false);
+				}
+			});
+
+			cancelButton.addEventListener('click', cancel);
+			existingButton.addEventListener('click', async () => {
+				existingButton.disabled = true;
+				try {
+					await bindNamespace(selectedDevice()?.namespace || devices[0].namespace);
+					window.location.assign('/?sessions=1');
+				} catch (error) {
+					showStatus(error instanceof Error ? error.message : 'The request failed.', 'error');
+				} finally {
+					existingButton.disabled = false;
+				}
+			});
+			if (new URLSearchParams(window.location.search).has('unbound')) {
+				showStatus('This authoring UI restarted. Sign in and choose a device of your organization, then open Existing sessions.');
+			}
+			originInput.addEventListener('input', clearConnection);
+			deviceSelect.addEventListener('change', () => {
+				if (!showVersions()) showStatus('No wallet version has an installer for this device.', 'error');
+				else showStatus('');
+			});
+		</script>
+	</body>
+</html>

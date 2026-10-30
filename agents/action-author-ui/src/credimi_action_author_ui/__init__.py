@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""Local chat UI for Credimi action author sessions."""

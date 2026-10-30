@@ -709,3 +709,23 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   3. The offline `503`: the device list hides disabled runners, `mobilerunner.RecentlyAlive` and the worker start already treat a disabled runner as offline, so one condition keeps one answer.
   4. `404 device_not_found`, the same answer as an unknown device; superusers see every runner and still get `403 runner_not_owned` when the runner and the wallet belong to different organizations.
 - follow-up: the iOS `release_device` activity has a 30 s schedule-to-start timeout, so a runner without the agent worker no longer blocks cleanup and RunDone.
+
+### 2026-10-30 - Action author chat UI back in credimi, namespace bound at runtime
+
+- status: open (user decisions applied; human may revisit)
+- owner: human maintainer
+- context: the harness chat UI lived in `credimi-runner/agent` and needed `TEMPORAL_NAMESPACE` and `ACTION_AUTHOR_TASK_QUEUE` of one runner, while its start page offered devices of every runner. It moved to `agents/action-author-ui` (`make action-author.ui`), which needs only `TEMPORAL_ADDRESS`; the runner keeps only the agent worker.
+- questions and options considered:
+  1. Where the namespace comes from. Options: an environment variable per UI process; or Credimi's answers (`namespace` per device in `GET /api/action-author/devices`, `workflow_namespace` of `POST /api/action-author/sessions`), posted by the start page to `POST /api/action-author/namespace`.
+  2. How many namespaces one UI process serves. Options: one binding at a time, switched by the start page; or a client per namespace with namespace-aware routing of every harness API call.
+  3. Who runs the harness session-manager workflow. Options: a separate `temporal-agent-harness session-manager` process per namespace; or an in-process worker per binding.
+  4. Which task queue the harness registry names. Options: a real runner queue (unknown to the UI); or a placeholder, since the UI never starts agents.
+  5. What the start page does when it cannot bind after Credimi queued the session. Options: leave the session queued; or cancel the ticket, since nobody could watch the chat.
+- default risk: (2) sessions of the previously bound organization leave the list until the UI is bound to it again; a UI restart drops the binding, so chat links redirect to `/start?unbound=1`.
+- decisions:
+  1. Credimi's answers (user decision); the namespace must match the canonified organization name pattern.
+  2. One binding (user decision: one user belongs to one organization).
+  3. In-process worker, stopped when the binding changes or the UI stops; the UI's own lifespan replaces the harness startup, which connected to one fixed namespace.
+  4. Placeholder `credimi-runner-ActionAuthor`; Credimi starts each chat on `<runner_id>-ActionAuthor`.
+  5. Cancel the ticket (agent default).
+- follow-up: harness large-payload offload is local to the worker host; if a chat shows undecodable events when the UI and the runner run on different hosts, the UI needs the runner's offload storage.
