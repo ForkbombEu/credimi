@@ -5,14 +5,9 @@
 package actionauthor
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
-	"io"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/dbx"
@@ -228,20 +223,13 @@ func TestAuthoringBuildResolvesPlatformInstaller(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.platform, build.Platform)
 			assert.Equal(t, CodeSHA256(tc.content), build.InstallerSHA256)
-			installer, err := OpenInstaller(app, build.DownloadGrant)
-			require.NoError(t, err)
-			content, err := io.ReadAll(installer)
-			require.NoError(t, err)
-			require.NoError(t, installer.Close())
-			assert.Equal(t, tc.platform, installer.Platform)
-			assert.Equal(t, tc.content, string(content))
 		})
 	}
 }
 
-func TestAuthoringBuildPermissionAndCapability(t *testing.T) {
+func TestAuthoringBuildPermission(t *testing.T) {
 	app, request, namespace := authoringFixture(t)
-	build, err := Resolve(app, namespace, request)
+	_, err := Resolve(app, namespace, request)
 	require.NoError(t, err)
 
 	_, err = Resolve(app, "another-organization", request)
@@ -252,34 +240,6 @@ func TestAuthoringBuildPermissionAndCapability(t *testing.T) {
 	otherRequest.ActorID = other.Id
 	_, err = Resolve(app, namespace, otherRequest)
 	require.ErrorIs(t, err, ErrForbidden)
-	_, err = OpenInstaller(app, "invalid."+build.DownloadGrant)
-	require.ErrorIs(t, err, ErrForbidden)
-
-	// Correctly signed capabilities must fail when expired or retargeted at another platform.
-	encoded, _, _ := strings.Cut(build.DownloadGrant, ".")
-	payload, err := base64.RawURLEncoding.DecodeString(encoded)
-	require.NoError(t, err)
-	var claims installerGrant
-	require.NoError(t, json.Unmarshal(payload, &claims))
-	key, err := grantKey(app)
-	require.NoError(t, err)
-	sign := func(claims installerGrant) string {
-		payload, err := json.Marshal(claims)
-		require.NoError(t, err)
-		encoded := base64.RawURLEncoding.EncodeToString(payload)
-		mac := hmac.New(sha256.New, key)
-		_, err = io.WriteString(mac, encoded)
-		require.NoError(t, err)
-		return encoded + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-	}
-	expired := claims
-	expired.Expires = time.Now().Add(-time.Minute).Unix()
-	_, err = OpenInstaller(app, sign(expired))
-	require.ErrorIs(t, err, ErrForbidden)
-	retargeted := claims
-	retargeted.Platform = PlatformIOS
-	_, err = OpenInstaller(app, sign(retargeted))
-	require.ErrorIs(t, err, ErrInvalid)
 
 	authorization, err := app.FindFirstRecordByFilter(
 		"orgAuthorizations",
@@ -288,7 +248,7 @@ func TestAuthoringBuildPermissionAndCapability(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NoError(t, app.Delete(authorization))
-	_, err = OpenInstaller(app, build.DownloadGrant)
+	_, err = Resolve(app, namespace, request)
 	require.ErrorIs(t, err, ErrForbidden)
 }
 

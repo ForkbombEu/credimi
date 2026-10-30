@@ -18,7 +18,6 @@ var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 	handlers.MobileRunnersPublicRoutes,
 	handlers.MobileDevicesPublicRoutes,
 	handlers.ActionAuthorRoutes,
-	handlers.ActionAuthorArtifactRoutes,
 	// handlers.ScoreboardRoutes,
 }
 

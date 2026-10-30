@@ -57,16 +57,14 @@ type BuildRequest struct {
 	Platform                string `json:"platform"`
 }
 
-// Build binds an authorized wallet version to its platform installer digest and download capability.
+// Build binds an authorized wallet version to its platform installer digest.
 type Build struct {
 	WalletID          string `json:"wallet_id"`
 	VersionID         string `json:"version_id"`
 	VersionIdentifier string `json:"version_identifier"`
 	OwnerNamespace    string `json:"owner_namespace"`
 	Platform          string `json:"platform"`
-	InstallerName     string `json:"installer_name"`
 	InstallerSHA256   string `json:"installer_sha256"`
-	DownloadGrant     string `json:"download_grant"`
 }
 
 // Selection holds the records reauthorized for a build operation.
@@ -271,7 +269,8 @@ func installerDigest(app core.App, selection Selection) (string, error) {
 	return hex.EncodeToString(digest.Sum(nil)), nil
 }
 
-// Resolve hashes the authorized platform installer and issues a short-lived, build-bound download grant.
+// Resolve hashes the authorized platform installer, the provenance Save checks.
+// The runner installs the installer itself, through the pipeline device code.
 func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 	selection, err := Select(app, namespace, in)
 	if err != nil {
@@ -281,19 +280,13 @@ func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 	if err != nil {
 		return Build{}, err
 	}
-	grant, err := issueGrant(app, selection)
-	if err != nil {
-		return Build{}, err
-	}
 	return Build{
 		WalletID:          selection.Wallet.Id,
 		VersionID:         selection.Version.Id,
 		VersionIdentifier: selection.Identifier,
 		OwnerNamespace:    selection.Organization.GetString("canonified_name"),
 		Platform:          selection.Platform,
-		InstallerName:     selection.Installer(),
 		InstallerSHA256:   digest,
-		DownloadGrant:     grant,
 	}, nil
 }
 

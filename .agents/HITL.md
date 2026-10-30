@@ -690,4 +690,4 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   3. `409` with the queue endpoint's exact error, so one semaphore condition has one answer.
   4. `503 start_failed` plus a best-effort `CancelRun` of the ticket, so an enqueue that timed out does not hold the device for a session nobody watches.
   5. Keep the check (tested with a record saved without validation); `GET /api/action-author/devices` also skips unsupported types.
-- follow-up: when #1553 merges, move its early tracking into the shared core (plan contingency).
+- follow-up: when #1553 merges, move its early tracking into the shared core (plan contingency). The installer grant is deleted (plan step 6), so decision 3 of the 29/10/2026 code-review entry no longer applies; `RouteDefinition.ResponseContentType` stays without a user, per decision 2 of that entry.

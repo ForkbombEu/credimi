@@ -49,28 +49,6 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: List devices available for authoring
-  /api/action-author/installer:
-    get:
-      description: 'Stream the single installer authorized by the required Credimi-Artifact-Grant
-        header: an Android APK (application/vnd.android.package-archive) or a zipped
-        iOS simulator app (application/zip). The short-lived capability is issued
-        to the organization-scoped workflow, binds the selected build, platform and
-        actor, and is reauthorized at download. The response is not cached.'
-      operationId: actionAuthor.downloadInstaller
-      responses:
-        "200":
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorResponse'
-          description: An unexpected error occurred.
-      summary: Download the selected authoring installer
   /api/action-author/sessions:
     post:
       description: 'Authorize the caller for the selected wallet organization and
