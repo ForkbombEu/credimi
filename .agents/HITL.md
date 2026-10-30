@@ -680,8 +680,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - questions and options considered:
   1. The plan has `processStep` call `PrepareMobileDevice`, which fails without an installed package (`missing installed package for <version>`). Pipelines with `version_id: installed_from_external_source` install nothing, so that check would fail them, and `processStep` publishes `setted_devices` to run data between the device setup and the install, which decides whether a failed install is cleaned. Options: (a) `processStep` and `PrepareMobileDevice` share an unexported core with a tracking callback, and only `PrepareMobileDevice` adds the package and iOS installer-path checks; (b) apply the checks to pipelines too.
   2. The plan names the session results `"completed"`/`"failed"`; pipelines report `success`/`failed`/`canceled` (`pipeline.go`). Options: reuse the pipeline values, or add new ones the semaphore never saw.
-- default risk: (1b) and new result values would change pipeline behavior or semaphore history.
+  3. The plan says to map queue-limit errors of `POST /api/action-author/sessions` "the way `enqueuePipelineRun` does (`isQueueLimitExceeded`, `429`)", but `enqueuePipelineRun` answers `409`, domain `queue_limit`, reason `queue limit exceeded`. Options: `409` like the queue endpoint, or `429` as written.
+  4. The plan does not say how other enqueue failures answer. Options: keep the endpoint's existing `503 start_failed` (`cannot start authoring session`) and cancel the ticket best-effort, as `enqueuePipelineRun` rolls back ambiguous failures; or a new reason.
+  5. The `mobile_devices.type` select does not list `ios_phone`, which the plan rejects with `422 device_type_not_supported`. Options: keep the check for records written without validation or a future type value, or drop it.
+- default risk: (1b) and new result values would change pipeline behavior or semaphore history; a different queue-limit status splits one semaphore condition across two codes for the same clients.
 - decisions (agent defaults):
   1. (a): pipeline behavior and history are unchanged; the session path keeps the plan's checks.
   2. Pipeline values: `success` when the agent ended in any way, `failed` when setup failed, `canceled` when the session was canceled.
+  3. `409` with the queue endpoint's exact error, so one semaphore condition has one answer.
+  4. `503 start_failed` plus a best-effort `CancelRun` of the ticket, so an enqueue that timed out does not hold the device for a session nobody watches.
+  5. Keep the check (tested with a record saved without validation); `GET /api/action-author/devices` also skips unsupported types.
 - follow-up: when #1553 merges, move its early tracking into the shared core (plan contingency).

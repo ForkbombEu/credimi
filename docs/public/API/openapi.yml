@@ -15,6 +15,40 @@ servers:
 - description: Localhost server
   url: http://localhost:8090/
 paths:
+  /api/action-author/devices:
+    get:
+      description: 'List the Android devices and iOS simulators of enabled admin-managed
+        runners owned by organizations where the authenticated caller is an owner
+        (superusers: every admin-managed runner), with the authoring platform each
+        device implies. Sorted by runner name, then device name.'
+      operationId: actionAuthor.listDevices
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorDevicesResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: List devices available for authoring
   /api/action-author/installer:
     get:
       description: 'Stream the single installer authorized by the required Credimi-Artifact-Grant
@@ -39,11 +73,15 @@ paths:
       summary: Download the selected authoring installer
   /api/action-author/sessions:
     post:
-      description: Authorize the caller for the selected wallet organization and platform
-        (android or ios) and start a local authoring session in its Temporal namespace.
-        The selected version must have an installer for that platform. Only the onboarding
-        slot is supported. Review and explicit human confirmation happen in the local
-        harness UI; this endpoint does not save an action.
+      description: 'Authorize the caller for the selected wallet organization and
+        queue an authoring session on the selected device through the mobile-device
+        semaphore. The device type decides the platform (Android devices: android,
+        iOS simulators: ios), and the version must have an installer for it. The device
+        must belong to an online admin-managed runner of the wallet''s organization.
+        Only the onboarding slot is supported. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>:
+        once running, its workflow_id is the session and <workflow_id>-author is the
+        chat workflow. Review and explicit human confirmation happen in the harness
+        UI; this endpoint does not save an action.'
       operationId: actionAuthor.startSession
       parameters:
       - description: Bearer token for authentication.
@@ -77,7 +115,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
-      summary: Start an authenticated wallet-action authoring session
+      summary: Queue a wallet-action authoring session on a runner device
   /api/action-author/wallet-versions:
     get:
       description: List wallet versions with an Android APK or iOS simulator app in
@@ -886,11 +924,34 @@ components:
         message:
           type: string
       type: object
+    HandlersActionAuthorDevice:
+      properties:
+        is_online:
+          type: boolean
+        name:
+          type: string
+        path:
+          type: string
+        platform:
+          type: string
+        runner_name:
+          type: string
+        type:
+          type: string
+      type: object
+    HandlersActionAuthorDevicesResponse:
+      properties:
+        devices:
+          items:
+            $ref: '#/components/schemas/HandlersActionAuthorDevice'
+          nullable: true
+          type: array
+      type: object
     HandlersActionAuthorStartRequest:
       properties:
         app_id:
           type: string
-        platform:
+        device_id:
           type: string
         slot:
           type: string
@@ -899,11 +960,15 @@ components:
       type: object
     HandlersActionAuthorStartResponse:
       properties:
-        run_id:
+        device_id:
+          type: string
+        position:
+          type: integer
+        status:
+          type: string
+        ticket_id:
           type: string
         wallet_version_identifier:
-          type: string
-        workflow_id:
           type: string
         workflow_namespace:
           type: string

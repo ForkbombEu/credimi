@@ -5,25 +5,28 @@
 package handlers
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"sort"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/authorsession"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/semaphoreclient"
 	"github.com/google/uuid"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
-	"go.temporal.io/sdk/client"
-)
-
-// The Python action-author worker (agents/action-author) serves this workflow
-// type on this task queue in the selected organization namespace.
-const (
-	actionAuthorWorkflowType = "ActionAuthor"
-	actionAuthorTaskQueue    = "action-author"
 )
 
 // ActionAuthorRoutes starts sessions after authenticating and authorizing their Credimi actor.
@@ -44,36 +47,24 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			ResponseSchema: ActionAuthorWalletVersionsResponse{},
 		},
 		{
+			Method:         http.MethodGet,
+			Path:           "/devices",
+			Handler:        HandleActionAuthorDevices,
+			OperationID:    "actionAuthor.listDevices",
+			Summary:        "List devices available for authoring",
+			Description:    "List the Android devices and iOS simulators of enabled admin-managed runners owned by organizations where the authenticated caller is an owner (superusers: every admin-managed runner), with the authoring platform each device implies. Sorted by runner name, then device name.",
+			ResponseSchema: ActionAuthorDevicesResponse{},
+		},
+		{
 			Method:         http.MethodPost,
 			Path:           "/sessions",
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
-			Summary:        "Start an authenticated wallet-action authoring session",
-			Description:    "Authorize the caller for the selected wallet organization and platform (android or ios) and start a local authoring session in its Temporal namespace. The selected version must have an installer for that platform. Only the onboarding slot is supported. Review and explicit human confirmation happen in the local harness UI; this endpoint does not save an action.",
+			Summary:        "Queue a wallet-action authoring session on a runner device",
+			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios), and the version must have an installer for it. The device must belong to an online admin-managed runner of the wallet's organization. Only the onboarding slot is supported. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. Review and explicit human confirmation happen in the harness UI; this endpoint does not save an action.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
-		},
-	},
-}
-
-// ActionAuthorArtifactRoutes serves installers authorized by build-bound capabilities.
-var ActionAuthorArtifactRoutes = routing.RouteGroup{
-	BaseURL:                "/api/action-author",
-	AuthenticationRequired: false,
-	Middlewares: []*hook.Handler[*core.RequestEvent]{
-		{Func: middlewares.ErrorHandlingMiddleware},
-	},
-	Routes: []routing.RouteDefinition{
-		{
-			Method:              http.MethodGet,
-			Path:                "/installer",
-			Handler:             HandleActionAuthorInstaller,
-			OperationID:         "actionAuthor.downloadInstaller",
-			Summary:             "Download the selected authoring installer",
-			Description:         "Stream the single installer authorized by the required Credimi-Artifact-Grant header: an Android APK (application/vnd.android.package-archive) or a zipped iOS simulator app (application/zip). The short-lived capability is issued to the organization-scoped workflow, binds the selected build, platform and actor, and is reauthorized at download. The response is not cached.",
-			ResponseSchema:      "",
-			ResponseContentType: "application/octet-stream",
 		},
 	},
 }
@@ -89,10 +80,7 @@ func HandleActionAuthorWalletVersions() func(*core.RequestEvent) error {
 		if e.Auth == nil {
 			return authoringAPIError(actionauthor.ErrForbidden)
 		}
-		versions, err := actionauthor.ListBuildOptions(e.App, actionauthor.Actor{
-			ActorID:         e.Auth.Id,
-			ActorCollection: e.Auth.Collection().Name,
-		})
+		versions, err := actionauthor.ListBuildOptions(e.App, authoringActor(e.Auth))
 		if err != nil {
 			return authoringAPIError(err)
 		}
@@ -100,27 +88,120 @@ func HandleActionAuthorWalletVersions() func(*core.RequestEvent) error {
 	}
 }
 
-// ActionAuthorStartRequest selects the wallet version, platform and action slot for a new session.
+// ActionAuthorDevice is one runner device the caller can author on.
+type ActionAuthorDevice struct {
+	Path       string `json:"path"`
+	Name       string `json:"name"`
+	RunnerName string `json:"runner_name"`
+	Type       string `json:"type"`
+	Platform   string `json:"platform"`
+	IsOnline   bool   `json:"is_online"`
+}
+
+// ActionAuthorDevicesResponse lists the devices accepted by the session start endpoint.
+type ActionAuthorDevicesResponse struct {
+	Devices []ActionAuthorDevice `json:"devices"`
+}
+
+// HandleActionAuthorDevices lists the supported devices of admin-managed
+// runners owned by the caller's organizations.
+func HandleActionAuthorDevices() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		if e.Auth == nil {
+			return authoringAPIError(actionauthor.ErrForbidden)
+		}
+		ownerFilter, err := actionauthor.OwnerFilter(e.App, authoringActor(e.Auth))
+		if err != nil {
+			return authoringAPIError(err)
+		}
+		runners, err := e.App.FindAllRecords(
+			"mobile_runners",
+			dbx.HashExp{"admin_managed": true},
+			ownerFilter,
+		)
+		if err != nil {
+			return authoringAPIError(fmt.Errorf("list authoring runners: %w", err))
+		}
+		response := ActionAuthorDevicesResponse{Devices: []ActionAuthorDevice{}}
+		now := time.Now()
+		for _, runner := range enabledMobileRunnerRecords(runners) {
+			// Heartbeat freshness, as GET /api/mobile-devices reports it.
+			runnerOnline := mobilerunner.RecentlyAlive(runner, now) &&
+				mobilerunner.URLUsable(mobilerunner.RunnerURL(runner))
+			devices, err := e.App.FindAllRecords(
+				"mobile_devices",
+				dbx.HashExp{"runner": runner.Id},
+			)
+			if err != nil {
+				return authoringAPIError(fmt.Errorf("list authoring devices: %w", err))
+			}
+			for _, device := range devices {
+				platform := actionAuthorPlatform(device.GetString("type"))
+				if platform == "" {
+					continue
+				}
+				path, err := mobileDeviceIdentifier(e.App, device)
+				if err != nil {
+					return authoringAPIError(fmt.Errorf("build device path: %w", err))
+				}
+				response.Devices = append(response.Devices, ActionAuthorDevice{
+					Path:       path,
+					Name:       device.GetString("name"),
+					RunnerName: runner.GetString("name"),
+					Type:       device.GetString("type"),
+					Platform:   platform,
+					IsOnline:   runnerOnline && device.GetBool("online"),
+				})
+			}
+		}
+		sort.SliceStable(response.Devices, func(i, j int) bool {
+			left, right := response.Devices[i], response.Devices[j]
+			if left.RunnerName != right.RunnerName {
+				return left.RunnerName < right.RunnerName
+			}
+			return left.Name < right.Name
+		})
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
+// ActionAuthorStartRequest selects the device, wallet version and action slot for a new session.
 type ActionAuthorStartRequest struct {
+	DeviceID                string `json:"device_id"                 validate:"required"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier" validate:"required"`
-	Platform                string `json:"platform"                  validate:"required,oneof=android ios"`
 	Slot                    string `json:"slot"                      validate:"required,oneof=onboarding"`
 	AppID                   string `json:"app_id,omitempty"`
 }
 
-// ActionAuthorStartResponse identifies the workflow in the authorized organization namespace.
+// ActionAuthorStartResponse identifies the queued session ticket.
 type ActionAuthorStartResponse struct {
-	WorkflowID              string `json:"workflow_id"`
-	RunID                   string `json:"run_id"`
+	TicketID                string `json:"ticket_id"`
+	DeviceID                string `json:"device_id"`
+	Status                  string `json:"status"`
+	Position                int    `json:"position"`
 	WorkflowNamespace       string `json:"workflow_namespace"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 }
 
-// ActionAuthorInitData binds trusted actor data to the requested build, platform, slot and optional package ID.
-type ActionAuthorInitData struct {
-	actionauthor.BuildRequest
-	Slot  string `json:"slot"`
-	AppID string `json:"app_id,omitempty"`
+// enqueueActionAuthorTicket enqueues a session ticket and is stubbed in unit tests.
+var enqueueActionAuthorTicket = semaphoreclient.EnqueueRun
+
+func authoringActor(auth *core.Record) actionauthor.Actor {
+	return actionauthor.Actor{ActorID: auth.Id, ActorCollection: auth.Collection().Name}
+}
+
+// actionAuthorPlatform maps a device type to its authoring platform; it is
+// empty for types the action author does not support (ios_phone needs a
+// simulator clone to reset).
+func actionAuthorPlatform(deviceType string) string {
+	switch deviceType {
+	case "android_phone", "android_emulator", "redroid":
+		return actionauthor.PlatformAndroid
+	case "ios_simulator":
+		return actionauthor.PlatformIOS
+	default:
+		return ""
+	}
 }
 
 func authoringAPIError(err error) *apierror.APIError {
@@ -146,7 +227,8 @@ func authoringAPIError(err error) *apierror.APIError {
 	}
 }
 
-// HandleActionAuthorStart starts an organization-scoped authoring workflow for the caller.
+// HandleActionAuthorStart queues a session on an admin-managed runner device
+// of the wallet's organization.
 func HandleActionAuthorStart() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[ActionAuthorStartRequest](e)
@@ -156,36 +238,107 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if e.Auth == nil {
 			return authoringAPIError(actionauthor.ErrForbidden)
 		}
-		request := actionauthor.BuildRequest{
-			WalletVersionIdentifier: input.WalletVersionIdentifier,
-			Platform:                input.Platform,
-			Actor: actionauthor.Actor{
-				ActorID:         e.Auth.Id,
-				ActorCollection: e.Auth.Collection().Name,
-			},
+		deviceID := canonify.NormalizePath(input.DeviceID)
+		device, runner, err := mobilerunner.ResolveDevice(e.App, deviceID)
+		switch {
+		case errors.Is(err, mobilerunner.ErrDeviceNotFound),
+			errors.Is(err, mobilerunner.ErrDeviceRunnerNotFound):
+			return apierror.New(
+				http.StatusNotFound,
+				"action_author",
+				"device_not_found",
+				"mobile device "+deviceID+" not found",
+			)
+		case err != nil:
+			return authoringAPIError(err)
 		}
-		selection, err := actionauthor.Select(e.App, "", request)
+		platform := actionAuthorPlatform(device.GetString("type"))
+		if platform == "" {
+			return apierror.New(
+				http.StatusUnprocessableEntity,
+				"action_author",
+				"device_type_not_supported",
+				"the action author supports Android devices and iOS simulators",
+			)
+		}
+		actor := authoringActor(e.Auth)
+		selection, err := actionauthor.Select(e.App, "", actionauthor.BuildRequest{
+			Actor:                   actor,
+			WalletVersionIdentifier: input.WalletVersionIdentifier,
+			Platform:                platform,
+		})
+		if err != nil {
+			return authoringAPIError(err)
+		}
+		if !runner.GetBool("admin_managed") {
+			return apierror.New(
+				http.StatusForbidden,
+				"action_author",
+				"runner_not_supported",
+				"the action author runs only on admin-managed runners",
+			)
+		}
+		if runner.GetString("owner") != selection.Organization.Id {
+			return apierror.New(
+				http.StatusForbidden,
+				"action_author",
+				"runner_not_owned",
+				"the device's runner belongs to another organization",
+			)
+		}
+		if apiErr := requireMobileDeviceRunnersOnline(
+			e.Request.Context(),
+			e.App,
+			[]string{deviceID},
+		); apiErr != nil {
+			return apiErr
+		}
+
+		session, err := sessionInputMap(authorsession.SessionInput{
+			DeviceID:                deviceID,
+			Platform:                platform,
+			WalletVersionIdentifier: selection.Identifier,
+			ActorID:                 actor.ActorID,
+			ActorCollection:         actor.ActorCollection,
+			Slot:                    input.Slot,
+			AppID:                   input.AppID,
+		})
 		if err != nil {
 			return authoringAPIError(err)
 		}
 		namespace := selection.Organization.GetString("canonified_name")
-		request.WalletVersionIdentifier = selection.Identifier
-		temporal, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		ticketID := uuid.NewString()
+		c, err := queueTemporalClient(workflowengine.MobileDeviceSemaphoreDefaultNamespace)
 		if err != nil {
 			return temporalUnavailableError()
 		}
-		run, err := temporal.ExecuteWorkflow(
+		resp, err := enqueueActionAuthorTicket(
 			e.Request.Context(),
-			client.StartWorkflowOptions{
-				ID:        actionAuthorWorkflowType + "-" + uuid.NewString(),
-				TaskQueue: actionAuthorTaskQueue,
+			c,
+			deviceID,
+			mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunRequest{
+				TicketID:            ticketID,
+				OwnerNamespace:      namespace,
+				EnqueuedAt:          time.Now().UTC(),
+				DeviceID:            deviceID,
+				RequiredDeviceIDs:   []string{deviceID},
+				LeaderDeviceID:      deviceID,
+				MaxPipelinesInQueue: selection.Organization.GetInt("max_pipelines_in_queue"),
+				RunKind:             mobiledevicesemaphore.RunKindActionAuthor,
+				ActionAuthor:        session,
 			},
-			actionAuthorWorkflowType,
-			// The Python harness agent takes its config, then the trusted session context.
-			map[string]any{},
-			ActionAuthorInitData{BuildRequest: request, Slot: input.Slot, AppID: input.AppID},
 		)
 		if err != nil {
+			if isQueueLimitExceeded(err) {
+				return apierror.New(
+					http.StatusConflict,
+					"queue_limit",
+					"queue limit exceeded",
+					err.Error(),
+				)
+			}
+			// A failed enqueue can still have reached the semaphore (timeouts).
+			rollbackActionAuthorTicket(e, deviceID, ticketID, namespace)
 			return apierror.New(
 				http.StatusServiceUnavailable,
 				"action_author",
@@ -194,12 +347,69 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			)
 		}
 		return e.JSON(http.StatusAccepted, ActionAuthorStartResponse{
-			WorkflowID:              run.GetID(),
-			RunID:                   run.GetRunID(),
+			TicketID:                ticketID,
+			DeviceID:                deviceID,
+			Status:                  string(resp.Status),
+			Position:                resp.Position,
 			WorkflowNamespace:       namespace,
 			WalletVersionIdentifier: selection.Identifier,
 		})
 	}
+}
+
+// sessionInputMap encodes the session as the semaphore ticket carries it.
+func sessionInputMap(session authorsession.SessionInput) (map[string]any, error) {
+	encoded, err := json.Marshal(session)
+	if err != nil {
+		return nil, fmt.Errorf("encode authoring session: %w", err)
+	}
+	var values map[string]any
+	if err := json.Unmarshal(encoded, &values); err != nil {
+		return nil, fmt.Errorf("decode authoring session: %w", err)
+	}
+	return values, nil
+}
+
+func rollbackActionAuthorTicket(e *core.RequestEvent, deviceID, ticketID, namespace string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := cancelRunTicket(
+		ctx,
+		deviceID,
+		mobiledevicesemaphore.MobileDeviceSemaphoreRunCancelRequest{
+			TicketID:       ticketID,
+			OwnerNamespace: namespace,
+		},
+	); err != nil &&
+		!errors.Is(err, semaphoreclient.ErrRunTicketNotFound) {
+		e.App.Logger().Warn(fmt.Sprintf(
+			"failed to rollback action author ticket %s for device %s: %v",
+			ticketID,
+			deviceID,
+			err,
+		))
+	}
+}
+
+// ActionAuthorArtifactRoutes serves installers authorized by build-bound capabilities.
+var ActionAuthorArtifactRoutes = routing.RouteGroup{
+	BaseURL:                "/api/action-author",
+	AuthenticationRequired: false,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method:              http.MethodGet,
+			Path:                "/installer",
+			Handler:             HandleActionAuthorInstaller,
+			OperationID:         "actionAuthor.downloadInstaller",
+			Summary:             "Download the selected authoring installer",
+			Description:         "Stream the single installer authorized by the required Credimi-Artifact-Grant header: an Android APK (application/vnd.android.package-archive) or a zipped iOS simulator app (application/zip). The short-lived capability is issued to the organization-scoped workflow, binds the selected build, platform and actor, and is reauthorized at download. The response is not cached.",
+			ResponseSchema:      "",
+			ResponseContentType: "application/octet-stream",
+		},
+	},
 }
 
 // HandleActionAuthorInstaller streams the single installer authorized by the supplied capability.

@@ -93,34 +93,46 @@ type BuildOption struct {
 	Platforms        []string `json:"platforms"`
 }
 
+// OwnerFilter restricts a query on a collection with an `owner` organization
+// to the organizations where the actor holds the owner role, the role Select
+// requires. Superusers are not restricted.
+func OwnerFilter(app core.App, in Actor) (dbx.Expression, error) {
+	actor, err := findActor(app, in)
+	if err != nil {
+		return nil, err
+	}
+	if actor.IsSuperuser() {
+		return dbx.NewExp("1=1"), nil
+	}
+	// Resolve owned organizations first: PocketBase's `=` on a back-relation
+	// matches only when every authorization of the organization matches.
+	authorizations, err := app.FindRecordsByFilter(
+		"orgAuthorizations",
+		"user = {:user} && role.name = 'owner'",
+		"",
+		0,
+		0,
+		dbx.Params{"user": actor.Id},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list owned organizations: %w", err)
+	}
+	owned := make([]any, 0, len(authorizations))
+	for _, authorization := range authorizations {
+		owned = append(owned, authorization.GetString("organization"))
+	}
+	return dbx.In("owner", owned...), nil
+}
+
 // ListBuildOptions returns only builds authorized by the same owner role as Select.
 func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
-	actor, err := findActor(app, in)
+	ownerFilter, err := OwnerFilter(app, in)
 	if err != nil {
 		return nil, err
 	}
 	filter := []dbx.Expression{
 		dbx.Or(dbx.NewExp("[[android_installer]] != ''"), dbx.NewExp("[[ios_installer]] != ''")),
-	}
-	if !actor.IsSuperuser() {
-		// Resolve owned organizations first: PocketBase's `=` on a back-relation
-		// matches only when every authorization of the organization matches.
-		authorizations, findErr := app.FindRecordsByFilter(
-			"orgAuthorizations",
-			"user = {:user} && role.name = 'owner'",
-			"",
-			0,
-			0,
-			dbx.Params{"user": actor.Id},
-		)
-		if findErr != nil {
-			return nil, fmt.Errorf("list owned organizations: %w", findErr)
-		}
-		owned := make([]any, 0, len(authorizations))
-		for _, authorization := range authorizations {
-			owned = append(owned, authorization.GetString("organization"))
-		}
-		filter = append(filter, dbx.In("owner", owned...))
+		ownerFilter,
 	}
 	versions, err := app.FindAllRecords("wallet_versions", filter...)
 	if err != nil {
