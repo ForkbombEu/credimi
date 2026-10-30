@@ -55,6 +55,7 @@ from temporalio.api.common.v1 import Payload
 from temporalio.client import Client, WorkflowExecutionStatus
 from temporalio.contrib.workflow_streams import WorkflowStreamClient
 from temporalio.envconfig import ClientConfig
+from temporalio.service import RPCError, RPCStatusCode
 from temporalio.worker import Worker
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,7 @@ MANAGER_WORKFLOW_ID = "action-author-session-manager"
 # `<runner_id>-ActionAuthor`.
 AGENT_TASK_QUEUE = "credimi-runner-ActionAuthor"
 NAMESPACE_PATH = "/api/action-author/namespace"
+CHAT_READY_PATH = "/api/action-author/chat-ready"
 # Names Credimi's canonify produces for organizations (pkg/internal/canonify): Unicode
 # letters and digits joined by `-`, never leading with `-`; at most 1000 characters.
 NAMESPACE_PATTERN = re.compile(r"[^\W_](?:[^\W_]|-){0,999}")
@@ -83,6 +85,8 @@ AGENT_DESCRIPTION = (
 START_PAGE = Path(__file__).with_name("start.html")
 SAVE_REVIEW_SCRIPT = Path(__file__).with_name("save-review.js")
 NO_STORE = {"Cache-Control": "no-store"}
+# How long the start page waits before polling again after a Temporal error.
+TEMPORAL_RETRY_AFTER = "2"
 DEFAULT_PORT = 8001
 # Methods that never change state; every other method needs the UI's own Origin.
 SAFE_METHODS = {"GET", "HEAD"}
@@ -232,6 +236,35 @@ def _refuse_framing(response) -> None:
         response.headers["Content-Security-Policy"] = NO_FRAMING_CSP
     elif "frame-ancestors" not in policy:
         response.headers["Content-Security-Policy"] = f"{policy}; {NO_FRAMING_CSP}"
+
+
+def _temporal_error(exc: RPCError, path: str) -> JSONResponse:
+    """Answer a Temporal service error (e.g. a full query buffer) without a traceback."""
+    logger.warning("temporal %s on %s: %s", exc.status.name, path, exc.message)
+    return JSONResponse(
+        status_code=503,
+        content={"error": "temporal_unavailable", "message": exc.message},
+        headers={**NO_STORE, "Retry-After": TEMPORAL_RETRY_AFTER},
+    )
+
+
+async def _chat_ready(temporal, workflow_id: str) -> dict:
+    """Whether a chat workflow ran a workflow task, so its queries can be answered.
+
+    Until a worker completes the first workflow task, the history holds only the start and
+    the scheduled task, and every query waits in Temporal's buffer.
+    """
+    try:
+        state = await temporal.get_workflow_handle(workflow_id).describe()
+    except RPCError as exc:
+        if exc.status != RPCStatusCode.NOT_FOUND:
+            raise
+        return {"ready": False, "running": False, "execution_status": "NOT_FOUND"}
+    return {
+        "ready": state.history_length > 2,
+        "running": state.status == WorkflowExecutionStatus.RUNNING,
+        "execution_status": state.status.name,
+    }
 
 
 def _reset_state(app) -> None:
@@ -422,6 +455,10 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
             headers=_sse_headers(),
         )
 
+    @app.get(CHAT_READY_PATH + "/{workflow_id:path}")
+    async def chat_ready(workflow_id: str):
+        return JSONResponse(await _chat_ready(app.state.temporal, workflow_id), headers=NO_STORE)
+
     # Registered last, so it runs first.
     @app.middleware("http")
     async def own_origin_only(request, call_next):
@@ -443,7 +480,10 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
                 content={"error": "cross_origin_request", "message": "foreign Origin"},
             )
         else:
-            response = await call_next(request)
+            try:
+                response = await call_next(request)
+            except RPCError as exc:
+                response = _temporal_error(exc, request.url.path)
         _refuse_framing(response)
         return response
 

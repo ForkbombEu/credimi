@@ -5,6 +5,7 @@
 import asyncio
 import base64
 import json
+import logging
 import shutil
 import uuid
 
@@ -14,6 +15,7 @@ from temporal_agent_harness.harness.agent_protocol import AgentEvent, ReplyDelta
 from temporal_agent_harness.plugin import AgentHarnessPlugin
 from temporalio import workflow
 from temporalio.client import Client, WorkflowExecutionStatus
+from temporalio.service import RPCError, RPCStatusCode
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import UnsandboxedWorkflowRunner, Worker
 
@@ -182,6 +184,64 @@ async def test_start_page_queues_a_runner_device_session():
     assert "selectedDevice()?.namespace" in page
 
 
+async def test_start_page_needs_a_running_action_author():
+    async with ui_client() as client:
+        page = (await client.get("/start")).text
+    # Devices of runners without a polling agent are listed but not selectable.
+    assert "device.is_online && device.agent_available" in page
+    assert "' · offline'" in page
+    assert "' · agent not enabled'" in page
+    assert "error.reason === 'agent_unavailable'" in page
+    # The page queries the chat only after it ran a workflow task, and blames the runner
+    # if it does not, keeping Cancel available while it polls on.
+    assert "/api/action-author/chat-ready/${id}" in page
+    assert (
+        "The runner's action author is not answering. Check that [agent] is enabled on the "
+        "runner, then cancel and retry."
+    ) in page
+    assert "CHAT_READY_TIMEOUT = 60000" in page
+    assert "cancelButton.hidden = !preparing && !notAnswering" in page
+
+
+class _BusyHandle:
+    def __init__(self, status: RPCStatusCode) -> None:
+        self._status = status
+
+    async def describe(self):
+        raise RPCError("consistent query buffer is full", self._status, b"")
+
+
+class _BusyTemporal:
+    def __init__(self, status: RPCStatusCode) -> None:
+        self._status = status
+
+    def get_workflow_handle(self, _workflow_id):
+        return _BusyHandle(self._status)
+
+
+@pytest.mark.parametrize("status", [RPCStatusCode.RESOURCE_EXHAUSTED, RPCStatusCode.UNAVAILABLE])
+@pytest.mark.parametrize(
+    "path", ["/api/workflow-status/chat-1", "/api/action-author/chat-ready/chat-1"]
+)
+async def test_temporal_errors_answer_503_without_a_traceback(status, path, caplog):
+    app = create_app()
+    app.state.binding = object()
+    app.state.temporal = _BusyTemporal(status)
+    with caplog.at_level(logging.WARNING):
+        async with ui_client(app=app) as client:
+            response = await client.get(path, headers=SAME_ORIGIN)
+    assert response.status_code == 503
+    assert response.json() == {
+        "error": "temporal_unavailable",
+        "message": "consistent query buffer is full",
+    }
+    assert response.headers["retry-after"] == "2"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert [(r.levelname, r.getMessage(), r.exc_info) for r in caplog.records] == [
+        ("WARNING", f"temporal {status.name} on {path}: consistent query buffer is full", None)
+    ]
+
+
 async def test_unbound_ui_sends_the_user_to_the_start_page():
     async with ui_client() as client:
         sessions = await client.get("/api/sessions", headers=SAME_ORIGIN)
@@ -290,6 +350,67 @@ def _sse_events(body: str) -> list[dict]:
         for line in frame.splitlines()
         if line.startswith("data: ")
     ]
+
+
+@workflow.defn(name="ActionAuthor")
+class NeverRunSession:
+    """A chat no worker ever picks up, as on a runner whose agent is disabled."""
+
+    @workflow.run
+    async def run(self) -> None:
+        return None
+
+
+@pytest.mark.skipif(shutil.which("temporal") is None, reason="needs the temporal CLI")
+async def test_chat_ready_waits_for_a_workflow_task():
+    async with await WorkflowEnvironment.start_local(
+        namespace="org-a",
+        dev_server_existing_path=shutil.which("temporal"),
+    ) as env:
+        target = env.client.service_client.config.target_host
+
+        async def connect(namespace):
+            return await Client.connect(target, namespace=namespace, plugins=[AgentHarnessPlugin()])
+
+        org_a = await connect("org-a")
+        never_run = f"session-{uuid.uuid4()}-author"
+        # Nothing polls this runner queue.
+        await org_a.start_workflow(
+            NeverRunSession.run, id=never_run, task_queue="disabled-runner-ActionAuthor"
+        )
+        finished = f"session-{uuid.uuid4()}-author"
+        async with Worker(
+            org_a,
+            task_queue="test-runner",
+            workflows=[FinishedSession],
+            workflow_runner=UnsandboxedWorkflowRunner(),
+        ):
+            await org_a.execute_workflow(
+                FinishedSession.run, [], id=finished, task_queue="test-runner"
+            )
+
+        app = create_app(connect=connect)
+        try:
+            async with ui_client(app=app) as client:
+                bound = await client.post(
+                    "/api/action-author/namespace", json={"namespace": "org-a"}, headers=SAME_ORIGIN
+                )
+                assert bound.status_code == 200
+                states = {
+                    workflow_id: (
+                        await client.get(
+                            f"/api/action-author/chat-ready/{workflow_id}", headers=SAME_ORIGIN
+                        )
+                    ).json()
+                    for workflow_id in (never_run, finished, "missing-author")
+                }
+        finally:
+            await _unbind(app)
+    assert states == {
+        never_run: {"ready": False, "running": True, "execution_status": "RUNNING"},
+        finished: {"ready": True, "running": False, "execution_status": "COMPLETED"},
+        "missing-author": {"ready": False, "running": False, "execution_status": "NOT_FOUND"},
+    }
 
 
 @pytest.mark.skipif(shutil.which("temporal") is None, reason="needs the temporal CLI")

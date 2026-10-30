@@ -106,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<div class="field">
 						<label for="device">Device</label>
 						<select id="device" name="device_id" required disabled></select>
-						<p class="hint">Devices of admin-managed runners of your organizations; offline devices cannot be selected.</p>
+						<p class="hint">Devices of admin-managed runners of your organizations; offline devices and devices of runners without a running action author cannot be selected.</p>
 					</div>
 					<div class="field">
 						<label for="wallet-version">Wallet version</label>
@@ -135,6 +135,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			);
 
 			const POLL_INTERVAL = 2000;
+			// How long a started chat may stay unanswered before the page blames the runner.
+			const CHAT_READY_TIMEOUT = 60000;
+			const AGENT_NOT_ANSWERING = "The runner's action author is not answering. Check that [agent] is enabled on the runner, then cancel and retry.";
 			const PLATFORM_LABELS = { android: 'Android', ios: 'iOS simulator' };
 			const form = document.querySelector('#start-form');
 			const originInput = document.querySelector('#credimi-url');
@@ -194,7 +197,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				let body = {};
 				try { body = await response.json(); } catch { /* An HTTP error may have no JSON body. */ }
 				if (!response.ok) {
-					throw new Error(body.message || body.error?.message || `Credimi returned ${response.status}.`);
+					const error = new Error(body.message || body.error?.message || `Credimi returned ${response.status}.`);
+					error.reason = body.error?.reason || '';
+					throw error;
 				}
 				return body;
 			}
@@ -222,18 +227,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return devices.find((device) => device.path === deviceSelect.value);
 			}
 
+			// A session needs an online device and a runner whose action author polls Temporal.
+			function selectable(device) {
+				return device.is_online && device.agent_available;
+			}
+
 			function showDevices() {
+				const current = deviceSelect.value;
 				deviceSelect.replaceChildren();
 				for (const device of devices) {
 					const option = document.createElement('option');
 					option.value = device.path;
 					option.textContent = `${device.name} — ${device.runner_name} (${PLATFORM_LABELS[device.platform] || device.platform})`
-						+ (device.is_online ? '' : ' · offline');
-					option.disabled = !device.is_online;
+						+ (!device.is_online ? ' · offline' : device.agent_available ? '' : ' · agent not enabled');
+					option.disabled = !selectable(device);
 					deviceSelect.append(option);
 				}
-				const online = devices.find((device) => device.is_online);
-				if (online) deviceSelect.value = online.path;
+				const usable = devices.find((device) => device.path === current && selectable(device))
+					|| devices.find(selectable);
+				if (usable) deviceSelect.value = usable.path;
 			}
 
 			function showVersions() {
@@ -308,23 +320,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}
 			}
 
-			// Whether the chat workflow is running and answers both the status and interface queries.
+			// Whether the chat workflow answers both the status and interface queries. Queries wait
+			// in Temporal until a worker ran the chat's first workflow task, so they are sent only
+			// once chat-ready says so; `running` tells that Credimi started the chat.
 			async function sessionReady(workflowId) {
-				const sessions = await harnessJSON('/api/sessions');
-				const session = Array.isArray(sessions)
-					? sessions.find((entry) => entry.workflow_id === workflowId)
-					: null;
-				if (session?.closed) {
+				const id = encodeURIComponent(workflowId);
+				const chat = await harnessJSON(`/api/action-author/chat-ready/${id}`);
+				if (!chat) return { ready: false, running: false };
+				if (chat.execution_status !== 'RUNNING' && chat.execution_status !== 'NOT_FOUND') {
 					throw new Error(`Session ${workflowId} has closed. Start a new session.`);
 				}
-				if (session?.execution_status !== 'RUNNING') return false;
-				const id = encodeURIComponent(workflowId);
+				if (!chat.running || !chat.ready) return { ready: false, running: chat.running };
 				const [agentStatus, agentInterface] = await Promise.all([
 					harnessJSON(`/api/status/${id}`),
 					harnessJSON(`/api/agent-interface/${id}`),
 				]);
-				return Boolean(agentStatus?.agent_id && Array.isArray(agentInterface)
+				const ready = Boolean(agentStatus?.agent_id && Array.isArray(agentInterface)
 					&& agentInterface.some((handler) => handler.name === 'ask'));
+				return { ready, running: true };
 			}
 
 			function ticketPath() {
@@ -333,21 +346,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			// Poll the queued session until its chat opens; the chat workflow's ID.
 			async function waitForChat() {
+				// When the chat workflow was first seen running without answering.
+				let chatStartedAt = null;
 				while (true) {
 					const queued = await request(ticketPath(), authorized());
 					const preparing = queued.status === 'queued' || queued.status === 'starting';
-					cancelButton.hidden = !preparing;
+					let notAnswering = false;
+					let message = '';
 					if (queued.status === 'queued') {
-						showStatus(`Waiting for the device (position ${(queued.position ?? 0) + 1})`);
+						message = `Waiting for the device (position ${(queued.position ?? 0) + 1})`;
 					} else if (queued.status === 'starting') {
-						showStatus('Preparing the device and installing the wallet…');
+						message = 'Preparing the device and installing the wallet…';
 					} else if (queued.status === 'running') {
 						const chat = `${queued.workflow_id}-author`;
-						if (queued.workflow_id && await sessionReady(chat)) return chat;
-						// The session prepares the device, then starts the chat.
-						showStatus('Preparing the device and installing the wallet…');
+						const state = queued.workflow_id
+							? await sessionReady(chat)
+							: { ready: false, running: false };
+						if (state.ready) return chat;
+						if (state.running) chatStartedAt ??= Date.now();
+						notAnswering = chatStartedAt !== null && Date.now() - chatStartedAt >= CHAT_READY_TIMEOUT;
+						// The session prepares the device, then starts the chat on the runner.
+						message = chatStartedAt === null
+							? 'Preparing the device and installing the wallet…'
+							: "Waiting for the runner's action author…";
 					} else {
 						throw new Error(queued.error_message || `The session ${queued.status === 'canceled' ? 'was canceled' : 'failed'}.`);
+					}
+					// Polling goes on, so the page still follows a cancel or a late answer.
+					cancelButton.hidden = !preparing && !notAnswering;
+					if (!cancelRequested) {
+						if (notAnswering) showStatus(AGENT_NOT_ANSWERING, 'error');
+						else showStatus(message);
 					}
 					await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
 				}
@@ -356,15 +385,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			async function start() {
 				const device = selectedDevice();
 				showStatus('Queueing the authoring session…');
-				const result = await request('/api/action-author/sessions', authorized({
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						device_id: device.path,
-						wallet_version_identifier: versionSelect.value,
-						slot: 'onboarding',
-					}),
-				}));
+				let result;
+				try {
+					result = await request('/api/action-author/sessions', authorized({
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							device_id: device.path,
+							wallet_version_identifier: versionSelect.value,
+							slot: 'onboarding',
+						}),
+					}));
+				} catch (error) {
+					if (error.reason === 'agent_unavailable') {
+						// Credimi's message names the cause; the runner's devices stop being selectable.
+						for (const entry of devices) {
+							if (entry.runner_name === device.runner_name && entry.namespace === device.namespace) {
+								entry.agent_available = false;
+							}
+						}
+						showDevices();
+						showVersions();
+					}
+					throw error;
+				}
 				if (typeof result.ticket_id !== 'string' || !result.ticket_id.trim()) {
 					throw new Error('Credimi did not return a session ticket.');
 				}

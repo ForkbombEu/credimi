@@ -53,3 +53,17 @@ list until it is bound again. Until the first binding, API calls answer `409
 namespace_not_selected` and chat links redirect to the start page. The UI never starts agent
 workflows: Credimi starts each chat on `<runner_id>-ActionAuthor`, so the registry's task queue
 is a placeholder.
+
+## Runner agent
+
+A device is selectable only when Credimi reports it `is_online` and `agent_available` (its
+runner's action author polled `<runner_id>-ActionAuthor` in the last two minutes); others are
+labelled `· offline` or `· agent not enabled`, and a start Credimi refuses with `503
+agent_unavailable` shows Credimi's message. Once the session runs, the page asks
+`GET /api/action-author/chat-ready/<workflow_id>` (`{ready, running, execution_status}`;
+`ready` once the chat's history holds more than its start and first scheduled task) and sends
+the chat's status and interface queries only when it is ready, since Temporal buffers queries
+to a workflow no worker has run. If the started chat is not ready within 60 s, the page says
+the runner's action author is not answering and keeps **Cancel** available while it polls on.
+Temporal service errors (for example `RESOURCE_EXHAUSTED`) answer `503 temporal_unavailable`
+with `Retry-After: 2` and one warning log line.

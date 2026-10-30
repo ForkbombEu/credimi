@@ -746,3 +746,18 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   2. A poller whose `LastAccessTime` is within 2 minutes; Temporal keeps idle pollers listed for a while after they stop.
   3. `503 agent_unavailable`, logged; a missing Temporal client still answers `temporal_unavailable`.
   4. `agent_available=false`; the list stays usable and the start endpoint gives the precise reason.
+
+### 2026-10-30 - Action author chat UI waits for the chat's first workflow task
+
+- status: open (agent defaults; human may revisit)
+- owner: human maintainer
+- context: the start page queried `/api/status` and `/api/agent-interface` of a chat no worker had run; Temporal answered `consistent query buffer is full` every 2 s and uvicorn printed a traceback each time.
+- questions and options considered:
+  1. How the page knows the chat can answer queries. Options: the harness `GET /api/workflow-status/<id>` (only `execution_status` and `closed`, no history length); or a UI route that describes the workflow.
+  2. When the 60 s "not answering" timer starts. Options: when the ticket becomes `running`; or when the chat workflow is first seen running.
+  3. How Temporal service errors reach the browser. Options: the default 500 with a traceback; or one middleware answer.
+- default risk: (2) a chat that Credimi never starts (session stuck before the child) keeps the "Preparing the device" message instead of the agent warning; the ticket's own failure still ends the wait.
+- decisions (agent defaults):
+  1. `GET /api/action-author/chat-ready/<workflow_id>` answers `{ready: history_length > 2, running, execution_status}` (`NOT_FOUND` for a chat not started yet); the page sends the chat queries only when `ready` and `running`.
+  2. When the chat is first seen running: device preparation and wallet install run while the ticket is already `running` and can exceed 60 s, which would blame a healthy runner.
+  3. The outermost `own_origin_only` middleware turns any `temporalio.service.RPCError` into `503 {"error": "temporal_unavailable", "message"}` with `Retry-After: 2`, framing headers kept, and one `temporal <STATUS> on <path>: <message>` warning.
