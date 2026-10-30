@@ -31,6 +31,8 @@ const (
 	authoringTenantRunner   = "usera-s-organization/tenant-runner"
 	authoringForeignRunner  = "userb-s-organization/foreign-admin-runner"
 	authoringDisabledRunner = "usera-s-organization/disabled-runner"
+	authoringNamespace      = "usera-s-organization"
+	authoringForeignNS      = "userb-s-organization"
 )
 
 // setupActionAuthorApp seeds userA's organization with an Android-only build,
@@ -527,12 +529,21 @@ func TestActionAuthorDevicesListsEveryAdminRunnerForSuperusers(t *testing.T) {
 	}
 	require.Equal(t, map[string]int{"admin-runner": 4, "foreign-admin-runner": 1}, runners)
 	require.Equal(t, "admin-runner", response.Devices[0].RunnerName)
+	for _, device := range response.Devices {
+		if device.RunnerName == "foreign-admin-runner" {
+			require.Equal(t, authoringForeignNS, device.Namespace)
+			require.NotEqual(t, response.Devices[0].Namespace, device.Namespace)
+		} else {
+			require.Equal(t, authoringNamespace, device.Namespace)
+		}
+	}
 }
 
 // authoringDevice is a device of userA's admin-managed runner.
 func authoringDevice(name, deviceType, platform string, online bool) ActionAuthorDevice {
 	return ActionAuthorDevice{
 		Path:       authoringAdminRunner + "/" + name,
+		Namespace:  authoringNamespace,
 		Name:       name,
 		RunnerName: "admin-runner",
 		Type:       deviceType,

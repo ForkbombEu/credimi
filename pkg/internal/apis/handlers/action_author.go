@@ -91,6 +91,7 @@ func HandleActionAuthorWalletVersions() func(*core.RequestEvent) error {
 // ActionAuthorDevice is one runner device the caller can author on.
 type ActionAuthorDevice struct {
 	Path       string `json:"path"`
+	Namespace  string `json:"namespace"`
 	Name       string `json:"name"`
 	RunnerName string `json:"runner_name"`
 	Type       string `json:"type"`
@@ -128,6 +129,10 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 			// Heartbeat freshness, as GET /api/mobile-devices reports it.
 			runnerOnline := mobilerunner.RecentlyAlive(runner, now) &&
 				mobilerunner.URLUsable(mobilerunner.RunnerURL(runner))
+			owner, err := e.App.FindRecordById("organizations", runner.GetString("owner"))
+			if err != nil {
+				return authoringAPIError(fmt.Errorf("find runner organization: %w", err))
+			}
 			devices, err := e.App.FindAllRecords(
 				"mobile_devices",
 				dbx.HashExp{"runner": runner.Id},
@@ -146,6 +151,7 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 				}
 				response.Devices = append(response.Devices, ActionAuthorDevice{
 					Path:       path,
+					Namespace:  owner.GetString("canonified_name"),
 					Name:       device.GetString("name"),
 					RunnerName: runner.GetString("name"),
 					Type:       device.GetString("type"),
