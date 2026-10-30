@@ -691,3 +691,21 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   4. `503 start_failed` plus a best-effort `CancelRun` of the ticket, so an enqueue that timed out does not hold the device for a session nobody watches.
   5. Keep the check (tested with a record saved without validation); `GET /api/action-author/devices` also skips unsupported types.
 - follow-up: when #1553 merges, move its early tracking into the shared core (plan contingency). The installer grant is deleted (plan step 6), so decision 3 of the 29/10/2026 code-review entry no longer applies; `RouteDefinition.ResponseContentType` stays without a user, per decision 2 of that entry.
+
+### 2026-10-30 - Action author review fixes: save caller contract and start-endpoint answers
+
+- status: open (agent defaults applied; human may revisit)
+- owner: human maintainer
+- context: fixes of the security, Credimi and runner reviews of the action author on runners, before end-to-end testing.
+- questions and options considered:
+  1. How the `Save authored wallet action` activity trusts its caller. Options: trust the payload's actor and build (any workflow of the namespace could save as anyone); or accept only the `ActionAuthor` child (`ActionAuthorSession-<ticket>-author`) of a running `Action author session` of the same namespace and take actor, version and platform from the session's start input.
+  2. How a save answers an existing action with the same name. Options: the explicit replacement precondition (`replace_action_id`, `expected_existing_sha256`), which the harness callback path never used; or a conflict that names neither the action id nor its code SHA256.
+  3. How `POST /api/action-author/sessions` answers a device whose runner is `disabled`. Options: a new `403 runner_disabled`; or the existing offline answer (`503`, domain `device_id`, reason `device runner is offline`).
+  4. How it answers a device of an organization the caller does not own. Options: `403 runner_not_owned` after the type check (reveals existence and type); or `404 device_not_found` before any device detail.
+- default risk: (1) costs two `DescribeWorkflowExecution` calls and one history read per save; a Temporal lookup failure is retried, a non-matching caller is a non-retryable `CRE234`. (3) a disabled runner looks unreachable rather than administratively disabled.
+- decisions (agent defaults):
+  1. The session contract; a payload value that differs from the session's is `CRE234`, an omitted one is filled from the session.
+  2. Conflict without id or hash; actions are never replaced by the authoring path, and a retry of the same workflow run still returns its own record.
+  3. The offline `503`: the device list hides disabled runners, `mobilerunner.RecentlyAlive` and the worker start already treat a disabled runner as offline, so one condition keeps one answer.
+  4. `404 device_not_found`, the same answer as an unknown device; superusers see every runner and still get `403 runner_not_owned` when the runner and the wallet belong to different organizations.
+- follow-up: the iOS `release_device` activity has a 30 s schedule-to-start timeout, so a runner without the agent worker no longer blocks cleanup and RunDone.

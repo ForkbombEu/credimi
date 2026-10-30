@@ -55,8 +55,10 @@ paths:
         queue an authoring session on the selected device through the mobile-device
         semaphore. The device type decides the platform (Android devices: android,
         iOS simulators: ios), and the version must have an installer for it. The device
-        must belong to an online admin-managed runner of the wallet''s organization.
-        Only the onboarding slot is supported. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>:
+        must belong to an enabled, online admin-managed runner of the wallet''s organization;
+        a device of an organization the caller does not own answers 404 device_not_found,
+        and a disabled runner answers like an offline one (503). Only the onboarding
+        slot is supported. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>:
         once running, its workflow_id is the session and <workflow_id>-author is the
         chat workflow. Review and explicit human confirmation happen in the harness
         UI; this endpoint does not save an action.'

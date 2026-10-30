@@ -30,12 +30,13 @@ const (
 	authoringAdminRunner    = "usera-s-organization/admin-runner"
 	authoringTenantRunner   = "usera-s-organization/tenant-runner"
 	authoringForeignRunner  = "userb-s-organization/foreign-admin-runner"
+	authoringDisabledRunner = "usera-s-organization/disabled-runner"
 )
 
 // setupActionAuthorApp seeds userA's organization with an Android-only build,
 // a build with both installers, an admin-managed runner with one device of
-// each type, a tenant runner, and an admin-managed runner of userB's
-// organization.
+// each type, a tenant runner, a disabled admin-managed runner, and an
+// admin-managed runner of userB's organization.
 func setupActionAuthorApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -86,6 +87,10 @@ func setupActionAuthorApp(t testing.TB) *tests.TestApp {
 		createAuthoringRunner(t, app, org.Id, "tenant-runner", false),
 		"android_phone",
 	)
+	disabledRunner := createAuthoringRunner(t, app, org.Id, "disabled-runner", true)
+	disabledRunner.Set("disabled", true)
+	require.NoError(t, app.Save(disabledRunner))
+	createAuthoringDevice(t, app, disabledRunner, "android_emulator")
 	createAuthoringDevice(
 		t,
 		app,
@@ -192,11 +197,12 @@ func startSessionBody(deviceID, version string) string {
 func TestActionAuthorStartRejectsInvalidDevicesAndRunners(t *testing.T) {
 	token := authoringToken(t, "userA")
 	scenarios := []struct {
-		name      string
-		reachable bool
-		body      string
-		status    int
-		expected  []string
+		name       string
+		reachable  bool
+		body       string
+		status     int
+		expected   []string
+		unexpected []string
 	}{
 		{
 			name:     "missing device",
@@ -241,16 +247,24 @@ func TestActionAuthorStartRejectsInvalidDevicesAndRunners(t *testing.T) {
 			},
 		},
 		{
-			name: "runner of another organization",
+			name: "device of another organization",
 			body: startSessionBody(
 				authoringForeignRunner+"/android-emulator",
 				authoringAndroidVersion,
 			),
-			status: http.StatusForbidden,
-			expected: []string{
-				`"runner_not_owned"`,
-				"the device's runner belongs to another organization",
-			},
+			status:     http.StatusNotFound,
+			expected:   []string{`"device_not_found"`},
+			unexpected: []string{"runner_not_owned", "android_emulator"},
+		},
+		{
+			name:      "disabled runner",
+			reachable: true,
+			body: startSessionBody(
+				authoringDisabledRunner+"/android-emulator",
+				authoringAndroidVersion,
+			),
+			status:   http.StatusServiceUnavailable,
+			expected: []string{"device runner is offline"},
 		},
 		{
 			name:      "offline runner",
@@ -266,17 +280,47 @@ func TestActionAuthorStartRejectsInvalidDevicesAndRunners(t *testing.T) {
 	for _, scenario := range scenarios {
 		enqueued := stubActionAuthorQueue(t, scenario.reachable)
 		(&tests.ApiScenario{
-			Name:            scenario.name,
-			Method:          http.MethodPost,
-			URL:             "/api/action-author/sessions",
-			Body:            strings.NewReader(scenario.body),
-			Headers:         map[string]string{"Authorization": "Bearer " + token},
-			ExpectedStatus:  scenario.status,
-			ExpectedContent: scenario.expected,
-			TestAppFactory:  setupActionAuthorApp,
+			Name:               scenario.name,
+			Method:             http.MethodPost,
+			URL:                "/api/action-author/sessions",
+			Body:               strings.NewReader(scenario.body),
+			Headers:            map[string]string{"Authorization": "Bearer " + token},
+			ExpectedStatus:     scenario.status,
+			ExpectedContent:    scenario.expected,
+			NotExpectedContent: scenario.unexpected,
+			TestAppFactory:     setupActionAuthorApp,
 		}).Test(t)
 		require.Empty(t, enqueued.TicketID, scenario.name)
 	}
+}
+
+func TestActionAuthorStartRejectsSuperuserOnRunnerOfAnotherOrganization(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "admin@example.org")
+	require.NoError(t, err)
+	token, err := superuser.NewAuthToken()
+	require.NoError(t, err)
+	app.Cleanup()
+	enqueued := stubActionAuthorQueue(t, true)
+
+	(&tests.ApiScenario{
+		Name:   "superuser on a runner of another organization",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/sessions",
+		Body: strings.NewReader(startSessionBody(
+			authoringForeignRunner+"/android-emulator",
+			authoringAndroidVersion,
+		)),
+		Headers:        map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus: http.StatusForbidden,
+		ExpectedContent: []string{
+			`"runner_not_owned"`,
+			"the device's runner belongs to another organization",
+		},
+		TestAppFactory: setupActionAuthorApp,
+	}).Test(t)
+	require.Empty(t, enqueued.TicketID)
 }
 
 func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
