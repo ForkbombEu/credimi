@@ -475,38 +475,146 @@ func processStep(
 	}
 	SetPayloadValue(&input.step.With.Payload, "device_id", payload.DeviceID)
 
-	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.ao)
-
-	deviceMap, err := getOrCreateDeviceMap(getOrCreateDeviceMapInput{
-		ctx:           input.ctx,
-		mobileCtx:     mobileCtx,
-		ao:            input.ao,
-		payload:       payload,
-		settedDevices: input.settedDevices,
-		stepID:        input.step.ID,
-	})
+	prepared, err := prepareMobileDevice(
+		input.ctx,
+		input.ao,
+		input.settedDevices,
+		MobileDeviceRequest{
+			DeviceID:          payload.DeviceID,
+			VersionIdentifier: payload.VersionID,
+			StepID:            input.step.ID,
+			RunIdentifier:     workflowengine.AsString((*input.runData)["run_identifier"]),
+		},
+		// Cleanup sees the device from here on, as before the extraction.
+		func() { SetRunDataValue(input.runData, "setted_devices", input.settedDevices) },
+	)
 	if err != nil {
 		return err
+	}
+
+	SetConfigValue(&input.step.With.Config, "taskqueue", mobileRunnerTaskQueue(prepared.RunnerID))
+	SetPayloadValue(&input.step.With.Payload, "serial", prepared.Serial)
+	if prepared.Type != "" {
+		SetPayloadValue(&input.step.With.Payload, "type", prepared.Type)
+	}
+	SetConfigValue(&input.step.With.Config, "runner_id", prepared.RunnerID)
+	SetConfigValue(&input.step.With.Config, workflowengine.StepIDConfigKey, input.step.ID)
+	SetConfigValue(
+		&input.step.With.Config,
+		"run_identifier",
+		workflowengine.AsString((*input.runData)["run_identifier"]),
+	)
+
+	SetRunDataValue(input.runData, "setted_devices", input.settedDevices)
+
+	return nil
+}
+
+// MobileDeviceRequest names one device to prepare for a run.
+type MobileDeviceRequest struct {
+	DeviceID          string // canonified device path
+	VersionIdentifier string // wallet version identifier to install
+	StepID            string // label used in errors and run identifiers
+	RunIdentifier     string
+}
+
+// PreparedMobileDevice is what a run needs to drive the prepared device.
+type PreparedMobileDevice struct {
+	RunnerID string `json:"runner_id"`
+	// Serial is the adb serial, or the UDID of the run's simulator clone.
+	Serial string `json:"serial"`
+	Type   string `json:"type"`
+	// PackageID is the Android package or the iOS bundle ID.
+	PackageID string `json:"package_id"`
+	// InstallerPath is the runner-host path of the installed APK or .app.
+	InstallerPath string `json:"installer_path"`
+}
+
+// PrepareMobileDevice sets up one device and installs a wallet version on it
+// with the same sequence a mobile-automation step uses. The device is recorded
+// in settedDevices before any runner activity, so MobileAutomationCleanupHook
+// cleans it whatever fails afterwards.
+func PrepareMobileDevice(
+	ctx workflow.Context,
+	ao workflow.ActivityOptions,
+	settedDevices map[string]any,
+	req MobileDeviceRequest,
+) (PreparedMobileDevice, error) {
+	// Device lookups run on ctx itself, as in the setup hook.
+	ctx = workflow.WithActivityOptions(ctx, ao)
+	prepared, err := prepareMobileDevice(ctx, &ao, settedDevices, req, nil)
+	if err != nil {
+		return PreparedMobileDevice{}, err
+	}
+	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+	if prepared.PackageID == "" {
+		return PreparedMobileDevice{}, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing installed package for %s", req.VersionIdentifier),
+			},
+		)
+	}
+	// The iOS reset reinstalls the app from this path.
+	if normalizeDeviceType(prepared.Type) == deviceTypeIOSSimulator &&
+		prepared.InstallerPath == "" {
+		return PreparedMobileDevice{}, workflowengine.NewAppError(
+			workflowengine.WorkflowError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: fmt.Sprintf("missing installer path for %s", req.VersionIdentifier),
+			},
+		)
+	}
+	return prepared, nil
+}
+
+// prepareMobileDevice is the device sequence shared by processStep and
+// PrepareMobileDevice. tracked, when set, runs once the device and its
+// initial apps are known, before the device is touched.
+func prepareMobileDevice(
+	ctx workflow.Context,
+	ao *workflow.ActivityOptions,
+	settedDevices map[string]any,
+	req MobileDeviceRequest,
+	tracked func(),
+) (PreparedMobileDevice, error) {
+	payload := &workflows.MobileAutomationWorkflowPipelinePayload{
+		DeviceID:  req.DeviceID,
+		VersionID: req.VersionIdentifier,
+	}
+	step := &pipeline.StepSpec{ID: req.StepID}
+	mobileCtx := workflow.WithActivityOptions(ctx, *ao)
+
+	deviceMap, err := getOrCreateDeviceMap(getOrCreateDeviceMapInput{
+		ctx:           ctx,
+		mobileCtx:     mobileCtx,
+		ao:            ao,
+		payload:       payload,
+		settedDevices: settedDevices,
+		stepID:        req.StepID,
+	})
+	if err != nil {
+		return PreparedMobileDevice{}, err
 	}
 	hostRunnerID, ok := deviceMap["runner_id"].(string)
 	if !ok || canonify.NormalizePath(hostRunnerID) == "" {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		return workflowengine.NewAppError(
+		return PreparedMobileDevice{}, workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
 				Message: fmt.Sprintf(
 					"missing or invalid host runner_id for step %s",
-					input.step.ID,
+					req.StepID,
 				),
 				Details: map[string]any{"payload": deviceMap},
 			},
 		)
 	}
-	taskqueue := mobileRunnerTaskQueue(hostRunnerID)
-	SetConfigValue(&input.step.With.Config, "taskqueue", taskqueue)
-	mobileAo := mobileRunnerActivityOptions(input.ao, hostRunnerID)
-	mobileCtx = workflow.WithActivityOptions(input.ctx, mobileAo)
+	mobileAo := mobileRunnerActivityOptions(ao, hostRunnerID)
+	mobileCtx = workflow.WithActivityOptions(ctx, mobileAo)
 
 	deviceType := deviceTypeFromMap(deviceMap)
 	deviceActivities := activitiesForDeviceType(deviceType)
@@ -517,58 +625,54 @@ func processStep(
 	}
 	if err := ensureInitialInstalledAppsTracked(
 		mobileCtx,
-		payload.DeviceID,
+		req.DeviceID,
 		deviceMap,
 		serial,
 		deviceType,
 	); err != nil {
-		return err
+		return PreparedMobileDevice{}, err
 	}
-	SetPayloadValue(&input.step.With.Payload, "serial", serial)
-	if deviceType != "" {
-		SetPayloadValue(&input.step.With.Payload, "type", deviceType.String())
+	if tracked != nil {
+		tracked()
 	}
 
 	runnerID := canonify.NormalizePath(hostRunnerID)
-	SetConfigValue(&input.step.With.Config, "runner_id", runnerID)
-	SetConfigValue(&input.step.With.Config, workflowengine.StepIDConfigKey, input.step.ID)
-	SetConfigValue(
-		&input.step.With.Config,
-		"run_identifier",
-		workflowengine.AsString((*input.runData)["run_identifier"]),
-	)
-
-	SetRunDataValue(input.runData, "setted_devices", input.settedDevices)
 	if deviceType == deviceTypeAndroidPhone {
 		if err := preparePhysicalAndroidDeviceIfNeeded(
-			input.ctx,
+			ctx,
 			mobileCtx,
-			payload.DeviceID,
+			req.DeviceID,
 			serial,
 			deviceMap,
 		); err != nil {
-			return err
+			return PreparedMobileDevice{}, err
 		}
 	}
 
-	if err := fetchAndInstallAPK(fetchAndInstallAPKInput{
-		ctx:           input.ctx,
+	installerPath, err := fetchAndInstallAPK(fetchAndInstallAPKInput{
+		ctx:           ctx,
 		mobileCtx:     mobileCtx,
-		step:          input.step,
+		step:          step,
 		payload:       payload,
 		deviceMap:     deviceMap,
 		deviceType:    deviceType,
 		activities:    deviceActivities,
 		runnerID:      runnerID,
 		serial:        serial,
-		skipInstaller: payload.VersionID == mobileExternalSourceVersionID,
-	}); err != nil {
-		return err
+		skipInstaller: req.VersionIdentifier == mobileExternalSourceVersionID,
+	})
+	if err != nil {
+		return PreparedMobileDevice{}, err
 	}
 
-	SetRunDataValue(input.runData, "setted_devices", input.settedDevices)
-
-	return nil
+	installed, _ := deviceMap["installed"].(map[string]string)
+	return PreparedMobileDevice{
+		RunnerID:      runnerID,
+		Serial:        serial,
+		Type:          deviceType.String(),
+		PackageID:     installed[req.VersionIdentifier],
+		InstallerPath: installerPath,
+	}, nil
 }
 
 func preparePhysicalAndroidDeviceIfNeeded(
@@ -1044,13 +1148,14 @@ func ensureInitialInstalledAppsTracked(
 }
 
 // fetchAndInstallAPK asks the runner for the installer of the step's wallet
-// version and installs it. The action code is already in the payload, resolved
-// by resolveStoredMobileActions or written inline.
+// version and installs it, returning the installer's runner-host path (empty
+// when the installer is skipped). The action code is already in the payload,
+// resolved by resolveStoredMobileActions or written inline.
 func fetchAndInstallAPK(
 	input fetchAndInstallAPKInput,
-) error {
+) (string, error) {
 	if input.skipInstaller {
-		return nil
+		return "", nil
 	}
 	body := map[string]any{
 		"version_identifier": input.payload.VersionID,
@@ -1076,16 +1181,16 @@ func fetchAndInstallAPK(
 	runnerHTTPActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	if err := workflow.ExecuteActivity(input.ctx, runnerHTTPActivity.Name(), req).
 		Get(input.ctx, &res); err != nil {
-		return err
+		return "", err
 	}
 
 	responseBody, err := parseInstallerActionResponseBody(res, input.step)
 	if err != nil {
-		return err
+		return "", err
 	}
 	apkPath, versionIdentifier, err := parseInstallerResponse(responseBody, input.step)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if err := installAppIfNeeded(installAppIfNeededInput{
@@ -1099,10 +1204,10 @@ func fetchAndInstallAPK(
 		deviceType: input.deviceType,
 		activities: input.activities,
 	}); err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return apkPath, nil
 }
 
 func parseInstallerActionResponseBody(
