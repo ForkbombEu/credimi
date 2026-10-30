@@ -29,7 +29,7 @@ const (
 	// WorkflowName is the registered name of the session workflow.
 	WorkflowName = activities.ActionAuthorSessionWorkflowName
 	// AuthorWorkflowType is the Python agent's workflow on the runner.
-	AuthorWorkflowType = "ActionAuthor"
+	AuthorWorkflowType = activities.ActionAuthorWorkflowType
 	// AuthorTaskQueueSuffix follows the runner ID in the Python agent's task queue.
 	AuthorTaskQueueSuffix = "-ActionAuthor"
 	// ReleaseDeviceActivityName is the Python agent's activity that deletes
@@ -38,7 +38,7 @@ const (
 	// StepID labels the prepared device in errors and run data.
 	StepID = "action-author"
 
-	authorWorkflowIDSuffix  = "-author"
+	authorWorkflowIDSuffix  = activities.ActionAuthorWorkflowIDSuffix
 	authorExecutionTimeout  = 2 * time.Hour
 	deviceTypeIOSSimulator  = "ios_simulator"
 	resultSuccess           = "success"

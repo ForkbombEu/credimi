@@ -372,7 +372,7 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	config := map[string]any{}
 	applySemaphoreTicketMetadata(config, payload)
 	options := client.StartWorkflowOptions{
-		ID:                       "ActionAuthorSession-" + ticketKey,
+		ID:                       ActionAuthorSessionWorkflowIDPrefix + ticketKey,
 		TaskQueue:                pipelineTaskQueue,
 		WorkflowExecutionTimeout: actionAuthorSessionExecutionTimeout,
 		WorkflowIDReusePolicy:    enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
