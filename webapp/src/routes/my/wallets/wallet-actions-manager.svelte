@@ -89,12 +89,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{category}
 					</Badge>
 				{/if}
+			{/snippet}
+			{#snippet afterName({ record })}
 				{#if Wallet.Action.isAgentAuthored(record)}
 					<Tooltip>
 						{#snippet child({ props })}
 							<span
 								{...props}
-								class="mr-1.5 inline-flex text-primary"
+								class="ml-0.5 inline-flex translate-y-px text-primary"
 								aria-label={m.Agent_authored_action()}
 								data-testid="agent-authored-action"
 							>
