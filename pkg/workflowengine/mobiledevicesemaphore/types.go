@@ -19,6 +19,10 @@ const (
 	ErrQueueLimitExceeded = "mobile-device-semaphore-queue-limit-exceeded"
 )
 
+// RunKindActionAuthor marks a ticket that starts an "Action author session"
+// instead of a pipeline.
+const RunKindActionAuthor = "action_author"
+
 const (
 	EnqueueRunUpdate     = "EnqueueRun"
 	RunStatusQuery       = "GetRunStatus"
@@ -89,6 +93,10 @@ type MobileDeviceSemaphoreEnqueueRunRequest struct {
 	Memo                map[string]any                        `json:"memo,omitempty"`
 	Cleanup             *MobileDeviceSemaphoreCleanupMetadata `json:"cleanup,omitempty"`
 	Notification        *MobileDeviceSemaphoreNotification    `json:"notification,omitempty"`
+	// RunKind is "" for a pipeline run or RunKindActionAuthor.
+	RunKind string `json:"run_kind,omitempty"`
+	// ActionAuthor is the authorsession.SessionInput of an action author run, as a map.
+	ActionAuthor map[string]any `json:"action_author,omitempty"`
 }
 
 // MobileDeviceSemaphoreCleanupMetadata carries resources owned by a queued run

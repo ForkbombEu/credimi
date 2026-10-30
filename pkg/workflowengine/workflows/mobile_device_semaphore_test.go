@@ -12,6 +12,7 @@ import (
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
@@ -1012,6 +1013,76 @@ func TestMobileDeviceSemaphoreWorkflowRunStartsWhenCapacityAvailable(t *testing.
 		require.Fail(t, "timed out waiting for running status")
 	}
 
+	require.Empty(t, drainErrors(errCh))
+}
+
+// TestMobileDeviceSemaphoreWorkflowPassesActionAuthorRunKind verifies an
+// action author ticket reaches the start activity with its session input.
+func TestMobileDeviceSemaphoreWorkflowPassesActionAuthorRunKind(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileDeviceSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	startAct := activities.NewStartQueuedPipelineActivity(nil)
+	env.RegisterActivityWithOptions(
+		startAct.Execute,
+		activity.RegisterOptions{Name: startAct.Name()},
+	)
+	session := map[string]any{"device_id": "runner-1", "platform": "android"}
+	started := make(chan activities.StartQueuedPipelineActivityInput, 1)
+	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).Return(
+		func(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			payload, err := workflowengine.DecodePayload[activities.StartQueuedPipelineActivityInput](
+				input.Payload,
+			)
+			if err != nil {
+				return workflowengine.ActivityResult{}, err
+			}
+			started <- payload
+			return workflowengine.ActivityResult{
+				Output: activities.StartQueuedPipelineActivityOutput{
+					WorkflowID:        "ActionAuthorSession-ticket-author-1",
+					RunID:             "run-1",
+					WorkflowNamespace: "tenant-1",
+				},
+			}, nil
+		},
+	)
+
+	errCh := make(chan error, 2)
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-author-1",
+			MobileDeviceSemaphoreEnqueueRunRequest{
+				TicketID:          "ticket-author-1",
+				OwnerNamespace:    "tenant-1",
+				EnqueuedAt:        time.Date(2026, 10, 30, 9, 0, 0, 0, time.UTC),
+				DeviceID:          "runner-1",
+				RequiredDeviceIDs: []string{"runner-1"},
+				LeaderDeviceID:    "runner-1",
+				RunKind:           mobiledevicesemaphore.RunKindActionAuthor,
+				ActionAuthor:      session,
+			},
+			errCh,
+		)
+	}, time.Second)
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*3)
+
+	env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+		Payload: MobileDeviceSemaphoreWorkflowInput{DeviceID: "runner-1", Capacity: 1},
+	})
+
+	select {
+	case payload := <-started:
+		require.Equal(t, mobiledevicesemaphore.RunKindActionAuthor, payload.RunKind)
+		require.Equal(t, session, payload.ActionAuthor)
+		require.Empty(t, payload.YAML)
+	default:
+		require.Fail(t, "start activity was not called")
+	}
 	require.Empty(t, drainErrors(errCh))
 }
 

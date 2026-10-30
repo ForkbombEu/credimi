@@ -312,6 +312,7 @@ Grant/start path:
 - `pipeline_results` creation after Temporal start is best-effort: `StartQueuedPipelineActivity` writes the row directly through `pipelineresults.Create`, and a failure is reported in the activity output without failing the start.
 - `pipelineresults.Create` is idempotent on `(workflow_id, run_id)`.
 - PocketBase uniqueness constraint: `(owner, workflow_id, run_id)` in `pb_migrations/1765364510_created_pipeline_results.js`.
+- A ticket with `run_kind: action_author` (`mobiledevicesemaphore.RunKindActionAuthor`) carries its `authorsession.SessionInput` in `action_author` and no YAML. The activity starts the `Action author session` workflow instead (`pkg/workflowengine/authorsession`): ID `ActionAuthorSession-<ticket>`, `PipelineTaskQueue`, the same ID policies, a 3h execution timeout, only the injected config keys, and no `pipeline_results` row. The session reports completion with the same `ReportMobileDeviceSemaphoreDone`.
 
 ## FCAF Embedded Validation
 

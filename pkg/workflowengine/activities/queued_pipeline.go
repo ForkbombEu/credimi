@@ -18,6 +18,7 @@ import (
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/pocketbase/pocketbase/core"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/workflowservice/v1"
@@ -43,6 +44,10 @@ type StartQueuedPipelineActivityInput struct {
 	YAML               string         `json:"yaml"`
 	PipelineConfig     map[string]any `json:"pipeline_config,omitempty"`
 	Memo               map[string]any `json:"memo,omitempty"`
+	// RunKind is "" for a pipeline run or mobiledevicesemaphore.RunKindActionAuthor.
+	RunKind string `json:"run_kind,omitempty"`
+	// ActionAuthor is the authorsession.SessionInput of an action author run, as a map.
+	ActionAuthor map[string]any `json:"action_author,omitempty"`
 }
 
 type StartQueuedPipelineActivityOutput struct {
@@ -160,6 +165,15 @@ func (a *StartQueuedPipelineActivity) Execute(
 			},
 		)
 	}
+	switch payload.RunKind {
+	case "":
+	case mobiledevicesemaphore.RunKindActionAuthor:
+		return a.startActionAuthorSession(ctx, payload)
+	default:
+		return result, a.NewMissingOrInvalidPayloadError(
+			fmt.Errorf("unsupported run_kind %q", payload.RunKind),
+		)
+	}
 	if strings.TrimSpace(payload.PipelineIdentifier) == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
@@ -272,24 +286,6 @@ func (a *StartQueuedPipelineActivity) Execute(
 	if !ok || namespace == "" {
 		return result, a.NewMissingOrInvalidPayloadError(fmt.Errorf("namespace config is required"))
 	}
-	temporalFactory := a.temporalClientFactory
-	if temporalFactory == nil {
-		temporalFactory = func(namespace string) (temporalWorkflowStarter, error) {
-			return temporalclient.GetTemporalClientWithNamespace(namespace)
-		}
-	}
-	temporalClient, err := temporalFactory(namespace)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return result, a.NewActivityError(
-			workflowengine.ActivityError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: err.Error(),
-			},
-		)
-	}
-
 	workflowInput := map[string]any{
 		"workflow_definition": workflowDefMap,
 		"workflow_input": workflowengine.WorkflowInput{
@@ -299,41 +295,15 @@ func (a *StartQueuedPipelineActivity) Execute(
 		"debug": workflowDef.Runtime.Debug,
 	}
 
-	workflowID := options.Options.ID
-	var runID string
-	workflowRun, err := temporalClient.ExecuteWorkflow(
+	workflowID, runID, err := a.startOrReuseWorkflow(
 		ctx,
+		namespace,
 		options.Options,
 		pipelineWorkflowName,
 		workflowInput,
 	)
-	switch {
-	case err == nil:
-		workflowID = workflowRun.GetID()
-		runID = workflowRun.GetRunID()
-	case temporal.IsWorkflowExecutionAlreadyStartedError(err):
-		// A retry after the ticket's run already closed: reuse that run.
-		desc, descErr := temporalClient.DescribeWorkflowExecution(ctx, workflowID, "")
-		if descErr != nil {
-			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-			return result, a.NewActivityError(
-				workflowengine.ActivityError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf("describe already started workflow: %v", descErr),
-				},
-			)
-		}
-		runID = desc.GetWorkflowExecutionInfo().GetExecution().GetRunId()
-	default:
-		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return result, a.NewActivityError(
-			workflowengine.ActivityError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: err.Error(),
-			},
-		)
+	if err != nil {
+		return result, err
 	}
 
 	output := StartQueuedPipelineActivityOutput{
@@ -377,6 +347,109 @@ func (a *StartQueuedPipelineActivity) Execute(
 		)
 	}
 	return result, nil
+}
+
+// actionAuthorSessionExecutionTimeout bounds a session: its agent child has a
+// 2h timeout, plus device preparation and cleanup.
+const actionAuthorSessionExecutionTimeout = 3 * time.Hour
+
+// startActionAuthorSession starts the "Action author session" of a granted
+// action_author ticket in the owner namespace. Sessions have no pipeline, so
+// no pipeline_results row is created.
+func (a *StartQueuedPipelineActivity) startActionAuthorSession(
+	ctx context.Context,
+	payload StartQueuedPipelineActivityInput,
+) (workflowengine.ActivityResult, error) {
+	var result workflowengine.ActivityResult
+	ticketKey := path.Base(strings.TrimSpace(payload.TicketID))
+	if ticketKey == "." || ticketKey == "/" {
+		return result, a.NewMissingOrInvalidPayloadError(fmt.Errorf("ticket_id is required"))
+	}
+	if len(payload.ActionAuthor) == 0 {
+		return result, a.NewMissingOrInvalidPayloadError(fmt.Errorf("action_author is required"))
+	}
+
+	config := map[string]any{}
+	applySemaphoreTicketMetadata(config, payload)
+	options := client.StartWorkflowOptions{
+		ID:                       "ActionAuthorSession-" + ticketKey,
+		TaskQueue:                pipelineTaskQueue,
+		WorkflowExecutionTimeout: actionAuthorSessionExecutionTimeout,
+		WorkflowIDReusePolicy:    enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
+		WorkflowIDConflictPolicy: enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
+	}
+	workflowID, runID, err := a.startOrReuseWorkflow(
+		ctx,
+		payload.OwnerNamespace,
+		options,
+		ActionAuthorSessionWorkflowName,
+		workflowengine.WorkflowInput{Payload: payload.ActionAuthor, Config: config},
+	)
+	if err != nil {
+		return result, err
+	}
+	result.Output = StartQueuedPipelineActivityOutput{
+		WorkflowID:        workflowID,
+		RunID:             runID,
+		WorkflowNamespace: payload.OwnerNamespace,
+	}
+	return result, nil
+}
+
+// startOrReuseWorkflow starts a ticket's workflow; with the ticket-derived ID
+// and the REJECT_DUPLICATE/USE_EXISTING policies, a retried start resolves to
+// the same execution, also after it closed.
+func (a *StartQueuedPipelineActivity) startOrReuseWorkflow(
+	ctx context.Context,
+	namespace string,
+	options client.StartWorkflowOptions,
+	workflowName string,
+	workflowInput any,
+) (string, string, error) {
+	temporalFactory := a.temporalClientFactory
+	if temporalFactory == nil {
+		temporalFactory = func(namespace string) (temporalWorkflowStarter, error) {
+			return temporalclient.GetTemporalClientWithNamespace(namespace)
+		}
+	}
+	errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+	temporalClient, err := temporalFactory(namespace)
+	if err != nil {
+		return "", "", a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
+	}
+
+	workflowRun, err := temporalClient.ExecuteWorkflow(ctx, options, workflowName, workflowInput)
+	switch {
+	case err == nil:
+		return workflowRun.GetID(), workflowRun.GetRunID(), nil
+	case temporal.IsWorkflowExecutionAlreadyStartedError(err):
+		// A retry after the ticket's run already closed: reuse that run.
+		desc, descErr := temporalClient.DescribeWorkflowExecution(ctx, options.ID, "")
+		if descErr != nil {
+			return "", "", a.NewActivityError(
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("describe already started workflow: %v", descErr),
+				},
+			)
+		}
+		return options.ID, desc.GetWorkflowExecutionInfo().GetExecution().GetRunId(), nil
+	default:
+		return "", "", a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
+	}
 }
 
 func isReservedQueuedWorkflowConfigKey(key string) bool {
