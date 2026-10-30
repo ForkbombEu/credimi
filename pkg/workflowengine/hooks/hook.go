@@ -21,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/authorsession"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -382,6 +383,11 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 		w.RegisterWorkflowWithOptions(
 			pipelineWf.Workflow,
 			workflow.RegisterOptions{Name: pipelineWf.Name()},
+		)
+		authorSessionWf := authorsession.New()
+		w.RegisterWorkflowWithOptions(
+			authorSessionWf.Workflow,
+			workflow.RegisterOptions{Name: authorSessionWf.Name()},
 		)
 		debugAct := pipeline.NewDebugActivity()
 		w.RegisterActivityWithOptions(

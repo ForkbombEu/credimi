@@ -671,3 +671,17 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: agent-device has no iOS device allowlist, so iOS pinning relies only on the wrapper overwriting `udid`. Clones of a killed worker are removed at the next worker start, not before.
 - verification (29/10/2026): worker on the Mac (iOS 26.5 clone of `credimi`) against local Credimi and Temporal through an SSH tunnel, version `forkbomb-bv-andrea/eudiw-beta-wallet/2026-10-43-demo`, Claude `claude-sonnet-5-5`. agent-device explored the onboarding, the first submission passed both replays (48.2 s, 39.3 s), and Accept saved unpublished action `7ouelbtgpwgd5kn` with provenance `platform: ios`. The worker deleted its template and clone on stop.
 - follow-up: `ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md` now covers both platforms on runners (device type decides the platform; the run's clone becomes the template; agent source embedded in the runner binary for native macOS).
+
+### 2026-10-30 - Action author on runners: plan details resolved from code
+
+- status: open (agent defaults applied; human may revisit)
+- owner: human maintainer
+- context: steps 2-6 of `ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`, done while PR #1553 is still open (plan contingency: no `WaitTimeoutSeconds`, no early device tracking). Some plan details disagree with the code they reference.
+- questions and options considered:
+  1. The plan has `processStep` call `PrepareMobileDevice`, which fails without an installed package (`missing installed package for <version>`). Pipelines with `version_id: installed_from_external_source` install nothing, so that check would fail them, and `processStep` publishes `setted_devices` to run data between the device setup and the install, which decides whether a failed install is cleaned. Options: (a) `processStep` and `PrepareMobileDevice` share an unexported core with a tracking callback, and only `PrepareMobileDevice` adds the package and iOS installer-path checks; (b) apply the checks to pipelines too.
+  2. The plan names the session results `"completed"`/`"failed"`; pipelines report `success`/`failed`/`canceled` (`pipeline.go`). Options: reuse the pipeline values, or add new ones the semaphore never saw.
+- default risk: (1b) and new result values would change pipeline behavior or semaphore history.
+- decisions (agent defaults):
+  1. (a): pipeline behavior and history are unchanged; the session path keeps the plan's checks.
+  2. Pipeline values: `success` when the agent ended in any way, `failed` when setup failed, `canceled` when the session was canceled.
+- follow-up: when #1553 merges, move its early tracking into the shared core (plan contingency).

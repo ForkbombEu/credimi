@@ -21,6 +21,11 @@ const ResolveActionAuthorBuildActivityName = "Resolve action author build"
 // SaveAuthoredWalletActionActivityName is the organization worker's approved-action writer.
 const SaveAuthoredWalletActionActivityName = "Save authored wallet action"
 
+// ActionAuthorSessionWorkflowName is the organization worker's action author
+// session workflow (pkg/workflowengine/authorsession), which a granted
+// action_author semaphore ticket starts.
+const ActionAuthorSessionWorkflowName = "Action author session"
+
 // ResolveActionAuthorBuildActivity authorizes and resolves the workflow's selected build.
 type ResolveActionAuthorBuildActivity struct {
 	workflowengine.BaseActivity
