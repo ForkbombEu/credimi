@@ -51,7 +51,10 @@ type sessionHarness struct {
 	installerPath string
 	installErr    error
 
+	releaseErr error
+
 	childErr       error
+	childBlocks    bool
 	childTaskQueue string
 	childTimeout   time.Duration
 	childContext   *AuthoringContext
@@ -135,7 +138,7 @@ func newSessionHarness(t *testing.T, deviceType string) *sessionHarness {
 	h.env.RegisterActivityWithOptions(
 		func(ctx context.Context, payload map[string]any) error {
 			h.record(ReleaseDeviceActivityName, activity.GetInfo(ctx).TaskQueue, payload)
-			return nil
+			return h.releaseErr
 		},
 		activity.RegisterOptions{Name: ReleaseDeviceActivityName},
 	)
@@ -181,6 +184,10 @@ func (h *sessionHarness) child(
 	h.childTaskQueue = info.TaskQueueName
 	h.childTimeout = info.WorkflowExecutionTimeout
 	h.childContext = &authoring
+	if h.childBlocks {
+		// The agent runs until the session cancels it.
+		return workflow.Await(ctx, func() bool { return false })
+	}
 	return h.childErr
 }
 
@@ -413,4 +420,39 @@ func TestSessionFailsOnInvalidBuild(t *testing.T) {
 	err := h.run(sessionInput(actionauthor.PlatformAndroid))
 
 	require.ErrorContains(t, err, "invalid action author build")
+}
+
+func TestReleaseDeviceOptionsBoundWaitForAgentWorker(t *testing.T) {
+	options := releaseDeviceOptions(testRunnerID)
+
+	require.Equal(t, testRunnerID+"-ActionAuthor", options.TaskQueue)
+	require.Equal(t, 30*time.Second, options.ScheduleToStartTimeout)
+	require.Equal(t, 2*time.Minute, options.StartToCloseTimeout)
+	require.Equal(t, int32(3), options.RetryPolicy.MaximumAttempts)
+}
+
+func TestSessionCleansAndReleasesWhenNoAgentWorkerReleasesClones(t *testing.T) {
+	h := newSessionHarness(t, deviceTypeIOSSimulator)
+	h.releaseErr = temporal.NewTimeoutError(enumspb.TIMEOUT_TYPE_SCHEDULE_TO_START, nil)
+
+	require.NoError(t, h.run(sessionInput(actionauthor.PlatformIOS)))
+
+	require.Contains(t, h.names(), ReleaseDeviceActivityName)
+	h.requireReleasedAfter(ReleaseDeviceActivityName, "success")
+}
+
+func TestSessionCanceledWhileAuthorRunsReleasesDevice(t *testing.T) {
+	h := newSessionHarness(t, deviceTypeIOSSimulator)
+	h.childBlocks = true
+	h.env.RegisterDelayedCallback(h.env.CancelWorkflow, time.Minute)
+
+	err := h.run(sessionInput(actionauthor.PlatformIOS))
+
+	var canceled *temporal.CanceledError
+	require.ErrorAs(t, err, &canceled)
+	require.NotNil(t, h.childContext)
+	release, ok := h.call(ReleaseDeviceActivityName)
+	require.True(t, ok, "%v", h.names())
+	require.Equal(t, map[string]any{"platform": "ios", "template": "UDID-S"}, release.payload)
+	h.requireReleasedAfter(ReleaseDeviceActivityName, "canceled")
 }

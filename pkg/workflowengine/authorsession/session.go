@@ -45,6 +45,7 @@ const (
 	resultFailed            = "failed"
 	resultCanceled          = "canceled"
 	releaseStartToClose     = 2 * time.Minute
+	releaseScheduleToStart  = 30 * time.Second
 	releaseMaximumAttempts  = 3
 	cleanupStartToClose     = 10 * time.Minute
 	cleanupScheduleToClose  = 20 * time.Minute
@@ -308,12 +309,12 @@ func releaseSessionDevice(input releaseSessionDeviceInput) {
 
 	// The agent's own teardown does not run when it is terminated, so the
 	// session deletes its clones. A device that was never prepared has none.
+	// A missing agent worker times out instead of blocking cleanup and RunDone.
 	if input.prepared.Type == deviceTypeIOSSimulator && input.prepared.RunnerID != "" {
-		releaseCtx := workflow.WithActivityOptions(dctx, workflow.ActivityOptions{
-			TaskQueue:           input.prepared.RunnerID + AuthorTaskQueueSuffix,
-			StartToCloseTimeout: releaseStartToClose,
-			RetryPolicy:         &temporal.RetryPolicy{MaximumAttempts: releaseMaximumAttempts},
-		})
+		releaseCtx := workflow.WithActivityOptions(
+			dctx,
+			releaseDeviceOptions(input.prepared.RunnerID),
+		)
 		if err := workflow.ExecuteActivity(
 			releaseCtx,
 			ReleaseDeviceActivityName,
@@ -350,6 +351,17 @@ func releaseSessionDevice(input releaseSessionDeviceInput) {
 		input.execution.RunID,
 		input.result,
 	)
+}
+
+// releaseDeviceOptions schedules the clone release on the runner's agent
+// queue; it gives up when no agent worker picks it up in time.
+func releaseDeviceOptions(runnerID string) workflow.ActivityOptions {
+	return workflow.ActivityOptions{
+		TaskQueue:              runnerID + AuthorTaskQueueSuffix,
+		ScheduleToStartTimeout: releaseScheduleToStart,
+		StartToCloseTimeout:    releaseStartToClose,
+		RetryPolicy:            &temporal.RetryPolicy{MaximumAttempts: releaseMaximumAttempts},
+	}
 }
 
 // sessionResult reports the session outcome with the values pipelines use.
