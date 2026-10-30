@@ -14,7 +14,6 @@ golangci-lint = "latest"
 "github:max-sixty/worktrunk" = { version = "latest", bin = "wt" }
 "github:forkbombeu/stepci-captured-runner" = { version = "latest", bin = "stepci-captured-runner" }
 "npm:@nanonets/graft" = { version = "0.18.0", allow_builds = true }
-uv = "0.13.0"
 
 [tools."github:temporalio/cli"]
 version = "1.9.1"

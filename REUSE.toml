@@ -14,8 +14,6 @@ path = [
     ".cursor/**/*",
     ".claude/**/*",
     ".env.example",
-    "agents/action-author/action-author.schema.json",
-    "agents/action-author/uv.lock",
     ".ignore",
     "opencode.json",
     ".mcp.json",

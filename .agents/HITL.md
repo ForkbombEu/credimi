@@ -659,7 +659,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-10-29 - Action author on iOS simulators (local Mac mode)
 
-- status: resolved (user decisions 29/10/2026); items 4 and 5 open for review
+- status: closed (30/10/2026): the local mode is deleted (plan step 13); its iOS rules, adapted to runner devices, live in `credimi-runner/agent/README.md`, section "iOS simulator". Items 4 and 5 are superseded there: the device type decides the platform, and the reset's app poll checks the clone.
 - owner: human maintainer
 - context: the local action author drove only adb phones. The user asked for the same agent on iOS simulators, before the runner plan (`ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`), keeping agent-device for exploration. A spike on a clone of the Mac's `credimi` simulator showed agent-device (0.21.32) and Maestro (2.11/2.12) driving one simulator at once, `simctl clone`+boot in about 11 s, the first Maestro run on a fresh clone in about 37 s, and that Maestro's `back` is a no-op on iOS.
 - decisions:

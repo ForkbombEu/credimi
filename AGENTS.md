@@ -314,6 +314,10 @@ Grant/start path:
 - PocketBase uniqueness constraint: `(owner, workflow_id, run_id)` in `pb_migrations/1765364510_created_pipeline_results.js`.
 - A ticket with `run_kind: action_author` (`mobiledevicesemaphore.RunKindActionAuthor`) carries its `authorsession.SessionInput` in `action_author` and no YAML. The activity starts the `Action author session` workflow instead (`pkg/workflowengine/authorsession`): ID `ActionAuthorSession-<ticket>`, `PipelineTaskQueue`, the same ID policies, a 3h execution timeout, only the injected config keys, and no `pipeline_results` row. The session reports completion with the same `ReportMobileDeviceSemaphoreDone`.
 
+## Action Author Sessions
+
+An action author session is a semaphore ticket with `run_kind=action_author` on an admin-managed runner device. The `Action author session` workflow (`pkg/workflowengine/authorsession`) prepares the device with the pipeline's own code, then runs the child workflow `ActionAuthor` on the task queue `<runner_id>-ActionAuthor`. The runner owns the Python agent (`credimi-runner/agent`); credimi holds no agent code. The platform follows the device type: `android_phone`, `android_emulator` and `redroid` are `android`, `ios_simulator` is `ios` (the runner resets the app with a fresh simulator clone per reset on its host), and `ios_phone` is rejected. Saved wallet actions keep the hidden `authoring_provenance`; Credimi exposes only `__agent_authored__` (enrich hook in `pkg/internal/pb/wallet_actions.go`), which the wallet dashboard shows as the robot icon.
+
 ## FCAF Embedded Validation
 
 - FCAF validators run as the terminal `fcaf-validation` activity inside dynamic pipelines.
