@@ -3,6 +3,7 @@ name: FCAF expect no matching document in the wallet
 tags:
   - fcaf
   - ws_rp
+  - ws_ap
   - expect
   - no-match
 ---

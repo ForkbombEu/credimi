@@ -54,14 +54,7 @@ steps:
     use: mobile-automation
     with:
       version_id: installed_from_external_source
-      action_code: |
-        appId: eu.europa.ec.euidi
-        name: FCAF observe the Wallet after the PAR response
-        ---
-        - extendedWaitUntil:
-            visible: "FCAF observation window has not elapsed"
-            timeout: 20000
-            optional: true
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-wallet-after-par-response
 
   - id: fetch-issuance-session
     use: http-request

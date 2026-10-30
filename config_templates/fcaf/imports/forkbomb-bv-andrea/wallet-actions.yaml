@@ -8,15 +8,15 @@ actions:
     file: wallet/getcredential-pid-formeu-issuer-eudiw-dev.yaml
   - name: getcredential-generic-credential-without-authentication
     category: get-credential-generic
-    tags: fcaf, ws_rp, credential, generic
+    tags: fcaf, ws_rp, ws_ap, credential, generic
     file: wallet/getcredential-generic-credential-without-authentication.yaml
   - name: fcaf-issue-pid
     category: get-credential-generic
-    tags: fcaf, ws_rp, helper, credential
+    tags: fcaf, ws_rp, ws_ap, helper, credential
     file: wallet/fcaf-issue-pid.yaml
   - name: fcaf-expect-credential-rejected
     category: get-credential-generic
-    tags: fcaf, ws_rp, expect, rejected, credential
+    tags: fcaf, ws_rp, ws_ap, expect, rejected, credential
     file: wallet/fcaf-expect-credential-rejected.yaml
   - name: verifycredential-pid-formeu-issuer-eudiw-dev
     category: verify-credential
@@ -32,11 +32,11 @@ actions:
     file: wallet/choose-eudi-wallet.yaml
   - name: fcaf-reset-and-onboard
     category: onboarding
-    tags: fcaf, ws_rp, helper, reset, onboarding
+    tags: fcaf, ws_rp, ws_ap, helper, reset, onboarding
     file: wallet/fcaf-reset-and-onboard.yaml
   - name: fcaf-engagement-haip-vp
     category: verify-credential
-    tags: fcaf, ws_rp, engagement, haip-vp
+    tags: fcaf, ws_rp, ws_ap, engagement, haip-vp
     file: wallet/fcaf-engagement-haip-vp.yaml
   - name: fcaf-exercise-wallet-generic
     category: verify-credential
@@ -48,7 +48,7 @@ actions:
     file: wallet/fcaf-expect-request-rejected.yaml
   - name: fcaf-expect-no-matching-document
     category: verify-credential
-    tags: fcaf, ws_rp, expect, no-match
+    tags: fcaf, ws_rp, ws_ap, expect, no-match
     file: wallet/fcaf-expect-no-matching-document.yaml
   - name: fcaf-dc-api-present
     category: verify-credential
@@ -68,8 +68,16 @@ actions:
     file: wallet/fcaf-engagement-eu-eaap.yaml
   - name: fcaf-engage-credential-offer
     category: get-credential-generic
-    tags: fcaf, engagement, credential
+    tags: fcaf, ws_ap, engagement, credential
     file: wallet/fcaf-engage-credential-offer.yaml
+  - name: fcaf-observe-wallet-after-denial
+    category: other
+    tags: fcaf, ws_ap
+    file: wallet/fcaf-observe-wallet-after-denial.yaml
+  - name: fcaf-observe-wallet-after-par-response
+    category: other
+    tags: fcaf, ws_ap
+    file: wallet/fcaf-observe-wallet-after-par-response.yaml
   - name: fcaf-callback-redirect
     category: verify-credential
     tags: fcaf, ws_rp
