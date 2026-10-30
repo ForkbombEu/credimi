@@ -2,6 +2,8 @@ appId: eu.europa.ec.euidi
 name: FCAF engagement - HAIP VP
 tags:
   - fcaf
+  - ws_rp
+  - ws_ap
   - engagement
   - haip-vp
 ---

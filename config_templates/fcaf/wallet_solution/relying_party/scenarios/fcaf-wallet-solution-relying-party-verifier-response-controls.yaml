@@ -43,56 +43,8 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: "${{ create-non-json-response.outputs.body.deeplink }}" }
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp:
-          stopApp: true
-          clearState: false
-          permissions:
-            camera: allow
-            notifications: allow
-      - extendedWaitUntil:
-          visible: "Welcome back"
-          timeout: 30000
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-            - inputText: "12345"
-            - tapOn: "6"
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - openLink:
-          link: "${DEEPLINK}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-            - tapOn: "Share"
-            - waitForAnimationToEnd:
-                timeout: 3000
-            - inputText: "12345"
-            - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
-          timeout: 60000
-          optional: true
-      - runFlow:
-          when:
-            visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
-          commands:
-            - takeScreenshot: "non-json-wallet-error"
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - takeScreenshot: "exercise-wallet"
+    parameters: { deeplink: "${{ create-non-json-response.outputs.body.deeplink }}" }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-non-json-response
 - id: fetch-non-json-response
   use: http-request
   with:
@@ -130,56 +82,8 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: "${{ create-http-error-response.outputs.body.deeplink }}" }
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp:
-          stopApp: true
-          clearState: false
-          permissions:
-            camera: allow
-            notifications: allow
-      - extendedWaitUntil:
-          visible: "Welcome back"
-          timeout: 30000
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-            - inputText: "12345"
-            - tapOn: "6"
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - openLink:
-          link: "${DEEPLINK}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-            - tapOn: "Share"
-            - waitForAnimationToEnd:
-                timeout: 3000
-            - inputText: "12345"
-            - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
-          timeout: 60000
-          optional: true
-      - runFlow:
-          when:
-            visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
-          commands:
-            - takeScreenshot: "http-error-wallet-error"
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - takeScreenshot: "exercise-wallet"
+    parameters: { deeplink: "${{ create-http-error-response.outputs.body.deeplink }}" }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-http-error-response
 - id: fetch-http-error-response
   use: http-request
   with:
@@ -226,74 +130,8 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: "${{ create-http-error-redirect-response.outputs.body.deeplink }}" }
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp:
-          stopApp: true
-          clearState: false
-          permissions:
-            camera: allow
-            notifications: allow
-      - extendedWaitUntil:
-          visible: "Welcome back"
-          timeout: 30000
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-            - inputText: "12345"
-            - tapOn: "6"
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - openLink:
-          link: "${DEEPLINK}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-            - tapOn: "Share"
-            - waitForAnimationToEnd:
-                timeout: 3000
-            - inputText: "12345"
-            - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|Verifier rejected the response"
-          timeout: 30000
-          optional: true
-      - takeScreenshot: "http-error-redirect-wallet-error"
-      # The X is the error screen's only dismiss control (and the sibling
-      # verifier-response-controls flows word the same screen as `Verifier
-      # rejected the response`). It is tapped only while the error screen is up,
-      # so a Wallet that worded its screen differently is not hit by a blind
-      # coordinate tap. If the tap leaves the screen in place, the Android Back
-      # gesture (which the Wallet's DC API error screen also accepts) is tried
-      # before the browser is awaited.
-      - runFlow:
-          when:
-            visible: "Oups! Something went wrong|Verifier rejected the response"
-          commands:
-            - tapOn:
-                point: "8%,9%"
-            - waitForAnimationToEnd:
-                timeout: 3000
-      - runFlow:
-          when:
-            visible: "Oups! Something went wrong|Verifier rejected the response"
-          commands:
-            - pressKey: Back
-      - extendedWaitUntil:
-          visible: "Presentation complete"
-          timeout: 30000
-          optional: true
-      - takeScreenshot: "http-error-redirect-visit"
+    parameters: { deeplink: "${{ create-http-error-redirect-response.outputs.body.deeplink }}" }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-http-error-redirect-response
 - id: fetch-http-error-redirect-response
   use: http-request
   with:
@@ -329,56 +167,8 @@ steps:
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    parameters: { DEEPLINK: "${{ create-no-redirect-response.outputs.body.deeplink }}" }
-    action_code: |
-      appId: eu.europa.ec.euidi
-      ---
-      - launchApp:
-          stopApp: true
-          clearState: false
-          permissions:
-            camera: allow
-            notifications: allow
-      - extendedWaitUntil:
-          visible: "Welcome back"
-          timeout: 30000
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - runFlow:
-          when:
-            visible: "Welcome back"
-          commands:
-            - inputText: "12345"
-            - tapOn: "6"
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - openLink:
-          link: "${DEEPLINK}"
-          autoVerify: false
-          browser: false
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - runFlow:
-          when:
-            visible: "Requested data"
-          commands:
-            - tapOn: "Share"
-            - waitForAnimationToEnd:
-                timeout: 3000
-            - inputText: "12345"
-            - tapOn: "6"
-      - extendedWaitUntil:
-          visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
-          timeout: 60000
-          optional: true
-      - runFlow:
-          when:
-            visible: "Oups! Something went wrong|invalid request|Verifier rejected the response|Presentation blocked"
-          commands:
-            - takeScreenshot: "no-redirect-wallet-error"
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - takeScreenshot: "exercise-wallet"
+    parameters: { deeplink: "${{ create-no-redirect-response.outputs.body.deeplink }}" }
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-no-redirect-response
 - id: fetch-no-redirect-response
   use: http-request
   with:

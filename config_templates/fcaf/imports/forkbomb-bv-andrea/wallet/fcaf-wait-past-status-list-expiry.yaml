@@ -1,0 +1,10 @@
+appId: eu.europa.ec.euidi
+name: FCAF wait past the status list exp
+tags:
+  - fcaf
+  - ws_rp
+---
+- extendedWaitUntil:
+    visible: "FCAF status list exp window has not elapsed"
+    timeout: 240000
+    optional: true

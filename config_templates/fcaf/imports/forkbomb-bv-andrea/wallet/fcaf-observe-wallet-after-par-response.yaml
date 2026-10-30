@@ -1,0 +1,10 @@
+appId: eu.europa.ec.euidi
+name: FCAF observe the Wallet after the PAR response
+tags:
+  - fcaf
+  - ws_ap
+---
+- extendedWaitUntil:
+    visible: "FCAF observation window has not elapsed"
+    timeout: 20000
+    optional: true

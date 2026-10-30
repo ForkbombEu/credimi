@@ -2,6 +2,7 @@ appId: eu.europa.ec.euidi
 name: FCAF exercise wallet - generic capture session flow
 tags:
   - fcaf
+  - ws_rp
   - exercise
   - generic
 ---

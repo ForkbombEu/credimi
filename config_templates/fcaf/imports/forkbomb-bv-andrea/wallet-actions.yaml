@@ -8,15 +8,15 @@ actions:
     file: wallet/getcredential-pid-formeu-issuer-eudiw-dev.yaml
   - name: getcredential-generic-credential-without-authentication
     category: get-credential-generic
-    tags: fcaf, credential, generic
+    tags: fcaf, ws_rp, ws_ap, credential, generic
     file: wallet/getcredential-generic-credential-without-authentication.yaml
   - name: fcaf-issue-pid
     category: get-credential-generic
-    tags: fcaf, helper, credential
+    tags: fcaf, ws_rp, ws_ap, helper, credential
     file: wallet/fcaf-issue-pid.yaml
   - name: fcaf-expect-credential-rejected
     category: get-credential-generic
-    tags: fcaf, expect, rejected, credential
+    tags: fcaf, ws_rp, ws_ap, expect, rejected, credential
     file: wallet/fcaf-expect-credential-rejected.yaml
   - name: verifycredential-pid-formeu-issuer-eudiw-dev
     category: verify-credential
@@ -32,41 +32,149 @@ actions:
     file: wallet/choose-eudi-wallet.yaml
   - name: fcaf-reset-and-onboard
     category: onboarding
-    tags: fcaf, helper, reset, onboarding
+    tags: fcaf, ws_rp, ws_ap, helper, reset, onboarding
     file: wallet/fcaf-reset-and-onboard.yaml
   - name: fcaf-engagement-haip-vp
     category: verify-credential
-    tags: fcaf, engagement, haip-vp
+    tags: fcaf, ws_rp, ws_ap, engagement, haip-vp
     file: wallet/fcaf-engagement-haip-vp.yaml
   - name: fcaf-exercise-wallet-generic
     category: verify-credential
-    tags: fcaf, exercise, generic
+    tags: fcaf, ws_rp, exercise, generic
     file: wallet/fcaf-exercise-wallet-generic.yaml
   - name: fcaf-expect-request-rejected
     category: verify-credential
-    tags: fcaf, expect, rejected
+    tags: fcaf, ws_rp, expect, rejected
     file: wallet/fcaf-expect-request-rejected.yaml
   - name: fcaf-expect-no-matching-document
     category: verify-credential
-    tags: fcaf, expect, no-match
+    tags: fcaf, ws_rp, ws_ap, expect, no-match
     file: wallet/fcaf-expect-no-matching-document.yaml
   - name: fcaf-dc-api-present
     category: verify-credential
-    tags: fcaf, dc-api, present
+    tags: fcaf, ws_rp, dc-api, present
     file: wallet/fcaf-dc-api-present.yaml
   - name: fcaf-dc-api-expect-rejected
     category: verify-credential
-    tags: fcaf, dc-api, expect, rejected
+    tags: fcaf, ws_rp, dc-api, expect, rejected
     file: wallet/fcaf-dc-api-expect-rejected.yaml
   - name: fcaf-submit-request-object-by-value
     category: verify-credential
-    tags: fcaf, request-object, by-value
+    tags: fcaf, ws_rp, request-object, by-value
     file: wallet/fcaf-submit-request-object-by-value.yaml
   - name: fcaf-engagement-eu-eaap
     category: verify-credential
-    tags: fcaf, engagement, eu-eaap
+    tags: fcaf, ws_rp, engagement, eu-eaap
     file: wallet/fcaf-engagement-eu-eaap.yaml
   - name: fcaf-engage-credential-offer
     category: get-credential-generic
-    tags: fcaf, engagement, credential
+    tags: fcaf, ws_ap, engagement, credential
     file: wallet/fcaf-engage-credential-offer.yaml
+  - name: fcaf-observe-wallet-after-denial
+    category: other
+    tags: fcaf, ws_ap
+    file: wallet/fcaf-observe-wallet-after-denial.yaml
+  - name: fcaf-observe-wallet-after-par-response
+    category: other
+    tags: fcaf, ws_ap
+    file: wallet/fcaf-observe-wallet-after-par-response.yaml
+  - name: fcaf-callback-redirect
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-callback-redirect.yaml
+  - name: fcaf-present-all-credentials
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-present-all-credentials.yaml
+  - name: fcaf-present-allowed-claim-path-components
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-present-allowed-claim-path-components.yaml
+  - name: fcaf-exercise-non-array-claim-sets
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-non-array-claim-sets.yaml
+  - name: fcaf-exercise-non-array-claims
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-non-array-claims.yaml
+  - name: fcaf-present-claims-union
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-present-claims-union.yaml
+  - name: fcaf-reject-invalid-dcql
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-reject-invalid-dcql.yaml
+  - name: fcaf-present-two-credentials
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-present-two-credentials.yaml
+  - name: fcaf-present-same-credential-multiple-queries
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-present-same-credential-multiple-queries.yaml
+  - name: fcaf-exercise-trusted-authorities-type-non-string
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-trusted-authorities-type-non-string.yaml
+  - name: fcaf-exercise-trusted-authorities-values-empty-string
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-trusted-authorities-values-empty-string.yaml
+  - name: fcaf-exercise-trusted-authorities-values-item-non-string
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-trusted-authorities-values-item-non-string.yaml
+  - name: fcaf-exercise-trusted-authorities-values-non-array
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-trusted-authorities-values-non-array.yaml
+  - name: fcaf-present-unchecked-claim
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-present-unchecked-claim.yaml
+  - name: fcaf-user-authentication-failed
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-user-authentication-failed.yaml
+  - name: fcaf-user-denied-consent
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-user-denied-consent.yaml
+  - name: fcaf-select-and-share-candidate
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-select-and-share-candidate.yaml
+  - name: fcaf-wait-past-status-list-expiry
+    category: other
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-wait-past-status-list-expiry.yaml
+  - name: fcaf-submit-and-follow-redirect
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-submit-and-follow-redirect.yaml
+  - name: fcaf-exercise-unknown-response-parameter
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-unknown-response-parameter.yaml
+  - name: fcaf-exercise-unknown-request-and-response-parameter
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-unknown-request-and-response-parameter.yaml
+  - name: fcaf-exercise-non-json-response
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-non-json-response.yaml
+  - name: fcaf-exercise-http-error-response
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-http-error-response.yaml
+  - name: fcaf-exercise-http-error-redirect-response
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-http-error-redirect-response.yaml
+  - name: fcaf-exercise-no-redirect-response
+    category: verify-credential
+    tags: fcaf, ws_rp
+    file: wallet/fcaf-exercise-no-redirect-response.yaml
