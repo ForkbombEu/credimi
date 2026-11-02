@@ -86,7 +86,11 @@ AGENT_DESCRIPTION = (
 )
 
 START_PAGE = Path(__file__).with_name("start.html")
-SAVE_REVIEW_SCRIPT = Path(__file__).with_name("save-review.js")
+# Scripts the UI adds to the packaged chat page, by path.
+UI_SCRIPTS = {
+    "/action-save-review.js": Path(__file__).with_name("save-review.js"),
+    "/action-new-session.js": Path(__file__).with_name("new-session.js"),
+}
 NO_STORE = {"Cache-Control": "no-store"}
 # How long the start page waits before polling again after a Temporal error.
 TEMPORAL_RETRY_AFTER = "2"
@@ -102,18 +106,20 @@ START_PAGE_HEADERS = {
 }
 # Every response refuses framing; /start's own CSP already says frame-ancestors 'none'.
 NO_FRAMING_CSP = "frame-ancestors 'none'"
-# Keep the packaged UI's new-session buttons on the authenticated setup path.
-AUTHENTICATED_START_SCRIPT = """<script>
-document.addEventListener('click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest('button') : null;
-    if (button && (button.getAttribute('aria-label') === 'New session'
-        || button.textContent.trim().toLowerCase() === 'start a new session')) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        window.location.assign('/start');
-    }
-}, true);
-</script><script type="module" src="/action-save-review.js"></script>"""
+# Every HTML page but /start (which has its own): the packaged chat page and the scripts the UI
+# adds load from the UI itself, the app styles itself inline, and the review card calls Credimi.
+# The packaged index.html has no inline script, so script-src needs no hash.
+HTML_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: http:; "
+    "object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+)
+# Keep the packaged UI's new-session buttons on the authenticated setup path, and add the save
+# review card.
+CHAT_PAGE_SCRIPTS = (
+    '<script src="/action-new-session.js"></script>'
+    '<script type="module" src="/action-save-review.js"></script>'
+)
 
 
 def harness_plugin() -> AgentHarnessPlugin:
@@ -241,9 +247,13 @@ def _foreign_request(method: str, path: str, host: str, origin: str | None, port
 
 
 def _refuse_framing(response) -> None:
-    """Keep any page of the UI out of other sites' frames."""
+    """Keep any page of the UI out of other sites' frames, and give every HTML page without
+    its own policy (all but /start) HTML_CSP."""
     response.headers["X-Frame-Options"] = "DENY"
     policy = response.headers.get("Content-Security-Policy")
+    if not policy and response.headers.get("content-type", "").startswith("text/html"):
+        response.headers["Content-Security-Policy"] = HTML_CSP
+        return
     if not policy:
         response.headers["Content-Security-Policy"] = NO_FRAMING_CSP
     elif "frame-ancestors" not in policy:
@@ -371,8 +381,8 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
         method, path = request.method, request.url.path
         if path == NAMESPACE_PATH and method in {"GET", "POST"}:
             return await _namespace_request(app, request)
-        if method == "GET" and path == "/action-save-review.js":
-            return FileResponse(SAVE_REVIEW_SCRIPT, media_type="text/javascript", headers=NO_STORE)
+        if method == "GET" and path in UI_SCRIPTS:
+            return FileResponse(UI_SCRIPTS[path], media_type="text/javascript", headers=NO_STORE)
         if method == "GET" and path == "/start":
             return FileResponse(START_PAGE, headers=START_PAGE_HEADERS)
         if method == "GET" and path == "/" and not request.query_params:
@@ -396,7 +406,7 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
                 return response
             html = (await _body(response)).decode()
             return HTMLResponse(
-                html.replace("</head>", AUTHENTICATED_START_SCRIPT + "</head>", 1),
+                html.replace("</head>", CHAT_PAGE_SCRIPTS + "</head>", 1),
                 headers=NO_STORE,
             )
         if method == "POST" and path.rstrip("/") == "/api/sessions":

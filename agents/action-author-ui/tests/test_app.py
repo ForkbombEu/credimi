@@ -203,6 +203,13 @@ async def test_start_page_is_not_cached_or_embeddable():
     assert "frame-ancestors 'none'" in policy
 
 
+CHAT_PAGE_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: http:; "
+    "object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+)
+
+
 async def test_chat_page_is_not_embeddable():
     app = create_app()
     app.state.binding = object()
@@ -210,7 +217,35 @@ async def test_chat_page_is_not_embeddable():
         response = await client.get("/?s=x")
     assert response.status_code == 200
     assert response.headers["x-frame-options"] == "DENY"
-    assert response.headers["content-security-policy"] == "frame-ancestors 'none'"
+    assert response.headers["content-security-policy"] == CHAT_PAGE_CSP
+
+
+async def test_chat_page_runs_only_scripts_of_its_own_origin():
+    app = create_app()
+    app.state.binding = object()
+    async with ui_client(app=app) as client:
+        page = (await client.get("/?s=x")).text
+        new_session = await client.get("/action-new-session.js")
+    # script-src 'self' refuses inline scripts: every script the page runs has a src.
+    assert "<script>" not in page
+    assert '<script src="/action-new-session.js"></script>' in page
+    assert '<script type="module" src="/action-save-review.js"></script>' in page
+    assert new_session.status_code == 200
+    assert new_session.headers["content-type"].startswith("text/javascript")
+    assert "window.location.assign('/start')" in new_session.text
+
+
+async def test_other_html_pages_get_the_chat_page_policy():
+    async with ui_client() as client:
+        response = await client.get("/start?unbound=1")
+        redirect = await client.get("/?s=x")
+        script = await client.get("/action-save-review.js")
+    # /start keeps its own policy.
+    assert response.headers["content-security-policy"].startswith("default-src 'none';")
+    # Non-HTML responses only refuse framing.
+    assert redirect.status_code == 307
+    assert redirect.headers["content-security-policy"] == "frame-ancestors 'none'"
+    assert script.headers["content-security-policy"] == "frame-ancestors 'none'"
 
 
 def test_registry_never_needs_a_runner_queue():

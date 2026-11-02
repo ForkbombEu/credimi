@@ -39,6 +39,12 @@ either. Direct creation through the harness API is rejected, and **New session**
 returns to the start page. Keep the UI on loopback: it is not a hosted multi-user
 authentication layer.
 
+No page can be framed. Every HTML page but the start page (which has its own policy) sends a
+`Content-Security-Policy` that runs only scripts of the UI's own origin: the harness chat page
+has no inline script, and the scripts the UI adds to it (`/action-new-session.js`,
+`/action-save-review.js`) are files. Styles may be inline; requests may go to the UI and, for
+the save review, to Credimi over HTTP(S).
+
 ## Action spec
 
 Before starting, the page describes the action to author: the **slot** (onboarding, get a
