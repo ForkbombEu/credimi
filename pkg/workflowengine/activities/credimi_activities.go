@@ -51,6 +51,7 @@ func CredimiActivities(app core.App) []workflowengine.ExecutableActivity {
 		NewSaveAuthoredWalletActionActivity(app),
 		NewGenerateActionAuthorParametersActivity(app),
 		NewCheckActionAuthorProtocolOutcomeActivity(),
+		NewRecordActionAuthorUsageActivity(app),
 	}
 }
 

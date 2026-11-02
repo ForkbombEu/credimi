@@ -82,7 +82,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Queue a wallet-action authoring session on a runner device",
-			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios), and the version must have an installer for it. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor in the last two minutes answers 503 agent_unavailable. The slot selects the action category: onboarding takes no prerequisites; get-credential, get-credential-specific and verify-credential need at least one; other takes optional prerequisites. outcome is success (default) or rejection (not for onboarding), and browser flows (not for onboarding) need an Android device. Prerequisites (at most 5) are wallet actions of the selected wallet, published or owned by its organization, listed by GET /api/action-author/wallet-actions; each must receive exactly the parameters its code references. Parameters (at most 8 per list) take fresh values from a credential_offer or use_case_verification (published or owned records), an https GET or POST without credential headers (http), or a fixed value (literal); only the new action's http parameters may check a protocol status. An invalid spec answers 400 invalid_request. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
+			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios), and the version must have an installer for it. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor in the last two minutes answers 503 agent_unavailable. The slot selects the action category: onboarding takes no prerequisites; get-credential, get-credential-specific and verify-credential need at least one; other takes optional prerequisites. outcome is success (default) or rejection (not for onboarding), and browser flows (not for onboarding) need an Android device. Prerequisites (at most 5) are wallet actions of the selected wallet, published or owned by its organization, listed by GET /api/action-author/wallet-actions; each must receive exactly the parameters its code references. Parameters (at most 8 per list) take fresh values from a credential_offer or use_case_verification (published or owned records), an https GET or POST without credential headers (http), or a fixed value (literal); only the new action's http parameters may check a protocol status. An invalid spec answers 400 invalid_request. Each organization has a daily quota of sessions and model tokens (UTC day); a start beyond it answers 429 quota_exceeded, and a session counts when it is queued. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
@@ -456,6 +456,12 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if err != nil {
 			return temporalUnavailableError()
 		}
+		// Sessions count at enqueue; a refused or failed enqueue gives it back.
+		orgID := selection.Organization.Id
+		reservedAt := time.Now()
+		if apiErr := reserveActionAuthorSession(e, orgID, reservedAt); apiErr != nil {
+			return apiErr
+		}
 		resp, err := enqueueActionAuthorTicket(
 			e.Request.Context(),
 			c,
@@ -473,6 +479,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			},
 		)
 		if err != nil {
+			releaseActionAuthorSession(e, orgID, reservedAt)
 			if isQueueLimitExceeded(err) {
 				return apierror.New(
 					http.StatusConflict,
@@ -498,6 +505,40 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			WorkflowNamespace:       namespace,
 			WalletVersionIdentifier: selection.Identifier,
 		})
+	}
+}
+
+// reserveActionAuthorSession counts a session against the organization's
+// daily quota, answering 429 quota_exceeded when it is used up.
+func reserveActionAuthorSession(
+	e *core.RequestEvent,
+	orgID string,
+	now time.Time,
+) *apierror.APIError {
+	quota := actionauthor.QuotaFromEnv()
+	err := actionauthor.ReserveSession(e.App, orgID, now, quota)
+	if errors.Is(err, actionauthor.ErrQuotaExceeded) {
+		return apierror.New(
+			http.StatusTooManyRequests,
+			"action_author",
+			"quota_exceeded",
+			fmt.Sprintf(
+				"your organization reached today's action author limit (%d sessions, %d tokens); it resets at 00:00 UTC",
+				quota.Sessions,
+				quota.Tokens,
+			),
+		)
+	}
+	if err != nil {
+		return authoringAPIError(e, err)
+	}
+	return nil
+}
+
+// releaseActionAuthorSession gives back a session whose enqueue failed.
+func releaseActionAuthorSession(e *core.RequestEvent, orgID string, reservedAt time.Time) {
+	if err := actionauthor.ReleaseSession(e.App, orgID, reservedAt); err != nil {
+		e.App.Logger().Warn("failed to release action author session quota", "error", err)
 	}
 }
 

@@ -1,0 +1,60 @@
+// SPDX-FileCopyrightText: 2026 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package activities
+
+import (
+	"testing"
+	"time"
+
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/stretchr/testify/require"
+)
+
+func TestRecordActionAuthorUsage(t *testing.T) {
+	setFCAFTestEnv(t)
+	t.Setenv("CREDIMI_ACTION_AUTHOR_DAILY_TOKENS", "1000")
+	app, session, namespace := authorSaveFixture(t)
+	caller := authorTestCaller()
+	caller.Namespace = namespace
+	a := func() *RecordActionAuthorUsageActivity {
+		activity := NewRecordActionAuthorUsageActivity(app)
+		activity.authorSessionLookup = specSessionLookup(
+			t, session, actionauthor.Spec{Slot: "onboarding"},
+		).lookup()
+		return activity
+	}
+	now := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
+
+	state, err := a().record(t.Context(), caller, actionauthor.UsageDelta{
+		Requests: 2, InputTokens: 300, OutputTokens: 100,
+	}, now)
+	require.NoError(t, err)
+	require.Equal(t, actionauthor.UsageState{TokensRemaining: 600}, state)
+
+	state, err = a().record(t.Context(), caller, actionauthor.UsageDelta{
+		Requests: 1, InputTokens: 500, OutputTokens: 200,
+	}, now)
+	require.NoError(t, err)
+	require.Equal(t, actionauthor.UsageState{Exhausted: true, TokensRemaining: 0}, state)
+
+	selection, err := actionauthor.Select(app, namespace, session)
+	require.NoError(t, err)
+	require.ErrorIs(
+		t,
+		actionauthor.ReserveSession(
+			app,
+			selection.Organization.Id,
+			now,
+			actionauthor.QuotaFromEnv(),
+		),
+		actionauthor.ErrQuotaExceeded,
+	)
+
+	// Callers outside a running session are refused before any usage counts.
+	_, err = executeActivity(t, a(), actionauthor.UsageDelta{InputTokens: 1})
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(t, err, "caller is not an action author session agent")
+}
