@@ -152,6 +152,11 @@ func TestActionAuthorStartChecksSpec(t *testing.T) {
 			expected: "browser flows need an Android device",
 		},
 		{
+			name:     "partial spec without a slot",
+			spec:     `"outcome":"rejection"`,
+			expected: "slot: must be one of",
+		},
+		{
 			name:     "rejection on onboarding",
 			spec:     `"slot":"onboarding","outcome":"rejection"`,
 			expected: "outcome: the onboarding slot has no rejection outcome",
@@ -209,6 +214,27 @@ func TestActionAuthorStartQueuesSpec(t *testing.T) {
 			}},
 		},
 	}, enqueued.ActionAuthor["prerequisites"])
+}
+
+func TestActionAuthorStartQueuesEmptySpec(t *testing.T) {
+	token := authoringToken(t, "userA")
+	enqueued := stubActionAuthorQueue(t, true)
+	(&tests.ApiScenario{
+		Name:   "plan proposed in the chat",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/sessions",
+		Body: strings.NewReader(`{"device_id":"` + authoringAdminRunner +
+			`/android-emulator","wallet_version_identifier":"` + authoringAndroidVersion + `"}`),
+		Headers:         map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus:  http.StatusAccepted,
+		ExpectedContent: []string{`"ticket_id"`},
+		TestAppFactory:  setupActionAuthorSpecApp,
+	}).Test(t)
+	require.NotEmpty(t, enqueued.TicketID)
+	require.Equal(t, "", enqueued.ActionAuthor["slot"])
+	for _, field := range []string{"outcome", "browser", "prerequisites", "parameters"} {
+		require.NotContains(t, enqueued.ActionAuthor, field)
+	}
 }
 
 func TestActionAuthorWalletActionsListsOwnedAndPublished(t *testing.T) {

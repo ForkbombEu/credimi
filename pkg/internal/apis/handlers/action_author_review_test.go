@@ -25,19 +25,29 @@ const reviewAuthorWorkflow = "ActionAuthorSession-ticket-1-author"
 
 var reviewCandidate = strings.Repeat("ab", 32)
 
-// reviewStub records the decision delivered to the agent workflow.
+// reviewStub records the decision delivered to the agent workflow; session
+// is the running session the lookup answers.
 type reviewStub struct {
 	namespaces []string
 	workflowID string
 	toolID     string
 	result     map[string]any
+	session    actionauthor.Session
 }
 
-// stubActionAuthorReview answers the session lookup with a session started by
-// actorID and the update with updateErr.
+// stubActionAuthorReview answers the session lookup with an Android session
+// of the handler wallet started by actorID with an onboarding spec, and the
+// update with updateErr.
 func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr error) *reviewStub {
 	t.Helper()
-	stub := &reviewStub{}
+	stub := &reviewStub{session: actionauthor.Session{
+		BuildRequest: actionauthor.BuildRequest{
+			Actor:                   actionauthor.Actor{ActorID: actorID, ActorCollection: "users"},
+			WalletVersionIdentifier: authoringAndroidVersion,
+			Platform:                actionauthor.PlatformAndroid,
+		},
+		Spec: actionauthor.Spec{Slot: "onboarding"},
+	}}
 	origClient := queueTemporalClient
 	origLookup := lookupActionAuthorSession
 	origUpdate := updateActionAuthorWorkflow
@@ -57,11 +67,7 @@ func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr e
 	) (activities.ActionAuthorSessionRef, error) {
 		require.Equal(t, reviewAuthorWorkflow, authorWorkflowID)
 		require.Empty(t, authorRunID)
-		return activities.ActionAuthorSessionRef{Session: actionauthor.Session{
-			BuildRequest: actionauthor.BuildRequest{
-				Actor: actionauthor.Actor{ActorID: actorID, ActorCollection: "users"},
-			},
-		}}, lookupErr
+		return activities.ActionAuthorSessionRef{Session: stub.session}, lookupErr
 	}
 	updateActionAuthorWorkflow = func(
 		_ context.Context,
@@ -110,6 +116,10 @@ func TestActionAuthorReviewSignsAcceptedCandidates(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, user.Id, approval.ApproverID)
 			require.Equal(t, "users", approval.ApproverCollection)
+			require.Equal(t, actionauthor.PlanSHA256(actionauthor.Spec{
+				Slot:    "onboarding",
+				Outcome: actionauthor.OutcomeSuccess,
+			}), approval.PlanSHA256)
 		},
 	}).Test(t)
 
@@ -225,4 +235,110 @@ func TestActionAuthorReviewRejectsOtherUsersAndSettledReviews(t *testing.T) {
 		ExpectedContent: []string{"CandidateSHA256"},
 		TestAppFactory:  setupActionAuthorApp,
 	}).Test(t)
+}
+
+func reviewBodyWithPlan(token string) string {
+	return fmt.Sprintf(
+		`{"namespace":%q,"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":true,"plan_token":%q}`,
+		authoringNamespace,
+		reviewAuthorWorkflow,
+		reviewCandidate,
+		token,
+	)
+}
+
+// signHandlerPlan signs a plan of the review workflow confirmed by userID; the
+// test apps share test_pb_data's signing secret.
+func signHandlerPlan(t *testing.T, userID string, plan actionauthor.Spec) string {
+	t.Helper()
+	app := setupActionAuthorApp(t)
+	defer app.Cleanup()
+	token, err := actionauthor.SignPlan(app, actionauthor.PlanGrant{
+		AuthorWorkflowID:   reviewAuthorWorkflow,
+		Plan:               plan,
+		ApproverID:         userID,
+		ApproverCollection: "users",
+		ConfirmedAt:        time.Now().Unix(),
+	})
+	require.NoError(t, err)
+	return token
+}
+
+func TestActionAuthorReviewBindsThePlan(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	plan := actionauthor.Spec{
+		Slot: "other",
+		Parameters: []actionauthor.ParameterSpec{{
+			Name:   "PIN",
+			Source: actionauthor.SourceSpec{Kind: actionauthor.SourceLiteral, Value: "123456"},
+		}},
+	}
+	token := signHandlerPlan(t, user.Id, plan)
+
+	stub := stubActionAuthorReview(t, user.Id, nil, nil)
+	stub.session.Spec = actionauthor.Spec{}
+	(&tests.ApiScenario{
+		Name:            "accepted with the confirmed plan",
+		Method:          http.MethodPost,
+		URL:             "/api/action-author/reviews",
+		Body:            strings.NewReader(reviewBodyWithPlan(token)),
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"accepted":true`},
+		TestAppFactory:  setupActionAuthorApp,
+		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+			approvalToken, _ := stub.result["approval"].(string)
+			approval, err := actionauthor.VerifyApproval(
+				app, approvalToken, reviewAuthorWorkflow, reviewCandidate, time.Now(),
+			)
+			require.NoError(t, err)
+			normalized := plan
+			normalized.Outcome = actionauthor.OutcomeSuccess
+			require.Equal(t, actionauthor.PlanSHA256(normalized), approval.PlanSHA256)
+		},
+	}).Test(t)
+
+	for _, tc := range []struct {
+		name     string
+		fixed    bool
+		token    string
+		status   int
+		expected []string
+	}{
+		{
+			name:     "no confirmed plan",
+			status:   http.StatusBadRequest,
+			expected: []string{`"invalid_request"`, "no confirmed plan"},
+		},
+		{
+			name:     "forged plan",
+			token:    "forged.x",
+			status:   http.StatusForbidden,
+			expected: []string{`"forbidden"`},
+		},
+		{
+			name:     "plan token for a fixed plan",
+			fixed:    true,
+			token:    token,
+			status:   http.StatusBadRequest,
+			expected: []string{`"invalid_request"`, "this session's plan was fixed when it started"},
+		},
+	} {
+		stub := stubActionAuthorReview(t, user.Id, nil, nil)
+		if !tc.fixed {
+			stub.session.Spec = actionauthor.Spec{}
+		}
+		(&tests.ApiScenario{
+			Name:            tc.name,
+			Method:          http.MethodPost,
+			URL:             "/api/action-author/reviews",
+			Body:            strings.NewReader(reviewBodyWithPlan(tc.token)),
+			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+			ExpectedStatus:  tc.status,
+			ExpectedContent: tc.expected,
+			TestAppFactory:  setupActionAuthorApp,
+		}).Test(t)
+		require.Empty(t, stub.workflowID, tc.name)
+	}
 }

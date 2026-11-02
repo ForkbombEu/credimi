@@ -82,10 +82,20 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Queue a wallet-action authoring session on a runner device",
-			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios), and the version must have an installer for it. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor in the last two minutes answers 503 agent_unavailable. The slot selects the action category: onboarding takes no prerequisites; get-credential, get-credential-specific and verify-credential need at least one; other takes optional prerequisites. outcome is success (default) or rejection (not for onboarding), and browser flows (not for onboarding) need an Android device. Prerequisites (at most 5) are wallet actions of the selected wallet, published or owned by its organization, listed by GET /api/action-author/wallet-actions; each must receive exactly the parameters its code references. Parameters (at most 8 per list) take fresh values from a credential_offer or use_case_verification (published or owned records), an https GET or POST whose only headers are Content-Type, Accept and Accept-Language (http), or a fixed value (literal); only the new action's http parameters may check a protocol status. An invalid spec answers 400 invalid_request. Each organization has a daily allowance of model tokens (UTC day), set by a superuser on the organization (action_author_daily_tokens); new organizations have none. A start without an allowance or after the day's tokens reach it answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
+			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios), and the version must have an installer for it. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor in the last two minutes answers 503 agent_unavailable. The spec fields (slot, outcome, browser, prerequisites, parameters) are optional: without them the agent proposes the plan in the chat and the user confirms it through POST /api/action-author/plans, once per action, and the session can save several actions; with them the plan is fixed for the whole session, which closes after its save. The slot selects the action category: onboarding takes no prerequisites; get-credential, get-credential-specific and verify-credential need at least one; other takes optional prerequisites. outcome is success (default) or rejection (not for onboarding), and browser flows (not for onboarding) need an Android device. Prerequisites (at most 5) are wallet actions of the selected wallet, published or owned by its organization, listed by GET /api/action-author/wallet-actions; each must receive exactly the parameters its code references. Parameters (at most 8 per list) take fresh values from a credential_offer or use_case_verification (published or owned records), an https GET or POST whose only headers are Content-Type, Accept and Accept-Language (http), or a fixed value (literal); only the new action's http parameters may check a protocol status. An invalid spec answers 400 invalid_request; a spec without a slot is invalid. Each organization has a daily allowance of model tokens (UTC day), set by a superuser on the organization (action_author_daily_tokens); new organizations have none. A start without an allowance or after the day's tokens reach it answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/plans",
+			Handler:        HandleActionAuthorPlan,
+			OperationID:    "actionAuthor.confirmPlan",
+			Summary:        "Confirm or refuse the plan an authoring session's agent proposed",
+			Description:    "Deliver the human decision on the pending plan card tool_id of the agent workflow author_workflow_id in the organization namespace. Only the user who started the session can confirm its plans (403 forbidden otherwise); a namespace the caller does not own, or a workflow that is not the agent of a running session, answers 404 session_not_found. A session started with a spec has a fixed plan and answers 409 plan_fixed. An acceptance validates plan as the session start endpoint validates a spec (400 invalid_request, and nothing is delivered), then delivers to the agent the normalized plan, its resolved prerequisites, its parameter descriptions and a Credimi-signed plan_token, which the agent sends with every activity of that plan; the payload segment of the token is the base64url JSON grant whose plan field is the confirmed plan. A plan card that is no longer pending (unknown or settled tool_id) answers 409 plan_not_pending.",
+			RequestSchema:  ActionAuthorPlanRequest{},
+			ResponseSchema: ActionAuthorPlanResponse{},
 		},
 		{
 			Method:         http.MethodPost,
@@ -93,7 +103,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorReview,
 			OperationID:    "actionAuthor.reviewCandidate",
 			Summary:        "Accept or refuse a candidate action of an authoring session",
-			Description:    "Deliver the human decision on the pending save review tool_id of the agent workflow author_workflow_id in the organization namespace. Only the user who started the session can review it (403 forbidden otherwise); a namespace the caller does not own, or a workflow that is not the agent of a running session, answers 404 session_not_found. An acceptance carries a Credimi-signed approval of candidate_sha256 that the save activity verifies (valid for 30 minutes); the agent cannot save without it. A review that is no longer pending (unknown or settled tool_id) answers 409 review_not_pending.",
+			Description:    "Deliver the human decision on the pending save review tool_id of the agent workflow author_workflow_id in the organization namespace. Only the user who started the session can review it (403 forbidden otherwise); a namespace the caller does not own, or a workflow that is not the agent of a running session, answers 404 session_not_found. plan_token is the session's confirmed plan token (omit it for a session started with a spec); an invalid plan answers 400 invalid_request and a plan token that Credimi did not sign for this session and user answers 403 forbidden. An acceptance carries a Credimi-signed approval of candidate_sha256 and of the plan's hash (plan_sha256) that the save activity verifies (valid for 30 minutes); the agent cannot save without it, nor with another plan. A review that is no longer pending (unknown or settled tool_id) answers 409 review_not_pending.",
 			RequestSchema:  ActionAuthorReviewRequest{},
 			ResponseSchema: ActionAuthorReviewResponse{},
 		},
@@ -396,12 +406,15 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if apiErr := requireActionAuthorAgent(e, runner, namespace); apiErr != nil {
 			return apiErr
 		}
+		// Without a spec the agent proposes the plan in the chat.
 		spec := input.Spec
-		if err := spec.Normalize(platform); err != nil {
-			return authoringAPIError(e, err)
-		}
-		if _, err := actionauthor.CheckSpecRecords(e.App, selection, &spec); err != nil {
-			return authoringAPIError(e, err)
+		if !spec.IsEmpty() {
+			if err := spec.Normalize(platform); err != nil {
+				return authoringAPIError(e, err)
+			}
+			if _, err := actionauthor.CheckSpecRecords(e.App, selection, &spec); err != nil {
+				return authoringAPIError(e, err)
+			}
 		}
 
 		session, err := sessionInputMap(authorsession.SessionInput{
