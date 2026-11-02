@@ -626,6 +626,29 @@ func TestSessionWaitsForReadyAgentBeyondReadyTimeout(t *testing.T) {
 	h.requireReleasedAfter("", "success")
 }
 
+func TestSessionCancelsReadyTimerOnceAgentSignals(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.childRuns = 30 * time.Minute
+	var readyTimer string
+	var fired []string
+	h.env.SetOnTimerScheduledListener(func(timerID string, duration time.Duration) {
+		if duration == agentReadyTimeout {
+			readyTimer = timerID
+		}
+	})
+	h.env.SetOnTimerFiredListener(func(timerID string) { fired = append(fired, timerID) })
+
+	require.NoError(t, h.run(sessionInput(actionauthor.PlatformAndroid)))
+
+	require.NotEmpty(t, readyTimer)
+	require.NotContains(
+		t,
+		fired,
+		readyTimer,
+		"the ready timer must not fire once the agent is ready",
+	)
+}
+
 func TestSessionAcceptsAgentThatEndsBeforeSignaling(t *testing.T) {
 	h := newSessionHarness(t, "android_emulator")
 	h.childSilent = true

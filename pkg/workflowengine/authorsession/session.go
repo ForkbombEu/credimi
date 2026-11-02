@@ -283,7 +283,6 @@ func awaitAuthor(
 	child workflow.ChildWorkflowFuture,
 ) (ready bool, childErr error) {
 	timerCtx, cancelTimer := workflow.WithCancel(ctx)
-	defer cancelTimer()
 
 	ended := false
 	timedOut := false
@@ -307,6 +306,9 @@ func awaitAuthor(
 	if timedOut {
 		return false, nil
 	}
+	// The agent is ready or ended: the timer must not stay pending (and fire)
+	// while the session waits up to the child's execution timeout.
+	cancelTimer()
 	if !ended {
 		childErr = child.Get(ctx, nil)
 	}
