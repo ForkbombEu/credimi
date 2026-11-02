@@ -2,6 +2,8 @@ appId: eu.europa.ec.euidi
 name: "FCAF issue PID - accept an offer the generator injects for a presentation"
 tags:
   - fcaf
+  - ws_rp
+  - ws_ap
   - helper
   - credential
 ---
