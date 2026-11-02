@@ -82,6 +82,95 @@ func (a *ResolveActionAuthorBuildActivity) Execute(
 	return result, nil
 }
 
+// ResolveActionAuthorPrerequisitesActivityName is the organization worker's
+// prerequisite-resolution activity.
+const ResolveActionAuthorPrerequisitesActivityName = "Resolve action author prerequisites"
+
+// ResolveActionAuthorPrerequisitesInput is a session's build request and the
+// prerequisite actions of its spec.
+type ResolveActionAuthorPrerequisitesInput struct {
+	actionauthor.BuildRequest
+	Prerequisites []actionauthor.PrerequisiteSpec `json:"prerequisites"`
+}
+
+// ResolvedActionAuthorPrerequisite is a prerequisite action the agent runs
+// before exploring and before every replay.
+type ResolvedActionAuthorPrerequisite struct {
+	Action     string   `json:"action"`
+	Name       string   `json:"name"`
+	Code       string   `json:"code"`
+	Parameters []string `json:"parameters"`
+}
+
+// ResolveActionAuthorPrerequisitesActivity reauthorizes the session's build
+// and returns the code of its prerequisite actions.
+type ResolveActionAuthorPrerequisitesActivity struct {
+	workflowengine.BaseActivity
+	app core.App
+}
+
+// NewResolveActionAuthorPrerequisitesActivity binds prerequisite resolution to the application's database.
+func NewResolveActionAuthorPrerequisitesActivity(
+	app core.App,
+) *ResolveActionAuthorPrerequisitesActivity {
+	return &ResolveActionAuthorPrerequisitesActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: ResolveActionAuthorPrerequisitesActivityName,
+		},
+		app: app,
+	}
+}
+
+// Name returns the registered Temporal activity name.
+func (a *ResolveActionAuthorPrerequisitesActivity) Name() string { return a.BaseActivity.Name }
+
+// Execute checks the prerequisites as the start endpoint does, in the
+// activity's actual organization namespace.
+func (a *ResolveActionAuthorPrerequisitesActivity) Execute(
+	ctx context.Context,
+	in workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	var result workflowengine.ActivityResult
+	payload, err := workflowengine.DecodePayload[ResolveActionAuthorPrerequisitesInput](in.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
+	}
+	resolved, err := a.resolve(activity.GetInfo(ctx).Namespace, payload)
+	if err != nil {
+		return result, actionAuthorError(&a.BaseActivity, err)
+	}
+	result.Output = map[string]any{"prerequisites": resolved}
+	return result, nil
+}
+
+func (a *ResolveActionAuthorPrerequisitesActivity) resolve(
+	namespace string,
+	payload ResolveActionAuthorPrerequisitesInput,
+) ([]ResolvedActionAuthorPrerequisite, error) {
+	if namespace == "" {
+		return nil, actionauthor.ErrForbidden
+	}
+	selection, err := actionauthor.Select(a.app, namespace, payload.BuildRequest)
+	if err != nil {
+		return nil, err
+	}
+	spec := actionauthor.Spec{Prerequisites: payload.Prerequisites}
+	records, err := actionauthor.CheckSpecRecords(a.app, selection, &spec)
+	if err != nil {
+		return nil, err
+	}
+	resolved := make([]ResolvedActionAuthorPrerequisite, 0, len(records))
+	for i, record := range records {
+		resolved = append(resolved, ResolvedActionAuthorPrerequisite{
+			Action:     spec.Prerequisites[i].Action,
+			Name:       record.GetString("name"),
+			Code:       record.GetString("code"),
+			Parameters: actionauthor.ActionParameters(record.GetString("code")),
+		})
+	}
+	return resolved, nil
+}
+
 // SaveAuthoredWalletActionActivity persists a candidate approved through the workflow.
 type SaveAuthoredWalletActionActivity struct {
 	workflowengine.BaseActivity

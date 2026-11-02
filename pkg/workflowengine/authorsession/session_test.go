@@ -53,6 +53,8 @@ type sessionHarness struct {
 
 	releaseErr error
 
+	prerequisitesErr error
+
 	childErr       error
 	childBlocks    bool
 	childSilent    bool
@@ -92,6 +94,17 @@ func newSessionHarness(t *testing.T, deviceType string) *sessionHarness {
 			Platform:          h.platform(),
 			InstallerSHA256:   "digest",
 		}, nil
+	})
+	h.register(activities.ResolveActionAuthorPrerequisitesActivityName, func(any) (any, error) {
+		if h.prerequisitesErr != nil {
+			return nil, h.prerequisitesErr
+		}
+		return map[string]any{"prerequisites": []activities.ResolvedActionAuthorPrerequisite{{
+			Action:     "tenant/wallet/onboarding",
+			Name:       "Onboarding",
+			Code:       "appId: eu.wallet\n---\n- launchApp\n",
+			Parameters: []string{},
+		}}}, nil
 	})
 	h.register(activities.GetMobileDeviceActivityName, func(any) (any, error) {
 		return map[string]any{
@@ -301,6 +314,9 @@ func TestSessionStartsAuthorOnRunnerQueueWithAuthoringContext(t *testing.T) {
 		ActorID:                 "user-1",
 		ActorCollection:         "users",
 		Slot:                    "onboarding",
+		Outcome:                 "success",
+		Prerequisites:           []AuthoringPrerequisite{},
+		Parameters:              []AuthoringParameter{},
 		AppID:                   "",
 		Platform:                actionauthor.PlatformAndroid,
 		Build: AuthoringBuild{
@@ -333,8 +349,119 @@ func TestSessionStartsAuthorOnRunnerQueueWithAuthoringContext(t *testing.T) {
 
 	h.requireReleasedAfter("", "success")
 	require.NotContains(t, h.names(), ReleaseDeviceActivityName)
+	require.NotContains(t, h.names(), activities.ResolveActionAuthorPrerequisitesActivityName)
 	cleanupCall, _ := h.call(activities.NewCleanupDeviceActivity().Name())
 	require.Equal(t, testRunnerID+"-TaskQueue", cleanupCall.taskQueue)
+}
+
+func TestSessionPassesPrerequisitesAndParametersToAuthor(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	session := sessionInput(actionauthor.PlatformAndroid)
+	session.Spec = actionauthor.Spec{
+		Slot:          "verify-credential",
+		Outcome:       actionauthor.OutcomeRejection,
+		Browser:       true,
+		Prerequisites: []actionauthor.PrerequisiteSpec{{Action: "tenant/wallet/onboarding"}},
+		Parameters: []actionauthor.ParameterSpec{
+			{Name: "offer", Source: actionauthor.SourceSpec{
+				Kind: actionauthor.SourceCredentialOffer, Identifier: "tenant/issuer/pid",
+			}},
+			{Name: "request", Source: actionauthor.SourceSpec{
+				Kind: actionauthor.SourceUseCaseVerification, Identifier: "tenant/verifier/age",
+			}},
+			{Name: "deeplink", Source: actionauthor.SourceSpec{
+				Kind: actionauthor.SourceHTTP,
+				Request: &actionauthor.HTTPSourceRequest{
+					Method: "POST",
+					URL:    "https://v.example/sessions",
+				},
+				ValuePath: "deeplink",
+				Status:    &actionauthor.StatusSpec{URL: "https://v.example/s", Path: "status"},
+			}},
+			{Name: "PIN", Source: actionauthor.SourceSpec{
+				Kind: actionauthor.SourceLiteral, Value: "123456",
+			}},
+		},
+	}
+
+	require.NoError(t, h.run(session))
+
+	require.NotNil(t, h.childContext)
+	require.Equal(t, "verify-credential", h.childContext.Slot)
+	require.Equal(t, actionauthor.OutcomeRejection, h.childContext.Outcome)
+	require.True(t, h.childContext.Browser)
+	require.Equal(t, []AuthoringPrerequisite{{
+		Action:     "tenant/wallet/onboarding",
+		Name:       "Onboarding",
+		Code:       "appId: eu.wallet\n---\n- launchApp\n",
+		Parameters: []string{},
+	}}, h.childContext.Prerequisites)
+	require.Equal(t, []AuthoringParameter{
+		{
+			Name:        "offer",
+			Kind:        "credential_offer",
+			Description: "credential offer deeplink of tenant/issuer/pid",
+		},
+		{
+			Name:        "request",
+			Kind:        "use_case_verification",
+			Description: "presentation request deeplink of tenant/verifier/age",
+		},
+		{
+			Name:        "deeplink",
+			Kind:        "http",
+			Description: "POST https://v.example/sessions → deeplink",
+			HasStatus:   true,
+		},
+		{Name: "PIN", Kind: "literal", Description: "fixed value"},
+	}, h.childContext.Parameters)
+
+	names := h.names()
+	resolve := indexOf(names, activities.ResolveActionAuthorPrerequisitesActivityName)
+	require.Greater(t, resolve, indexOf(names, activities.ResolveActionAuthorBuildActivityName))
+	require.Less(t, resolve, indexOf(names, activities.GetMobileDeviceActivityName))
+	resolveCall, _ := h.call(activities.ResolveActionAuthorPrerequisitesActivityName)
+	request, err := workflowengine.DecodePayload[activities.ResolveActionAuthorPrerequisitesInput](
+		resolveCall.payload,
+	)
+	require.NoError(t, err)
+	require.Equal(t, activities.ResolveActionAuthorPrerequisitesInput{
+		BuildRequest: actionauthor.BuildRequest{
+			Actor: actionauthor.Actor{
+				ActorID:         "user-1",
+				ActorCollection: "users",
+			},
+			WalletVersionIdentifier: testVersion,
+			Platform:                actionauthor.PlatformAndroid,
+		},
+		Prerequisites: session.Prerequisites,
+	}, request)
+}
+
+func TestSessionPrerequisiteFailureNeverPreparesDevice(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.prerequisitesErr = temporal.NewNonRetryableApplicationError(
+		"prerequisite belongs to another wallet", "CRE", nil,
+	)
+	session := sessionInput(actionauthor.PlatformAndroid)
+	session.Spec = actionauthor.Spec{
+		Slot:          "get-credential",
+		Prerequisites: []actionauthor.PrerequisiteSpec{{Action: "tenant/other/onboarding"}},
+	}
+
+	err := h.run(session)
+
+	require.ErrorContains(t, err, "prerequisite belongs to another wallet")
+	require.Nil(t, h.childContext)
+	names := h.names()
+	require.Contains(t, names, activities.ResolveActionAuthorPrerequisitesActivityName)
+	for _, name := range []string{
+		activities.GetMobileDeviceActivityName,
+		activities.NewSetupMobileDeviceActivity().Name(),
+		activities.NewApkInstallActivity().Name(),
+	} {
+		require.NotContains(t, names, name)
+	}
 }
 
 func TestSessionCleansAndReleasesOnEveryAuthorOutcome(t *testing.T) {
