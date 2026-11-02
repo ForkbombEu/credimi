@@ -203,6 +203,35 @@ async def test_start_page_needs_a_running_action_author():
     assert "cancelButton.hidden = !preparing && !notAnswering" in page
 
 
+async def test_start_page_describes_the_action_to_author():
+    async with ui_client() as client:
+        page = (await client.get("/start")).text
+    # Every slot, the expected outcome, and the Android-only browser flag.
+    for slot in (
+        "onboarding",
+        "get-credential",
+        "get-credential-specific",
+        "verify-credential",
+        "other",
+    ):
+        assert f'<option value="{slot}">' in page
+    assert '<select id="outcome"' in page
+    assert '<option value="rejection">The wallet rejects the flow</option>' in page
+    assert '<input type="checkbox" id="browser"' in page
+    assert "The flow runs in Chrome (DC API or engagement page)" in page
+    assert "selectedDevice()?.platform !== 'android'" in page
+    # Prerequisites are the wallet's saved actions; every source kind has an editor.
+    assert "/api/action-author/wallet-actions?${query}" in page
+    assert "wallet_version_identifier: identifier, platform" in page
+    for kind in ("credential_offer", "use_case_verification", "http", "literal"):
+        assert f"['{kind}', " in page
+    assert "Values are stored in Temporal history: use test data only." in page
+    assert "...spec," in page
+    # The chat's save review reuses the Credimi session token of this tab.
+    assert "sessionStorage.setItem(AUTH_STORAGE_KEY" in page
+    assert "sessionStorage.removeItem(AUTH_STORAGE_KEY)" in page
+
+
 class _BusyHandle:
     def __init__(self, status: RPCStatusCode) -> None:
         self._status = status

@@ -30,13 +30,27 @@ and lists the devices of admin-managed runners of organizations where you are an
 (superusers see all), and the wallet versions with an installer for the selected device's
 platform. Starting a session queues it for the device; the page shows the queue position and
 the device preparation, offers **Cancel** while waiting, and opens the chat once the session
-runs. The key and the bearer token are never stored in browser storage, workflow inputs, or the
-URL.
+runs. The key is never stored; the bearer token is kept in the tab's `sessionStorage`
+(`credimi-action-author`, with the Credimi URL) so the chat's save review can call Credimi, and
+it never reaches workflow inputs or the URL.
 
 Credimi derives the actor and organization from authentication; the browser cannot supply
 either. Direct creation through the harness API is rejected, and **New session** in the harness
 returns to the start page. Keep the UI on loopback: it is not a hosted multi-user
 authentication layer.
+
+## Action spec
+
+Before starting, the page describes the action to author: the **slot** (onboarding, get a
+credential, get a credential with issuer-specific steps, present a credential, other), the
+expected **outcome** (success or a wallet rejection; not for onboarding), whether the flow
+runs in **Chrome** (Android devices only), the **prerequisites** (saved actions of the
+selected wallet from `GET /api/action-author/wallet-actions`, in order, each with a source per
+parameter it reads), and the **parameters** of the new action. A source is a Credimi
+credential offer, a use-case verification, an HTTP request (JSON: `request`, `value_path`,
+optional `captures` and, on the new action's parameters, `status`), or a fixed value. Credimi
+validates the spec at start (`400` with its message); a used-up daily quota answers `429`.
+Values are stored in Temporal history: use test data only.
 
 ## Namespace binding
 
