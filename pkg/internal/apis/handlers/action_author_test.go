@@ -421,6 +421,7 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 			"actor_id":                  user.Id,
 			"actor_collection":          "users",
 			"slot":                      "onboarding",
+			"outcome":                   "success",
 			"app_id":                    "eu.wallet",
 		}, enqueued.ActionAuthor)
 	}

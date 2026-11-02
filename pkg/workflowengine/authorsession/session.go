@@ -59,7 +59,8 @@ const (
 	agentReadyTimeout = 3 * time.Minute
 )
 
-// SessionInput selects the device, build and slot of a session.
+// SessionInput selects the device and build of a session and the action it
+// authors; the embedded spec keeps its JSON keys (slot, outcome, ...).
 type SessionInput struct {
 	DeviceID string `json:"device_id"`
 	// Platform is "android" or "ios", derived from the device type.
@@ -67,8 +68,8 @@ type SessionInput struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
 	ActorCollection         string `json:"actor_collection"`
-	Slot                    string `json:"slot"`
-	AppID                   string `json:"app_id,omitempty"`
+	actionauthor.Spec
+	AppID string `json:"app_id,omitempty"`
 }
 
 // AuthoringBuild is the resolved build the agent authors against.

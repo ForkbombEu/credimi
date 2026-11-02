@@ -465,3 +465,73 @@ func resolveCollectionPath(app core.App, collection, path string) (*core.Record,
 	}
 	return record, nil
 }
+
+// CheckSpecRecords checks that every record the spec names is accessible to
+// the selected organization, and returns the prerequisite actions in order.
+// Prerequisites must be actions of the selected wallet and receive exactly
+// the parameters their code references.
+func CheckSpecRecords(app core.App, selection Selection, spec *Spec) ([]*core.Record, error) {
+	orgID := selection.Organization.Id
+	prerequisites := make([]*core.Record, 0, len(spec.Prerequisites))
+	for _, prerequisite := range spec.Prerequisites {
+		record, err := CheckRecordAccess(app, "wallet_actions", prerequisite.Action, orgID)
+		if err != nil {
+			return nil, err
+		}
+		if record.GetString("wallet") != selection.Wallet.Id {
+			return nil, invalidf("prerequisite %s belongs to another wallet", prerequisite.Action)
+		}
+		needed := ActionParameters(record.GetString("code"))
+		given := ParameterNames(prerequisite.Parameters)
+		sort.Strings(given)
+		if strings.Join(needed, "\x00") != strings.Join(given, "\x00") {
+			return nil, invalidf(
+				"prerequisite %s needs parameters %v, got %v",
+				prerequisite.Action,
+				needed,
+				given,
+			)
+		}
+		if err := checkSourceRecords(app, prerequisite.Parameters, orgID); err != nil {
+			return nil, err
+		}
+		prerequisites = append(prerequisites, record)
+	}
+	if err := checkSourceRecords(app, spec.Parameters, orgID); err != nil {
+		return nil, err
+	}
+	return prerequisites, nil
+}
+
+// ParameterNames returns the names of a parameter list, in order.
+func ParameterNames(parameters []ParameterSpec) []string {
+	names := make([]string, 0, len(parameters))
+	for _, parameter := range parameters {
+		names = append(names, parameter.Name)
+	}
+	return names
+}
+
+// sourceCollections maps the record-backed source kinds to their collection.
+var sourceCollections = map[string]string{
+	SourceCredentialOffer:     "credentials",
+	SourceUseCaseVerification: "use_cases_verifications",
+}
+
+func checkSourceRecords(app core.App, parameters []ParameterSpec, orgID string) error {
+	for _, parameter := range parameters {
+		collection, ok := sourceCollections[parameter.Source.Kind]
+		if !ok {
+			continue
+		}
+		if _, err := CheckRecordAccess(
+			app,
+			collection,
+			parameter.Source.Identifier,
+			orgID,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}

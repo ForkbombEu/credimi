@@ -56,12 +56,33 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			ResponseSchema: ActionAuthorDevicesResponse{},
 		},
 		{
+			Method:         http.MethodGet,
+			Path:           "/wallet-actions",
+			Handler:        HandleActionAuthorWalletActions,
+			OperationID:    "actionAuthor.listWalletActions",
+			Summary:        "List wallet actions usable as session prerequisites",
+			Description:    "List the actions of the wallet of wallet_version_identifier that its organization owns or that are published, for a caller authorized to author on that version and platform (android or ios; both query parameters are required). Each action carries its canonified path, which the session start endpoint takes as a prerequisite, and the sorted parameters its code references, which the prerequisite must receive. Sorted by category, then name.",
+			ResponseSchema: ActionAuthorWalletActionsResponse{},
+			QuerySearchAttributes: []routing.QuerySearchAttribute{
+				{
+					Name:        "wallet_version_identifier",
+					Required:    true,
+					Description: "Wallet version the session authors on, organization/wallet/version.",
+				},
+				{
+					Name:        "platform",
+					Required:    true,
+					Description: "Authoring platform of the session device: android or ios.",
+				},
+			},
+		},
+		{
 			Method:         http.MethodPost,
 			Path:           "/sessions",
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Queue a wallet-action authoring session on a runner device",
-			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios), and the version must have an installer for it. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor in the last two minutes answers 503 agent_unavailable. Only the onboarding slot is supported. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. Review and explicit human confirmation happen in the harness UI; this endpoint does not save an action.",
+			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios), and the version must have an installer for it. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor in the last two minutes answers 503 agent_unavailable. The slot selects the action category: onboarding takes no prerequisites; get-credential, get-credential-specific and verify-credential need at least one; other takes optional prerequisites. outcome is success (default) or rejection (not for onboarding), and browser flows (not for onboarding) need an Android device. Prerequisites (at most 5) are wallet actions of the selected wallet, published or owned by its organization, listed by GET /api/action-author/wallet-actions; each must receive exactly the parameters its code references. Parameters (at most 8 per list) take fresh values from a credential_offer or use_case_verification (published or owned records), an https GET or POST without credential headers (http), or a fixed value (literal); only the new action's http parameters may check a protocol status. An invalid spec answers 400 invalid_request. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. Review and explicit human confirmation happen in the harness UI; this endpoint does not save an action.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
@@ -85,6 +106,79 @@ func HandleActionAuthorWalletVersions() func(*core.RequestEvent) error {
 			return authoringAPIError(e, err)
 		}
 		return e.JSON(http.StatusOK, ActionAuthorWalletVersionsResponse{WalletVersions: versions})
+	}
+}
+
+// ActionAuthorWalletAction is one action a session can run as a prerequisite.
+type ActionAuthorWalletAction struct {
+	Path       string   `json:"path"`
+	Name       string   `json:"name"`
+	Category   string   `json:"category"`
+	Published  bool     `json:"published"`
+	Parameters []string `json:"parameters"`
+}
+
+// ActionAuthorWalletActionsResponse lists the prerequisite candidates of a wallet.
+type ActionAuthorWalletActionsResponse struct {
+	Actions []ActionAuthorWalletAction `json:"actions"`
+}
+
+// HandleActionAuthorWalletActions lists the wallet's owned and published
+// actions for a caller who can author on the selected version.
+func HandleActionAuthorWalletActions() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		if e.Auth == nil {
+			return authoringAPIError(e, actionauthor.ErrForbidden)
+		}
+		query := e.Request.URL.Query()
+		identifier := query.Get("wallet_version_identifier")
+		platform := query.Get("platform")
+		if identifier == "" ||
+			(platform != actionauthor.PlatformAndroid && platform != actionauthor.PlatformIOS) {
+			return authoringAPIError(e, fmt.Errorf(
+				"%w: wallet_version_identifier and platform (android or ios) are required",
+				actionauthor.ErrInvalid,
+			))
+		}
+		selection, err := actionauthor.Select(e.App, "", actionauthor.BuildRequest{
+			Actor:                   authoringActor(e.Auth),
+			WalletVersionIdentifier: identifier,
+			Platform:                platform,
+		})
+		if err != nil {
+			return authoringAPIError(e, err)
+		}
+		records, err := e.App.FindRecordsByFilter(
+			"wallet_actions",
+			"wallet = {:wallet} && (owner = {:org} || published = true)",
+			"category,name",
+			0,
+			0,
+			dbx.Params{"wallet": selection.Wallet.Id, "org": selection.Organization.Id},
+		)
+		if err != nil {
+			return authoringAPIError(e, fmt.Errorf("list wallet actions: %w", err))
+		}
+		actions := make([]ActionAuthorWalletAction, 0, len(records))
+		for _, record := range records {
+			path, err := canonify.BuildPath(
+				e.App,
+				record,
+				canonify.CanonifyPaths["wallet_actions"],
+				record.GetString("canonified_name"),
+			)
+			if err != nil {
+				return authoringAPIError(e, fmt.Errorf("build wallet action path: %w", err))
+			}
+			actions = append(actions, ActionAuthorWalletAction{
+				Path:       path,
+				Name:       record.GetString("name"),
+				Category:   record.GetString("category"),
+				Published:  record.GetBool("published"),
+				Parameters: actionauthor.ActionParameters(record.GetString("code")),
+			})
+		}
+		return e.JSON(http.StatusOK, ActionAuthorWalletActionsResponse{Actions: actions})
 	}
 }
 
@@ -183,12 +277,12 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 	}
 }
 
-// ActionAuthorStartRequest selects the device, wallet version and action slot for a new session.
+// ActionAuthorStartRequest selects the device, wallet version and action spec for a new session.
 type ActionAuthorStartRequest struct {
 	DeviceID                string `json:"device_id"                 validate:"required"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier" validate:"required"`
-	Slot                    string `json:"slot"                      validate:"required,oneof=onboarding"`
 	AppID                   string `json:"app_id,omitempty"`
+	actionauthor.Spec
 }
 
 // ActionAuthorStartResponse identifies the queued session ticket.
@@ -327,6 +421,13 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if apiErr := requireActionAuthorAgent(e, runner, namespace); apiErr != nil {
 			return apiErr
 		}
+		spec := input.Spec
+		if err := spec.Normalize(platform); err != nil {
+			return authoringAPIError(e, err)
+		}
+		if _, err := actionauthor.CheckSpecRecords(e.App, selection, &spec); err != nil {
+			return authoringAPIError(e, err)
+		}
 
 		session, err := sessionInputMap(authorsession.SessionInput{
 			DeviceID:                deviceID,
@@ -334,7 +435,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			WalletVersionIdentifier: selection.Identifier,
 			ActorID:                 actor.ActorID,
 			ActorCollection:         actor.ActorCollection,
-			Slot:                    input.Slot,
+			Spec:                    spec,
 			AppID:                   input.AppID,
 		})
 		if err != nil {

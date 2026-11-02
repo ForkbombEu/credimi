@@ -284,7 +284,7 @@ func sessionInput(platform string) SessionInput {
 		WalletVersionIdentifier: testVersion,
 		ActorID:                 "user-1",
 		ActorCollection:         "users",
-		Slot:                    "onboarding",
+		Spec:                    actionauthor.Spec{Slot: "onboarding"},
 	}
 }
 
