@@ -122,11 +122,32 @@ tags:
 			},
 		},
 		{
-			name:       "header env sets a parameter",
-			code:       "appId: com.example.wallet\nenv:\n  deeplink: x\n---\n" + codeTestTail,
+			name: "header env sets parameters",
+			code: "appId: com.example.wallet\nenv:\n  deeplink: x\n  HOME: y\n  code: z\n---\n" +
+				codeTestTail,
 			appIDs:     wallet,
-			parameters: []string{"deeplink"},
-			want:       []string{"header env must not set the session parameter 'deeplink'"},
+			parameters: []string{"deeplink", "code"},
+			want: []string{
+				"header env must not set session parameters: ['code', 'deeplink']",
+			},
+		},
+		{
+			name:   "header appId is not a string",
+			code:   "appId: [com.example.wallet]\n---\n" + codeTestTail,
+			appIDs: wallet,
+			want:   []string{"appId must be a string"},
+		},
+		{
+			name: "command appId is not a string",
+			code: header + "- launchApp:\n    appId: {a: b}\n- launchApp: [x]\n" +
+				"- setPermissions:\n    appId: 7\n- launchApp\n- launchApp:\n    clearState: true\n" +
+				codeTestTail,
+			appIDs: wallet,
+			want: []string{
+				"commands[0]: appId must be a string",
+				"commands[1]: appId must be a string",
+				"commands[2]: appId must be a string",
+			},
 		},
 		{
 			name:   "command not allowed, nested",
@@ -192,7 +213,7 @@ tags:
 			parameters: []string{"a"},
 			want: []string{
 				"substitutions are not allowed: ['${HOME}', '${output.x}', '${a']; write literal values or " +
-					"a session parameter (Maestro must not evaluate expressions or read the host environment)",
+					"session parameters (Maestro must not evaluate expressions or read the host environment)",
 			},
 		},
 		{
@@ -207,9 +228,10 @@ tags:
 				"- takeScreenshot:\n    path: a/b\n- takeScreenshot\n",
 			appIDs: wallet,
 			want: []string{
-				"commands[1]: screenshot names must be 1-15 letters, digits, '-' or '_'",
-				"commands[2]: screenshot names must be 1-15 letters, digits, '-' or '_'",
-				"commands[3]: screenshot names must be 1-15 letters, digits, '-' or '_'",
+				"commands[1]: screenshot names must be 1-15 letters, digits, '-' or '_', " +
+					"found 'name-longer-than-15'",
+				"commands[2]: screenshot names must be 1-15 letters, digits, '-' or '_', found 'a/b'",
+				"commands[3]: screenshot names must be 1-15 letters, digits, '-' or '_', found None",
 			},
 		},
 		{
@@ -229,8 +251,8 @@ tags:
 			code:   "appId: ${x}\n1: a\n2: b\n---\n- tapOn: ${x}\n" + codeTestTail,
 			appIDs: wallet,
 			want: []string{
-				"substitutions are not allowed: ['${x}']; write literal values or a session " +
-					"parameter (Maestro must not evaluate expressions or read the host environment)",
+				"substitutions are not allowed: ['${x}']; write literal values or session " +
+					"parameters (Maestro must not evaluate expressions or read the host environment)",
 				"header keys must be strings",
 				"header appId must be 'com.example.wallet', found '${x}'",
 			},

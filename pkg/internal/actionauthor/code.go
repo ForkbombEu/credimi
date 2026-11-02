@@ -110,8 +110,8 @@ func ValidateCode(code string, appIDs []string, parameters []string) []string {
 		})
 	}
 	if len(foreign) > 0 {
-		v.add(fmt.Sprintf("substitutions are not allowed: %s; write literal values or a session "+
-			"parameter (Maestro must not evaluate expressions or read the host environment)",
+		v.add(fmt.Sprintf("substitutions are not allowed: %s; write literal values or session "+
+			"parameters (Maestro must not evaluate expressions or read the host environment)",
 			codeList(foreign)))
 	}
 
@@ -183,7 +183,10 @@ func (v *codeValidator) header(header *yaml.Node) {
 		v.add(fmt.Sprintf("header keys not allowed: %s; allowed: %s",
 			codeList(extra), codeList(codeHeaderKeys)))
 	}
-	if !codeIsString(appID) || !slices.Contains(v.appIDs, appID.Value) {
+	switch {
+	case !codeIsNull(appID) && !codeIsString(appID):
+		v.add("appId must be a string")
+	case !codeIsString(appID) || !slices.Contains(v.appIDs, appID.Value):
 		v.add(
 			fmt.Sprintf(
 				"header appId must be %s, found %s",
@@ -193,11 +196,17 @@ func (v *codeValidator) header(header *yaml.Node) {
 		)
 	}
 	if env != nil && env.Kind == yaml.MappingNode {
+		var shadowed []string
 		for i := 0; i < len(env.Content); i += 2 {
 			key := codeResolve(env.Content[i])
-			if codeIsString(key) && slices.Contains(v.parameters, key.Value) {
-				v.add(fmt.Sprintf("header env must not set the session parameter '%s'", key.Value))
+			if codeIsString(key) && slices.Contains(v.parameters, key.Value) &&
+				!slices.Contains(shadowed, key.Value) {
+				shadowed = append(shadowed, key.Value)
 			}
+		}
+		if len(shadowed) > 0 {
+			sort.Strings(shadowed)
+			v.add("header env must not set session parameters: " + codeList(shadowed))
 		}
 	}
 }
@@ -248,10 +257,14 @@ func (v *codeValidator) command(name string, arg *yaml.Node, where string) {
 		target := arg
 		if arg != nil && arg.Kind == yaml.MappingNode {
 			target = codeLookup(arg, "appId")
-		} else if name == "setPermissions" || !codeIsString(arg) {
+		} else if name == "setPermissions" {
 			target = nil
 		}
-		if target != nil && (!codeIsString(target) || !slices.Contains(v.appIDs, target.Value)) {
+		switch {
+		case codeIsNull(target):
+		case !codeIsString(target):
+			v.add(where + ": appId must be a string")
+		case !slices.Contains(v.appIDs, target.Value):
 			v.add(
 				fmt.Sprintf(
 					"%s: %s targets %s, not the app under test",
@@ -269,7 +282,8 @@ func (v *codeValidator) command(name string, arg *yaml.Node, where string) {
 			path = codeLookup(arg, "path")
 		}
 		if !codeIsString(path) || !codeScreenshot.MatchString(path.Value) {
-			v.add(where + ": screenshot names must be 1-15 letters, digits, '-' or '_'")
+			v.add(fmt.Sprintf("%s: screenshot names must be 1-15 letters, digits, '-' or '_', "+
+				"found %s", where, codeRepr(path)))
 		}
 	}
 }
@@ -436,6 +450,10 @@ func codeResolve(node *yaml.Node) *yaml.Node {
 
 func codeIsString(node *yaml.Node) bool {
 	return node != nil && node.Kind == yaml.ScalarNode && node.Tag == "!!str"
+}
+
+func codeIsNull(node *yaml.Node) bool {
+	return node == nil || (node.Kind == yaml.ScalarNode && node.Tag == "!!null")
 }
 
 // codeRepr renders a YAML value like the runner's Python messages: 'text' or None.
