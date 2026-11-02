@@ -1,0 +1,467 @@
+// SPDX-FileCopyrightText: 2026 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package actionauthor
+
+import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/url"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/core"
+	"gopkg.in/yaml.v3"
+)
+
+// PrereqRule says whether a slot's action starts from prerequisite actions.
+type PrereqRule int
+
+// Prerequisite rules of the slots.
+const (
+	PrereqForbidden PrereqRule = iota
+	PrereqRequired
+	PrereqOptional
+)
+
+// SlotRule describes one action category the agent can author.
+type SlotRule struct {
+	Category      string
+	Prerequisites PrereqRule
+	Rejection     bool
+	Browser       bool
+}
+
+// Slots lists the action categories the agent can author. install-app has
+// no slot: the agent never installs apps.
+var Slots = map[string]SlotRule{
+	"onboarding": {Category: "onboarding", Prerequisites: PrereqForbidden},
+	"get-credential": {
+		Category:      "get-credential-generic",
+		Prerequisites: PrereqRequired,
+		Rejection:     true,
+		Browser:       true,
+	},
+	"get-credential-specific": {
+		Category:      "get-credential-specific",
+		Prerequisites: PrereqRequired,
+		Rejection:     true,
+		Browser:       true,
+	},
+	"verify-credential": {
+		Category:      "verify-credential",
+		Prerequisites: PrereqRequired,
+		Rejection:     true,
+		Browser:       true,
+	},
+	"other": {
+		Category:      "other",
+		Prerequisites: PrereqOptional,
+		Rejection:     true,
+		Browser:       true,
+	},
+}
+
+// Outcomes of an authored action.
+const (
+	OutcomeSuccess   = "success"
+	OutcomeRejection = "rejection"
+)
+
+// Parameter source kinds.
+const (
+	SourceCredentialOffer     = "credential_offer"
+	SourceUseCaseVerification = "use_case_verification"
+	SourceHTTP                = "http"
+	SourceLiteral             = "literal"
+)
+
+const (
+	maxPrerequisites   = 5
+	maxParameters      = 8
+	maxLiteralLength   = 1000
+	maxHTTPBodyBytes   = 16 * 1024
+	httpsScheme        = "https://"
+	credentialHeaders  = "headers must not carry credentials: the session input is stored in Temporal history"
+	parameterNameRule  = "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+	actionParameterRef = `\$\{([A-Za-z_][A-Za-z0-9_]*)\}`
+)
+
+var (
+	parameterName      = regexp.MustCompile(parameterNameRule)
+	actionParameter    = regexp.MustCompile(actionParameterRef)
+	statusReference    = regexp.MustCompile(`\$\{([^}]*)\}`)
+	forbiddenHeaderSet = map[string]bool{
+		"authorization":       true,
+		"cookie":              true,
+		"proxy-authorization": true,
+		"credimi-api-key":     true,
+		"x-api-key":           true,
+	}
+)
+
+// Spec describes the action a session authors: its slot, expected outcome,
+// starting state and runtime parameters.
+type Spec struct {
+	Slot          string             `json:"slot"`
+	Outcome       string             `json:"outcome,omitempty"` // "success" (default) | "rejection"
+	Browser       bool               `json:"browser,omitempty"`
+	Prerequisites []PrerequisiteSpec `json:"prerequisites,omitempty"`
+	Parameters    []ParameterSpec    `json:"parameters,omitempty"`
+}
+
+// PrerequisiteSpec is a stored action that builds the starting state, with
+// values for its own parameters.
+type PrerequisiteSpec struct {
+	Action     string          `json:"action"` // canonified wallet action path org/wallet/action
+	Parameters []ParameterSpec `json:"parameters,omitempty"`
+}
+
+// ParameterSpec names a runtime parameter and the source of its fresh values.
+type ParameterSpec struct {
+	Name   string     `json:"name"`
+	Source SourceSpec `json:"source"`
+}
+
+// SourceSpec generates a parameter value: a Credimi credential offer, a
+// use-case verification, a declared HTTP call or a fixed value.
+type SourceSpec struct {
+	Kind       string             `json:"kind"` // credential_offer | use_case_verification | http | literal
+	Identifier string             `json:"identifier,omitempty"`
+	Value      string             `json:"value,omitempty"`
+	Request    *HTTPSourceRequest `json:"request,omitempty"`
+	ValuePath  string             `json:"value_path,omitempty"`
+	Captures   map[string]string  `json:"captures,omitempty"`
+	Status     *StatusSpec        `json:"status,omitempty"`
+}
+
+// HTTPSourceRequest is the HTTP call of an http source.
+type HTTPSourceRequest struct {
+	Method  string            `json:"method"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Body    any               `json:"body,omitempty"`
+}
+
+// StatusSpec is the protocol session status an http source's issuer or
+// verifier must reach after the action ran.
+type StatusSpec struct {
+	URL       string   `json:"url"` // may contain ${capture}
+	Path      string   `json:"path"`
+	Success   []string `json:"success,omitempty"`
+	Rejection []string `json:"rejection,omitempty"`
+}
+
+// Session is decoded from the session workflow's start input.
+type Session struct {
+	BuildRequest
+	Spec
+}
+
+func invalidf(format string, args ...any) error {
+	return fmt.Errorf("%w: "+format, append([]any{ErrInvalid}, args...)...)
+}
+
+// SlotCategory returns the wallet_actions category of a slot.
+func SlotCategory(slot string) string {
+	return Slots[slot].Category
+}
+
+func slotNames() string {
+	names := make([]string, 0, len(Slots))
+	for name := range Slots {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
+}
+
+// Normalize sets the default outcome and validates the spec for the platform.
+func (s *Spec) Normalize(platform string) error {
+	if s.Outcome == "" {
+		s.Outcome = OutcomeSuccess
+	}
+	rule, ok := Slots[s.Slot]
+	if !ok {
+		return invalidf("slot: must be one of %s", slotNames())
+	}
+	switch s.Outcome {
+	case OutcomeSuccess:
+	case OutcomeRejection:
+		if !rule.Rejection {
+			return invalidf("outcome: the %s slot has no rejection outcome", s.Slot)
+		}
+	default:
+		return invalidf("outcome: must be success or rejection")
+	}
+	if s.Browser {
+		if !rule.Browser {
+			return invalidf("browser: the %s slot has no browser flows", s.Slot)
+		}
+		if platform != PlatformAndroid {
+			return invalidf("browser flows need an Android device")
+		}
+	}
+	switch {
+	case rule.Prerequisites == PrereqForbidden && len(s.Prerequisites) > 0:
+		return invalidf("prerequisites: the %s slot takes no prerequisites", s.Slot)
+	case rule.Prerequisites == PrereqRequired && len(s.Prerequisites) == 0:
+		return invalidf("prerequisites: the %s slot needs at least one prerequisite", s.Slot)
+	case len(s.Prerequisites) > maxPrerequisites:
+		return invalidf("prerequisites: at most %d", maxPrerequisites)
+	}
+	for i := range s.Prerequisites {
+		field := fmt.Sprintf("prerequisites[%d]", i)
+		prerequisite := &s.Prerequisites[i]
+		prerequisite.Action = canonify.NormalizePath(prerequisite.Action)
+		if prerequisite.Action == "" {
+			return invalidf("%s.action: required", field)
+		}
+		if err := validateParameters(field+".parameters", prerequisite.Parameters, ""); err != nil {
+			return err
+		}
+	}
+	return validateParameters("parameters", s.Parameters, s.Outcome)
+}
+
+// validateParameters checks one parameter list; outcome is empty for
+// prerequisite lists, which cannot check a protocol status.
+func validateParameters(field string, parameters []ParameterSpec, outcome string) error {
+	if len(parameters) > maxParameters {
+		return invalidf("%s: at most %d", field, maxParameters)
+	}
+	seen := make(map[string]bool, len(parameters))
+	for i, parameter := range parameters {
+		item := fmt.Sprintf("%s[%d]", field, i)
+		if !parameterName.MatchString(parameter.Name) {
+			return invalidf("%s.name: must match %s", item, parameterNameRule)
+		}
+		if seen[parameter.Name] {
+			return invalidf("%s.name: duplicate name %s", item, parameter.Name)
+		}
+		seen[parameter.Name] = true
+		if err := validateSource(item+".source", parameter.Source, outcome); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSource(field string, source SourceSpec, outcome string) error {
+	switch source.Kind {
+	case SourceCredentialOffer, SourceUseCaseVerification:
+		if source.Identifier == "" {
+			return invalidf("%s.identifier: required", field)
+		}
+		if source.Value != "" || source.Request != nil || source.ValuePath != "" ||
+			len(source.Captures) > 0 || source.Status != nil {
+			return invalidf("%s: kind %s takes only an identifier", field, source.Kind)
+		}
+		return nil
+	case SourceLiteral:
+		if n := utf8.RuneCountInString(source.Value); n < 1 || n > maxLiteralLength {
+			return invalidf("%s.value: must be 1-%d characters", field, maxLiteralLength)
+		}
+		return nil
+	case SourceHTTP:
+		return validateHTTPSource(field, source, outcome)
+	default:
+		return invalidf(
+			"%s.kind: must be credential_offer, use_case_verification, http or literal",
+			field,
+		)
+	}
+}
+
+func validateHTTPSource(field string, source SourceSpec, outcome string) error {
+	request := source.Request
+	if request == nil {
+		return invalidf("%s.request: required", field)
+	}
+	if request.Method != "GET" && request.Method != "POST" {
+		return invalidf("%s.request.method: must be GET or POST", field)
+	}
+	if !isHTTPSURL(request.URL) {
+		return invalidf("%s.request.url: must be an https URL", field)
+	}
+	for name := range request.Headers {
+		if forbiddenHeaderSet[strings.ToLower(name)] {
+			return invalidf("%s.request.headers: %s", field, credentialHeaders)
+		}
+	}
+	if request.Body != nil {
+		body, err := json.Marshal(request.Body)
+		if err != nil {
+			return invalidf("%s.request.body: must be JSON", field)
+		}
+		if len(body) > maxHTTPBodyBytes {
+			return invalidf("%s.request.body: must be at most 16 KiB", field)
+		}
+	}
+	if source.ValuePath == "" {
+		return invalidf("%s.value_path: required", field)
+	}
+	for name, path := range source.Captures {
+		if !parameterName.MatchString(name) {
+			return invalidf("%s.captures.%s: name must match %s", field, name, parameterNameRule)
+		}
+		if path == "" {
+			return invalidf("%s.captures.%s: path required", field, name)
+		}
+	}
+	if source.Status == nil {
+		return nil
+	}
+	return validateStatus(field+".status", source, outcome)
+}
+
+func validateStatus(field string, source SourceSpec, outcome string) error {
+	status := source.Status
+	if outcome == "" {
+		return invalidf("%s: only the new action's parameters can check a protocol status", field)
+	}
+	if !strings.HasPrefix(status.URL, httpsScheme) {
+		return invalidf("%s.url: must be an https URL", field)
+	}
+	for _, match := range statusReference.FindAllStringSubmatch(status.URL, -1) {
+		if _, ok := source.Captures[match[1]]; !ok {
+			return invalidf("%s.url: ${%s} is not a capture", field, match[1])
+		}
+	}
+	if status.Path == "" {
+		return invalidf("%s.path: required", field)
+	}
+	if outcome == OutcomeSuccess && len(status.Success) == 0 {
+		return invalidf("%s.success: required for a success outcome", field)
+	}
+	if outcome == OutcomeRejection && len(status.Rejection) == 0 {
+		return invalidf("%s.rejection: required for a rejection outcome", field)
+	}
+	return nil
+}
+
+func isHTTPSURL(raw string) bool {
+	if !strings.HasPrefix(raw, httpsScheme) {
+		return false
+	}
+	parsed, err := url.Parse(raw)
+	return err == nil && parsed.Host != ""
+}
+
+// LookupPath reads a dot-separated path in decoded JSON; numeric segments
+// index arrays. It returns strings and numbers only.
+func LookupPath(v any, path string) (string, bool) {
+	if path == "" {
+		return "", false
+	}
+	current := v
+	for _, segment := range strings.Split(path, ".") {
+		switch node := current.(type) {
+		case map[string]any:
+			next, ok := node[segment]
+			if !ok {
+				return "", false
+			}
+			current = next
+		case []any:
+			index, err := strconv.Atoi(segment)
+			if err != nil || index < 0 || index >= len(node) {
+				return "", false
+			}
+			current = node[index]
+		default:
+			return "", false
+		}
+	}
+	switch value := current.(type) {
+	case string:
+		return value, true
+	case float64:
+		return strconv.FormatFloat(value, 'f', -1, 64), true
+	case json.Number:
+		return value.String(), true
+	default:
+		return "", false
+	}
+}
+
+// ActionParameters returns the sorted unique bare ${name} references of an
+// action YAML, minus the keys of its header env map.
+func ActionParameters(code string) []string {
+	var header struct {
+		Env map[string]any `yaml:"env"`
+	}
+	_ = yaml.NewDecoder(strings.NewReader(code)).Decode(&header)
+	seen := map[string]bool{}
+	names := []string{}
+	for _, match := range actionParameter.FindAllStringSubmatch(code, -1) {
+		name := match[1]
+		if _, local := header.Env[name]; local || seen[name] {
+			continue
+		}
+		seen[name] = true
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// CheckRecordAccess resolves a canonified path to a record of the collection
+// that is published or owned by the organization.
+func CheckRecordAccess(app core.App, collection, path, orgID string) (*core.Record, error) {
+	record, err := resolveCollectionPath(app, collection, canonify.NormalizePath(path))
+	if errors.Is(err, sql.ErrNoRows) ||
+		(err == nil && !record.GetBool("published") && record.GetString("owner") != orgID) {
+		return nil, invalidf("%s not found", path)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("resolve %s: %w", path, err)
+	}
+	return record, nil
+}
+
+// resolveCollectionPath walks the canonified path of one collection only:
+// canonify.Resolve picks any collection with that path length.
+func resolveCollectionPath(app core.App, collection, path string) (*core.Record, error) {
+	var chain []string
+	for current := collection; ; {
+		tpl, ok := canonify.CanonifyPaths[current]
+		if !ok {
+			return nil, sql.ErrNoRows
+		}
+		chain = append([]string{current}, chain...)
+		if tpl.Parent == nil {
+			break
+		}
+		current = tpl.Parent.Collection
+	}
+	segments := strings.Split(path, "/")
+	if len(segments) != len(chain) {
+		return nil, sql.ErrNoRows
+	}
+	var record *core.Record
+	for i, name := range chain {
+		tpl := canonify.CanonifyPaths[name]
+		filter := dbx.HashExp{tpl.CanonifiedField: segments[i]}
+		if i > 0 {
+			filter[tpl.Parent.Field] = record.Id
+		}
+		records, err := app.FindAllRecords(name, filter)
+		if err != nil {
+			return nil, err
+		}
+		if len(records) != 1 || segments[i] == "" {
+			return nil, sql.ErrNoRows
+		}
+		record = records[0]
+	}
+	return record, nil
+}
