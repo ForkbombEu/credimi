@@ -287,8 +287,23 @@ func (v *codeValidator) openLink(arg *yaml.Node, where string) {
 	}
 	names := slices.Clone(v.parameters)
 	sort.Strings(names)
-	v.add(fmt.Sprintf("%s: openLink must open a session parameter: write link: ${<one of %s>}",
-		where, strings.Join(names, ", ")))
+	if len(names) == 1 {
+		v.add(
+			fmt.Sprintf(
+				"%s: openLink must open a session parameter: write link: ${%s}",
+				where,
+				names[0],
+			),
+		)
+		return
+	}
+	v.add(
+		fmt.Sprintf(
+			"%s: openLink must open a session parameter: write link: ${NAME}, with NAME one of %s",
+			where,
+			strings.Join(names, ", "),
+		),
+	)
 }
 
 // codeDocuments parses every YAML document of code; an empty document is nil.

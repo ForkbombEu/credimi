@@ -172,8 +172,8 @@ tags:
 			appIDs:     wallet,
 			parameters: []string{"b", "a"},
 			want: []string{
-				"commands[0]: openLink must open a session parameter: write link: ${<one of a, b>}",
-				"commands[1]: openLink must open a session parameter: write link: ${<one of a, b>}",
+				"commands[0]: openLink must open a session parameter: write link: ${NAME}, with NAME one of a, b",
+				"commands[1]: openLink must open a session parameter: write link: ${NAME}, with NAME one of a, b",
 			},
 		},
 		{
