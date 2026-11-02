@@ -165,7 +165,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<legend>Parameters of the new action</legend>
 							<div id="parameters"></div>
 							<button id="add-parameter" class="secondary" type="button">Add parameter</button>
-							<p class="hint">Each parameter gets a fresh value for every exploration and every replay; the action reads it as <code>${name}</code>. Values are stored in Temporal history: use test data only.</p>
+							<p class="hint">Each parameter gets a fresh value for every exploration and every replay; the action reads it as <code>${name}</code>. Values are stored in Temporal history: use test data only. HTTP request headers may only be <code>Content-Type</code>, <code>Accept</code> and <code>Accept-Language</code>: never put credentials in a source.</p>
 						</fieldset>
 					</fieldset>
 					<div class="actions">

@@ -221,7 +221,26 @@ func TestSpecNormalize(t *testing.T) {
 			edit: func(s *Spec) {
 				s.Parameters[0].Source.Request.Headers = map[string]string{"X-Api-Key": "k"}
 			},
-			message: "parameters[0].source.request.headers: " + credentialHeaders,
+			message: "parameters[0].source.request.headers: only Content-Type, Accept and " +
+				"Accept-Language are allowed; credentials must not be stored in Temporal history",
+		},
+		{
+			name: "header outside the allowlist",
+			edit: func(s *Spec) {
+				s.Parameters[0].Source.Request.Headers = map[string]string{"X-Session": "s"}
+			},
+			message: "parameters[0].source.request.headers: only Content-Type, Accept and " +
+				"Accept-Language are allowed; credentials must not be stored in Temporal history",
+		},
+		{
+			name: "allowed headers, any case",
+			edit: func(s *Spec) {
+				s.Parameters[0].Source.Request.Headers = map[string]string{
+					"content-type":    "application/json",
+					"ACCEPT":          "application/json",
+					"Accept-Language": "en",
+				}
+			},
 		},
 		{
 			name: "large body",

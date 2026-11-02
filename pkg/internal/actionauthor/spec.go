@@ -90,21 +90,23 @@ const (
 	maxLiteralLength   = 1000
 	maxHTTPBodyBytes   = 16 * 1024
 	httpsScheme        = "https://"
-	credentialHeaders  = "headers must not carry credentials: the session input is stored in Temporal history"
+	allowedHeadersRule = "only Content-Type, Accept and Accept-Language are allowed; " +
+		"credentials must not be stored in Temporal history"
 	parameterNameRule  = "^[A-Za-z][A-Za-z0-9_]{0,63}$"
 	actionParameterRef = `\$\{([A-Za-z_][A-Za-z0-9_]*)\}`
 )
 
 var (
-	parameterName      = regexp.MustCompile(parameterNameRule)
-	actionParameter    = regexp.MustCompile(actionParameterRef)
-	statusReference    = regexp.MustCompile(`\$\{([^}]*)\}`)
-	forbiddenHeaderSet = map[string]bool{
-		"authorization":       true,
-		"cookie":              true,
-		"proxy-authorization": true,
-		"credimi-api-key":     true,
-		"x-api-key":           true,
+	parameterName   = regexp.MustCompile(parameterNameRule)
+	actionParameter = regexp.MustCompile(actionParameterRef)
+	statusReference = regexp.MustCompile(`\$\{([^}]*)\}`)
+	// allowedHeaders are the http source request headers, lower case: the
+	// session input is stored in Temporal history, so no header may carry a
+	// credential.
+	allowedHeaders = map[string]bool{
+		"content-type":    true,
+		"accept":          true,
+		"accept-language": true,
 	}
 )
 
@@ -293,8 +295,8 @@ func validateHTTPSource(field string, source SourceSpec, outcome string) error {
 		return invalidf("%s.request.url: must be an https URL", field)
 	}
 	for name := range request.Headers {
-		if forbiddenHeaderSet[strings.ToLower(name)] {
-			return invalidf("%s.request.headers: %s", field, credentialHeaders)
+		if !allowedHeaders[strings.ToLower(name)] {
+			return invalidf("%s.request.headers: %s", field, allowedHeadersRule)
 		}
 	}
 	if request.Body != nil {
