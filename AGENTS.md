@@ -320,6 +320,8 @@ An action author session is a semaphore ticket with `run_kind=action_author` on 
 
 Credimi treats a runner's agent as running when a poller of the workflow task queue `<runner_id>-ActionAuthor` (in the runner organization's namespace) was seen in the last two minutes (`actionAuthorAgentAvailable`, `pkg/internal/apis/handlers/action_author_agent.go`). `POST /api/action-author/sessions` refuses other runners with `503 agent_unavailable` after the online check (a describe failure answers the same); `GET /api/action-author/devices` reports it per device as `agent_available` (false when Temporal is unreachable), and only devices with `is_online` and `agent_available` are selectable.
 
+The agent signals `action_author_ready` to its parent session as soon as its workflow runs. When neither that signal nor the child's end arrives within 3 minutes (`agentReadyTimeout`), the session cancels the child and fails with `ActionAuthorAgentNotStarted` (CRE314); the device is cleaned and released with result `failed` instead of staying held until the child's 2h execution timeout.
+
 ## FCAF Embedded Validation
 
 - FCAF validators run as the terminal `fcaf-validation` activity inside dynamic pipelines.

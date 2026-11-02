@@ -55,6 +55,9 @@ type sessionHarness struct {
 
 	childErr       error
 	childBlocks    bool
+	childSilent    bool
+	childRuns      time.Duration
+	childRan       bool
 	childTaskQueue string
 	childTimeout   time.Duration
 	childContext   *AuthoringContext
@@ -184,6 +187,20 @@ func (h *sessionHarness) child(
 	h.childTaskQueue = info.TaskQueueName
 	h.childTimeout = info.WorkflowExecutionTimeout
 	h.childContext = &authoring
+	if !h.childSilent {
+		parent := info.ParentWorkflowExecution
+		if err := workflow.SignalExternalWorkflow(
+			ctx, parent.ID, parent.RunID, authorReadySignal, nil,
+		).Get(ctx, nil); err != nil {
+			return err
+		}
+	}
+	if h.childRuns > 0 {
+		if err := workflow.Sleep(ctx, h.childRuns); err != nil {
+			return err
+		}
+		h.childRan = true
+	}
 	if h.childBlocks {
 		// The agent runs until the session cancels it.
 		return workflow.Await(ctx, func() bool { return false })
@@ -455,4 +472,39 @@ func TestSessionCanceledWhileAuthorRunsReleasesDevice(t *testing.T) {
 	require.True(t, ok, "%v", h.names())
 	require.Equal(t, map[string]any{"platform": "ios", "template": "UDID-S"}, release.payload)
 	h.requireReleasedAfter(ReleaseDeviceActivityName, "canceled")
+}
+
+func TestSessionFailsAndReleasesDeviceWhenAgentNeverStarts(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.childSilent = true
+	h.childBlocks = true
+
+	err := h.run(sessionInput(actionauthor.PlatformAndroid))
+
+	var appErr *temporal.ApplicationError
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "CRE314", appErr.Type())
+	require.ErrorContains(t, err, "action author agent did not start within 3m0s")
+	require.ErrorContains(t, err, testRunnerID+"-ActionAuthor")
+	h.requireReleasedAfter("", "failed")
+}
+
+func TestSessionWaitsForReadyAgentBeyondReadyTimeout(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.childRuns = 30 * time.Minute
+
+	require.NoError(t, h.run(sessionInput(actionauthor.PlatformAndroid)))
+
+	require.True(t, h.childRan, "the session must wait for the ready agent to end")
+	h.requireReleasedAfter("", "success")
+}
+
+func TestSessionAcceptsAgentThatEndsBeforeSignaling(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.childSilent = true
+	h.childErr = temporal.NewApplicationError("agent crashed", "test")
+
+	require.NoError(t, h.run(sessionInput(actionauthor.PlatformAndroid)))
+
+	h.requireReleasedAfter("", "success")
 }

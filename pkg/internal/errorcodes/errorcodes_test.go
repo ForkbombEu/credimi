@@ -57,6 +57,7 @@ var allCodes = []string{
 	DockerCommandExecutionFailed,
 	MobileRunnerBusy,
 	OpenID4VCIIssuerCheckFailed,
+	ActionAuthorAgentNotStarted,
 	ReadFromReaderFailed,
 	CopyFromReaderFailed,
 	MkdirFailed,

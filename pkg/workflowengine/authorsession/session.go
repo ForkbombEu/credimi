@@ -53,6 +53,10 @@ const (
 	cleanupMaximumAttempts  = 3
 	sessionOutputAuthorKey  = "author_workflow_id"
 	sessionOutputDeviceKey  = "device"
+	// authorReadySignal is sent by the Python agent once its workflow runs.
+	authorReadySignal = "action_author_ready"
+	// agentReadyTimeout bounds the wait for authorReadySignal.
+	agentReadyTimeout = 3 * time.Minute
 )
 
 // SessionInput selects the device, build and slot of a session.
@@ -202,19 +206,28 @@ func (w *Workflow) ExecuteWorkflow(
 	}
 
 	authorWorkflowID := execution.ID + authorWorkflowIDSuffix
-	childCtx := workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
+	authorTaskQueue := prepared.RunnerID + AuthorTaskQueueSuffix
+	childCtx, cancelChild := workflow.WithCancel(ctx)
+	childCtx = workflow.WithChildOptions(childCtx, workflow.ChildWorkflowOptions{
 		WorkflowID:               authorWorkflowID,
-		TaskQueue:                prepared.RunnerID + AuthorTaskQueueSuffix,
+		TaskQueue:                authorTaskQueue,
 		WorkflowExecutionTimeout: authorExecutionTimeout,
 		ParentClosePolicy:        enumspb.PARENT_CLOSE_POLICY_TERMINATE,
 	})
-	childErr := workflow.ExecuteChildWorkflow(
+	child := workflow.ExecuteChildWorkflow(
 		childCtx,
 		AuthorWorkflowType,
 		// The Python harness agent takes its config, then the trusted session context.
 		map[string]any{},
 		authoringContext(session, build, prepared),
-	).Get(childCtx, nil)
+	)
+	ready, childErr := awaitAuthor(ctx, child)
+	if !ready {
+		// Closing the session terminates the child; the deferred release
+		// frees the device now instead of after the child's timeout.
+		cancelChild()
+		return result, agentNotStartedError(authorTaskQueue)
+	}
 	if childErr != nil && temporal.IsCanceledError(ctx.Err()) {
 		return result, childErr
 	}
@@ -228,6 +241,58 @@ func (w *Workflow) ExecuteWorkflow(
 		sessionOutputDeviceKey: prepared,
 	}
 	return result, nil
+}
+
+// awaitAuthor waits for the agent's ready signal, then for the agent to end.
+// It reports ready false when neither the signal nor the agent's end arrives
+// within agentReadyTimeout: a runner without a polling agent worker must not
+// hold the device until the child's execution timeout.
+func awaitAuthor(
+	ctx workflow.Context,
+	child workflow.ChildWorkflowFuture,
+) (ready bool, childErr error) {
+	timerCtx, cancelTimer := workflow.WithCancel(ctx)
+	defer cancelTimer()
+
+	ended := false
+	timedOut := false
+	selector := workflow.NewSelector(ctx)
+	selector.AddReceive(
+		workflow.GetSignalChannel(ctx, authorReadySignal),
+		func(c workflow.ReceiveChannel, _ bool) {
+			c.Receive(ctx, nil)
+		},
+	)
+	selector.AddFuture(workflow.NewTimer(timerCtx, agentReadyTimeout), func(f workflow.Future) {
+		// A canceled session cancels the timer too; the child then reports it.
+		timedOut = f.Get(timerCtx, nil) == nil
+	})
+	selector.AddFuture(child, func(f workflow.Future) {
+		ended = true
+		childErr = f.Get(ctx, nil)
+	})
+	selector.Select(ctx)
+
+	if timedOut {
+		return false, nil
+	}
+	if !ended {
+		childErr = child.Get(ctx, nil)
+	}
+	return true, childErr
+}
+
+func agentNotStartedError(taskQueue string) error {
+	errCode := errorcodes.Codes[errorcodes.ActionAuthorAgentNotStarted]
+	return workflowengine.NewAppError(workflowengine.WorkflowError{
+		Code:    errCode.Code,
+		Summary: errCode.Description,
+		Message: fmt.Sprintf(
+			"action author agent did not start within %s on task queue %s",
+			agentReadyTimeout,
+			taskQueue,
+		),
+	})
 }
 
 func resolveBuild(ctx workflow.Context, session SessionInput) (actionauthor.Build, error) {
