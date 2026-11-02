@@ -439,6 +439,10 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 			ApproverID:         session.ActorID,
 			ApproverCollection: session.ActorCollection,
 			ApprovedAt:         time.Now().Unix(),
+			PlanSHA256: actionauthor.PlanSHA256(actionauthor.Spec{
+				Slot:    "other",
+				Outcome: actionauthor.OutcomeSuccess,
+			}),
 		}
 		if edit != nil {
 			edit(&approval)
@@ -464,6 +468,9 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 		"another approver": approval(func(a *actionauthor.Approval) { a.ApproverID = "someone-else" }),
 		"expired approval": approval(func(a *actionauthor.Approval) {
 			a.ApprovedAt = time.Now().Add(-time.Hour).Unix()
+		}),
+		"another plan": approval(func(a *actionauthor.Approval) {
+			a.PlanSHA256 = actionauthor.PlanSHA256(actionauthor.Spec{Slot: "other"})
 		}),
 	} {
 		rejected := payload

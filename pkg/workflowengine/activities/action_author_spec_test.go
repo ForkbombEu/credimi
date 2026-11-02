@@ -145,7 +145,7 @@ func TestActionAuthorActivitiesRevalidateTheSessionSpec(t *testing.T) {
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, message)
 
-	check := NewCheckActionAuthorProtocolOutcomeActivity()
+	check := NewCheckActionAuthorProtocolOutcomeActivity(nil)
 	check.authorSessionLookup = lookup()
 	_, err = check.check(t.Context(), authorTestCaller(), CheckActionAuthorProtocolOutcomeInput{
 		Parameter: "deeplink",

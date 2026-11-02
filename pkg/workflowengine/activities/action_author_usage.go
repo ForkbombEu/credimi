@@ -66,11 +66,11 @@ func (a *RecordActionAuthorUsageActivity) record(
 			"%w: report_id is required", actionauthor.ErrInvalid,
 		))
 	}
-	session, err := a.callerSession(ctx, &a.BaseActivity, caller)
+	ref, err := a.callerSession(ctx, &a.BaseActivity, caller)
 	if err != nil {
 		return actionauthor.UsageState{}, err
 	}
-	selection, err := actionauthor.Select(a.app, caller.Namespace, session.BuildRequest)
+	selection, err := actionauthor.Select(a.app, caller.Namespace, ref.Session.BuildRequest)
 	if err != nil {
 		return actionauthor.UsageState{}, actionAuthorError(&a.BaseActivity, err)
 	}

@@ -39,7 +39,7 @@ const (
 	actionAuthorStatusInterval  = 2 * time.Second
 	actionAuthorStatusTimeout   = 30 * time.Second
 	actionAuthorStatusBodyLimit = 1 << 20
-	actionAuthorSourceBodyLimit = 1 << 20
+	actionAuthorSourceBodyLimit = actionauthor.SourceBodyLimit
 	actionAuthorSourceRedirects = 5
 )
 
@@ -78,9 +78,11 @@ func (p sourceRedirectPolicy) RoundTrip(req *http.Request) (*http.Response, erro
 
 // GenerateActionAuthorParametersInput selects the parameter list of the
 // caller's session: the candidate's, or the prerequisite's at Index.
+// PlanToken is the confirmed plan's token when the session has no start spec.
 type GenerateActionAuthorParametersInput struct {
-	Scope string `json:"scope"`
-	Index int    `json:"index"`
+	Scope     string `json:"scope"`
+	Index     int    `json:"index"`
+	PlanToken string `json:"plan_token,omitempty"`
 }
 
 // GenerateActionAuthorParametersOutput carries fresh parameter values and, for
@@ -147,18 +149,19 @@ func (a *GenerateActionAuthorParametersActivity) generate(
 		Values:   map[string]string{},
 		Captures: map[string]map[string]string{},
 	}
-	session, err := a.callerSession(ctx, &a.BaseActivity, caller)
+	ref, err := a.callerSession(ctx, &a.BaseActivity, caller)
 	if err != nil {
 		return output, err
 	}
-	if err := checkSessionSpec(&a.BaseActivity, session); err != nil {
-		return output, err
-	}
-	selection, err := actionauthor.Select(a.app, caller.Namespace, session.BuildRequest)
+	plan, err := EffectivePlan(a.app, ref, caller.WorkflowID, payload.PlanToken)
 	if err != nil {
 		return output, actionAuthorError(&a.BaseActivity, err)
 	}
-	parameters, err := scopedParameters(session.Spec, payload)
+	selection, err := actionauthor.Select(a.app, caller.Namespace, ref.Session.BuildRequest)
+	if err != nil {
+		return output, actionAuthorError(&a.BaseActivity, err)
+	}
+	parameters, err := scopedParameters(plan, payload)
 	if err != nil {
 		return output, actionAuthorError(&a.BaseActivity, err)
 	}
@@ -303,10 +306,12 @@ func (a *GenerateActionAuthorParametersActivity) httpValue(
 }
 
 // CheckActionAuthorProtocolOutcomeInput names a candidate parameter with a
-// status check and the values captured when its value was generated.
+// status check and the values captured when its value was generated;
+// PlanToken is the confirmed plan's token when the session has no start spec.
 type CheckActionAuthorProtocolOutcomeInput struct {
 	Parameter string            `json:"parameter"`
 	Captures  map[string]string `json:"captures"`
+	PlanToken string            `json:"plan_token,omitempty"`
 }
 
 // CheckActionAuthorProtocolOutcomeOutput reports whether the protocol session
@@ -322,6 +327,7 @@ type CheckActionAuthorProtocolOutcomeOutput struct {
 type CheckActionAuthorProtocolOutcomeActivity struct {
 	workflowengine.BaseActivity
 	authorSessionLookup
+	app core.App
 	// transport sends the status requests.
 	transport http.RoundTripper
 	interval  time.Duration
@@ -329,12 +335,15 @@ type CheckActionAuthorProtocolOutcomeActivity struct {
 }
 
 // NewCheckActionAuthorProtocolOutcomeActivity returns the protocol outcome check.
-func NewCheckActionAuthorProtocolOutcomeActivity() *CheckActionAuthorProtocolOutcomeActivity {
+func NewCheckActionAuthorProtocolOutcomeActivity(
+	app core.App,
+) *CheckActionAuthorProtocolOutcomeActivity {
 	return &CheckActionAuthorProtocolOutcomeActivity{
 		BaseActivity: workflowengine.BaseActivity{
 			Name: CheckActionAuthorProtocolOutcomeActivityName,
 		},
 		authorSessionLookup: newAuthorSessionLookup(),
+		app:                 app,
 		transport:           actionAuthorTransport(),
 		interval:            actionAuthorStatusInterval,
 		timeout:             actionAuthorStatusTimeout,
@@ -368,14 +377,15 @@ func (a *CheckActionAuthorProtocolOutcomeActivity) check(
 	payload CheckActionAuthorProtocolOutcomeInput,
 ) (CheckActionAuthorProtocolOutcomeOutput, error) {
 	var output CheckActionAuthorProtocolOutcomeOutput
-	session, err := a.callerSession(ctx, &a.BaseActivity, caller)
+	ref, err := a.callerSession(ctx, &a.BaseActivity, caller)
 	if err != nil {
 		return output, err
 	}
-	if err := checkSessionSpec(&a.BaseActivity, session); err != nil {
-		return output, err
+	plan, err := EffectivePlan(a.app, ref, caller.WorkflowID, payload.PlanToken)
+	if err != nil {
+		return output, actionAuthorError(&a.BaseActivity, err)
 	}
-	status, err := candidateStatus(session.Spec, payload.Parameter)
+	status, err := candidateStatus(plan, payload.Parameter)
 	if err != nil {
 		return output, actionAuthorError(&a.BaseActivity, err)
 	}
@@ -384,7 +394,7 @@ func (a *CheckActionAuthorProtocolOutcomeActivity) check(
 		return output, actionAuthorError(&a.BaseActivity, err)
 	}
 	expected, opposite := status.Success, status.Rejection
-	if session.Outcome == actionauthor.OutcomeRejection {
+	if plan.Outcome == actionauthor.OutcomeRejection {
 		expected, opposite = status.Rejection, status.Success
 	}
 	output.Expected = expected

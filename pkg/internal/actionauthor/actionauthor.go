@@ -290,9 +290,10 @@ func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 	}, nil
 }
 
-// SaveRequest carries the trusted workflow's accepted candidate and the
-// Credimi-signed approval of its human review. The activity fills Spec from
-// the session's start input, never from the payload.
+// SaveRequest carries the trusted workflow's accepted candidate, the
+// Credimi-signed approval of its human review and, when the session has no
+// start spec, the token of its confirmed plan. The activity fills Spec with
+// the session's effective plan, never from the payload.
 type SaveRequest struct {
 	BuildRequest
 	Name            string `json:"name"`
@@ -302,6 +303,7 @@ type SaveRequest struct {
 	PackageID       string `json:"package_id"`
 	ReplayCount     int    `json:"replay_count"`
 	Approval        string `json:"approval"`
+	PlanToken       string `json:"plan_token,omitempty"`
 	Spec            Spec   `json:"-"`
 }
 

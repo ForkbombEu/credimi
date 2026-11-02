@@ -330,7 +330,7 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 		captures map[string]string,
 	) (CheckActionAuthorProtocolOutcomeOutput, error) {
 		status.Store(current)
-		a := NewCheckActionAuthorProtocolOutcomeActivity()
+		a := NewCheckActionAuthorProtocolOutcomeActivity(nil)
 		a.authorSessionLookup = specSessionLookup(t, authorTestSession(), spec(outcome)).lookup()
 		a.transport = server.Client().Transport
 		a.interval = 5 * time.Millisecond
@@ -377,7 +377,7 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "capture session_id is missing")
 
-	a := NewCheckActionAuthorProtocolOutcomeActivity()
+	a := NewCheckActionAuthorProtocolOutcomeActivity(nil)
 	a.authorSessionLookup = specSessionLookup(
 		t,
 		authorTestSession(),

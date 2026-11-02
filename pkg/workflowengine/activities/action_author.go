@@ -191,20 +191,22 @@ func (a *SaveAuthoredWalletActionActivity) Execute(
 }
 
 // save accepts only the ActionAuthor child of a running session in the
-// caller's namespace and a Credimi-signed approval of the candidate by the
-// session's actor, and saves on behalf of the session's actor, build,
-// platform and spec rather than those of the payload.
+// caller's namespace and a Credimi-signed approval of the candidate and plan
+// by the session's actor, and saves on behalf of the session's actor, build,
+// platform and effective plan rather than those of the payload.
 func (a *SaveAuthoredWalletActionActivity) save(
 	ctx context.Context,
 	caller authorCaller,
 	payload actionauthor.SaveRequest,
 ) (actionauthor.Receipt, error) {
-	session, err := a.callerSession(ctx, &a.BaseActivity, caller)
+	ref, err := a.callerSession(ctx, &a.BaseActivity, caller)
 	if err != nil {
 		return actionauthor.Receipt{}, err
 	}
-	if err := checkSessionSpec(&a.BaseActivity, session); err != nil {
-		return actionauthor.Receipt{}, err
+	session := ref.Session
+	plan, err := EffectivePlan(a.app, ref, caller.WorkflowID, payload.PlanToken)
+	if err != nil {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
 	if !matchesSession(payload.ActorID, session.ActorID) ||
 		!matchesSession(payload.ActorCollection, session.ActorCollection) ||
@@ -215,7 +217,7 @@ func (a *SaveAuthoredWalletActionActivity) save(
 		))
 	}
 	payload.BuildRequest = session.BuildRequest
-	payload.Spec = session.Spec
+	payload.Spec = plan
 	approval, err := actionauthor.VerifyApproval(
 		a.app,
 		payload.Approval,
@@ -230,6 +232,11 @@ func (a *SaveAuthoredWalletActionActivity) save(
 		approval.ApproverCollection != session.ActorCollection {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
 			"%w: the approval is not from the session's user", actionauthor.ErrForbidden,
+		))
+	}
+	if approval.PlanSHA256 != actionauthor.PlanSHA256(payload.Spec) {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
+			"%w: approval is for another plan", actionauthor.ErrForbidden,
 		))
 	}
 	receipt, err := actionauthor.Save(
@@ -282,45 +289,88 @@ func newAuthorSessionLookup() authorSessionLookup {
 }
 
 // callerSession accepts only the ActionAuthor child of a running session in
-// the caller's namespace and returns the session's start input.
+// the caller's namespace and returns the session and its start input.
 func (l authorSessionLookup) callerSession(
 	ctx context.Context,
 	base *workflowengine.BaseActivity,
 	caller authorCaller,
-) (actionauthor.Session, error) {
+) (ActionAuthorSessionRef, error) {
 	if _, isAuthor := actionAuthorSessionID(caller.WorkflowID); caller.Namespace == "" ||
 		caller.WorkflowType != ActionAuthorWorkflowType || !isAuthor {
-		return actionauthor.Session{}, actionAuthorError(base, fmt.Errorf(
+		return ActionAuthorSessionRef{}, actionAuthorError(base, fmt.Errorf(
 			"%w: caller is not an action author session agent", actionauthor.ErrForbidden,
 		))
 	}
 	temporalClient, err := l.temporalClient(caller.Namespace)
 	if err != nil {
-		return actionauthor.Session{}, lookupError(
+		return ActionAuthorSessionRef{}, lookupError(
 			base,
 			fmt.Errorf("look up action author session: %w", err),
 		)
 	}
 	ref, err := LookupActionAuthorSession(ctx, temporalClient, caller.WorkflowID, caller.RunID)
 	if errors.Is(err, actionauthor.ErrForbidden) {
-		return actionauthor.Session{}, actionAuthorError(base, err)
+		return ActionAuthorSessionRef{}, actionAuthorError(base, err)
 	}
 	if err != nil {
-		return actionauthor.Session{}, lookupError(base, err)
+		return ActionAuthorSessionRef{}, lookupError(base, err)
 	}
-	return ref.Session, nil
+	return ref, nil
 }
 
-// checkSessionSpec validates the session's spec again: the start input is
-// read from Temporal history, which a client may have written without going
-// through the start handler. It validates a copy and leaves the session as is.
-func checkSessionSpec(base *workflowengine.BaseActivity, session actionauthor.Session) error {
-	spec := session.Spec
-	spec.Prerequisites = slices.Clone(spec.Prerequisites)
-	if err := spec.Normalize(session.Platform); err != nil {
-		return actionAuthorError(base, fmt.Errorf("action author session spec: %w", err))
+// EffectivePlan returns the normalized plan a session's activity acts on:
+// the spec fixed when the session started, or else the plan its user
+// confirmed, whose Credimi-signed token the agent sends with each activity.
+// The start input is read from Temporal history, which a client may have
+// written without going through the start handler, so the start spec is
+// validated again. Errors wrap actionauthor.ErrInvalid or ErrForbidden.
+func EffectivePlan(
+	app core.App,
+	ref ActionAuthorSessionRef,
+	authorWorkflowID, token string,
+) (actionauthor.Spec, error) {
+	session := ref.Session
+	if !session.IsEmpty() {
+		if token != "" {
+			return actionauthor.Spec{}, fmt.Errorf(
+				"%w: this session's plan was fixed when it started", actionauthor.ErrInvalid,
+			)
+		}
+		plan, err := normalizedPlan(session.Spec, session.Platform)
+		if err != nil {
+			return actionauthor.Spec{}, fmt.Errorf("action author session spec: %w", err)
+		}
+		return plan, nil
 	}
-	return nil
+	if token == "" {
+		return actionauthor.Spec{}, fmt.Errorf(
+			"%w: no confirmed plan: propose one with propose_plan", actionauthor.ErrInvalid,
+		)
+	}
+	grant, err := actionauthor.VerifyPlan(app, token, authorWorkflowID)
+	if err != nil {
+		return actionauthor.Spec{}, err
+	}
+	if grant.ApproverID != session.ActorID ||
+		grant.ApproverCollection != session.ActorCollection {
+		return actionauthor.Spec{}, fmt.Errorf(
+			"%w: plan confirmed by another user", actionauthor.ErrForbidden,
+		)
+	}
+	plan, err := normalizedPlan(grant.Plan, session.Platform)
+	if err != nil {
+		return actionauthor.Spec{}, fmt.Errorf("confirmed plan: %w", err)
+	}
+	return plan, nil
+}
+
+// normalizedPlan normalizes a copy of spec, leaving spec as is.
+func normalizedPlan(spec actionauthor.Spec, platform string) (actionauthor.Spec, error) {
+	spec.Prerequisites = slices.Clone(spec.Prerequisites)
+	if err := spec.Normalize(platform); err != nil {
+		return actionauthor.Spec{}, err
+	}
+	return spec, nil
 }
 
 // actionAuthorSessionID returns the session workflow ID of an ActionAuthor
