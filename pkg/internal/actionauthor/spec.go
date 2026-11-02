@@ -93,7 +93,7 @@ const (
 	allowedHeadersRule = "only Content-Type, Accept and Accept-Language are allowed; " +
 		"credentials must not be stored in Temporal history"
 	parameterNameRule  = "^[A-Za-z][A-Za-z0-9_]{0,63}$"
-	actionParameterRef = `\$\{([A-Za-z_][A-Za-z0-9_]*)\}`
+	actionParameterRef = `\$\{([A-Za-z][A-Za-z0-9_]{0,63})\}`
 )
 
 var (

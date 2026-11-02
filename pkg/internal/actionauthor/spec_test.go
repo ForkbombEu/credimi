@@ -384,7 +384,8 @@ func TestLookupPath(t *testing.T) {
 
 func TestActionParameters(t *testing.T) {
 	code := "appId: x\nenv:\n  LOCAL: v\n---\n- openLink: ${deeplink}\n- inputText: ${PIN}\n" +
-		"- inputText: ${LOCAL}\n- inputText: ${deeplink}\n- evalScript: ${output.x}\n"
+		"- inputText: ${LOCAL}\n- inputText: ${deeplink}\n- evalScript: ${output.x}\n" +
+		"- inputText: ${_private}\n- inputText: ${9lives}\n"
 	assert.Equal(t, []string{"PIN", "deeplink"}, ActionParameters(code))
 	assert.Equal(t, []string{}, ActionParameters("appId: x\n---\n- launchApp\n"))
 }
