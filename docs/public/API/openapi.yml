@@ -52,6 +52,50 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: List devices available for authoring
+  /api/action-author/reviews:
+    post:
+      description: Deliver the human decision on the pending save review tool_id of
+        the agent workflow author_workflow_id in the organization namespace. Only
+        the user who started the session can review it (403 forbidden otherwise);
+        a namespace the caller does not own, or a workflow that is not the agent of
+        a running session, answers 404 session_not_found. An acceptance carries a
+        Credimi-signed approval of candidate_sha256 that the save activity verifies
+        (valid for 30 minutes); the agent cannot save without it. A review that is
+        no longer pending (unknown or settled tool_id) answers 409 review_not_pending.
+      operationId: actionAuthor.reviewCandidate
+      parameters:
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersActionAuthorReviewRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorReviewResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: Accept or refuse a candidate action of an authoring session
   /api/action-author/sessions:
     post:
       description: 'Authorize the caller for the selected wallet organization and
@@ -75,8 +119,8 @@ paths:
         may check a protocol status. An invalid spec answers 400 invalid_request.
         Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running,
         its workflow_id is the session and <workflow_id>-author is the chat workflow.
-        Review and explicit human confirmation happen in the harness UI; this endpoint
-        does not save an action.'
+        This endpoint does not save an action: the session''s user accepts or refuses
+        each candidate through POST /api/action-author/reviews.'
       operationId: actionAuthor.startSession
       parameters:
       - description: Bearer token for authentication.
@@ -1057,6 +1101,27 @@ components:
             $ref: '#/components/schemas/HandlersActionAuthorDevice'
           nullable: true
           type: array
+      type: object
+    HandlersActionAuthorReviewRequest:
+      properties:
+        accepted:
+          nullable: true
+          type: boolean
+        author_workflow_id:
+          type: string
+        candidate_sha256:
+          type: string
+        namespace:
+          type: string
+        tool_id:
+          type: string
+      type: object
+    HandlersActionAuthorReviewResponse:
+      properties:
+        accepted:
+          type: boolean
+        tool_id:
+          type: string
       type: object
     HandlersActionAuthorStartRequest:
       properties:

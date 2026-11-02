@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -415,7 +416,7 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 	app, session, namespace := authorSaveFixture(t)
 	build, err := actionauthor.Resolve(app, namespace, session)
 	require.NoError(t, err)
-	code := "appId: eu.wallet\n---\n- launchApp\n"
+	code := "appId: eu.wallet\n---\n- launchApp\n- assertVisible: Home\n- takeScreenshot: home\n"
 	// Each attempt reads the session's history afresh.
 	a := func() *SaveAuthoredWalletActionActivity {
 		lookup := validSessionLookup(t)
@@ -424,11 +425,28 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 			"wallet_version_identifier": session.WalletVersionIdentifier,
 			"actor_id":                  session.ActorID,
 			"actor_collection":          session.ActorCollection,
+			"slot":                      "other",
+			"outcome":                   "success",
 		})
 		return lookup.activity(t, app)
 	}
 	caller := authorTestCaller()
 	caller.Namespace = namespace
+	approval := func(edit func(*actionauthor.Approval)) string {
+		approval := actionauthor.Approval{
+			AuthorWorkflowID:   caller.WorkflowID,
+			CandidateSHA256:    actionauthor.CodeSHA256(code),
+			ApproverID:         session.ActorID,
+			ApproverCollection: session.ActorCollection,
+			ApprovedAt:         time.Now().Unix(),
+		}
+		if edit != nil {
+			edit(&approval)
+		}
+		token, err := actionauthor.SignApproval(app, approval)
+		require.NoError(t, err)
+		return token
+	}
 	// The payload omits the session's actor and build: the session supplies them.
 	payload := actionauthor.SaveRequest{
 		Name:            "Reviewed onboarding",
@@ -436,9 +454,34 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 		CandidateSHA256: actionauthor.CodeSHA256(code),
 		InstallerSHA256: build.InstallerSHA256,
 		PackageID:       "eu.wallet",
-		Slot:            "onboarding",
 		ReplayCount:     2,
+		Approval:        approval(nil),
 	}
+
+	for name, token := range map[string]string{
+		"missing approval": "",
+		"forged approval":  "forged.x",
+		"another approver": approval(func(a *actionauthor.Approval) { a.ApproverID = "someone-else" }),
+		"expired approval": approval(func(a *actionauthor.Approval) {
+			a.ApprovedAt = time.Now().Add(-time.Hour).Unix()
+		}),
+	} {
+		rejected := payload
+		rejected.Approval = token
+		_, err := a().save(t.Context(), caller, rejected)
+		requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+		require.ErrorContains(t, err, actionauthor.ErrForbidden.Error(), name)
+	}
+
+	disallowed := payload
+	disallowed.Code = "appId: eu.wallet\n---\n- runScript: x.js\n- assertVisible: Home\n- takeScreenshot: home\n"
+	disallowed.CandidateSHA256 = actionauthor.CodeSHA256(disallowed.Code)
+	disallowed.Approval = approval(func(a *actionauthor.Approval) {
+		a.CandidateSHA256 = disallowed.CandidateSHA256
+	})
+	_, err = a().save(t.Context(), caller, disallowed)
+	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
+	require.ErrorContains(t, err, "runScript")
 
 	receipt, err := a().save(t.Context(), caller, payload)
 
@@ -447,6 +490,11 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 	require.Equal(t, authorTestAuthorID, receipt.Provenance.WorkflowID)
 	require.Equal(t, authorTestAuthorRun, receipt.Provenance.RunID)
 	require.Equal(t, session.WalletVersionIdentifier, receipt.Provenance.WalletVersionIdentifier)
+	require.Equal(t, "other", receipt.Provenance.Slot)
+	require.Equal(t, session.ActorID, receipt.Provenance.ApproverID)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	require.Equal(t, "other", record.GetString("category"))
 
 	// A retry carrying the session's own values returns the same record.
 	payload.BuildRequest = session

@@ -261,9 +261,17 @@ func acceptedRequest(request BuildRequest, digest string) SaveRequest {
 		CandidateSHA256: CodeSHA256(code),
 		InstallerSHA256: digest,
 		PackageID:       "eu.europa.ec.euidi",
-		Slot:            "onboarding",
 		ReplayCount:     2,
+		Spec:            Spec{Slot: "onboarding", Outcome: OutcomeSuccess},
 	}
+}
+
+// testApproval is the verified approval Save records.
+var testApproval = Approval{
+	AuthorWorkflowID:   "workflow",
+	ApproverID:         "approver",
+	ApproverCollection: "users",
+	ApprovedAt:         1_800_000_000,
 }
 
 func TestAuthoringSaveIsUnpublishedIdempotentAndNeverReplaces(t *testing.T) {
@@ -271,27 +279,28 @@ func TestAuthoringSaveIsUnpublishedIdempotentAndNeverReplaces(t *testing.T) {
 	build, err := Resolve(app, namespace, request)
 	require.NoError(t, err)
 	in := acceptedRequest(request, build.InstallerSHA256)
-	receipt, err := Save(app, namespace, "workflow", "run", in)
+	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
 	require.NoError(t, err)
 	assert.True(t, receipt.Created)
 	assert.False(t, receipt.Published)
 	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
 	require.NoError(t, err)
 	assert.Equal(t, in.Code, record.GetString("code"))
+	assert.Equal(t, "onboarding", record.GetString("category"))
 	assert.Equal(t, build.VersionID, receipt.Provenance.WalletVersionID)
-	retried, err := Save(app, namespace, "workflow", "run", in)
+	retried, err := Save(app, namespace, "workflow", "run", in, testApproval)
 	require.NoError(t, err)
 	assert.Equal(t, receipt.RecordID, retried.RecordID)
 	// Another run, or a changed candidate, never replaces the existing action
 	// and does not reveal its id or code.
-	_, err = Save(app, namespace, "another-workflow", "another-run", in)
+	_, err = Save(app, namespace, "another-workflow", "another-run", in, testApproval)
 	require.ErrorIs(t, err, ErrConflict)
 	assert.NotContains(t, err.Error(), receipt.RecordID)
 	assert.NotContains(t, err.Error(), in.CandidateSHA256)
 	changed := in
 	changed.Code += "# reviewed replacement\n"
 	changed.CandidateSHA256 = CodeSHA256(changed.Code)
-	_, err = Save(app, namespace, "workflow", "run", changed)
+	_, err = Save(app, namespace, "workflow", "run", changed, testApproval)
 	require.ErrorIs(t, err, ErrConflict)
 	assert.ErrorContains(t, err, "an action with this name already exists")
 	record, err = app.FindRecordById("wallet_actions", receipt.RecordID)
@@ -300,9 +309,54 @@ func TestAuthoringSaveIsUnpublishedIdempotentAndNeverReplaces(t *testing.T) {
 
 	in.Name = "Another onboarding"
 	in.InstallerSHA256 = strings.Repeat("0", 64)
-	_, err = Save(app, namespace, "new-workflow", "new-run", in)
+	_, err = Save(app, namespace, "new-workflow", "new-run", in, testApproval)
 	require.ErrorIs(t, err, ErrConflict)
 	assert.ErrorContains(t, err, "selected installer changed")
+}
+
+func TestAuthoringSaveRecordsSpecAndApproval(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	in := acceptedRequest(request, build.InstallerSHA256)
+	in.Name = "Reviewed verification"
+	in.Code = "appId: com.android.chrome\n---\n- launchApp\n- openLink: ${deeplink}\n" +
+		"- tapOn: Share\n- assertVisible: Shared\n- takeScreenshot: shared\n"
+	in.CandidateSHA256 = CodeSHA256(in.Code)
+	in.Spec = Spec{
+		Slot:          "verify-credential",
+		Outcome:       OutcomeRejection,
+		Browser:       true,
+		Prerequisites: []PrerequisiteSpec{{Action: "org/wallet/onboarding"}},
+		Parameters: []ParameterSpec{{
+			Name:   "deeplink",
+			Source: SourceSpec{Kind: SourceLiteral, Value: "secret test value"},
+		}},
+	}
+
+	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
+
+	require.NoError(t, err)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	assert.Equal(t, "verify-credential", record.GetString("category"))
+	assert.NotContains(t, record.GetString("authoring_provenance"), "secret test value")
+	assert.Equal(t, "verify-credential", receipt.Provenance.Slot)
+	assert.Equal(t, OutcomeRejection, receipt.Provenance.Outcome)
+	assert.True(t, receipt.Provenance.Browser)
+	assert.Equal(t, []string{"org/wallet/onboarding"}, receipt.Provenance.Prerequisites)
+	assert.Equal(t, []ProvenanceParameter{{Name: "deeplink", Kind: SourceLiteral}},
+		receipt.Provenance.Parameters)
+	assert.Equal(t, "approver", receipt.Provenance.ApproverID)
+	assert.Equal(t, "users", receipt.Provenance.ApproverCollection)
+	assert.Equal(t, "2027-01-15T08:00:00Z", receipt.Provenance.ApprovedAt)
+
+	// Without the browser the Chrome header is not allowed.
+	in.Name = "Unbrowsed verification"
+	in.Spec.Browser = false
+	_, err = Save(app, namespace, "workflow-2", "run", in, testApproval)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "header appId")
 }
 
 func TestAuthoringSaveRecordsIOSProvenance(t *testing.T) {
@@ -318,11 +372,11 @@ func TestAuthoringSaveRecordsIOSProvenance(t *testing.T) {
 
 	// The Android digest of the same version does not authorize the iOS save.
 	in := acceptedRequest(request, CodeSHA256("other APK bytes"))
-	_, err = Save(app, namespace, "workflow", "run", in)
+	_, err = Save(app, namespace, "workflow", "run", in, testApproval)
 	require.ErrorIs(t, err, ErrConflict)
 
 	in = acceptedRequest(request, build.InstallerSHA256)
-	receipt, err := Save(app, namespace, "workflow", "run", in)
+	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
 	require.NoError(t, err)
 	assert.Equal(t, PlatformIOS, receipt.Provenance.Platform)
 	assert.Equal(t, CodeSHA256("selected iOS app zip"), receipt.Provenance.InstallerSHA256)
@@ -335,12 +389,12 @@ func TestAuthoringSaveRecordsIOSProvenance(t *testing.T) {
 	assert.NotContains(t, stored, "apk_sha256")
 
 	// A retry of the same run is idempotent only for the same platform.
-	retried, err := Save(app, namespace, "workflow", "run", in)
+	retried, err := Save(app, namespace, "workflow", "run", in, testApproval)
 	require.NoError(t, err)
 	assert.Equal(t, receipt.RecordID, retried.RecordID)
 	android := acceptedRequest(request, CodeSHA256("other APK bytes"))
 	android.Platform = PlatformAndroid
-	_, err = Save(app, namespace, "workflow", "run", android)
+	_, err = Save(app, namespace, "workflow", "run", android, testApproval)
 	require.ErrorIs(t, err, ErrConflict)
 }
 
@@ -353,10 +407,16 @@ func TestAuthoringSaveRejectsUnreplayedOrChangedCandidate(t *testing.T) {
 		func(in *SaveRequest) { in.Code += "# not approved\n" },
 		func(in *SaveRequest) { in.PackageID = "org.wrong.wallet" },
 		func(in *SaveRequest) { in.Name = " " },
+		func(in *SaveRequest) { in.Spec.Slot = "install-app" },
+		func(in *SaveRequest) {
+			in.Code = "appId: eu.europa.ec.euidi\n---\n- launchApp\n- runScript: x.js\n" +
+				"- assertVisible: Home\n- takeScreenshot: done\n"
+			in.CandidateSHA256 = CodeSHA256(in.Code)
+		},
 	} {
 		in := acceptedRequest(request, build.InstallerSHA256)
 		mutate(&in)
-		_, err := Save(app, namespace, "workflow", "run", in)
+		_, err := Save(app, namespace, "workflow", "run", in, testApproval)
 		require.ErrorIs(t, err, ErrInvalid)
 	}
 	_, err = Save(
@@ -365,6 +425,7 @@ func TestAuthoringSaveRejectsUnreplayedOrChangedCandidate(t *testing.T) {
 		"workflow",
 		"run",
 		acceptedRequest(request, build.InstallerSHA256),
+		testApproval,
 	)
 	require.ErrorIs(t, err, ErrForbidden)
 }

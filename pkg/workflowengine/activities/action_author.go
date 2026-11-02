@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -211,8 +212,9 @@ func (a *SaveAuthoredWalletActionActivity) Execute(
 }
 
 // save accepts only the ActionAuthor child of a running session in the
-// caller's namespace, and saves on behalf of the session's actor, build and
-// platform rather than those of the payload.
+// caller's namespace and a Credimi-signed approval of the candidate by the
+// session's actor, and saves on behalf of the session's actor, build,
+// platform and spec rather than those of the payload.
 func (a *SaveAuthoredWalletActionActivity) save(
 	ctx context.Context,
 	caller authorCaller,
@@ -231,12 +233,30 @@ func (a *SaveAuthoredWalletActionActivity) save(
 		))
 	}
 	payload.BuildRequest = session.BuildRequest
+	payload.Spec = session.Spec
+	approval, err := actionauthor.VerifyApproval(
+		a.app,
+		payload.Approval,
+		caller.WorkflowID,
+		payload.CandidateSHA256,
+		time.Now(),
+	)
+	if err != nil {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
+	}
+	if approval.ApproverID != session.ActorID ||
+		approval.ApproverCollection != session.ActorCollection {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
+			"%w: the approval is not from the session's user", actionauthor.ErrForbidden,
+		))
+	}
 	receipt, err := actionauthor.Save(
 		a.app,
 		caller.Namespace,
 		caller.WorkflowID,
 		caller.RunID,
 		payload,
+		approval,
 	)
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)

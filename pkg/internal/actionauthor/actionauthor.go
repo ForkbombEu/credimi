@@ -15,11 +15,11 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
-	"gopkg.in/yaml.v3"
 )
 
 // ErrForbidden denies unauthorized actors or organization namespaces.
@@ -290,7 +290,9 @@ func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 	}, nil
 }
 
-// SaveRequest carries the trusted workflow's accepted candidate.
+// SaveRequest carries the trusted workflow's accepted candidate and the
+// Credimi-signed approval of its human review. The activity fills Spec from
+// the session's start input, never from the payload.
 type SaveRequest struct {
 	BuildRequest
 	Name            string `json:"name"`
@@ -298,21 +300,37 @@ type SaveRequest struct {
 	CandidateSHA256 string `json:"candidate_sha256"`
 	InstallerSHA256 string `json:"installer_sha256"`
 	PackageID       string `json:"package_id"`
-	Slot            string `json:"slot"`
 	ReplayCount     int    `json:"replay_count"`
+	Approval        string `json:"approval"`
+	Spec            Spec   `json:"-"`
 }
 
-// Provenance identifies the exact build and workflow that validated an action.
+// ProvenanceParameter records a parameter's name and source kind, never its values.
+type ProvenanceParameter struct {
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+}
+
+// Provenance identifies the exact build, spec, workflow and human approval
+// that validated an action.
 type Provenance struct {
-	WalletVersionID         string `json:"wallet_version_id"`
-	WalletVersionIdentifier string `json:"wallet_version_identifier"`
-	Platform                string `json:"platform"`
-	InstallerSHA256         string `json:"installer_sha256"`
-	PackageID               string `json:"package_id"`
-	YAMLSHA256              string `json:"yaml_sha256"`
-	WorkflowID              string `json:"workflow_id"`
-	RunID                   string `json:"run_id"`
-	ReplayCount             int    `json:"replay_count"`
+	WalletVersionID         string                `json:"wallet_version_id"`
+	WalletVersionIdentifier string                `json:"wallet_version_identifier"`
+	Platform                string                `json:"platform"`
+	InstallerSHA256         string                `json:"installer_sha256"`
+	PackageID               string                `json:"package_id"`
+	YAMLSHA256              string                `json:"yaml_sha256"`
+	WorkflowID              string                `json:"workflow_id"`
+	RunID                   string                `json:"run_id"`
+	ReplayCount             int                   `json:"replay_count"`
+	Slot                    string                `json:"slot"`
+	Outcome                 string                `json:"outcome"`
+	Browser                 bool                  `json:"browser"`
+	Prerequisites           []string              `json:"prerequisites"`
+	Parameters              []ProvenanceParameter `json:"parameters"`
+	ApproverID              string                `json:"approver_id"`
+	ApproverCollection      string                `json:"approver_collection"`
+	ApprovedAt              string                `json:"approved_at"`
 }
 
 // Receipt describes the saved record and its validation provenance.
@@ -331,25 +349,50 @@ func CodeSHA256(code string) string {
 }
 
 func validateAcceptedAction(in *SaveRequest) error {
-	if strings.TrimSpace(in.Name) == "" || in.Slot != "onboarding" || in.ReplayCount != 2 ||
-		in.CandidateSHA256 != CodeSHA256(in.Code) || in.PackageID == "" {
+	if _, ok := Slots[in.Spec.Slot]; !ok || strings.TrimSpace(in.Name) == "" ||
+		in.ReplayCount != 2 || in.CandidateSHA256 != CodeSHA256(in.Code) || in.PackageID == "" {
 		return fmt.Errorf("%w: missing accepted candidate", ErrInvalid)
 	}
-	decoder := yaml.NewDecoder(strings.NewReader(in.Code))
-	var header struct {
-		AppID string `yaml:"appId"`
-	}
-	if err := decoder.Decode(&header); err != nil || header.AppID != in.PackageID {
-		return fmt.Errorf("%w: accepted installer/package mismatch", ErrInvalid)
+	problems := ValidateCode(
+		in.Code,
+		AllowedAppIDs(in.PackageID, in.Spec.Browser),
+		ParameterNames(in.Spec.Parameters),
+	)
+	if len(problems) > 0 {
+		return fmt.Errorf("%w: %s", ErrInvalid, strings.Join(problems, "; "))
 	}
 	return nil
+}
+
+// provenanceSpec records the session spec without parameter values.
+func provenanceSpec(provenance *Provenance, spec Spec) {
+	provenance.Slot = spec.Slot
+	provenance.Outcome = spec.Outcome
+	provenance.Browser = spec.Browser
+	provenance.Prerequisites = make([]string, 0, len(spec.Prerequisites))
+	for _, prerequisite := range spec.Prerequisites {
+		provenance.Prerequisites = append(provenance.Prerequisites, prerequisite.Action)
+	}
+	provenance.Parameters = make([]ProvenanceParameter, 0, len(spec.Parameters))
+	for _, parameter := range spec.Parameters {
+		provenance.Parameters = append(provenance.Parameters, ProvenanceParameter{
+			Name: parameter.Name,
+			Kind: parameter.Source.Kind,
+		})
+	}
 }
 
 // Save creates the accepted action and its provenance in one transaction. It
 // never replaces an existing action: a name already in use by the wallet is a
 // conflict, except for a retry of the same workflow run that wrote it.
-// The caller is the trusted workflow's explicit human-confirmation handler.
-func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Receipt, error) {
+// The caller is the trusted workflow's explicit human-confirmation handler,
+// after verifying the approval.
+func Save(
+	app core.App,
+	namespace, workflowID, runID string,
+	in SaveRequest,
+	approval Approval,
+) (Receipt, error) {
 	var receipt Receipt
 	if err := validateAcceptedAction(&in); err != nil {
 		return receipt, err
@@ -375,7 +418,11 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 		WorkflowID:              workflowID,
 		RunID:                   runID,
 		ReplayCount:             in.ReplayCount,
+		ApproverID:              approval.ApproverID,
+		ApproverCollection:      approval.ApproverCollection,
+		ApprovedAt:              time.Unix(approval.ApprovedAt, 0).UTC().Format(time.RFC3339),
 	}
+	provenanceSpec(&provenance, in.Spec)
 	err = app.RunInTransaction(func(tx core.App) error {
 		// Recheck authorization and record binding inside the write transaction.
 		current, err := Select(tx, namespace, in.BuildRequest)
@@ -426,7 +473,7 @@ func Save(app core.App, namespace, workflowID, runID string, in SaveRequest) (Re
 		record.Set("published", false)
 		record.Set("name", in.Name)
 		record.Set("code", in.Code)
-		record.Set("category", "onboarding")
+		record.Set("category", SlotCategory(in.Spec.Slot))
 		record.Set("authoring_provenance", provenance)
 		if err := tx.Save(record); err != nil {
 			return fmt.Errorf("save authored action: %w", err)
