@@ -7,6 +7,7 @@ package cmd
 
 import (
 	"log"
+	"os"
 
 	// Blank import to initialize database migrations
 	"github.com/forkbombeu/credimi/cmd/cli"
@@ -16,8 +17,18 @@ import (
 	"github.com/pocketbase/pocketbase"
 )
 
-// Start initializes and starts the PocketBase application.
+// Start runs remote FCAF commands directly and starts PocketBase for all other commands.
 func Start() {
+	godotenv.Load()
+	if len(os.Args) > 1 && os.Args[1] == "fcaf" {
+		cmd := cli.NewFCAFCommand()
+		cmd.SetArgs(os.Args[2:])
+		if err := cmd.Execute(); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
 	app := pocketbase.New()
 	app.RootCmd.Short = "\033[38;2;255;100;0m .o88b. d8888b. d88888b d8888b. d888888b .88b  d88. d888888b \033[0m\n" +
 		"\033[38;2;255;71;43md8P  Y8 88  `8D 88'     88  `8D   `88'   88'YbdP`88   `88'   \033[0m\n" +
@@ -34,7 +45,6 @@ func Start() {
 	app.RootCmd.AddCommand(cli.NewPipelineCmd())
 	app.RootCmd.AddCommand(cli.NewFCAFCommand())
 
-	godotenv.Load()
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
