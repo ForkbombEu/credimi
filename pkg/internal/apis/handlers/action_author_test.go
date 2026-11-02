@@ -53,6 +53,10 @@ func setupActionAuthorApp(t testing.TB) *tests.TestApp {
 	require.NoError(t, err)
 	foreignOrg, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
 	require.NoError(t, err)
+	// Organizations start without an action author allowance.
+	org.Set("action_author_daily_sessions", 20)
+	org.Set("action_author_daily_tokens", 5000000)
+	require.NoError(t, app.Save(org))
 
 	wallets, err := app.FindCollectionByNameOrId("wallets")
 	require.NoError(t, err)

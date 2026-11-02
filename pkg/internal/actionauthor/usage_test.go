@@ -5,7 +5,7 @@
 package actionauthor
 
 import (
-	"os"
+	"fmt"
 	"testing"
 	"time"
 
@@ -62,10 +62,15 @@ func TestReleaseSessionFloorsAtZero(t *testing.T) {
 	)
 	require.Error(t, err, "releasing without usage must not create a row")
 
-	require.NoError(t, ReserveSession(app, orgID, usageTestNow, Quota{Sessions: 5}))
+	require.NoError(t, ReserveSession(app, orgID, usageTestNow, Quota{Sessions: 5, Tokens: 5}))
 	require.NoError(t, ReleaseSession(app, orgID, usageTestNow))
 	require.NoError(t, ReleaseSession(app, orgID, usageTestNow))
 	assert.Equal(t, 0, usageRow(t, app, orgID, usageTestNow).GetInt("sessions"))
+}
+
+// report returns a usage report of one agent turn.
+func report(id string, d UsageDelta) UsageReport {
+	return UsageReport{ReportID: id, UsageDelta: d}
 }
 
 func TestRecordUsageTokenExhaustion(t *testing.T) {
@@ -77,7 +82,7 @@ func TestRecordUsageTokenExhaustion(t *testing.T) {
 		app,
 		orgID,
 		usageTestNow,
-		UsageDelta{Requests: 1, InputTokens: 400, OutputTokens: 100},
+		report("wf/1", UsageDelta{Requests: 1, InputTokens: 400, OutputTokens: 100}),
 		q,
 	)
 	require.NoError(t, err)
@@ -87,7 +92,7 @@ func TestRecordUsageTokenExhaustion(t *testing.T) {
 		app,
 		orgID,
 		usageTestNow,
-		UsageDelta{Requests: 2, InputTokens: 450, OutputTokens: 200},
+		report("wf/2", UsageDelta{Requests: 2, InputTokens: 450, OutputTokens: 200}),
 		q,
 	)
 	require.NoError(t, err)
@@ -102,14 +107,58 @@ func TestRecordUsageTokenExhaustion(t *testing.T) {
 	assert.Equal(t, 1, usageRow(t, app, orgID, usageTestNow).GetInt("sessions"))
 }
 
+func TestRecordUsageCountsAReportOnce(t *testing.T) {
+	app, orgID := usageFixture(t)
+	q := Quota{Sessions: 10, Tokens: 1000}
+	first, err := RecordUsage(app, orgID, usageTestNow,
+		report("wf/1", UsageDelta{Requests: 1, InputTokens: 300, OutputTokens: 100}), q)
+	require.NoError(t, err)
+	assert.Equal(t, UsageState{TokensRemaining: 600}, first)
+
+	repeat, err := RecordUsage(app, orgID, usageTestNow,
+		report("wf/1", UsageDelta{Requests: 1, InputTokens: 300, OutputTokens: 100}), q)
+	require.NoError(t, err)
+	assert.Equal(t, first, repeat)
+	row := usageRow(t, app, orgID, usageTestNow)
+	assert.Equal(t, 300, row.GetInt("input_tokens"))
+	assert.Equal(t, 1, row.GetInt("model_calls"))
+
+	// The same report ID counts again on another day: IDs are kept per day.
+	nextDay := usageTestNow.Add(time.Hour)
+	state, err := RecordUsage(app, orgID, nextDay,
+		report("wf/1", UsageDelta{InputTokens: 10}), q)
+	require.NoError(t, err)
+	assert.Equal(t, UsageState{TokensRemaining: 990}, state)
+}
+
+func TestRecordUsageKeepsTheLastReportIDs(t *testing.T) {
+	app, orgID := usageFixture(t)
+	q := Quota{Sessions: 10, Tokens: 1 << 30}
+	for i := range usageReportIDs + 1 {
+		_, err := RecordUsage(app, orgID, usageTestNow,
+			report(fmt.Sprintf("wf/%d", i), UsageDelta{InputTokens: 1}), q)
+		require.NoError(t, err)
+	}
+	var ids []string
+	require.NoError(t, usageRow(t, app, orgID, usageTestNow).UnmarshalJSONField("report_ids", &ids))
+	require.Len(t, ids, usageReportIDs)
+	assert.Equal(t, "wf/1", ids[0])
+	assert.Equal(t, fmt.Sprintf("wf/%d", usageReportIDs), ids[len(ids)-1])
+
+	// wf/0 was forgotten, so it counts again.
+	_, err := RecordUsage(app, orgID, usageTestNow, report("wf/0", UsageDelta{InputTokens: 1}), q)
+	require.NoError(t, err)
+	assert.Equal(t, usageReportIDs+2, usageRow(t, app, orgID, usageTestNow).GetInt("input_tokens"))
+}
+
 func TestRecordUsageClampsNegativeDeltas(t *testing.T) {
 	app, orgID := usageFixture(t)
-	q := Quota{Tokens: 100}
+	q := Quota{Sessions: 1, Tokens: 100}
 	_, err := RecordUsage(
 		app,
 		orgID,
 		usageTestNow,
-		UsageDelta{Requests: 1, InputTokens: 10, OutputTokens: 10},
+		report("wf/1", UsageDelta{Requests: 1, InputTokens: 10, OutputTokens: 10}),
 		q,
 	)
 	require.NoError(t, err)
@@ -117,7 +166,7 @@ func TestRecordUsageClampsNegativeDeltas(t *testing.T) {
 		app,
 		orgID,
 		usageTestNow,
-		UsageDelta{Requests: -5, InputTokens: -50, OutputTokens: -50},
+		report("wf/2", UsageDelta{Requests: -5, InputTokens: -50, OutputTokens: -50}),
 		q,
 	)
 	require.NoError(t, err)
@@ -125,35 +174,42 @@ func TestRecordUsageClampsNegativeDeltas(t *testing.T) {
 	assert.Equal(t, 1, usageRow(t, app, orgID, usageTestNow).GetInt("model_calls"))
 }
 
-func TestRecordUsageUnlimitedQuota(t *testing.T) {
-	app, orgID := usageFixture(t)
-	q := Quota{Sessions: -1, Tokens: 0}
-	state, err := RecordUsage(
-		app,
-		orgID,
-		usageTestNow,
-		UsageDelta{Requests: 1, InputTokens: 1 << 30, OutputTokens: 1 << 20},
-		q,
-	)
-	require.NoError(t, err)
-	assert.Equal(t, UsageState{Exhausted: false, TokensRemaining: -1}, state)
-	for range 30 {
-		require.NoError(t, ReserveSession(app, orgID, usageTestNow, q))
+func TestNoAllowance(t *testing.T) {
+	for _, q := range []Quota{{}, {Sessions: 5}, {Tokens: 5}, {Sessions: -1, Tokens: -1}} {
+		app, orgID := usageFixture(t)
+		assert.False(t, q.HasAllowance())
+		require.ErrorIs(t, ReserveSession(app, orgID, usageTestNow, q), ErrQuotaExceeded)
+		state, err := RecordUsage(app, orgID, usageTestNow,
+			report("wf/1", UsageDelta{InputTokens: 1}), q)
+		require.NoError(t, err)
+		assert.True(t, state.Exhausted)
+		assert.Equal(t, 0, state.TokensRemaining)
 	}
+	assert.True(t, Quota{Sessions: 1, Tokens: 1}.HasAllowance())
+}
+
+func TestQuotaForOrganization(t *testing.T) {
+	app, orgID := usageFixture(t)
+	org, err := app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	assert.Equal(t, Quota{}, QuotaForOrganization(org), "organizations start without allowance")
+	org.Set("action_author_daily_sessions", 3)
+	org.Set("action_author_daily_tokens", 1234)
+	assert.Equal(t, Quota{Sessions: 3, Tokens: 1234}, QuotaForOrganization(org))
 }
 
 func TestUsageNewUTCDayResets(t *testing.T) {
 	app, orgID := usageFixture(t)
 	q := Quota{Sessions: 1, Tokens: 10}
 	require.NoError(t, ReserveSession(app, orgID, usageTestNow, q))
-	_, err := RecordUsage(app, orgID, usageTestNow, UsageDelta{InputTokens: 10}, q)
+	_, err := RecordUsage(app, orgID, usageTestNow, report("wf/1", UsageDelta{InputTokens: 10}), q)
 	require.NoError(t, err)
 	require.ErrorIs(t, ReserveSession(app, orgID, usageTestNow, q), ErrQuotaExceeded)
 
 	// 23:30 UTC is already the next UTC day at 01:30 in UTC+2.
 	nextDay := usageTestNow.Add(time.Hour).In(time.FixedZone("UTC+2", 2*60*60))
 	require.NoError(t, ReserveSession(app, orgID, nextDay, q))
-	state, err := RecordUsage(app, orgID, nextDay, UsageDelta{InputTokens: 3}, q)
+	state, err := RecordUsage(app, orgID, nextDay, report("wf/2", UsageDelta{InputTokens: 3}), q)
 	require.NoError(t, err)
 	assert.Equal(t, UsageState{TokensRemaining: 7}, state)
 	assert.Equal(t, "2026-11-03", usageRow(t, app, orgID, nextDay).GetString("day"))
@@ -161,49 +217,4 @@ func TestUsageNewUTCDayResets(t *testing.T) {
 	// A timestamp in another zone that is still the same UTC day hits the original row.
 	sameDay := usageTestNow.In(time.FixedZone("UTC+2", 2*60*60))
 	require.ErrorIs(t, ReserveSession(app, orgID, sameDay, q), ErrQuotaExceeded)
-}
-
-func TestQuotaFromEnv(t *testing.T) {
-	cases := []struct {
-		name     string
-		sessions string
-		tokens   string
-		want     Quota
-	}{
-		{name: "defaults", want: Quota{Sessions: 20, Tokens: 5000000}},
-		{
-			name:     "overrides",
-			sessions: "3",
-			tokens:   "1234",
-			want:     Quota{Sessions: 3, Tokens: 1234},
-		},
-		{
-			name:     "unlimited",
-			sessions: "0",
-			tokens:   "-1",
-			want:     Quota{Sessions: 0, Tokens: -1},
-		},
-		{
-			name:     "invalid",
-			sessions: "many",
-			tokens:   "1.5",
-			want:     Quota{Sessions: 20, Tokens: 5000000},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			usageSetenv(t, "CREDIMI_ACTION_AUTHOR_DAILY_SESSIONS", tc.sessions)
-			usageSetenv(t, "CREDIMI_ACTION_AUTHOR_DAILY_TOKENS", tc.tokens)
-			assert.Equal(t, tc.want, QuotaFromEnv())
-		})
-	}
-}
-
-// usageSetenv sets key to value for the test, or unsets it when value is empty.
-func usageSetenv(t *testing.T, key, value string) {
-	t.Helper()
-	t.Setenv(key, value)
-	if value == "" {
-		require.NoError(t, os.Unsetenv(key))
-	}
 }

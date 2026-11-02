@@ -6,6 +6,7 @@ package activities
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
@@ -17,7 +18,7 @@ import (
 const RecordActionAuthorUsageActivityName = "Record action author usage"
 
 // RecordActionAuthorUsageActivity adds an agent turn's model usage to its
-// organization's daily quota.
+// organization's daily quota, once per report ID.
 type RecordActionAuthorUsageActivity struct {
 	workflowengine.BaseActivity
 	authorSessionLookup
@@ -42,7 +43,7 @@ func (a *RecordActionAuthorUsageActivity) Execute(
 	in workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-	payload, err := workflowengine.DecodePayload[actionauthor.UsageDelta](in.Payload)
+	payload, err := workflowengine.DecodePayload[actionauthor.UsageReport](in.Payload)
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
@@ -57,9 +58,14 @@ func (a *RecordActionAuthorUsageActivity) Execute(
 func (a *RecordActionAuthorUsageActivity) record(
 	ctx context.Context,
 	caller authorCaller,
-	delta actionauthor.UsageDelta,
+	report actionauthor.UsageReport,
 	now time.Time,
 ) (actionauthor.UsageState, error) {
+	if report.ReportID == "" {
+		return actionauthor.UsageState{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
+			"%w: report_id is required", actionauthor.ErrInvalid,
+		))
+	}
 	session, err := a.callerSession(ctx, &a.BaseActivity, caller)
 	if err != nil {
 		return actionauthor.UsageState{}, err
@@ -72,8 +78,8 @@ func (a *RecordActionAuthorUsageActivity) record(
 		a.app,
 		selection.Organization.Id,
 		now,
-		delta,
-		actionauthor.QuotaFromEnv(),
+		report,
+		actionauthor.QuotaForOrganization(selection.Organization),
 	)
 	if err != nil {
 		return actionauthor.UsageState{}, actionAuthorError(&a.BaseActivity, err)

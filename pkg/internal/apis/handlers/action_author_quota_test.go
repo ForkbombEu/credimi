@@ -36,11 +36,24 @@ func authoringSessionsToday(t testing.TB, app *tests.TestApp) int {
 	return rows[0].GetInt("sessions")
 }
 
+// setAuthoringAllowance sets userA's organization's daily action author allowance.
+func setAuthoringAllowance(t testing.TB, app *tests.TestApp, sessions, tokens int) {
+	t.Helper()
+	org, err := app.FindFirstRecordByData("organizations", "name", "userA's organization")
+	require.NoError(t, err)
+	org.Set("action_author_daily_sessions", sessions)
+	org.Set("action_author_daily_tokens", tokens)
+	require.NoError(t, app.Save(org))
+}
+
 func TestActionAuthorStartEnforcesDailyQuota(t *testing.T) {
-	t.Setenv("CREDIMI_ACTION_AUTHOR_DAILY_SESSIONS", "1")
-	t.Setenv("CREDIMI_ACTION_AUTHOR_DAILY_TOKENS", "1000")
 	token := authoringToken(t, "userA")
 	body := startSessionBody(authoringAdminRunner+"/android-emulator", authoringAndroidVersion)
+	limitedApp := func(t testing.TB) *tests.TestApp {
+		app := setupActionAuthorApp(t)
+		setAuthoringAllowance(t, app, 1, 1000)
+		return app
+	}
 
 	enqueued := stubActionAuthorQueue(t, true)
 	(&tests.ApiScenario{
@@ -51,7 +64,7 @@ func TestActionAuthorStartEnforcesDailyQuota(t *testing.T) {
 		Headers:         map[string]string{"Authorization": "Bearer " + token},
 		ExpectedStatus:  http.StatusAccepted,
 		ExpectedContent: []string{`"ticket_id"`},
-		TestAppFactory:  setupActionAuthorApp,
+		TestAppFactory:  limitedApp,
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
 			require.Equal(t, 1, authoringSessionsToday(t, app))
 		},
@@ -71,11 +84,11 @@ func TestActionAuthorStartEnforcesDailyQuota(t *testing.T) {
 			"your organization reached today's action author limit (1 sessions, 1000 tokens); it resets at 00:00 UTC",
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
-			app := setupActionAuthorApp(t)
+			app := limitedApp(t)
 			org, err := app.FindFirstRecordByData("organizations", "name", "userA's organization")
 			require.NoError(t, err)
 			require.NoError(t, actionauthor.ReserveSession(
-				app, org.Id, time.Now(), actionauthor.QuotaFromEnv(),
+				app, org.Id, time.Now(), actionauthor.QuotaForOrganization(org),
 			))
 			return app
 		},
@@ -83,8 +96,37 @@ func TestActionAuthorStartEnforcesDailyQuota(t *testing.T) {
 	require.Empty(t, enqueued.TicketID)
 }
 
+func TestActionAuthorStartWithoutAllowance(t *testing.T) {
+	token := authoringToken(t, "userA")
+	enqueued := stubActionAuthorQueue(t, true)
+	(&tests.ApiScenario{
+		Name:   "organization left at 0",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/sessions",
+		Body: strings.NewReader(
+			startSessionBody(authoringAdminRunner+"/android-emulator", authoringAndroidVersion),
+		),
+		Headers:        map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus: http.StatusTooManyRequests,
+		ExpectedContent: []string{
+			`"action_author"`,
+			`"quota_exceeded"`,
+			"your organization has no action author allowance; ask a Credimi administrator to set one",
+		},
+		NotExpectedContent: []string{"unlimited", "sessions,"},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			setAuthoringAllowance(t, app, 0, 0)
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+			require.Equal(t, 0, authoringSessionsToday(t, app))
+		},
+	}).Test(t)
+	require.Empty(t, enqueued.TicketID)
+}
+
 func TestActionAuthorStartReleasesQuotaWhenEnqueueFails(t *testing.T) {
-	t.Setenv("CREDIMI_ACTION_AUTHOR_DAILY_SESSIONS", "1")
 	token := authoringToken(t, "userA")
 	for name, tc := range map[string]struct {
 		enqueueErr error

@@ -117,9 +117,11 @@ paths:
         (published or owned records), an https GET or POST without credential headers
         (http), or a fixed value (literal); only the new action''s http parameters
         may check a protocol status. An invalid spec answers 400 invalid_request.
-        Each organization has a daily quota of sessions and model tokens (UTC day);
-        a start beyond it answers 429 quota_exceeded, and a session counts when it
-        is queued. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>:
+        Each organization has a daily allowance of sessions and model tokens (UTC
+        day), set by a superuser on the organization (action_author_daily_sessions,
+        action_author_daily_tokens); new organizations have none. A start without
+        an allowance or beyond it answers 429 quota_exceeded, and a session counts
+        when it is queued. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>:
         once running, its workflow_id is the session and <workflow_id>-author is the
         chat workflow. This endpoint does not save an action: the session''s user
         accepts or refuses each candidate through POST /api/action-author/reviews.'

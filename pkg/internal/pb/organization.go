@@ -166,8 +166,15 @@ func registerOrganizationProtectedFieldsHooks(app core.App) {
 			return e.Next()
 		}
 
-		if e.Record.GetInt("max_pipelines_in_queue") != original.GetInt("max_pipelines_in_queue") {
-			e.Record.Set("max_pipelines_in_queue", original.GetInt("max_pipelines_in_queue"))
+		// Only superusers set the queue limit and the action author allowance.
+		for _, field := range []string{
+			"max_pipelines_in_queue",
+			"action_author_daily_sessions",
+			"action_author_daily_tokens",
+		} {
+			if e.Record.GetInt(field) != original.GetInt(field) {
+				e.Record.Set(field, original.GetInt(field))
+			}
 		}
 
 		if e.Record.GetBool("published") != original.GetBool("published") {

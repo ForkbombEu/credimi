@@ -6,10 +6,10 @@ package actionauthor
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
+	"slices"
 	"time"
 
 	"github.com/pocketbase/dbx"
@@ -17,21 +17,25 @@ import (
 )
 
 const (
-	usageCollection      = "action_author_usage"
-	usageDayLayout       = "2006-01-02"
-	usageDefaultSessions = 20
-	usageDefaultTokens   = 5000000
-	usageSessionsEnv     = "CREDIMI_ACTION_AUTHOR_DAILY_SESSIONS"
-	usageTokensEnv       = "CREDIMI_ACTION_AUTHOR_DAILY_TOKENS"
+	usageCollection = "action_author_usage"
+	usageDayLayout  = "2006-01-02"
+	// usageReportIDs is how many report IDs a day's row remembers.
+	usageReportIDs = 500
 )
 
 // ErrQuotaExceeded reports that an organization used up its daily action author quota.
 var ErrQuotaExceeded = errors.New("daily action author quota exceeded")
 
-// Quota bounds an organization's daily action author usage; a value <= 0 is unlimited.
+// Quota bounds an organization's daily action author usage. A limit <= 0 is
+// no allowance at all: there is no unlimited value.
 type Quota struct {
 	Sessions int
 	Tokens   int
+}
+
+// HasAllowance reports whether the organization may use the action author at all.
+func (q Quota) HasAllowance() bool {
+	return q.Sessions > 0 && q.Tokens > 0
 }
 
 // UsageDelta is the model usage consumed by an authoring session since its last report.
@@ -41,32 +45,26 @@ type UsageDelta struct {
 	OutputTokens int `json:"output_tokens"`
 }
 
+// UsageReport is one usage report of an agent turn. ReportID identifies the
+// turn, so a retried report counts once.
+type UsageReport struct {
+	ReportID string `json:"report_id"`
+	UsageDelta
+}
+
 // UsageState summarizes an organization's remaining daily token budget.
 type UsageState struct {
-	Exhausted bool `json:"exhausted"`
-	// TokensRemaining is -1 when the token quota is unlimited.
-	TokensRemaining int `json:"tokens_remaining"`
+	Exhausted       bool `json:"exhausted"`
+	TokensRemaining int  `json:"tokens_remaining"`
 }
 
-// QuotaFromEnv reads the daily quota from CREDIMI_ACTION_AUTHOR_DAILY_SESSIONS and
-// CREDIMI_ACTION_AUTHOR_DAILY_TOKENS, using the defaults when unset or not an integer.
-func QuotaFromEnv() Quota {
+// QuotaForOrganization returns the daily quota a superuser set on the
+// organization record; new organizations have none.
+func QuotaForOrganization(org *core.Record) Quota {
 	return Quota{
-		Sessions: usageEnvInt(usageSessionsEnv, usageDefaultSessions),
-		Tokens:   usageEnvInt(usageTokensEnv, usageDefaultTokens),
+		Sessions: org.GetInt("action_author_daily_sessions"),
+		Tokens:   org.GetInt("action_author_daily_tokens"),
 	}
-}
-
-func usageEnvInt(key string, fallback int) int {
-	value, ok := os.LookupEnv(key)
-	if !ok {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		return fallback
-	}
-	return parsed
 }
 
 // ReserveSession counts a new authoring session for orgID on now's UTC day, failing with
@@ -77,10 +75,10 @@ func ReserveSession(app core.App, orgID string, now time.Time, q Quota) error {
 		if err != nil {
 			return err
 		}
-		if q.Sessions > 0 && record.GetInt("sessions") >= q.Sessions {
+		if q.Sessions <= 0 || record.GetInt("sessions") >= q.Sessions {
 			return ErrQuotaExceeded
 		}
-		if q.Tokens > 0 && usageTokens(record) >= q.Tokens {
+		if q.Tokens <= 0 || usageTokens(record) >= q.Tokens {
 			return ErrQuotaExceeded
 		}
 		record.Set("sessions", record.GetInt("sessions")+1)
@@ -110,13 +108,14 @@ func ReleaseSession(app core.App, orgID string, now time.Time) error {
 	})
 }
 
-// RecordUsage adds d to orgID's usage on now's UTC day and reports the remaining token budget.
+// RecordUsage adds r's usage to orgID's usage on now's UTC day and reports the remaining
+// token budget. A report whose ID the day already counted only reports the state.
 // Negative delta components are ignored.
 func RecordUsage(
 	app core.App,
 	orgID string,
 	now time.Time,
-	d UsageDelta,
+	r UsageReport,
 	q Quota,
 ) (UsageState, error) {
 	var state UsageState
@@ -125,9 +124,24 @@ func RecordUsage(
 		if err != nil {
 			return err
 		}
-		record.Set("input_tokens", record.GetInt("input_tokens")+max(0, d.InputTokens))
-		record.Set("output_tokens", record.GetInt("output_tokens")+max(0, d.OutputTokens))
-		record.Set("model_calls", record.GetInt("model_calls")+max(0, d.Requests))
+		var reportIDs []string
+		if raw := record.GetString("report_ids"); raw != "" {
+			if err := json.Unmarshal([]byte(raw), &reportIDs); err != nil {
+				return fmt.Errorf("failed to read action author usage report IDs: %w", err)
+			}
+		}
+		if slices.Contains(reportIDs, r.ReportID) {
+			state = usageStateOf(usageTokens(record), q)
+			return nil
+		}
+		reportIDs = append(reportIDs, r.ReportID)
+		if len(reportIDs) > usageReportIDs {
+			reportIDs = reportIDs[len(reportIDs)-usageReportIDs:]
+		}
+		record.Set("report_ids", reportIDs)
+		record.Set("input_tokens", record.GetInt("input_tokens")+max(0, r.InputTokens))
+		record.Set("output_tokens", record.GetInt("output_tokens")+max(0, r.OutputTokens))
+		record.Set("model_calls", record.GetInt("model_calls")+max(0, r.Requests))
 		if err := txApp.Save(record); err != nil {
 			return fmt.Errorf("failed to save action author usage: %w", err)
 		}
@@ -141,8 +155,8 @@ func RecordUsage(
 }
 
 func usageStateOf(used int, q Quota) UsageState {
-	if q.Tokens <= 0 {
-		return UsageState{TokensRemaining: -1}
+	if !q.HasAllowance() {
+		return UsageState{Exhausted: true}
 	}
 	return UsageState{
 		Exhausted:       used >= q.Tokens,
