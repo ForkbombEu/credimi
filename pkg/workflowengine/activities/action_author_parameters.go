@@ -151,6 +151,9 @@ func (a *GenerateActionAuthorParametersActivity) generate(
 	if err != nil {
 		return output, err
 	}
+	if err := checkSessionSpec(&a.BaseActivity, session); err != nil {
+		return output, err
+	}
 	selection, err := actionauthor.Select(a.app, caller.Namespace, session.BuildRequest)
 	if err != nil {
 		return output, actionAuthorError(&a.BaseActivity, err)
@@ -367,6 +370,9 @@ func (a *CheckActionAuthorProtocolOutcomeActivity) check(
 	var output CheckActionAuthorProtocolOutcomeOutput
 	session, err := a.callerSession(ctx, &a.BaseActivity, caller)
 	if err != nil {
+		return output, err
+	}
+	if err := checkSessionSpec(&a.BaseActivity, session); err != nil {
 		return output, err
 	}
 	status, err := candidateStatus(session.Spec, payload.Parameter)

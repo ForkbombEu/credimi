@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -224,6 +225,9 @@ func (a *SaveAuthoredWalletActionActivity) save(
 	if err != nil {
 		return actionauthor.Receipt{}, err
 	}
+	if err := checkSessionSpec(&a.BaseActivity, session); err != nil {
+		return actionauthor.Receipt{}, err
+	}
 	if !matchesSession(payload.ActorID, session.ActorID) ||
 		!matchesSession(payload.ActorCollection, session.ActorCollection) ||
 		!matchesSession(payload.WalletVersionIdentifier, session.WalletVersionIdentifier) ||
@@ -327,6 +331,18 @@ func (l authorSessionLookup) callerSession(
 		return actionauthor.Session{}, lookupError(base, err)
 	}
 	return ref.Session, nil
+}
+
+// checkSessionSpec validates the session's spec again: the start input is
+// read from Temporal history, which a client may have written without going
+// through the start handler. It validates a copy and leaves the session as is.
+func checkSessionSpec(base *workflowengine.BaseActivity, session actionauthor.Session) error {
+	spec := session.Spec
+	spec.Prerequisites = slices.Clone(spec.Prerequisites)
+	if err := spec.Normalize(session.Platform); err != nil {
+		return actionAuthorError(base, fmt.Errorf("action author session spec: %w", err))
+	}
+	return nil
 }
 
 // actionAuthorSessionID returns the session workflow ID of an ActionAuthor

@@ -72,7 +72,7 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 	app, session, namespace := authorSaveFixture(t)
 	credential := seedDynamicCredential(t, app, session)
 	var sessions atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/broken":
 			w.WriteHeader(http.StatusBadGateway)
@@ -130,7 +130,7 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 	activity := func(spec actionauthor.Spec) *GenerateActionAuthorParametersActivity {
 		a := NewGenerateActionAuthorParametersActivity(app)
 		a.authorSessionLookup = specSessionLookup(t, session, spec).lookup()
-		a.transport = http.DefaultTransport
+		a.transport = server.Client().Transport
 		a.runStepCI = func(_ context.Context, code string, _ map[string]string) (string, error) {
 			require.Equal(t, "version: \"1.1\"\n", code)
 			return "openid-credential-offer://dynamic", nil
@@ -302,12 +302,17 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 	t.Cleanup(server.Close)
 	spec := func(outcome string) actionauthor.Spec {
 		return actionauthor.Spec{
-			Slot:    "verify-credential",
-			Outcome: outcome,
+			Slot:          "verify-credential",
+			Outcome:       outcome,
+			Prerequisites: []actionauthor.PrerequisiteSpec{{Action: "org/wallet/get-pid"}},
 			Parameters: []actionauthor.ParameterSpec{{
 				Name: "deeplink",
 				Source: actionauthor.SourceSpec{
-					Kind:      actionauthor.SourceHTTP,
+					Kind: actionauthor.SourceHTTP,
+					Request: &actionauthor.HTTPSourceRequest{
+						Method: http.MethodPost,
+						URL:    server.URL + "/sessions",
+					},
 					ValuePath: "deeplink",
 					Captures:  map[string]string{"session_id": "id"},
 					Status: &actionauthor.StatusSpec{
