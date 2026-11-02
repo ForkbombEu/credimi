@@ -119,18 +119,9 @@ func HandleActionAuthorWalletVersions() func(*core.RequestEvent) error {
 	}
 }
 
-// ActionAuthorWalletAction is one action a session can run as a prerequisite.
-type ActionAuthorWalletAction struct {
-	Path       string   `json:"path"`
-	Name       string   `json:"name"`
-	Category   string   `json:"category"`
-	Published  bool     `json:"published"`
-	Parameters []string `json:"parameters"`
-}
-
 // ActionAuthorWalletActionsResponse lists the prerequisite candidates of a wallet.
 type ActionAuthorWalletActionsResponse struct {
-	Actions []ActionAuthorWalletAction `json:"actions"`
+	Actions []actionauthor.WalletAction `json:"actions"`
 }
 
 // HandleActionAuthorWalletActions lists the wallet's owned and published
@@ -158,35 +149,9 @@ func HandleActionAuthorWalletActions() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(e, err)
 		}
-		records, err := e.App.FindRecordsByFilter(
-			"wallet_actions",
-			"wallet = {:wallet} && (owner = {:org} || published = true)",
-			"category,name",
-			0,
-			0,
-			dbx.Params{"wallet": selection.Wallet.Id, "org": selection.Organization.Id},
-		)
+		actions, err := actionauthor.ListWalletActions(e.App, selection, "")
 		if err != nil {
-			return authoringAPIError(e, fmt.Errorf("list wallet actions: %w", err))
-		}
-		actions := make([]ActionAuthorWalletAction, 0, len(records))
-		for _, record := range records {
-			path, err := canonify.BuildPath(
-				e.App,
-				record,
-				canonify.CanonifyPaths["wallet_actions"],
-				record.GetString("canonified_name"),
-			)
-			if err != nil {
-				return authoringAPIError(e, fmt.Errorf("build wallet action path: %w", err))
-			}
-			actions = append(actions, ActionAuthorWalletAction{
-				Path:       path,
-				Name:       record.GetString("name"),
-				Category:   record.GetString("category"),
-				Published:  record.GetBool("published"),
-				Parameters: actionauthor.ActionParameters(record.GetString("code")),
-			})
+			return authoringAPIError(e, err)
 		}
 		return e.JSON(http.StatusOK, ActionAuthorWalletActionsResponse{Actions: actions})
 	}

@@ -25,7 +25,7 @@ const (
 	ApprovalLifetime = 30 * time.Minute
 )
 
-var approvalEncoding = base64.RawURLEncoding
+var tokenEncoding = base64.RawURLEncoding
 
 // Approval is a human's acceptance of one candidate of one ActionAuthor
 // workflow, signed by Credimi.
@@ -35,42 +35,77 @@ type Approval struct {
 	ApproverID         string `json:"approver_id"`
 	ApproverCollection string `json:"approver_collection"`
 	ApprovedAt         int64  `json:"approved_at"`
+	// PlanSHA256 binds the approval to the plan the session saves with.
+	PlanSHA256 string `json:"plan_sha256"`
 }
 
-// approvalKey derives the signing key from the users collection's auth token
-// secret, so rotating that secret also revokes pending approvals.
-func approvalKey(app core.App) ([]byte, error) {
+// signingKey derives a signing key for one token kind from the users
+// collection's auth token secret, so rotating that secret also revokes
+// pending approvals and plans.
+func signingKey(app core.App, label string) ([]byte, error) {
 	users, err := app.FindCollectionByNameOrId("users")
 	if err != nil {
 		return nil, fmt.Errorf("find users collection: %w", err)
 	}
 	secret := users.AuthToken.Secret
 	if len(secret) < approvalMinSecretLen {
-		return nil, errors.New("users auth token secret is too short to sign approvals")
+		return nil, errors.New("users auth token secret is too short to sign tokens")
 	}
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(approvalKeyLabel))
+	mac.Write([]byte(label))
 	return mac.Sum(nil), nil
 }
 
-func approvalMAC(key []byte, payload string) []byte {
+func tokenMAC(key []byte, payload string) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(payload))
 	return mac.Sum(nil)
 }
 
-// SignApproval returns the token base64url(json).base64url(hmac).
-func SignApproval(app core.App, a Approval) (string, error) {
-	key, err := approvalKey(app)
+// signToken returns the token base64url(json).base64url(hmac) of v, signed
+// with the key of label.
+func signToken(app core.App, label string, v any) (string, error) {
+	key, err := signingKey(app, label)
 	if err != nil {
 		return "", err
 	}
-	encoded, err := json.Marshal(a)
+	encoded, err := json.Marshal(v)
 	if err != nil {
-		return "", fmt.Errorf("encode approval: %w", err)
+		return "", fmt.Errorf("encode token: %w", err)
 	}
-	payload := approvalEncoding.EncodeToString(encoded)
-	return payload + "." + approvalEncoding.EncodeToString(approvalMAC(key, payload)), nil
+	payload := tokenEncoding.EncodeToString(encoded)
+	return payload + "." + tokenEncoding.EncodeToString(tokenMAC(key, payload)), nil
+}
+
+// errUnsigned rejects a token Credimi did not sign with the expected key.
+var errUnsigned = errors.New("token not signed by Credimi")
+
+// verifyToken decodes into v a token signed with the key of label. It
+// returns errUnsigned for a token that is malformed or signed otherwise, and
+// other errors when the key cannot be derived.
+func verifyToken(app core.App, label, token string, v any) error {
+	key, err := signingKey(app, label)
+	if err != nil {
+		return err
+	}
+	payload, signature, ok := strings.Cut(token, ".")
+	if !ok {
+		return errUnsigned
+	}
+	mac, err := tokenEncoding.DecodeString(signature)
+	if err != nil || !hmac.Equal(mac, tokenMAC(key, payload)) {
+		return errUnsigned
+	}
+	encoded, err := tokenEncoding.DecodeString(payload)
+	if err != nil || json.Unmarshal(encoded, v) != nil {
+		return errUnsigned
+	}
+	return nil
+}
+
+// SignApproval returns the token base64url(json).base64url(hmac).
+func SignApproval(app core.App, a Approval) (string, error) {
+	return signToken(app, approvalKeyLabel, a)
 }
 
 // VerifyApproval accepts only an unexpired token Credimi signed for this
@@ -80,25 +115,15 @@ func VerifyApproval(
 	token, authorWorkflowID, candidateSHA256 string,
 	now time.Time,
 ) (Approval, error) {
-	var approval Approval
 	forbidden := func(reason string) error {
 		return fmt.Errorf("%w: %s", ErrForbidden, reason)
 	}
-	key, err := approvalKey(app)
-	if err != nil {
-		return approval, err
-	}
-	payload, signature, ok := strings.Cut(token, ".")
-	if !ok {
-		return approval, forbidden("the approval is not signed by Credimi")
-	}
-	mac, err := approvalEncoding.DecodeString(signature)
-	if err != nil || !hmac.Equal(mac, approvalMAC(key, payload)) {
-		return approval, forbidden("the approval is not signed by Credimi")
-	}
-	encoded, err := approvalEncoding.DecodeString(payload)
-	if err != nil || json.Unmarshal(encoded, &approval) != nil {
-		return Approval{}, forbidden("the approval is not signed by Credimi")
+	var approval Approval
+	if err := verifyToken(app, approvalKeyLabel, token, &approval); err != nil {
+		if errors.Is(err, errUnsigned) {
+			return Approval{}, forbidden("the approval is not signed by Credimi")
+		}
+		return Approval{}, err
 	}
 	switch {
 	case approval.AuthorWorkflowID != authorWorkflowID:

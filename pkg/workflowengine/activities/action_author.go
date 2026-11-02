@@ -95,15 +95,6 @@ type ResolveActionAuthorPrerequisitesInput struct {
 	Prerequisites []actionauthor.PrerequisiteSpec `json:"prerequisites"`
 }
 
-// ResolvedActionAuthorPrerequisite is a prerequisite action the agent runs
-// before exploring and before every replay.
-type ResolvedActionAuthorPrerequisite struct {
-	Action     string   `json:"action"`
-	Name       string   `json:"name"`
-	Code       string   `json:"code"`
-	Parameters []string `json:"parameters"`
-}
-
 // ResolveActionAuthorPrerequisitesActivity reauthorizes the session's build
 // and returns the code of its prerequisite actions.
 type ResolveActionAuthorPrerequisitesActivity struct {
@@ -148,7 +139,7 @@ func (a *ResolveActionAuthorPrerequisitesActivity) Execute(
 func (a *ResolveActionAuthorPrerequisitesActivity) resolve(
 	namespace string,
 	payload ResolveActionAuthorPrerequisitesInput,
-) ([]ResolvedActionAuthorPrerequisite, error) {
+) ([]actionauthor.ResolvedPrerequisite, error) {
 	if namespace == "" {
 		return nil, actionauthor.ErrForbidden
 	}
@@ -157,20 +148,7 @@ func (a *ResolveActionAuthorPrerequisitesActivity) resolve(
 		return nil, err
 	}
 	spec := actionauthor.Spec{Prerequisites: payload.Prerequisites}
-	records, err := actionauthor.CheckSpecRecords(a.app, selection, &spec)
-	if err != nil {
-		return nil, err
-	}
-	resolved := make([]ResolvedActionAuthorPrerequisite, 0, len(records))
-	for i, record := range records {
-		resolved = append(resolved, ResolvedActionAuthorPrerequisite{
-			Action:     spec.Prerequisites[i].Action,
-			Name:       record.GetString("name"),
-			Code:       record.GetString("code"),
-			Parameters: actionauthor.ActionParameters(record.GetString("code")),
-		})
-	}
-	return resolved, nil
+	return actionauthor.ResolvePrerequisites(a.app, selection, &spec)
 }
 
 // SaveAuthoredWalletActionActivity persists a candidate approved through the workflow.

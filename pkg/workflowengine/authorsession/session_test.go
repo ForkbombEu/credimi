@@ -99,7 +99,7 @@ func newSessionHarness(t *testing.T, deviceType string) *sessionHarness {
 		if h.prerequisitesErr != nil {
 			return nil, h.prerequisitesErr
 		}
-		return map[string]any{"prerequisites": []activities.ResolvedActionAuthorPrerequisite{{
+		return map[string]any{"prerequisites": []actionauthor.ResolvedPrerequisite{{
 			Action:     "tenant/wallet/onboarding",
 			Name:       "Onboarding",
 			Code:       "appId: eu.wallet\n---\n- launchApp\n",
@@ -315,8 +315,8 @@ func TestSessionStartsAuthorOnRunnerQueueWithAuthoringContext(t *testing.T) {
 		ActorCollection:         "users",
 		Slot:                    "onboarding",
 		Outcome:                 "success",
-		Prerequisites:           []AuthoringPrerequisite{},
-		Parameters:              []AuthoringParameter{},
+		Prerequisites:           []actionauthor.ResolvedPrerequisite{},
+		Parameters:              []actionauthor.ParameterInfo{},
 		AppID:                   "",
 		Platform:                actionauthor.PlatformAndroid,
 		Build: AuthoringBuild{
@@ -390,13 +390,13 @@ func TestSessionPassesPrerequisitesAndParametersToAuthor(t *testing.T) {
 	require.Equal(t, "verify-credential", h.childContext.Slot)
 	require.Equal(t, actionauthor.OutcomeRejection, h.childContext.Outcome)
 	require.True(t, h.childContext.Browser)
-	require.Equal(t, []AuthoringPrerequisite{{
+	require.Equal(t, []actionauthor.ResolvedPrerequisite{{
 		Action:     "tenant/wallet/onboarding",
 		Name:       "Onboarding",
 		Code:       "appId: eu.wallet\n---\n- launchApp\n",
 		Parameters: []string{},
 	}}, h.childContext.Prerequisites)
-	require.Equal(t, []AuthoringParameter{
+	require.Equal(t, []actionauthor.ParameterInfo{
 		{
 			Name:        "offer",
 			Kind:        "credential_offer",

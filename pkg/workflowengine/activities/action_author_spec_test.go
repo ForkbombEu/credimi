@@ -67,7 +67,7 @@ func TestResolveActionAuthorPrerequisites(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, []ResolvedActionAuthorPrerequisite{
+	require.Equal(t, []actionauthor.ResolvedPrerequisite{
 		{
 			Action:     onboarding,
 			Name:       "Onboarding",

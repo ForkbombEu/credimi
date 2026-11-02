@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -228,7 +229,7 @@ func TestActionAuthorWalletActionsListsOwnedAndPublished(t *testing.T) {
 			require.NoError(t, json.Unmarshal(body, &response))
 		},
 	}).Test(t)
-	require.Equal(t, []ActionAuthorWalletAction{
+	require.Equal(t, []actionauthor.WalletAction{
 		{
 			Path:       authoringGetPIDAction,
 			Name:       "Get PID",
