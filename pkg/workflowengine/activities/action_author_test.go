@@ -35,8 +35,8 @@ const (
 	authorTestParentRun = "session-run"
 )
 
-func authorTestCaller() saveCaller {
-	return saveCaller{
+func authorTestCaller() authorCaller {
+	return authorCaller{
 		Namespace:    authorTestNamespace,
 		WorkflowType: ActionAuthorWorkflowType,
 		WorkflowID:   authorTestAuthorID,
@@ -126,8 +126,8 @@ func validSessionLookup(t *testing.T) sessionLookup {
 	}
 }
 
-func (l sessionLookup) activity(t *testing.T, app core.App) *SaveAuthoredWalletActionActivity {
-	t.Helper()
+// client fakes the caller's namespace client.
+func (l sessionLookup) client() *temporalmocks.Client {
 	mockClient := &temporalmocks.Client{}
 	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
 		Return(l.author, l.authorErr).
@@ -143,13 +143,24 @@ func (l sessionLookup) activity(t *testing.T, app core.App) *SaveAuthoredWalletA
 		false,
 		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 	).Return(l.history).Maybe()
-	a := NewSaveAuthoredWalletActionActivity(app)
-	a.temporalClient = func(string) (client.Client, error) {
+	return mockClient
+}
+
+// lookup resolves callers against the faked namespace.
+func (l sessionLookup) lookup() authorSessionLookup {
+	mockClient := l.client()
+	return authorSessionLookup{temporalClient: func(string) (client.Client, error) {
 		if l.clientErr != nil {
 			return nil, l.clientErr
 		}
 		return mockClient, nil
-	}
+	}}
+}
+
+func (l sessionLookup) activity(t *testing.T, app core.App) *SaveAuthoredWalletActionActivity {
+	t.Helper()
+	a := NewSaveAuthoredWalletActionActivity(app)
+	a.authorSessionLookup = l.lookup()
 	return a
 }
 
@@ -158,7 +169,7 @@ func TestSaveAuthoredWalletActionRejectsCallersOutsideARunningSession(t *testing
 	notFound := serviceerror.NewNotFound("not found")
 	tests := []struct {
 		name      string
-		caller    func(*saveCaller)
+		caller    func(*authorCaller)
 		lookup    func(*sessionLookup)
 		payload   func(*actionauthor.SaveRequest)
 		code      string
@@ -167,31 +178,31 @@ func TestSaveAuthoredWalletActionRejectsCallersOutsideARunningSession(t *testing
 	}{
 		{
 			name:    "missing namespace",
-			caller:  func(c *saveCaller) { c.Namespace = "" },
+			caller:  func(c *authorCaller) { c.Namespace = "" },
 			code:    errorcodes.RecordNotAccessible,
 			message: "caller is not an action author session agent",
 		},
 		{
 			name:    "another workflow type",
-			caller:  func(c *saveCaller) { c.WorkflowType = "Some pipeline" },
+			caller:  func(c *authorCaller) { c.WorkflowType = "Some pipeline" },
 			code:    errorcodes.RecordNotAccessible,
 			message: "caller is not an action author session agent",
 		},
 		{
 			name:    "workflow ID without author suffix",
-			caller:  func(c *saveCaller) { c.WorkflowID = authorTestSessionID },
+			caller:  func(c *authorCaller) { c.WorkflowID = authorTestSessionID },
 			code:    errorcodes.RecordNotAccessible,
 			message: "caller is not an action author session agent",
 		},
 		{
 			name:    "workflow ID without session prefix",
-			caller:  func(c *saveCaller) { c.WorkflowID = "Pipeline-1-author" },
+			caller:  func(c *authorCaller) { c.WorkflowID = "Pipeline-1-author" },
 			code:    errorcodes.RecordNotAccessible,
 			message: "caller is not an action author session agent",
 		},
 		{
 			name:    "workflow ID without ticket",
-			caller:  func(c *saveCaller) { c.WorkflowID = ActionAuthorSessionWorkflowIDPrefix + "-author" },
+			caller:  func(c *authorCaller) { c.WorkflowID = ActionAuthorSessionWorkflowIDPrefix + "-author" },
 			code:    errorcodes.RecordNotAccessible,
 			message: "caller is not an action author session agent",
 		},

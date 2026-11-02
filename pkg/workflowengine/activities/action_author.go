@@ -174,31 +174,23 @@ func (a *ResolveActionAuthorPrerequisitesActivity) resolve(
 // SaveAuthoredWalletActionActivity persists a candidate approved through the workflow.
 type SaveAuthoredWalletActionActivity struct {
 	workflowengine.BaseActivity
+	authorSessionLookup
 	app core.App
-	// temporalClient returns the client of the caller's namespace, used to
-	// look up the caller's parent session.
-	temporalClient func(namespace string) (client.Client, error)
 }
 
 // NewSaveAuthoredWalletActionActivity binds approved-action persistence to the application.
 func NewSaveAuthoredWalletActionActivity(app core.App) *SaveAuthoredWalletActionActivity {
 	return &SaveAuthoredWalletActionActivity{
-		BaseActivity:   workflowengine.BaseActivity{Name: SaveAuthoredWalletActionActivityName},
-		app:            app,
-		temporalClient: temporalclient.GetTemporalClientWithNamespace,
+		BaseActivity: workflowengine.BaseActivity{
+			Name: SaveAuthoredWalletActionActivityName,
+		},
+		authorSessionLookup: newAuthorSessionLookup(),
+		app:                 app,
 	}
 }
 
 // Name returns the registered Temporal activity name.
 func (a *SaveAuthoredWalletActionActivity) Name() string { return a.BaseActivity.Name }
-
-// saveCaller is the workflow execution that scheduled the save.
-type saveCaller struct {
-	Namespace    string
-	WorkflowType string
-	WorkflowID   string
-	RunID        string
-}
 
 // Execute saves the candidate with the activity's actual namespace and workflow identity.
 func (a *SaveAuthoredWalletActionActivity) Execute(
@@ -210,13 +202,7 @@ func (a *SaveAuthoredWalletActionActivity) Execute(
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
-	info := activity.GetInfo(ctx)
-	receipt, err := a.save(ctx, saveCaller{
-		Namespace:    info.Namespace,
-		WorkflowType: info.WorkflowType.Name,
-		WorkflowID:   info.WorkflowExecution.ID,
-		RunID:        info.WorkflowExecution.RunID,
-	}, payload)
+	receipt, err := a.save(ctx, activityCaller(ctx), payload)
 	if err != nil {
 		return result, err
 	}
@@ -229,10 +215,10 @@ func (a *SaveAuthoredWalletActionActivity) Execute(
 // platform rather than those of the payload.
 func (a *SaveAuthoredWalletActionActivity) save(
 	ctx context.Context,
-	caller saveCaller,
+	caller authorCaller,
 	payload actionauthor.SaveRequest,
 ) (actionauthor.Receipt, error) {
-	session, err := a.callerSession(ctx, caller)
+	session, err := a.callerSession(ctx, &a.BaseActivity, caller)
 	if err != nil {
 		return actionauthor.Receipt{}, err
 	}
@@ -244,7 +230,7 @@ func (a *SaveAuthoredWalletActionActivity) save(
 			"%w: save request does not match the session", actionauthor.ErrForbidden,
 		))
 	}
-	payload.BuildRequest = session
+	payload.BuildRequest = session.BuildRequest
 	receipt, err := actionauthor.Save(
 		a.app,
 		caller.Namespace,
@@ -263,48 +249,118 @@ func matchesSession(requested, session string) bool {
 	return requested == "" || requested == session
 }
 
-// callerSession returns the build request of the running session whose
-// ActionAuthor child is the caller, taken from the session's start input.
-func (a *SaveAuthoredWalletActionActivity) callerSession(
+// authorCaller is the workflow execution that scheduled an action author activity.
+type authorCaller struct {
+	Namespace    string
+	WorkflowType string
+	WorkflowID   string
+	RunID        string
+}
+
+// activityCaller returns the workflow execution that scheduled the activity.
+func activityCaller(ctx context.Context) authorCaller {
+	info := activity.GetInfo(ctx)
+	return authorCaller{
+		Namespace:    info.Namespace,
+		WorkflowType: info.WorkflowType.Name,
+		WorkflowID:   info.WorkflowExecution.ID,
+		RunID:        info.WorkflowExecution.RunID,
+	}
+}
+
+// authorSessionLookup finds the running session of an ActionAuthor caller.
+type authorSessionLookup struct {
+	// temporalClient returns the client of the caller's namespace, used to
+	// look up the caller's parent session.
+	temporalClient func(namespace string) (client.Client, error)
+}
+
+func newAuthorSessionLookup() authorSessionLookup {
+	return authorSessionLookup{temporalClient: temporalclient.GetTemporalClientWithNamespace}
+}
+
+// callerSession accepts only the ActionAuthor child of a running session in
+// the caller's namespace and returns the session's start input.
+func (l authorSessionLookup) callerSession(
 	ctx context.Context,
-	caller saveCaller,
-) (actionauthor.BuildRequest, error) {
-	var none actionauthor.BuildRequest
-	forbidden := func(reason string) error {
-		return actionAuthorError(
-			&a.BaseActivity,
-			fmt.Errorf("%w: %s", actionauthor.ErrForbidden, reason),
+	base *workflowengine.BaseActivity,
+	caller authorCaller,
+) (actionauthor.Session, error) {
+	if _, isAuthor := actionAuthorSessionID(caller.WorkflowID); caller.Namespace == "" ||
+		caller.WorkflowType != ActionAuthorWorkflowType || !isAuthor {
+		return actionauthor.Session{}, actionAuthorError(base, fmt.Errorf(
+			"%w: caller is not an action author session agent", actionauthor.ErrForbidden,
+		))
+	}
+	temporalClient, err := l.temporalClient(caller.Namespace)
+	if err != nil {
+		return actionauthor.Session{}, lookupError(
+			base,
+			fmt.Errorf("look up action author session: %w", err),
 		)
 	}
-	sessionID, isAuthor := strings.CutSuffix(caller.WorkflowID, ActionAuthorWorkflowIDSuffix)
-	if caller.Namespace == "" || caller.WorkflowType != ActionAuthorWorkflowType || !isAuthor ||
-		len(sessionID) <= len(ActionAuthorSessionWorkflowIDPrefix) ||
-		!strings.HasPrefix(sessionID, ActionAuthorSessionWorkflowIDPrefix) {
-		return none, forbidden("caller is not an action author session agent")
+	ref, err := LookupActionAuthorSession(ctx, temporalClient, caller.WorkflowID, caller.RunID)
+	if errors.Is(err, actionauthor.ErrForbidden) {
+		return actionauthor.Session{}, actionAuthorError(base, err)
 	}
-	temporalClient, err := a.temporalClient(caller.Namespace)
 	if err != nil {
-		return none, a.lookupError(err)
+		return actionauthor.Session{}, lookupError(base, err)
 	}
-	self, err := temporalClient.DescribeWorkflowExecution(ctx, caller.WorkflowID, caller.RunID)
+	return ref.Session, nil
+}
+
+// actionAuthorSessionID returns the session workflow ID of an ActionAuthor
+// workflow ID, "<session workflow ID>-author".
+func actionAuthorSessionID(authorWorkflowID string) (string, bool) {
+	sessionID, isAuthor := strings.CutSuffix(authorWorkflowID, ActionAuthorWorkflowIDSuffix)
+	return sessionID, isAuthor && len(sessionID) > len(ActionAuthorSessionWorkflowIDPrefix) &&
+		strings.HasPrefix(sessionID, ActionAuthorSessionWorkflowIDPrefix)
+}
+
+// ActionAuthorSessionRef identifies a running session and its start input.
+type ActionAuthorSessionRef struct {
+	SessionWorkflowID string
+	SessionRunID      string
+	Session           actionauthor.Session
+}
+
+// LookupActionAuthorSession returns the running session whose ActionAuthor
+// child is the given workflow (its latest run when authorRunID is empty),
+// taken from the session's start input. Errors wrapping
+// actionauthor.ErrForbidden reject the workflow; others are transient.
+func LookupActionAuthorSession(
+	ctx context.Context,
+	c client.Client,
+	authorWorkflowID string,
+	authorRunID string,
+) (ActionAuthorSessionRef, error) {
+	var ref ActionAuthorSessionRef
+	forbidden := func(reason string) error {
+		return fmt.Errorf("%w: %s", actionauthor.ErrForbidden, reason)
+	}
+	sessionID, isAuthor := actionAuthorSessionID(authorWorkflowID)
+	if !isAuthor {
+		return ref, forbidden("caller is not an action author session agent")
+	}
+	self, err := c.DescribeWorkflowExecution(ctx, authorWorkflowID, authorRunID)
 	if err != nil {
-		return none, a.describeError(err, forbidden)
+		return ref, describeLookupError(err)
 	}
 	parent := self.GetWorkflowExecutionInfo().GetParentExecution()
 	if self.GetWorkflowExecutionInfo().GetType().GetName() != ActionAuthorWorkflowType ||
 		parent.GetWorkflowId() != sessionID || parent.GetRunId() == "" {
-		return none, forbidden("caller is not the child of its action author session")
+		return ref, forbidden("caller is not the child of its action author session")
 	}
-	described, err := temporalClient.DescribeWorkflowExecution(ctx, sessionID, parent.GetRunId())
+	described, err := c.DescribeWorkflowExecution(ctx, sessionID, parent.GetRunId())
 	if err != nil {
-		return none, a.describeError(err, forbidden)
+		return ref, describeLookupError(err)
 	}
 	sessionInfo := described.GetWorkflowExecutionInfo()
 	if sessionInfo.GetType().GetName() != ActionAuthorSessionWorkflowName ||
 		sessionInfo.GetStatus() != enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING {
-		return none, forbidden("action author session is not running")
+		return ref, forbidden("action author session is not running")
 	}
-	history := temporalClient.GetWorkflowHistory(
+	history := c.GetWorkflowHistory(
 		ctx,
 		sessionID,
 		parent.GetRunId(),
@@ -312,45 +368,43 @@ func (a *SaveAuthoredWalletActionActivity) callerSession(
 		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 	)
 	if !history.HasNext() {
-		return none, forbidden("action author session has no start input")
+		return ref, forbidden("action author session has no start input")
 	}
 	event, err := history.Next()
 	if err != nil {
-		return none, a.lookupError(err)
+		return ref, fmt.Errorf("look up action author session: %w", err)
 	}
 	started := event.GetWorkflowExecutionStartedEventAttributes()
 	var input workflowengine.WorkflowInput
 	if started == nil ||
 		temporalcrypto.DataConverter().FromPayloads(started.GetInput(), &input) != nil {
-		return none, forbidden("action author session has no start input")
+		return ref, forbidden("action author session has no start input")
 	}
-	// The session's SessionInput carries the build request fields.
-	session, err := workflowengine.DecodePayload[actionauthor.BuildRequest](input.Payload)
+	// The session's SessionInput carries the build request and spec fields.
+	session, err := workflowengine.DecodePayload[actionauthor.Session](input.Payload)
 	if err != nil || session.ActorID == "" || session.ActorCollection == "" ||
 		session.WalletVersionIdentifier == "" || session.Platform == "" {
-		return none, forbidden("action author session has no actor or build")
+		return ref, forbidden("action author session has no actor or build")
 	}
-	return session, nil
+	return ActionAuthorSessionRef{
+		SessionWorkflowID: sessionID,
+		SessionRunID:      parent.GetRunId(),
+		Session:           session,
+	}, nil
 }
 
-// describeError rejects an unknown execution and retries transient failures.
-func (a *SaveAuthoredWalletActionActivity) describeError(
-	err error,
-	forbidden func(string) error,
-) error {
+// describeLookupError rejects an unknown execution and retries transient failures.
+func describeLookupError(err error) error {
 	var notFound *serviceerror.NotFound
 	if errors.As(err, &notFound) {
-		return forbidden("action author session not found")
+		return fmt.Errorf("%w: action author session not found", actionauthor.ErrForbidden)
 	}
-	return a.lookupError(err)
+	return fmt.Errorf("look up action author session: %w", err)
 }
 
-func (a *SaveAuthoredWalletActionActivity) lookupError(err error) error {
-	return a.NewCodedError(
-		errorcodes.UnexpectedWorkflowError,
-		true,
-		fmt.Errorf("look up action author session: %w", err),
-	)
+// lookupError retries a session lookup that failed for a transient reason.
+func lookupError(base *workflowengine.BaseActivity, err error) error {
+	return base.NewCodedError(errorcodes.UnexpectedWorkflowError, true, err)
 }
 
 // actionAuthorError makes authorization, validation and approval failures

@@ -326,6 +326,8 @@ A session authors one action spec (`actionauthor.Spec`, `pkg/internal/actionauth
 
 Before preparing the device, a session with prerequisites rechecks them in the organization namespace with `Resolve action author prerequisites` (a failure ends the session without touching the device). The agent's `AuthoringContext` carries `outcome`, `browser`, the resolved `prerequisites` (`action`, `name`, `code`, `parameters`) and the candidate's `parameters` (`name`, `kind`, a `description` of the source, `has_status`), never parameter values.
 
+Every Credimi activity the agent calls (`Save authored wallet action`, `Generate action author parameter values`, `Check action author protocol outcome`) accepts only the `ActionAuthor` child of a running session in the caller's namespace and reads the spec from the session's own start input (`LookupActionAuthorSession`), never from the payload. `Generate action author parameter values` (`{"scope": "candidate"|"prerequisite", "index"}`) returns fresh `values` and http `captures`: a credential offer (dynamic credentials run their StepCI code), a use-case verification deeplink, an http call through `safehttp` (non-2xx or a missing `value_path` is invalid), or the literal. `Check action author protocol outcome` (`{"parameter", "captures"}`) polls the candidate parameter's `status.url` every 2s for up to 30s and returns `reached`, the last `status` and the `expected` list (success or rejection, by the session's outcome); a status in the other list ends the polling at once.
+
 ## FCAF Embedded Validation
 
 - FCAF validators run as the terminal `fcaf-validation` activity inside dynamic pipelines.
