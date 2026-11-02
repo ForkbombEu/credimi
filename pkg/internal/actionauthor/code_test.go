@@ -235,6 +235,40 @@ tags:
 				"header appId must be 'com.example.wallet', found '${x}'",
 			},
 		},
+		{
+			name: "duplicate runFlow commands",
+			code: header + "- runFlow:\n    commands:\n      - tapOn: a\n    commands:\n" +
+				"      - evalScript: x\n" + codeTestTail,
+			appIDs: wallet,
+			want:   []string{"duplicate key 'commands'"},
+		},
+		{
+			name: "duplicate openLink link",
+			code: header + "- openLink:\n    link: ${a}\n    link: https://evil.example\n" +
+				codeTestTail,
+			appIDs:     wallet,
+			parameters: []string{"a"},
+			want:       []string{"duplicate key 'link'"},
+		},
+		{
+			name: "duplicate header keys, in order, once each",
+			code: "appId: com.example.wallet\nappId: com.other\nname: a\nname: b\n" +
+				"appId: c\n---\n" + codeTestTail,
+			appIDs: wallet,
+			want:   []string{"duplicate key 'appId'", "duplicate key 'name'"},
+		},
+		{
+			name: "merge key",
+			code: "appId: com.example.wallet\nenv: &e\n  x: y\n---\n- tapOn:\n    <<: *e\n" +
+				"    text: a\n- tapOn:\n    <<: {id: b}\n" + codeTestTail,
+			appIDs: wallet,
+			want:   []string{"merge keys are not allowed"},
+		},
+		{
+			name:   "quoted merge key is a string",
+			code:   header + "- tapOn:\n    \"<<\": a\n" + codeTestTail,
+			appIDs: wallet,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -79,6 +79,9 @@ func ValidateCode(code string, appIDs []string, parameters []string) []string {
 	if err != nil {
 		return []string{fmt.Sprintf("invalid YAML: %v", err)}
 	}
+	if problems := codeKeyProblems(docs); len(problems) > 0 {
+		return problems
+	}
 	if len(docs) != 2 {
 		return []string{fmt.Sprintf(
 			"expected two YAML documents (header, `---`, command list), found %d", len(docs))}
@@ -328,6 +331,48 @@ func codeDocuments(code string) ([]*yaml.Node, error) {
 		}
 		docs = append(docs, root)
 	}
+}
+
+// codeKeyProblems refuses duplicate mapping keys and merge keys in every
+// document, in document order: either makes the mapping Credimi checks differ
+// from the one Maestro runs. Aliased nodes are checked where they are defined.
+func codeKeyProblems(docs []*yaml.Node) []string {
+	var problems []string
+	add := func(problem string) {
+		if !slices.Contains(problems, problem) {
+			problems = append(problems, problem)
+		}
+	}
+	var visit func(*yaml.Node)
+	visit = func(node *yaml.Node) {
+		if node == nil || node.Kind == yaml.AliasNode {
+			return
+		}
+		if node.Kind != yaml.MappingNode {
+			for _, child := range node.Content {
+				visit(child)
+			}
+			return
+		}
+		seen := map[string]bool{}
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			key := codeResolve(node.Content[i])
+			switch {
+			case key.Tag == "!!merge":
+				add("merge keys are not allowed")
+			case key.Kind == yaml.ScalarNode && seen[key.Value]:
+				add(fmt.Sprintf("duplicate key '%s'", key.Value))
+			case key.Kind == yaml.ScalarNode:
+				seen[key.Value] = true
+			}
+			visit(node.Content[i])
+			visit(node.Content[i+1])
+		}
+	}
+	for _, doc := range docs {
+		visit(doc)
+	}
+	return problems
 }
 
 // codeCommand returns the name and argument of one list item: `- back` or `- tapOn: ...`.
