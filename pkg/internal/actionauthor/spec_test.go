@@ -270,6 +270,25 @@ func TestSpecNormalize(t *testing.T) {
 			message: "parameters[0].source.status.url: ${other} is not a capture",
 		},
 		{
+			name:    "status url host capture",
+			edit:    func(s *Spec) { s.Parameters[0].Source.Status.URL = "https://${session_id}/s" },
+			message: "parameters[0].source.status.url: the host must not use captures",
+		},
+		{
+			name: "status url host suffix capture",
+			edit: func(s *Spec) {
+				s.Parameters[0].Source.Status.URL = "https://x.test${session_id}/s"
+			},
+			message: "parameters[0].source.status.url: the host must not use captures",
+		},
+		{
+			name: "status url port capture",
+			edit: func(s *Spec) {
+				s.Parameters[0].Source.Status.URL = "https://x.test:${session_id}/s"
+			},
+			message: "parameters[0].source.status.url: must be an https URL",
+		},
+		{
 			name:    "status path",
 			edit:    func(s *Spec) { s.Parameters[0].Source.Status.Path = "" },
 			message: "parameters[0].source.status.path: required",

@@ -401,7 +401,8 @@ func candidateStatus(spec actionauthor.Spec, name string) (*actionauthor.StatusS
 	)
 }
 
-// statusURL fills the ${capture} references of a status URL.
+// statusURL fills the ${capture} references of a status URL. The filled URL
+// must keep the template's host, so no capture can redirect the poll.
 func statusURL(template string, captures map[string]string) (string, error) {
 	var missing string
 	filled := statusCaptureReference.ReplaceAllStringFunc(template, func(reference string) string {
@@ -414,6 +415,18 @@ func statusURL(template string, captures map[string]string) (string, error) {
 	})
 	if missing != "" {
 		return "", fmt.Errorf("%w: capture %s is missing", actionauthor.ErrInvalid, missing)
+	}
+	host, err := actionauthor.StatusTemplateHost(template)
+	if err != nil {
+		return "", fmt.Errorf("%w: status url: %w", actionauthor.ErrInvalid, err)
+	}
+	parsed, err := url.Parse(filled)
+	if err != nil || parsed.Scheme != "https" || parsed.Host != host {
+		return "", fmt.Errorf(
+			"%w: the filled status url must keep the host %s",
+			actionauthor.ErrInvalid,
+			host,
+		)
 	}
 	return filled, nil
 }

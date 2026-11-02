@@ -292,7 +292,7 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 		defer mu.Unlock()
 		paths = nil
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		paths = append(paths, r.URL.EscapedPath())
 		mu.Unlock()
@@ -327,7 +327,7 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 		status.Store(current)
 		a := NewCheckActionAuthorProtocolOutcomeActivity()
 		a.authorSessionLookup = specSessionLookup(t, authorTestSession(), spec(outcome)).lookup()
-		a.transport = http.DefaultTransport
+		a.transport = server.Client().Transport
 		a.interval = 5 * time.Millisecond
 		a.timeout = 30 * time.Millisecond
 		return a.check(t.Context(), authorTestCaller(), CheckActionAuthorProtocolOutcomeInput{
@@ -382,4 +382,22 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 		Parameter: "PIN",
 	})
 	require.ErrorContains(t, err, "parameter PIN has no protocol status check")
+}
+
+func TestStatusURLKeepsTheTemplateHost(t *testing.T) {
+	filled, err := statusURL(
+		"https://issuer.test/sessions/${id}?x=${id}",
+		map[string]string{"id": "@evil.test/a"},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "https://issuer.test/sessions/@evil.test%2Fa?x=@evil.test%2Fa", filled)
+
+	for _, template := range []string{
+		"https://issuer.test${id}/sessions",
+		"https://${id}/sessions",
+	} {
+		_, err := statusURL(template, map[string]string{"id": ".evil.test"})
+		require.ErrorIs(t, err, actionauthor.ErrInvalid, template)
+		require.ErrorContains(t, err, "the filled status url must keep the host")
+	}
 }

@@ -328,8 +328,12 @@ func validateStatus(field string, source SourceSpec, outcome string) error {
 	if outcome == "" {
 		return invalidf("%s: only the new action's parameters can check a protocol status", field)
 	}
-	if !strings.HasPrefix(status.URL, httpsScheme) {
-		return invalidf("%s.url: must be an https URL", field)
+	host, err := StatusTemplateHost(status.URL)
+	if err != nil {
+		return invalidf("%s.url: %v", field, err)
+	}
+	if strings.Contains(host, statusPlaceholder) {
+		return invalidf("%s.url: the host must not use captures", field)
 	}
 	for _, match := range statusReference.FindAllStringSubmatch(status.URL, -1) {
 		if _, ok := source.Captures[match[1]]; !ok {
@@ -346,6 +350,21 @@ func validateStatus(field string, source SourceSpec, outcome string) error {
 		return invalidf("%s.rejection: required for a rejection outcome", field)
 	}
 	return nil
+}
+
+// statusPlaceholder stands for a ${capture} while a status URL template is parsed.
+const statusPlaceholder = "credimi-capture"
+
+// StatusTemplateHost returns the host of a status URL template, its
+// ${capture} references replaced by a placeholder. Validation refuses a host
+// that contains the placeholder, so the check activity can require the
+// filled URL to keep exactly this host.
+func StatusTemplateHost(template string) (string, error) {
+	parsed, err := url.Parse(statusReference.ReplaceAllString(template, statusPlaceholder))
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		return "", errors.New("must be an https URL")
+	}
+	return parsed.Host, nil
 }
 
 func isHTTPSURL(raw string) bool {
