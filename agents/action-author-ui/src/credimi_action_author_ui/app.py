@@ -5,7 +5,8 @@
 """Serve the harness chat UI for Credimi action author sessions.
 
 Environment: TEMPORAL_ADDRESS (through the Temporal client config), ACTION_AUTHOR_UI_PORT
-(default 8001). The namespace is not configured: the start page binds the UI to the
+(default 8001), ACTION_AUTHOR_PAYLOAD_DIR (the runner agent's offloaded payload directory, when
+the UI runs on the runner host). The namespace is not configured: the start page binds the UI to the
 organization namespace of the device the user picks (POST /api/action-author/namespace), and
 the UI runs that namespace's session-manager worker in process. It never starts agent
 workflows: Credimi starts each chat on `<runner_id>-ActionAuthor`.
@@ -38,6 +39,7 @@ from fastapi.responses import (
 )
 from temporal_agent_harness.harness.agent_protocol import AgentEvent
 from temporal_agent_harness.plugin import AgentHarnessPlugin
+from temporal_agent_harness.utils.large_payload import local_payload_storage
 from temporal_agent_harness.web import create_agent_harness_app
 from temporal_agent_harness.web.agent_starts import agent_starts
 from temporal_agent_harness.web.app import (
@@ -113,11 +115,20 @@ document.addEventListener('click', (event) => {
 </script><script type="module" src="/action-save-review.js"></script>"""
 
 
+def harness_plugin() -> AgentHarnessPlugin:
+    """The harness plugin, reading offloaded large payloads from ``ACTION_AUTHOR_PAYLOAD_DIR``
+    when set: the runner agent's private directory, readable by a UI on the runner host."""
+    directory = os.environ.get("ACTION_AUTHOR_PAYLOAD_DIR", "").strip()
+    if not directory:
+        return AgentHarnessPlugin()
+    return AgentHarnessPlugin(large_payload_offload=local_payload_storage(base_dir=directory))
+
+
 async def connect_namespace(namespace: str) -> Client:
     """Connect to the configured Temporal server, in one organization's namespace."""
     return await Client.connect(
         **{**ClientConfig.load_client_connect_config(), "namespace": namespace},
-        plugins=[AgentHarnessPlugin()],
+        plugins=[harness_plugin()],
     )
 
 
