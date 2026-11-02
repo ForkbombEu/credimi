@@ -15,15 +15,27 @@ import (
 	"github.com/forkbombeu/credimi/pkg/routes"
 	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase"
+	"github.com/spf13/cobra"
 )
 
-// Start runs remote FCAF commands directly and starts PocketBase for all other commands.
+// remoteCommands are HTTP clients of a Credimi instance: they never use the
+// local PocketBase app, so running them must not bootstrap pb_data.
+func remoteCommands() []*cobra.Command {
+	return []*cobra.Command{
+		cli.NewPipelineCmd(),
+		cli.NewFCAFCommand(),
+	}
+}
+
+// Start runs remote commands without PocketBase and starts PocketBase for all other commands.
 func Start() {
 	godotenv.Load()
-	if len(os.Args) > 1 && os.Args[1] == "fcaf" {
-		cmd := cli.NewFCAFCommand()
-		cmd.SetArgs(os.Args[2:])
-		if err := cmd.Execute(); err != nil {
+
+	remote := &cobra.Command{Use: "credimi", SilenceUsage: true}
+	remote.AddCommand(remoteCommands()...)
+	if found, _, err := remote.Find(os.Args[1:]); err == nil && found != remote {
+		remote.SetArgs(os.Args[1:])
+		if err := remote.Execute(); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -42,8 +54,8 @@ func Start() {
 
 	routes.Setup(app)
 
-	app.RootCmd.AddCommand(cli.NewPipelineCmd())
-	app.RootCmd.AddCommand(cli.NewFCAFCommand())
+	// Registered here too so `credimi --help` lists them; Start runs them before PocketBase.
+	app.RootCmd.AddCommand(remoteCommands()...)
 
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
