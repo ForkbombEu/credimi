@@ -135,6 +135,23 @@ async def test_save_review_is_sent_to_credimi():
     assert "This review is no longer pending. Reloading…" in script
 
 
+async def test_save_review_shows_the_yaml_and_checks_its_hash():
+    async with ui_client() as client:
+        script = (await client.get("/action-save-review.js")).text
+    # The YAML is shown as text only, in a bounded scrollable block.
+    assert "code.textContent = typeof pending.tool_input.code === 'string'" in script
+    assert "innerHTML" not in script
+    assert "max-height: 40vh; overflow: auto;" in script
+    # Accept needs the shown YAML to hash to the digest Credimi's approval signs.
+    assert "crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))" in script
+    assert "byte.toString(16).padStart(2, '0')" in script
+    assert "(await sha256Hex(input.code)) === input.candidate_sha256" in script
+    assert "typeof input.code === 'string'" in script
+    assert "'The reviewed YAML does not match its hash. Refuse this candidate.'" in script
+    assert "button.dataset.accept === 'true' && card.dataset.codeVerified !== 'true'" in script
+    assert "if (accepted && card?.dataset.codeVerified !== 'true')" in script
+
+
 async def test_the_ui_port_follows_its_setting(monkeypatch):
     monkeypatch.setenv("ACTION_AUTHOR_UI_PORT", "9123")
     async with ui_client("http://127.0.0.1:9123") as client:

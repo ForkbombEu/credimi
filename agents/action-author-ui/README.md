@@ -54,7 +54,10 @@ Values are stored in Temporal history: use test data only.
 
 ## Save review
 
-The **Accept** / **Refuse** card sends the decision to Credimi, not to the workflow:
+The **Accept** / **Refuse** card shows the accepted YAML (`tool_input.code`) and enables
+**Accept** only when its SHA-256 matches the review's `candidate_sha256`; otherwise it says
+`The reviewed YAML does not match its hash. Refuse this candidate.` and leaves only **Refuse**.
+It sends the decision to Credimi, not to the workflow:
 `POST /api/action-author/reviews` with the bound namespace, the chat's workflow ID, the
 review's `tool_id` and `candidate_sha256`, and the stored bearer token. Credimi checks that you
 started the session, signs the approval the save activity verifies, and settles the review.

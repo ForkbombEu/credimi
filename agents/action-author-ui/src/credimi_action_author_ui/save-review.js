@@ -38,6 +38,9 @@ ${nativeSelector} { display: none !important; }
 .action-save-review input { font: inherit; color: inherit; background: var(--surface-2, Field);
   border: 1px solid var(--border, ButtonBorder); border-radius: 6px; padding: 8px;
   box-sizing: border-box; width: 100%; }
+.action-save-review .review-code { margin: 0; padding: 8px; max-height: 40vh; overflow: auto;
+  white-space: pre; font: 12px/1.5 ui-monospace, monospace; background: var(--surface-2, Field);
+  border: 1px solid var(--border, ButtonBorder); border-radius: 6px; }
 `;
 document.head.append(styles);
 
@@ -50,8 +53,36 @@ function statusText(text) {
   if (status) status.textContent = text;
 }
 
+// Accept stays disabled until the YAML shown in the card matches its digest.
 function disableButtons(disabled) {
-  for (const button of card?.querySelectorAll('button') || []) button.disabled = disabled;
+  for (const button of card?.querySelectorAll('button') || []) {
+    button.disabled = disabled || (button.dataset.accept === 'true' && card.dataset.codeVerified !== 'true');
+  }
+}
+
+const hashMismatch = 'The reviewed YAML does not match its hash. Refuse this candidate.';
+
+// Lowercase hex SHA-256 of the UTF-8 bytes of text.
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+// Checks the card's YAML against candidate_sha256, the digest Credimi's approval signs, so the
+// user never accepts a candidate other than the one shown.
+async function verifyCode(target, input) {
+  let verified = false;
+  if (typeof input.code === 'string' && typeof input.candidate_sha256 === 'string') {
+    try {
+      verified = (await sha256Hex(input.code)) === input.candidate_sha256;
+    } catch {
+      verified = false;
+    }
+  }
+  if (card !== target) return;
+  target.dataset.codeVerified = verified ? 'true' : 'false';
+  if (!verified) statusText(hashMismatch);
+  disableButtons(submitting);
 }
 
 function storedAuth() {
@@ -171,6 +202,10 @@ function showSignIn(accepted, origin) {
 
 async function decide(accepted) {
   if (!pending || submitting || currentSession !== sessionId()) return;
+  if (accepted && card?.dataset.codeVerified !== 'true') {
+    statusText(hashMismatch);
+    return;
+  }
   const proposal = pending;
   const session = currentSession;
   submitting = true;
@@ -249,17 +284,26 @@ function render() {
     const status = document.createElement('p');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
-    status.textContent = 'Review the accepted YAML above, then confirm your decision.';
+    status.textContent = 'Review the accepted YAML below, then confirm your decision.';
+    const code = document.createElement('pre');
+    code.className = 'review-code';
+    code.tabIndex = 0;
+    code.setAttribute('aria-label', 'Accepted YAML');
+    code.textContent = typeof pending.tool_input.code === 'string' ? pending.tool_input.code : '';
     const buttons = document.createElement('div');
     buttons.className = 'review-buttons';
     for (const [label, accepted] of [['Accept', true], ['Refuse', false]]) {
       const button = document.createElement('button');
       button.type = 'button';
       button.textContent = label;
+      button.dataset.accept = String(accepted);
       button.addEventListener('click', () => decide(accepted));
       buttons.append(button);
     }
-    card.append(heading, details, status, buttons);
+    card.append(heading, details, code, status, buttons);
+    card.dataset.codeVerified = 'pending';
+    disableButtons(submitting);
+    verifyCode(card, pending.tool_input);
   }
   if (!card.isConnected) document.body.append(card);
 }
