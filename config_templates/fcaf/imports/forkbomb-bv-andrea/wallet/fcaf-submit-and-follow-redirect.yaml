@@ -1,0 +1,50 @@
+appId: eu.europa.ec.euidi
+name: FCAF submit presentation and follow redirect
+tags:
+  - fcaf
+  - ws_rp
+---
+- "stopApp"
+- openLink:
+    link: "${deeplink}"
+    autoVerify: false
+    browser: false
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "Welcome back|Share|Cancel|Close"
+    timeout: 100000
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+    - extendedWaitUntil:
+        visible: "1"
+        timeout: 30000
+    - inputText: "12345"
+    - tapOn: "6"
+- extendedWaitUntil:
+    visible: "Share"
+    timeout: 30000
+- tapOn:
+    text: "Share"
+    enabled: true
+- extendedWaitUntil:
+    visible: "verify your identity|PIN"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "1"
+    timeout: 30000
+- inputText: "12345"
+- tapOn: "6"
+- extendedWaitUntil:
+    visible: "Close"
+    timeout: 30000
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Presentation complete"
+    timeout: 30000
+- assertVisible: "Presentation complete"
+- takeScreenshot: "fcaf-supportive-redirect-uri-opened"

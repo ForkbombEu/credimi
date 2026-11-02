@@ -1,0 +1,74 @@
+appId: eu.europa.ec.euidi
+name: FCAF present claims union across queries
+tags:
+  - fcaf
+  - ws_rp
+---
+- launchApp:
+    stopApp: true
+    clearState: false
+- extendedWaitUntil:
+    visible: "Welcome back|Home|Documents|Welcome, .*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+    - extendedWaitUntil:
+        visible: "1"
+        timeout: 30000
+    - inputText: "12345"
+    - tapOn: "6"
+- extendedWaitUntil:
+    visible: "Home|Documents|Welcome, .*"
+    timeout: 30000
+- openLink:
+    link: "${deeplink}"
+    autoVerify: false
+    browser: false
+- extendedWaitUntil:
+    visible: "Welcome back|Data sharing request"
+    timeout: 100000
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+    - extendedWaitUntil:
+        visible: "1"
+        timeout: 30000
+    - inputText: "12345"
+    - tapOn: "6"
+- extendedWaitUntil:
+    visible: "Data sharing request"
+    timeout: 100000
+- assertVisible:
+    id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
+- assertVisible:
+    id: "eu.europa.ec.euidi:id/request_screen_requested_document_1"
+- tapOn:
+    id: "eu.europa.ec.euidi:id/request_screen_requested_document_0"
+    retryTapIfNoChange: false
+- assertVisible: "Given Name"
+- tapOn:
+    id: "eu.europa.ec.euidi:id/request_screen_requested_document_1"
+    retryTapIfNoChange: false
+- assertVisible: "address"
+- takeScreenshot: "fcaf-014-claims-union-request"
+- tapOn: "Share"
+- extendedWaitUntil:
+    visible: "PIN"
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "1"
+    timeout: 30000
+- inputText: "12345"
+- tapOn: "6"
+- extendedWaitUntil:
+    visible: ".*successfully shared.*"
+    timeout: 30000
+- takeScreenshot: "fcaf-014-claims-union-shared"
+- tapOn: "Close"
