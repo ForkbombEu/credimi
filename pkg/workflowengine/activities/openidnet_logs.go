@@ -77,5 +77,6 @@ func (a *OpenIDNetLogsActivity) Execute(
 		map[string]string{"Authorization": "Bearer " + token},
 		&a.BaseActivity,
 		nil,
+		0,
 	)
 }

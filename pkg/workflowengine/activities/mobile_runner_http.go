@@ -97,5 +97,6 @@ func (a *MobileRunnerHTTPActivity) Execute(
 		map[string]string{"Credimi-Api-Key": credential},
 		&a.BaseActivity,
 		mobilerunner.Transport(runner),
+		0,
 	)
 }

@@ -39,6 +39,8 @@ const (
 	actionAuthorStatusInterval  = 2 * time.Second
 	actionAuthorStatusTimeout   = 30 * time.Second
 	actionAuthorStatusBodyLimit = 1 << 20
+	actionAuthorSourceBodyLimit = 1 << 20
+	actionAuthorSourceRedirects = 5
 )
 
 var statusCaptureReference = regexp.MustCompile(`\$\{([^}]*)\}`)
@@ -46,6 +48,32 @@ var statusCaptureReference = regexp.MustCompile(`\$\{([^}]*)\}`)
 // actionAuthorTransport refuses private and loopback destinations.
 func actionAuthorTransport() http.RoundTripper {
 	return safehttp.NewClient(safehttp.Config{Timeout: actionAuthorHTTPTimeout}).Transport
+}
+
+// sourceRedirectPolicy is the redirect policy of http source requests: at
+// most actionAuthorSourceRedirects redirects, never from https to http. It
+// checks each request as a transport because executeHTTPRequest builds its own
+// client; a redirected request carries the response that caused it.
+type sourceRedirectPolicy struct {
+	next http.RoundTripper
+}
+
+func (p sourceRedirectPolicy) RoundTrip(req *http.Request) (*http.Response, error) {
+	redirects := 0
+	for previous := req.Response; previous != nil; previous = previous.Request.Response {
+		redirects++
+		if redirects == 1 && previous.Request.URL.Scheme == "https" && req.URL.Scheme != "https" {
+			return nil, fmt.Errorf("refused redirect from https to %s", req.URL.Scheme)
+		}
+	}
+	if redirects > actionAuthorSourceRedirects {
+		return nil, fmt.Errorf("stopped after %d redirects", actionAuthorSourceRedirects)
+	}
+	next := p.next
+	if next == nil {
+		next = http.DefaultTransport
+	}
+	return next.RoundTrip(req)
 }
 
 // GenerateActionAuthorParametersInput selects the parameter list of the
@@ -244,7 +272,7 @@ func (a *GenerateActionAuthorParametersActivity) httpValue(
 		URL:     source.Request.URL,
 		Headers: source.Request.Headers,
 		Body:    source.Request.Body,
-	}, nil, &a.BaseActivity, a.transport)
+	}, nil, &a.BaseActivity, sourceRedirectPolicy{next: a.transport}, actionAuthorSourceBodyLimit)
 	if err != nil {
 		return "", nil, invalid(err)
 	}

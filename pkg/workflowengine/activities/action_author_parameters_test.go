@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -72,8 +73,12 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 	credential := seedDynamicCredential(t, app, session)
 	var sessions atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/broken" {
+		switch r.URL.Path {
+		case "/broken":
 			w.WriteHeader(http.StatusBadGateway)
+			return
+		case "/large":
+			_, _ = w.Write([]byte(strings.Repeat("x", actionAuthorSourceBodyLimit+1)))
 			return
 		}
 		var body map[string]any
@@ -180,6 +185,18 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "parameter deeplink: GET "+server.URL+"/broken answered HTTP 502")
 
+	large := spec
+	large.Parameters = []actionauthor.ParameterSpec{{Name: "deeplink", Source: httpSource}}
+	large.Parameters[0].Source.Request = &actionauthor.HTTPSourceRequest{
+		Method: http.MethodGet,
+		URL:    server.URL + "/large",
+	}
+	_, err = activity(large).generate(t.Context(), caller, GenerateActionAuthorParametersInput{
+		Scope: ParameterScopeCandidate,
+	})
+	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
+	require.ErrorContains(t, err, "response body exceeds 1048576 bytes")
+
 	missing := spec
 	missing.Parameters = []actionauthor.ParameterSpec{{Name: "deeplink", Source: httpSource}}
 	missing.Parameters[0].Source.ValuePath = "session.missing"
@@ -201,6 +218,36 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 	})
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "userb-s-organization/issuer/missing not found")
+}
+
+func TestSourceRedirectPolicy(t *testing.T) {
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hop, _ := strconv.Atoi(r.URL.Query().Get("hop"))
+		if hop > 0 {
+			http.Redirect(w, r, "/?hop="+strconv.Itoa(hop-1), http.StatusFound)
+			return
+		}
+		_, _ = w.Write([]byte("ok"))
+	}))
+	t.Cleanup(plain.Close)
+	secure := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, plain.URL+"/", http.StatusFound)
+	}))
+	t.Cleanup(secure.Close)
+	client := &http.Client{Transport: sourceRedirectPolicy{next: secure.Client().Transport}}
+	get := func(rawURL string) error {
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, rawURL, nil)
+		require.NoError(t, err)
+		resp, err := client.Do(req)
+		if err == nil {
+			resp.Body.Close()
+		}
+		return err
+	}
+
+	require.NoError(t, get(plain.URL+"/?hop=5"))
+	require.ErrorContains(t, get(plain.URL+"/?hop=6"), "stopped after 5 redirects")
+	require.ErrorContains(t, get(secure.URL+"/"), "refused redirect from https to http")
 }
 
 func TestGenerateActionAuthorParametersRejectsCallersOutsideASession(t *testing.T) {
