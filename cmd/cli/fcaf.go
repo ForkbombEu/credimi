@@ -744,6 +744,7 @@ func syncFCAFWalletAction(
 		"name":      action.Name,
 		"code":      code,
 		"category":  category,
+		"tags":      action.Tags,
 		"published": true,
 	}
 	switch len(records) {
