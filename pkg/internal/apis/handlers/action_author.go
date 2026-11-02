@@ -78,11 +78,11 @@ type ActionAuthorWalletVersionsResponse struct {
 func HandleActionAuthorWalletVersions() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if e.Auth == nil {
-			return authoringAPIError(actionauthor.ErrForbidden)
+			return authoringAPIError(e, actionauthor.ErrForbidden)
 		}
 		versions, err := actionauthor.ListBuildOptions(e.App, authoringActor(e.Auth))
 		if err != nil {
-			return authoringAPIError(err)
+			return authoringAPIError(e, err)
 		}
 		return e.JSON(http.StatusOK, ActionAuthorWalletVersionsResponse{WalletVersions: versions})
 	}
@@ -112,11 +112,11 @@ type ActionAuthorDevicesResponse struct {
 func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if e.Auth == nil {
-			return authoringAPIError(actionauthor.ErrForbidden)
+			return authoringAPIError(e, actionauthor.ErrForbidden)
 		}
 		ownerFilter, err := actionauthor.OwnerFilter(e.App, authoringActor(e.Auth))
 		if err != nil {
-			return authoringAPIError(err)
+			return authoringAPIError(e, err)
 		}
 		runners, err := e.App.FindAllRecords(
 			"mobile_runners",
@@ -124,14 +124,14 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 			ownerFilter,
 		)
 		if err != nil {
-			return authoringAPIError(fmt.Errorf("list authoring runners: %w", err))
+			return authoringAPIError(e, fmt.Errorf("list authoring runners: %w", err))
 		}
 		runners = enabledMobileRunnerRecords(runners)
 		namespaces := make([]string, len(runners))
 		for i, runner := range runners {
 			owner, err := e.App.FindRecordById("organizations", runner.GetString("owner"))
 			if err != nil {
-				return authoringAPIError(fmt.Errorf("find runner organization: %w", err))
+				return authoringAPIError(e, fmt.Errorf("find runner organization: %w", err))
 			}
 			namespaces[i] = owner.GetString("canonified_name")
 		}
@@ -149,7 +149,7 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 				dbx.HashExp{"runner": runner.Id},
 			)
 			if err != nil {
-				return authoringAPIError(fmt.Errorf("list authoring devices: %w", err))
+				return authoringAPIError(e, fmt.Errorf("list authoring devices: %w", err))
 			}
 			for _, device := range devices {
 				platform := actionAuthorPlatform(device.GetString("type"))
@@ -158,7 +158,7 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 				}
 				path, err := mobileDeviceIdentifier(e.App, device)
 				if err != nil {
-					return authoringAPIError(fmt.Errorf("build device path: %w", err))
+					return authoringAPIError(e, fmt.Errorf("build device path: %w", err))
 				}
 				response.Devices = append(response.Devices, ActionAuthorDevice{
 					Path:           path,
@@ -222,7 +222,9 @@ func actionAuthorPlatform(deviceType string) string {
 	}
 }
 
-func authoringAPIError(err error) *apierror.APIError {
+// authoringAPIError maps authoring errors to API errors; it logs the cause of
+// internal errors, which the response hides.
+func authoringAPIError(e *core.RequestEvent, err error) *apierror.APIError {
 	switch {
 	case errors.Is(err, actionauthor.ErrForbidden):
 		return apierror.New(
@@ -236,6 +238,7 @@ func authoringAPIError(err error) *apierror.APIError {
 	case errors.Is(err, actionauthor.ErrConflict):
 		return apierror.New(http.StatusConflict, "action_author", "conflict", err.Error())
 	default:
+		e.App.Logger().Error("action author operation failed", "error", err)
 		return apierror.New(
 			http.StatusInternalServerError,
 			"action_author",
@@ -251,10 +254,10 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[ActionAuthorStartRequest](e)
 		if err != nil {
-			return authoringAPIError(actionauthor.ErrInvalid)
+			return authoringAPIError(e, actionauthor.ErrInvalid)
 		}
 		if e.Auth == nil {
-			return authoringAPIError(actionauthor.ErrForbidden)
+			return authoringAPIError(e, actionauthor.ErrForbidden)
 		}
 		deviceID := canonify.NormalizePath(input.DeviceID)
 		actor := authoringActor(e.Auth)
@@ -264,13 +267,13 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			errors.Is(err, mobilerunner.ErrDeviceRunnerNotFound):
 			return actionAuthorDeviceNotFound(deviceID)
 		case err != nil:
-			return authoringAPIError(err)
+			return authoringAPIError(e, err)
 		}
 		// Devices of organizations the caller does not own answer as unknown
 		// devices, before their type or runner is revealed.
 		visible, err := actionAuthorRunnerVisible(e.App, actor, runner)
 		if err != nil {
-			return authoringAPIError(err)
+			return authoringAPIError(e, err)
 		}
 		if !visible {
 			return actionAuthorDeviceNotFound(deviceID)
@@ -295,7 +298,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Platform:                platform,
 		})
 		if err != nil {
-			return authoringAPIError(err)
+			return authoringAPIError(e, err)
 		}
 		if !runner.GetBool("admin_managed") {
 			return apierror.New(
@@ -335,7 +338,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			AppID:                   input.AppID,
 		})
 		if err != nil {
-			return authoringAPIError(err)
+			return authoringAPIError(e, err)
 		}
 		ticketID := uuid.NewString()
 		c, err := queueTemporalClient(workflowengine.MobileDeviceSemaphoreDefaultNamespace)

@@ -74,7 +74,7 @@ func requireActionAuthorAgent(
 ) *apierror.APIError {
 	runnerID, err := mobilerunner.RunnerIdentifier(e.App, runner)
 	if err != nil {
-		return authoringAPIError(fmt.Errorf("build runner identifier: %w", err))
+		return authoringAPIError(e, fmt.Errorf("build runner identifier: %w", err))
 	}
 	c, err := queueTemporalClient(namespace)
 	if err != nil {
