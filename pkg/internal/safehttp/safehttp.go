@@ -20,22 +20,37 @@ import (
 // not public.
 var ErrBlockedDestination = errors.New("destination is not a public address")
 
-// sharedAddressSpace is the carrier-grade NAT range (RFC 6598).
-var sharedAddressSpace = &net.IPNet{
-	IP:   net.IPv4(100, 64, 0, 0).To4(),
-	Mask: net.CIDRMask(10, 32),
-}
+// blockedNetworks are non-public ranges the net.IP predicates miss: carrier-
+// grade NAT (RFC 6598), benchmarking (RFC 2544), and the NAT64 (RFC 6052) and
+// 6to4 (RFC 3056) prefixes, which embed an IPv4 address a gateway may reach.
+var blockedNetworks = func() []*net.IPNet {
+	cidrs := []string{"100.64.0.0/10", "198.18.0.0/15", "64:ff9b::/96", "2002::/16"}
+	networks := make([]*net.IPNet, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			panic(err)
+		}
+		networks = append(networks, network)
+	}
+	return networks
+}()
 
 // IsPublicIP reports whether ip is a public unicast address. It rejects
 // loopback, private and ULA (fc00::/7), unspecified, link-local (which holds
-// the 169.254.169.254 cloud metadata address), multicast and CGNAT addresses.
+// the 169.254.169.254 cloud metadata address), multicast, CGNAT, benchmarking,
+// NAT64 and 6to4 addresses.
 func IsPublicIP(ip net.IP) bool {
-	return !ip.IsLoopback() &&
-		!ip.IsPrivate() &&
-		!ip.IsUnspecified() &&
-		!ip.IsLinkLocalUnicast() &&
-		!ip.IsMulticast() &&
-		!sharedAddressSpace.Contains(ip)
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() ||
+		ip.IsLinkLocalUnicast() || ip.IsMulticast() {
+		return false
+	}
+	for _, network := range blockedNetworks {
+		if network.Contains(ip) {
+			return false
+		}
+	}
+	return true
 }
 
 // Config sets the limits of a client returned by NewClient.
