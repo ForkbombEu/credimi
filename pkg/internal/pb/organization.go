@@ -169,7 +169,6 @@ func registerOrganizationProtectedFieldsHooks(app core.App) {
 		// Only superusers set the queue limit and the action author allowance.
 		for _, field := range []string{
 			"max_pipelines_in_queue",
-			"action_author_daily_sessions",
 			"action_author_daily_tokens",
 		} {
 			if e.Record.GetInt(field) != original.GetInt(field) {

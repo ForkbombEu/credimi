@@ -56,7 +56,7 @@ parameter it reads), and the **parameters** of the new action. A source is a Cre
 credential offer, a use-case verification, an HTTP request (JSON: `request`, `value_path`,
 optional `captures` and, on the new action's parameters, `status`; headers only
 `Content-Type`, `Accept` and `Accept-Language`), or a fixed value. Credimi validates the spec
-at start (`400` with its message). An organization has no daily allowance until a Credimi
+at start (`400` with its message). An organization has no daily token allowance until a Credimi
 superuser sets one, and a missing or used-up allowance answers `429` with Credimi's message.
 Values are stored in Temporal history: use test data only.
 

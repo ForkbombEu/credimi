@@ -256,12 +256,10 @@ func TestOrganizationProtectedFieldsHooks_ActionAuthorAllowance(t *testing.T) {
 			require.NoError(t, err)
 			org, err := app.FindRecordById("organizations", orgID)
 			require.NoError(t, err)
-			require.Equal(t, 0, org.GetInt("action_author_daily_sessions"))
 			require.Equal(t, 0, org.GetInt("action_author_daily_tokens"))
 
 			auth := core.NewRecord(mustFindCollection(t, app, tc.collection))
 			event := newOrganizationUpdateRequestEvent(app, org, auth)
-			event.Record.Set("action_author_daily_sessions", 99)
 			event.Record.Set("action_author_daily_tokens", 99)
 
 			err = app.OnRecordUpdateRequest("organizations").Trigger(
@@ -269,7 +267,6 @@ func TestOrganizationProtectedFieldsHooks_ActionAuthorAllowance(t *testing.T) {
 				func(_ *core.RecordRequestEvent) error { return nil },
 			)
 			require.NoError(t, err)
-			require.Equal(t, tc.want, event.Record.GetInt("action_author_daily_sessions"))
 			require.Equal(t, tc.want, event.Record.GetInt("action_author_daily_tokens"))
 		})
 	}
@@ -288,7 +285,6 @@ func TestOrganizationNamespaceHooksCreateLeavesNoActionAuthorAllowance(t *testin
 		func(_ *core.RecordEvent) error { return nil },
 	)
 	require.NoError(t, err)
-	require.Equal(t, 0, record.GetInt("action_author_daily_sessions"))
 	require.Equal(t, 0, record.GetInt("action_author_daily_tokens"))
 }
 

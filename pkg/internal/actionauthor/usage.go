@@ -26,16 +26,15 @@ const (
 // ErrQuotaExceeded reports that an organization used up its daily action author quota.
 var ErrQuotaExceeded = errors.New("daily action author quota exceeded")
 
-// Quota bounds an organization's daily action author usage. A limit <= 0 is
-// no allowance at all: there is no unlimited value.
+// Quota bounds an organization's daily action author model tokens. A limit
+// <= 0 is no allowance at all: there is no unlimited value.
 type Quota struct {
-	Sessions int
-	Tokens   int
+	Tokens int
 }
 
 // HasAllowance reports whether the organization may use the action author at all.
 func (q Quota) HasAllowance() bool {
-	return q.Sessions > 0 && q.Tokens > 0
+	return q.Tokens > 0
 }
 
 // UsageDelta is the model usage consumed by an authoring session since its last report.
@@ -58,27 +57,22 @@ type UsageState struct {
 	TokensRemaining int  `json:"tokens_remaining"`
 }
 
-// QuotaForOrganization returns the daily quota a superuser set on the
+// QuotaForOrganization returns the daily token quota a superuser set on the
 // organization record; new organizations have none.
 func QuotaForOrganization(org *core.Record) Quota {
-	return Quota{
-		Sessions: org.GetInt("action_author_daily_sessions"),
-		Tokens:   org.GetInt("action_author_daily_tokens"),
-	}
+	return Quota{Tokens: org.GetInt("action_author_daily_tokens")}
 }
 
 // ReserveSession counts a new authoring session for orgID on now's UTC day, failing with
-// ErrQuotaExceeded when the session or token quota is already used up.
+// ErrQuotaExceeded when the token quota is already used up. Sessions are only recorded,
+// never limited.
 func ReserveSession(app core.App, orgID string, now time.Time, q Quota) error {
 	return app.RunInTransaction(func(txApp core.App) error {
 		record, err := usageFindOrNew(txApp, orgID, now)
 		if err != nil {
 			return err
 		}
-		if q.Sessions <= 0 || record.GetInt("sessions") >= q.Sessions {
-			return ErrQuotaExceeded
-		}
-		if q.Tokens <= 0 || usageTokens(record) >= q.Tokens {
+		if !q.HasAllowance() || usageTokens(record) >= q.Tokens {
 			return ErrQuotaExceeded
 		}
 		record.Set("sessions", record.GetInt("sessions")+1)

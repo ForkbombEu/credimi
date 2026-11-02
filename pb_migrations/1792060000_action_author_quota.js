@@ -95,6 +95,16 @@ migrate((app) => {
       },
       {
         "hidden": false,
+        "id": "json1792070003",
+        "maxSize": 65536,
+        "name": "report_ids",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "json"
+      },
+      {
+        "hidden": false,
         "id": "autodate2990389176",
         "name": "created",
         "onCreate": true,
@@ -126,8 +136,33 @@ migrate((app) => {
     "viewRule": null
   });
 
-  return app.save(collection);
+  app.save(collection);
+
+  const organizations = app.findCollectionByNameOrId("aako88kt3br4npt");
+
+  // add field
+  organizations.fields.addAt(999, new Field({
+    "hidden": false,
+    "id": "number1792070002",
+    "max": null,
+    "min": null,
+    "name": "action_author_daily_tokens",
+    "onlyInt": true,
+    "presentable": false,
+    "required": false,
+    "system": false,
+    "type": "number"
+  }));
+
+  return app.save(organizations);
 }, (app) => {
+  const organizations = app.findCollectionByNameOrId("aako88kt3br4npt");
+
+  // remove field
+  organizations.fields.removeById("number1792070002");
+
+  app.save(organizations);
+
   const collection = app.findCollectionByNameOrId("pbc_3061840921");
 
   return app.delete(collection);

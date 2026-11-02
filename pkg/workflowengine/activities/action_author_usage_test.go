@@ -20,7 +20,6 @@ func TestRecordActionAuthorUsage(t *testing.T) {
 	caller.Namespace = namespace
 	selection, err := actionauthor.Select(app, namespace, session)
 	require.NoError(t, err)
-	selection.Organization.Set("action_author_daily_sessions", 5)
 	selection.Organization.Set("action_author_daily_tokens", 1000)
 	require.NoError(t, app.Save(selection.Organization))
 	a := func() *RecordActionAuthorUsageActivity {
