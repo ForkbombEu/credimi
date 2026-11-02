@@ -2,12 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// The workflow owns the proposal. This page sends a human's decision to Credimi, which signs
-// the approval the save needs and delivers it to the session.
-const reviewTool = 'confirm_wallet_action_save';
+// The workflow owns the proposals. This page sends a human's decision to Credimi, which signs
+// the plan or the save approval and delivers it to the session.
 // Written by the start page: the Credimi origin and the user's bearer token, for this tab.
 const authStorageKey = 'credimi-action-author';
-const nativeSelector = `[aria-label="Response: ${reviewTool}"]`;
 const settled = new Set();
 let currentSession = '';
 let pending = null;
@@ -15,30 +13,131 @@ let card = null;
 let submitting = false;
 let refreshing = false;
 
+const hashMismatch = 'The reviewed YAML does not match its hash. Refuse this candidate.';
+
+function textBlock(className, label, text) {
+  const block = document.createElement('pre');
+  block.className = className;
+  block.tabIndex = 0;
+  block.setAttribute('aria-label', label);
+  block.textContent = text;
+  return block;
+}
+
+function paragraph(text) {
+  const element = document.createElement('p');
+  element.textContent = text;
+  return element;
+}
+
+function list(lines) {
+  const element = document.createElement('ul');
+  for (const line of lines) {
+    const item = document.createElement('li');
+    item.textContent = String(line);
+    element.append(item);
+  }
+  return element;
+}
+
+// The plan a plan token signs: its first segment is base64url JSON of Credimi's plan grant.
+function tokenPlan(token) {
+  if (typeof token !== 'string' || !token) return null;
+  try {
+    const segment = token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = segment + '='.repeat((4 - (segment.length % 4)) % 4);
+    const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes)).plan ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// The save of a candidate whose two clean-state replays passed.
+const saveReview = {
+  label: 'Review and save action',
+  intro: 'Review the accepted YAML and the plan below, then confirm your decision.',
+  cannotAccept: hashMismatch,
+  endpoint: '/api/action-author/reviews',
+  sending: (accepted) => (accepted ? 'Sending your acceptance to Credimi…' : 'Sending your refusal to Credimi…'),
+  done: (accepted) => (accepted ? 'Accepted. Waiting for the save result…' : 'Not saved. You can request changes in this chat.'),
+  notPending: 'This review is no longer pending. Reloading…',
+  render(target, input) {
+    const heading = document.createElement('h3');
+    heading.textContent = `Save “${input.name}”?`;
+    const details = paragraph(`Build: ${input.build}. Both clean-state replays passed. The action will be saved unpublished.`);
+    const code = textBlock('review-code', 'Accepted YAML', typeof input.code === 'string' ? input.code : '');
+    const plan = tokenPlan(input.plan_token);
+    const planText = plan ? JSON.stringify(plan, null, 2) : 'Plan fixed when the session started.';
+    target.append(heading, details, code, paragraph('Plan:'), textBlock('review-code', 'Plan', planText));
+  },
+  // Checks the card's YAML against candidate_sha256, the digest Credimi's approval signs, so the
+  // user never accepts a candidate other than the one shown.
+  async canAccept(input) {
+    if (typeof input.code !== 'string' || typeof input.candidate_sha256 !== 'string') return false;
+    try {
+      return (await sha256Hex(input.code)) === input.candidate_sha256;
+    } catch {
+      return false;
+    }
+  },
+  body: (proposal, accepted) => ({
+    candidate_sha256: proposal.tool_input.candidate_sha256,
+    plan_token: proposal.tool_input.plan_token || '',
+    accepted,
+  }),
+};
+
+// The plan the agent proposes: Credimi validates and signs it when the user confirms it.
+const planReview = {
+  label: 'Confirm the action plan',
+  intro: 'Check the plan, then confirm it or refuse it and tell the agent what to change.',
+  cannotAccept: '',
+  endpoint: '/api/action-author/plans',
+  sending: (accepted) => (accepted ? 'Sending your confirmation to Credimi…' : 'Sending your refusal to Credimi…'),
+  done: (accepted) => (accepted ? 'Confirmed. The agent continues with this plan…' : 'Refused. Tell the agent what to change in this chat.'),
+  notPending: 'This plan is no longer pending. Reloading…',
+  render(target, input) {
+    const heading = document.createElement('h3');
+    heading.textContent = `Confirm the plan for “${input.action_name}”?`;
+    const summary = list(Array.isArray(input.summary) ? input.summary : []);
+    const values = input.values && typeof input.values === 'object' ? input.values : {};
+    const valueLines = Object.entries(values).map(([name, value]) => `${name}: ${value}`);
+    target.append(heading, summary, paragraph('Input values:'), list(valueLines));
+  },
+  canAccept: async () => true,
+  body: (proposal, accepted) => ({ plan: proposal.tool_input.plan, accepted }),
+};
+
+// Proposals this page reviews, by the callback tool that waits for them.
+const tools = { confirm_wallet_action_save: saveReview, confirm_action_plan: planReview };
+const nativeSelector = Object.keys(tools).map((name) => `[aria-label="Response: ${name}"]`).join(', ');
+
 // The card floats over the page instead of sitting in the chat's callback queue: the queue is a
 // clipped, animated fold, and a closed or narrow chat panel hid the buttons entirely.
 const styles = document.createElement('style');
 styles.textContent = `
 ${nativeSelector} { display: none !important; }
-.action-save-review { background: var(--surface-1, Canvas); color: var(--text-1, CanvasText);
+.action-review { background: var(--surface-1, Canvas); color: var(--text-1, CanvasText);
   border: 1px solid var(--border, ButtonBorder); border-radius: 6px; padding: 16px;
   position: fixed; right: 24px; bottom: 24px; z-index: 1000; box-sizing: border-box;
   width: min(420px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto;
   box-shadow: 0 8px 24px rgb(0 0 0 / .35); display: grid; gap: 12px; font-family: inherit; }
-.action-save-review h3, .action-save-review p { margin: 0; }
-.action-save-review p { overflow-wrap: anywhere; }
-.action-save-review .review-buttons { display: flex; gap: 8px; }
-.action-save-review button { font: inherit; color: inherit; background: var(--surface-2, ButtonFace);
+.action-review h3, .action-review p, .action-review ul { margin: 0; }
+.action-review p, .action-review li { overflow-wrap: anywhere; }
+.action-review ul { padding-left: 20px; }
+.action-review .review-buttons { display: flex; gap: 8px; }
+.action-review button { font: inherit; color: inherit; background: var(--surface-2, ButtonFace);
   border: 1px solid var(--border, ButtonBorder); border-radius: 6px; padding: 8px 16px;
   cursor: pointer; }
-.action-save-review button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-.action-save-review button:disabled { opacity: .6; cursor: wait; }
-.action-save-review .review-sign-in { display: grid; gap: 8px; }
-.action-save-review label { display: grid; gap: 4px; }
-.action-save-review input { font: inherit; color: inherit; background: var(--surface-2, Field);
+.action-review button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.action-review button:disabled { opacity: .6; cursor: wait; }
+.action-review .review-sign-in { display: grid; gap: 8px; }
+.action-review label { display: grid; gap: 4px; }
+.action-review input { font: inherit; color: inherit; background: var(--surface-2, Field);
   border: 1px solid var(--border, ButtonBorder); border-radius: 6px; padding: 8px;
   box-sizing: border-box; width: 100%; }
-.action-save-review .review-code { margin: 0; padding: 8px; max-height: 40vh; overflow: auto;
+.action-review .review-code { margin: 0; padding: 8px; max-height: 40vh; overflow: auto;
   white-space: pre; font: 12px/1.5 ui-monospace, monospace; background: var(--surface-2, Field);
   border: 1px solid var(--border, ButtonBorder); border-radius: 6px; }
 `;
@@ -53,14 +152,12 @@ function statusText(text) {
   if (status) status.textContent = text;
 }
 
-// Accept stays disabled until the YAML shown in the card matches its digest.
+// Accept stays disabled until the card's review allows it.
 function disableButtons(disabled) {
   for (const button of card?.querySelectorAll('button') || []) {
-    button.disabled = disabled || (button.dataset.accept === 'true' && card.dataset.codeVerified !== 'true');
+    button.disabled = disabled || (button.dataset.accept === 'true' && card.dataset.canAccept !== 'true');
   }
 }
-
-const hashMismatch = 'The reviewed YAML does not match its hash. Refuse this candidate.';
 
 // Lowercase hex SHA-256 of the UTF-8 bytes of text.
 async function sha256Hex(text) {
@@ -68,20 +165,16 @@ async function sha256Hex(text) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-// Checks the card's YAML against candidate_sha256, the digest Credimi's approval signs, so the
-// user never accepts a candidate other than the one shown.
-async function verifyCode(target, input) {
-  let verified = false;
-  if (typeof input.code === 'string' && typeof input.candidate_sha256 === 'string') {
-    try {
-      verified = (await sha256Hex(input.code)) === input.candidate_sha256;
-    } catch {
-      verified = false;
-    }
+async function checkAcceptable(target, review, input) {
+  let acceptable = false;
+  try {
+    acceptable = await review.canAccept(input);
+  } catch {
+    acceptable = false;
   }
   if (card !== target) return;
-  target.dataset.codeVerified = verified ? 'true' : 'false';
-  if (!verified) statusText(hashMismatch);
+  target.dataset.canAccept = acceptable ? 'true' : 'false';
+  if (!acceptable && review.cannotAccept) statusText(review.cannotAccept);
   disableButtons(submitting);
 }
 
@@ -202,15 +295,16 @@ function showSignIn(accepted, origin) {
 
 async function decide(accepted) {
   if (!pending || submitting || currentSession !== sessionId()) return;
-  if (accepted && card?.dataset.codeVerified !== 'true') {
-    statusText(hashMismatch);
+  const proposal = pending;
+  const review = tools[proposal.tool_name];
+  if (accepted && card?.dataset.canAccept !== 'true') {
+    if (review.cannotAccept) statusText(review.cannotAccept);
     return;
   }
-  const proposal = pending;
   const session = currentSession;
   submitting = true;
   disableButtons(true);
-  statusText(accepted ? 'Sending your acceptance to Credimi…' : 'Sending your refusal to Credimi…');
+  statusText(review.sending(accepted));
   let reload = false;
   try {
     const auth = storedAuth();
@@ -220,7 +314,7 @@ async function decide(accepted) {
       return;
     }
     const namespace = await boundNamespace();
-    const response = await fetch(`${auth.origin}/api/action-author/reviews`, {
+    const response = await fetch(`${auth.origin}${review.endpoint}`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -231,8 +325,7 @@ async function decide(accepted) {
         namespace,
         author_workflow_id: session,
         tool_id: proposal.tool_id,
-        candidate_sha256: proposal.tool_input.candidate_sha256,
-        accepted,
+        ...review.body(proposal, accepted),
       }),
       signal: AbortSignal.timeout(30000),
     });
@@ -245,7 +338,12 @@ async function decide(accepted) {
     }
     if (response.status === 409) {
       reload = true;
-      statusText('This review is no longer pending. Reloading…');
+      statusText(review.notPending);
+      return;
+    }
+    if (response.status === 400) {
+      // Credimi refused the proposal: the card stays, so the user can still refuse it.
+      statusText(apiMessage(body, response.status));
       return;
     }
     if (!response.ok) throw new Error(apiMessage(body, response.status));
@@ -255,7 +353,7 @@ async function decide(accepted) {
     settled.add(proposal.tool_id);
     if (session !== currentSession) return;
     pending = null;
-    statusText(accepted ? 'Accepted. Waiting for the save result…' : 'Not saved. You can request changes in this chat.');
+    statusText(review.done(accepted));
   } catch (error) {
     if (session === currentSession) {
       statusText(error instanceof Error ? error.message : 'Could not send the decision.');
@@ -268,28 +366,20 @@ async function decide(accepted) {
 }
 
 function render() {
-  const nativeCard = document.querySelector(nativeSelector);
-  if (nativeCard) nativeCard.hidden = true;
+  for (const nativeCard of document.querySelectorAll(nativeSelector)) nativeCard.hidden = true;
   if (!pending) return;
   if (card?.dataset.toolId !== pending.tool_id) {
+    const review = tools[pending.tool_name];
     card?.remove();
     card = document.createElement('section');
-    card.className = 'action-save-review';
+    card.className = 'action-review';
     card.dataset.toolId = pending.tool_id;
-    card.setAttribute('aria-label', 'Review and save action');
-    const heading = document.createElement('h3');
-    heading.textContent = `Save “${pending.tool_input.name}”?`;
-    const details = document.createElement('p');
-    details.textContent = `Build: ${pending.tool_input.build}. Both clean-state replays passed. The action will be saved unpublished.`;
+    card.setAttribute('aria-label', review.label);
+    review.render(card, pending.tool_input);
     const status = document.createElement('p');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
-    status.textContent = 'Review the accepted YAML below, then confirm your decision.';
-    const code = document.createElement('pre');
-    code.className = 'review-code';
-    code.tabIndex = 0;
-    code.setAttribute('aria-label', 'Accepted YAML');
-    code.textContent = typeof pending.tool_input.code === 'string' ? pending.tool_input.code : '';
+    status.textContent = review.intro;
     const buttons = document.createElement('div');
     buttons.className = 'review-buttons';
     for (const [label, accepted] of [['Accept', true], ['Refuse', false]]) {
@@ -300,10 +390,10 @@ function render() {
       button.addEventListener('click', () => decide(accepted));
       buttons.append(button);
     }
-    card.append(heading, details, code, status, buttons);
-    card.dataset.codeVerified = 'pending';
+    card.append(status, buttons);
+    card.dataset.canAccept = 'pending';
     disableButtons(submitting);
-    verifyCode(card, pending.tool_input);
+    checkAcceptable(card, review, pending.tool_input);
   }
   if (!card.isConnected) document.body.append(card);
 }
@@ -323,11 +413,11 @@ async function refresh() {
     const response = await fetch(`/api/status/${encodeURIComponent(session)}`, {
       cache: 'no-store', signal: AbortSignal.timeout(5000),
     });
-    if (!response.ok) throw new Error('Save confirmation is temporarily unavailable.');
+    if (!response.ok) throw new Error('Review is temporarily unavailable.');
     const status = await response.json();
     if (session !== sessionId()) return;
     pending = (status.pending_callbacks || []).find(
-      (item) => item.tool_name === reviewTool && !settled.has(item.tool_id),
+      (item) => Object.hasOwn(tools, item.tool_name) && !settled.has(item.tool_id),
     ) || null;
     if (!pending && !submitting) {
       card?.remove();

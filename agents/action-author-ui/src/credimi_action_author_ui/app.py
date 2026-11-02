@@ -76,13 +76,15 @@ NAMESPACE_PATTERN = re.compile(r"[^\W_](?:[^\W_]|-){0,999}")
 
 AGENT_LABEL = "Credimi action author"
 AGENT_DESCRIPTION = (
-    "Authors an action for the wallet version selected on the start page, on a device of an "
-    "admin-managed Credimi runner (an Android device or an iOS simulator). Ask with the slot's "
-    'input values, e.g. "Write the onboarding action with PIN 123456". After two clean '
-    "replays on the runner device, review the accepted YAML and choose Accept or Refuse to save "
-    "an unpublished Credimi action. The name defaults to Onboarding unless your request "
-    "specifies another name. No form fields or hash copying are required. The model cannot "
-    "approve saving."
+    "Authors actions for the wallet version selected on the start page, on a device of an "
+    "admin-managed Credimi runner (an Android device or an iOS simulator). Describe the action "
+    "in the chat with its input values and references (a Credimi URL or identifier, or a "
+    'deeplink), e.g. "Write the onboarding action with PIN 123456". The agent proposes a plan '
+    "(category, outcome, starting actions and parameter sources): confirm or refuse it on its "
+    "card. After two clean replays on the runner device, review the accepted YAML and choose "
+    "Accept or Refuse to save an unpublished Credimi action; then ask for the next action in "
+    "the same chat. Credimi signs both decisions: the model cannot confirm a plan or approve "
+    "saving."
 )
 
 START_PAGE = Path(__file__).with_name("start.html")
@@ -114,8 +116,8 @@ HTML_CSP = (
     "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: http:; "
     "object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
 )
-# Keep the packaged UI's new-session buttons on the authenticated setup path, and add the save
-# review card.
+# Keep the packaged UI's new-session buttons on the authenticated setup path, and add the plan
+# and save review cards.
 CHAT_PAGE_SCRIPTS = (
     '<script src="/action-new-session.js"></script>'
     '<script type="module" src="/action-save-review.js"></script>'
@@ -502,13 +504,13 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
                 content={"error": "cross_origin_request", "message": "foreign Origin"},
             )
         elif request.url.path.rstrip("/") == CALLBACK_RESULT_PATH:
-            # Save approvals are signed by Credimi; the harness route would let the UI
-            # settle a review without one.
+            # Plans and save approvals are signed by Credimi; the harness route would let the
+            # UI settle a review without them.
             response = JSONResponse(
                 status_code=403,
                 content={
                     "error": "review_through_credimi",
-                    "message": "Save reviews are sent to Credimi.",
+                    "message": "Plan and save reviews are sent to Credimi.",
                 },
             )
         else:

@@ -44,29 +44,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label { display: block; margin: 0 0 8px; font-size: 14px; font-weight: 600; }
 			.field { margin-bottom: 20px; }
 			.hint { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
-			input, select, textarea {
+			input, select {
 				width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--border);
 				border-radius: 6px; background: white; color: var(--fg); font: inherit;
 			}
-			textarea {
-				height: 180px; padding: 8px 12px; resize: vertical;
-				font: 13px/1.5 'Source Code Pro', monospace;
-			}
-			input[type='checkbox'] { width: auto; height: auto; margin: 0 8px 0 0; }
-			label.inline { display: flex; align-items: center; font-weight: 500; }
-			fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
-			.group { margin-bottom: 20px; }
-			.group > legend { margin: 0 0 8px; padding: 0; font-size: 14px; font-weight: 600; }
-			.row {
-				margin: 0 0 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px;
-			}
-			.row .field { margin-bottom: 12px; }
-			.row-head { display: flex; gap: 12px; align-items: end; margin-bottom: 12px; }
-			.row-head > :first-child { flex: 1; }
-			.row-head .field { margin: 0; }
-			.source { padding-left: 12px; border-left: 3px solid var(--brand-secondary); }
-			.source .field:last-child { margin-bottom: 0; }
-			input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible {
+			input:focus, select:focus, button:focus-visible, a:focus-visible {
 				outline: 2px solid var(--brand-primary); outline-offset: 2px;
 			}
 			button {
@@ -130,44 +112,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<label for="wallet-version">Wallet version</label>
 						<select id="wallet-version" name="wallet_version_identifier" required disabled></select>
 						<p class="hint">Only versions with an installer for the selected device's platform are listed.</p>
+						<p class="hint">Describe the action in the chat: the agent proposes a plan for you to confirm.</p>
 					</div>
-					<fieldset id="spec-section">
-						<div class="field">
-							<label for="slot">Action slot</label>
-							<select id="slot" name="slot">
-								<option value="onboarding">Onboarding</option>
-								<option value="get-credential">Get a credential</option>
-								<option value="get-credential-specific">Get a credential (issuer-specific steps)</option>
-								<option value="verify-credential">Present a credential to a verifier</option>
-								<option value="other">Other</option>
-							</select>
-						</div>
-						<div class="field" id="outcome-field" hidden>
-							<label for="outcome">Expected outcome</label>
-							<select id="outcome" name="outcome">
-								<option value="success">The flow succeeds</option>
-								<option value="rejection">The wallet rejects the flow</option>
-							</select>
-						</div>
-						<div class="field" id="browser-field" hidden>
-							<label class="inline" for="browser">
-								<input type="checkbox" id="browser" name="browser" />
-								The flow runs in Chrome (DC API or engagement page)
-							</label>
-						</div>
-						<fieldset class="group" id="prerequisites-field" hidden>
-							<legend>Prerequisites</legend>
-							<div id="prerequisites"></div>
-							<button id="add-prerequisite" class="secondary" type="button" disabled>Add prerequisite</button>
-							<p class="hint" id="prerequisites-hint">Saved actions of this wallet that build the start state, in order, before exploration and before every replay.</p>
-						</fieldset>
-						<fieldset class="group">
-							<legend>Parameters of the new action</legend>
-							<div id="parameters"></div>
-							<button id="add-parameter" class="secondary" type="button">Add parameter</button>
-							<p class="hint">Each parameter gets a fresh value for every exploration and every replay; the action reads it as <code>${name}</code>. Values are stored in Temporal history: use test data only. HTTP request headers may only be <code>Content-Type</code>, <code>Accept</code> and <code>Accept-Language</code>: never put credentials in a source.</p>
-						</fieldset>
-					</fieldset>
 					<div class="actions">
 						<button id="start" type="submit">Start authoring session</button>
 						<button id="cancel" class="secondary" type="button" hidden>Cancel</button>
@@ -177,8 +123,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</form>
 			<p class="security">
 				Your key is used only in this page's memory and is cleared after the lookup. The session
-				token is kept in this browser tab's session storage, so the chat can send your save
-				reviews to Credimi; it is never added to the URL or sent to the Temporal workflow.
+				token is kept in this browser tab's session storage, so the chat can send your plan and
+				save reviews to Credimi; it is never added to the URL or sent to the Temporal workflow.
 			</p>
 		</main>
 		<script>
@@ -194,48 +140,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			const CHAT_READY_TIMEOUT = 60000;
 			const AGENT_NOT_ANSWERING = "The runner's action author is not answering. Check that [agent] is enabled on the runner, then cancel and retry.";
 			const PLATFORM_LABELS = { android: 'Android', ios: 'iOS simulator' };
-			// Shared with the chat page's save review, which sends decisions to Credimi.
+			// Shared with the chat page's plan and save reviews, which send decisions to Credimi.
 			const AUTH_STORAGE_KEY = 'credimi-action-author';
-			const SOURCE_KINDS = [
-				['credential_offer', 'Credential offer'],
-				['use_case_verification', 'Use case verification'],
-				['http', 'HTTP request'],
-				['literal', 'Fixed value'],
-			];
-			// The capture-wallet verifier: a fresh presentation deeplink, and its session status.
-			const HTTP_SOURCE_EXAMPLE = {
-				request: {
-					method: 'POST',
-					url: 'https://capture-wallet.credimi.io/openid4vp/sessions',
-					headers: { 'Content-Type': 'application/json' },
-					body: {
-						presentation_request: {
-							dcql_query: {
-								credentials: [{
-									claims: [{ path: ['given_name'] }],
-									format: 'dc+sd-jwt',
-									id: 'pid',
-									meta: { vct_values: ['urn:eudi:pid:1'] },
-								}],
-							},
-							nonce: 'e2e',
-						},
-						request_delivery: 'by_reference',
-						request_uri_method: 'post',
-						response_mode: 'direct_post.jwt',
-						response_type: 'vp_token',
-						scheme: 'haip-vp://',
-					},
-				},
-				value_path: 'deeplink',
-				captures: { session_id: 'session_id' },
-				status: {
-					url: 'https://capture-wallet.credimi.io/openid4vp/sessions/${session_id}',
-					path: 'status',
-					success: ['presentation_validated'],
-				},
-			};
-			const PREREQUISITES_HINT = 'Saved actions of this wallet that build the start state, in order, before exploration and before every replay.';
 			const form = document.querySelector('#start-form');
 			const originInput = document.querySelector('#credimi-url');
 			const keyInput = document.querySelector('#api-key');
@@ -247,27 +153,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			const deviceSelect = document.querySelector('#device');
 			const versionSelect = document.querySelector('#wallet-version');
 			const status = document.querySelector('#status');
-			const specSection = document.querySelector('#spec-section');
-			const slotSelect = document.querySelector('#slot');
-			const outcomeField = document.querySelector('#outcome-field');
-			const outcomeSelect = document.querySelector('#outcome');
-			const browserField = document.querySelector('#browser-field');
-			const browserCheckbox = document.querySelector('#browser');
-			const prerequisitesField = document.querySelector('#prerequisites-field');
-			const prerequisitesList = document.querySelector('#prerequisites');
-			const prerequisitesHint = document.querySelector('#prerequisites-hint');
-			const addPrerequisiteButton = document.querySelector('#add-prerequisite');
-			const parametersList = document.querySelector('#parameters');
-			const addParameterButton = document.querySelector('#add-parameter');
 			let devices = [];
 			let versions = [];
 			let bearerToken = '';
 			let connectedOrigin = '';
-			// Saved actions of the selected wallet, for the selected platform.
-			let walletActions = [];
-			let walletActionsKey = '';
-			let walletActionsRequest = 0;
-			let controlCount = 0;
 			// The queued session: its ticket and device, until it fails, is canceled, or opens.
 			let ticket = null;
 			let cancelRequested = false;
@@ -290,7 +179,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				keyInput.disabled = busy || !versionSection.hidden;
 				deviceSelect.disabled = busy || versionSection.hidden;
 				versionSelect.disabled = deviceSelect.disabled;
-				specSection.disabled = deviceSelect.disabled;
 			}
 
 			function credimiOrigin() {
@@ -335,10 +223,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				versionSelect.replaceChildren();
 				devices = [];
 				versions = [];
-				walletActions = [];
-				walletActionsKey = '';
-				walletActionsRequest += 1;
-				prerequisitesList.replaceChildren();
 				startButton.textContent = 'Start authoring session';
 				existingButton.hidden = true;
 			}
@@ -381,186 +265,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}
 				if ([...versionSelect.options].some((option) => option.value === current)) versionSelect.value = current;
 				startButton.disabled = !versionSelect.options.length;
-				updateSpecControls();
-				loadWalletActions();
 				return versionSelect.options.length;
-			}
-
-			// Onboarding starts from a cleared app: no outcome choice, browser, or prerequisites.
-			function updateSpecControls() {
-				const onboarding = slotSelect.value === 'onboarding';
-				outcomeField.hidden = onboarding;
-				browserField.hidden = onboarding || selectedDevice()?.platform !== 'android';
-				prerequisitesField.hidden = onboarding;
-			}
-
-			// Prerequisites are saved actions of the selected wallet; another wallet drops them.
-			async function loadWalletActions() {
-				const platform = selectedDevice()?.platform;
-				const identifier = versionSelect.value;
-				const key = platform && identifier ? `${identifier} ${platform}` : '';
-				if (key === walletActionsKey) return;
-				walletActionsKey = key;
-				walletActions = [];
-				prerequisitesList.replaceChildren();
-				addPrerequisiteButton.disabled = true;
-				prerequisitesHint.textContent = PREREQUISITES_HINT;
-				const current = ++walletActionsRequest;
-				if (!key) return;
-				try {
-					const query = new URLSearchParams({ wallet_version_identifier: identifier, platform });
-					const list = await request(`/api/action-author/wallet-actions?${query}`, authorized());
-					if (current !== walletActionsRequest) return;
-					walletActions = list.actions || [];
-					addPrerequisiteButton.disabled = !walletActions.length;
-					if (!walletActions.length) {
-						prerequisitesHint.textContent = 'This wallet has no saved actions yet: author its onboarding action first.';
-					}
-				} catch (error) {
-					if (current !== walletActionsRequest) return;
-					walletActionsKey = '';
-					prerequisitesHint.textContent = `The wallet's actions could not be loaded: ${error instanceof Error ? error.message : 'request failed'}`;
-				}
-			}
-
-			function labelled(text, control) {
-				const field = document.createElement('div');
-				field.className = 'field';
-				const label = document.createElement('label');
-				control.id = `control-${++controlCount}`;
-				label.htmlFor = control.id;
-				label.textContent = text;
-				field.append(label, control);
-				return field;
-			}
-
-			function removeButton(row) {
-				const button = document.createElement('button');
-				button.type = 'button';
-				button.className = 'secondary';
-				button.textContent = 'Remove';
-				button.addEventListener('click', () => row.remove());
-				return button;
-			}
-
-			// One parameter source; `read` answers its spec or throws a message naming `owner`.
-			// Status checks belong to the new action's parameters only.
-			function sourceEditor(prerequisite) {
-				const element = document.createElement('div');
-				element.className = 'source';
-				const kind = document.createElement('select');
-				for (const [value, text] of SOURCE_KINDS) kind.append(new Option(text, value));
-				const identifier = document.createElement('input');
-				identifier.placeholder = 'organization/issuer/credential';
-				identifier.autocomplete = 'off';
-				const value = document.createElement('input');
-				value.autocomplete = 'off';
-				const http = document.createElement('textarea');
-				http.spellcheck = false;
-				// Prerequisite parameters take no captures or status check.
-				const { request: exampleRequest, value_path: exampleValuePath } = HTTP_SOURCE_EXAMPLE;
-				const example = prerequisite
-					? { request: exampleRequest, value_path: exampleValuePath }
-					: HTTP_SOURCE_EXAMPLE;
-				http.value = JSON.stringify(example, null, 2);
-				const identifierField = labelled('Identifier', identifier);
-				const valueField = labelled('Value', value);
-				const httpField = labelled('HTTP source (JSON)', http);
-				const update = () => {
-					identifierField.hidden = kind.value !== 'credential_offer' && kind.value !== 'use_case_verification';
-					valueField.hidden = kind.value !== 'literal';
-					httpField.hidden = kind.value !== 'http';
-				};
-				kind.addEventListener('change', update);
-				update();
-				element.append(labelled('Source', kind), identifierField, valueField, httpField);
-				return {
-					element,
-					read(owner) {
-						if (kind.value === 'literal') {
-							if (!value.value) throw new Error(`${owner}: enter its fixed value.`);
-							return { kind: 'literal', value: value.value };
-						}
-						if (kind.value === 'http') {
-							let fields;
-							try { fields = JSON.parse(http.value); } catch { fields = null; }
-							if (!fields || typeof fields !== 'object' || Array.isArray(fields)) {
-								throw new Error(`${owner}: the HTTP source must be a JSON object.`);
-							}
-							return { ...fields, kind: 'http' };
-						}
-						if (!identifier.value.trim()) throw new Error(`${owner}: enter its identifier.`);
-						return { kind: kind.value, identifier: identifier.value.trim() };
-					},
-				};
-			}
-
-			function addPrerequisite() {
-				const row = document.createElement('div');
-				row.className = 'row';
-				const action = document.createElement('select');
-				for (const entry of walletActions) {
-					action.append(new Option(`${entry.name} (${entry.category})`, entry.path));
-				}
-				const head = document.createElement('div');
-				head.className = 'row-head';
-				head.append(labelled('Action', action), removeButton(row));
-				const sources = document.createElement('div');
-				let editors = [];
-				const showParameters = () => {
-					const entry = walletActions.find((item) => item.path === action.value);
-					editors = (entry?.parameters || []).map((name) => ({ name, editor: sourceEditor(true) }));
-					sources.replaceChildren();
-					for (const { name, editor } of editors) {
-						const title = document.createElement('p');
-						title.className = 'hint';
-						title.textContent = `Parameter ${name}`;
-						sources.append(title, editor.element);
-					}
-				};
-				action.addEventListener('change', showParameters);
-				showParameters();
-				row.read = () => ({
-					action: action.value,
-					parameters: editors.map(({ name, editor }) => ({
-						name,
-						source: editor.read(`Prerequisite ${action.value}, parameter ${name}`),
-					})),
-				});
-				row.append(head, sources);
-				prerequisitesList.append(row);
-			}
-
-			function addParameter() {
-				const row = document.createElement('div');
-				row.className = 'row';
-				const name = document.createElement('input');
-				name.placeholder = 'deeplink';
-				name.autocomplete = 'off';
-				name.spellcheck = false;
-				const head = document.createElement('div');
-				head.className = 'row-head';
-				head.append(labelled('Name', name), removeButton(row));
-				const editor = sourceEditor(false);
-				row.read = () => {
-					const parameter = name.value.trim();
-					if (!parameter) throw new Error('Every parameter needs a name.');
-					return { name: parameter, source: editor.read(`Parameter ${parameter}`) };
-				};
-				row.append(head, editor.element);
-				parametersList.append(row);
-			}
-
-			// The action spec of the start request; Credimi validates it.
-			function sessionSpec() {
-				const onboarding = slotSelect.value === 'onboarding';
-				return {
-					slot: slotSelect.value,
-					outcome: onboarding ? 'success' : outcomeSelect.value,
-					browser: !browserField.hidden && browserCheckbox.checked,
-					prerequisites: onboarding ? [] : [...prerequisitesList.children].map((row) => row.read()),
-					parameters: [...parametersList.children].map((row) => row.read()),
-				};
 			}
 
 			async function connect() {
@@ -686,7 +391,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			async function start() {
 				const device = selectedDevice();
-				const spec = sessionSpec();
 				showStatus('Queueing the authoring session…');
 				let result;
 				try {
@@ -696,7 +400,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						body: JSON.stringify({
 							device_id: device.path,
 							wallet_version_identifier: versionSelect.value,
-							...spec,
 						}),
 					}));
 				} catch (error) {
@@ -793,10 +496,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				if (!showVersions()) showStatus('No wallet version has an installer for this device.', 'error');
 				else showStatus('');
 			});
-			versionSelect.addEventListener('change', loadWalletActions);
-			slotSelect.addEventListener('change', updateSpecControls);
-			addPrerequisiteButton.addEventListener('click', addPrerequisite);
-			addParameterButton.addEventListener('click', addParameter);
 		</script>
 	</body>
 </html>

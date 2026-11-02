@@ -31,8 +31,8 @@ and lists the devices of admin-managed runners of organizations where you are an
 platform. Starting a session queues it for the device; the page shows the queue position and
 the device preparation, offers **Cancel** while waiting, and opens the chat once the session
 runs. The key is never stored; the bearer token is kept in the tab's `sessionStorage`
-(`credimi-action-author`, with the Credimi URL) so the chat's save review can call Credimi, and
-it never reaches workflow inputs or the URL.
+(`credimi-action-author`, with the Credimi URL) so the chat's plan and save reviews can call
+Credimi, and it never reaches workflow inputs or the URL.
 
 Credimi derives the actor and organization from authentication; the browser cannot supply
 either. Direct creation through the harness API is rejected, and **New session** in the harness
@@ -43,36 +43,36 @@ No page can be framed. Every HTML page but the start page (which has its own pol
 `Content-Security-Policy` that runs only scripts of the UI's own origin: the harness chat page
 has no inline script, and the scripts the UI adds to it (`/action-new-session.js`,
 `/action-save-review.js`) are files. Styles may be inline; requests may go to the UI and, for
-the save review, to Credimi over HTTP(S).
+the plan and save reviews, to Credimi over HTTP(S).
 
-## Action spec
+## Action plan
 
-Before starting, the page describes the action to author: the **slot** (onboarding, get a
-credential, get a credential with issuer-specific steps, present a credential, other), the
-expected **outcome** (success or a wallet rejection; not for onboarding), whether the flow
-runs in **Chrome** (Android devices only), the **prerequisites** (saved actions of the
-selected wallet from `GET /api/action-author/wallet-actions`, in order, each with a source per
-parameter it reads), and the **parameters** of the new action. A source is a Credimi
-credential offer, a use-case verification, an HTTP request (JSON: `request`, `value_path`,
-optional `captures` and, on the new action's parameters, `status`; headers only
-`Content-Type`, `Accept` and `Accept-Language`), or a fixed value. Credimi validates the spec
-at start (`400` with its message). An organization has no daily token allowance until a Credimi
-superuser sets one, and a missing or used-up allowance answers `429` with Credimi's message.
-Values are stored in Temporal history: use test data only.
+The start page asks only for the device and the wallet version. Describe the action in the
+chat: its category, success or rejection, input values (PIN) and references (a Credimi URL or
+identifier, or a deeplink). The agent proposes a **plan**: the slot, the outcome, whether the
+flow runs in Chrome, the prerequisites (saved actions of the wallet) and the parameter sources.
+The plan card (`confirm_action_plan`) lists its summary and the input values; **Accept** /
+**Refuse** sends `POST /api/action-author/plans` with the bound namespace, the chat's workflow
+ID, the card's `tool_id`, its `plan` and the stored bearer token. Credimi validates the plan and
+signs it; a `400` shows Credimi's message and keeps the card, so you can still refuse it. A
+session can save several actions in a row, each with its own plan. An organization has no daily
+token allowance until a Credimi superuser sets one, and a missing or used-up allowance answers
+`429` with Credimi's message. Values are stored in Temporal history: use test data only.
 
 ## Save review
 
-The **Accept** / **Refuse** card shows the accepted YAML (`tool_input.code`) and enables
-**Accept** only when its SHA-256 matches the review's `candidate_sha256`; otherwise it says
+The **Accept** / **Refuse** card shows the accepted YAML (`tool_input.code`) and the plan the
+session's plan token signs, and enables **Accept** only when the YAML's SHA-256 matches the
+review's `candidate_sha256`; otherwise it says
 `The reviewed YAML does not match its hash. Refuse this candidate.` and leaves only **Refuse**.
 It sends the decision to Credimi, not to the workflow:
 `POST /api/action-author/reviews` with the bound namespace, the chat's workflow ID, the
-review's `tool_id` and `candidate_sha256`, and the stored bearer token. Credimi checks that you
-started the session, signs the approval the save activity verifies, and settles the review.
-Without a stored token, or after a `401`, the card asks for a Credimi user API key (and the
-Credimi URL when unknown) and retries; a `409` means the review is no longer pending and the
-card reloads. The UI answers every `/api/callback-result` request with `403
-review_through_credimi`, so the harness route cannot settle a review without an approval.
+review's `tool_id`, `candidate_sha256` and `plan_token`, and the stored bearer token. Credimi
+checks that you started the session, signs the approval the save activity verifies, and
+settles the review. Without a stored token, or after a `401`, both cards ask for a Credimi user
+API key (and the Credimi URL when unknown) and retry; a `409` means the card is no longer
+pending and it reloads. The UI answers every `/api/callback-result` request with `403
+review_through_credimi`, so the harness route cannot settle a plan or a review without Credimi.
 
 ## Namespace binding
 

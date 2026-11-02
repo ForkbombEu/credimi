@@ -106,22 +106,32 @@ async def test_reviews_are_never_settled_through_the_ui(bound, method):
     assert response.status_code == 403
     assert response.json() == {
         "error": "review_through_credimi",
-        "message": "Save reviews are sent to Credimi.",
+        "message": "Plan and save reviews are sent to Credimi.",
     }
 
 
-async def test_save_review_is_sent_to_credimi():
+async def test_reviews_are_sent_to_credimi():
     async with ui_client() as client:
         script = (await client.get("/action-save-review.js")).text
     assert "/api/callback-result" not in script
-    assert "fetch(`${auth.origin}/api/action-author/reviews`" in script
+    # Both callback tools get a card; their native response cards are hidden.
+    assert (
+        "const tools = { confirm_wallet_action_save: saveReview, confirm_action_plan: planReview };"
+    ) in script
+    assert '`[aria-label="Response: ${name}"]`' in script
+    assert "Object.hasOwn(tools, item.tool_name) && !settled.has(item.tool_id)" in script
+    assert "fetch(`${auth.origin}${review.endpoint}`" in script
+    assert "endpoint: '/api/action-author/reviews'," in script
+    assert "endpoint: '/api/action-author/plans'," in script
     assert "Authorization: `Bearer ${auth.token}`" in script
     for field in (
         "namespace,",
         "author_workflow_id: session,",
         "tool_id: proposal.tool_id,",
+        "...review.body(proposal, accepted),",
         "candidate_sha256: proposal.tool_input.candidate_sha256,",
-        "accepted,",
+        "plan_token: proposal.tool_input.plan_token || '',",
+        "body: (proposal, accepted) => ({ plan: proposal.tool_input.plan, accepted }),",
     ):
         assert field in script
     # The token comes from the start page; a missing or expired one asks for a key.
@@ -132,24 +142,44 @@ async def test_save_review_is_sent_to_credimi():
     assert "'Credimi URL'" in script
     assert "/api/apikey/authenticate" in script
     assert "response.status === 409" in script
-    assert "This review is no longer pending. Reloading…" in script
+    assert "'This review is no longer pending. Reloading…'" in script
+    assert "'This plan is no longer pending. Reloading…'" in script
+    # A refused proposal keeps its card and shows why, so the user can still refuse it.
+    assert "if (response.status === 400) {" in script
+    assert "statusText(apiMessage(body, response.status));" in script
 
 
-async def test_save_review_shows_the_yaml_and_checks_its_hash():
+async def test_plan_review_shows_the_summary_and_values():
     async with ui_client() as client:
         script = (await client.get("/action-save-review.js")).text
-    # The YAML is shown as text only, in a bounded scrollable block.
-    assert "code.textContent = typeof pending.tool_input.code === 'string'" in script
+    assert "heading.textContent = `Confirm the plan for “${input.action_name}”?`;" in script
+    assert "list(Array.isArray(input.summary) ? input.summary : [])" in script
+    assert "paragraph('Input values:')" in script
+    assert "`${name}: ${value}`" in script
+    assert "item.textContent = String(line);" in script
+    assert "canAccept: async () => true," in script
+
+
+async def test_save_review_shows_the_yaml_plan_and_checks_its_hash():
+    async with ui_client() as client:
+        script = (await client.get("/action-save-review.js")).text
+    # The YAML and the plan are shown as text only, in bounded scrollable blocks.
+    assert "typeof input.code === 'string' ? input.code : ''" in script
+    assert "block.textContent = text;" in script
     assert "innerHTML" not in script
     assert "max-height: 40vh; overflow: auto;" in script
+    # The plan is the payload segment of the signed plan token.
+    assert "token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')" in script
+    assert "JSON.parse(new TextDecoder().decode(bytes)).plan ?? null" in script
+    assert "JSON.stringify(plan, null, 2) : 'Plan fixed when the session started.'" in script
     # Accept needs the shown YAML to hash to the digest Credimi's approval signs.
     assert "crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))" in script
     assert "byte.toString(16).padStart(2, '0')" in script
     assert "(await sha256Hex(input.code)) === input.candidate_sha256" in script
-    assert "typeof input.code === 'string'" in script
+    assert "typeof input.code !== 'string'" in script
     assert "'The reviewed YAML does not match its hash. Refuse this candidate.'" in script
-    assert "button.dataset.accept === 'true' && card.dataset.codeVerified !== 'true'" in script
-    assert "if (accepted && card?.dataset.codeVerified !== 'true')" in script
+    assert "button.dataset.accept === 'true' && card.dataset.canAccept !== 'true'" in script
+    assert "if (accepted && card?.dataset.canAccept !== 'true')" in script
 
 
 async def test_the_ui_port_follows_its_setting(monkeypatch):
@@ -298,31 +328,22 @@ async def test_start_page_needs_a_running_action_author():
     assert "cancelButton.hidden = !preparing && !notAnswering" in page
 
 
-async def test_start_page_describes_the_action_to_author():
+async def test_start_page_leaves_the_plan_to_the_chat():
     async with ui_client() as client:
         page = (await client.get("/start")).text
-    # Every slot, the expected outcome, and the Android-only browser flag.
-    for slot in (
-        "onboarding",
-        "get-credential",
-        "get-credential-specific",
-        "verify-credential",
-        "other",
-    ):
-        assert f'<option value="{slot}">' in page
-    assert '<select id="outcome"' in page
-    assert '<option value="rejection">The wallet rejects the flow</option>' in page
-    assert '<input type="checkbox" id="browser"' in page
-    assert "The flow runs in Chrome (DC API or engagement page)" in page
-    assert "selectedDevice()?.platform !== 'android'" in page
-    # Prerequisites are the wallet's saved actions; every source kind has an editor.
-    assert "/api/action-author/wallet-actions?${query}" in page
-    assert "wallet_version_identifier: identifier, platform" in page
-    for kind in ("credential_offer", "use_case_verification", "http", "literal"):
-        assert f"['{kind}', " in page
-    assert "Values are stored in Temporal history: use test data only." in page
-    assert "...spec," in page
-    # The chat's save review reuses the Credimi session token of this tab.
+    # The start request names only the device and the wallet version.
+    assert (
+        "body: JSON.stringify({\n"
+        "\t\t\t\t\t\t\tdevice_id: device.path,\n"
+        "\t\t\t\t\t\t\twallet_version_identifier: versionSelect.value,\n"
+        "\t\t\t\t\t\t}),"
+    ) in page
+    for removed in ('id="slot"', 'id="spec-section"', "sessionSpec", "/wallet-actions"):
+        assert removed not in page
+    assert (
+        "Describe the action in the chat: the agent proposes a plan for you to confirm."
+    ) in page
+    # The chat's plan and save reviews reuse the Credimi session token of this tab.
     assert "sessionStorage.setItem(AUTH_STORAGE_KEY" in page
     assert "sessionStorage.removeItem(AUTH_STORAGE_KEY)" in page
 
