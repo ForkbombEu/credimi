@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -17,6 +18,7 @@ import (
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -24,6 +26,9 @@ const (
 	// must have polled its task queue to count as running.
 	actionAuthorPollerFreshness = 2 * time.Minute
 	actionAuthorDescribeTimeout = 5 * time.Second
+	// actionAuthorCheckConcurrency bounds the parallel task queue
+	// descriptions of one device list.
+	actionAuthorCheckConcurrency = 8
 )
 
 // describeActionAuthorTaskQueue describes a runner's action author workflow
@@ -110,6 +115,31 @@ func runnerActionAuthorAvailable(e *core.RequestEvent, runner *core.Record, name
 			"cannot check the action author of runner %s: %v", runnerID, err,
 		))
 	}
+	return available
+}
+
+// runnersActionAuthorAvailable checks the agents of runners in parallel,
+// runners[i] in namespaces[i], and reports them by runner record ID.
+func runnersActionAuthorAvailable(
+	e *core.RequestEvent,
+	runners []*core.Record,
+	namespaces []string,
+) map[string]bool {
+	available := make(map[string]bool, len(runners))
+	var mu sync.Mutex
+	var group errgroup.Group
+	group.SetLimit(actionAuthorCheckConcurrency)
+	for i, runner := range runners {
+		group.Go(func() error {
+			ok := runnerActionAuthorAvailable(e, runner, namespaces[i])
+			mu.Lock()
+			defer mu.Unlock()
+			available[runner.Id] = ok
+			return nil
+		})
+	}
+	// The checks report failures as unavailable and never return errors.
+	_ = group.Wait()
 	return available
 }
 

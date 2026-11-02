@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -635,23 +636,25 @@ func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
 		},
 	} {
 		stubActionAuthorQueue(t, true)
-		// Namespaces each task queue was described in.
+		// Namespaces each task queue was described in; runners are checked in parallel.
+		var mu sync.Mutex
 		describes := map[string][]string{}
-		namespace := ""
 		queueTemporalClient = func(ns string) (client.Client, error) {
-			namespace = ns
-			return nil, tc.clientErr
+			return namespacedClient{namespace: ns}, tc.clientErr
 		}
-		stubActionAuthorAgent(
-			t,
-			func(taskQueue string) (*workflowservice.DescribeTaskQueueResponse, error) {
-				describes[taskQueue] = append(describes[taskQueue], namespace)
-				if taskQueue == authoringAdminRunner+"-ActionAuthor" {
-					return freshActionAuthorPoller(), nil
-				}
-				return &workflowservice.DescribeTaskQueueResponse{}, nil
-			},
-		)
+		describeActionAuthorTaskQueue = func(
+			_ context.Context,
+			c client.Client,
+			taskQueue string,
+		) (*workflowservice.DescribeTaskQueueResponse, error) {
+			mu.Lock()
+			describes[taskQueue] = append(describes[taskQueue], c.(namespacedClient).namespace)
+			mu.Unlock()
+			if taskQueue == authoringAdminRunner+"-ActionAuthor" {
+				return freshActionAuthorPoller(), nil
+			}
+			return &workflowservice.DescribeTaskQueueResponse{}, nil
+		}
 		var response ActionAuthorDevicesResponse
 		(&tests.ApiScenario{
 			Name:            tc.name,
@@ -683,6 +686,82 @@ func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
 			}, describes, tc.name)
 		}
 	}
+}
+
+// namespacedClient tells task queue stubs which namespace a client is for.
+type namespacedClient struct {
+	client.Client
+	namespace string
+}
+
+func TestActionAuthorDevicesChecksRunnerAgentsInParallel(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "admin@example.org")
+	require.NoError(t, err)
+	token, err := superuser.NewAuthToken()
+	require.NoError(t, err)
+	app.Cleanup()
+
+	const checkDuration = 200 * time.Millisecond
+	stubActionAuthorQueue(t, true)
+	stubActionAuthorAgent(
+		t,
+		func(taskQueue string) (*workflowservice.DescribeTaskQueueResponse, error) {
+			time.Sleep(checkDuration)
+			if taskQueue == authoringForeignRunner+"-ActionAuthor" {
+				return &workflowservice.DescribeTaskQueueResponse{}, nil
+			}
+			return freshActionAuthorPoller(), nil
+		},
+	)
+	var response ActionAuthorDevicesResponse
+	var started time.Time
+	var elapsed time.Duration
+	(&tests.ApiScenario{
+		Name:            "three runners",
+		Method:          http.MethodGet,
+		URL:             "/api/action-author/devices",
+		Headers:         map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"agent_available"`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			org, err := app.FindFirstRecordByData(
+				"organizations",
+				"name",
+				"userA's organization",
+			)
+			require.NoError(t, err)
+			createAuthoringDevice(
+				t,
+				app,
+				createAuthoringRunner(t, app, org.Id, "second-admin-runner", true),
+				"android_emulator",
+			)
+			return app
+		},
+		BeforeTestFunc: func(testing.TB, *tests.TestApp, *core.ServeEvent) {
+			started = time.Now()
+		},
+		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+			elapsed = time.Since(started)
+			body, err := io.ReadAll(res.Body)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(body, &response))
+		},
+	}).Test(t)
+
+	require.Less(t, elapsed, 3*checkDuration, "three runner checks must overlap")
+	available := map[string]bool{}
+	for _, device := range response.Devices {
+		available[device.RunnerName] = device.AgentAvailable
+	}
+	require.Equal(t, map[string]bool{
+		"admin-runner":         true,
+		"second-admin-runner":  true,
+		"foreign-admin-runner": false,
+	}, available)
 }
 
 func TestActionAuthorDevicesListsEveryAdminRunnerForSuperusers(t *testing.T) {

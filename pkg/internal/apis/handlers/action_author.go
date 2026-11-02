@@ -126,18 +126,24 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(fmt.Errorf("list authoring runners: %w", err))
 		}
-		response := ActionAuthorDevicesResponse{Devices: []ActionAuthorDevice{}}
-		now := time.Now()
-		for _, runner := range enabledMobileRunnerRecords(runners) {
-			// Heartbeat freshness, as GET /api/mobile-devices reports it.
-			runnerOnline := mobilerunner.RecentlyAlive(runner, now) &&
-				mobilerunner.URLUsable(mobilerunner.RunnerURL(runner))
+		runners = enabledMobileRunnerRecords(runners)
+		namespaces := make([]string, len(runners))
+		for i, runner := range runners {
 			owner, err := e.App.FindRecordById("organizations", runner.GetString("owner"))
 			if err != nil {
 				return authoringAPIError(fmt.Errorf("find runner organization: %w", err))
 			}
-			namespace := owner.GetString("canonified_name")
-			agentAvailable := runnerActionAuthorAvailable(e, runner, namespace)
+			namespaces[i] = owner.GetString("canonified_name")
+		}
+		agents := runnersActionAuthorAvailable(e, runners, namespaces)
+		response := ActionAuthorDevicesResponse{Devices: []ActionAuthorDevice{}}
+		now := time.Now()
+		for i, runner := range runners {
+			// Heartbeat freshness, as GET /api/mobile-devices reports it.
+			runnerOnline := mobilerunner.RecentlyAlive(runner, now) &&
+				mobilerunner.URLUsable(mobilerunner.RunnerURL(runner))
+			namespace := namespaces[i]
+			agentAvailable := agents[runner.Id]
 			devices, err := e.App.FindAllRecords(
 				"mobile_devices",
 				dbx.HashExp{"runner": runner.Id},
