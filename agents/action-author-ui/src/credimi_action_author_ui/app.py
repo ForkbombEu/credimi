@@ -69,6 +69,7 @@ MANAGER_WORKFLOW_ID = "action-author-session-manager"
 AGENT_TASK_QUEUE = "credimi-runner-ActionAuthor"
 NAMESPACE_PATH = "/api/action-author/namespace"
 CHAT_READY_PATH = "/api/action-author/chat-ready"
+CALLBACK_RESULT_PATH = "/api/callback-result"
 # Names Credimi's canonify produces for organizations (pkg/internal/canonify): Unicode
 # letters and digits joined by `-`, never leading with `-`; at most 1000 characters.
 NAMESPACE_PATTERN = re.compile(r"[^\W_](?:[^\W_]|-){0,999}")
@@ -489,6 +490,16 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
             response = JSONResponse(
                 status_code=403,
                 content={"error": "cross_origin_request", "message": "foreign Origin"},
+            )
+        elif request.url.path.rstrip("/") == CALLBACK_RESULT_PATH:
+            # Save approvals are signed by Credimi; the harness route would let the UI
+            # settle a review without one.
+            response = JSONResponse(
+                status_code=403,
+                content={
+                    "error": "review_through_credimi",
+                    "message": "Save reviews are sent to Credimi.",
+                },
             )
         else:
             try:

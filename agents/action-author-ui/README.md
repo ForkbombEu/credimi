@@ -52,6 +52,17 @@ optional `captures` and, on the new action's parameters, `status`), or a fixed v
 validates the spec at start (`400` with its message); a used-up daily quota answers `429`.
 Values are stored in Temporal history: use test data only.
 
+## Save review
+
+The **Accept** / **Refuse** card sends the decision to Credimi, not to the workflow:
+`POST /api/action-author/reviews` with the bound namespace, the chat's workflow ID, the
+review's `tool_id` and `candidate_sha256`, and the stored bearer token. Credimi checks that you
+started the session, signs the approval the save activity verifies, and settles the review.
+Without a stored token, or after a `401`, the card asks for a Credimi user API key (and the
+Credimi URL when unknown) and retries; a `409` means the review is no longer pending and the
+card reloads. The UI answers every `/api/callback-result` request with `403
+review_through_credimi`, so the harness route cannot settle a review without an approval.
+
 ## Namespace binding
 
 Sessions run in the Temporal namespace of the device's organization. The start page binds the

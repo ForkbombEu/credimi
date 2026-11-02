@@ -85,11 +85,54 @@ async def test_same_origin_requests_reach_the_ui(base_url):
     async with ui_client(base_url) as client:
         page = await client.get("/start")
         # The unbound guard answers: the request got past the origin check.
-        callback = await client.post(
-            "/api/callback-result", json={}, headers={"Origin": base_url.lower()}
-        )
+        chat = await client.post("/api/chat", json={}, headers={"Origin": base_url.lower()})
     assert page.status_code == 200
-    assert callback.status_code == 409
+    assert chat.status_code == 409
+
+
+@pytest.mark.parametrize("bound", [False, True])
+@pytest.mark.parametrize("method", ["GET", "POST", "PUT"])
+async def test_reviews_are_never_settled_through_the_ui(bound, method):
+    app = create_app()
+    if bound:
+        app.state.binding = object()
+    async with ui_client(app=app) as client:
+        response = await client.request(
+            method,
+            "/api/callback-result",
+            json={"session_id": "s", "tool_id": "t", "result": True},
+            headers=SAME_ORIGIN,
+        )
+    assert response.status_code == 403
+    assert response.json() == {
+        "error": "review_through_credimi",
+        "message": "Save reviews are sent to Credimi.",
+    }
+
+
+async def test_save_review_is_sent_to_credimi():
+    async with ui_client() as client:
+        script = (await client.get("/action-save-review.js")).text
+    assert "/api/callback-result" not in script
+    assert "fetch(`${auth.origin}/api/action-author/reviews`" in script
+    assert "Authorization: `Bearer ${auth.token}`" in script
+    for field in (
+        "namespace,",
+        "author_workflow_id: session,",
+        "tool_id: proposal.tool_id,",
+        "candidate_sha256: proposal.tool_input.candidate_sha256,",
+        "accepted,",
+    ):
+        assert field in script
+    # The token comes from the start page; a missing or expired one asks for a key.
+    assert "const authStorageKey = 'credimi-action-author';" in script
+    assert "response.status === 401" in script
+    assert "'Credimi user API key'" in script
+    assert "'Sign in to Credimi'" in script
+    assert "'Credimi URL'" in script
+    assert "/api/apikey/authenticate" in script
+    assert "response.status === 409" in script
+    assert "This review is no longer pending. Reloading…" in script
 
 
 async def test_the_ui_port_follows_its_setting(monkeypatch):

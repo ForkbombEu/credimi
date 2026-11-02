@@ -2,8 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// The workflow owns the proposal. This page supplies only a human's boolean decision.
+// The workflow owns the proposal. This page sends a human's decision to Credimi, which signs
+// the approval the save needs and delivers it to the session.
 const reviewTool = 'confirm_wallet_action_save';
+// Written by the start page: the Credimi origin and the user's bearer token, for this tab.
+const authStorageKey = 'credimi-action-author';
 const nativeSelector = `[aria-label="Response: ${reviewTool}"]`;
 const settled = new Set();
 let currentSession = '';
@@ -30,6 +33,11 @@ ${nativeSelector} { display: none !important; }
   cursor: pointer; }
 .action-save-review button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .action-save-review button:disabled { opacity: .6; cursor: wait; }
+.action-save-review .review-sign-in { display: grid; gap: 8px; }
+.action-save-review label { display: grid; gap: 4px; }
+.action-save-review input { font: inherit; color: inherit; background: var(--surface-2, Field);
+  border: 1px solid var(--border, ButtonBorder); border-radius: 6px; padding: 8px;
+  box-sizing: border-box; width: 100%; }
 `;
 document.head.append(styles);
 
@@ -46,24 +54,168 @@ function disableButtons(disabled) {
   for (const button of card?.querySelectorAll('button') || []) button.disabled = disabled;
 }
 
+function storedAuth() {
+  try {
+    const auth = JSON.parse(sessionStorage.getItem(authStorageKey) || 'null');
+    return {
+      origin: typeof auth?.origin === 'string' ? auth.origin : '',
+      token: typeof auth?.token === 'string' ? auth.token : '',
+    };
+  } catch {
+    return { origin: '', token: '' };
+  }
+}
+
+function storeAuth(origin, token) {
+  sessionStorage.setItem(authStorageKey, JSON.stringify({ origin, token }));
+}
+
+function credimiOrigin(value) {
+  const url = new URL(value);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('Credimi URL must use HTTP or HTTPS.');
+  }
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error('Credimi URL must not contain credentials, query parameters, or a fragment.');
+  }
+  return url.origin + url.pathname.replace(/\/+$/, '');
+}
+
+async function responseBody(response) {
+  try {
+    return await response.json();
+  } catch {
+    // An HTTP error may have no JSON body.
+    return {};
+  }
+}
+
+function apiMessage(body, status) {
+  return body.message || body.error?.message || `Credimi returned ${status}.`;
+}
+
+// The organization namespace the UI is bound to, where the session runs.
+async function boundNamespace() {
+  const response = await fetch('/api/action-author/namespace', {
+    cache: 'no-store', signal: AbortSignal.timeout(5000),
+  });
+  const body = await responseBody(response);
+  if (!response.ok || typeof body.namespace !== 'string' || !body.namespace) {
+    throw new Error('This authoring UI is not bound to an organization. Open /start and sign in again.');
+  }
+  return body.namespace;
+}
+
+function labelled(text, input) {
+  const label = document.createElement('label');
+  label.append(text, input);
+  return label;
+}
+
+// Ask for a Credimi user API key inside the card; the Credimi URL too when none is known.
+function showSignIn(accepted, origin) {
+  if (!card) return;
+  card.querySelector('.review-sign-in')?.remove();
+  const toolId = pending?.tool_id;
+  const form = document.createElement('form');
+  form.className = 'review-sign-in';
+  let urlInput = null;
+  if (!origin) {
+    urlInput = document.createElement('input');
+    urlInput.type = 'url';
+    urlInput.required = true;
+    urlInput.value = 'http://localhost:8090';
+    form.append(labelled('Credimi URL', urlInput));
+  }
+  const keyInput = document.createElement('input');
+  keyInput.type = 'password';
+  keyInput.autocomplete = 'off';
+  keyInput.required = true;
+  const button = document.createElement('button');
+  button.type = 'submit';
+  button.textContent = 'Sign in to Credimi';
+  form.append(labelled('Credimi user API key', keyInput), button);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (submitting) return;
+    submitting = true;
+    disableButtons(true);
+    statusText('Signing in to Credimi…');
+    let signedIn = false;
+    try {
+      const target = origin || credimiOrigin(urlInput.value);
+      const response = await fetch(`${target}/api/apikey/authenticate`, {
+        headers: { Accept: 'application/json', 'Credimi-Api-Key': keyInput.value },
+        signal: AbortSignal.timeout(15000),
+      });
+      const body = await responseBody(response);
+      if (!response.ok) throw new Error(apiMessage(body, response.status));
+      if (typeof body.token !== 'string' || !body.token) {
+        throw new Error('Credimi did not return a session token.');
+      }
+      storeAuth(target, body.token);
+      form.remove();
+      signedIn = true;
+    } catch (error) {
+      statusText(error instanceof Error ? error.message : 'Could not sign in to Credimi.');
+    } finally {
+      keyInput.value = '';
+      submitting = false;
+      disableButtons(false);
+    }
+    // Retry the decision only for the review it was made on.
+    if (signedIn && pending?.tool_id === toolId) await decide(accepted);
+  });
+  card.insertBefore(form, card.querySelector('.review-buttons'));
+}
+
 async function decide(accepted) {
   if (!pending || submitting || currentSession !== sessionId()) return;
   const proposal = pending;
   const session = currentSession;
   submitting = true;
   disableButtons(true);
-  statusText(accepted ? 'Saving the reviewed action…' : 'Refusing this candidate…');
+  statusText(accepted ? 'Sending your acceptance to Credimi…' : 'Sending your refusal to Credimi…');
+  let reload = false;
   try {
-    const response = await fetch('/api/callback-result', {
+    const auth = storedAuth();
+    if (!auth.origin || !auth.token) {
+      showSignIn(accepted, auth.origin);
+      statusText('Sign in to Credimi to send your decision.');
+      return;
+    }
+    const namespace = await boundNamespace();
+    const response = await fetch(`${auth.origin}/api/action-author/reviews`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: session, tool_id: proposal.tool_id, result: accepted }),
-      signal: AbortSignal.timeout(15000),
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({
+        namespace,
+        author_workflow_id: session,
+        tool_id: proposal.tool_id,
+        candidate_sha256: proposal.tool_input.candidate_sha256,
+        accepted,
+      }),
+      signal: AbortSignal.timeout(30000),
     });
-    if (!response.ok) throw new Error('The decision could not be recorded. Check the session and retry.');
-    const acknowledgement = await response.json();
-    if (!acknowledgement.accepted || acknowledgement.tool_id !== proposal.tool_id) {
-      throw new Error('The session did not acknowledge this decision. Refresh and check its state.');
+    const body = await responseBody(response);
+    if (response.status === 401) {
+      storeAuth(auth.origin, '');
+      showSignIn(accepted, auth.origin);
+      statusText('Your Credimi session expired. Sign in to send your decision.');
+      return;
+    }
+    if (response.status === 409) {
+      reload = true;
+      statusText('This review is no longer pending. Reloading…');
+      return;
+    }
+    if (!response.ok) throw new Error(apiMessage(body, response.status));
+    if (body.accepted !== accepted || body.tool_id !== proposal.tool_id) {
+      throw new Error('Credimi did not acknowledge this decision. Refresh and check its state.');
     }
     settled.add(proposal.tool_id);
     if (session !== currentSession) return;
@@ -71,11 +223,12 @@ async function decide(accepted) {
     statusText(accepted ? 'Accepted. Waiting for the save result…' : 'Not saved. You can request changes in this chat.');
   } catch (error) {
     if (session === currentSession) {
-      statusText(error instanceof Error ? error.message : 'Could not record the decision.');
-      disableButtons(false);
+      statusText(error instanceof Error ? error.message : 'Could not send the decision.');
     }
   } finally {
     submitting = false;
+    if (session === currentSession && pending) disableButtons(false);
+    if (reload) await refresh();
   }
 }
 
