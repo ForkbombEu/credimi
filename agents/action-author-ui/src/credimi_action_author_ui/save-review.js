@@ -14,6 +14,7 @@ let submitting = false;
 let refreshing = false;
 
 const hashMismatch = 'The reviewed YAML does not match its hash. Refuse this candidate.';
+const unreadableToken = 'Unreadable plan token: refuse this candidate.';
 
 function textBlock(className, label, text) {
   const block = document.createElement('pre');
@@ -54,24 +55,28 @@ function summaryLines(lines) {
   return element;
 }
 
-// The plan a plan token signs: its first segment is base64url JSON of Credimi's plan grant.
+// The plan a plan token signs: its first segment is base64url JSON of Credimi's plan grant. An
+// empty token means the plan was fixed when the session started; a token that does not decode
+// to a plan is unreadable, and its candidate must not be accepted.
 function tokenPlan(token) {
-  if (typeof token !== 'string' || !token) return null;
+  if (typeof token !== 'string' || !token) return { fixed: true };
   try {
     const segment = token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
     const padded = segment + '='.repeat((4 - (segment.length % 4)) % 4);
     const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
-    return JSON.parse(new TextDecoder().decode(bytes)).plan ?? null;
+    const plan = JSON.parse(new TextDecoder().decode(bytes)).plan;
+    if (plan && typeof plan === 'object') return { plan };
   } catch {
-    return null;
+    // An undecodable token is unreadable.
   }
+  return { unreadable: true };
 }
 
 // The save of a candidate whose two clean-state replays passed.
 const saveReview = {
   label: 'Review and save action',
   intro: 'Review the accepted YAML and the plan below, then confirm your decision.',
-  cannotAccept: hashMismatch,
+  cannotAccept: (input) => (tokenPlan(input.plan_token).unreadable ? unreadableToken : hashMismatch),
   endpoint: '/api/action-author/reviews',
   sending: (accepted) => (accepted ? 'Sending your acceptance to Credimi…' : 'Sending your refusal to Credimi…'),
   done: (accepted) => (accepted ? 'Accepted. Waiting for the save result…' : 'Not saved. You can request changes in this chat.'),
@@ -81,13 +86,16 @@ const saveReview = {
     heading.textContent = `Save “${input.name}”?`;
     const details = paragraph(`Build: ${input.build}. Both clean-state replays passed. The action will be saved unpublished.`);
     const code = textBlock('review-code', 'Accepted YAML', typeof input.code === 'string' ? input.code : '');
-    const plan = tokenPlan(input.plan_token);
-    const planText = plan ? JSON.stringify(plan, null, 2) : 'Plan fixed when the session started.';
+    const { plan, unreadable } = tokenPlan(input.plan_token);
+    let planText = 'Plan fixed when the session started.';
+    if (plan) planText = JSON.stringify(plan, null, 2);
+    else if (unreadable) planText = unreadableToken;
     target.append(heading, details, code, paragraph('Plan:'), textBlock('review-code', 'Plan', planText));
   },
   // Checks the card's YAML against candidate_sha256, the digest Credimi's approval signs, so the
-  // user never accepts a candidate other than the one shown.
+  // user never accepts a candidate other than the one shown, nor one whose plan cannot be shown.
   async canAccept(input) {
+    if (tokenPlan(input.plan_token).unreadable) return false;
     if (typeof input.code !== 'string' || typeof input.candidate_sha256 !== 'string') return false;
     try {
       return (await sha256Hex(input.code)) === input.candidate_sha256;
@@ -106,7 +114,7 @@ const saveReview = {
 const planReview = {
   label: 'Confirm the action plan',
   intro: 'Check the plan, then confirm it or refuse it and tell the agent what to change.',
-  cannotAccept: '',
+  cannotAccept: () => '',
   endpoint: '/api/action-author/plans',
   sending: (accepted) => (accepted ? 'Sending your confirmation to Credimi…' : 'Sending your refusal to Credimi…'),
   done: (accepted) => (accepted ? 'Confirmed. The agent continues with this plan…' : 'Refused. Tell the agent what to change in this chat.'),
@@ -190,7 +198,8 @@ async function checkAcceptable(target, review, input) {
   }
   if (card !== target) return;
   target.dataset.canAccept = acceptable ? 'true' : 'false';
-  if (!acceptable && review.cannotAccept) statusText(review.cannotAccept);
+  const reason = acceptable ? '' : review.cannotAccept(input);
+  if (reason) statusText(reason);
   disableButtons(submitting);
 }
 
@@ -314,7 +323,8 @@ async function decide(accepted) {
   const proposal = pending;
   const review = tools[proposal.tool_name];
   if (accepted && card?.dataset.canAccept !== 'true') {
-    if (review.cannotAccept) statusText(review.cannotAccept);
+    const reason = review.cannotAccept(proposal.tool_input);
+    if (reason) statusText(reason);
     return;
   }
   const session = currentSession;

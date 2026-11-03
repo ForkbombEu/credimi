@@ -174,8 +174,20 @@ async def test_save_review_shows_the_yaml_plan_and_checks_its_hash():
     assert "max-height: 40vh; overflow: auto;" in script
     # The plan is the payload segment of the signed plan token.
     assert "token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')" in script
-    assert "JSON.parse(new TextDecoder().decode(bytes)).plan ?? null" in script
-    assert "JSON.stringify(plan, null, 2) : 'Plan fixed when the session started.'" in script
+    assert "const plan = JSON.parse(new TextDecoder().decode(bytes)).plan;" in script
+    assert "if (plan && typeof plan === 'object') return { plan };" in script
+    assert "if (plan) planText = JSON.stringify(plan, null, 2);" in script
+    # An empty token means a plan fixed at start; one that does not decode blocks Accept.
+    assert "if (typeof token !== 'string' || !token) return { fixed: true };" in script
+    assert "let planText = 'Plan fixed when the session started.';" in script
+    assert "return { unreadable: true };" in script
+    assert "'Unreadable plan token: refuse this candidate.'" in script
+    assert "else if (unreadable) planText = unreadableToken;" in script
+    assert "if (tokenPlan(input.plan_token).unreadable) return false;" in script
+    assert (
+        "cannotAccept: (input) => "
+        "(tokenPlan(input.plan_token).unreadable ? unreadableToken : hashMismatch),"
+    ) in script
     # Accept needs the shown YAML to hash to the digest Credimi's approval signs.
     assert "crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))" in script
     assert "byte.toString(16).padStart(2, '0')" in script

@@ -63,9 +63,11 @@ token allowance until a Credimi superuser sets one, and a missing or used-up all
 ## Save review
 
 The **Accept** / **Refuse** card shows the accepted YAML (`tool_input.code`) and the plan the
-session's plan token signs, and enables **Accept** only when the YAML's SHA-256 matches the
-review's `candidate_sha256`; otherwise it says
-`The reviewed YAML does not match its hash. Refuse this candidate.` and leaves only **Refuse**.
+session's plan token signs (`Plan fixed when the session started.` when the token is empty),
+and enables **Accept** only when the YAML's SHA-256 matches the review's `candidate_sha256`;
+otherwise it says `The reviewed YAML does not match its hash. Refuse this candidate.` and
+leaves only **Refuse**. A non-empty plan token that does not decode shows
+`Unreadable plan token: refuse this candidate.` and also leaves only **Refuse**.
 It sends the decision to Credimi, not to the workflow:
 `POST /api/action-author/reviews` with the bound namespace, the chat's workflow ID, the
 review's `tool_id`, `candidate_sha256` and `plan_token`, and the stored bearer token. Credimi
