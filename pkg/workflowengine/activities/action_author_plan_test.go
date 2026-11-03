@@ -340,8 +340,22 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 	check := func(start, plan actionauthor.Spec) (CheckActionAuthorPlanOutput, error) {
 		a := NewCheckActionAuthorPlanActivity(app)
 		a.authorSessionLookup = specSessionLookup(t, session, start).lookup()
-		return a.check(t.Context(), caller, CheckActionAuthorPlanInput{Plan: plan})
+		return a.check(t.Context(), caller, CheckActionAuthorPlanInput{Plan: &plan})
 	}
+	problems := func(problems ...string) CheckActionAuthorPlanOutput {
+		return CheckActionAuthorPlanOutput{
+			Problems:      problems,
+			Summary:       []string{},
+			Prerequisites: []actionauthor.ResolvedPrerequisite{},
+			Parameters:    []actionauthor.ParameterInfo{},
+		}
+	}
+	resolved := []actionauthor.ResolvedPrerequisite{{
+		Action:     onboarding,
+		Name:       "Onboarding",
+		Code:       "appId: eu.wallet\n---\n- launchApp\n",
+		Parameters: actionauthor.ActionParameters("appId: eu.wallet\n---\n- launchApp\n"),
+	}}
 	plan := actionauthor.Spec{
 		Slot:          "get-credential",
 		Prerequisites: []actionauthor.PrerequisiteSpec{{Action: "/" + onboarding}},
@@ -356,7 +370,7 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 	normalized := plan
 	normalized.Outcome = actionauthor.OutcomeSuccess
 	normalized.Prerequisites = []actionauthor.PrerequisiteSpec{{Action: onboarding}}
-	require.Equal(t, CheckActionAuthorPlanOutput{
+	accepted := CheckActionAuthorPlanOutput{
 		Problems: []string{},
 		Plan:     &normalized,
 		Summary: []string{
@@ -365,21 +379,28 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 			"Starts from: Onboarding (" + onboarding + ")",
 			"${PIN}: the fixed value \"123456\"",
 		},
-	}, output)
+		Prerequisites: resolved,
+		Parameters:    actionauthor.ParameterInfos(normalized),
+	}
+	require.Equal(t, accepted, output)
+	require.Len(t, output.Parameters, 1)
 
 	output, err = check(actionauthor.Spec{}, actionauthor.Spec{Slot: "get-credential"})
 	require.NoError(t, err)
-	require.Equal(t, CheckActionAuthorPlanOutput{Problems: []string{
+	require.Equal(t, problems(
 		"prerequisites: the get-credential slot needs at least one prerequisite",
-	}}, output)
+	), output)
+	encoded, err := json.Marshal(output)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"problems": ["prerequisites: the get-credential slot needs at least `+
+		`one prerequisite"], "plan": null, "summary": [], "prerequisites": [], "parameters": []}`,
+		string(encoded))
 
 	missing := plan
 	missing.Prerequisites = []actionauthor.PrerequisiteSpec{{Action: namespace + "/x/y"}}
 	output, err = check(actionauthor.Spec{}, missing)
 	require.NoError(t, err)
-	require.Equal(t, CheckActionAuthorPlanOutput{Problems: []string{
-		namespace + "/x/y not found",
-	}}, output)
+	require.Equal(t, problems(namespace+"/x/y not found"), output)
 
 	wait := actionauthor.Spec{
 		Slot:          "other",
@@ -397,20 +418,70 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 			"Outcome: waits 240 s",
 			"Starts from: Onboarding (" + onboarding + ")",
 		},
+		Prerequisites: resolved,
+		Parameters:    []actionauthor.ParameterInfo{},
 	}, output)
 
 	wait.WaitSeconds = 0
 	output, err = check(actionauthor.Spec{}, wait)
 	require.NoError(t, err)
-	require.Equal(t, CheckActionAuthorPlanOutput{Problems: []string{
-		"wait_seconds: must be 1-600 for the wait outcome",
-	}}, output)
+	require.Equal(t, problems("wait_seconds: must be 1-600 for the wait outcome"), output)
 
 	output, err = check(actionauthor.Spec{Slot: "onboarding"}, plan)
 	require.NoError(t, err)
-	require.Equal(t, CheckActionAuthorPlanOutput{Problems: []string{
-		"this session's plan was fixed when it started",
-	}}, output)
+	require.Equal(t, problems("this session's plan was fixed when it started"), output)
+
+	// A confirmed plan's token: Credimi verifies it and returns what the agent applies.
+	verify := func(start actionauthor.Spec, input CheckActionAuthorPlanInput) (
+		CheckActionAuthorPlanOutput, error,
+	) {
+		a := NewCheckActionAuthorPlanActivity(app)
+		a.authorSessionLookup = specSessionLookup(t, session, start).lookup()
+		return a.check(t.Context(), caller, input)
+	}
+	token := signTestPlan(t, app, session, plan)
+	output, err = verify(actionauthor.Spec{}, CheckActionAuthorPlanInput{PlanToken: token})
+	require.NoError(t, err)
+	require.Equal(t, accepted, output)
+
+	other := session
+	other.ActorID = "someone-else"
+	for name, tc := range map[string]struct {
+		start   actionauthor.Spec
+		token   string
+		code    string
+		message string
+	}{
+		"forged": {
+			token:   "forged.x",
+			code:    errorcodes.RecordNotAccessible,
+			message: "plan not signed by Credimi",
+		},
+		"another user": {
+			token:   signTestPlan(t, app, other, plan),
+			code:    errorcodes.RecordNotAccessible,
+			message: "plan confirmed by another user",
+		},
+		"start spec": {
+			start:   actionauthor.Spec{Slot: "onboarding"},
+			token:   token,
+			code:    errorcodes.MissingOrInvalidPayload,
+			message: "this session's plan was fixed when it started",
+		},
+	} {
+		_, err := verify(tc.start, CheckActionAuthorPlanInput{PlanToken: tc.token})
+		requireActivityError(t, err, tc.code, true)
+		require.ErrorContains(t, err, tc.message, name)
+	}
+
+	for name, input := range map[string]CheckActionAuthorPlanInput{
+		"both":    {Plan: &plan, PlanToken: token},
+		"neither": {},
+	} {
+		_, err := verify(actionauthor.Spec{}, input)
+		requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
+		require.ErrorContains(t, err, "send either plan or plan_token", name)
+	}
 }
 
 func TestResolveActionAuthorReference(t *testing.T) {
