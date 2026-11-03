@@ -61,12 +61,63 @@ func TestSpecNormalize(t *testing.T) {
 		{
 			name:    "unknown outcome",
 			edit:    func(s *Spec) { s.Outcome = "maybe" },
-			message: "outcome: must be success or rejection",
+			message: "outcome: must be success, rejection or wait",
 		},
 		{
 			name:    "onboarding rejection",
 			edit:    func(s *Spec) { *s = Spec{Slot: "onboarding", Outcome: OutcomeRejection} },
 			message: "outcome: the onboarding slot has no rejection outcome",
+		},
+		{
+			name: "wait",
+			edit: func(s *Spec) {
+				*s = Spec{Slot: "other", Outcome: OutcomeWait, WaitSeconds: 240,
+					Prerequisites: []PrerequisiteSpec{{Action: "org/wallet/onboarding"}}}
+			},
+		},
+		{
+			name:    "wait on another slot",
+			edit:    func(s *Spec) { s.Outcome = OutcomeWait; s.WaitSeconds = 20; s.Parameters = nil },
+			message: "outcome: the get-credential slot has no wait outcome",
+		},
+		{
+			name:    "wait without a duration",
+			edit:    func(s *Spec) { *s = Spec{Slot: "other", Outcome: OutcomeWait} },
+			message: "wait_seconds: must be 1-600 for the wait outcome",
+		},
+		{
+			name: "wait too long",
+			edit: func(s *Spec) {
+				*s = Spec{Slot: "other", Outcome: OutcomeWait, WaitSeconds: 601}
+			},
+			message: "wait_seconds: must be 1-600 for the wait outcome",
+		},
+		{
+			name: "wait with parameters",
+			edit: func(s *Spec) {
+				s.Slot, s.Outcome, s.WaitSeconds = "other", OutcomeWait, 20
+			},
+			message: "parameters: a wait action takes no parameters",
+		},
+		{
+			name:    "wait seconds without the wait outcome",
+			edit:    func(s *Spec) { s.WaitSeconds = 20 },
+			message: "wait_seconds: only the wait outcome takes a wait",
+		},
+		{
+			name: "wait with an invalid prerequisite parameter",
+			edit: func(s *Spec) {
+				*s = Spec{Slot: "other", Outcome: OutcomeWait, WaitSeconds: 20,
+					Prerequisites: []PrerequisiteSpec{
+						{
+							Action: "org/wallet/onboarding",
+							Parameters: []ParameterSpec{
+								{Name: "1x", Source: SourceSpec{Kind: SourceLiteral, Value: "x"}},
+							},
+						},
+					}}
+			},
+			message: "prerequisites[0].parameters[0].name: must match ^[A-Za-z][A-Za-z0-9_]{0,63}$",
 		},
 		{
 			name: "onboarding prerequisites",

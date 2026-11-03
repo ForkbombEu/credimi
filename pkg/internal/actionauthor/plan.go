@@ -48,9 +48,12 @@ func VerifyPlan(app core.App, token, authorWorkflowID string) (PlanGrant, error)
 // PlanSummary describes a normalized plan in lines a human confirms.
 func PlanSummary(s Spec, prerequisites []ResolvedPrerequisite) []string {
 	lines := []string{"Category: " + SlotCategory(s.Slot)}
-	if s.Outcome == OutcomeRejection {
+	switch s.Outcome {
+	case OutcomeRejection:
 		lines = append(lines, "Outcome: the wallet rejects the flow")
-	} else {
+	case OutcomeWait:
+		lines = append(lines, fmt.Sprintf("Outcome: waits %d s", s.WaitSeconds))
+	default:
 		lines = append(lines, "Outcome: success")
 	}
 	if len(prerequisites) == 0 {

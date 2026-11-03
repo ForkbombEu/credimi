@@ -26,12 +26,17 @@ func TestValidateCode(t *testing.T) {
 	lastMessage := "the last command before the final takeScreenshot must assert the outcome: " +
 		"`assertVisible`, or `extendedWaitUntil` with `visible`"
 
+	waitMessage := "the last command before the final takeScreenshot must wait 240 s: " +
+		"extendedWaitUntil with optional: true and timeout: 240000"
+	waitTail := "- takeScreenshot: done\n"
+
 	cases := []struct {
-		name       string
-		code       string
-		appIDs     []string
-		parameters []string
-		want       []string
+		name        string
+		code        string
+		appIDs      []string
+		parameters  []string
+		waitSeconds int
+		want        []string
 	}{
 		{
 			name: "valid onboarding action",
@@ -289,10 +294,79 @@ tags:
 			code:   header + "- tapOn:\n    \"<<\": a\n" + codeTestTail,
 			appIDs: wallet,
 		},
+		{
+			name: "valid wait action",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+				"    optional: true\n    timeout: 240000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+		},
+		{
+			name: "wait on visible",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
+				"    optional: true\n    timeout: 240000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+		},
+		{
+			name: "wait without optional",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+				"    timeout: 240000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{waitMessage},
+		},
+		{
+			name: "wait with a string optional",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+				"    optional: \"true\"\n    timeout: 240000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{waitMessage},
+		},
+		{
+			name: "wait with the wrong timeout",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+				"    optional: true\n    timeout: 20000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{waitMessage},
+		},
+		{
+			name: "wait with a string timeout",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+				"    optional: true\n    timeout: \"240000\"\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{waitMessage},
+		},
+		{
+			name:        "assertion last on a wait action",
+			code:        header + "- launchApp\n" + codeTestTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{waitMessage},
+		},
+		{
+			name: "wait action without a screenshot",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+				"    optional: true\n    timeout: 240000\n",
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{"add at least one `takeScreenshot` (after the final assertion)"},
+		},
+		{
+			name: "optional wait on a non-wait action",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+				"    optional: true\n    timeout: 240000\n" + waitTail,
+			appIDs: wallet,
+			want:   []string{lastMessage},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, ValidateCode(tc.code, tc.appIDs, tc.parameters))
+			assert.Equal(t, tc.want,
+				ValidateCode(tc.code, tc.appIDs, tc.parameters, tc.waitSeconds))
 		})
 	}
 }

@@ -436,6 +436,23 @@ func TestSessionPassesPrerequisitesAndParametersToAuthor(t *testing.T) {
 	}, request)
 }
 
+func TestSessionPassesWaitToAuthor(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	session := sessionInput(actionauthor.PlatformAndroid)
+	session.Spec = actionauthor.Spec{
+		Slot:        "other",
+		Outcome:     actionauthor.OutcomeWait,
+		WaitSeconds: 240,
+	}
+
+	require.NoError(t, h.run(session))
+
+	require.NotNil(t, h.childContext)
+	require.Equal(t, actionauthor.OutcomeWait, h.childContext.Outcome)
+	require.Equal(t, 240, h.childContext.WaitSeconds)
+	require.Empty(t, h.childContext.Parameters)
+}
+
 func TestSessionPrerequisiteFailureNeverPreparesDevice(t *testing.T) {
 	h := newSessionHarness(t, "android_emulator")
 	h.prerequisitesErr = temporal.NewNonRetryableApplicationError(

@@ -327,6 +327,7 @@ type Provenance struct {
 	ReplayCount             int                   `json:"replay_count"`
 	Slot                    string                `json:"slot"`
 	Outcome                 string                `json:"outcome"`
+	WaitSeconds             int                   `json:"wait_seconds,omitempty"`
 	Prerequisites           []string              `json:"prerequisites"`
 	Parameters              []ProvenanceParameter `json:"parameters"`
 	ApproverID              string                `json:"approver_id"`
@@ -358,6 +359,7 @@ func validateAcceptedAction(in *SaveRequest) error {
 		in.Code,
 		AllowedAppIDs(in.PackageID),
 		ParameterNames(in.Spec.Parameters),
+		in.Spec.WaitSeconds,
 	)
 	if len(problems) > 0 {
 		return fmt.Errorf("%w: %s", ErrInvalid, strings.Join(problems, "; "))
@@ -369,6 +371,7 @@ func validateAcceptedAction(in *SaveRequest) error {
 func provenanceSpec(provenance *Provenance, spec Spec) {
 	provenance.Slot = spec.Slot
 	provenance.Outcome = spec.Outcome
+	provenance.WaitSeconds = spec.WaitSeconds
 	provenance.Prerequisites = make([]string, 0, len(spec.Prerequisites))
 	for _, prerequisite := range spec.Prerequisites {
 		provenance.Prerequisites = append(provenance.Prerequisites, prerequisite.Action)

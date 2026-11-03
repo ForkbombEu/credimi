@@ -39,6 +39,7 @@ type SlotRule struct {
 	Category      string
 	Prerequisites PrereqRule
 	Rejection     bool
+	Wait          bool
 }
 
 // Slots lists the action categories the agent can author. install-app has
@@ -64,6 +65,7 @@ var Slots = map[string]SlotRule{
 		Category:      "other",
 		Prerequisites: PrereqOptional,
 		Rejection:     true,
+		Wait:          true,
 	},
 }
 
@@ -71,7 +73,11 @@ var Slots = map[string]SlotRule{
 const (
 	OutcomeSuccess   = "success"
 	OutcomeRejection = "rejection"
+	OutcomeWait      = "wait"
 )
+
+// MaxWaitSeconds bounds the wait of a wait action.
+const MaxWaitSeconds = 600
 
 // Parameter source kinds.
 const (
@@ -108,10 +114,12 @@ var (
 )
 
 // Spec describes the action a session authors: its slot, expected outcome,
-// starting state and runtime parameters.
+// starting state and runtime parameters. A wait action keeps the device idle
+// for WaitSeconds.
 type Spec struct {
 	Slot          string             `json:"slot"`
-	Outcome       string             `json:"outcome,omitempty"` // "success" (default) | "rejection"
+	Outcome       string             `json:"outcome,omitempty"` // "success" (default) | "rejection" | "wait"
+	WaitSeconds   int                `json:"wait_seconds,omitempty"`
 	Prerequisites []PrerequisiteSpec `json:"prerequisites,omitempty"`
 	Parameters    []ParameterSpec    `json:"parameters,omitempty"`
 }
@@ -167,7 +175,7 @@ type Session struct {
 // IsEmpty reports whether no field of the spec is set: the session's plan is
 // then proposed in the chat rather than fixed at start.
 func (s Spec) IsEmpty() bool {
-	return s.Slot == "" && s.Outcome == "" &&
+	return s.Slot == "" && s.Outcome == "" && s.WaitSeconds == 0 &&
 		len(s.Prerequisites) == 0 && len(s.Parameters) == 0
 }
 
@@ -288,8 +296,22 @@ func (s *Spec) Normalize() error {
 		if !rule.Rejection {
 			return invalidf("outcome: the %s slot has no rejection outcome", s.Slot)
 		}
+	case OutcomeWait:
+		if !rule.Wait {
+			return invalidf("outcome: the %s slot has no wait outcome", s.Slot)
+		}
 	default:
-		return invalidf("outcome: must be success or rejection")
+		return invalidf("outcome: must be success, rejection or wait")
+	}
+	if s.Outcome == OutcomeWait {
+		if s.WaitSeconds < 1 || s.WaitSeconds > MaxWaitSeconds {
+			return invalidf("wait_seconds: must be 1-%d for the wait outcome", MaxWaitSeconds)
+		}
+		if len(s.Parameters) > 0 {
+			return invalidf("parameters: a wait action takes no parameters")
+		}
+	} else if s.WaitSeconds != 0 {
+		return invalidf("wait_seconds: only the wait outcome takes a wait")
 	}
 	switch {
 	case rule.Prerequisites == PrereqForbidden && len(s.Prerequisites) > 0:

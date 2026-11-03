@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -73,8 +74,10 @@ func AllowedAppIDs(packageID string) []string {
 // ValidateCode returns every reason a Maestro action cannot be accepted, once
 // each and in discovery order; an empty result means the action is valid.
 // appIDs are the apps the action may target and parameters the session
-// parameter names it may reference as `${name}`.
-func ValidateCode(code string, appIDs []string, parameters []string) []string {
+// parameter names it may reference as `${name}`. waitSeconds is the wait of
+// a wait action (0 for any other action): its last command must wait that
+// long instead of asserting an outcome.
+func ValidateCode(code string, appIDs []string, parameters []string, waitSeconds int) []string {
 	docs, err := codeDocuments(code)
 	if err != nil {
 		return []string{fmt.Sprintf("invalid YAML: %v", err)}
@@ -137,7 +140,14 @@ func ValidateCode(code string, appIDs []string, parameters []string) []string {
 			}
 		}
 	}
-	if !codeIsOutcomeAssertion(lastName, lastArg) {
+	switch {
+	case waitSeconds > 0:
+		if !codeIsWait(lastName, lastArg, waitSeconds) {
+			v.add(fmt.Sprintf("the last command before the final takeScreenshot must wait %d s: "+
+				"extendedWaitUntil with optional: true and timeout: %d",
+				waitSeconds, waitSeconds*1000))
+		}
+	case !codeIsOutcomeAssertion(lastName, lastArg):
 		v.add("the last command before the final takeScreenshot must assert the outcome: " +
 			"`assertVisible`, or `extendedWaitUntil` with `visible`")
 	}
@@ -414,6 +424,31 @@ func codeIsOutcomeAssertion(name string, arg *yaml.Node) bool {
 	}
 	return name == "extendedWaitUntil" && arg != nil && arg.Kind == yaml.MappingNode &&
 		codeLookup(arg, "visible") != nil
+}
+
+// codeIsWait reports whether a command is the wait of a wait action:
+// extendedWaitUntil on a visible or notVisible condition, optional, with a
+// timeout of exactly waitSeconds.
+func codeIsWait(name string, arg *yaml.Node, waitSeconds int) bool {
+	if name != "extendedWaitUntil" || arg == nil || arg.Kind != yaml.MappingNode {
+		return false
+	}
+	if codeLookup(arg, "visible") == nil && codeLookup(arg, "notVisible") == nil {
+		return false
+	}
+	optional := codeResolve(codeLookup(arg, "optional"))
+	if optional == nil || optional.Kind != yaml.ScalarNode || optional.Tag != "!!bool" {
+		return false
+	}
+	if value, err := strconv.ParseBool(optional.Value); err != nil || !value {
+		return false
+	}
+	timeout := codeResolve(codeLookup(arg, "timeout"))
+	if timeout == nil || timeout.Kind != yaml.ScalarNode || timeout.Tag != "!!int" {
+		return false
+	}
+	value, err := strconv.Atoi(timeout.Value)
+	return err == nil && value == waitSeconds*1000
 }
 
 // codeStrings calls visit with every scalar, mapping keys included, at any depth.

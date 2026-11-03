@@ -113,12 +113,17 @@ func TestPlanSHA256(t *testing.T) {
 	other = testPlan()
 	other.Outcome = OutcomeRejection
 	assert.NotEqual(t, sha, PlanSHA256(other))
+	wait := Spec{Slot: "other", Outcome: OutcomeWait, WaitSeconds: 20}
+	longer := wait
+	longer.WaitSeconds = 240
+	assert.NotEqual(t, PlanSHA256(wait), PlanSHA256(longer))
 }
 
 func TestSpecIsEmpty(t *testing.T) {
 	assert.True(t, Spec{}.IsEmpty())
 	assert.False(t, Spec{Outcome: OutcomeSuccess}.IsEmpty())
 	assert.False(t, Spec{Slot: "other"}.IsEmpty())
+	assert.False(t, Spec{WaitSeconds: 20}.IsEmpty())
 	assert.False(t, Spec{Parameters: []ParameterSpec{{Name: "x"}}}.IsEmpty())
 	assert.False(t, testPlan().IsEmpty())
 }
@@ -160,4 +165,11 @@ func TestParameterInfosAndPlanSummary(t *testing.T) {
 			Source: SourceSpec{Kind: SourceCredentialOffer, Identifier: "tenant/issuer/pid"},
 		}},
 	}, nil))
+
+	assert.Equal(t, []string{
+		"Category: other",
+		"Outcome: waits 240 s",
+		"Starts from: Onboarding (tenant/wallet/onboarding)",
+	}, PlanSummary(Spec{Slot: "other", Outcome: OutcomeWait, WaitSeconds: 240},
+		[]ResolvedPrerequisite{{Action: "tenant/wallet/onboarding", Name: "Onboarding"}}))
 }

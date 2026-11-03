@@ -381,6 +381,31 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 		namespace + "/x/y not found",
 	}}, output)
 
+	wait := actionauthor.Spec{
+		Slot:          "other",
+		Outcome:       actionauthor.OutcomeWait,
+		WaitSeconds:   240,
+		Prerequisites: []actionauthor.PrerequisiteSpec{{Action: onboarding}},
+	}
+	output, err = check(actionauthor.Spec{}, wait)
+	require.NoError(t, err)
+	require.Equal(t, CheckActionAuthorPlanOutput{
+		Problems: []string{},
+		Plan:     &wait,
+		Summary: []string{
+			"Category: other",
+			"Outcome: waits 240 s",
+			"Starts from: Onboarding (" + onboarding + ")",
+		},
+	}, output)
+
+	wait.WaitSeconds = 0
+	output, err = check(actionauthor.Spec{}, wait)
+	require.NoError(t, err)
+	require.Equal(t, CheckActionAuthorPlanOutput{Problems: []string{
+		"wait_seconds: must be 1-600 for the wait outcome",
+	}}, output)
+
 	output, err = check(actionauthor.Spec{Slot: "onboarding"}, plan)
 	require.NoError(t, err)
 	require.Equal(t, CheckActionAuthorPlanOutput{Problems: []string{

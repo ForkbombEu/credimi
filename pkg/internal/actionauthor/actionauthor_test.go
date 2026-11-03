@@ -358,6 +358,36 @@ func TestAuthoringSaveRecordsSpecAndApproval(t *testing.T) {
 	assert.ErrorContains(t, err, "header appId")
 }
 
+func TestAuthoringSaveWaitAction(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	in := acceptedRequest(request, build.InstallerSHA256)
+	in.Name = "Wait past expiry"
+	in.Spec = Spec{Slot: "other", Outcome: OutcomeWait, WaitSeconds: 240}
+
+	// The onboarding candidate asserts an outcome instead of waiting.
+	_, err = Save(app, namespace, "workflow", "run", in, testApproval)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "must wait 240 s: extendedWaitUntil with optional: true "+
+		"and timeout: 240000")
+
+	in.Code = "appId: eu.europa.ec.euidi\n---\n- launchApp\n- extendedWaitUntil:\n" +
+		"    notVisible: credimi-never-shown\n    optional: true\n    timeout: 240000\n" +
+		"- takeScreenshot: waited\n"
+	in.CandidateSHA256 = CodeSHA256(in.Code)
+	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
+	require.NoError(t, err)
+	assert.Equal(t, OutcomeWait, receipt.Provenance.Outcome)
+	assert.Equal(t, 240, receipt.Provenance.WaitSeconds)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	assert.Equal(t, "other", record.GetString("category"))
+	var stored map[string]any
+	require.NoError(t, json.Unmarshal([]byte(record.GetString("authoring_provenance")), &stored))
+	assert.InDelta(t, 240, stored["wait_seconds"], 0)
+}
+
 func TestAuthoringSaveRecordsIOSProvenance(t *testing.T) {
 	app, request, namespace := authoringFixture(t)
 	selection, err := Select(app, namespace, request)
