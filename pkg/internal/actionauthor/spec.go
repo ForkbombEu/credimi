@@ -42,10 +42,14 @@ type SlotRule struct {
 	Wait          bool
 }
 
-// Slots lists the action categories the agent can author. install-app has
-// no slot: the agent never installs apps.
+// SlotInstallApp is the slot, and category, of the action installing a store wallet.
+const SlotInstallApp = "install-app"
+
+// Slots lists the action categories the agent can author.
+// install-app: the agent installs a store wallet; only for wallets selected from the store.
 var Slots = map[string]SlotRule{
-	"onboarding": {Category: "onboarding", Prerequisites: PrereqForbidden},
+	"onboarding":   {Category: "onboarding", Prerequisites: PrereqForbidden},
+	SlotInstallApp: {Category: SlotInstallApp, Prerequisites: PrereqForbidden},
 	"get-credential": {
 		Category:      "get-credential-generic",
 		Prerequisites: PrereqRequired,
@@ -589,11 +593,23 @@ func resolveCollectionPath(app core.App, collection, path string) (*core.Record,
 	return record, nil
 }
 
+// checkStoreSlot refuses the install-app slot for a wallet version: only a
+// wallet selected from the store is installed by its action.
+func checkStoreSlot(slot string, selection Selection) error {
+	if slot == SlotInstallApp && selection.Source != SourceStore {
+		return invalidf("the install-app slot needs a wallet selected from the store")
+	}
+	return nil
+}
+
 // CheckSpecRecords checks that every record the spec names is accessible to
 // the selected organization, and returns the prerequisite actions in order.
 // Prerequisites must be actions of the selected wallet and receive exactly
 // the parameters their code references.
 func CheckSpecRecords(app core.App, selection Selection, spec *Spec) ([]*core.Record, error) {
+	if err := checkStoreSlot(spec.Slot, selection); err != nil {
+		return nil, err
+	}
 	orgID := selection.Organization.Id
 	prerequisites := make([]*core.Record, 0, len(spec.Prerequisites))
 	for _, prerequisite := range spec.Prerequisites {

@@ -17,11 +17,49 @@ const (
 )
 
 func TestAllowedAppIDs(t *testing.T) {
-	assert.Equal(t, []string{codeTestWallet}, AllowedAppIDs(codeTestWallet))
+	assert.Equal(
+		t,
+		[]string{codeTestWallet},
+		AllowedAppIDs(codeTestWallet, "onboarding", PlatformAndroid),
+	)
+	assert.Equal(t,
+		[]string{codeTestWallet, "com.android.vending"},
+		AllowedAppIDs(codeTestWallet, "install-app", PlatformAndroid))
+	assert.Equal(t,
+		[]string{codeTestWallet, "com.apple.AppStore"},
+		AllowedAppIDs(codeTestWallet, "install-app", PlatformIOS))
+}
+
+func TestStoreLinks(t *testing.T) {
+	play := "https://play.google.com/store/apps/details?id=" + codeTestWallet
+	market := "market://details?id=" + codeTestWallet
+	assert.Nil(t, StoreLinks("onboarding", PlatformAndroid, codeTestWallet, play))
+	assert.Equal(
+		t,
+		[]string{market, play},
+		StoreLinks("install-app", PlatformAndroid, codeTestWallet, ""),
+	)
+	assert.Equal(
+		t,
+		[]string{market, play},
+		StoreLinks("install-app", PlatformAndroid, codeTestWallet, play),
+	)
+	assert.Equal(t,
+		[]string{market, play, play + "&hl=en"},
+		StoreLinks("install-app", PlatformAndroid, codeTestWallet, play+"&hl=en"))
+	assert.Equal(t,
+		[]string{"https://apps.apple.com/app/x/id1"},
+		StoreLinks("install-app", PlatformIOS, codeTestWallet, "https://apps.apple.com/app/x/id1"))
+	assert.Nil(t, StoreLinks("install-app", PlatformIOS, codeTestWallet, ""))
 }
 
 func TestValidateCode(t *testing.T) {
-	wallet := AllowedAppIDs(codeTestWallet)
+	wallet := AllowedAppIDs(codeTestWallet, "onboarding", PlatformAndroid)
+	installApp := AllowedAppIDs(codeTestWallet, "install-app", PlatformAndroid)
+	storeLinks := StoreLinks("install-app", PlatformAndroid, codeTestWallet, "")
+	storeMessage := "openLink must open a session parameter or the wallet's store page: " +
+		"https://play.google.com/store/apps/details?id=com.example.wallet, " +
+		"market://details?id=com.example.wallet"
 	header := "appId: com.example.wallet\n---\n"
 	lastMessage := "the last command before the final takeScreenshot must assert the outcome: " +
 		"`assertVisible`, or `extendedWaitUntil` with `visible`"
@@ -35,6 +73,7 @@ func TestValidateCode(t *testing.T) {
 		code        string
 		appIDs      []string
 		parameters  []string
+		storeLinks  []string
 		waitSeconds int
 		want        []string
 	}{
@@ -203,6 +242,55 @@ tags:
 			appIDs: wallet,
 			want: []string{
 				"commands[0]: openLink is not allowed: this session has no parameters",
+			},
+		},
+		{
+			name: "install-app store page",
+			code: header + "- openLink:\n    link: \"market://details?id=com.example.wallet\"\n" +
+				"    autoVerify: false\n" +
+				"- openLink: https://play.google.com/store/apps/details?id=com.example.wallet\n" +
+				"- launchApp: com.android.vending\n" +
+				"- runFlow:\n    when:\n      visible: \"Install\"\n    commands:\n      - tapOn: \"Install\"\n" +
+				"- extendedWaitUntil:\n    visible: \"Open\"\n    timeout: 300000\n" +
+				"- takeScreenshot: installed\n",
+			appIDs:     installApp,
+			storeLinks: storeLinks,
+		},
+		{
+			name: "install-app other link",
+			code: header + "- openLink: https://example.org\n- openLink:\n    link: ${a}\n" +
+				"- openLink: market://details?id=com.other\n" + codeTestTail,
+			appIDs:     installApp,
+			parameters: []string{"a"},
+			storeLinks: storeLinks,
+			want: []string{
+				"commands[0]: " + storeMessage,
+				"commands[2]: " + storeMessage,
+			},
+		},
+		{
+			name:   "store page outside install-app",
+			code:   header + "- openLink: \"market://details?id=com.example.wallet\"\n" + codeTestTail,
+			appIDs: wallet,
+			want: []string{
+				"commands[0]: openLink is not allowed: this session has no parameters",
+			},
+		},
+		{
+			name:       "store page outside install-app with parameters",
+			code:       header + "- openLink: \"market://details?id=com.example.wallet\"\n" + codeTestTail,
+			appIDs:     wallet,
+			parameters: []string{"a"},
+			want: []string{
+				"commands[0]: openLink must open a session parameter: write link: ${a}",
+			},
+		},
+		{
+			name:   "store app outside install-app",
+			code:   header + "- launchApp: com.android.vending\n" + codeTestTail,
+			appIDs: wallet,
+			want: []string{
+				"commands[0]: launchApp targets 'com.android.vending', not the app under test",
 			},
 		},
 		{
@@ -398,8 +486,12 @@ tags:
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want,
-				ValidateCode(tc.code, tc.appIDs, tc.parameters, tc.waitSeconds))
+			assert.Equal(t, tc.want, ValidateCode(tc.code, CodeScope{
+				AppIDs:      tc.appIDs,
+				Parameters:  tc.parameters,
+				StoreLinks:  tc.storeLinks,
+				WaitSeconds: tc.waitSeconds,
+			}))
 		})
 	}
 }

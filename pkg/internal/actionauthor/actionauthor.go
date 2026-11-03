@@ -503,17 +503,22 @@ func CodeSHA256(code string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func validateAcceptedAction(in *SaveRequest) error {
+func validateAcceptedAction(in *SaveRequest, selection Selection) error {
 	if _, ok := Slots[in.Spec.Slot]; !ok || strings.TrimSpace(in.Name) == "" ||
 		in.ReplayCount != 2 || in.CandidateSHA256 != CodeSHA256(in.Code) || in.PackageID == "" {
 		return fmt.Errorf("%w: missing accepted candidate", ErrInvalid)
 	}
-	problems := ValidateCode(
-		in.Code,
-		AllowedAppIDs(in.PackageID),
-		ParameterNames(in.Spec.Parameters),
-		in.Spec.WaitSeconds,
-	)
+	problems := ValidateCode(in.Code, CodeScope{
+		AppIDs:     AllowedAppIDs(in.PackageID, in.Spec.Slot, selection.Platform),
+		Parameters: ParameterNames(in.Spec.Parameters),
+		StoreLinks: StoreLinks(
+			in.Spec.Slot,
+			selection.Platform,
+			in.PackageID,
+			selection.StoreURL,
+		),
+		WaitSeconds: in.Spec.WaitSeconds,
+	})
 	if len(problems) > 0 {
 		return fmt.Errorf("%w: %s", ErrInvalid, strings.Join(problems, "; "))
 	}
@@ -550,11 +555,14 @@ func Save(
 	approval Approval,
 ) (Receipt, error) {
 	var receipt Receipt
-	if err := validateAcceptedAction(&in); err != nil {
-		return receipt, err
-	}
 	selection, err := Select(app, namespace, in.BuildRequest)
 	if err != nil {
+		return receipt, err
+	}
+	if err := checkStoreSlot(in.Spec.Slot, selection); err != nil {
+		return receipt, err
+	}
+	if err := validateAcceptedAction(&in, selection); err != nil {
 		return receipt, err
 	}
 	provenance := Provenance{

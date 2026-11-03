@@ -661,3 +661,60 @@ func TestAuthoringSaveStoreBuild(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, receipt.RecordID, retried.RecordID)
 }
+
+func TestInstallAppSlotNeedsStoreWallet(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	install := Spec{Slot: "install-app", Outcome: OutcomeSuccess}
+	code := "appId: eu.europa.ec.euidi\n---\n" +
+		"- openLink:\n    link: \"market://details?id=eu.europa.ec.euidi\"\n    autoVerify: false\n" +
+		"- runFlow:\n    when:\n      visible: \"Install\"\n    commands:\n      - tapOn: \"Install\"\n" +
+		"- extendedWaitUntil:\n    visible: \"Open\"\n    timeout: 300000\n" +
+		"- takeScreenshot: store-installed\n"
+
+	// A wallet version's installer build has no install-app action.
+	_, err = CheckSpecRecords(app, selection, &install)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "the install-app slot needs a wallet selected from the store")
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	in := acceptedRequest(request, build.InstallerSHA256)
+	in.Name = "Install"
+	in.Code = code
+	in.CandidateSHA256 = CodeSHA256(code)
+	in.Spec = install
+	_, err = Save(app, namespace, "workflow", "run", in, testApproval)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "the install-app slot needs a wallet selected from the store")
+
+	// A store wallet saves it, opening its store page; the page is refused for other slots.
+	request.WalletVersionIdentifier = seedStoreWallet(
+		t,
+		app,
+		selection,
+		"Store wallet",
+		map[string]any{
+			"google_app_id": "eu.europa.ec.euidi",
+		},
+	)
+	store, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	_, err = CheckSpecRecords(app, store, &install)
+	require.NoError(t, err)
+	in = acceptedRequest(request, "")
+	in.Name = "Install"
+	in.Code = code
+	in.CandidateSHA256 = CodeSHA256(code)
+	in.Spec = install
+	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
+	require.NoError(t, err)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	assert.Equal(t, "install-app", record.GetString("category"))
+	in.Name = "Onboarding with store page"
+	in.Spec = Spec{Slot: "onboarding", Outcome: OutcomeSuccess}
+	_, err = Save(app, namespace, "workflow", "run", in, testApproval)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "openLink is not allowed: this session has no parameters")
+}

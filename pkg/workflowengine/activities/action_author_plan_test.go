@@ -70,7 +70,12 @@ func TestEffectivePlan(t *testing.T) {
 	require.ErrorIs(t, err, actionauthor.ErrInvalid)
 	require.ErrorContains(t, err, "this session's plan was fixed when it started")
 
-	_, err = EffectivePlan(app, ref(actionauthor.Spec{Slot: "install-app"}), authorTestAuthorID, "")
+	_, err = EffectivePlan(
+		app,
+		ref(actionauthor.Spec{Slot: "uninstall-app"}),
+		authorTestAuthorID,
+		"",
+	)
 	require.ErrorIs(t, err, actionauthor.ErrInvalid)
 	require.ErrorContains(t, err, "action author session spec: invalid authoring request: slot")
 

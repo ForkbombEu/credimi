@@ -64,20 +64,74 @@ var (
 	codeScreenshot = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 )
 
+// Store apps an install-app action may target besides the wallet.
+const (
+	PlayStoreAppID = "com.android.vending"
+	AppStoreAppID  = "com.apple.AppStore"
+)
+
 // AllowedAppIDs returns the app IDs an action may target (header appId,
-// launchApp, setPermissions): only the package under test. Web flows open
-// the device's default browser with openLink instead of targeting it.
-func AllowedAppIDs(packageID string) []string {
-	return []string{packageID}
+// launchApp, setPermissions): the package under test and, for an install-app
+// action, the platform's store app. Web flows open the device's default
+// browser with openLink instead of targeting it.
+func AllowedAppIDs(packageID, slot, platform string) []string {
+	if slot != SlotInstallApp {
+		return []string{packageID}
+	}
+	switch platform {
+	case PlatformAndroid:
+		return []string{packageID, PlayStoreAppID}
+	case PlatformIOS:
+		return []string{packageID, AppStoreAppID}
+	default:
+		return []string{packageID}
+	}
+}
+
+// StoreLinks returns the store pages an install-app action may open with
+// openLink: none for another slot; on Android the Play Store page of
+// packageID in its two forms plus the wallet's own storeURL; on iOS the
+// wallet's App Store page. An empty storeURL adds nothing.
+func StoreLinks(slot, platform, packageID, storeURL string) []string {
+	if slot != SlotInstallApp {
+		return nil
+	}
+	switch platform {
+	case PlatformAndroid:
+		links := []string{
+			"market://details?id=" + packageID,
+			"https://play.google.com/store/apps/details?id=" + packageID,
+		}
+		if storeURL != "" && !slices.Contains(links, storeURL) {
+			links = append(links, storeURL)
+		}
+		return links
+	case PlatformIOS:
+		if storeURL == "" {
+			return nil
+		}
+		return []string{storeURL}
+	default:
+		return nil
+	}
+}
+
+// CodeScope is what an action may use: AppIDs are the apps it may target,
+// Parameters the session parameter names it may reference as `${name}`, and
+// StoreLinks the store pages it may open. WaitSeconds is the wait of a wait
+// action (0 for any other action): its last command must wait that long
+// instead of asserting an outcome.
+type CodeScope struct {
+	AppIDs      []string
+	Parameters  []string
+	StoreLinks  []string
+	WaitSeconds int
 }
 
 // ValidateCode returns every reason a Maestro action cannot be accepted, once
 // each and in discovery order; an empty result means the action is valid.
-// appIDs are the apps the action may target and parameters the session
-// parameter names it may reference as `${name}`. waitSeconds is the wait of
-// a wait action (0 for any other action): its last command must wait that
-// long instead of asserting an outcome.
-func ValidateCode(code string, appIDs []string, parameters []string, waitSeconds int) []string {
+func ValidateCode(code string, scope CodeScope) []string {
+	parameters, waitSeconds := scope.Parameters, scope.WaitSeconds
 	docs, err := codeDocuments(code)
 	if err != nil {
 		return []string{fmt.Sprintf("invalid YAML: %v", err)}
@@ -89,7 +143,7 @@ func ValidateCode(code string, appIDs []string, parameters []string, waitSeconds
 		return []string{fmt.Sprintf(
 			"expected two YAML documents (header, `---`, command list), found %d", len(docs))}
 	}
-	v := codeValidator{appIDs: appIDs, parameters: parameters}
+	v := codeValidator{appIDs: scope.AppIDs, parameters: parameters, storeLinks: scope.StoreLinks}
 	header, commands := docs[0], docs[1]
 	if header == nil || header.Kind != yaml.MappingNode {
 		v.add("the first document must be the header mapping (appId, ...)")
@@ -158,6 +212,7 @@ func ValidateCode(code string, appIDs []string, parameters []string, waitSeconds
 type codeValidator struct {
 	appIDs     []string
 	parameters []string
+	storeLinks []string
 	problems   []string
 }
 
@@ -299,17 +354,27 @@ func (v *codeValidator) command(name string, arg *yaml.Node, where string) {
 }
 
 func (v *codeValidator) openLink(arg *yaml.Node, where string) {
-	if len(v.parameters) == 0 {
-		v.add(where + ": openLink is not allowed: this session has no parameters")
-		return
-	}
 	link := arg
 	if arg != nil && arg.Kind == yaml.MappingNode {
 		link = codeLookup(arg, "link")
 	}
-	if codeIsString(link) && strings.HasPrefix(link.Value, "${") &&
-		strings.HasSuffix(link.Value, "}") &&
-		slices.Contains(v.parameters, link.Value[2:len(link.Value)-1]) {
+	if codeIsString(link) && (slices.Contains(v.storeLinks, link.Value) ||
+		strings.HasPrefix(link.Value, "${") && strings.HasSuffix(link.Value, "}") &&
+			slices.Contains(v.parameters, link.Value[2:len(link.Value)-1])) {
+		return
+	}
+	if len(v.storeLinks) > 0 {
+		links := slices.Clone(v.storeLinks)
+		sort.Strings(links)
+		v.add(fmt.Sprintf(
+			"%s: openLink must open a session parameter or the wallet's store page: %s",
+			where,
+			strings.Join(links, ", "),
+		))
+		return
+	}
+	if len(v.parameters) == 0 {
+		v.add(where + ": openLink is not allowed: this session has no parameters")
 		return
 	}
 	names := slices.Clone(v.parameters)

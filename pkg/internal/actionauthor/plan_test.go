@@ -173,6 +173,12 @@ func TestParameterInfosAndPlanSummary(t *testing.T) {
 		"Starts from: Onboarding (tenant/wallet/onboarding)",
 	}, PlanSummary(Spec{Slot: "other", Outcome: OutcomeWait, WaitSeconds: 240},
 		[]ResolvedPrerequisite{{Action: "tenant/wallet/onboarding", Name: "Onboarding"}}))
+
+	assert.Equal(t, []string{
+		"Category: install-app",
+		"Outcome: success",
+		"Starts from: the wallet is not installed",
+	}, PlanSummary(Spec{Slot: "install-app", Outcome: OutcomeSuccess}, nil))
 }
 
 func TestPlanSummaryDescribesSourcesInFull(t *testing.T) {

@@ -65,7 +65,10 @@ func PlanSummary(s Spec, prerequisites []ResolvedPrerequisite) []string {
 	default:
 		lines = append(lines, "Outcome: success")
 	}
-	if len(prerequisites) == 0 {
+	switch {
+	case s.Slot == SlotInstallApp:
+		lines = append(lines, "Starts from: the wallet is not installed")
+	case len(prerequisites) == 0:
 		lines = append(lines, "Starts from: a freshly installed app")
 	}
 	for i, prerequisite := range prerequisites {

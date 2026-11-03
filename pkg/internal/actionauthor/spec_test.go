@@ -54,9 +54,18 @@ func TestSpecNormalize(t *testing.T) {
 			edit: func(s *Spec) { *s = Spec{Slot: "onboarding"} },
 		},
 		{
+			name: "install-app",
+			edit: func(s *Spec) { *s = Spec{Slot: "install-app"} },
+		},
+		{
+			name:    "install-app prerequisites",
+			edit:    func(s *Spec) { s.Slot = "install-app"; s.Parameters = nil },
+			message: "prerequisites: the install-app slot takes no prerequisites",
+		},
+		{
 			name:    "unknown slot",
-			edit:    func(s *Spec) { s.Slot = "install-app" },
-			message: "slot: must be one of get-credential, get-credential-specific, onboarding, other, verify-credential",
+			edit:    func(s *Spec) { s.Slot = "uninstall-app" },
+			message: "slot: must be one of get-credential, get-credential-specific, install-app, onboarding, other, verify-credential",
 		},
 		{
 			name:    "unknown outcome",
@@ -397,7 +406,8 @@ func TestSpecNormalizeDefaultsOutcome(t *testing.T) {
 func TestSlotCategory(t *testing.T) {
 	assert.Equal(t, "get-credential-generic", SlotCategory("get-credential"))
 	assert.Equal(t, "onboarding", SlotCategory("onboarding"))
-	assert.Empty(t, SlotCategory("install-app"))
+	assert.Equal(t, "install-app", SlotCategory("install-app"))
+	assert.Empty(t, SlotCategory("uninstall-app"))
 }
 
 func TestLookupPath(t *testing.T) {
