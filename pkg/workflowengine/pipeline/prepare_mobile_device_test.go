@@ -28,22 +28,25 @@ type prepareMobileDeviceTestResult struct {
 	Tracked  map[string]any       `json:"tracked"`
 }
 
+// prepareTestRequest is the request runPrepareMobileDevice prepares.
+var prepareTestRequest = MobileDeviceRequest{
+	DeviceID:          prepareTestDeviceID,
+	VersionIdentifier: prepareTestVersion,
+	StepID:            "action-author",
+	RunIdentifier:     "session-1",
+}
+
 // registerPrepareMobileDeviceWorkflow runs PrepareMobileDevice and returns
 // both its outcome and the tracked devices, so a failure can be inspected.
 func registerPrepareMobileDeviceWorkflow(env *testsuite.TestWorkflowEnvironment) {
 	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) (prepareMobileDeviceTestResult, error) {
+		func(ctx workflow.Context, req MobileDeviceRequest) (prepareMobileDeviceTestResult, error) {
 			settedDevices := map[string]any{}
 			prepared, err := PrepareMobileDevice(
 				ctx,
 				workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 				settedDevices,
-				MobileDeviceRequest{
-					DeviceID:          prepareTestDeviceID,
-					VersionIdentifier: prepareTestVersion,
-					StepID:            "action-author",
-					RunIdentifier:     "session-1",
-				},
+				req,
 			)
 			result := prepareMobileDeviceTestResult{Prepared: prepared, Tracked: settedDevices}
 			if err != nil {
@@ -113,11 +116,90 @@ func runPrepareMobileDevice(
 	env *testsuite.TestWorkflowEnvironment,
 ) prepareMobileDeviceTestResult {
 	t.Helper()
-	env.ExecuteWorkflow("test-prepare-mobile-device")
+	return runPrepareMobileDeviceRequest(t, env, prepareTestRequest)
+}
+
+func runPrepareMobileDeviceRequest(
+	t *testing.T,
+	env *testsuite.TestWorkflowEnvironment,
+	req MobileDeviceRequest,
+) prepareMobileDeviceTestResult {
+	t.Helper()
+	env.ExecuteWorkflow("test-prepare-mobile-device", req)
 	require.NoError(t, env.GetWorkflowError())
 	var result prepareMobileDeviceTestResult
 	require.NoError(t, env.GetWorkflowResult(&result))
 	return result
+}
+
+// externalSourceRequest prepares a wallet the session installs from the store.
+var externalSourceRequest = MobileDeviceRequest{
+	DeviceID:          prepareTestDeviceID,
+	VersionIdentifier: MobileExternalSourceVersionID,
+	StepID:            "action-author",
+	RunIdentifier:     "session-1",
+	PackageID:         "com.credenco.wallet",
+}
+
+func TestPrepareMobileDeviceExternalSourceReturnsKnownPackage(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	registerPrepareMobileDeviceActivities(env)
+	registerPrepareMobileDeviceWorkflow(env)
+	onGetMobileDevice(env, prepareTestDeviceID, map[string]any{
+		"runner_id":  "tenant/runner-1",
+		"runner_url": "https://runner.example",
+		"type":       "android_emulator",
+	})
+	env.OnActivity(androidPlatformActivities.Start, mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"name":   "avd-1",
+			"serial": "emulator-5554",
+		}}, nil)
+	env.OnActivity(activities.NewListInstalledAppsActivity().Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{}}, nil)
+
+	result := runPrepareMobileDeviceRequest(t, env, externalSourceRequest)
+
+	require.Empty(t, result.Error)
+	require.Equal(t, PreparedMobileDevice{
+		RunnerID: "tenant/runner-1",
+		Serial:   "emulator-5554",
+		Type:     "android_emulator",
+		// Cleanup uninstalls the package recorded for the external source.
+		PackageID: "com.credenco.wallet",
+	}, result.Prepared)
+	device, ok := result.Tracked[prepareTestDeviceID].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, map[string]any{
+		MobileExternalSourceVersionID: "com.credenco.wallet",
+	}, device["installed"])
+	env.AssertNotCalled(
+		t,
+		activities.NewMobileRunnerHTTPActivity(nil).Name(),
+		mock.Anything,
+		mock.Anything,
+	)
+	env.AssertNotCalled(t, androidPlatformActivities.Install, mock.Anything, mock.Anything)
+}
+
+func TestPrepareMobileDeviceExternalSourceOnIOSSimulator(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+	registerPrepareMobileDeviceActivities(env)
+	registerPrepareMobileDeviceWorkflow(env)
+	onPrepareIOSSimulator(env)
+
+	result := runPrepareMobileDeviceRequest(t, env, externalSourceRequest)
+
+	require.Empty(t, result.Error)
+	require.Equal(t, PreparedMobileDevice{
+		RunnerID:  "tenant/runner-1",
+		Serial:    "UDID-CLONE-1",
+		Type:      "ios_simulator",
+		PackageID: "com.credenco.wallet",
+	}, result.Prepared)
+	env.AssertNotCalled(t, iosPlatformActivities.Install, mock.Anything, mock.Anything)
 }
 
 func TestPrepareMobileDeviceReturnsPreparedIOSSimulator(t *testing.T) {

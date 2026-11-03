@@ -30,10 +30,13 @@ const (
 	mobileNoVideoConfigKey                 = "no_video"
 	mobilePlatformAndroid                  = "android"
 	mobilePlatformIOS                      = "ios"
-	mobileExternalSourceVersionID          = "installed_from_external_source"
 	mobileExternalInstallConfigKey         = "detect_external_install"
 	walletActionCategoryInstallApp         = "install-app"
 )
+
+// MobileExternalSourceVersionID is the version_id of a wallet installed outside
+// Credimi, for example from the Play Store, instead of from an uploaded installer.
+const MobileExternalSourceVersionID = "installed_from_external_source"
 
 type mobileDeviceType string
 
@@ -372,7 +375,7 @@ func resolveStoredMobileAction(
 func markExternalInstall(step *pipeline.StepSpec, action map[string]any) {
 	if workflowengine.AsString(
 		step.With.Payload["version_id"],
-	) == mobileExternalSourceVersionID &&
+	) == MobileExternalSourceVersionID &&
 		strings.TrimSpace(workflowengine.AsString(action["category"])) ==
 			walletActionCategoryInstallApp {
 		SetConfigValue(&step.With.Config, mobileExternalInstallConfigKey, true)
@@ -516,6 +519,9 @@ type MobileDeviceRequest struct {
 	VersionIdentifier string // wallet version identifier to install
 	StepID            string // label used in errors and run identifiers
 	RunIdentifier     string
+	// PackageID is the package of an app installed outside Credimi, with
+	// VersionIdentifier MobileExternalSourceVersionID; cleanup uninstalls it.
+	PackageID string
 }
 
 // PreparedMobileDevice is what a run needs to drive the prepared device.
@@ -556,9 +562,10 @@ func PrepareMobileDevice(
 			},
 		)
 	}
-	// The iOS reset reinstalls the app from this path.
+	// The iOS reset reinstalls the app from this path; an app installed
+	// outside Credimi has none.
 	if normalizeDeviceType(prepared.Type) == deviceTypeIOSSimulator &&
-		prepared.InstallerPath == "" {
+		prepared.InstallerPath == "" && req.PackageID == "" {
 		return PreparedMobileDevice{}, workflowengine.NewAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
@@ -659,13 +666,20 @@ func prepareMobileDevice(
 		activities:    deviceActivities,
 		runnerID:      runnerID,
 		serial:        serial,
-		skipInstaller: req.VersionIdentifier == mobileExternalSourceVersionID,
+		skipInstaller: req.VersionIdentifier == MobileExternalSourceVersionID,
 	})
 	if err != nil {
 		return PreparedMobileDevice{}, err
 	}
 
 	installed, _ := deviceMap["installed"].(map[string]string)
+	if req.VersionIdentifier == MobileExternalSourceVersionID && req.PackageID != "" {
+		if installed == nil {
+			installed = make(map[string]string)
+			deviceMap["installed"] = installed
+		}
+		installed[MobileExternalSourceVersionID] = req.PackageID
+	}
 	return PreparedMobileDevice{
 		RunnerID:      runnerID,
 		Serial:        serial,

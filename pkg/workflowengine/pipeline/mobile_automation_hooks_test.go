@@ -778,7 +778,7 @@ func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
 							"action_code":        "code-1",
 							"stored_action_code": true,
 							"device_id":          "tenant/runner-1/device-1",
-							"version_id":         mobileExternalSourceVersionID,
+							"version_id":         MobileExternalSourceVersionID,
 						},
 					},
 				},
@@ -787,7 +787,7 @@ func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
 				ActionID:   "action-1",
 				ActionCode: "code-1",
 				DeviceID:   "tenant/runner-1/device-1",
-				VersionID:  mobileExternalSourceVersionID,
+				VersionID:  MobileExternalSourceVersionID,
 			}
 			deviceMap := map[string]any{
 				"installed": map[string]string{},
@@ -831,7 +831,7 @@ func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
 		"action_code":        "code-1",
 		"stored_action_code": true,
 		"device_id":          "tenant/runner-1/device-1",
-		"version_id":         mobileExternalSourceVersionID,
+		"version_id":         MobileExternalSourceVersionID,
 	}, result["payload"])
 	require.Equal(t, float64(0), result["installed"])
 	require.Empty(t, result["installer_path"])
@@ -1861,7 +1861,7 @@ func TestResolveStoredMobileActionsPreparesNestedSpecs(t *testing.T) {
 func nestedMobilePreparationPayload(deviceID, suffix string) map[string]any {
 	payload := map[string]any{
 		"action_id":  "tenant/action-" + suffix,
-		"version_id": mobileExternalSourceVersionID,
+		"version_id": MobileExternalSourceVersionID,
 	}
 	if deviceID != "" {
 		payload["device_id"] = deviceID
@@ -1872,7 +1872,7 @@ func nestedMobilePreparationPayload(deviceID, suffix string) map[string]any {
 func nestedExternalInstallPayload(suffix string) map[string]any {
 	return map[string]any{
 		"action_id":  "tenant/action-" + suffix,
-		"version_id": mobileExternalSourceVersionID,
+		"version_id": MobileExternalSourceVersionID,
 	}
 }
 
