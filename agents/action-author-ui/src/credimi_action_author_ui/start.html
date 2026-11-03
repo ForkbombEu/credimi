@@ -111,7 +111,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<div class="field">
 						<label for="wallet-version">Wallet version</label>
 						<select id="wallet-version" name="wallet_version_identifier" required disabled></select>
-						<p class="hint">Only versions with an installer for the selected device's platform are listed.</p>
+						<p class="hint">Versions with an installer, and wallets with a store app, for the selected device's platform are listed.</p>
+						<p class="hint">Store installs need the Play Store or App Store with a signed-in account on the device.</p>
 						<p class="hint">Describe the action in the chat: the agent proposes a plan for you to confirm.</p>
 					</div>
 					<div class="actions">
@@ -260,7 +261,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					if (!platform || !(version.platforms || []).includes(platform)) continue;
 					const option = document.createElement('option');
 					option.value = version.identifier;
-					option.textContent = `${version.wallet_name} · ${version.version_tag} · ${version.organization_name} (${version.identifier})`;
+					option.textContent = version.source === 'store'
+						? `${version.wallet_name} · installed from the store · ${version.organization_name} (${version.identifier})`
+						: `${version.wallet_name} · ${version.version_tag} · ${version.organization_name} (${version.identifier})`;
 					versionSelect.append(option);
 				}
 				if ([...versionSelect.options].some((option) => option.value === current)) versionSelect.value = current;

@@ -28,7 +28,9 @@ requests and API calls from any other `Origin`, and sends no CORS headers, so ot
 and DNS-rebinding hosts cannot drive it. The start page exchanges the key for a bearer token
 and lists the devices of admin-managed runners of organizations where you are an owner
 (superusers see all), and the wallet versions with an installer for the selected device's
-platform. Starting a session queues it for the device; the page shows the queue position and
+platform, plus the wallets the session installs from the Play Store or App Store (listed as
+"installed from the store"; the device needs the store with a signed-in account). Starting a
+session queues it for the device; the page shows the queue position and
 the device preparation, offers **Cancel** while waiting, and opens the chat once the session
 runs. The key is never stored; the bearer token is kept in the tab's `sessionStorage`
 (`credimi-action-author`, with the Credimi URL) so the chat's plan and save reviews can call

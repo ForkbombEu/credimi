@@ -344,6 +344,20 @@ async def test_start_page_needs_a_running_action_author():
     assert "cancelButton.hidden = !preparing && !notAnswering" in page
 
 
+async def test_start_page_labels_store_wallets():
+    async with ui_client() as client:
+        page = (await client.get("/start")).text
+    # A wallet installed from the store at session start is labeled as such.
+    assert "version.source === 'store'" in page
+    assert (
+        "`${version.wallet_name} · installed from the store · "
+        "${version.organization_name} (${version.identifier})`"
+    ) in page
+    assert (
+        "Store installs need the Play Store or App Store with a signed-in account on the device."
+    ) in page
+
+
 async def test_start_page_leaves_the_plan_to_the_chat():
     async with ui_client() as client:
         page = (await client.get("/start")).text
