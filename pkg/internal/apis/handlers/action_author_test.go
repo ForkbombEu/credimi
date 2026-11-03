@@ -430,6 +430,44 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 	}
 }
 
+func TestActionAuthorStartQueuesStoreWalletSession(t *testing.T) {
+	token := authoringToken(t, "userA")
+	enqueued := stubActionAuthorQueue(t, true)
+	const storeWallet = "usera-s-organization/authoring-store-wallet"
+	deviceID := authoringAdminRunner + "/android-phone"
+	(&tests.ApiScenario{
+		Name:   "store wallet",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/sessions",
+		Body: strings.NewReader(
+			`{"device_id":"` + deviceID + `","wallet_version_identifier":"` + storeWallet +
+				`","slot":"install-app"}`,
+		),
+		Headers:         map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus:  http.StatusAccepted,
+		ExpectedContent: []string{`"wallet_version_identifier":"` + storeWallet + `"`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			org, err := app.FindFirstRecordByData("organizations", "canonified_name", "usera-s-organization")
+			require.NoError(t, err)
+			wallets, err := app.FindCollectionByNameOrId("wallets")
+			require.NoError(t, err)
+			wallet := core.NewRecord(wallets)
+			wallet.Set("owner", org.Id)
+			wallet.Set("name", "Authoring store wallet")
+			wallet.Set("google_app_id", "com.credenco.wallet")
+			require.NoError(t, app.Save(wallet))
+			return app
+		},
+	}).Test(t)
+
+	require.NotEmpty(t, enqueued.TicketID)
+	require.Equal(t, deviceID, enqueued.DeviceID)
+	require.Equal(t, storeWallet, enqueued.ActionAuthor["wallet_version_identifier"])
+	require.Equal(t, "android", enqueued.ActionAuthor["platform"])
+	require.Equal(t, "install-app", enqueued.ActionAuthor["slot"])
+}
+
 func TestActionAuthorStartMapsQueueFailures(t *testing.T) {
 	token := authoringToken(t, "userA")
 	for name, tc := range map[string]struct {
