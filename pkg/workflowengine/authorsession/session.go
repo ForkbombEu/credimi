@@ -72,7 +72,9 @@ type SessionInput struct {
 	AppID string `json:"app_id,omitempty"`
 }
 
-// AuthoringBuild is the resolved build the agent authors against.
+// AuthoringBuild is the resolved build the agent authors against. Store
+// builds have no version or installer digest: the agent installs PackageID
+// from StoreURL at session start.
 type AuthoringBuild struct {
 	WalletID          string `json:"wallet_id"`
 	VersionID         string `json:"version_id"`
@@ -80,6 +82,9 @@ type AuthoringBuild struct {
 	OwnerNamespace    string `json:"owner_namespace"`
 	Platform          string `json:"platform"`
 	InstallerSHA256   string `json:"installer_sha256"`
+	Source            string `json:"source"`
+	PackageID         string `json:"package_id,omitempty"`
+	StoreURL          string `json:"store_url,omitempty"`
 }
 
 // AuthoringDevice is the prepared runner device the agent drives.
@@ -196,17 +201,18 @@ func (w *Workflow) ExecuteWorkflow(
 		}
 	}
 
-	device, err := pipeline.PrepareMobileDevice(
-		ctx,
-		ao,
-		settedDevices,
-		pipeline.MobileDeviceRequest{
-			DeviceID:          session.DeviceID,
-			VersionIdentifier: build.VersionIdentifier,
-			StepID:            StepID,
-			RunIdentifier:     execution.ID,
-		},
-	)
+	deviceRequest := pipeline.MobileDeviceRequest{
+		DeviceID:          session.DeviceID,
+		VersionIdentifier: build.VersionIdentifier,
+		StepID:            StepID,
+		RunIdentifier:     execution.ID,
+	}
+	// A store wallet is installed by the agent; cleanup uninstalls its package.
+	if build.Source == actionauthor.SourceStore {
+		deviceRequest.VersionIdentifier = pipeline.MobileExternalSourceVersionID
+		deviceRequest.PackageID = build.PackageID
+	}
+	device, err := pipeline.PrepareMobileDevice(ctx, ao, settedDevices, deviceRequest)
 	if err != nil {
 		return result, err
 	}
@@ -405,6 +411,9 @@ func authoringContext(
 			OwnerNamespace:    build.OwnerNamespace,
 			Platform:          build.Platform,
 			InstallerSHA256:   build.InstallerSHA256,
+			Source:            build.Source,
+			PackageID:         build.PackageID,
+			StoreURL:          build.StoreURL,
 		},
 		Device: AuthoringDevice{
 			DeviceID:      session.DeviceID,

@@ -6,6 +6,7 @@ package authorsession
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -50,6 +51,8 @@ type sessionHarness struct {
 	deviceType    string
 	installerPath string
 	installErr    error
+	// storeBuild resolves the selection as a wallet installed from the store.
+	storeBuild bool
 
 	releaseErr error
 
@@ -86,6 +89,17 @@ func newSessionHarness(t *testing.T, deviceType string) *sessionHarness {
 	h.env.RegisterWorkflowWithOptions(h.child, workflow.RegisterOptions{Name: AuthorWorkflowType})
 
 	h.register(activities.ResolveActionAuthorBuildActivityName, func(any) (any, error) {
+		if h.storeBuild {
+			return actionauthor.Build{
+				WalletID:          "wallet-1",
+				VersionIdentifier: testStoreWallet,
+				OwnerNamespace:    "tenant",
+				Platform:          h.platform(),
+				Source:            actionauthor.SourceStore,
+				PackageID:         testStorePackage,
+				StoreURL:          testStoreURL,
+			}, nil
+		}
 		return actionauthor.Build{
 			WalletID:          "wallet-1",
 			VersionID:         "version-1",
@@ -93,6 +107,7 @@ func newSessionHarness(t *testing.T, deviceType string) *sessionHarness {
 			OwnerNamespace:    "tenant",
 			Platform:          h.platform(),
 			InstallerSHA256:   "digest",
+			Source:            actionauthor.SourceInstaller,
 		}, nil
 	})
 	h.register(activities.ResolveActionAuthorPrerequisitesActivityName, func(any) (any, error) {
@@ -326,6 +341,7 @@ func TestSessionStartsAuthorOnRunnerQueueWithAuthoringContext(t *testing.T) {
 			OwnerNamespace:    "tenant",
 			Platform:          actionauthor.PlatformAndroid,
 			InstallerSHA256:   "digest",
+			Source:            actionauthor.SourceInstaller,
 		},
 		Device: AuthoringDevice{
 			DeviceID:      testDeviceID,
@@ -352,6 +368,53 @@ func TestSessionStartsAuthorOnRunnerQueueWithAuthoringContext(t *testing.T) {
 	require.NotContains(t, h.names(), activities.ResolveActionAuthorPrerequisitesActivityName)
 	cleanupCall, _ := h.call(activities.NewCleanupDeviceActivity().Name())
 	require.Equal(t, testRunnerID+"-TaskQueue", cleanupCall.taskQueue)
+}
+
+const (
+	testStoreWallet  = "tenant/store-wallet"
+	testStorePackage = "com.credenco.wallet"
+	testStoreURL     = "https://play.google.com/store/apps/details?id=com.credenco.wallet"
+)
+
+func TestSessionPreparesStoreBuildWithoutInstaller(t *testing.T) {
+	for _, deviceType := range []string{"android_emulator", deviceTypeIOSSimulator} {
+		t.Run(deviceType, func(t *testing.T) {
+			h := newSessionHarness(t, deviceType)
+			h.storeBuild = true
+			session := sessionInput(h.platform())
+			session.WalletVersionIdentifier = testStoreWallet
+
+			require.NoError(t, h.run(session))
+
+			require.NotNil(t, h.childContext)
+			require.Equal(t, AuthoringBuild{
+				WalletID:          "wallet-1",
+				VersionIdentifier: testStoreWallet,
+				OwnerNamespace:    "tenant",
+				Platform:          h.platform(),
+				InstallerSHA256:   "",
+				Source:            "store",
+				PackageID:         testStorePackage,
+				StoreURL:          testStoreURL,
+			}, h.childContext.Build)
+			require.Equal(t, testStorePackage, h.childContext.Device.PackageID)
+			require.Empty(t, h.childContext.Device.InstallerPath)
+			// The device is prepared as an external install: no installer is
+			// fetched or installed, and cleanup uninstalls the store package.
+			names := h.names()
+			for _, name := range []string{
+				activities.NewMobileRunnerHTTPActivity(nil).Name(),
+				activities.NewApkInstallActivity().Name(),
+				activities.NewInstallIOSAppActivity().Name(),
+			} {
+				require.NotContains(t, names, name)
+			}
+			cleanupCall, ok := h.call(activities.NewCleanupDeviceActivity().Name())
+			require.True(t, ok)
+			require.Contains(t, fmt.Sprint(cleanupCall.payload), testStorePackage)
+			h.requireReleasedAfter("", "success")
+		})
+	}
 }
 
 func TestSessionPassesPrerequisitesAndParametersToAuthor(t *testing.T) {
