@@ -251,10 +251,20 @@ func reviewBodyWithPlan(token string) string {
 // test apps share test_pb_data's signing secret.
 func signHandlerPlan(t *testing.T, userID string, plan actionauthor.Spec) string {
 	t.Helper()
+	return signHandlerPlanFor(t, reviewAuthorWorkflow, userID, plan)
+}
+
+// signHandlerPlanFor signs a plan of authorWorkflowID confirmed by userID.
+func signHandlerPlanFor(
+	t *testing.T,
+	authorWorkflowID, userID string,
+	plan actionauthor.Spec,
+) string {
+	t.Helper()
 	app := setupActionAuthorApp(t)
 	defer app.Cleanup()
 	token, err := actionauthor.SignPlan(app, actionauthor.PlanGrant{
-		AuthorWorkflowID:   reviewAuthorWorkflow,
+		AuthorWorkflowID:   authorWorkflowID,
 		Plan:               plan,
 		ApproverID:         userID,
 		ApproverCollection: "users",
@@ -315,7 +325,19 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 			name:     "forged plan",
 			token:    "forged.x",
 			status:   http.StatusForbidden,
-			expected: []string{`"forbidden"`},
+			expected: []string{`"forbidden"`, `"plan not signed by Credimi"`},
+		},
+		{
+			name:     "plan for another session",
+			token:    signHandlerPlanFor(t, "ActionAuthorSession-other-author", user.Id, plan),
+			status:   http.StatusForbidden,
+			expected: []string{`"forbidden"`, `"plan for another session"`},
+		},
+		{
+			name:     "plan confirmed by another user",
+			token:    signHandlerPlan(t, "another-user", plan),
+			status:   http.StatusForbidden,
+			expected: []string{`"forbidden"`, `"plan confirmed by another user"`},
 		},
 		{
 			name:     "plan token for a fixed plan",
@@ -330,14 +352,15 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 			stub.session.Spec = actionauthor.Spec{}
 		}
 		(&tests.ApiScenario{
-			Name:            tc.name,
-			Method:          http.MethodPost,
-			URL:             "/api/action-author/reviews",
-			Body:            strings.NewReader(reviewBodyWithPlan(tc.token)),
-			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-			ExpectedStatus:  tc.status,
-			ExpectedContent: tc.expected,
-			TestAppFactory:  setupActionAuthorApp,
+			Name:               tc.name,
+			Method:             http.MethodPost,
+			URL:                "/api/action-author/reviews",
+			Body:               strings.NewReader(reviewBodyWithPlan(tc.token)),
+			Headers:            map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+			ExpectedStatus:     tc.status,
+			ExpectedContent:    tc.expected,
+			NotExpectedContent: []string{"not authorized to author actions for this wallet"},
+			TestAppFactory:     setupActionAuthorApp,
 		}).Test(t)
 		require.Empty(t, stub.workflowID, tc.name)
 	}

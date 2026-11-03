@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
@@ -160,7 +161,7 @@ func HandleActionAuthorReview() func(*core.RequestEvent) error {
 				e.App, ref, input.AuthorWorkflowID, input.PlanToken,
 			)
 			if err != nil {
-				return authoringAPIError(e, err)
+				return actionAuthorPlanError(e, err)
 			}
 			approval, err := actionauthor.SignApproval(e.App, actionauthor.Approval{
 				AuthorWorkflowID:   input.AuthorWorkflowID,
@@ -209,4 +210,20 @@ func actionAuthorUpdateError(err error, reason, message string) *apierror.APIErr
 		return apierror.New(http.StatusConflict, "action_author", reason, message)
 	}
 	return temporalUnavailableError()
+}
+
+// actionAuthorPlanError answers a plan EffectivePlan refused: ErrForbidden as
+// 403 forbidden with its own reason (plan not signed by Credimi, plan for
+// another session, plan confirmed by another user), like the actor check of
+// actionAuthorCallerSession, and other errors as authoringAPIError does.
+func actionAuthorPlanError(e *core.RequestEvent, err error) *apierror.APIError {
+	if !errors.Is(err, actionauthor.ErrForbidden) {
+		return authoringAPIError(e, err)
+	}
+	return apierror.New(
+		http.StatusForbidden,
+		"action_author",
+		"forbidden",
+		strings.TrimPrefix(err.Error(), actionauthor.ErrForbidden.Error()+": "),
+	)
 }
