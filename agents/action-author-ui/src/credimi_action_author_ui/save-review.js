@@ -465,8 +465,9 @@ async function refreshIdle() {
     if (!response.ok) throw new Error('Idle state is unavailable.');
     const { closes_at: closesAt } = await response.json();
     const secondsLeft = Math.floor((Date.parse(closesAt) - Date.now()) / 1000);
-    if (session !== sessionId() || !closesAt || !(secondsLeft < 60)) return hideIdle();
-    showIdle(Math.max(0, secondsLeft));
+    // A closed session still answers its last state: past the close time, nothing is left to warn.
+    if (session !== sessionId() || !closesAt || !(secondsLeft >= 0 && secondsLeft < 60)) return hideIdle();
+    showIdle(secondsLeft);
   } catch {
     hideIdle();
   }
