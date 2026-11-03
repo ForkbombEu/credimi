@@ -505,21 +505,69 @@ func TestSelectStoreWallet(t *testing.T) {
 	foreignURL := seedStoreWallet(t, app, selection, "Foreign URL wallet", map[string]any{
 		"playstore_url": "https://example.org/store/apps/details?id=com.example.wallet",
 	})
+	otherHost := seedStoreWallet(t, app, selection, "Other host wallet", map[string]any{
+		"google_app_id": "com.example.otherhost",
+		"playstore_url": "https://example.org/store/apps/details?id=com.example.otherhost",
+	})
+	idMismatch := seedStoreWallet(t, app, selection, "Id mismatch wallet", map[string]any{
+		"google_app_id": "com.example.mismatch",
+		"playstore_url": "https://play.google.com/store/apps/details?id=com.example.another",
+	})
+	matching := seedStoreWallet(t, app, selection, "Matching URL wallet", map[string]any{
+		"google_app_id": "com.example.matching",
+		"playstore_url": "https://play.google.com/store/apps/details?id=com.example.matching&hl=it",
+	})
 
 	for _, tc := range []struct {
 		name, identifier, platform, pkg, storeURL string
+		storeLinks                                []string
 	}{
 		{
 			"android by google_app_id", googleApp, PlatformAndroid, "com.credenco.wallet",
 			"https://play.google.com/store/apps/details?id=com.credenco.wallet",
+			[]string{
+				"market://details?id=com.credenco.wallet",
+				"https://play.google.com/store/apps/details?id=com.credenco.wallet",
+			},
 		},
 		{
 			"android by playstore_url", playURL, PlatformAndroid, "com.sphereon.ssi.wallet",
 			"https://play.google.com/store/apps/details?id=com.sphereon.ssi.wallet&hl=en",
+			[]string{
+				"market://details?id=com.sphereon.ssi.wallet",
+				"https://play.google.com/store/apps/details?id=com.sphereon.ssi.wallet",
+				"https://play.google.com/store/apps/details?id=com.sphereon.ssi.wallet&hl=en",
+			},
+		},
+		{
+			"android playstore_url on another host", otherHost, PlatformAndroid, "com.example.otherhost",
+			"https://play.google.com/store/apps/details?id=com.example.otherhost",
+			[]string{
+				"market://details?id=com.example.otherhost",
+				"https://play.google.com/store/apps/details?id=com.example.otherhost",
+			},
+		},
+		{
+			"android playstore_url of another app", idMismatch, PlatformAndroid, "com.example.mismatch",
+			"https://play.google.com/store/apps/details?id=com.example.mismatch",
+			[]string{
+				"market://details?id=com.example.mismatch",
+				"https://play.google.com/store/apps/details?id=com.example.mismatch",
+			},
+		},
+		{
+			"android matching playstore_url", matching, PlatformAndroid, "com.example.matching",
+			"https://play.google.com/store/apps/details?id=com.example.matching&hl=it",
+			[]string{
+				"market://details?id=com.example.matching",
+				"https://play.google.com/store/apps/details?id=com.example.matching",
+				"https://play.google.com/store/apps/details?id=com.example.matching&hl=it",
+			},
 		},
 		{
 			"ios", appStore, PlatformIOS, "co.talao.wallet",
 			"https://apps.apple.com/app/talao/id1582183266",
+			[]string{"https://apps.apple.com/app/talao/id1582183266"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -545,6 +593,11 @@ func TestSelectStoreWallet(t *testing.T) {
 				PackageID:         tc.pkg,
 				StoreURL:          tc.storeURL,
 			}, build)
+			assert.Equal(
+				t,
+				tc.storeLinks,
+				StoreLinks(SlotInstallApp, tc.platform, build.PackageID, build.StoreURL),
+			)
 		})
 	}
 

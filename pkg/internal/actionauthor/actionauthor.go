@@ -136,10 +136,7 @@ func storeApp(wallet *core.Record, platform string) (string, string, error) {
 				ErrInvalid,
 			)
 		}
-		if storeURL == "" {
-			storeURL = "https://play.google.com/store/apps/details?id=" + pkg
-		}
-		return pkg, storeURL, nil
+		return pkg, playStorePage(storeURL, pkg), nil
 	case PlatformIOS:
 		pkg := wallet.GetString("apple_app_id")
 		storeURL := wallet.GetString("appstore_url")
@@ -154,6 +151,17 @@ func storeApp(wallet *core.Record, platform string) (string, string, error) {
 	default:
 		return "", "", fmt.Errorf("%w: platform must be android or ios", ErrInvalid)
 	}
+}
+
+// playStorePage returns storeURL when it is an https page on play.google.com
+// of pkg (its id query parameter), the Play Store details page of pkg otherwise.
+func playStorePage(storeURL, pkg string) string {
+	parsed, err := url.Parse(storeURL)
+	if err == nil && parsed.Scheme == "https" && parsed.Host == "play.google.com" &&
+		parsed.Query().Get("id") == pkg {
+		return storeURL
+	}
+	return "https://play.google.com/store/apps/details?id=" + pkg
 }
 
 // OwnerFilter restricts a query on a collection with an `owner` organization
