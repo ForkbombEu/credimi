@@ -33,7 +33,7 @@ platform, plus the wallets the session installs from the Play Store or App Store
 session queues it for the device; the page shows the queue position and
 the device preparation, offers **Cancel** while waiting, and opens the chat once the session
 runs. The key is never stored; the bearer token is kept in the tab's `sessionStorage`
-(`credimi-action-author`, with the Credimi URL) so the chat's plan and save reviews can call
+(`credimi-action-author`, with the Credimi URL) so the chat's save reviews can call
 Credimi, and it never reaches workflow inputs or the URL.
 
 Credimi derives the actor and organization from authentication; the browser cannot supply
@@ -45,27 +45,25 @@ No page can be framed. Every HTML page but the start page (which has its own pol
 `Content-Security-Policy` that runs only scripts of the UI's own origin: the harness chat page
 has no inline script, and the scripts the UI adds to it (`/action-new-session.js`,
 `/action-save-review.js`) are files. Styles may be inline; requests may go to the UI and, for
-the plan and save reviews, to Credimi over HTTP(S).
+the save reviews, to Credimi over HTTP(S).
 
 ## Action plan
 
 The start page asks only for the device and the wallet version. Describe the action in the
 chat: its category, success or rejection, input values (PIN) and references (a Credimi URL or
-identifier, or a deeplink). The agent proposes a **plan**: the slot, the outcome, the
-prerequisites (saved actions of the wallet) and the parameter sources.
-The plan card (`confirm_action_plan`) shows each summary line in its own text-only element
-(`white-space: pre-wrap`, so indented detail lines keep their indentation) and the input values; **Accept** /
-**Refuse** sends `POST /api/action-author/plans` with the bound namespace, the chat's workflow
-ID, the card's `tool_id`, its `plan` and the stored bearer token. Credimi validates the plan and
-signs it; a `400` shows Credimi's message and keeps the card, so you can still refuse it. A
-session can save several actions in a row, each with its own plan. An organization has no daily
+identifier, or a deeplink). The agent sets the **plan** itself: the slot, the outcome, the
+prerequisites (saved actions of the wallet) and the parameter sources, and asks only when
+something is unclear. Credimi checks the plan and signs it for the session, with no card; the
+save review shows it. A session can save several actions in a row, each with its own plan. An organization has no daily
 token allowance until a Credimi superuser sets one, and a missing or used-up allowance answers
 `429` with Credimi's message. Values are stored in Temporal history: use test data only.
 
 ## Save review
 
-The **Accept** / **Refuse** card shows the accepted YAML (`tool_input.code`) and the plan the
-session's plan token signs (`Plan fixed when the session started.` when the token is empty),
+The **Accept** / **Refuse** card shows the accepted YAML (`tool_input.code`) and the summary of
+the plan the session's plan token signs, one text-only element per line (`white-space:
+pre-wrap`, so indented detail lines keep their indentation; `Plan fixed when the session
+started.` when the token is empty),
 and enables **Accept** only when the YAML's SHA-256 matches the review's `candidate_sha256`;
 otherwise it says `The reviewed YAML does not match its hash. Refuse this candidate.` and
 leaves only **Refuse**. A non-empty plan token that does not decode shows

@@ -33,7 +33,7 @@ type ActionAuthorReviewRequest struct {
 	ToolID           string `json:"tool_id"            validate:"required"`
 	CandidateSHA256  string `json:"candidate_sha256"   validate:"required,len=64,hexadecimal"`
 	Accepted         *bool  `json:"accepted"           validate:"required"`
-	// PlanToken is the session's confirmed plan token; sessions started with
+	// PlanToken is the plan token Credimi signed for the session; sessions started with
 	// a spec omit it.
 	PlanToken string `json:"plan_token,omitempty"`
 }
@@ -214,7 +214,7 @@ func actionAuthorUpdateError(err error, reason, message string) *apierror.APIErr
 
 // actionAuthorPlanError answers a plan EffectivePlan refused: ErrForbidden as
 // 403 forbidden with its own reason (plan not signed by Credimi, plan for
-// another session, plan confirmed by another user), like the actor check of
+// another session, plan signed for another user), like the actor check of
 // actionAuthorCallerSession, and other errors as authoringAPIError does.
 func actionAuthorPlanError(e *core.RequestEvent, err error) *apierror.APIError {
 	if !errors.Is(err, actionauthor.ErrForbidden) {

@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// The workflow owns the proposals. This page sends a human's decision to Credimi, which signs
-// the plan or the save approval and delivers it to the session.
+// The workflow owns the proposals. This page sends a human's save decision to Credimi, which
+// signs the approval and delivers it to the session.
 // Written by the start page: the Credimi origin and the user's bearer token, for this tab.
 const authStorageKey = 'credimi-action-author';
 const settled = new Set();
@@ -31,16 +31,6 @@ function paragraph(text) {
   return element;
 }
 
-function list(lines) {
-  const element = document.createElement('ul');
-  for (const line of lines) {
-    const item = document.createElement('li');
-    item.textContent = String(line);
-    element.append(item);
-  }
-  return element;
-}
-
 // Each line in its own element: indented lines detail the line above them, so their leading
 // spaces must show.
 function summaryLines(lines) {
@@ -55,24 +45,27 @@ function summaryLines(lines) {
   return element;
 }
 
-// The plan a plan token signs: its first segment is base64url JSON of Credimi's plan grant. An
-// empty token means the plan was fixed when the session started; a token that does not decode
-// to a plan is unreadable, and its candidate must not be accepted.
+// The plan a plan token signs: its first segment is base64url JSON of Credimi's plan grant,
+// whose summary the card shows. An empty token means the plan was fixed when the session
+// started; a token that does not decode to a plan is unreadable, and its candidate must not be
+// accepted.
 function tokenPlan(token) {
   if (typeof token !== 'string' || !token) return { fixed: true };
   try {
     const segment = token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
     const padded = segment + '='.repeat((4 - (segment.length % 4)) % 4);
     const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
-    const plan = JSON.parse(new TextDecoder().decode(bytes)).plan;
-    if (plan && typeof plan === 'object') return { plan };
+    const grant = JSON.parse(new TextDecoder().decode(bytes));
+    const plan = grant.plan;
+    const summary = Array.isArray(grant.summary) ? grant.summary : [];
+    if (plan && typeof plan === 'object') return { plan, summary };
   } catch {
     // An undecodable token is unreadable.
   }
   return { unreadable: true };
 }
 
-// The save of a candidate whose two clean-state replays passed.
+// The save of a candidate whose clean-state replay passed.
 const saveReview = {
   label: 'Review and save action',
   intro: 'Review the accepted YAML and the plan below, then confirm your decision.',
@@ -84,13 +77,13 @@ const saveReview = {
   render(target, input) {
     const heading = document.createElement('h3');
     heading.textContent = `Save “${input.name}”?`;
-    const details = paragraph(`Build: ${input.build}. Both clean-state replays passed. The action will be saved unpublished.`);
+    const details = paragraph(`Build: ${input.build}. The clean-state replay passed. The action will be saved unpublished.`);
     const code = textBlock('review-code', 'Accepted YAML', typeof input.code === 'string' ? input.code : '');
-    const { plan, unreadable } = tokenPlan(input.plan_token);
-    let planText = 'Plan fixed when the session started.';
-    if (plan) planText = JSON.stringify(plan, null, 2);
-    else if (unreadable) planText = unreadableToken;
-    target.append(heading, details, code, paragraph('Plan:'), textBlock('review-code', 'Plan', planText));
+    const { plan, summary, unreadable } = tokenPlan(input.plan_token);
+    let planBlock = paragraph('Plan fixed when the session started.');
+    if (plan) planBlock = summaryLines(summary);
+    else if (unreadable) planBlock = paragraph(unreadableToken);
+    target.append(heading, details, code, paragraph('Plan:'), planBlock);
   },
   // Checks the card's YAML against candidate_sha256, the digest Credimi's approval signs, so the
   // user never accepts a candidate other than the one shown, nor one whose plan cannot be shown.
@@ -110,29 +103,8 @@ const saveReview = {
   }),
 };
 
-// The plan the agent proposes: Credimi validates and signs it when the user confirms it.
-const planReview = {
-  label: 'Confirm the action plan',
-  intro: 'Check the plan, then confirm it or refuse it and tell the agent what to change.',
-  cannotAccept: () => '',
-  endpoint: '/api/action-author/plans',
-  sending: (accepted) => (accepted ? 'Sending your confirmation to Credimi…' : 'Sending your refusal to Credimi…'),
-  done: (accepted) => (accepted ? 'Confirmed. The agent continues with this plan…' : 'Refused. Tell the agent what to change in this chat.'),
-  notPending: 'This plan is no longer pending. Reloading…',
-  render(target, input) {
-    const heading = document.createElement('h3');
-    heading.textContent = `Confirm the plan for “${input.action_name}”?`;
-    const summary = summaryLines(Array.isArray(input.summary) ? input.summary : []);
-    const values = input.values && typeof input.values === 'object' ? input.values : {};
-    const valueLines = Object.entries(values).map(([name, value]) => `${name}: ${value}`);
-    target.append(heading, summary, paragraph('Input values:'), list(valueLines));
-  },
-  canAccept: async () => true,
-  body: (proposal, accepted) => ({ plan: proposal.tool_input.plan, accepted }),
-};
-
 // Proposals this page reviews, by the callback tool that waits for them.
-const tools = { confirm_wallet_action_save: saveReview, confirm_action_plan: planReview };
+const tools = { confirm_wallet_action_save: saveReview };
 const nativeSelector = Object.keys(tools).map((name) => `[aria-label="Response: ${name}"]`).join(', ');
 
 // The card floats over the page instead of sitting in the chat's callback queue: the queue is a

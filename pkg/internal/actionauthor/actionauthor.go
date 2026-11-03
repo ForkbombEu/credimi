@@ -449,7 +449,7 @@ func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 
 // SaveRequest carries the trusted workflow's accepted candidate, the
 // Credimi-signed approval of its human review and, when the session has no
-// start spec, the token of its confirmed plan. The activity fills Spec with
+// start spec, the token of its signed plan. The activity fills Spec with
 // the session's effective plan, never from the payload.
 type SaveRequest struct {
 	BuildRequest

@@ -78,7 +78,7 @@ func (p sourceRedirectPolicy) RoundTrip(req *http.Request) (*http.Response, erro
 
 // GenerateActionAuthorParametersInput selects the parameter list of the
 // caller's session: the candidate's, or the prerequisite's at Index.
-// PlanToken is the confirmed plan's token when the session has no start spec.
+// PlanToken is the signed plan's token when the session has no start spec.
 type GenerateActionAuthorParametersInput struct {
 	Scope     string `json:"scope"`
 	Index     int    `json:"index"`
@@ -307,7 +307,7 @@ func (a *GenerateActionAuthorParametersActivity) httpValue(
 
 // CheckActionAuthorProtocolOutcomeInput names a candidate parameter with a
 // status check and the values captured when its value was generated;
-// PlanToken is the confirmed plan's token when the session has no start spec.
+// PlanToken is the signed plan's token when the session has no start spec.
 type CheckActionAuthorProtocolOutcomeInput struct {
 	Parameter string            `json:"parameter"`
 	Captures  map[string]string `json:"captures"`

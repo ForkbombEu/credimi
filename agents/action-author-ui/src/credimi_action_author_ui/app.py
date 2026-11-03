@@ -79,12 +79,11 @@ AGENT_DESCRIPTION = (
     "Authors actions for the wallet version selected on the start page, on a device of an "
     "admin-managed Credimi runner (an Android device or an iOS simulator). Describe the action "
     "in the chat with its input values and references (a Credimi URL or identifier, or a "
-    'deeplink), e.g. "Write the onboarding action with PIN 123456". The agent proposes a plan '
-    "(category, outcome, starting actions and parameter sources): confirm or refuse it on its "
-    "card. After two clean replays on the runner device, review the accepted YAML and choose "
-    "Accept or Refuse to save an unpublished Credimi action; then ask for the next action in "
-    "the same chat. Credimi signs both decisions: the model cannot confirm a plan or approve "
-    "saving."
+    'deeplink), e.g. "Write the onboarding action with PIN 123456". The agent works out the '
+    "plan (category, outcome, starting actions and parameter sources) and asks only when "
+    "something is unclear. After a clean replay on the runner device, review the YAML and the "
+    "plan and choose Accept or Refuse to save an unpublished Credimi action; then ask for the "
+    "next action in the same chat. Credimi signs the save: the model cannot approve saving."
 )
 
 START_PAGE = Path(__file__).with_name("start.html")
@@ -116,8 +115,8 @@ HTML_CSP = (
     "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: http:; "
     "object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
 )
-# Keep the packaged UI's new-session buttons on the authenticated setup path, and add the plan
-# and save review cards.
+# Keep the packaged UI's new-session buttons on the authenticated setup path, and add the save
+# review card.
 CHAT_PAGE_SCRIPTS = (
     '<script src="/action-new-session.js"></script>'
     '<script type="module" src="/action-save-review.js"></script>'
@@ -510,7 +509,7 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
                 status_code=403,
                 content={
                     "error": "review_through_credimi",
-                    "message": "Plan and save reviews are sent to Credimi.",
+                    "message": "Save reviews are sent to Credimi.",
                 },
             )
         else:

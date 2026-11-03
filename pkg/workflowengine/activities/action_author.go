@@ -319,8 +319,8 @@ func (l authorSessionLookup) callerSession(
 }
 
 // EffectivePlan returns the normalized plan a session's activity acts on:
-// the spec fixed when the session started, or else the plan its user
-// confirmed, whose Credimi-signed token the agent sends with each activity.
+// the spec fixed when the session started, or else the plan Credimi checked
+// and signed for the session, whose token the agent sends with each activity.
 // The start input is read from Temporal history, which a client may have
 // written without going through the start handler, so the start spec is
 // validated again. Errors wrap actionauthor.ErrInvalid or ErrForbidden.
@@ -344,22 +344,22 @@ func EffectivePlan(
 	}
 	if token == "" {
 		return actionauthor.Spec{}, fmt.Errorf(
-			"%w: no confirmed plan: propose one with propose_plan", actionauthor.ErrInvalid,
+			"%w: no plan: set one with set_plan", actionauthor.ErrInvalid,
 		)
 	}
 	grant, err := actionauthor.VerifyPlan(app, token, authorWorkflowID)
 	if err != nil {
 		return actionauthor.Spec{}, err
 	}
-	if grant.ApproverID != session.ActorID ||
-		grant.ApproverCollection != session.ActorCollection {
+	if grant.ActorID != session.ActorID ||
+		grant.ActorCollection != session.ActorCollection {
 		return actionauthor.Spec{}, fmt.Errorf(
-			"%w: plan confirmed by another user", actionauthor.ErrForbidden,
+			"%w: plan signed for another user", actionauthor.ErrForbidden,
 		)
 	}
 	plan, err := normalizedPlan(grant.Plan)
 	if err != nil {
-		return actionauthor.Spec{}, fmt.Errorf("confirmed plan: %w", err)
+		return actionauthor.Spec{}, fmt.Errorf("signed plan: %w", err)
 	}
 	return plan, nil
 }

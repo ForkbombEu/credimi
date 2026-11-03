@@ -106,7 +106,7 @@ async def test_reviews_are_never_settled_through_the_ui(bound, method):
     assert response.status_code == 403
     assert response.json() == {
         "error": "review_through_credimi",
-        "message": "Plan and save reviews are sent to Credimi.",
+        "message": "Save reviews are sent to Credimi.",
     }
 
 
@@ -114,15 +114,12 @@ async def test_reviews_are_sent_to_credimi():
     async with ui_client() as client:
         script = (await client.get("/action-save-review.js")).text
     assert "/api/callback-result" not in script
-    # Both callback tools get a card; their native response cards are hidden.
-    assert (
-        "const tools = { confirm_wallet_action_save: saveReview, confirm_action_plan: planReview };"
-    ) in script
+    # The save callback gets a card; its native response card is hidden.
+    assert "const tools = { confirm_wallet_action_save: saveReview };" in script
     assert '`[aria-label="Response: ${name}"]`' in script
     assert "Object.hasOwn(tools, item.tool_name) && !settled.has(item.tool_id)" in script
     assert "fetch(`${auth.origin}${review.endpoint}`" in script
     assert "endpoint: '/api/action-author/reviews'," in script
-    assert "endpoint: '/api/action-author/plans'," in script
     assert "Authorization: `Bearer ${auth.token}`" in script
     for field in (
         "namespace,",
@@ -131,7 +128,6 @@ async def test_reviews_are_sent_to_credimi():
         "...review.body(proposal, accepted),",
         "candidate_sha256: proposal.tool_input.candidate_sha256,",
         "plan_token: proposal.tool_input.plan_token || '',",
-        "body: (proposal, accepted) => ({ plan: proposal.tool_input.plan, accepted }),",
     ):
         assert field in script
     # The token comes from the start page; a missing or expired one asks for a key.
@@ -143,25 +139,9 @@ async def test_reviews_are_sent_to_credimi():
     assert "/api/apikey/authenticate" in script
     assert "response.status === 409" in script
     assert "'This review is no longer pending. Reloading…'" in script
-    assert "'This plan is no longer pending. Reloading…'" in script
     # A refused proposal keeps its card and shows why, so the user can still refuse it.
     assert "if (response.status === 400) {" in script
     assert "statusText(apiMessage(body, response.status));" in script
-
-
-async def test_plan_review_shows_the_summary_and_values():
-    async with ui_client() as client:
-        script = (await client.get("/action-save-review.js")).text
-    assert "heading.textContent = `Confirm the plan for “${input.action_name}”?`;" in script
-    # Each summary line is its own text-only element; pre-wrap keeps the indented detail lines.
-    assert "summaryLines(Array.isArray(input.summary) ? input.summary : [])" in script
-    assert "paragraph('Input values:')" in script
-    assert "`${name}: ${value}`" in script
-    assert "item.className = 'summary-line';" in script
-    assert "item.textContent = String(line);" in script
-    assert ".summary-line { white-space: pre-wrap;" in script
-    assert "innerHTML" not in script
-    assert "canAccept: async () => true," in script
 
 
 async def test_save_review_shows_the_yaml_plan_and_checks_its_hash():
@@ -174,15 +154,10 @@ async def test_save_review_shows_the_yaml_plan_and_checks_its_hash():
     assert "max-height: 40vh; overflow: auto;" in script
     # The plan is the payload segment of the signed plan token.
     assert "token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')" in script
-    assert "const plan = JSON.parse(new TextDecoder().decode(bytes)).plan;" in script
-    assert "if (plan && typeof plan === 'object') return { plan };" in script
-    assert "if (plan) planText = JSON.stringify(plan, null, 2);" in script
     # An empty token means a plan fixed at start; one that does not decode blocks Accept.
     assert "if (typeof token !== 'string' || !token) return { fixed: true };" in script
-    assert "let planText = 'Plan fixed when the session started.';" in script
     assert "return { unreadable: true };" in script
     assert "'Unreadable plan token: refuse this candidate.'" in script
-    assert "else if (unreadable) planText = unreadableToken;" in script
     assert "if (tokenPlan(input.plan_token).unreadable) return false;" in script
     assert (
         "cannotAccept: (input) => "
@@ -371,9 +346,10 @@ async def test_start_page_leaves_the_plan_to_the_chat():
     for removed in ('id="slot"', 'id="spec-section"', "sessionSpec", "/wallet-actions"):
         assert removed not in page
     assert (
-        "Describe the action in the chat: the agent proposes a plan for you to confirm."
+        "Describe the action in the chat: the agent sets its plan, and you review it with the "
+        "YAML before saving."
     ) in page
-    # The chat's plan and save reviews reuse the Credimi session token of this tab.
+    # The chat's save reviews reuse the Credimi session token of this tab.
     assert "sessionStorage.setItem(AUTH_STORAGE_KEY" in page
     assert "sessionStorage.removeItem(AUTH_STORAGE_KEY)" in page
 

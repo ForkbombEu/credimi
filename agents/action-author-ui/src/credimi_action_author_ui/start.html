@@ -113,7 +113,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<select id="wallet-version" name="wallet_version_identifier" required disabled></select>
 						<p class="hint">Versions with an installer, and wallets with a store app, for the selected device's platform are listed.</p>
 						<p class="hint">Store installs need the Play Store or App Store with a signed-in account on the device.</p>
-						<p class="hint">Describe the action in the chat: the agent proposes a plan for you to confirm.</p>
+						<p class="hint">Describe the action in the chat: the agent sets its plan, and you review it with the YAML before saving.</p>
 					</div>
 					<div class="actions">
 						<button id="start" type="submit">Start authoring session</button>
@@ -141,7 +141,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			const CHAT_READY_TIMEOUT = 60000;
 			const AGENT_NOT_ANSWERING = "The runner's action author is not answering. Check that [agent] is enabled on the runner, then cancel and retry.";
 			const PLATFORM_LABELS = { android: 'Android', ios: 'iOS simulator' };
-			// Shared with the chat page's plan and save reviews, which send decisions to Credimi.
+			// Shared with the chat page's save reviews, which send decisions to Credimi.
 			const AUTH_STORAGE_KEY = 'credimi-action-author';
 			const form = document.querySelector('#start-form');
 			const originInput = document.querySelector('#credimi-url');

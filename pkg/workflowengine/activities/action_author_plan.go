@@ -7,9 +7,9 @@ package activities
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -23,7 +23,7 @@ const (
 	ResolveActionAuthorReferenceActivityName  = "Resolve action author reference"
 )
 
-// planFixedProblem answers a plan proposed in a session started with a spec.
+// planFixedProblem answers a plan set in a session started with a spec.
 const planFixedProblem = "this session's plan was fixed when it started"
 
 // sessionSelection reauthorizes the build of the caller's session.
@@ -110,22 +110,22 @@ func (a *ListActionAuthorWalletActionsActivity) list(
 	return ListActionAuthorWalletActionsOutput{Actions: actions}, nil
 }
 
-// CheckActionAuthorPlanInput is either a plan the agent proposes or the
-// token of a plan its user confirmed, never both.
+// CheckActionAuthorPlanInput is the plan the agent sets.
 type CheckActionAuthorPlanInput struct {
-	Plan      *actionauthor.Spec `json:"plan,omitempty"`
-	PlanToken string             `json:"plan_token,omitempty"`
+	Plan actionauthor.Spec `json:"plan"`
 }
 
 // CheckActionAuthorPlanOutput lists the plan's problems or, when it has
-// none, the normalized plan with its summary, resolved prerequisites and
-// parameters. Its lists are never null.
+// none, the normalized plan with its summary, resolved prerequisites,
+// parameters and the plan token Credimi signed for the session. Its lists
+// are never null; with problems the plan is null and the token empty.
 type CheckActionAuthorPlanOutput struct {
 	Problems      []string                            `json:"problems"`
 	Plan          *actionauthor.Spec                  `json:"plan"`
 	Summary       []string                            `json:"summary"`
 	Prerequisites []actionauthor.ResolvedPrerequisite `json:"prerequisites"`
 	Parameters    []actionauthor.ParameterInfo        `json:"parameters"`
+	PlanToken     string                              `json:"plan_token"`
 }
 
 // checkPlanProblems is the output of a plan with problems.
@@ -138,9 +138,8 @@ func checkPlanProblems(problems ...string) CheckActionAuthorPlanOutput {
 	}
 }
 
-// CheckActionAuthorPlanActivity checks a proposed plan as the plans endpoint
-// does before signing it, or verifies a confirmed plan's token and returns
-// the plan the agent must apply.
+// CheckActionAuthorPlanActivity checks the plan the agent sets and signs it
+// for the caller's workflow and its session's actor.
 type CheckActionAuthorPlanActivity struct {
 	workflowengine.BaseActivity
 	authorSessionLookup
@@ -177,9 +176,8 @@ func (a *CheckActionAuthorPlanActivity) Execute(
 	return result, nil
 }
 
-// check answers a proposed plan with its problems or summary. With a plan
-// token instead, it verifies the token as EffectivePlan does (signature,
-// session, approver): a refused token is an activity error, not a problem.
+// check answers a plan with its problems, or with its summary and the plan
+// token Credimi signs for the caller's workflow and the session's actor.
 func (a *CheckActionAuthorPlanActivity) check(
 	ctx context.Context,
 	caller authorCaller,
@@ -189,26 +187,11 @@ func (a *CheckActionAuthorPlanActivity) check(
 	if err != nil {
 		return CheckActionAuthorPlanOutput{}, err
 	}
-	if (payload.Plan == nil) == (payload.PlanToken == "") {
-		return CheckActionAuthorPlanOutput{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
-			"%w: send either plan or plan_token", actionauthor.ErrInvalid,
-		))
+	if !ref.Session.IsEmpty() {
+		return checkPlanProblems(planFixedProblem), nil
 	}
-	var plan actionauthor.Spec
-	var resolved []actionauthor.ResolvedPrerequisite
-	if payload.PlanToken != "" {
-		plan, err = EffectivePlan(a.app, ref, caller.WorkflowID, payload.PlanToken)
-		if err != nil {
-			return CheckActionAuthorPlanOutput{}, actionAuthorError(&a.BaseActivity, err)
-		}
-		resolved, err = actionauthor.ResolvePrerequisites(a.app, selection, &plan)
-	} else {
-		if !ref.Session.IsEmpty() {
-			return checkPlanProblems(planFixedProblem), nil
-		}
-		plan = *payload.Plan
-		resolved, err = checkPlan(a.app, selection, &plan)
-	}
+	plan := payload.Plan
+	resolved, err := checkPlan(a.app, selection, &plan)
 	if errors.Is(err, actionauthor.ErrInvalid) {
 		return checkPlanProblems(
 			strings.TrimPrefix(err.Error(), actionauthor.ErrInvalid.Error()+": "),
@@ -217,12 +200,25 @@ func (a *CheckActionAuthorPlanActivity) check(
 	if err != nil {
 		return CheckActionAuthorPlanOutput{}, actionAuthorError(&a.BaseActivity, err)
 	}
+	summary := actionauthor.PlanSummary(plan, resolved)
+	token, err := actionauthor.SignPlan(a.app, actionauthor.PlanGrant{
+		AuthorWorkflowID: caller.WorkflowID,
+		Plan:             plan,
+		Summary:          summary,
+		ActorID:          ref.Session.ActorID,
+		ActorCollection:  ref.Session.ActorCollection,
+		SignedAt:         time.Now().Unix(),
+	})
+	if err != nil {
+		return CheckActionAuthorPlanOutput{}, actionAuthorError(&a.BaseActivity, err)
+	}
 	return CheckActionAuthorPlanOutput{
 		Problems:      []string{},
 		Plan:          &plan,
-		Summary:       actionauthor.PlanSummary(plan, resolved),
+		Summary:       summary,
 		Prerequisites: resolved,
 		Parameters:    actionauthor.ParameterInfos(plan),
+		PlanToken:     token,
 	}, nil
 }
 

@@ -52,71 +52,22 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: List devices available for authoring
-  /api/action-author/plans:
-    post:
-      description: Deliver the human decision on the pending plan card tool_id of
-        the agent workflow author_workflow_id in the organization namespace. Only
-        the user who started the session can confirm its plans (403 forbidden otherwise);
-        a namespace the caller does not own, or a workflow that is not the agent of
-        a running session, answers 404 session_not_found. A session started with a
-        spec has a fixed plan and answers 409 plan_fixed. An acceptance validates
-        plan as the session start endpoint validates a spec (400 invalid_request,
-        and nothing is delivered), then delivers to the agent the normalized plan,
-        its resolved prerequisites, its parameter descriptions and a Credimi-signed
-        plan_token, which the agent sends with every activity of that plan; the payload
-        segment of the token is the base64url JSON grant whose plan field is the confirmed
-        plan. A plan card that is no longer pending (unknown or settled tool_id) answers
-        409 plan_not_pending.
-      operationId: actionAuthor.confirmPlan
-      parameters:
-      - description: Bearer token for authentication.
-        in: header
-        name: Authorization
-        schema:
-          description: Bearer token for authentication.
-          type: string
-      - description: User API key or internal admin API key, depending on the endpoint.
-        in: header
-        name: Credimi-Api-Key
-        schema:
-          description: User API key or internal admin API key, depending on the endpoint.
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HandlersActionAuthorPlanRequest'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersActionAuthorPlanResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorResponse'
-          description: An unexpected error occurred.
-      summary: Confirm or refuse the plan an authoring session's agent proposed
   /api/action-author/reviews:
     post:
       description: Deliver the human decision on the pending save review tool_id of
         the agent workflow author_workflow_id in the organization namespace. Only
         the user who started the session can review it (403 forbidden otherwise);
         a namespace the caller does not own, or a workflow that is not the agent of
-        a running session, answers 404 session_not_found. plan_token is the session's
-        confirmed plan token (omit it for a session started with a spec); for an acceptance,
-        an invalid plan answers 400 invalid_request and a plan token that Credimi
-        did not sign for this session and user answers 403 forbidden with the reason
-        (plan not signed by Credimi, plan for another session or plan confirmed by
-        another user); a refusal never reads the plan. An acceptance carries a Credimi-signed
-        approval of candidate_sha256 and of the plan's hash (plan_sha256) that the
-        save activity verifies (valid for 30 minutes); the agent cannot save without
-        it, nor with another plan. A review that is no longer pending (unknown or
-        settled tool_id) answers 409 review_not_pending.
+        a running session, answers 404 session_not_found. plan_token is the plan token
+        Credimi signed for the session (omit it for a session started with a spec);
+        for an acceptance, an invalid plan answers 400 invalid_request and a plan
+        token that Credimi did not sign for this session and user answers 403 forbidden
+        with the reason (plan not signed by Credimi, plan for another session or plan
+        signed for another user); a refusal never reads the plan. An acceptance carries
+        a Credimi-signed approval of candidate_sha256 and of the plan's hash (plan_sha256)
+        that the save activity verifies (valid for 30 minutes); the agent cannot save
+        without it, nor with another plan. A review that is no longer pending (unknown
+        or settled tool_id) answers 409 review_not_pending.
       operationId: actionAuthor.reviewCandidate
       parameters:
       - description: Bearer token for authentication.
@@ -167,12 +118,12 @@ paths:
         offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor
         in the last two minutes answers 503 agent_unavailable. The spec fields (slot,
         outcome, wait_seconds, prerequisites, parameters) are optional: without them
-        the agent proposes the plan in the chat and the user confirms it through POST
-        /api/action-author/plans, once per action, and the session can save several
-        actions; with them the plan is fixed for the whole session, which closes after
-        its save. The slot selects the action category: onboarding takes no prerequisites;
-        install-app, only for a wallet selected from the store, takes no prerequisites
-        and each replay starts with the wallet uninstalled; get-credential, get-credential-specific
+        the agent sets each plan in the chat; Credimi checks and signs it, and the
+        save review shows it, and the session can save several actions; with them
+        the plan is fixed for the whole session, which closes after its save. The
+        slot selects the action category: onboarding takes no prerequisites; install-app,
+        only for a wallet selected from the store, takes no prerequisites and each
+        replay starts with the wallet uninstalled; get-credential, get-credential-specific
         and verify-credential need at least one; other takes optional prerequisites.
         outcome is success (default), rejection (not for onboarding or install-app)
         or wait (only for other): a wait action keeps the device idle for wait_seconds
@@ -1123,23 +1074,6 @@ components:
         value_path:
           type: string
       type: object
-    ActionauthorSpec:
-      properties:
-        outcome:
-          type: string
-        parameters:
-          items:
-            $ref: '#/components/schemas/ActionauthorParameterSpec'
-          type: array
-        prerequisites:
-          items:
-            $ref: '#/components/schemas/ActionauthorPrerequisiteSpec'
-          type: array
-        slot:
-          type: string
-        wait_seconds:
-          type: integer
-      type: object
     ActionauthorStatusSpec:
       properties:
         path:
@@ -1217,27 +1151,6 @@ components:
             $ref: '#/components/schemas/HandlersActionAuthorDevice'
           nullable: true
           type: array
-      type: object
-    HandlersActionAuthorPlanRequest:
-      properties:
-        accepted:
-          nullable: true
-          type: boolean
-        author_workflow_id:
-          type: string
-        namespace:
-          type: string
-        plan:
-          $ref: '#/components/schemas/ActionauthorSpec'
-        tool_id:
-          type: string
-      type: object
-    HandlersActionAuthorPlanResponse:
-      properties:
-        accepted:
-          type: boolean
-        tool_id:
-          type: string
       type: object
     HandlersActionAuthorReviewRequest:
       properties:

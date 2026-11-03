@@ -247,14 +247,14 @@ func reviewBodyWithPlan(token string) string {
 	)
 }
 
-// signHandlerPlan signs a plan of the review workflow confirmed by userID; the
+// signHandlerPlan signs a plan of the review workflow for userID; the
 // test apps share test_pb_data's signing secret.
 func signHandlerPlan(t *testing.T, userID string, plan actionauthor.Spec) string {
 	t.Helper()
 	return signHandlerPlanFor(t, reviewAuthorWorkflow, userID, plan)
 }
 
-// signHandlerPlanFor signs a plan of authorWorkflowID confirmed by userID.
+// signHandlerPlanFor signs a plan of authorWorkflowID for userID.
 func signHandlerPlanFor(
 	t *testing.T,
 	authorWorkflowID, userID string,
@@ -264,11 +264,11 @@ func signHandlerPlanFor(
 	app := setupActionAuthorApp(t)
 	defer app.Cleanup()
 	token, err := actionauthor.SignPlan(app, actionauthor.PlanGrant{
-		AuthorWorkflowID:   authorWorkflowID,
-		Plan:               plan,
-		ApproverID:         userID,
-		ApproverCollection: "users",
-		ConfirmedAt:        time.Now().Unix(),
+		AuthorWorkflowID: authorWorkflowID,
+		Plan:             plan,
+		ActorID:          userID,
+		ActorCollection:  "users",
+		SignedAt:         time.Now().Unix(),
 	})
 	require.NoError(t, err)
 	return token
@@ -289,7 +289,7 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 	stub := stubActionAuthorReview(t, user.Id, nil, nil)
 	stub.session.Spec = actionauthor.Spec{}
 	(&tests.ApiScenario{
-		Name:            "accepted with the confirmed plan",
+		Name:            "accepted with the signed plan",
 		Method:          http.MethodPost,
 		URL:             "/api/action-author/reviews",
 		Body:            strings.NewReader(reviewBodyWithPlan(token)),
@@ -317,9 +317,9 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 		expected []string
 	}{
 		{
-			name:     "no confirmed plan",
+			name:     "no plan",
 			status:   http.StatusBadRequest,
-			expected: []string{`"invalid_request"`, "no confirmed plan"},
+			expected: []string{`"invalid_request"`, "no plan: set one with set_plan"},
 		},
 		{
 			name:     "forged plan",
@@ -334,10 +334,10 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 			expected: []string{`"forbidden"`, `"plan for another session"`},
 		},
 		{
-			name:     "plan confirmed by another user",
+			name:     "plan signed for another user",
 			token:    signHandlerPlan(t, "another-user", plan),
 			status:   http.StatusForbidden,
-			expected: []string{`"forbidden"`, `"plan confirmed by another user"`},
+			expected: []string{`"forbidden"`, `"plan signed for another user"`},
 		},
 		{
 			name:     "plan token for a fixed plan",

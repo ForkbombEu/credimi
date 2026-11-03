@@ -20,14 +20,15 @@ import (
 
 const planKeyLabel = "credimi/action-author/plan/v1"
 
-// PlanGrant is a human's confirmation of the plan of one ActionAuthor
-// workflow, signed by Credimi.
+// PlanGrant is a plan Credimi checked and signed for one ActionAuthor
+// workflow and its session's actor.
 type PlanGrant struct {
-	AuthorWorkflowID   string `json:"author_workflow_id"`
-	Plan               Spec   `json:"plan"`
-	ApproverID         string `json:"approver_id"`
-	ApproverCollection string `json:"approver_collection"`
-	ConfirmedAt        int64  `json:"confirmed_at"`
+	AuthorWorkflowID string   `json:"author_workflow_id"`
+	Plan             Spec     `json:"plan"`
+	Summary          []string `json:"summary"`
+	ActorID          string   `json:"actor_id"`
+	ActorCollection  string   `json:"actor_collection"`
+	SignedAt         int64    `json:"signed_at"`
 }
 
 // SignPlan returns the plan token, in the format of SignApproval.
@@ -52,8 +53,8 @@ func VerifyPlan(app core.App, token, authorWorkflowID string) (PlanGrant, error)
 	return grant, nil
 }
 
-// PlanSummary describes a normalized plan in lines a human confirms: every
-// parameter source in full, so the card shows what each run will call.
+// PlanSummary describes a normalized plan in the lines the save card shows:
+// every parameter source in full, so the reviewer sees what each run will call.
 // Indented lines detail the line above them.
 func PlanSummary(s Spec, prerequisites []ResolvedPrerequisite) []string {
 	lines := []string{"Category: " + SlotCategory(s.Slot)}
@@ -102,10 +103,10 @@ func PlanSummary(s Spec, prerequisites []ResolvedPrerequisite) []string {
 	return lines
 }
 
-// summaryBodyLimit caps the characters of an http body on the plan card.
+// summaryBodyLimit caps the characters of an http body in the plan summary.
 const summaryBodyLimit = 500
 
-// summarySource describes one parameter source in full for the plan card:
+// summarySource describes one parameter source in full for the plan summary:
 // a first line, then indented details of an http call.
 func summarySource(name string, src SourceSpec) []string {
 	head := "${" + name + "}: "

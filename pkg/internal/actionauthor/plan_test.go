@@ -46,11 +46,12 @@ func testPlan() Spec {
 func TestPlanSignAndVerify(t *testing.T) {
 	app, _, _ := authoringFixture(t)
 	grant := PlanGrant{
-		AuthorWorkflowID:   "ActionAuthorSession-t-author",
-		Plan:               testPlan(),
-		ApproverID:         "user-1",
-		ApproverCollection: "users",
-		ConfirmedAt:        1_800_000_000,
+		AuthorWorkflowID: "ActionAuthorSession-t-author",
+		Plan:             testPlan(),
+		Summary:          []string{"Category: other"},
+		ActorID:          "user-1",
+		ActorCollection:  "users",
+		SignedAt:         1_800_000_000,
 	}
 	token, err := SignPlan(app, grant)
 	require.NoError(t, err)
