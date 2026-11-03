@@ -51,7 +51,8 @@ The start page asks only for the device and the wallet version. Describe the act
 chat: its category, success or rejection, input values (PIN) and references (a Credimi URL or
 identifier, or a deeplink). The agent proposes a **plan**: the slot, the outcome, the
 prerequisites (saved actions of the wallet) and the parameter sources.
-The plan card (`confirm_action_plan`) lists its summary and the input values; **Accept** /
+The plan card (`confirm_action_plan`) shows each summary line in its own text-only element
+(`white-space: pre-wrap`, so indented detail lines keep their indentation) and the input values; **Accept** /
 **Refuse** sends `POST /api/action-author/plans` with the bound namespace, the chat's workflow
 ID, the card's `tool_id`, its `plan` and the stored bearer token. Credimi validates the plan and
 signs it; a `400` shows Credimi's message and keeps the card, so you can still refuse it. A

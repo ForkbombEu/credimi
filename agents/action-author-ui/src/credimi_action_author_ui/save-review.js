@@ -40,6 +40,20 @@ function list(lines) {
   return element;
 }
 
+// Each line in its own element: indented lines detail the line above them, so their leading
+// spaces must show.
+function summaryLines(lines) {
+  const element = document.createElement('div');
+  element.className = 'plan-summary';
+  for (const line of lines) {
+    const item = document.createElement('div');
+    item.className = 'summary-line';
+    item.textContent = String(line);
+    element.append(item);
+  }
+  return element;
+}
+
 // The plan a plan token signs: its first segment is base64url JSON of Credimi's plan grant.
 function tokenPlan(token) {
   if (typeof token !== 'string' || !token) return null;
@@ -100,7 +114,7 @@ const planReview = {
   render(target, input) {
     const heading = document.createElement('h3');
     heading.textContent = `Confirm the plan for “${input.action_name}”?`;
-    const summary = list(Array.isArray(input.summary) ? input.summary : []);
+    const summary = summaryLines(Array.isArray(input.summary) ? input.summary : []);
     const values = input.values && typeof input.values === 'object' ? input.values : {};
     const valueLines = Object.entries(values).map(([name, value]) => `${name}: ${value}`);
     target.append(heading, summary, paragraph('Input values:'), list(valueLines));
@@ -126,6 +140,8 @@ ${nativeSelector} { display: none !important; }
 .action-review h3, .action-review p, .action-review ul { margin: 0; }
 .action-review p, .action-review li { overflow-wrap: anywhere; }
 .action-review ul { padding-left: 20px; }
+.action-review .plan-summary { display: grid; gap: 2px; }
+.action-review .summary-line { white-space: pre-wrap; overflow-wrap: anywhere; }
 .action-review .review-buttons { display: flex; gap: 8px; }
 .action-review button { font: inherit; color: inherit; background: var(--surface-2, ButtonFace);
   border: 1px solid var(--border, ButtonBorder); border-radius: 6px; padding: 8px 16px;

@@ -153,10 +153,14 @@ async def test_plan_review_shows_the_summary_and_values():
     async with ui_client() as client:
         script = (await client.get("/action-save-review.js")).text
     assert "heading.textContent = `Confirm the plan for “${input.action_name}”?`;" in script
-    assert "list(Array.isArray(input.summary) ? input.summary : [])" in script
+    # Each summary line is its own text-only element; pre-wrap keeps the indented detail lines.
+    assert "summaryLines(Array.isArray(input.summary) ? input.summary : [])" in script
     assert "paragraph('Input values:')" in script
     assert "`${name}: ${value}`" in script
+    assert "item.className = 'summary-line';" in script
     assert "item.textContent = String(line);" in script
+    assert ".summary-line { white-space: pre-wrap;" in script
+    assert "innerHTML" not in script
     assert "canAccept: async () => true," in script
 
 

@@ -363,7 +363,7 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 			"Category: get-credential-generic",
 			"Outcome: success",
 			"Starts from: Onboarding (" + onboarding + ")",
-			"${PIN}: fixed value",
+			"${PIN}: the fixed value \"123456\"",
 		},
 	}, output)
 

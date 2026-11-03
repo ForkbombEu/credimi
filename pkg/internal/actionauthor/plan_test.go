@@ -146,8 +146,9 @@ func TestParameterInfosAndPlanSummary(t *testing.T) {
 		"Category: verify-credential",
 		"Outcome: success",
 		"Starts from: Onboarding (tenant/wallet/onboarding)",
-		"${request}: POST https://verifier.example/sessions → deeplink",
-		"${pin}: fixed value",
+		"${request}: POST https://verifier.example/sessions, value from response field deeplink",
+		"  status: GET https://verifier.example/sessions/${id}, field status, expected done",
+		"${pin}: the fixed value \"123456\"",
 	}, PlanSummary(plan, []ResolvedPrerequisite{
 		{Action: "tenant/wallet/onboarding", Name: "Onboarding"},
 	}))
@@ -156,7 +157,7 @@ func TestParameterInfosAndPlanSummary(t *testing.T) {
 		"Category: get-credential-generic",
 		"Outcome: the wallet rejects the flow",
 		"Starts from: a freshly installed app",
-		"${offer}: credential offer deeplink of tenant/issuer/pid",
+		"${offer}: a new credential offer from tenant/issuer/pid on every run",
 	}, PlanSummary(Spec{
 		Slot:    "get-credential",
 		Outcome: OutcomeRejection,
@@ -172,4 +173,91 @@ func TestParameterInfosAndPlanSummary(t *testing.T) {
 		"Starts from: Onboarding (tenant/wallet/onboarding)",
 	}, PlanSummary(Spec{Slot: "other", Outcome: OutcomeWait, WaitSeconds: 240},
 		[]ResolvedPrerequisite{{Action: "tenant/wallet/onboarding", Name: "Onboarding"}}))
+}
+
+func TestPlanSummaryDescribesSourcesInFull(t *testing.T) {
+	longBody := map[string]any{"text": strings.Repeat("é", 600)}
+	plan := Spec{
+		Slot:    "verify-credential",
+		Outcome: OutcomeRejection,
+		Prerequisites: []PrerequisiteSpec{
+			{Action: "tenant/wallet/onboarding", Parameters: []ParameterSpec{
+				{Name: "pin", Source: SourceSpec{Kind: SourceLiteral, Value: "12\"34\n"}},
+			}},
+			{Action: "tenant/wallet/get-pid", Parameters: []ParameterSpec{
+				{Name: "offer", Source: SourceSpec{
+					Kind:       SourceCredentialOffer,
+					Identifier: "tenant/issuer/pid",
+				}},
+				{Name: "call", Source: SourceSpec{
+					Kind: SourceHTTP,
+					Request: &HTTPSourceRequest{
+						Method: "GET",
+						URL:    "https://issuer.example/offer",
+					},
+					ValuePath: "uri",
+				}},
+			}},
+		},
+		Parameters: []ParameterSpec{
+			{Name: "request", Source: SourceSpec{
+				Kind: SourceHTTP,
+				Request: &HTTPSourceRequest{
+					Method: "POST",
+					URL:    "https://verifier.example/sessions",
+					Headers: map[string]string{
+						"Content-Type": "application/json",
+						"Accept":       "application/json",
+					},
+					Body: map[string]any{"dcql": "<pid>", "n": 1},
+				},
+				ValuePath: "deeplink",
+				Captures:  map[string]string{"sid": "id", "nonce": "state.nonce"},
+				Status: &StatusSpec{
+					URL:       "https://verifier.example/sessions/${sid}",
+					Path:      "status",
+					Success:   []string{"done"},
+					Rejection: []string{"denied", "failed"},
+				},
+			}},
+			{Name: "long", Source: SourceSpec{
+				Kind: SourceHTTP,
+				Request: &HTTPSourceRequest{
+					Method: "POST",
+					URL:    "https://x.example",
+					Body:   longBody,
+				},
+				ValuePath: "v",
+			}},
+			{Name: "presentation", Source: SourceSpec{
+				Kind:       SourceUseCaseVerification,
+				Identifier: "tenant/verifier/age",
+			}},
+		},
+	}
+	lines := PlanSummary(plan, []ResolvedPrerequisite{
+		{Action: "tenant/wallet/onboarding", Name: "Onboarding"},
+		{Action: "tenant/wallet/get-pid", Name: "Get PID"},
+	})
+	longLine := "  body: " + string([]rune(`{"text":"` + strings.Repeat("é", 600))[:500]) + "…"
+	assert.Equal(t, []string{
+		"Category: verify-credential",
+		"Outcome: the wallet rejects the flow",
+		"Starts from: Onboarding (tenant/wallet/onboarding)",
+		`  ${pin}: the fixed value "12\"34\n"`,
+		"Starts from: Get PID (tenant/wallet/get-pid)",
+		"  ${offer}: a new credential offer from tenant/issuer/pid on every run",
+		"  ${call}: GET https://issuer.example/offer, value from response field uri",
+		"${request}: POST https://verifier.example/sessions, value from response field deeplink",
+		"  headers: Accept: application/json",
+		"  headers: Content-Type: application/json",
+		`  body: {"dcql":"<pid>","n":1}`,
+		"  captures: nonce from state.nonce",
+		"  captures: sid from id",
+		"  status: GET https://verifier.example/sessions/${sid}, field status, " +
+			"expected denied, failed",
+		"${long}: POST https://x.example, value from response field v",
+		longLine,
+		"${presentation}: a new presentation request from tenant/verifier/age on every run",
+	}, lines)
 }
