@@ -13,6 +13,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -50,6 +52,18 @@ var installerFields = map[string]struct{ field, missing string }{
 	PlatformIOS:     {field: "ios_installer", missing: "selected version has no iOS app"},
 }
 
+// Build sources: an installer uploaded to a wallet version, or the wallet's
+// Play Store or App Store app installed at session start.
+const (
+	SourceInstaller = "installer"
+	SourceStore     = "store"
+	// StoreVersionTag labels store builds in the build options.
+	StoreVersionTag = "store install"
+)
+
+// appIDPattern matches an Android package or iOS bundle identifier.
+var appIDPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+$`)
+
 // BuildRequest selects an existing wallet version and platform on behalf of its authenticated actor.
 type BuildRequest struct {
 	Actor
@@ -57,7 +71,9 @@ type BuildRequest struct {
 	Platform                string `json:"platform"`
 }
 
-// Build binds an authorized wallet version to its platform installer digest.
+// Build binds an authorized wallet version to its platform installer digest,
+// or an authorized wallet to its store app. VersionID and InstallerSHA256 are
+// empty for store builds.
 type Build struct {
 	WalletID          string `json:"wallet_id"`
 	VersionID         string `json:"version_id"`
@@ -65,9 +81,13 @@ type Build struct {
 	OwnerNamespace    string `json:"owner_namespace"`
 	Platform          string `json:"platform"`
 	InstallerSHA256   string `json:"installer_sha256"`
+	Source            string `json:"source"`
+	PackageID         string `json:"package_id,omitempty"`
+	StoreURL          string `json:"store_url,omitempty"`
 }
 
-// Selection holds the records reauthorized for a build operation.
+// Selection holds the records reauthorized for a build operation. Version is
+// nil for store selections, whose app is PackageID on the store page StoreURL.
 type Selection struct {
 	Version      *core.Record
 	Wallet       *core.Record
@@ -75,20 +95,65 @@ type Selection struct {
 	Actor        Actor
 	Identifier   string
 	Platform     string
+	Source       string
+	PackageID    string
+	StoreURL     string
 }
 
-// Installer returns the stored filename of the selected platform's installer.
+// Installer returns the stored filename of the selected platform's installer,
+// empty for store selections.
 func (s Selection) Installer() string {
+	if s.Version == nil {
+		return ""
+	}
 	return s.Version.GetString(installerFields[s.Platform].field)
 }
 
-// BuildOption describes one build the actor can select for authoring and its installer platforms.
+// BuildOption describes one build the actor can select for authoring and its platforms.
 type BuildOption struct {
 	Identifier       string   `json:"identifier"`
 	WalletName       string   `json:"wallet_name"`
 	OrganizationName string   `json:"organization_name"`
 	VersionTag       string   `json:"version_tag"`
 	Platforms        []string `json:"platforms"`
+	Source           string   `json:"source"`
+}
+
+// storeApp returns the wallet's app on the platform's store and its store page.
+func storeApp(wallet *core.Record, platform string) (string, string, error) {
+	switch platform {
+	case PlatformAndroid:
+		pkg := wallet.GetString("google_app_id")
+		storeURL := wallet.GetString("playstore_url")
+		if pkg == "" && storeURL != "" {
+			if parsed, err := url.Parse(storeURL); err == nil && parsed.Host == "play.google.com" {
+				pkg = parsed.Query().Get("id")
+			}
+		}
+		if !appIDPattern.MatchString(pkg) {
+			return "", "", fmt.Errorf(
+				"%w: wallet has no Play Store app (google_app_id)",
+				ErrInvalid,
+			)
+		}
+		if storeURL == "" {
+			storeURL = "https://play.google.com/store/apps/details?id=" + pkg
+		}
+		return pkg, storeURL, nil
+	case PlatformIOS:
+		pkg := wallet.GetString("apple_app_id")
+		storeURL := wallet.GetString("appstore_url")
+		if !appIDPattern.MatchString(pkg) ||
+			!strings.HasPrefix(storeURL, "https://apps.apple.com/") {
+			return "", "", fmt.Errorf(
+				"%w: wallet has no App Store app (apple_app_id and appstore_url)",
+				ErrInvalid,
+			)
+		}
+		return pkg, storeURL, nil
+	default:
+		return "", "", fmt.Errorf("%w: platform must be android or ios", ErrInvalid)
+	}
 }
 
 // OwnerFilter restricts a query on a collection with an `owner` organization
@@ -168,11 +233,54 @@ func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 			OrganizationName: organization.GetString("name"),
 			VersionTag:       version.GetString("tag"),
 			Platforms:        platforms,
+			Source:           SourceInstaller,
 		})
 	}
+	stores, err := storeBuildOptions(app, ownerFilter)
+	if err != nil {
+		return nil, err
+	}
+	options = append(options, stores...)
 	sort.Slice(options, func(i, j int) bool {
 		return options[i].Identifier < options[j].Identifier
 	})
+	return options, nil
+}
+
+// storeBuildOptions lists the actor's wallets that have an app on a store.
+func storeBuildOptions(app core.App, ownerFilter dbx.Expression) ([]BuildOption, error) {
+	wallets, err := app.FindAllRecords("wallets", ownerFilter)
+	if err != nil {
+		return nil, fmt.Errorf("list authoring wallets: %w", err)
+	}
+	if failures := app.ExpandRecords(wallets, []string{"owner"}, nil); len(failures) > 0 {
+		return nil, fmt.Errorf("expand authoring wallets: %v", failures)
+	}
+	options := make([]BuildOption, 0, len(wallets))
+	for _, wallet := range wallets {
+		organization := wallet.ExpandedOne("owner")
+		if organization == nil {
+			continue
+		}
+		platforms := make([]string, 0, len(installerFields))
+		for _, platform := range []string{PlatformAndroid, PlatformIOS} {
+			if _, _, err := storeApp(wallet, platform); err == nil {
+				platforms = append(platforms, platform)
+			}
+		}
+		if len(platforms) == 0 {
+			continue
+		}
+		options = append(options, BuildOption{
+			Identifier: organization.GetString("canonified_name") + "/" +
+				wallet.GetString("canonified_name"),
+			WalletName:       wallet.GetString("name"),
+			OrganizationName: organization.GetString("name"),
+			VersionTag:       StoreVersionTag,
+			Platforms:        platforms,
+			Source:           SourceStore,
+		})
+	}
 	return options, nil
 }
 
@@ -189,6 +297,8 @@ func findActor(app core.App, in Actor) (*core.Record, error) {
 }
 
 // Select authorizes the same owner role required by wallet_actions creation.
+// `organization/wallet/version` selects an uploaded installer and
+// `organization/wallet` the wallet's store app.
 // An empty namespace is used only by the authenticated start endpoint; activities
 // must pass their actual Temporal namespace, not a value from their payload.
 func Select(app core.App, namespace string, in BuildRequest) (Selection, error) {
@@ -201,22 +311,43 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 		strings.Trim(canonify.NormalizePath(in.WalletVersionIdentifier), "/"),
 		"/",
 	)
-	if len(segments) != 3 || segments[0] == "" || segments[1] == "" || segments[2] == "" {
-		return selection, fmt.Errorf("%w: expected organization/wallet/version", ErrInvalid)
+	for _, segment := range segments {
+		if segment == "" {
+			segments = nil
+			break
+		}
 	}
-	version, err := app.FindFirstRecordByFilter(
-		"wallet_versions",
-		"canonified_tag = {:tag} && wallet.canonified_name = {:wallet} && owner.canonified_name = {:org}",
-		dbx.Params{"tag": segments[2], "wallet": segments[1], "org": segments[0]},
-	)
-	if err != nil {
-		return selection, fmt.Errorf("%w: wallet version not found", ErrInvalid)
+	var version, wallet, organization *core.Record
+	switch len(segments) {
+	case 3:
+		version, err = app.FindFirstRecordByFilter(
+			"wallet_versions",
+			"canonified_tag = {:tag} && wallet.canonified_name = {:wallet} && owner.canonified_name = {:org}",
+			dbx.Params{"tag": segments[2], "wallet": segments[1], "org": segments[0]},
+		)
+		if err != nil {
+			return selection, fmt.Errorf("%w: wallet version not found", ErrInvalid)
+		}
+		wallet, err = app.FindRecordById("wallets", version.GetString("wallet"))
+		if err != nil || wallet.GetString("owner") != version.GetString("owner") {
+			return selection, fmt.Errorf("%w: invalid wallet ownership", ErrForbidden)
+		}
+	case 2:
+		wallet, err = app.FindFirstRecordByFilter(
+			"wallets",
+			"canonified_name = {:wallet} && owner.canonified_name = {:org}",
+			dbx.Params{"wallet": segments[1], "org": segments[0]},
+		)
+		if err != nil {
+			return selection, fmt.Errorf("%w: wallet not found", ErrInvalid)
+		}
+	default:
+		return selection, fmt.Errorf(
+			"%w: expected organization/wallet/version or organization/wallet",
+			ErrInvalid,
+		)
 	}
-	wallet, err := app.FindRecordById("wallets", version.GetString("wallet"))
-	if err != nil || wallet.GetString("owner") != version.GetString("owner") {
-		return selection, fmt.Errorf("%w: invalid wallet ownership", ErrForbidden)
-	}
-	organization, err := app.FindRecordById("organizations", version.GetString("owner"))
+	organization, err = app.FindRecordById("organizations", wallet.GetString("owner"))
 	if err != nil {
 		return selection, ErrForbidden
 	}
@@ -236,9 +367,6 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 	if !ok {
 		return selection, fmt.Errorf("%w: platform must be android or ios", ErrInvalid)
 	}
-	if version.GetString(installer.field) == "" {
-		return selection, fmt.Errorf("%w: %s", ErrInvalid, installer.missing)
-	}
 	selection = Selection{
 		Version:      version,
 		Wallet:       wallet,
@@ -246,6 +374,20 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 		Actor:        in.Actor,
 		Identifier:   strings.Join(segments, "/"),
 		Platform:     in.Platform,
+		Source:       SourceInstaller,
+	}
+	if version == nil {
+		pkg, storeURL, err := storeApp(wallet, in.Platform)
+		if err != nil {
+			return Selection{}, err
+		}
+		selection.Source = SourceStore
+		selection.PackageID = pkg
+		selection.StoreURL = storeURL
+		return selection, nil
+	}
+	if version.GetString(installer.field) == "" {
+		return Selection{}, fmt.Errorf("%w: %s", ErrInvalid, installer.missing)
 	}
 	return selection, nil
 }
@@ -271,23 +413,30 @@ func installerDigest(app core.App, selection Selection) (string, error) {
 
 // Resolve hashes the authorized platform installer, the provenance Save checks.
 // The runner installs the installer itself, through the pipeline device code.
+// Store builds have no installer: the session installs their app from the store.
 func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 	selection, err := Select(app, namespace, in)
 	if err != nil {
 		return Build{}, err
 	}
-	digest, err := installerDigest(app, selection)
-	if err != nil {
-		return Build{}, err
-	}
-	return Build{
+	build := Build{
 		WalletID:          selection.Wallet.Id,
-		VersionID:         selection.Version.Id,
 		VersionIdentifier: selection.Identifier,
 		OwnerNamespace:    selection.Organization.GetString("canonified_name"),
 		Platform:          selection.Platform,
-		InstallerSHA256:   digest,
-	}, nil
+		Source:            selection.Source,
+		PackageID:         selection.PackageID,
+		StoreURL:          selection.StoreURL,
+	}
+	if selection.Source == SourceStore {
+		return build, nil
+	}
+	build.VersionID = selection.Version.Id
+	build.InstallerSHA256, err = installerDigest(app, selection)
+	if err != nil {
+		return Build{}, err
+	}
+	return build, nil
 }
 
 // SaveRequest carries the trusted workflow's accepted candidate, the
@@ -296,15 +445,16 @@ func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
 // the session's effective plan, never from the payload.
 type SaveRequest struct {
 	BuildRequest
-	Name            string `json:"name"`
-	Code            string `json:"code"`
-	CandidateSHA256 string `json:"candidate_sha256"`
-	InstallerSHA256 string `json:"installer_sha256"`
-	PackageID       string `json:"package_id"`
-	ReplayCount     int    `json:"replay_count"`
-	Approval        string `json:"approval"`
-	PlanToken       string `json:"plan_token,omitempty"`
-	Spec            Spec   `json:"-"`
+	Name             string `json:"name"`
+	Code             string `json:"code"`
+	CandidateSHA256  string `json:"candidate_sha256"`
+	InstallerSHA256  string `json:"installer_sha256"`
+	PackageID        string `json:"package_id"`
+	InstalledVersion string `json:"installed_version,omitempty"`
+	ReplayCount      int    `json:"replay_count"`
+	Approval         string `json:"approval"`
+	PlanToken        string `json:"plan_token,omitempty"`
+	Spec             Spec   `json:"-"`
 }
 
 // ProvenanceParameter records a parameter's name and source kind, never its values.
@@ -314,13 +464,16 @@ type ProvenanceParameter struct {
 }
 
 // Provenance identifies the exact build, spec, workflow and human approval
-// that validated an action.
+// that validated an action. Store builds have no version or installer digest:
+// InstalledVersion is the store app version the session reported.
 type Provenance struct {
 	WalletVersionID         string                `json:"wallet_version_id"`
 	WalletVersionIdentifier string                `json:"wallet_version_identifier"`
 	Platform                string                `json:"platform"`
+	Source                  string                `json:"source"`
 	InstallerSHA256         string                `json:"installer_sha256"`
 	PackageID               string                `json:"package_id"`
+	InstalledVersion        string                `json:"installed_version,omitempty"`
 	YAMLSHA256              string                `json:"yaml_sha256"`
 	WorkflowID              string                `json:"workflow_id"`
 	RunID                   string                `json:"run_id"`
@@ -404,18 +557,10 @@ func Save(
 	if err != nil {
 		return receipt, err
 	}
-	digest, err := installerDigest(app, selection)
-	if err != nil {
-		return receipt, err
-	}
-	if digest != in.InstallerSHA256 {
-		return receipt, fmt.Errorf("%w: selected installer changed", ErrConflict)
-	}
 	provenance := Provenance{
-		WalletVersionID:         selection.Version.Id,
 		WalletVersionIdentifier: selection.Identifier,
 		Platform:                selection.Platform,
-		InstallerSHA256:         digest,
+		Source:                  selection.Source,
 		PackageID:               in.PackageID,
 		YAMLSHA256:              in.CandidateSHA256,
 		WorkflowID:              workflowID,
@@ -425,6 +570,25 @@ func Save(
 		ApproverCollection:      approval.ApproverCollection,
 		ApprovedAt:              time.Unix(approval.ApprovedAt, 0).UTC().Format(time.RFC3339),
 	}
+	if selection.Source == SourceStore {
+		if in.InstallerSHA256 != "" {
+			return receipt, fmt.Errorf("%w: store builds have no installer", ErrInvalid)
+		}
+		if in.PackageID != selection.PackageID {
+			return receipt, fmt.Errorf("%w: wallet app changed", ErrConflict)
+		}
+		provenance.InstalledVersion = in.InstalledVersion
+	} else {
+		digest, err := installerDigest(app, selection)
+		if err != nil {
+			return receipt, err
+		}
+		if digest != in.InstallerSHA256 {
+			return receipt, fmt.Errorf("%w: selected installer changed", ErrConflict)
+		}
+		provenance.WalletVersionID = selection.Version.Id
+		provenance.InstallerSHA256 = digest
+	}
 	provenanceSpec(&provenance, in.Spec)
 	err = app.RunInTransaction(func(tx core.App) error {
 		// Recheck authorization and record binding inside the write transaction.
@@ -432,8 +596,13 @@ func Save(
 		if err != nil {
 			return err
 		}
-		installer := selection.Installer()
-		if current.Version.Id != selection.Version.Id || current.Installer() != installer {
+		if selection.Source == SourceStore {
+			if current.Source != SourceStore || current.PackageID != selection.PackageID ||
+				current.Wallet.Id != selection.Wallet.Id {
+				return fmt.Errorf("%w: selected wallet changed", ErrConflict)
+			}
+		} else if current.Version == nil || current.Version.Id != selection.Version.Id ||
+			current.Installer() != selection.Installer() {
 			return fmt.Errorf("%w: selected version changed", ErrConflict)
 		}
 		record, err := tx.FindFirstRecordByFilter(

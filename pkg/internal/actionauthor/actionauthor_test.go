@@ -458,3 +458,206 @@ func TestAuthoringSaveRejectsUnreplayedOrChangedCandidate(t *testing.T) {
 	)
 	require.ErrorIs(t, err, ErrForbidden)
 }
+
+// seedStoreWallet adds a wallet of the fixture organization with the given
+// store fields and returns its `organization/wallet` identifier.
+func seedStoreWallet(
+	t *testing.T,
+	app *tests.TestApp,
+	selection Selection,
+	name string,
+	fields map[string]any,
+) string {
+	t.Helper()
+	wallets, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	wallet := core.NewRecord(wallets)
+	wallet.Set("owner", selection.Organization.Id)
+	wallet.Set("name", name)
+	for field, value := range fields {
+		wallet.Set(field, value)
+	}
+	require.NoError(t, app.Save(wallet))
+	return selection.Organization.GetString("canonified_name") + "/" +
+		wallet.GetString("canonified_name")
+}
+
+func TestSelectStoreWallet(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	assert.Equal(t, SourceInstaller, selection.Source)
+	assert.Empty(t, selection.PackageID)
+
+	googleApp := seedStoreWallet(t, app, selection, "Play wallet", map[string]any{
+		"google_app_id": "com.credenco.wallet",
+	})
+	playURL := seedStoreWallet(t, app, selection, "Play URL wallet", map[string]any{
+		"playstore_url": "https://play.google.com/store/apps/details?id=com.sphereon.ssi.wallet&hl=en",
+	})
+	appStore := seedStoreWallet(t, app, selection, "App Store wallet", map[string]any{
+		"apple_app_id": "co.talao.wallet",
+		"appstore_url": "https://apps.apple.com/app/talao/id1582183266",
+	})
+	appleIDOnly := seedStoreWallet(t, app, selection, "Apple id wallet", map[string]any{
+		"apple_app_id": "co.talao.wallet",
+	})
+	foreignURL := seedStoreWallet(t, app, selection, "Foreign URL wallet", map[string]any{
+		"playstore_url": "https://example.org/store/apps/details?id=com.example.wallet",
+	})
+
+	for _, tc := range []struct {
+		name, identifier, platform, pkg, storeURL string
+	}{
+		{
+			"android by google_app_id", googleApp, PlatformAndroid, "com.credenco.wallet",
+			"https://play.google.com/store/apps/details?id=com.credenco.wallet",
+		},
+		{
+			"android by playstore_url", playURL, PlatformAndroid, "com.sphereon.ssi.wallet",
+			"https://play.google.com/store/apps/details?id=com.sphereon.ssi.wallet&hl=en",
+		},
+		{
+			"ios", appStore, PlatformIOS, "co.talao.wallet",
+			"https://apps.apple.com/app/talao/id1582183266",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := request
+			in.WalletVersionIdentifier = tc.identifier
+			in.Platform = tc.platform
+			selected, err := Select(app, namespace, in)
+			require.NoError(t, err)
+			assert.Nil(t, selected.Version)
+			assert.Empty(t, selected.Installer())
+			assert.Equal(t, SourceStore, selected.Source)
+			assert.Equal(t, tc.pkg, selected.PackageID)
+			assert.Equal(t, tc.storeURL, selected.StoreURL)
+			assert.Equal(t, tc.identifier, selected.Identifier)
+			build, err := Resolve(app, namespace, in)
+			require.NoError(t, err)
+			assert.Equal(t, Build{
+				WalletID:          selected.Wallet.Id,
+				VersionIdentifier: tc.identifier,
+				OwnerNamespace:    namespace,
+				Platform:          tc.platform,
+				Source:            SourceStore,
+				PackageID:         tc.pkg,
+				StoreURL:          tc.storeURL,
+			}, build)
+		})
+	}
+
+	for _, tc := range []struct {
+		name, identifier, platform, message string
+	}{
+		{"android without app", appStore, PlatformAndroid, "wallet has no Play Store app (google_app_id)"},
+		{"android foreign store url", foreignURL, PlatformAndroid, "wallet has no Play Store app (google_app_id)"},
+		{"ios without app", googleApp, PlatformIOS, "wallet has no App Store app (apple_app_id and appstore_url)"},
+		{"ios without store url", appleIDOnly, PlatformIOS, "wallet has no App Store app (apple_app_id and appstore_url)"},
+		{"missing platform", googleApp, "", "platform must be android or ios"},
+		{"unknown wallet", namespace + "/missing-wallet", PlatformAndroid, "wallet not found"},
+		{"one segment", namespace, PlatformAndroid, "expected organization/wallet/version or organization/wallet"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := request
+			in.WalletVersionIdentifier = tc.identifier
+			in.Platform = tc.platform
+			_, err := Select(app, namespace, in)
+			require.ErrorIs(t, err, ErrInvalid)
+			assert.ErrorContains(t, err, tc.message)
+		})
+	}
+
+	// The store path checks the namespace and the owner role like the version path.
+	in := request
+	in.WalletVersionIdentifier = googleApp
+	_, err = Select(app, "another-organization", in)
+	require.ErrorIs(t, err, ErrForbidden)
+	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	in.ActorID = other.Id
+	_, err = Select(app, namespace, in)
+	require.ErrorIs(t, err, ErrForbidden)
+}
+
+func TestListBuildOptionsIncludesStoreWallets(t *testing.T) {
+	app, request, _ := authoringFixture(t)
+	selection, err := Select(app, "", request)
+	require.NoError(t, err)
+	both := seedStoreWallet(t, app, selection, "Both stores wallet", map[string]any{
+		"google_app_id": "com.example.both",
+		"apple_app_id":  "com.example.both",
+		"appstore_url":  "https://apps.apple.com/app/both/id1",
+	})
+	seedStoreWallet(t, app, selection, "No store wallet", nil)
+
+	options, err := ListBuildOptions(app, request.Actor)
+	require.NoError(t, err)
+	byIdentifier := map[string]BuildOption{}
+	identifiers := make([]string, 0, len(options))
+	for _, option := range options {
+		byIdentifier[option.Identifier] = option
+		identifiers = append(identifiers, option.Identifier)
+	}
+	assert.IsIncreasing(t, identifiers)
+	assert.Len(t, options, 2)
+	assert.Equal(t, BuildOption{
+		Identifier:       both,
+		WalletName:       "Both stores wallet",
+		OrganizationName: "userA's organization",
+		VersionTag:       StoreVersionTag,
+		Platforms:        []string{PlatformAndroid, PlatformIOS},
+		Source:           SourceStore,
+	}, byIdentifier[both])
+	assert.Equal(t, SourceInstaller, byIdentifier[request.WalletVersionIdentifier].Source)
+}
+
+func TestAuthoringSaveStoreBuild(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	request.WalletVersionIdentifier = seedStoreWallet(
+		t,
+		app,
+		selection,
+		"Store wallet",
+		map[string]any{
+			"google_app_id": "eu.europa.ec.euidi",
+		},
+	)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+
+	in := acceptedRequest(request, build.InstallerSHA256)
+	in.InstalledVersion = "2026.10.1"
+	other := in
+	other.Code = strings.ReplaceAll(in.Code, "eu.europa.ec.euidi", "org.other.wallet")
+	other.CandidateSHA256 = CodeSHA256(other.Code)
+	other.PackageID = "org.other.wallet"
+	_, err = Save(app, namespace, "workflow", "run", other, testApproval)
+	require.ErrorIs(t, err, ErrConflict)
+	assert.ErrorContains(t, err, "wallet app changed")
+	digest := in
+	digest.InstallerSHA256 = strings.Repeat("0", 64)
+	_, err = Save(app, namespace, "workflow", "run", digest, testApproval)
+	require.ErrorIs(t, err, ErrInvalid)
+
+	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
+	require.NoError(t, err)
+	assert.Equal(t, SourceStore, receipt.Provenance.Source)
+	assert.Empty(t, receipt.Provenance.WalletVersionID)
+	assert.Empty(t, receipt.Provenance.InstallerSHA256)
+	record, err := app.FindRecordById("wallet_actions", receipt.RecordID)
+	require.NoError(t, err)
+	assert.Equal(t, build.WalletID, record.GetString("wallet"))
+	var stored map[string]any
+	require.NoError(t, json.Unmarshal([]byte(record.GetString("authoring_provenance")), &stored))
+	assert.Equal(t, "store", stored["source"])
+	assert.Equal(t, "2026.10.1", stored["installed_version"])
+	assert.Equal(t, "", stored["installer_sha256"])
+	assert.Equal(t, request.WalletVersionIdentifier, stored["wallet_version_identifier"])
+	retried, err := Save(app, namespace, "workflow", "run", in, testApproval)
+	require.NoError(t, err)
+	assert.Equal(t, receipt.RecordID, retried.RecordID)
+}
