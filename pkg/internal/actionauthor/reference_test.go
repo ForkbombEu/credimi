@@ -5,12 +5,15 @@
 package actionauthor
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,6 +54,23 @@ func TestResolveReference(t *testing.T) {
 		"credential_issuer": otherIssuer.Id,
 		"name":              "pid-sd-jwt",
 	})
+	// Another organization's unpublished credential of the same issuer URL and
+	// name, whose issuer's organization no longer exists: building its path
+	// would fail, so a match on it would error instead of skipping it.
+	ghostIssuer := save("credential_issuers", map[string]any{
+		"owner": orgID,
+		"name":  "Ghost issuer",
+		"url":   "https://issuer.reference.test",
+	})
+	save("credentials", map[string]any{
+		"owner":             "ghostorganization",
+		"credential_issuer": ghostIssuer.Id,
+		"name":              "pid-sd-jwt",
+	})
+	_, err = app.DB().NewQuery(
+		"UPDATE credential_issuers SET owner = 'ghostorganization' WHERE id = {:id}",
+	).Bind(dbx.Params{"id": ghostIssuer.Id}).Execute()
+	require.NoError(t, err)
 	verifier := save("verifiers", map[string]any{"owner": orgID, "name": "Reference verifier"})
 	useCase := save("use_cases_verifications", map[string]any{
 		"owner":    orgID,
@@ -78,7 +98,7 @@ func TestResolveReference(t *testing.T) {
 		require.NoError(t, err)
 		return string(encoded)
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/broken" {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -96,6 +116,22 @@ func TestResolveReference(t *testing.T) {
 	noOfferMatch := "no Credimi credential matches this offer; a deeplink works once, " +
 		"so replays need a source that creates a new one: a Credimi credential, " +
 		"or an HTTP call that creates an issuer session"
+	sixteen := make([]string, 0, 17)
+	for i := range 16 {
+		sixteen = append(sixteen, fmt.Sprintf("config-%d", i))
+	}
+	encodedSixteen, err := json.Marshal(map[string]any{
+		"credential_issuer":            "https://issuer.reference.test",
+		"credential_configuration_ids": append(sixteen, "pid-sd-jwt"),
+	})
+	require.NoError(t, err)
+	tooManyConfigurations := string(encodedSixteen)
+	encodedSixteen, err = json.Marshal(map[string]any{
+		"credential_issuer":            "https://issuer.reference.test",
+		"credential_configuration_ids": append(sixteen[:15:15], "pid-sd-jwt"),
+	})
+	require.NoError(t, err)
+	sixteenConfigurations := string(encodedSixteen)
 
 	for name, tc := range map[string]struct {
 		text  string
@@ -167,6 +203,19 @@ func TestResolveReference(t *testing.T) {
 				},
 			},
 		},
+		"credential offer with sixteen configurations": {
+			text: offerDeeplink("credential_offer", sixteenConfigurations),
+			want: ReferenceResolution{
+				Kind:    ReferenceCredentialOffer,
+				Sources: []ReferenceSource{credentialSource},
+				Decoded: map[string]string{
+					"credential_issuer": "https://issuer.reference.test",
+					"credential_configuration_ids": "config-0,config-1,config-2,config-3," +
+						"config-4,config-5,config-6,config-7,config-8,config-9,config-10," +
+						"config-11,config-12,config-13,config-14,pid-sd-jwt",
+				},
+			},
+		},
 		"credential offer uri": {
 			text: offerDeeplink("credential_offer_uri", server.URL+"/offer"),
 			want: ReferenceResolution{
@@ -203,6 +252,22 @@ func TestResolveReference(t *testing.T) {
 				Kind:    ReferenceCredentialOffer,
 				Sources: []ReferenceSource{},
 				Note:    "cannot read the offer: credential_offer_uri answered HTTP 404",
+			},
+		},
+		"plain http credential offer uri": {
+			text: offerDeeplink("credential_offer_uri", "http://issuer.reference.test/offer"),
+			want: ReferenceResolution{
+				Kind:    ReferenceCredentialOffer,
+				Sources: []ReferenceSource{},
+				Note:    "cannot read the offer: credential_offer_uri must be https",
+			},
+		},
+		"credential offer with too many configurations": {
+			text: offerDeeplink("credential_offer", tooManyConfigurations),
+			want: ReferenceResolution{
+				Kind:    ReferenceCredentialOffer,
+				Sources: []ReferenceSource{},
+				Note:    "cannot read the offer: too many credential configurations",
 			},
 		},
 		"credential offer that is not JSON": {
@@ -250,9 +315,21 @@ func TestResolveReference(t *testing.T) {
 			if tc.orgID == "" {
 				tc.orgID = orgID
 			}
-			got, err := ResolveReference(app, tc.orgID, tc.text, server.Client())
+			got, err := ResolveReference(t.Context(), app, tc.orgID, tc.text, server.Client())
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, got)
 		})
 	}
+
+	// The fetch runs within the caller's context.
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	got, err := ResolveReference(
+		canceled, app, orgID, offerDeeplink("credential_offer_uri", server.URL+"/offer"),
+		server.Client(),
+	)
+	require.NoError(t, err)
+	assert.Empty(t, got.Sources)
+	assert.Contains(t, got.Note, "cannot read the offer: ")
+	assert.Contains(t, got.Note, context.Canceled.Error())
 }

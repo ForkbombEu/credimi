@@ -42,6 +42,10 @@ const (
 // credential offer URIs the agent names.
 const SourceBodyLimit = 1 << 20
 
+// maxOfferConfigurations bounds the credential configuration IDs of an offer
+// Credimi matches against its credentials.
+const maxOfferConfigurations = 16
+
 var (
 	canonifiedReference = regexp.MustCompile(`^[^/\s]+/[^/\s]+/[^/\s]+$`)
 	// presentationSchemes are the deeplink schemes of presentation requests.
@@ -75,9 +79,10 @@ type ReferenceSource struct {
 }
 
 // ResolveReference turns a Credimi URL, canonified path or deeplink into the
-// parameter sources the organization can use. client fetches
-// credential_offer_uri; a raw deeplink is never opened.
+// parameter sources the organization can use. client fetches an https
+// credential_offer_uri within ctx; a raw deeplink is never opened.
 func ResolveReference(
+	ctx context.Context,
 	app core.App,
 	orgID, text string,
 	client *http.Client,
@@ -103,7 +108,7 @@ func ResolveReference(
 	scheme := strings.ToLower(parsed.Scheme)
 	switch {
 	case scheme == credentialOfferScheme:
-		return resolveCredentialOffer(app, orgID, parsed, client)
+		return resolveCredentialOffer(ctx, app, orgID, parsed, client)
 	case presentationSchemes[scheme]:
 		decoded := map[string]string{"client_id": parsed.Query().Get("client_id")}
 		if requestURI := parsed.Query().Get("request_uri"); requestURI != "" {
@@ -202,13 +207,14 @@ type credentialOffer struct {
 // resolveCredentialOffer decodes a credential offer deeplink and matches it
 // against the Credimi credentials the organization can use.
 func resolveCredentialOffer(
+	ctx context.Context,
 	app core.App,
 	orgID string,
 	deeplink *url.URL,
 	client *http.Client,
 ) (ReferenceResolution, error) {
 	resolution := ReferenceResolution{Kind: ReferenceCredentialOffer, Sources: []ReferenceSource{}}
-	offer, problem := readCredentialOffer(deeplink, client)
+	offer, problem := readCredentialOffer(ctx, deeplink, client)
 	if problem != "" {
 		resolution.Note = "cannot read the offer: " + problem
 		return resolution, nil
@@ -229,7 +235,11 @@ func resolveCredentialOffer(
 }
 
 // readCredentialOffer decodes the offer of a deeplink, or says why it cannot.
-func readCredentialOffer(deeplink *url.URL, client *http.Client) (credentialOffer, string) {
+func readCredentialOffer(
+	ctx context.Context,
+	deeplink *url.URL,
+	client *http.Client,
+) (credentialOffer, string) {
 	var offer credentialOffer
 	query := deeplink.Query()
 	raw := []byte(query.Get("credential_offer"))
@@ -238,7 +248,7 @@ func readCredentialOffer(deeplink *url.URL, client *http.Client) (credentialOffe
 		if offerURI == "" {
 			return offer, "the deeplink has no credential_offer or credential_offer_uri"
 		}
-		fetched, err := fetchCredentialOffer(client, offerURI)
+		fetched, err := fetchCredentialOffer(ctx, client, offerURI)
 		if err != nil {
 			return offer, err.Error()
 		}
@@ -250,17 +260,24 @@ func readCredentialOffer(deeplink *url.URL, client *http.Client) (credentialOffe
 	if offer.CredentialIssuer == "" || len(offer.CredentialConfigurationIDs) == 0 {
 		return offer, "the offer has no credential_issuer or credential_configuration_ids"
 	}
+	if len(offer.CredentialConfigurationIDs) > maxOfferConfigurations {
+		return offer, "too many credential configurations"
+	}
 	return offer, ""
 }
 
-func fetchCredentialOffer(client *http.Client, offerURI string) ([]byte, error) {
-	// client bounds the request with its timeout.
-	request, err := http.NewRequestWithContext(
-		context.Background(),
-		http.MethodGet,
-		offerURI,
-		nil,
-	)
+// fetchCredentialOffer reads an https credential_offer_uri within ctx;
+// client bounds the request with its timeout and redirect policy.
+func fetchCredentialOffer(
+	ctx context.Context,
+	client *http.Client,
+	offerURI string,
+) ([]byte, error) {
+	parsed, err := url.Parse(offerURI)
+	if err != nil || !strings.EqualFold(parsed.Scheme, "https") || parsed.Host == "" {
+		return nil, errors.New("credential_offer_uri must be https")
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, offerURI, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +301,9 @@ func fetchCredentialOffer(client *http.Client, offerURI string) ([]byte, error) 
 }
 
 // matchOfferCredentials returns the usable credentials named by one of the
-// offer's configuration IDs whose issuer URL is the offer's issuer.
+// offer's configuration IDs whose issuer URL is the offer's issuer. Only
+// published records and the organization's own are read further, so other
+// organizations' records are never path-built.
 func matchOfferCredentials(
 	app core.App,
 	orgID string,
@@ -294,7 +313,11 @@ func matchOfferCredentials(
 	for _, id := range offer.CredentialConfigurationIDs {
 		ids = append(ids, id)
 	}
-	records, err := app.FindAllRecords(referenceCredentialsSegment, dbx.In("name", ids...))
+	records, err := app.FindAllRecords(
+		referenceCredentialsSegment,
+		dbx.In("name", ids...),
+		dbx.Or(dbx.HashExp{"published": true}, dbx.HashExp{"owner": orgID}),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("find offered credentials: %w", err)
 	}
@@ -318,6 +341,7 @@ func matchOfferCredentials(
 		if err != nil {
 			return nil, err
 		}
+		// The path must resolve back to an accessible record.
 		_, err = CheckRecordAccess(
 			app,
 			referenceCredentialsSegment,

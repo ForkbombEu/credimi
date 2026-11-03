@@ -297,6 +297,7 @@ func (a *ResolveActionAuthorReferenceActivity) resolve(
 		return actionauthor.ReferenceResolution{}, err
 	}
 	resolution, err := actionauthor.ResolveReference(
+		ctx,
 		a.app,
 		selection.Organization.Id,
 		payload.Text,
