@@ -69,6 +69,8 @@ MANAGER_WORKFLOW_ID = "action-author-session-manager"
 AGENT_TASK_QUEUE = "credimi-runner-ActionAuthor"
 NAMESPACE_PATH = "/api/action-author/namespace"
 CHAT_READY_PATH = "/api/action-author/chat-ready"
+# When the chat closes for inactivity: the agent's `idle_state` query.
+IDLE_PATH = "/api/action-author/idle"
 CALLBACK_RESULT_PATH = "/api/callback-result"
 # Names Credimi's canonify produces for organizations (pkg/internal/canonify): Unicode
 # letters and digits joined by `-`, never leading with `-`; at most 1000 characters.
@@ -481,6 +483,12 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
     @app.get(CHAT_READY_PATH + "/{workflow_id:path}")
     async def chat_ready(workflow_id: str):
         return JSONResponse(await _chat_ready(app.state.temporal, workflow_id), headers=NO_STORE)
+
+    # Temporal errors answer 503 through own_origin_only, like every route.
+    @app.get(IDLE_PATH + "/{workflow_id:path}")
+    async def idle_state(workflow_id: str):
+        state = await app.state.temporal.get_workflow_handle(workflow_id).query("idle_state")
+        return JSONResponse(state, headers=NO_STORE)
 
     # Registered last, so it runs first.
     @app.middleware("http")

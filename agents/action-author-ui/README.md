@@ -77,6 +77,14 @@ API key (and the Credimi URL when unknown) and retry; a `409` means the card is 
 pending and it reloads. The UI answers every `/api/callback-result` request with `403
 review_through_credimi`, so the harness route cannot settle a plan or a review without Credimi.
 
+## Idle close
+
+The agent closes a session after 5 minutes without activity (15 while a save review card is
+open) and Credimi frees the device. The chat page asks `GET /api/action-author/idle/<chat>`
+every 10 s, which answers the agent's `idle_state` query (`closes_at`, empty while a model call
+or tool runs); in the last minute it shows `No activity: this session closes in N s to free
+the device. Send a message to keep it open.` at the top of the page.
+
 ## Namespace binding
 
 Sessions run in the Temporal namespace of the device's organization. The start page binds the

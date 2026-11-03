@@ -361,6 +361,9 @@ class _BusyHandle:
     async def describe(self):
         raise RPCError("consistent query buffer is full", self._status, b"")
 
+    async def query(self, _name):
+        raise RPCError("consistent query buffer is full", self._status, b"")
+
 
 class _BusyTemporal:
     def __init__(self, status: RPCStatusCode) -> None:
@@ -370,9 +373,44 @@ class _BusyTemporal:
         return _BusyHandle(self._status)
 
 
+class _IdleTemporal:
+    """A chat whose idle_state query answers ``state``."""
+
+    def __init__(self, state: dict) -> None:
+        self.state = state
+        self.queries: list[tuple[str, str]] = []
+
+    def get_workflow_handle(self, workflow_id):
+        temporal = self
+
+        class Handle:
+            async def query(self, name):
+                temporal.queries.append((workflow_id, name))
+                return temporal.state
+
+        return Handle()
+
+
+async def test_idle_state_is_the_chat_workflows_query():
+    app = create_app()
+    app.state.binding = object()
+    app.state.temporal = _IdleTemporal({"closes_at": "2026-11-03T10:05:00+00:00"})
+    async with ui_client(app=app) as client:
+        response = await client.get("/api/action-author/idle/session-1-author", headers=SAME_ORIGIN)
+    assert response.status_code == 200
+    assert response.json() == {"closes_at": "2026-11-03T10:05:00+00:00"}
+    assert response.headers["cache-control"] == "no-store"
+    assert app.state.temporal.queries == [("session-1-author", "idle_state")]
+
+
 @pytest.mark.parametrize("status", [RPCStatusCode.RESOURCE_EXHAUSTED, RPCStatusCode.UNAVAILABLE])
 @pytest.mark.parametrize(
-    "path", ["/api/workflow-status/chat-1", "/api/action-author/chat-ready/chat-1"]
+    "path",
+    [
+        "/api/workflow-status/chat-1",
+        "/api/action-author/chat-ready/chat-1",
+        "/api/action-author/idle/chat-1",
+    ],
 )
 async def test_temporal_errors_answer_503_without_a_traceback(status, path, caplog):
     app = create_app()

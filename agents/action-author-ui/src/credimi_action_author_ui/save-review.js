@@ -133,6 +133,11 @@ ${nativeSelector} { display: none !important; }
 .action-review input { font: inherit; color: inherit; background: var(--surface-2, Field);
   border: 1px solid var(--border, ButtonBorder); border-radius: 6px; padding: 8px;
   box-sizing: border-box; width: 100%; }
+.action-idle { background: var(--surface-1, Canvas); color: var(--text-1, CanvasText);
+  border: 1px solid var(--border, ButtonBorder); border-radius: 6px; padding: 12px 16px;
+  position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 1001;
+  box-sizing: border-box; width: max-content; max-width: calc(100vw - 48px);
+  box-shadow: 0 8px 24px rgb(0 0 0 / .35); font-family: inherit; margin: 0; }
 .action-review .review-code { margin: 0; padding: 8px; max-height: 40vh; overflow: auto;
   white-space: pre; font: 12px/1.5 ui-monospace, monospace; background: var(--surface-2, Field);
   border: 1px solid var(--border, ButtonBorder); border-radius: 6px; }
@@ -433,7 +438,43 @@ async function refresh() {
   }
 }
 
+// The session closes after a quiet idle window to free the device; warn in its last minute.
+let idleBanner = null;
+
+function showIdle(secondsLeft) {
+  if (!idleBanner) {
+    idleBanner = document.createElement('p');
+    idleBanner.className = 'action-idle';
+    idleBanner.setAttribute('role', 'status');
+  }
+  idleBanner.textContent = `No activity: this session closes in ${secondsLeft} s to free the device. Send a message to keep it open.`;
+  if (!idleBanner.isConnected) document.body.append(idleBanner);
+}
+
+function hideIdle() {
+  idleBanner?.remove();
+}
+
+async function refreshIdle() {
+  const session = sessionId();
+  if (!session) return hideIdle();
+  try {
+    const response = await fetch(`/api/action-author/idle/${encodeURIComponent(session)}`, {
+      cache: 'no-store', signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) throw new Error('Idle state is unavailable.');
+    const { closes_at: closesAt } = await response.json();
+    const secondsLeft = Math.floor((Date.parse(closesAt) - Date.now()) / 1000);
+    if (session !== sessionId() || !closesAt || !(secondsLeft < 60)) return hideIdle();
+    showIdle(Math.max(0, secondsLeft));
+  } catch {
+    hideIdle();
+  }
+}
+
 // Native callback cards may mount after the status response or after a panel is reopened.
 new MutationObserver(render).observe(document.body, { childList: true, subtree: true });
 window.setInterval(refresh, 1000);
+window.setInterval(refreshIdle, 10000);
 refresh();
+refreshIdle();
