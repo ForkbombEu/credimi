@@ -299,7 +299,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					if (showVersions()) {
 						showStatus(`${devices.length} device${devices.length === 1 ? '' : 's'} and ${versions.length} wallet version${versions.length === 1 ? '' : 's'} found.`, 'success');
 					} else {
-						showStatus('No wallet version has an installer for this device.', 'error');
+						showStatus('No wallet version or store wallet is available for this device.', 'error');
 					}
 				} finally {
 					keyInput.value = '';
@@ -496,7 +496,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 			originInput.addEventListener('input', clearConnection);
 			deviceSelect.addEventListener('change', () => {
-				if (!showVersions()) showStatus('No wallet version has an installer for this device.', 'error');
+				if (!showVersions()) showStatus('No wallet version or store wallet is available for this device.', 'error');
 				else showStatus('');
 			});
 		</script>
