@@ -296,21 +296,22 @@ tags:
 		},
 		{
 			name: "valid wait action",
-			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
-				"    optional: true\n    timeout: 240000\n" + waitTail,
-			appIDs:      wallet,
-			waitSeconds: 240,
-		},
-		{
-			name: "wait on visible",
 			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
 				"    optional: true\n    timeout: 240000\n" + waitTail,
 			appIDs:      wallet,
 			waitSeconds: 240,
 		},
 		{
-			name: "wait without optional",
+			name: "wait on notVisible",
 			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+				"    optional: true\n    timeout: 240000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{waitMessage},
+		},
+		{
+			name: "wait without optional",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
 				"    timeout: 240000\n" + waitTail,
 			appIDs:      wallet,
 			waitSeconds: 240,
@@ -318,15 +319,31 @@ tags:
 		},
 		{
 			name: "wait with a string optional",
-			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
 				"    optional: \"true\"\n    timeout: 240000\n" + waitTail,
 			appIDs:      wallet,
 			waitSeconds: 240,
 			want:        []string{waitMessage},
 		},
 		{
+			name: "wait with a YAML 1.1 optional",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
+				"    optional: yes\n    timeout: 240000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{waitMessage},
+		},
+		{
+			name: "wait with a capitalized optional",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
+				"    optional: True\n    timeout: 240000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{waitMessage},
+		},
+		{
 			name: "wait with the wrong timeout",
-			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
 				"    optional: true\n    timeout: 20000\n" + waitTail,
 			appIDs:      wallet,
 			waitSeconds: 240,
@@ -334,8 +351,24 @@ tags:
 		},
 		{
 			name: "wait with a string timeout",
-			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
 				"    optional: true\n    timeout: \"240000\"\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{waitMessage},
+		},
+		{
+			name: "wait with an underscored timeout",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
+				"    optional: true\n    timeout: 240_000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+			want:        []string{waitMessage},
+		},
+		{
+			name: "wait with a hex timeout",
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
+				"    optional: true\n    timeout: 0x3A980\n" + waitTail,
 			appIDs:      wallet,
 			waitSeconds: 240,
 			want:        []string{waitMessage},
@@ -349,7 +382,7 @@ tags:
 		},
 		{
 			name: "wait action without a screenshot",
-			code: header + "- launchApp\n- extendedWaitUntil:\n    notVisible: \"credimi-never\"\n" +
+			code: header + "- launchApp\n- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
 				"    optional: true\n    timeout: 240000\n",
 			appIDs:      wallet,
 			waitSeconds: 240,

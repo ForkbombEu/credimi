@@ -427,28 +427,42 @@ func codeIsOutcomeAssertion(name string, arg *yaml.Node) bool {
 }
 
 // codeIsWait reports whether a command is the wait of a wait action:
-// extendedWaitUntil on a visible or notVisible condition, optional, with a
-// timeout of exactly waitSeconds.
+// extendedWaitUntil on a visible condition (notVisible would complete as soon
+// as the text is absent, so it would not wait), with `optional` written as the
+// plain scalar `true` and `timeout` as a plain decimal integer equal to
+// waitSeconds * 1000. The raw text is checked, so YAML 1.1 forms such as `yes`
+// or `240_000` are refused.
 func codeIsWait(name string, arg *yaml.Node, waitSeconds int) bool {
 	if name != "extendedWaitUntil" || arg == nil || arg.Kind != yaml.MappingNode {
 		return false
 	}
-	if codeLookup(arg, "visible") == nil && codeLookup(arg, "notVisible") == nil {
+	if codeLookup(arg, "visible") == nil {
 		return false
 	}
-	optional := codeResolve(codeLookup(arg, "optional"))
-	if optional == nil || optional.Kind != yaml.ScalarNode || optional.Tag != "!!bool" {
+	optional, ok := codePlainScalar(codeLookup(arg, "optional"), "!!bool")
+	if !ok || optional != "true" {
 		return false
 	}
-	if value, err := strconv.ParseBool(optional.Value); err != nil || !value {
+	timeout, ok := codePlainScalar(codeLookup(arg, "timeout"), "!!int")
+	if !ok || !codeDecimal.MatchString(timeout) {
 		return false
 	}
-	timeout := codeResolve(codeLookup(arg, "timeout"))
-	if timeout == nil || timeout.Kind != yaml.ScalarNode || timeout.Tag != "!!int" {
-		return false
-	}
-	value, err := strconv.Atoi(timeout.Value)
+	value, err := strconv.Atoi(timeout)
 	return err == nil && value == waitSeconds*1000
+}
+
+// codeDecimal matches a plain decimal integer: no sign, `_`, or base prefix.
+var codeDecimal = regexp.MustCompile(`^[0-9]+$`)
+
+// codePlainScalar returns the raw text of an unquoted, non-block scalar whose
+// resolved tag is tag.
+func codePlainScalar(node *yaml.Node, tag string) (string, bool) {
+	node = codeResolve(node)
+	if node == nil || node.Kind != yaml.ScalarNode || node.Tag != tag ||
+		node.Style&^yaml.TaggedStyle != 0 {
+		return "", false
+	}
+	return node.Value, true
 }
 
 // codeStrings calls visit with every scalar, mapping keys included, at any depth.

@@ -115,7 +115,8 @@ var (
 
 // Spec describes the action a session authors: its slot, expected outcome,
 // starting state and runtime parameters. A wait action keeps the device idle
-// for WaitSeconds.
+// for WaitSeconds: its code ends with extendedWaitUntil on a visible
+// condition, optional: true and timeout: WaitSeconds * 1000 (see ValidateCode).
 type Spec struct {
 	Slot          string             `json:"slot"`
 	Outcome       string             `json:"outcome,omitempty"` // "success" (default) | "rejection" | "wait"

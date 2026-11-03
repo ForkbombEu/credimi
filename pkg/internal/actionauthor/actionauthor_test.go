@@ -373,7 +373,7 @@ func TestAuthoringSaveWaitAction(t *testing.T) {
 		"and timeout: 240000")
 
 	in.Code = "appId: eu.europa.ec.euidi\n---\n- launchApp\n- extendedWaitUntil:\n" +
-		"    notVisible: credimi-never-shown\n    optional: true\n    timeout: 240000\n" +
+		"    visible: credimi-never-shown\n    optional: true\n    timeout: 240000\n" +
 		"- takeScreenshot: waited\n"
 	in.CandidateSHA256 = CodeSHA256(in.Code)
 	receipt, err := Save(app, namespace, "workflow", "run", in, testApproval)
