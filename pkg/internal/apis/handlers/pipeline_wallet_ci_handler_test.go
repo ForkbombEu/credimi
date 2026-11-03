@@ -22,6 +22,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -1715,7 +1716,7 @@ func TestResolvePipelineRunWalletAPKWallet(t *testing.T) {
 		app := setupPipelineWalletAPKApp(t)
 		defer app.Cleanup()
 
-		yaml := walletAPKPipelineYAML(walletAPKExternalSourceVersionID)
+		yaml := walletAPKPipelineYAML(pipeline.MobileExternalSourceVersionID)
 		_, _, apiErr := resolvePipelineRunWalletAPKWallet(app, yaml)
 		require.NotNil(t, apiErr)
 		require.Equal(t, http.StatusBadRequest, apiErr.Code)
