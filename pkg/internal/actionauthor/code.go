@@ -174,16 +174,7 @@ func ValidateCode(code string, scope CodeScope) []string {
 
 	v.header(header)
 
-	screenshots := 0
-	v.walk(commands, "commands", func(name string, arg *yaml.Node, where string) {
-		v.command(name, arg, where)
-		if name == "takeScreenshot" {
-			screenshots++
-		}
-	})
-	if screenshots == 0 {
-		v.add("add at least one `takeScreenshot` (after the final assertion)")
-	}
+	v.walk(commands, "commands", v.command)
 
 	var lastName string
 	var lastArg *yaml.Node
@@ -197,12 +188,12 @@ func ValidateCode(code string, scope CodeScope) []string {
 	switch {
 	case waitSeconds > 0:
 		if !codeIsWait(lastName, lastArg, waitSeconds) {
-			v.add(fmt.Sprintf("the last command before the final takeScreenshot must wait %d s: "+
+			v.add(fmt.Sprintf("the last command other than takeScreenshot must wait %d s: "+
 				"extendedWaitUntil with optional: true and timeout: %d",
 				waitSeconds, waitSeconds*1000))
 		}
 	case !codeIsOutcomeAssertion(lastName, lastArg):
-		v.add("the last command before the final takeScreenshot must assert the outcome: " +
+		v.add("the last command other than takeScreenshot must assert the outcome: " +
 			"`assertVisible`, or `extendedWaitUntil` with `visible`")
 	}
 	return v.problems

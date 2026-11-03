@@ -61,10 +61,10 @@ func TestValidateCode(t *testing.T) {
 		"https://play.google.com/store/apps/details?id=com.example.wallet, " +
 		"market://details?id=com.example.wallet"
 	header := "appId: com.example.wallet\n---\n"
-	lastMessage := "the last command before the final takeScreenshot must assert the outcome: " +
+	lastMessage := "the last command other than takeScreenshot must assert the outcome: " +
 		"`assertVisible`, or `extendedWaitUntil` with `visible`"
 
-	waitMessage := "the last command before the final takeScreenshot must wait 240 s: " +
+	waitMessage := "the last command other than takeScreenshot must wait 240 s: " +
 		"extendedWaitUntil with optional: true and timeout: 240000"
 	waitTail := "- takeScreenshot: done\n"
 
@@ -140,7 +140,6 @@ tags:
 				"the first document must be the header mapping (appId, ...)",
 				"the second document must be a non-empty list of commands",
 				"header appId must be 'com.example.wallet', found None",
-				"add at least one `takeScreenshot` (after the final assertion)",
 				lastMessage,
 			},
 		},
@@ -306,9 +305,8 @@ tags:
 		},
 		{
 			name:   "no screenshot",
-			code:   header + "- assertVisible: x\n",
+			code:   header + "- launchApp\n- assertVisible: \"Home\"\n",
 			appIDs: wallet,
-			want:   []string{"add at least one `takeScreenshot` (after the final assertion)"},
 		},
 		{
 			name: "screenshot names",
@@ -474,7 +472,6 @@ tags:
 				"    optional: true\n    timeout: 240000\n",
 			appIDs:      wallet,
 			waitSeconds: 240,
-			want:        []string{"add at least one `takeScreenshot` (after the final assertion)"},
 		},
 		{
 			name: "optional wait on a non-wait action",
