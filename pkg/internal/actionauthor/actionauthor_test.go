@@ -261,7 +261,7 @@ func acceptedRequest(request BuildRequest, digest string) SaveRequest {
 		CandidateSHA256: CodeSHA256(code),
 		InstallerSHA256: digest,
 		PackageID:       "eu.europa.ec.euidi",
-		ReplayCount:     2,
+		ReplayCount:     1,
 		Spec:            Spec{Slot: "onboarding", Outcome: OutcomeSuccess},
 	}
 }
@@ -432,7 +432,7 @@ func TestAuthoringSaveRejectsUnreplayedOrChangedCandidate(t *testing.T) {
 	build, err := Resolve(app, namespace, request)
 	require.NoError(t, err)
 	for _, mutate := range []func(*SaveRequest){
-		func(in *SaveRequest) { in.ReplayCount = 1 },
+		func(in *SaveRequest) { in.ReplayCount = 0 },
 		func(in *SaveRequest) { in.Code += "# not approved\n" },
 		func(in *SaveRequest) { in.PackageID = "org.wrong.wallet" },
 		func(in *SaveRequest) { in.Name = " " },

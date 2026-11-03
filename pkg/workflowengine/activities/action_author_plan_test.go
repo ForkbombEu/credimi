@@ -254,7 +254,7 @@ func TestSaveAuthoredWalletActionUsesThePlanToken(t *testing.T) {
 			CandidateSHA256: actionauthor.CodeSHA256(code),
 			InstallerSHA256: build.InstallerSHA256,
 			PackageID:       "eu.wallet",
-			ReplayCount:     2,
+			ReplayCount:     1,
 			Approval:        approvalToken,
 			PlanToken:       planToken,
 		}

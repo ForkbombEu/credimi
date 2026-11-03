@@ -513,7 +513,7 @@ func CodeSHA256(code string) string {
 
 func validateAcceptedAction(in *SaveRequest, selection Selection) error {
 	if _, ok := Slots[in.Spec.Slot]; !ok || strings.TrimSpace(in.Name) == "" ||
-		in.ReplayCount != 2 || in.CandidateSHA256 != CodeSHA256(in.Code) || in.PackageID == "" {
+		in.ReplayCount != 1 || in.CandidateSHA256 != CodeSHA256(in.Code) || in.PackageID == "" {
 		return fmt.Errorf("%w: missing accepted candidate", ErrInvalid)
 	}
 	problems := ValidateCode(in.Code, CodeScope{
