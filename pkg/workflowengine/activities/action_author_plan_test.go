@@ -106,10 +106,13 @@ func TestEffectivePlan(t *testing.T) {
 		require.ErrorContains(t, err, tc.message, name)
 	}
 
-	invalid := signTestPlan(t, app, session, actionauthor.Spec{Slot: "onboarding", Browser: true})
+	invalid := signTestPlan(t, app, session, actionauthor.Spec{
+		Slot:    "onboarding",
+		Outcome: actionauthor.OutcomeRejection,
+	})
 	_, err = EffectivePlan(app, ref(actionauthor.Spec{}), authorTestAuthorID, invalid)
 	require.ErrorIs(t, err, actionauthor.ErrInvalid)
-	require.ErrorContains(t, err, "confirmed plan: invalid authoring request: browser")
+	require.ErrorContains(t, err, "confirmed plan: invalid authoring request: outcome")
 }
 
 func TestGenerateActionAuthorParametersUsesThePlanToken(t *testing.T) {

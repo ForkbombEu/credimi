@@ -320,13 +320,12 @@ func TestAuthoringSaveRecordsSpecAndApproval(t *testing.T) {
 	require.NoError(t, err)
 	in := acceptedRequest(request, build.InstallerSHA256)
 	in.Name = "Reviewed verification"
-	in.Code = "appId: com.android.chrome\n---\n- launchApp\n- openLink: ${deeplink}\n" +
+	in.Code = "appId: eu.europa.ec.euidi\n---\n- launchApp\n- openLink: ${deeplink}\n" +
 		"- tapOn: Share\n- assertVisible: Shared\n- takeScreenshot: shared\n"
 	in.CandidateSHA256 = CodeSHA256(in.Code)
 	in.Spec = Spec{
 		Slot:          "verify-credential",
 		Outcome:       OutcomeRejection,
-		Browser:       true,
 		Prerequisites: []PrerequisiteSpec{{Action: "org/wallet/onboarding"}},
 		Parameters: []ParameterSpec{{
 			Name:   "deeplink",
@@ -343,7 +342,6 @@ func TestAuthoringSaveRecordsSpecAndApproval(t *testing.T) {
 	assert.NotContains(t, record.GetString("authoring_provenance"), "secret test value")
 	assert.Equal(t, "verify-credential", receipt.Provenance.Slot)
 	assert.Equal(t, OutcomeRejection, receipt.Provenance.Outcome)
-	assert.True(t, receipt.Provenance.Browser)
 	assert.Equal(t, []string{"org/wallet/onboarding"}, receipt.Provenance.Prerequisites)
 	assert.Equal(t, []ProvenanceParameter{{Name: "deeplink", Kind: SourceLiteral}},
 		receipt.Provenance.Parameters)
@@ -351,9 +349,10 @@ func TestAuthoringSaveRecordsSpecAndApproval(t *testing.T) {
 	assert.Equal(t, "users", receipt.Provenance.ApproverCollection)
 	assert.Equal(t, "2027-01-15T08:00:00Z", receipt.Provenance.ApprovedAt)
 
-	// Without the browser the Chrome header is not allowed.
-	in.Name = "Unbrowsed verification"
-	in.Spec.Browser = false
+	// The action targets only the wallet package; the browser opens through openLink.
+	in.Name = "Chrome verification"
+	in.Code = strings.Replace(in.Code, "eu.europa.ec.euidi", "com.android.chrome", 1)
+	in.CandidateSHA256 = CodeSHA256(in.Code)
 	_, err = Save(app, namespace, "workflow-2", "run", in, testApproval)
 	require.ErrorIs(t, err, ErrInvalid)
 	assert.ErrorContains(t, err, "header appId")

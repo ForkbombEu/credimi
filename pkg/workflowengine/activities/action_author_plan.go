@@ -173,7 +173,7 @@ func (a *CheckActionAuthorPlanActivity) check(
 		return CheckActionAuthorPlanOutput{Problems: []string{planFixedProblem}}, nil
 	}
 	plan := payload.Plan
-	resolved, err := checkPlan(a.app, selection, ref.Session.Platform, &plan)
+	resolved, err := checkPlan(a.app, selection, &plan)
 	if errors.Is(err, actionauthor.ErrInvalid) {
 		return CheckActionAuthorPlanOutput{Problems: []string{
 			strings.TrimPrefix(err.Error(), actionauthor.ErrInvalid.Error()+": "),
@@ -189,15 +189,14 @@ func (a *CheckActionAuthorPlanActivity) check(
 	}, nil
 }
 
-// checkPlan normalizes the plan for the platform and resolves its
-// prerequisites; an invalid plan wraps actionauthor.ErrInvalid.
+// checkPlan normalizes the plan and resolves its prerequisites; an invalid
+// plan wraps actionauthor.ErrInvalid.
 func checkPlan(
 	app core.App,
 	selection actionauthor.Selection,
-	platform string,
 	plan *actionauthor.Spec,
 ) ([]actionauthor.ResolvedPrerequisite, error) {
-	if err := plan.Normalize(platform); err != nil {
+	if err := plan.Normalize(); err != nil {
 		return nil, err
 	}
 	return actionauthor.ResolvePrerequisites(app, selection, plan)

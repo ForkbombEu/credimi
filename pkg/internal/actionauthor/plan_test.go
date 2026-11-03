@@ -18,7 +18,6 @@ func testPlan() Spec {
 	return Spec{
 		Slot:    "verify-credential",
 		Outcome: OutcomeSuccess,
-		Browser: true,
 		Prerequisites: []PrerequisiteSpec{
 			{Action: "tenant/wallet/onboarding"},
 		},
@@ -119,7 +118,7 @@ func TestPlanSHA256(t *testing.T) {
 func TestSpecIsEmpty(t *testing.T) {
 	assert.True(t, Spec{}.IsEmpty())
 	assert.False(t, Spec{Outcome: OutcomeSuccess}.IsEmpty())
-	assert.False(t, Spec{Browser: true}.IsEmpty())
+	assert.False(t, Spec{Slot: "other"}.IsEmpty())
 	assert.False(t, Spec{Parameters: []ParameterSpec{{Name: "x"}}}.IsEmpty())
 	assert.False(t, testPlan().IsEmpty())
 }
@@ -141,7 +140,6 @@ func TestParameterInfosAndPlanSummary(t *testing.T) {
 	assert.Equal(t, []string{
 		"Category: verify-credential",
 		"Outcome: success",
-		"Runs in Chrome",
 		"Starts from: Onboarding (tenant/wallet/onboarding)",
 		"${request}: POST https://verifier.example/sessions → deeplink",
 		"${pin}: fixed value",

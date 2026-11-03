@@ -44,10 +44,9 @@ func validSpec() Spec {
 
 func TestSpecNormalize(t *testing.T) {
 	tests := []struct {
-		name     string
-		platform string
-		edit     func(*Spec)
-		message  string
+		name    string
+		edit    func(*Spec)
+		message string
 	}{
 		{name: "valid", edit: func(*Spec) {}},
 		{
@@ -68,17 +67,6 @@ func TestSpecNormalize(t *testing.T) {
 			name:    "onboarding rejection",
 			edit:    func(s *Spec) { *s = Spec{Slot: "onboarding", Outcome: OutcomeRejection} },
 			message: "outcome: the onboarding slot has no rejection outcome",
-		},
-		{
-			name:    "onboarding browser",
-			edit:    func(s *Spec) { *s = Spec{Slot: "onboarding", Browser: true} },
-			message: "browser: the onboarding slot has no browser flows",
-		},
-		{
-			name:     "browser on ios",
-			platform: PlatformIOS,
-			edit:     func(s *Spec) { s.Browser = true },
-			message:  "browser flows need an Android device",
 		},
 		{
 			name: "onboarding prerequisites",
@@ -337,11 +325,7 @@ func TestSpecNormalize(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			spec := validSpec()
 			tc.edit(&spec)
-			platform := tc.platform
-			if platform == "" {
-				platform = PlatformAndroid
-			}
-			err := spec.Normalize(platform)
+			err := spec.Normalize()
 			if tc.message == "" {
 				require.NoError(t, err)
 				assert.NotEmpty(t, spec.Outcome)
@@ -355,7 +339,7 @@ func TestSpecNormalize(t *testing.T) {
 
 func TestSpecNormalizeDefaultsOutcome(t *testing.T) {
 	spec := Spec{Slot: "onboarding"}
-	require.NoError(t, spec.Normalize(PlatformIOS))
+	require.NoError(t, spec.Normalize())
 	assert.Equal(t, OutcomeSuccess, spec.Outcome)
 }
 

@@ -360,7 +360,6 @@ func TestSessionPassesPrerequisitesAndParametersToAuthor(t *testing.T) {
 	session.Spec = actionauthor.Spec{
 		Slot:          "verify-credential",
 		Outcome:       actionauthor.OutcomeRejection,
-		Browser:       true,
 		Prerequisites: []actionauthor.PrerequisiteSpec{{Action: "tenant/wallet/onboarding"}},
 		Parameters: []actionauthor.ParameterSpec{
 			{Name: "offer", Source: actionauthor.SourceSpec{
@@ -389,7 +388,6 @@ func TestSessionPassesPrerequisitesAndParametersToAuthor(t *testing.T) {
 	require.NotNil(t, h.childContext)
 	require.Equal(t, "verify-credential", h.childContext.Slot)
 	require.Equal(t, actionauthor.OutcomeRejection, h.childContext.Outcome)
-	require.True(t, h.childContext.Browser)
 	require.Equal(t, []actionauthor.ResolvedPrerequisite{{
 		Action:     "tenant/wallet/onboarding",
 		Name:       "Onboarding",

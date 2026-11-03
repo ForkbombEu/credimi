@@ -100,7 +100,6 @@ type AuthoringContext struct {
 	ActorCollection         string                              `json:"actor_collection"`
 	Slot                    string                              `json:"slot"`
 	Outcome                 string                              `json:"outcome"`
-	Browser                 bool                                `json:"browser"`
 	Prerequisites           []actionauthor.ResolvedPrerequisite `json:"prerequisites"`
 	Parameters              []actionauthor.ParameterInfo        `json:"parameters"`
 	AppID                   string                              `json:"app_id"`
@@ -393,7 +392,6 @@ func authoringContext(
 		ActorCollection:         session.ActorCollection,
 		Slot:                    session.Slot,
 		Outcome:                 outcome,
-		Browser:                 session.Browser,
 		Prerequisites:           prerequisites,
 		Parameters:              actionauthor.ParameterInfos(session.Spec),
 		AppID:                   session.AppID,

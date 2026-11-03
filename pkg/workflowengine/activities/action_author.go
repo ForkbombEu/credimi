@@ -336,7 +336,7 @@ func EffectivePlan(
 				"%w: this session's plan was fixed when it started", actionauthor.ErrInvalid,
 			)
 		}
-		plan, err := normalizedPlan(session.Spec, session.Platform)
+		plan, err := normalizedPlan(session.Spec)
 		if err != nil {
 			return actionauthor.Spec{}, fmt.Errorf("action author session spec: %w", err)
 		}
@@ -357,7 +357,7 @@ func EffectivePlan(
 			"%w: plan confirmed by another user", actionauthor.ErrForbidden,
 		)
 	}
-	plan, err := normalizedPlan(grant.Plan, session.Platform)
+	plan, err := normalizedPlan(grant.Plan)
 	if err != nil {
 		return actionauthor.Spec{}, fmt.Errorf("confirmed plan: %w", err)
 	}
@@ -365,9 +365,9 @@ func EffectivePlan(
 }
 
 // normalizedPlan normalizes a copy of spec, leaving spec as is.
-func normalizedPlan(spec actionauthor.Spec, platform string) (actionauthor.Spec, error) {
+func normalizedPlan(spec actionauthor.Spec) (actionauthor.Spec, error) {
 	spec.Prerequisites = slices.Clone(spec.Prerequisites)
-	if err := spec.Normalize(platform); err != nil {
+	if err := spec.Normalize(); err != nil {
 		return actionauthor.Spec{}, err
 	}
 	return spec, nil

@@ -114,11 +114,9 @@ func specSessionBody(deviceID, version, spec string) string {
 
 func TestActionAuthorStartChecksSpec(t *testing.T) {
 	token := authoringToken(t, "userA")
-	android := authoringAdminRunner + "/android-emulator"
+	device := authoringAdminRunner + "/android-emulator"
 	for _, tc := range []struct {
 		name     string
-		device   string
-		version  string
 		spec     string
 		expected string
 	}{
@@ -145,13 +143,6 @@ func TestActionAuthorStartChecksSpec(t *testing.T) {
 			expected: "prerequisite " + authoringGetPIDAction + " needs parameters [deeplink], got []",
 		},
 		{
-			name:     "browser on iOS",
-			device:   authoringAdminRunner + "/ios-simulator",
-			version:  authoringBothVersion,
-			spec:     `"slot":"other","browser":true`,
-			expected: "browser flows need an Android device",
-		},
-		{
 			name:     "partial spec without a slot",
 			spec:     `"outcome":"rejection"`,
 			expected: "slot: must be one of",
@@ -163,15 +154,13 @@ func TestActionAuthorStartChecksSpec(t *testing.T) {
 		},
 	} {
 		enqueued := stubActionAuthorQueue(t, true)
-		device, version := android, authoringAndroidVersion
-		if tc.device != "" {
-			device, version = tc.device, tc.version
-		}
 		(&tests.ApiScenario{
-			Name:            tc.name,
-			Method:          http.MethodPost,
-			URL:             "/api/action-author/sessions",
-			Body:            strings.NewReader(specSessionBody(device, version, tc.spec)),
+			Name:   tc.name,
+			Method: http.MethodPost,
+			URL:    "/api/action-author/sessions",
+			Body: strings.NewReader(
+				specSessionBody(device, authoringAndroidVersion, tc.spec),
+			),
 			Headers:         map[string]string{"Authorization": "Bearer " + token},
 			ExpectedStatus:  http.StatusBadRequest,
 			ExpectedContent: []string{`"invalid_request"`, tc.expected},
@@ -191,7 +180,7 @@ func TestActionAuthorStartQueuesSpec(t *testing.T) {
 		Body: strings.NewReader(specSessionBody(
 			authoringAdminRunner+"/android-emulator",
 			authoringAndroidVersion,
-			`"slot":"verify-credential","browser":true,"prerequisites":[{"action":"/`+
+			`"slot":"verify-credential","prerequisites":[{"action":"/`+
 				authoringOnboardingAction+`"},{"action":"`+authoringGetPIDAction+
 				`","parameters":[{"name":"deeplink","source":{"kind":"literal","value":"openid://x"}}]}]`,
 		)),
@@ -203,7 +192,6 @@ func TestActionAuthorStartQueuesSpec(t *testing.T) {
 	require.NotEmpty(t, enqueued.TicketID)
 	require.Equal(t, "verify-credential", enqueued.ActionAuthor["slot"])
 	require.Equal(t, "success", enqueued.ActionAuthor["outcome"])
-	require.Equal(t, true, enqueued.ActionAuthor["browser"])
 	require.Equal(t, []any{
 		map[string]any{"action": authoringOnboardingAction},
 		map[string]any{
@@ -232,7 +220,7 @@ func TestActionAuthorStartQueuesEmptySpec(t *testing.T) {
 	}).Test(t)
 	require.NotEmpty(t, enqueued.TicketID)
 	require.Equal(t, "", enqueued.ActionAuthor["slot"])
-	for _, field := range []string{"outcome", "browser", "prerequisites", "parameters"} {
+	for _, field := range []string{"outcome", "prerequisites", "parameters"} {
 		require.NotContains(t, enqueued.ActionAuthor, field)
 	}
 }

@@ -16,9 +16,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// BrowserAppID is the Android browser an action may also drive for deeplink flows.
-const BrowserAppID = "com.android.chrome"
-
 // codeHeaderKeys are the keys the header document may carry.
 var codeHeaderKeys = []string{"appId", "env", "name", "tags"}
 
@@ -57,17 +54,20 @@ var (
 	// codeSubstitution matches a Maestro `${...}` substitution, unterminated ones included.
 	codeSubstitution = regexp.MustCompile(`\$\{([^}]*)\}?`)
 	codeIdentifier   = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-	codeScreenshot   = regexp.MustCompile(`^[A-Za-z0-9_-]{1,15}$`)
+	// codeScreenshot bounds takeScreenshot names. The stored screenshot file
+	// stem is Snakecase(<pipeline step id>-<name>), capped at 100 characters
+	// by PocketBase, and evidence.screenshot_named
+	// (pkg/fcaf/validators/evidence_screenshot_named.go) reports blocked when
+	// a name was truncated: 64 leaves room for step ids and covers FCAF's
+	// required names (up to 31 characters, e.g. fcaf-engagement-haip-vp-invoked).
+	codeScreenshot = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 )
 
-// AllowedAppIDs returns the app IDs an action may target: the package under
-// test and, for browser actions, the Android browser.
-func AllowedAppIDs(packageID string, browser bool) []string {
-	ids := []string{packageID}
-	if browser {
-		ids = append(ids, BrowserAppID)
-	}
-	return ids
+// AllowedAppIDs returns the app IDs an action may target (header appId,
+// launchApp, setPermissions): only the package under test. Web flows open
+// the device's default browser with openLink instead of targeting it.
+func AllowedAppIDs(packageID string) []string {
+	return []string{packageID}
 }
 
 // ValidateCode returns every reason a Maestro action cannot be accepted, once
@@ -282,7 +282,7 @@ func (v *codeValidator) command(name string, arg *yaml.Node, where string) {
 			path = codeLookup(arg, "path")
 		}
 		if !codeIsString(path) || !codeScreenshot.MatchString(path.Value) {
-			v.add(fmt.Sprintf("%s: screenshot names must be 1-15 letters, digits, '-' or '_', "+
+			v.add(fmt.Sprintf("%s: screenshot names must be 1-64 letters, digits, '-' or '_', "+
 				"found %s", where, codeRepr(path)))
 		}
 	}

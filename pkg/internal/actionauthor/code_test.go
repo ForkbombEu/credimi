@@ -5,6 +5,7 @@
 package actionauthor
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,17 +17,11 @@ const (
 )
 
 func TestAllowedAppIDs(t *testing.T) {
-	assert.Equal(t, []string{codeTestWallet}, AllowedAppIDs(codeTestWallet, false))
-	assert.Equal(
-		t,
-		[]string{codeTestWallet, "com.android.chrome"},
-		AllowedAppIDs(codeTestWallet, true),
-	)
+	assert.Equal(t, []string{codeTestWallet}, AllowedAppIDs(codeTestWallet))
 }
 
 func TestValidateCode(t *testing.T) {
-	wallet := AllowedAppIDs(codeTestWallet, false)
-	browser := AllowedAppIDs(codeTestWallet, true)
+	wallet := AllowedAppIDs(codeTestWallet)
 	header := "appId: com.example.wallet\n---\n"
 	lastMessage := "the last command before the final takeScreenshot must assert the outcome: " +
 		"`assertVisible`, or `extendedWaitUntil` with `visible`"
@@ -60,13 +55,13 @@ tags:
 			appIDs: wallet,
 		},
 		{
-			name: "valid browser deeplink action",
-			code: `appId: com.android.chrome
+			name: "valid web deeplink action",
+			code: `appId: com.example.wallet
 ---
-- launchApp:
-    appId: com.android.chrome
+- launchApp
 - openLink:
     link: ${deeplink}
+    browser: true
 - retry:
     maxRetries: 3
     commands:
@@ -76,9 +71,9 @@ tags:
     visible: "Credential added"
     timeout: 10000
 - takeScreenshot:
-    path: credential-ok
+    path: fcaf-engagement-haip-vp-invoked
 `,
-			appIDs:     browser,
+			appIDs:     wallet,
 			parameters: []string{"deeplink"},
 		},
 		{
@@ -115,10 +110,10 @@ tags:
 		},
 		{
 			name:   "header appId",
-			code:   "appId: com.other\n---\n" + codeTestTail,
-			appIDs: browser,
+			code:   "appId: com.android.chrome\n---\n" + codeTestTail,
+			appIDs: wallet,
 			want: []string{
-				"header appId must be one of ['com.example.wallet', 'com.android.chrome'], found 'com.other'",
+				"header appId must be 'com.example.wallet', found 'com.android.chrome'",
 			},
 		},
 		{
@@ -224,14 +219,17 @@ tags:
 		},
 		{
 			name: "screenshot names",
-			code: header + "- assertVisible: x\n- takeScreenshot: name-longer-than-15\n" +
+			code: header + "- assertVisible: x\n- takeScreenshot: " + strings.Repeat(
+				"a",
+				65,
+			) + "\n" +
 				"- takeScreenshot:\n    path: a/b\n- takeScreenshot\n",
 			appIDs: wallet,
 			want: []string{
-				"commands[1]: screenshot names must be 1-15 letters, digits, '-' or '_', " +
-					"found 'name-longer-than-15'",
-				"commands[2]: screenshot names must be 1-15 letters, digits, '-' or '_', found 'a/b'",
-				"commands[3]: screenshot names must be 1-15 letters, digits, '-' or '_', found None",
+				"commands[1]: screenshot names must be 1-64 letters, digits, '-' or '_', " +
+					"found '" + strings.Repeat("a", 65) + "'",
+				"commands[2]: screenshot names must be 1-64 letters, digits, '-' or '_', found 'a/b'",
+				"commands[3]: screenshot names must be 1-64 letters, digits, '-' or '_', found None",
 			},
 		},
 		{

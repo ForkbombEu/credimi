@@ -49,8 +49,8 @@ the plan and save reviews, to Credimi over HTTP(S).
 
 The start page asks only for the device and the wallet version. Describe the action in the
 chat: its category, success or rejection, input values (PIN) and references (a Credimi URL or
-identifier, or a deeplink). The agent proposes a **plan**: the slot, the outcome, whether the
-flow runs in Chrome, the prerequisites (saved actions of the wallet) and the parameter sources.
+identifier, or a deeplink). The agent proposes a **plan**: the slot, the outcome, the
+prerequisites (saved actions of the wallet) and the parameter sources.
 The plan card (`confirm_action_plan`) lists its summary and the input values; **Accept** /
 **Refuse** sends `POST /api/action-author/plans` with the bound namespace, the chat's workflow
 ID, the card's `tool_id`, its `plan` and the stored bearer token. Credimi validates the plan and

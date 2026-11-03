@@ -69,7 +69,7 @@ func HandleActionAuthorPlan() func(*core.RequestEvent) error {
 				return authoringAPIError(e, err)
 			}
 			plan := input.Plan
-			if err := plan.Normalize(session.Platform); err != nil {
+			if err := plan.Normalize(); err != nil {
 				return authoringAPIError(e, err)
 			}
 			resolved, err := actionauthor.ResolvePrerequisites(e.App, selection, &plan)

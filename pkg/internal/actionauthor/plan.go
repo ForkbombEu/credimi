@@ -53,9 +53,6 @@ func PlanSummary(s Spec, prerequisites []ResolvedPrerequisite) []string {
 	} else {
 		lines = append(lines, "Outcome: success")
 	}
-	if s.Browser {
-		lines = append(lines, "Runs in Chrome")
-	}
 	if len(prerequisites) == 0 {
 		lines = append(lines, "Starts from: a freshly installed app")
 	}

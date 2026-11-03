@@ -39,7 +39,6 @@ type SlotRule struct {
 	Category      string
 	Prerequisites PrereqRule
 	Rejection     bool
-	Browser       bool
 }
 
 // Slots lists the action categories the agent can author. install-app has
@@ -50,25 +49,21 @@ var Slots = map[string]SlotRule{
 		Category:      "get-credential-generic",
 		Prerequisites: PrereqRequired,
 		Rejection:     true,
-		Browser:       true,
 	},
 	"get-credential-specific": {
 		Category:      "get-credential-specific",
 		Prerequisites: PrereqRequired,
 		Rejection:     true,
-		Browser:       true,
 	},
 	"verify-credential": {
 		Category:      "verify-credential",
 		Prerequisites: PrereqRequired,
 		Rejection:     true,
-		Browser:       true,
 	},
 	"other": {
 		Category:      "other",
 		Prerequisites: PrereqOptional,
 		Rejection:     true,
-		Browser:       true,
 	},
 }
 
@@ -117,7 +112,6 @@ var (
 type Spec struct {
 	Slot          string             `json:"slot"`
 	Outcome       string             `json:"outcome,omitempty"` // "success" (default) | "rejection"
-	Browser       bool               `json:"browser,omitempty"`
 	Prerequisites []PrerequisiteSpec `json:"prerequisites,omitempty"`
 	Parameters    []ParameterSpec    `json:"parameters,omitempty"`
 }
@@ -173,7 +167,7 @@ type Session struct {
 // IsEmpty reports whether no field of the spec is set: the session's plan is
 // then proposed in the chat rather than fixed at start.
 func (s Spec) IsEmpty() bool {
-	return s.Slot == "" && s.Outcome == "" && !s.Browser &&
+	return s.Slot == "" && s.Outcome == "" &&
 		len(s.Prerequisites) == 0 && len(s.Parameters) == 0
 }
 
@@ -279,8 +273,8 @@ func slotNames() string {
 	return strings.Join(names, ", ")
 }
 
-// Normalize sets the default outcome and validates the spec for the platform.
-func (s *Spec) Normalize(platform string) error {
+// Normalize sets the default outcome and validates the spec.
+func (s *Spec) Normalize() error {
 	if s.Outcome == "" {
 		s.Outcome = OutcomeSuccess
 	}
@@ -296,14 +290,6 @@ func (s *Spec) Normalize(platform string) error {
 		}
 	default:
 		return invalidf("outcome: must be success or rejection")
-	}
-	if s.Browser {
-		if !rule.Browser {
-			return invalidf("browser: the %s slot has no browser flows", s.Slot)
-		}
-		if platform != PlatformAndroid {
-			return invalidf("browser flows need an Android device")
-		}
 	}
 	switch {
 	case rule.Prerequisites == PrereqForbidden && len(s.Prerequisites) > 0:

@@ -327,7 +327,6 @@ type Provenance struct {
 	ReplayCount             int                   `json:"replay_count"`
 	Slot                    string                `json:"slot"`
 	Outcome                 string                `json:"outcome"`
-	Browser                 bool                  `json:"browser"`
 	Prerequisites           []string              `json:"prerequisites"`
 	Parameters              []ProvenanceParameter `json:"parameters"`
 	ApproverID              string                `json:"approver_id"`
@@ -357,7 +356,7 @@ func validateAcceptedAction(in *SaveRequest) error {
 	}
 	problems := ValidateCode(
 		in.Code,
-		AllowedAppIDs(in.PackageID, in.Spec.Browser),
+		AllowedAppIDs(in.PackageID),
 		ParameterNames(in.Spec.Parameters),
 	)
 	if len(problems) > 0 {
@@ -370,7 +369,6 @@ func validateAcceptedAction(in *SaveRequest) error {
 func provenanceSpec(provenance *Provenance, spec Spec) {
 	provenance.Slot = spec.Slot
 	provenance.Outcome = spec.Outcome
-	provenance.Browser = spec.Browser
 	provenance.Prerequisites = make([]string, 0, len(spec.Prerequisites))
 	for _, prerequisite := range spec.Prerequisites {
 		provenance.Prerequisites = append(provenance.Prerequisites, prerequisite.Action)
