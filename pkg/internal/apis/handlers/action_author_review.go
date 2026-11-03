@@ -152,12 +152,16 @@ func HandleActionAuthorReview() func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		plan, err := activities.EffectivePlan(e.App, ref, input.AuthorWorkflowID, input.PlanToken)
-		if err != nil {
-			return authoringAPIError(e, err)
-		}
+		// A refusal signs nothing, so it never needs the plan: a refused
+		// candidate with an unreadable token must still reach the agent.
 		result := map[string]any{"accepted": false, "approval": ""}
 		if *input.Accepted {
+			plan, err := activities.EffectivePlan(
+				e.App, ref, input.AuthorWorkflowID, input.PlanToken,
+			)
+			if err != nil {
+				return authoringAPIError(e, err)
+			}
 			approval, err := actionauthor.SignApproval(e.App, actionauthor.Approval{
 				AuthorWorkflowID:   input.AuthorWorkflowID,
 				CandidateSHA256:    input.CandidateSHA256,

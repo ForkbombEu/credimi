@@ -341,4 +341,22 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 		}).Test(t)
 		require.Empty(t, stub.workflowID, tc.name)
 	}
+
+	// A refusal signs nothing: an unreadable token still delivers it.
+	stub = stubActionAuthorReview(t, user.Id, nil, nil)
+	stub.session.Spec = actionauthor.Spec{}
+	(&tests.ApiScenario{
+		Name:   "refused with a bad plan token",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/reviews",
+		Body: strings.NewReader(strings.Replace(
+			reviewBodyWithPlan("forged.x"), `"accepted":true`, `"accepted":false`, 1,
+		)),
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"accepted":false`, `"tool_id":"tool-1"`},
+		TestAppFactory:  setupActionAuthorApp,
+	}).Test(t)
+	require.Equal(t, reviewAuthorWorkflow, stub.workflowID)
+	require.Equal(t, map[string]any{"accepted": false, "approval": ""}, stub.result)
 }
