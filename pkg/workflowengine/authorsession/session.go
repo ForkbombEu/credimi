@@ -207,7 +207,8 @@ func (w *Workflow) ExecuteWorkflow(
 		StepID:            StepID,
 		RunIdentifier:     execution.ID,
 	}
-	// A store wallet is installed by the agent; cleanup uninstalls its package.
+	// A store wallet is installed by the agent; cleanup removes it by the diff
+	// against the initial_installed_apps recorded at prepare.
 	if build.Source == actionauthor.SourceStore {
 		deviceRequest.VersionIdentifier = pipeline.MobileExternalSourceVersionID
 		deviceRequest.PackageID = build.PackageID

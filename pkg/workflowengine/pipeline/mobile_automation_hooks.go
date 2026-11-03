@@ -520,7 +520,9 @@ type MobileDeviceRequest struct {
 	StepID            string // label used in errors and run identifiers
 	RunIdentifier     string
 	// PackageID is the package of an app installed outside Credimi, with
-	// VersionIdentifier MobileExternalSourceVersionID; cleanup uninstalls it.
+	// VersionIdentifier MobileExternalSourceVersionID. Its `installed` entry
+	// only provides PreparedMobileDevice.PackageID: cleanup removes the app by
+	// the diff against the initial_installed_apps recorded at prepare.
 	PackageID string
 }
 
