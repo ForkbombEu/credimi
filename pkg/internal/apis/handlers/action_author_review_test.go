@@ -289,7 +289,7 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 	}{
 		{
 			name:     "no plan",
-			expected: []string{`"invalid_request"`, "no plan: set one with set_plan"},
+			expected: []string{`"invalid_request"`, "no plan: describe the action with describe_action"},
 		},
 		{
 			name:     "invalid plan",

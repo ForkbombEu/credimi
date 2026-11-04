@@ -224,7 +224,7 @@ func SessionPlan(
 ) (actionauthor.Spec, error) {
 	if plan.Slot == "" {
 		return actionauthor.Spec{}, fmt.Errorf(
-			"%w: no plan: set one with set_plan", actionauthor.ErrInvalid,
+			"%w: no plan: describe the action with describe_action", actionauthor.ErrInvalid,
 		)
 	}
 	if _, err := checkPlan(app, selection, &plan); err != nil {

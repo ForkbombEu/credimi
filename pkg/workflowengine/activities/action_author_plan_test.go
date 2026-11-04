@@ -107,7 +107,7 @@ func TestGenerateActionAuthorParametersChecksTheSentPlan(t *testing.T) {
 
 	_, err = generate(actionauthor.Spec{})
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
-	require.ErrorContains(t, err, "no plan: set one with set_plan")
+	require.ErrorContains(t, err, "no plan: describe the action with describe_action")
 
 	foreign := foreignPlan(t, app, plan)
 	_, err = generate(foreign)
@@ -163,7 +163,7 @@ func TestCheckActionAuthorProtocolOutcomeChecksTheSentPlan(t *testing.T) {
 
 	_, err = check(actionauthor.Spec{})
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
-	require.ErrorContains(t, err, "no plan: set one with set_plan")
+	require.ErrorContains(t, err, "no plan: describe the action with describe_action")
 
 	foreign := foreignPlan(t, app, plan)
 	_, err = check(foreign)
@@ -221,7 +221,7 @@ func TestSaveAuthoredWalletActionChecksTheSentPlan(t *testing.T) {
 
 	_, err = save(request(actionauthor.Spec{}, approved))
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
-	require.ErrorContains(t, err, "no plan: set one with set_plan")
+	require.ErrorContains(t, err, "no plan: describe the action with describe_action")
 
 	foreign := foreignPlan(t, app, plan)
 	_, err = save(request(foreign, approved))
