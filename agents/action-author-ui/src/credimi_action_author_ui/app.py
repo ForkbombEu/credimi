@@ -54,7 +54,7 @@ from temporal_agent_harness.web.session_manager import (
 )
 from temporal_agent_harness.web.session_manager_worker import create_session_manager_worker
 from temporalio.api.common.v1 import Payload
-from temporalio.client import Client, WorkflowExecutionStatus
+from temporalio.client import Client, WorkflowExecutionStatus, WorkflowQueryFailedError
 from temporalio.contrib.workflow_streams import WorkflowStreamClient
 from temporalio.envconfig import ClientConfig
 from temporalio.service import RPCError, RPCStatusCode
@@ -292,6 +292,23 @@ async def _chat_ready(temporal, workflow_id: str) -> dict:
     }
 
 
+async def _idle_state(temporal, workflow_id: str) -> dict:
+    """When a running chat closes for inactivity; "" for a closed, missing or unanswering chat."""
+    handle = temporal.get_workflow_handle(workflow_id)
+    try:
+        state = await handle.describe()
+    except RPCError as exc:
+        if exc.status != RPCStatusCode.NOT_FOUND:
+            raise
+        return {"closes_at": ""}
+    if state.status != WorkflowExecutionStatus.RUNNING:
+        return {"closes_at": ""}
+    try:
+        return await handle.query("idle_state")
+    except WorkflowQueryFailedError:
+        return {"closes_at": ""}
+
+
 def _reset_state(app) -> None:
     app.state.binding = None
     app.state.binding_lock = asyncio.Lock()
@@ -484,11 +501,10 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
     async def chat_ready(workflow_id: str):
         return JSONResponse(await _chat_ready(app.state.temporal, workflow_id), headers=NO_STORE)
 
-    # Temporal errors answer 503 through own_origin_only, like every route.
+    # Other Temporal errors answer 503 through own_origin_only, like every route.
     @app.get(IDLE_PATH + "/{workflow_id:path}")
     async def idle_state(workflow_id: str):
-        state = await app.state.temporal.get_workflow_handle(workflow_id).query("idle_state")
-        return JSONResponse(state, headers=NO_STORE)
+        return JSONResponse(await _idle_state(app.state.temporal, workflow_id), headers=NO_STORE)
 
     # Registered last, so it runs first.
     @app.middleware("http")
@@ -511,8 +527,8 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
                 content={"error": "cross_origin_request", "message": "foreign Origin"},
             )
         elif request.url.path.rstrip("/") == CALLBACK_RESULT_PATH:
-            # Plans and save approvals are signed by Credimi; the harness route would let the
-            # UI settle a review without them.
+            # Save approvals are signed by Credimi; the harness route would let the UI settle a
+            # review without them.
             response = JSONResponse(
                 status_code=403,
                 content={

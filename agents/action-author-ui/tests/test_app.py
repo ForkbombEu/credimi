@@ -14,7 +14,7 @@ import pytest
 from temporal_agent_harness.harness.agent_protocol import AgentEvent, ReplyDelta
 from temporal_agent_harness.plugin import AgentHarnessPlugin
 from temporalio import workflow
-from temporalio.client import Client, WorkflowExecutionStatus
+from temporalio.client import Client, WorkflowExecutionStatus, WorkflowQueryFailedError
 from temporalio.service import RPCError, RPCStatusCode
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import UnsandboxedWorkflowRunner, Worker
@@ -369,33 +369,77 @@ class _BusyTemporal:
 
 
 class _IdleTemporal:
-    """A chat whose idle_state query answers ``state``."""
+    """A chat in ``status`` whose idle_state query answers ``state``, or raises ``query_error``."""
 
-    def __init__(self, state: dict) -> None:
+    def __init__(
+        self,
+        state: dict,
+        status: WorkflowExecutionStatus = WorkflowExecutionStatus.RUNNING,
+        query_error: Exception | None = None,
+    ) -> None:
         self.state = state
+        self.status = status
+        self.query_error = query_error
         self.queries: list[tuple[str, str]] = []
 
     def get_workflow_handle(self, workflow_id):
         temporal = self
 
+        class Description:
+            status = temporal.status
+
         class Handle:
+            async def describe(self):
+                return Description()
+
             async def query(self, name):
                 temporal.queries.append((workflow_id, name))
+                if temporal.query_error is not None:
+                    raise temporal.query_error
                 return temporal.state
 
         return Handle()
 
 
-async def test_idle_state_is_the_chat_workflows_query():
+async def _idle(temporal: _IdleTemporal) -> httpx.Response:
     app = create_app()
     app.state.binding = object()
-    app.state.temporal = _IdleTemporal({"closes_at": "2026-11-03T10:05:00+00:00"})
+    app.state.temporal = temporal
     async with ui_client(app=app) as client:
-        response = await client.get("/api/action-author/idle/session-1-author", headers=SAME_ORIGIN)
+        return await client.get("/api/action-author/idle/session-1-author", headers=SAME_ORIGIN)
+
+
+async def test_idle_state_is_the_chat_workflows_query():
+    temporal = _IdleTemporal({"closes_at": "2026-11-03T10:05:00+00:00"})
+    response = await _idle(temporal)
     assert response.status_code == 200
     assert response.json() == {"closes_at": "2026-11-03T10:05:00+00:00"}
     assert response.headers["cache-control"] == "no-store"
-    assert app.state.temporal.queries == [("session-1-author", "idle_state")]
+    assert temporal.queries == [("session-1-author", "idle_state")]
+
+
+async def test_idle_state_is_empty_for_a_closed_chat():
+    temporal = _IdleTemporal(
+        {"closes_at": "2026-11-03T10:05:00+00:00"}, status=WorkflowExecutionStatus.COMPLETED
+    )
+    response = await _idle(temporal)
+    assert response.status_code == 200
+    assert response.json() == {"closes_at": ""}
+    assert temporal.queries == []
+
+
+async def test_idle_state_is_empty_when_the_query_fails():
+    temporal = _IdleTemporal({}, query_error=WorkflowQueryFailedError("no such query"))
+    response = await _idle(temporal)
+    assert response.status_code == 200
+    assert response.json() == {"closes_at": ""}
+
+
+async def test_the_idle_banner_polls_the_idle_state():
+    async with ui_client() as client:
+        script = (await client.get("/action-save-review.js")).text
+    assert "idleBanner.textContent =" in script
+    assert "window.setInterval(refreshIdle, 10000)" in script
 
 
 @pytest.mark.parametrize("status", [RPCStatusCode.RESOURCE_EXHAUSTED, RPCStatusCode.UNAVAILABLE])
