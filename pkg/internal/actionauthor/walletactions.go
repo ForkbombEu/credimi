@@ -5,6 +5,7 @@
 package actionauthor
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -12,13 +13,31 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// WalletAction is one action a session can run as a prerequisite.
+// WalletAction is one action a session can run as a prerequisite. StartsFrom
+// lists the actions it was saved to start from, in order.
 type WalletAction struct {
 	Path       string   `json:"path"`
 	Name       string   `json:"name"`
 	Category   string   `json:"category"`
 	Published  bool     `json:"published"`
 	Parameters []string `json:"parameters"`
+	StartsFrom []string `json:"starts_from"`
+}
+
+// startsFrom returns the action paths a wallet action was saved to start
+// from, from its authoring provenance. It is empty, never nil, for an action
+// without provenance or whose provenance can't be decoded.
+func startsFrom(record *core.Record) []string {
+	var provenance Provenance
+	raw := record.GetString("authoring_provenance")
+	if raw == "" || json.Unmarshal([]byte(raw), &provenance) != nil {
+		return []string{}
+	}
+	paths := make([]string, 0, len(provenance.Prerequisites))
+	for _, path := range provenance.Prerequisites {
+		paths = append(paths, canonify.NormalizePath(path))
+	}
+	return paths
 }
 
 // ListWalletActions returns the selected wallet's actions that its
@@ -52,6 +71,7 @@ func ListWalletActions(app core.App, selection Selection, category string) ([]Wa
 			Category:   record.GetString("category"),
 			Published:  record.GetBool("published"),
 			Parameters: ActionParameters(record.GetString("code")),
+			StartsFrom: startsFrom(record),
 		})
 	}
 	return actions, nil

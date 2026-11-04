@@ -1100,6 +1100,11 @@ components:
           type: string
         published:
           type: boolean
+        starts_from:
+          items:
+            type: string
+          nullable: true
+          type: array
       type: object
     ApierrorAPIError:
       properties:

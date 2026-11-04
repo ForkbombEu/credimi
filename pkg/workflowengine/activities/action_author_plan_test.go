@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path"
 	"testing"
 	"time"
 
@@ -41,6 +42,22 @@ func seedAuthorAction(
 	require.NoError(t, app.Save(record))
 	return selection.Organization.GetString("canonified_name") + "/" +
 		selection.Wallet.GetString("canonified_name") + "/" + record.GetString("canonified_name")
+}
+
+// recordStartsFrom stores an authoring provenance saying the action at path
+// action was saved to start from prerequisites, in order.
+func recordStartsFrom(t *testing.T, app core.App, action string, prerequisites ...string) {
+	t.Helper()
+	record, err := app.FindFirstRecordByData("wallet_actions", "canonified_name", path.Base(action))
+	require.NoError(t, err)
+	provenance, err := json.Marshal(actionauthor.Provenance{
+		WorkflowID:    "authored",
+		YAMLSHA256:    actionauthor.CodeSHA256(record.GetString("code")),
+		Prerequisites: prerequisites,
+	})
+	require.NoError(t, err)
+	record.Set("authoring_provenance", string(provenance))
+	require.NoError(t, app.Save(record))
 }
 
 // seedForeignAction adds an unpublished action of userB's organization and
@@ -252,6 +269,8 @@ func TestListActionAuthorWalletActions(t *testing.T) {
 		"Onboarding",
 		"appId: eu.wallet\n---\n- launchApp\n",
 	)
+	getPID := seedAuthorAction(t, app, session, "Get PID", "appId: eu.wallet\n---\n- back\n")
+	recordStartsFrom(t, app, getPID, onboarding)
 	a := NewListActionAuthorWalletActionsActivity(app)
 	list := func(category string) (ListActionAuthorWalletActionsOutput, error) {
 		a.authorSessionLookup = buildSessionLookup(t, session).lookup()
@@ -261,15 +280,25 @@ func TestListActionAuthorWalletActions(t *testing.T) {
 	output, err := list("")
 	require.NoError(t, err)
 	require.Equal(t, []actionauthor.WalletAction{{
+		Path:       getPID,
+		Name:       "Get PID",
+		Category:   "onboarding",
+		Parameters: []string{},
+		StartsFrom: []string{onboarding},
+	}, {
 		Path:       onboarding,
 		Name:       "Onboarding",
 		Category:   "onboarding",
 		Parameters: []string{},
+		StartsFrom: []string{},
 	}}, output.Actions)
+	encoded, err := json.Marshal(output.Actions[1])
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"starts_from":[]`)
 
 	output, err = list("onboarding")
 	require.NoError(t, err)
-	require.Len(t, output.Actions, 1)
+	require.Len(t, output.Actions, 2)
 
 	output, err = list("verify-credential")
 	require.NoError(t, err)

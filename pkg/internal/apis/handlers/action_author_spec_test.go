@@ -23,9 +23,9 @@ const (
 )
 
 // setupActionAuthorSpecApp adds to setupActionAuthorApp the handler wallet's
-// actions (an owned onboarding, an owned get-pid with ${deeplink}, a
-// published and an unpublished action of userB's organization) and an action
-// of another wallet of userA's organization.
+// actions (an owned onboarding, an owned get-pid with ${deeplink} saved to
+// start from the onboarding, a published and an unpublished action of userB's
+// organization) and an action of another wallet of userA's organization.
 func setupActionAuthorSpecApp(t testing.TB) *tests.TestApp {
 	app := setupActionAuthorApp(t)
 	org, err := app.FindFirstRecordByData("organizations", "name", "userA's organization")
@@ -44,8 +44,8 @@ func setupActionAuthorSpecApp(t testing.TB) *tests.TestApp {
 		require.NoError(t, app.Save(record))
 		return record
 	}
-	action := func(walletID, owner, name, category, code string, published bool) {
-		save("wallet_actions", map[string]any{
+	action := func(walletID, owner, name, category, code string, published bool) *core.Record {
+		return save("wallet_actions", map[string]any{
 			"owner":     owner,
 			"wallet":    walletID,
 			"name":      name,
@@ -62,8 +62,16 @@ func setupActionAuthorSpecApp(t testing.TB) *tests.TestApp {
 		"appId: eu.wallet\n---\n- launchApp\n",
 		false,
 	)
-	action(wallet.Id, org.Id, "Get PID", "get-credential-generic",
+	getPID := action(wallet.Id, org.Id, "Get PID", "get-credential-generic",
 		"appId: eu.wallet\n---\n- openLink: ${deeplink}\n", false)
+	provenance, err := json.Marshal(actionauthor.Provenance{
+		WorkflowID:    "authored",
+		YAMLSHA256:    actionauthor.CodeSHA256(getPID.GetString("code")),
+		Prerequisites: []string{authoringOnboardingAction},
+	})
+	require.NoError(t, err)
+	getPID.Set("authoring_provenance", string(provenance))
+	require.NoError(t, app.Save(getPID))
 	action(
 		wallet.Id,
 		foreignOrg.Id,
@@ -142,12 +150,14 @@ func TestActionAuthorWalletActionsListsOwnedAndPublished(t *testing.T) {
 			Name:       "Get PID",
 			Category:   "get-credential-generic",
 			Parameters: []string{"deeplink"},
+			StartsFrom: []string{authoringOnboardingAction},
 		},
 		{
 			Path:       authoringOnboardingAction,
 			Name:       "Onboarding",
 			Category:   "onboarding",
 			Parameters: []string{},
+			StartsFrom: []string{},
 		},
 		{
 			Path:       authoringNamespace + "/authoring-handler-wallet/foreign-published",
@@ -155,6 +165,7 @@ func TestActionAuthorWalletActionsListsOwnedAndPublished(t *testing.T) {
 			Category:   "other",
 			Published:  true,
 			Parameters: []string{},
+			StartsFrom: []string{},
 		},
 	}, response.Actions)
 
