@@ -154,6 +154,27 @@ The list lives in `workflowengine.CustomSearchAttributeTypes`. If an attribute i
 exist, trigger a Temporal visibility reindex to backfill historical data (see Temporal admin tooling docs for
 your deployment).
 
+## Observability (OpenTelemetry)
+
+Credimi exports traces, metrics and logs over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and exports
+nothing otherwise. The exporters read the standard `OTEL_*` variables:
+
+```sh
+OTEL_EXPORTER_OTLP_ENDPOINT=https://<collector host>
+# SigNoz collector basic auth; the header value is URL-encoded (space as %20)
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20$(printf 'signoz:<password>' | base64 -w0)
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=staging
+```
+
+- Every served request becomes a span named after the matched route (`GET /api/pipeline/list-executions`),
+  with the caller's `enduser.id` and `enduser.collection` and any handler error. Incoming `traceparent` headers
+  join the caller's trace.
+- Temporal clients and workers add `StartWorkflow`/`RunWorkflow`/`StartActivity`/`RunActivity` spans to the
+  same trace and report Temporal SDK metrics.
+- HTTP server, Go runtime and Temporal metrics are pushed every 60s.
+- `slog` and `log` records are exported and still printed to stderr. PocketBase's own logger (`app.Logger()`,
+  the `_logs` table) and outbound HTTP calls are not exported.
+
 ## mobile device semaphore Ops (Internal)
 
 ### Defaults and knobs
