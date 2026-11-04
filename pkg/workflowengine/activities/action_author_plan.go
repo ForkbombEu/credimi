@@ -29,16 +29,16 @@ func (l authorSessionLookup) sessionSelection(
 	base *workflowengine.BaseActivity,
 	app core.App,
 	caller authorCaller,
-) (ActionAuthorSessionRef, actionauthor.Selection, error) {
+) (actionauthor.Selection, error) {
 	ref, err := l.callerSession(ctx, base, caller)
 	if err != nil {
-		return ActionAuthorSessionRef{}, actionauthor.Selection{}, err
+		return actionauthor.Selection{}, err
 	}
 	selection, err := actionauthor.Select(app, caller.Namespace, ref.Session)
 	if err != nil {
-		return ActionAuthorSessionRef{}, actionauthor.Selection{}, actionAuthorError(base, err)
+		return actionauthor.Selection{}, actionAuthorError(base, err)
 	}
-	return ref, selection, nil
+	return selection, nil
 }
 
 // ListActionAuthorWalletActionsInput optionally filters by category.
@@ -96,7 +96,7 @@ func (a *ListActionAuthorWalletActionsActivity) list(
 	caller authorCaller,
 	payload ListActionAuthorWalletActionsInput,
 ) (ListActionAuthorWalletActionsOutput, error) {
-	_, selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
+	selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return ListActionAuthorWalletActionsOutput{}, err
 	}
@@ -178,7 +178,7 @@ func (a *CheckActionAuthorPlanActivity) check(
 	caller authorCaller,
 	payload CheckActionAuthorPlanInput,
 ) (CheckActionAuthorPlanOutput, error) {
-	_, selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
+	selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return CheckActionAuthorPlanOutput{}, err
 	}
@@ -286,7 +286,7 @@ func (a *ResolveActionAuthorReferenceActivity) resolve(
 	caller authorCaller,
 	payload ResolveActionAuthorReferenceInput,
 ) (actionauthor.ReferenceResolution, error) {
-	_, selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
+	selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return actionauthor.ReferenceResolution{}, err
 	}

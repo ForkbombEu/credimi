@@ -157,7 +157,8 @@ async def test_save_review_shows_the_yaml_plan_and_checks_its_hash():
     assert "'No plan: refuse this candidate.'" in script
     assert "if (!hasPlan(input)) return false;" in script
     assert "cannotAccept: (input) => (hasPlan(input) ? hashMismatch : noPlan)," in script
-    assert "plan_token" not in script
+    # No token or other plan_* field travels with the plan.
+    assert "plan_" not in script
     # Accept needs the shown YAML to hash to the digest Credimi's approval signs.
     assert "crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))" in script
     assert "byte.toString(16).padStart(2, '0')" in script

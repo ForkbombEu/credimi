@@ -149,7 +149,7 @@ func (a *GenerateActionAuthorParametersActivity) generate(
 		Values:   map[string]string{},
 		Captures: map[string]map[string]string{},
 	}
-	_, selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
+	selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return output, err
 	}
@@ -373,7 +373,7 @@ func (a *CheckActionAuthorProtocolOutcomeActivity) check(
 	payload CheckActionAuthorProtocolOutcomeInput,
 ) (CheckActionAuthorProtocolOutcomeOutput, error) {
 	var output CheckActionAuthorProtocolOutcomeOutput
-	_, selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
+	selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return output, err
 	}
