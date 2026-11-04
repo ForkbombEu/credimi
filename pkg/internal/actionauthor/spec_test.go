@@ -474,3 +474,67 @@ func TestCheckRecordAccess(t *testing.T) {
 	)
 	require.ErrorIs(t, err, ErrInvalid)
 }
+
+func TestResolvePrerequisitesRequiresStartingActions(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	actions, err := app.FindCollectionByNameOrId("wallet_actions")
+	require.NoError(t, err)
+	seed := func(name string, starts ...string) string {
+		action := core.NewRecord(actions)
+		action.Set("owner", selection.Organization.Id)
+		action.Set("wallet", selection.Wallet.Id)
+		action.Set("name", name)
+		action.Set("code", "appId: x\n---\n- launchApp\n")
+		action.Set("category", "other")
+		if starts != nil {
+			provenance, err := json.Marshal(Provenance{Prerequisites: starts})
+			require.NoError(t, err)
+			action.Set("authoring_provenance", string(provenance))
+		}
+		require.NoError(t, app.Save(action))
+		return namespace + "/" + selection.Wallet.GetString("canonified_name") + "/" +
+			action.GetString("canonified_name")
+	}
+	onboarding := seed("Chain onboarding")
+	handWritten := seed("Chain hand written")
+	getPID := seed("Chain get PID", onboarding)
+	present := seed("Chain present", onboarding, handWritten)
+	resolve := func(prerequisites ...string) error {
+		spec := Spec{Slot: "other"}
+		for _, prerequisite := range prerequisites {
+			spec.Prerequisites = append(spec.Prerequisites, PrerequisiteSpec{Action: prerequisite})
+		}
+		require.NoError(t, spec.Normalize())
+		resolved, err := ResolvePrerequisites(app, selection, &spec)
+		if err == nil {
+			require.Len(t, resolved, len(prerequisites))
+		}
+		return err
+	}
+
+	err = resolve(getPID)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.Equal(t, "invalid authoring request: prerequisite "+getPID+" starts from "+
+		onboarding+": list it before "+getPID, err.Error())
+	require.NoError(t, resolve(onboarding, getPID))
+	require.NoError(t, resolve(onboarding, handWritten, getPID, present))
+	err = resolve(handWritten, onboarding, present)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.Contains(t, err.Error(), "prerequisite "+present+" starts from "+handWritten+
+		": list it before "+present)
+	require.NoError(t, resolve(handWritten))
+	require.NoError(t, resolve(handWritten, onboarding))
+}
+
+func TestStartsFromIgnoresUndecodableProvenance(t *testing.T) {
+	actions := core.NewBaseCollection("wallet_actions")
+	actions.Fields.Add(&core.JSONField{Name: "authoring_provenance"})
+	record := core.NewRecord(actions)
+	assert.Equal(t, []string{}, startsFrom(record))
+	record.Set("authoring_provenance", `{"prerequisites": "not a list"}`)
+	assert.Equal(t, []string{}, startsFrom(record))
+	record.Set("authoring_provenance", `{"prerequisites": ["/org/wallet/onboarding"]}`)
+	assert.Equal(t, []string{"org/wallet/onboarding"}, startsFrom(record))
+}

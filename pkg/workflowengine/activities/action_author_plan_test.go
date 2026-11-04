@@ -382,6 +382,16 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, problems(namespace+"/x/y not found"), output)
 
+	getPID := seedAuthorAction(t, app, session, "Get PID", "appId: eu.wallet\n---\n- back\n")
+	recordStartsFrom(t, app, getPID, onboarding)
+	unchained := plan
+	unchained.Prerequisites = []actionauthor.PrerequisiteSpec{{Action: getPID}}
+	output, err = check(unchained)
+	require.NoError(t, err)
+	require.Equal(t, problems(
+		"prerequisite "+getPID+" starts from "+onboarding+": list it before "+getPID,
+	), output)
+
 	wait := actionauthor.Spec{
 		Slot:          "other",
 		Outcome:       actionauthor.OutcomeWait,

@@ -232,8 +232,11 @@ type ResolvedPrerequisite struct {
 	Parameters []string `json:"parameters"`
 }
 
-// ResolvePrerequisites checks the spec's records like CheckSpecRecords and
-// returns its prerequisite actions in order, with their code.
+// ResolvePrerequisites checks the spec's records like CheckSpecRecords,
+// requires each prerequisite's own starting actions (its recorded
+// starts_from) before it, in the same order, and returns its prerequisite
+// actions in order, with their code. Only direct chains are checked: each
+// prerequisite's own chain was checked when it was saved.
 func ResolvePrerequisites(
 	app core.App,
 	selection Selection,
@@ -242,6 +245,13 @@ func ResolvePrerequisites(
 	records, err := CheckSpecRecords(app, selection, spec)
 	if err != nil {
 		return nil, err
+	}
+	for i, record := range records {
+		if missing := missingStart(startsFrom(record), spec.Prerequisites[:i]); missing != "" {
+			action := spec.Prerequisites[i].Action
+			return nil, invalidf("prerequisite %s starts from %s: list it before %s",
+				action, missing, action)
+		}
 	}
 	resolved := make([]ResolvedPrerequisite, 0, len(records))
 	for i, record := range records {
@@ -253,6 +263,22 @@ func ResolvePrerequisites(
 		})
 	}
 	return resolved, nil
+}
+
+// missingStart returns the first path of starts that the earlier
+// prerequisites don't list in the same relative order, or "".
+func missingStart(starts []string, earlier []PrerequisiteSpec) string {
+	next := 0
+	for _, start := range starts {
+		for next < len(earlier) && earlier[next].Action != start {
+			next++
+		}
+		if next == len(earlier) {
+			return start
+		}
+		next++
+	}
+	return ""
 }
 
 func invalidf(format string, args ...any) error {
