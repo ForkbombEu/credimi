@@ -61,7 +61,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorWalletActions,
 			OperationID:    "actionAuthor.listWalletActions",
 			Summary:        "List wallet actions usable as session prerequisites",
-			Description:    "List the actions of the wallet of wallet_version_identifier that its organization owns or that are published, for a caller authorized to author on that version and platform (android or ios; both query parameters are required). Each action carries its canonified path, which the session start endpoint takes as a prerequisite, and the sorted parameters its code references, which the prerequisite must receive. Sorted by category, then name.",
+			Description:    "List the actions of the wallet of wallet_version_identifier that its organization owns or that are published, for a caller authorized to author on that version and platform (android or ios; both query parameters are required). Each action carries its canonified path, which a session's plan takes as a prerequisite, and the sorted parameters its code references, which the prerequisite must receive. Sorted by category, then name.",
 			ResponseSchema: ActionAuthorWalletActionsResponse{},
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
@@ -82,7 +82,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Queue a wallet-action authoring session on a runner device",
-			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform, or organization/wallet for a wallet installed from the Play Store or App Store at session start (the device needs the store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor in the last two minutes answers 503 agent_unavailable. The spec fields (slot, outcome, wait_seconds, prerequisites, parameters) are optional: without them the agent sets each plan in the chat; Credimi checks and signs it, and the save review shows it, and the session can save several actions; with them the plan is fixed for the whole session, which closes after its save. The slot selects the action category: onboarding takes no prerequisites; install-app, only for a wallet selected from the store, takes no prerequisites and each replay starts with the wallet uninstalled; get-credential, get-credential-specific and verify-credential need at least one; other takes optional prerequisites. outcome is success (default), rejection (not for onboarding or install-app) or wait (only for other): a wait action keeps the device idle for wait_seconds (1-600, only for wait) and takes no parameters: its code ends with extendedWaitUntil on a visible condition, with optional: true and a plain integer timeout of wait_seconds * 1000. Prerequisites (at most 5) are wallet actions of the selected wallet, published or owned by its organization, listed by GET /api/action-author/wallet-actions; each must receive exactly the parameters its code references. Parameters (at most 8 per list) take fresh values from a credential_offer or use_case_verification (published or owned records), an https GET or POST whose only headers are Content-Type, Accept and Accept-Language (http), or a fixed value (literal); only the new action's http parameters may check a protocol status. An invalid spec answers 400 invalid_request; a spec without a slot is invalid. Each organization has a daily allowance of model tokens (UTC day), set by a superuser on the organization (action_author_daily_tokens); new organizations have none. A start without an allowance or after the day's tokens reach it answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
+			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform, or organization/wallet for a wallet installed from the Play Store or App Store at session start (the device needs the store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. Each organization has a daily allowance of model tokens (UTC day), set by a superuser on the organization (action_author_daily_tokens); new organizations have none. A start without an allowance or after the day's tokens reach it answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
@@ -252,12 +252,11 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 	}
 }
 
-// ActionAuthorStartRequest selects the device, wallet version and action spec for a new session.
+// ActionAuthorStartRequest selects the device and wallet version for a new session.
 type ActionAuthorStartRequest struct {
 	DeviceID                string `json:"device_id"                 validate:"required"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier" validate:"required"`
 	AppID                   string `json:"app_id,omitempty"`
-	actionauthor.Spec
 }
 
 // ActionAuthorStartResponse identifies the queued session ticket.
@@ -396,24 +395,12 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if apiErr := requireActionAuthorAgent(e, runner, namespace); apiErr != nil {
 			return apiErr
 		}
-		// Without a spec the agent proposes the plan in the chat.
-		spec := input.Spec
-		if !spec.IsEmpty() {
-			if err := spec.Normalize(); err != nil {
-				return authoringAPIError(e, err)
-			}
-			if _, err := actionauthor.CheckSpecRecords(e.App, selection, &spec); err != nil {
-				return authoringAPIError(e, err)
-			}
-		}
-
 		session, err := sessionInputMap(authorsession.SessionInput{
 			DeviceID:                deviceID,
 			Platform:                platform,
 			WalletVersionIdentifier: selection.Identifier,
 			ActorID:                 actor.ActorID,
 			ActorCollection:         actor.ActorCollection,
-			Spec:                    spec,
 			AppID:                   input.AppID,
 		})
 		if err != nil {

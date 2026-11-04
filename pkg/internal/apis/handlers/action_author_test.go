@@ -231,7 +231,7 @@ func freshActionAuthorPoller() *workflowservice.DescribeTaskQueueResponse {
 }
 
 func startSessionBody(deviceID, version string) string {
-	return `{"device_id":"` + deviceID + `","wallet_version_identifier":"` + version + `","slot":"onboarding"}`
+	return `{"device_id":"` + deviceID + `","wallet_version_identifier":"` + version + `"}`
 }
 
 func TestActionAuthorStartRejectsInvalidDevicesAndRunners(t *testing.T) {
@@ -246,7 +246,7 @@ func TestActionAuthorStartRejectsInvalidDevicesAndRunners(t *testing.T) {
 	}{
 		{
 			name:     "missing device",
-			body:     `{"wallet_version_identifier":"` + authoringAndroidVersion + `","slot":"onboarding"}`,
+			body:     `{"wallet_version_identifier":"` + authoringAndroidVersion + `"}`,
 			status:   http.StatusBadRequest,
 			expected: []string{"ActionAuthorStartRequest.DeviceID", "'required' tag"},
 		},
@@ -385,7 +385,7 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 			URL:    "/api/action-author/sessions",
 			Body: strings.NewReader(
 				`{"device_id":"` + deviceID + `","wallet_version_identifier":"` + scenario.version +
-					`","slot":"onboarding","app_id":"eu.wallet"}`,
+					`","app_id":"eu.wallet"}`,
 			),
 			Headers:         map[string]string{"Authorization": "Bearer " + token},
 			ExpectedStatus:  http.StatusAccepted,
@@ -423,8 +423,6 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 			"wallet_version_identifier": scenario.version,
 			"actor_id":                  user.Id,
 			"actor_collection":          "users",
-			"slot":                      "onboarding",
-			"outcome":                   "success",
 			"app_id":                    "eu.wallet",
 		}, enqueued.ActionAuthor)
 	}
@@ -441,7 +439,7 @@ func TestActionAuthorStartQueuesStoreWalletSession(t *testing.T) {
 		URL:    "/api/action-author/sessions",
 		Body: strings.NewReader(
 			`{"device_id":"` + deviceID + `","wallet_version_identifier":"` + storeWallet +
-				`","slot":"install-app"}`,
+				`"}`,
 		),
 		Headers:         map[string]string{"Authorization": "Bearer " + token},
 		ExpectedStatus:  http.StatusAccepted,
@@ -465,7 +463,6 @@ func TestActionAuthorStartQueuesStoreWalletSession(t *testing.T) {
 	require.Equal(t, deviceID, enqueued.DeviceID)
 	require.Equal(t, storeWallet, enqueued.ActionAuthor["wallet_version_identifier"])
 	require.Equal(t, "android", enqueued.ActionAuthor["platform"])
-	require.Equal(t, "install-app", enqueued.ActionAuthor["slot"])
 }
 
 func TestActionAuthorStartMapsQueueFailures(t *testing.T) {

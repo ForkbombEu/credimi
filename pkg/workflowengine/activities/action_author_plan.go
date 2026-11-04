@@ -34,7 +34,7 @@ func (l authorSessionLookup) sessionSelection(
 	if err != nil {
 		return ActionAuthorSessionRef{}, actionauthor.Selection{}, err
 	}
-	selection, err := actionauthor.Select(app, caller.Namespace, ref.Session.BuildRequest)
+	selection, err := actionauthor.Select(app, caller.Namespace, ref.Session)
 	if err != nil {
 		return ActionAuthorSessionRef{}, actionauthor.Selection{}, actionAuthorError(base, err)
 	}

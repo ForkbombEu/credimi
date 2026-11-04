@@ -70,7 +70,7 @@ func (a *RecordActionAuthorUsageActivity) record(
 	if err != nil {
 		return actionauthor.UsageState{}, err
 	}
-	selection, err := actionauthor.Select(a.app, caller.Namespace, ref.Session.BuildRequest)
+	selection, err := actionauthor.Select(a.app, caller.Namespace, ref.Session)
 	if err != nil {
 		return actionauthor.UsageState{}, actionAuthorError(&a.BaseActivity, err)
 	}

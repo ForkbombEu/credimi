@@ -58,15 +58,6 @@ func TestPlanSHA256(t *testing.T) {
 	assert.NotEqual(t, PlanSHA256(wait), PlanSHA256(longer))
 }
 
-func TestSpecIsEmpty(t *testing.T) {
-	assert.True(t, Spec{}.IsEmpty())
-	assert.False(t, Spec{Outcome: OutcomeSuccess}.IsEmpty())
-	assert.False(t, Spec{Slot: "other"}.IsEmpty())
-	assert.False(t, Spec{WaitSeconds: 20}.IsEmpty())
-	assert.False(t, Spec{Parameters: []ParameterSpec{{Name: "x"}}}.IsEmpty())
-	assert.False(t, testPlan().IsEmpty())
-}
-
 func TestParameterInfosAndPlanSummary(t *testing.T) {
 	plan := testPlan()
 	assert.Equal(t, []ParameterInfo{

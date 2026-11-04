@@ -20,15 +20,12 @@ import (
 const (
 	authoringOnboardingAction = authoringNamespace + "/authoring-handler-wallet/onboarding"
 	authoringGetPIDAction     = authoringNamespace + "/authoring-handler-wallet/get-pid"
-	authoringOtherWallet      = authoringNamespace + "/other-authoring-wallet/foreign-onboarding"
-	authoringForeignOffer     = authoringForeignNS + "/foreign-issuer/foreign-pid"
 )
 
 // setupActionAuthorSpecApp adds to setupActionAuthorApp the handler wallet's
 // actions (an owned onboarding, an owned get-pid with ${deeplink}, a
-// published and an unpublished action of userB's organization), an action of
-// another wallet of userA's organization, and an unpublished credential of
-// userB's organization.
+// published and an unpublished action of userB's organization) and an action
+// of another wallet of userA's organization.
 func setupActionAuthorSpecApp(t testing.TB) *tests.TestApp {
 	app := setupActionAuthorApp(t)
 	org, err := app.FindFirstRecordByData("organizations", "name", "userA's organization")
@@ -95,132 +92,28 @@ func setupActionAuthorSpecApp(t testing.TB) *tests.TestApp {
 		"appId: x\n---\n- launchApp\n",
 		true,
 	)
-	issuer := save("credential_issuers", map[string]any{
-		"owner": foreignOrg.Id,
-		"name":  "Foreign issuer",
-		"url":   "https://issuer.example.test",
-	})
-	save("credentials", map[string]any{
-		"owner":             foreignOrg.Id,
-		"credential_issuer": issuer.Id,
-		"name":              "Foreign PID",
-	})
 	return app
 }
 
-func specSessionBody(deviceID, version, spec string) string {
-	return `{"device_id":"` + deviceID + `","wallet_version_identifier":"` + version + `",` + spec + `}`
-}
-
-func TestActionAuthorStartChecksSpec(t *testing.T) {
-	token := authoringToken(t, "userA")
-	device := authoringAdminRunner + "/android-emulator"
-	for _, tc := range []struct {
-		name     string
-		spec     string
-		expected string
-	}{
-		{
-			name:     "prerequisite of another wallet",
-			spec:     `"slot":"get-credential","prerequisites":[{"action":"` + authoringOtherWallet + `"}]`,
-			expected: "prerequisite " + authoringOtherWallet + " belongs to another wallet",
-		},
-		{
-			name: "unpublished credential of another organization",
-			spec: `"slot":"get-credential","prerequisites":[{"action":"` + authoringOnboardingAction +
-				`"}],"parameters":[{"name":"deeplink","source":{"kind":"credential_offer","identifier":"` +
-				authoringForeignOffer + `"}}]`,
-			expected: authoringForeignOffer + " not found",
-		},
-		{
-			name:     "unpublished prerequisite of another organization",
-			spec:     `"slot":"other","prerequisites":[{"action":"` + authoringNamespace + `/authoring-handler-wallet/foreign-private"}]`,
-			expected: authoringNamespace + "/authoring-handler-wallet/foreign-private not found",
-		},
-		{
-			name:     "prerequisite parameters",
-			spec:     `"slot":"verify-credential","prerequisites":[{"action":"` + authoringGetPIDAction + `"}]`,
-			expected: "prerequisite " + authoringGetPIDAction + " needs parameters [deeplink], got []",
-		},
-		{
-			name:     "partial spec without a slot",
-			spec:     `"outcome":"rejection"`,
-			expected: "slot: must be one of",
-		},
-		{
-			name:     "rejection on onboarding",
-			spec:     `"slot":"onboarding","outcome":"rejection"`,
-			expected: "outcome: the onboarding slot has no rejection outcome",
-		},
-	} {
-		enqueued := stubActionAuthorQueue(t, true)
-		(&tests.ApiScenario{
-			Name:   tc.name,
-			Method: http.MethodPost,
-			URL:    "/api/action-author/sessions",
-			Body: strings.NewReader(
-				specSessionBody(device, authoringAndroidVersion, tc.spec),
-			),
-			Headers:         map[string]string{"Authorization": "Bearer " + token},
-			ExpectedStatus:  http.StatusBadRequest,
-			ExpectedContent: []string{`"invalid_request"`, tc.expected},
-			TestAppFactory:  setupActionAuthorSpecApp,
-		}).Test(t)
-		require.Empty(t, enqueued.TicketID, tc.name)
-	}
-}
-
-func TestActionAuthorStartQueuesSpec(t *testing.T) {
+// A start body of an older client with spec fields queues a session without
+// them: the agent sets each plan in the chat.
+func TestActionAuthorStartIgnoresSpecFields(t *testing.T) {
 	token := authoringToken(t, "userA")
 	enqueued := stubActionAuthorQueue(t, true)
 	(&tests.ApiScenario{
-		Name:   "verify credential with prerequisites",
-		Method: http.MethodPost,
-		URL:    "/api/action-author/sessions",
-		Body: strings.NewReader(specSessionBody(
-			authoringAdminRunner+"/android-emulator",
-			authoringAndroidVersion,
-			`"slot":"verify-credential","prerequisites":[{"action":"/`+
-				authoringOnboardingAction+`"},{"action":"`+authoringGetPIDAction+
-				`","parameters":[{"name":"deeplink","source":{"kind":"literal","value":"openid://x"}}]}]`,
-		)),
-		Headers:         map[string]string{"Authorization": "Bearer " + token},
-		ExpectedStatus:  http.StatusAccepted,
-		ExpectedContent: []string{`"ticket_id"`},
-		TestAppFactory:  setupActionAuthorSpecApp,
-	}).Test(t)
-	require.NotEmpty(t, enqueued.TicketID)
-	require.Equal(t, "verify-credential", enqueued.ActionAuthor["slot"])
-	require.Equal(t, "success", enqueued.ActionAuthor["outcome"])
-	require.Equal(t, []any{
-		map[string]any{"action": authoringOnboardingAction},
-		map[string]any{
-			"action": authoringGetPIDAction,
-			"parameters": []any{map[string]any{
-				"name":   "deeplink",
-				"source": map[string]any{"kind": "literal", "value": "openid://x"},
-			}},
-		},
-	}, enqueued.ActionAuthor["prerequisites"])
-}
-
-func TestActionAuthorStartQueuesEmptySpec(t *testing.T) {
-	token := authoringToken(t, "userA")
-	enqueued := stubActionAuthorQueue(t, true)
-	(&tests.ApiScenario{
-		Name:   "plan proposed in the chat",
+		Name:   "spec fields are ignored",
 		Method: http.MethodPost,
 		URL:    "/api/action-author/sessions",
 		Body: strings.NewReader(`{"device_id":"` + authoringAdminRunner +
-			`/android-emulator","wallet_version_identifier":"` + authoringAndroidVersion + `"}`),
+			`/android-emulator","wallet_version_identifier":"` + authoringAndroidVersion +
+			`","slot":"onboarding","outcome":"rejection"}`),
 		Headers:         map[string]string{"Authorization": "Bearer " + token},
 		ExpectedStatus:  http.StatusAccepted,
 		ExpectedContent: []string{`"ticket_id"`},
 		TestAppFactory:  setupActionAuthorSpecApp,
 	}).Test(t)
 	require.NotEmpty(t, enqueued.TicketID)
-	require.Equal(t, "", enqueued.ActionAuthor["slot"])
-	for _, field := range []string{"outcome", "prerequisites", "parameters"} {
+	for _, field := range []string{"slot", "outcome", "wait_seconds", "prerequisites", "parameters"} {
 		require.NotContains(t, enqueued.ActionAuthor, field)
 	}
 }

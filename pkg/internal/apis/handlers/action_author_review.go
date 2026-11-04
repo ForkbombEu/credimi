@@ -157,7 +157,7 @@ func HandleActionAuthorReview() func(*core.RequestEvent) error {
 		// candidate with a missing or invalid plan must still reach the agent.
 		result := map[string]any{"accepted": false, "approval": ""}
 		if *input.Accepted {
-			selection, err := actionauthor.Select(e.App, input.Namespace, ref.Session.BuildRequest)
+			selection, err := actionauthor.Select(e.App, input.Namespace, ref.Session)
 			if err != nil {
 				return authoringAPIError(e, err)
 			}

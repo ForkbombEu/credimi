@@ -24,9 +24,7 @@ func TestRecordActionAuthorUsage(t *testing.T) {
 	require.NoError(t, app.Save(selection.Organization))
 	a := func() *RecordActionAuthorUsageActivity {
 		activity := NewRecordActionAuthorUsageActivity(app)
-		activity.authorSessionLookup = specSessionLookup(
-			t, session, actionauthor.Spec{Slot: "onboarding"},
-		).lookup()
+		activity.authorSessionLookup = buildSessionLookup(t, session).lookup()
 		return activity
 	}
 	now := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
@@ -80,9 +78,7 @@ func TestRecordActionAuthorUsageWithoutAllowance(t *testing.T) {
 	caller := authorTestCaller()
 	caller.Namespace = namespace
 	a := NewRecordActionAuthorUsageActivity(app)
-	a.authorSessionLookup = specSessionLookup(
-		t, session, actionauthor.Spec{Slot: "onboarding"},
-	).lookup()
+	a.authorSessionLookup = buildSessionLookup(t, session).lookup()
 
 	state, err := a.record(t.Context(), caller, actionauthor.UsageReport{
 		ReportID:   "wf/1",

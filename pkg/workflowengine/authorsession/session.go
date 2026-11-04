@@ -59,8 +59,7 @@ const (
 	agentReadyTimeout = 3 * time.Minute
 )
 
-// SessionInput selects the device and build of a session and the action it
-// authors; the embedded spec keeps its JSON keys (slot, outcome, ...).
+// SessionInput selects the device and build of a session.
 type SessionInput struct {
 	DeviceID string `json:"device_id"`
 	// Platform is "android" or "ios", derived from the device type.
@@ -68,8 +67,7 @@ type SessionInput struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
 	ActorCollection         string `json:"actor_collection"`
-	actionauthor.Spec
-	AppID string `json:"app_id,omitempty"`
+	AppID                   string `json:"app_id,omitempty"`
 }
 
 // AuthoringBuild is the resolved build the agent authors against. Store
@@ -98,20 +96,16 @@ type AuthoringDevice struct {
 }
 
 // AuthoringContext is the trusted session context passed to the Python
-// agent; its JSON shape is the runner agent's contract.
+// agent; its JSON shape is the runner agent's contract. The agent sets each
+// action's plan in the chat.
 type AuthoringContext struct {
-	WalletVersionIdentifier string                              `json:"wallet_version_identifier"`
-	ActorID                 string                              `json:"actor_id"`
-	ActorCollection         string                              `json:"actor_collection"`
-	Slot                    string                              `json:"slot"`
-	Outcome                 string                              `json:"outcome"`
-	WaitSeconds             int                                 `json:"wait_seconds,omitempty"`
-	Prerequisites           []actionauthor.ResolvedPrerequisite `json:"prerequisites"`
-	Parameters              []actionauthor.ParameterInfo        `json:"parameters"`
-	AppID                   string                              `json:"app_id"`
-	Platform                string                              `json:"platform"`
-	Build                   AuthoringBuild                      `json:"build"`
-	Device                  AuthoringDevice                     `json:"device"`
+	WalletVersionIdentifier string          `json:"wallet_version_identifier"`
+	ActorID                 string          `json:"actor_id"`
+	ActorCollection         string          `json:"actor_collection"`
+	AppID                   string          `json:"app_id"`
+	Platform                string          `json:"platform"`
+	Build                   AuthoringBuild  `json:"build"`
+	Device                  AuthoringDevice `json:"device"`
 }
 
 // Workflow is the "Action author session" workflow.
@@ -192,14 +186,6 @@ func (w *Workflow) ExecuteWorkflow(
 	if err != nil {
 		return result, err
 	}
-	// Prerequisite failures end the session before the device is touched.
-	prerequisites := []actionauthor.ResolvedPrerequisite{}
-	if len(session.Prerequisites) > 0 {
-		prerequisites, err = resolvePrerequisites(ctx, session)
-		if err != nil {
-			return result, err
-		}
-	}
 
 	deviceRequest := pipeline.MobileDeviceRequest{
 		DeviceID:          session.DeviceID,
@@ -239,7 +225,7 @@ func (w *Workflow) ExecuteWorkflow(
 		AuthorWorkflowType,
 		// The Python harness agent takes its config, then the trusted session context.
 		map[string]any{},
-		authoringContext(session, build, prepared, prerequisites),
+		authoringContext(session, build, prepared),
 	)
 	ready, childErr := awaitAuthor(ctx, child)
 	if !ready {
@@ -350,59 +336,15 @@ func buildRequest(session SessionInput) actionauthor.BuildRequest {
 	}
 }
 
-// resolvePrerequisites rechecks the prerequisite actions in the
-// organization's namespace and returns their code.
-func resolvePrerequisites(
-	ctx workflow.Context,
-	session SessionInput,
-) ([]actionauthor.ResolvedPrerequisite, error) {
-	var resolved workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(
-		ctx,
-		activities.ResolveActionAuthorPrerequisitesActivityName,
-		workflowengine.ActivityInput{Payload: activities.ResolveActionAuthorPrerequisitesInput{
-			BuildRequest:  buildRequest(session),
-			Prerequisites: session.Prerequisites,
-		}},
-	).Get(ctx, &resolved); err != nil {
-		return nil, err
-	}
-	output, err := workflowengine.DecodePayload[struct {
-		Prerequisites []actionauthor.ResolvedPrerequisite `json:"prerequisites"`
-	}](resolved.Output)
-	if err != nil || len(output.Prerequisites) != len(session.Prerequisites) {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		return nil, workflowengine.NewAppError(workflowengine.WorkflowError{
-			Code:    errCode.Code,
-			Summary: errCode.Description,
-			Message: "invalid action author prerequisites",
-			Details: map[string]any{"payload": resolved.Output},
-		})
-	}
-	return output.Prerequisites, nil
-}
-
 func authoringContext(
 	session SessionInput,
 	build actionauthor.Build,
 	prepared pipeline.PreparedMobileDevice,
-	prerequisites []actionauthor.ResolvedPrerequisite,
 ) AuthoringContext {
-	// Without a start spec the slot and outcome stay empty: the agent
-	// proposes the plan in the chat.
-	outcome := session.Outcome
-	if outcome == "" && session.Slot != "" {
-		outcome = actionauthor.OutcomeSuccess
-	}
 	return AuthoringContext{
 		WalletVersionIdentifier: session.WalletVersionIdentifier,
 		ActorID:                 session.ActorID,
 		ActorCollection:         session.ActorCollection,
-		Slot:                    session.Slot,
-		Outcome:                 outcome,
-		WaitSeconds:             session.WaitSeconds,
-		Prerequisites:           prerequisites,
-		Parameters:              actionauthor.ParameterInfos(session.Spec),
 		AppID:                   session.AppID,
 		Platform:                session.Platform,
 		Build: AuthoringBuild{

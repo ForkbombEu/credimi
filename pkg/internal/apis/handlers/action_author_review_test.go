@@ -33,19 +33,17 @@ type reviewStub struct {
 	workflowID string
 	toolID     string
 	result     map[string]any
-	session    actionauthor.Session
+	session    actionauthor.BuildRequest
 }
 
 // stubActionAuthorReview answers the session lookup with an Android session
 // of the handler wallet started by actorID, and the update with updateErr.
 func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr error) *reviewStub {
 	t.Helper()
-	stub := &reviewStub{session: actionauthor.Session{
-		BuildRequest: actionauthor.BuildRequest{
-			Actor:                   actionauthor.Actor{ActorID: actorID, ActorCollection: "users"},
-			WalletVersionIdentifier: authoringAndroidVersion,
-			Platform:                actionauthor.PlatformAndroid,
-		},
+	stub := &reviewStub{session: actionauthor.BuildRequest{
+		Actor:                   actionauthor.Actor{ActorID: actorID, ActorCollection: "users"},
+		WalletVersionIdentifier: authoringAndroidVersion,
+		Platform:                actionauthor.PlatformAndroid,
 	}}
 	origClient := queueTemporalClient
 	origLookup := lookupActionAuthorSession

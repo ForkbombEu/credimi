@@ -83,73 +83,6 @@ func (a *ResolveActionAuthorBuildActivity) Execute(
 	return result, nil
 }
 
-// ResolveActionAuthorPrerequisitesActivityName is the organization worker's
-// prerequisite-resolution activity.
-const ResolveActionAuthorPrerequisitesActivityName = "Resolve action author prerequisites"
-
-// ResolveActionAuthorPrerequisitesInput is a session's build request and the
-// prerequisite actions of its spec.
-type ResolveActionAuthorPrerequisitesInput struct {
-	actionauthor.BuildRequest
-	Prerequisites []actionauthor.PrerequisiteSpec `json:"prerequisites"`
-}
-
-// ResolveActionAuthorPrerequisitesActivity reauthorizes the session's build
-// and returns the code of its prerequisite actions.
-type ResolveActionAuthorPrerequisitesActivity struct {
-	workflowengine.BaseActivity
-	app core.App
-}
-
-// NewResolveActionAuthorPrerequisitesActivity binds prerequisite resolution to the application's database.
-func NewResolveActionAuthorPrerequisitesActivity(
-	app core.App,
-) *ResolveActionAuthorPrerequisitesActivity {
-	return &ResolveActionAuthorPrerequisitesActivity{
-		BaseActivity: workflowengine.BaseActivity{
-			Name: ResolveActionAuthorPrerequisitesActivityName,
-		},
-		app: app,
-	}
-}
-
-// Name returns the registered Temporal activity name.
-func (a *ResolveActionAuthorPrerequisitesActivity) Name() string { return a.BaseActivity.Name }
-
-// Execute checks the prerequisites as the start endpoint does, in the
-// activity's actual organization namespace.
-func (a *ResolveActionAuthorPrerequisitesActivity) Execute(
-	ctx context.Context,
-	in workflowengine.ActivityInput,
-) (workflowengine.ActivityResult, error) {
-	var result workflowengine.ActivityResult
-	payload, err := workflowengine.DecodePayload[ResolveActionAuthorPrerequisitesInput](in.Payload)
-	if err != nil {
-		return result, a.NewMissingOrInvalidPayloadError(err)
-	}
-	resolved, err := a.resolve(activity.GetInfo(ctx).Namespace, payload)
-	if err != nil {
-		return result, actionAuthorError(&a.BaseActivity, err)
-	}
-	result.Output = map[string]any{"prerequisites": resolved}
-	return result, nil
-}
-
-func (a *ResolveActionAuthorPrerequisitesActivity) resolve(
-	namespace string,
-	payload ResolveActionAuthorPrerequisitesInput,
-) ([]actionauthor.ResolvedPrerequisite, error) {
-	if namespace == "" {
-		return nil, actionauthor.ErrForbidden
-	}
-	selection, err := actionauthor.Select(a.app, namespace, payload.BuildRequest)
-	if err != nil {
-		return nil, err
-	}
-	spec := actionauthor.Spec{Prerequisites: payload.Prerequisites}
-	return actionauthor.ResolvePrerequisites(a.app, selection, &spec)
-}
-
 // SaveAuthoredWalletActionActivity persists a candidate approved through the workflow.
 type SaveAuthoredWalletActionActivity struct {
 	workflowengine.BaseActivity
@@ -212,7 +145,7 @@ func (a *SaveAuthoredWalletActionActivity) save(
 			"%w: save request does not match the session", actionauthor.ErrForbidden,
 		))
 	}
-	selection, err := actionauthor.Select(a.app, caller.Namespace, session.BuildRequest)
+	selection, err := actionauthor.Select(a.app, caller.Namespace, session)
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
@@ -220,7 +153,7 @@ func (a *SaveAuthoredWalletActionActivity) save(
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
-	payload.BuildRequest = session.BuildRequest
+	payload.BuildRequest = session
 	payload.Spec = plan
 	approval, err := actionauthor.VerifyApproval(
 		a.app,
@@ -330,11 +263,11 @@ func actionAuthorSessionID(authorWorkflowID string) (string, bool) {
 		strings.HasPrefix(sessionID, ActionAuthorSessionWorkflowIDPrefix)
 }
 
-// ActionAuthorSessionRef identifies a running session and its start input.
+// ActionAuthorSessionRef identifies a running session and its build request.
 type ActionAuthorSessionRef struct {
 	SessionWorkflowID string
 	SessionRunID      string
-	Session           actionauthor.Session
+	Session           actionauthor.BuildRequest
 }
 
 // LookupActionAuthorSession returns the running session whose ActionAuthor
@@ -393,8 +326,9 @@ func LookupActionAuthorSession(
 		temporalcrypto.DataConverter().FromPayloads(started.GetInput(), &input) != nil {
 		return ref, forbidden("action author session has no start input")
 	}
-	// The session's SessionInput carries the build request and spec fields.
-	session, err := workflowengine.DecodePayload[actionauthor.Session](input.Payload)
+	// The session's SessionInput carries the build request; its other fields
+	// are ignored.
+	session, err := workflowengine.DecodePayload[actionauthor.BuildRequest](input.Payload)
 	if err != nil || session.ActorID == "" || session.ActorCollection == "" ||
 		session.WalletVersionIdentifier == "" || session.Platform == "" {
 		return ref, forbidden("action author session has no actor or build")

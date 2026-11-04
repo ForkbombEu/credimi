@@ -122,7 +122,6 @@ func validSessionLookup(t *testing.T) sessionLookup {
 			"wallet_version_identifier": session.WalletVersionIdentifier,
 			"actor_id":                  session.ActorID,
 			"actor_collection":          session.ActorCollection,
-			"slot":                      "onboarding",
 		}),
 	}
 }

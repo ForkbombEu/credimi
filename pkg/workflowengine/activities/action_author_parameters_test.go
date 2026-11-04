@@ -24,15 +24,11 @@ import (
 	enumspb "go.temporal.io/api/enums/v1"
 )
 
-// specSessionLookup fakes a running session that authors spec.
-func specSessionLookup(
-	t *testing.T,
-	session actionauthor.BuildRequest,
-	spec actionauthor.Spec,
-) sessionLookup {
+// buildSessionLookup fakes a running session that authors on session's build.
+func buildSessionLookup(t *testing.T, session actionauthor.BuildRequest) sessionLookup {
 	t.Helper()
 	lookup := validSessionLookup(t)
-	lookup.history = sessionHistory(t, actionauthor.Session{BuildRequest: session, Spec: spec})
+	lookup.history = sessionHistory(t, session)
 	return lookup
 }
 
@@ -135,7 +131,7 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 		index int,
 	) (GenerateActionAuthorParametersOutput, error) {
 		a := NewGenerateActionAuthorParametersActivity(app)
-		a.authorSessionLookup = specSessionLookup(t, session, actionauthor.Spec{}).lookup()
+		a.authorSessionLookup = buildSessionLookup(t, session).lookup()
 		a.transport = server.Client().Transport
 		a.runStepCI = func(_ context.Context, code string, _ map[string]string) (string, error) {
 			require.Equal(t, "version: \"1.1\"\n", code)
@@ -326,7 +322,7 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 	) (CheckActionAuthorProtocolOutcomeOutput, error) {
 		status.Store(current)
 		a := NewCheckActionAuthorProtocolOutcomeActivity(app)
-		a.authorSessionLookup = specSessionLookup(t, session, actionauthor.Spec{}).lookup()
+		a.authorSessionLookup = buildSessionLookup(t, session).lookup()
 		a.transport = server.Client().Transport
 		a.interval = 5 * time.Millisecond
 		a.timeout = 30 * time.Millisecond
@@ -374,7 +370,7 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 	require.ErrorContains(t, err, "capture session_id is missing")
 
 	a := NewCheckActionAuthorProtocolOutcomeActivity(app)
-	a.authorSessionLookup = specSessionLookup(t, session, actionauthor.Spec{}).lookup()
+	a.authorSessionLookup = buildSessionLookup(t, session).lookup()
 	_, err = a.check(t.Context(), caller, CheckActionAuthorProtocolOutcomeInput{
 		Parameter: "PIN",
 		Plan:      spec(actionauthor.OutcomeSuccess),

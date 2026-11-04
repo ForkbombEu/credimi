@@ -171,19 +171,6 @@ type StatusSpec struct {
 	Rejection []string `json:"rejection,omitempty"`
 }
 
-// Session is decoded from the session workflow's start input.
-type Session struct {
-	BuildRequest
-	Spec
-}
-
-// IsEmpty reports whether no field of the spec is set: the session's plan is
-// then proposed in the chat rather than fixed at start.
-func (s Spec) IsEmpty() bool {
-	return s.Slot == "" && s.Outcome == "" && s.WaitSeconds == 0 &&
-		len(s.Prerequisites) == 0 && len(s.Parameters) == 0
-}
-
 // PlanSHA256 hashes the JSON encoding of a normalized spec.
 func PlanSHA256(s Spec) string {
 	encoded, err := json.Marshal(s)
