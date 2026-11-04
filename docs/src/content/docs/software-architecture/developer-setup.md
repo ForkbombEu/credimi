@@ -156,7 +156,7 @@ your deployment).
 
 ## Observability (OpenTelemetry)
 
-Credimi exports traces, metrics and logs over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and exports
+Credimi exports traces and metrics over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and exports
 nothing otherwise. The exporters read the standard `OTEL_*` variables:
 
 ```sh
@@ -172,8 +172,8 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=staging
 - Temporal clients and workers add `StartWorkflow`/`RunWorkflow`/`StartActivity`/`RunActivity` spans to the
   same trace and report Temporal SDK metrics.
 - HTTP server, Go runtime and Temporal metrics are pushed every 60s.
-- `slog` and `log` records are exported and still printed to stderr. PocketBase's own logger (`app.Logger()`,
-  the `_logs` table) and outbound HTTP calls are not exported.
+- Logs and outbound HTTP calls are not exported. Log export waits for `avdctl` to move to
+  `go.opentelemetry.io/otel/log` v0.21 or later.
 
 ## mobile device semaphore Ops (Internal)
 

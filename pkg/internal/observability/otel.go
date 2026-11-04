@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package observability exports Credimi traces, metrics and logs over OTLP/HTTP
+// Package observability exports Credimi traces and metrics over OTLP/HTTP
 // (SigNoz). Export is on only when OTEL_EXPORTER_OTLP_ENDPOINT is set; the
 // exporters read the standard OTEL_* variables themselves (endpoint, headers,
 // timeout, compression), and the resource honours OTEL_SERVICE_NAME and
@@ -14,22 +14,18 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"log/slog"
 	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
-	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
-	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -37,15 +33,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const scope = "github.com/forkbombeu/credimi"
-
 var enabled atomic.Bool
 
 // Enabled reports whether Init configured OTLP export.
 func Enabled() bool { return enabled.Load() }
 
-// start installs the global tracer, meter and logger providers, sends slog and
-// the standard log package to OTel as well as stderr, and starts Go runtime
+// start installs the global tracer and meter providers and starts Go runtime
 // metrics. The returned function flushes and stops the exporters.
 func start(ctx context.Context) (func(context.Context) error, error) {
 	res, err := resource.New(ctx,
@@ -66,35 +59,19 @@ func start(ctx context.Context) (func(context.Context) error, error) {
 	if err != nil {
 		return nil, fmt.Errorf("otlp metric exporter: %w", err)
 	}
-	logExp, err := otlploghttp.New(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("otlp log exporter: %w", err)
-	}
 
 	tp := sdktrace.NewTracerProvider(sdktrace.WithResource(res), sdktrace.WithBatcher(traceExp))
 	mp := sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(res),
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExp)),
 	)
-	lp := sdklog.NewLoggerProvider(
-		sdklog.WithResource(res),
-		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExp)),
-	)
 
 	otel.SetTracerProvider(tp)
 	otel.SetMeterProvider(mp)
-	otel.SetLoggerProvider(lp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
-
-	// The text handler, not the previous default: SetDefault redirects the log
-	// package into slog, and the old default handler writes back to it.
-	slog.SetDefault(slog.New(slog.NewMultiHandler(
-		slog.NewTextHandler(os.Stderr, nil),
-		otelslog.NewHandler(scope),
-	)))
 
 	if err := runtime.Start(); err != nil {
 		return nil, fmt.Errorf("otel runtime metrics: %w", err)
@@ -102,7 +79,7 @@ func start(ctx context.Context) (func(context.Context) error, error) {
 
 	enabled.Store(true)
 	return func(ctx context.Context) error {
-		return errors.Join(tp.Shutdown(ctx), mp.Shutdown(ctx), lp.Shutdown(ctx))
+		return errors.Join(tp.Shutdown(ctx), mp.Shutdown(ctx))
 	}, nil
 }
 
