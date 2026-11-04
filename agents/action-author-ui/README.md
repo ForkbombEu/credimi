@@ -53,37 +53,37 @@ The start page asks only for the device and the wallet version. Describe the act
 chat: its category, success or rejection, input values (PIN) and references (a Credimi URL or
 identifier, or a deeplink). The agent sets the **plan** itself: the slot, the outcome, the
 prerequisites (saved actions of the wallet) and the parameter sources, and asks only when
-something is unclear. Credimi checks the plan and signs it for the session, with no card; the
+something is unclear. Credimi checks the plan on every call that uses it, with no card; the
 save review shows it. A session can save several actions in a row, each with its own plan. An organization has no daily
 token allowance until a Credimi superuser sets one, and a missing or used-up allowance answers
 `429` with Credimi's message. Values are stored in Temporal history: use test data only.
 
 ## Save review
 
-The **Accept** / **Refuse** card shows the accepted YAML (`tool_input.code`) and the summary of
-the plan the session's plan token signs, one text-only element per line (`white-space:
-pre-wrap`, so indented detail lines keep their indentation; `Plan fixed when the session
-started.` when the token is empty),
-and enables **Accept** only when the YAML's SHA-256 matches the review's `candidate_sha256`;
-otherwise it says `The reviewed YAML does not match its hash. Refuse this candidate.` and
-leaves only **Refuse**. A non-empty plan token that does not decode shows
-`Unreadable plan token: refuse this candidate.` and also leaves only **Refuse**.
+The **Accept** / **Refuse** card shows the accepted YAML (`tool_input.code`) and the full plan
+the agent sent (`tool_input.plan`) as indented JSON, text only and uncut (JSON escapes line
+breaks, so no field can add a line), and enables **Accept** only when the YAML's SHA-256 matches
+the review's `candidate_sha256`; otherwise it says `The reviewed YAML does not match its hash.
+Refuse this candidate.` and leaves only **Refuse**. A review without a plan shows `No plan:
+refuse this candidate.` and also leaves only **Refuse**.
 It sends the decision to Credimi, not to the workflow:
 `POST /api/action-author/reviews` with the bound namespace, the chat's workflow ID, the
-review's `tool_id`, `candidate_sha256` and `plan_token`, and the stored bearer token. Credimi
-checks that you started the session, signs the approval the save activity verifies, and
-settles the review. Without a stored token, or after a `401`, both cards ask for a Credimi user
-API key (and the Credimi URL when unknown) and retry; a `409` means the card is no longer
-pending and it reloads. The UI answers every `/api/callback-result` request with `403
-review_through_credimi`, so the harness route cannot settle a plan or a review without Credimi.
+review's `tool_id`, `candidate_sha256` and `plan`, and the stored bearer token. Credimi
+checks that you started the session, checks the plan again, signs the approval of the YAML and
+the plan that the save activity verifies, and settles the review. Without a stored token, or
+after a `401`, the card asks for a Credimi user API key (and the Credimi URL when unknown) and
+retries; a `409` means the card is no longer pending and it reloads. The UI answers every
+`/api/callback-result` request with `403 review_through_credimi`, so the harness route cannot
+settle a review without Credimi.
 
 ## Idle close
 
 The agent closes a session after 5 minutes without activity (15 while a save review card is
 open) and Credimi frees the device. The chat page asks `GET /api/action-author/idle/<chat>`
 every 10 s, which answers the agent's `idle_state` query (`closes_at`, empty while a model call
-or tool runs); in the last minute it shows `No activity: this session closes in N s to free
-the device. Send a message to keep it open.` at the top of the page.
+or tool runs, and for a closed, missing or unanswering chat); in the last minute it shows `No
+activity: this session closes in N s to free the device. Send a message to keep it open.` at
+the top of the page.
 
 ## Namespace binding
 
