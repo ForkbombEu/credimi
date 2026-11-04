@@ -156,7 +156,7 @@ your deployment).
 
 ## Observability (OpenTelemetry)
 
-Credimi exports traces and metrics over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and exports
+Credimi exports traces, metrics and logs over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and exports
 nothing otherwise. The exporters read the standard `OTEL_*` variables:
 
 ```sh
@@ -172,8 +172,28 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=staging
 - Temporal clients and workers add `StartWorkflow`/`RunWorkflow`/`StartActivity`/`RunActivity` spans to the
   same trace and report Temporal SDK metrics.
 - HTTP server, Go runtime and Temporal metrics are pushed every 60s.
-- Logs and outbound HTTP calls are not exported. Log export waits for `avdctl` to move to
-  `go.opentelemetry.io/otel/log` v0.21 or later.
+- `slog` and `log` records are exported and still printed to stderr; Temporal SDK logs (workflow and activity
+  logs, with `WorkflowID`/`RunID`) are exported and still written to the PocketBase logger. PocketBase's own logger
+  (`app.Logger()`, the `_logs` table) is not exported.
+- Calls to mobile runners carry `traceparent`. Outbound calls to other systems (issuers, verifiers under test) are
+  not traced, so Credimi adds no headers to them.
+
+### Following one run across components
+
+One pipeline run is one trace when Credimi and the runner export to the same collector:
+
+1. `POST /api/pipeline/queue` (Credimi HTTP span) → `StartWorkflow` → `RunWorkflow:Dynamic Pipeline Workflow`
+   (Credimi worker).
+2. `StartChildWorkflow:mobile-automation` → `RunWorkflow:mobile-automation` and its `RunActivity` spans on the
+   runner worker (`${runner_id}-TaskQueue`); Temporal headers carry the trace context.
+3. Inside runner activities, credimi-extra adds `mobile.*` span events and log records, and avdctl adds its
+   device spans and command logs, all under the activity span.
+4. Credimi's calls to the runner (`installer-action`, `pipeline-result`, `live-view`, `worker/{namespace}`) are
+   client spans; the runner's server spans for them join the same trace.
+
+In SigNoz, open the trace of the queue request, or filter logs by `trace_id` (and by `workflow_id` for Temporal SDK
+logs). Runners export only when an operator enables it in the runner dashboard (Observability: endpoint and the
+secret OTLP headers field).
 
 ## mobile device semaphore Ops (Internal)
 
