@@ -67,6 +67,12 @@ func TestValidateCode(t *testing.T) {
 	waitMessage := "the last command other than takeScreenshot must wait 240 s: " +
 		"extendedWaitUntil with optional: true and timeout: 240000"
 	waitTail := "- takeScreenshot: done\n"
+	staleMessage := func(selector string) string {
+		return "the final assertion checks \"" + selector + "\", which the action already " +
+			"reached before its last interaction; assert the screen the outcome shows"
+	}
+	shareInformation := "- launchApp\n- extendedWaitUntil:\n    visible: \"Share information\"\n" +
+		"    timeout: 30000\n- tapOn: \"CONFIRM\"\n"
 
 	cases := []struct {
 		name        string
@@ -479,6 +485,45 @@ tags:
 				"    optional: true\n    timeout: 240000\n" + waitTail,
 			appIDs: wallet,
 			want:   []string{lastMessage},
+		},
+		{
+			name:   "outcome asserted on the screen before the last interaction",
+			code:   header + shareInformation + "- assertVisible: \"Share information\"\n" + waitTail,
+			appIDs: wallet,
+			want: []string{"the final assertion checks \"Share information\", which the action " +
+				"already reached before its last interaction; assert the screen the outcome shows"},
+		},
+		{
+			name: "outcome waited by id after reaching it in a runFlow",
+			code: header + "- launchApp\n- runFlow:\n    commands:\n" +
+				"      - assertVisible:\n          id: \"share\"\n      - tapOn: \"CONFIRM\"\n" +
+				"- extendedWaitUntil:\n    visible:\n      id: \"share\"\n    timeout: 5000\n",
+			appIDs: wallet,
+			want:   []string{staleMessage("id: share")},
+		},
+		{
+			name:   "outcome asserted on a new screen",
+			code:   header + shareInformation + "- assertVisible: \"Presentation shared\"\n" + waitTail,
+			appIDs: wallet,
+		},
+		{
+			name:   "text and id of the same value are different selectors",
+			code:   header + shareInformation + "- assertVisible:\n    id: \"Share information\"\n",
+			appIDs: wallet,
+		},
+		{
+			name: "wait outcome on the screen before the last interaction",
+			code: header + "- launchApp\n- assertVisible: \"credimi-never\"\n- tapOn: \"CONFIRM\"\n" +
+				"- extendedWaitUntil:\n    visible: \"credimi-never\"\n" +
+				"    optional: true\n    timeout: 240000\n" + waitTail,
+			appIDs:      wallet,
+			waitSeconds: 240,
+		},
+		{
+			name: "outcome seen only in a when condition",
+			code: header + "- launchApp\n- runFlow:\n    when:\n      visible: \"Share information\"\n" +
+				"    commands:\n      - tapOn: \"CONFIRM\"\n- assertVisible: \"Share information\"\n",
+			appIDs: wallet,
 		},
 	}
 	for _, tc := range cases {

@@ -51,6 +51,24 @@ var codeAllowedCommands = map[string]bool{
 // codeNestedCommands are the commands whose inline `commands` are walked.
 var codeNestedCommands = map[string]bool{"runFlow": true, "retry": true, "repeat": true}
 
+// codeInteractions are the commands that act on the app; the runner's
+// validator uses the same list for the final assertion rule.
+var codeInteractions = map[string]bool{
+	"tapOn":              true,
+	"doubleTapOn":        true,
+	"longPressOn":        true,
+	"inputText":          true,
+	"eraseText":          true,
+	"pressKey":           true,
+	"back":               true,
+	"swipe":              true,
+	"scroll":             true,
+	"scrollUntilVisible": true,
+	"openLink":           true,
+	"copyTextFrom":       true,
+	"pasteText":          true,
+}
+
 var (
 	// codeSubstitution matches a Maestro `${...}` substitution, unterminated ones included.
 	codeSubstitution = regexp.MustCompile(`\$\{([^}]*)\}?`)
@@ -195,6 +213,12 @@ func ValidateCode(code string, scope CodeScope) []string {
 	case !codeIsOutcomeAssertion(lastName, lastArg):
 		v.add("the last command other than takeScreenshot must assert the outcome: " +
 			"`assertVisible`, or `extendedWaitUntil` with `visible`")
+	default:
+		if selector, ok := codeAssertedSelector(lastName, lastArg); ok &&
+			codeReachedBeforeLastInteraction(commands, selector) {
+			v.add("the final assertion checks \"" + selector.String() + "\", which the action " +
+				"already reached before its last interaction; assert the screen the outcome shows")
+		}
 	}
 	return v.problems
 }
@@ -480,6 +504,91 @@ func codeIsOutcomeAssertion(name string, arg *yaml.Node) bool {
 	}
 	return name == "extendedWaitUntil" && arg != nil && arg.Kind == yaml.MappingNode &&
 		codeLookup(arg, "visible") != nil
+}
+
+// codeSelector is the element an assertion targets: its text, or its id.
+type codeSelector struct {
+	id    bool
+	value string
+}
+
+func (s codeSelector) String() string {
+	if s.id {
+		return "id: " + s.value
+	}
+	return s.value
+}
+
+// codeAssertedSelector returns the selector an `assertVisible`, or an
+// `extendedWaitUntil` with `visible`, checks: a string is its text, a
+// mapping its string `text`, else its string `id`. Other selectors, and
+// selectors with a `${...}` substitution, have none.
+func codeAssertedSelector(name string, arg *yaml.Node) (codeSelector, bool) {
+	target := arg
+	switch {
+	case name == "assertVisible":
+	case name == "extendedWaitUntil" && arg != nil && arg.Kind == yaml.MappingNode:
+		target = codeLookup(arg, "visible")
+	default:
+		return codeSelector{}, false
+	}
+	var selector codeSelector
+	switch {
+	case codeIsString(target):
+		selector = codeSelector{value: target.Value}
+	case target != nil && target.Kind == yaml.MappingNode:
+		if text := codeLookup(target, "text"); codeIsString(text) {
+			selector = codeSelector{value: text.Value}
+		} else if id := codeLookup(target, "id"); codeIsString(id) {
+			selector = codeSelector{id: true, value: id.Value}
+		} else {
+			return codeSelector{}, false
+		}
+	default:
+		return codeSelector{}, false
+	}
+	if strings.Contains(selector.value, "${") {
+		return codeSelector{}, false
+	}
+	return selector, true
+}
+
+// codeReachedBeforeLastInteraction reports whether selector was asserted or
+// waited for before the last interaction, over the top-level commands and the
+// inline commands of `runFlow` (never `retry` or `repeat` bodies, and never a
+// `when:` condition).
+func codeReachedBeforeLastInteraction(commands *yaml.Node, selector codeSelector) bool {
+	var flat []*yaml.Node
+	var flatten func(*yaml.Node)
+	flatten = func(list *yaml.Node) {
+		if list == nil || list.Kind != yaml.SequenceNode {
+			return
+		}
+		for _, item := range list.Content {
+			flat = append(flat, item)
+			if name, arg, ok := codeCommand(item); ok && name == "runFlow" &&
+				arg != nil && arg.Kind == yaml.MappingNode {
+				flatten(codeLookup(arg, "commands"))
+			}
+		}
+	}
+	flatten(commands)
+	last := -1
+	for i, item := range flat {
+		if name, _, ok := codeCommand(item); ok && codeInteractions[name] {
+			last = i
+		}
+	}
+	for _, item := range flat[:max(last, 0)] {
+		name, arg, ok := codeCommand(item)
+		if !ok {
+			continue
+		}
+		if reached, ok := codeAssertedSelector(name, arg); ok && reached == selector {
+			return true
+		}
+	}
+	return false
 }
 
 // codeIsWait reports whether a command is the wait of a wait action:
