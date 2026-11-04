@@ -103,10 +103,12 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 		ValuePath: "deeplink",
 		Captures:  map[string]string{"session_id": "session.id", "number": "session.n"},
 	}
+	getPID := seedAuthorAction(t, app, session, "Get PID",
+		"appId: eu.wallet\n---\n- openLink: ${offer}\n")
 	spec := actionauthor.Spec{
 		Slot: "get-credential",
 		Prerequisites: []actionauthor.PrerequisiteSpec{{
-			Action: "org/wallet/get-pid",
+			Action: getPID,
 			Parameters: []actionauthor.ParameterSpec{
 				{
 					Name: "offer",
@@ -127,20 +129,26 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 	}
 	caller := authorTestCaller()
 	caller.Namespace = namespace
-	activity := func(spec actionauthor.Spec) *GenerateActionAuthorParametersActivity {
+	generate := func(
+		plan actionauthor.Spec,
+		scope string,
+		index int,
+	) (GenerateActionAuthorParametersOutput, error) {
 		a := NewGenerateActionAuthorParametersActivity(app)
-		a.authorSessionLookup = specSessionLookup(t, session, spec).lookup()
+		a.authorSessionLookup = specSessionLookup(t, session, actionauthor.Spec{}).lookup()
 		a.transport = server.Client().Transport
 		a.runStepCI = func(_ context.Context, code string, _ map[string]string) (string, error) {
 			require.Equal(t, "version: \"1.1\"\n", code)
 			return "openid-credential-offer://dynamic", nil
 		}
-		return a
+		return a.generate(t.Context(), caller, GenerateActionAuthorParametersInput{
+			Scope: scope,
+			Index: index,
+			Plan:  plan,
+		})
 	}
 
-	first, err := activity(spec).generate(t.Context(), caller, GenerateActionAuthorParametersInput{
-		Scope: ParameterScopeCandidate,
-	})
+	first, err := generate(spec, ParameterScopeCandidate, 0)
 	require.NoError(t, err)
 	require.Equal(t, GenerateActionAuthorParametersOutput{
 		Values: map[string]string{"deeplink": "openid-credential-offer://x-1", "PIN": "123456"},
@@ -148,17 +156,11 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 			"deeplink": {"session_id": "s-1", "number": "1"},
 		},
 	}, first)
-	second, err := activity(spec).generate(t.Context(), caller, GenerateActionAuthorParametersInput{
-		Scope: ParameterScopeCandidate,
-	})
+	second, err := generate(spec, ParameterScopeCandidate, 0)
 	require.NoError(t, err)
 	require.Equal(t, "openid-credential-offer://x-2", second.Values["deeplink"])
 
-	prerequisite, err := activity(spec).generate(
-		t.Context(),
-		caller,
-		GenerateActionAuthorParametersInput{Scope: ParameterScopePrerequisite, Index: 0},
-	)
+	prerequisite, err := generate(spec, ParameterScopePrerequisite, 0)
 	require.NoError(t, err)
 	require.Equal(
 		t,
@@ -166,10 +168,7 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 		prerequisite.Values,
 	)
 
-	_, err = activity(spec).generate(t.Context(), caller, GenerateActionAuthorParametersInput{
-		Scope: ParameterScopePrerequisite,
-		Index: 1,
-	})
+	_, err = generate(spec, ParameterScopePrerequisite, 1)
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "the session has no prerequisite 1")
 
@@ -179,9 +178,7 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 		Method: http.MethodGet,
 		URL:    server.URL + "/broken",
 	}
-	_, err = activity(broken).generate(t.Context(), caller, GenerateActionAuthorParametersInput{
-		Scope: ParameterScopeCandidate,
-	})
+	_, err = generate(broken, ParameterScopeCandidate, 0)
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "parameter deeplink: GET "+server.URL+"/broken answered HTTP 502")
 
@@ -191,18 +188,14 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 		Method: http.MethodGet,
 		URL:    server.URL + "/large",
 	}
-	_, err = activity(large).generate(t.Context(), caller, GenerateActionAuthorParametersInput{
-		Scope: ParameterScopeCandidate,
-	})
+	_, err = generate(large, ParameterScopeCandidate, 0)
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "response body exceeds 1048576 bytes")
 
 	missing := spec
 	missing.Parameters = []actionauthor.ParameterSpec{{Name: "deeplink", Source: httpSource}}
 	missing.Parameters[0].Source.ValuePath = "session.missing"
-	_, err = activity(missing).generate(t.Context(), caller, GenerateActionAuthorParametersInput{
-		Scope: ParameterScopeCandidate,
-	})
+	_, err = generate(missing, ParameterScopeCandidate, 0)
 	require.ErrorContains(t, err, "parameter deeplink: session.missing is not in the response")
 
 	foreign := spec
@@ -213,9 +206,7 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 			Identifier: "userb-s-organization/issuer/missing",
 		},
 	}}
-	_, err = activity(foreign).generate(t.Context(), caller, GenerateActionAuthorParametersInput{
-		Scope: ParameterScopeCandidate,
-	})
+	_, err = generate(foreign, ParameterScopeCandidate, 0)
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "userb-s-organization/issuer/missing not found")
 }
@@ -279,6 +270,10 @@ func TestGenerateActionAuthorParametersRejectsCallersOutsideASession(t *testing.
 
 func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 	setFCAFTestEnv(t)
+	app, session, namespace := authorSaveFixture(t)
+	getPID := seedAuthorAction(t, app, session, "Get PID", "appId: eu.wallet\n---\n- launchApp\n")
+	caller := authorTestCaller()
+	caller.Namespace = namespace
 	var status atomic.Value
 	var mu sync.Mutex
 	var paths []string
@@ -304,7 +299,7 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 		return actionauthor.Spec{
 			Slot:          "verify-credential",
 			Outcome:       outcome,
-			Prerequisites: []actionauthor.PrerequisiteSpec{{Action: "org/wallet/get-pid"}},
+			Prerequisites: []actionauthor.PrerequisiteSpec{{Action: getPID}},
 			Parameters: []actionauthor.ParameterSpec{{
 				Name: "deeplink",
 				Source: actionauthor.SourceSpec{
@@ -330,14 +325,15 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 		captures map[string]string,
 	) (CheckActionAuthorProtocolOutcomeOutput, error) {
 		status.Store(current)
-		a := NewCheckActionAuthorProtocolOutcomeActivity(nil)
-		a.authorSessionLookup = specSessionLookup(t, authorTestSession(), spec(outcome)).lookup()
+		a := NewCheckActionAuthorProtocolOutcomeActivity(app)
+		a.authorSessionLookup = specSessionLookup(t, session, actionauthor.Spec{}).lookup()
 		a.transport = server.Client().Transport
 		a.interval = 5 * time.Millisecond
 		a.timeout = 30 * time.Millisecond
-		return a.check(t.Context(), authorTestCaller(), CheckActionAuthorProtocolOutcomeInput{
+		return a.check(t.Context(), caller, CheckActionAuthorProtocolOutcomeInput{
 			Parameter: "deeplink",
 			Captures:  captures,
+			Plan:      spec(outcome),
 		})
 	}
 	captures := map[string]string{"session_id": "a/b c"}
@@ -377,14 +373,11 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "capture session_id is missing")
 
-	a := NewCheckActionAuthorProtocolOutcomeActivity(nil)
-	a.authorSessionLookup = specSessionLookup(
-		t,
-		authorTestSession(),
-		spec(actionauthor.OutcomeSuccess),
-	).lookup()
-	_, err = a.check(t.Context(), authorTestCaller(), CheckActionAuthorProtocolOutcomeInput{
+	a := NewCheckActionAuthorProtocolOutcomeActivity(app)
+	a.authorSessionLookup = specSessionLookup(t, session, actionauthor.Spec{}).lookup()
+	_, err = a.check(t.Context(), caller, CheckActionAuthorProtocolOutcomeInput{
 		Parameter: "PIN",
+		Plan:      spec(actionauthor.OutcomeSuccess),
 	})
 	require.ErrorContains(t, err, "parameter PIN has no protocol status check")
 }

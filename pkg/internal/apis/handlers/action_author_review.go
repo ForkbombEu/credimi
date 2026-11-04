@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
@@ -33,9 +32,9 @@ type ActionAuthorReviewRequest struct {
 	ToolID           string `json:"tool_id"            validate:"required"`
 	CandidateSHA256  string `json:"candidate_sha256"   validate:"required,len=64,hexadecimal"`
 	Accepted         *bool  `json:"accepted"           validate:"required"`
-	// PlanToken is the plan token Credimi signed for the session; sessions started with
-	// a spec omit it.
-	PlanToken string `json:"plan_token,omitempty"`
+	// Plan is the plan the save card shows; Credimi checks it again and binds
+	// the approval to it.
+	Plan actionauthor.Spec `json:"plan"`
 }
 
 // ActionAuthorReviewResponse confirms the decision the agent received.
@@ -136,8 +135,9 @@ func actionAuthorCallerSession(
 }
 
 // HandleActionAuthorReview signs the caller's acceptance of a candidate of
-// the session's effective plan and delivers the decision to the agent's
-// pending save review. Only the user who started the session can review it.
+// the plan the save card shows, checked again for the session, and delivers
+// the decision to the agent's pending save review. Only the user who started
+// the session can review it.
 func HandleActionAuthorReview() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[ActionAuthorReviewRequest](e)
@@ -154,14 +154,16 @@ func HandleActionAuthorReview() func(*core.RequestEvent) error {
 			return err
 		}
 		// A refusal signs nothing, so it never needs the plan: a refused
-		// candidate with an unreadable token must still reach the agent.
+		// candidate with a missing or invalid plan must still reach the agent.
 		result := map[string]any{"accepted": false, "approval": ""}
 		if *input.Accepted {
-			plan, err := activities.EffectivePlan(
-				e.App, ref, input.AuthorWorkflowID, input.PlanToken,
-			)
+			selection, err := actionauthor.Select(e.App, input.Namespace, ref.Session.BuildRequest)
 			if err != nil {
-				return actionAuthorPlanError(e, err)
+				return authoringAPIError(e, err)
+			}
+			plan, err := activities.SessionPlan(e.App, selection, input.Plan)
+			if err != nil {
+				return authoringAPIError(e, err)
 			}
 			approval, err := actionauthor.SignApproval(e.App, actionauthor.Approval{
 				AuthorWorkflowID:   input.AuthorWorkflowID,
@@ -210,20 +212,4 @@ func actionAuthorUpdateError(err error, reason, message string) *apierror.APIErr
 		return apierror.New(http.StatusConflict, "action_author", reason, message)
 	}
 	return temporalUnavailableError()
-}
-
-// actionAuthorPlanError answers a plan EffectivePlan refused: ErrForbidden as
-// 403 forbidden with its own reason (plan not signed by Credimi, plan for
-// another session, plan signed for another user), like the actor check of
-// actionAuthorCallerSession, and other errors as authoringAPIError does.
-func actionAuthorPlanError(e *core.RequestEvent, err error) *apierror.APIError {
-	if !errors.Is(err, actionauthor.ErrForbidden) {
-		return authoringAPIError(e, err)
-	}
-	return apierror.New(
-		http.StatusForbidden,
-		"action_author",
-		"forbidden",
-		strings.TrimPrefix(err.Error(), actionauthor.ErrForbidden.Error()+": "),
-	)
 }

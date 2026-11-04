@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -36,8 +37,7 @@ type reviewStub struct {
 }
 
 // stubActionAuthorReview answers the session lookup with an Android session
-// of the handler wallet started by actorID with an onboarding spec, and the
-// update with updateErr.
+// of the handler wallet started by actorID, and the update with updateErr.
 func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr error) *reviewStub {
 	t.Helper()
 	stub := &reviewStub{session: actionauthor.Session{
@@ -46,7 +46,6 @@ func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr e
 			WalletVersionIdentifier: authoringAndroidVersion,
 			Platform:                actionauthor.PlatformAndroid,
 		},
-		Spec: actionauthor.Spec{Slot: "onboarding"},
 	}}
 	origClient := queueTemporalClient
 	origLookup := lookupActionAuthorSession
@@ -81,9 +80,10 @@ func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr e
 	return stub
 }
 
+// reviewBody reviews the candidate of an onboarding plan.
 func reviewBody(namespace string, accepted bool) string {
 	return fmt.Sprintf(
-		`{"namespace":%q,"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":%t}`,
+		`{"namespace":%q,"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":%t,"plan":{"slot":"onboarding"}}`,
 		namespace,
 		reviewAuthorWorkflow,
 		reviewCandidate,
@@ -237,41 +237,18 @@ func TestActionAuthorReviewRejectsOtherUsersAndSettledReviews(t *testing.T) {
 	}).Test(t)
 }
 
-func reviewBodyWithPlan(token string) string {
+// reviewBodyWithPlan accepts the candidate of plan.
+func reviewBodyWithPlan(t *testing.T, plan actionauthor.Spec) string {
+	t.Helper()
+	encoded, err := json.Marshal(plan)
+	require.NoError(t, err)
 	return fmt.Sprintf(
-		`{"namespace":%q,"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":true,"plan_token":%q}`,
+		`{"namespace":%q,"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":true,"plan":%s}`,
 		authoringNamespace,
 		reviewAuthorWorkflow,
 		reviewCandidate,
-		token,
+		encoded,
 	)
-}
-
-// signHandlerPlan signs a plan of the review workflow for userID; the
-// test apps share test_pb_data's signing secret.
-func signHandlerPlan(t *testing.T, userID string, plan actionauthor.Spec) string {
-	t.Helper()
-	return signHandlerPlanFor(t, reviewAuthorWorkflow, userID, plan)
-}
-
-// signHandlerPlanFor signs a plan of authorWorkflowID for userID.
-func signHandlerPlanFor(
-	t *testing.T,
-	authorWorkflowID, userID string,
-	plan actionauthor.Spec,
-) string {
-	t.Helper()
-	app := setupActionAuthorApp(t)
-	defer app.Cleanup()
-	token, err := actionauthor.SignPlan(app, actionauthor.PlanGrant{
-		AuthorWorkflowID: authorWorkflowID,
-		Plan:             plan,
-		ActorID:          userID,
-		ActorCollection:  "users",
-		SignedAt:         time.Now().Unix(),
-	})
-	require.NoError(t, err)
-	return token
 }
 
 func TestActionAuthorReviewBindsThePlan(t *testing.T) {
@@ -284,15 +261,13 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 			Source: actionauthor.SourceSpec{Kind: actionauthor.SourceLiteral, Value: "123456"},
 		}},
 	}
-	token := signHandlerPlan(t, user.Id, plan)
 
 	stub := stubActionAuthorReview(t, user.Id, nil, nil)
-	stub.session.Spec = actionauthor.Spec{}
 	(&tests.ApiScenario{
-		Name:            "accepted with the signed plan",
+		Name:            "accepted with the sent plan",
 		Method:          http.MethodPost,
 		URL:             "/api/action-author/reviews",
-		Body:            strings.NewReader(reviewBodyWithPlan(token)),
+		Body:            strings.NewReader(reviewBodyWithPlan(t, plan)),
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusOK,
 		ExpectedContent: []string{`"accepted":true`},
@@ -311,53 +286,27 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 
 	for _, tc := range []struct {
 		name     string
-		fixed    bool
-		token    string
-		status   int
+		plan     actionauthor.Spec
 		expected []string
 	}{
 		{
 			name:     "no plan",
-			status:   http.StatusBadRequest,
 			expected: []string{`"invalid_request"`, "no plan: set one with set_plan"},
 		},
 		{
-			name:     "forged plan",
-			token:    "forged.x",
-			status:   http.StatusForbidden,
-			expected: []string{`"forbidden"`, `"plan not signed by Credimi"`},
-		},
-		{
-			name:     "plan for another session",
-			token:    signHandlerPlanFor(t, "ActionAuthorSession-other-author", user.Id, plan),
-			status:   http.StatusForbidden,
-			expected: []string{`"forbidden"`, `"plan for another session"`},
-		},
-		{
-			name:     "plan signed for another user",
-			token:    signHandlerPlan(t, "another-user", plan),
-			status:   http.StatusForbidden,
-			expected: []string{`"forbidden"`, `"plan signed for another user"`},
-		},
-		{
-			name:     "plan token for a fixed plan",
-			fixed:    true,
-			token:    token,
-			status:   http.StatusBadRequest,
-			expected: []string{`"invalid_request"`, "this session's plan was fixed when it started"},
+			name:     "invalid plan",
+			plan:     actionauthor.Spec{Slot: "onboarding", Outcome: actionauthor.OutcomeRejection},
+			expected: []string{`"invalid_request"`},
 		},
 	} {
 		stub := stubActionAuthorReview(t, user.Id, nil, nil)
-		if !tc.fixed {
-			stub.session.Spec = actionauthor.Spec{}
-		}
 		(&tests.ApiScenario{
 			Name:               tc.name,
 			Method:             http.MethodPost,
 			URL:                "/api/action-author/reviews",
-			Body:               strings.NewReader(reviewBodyWithPlan(tc.token)),
+			Body:               strings.NewReader(reviewBodyWithPlan(t, tc.plan)),
 			Headers:            map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
-			ExpectedStatus:     tc.status,
+			ExpectedStatus:     http.StatusBadRequest,
 			ExpectedContent:    tc.expected,
 			NotExpectedContent: []string{"not authorized to author actions for this wallet"},
 			TestAppFactory:     setupActionAuthorApp,
@@ -365,15 +314,14 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 		require.Empty(t, stub.workflowID, tc.name)
 	}
 
-	// A refusal signs nothing: an unreadable token still delivers it.
+	// A refusal signs nothing: a missing plan still delivers it.
 	stub = stubActionAuthorReview(t, user.Id, nil, nil)
-	stub.session.Spec = actionauthor.Spec{}
 	(&tests.ApiScenario{
-		Name:   "refused with a bad plan token",
+		Name:   "refused without a plan",
 		Method: http.MethodPost,
 		URL:    "/api/action-author/reviews",
 		Body: strings.NewReader(strings.Replace(
-			reviewBodyWithPlan("forged.x"), `"accepted":true`, `"accepted":false`, 1,
+			reviewBodyWithPlan(t, actionauthor.Spec{}), `"accepted":true`, `"accepted":false`, 1,
 		)),
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusOK,

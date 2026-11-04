@@ -425,8 +425,6 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 			"wallet_version_identifier": session.WalletVersionIdentifier,
 			"actor_id":                  session.ActorID,
 			"actor_collection":          session.ActorCollection,
-			"slot":                      "other",
-			"outcome":                   "success",
 		})
 		return lookup.activity(t, app)
 	}
@@ -460,6 +458,7 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 		PackageID:       "eu.wallet",
 		ReplayCount:     1,
 		Approval:        approval(nil),
+		Spec:            actionauthor.Spec{Slot: "other"},
 	}
 
 	for name, token := range map[string]string{

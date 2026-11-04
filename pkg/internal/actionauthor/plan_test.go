@@ -5,13 +5,10 @@
 package actionauthor
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func testPlan() Spec {
@@ -40,65 +37,6 @@ func testPlan() Spec {
 			},
 			{Name: "pin", Source: SourceSpec{Kind: SourceLiteral, Value: "123456"}},
 		},
-	}
-}
-
-func TestPlanSignAndVerify(t *testing.T) {
-	app, _, _ := authoringFixture(t)
-	grant := PlanGrant{
-		AuthorWorkflowID: "ActionAuthorSession-t-author",
-		Plan:             testPlan(),
-		Summary:          []string{"Category: other"},
-		ActorID:          "user-1",
-		ActorCollection:  "users",
-		SignedAt:         1_800_000_000,
-	}
-	token, err := SignPlan(app, grant)
-	require.NoError(t, err)
-
-	verified, err := VerifyPlan(app, token, grant.AuthorWorkflowID)
-	require.NoError(t, err)
-	assert.Equal(t, grant, verified)
-
-	// The payload segment is the grant, as the dev UI decodes it.
-	payload, signature, _ := strings.Cut(token, ".")
-	decoded, err := base64.RawURLEncoding.DecodeString(payload)
-	require.NoError(t, err)
-	var shown struct {
-		Plan Spec `json:"plan"`
-	}
-	require.NoError(t, json.Unmarshal(decoded, &shown))
-	assert.Equal(t, grant.Plan, shown.Plan)
-
-	tamperedGrant := grant
-	tamperedGrant.Plan.Slot = "other"
-	tamperedJSON, err := json.Marshal(tamperedGrant)
-	require.NoError(t, err)
-	tampered := base64.RawURLEncoding.EncodeToString(tamperedJSON) + "." + signature
-
-	approval, err := SignApproval(app, Approval{AuthorWorkflowID: grant.AuthorWorkflowID})
-	require.NoError(t, err)
-
-	for name, tc := range map[string]struct {
-		token, workflowID, message string
-	}{
-		"forged":          {token: "forged.x", message: "plan not signed by Credimi"},
-		"unsigned":        {token: payload, message: "plan not signed by Credimi"},
-		"tampered":        {token: tampered, message: "plan not signed by Credimi"},
-		"approval token":  {token: approval, message: "plan not signed by Credimi"},
-		"another session": {workflowID: "ActionAuthorSession-u-author", message: "plan for another session"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			if tc.token == "" {
-				tc.token = token
-			}
-			if tc.workflowID == "" {
-				tc.workflowID = grant.AuthorWorkflowID
-			}
-			_, err := VerifyPlan(app, tc.token, tc.workflowID)
-			require.ErrorIs(t, err, ErrForbidden)
-			assert.ErrorContains(t, err, tc.message)
-		})
 	}
 }
 

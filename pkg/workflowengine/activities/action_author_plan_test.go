@@ -19,146 +19,79 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// signTestPlan returns a plan token of the test caller's workflow signed for
-// the session's actor.
-func signTestPlan(
-	t *testing.T,
-	app core.App,
-	session actionauthor.BuildRequest,
-	plan actionauthor.Spec,
-) string {
+// seedForeignAction adds an unpublished action of userB's organization and
+// returns its canonified path, which userA's sessions cannot start from.
+func seedForeignAction(t *testing.T, app core.App) string {
 	t.Helper()
-	token, err := actionauthor.SignPlan(app, actionauthor.PlanGrant{
-		AuthorWorkflowID: authorTestAuthorID,
-		Plan:             plan,
-		ActorID:          session.ActorID,
-		ActorCollection:  session.ActorCollection,
-		SignedAt:         time.Now().Unix(),
-	})
+	org, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
 	require.NoError(t, err)
-	return token
+	save := func(collection string, fields map[string]any) *core.Record {
+		c, err := app.FindCollectionByNameOrId(collection)
+		require.NoError(t, err)
+		record := core.NewRecord(c)
+		for key, value := range fields {
+			record.Set(key, value)
+		}
+		require.NoError(t, app.Save(record))
+		return record
+	}
+	wallet := save("wallets", map[string]any{"owner": org.Id, "name": "Foreign wallet"})
+	action := save("wallet_actions", map[string]any{
+		"owner":    org.Id,
+		"wallet":   wallet.Id,
+		"name":     "Foreign onboarding",
+		"code":     "appId: eu.wallet\n---\n- launchApp\n",
+		"category": "onboarding",
+	})
+	return org.GetString("canonified_name") + "/" + wallet.GetString("canonified_name") + "/" +
+		action.GetString("canonified_name")
 }
 
-func TestEffectivePlan(t *testing.T) {
-	app, session, _ := authorSaveFixture(t)
-	startSpec := actionauthor.Spec{
-		Slot:          "get-credential",
-		Prerequisites: []actionauthor.PrerequisiteSpec{{Action: "/org/wallet/onboarding"}},
-	}
-	signedPlan := actionauthor.Spec{Slot: "onboarding"}
-	normalized := actionauthor.Spec{Slot: "onboarding", Outcome: actionauthor.OutcomeSuccess}
-	token := signTestPlan(t, app, session, signedPlan)
-	ref := func(spec actionauthor.Spec) ActionAuthorSessionRef {
-		return ActionAuthorSessionRef{
-			SessionWorkflowID: authorTestSessionID,
-			Session:           actionauthor.Session{BuildRequest: session, Spec: spec},
-		}
-	}
-
-	// A start spec is the plan; the session's copy stays as it is.
-	fixed := ref(startSpec)
-	plan, err := EffectivePlan(app, fixed, authorTestAuthorID, "")
-	require.NoError(t, err)
-	require.Equal(t, actionauthor.Spec{
-		Slot:          "get-credential",
-		Outcome:       actionauthor.OutcomeSuccess,
-		Prerequisites: []actionauthor.PrerequisiteSpec{{Action: "org/wallet/onboarding"}},
-	}, plan)
-	require.Equal(t, "/org/wallet/onboarding", fixed.Session.Prerequisites[0].Action)
-
-	_, err = EffectivePlan(app, fixed, authorTestAuthorID, token)
-	require.ErrorIs(t, err, actionauthor.ErrInvalid)
-	require.ErrorContains(t, err, "this session's plan was fixed when it started")
-
-	_, err = EffectivePlan(
-		app,
-		ref(actionauthor.Spec{Slot: "uninstall-app"}),
-		authorTestAuthorID,
-		"",
-	)
-	require.ErrorIs(t, err, actionauthor.ErrInvalid)
-	require.ErrorContains(t, err, "action author session spec: invalid authoring request: slot")
-
-	// Without a start spec the plan comes from a token signed for the actor.
-	plan, err = EffectivePlan(app, ref(actionauthor.Spec{}), authorTestAuthorID, token)
-	require.NoError(t, err)
-	require.Equal(t, normalized, plan)
-
-	_, err = EffectivePlan(app, ref(actionauthor.Spec{}), authorTestAuthorID, "")
-	require.ErrorIs(t, err, actionauthor.ErrInvalid)
-	require.ErrorContains(t, err, "no plan: set one with set_plan")
-
-	other := session
-	other.ActorID = "someone-else"
-	for name, tc := range map[string]struct {
-		token, workflowID, message string
-	}{
-		"forged":          {token: "forged.x", message: "plan not signed by Credimi"},
-		"another session": {workflowID: "ActionAuthorSession-u-author", message: "plan for another session"},
-		"another user": {
-			token:   signTestPlan(t, app, other, signedPlan),
-			message: "plan signed for another user",
-		},
-	} {
-		if tc.token == "" {
-			tc.token = token
-		}
-		if tc.workflowID == "" {
-			tc.workflowID = authorTestAuthorID
-		}
-		_, err := EffectivePlan(app, ref(actionauthor.Spec{}), tc.workflowID, tc.token)
-		require.ErrorIs(t, err, actionauthor.ErrForbidden, name)
-		require.ErrorContains(t, err, tc.message, name)
-	}
-
-	invalid := signTestPlan(t, app, session, actionauthor.Spec{
-		Slot:    "onboarding",
-		Outcome: actionauthor.OutcomeRejection,
-	})
-	_, err = EffectivePlan(app, ref(actionauthor.Spec{}), authorTestAuthorID, invalid)
-	require.ErrorIs(t, err, actionauthor.ErrInvalid)
-	require.ErrorContains(t, err, "signed plan: invalid authoring request: outcome")
+// foreignPlan is plan starting from an action the session's organization
+// cannot use.
+func foreignPlan(t *testing.T, app core.App, plan actionauthor.Spec) actionauthor.Spec {
+	t.Helper()
+	foreign := seedForeignAction(t, app)
+	plan.Prerequisites = []actionauthor.PrerequisiteSpec{{Action: foreign}}
+	return plan
 }
 
-func TestGenerateActionAuthorParametersUsesThePlanToken(t *testing.T) {
+func TestGenerateActionAuthorParametersChecksTheSentPlan(t *testing.T) {
 	setFCAFTestEnv(t)
 	app, session, namespace := authorSaveFixture(t)
 	caller := authorTestCaller()
 	caller.Namespace = namespace
 	plan := actionauthor.Spec{
-		Slot: "onboarding",
+		Slot: "other",
 		Parameters: []actionauthor.ParameterSpec{{
 			Name:   "PIN",
 			Source: actionauthor.SourceSpec{Kind: actionauthor.SourceLiteral, Value: "123456"},
 		}},
 	}
-	generate := func(spec actionauthor.Spec, token string) (GenerateActionAuthorParametersOutput, error) {
+	generate := func(plan actionauthor.Spec) (GenerateActionAuthorParametersOutput, error) {
 		a := NewGenerateActionAuthorParametersActivity(app)
-		a.authorSessionLookup = specSessionLookup(t, session, spec).lookup()
+		a.authorSessionLookup = specSessionLookup(t, session, actionauthor.Spec{}).lookup()
 		return a.generate(t.Context(), caller, GenerateActionAuthorParametersInput{
-			Scope:     ParameterScopeCandidate,
-			PlanToken: token,
+			Scope: ParameterScopeCandidate,
+			Plan:  plan,
 		})
 	}
 
-	output, err := generate(actionauthor.Spec{}, signTestPlan(t, app, session, plan))
+	output, err := generate(plan)
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{"PIN": "123456"}, output.Values)
 
-	_, err = generate(actionauthor.Spec{}, "")
+	_, err = generate(actionauthor.Spec{})
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "no plan: set one with set_plan")
 
-	_, err = generate(actionauthor.Spec{}, "forged.x")
-	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
-	require.ErrorContains(t, err, "plan not signed by Credimi")
-
-	_, err = generate(plan, signTestPlan(t, app, session, plan))
+	foreign := foreignPlan(t, app, plan)
+	_, err = generate(foreign)
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
-	require.ErrorContains(t, err, "this session's plan was fixed when it started")
+	require.ErrorContains(t, err, foreign.Prerequisites[0].Action+" not found")
 }
 
-func TestCheckActionAuthorProtocolOutcomeUsesThePlanToken(t *testing.T) {
+func TestCheckActionAuthorProtocolOutcomeChecksTheSentPlan(t *testing.T) {
 	setFCAFTestEnv(t)
 	app, session, namespace := authorSaveFixture(t)
 	caller := authorTestCaller()
@@ -186,17 +119,17 @@ func TestCheckActionAuthorProtocolOutcomeUsesThePlanToken(t *testing.T) {
 			},
 		}},
 	}
-	check := func(spec actionauthor.Spec, token string) (CheckActionAuthorProtocolOutcomeOutput, error) {
+	check := func(plan actionauthor.Spec) (CheckActionAuthorProtocolOutcomeOutput, error) {
 		a := NewCheckActionAuthorProtocolOutcomeActivity(app)
-		a.authorSessionLookup = specSessionLookup(t, session, spec).lookup()
+		a.authorSessionLookup = specSessionLookup(t, session, actionauthor.Spec{}).lookup()
 		a.transport = server.Client().Transport
 		return a.check(t.Context(), caller, CheckActionAuthorProtocolOutcomeInput{
 			Parameter: "deeplink",
-			PlanToken: token,
+			Plan:      plan,
 		})
 	}
 
-	output, err := check(actionauthor.Spec{}, signTestPlan(t, app, session, plan))
+	output, err := check(plan)
 	require.NoError(t, err)
 	require.Equal(t, CheckActionAuthorProtocolOutcomeOutput{
 		Reached:  true,
@@ -204,20 +137,17 @@ func TestCheckActionAuthorProtocolOutcomeUsesThePlanToken(t *testing.T) {
 		Expected: []string{"done"},
 	}, output)
 
-	_, err = check(actionauthor.Spec{}, "")
+	_, err = check(actionauthor.Spec{})
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "no plan: set one with set_plan")
 
-	_, err = check(actionauthor.Spec{}, "forged.x")
-	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
-	require.ErrorContains(t, err, "plan not signed by Credimi")
-
-	_, err = check(plan, signTestPlan(t, app, session, plan))
+	foreign := foreignPlan(t, app, plan)
+	_, err = check(foreign)
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
-	require.ErrorContains(t, err, "this session's plan was fixed when it started")
+	require.ErrorContains(t, err, foreign.Prerequisites[0].Action+" not found")
 }
 
-func TestSaveAuthoredWalletActionUsesThePlanToken(t *testing.T) {
+func TestSaveAuthoredWalletActionChecksTheSentPlan(t *testing.T) {
 	setFCAFTestEnv(t)
 	app, session, namespace := authorSaveFixture(t)
 	build, err := actionauthor.Resolve(app, namespace, session)
@@ -247,7 +177,7 @@ func TestSaveAuthoredWalletActionUsesThePlanToken(t *testing.T) {
 		require.NoError(t, err)
 		return token
 	}
-	request := func(planToken, approvalToken string) actionauthor.SaveRequest {
+	request := func(plan actionauthor.Spec, approvalToken string) actionauthor.SaveRequest {
 		return actionauthor.SaveRequest{
 			Name:            "Planned action",
 			Code:            code,
@@ -256,37 +186,33 @@ func TestSaveAuthoredWalletActionUsesThePlanToken(t *testing.T) {
 			PackageID:       "eu.wallet",
 			ReplayCount:     1,
 			Approval:        approvalToken,
-			PlanToken:       planToken,
+			Spec:            plan,
 		}
 	}
-	save := func(spec actionauthor.Spec, payload actionauthor.SaveRequest) (actionauthor.Receipt, error) {
+	save := func(payload actionauthor.SaveRequest) (actionauthor.Receipt, error) {
 		return specSessionLookup(
 			t,
 			session,
-			spec,
+			actionauthor.Spec{},
 		).activity(t, app).
 			save(t.Context(), caller, payload)
 	}
-	token := signTestPlan(t, app, session, plan)
 	approved := approval(actionauthor.PlanSHA256(normalized))
 
-	_, err = save(actionauthor.Spec{}, request("", approved))
+	_, err = save(request(actionauthor.Spec{}, approved))
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 	require.ErrorContains(t, err, "no plan: set one with set_plan")
 
-	_, err = save(actionauthor.Spec{}, request("forged.x", approved))
-	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
-	require.ErrorContains(t, err, "plan not signed by Credimi")
-
-	_, err = save(plan, request(token, approved))
+	foreign := foreignPlan(t, app, plan)
+	_, err = save(request(foreign, approved))
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
-	require.ErrorContains(t, err, "this session's plan was fixed when it started")
+	require.ErrorContains(t, err, foreign.Prerequisites[0].Action+" not found")
 
-	_, err = save(actionauthor.Spec{}, request(token, approval(actionauthor.PlanSHA256(plan))))
+	_, err = save(request(plan, approval(actionauthor.PlanSHA256(plan))))
 	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 	require.ErrorContains(t, err, "approval is for another plan")
 
-	receipt, err := save(actionauthor.Spec{}, request(token, approved))
+	receipt, err := save(request(plan, approved))
 	require.NoError(t, err)
 	require.True(t, receipt.Created)
 	require.Equal(t, "other", receipt.Provenance.Slot)
@@ -342,25 +268,10 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 		"Onboarding",
 		"appId: eu.wallet\n---\n- launchApp\n",
 	)
-	check := func(start, plan actionauthor.Spec) (CheckActionAuthorPlanOutput, error) {
+	check := func(plan actionauthor.Spec) (CheckActionAuthorPlanOutput, error) {
 		a := NewCheckActionAuthorPlanActivity(app)
-		a.authorSessionLookup = specSessionLookup(t, session, start).lookup()
+		a.authorSessionLookup = specSessionLookup(t, session, actionauthor.Spec{}).lookup()
 		return a.check(t.Context(), caller, CheckActionAuthorPlanInput{Plan: plan})
-	}
-	// signed checks that a valid plan's token is Credimi's signature of the
-	// plan and its summary for the caller's workflow and the session's actor,
-	// then clears it for comparison.
-	signed := func(output CheckActionAuthorPlanOutput) CheckActionAuthorPlanOutput {
-		t.Helper()
-		require.NotNil(t, output.Plan)
-		grant, err := actionauthor.VerifyPlan(app, output.PlanToken, caller.WorkflowID)
-		require.NoError(t, err)
-		require.Equal(t, *output.Plan, grant.Plan)
-		require.Equal(t, output.Summary, grant.Summary)
-		require.Equal(t, session.ActorID, grant.ActorID)
-		require.Equal(t, session.ActorCollection, grant.ActorCollection)
-		output.PlanToken = ""
-		return output
 	}
 	problems := func(problems ...string) CheckActionAuthorPlanOutput {
 		return CheckActionAuthorPlanOutput{
@@ -385,7 +296,7 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 		}},
 	}
 
-	output, err := check(actionauthor.Spec{}, plan)
+	output, err := check(plan)
 	require.NoError(t, err)
 	normalized := plan
 	normalized.Outcome = actionauthor.OutcomeSuccess
@@ -402,16 +313,10 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 		Prerequisites: resolved,
 		Parameters:    actionauthor.ParameterInfos(normalized),
 	}
-	require.Equal(t, accepted, signed(output))
+	require.Equal(t, accepted, output)
 	require.Len(t, output.Parameters, 1)
-	effective, err := EffectivePlan(app, ActionAuthorSessionRef{
-		SessionWorkflowID: authorTestSessionID,
-		Session:           actionauthor.Session{BuildRequest: session},
-	}, caller.WorkflowID, output.PlanToken)
-	require.NoError(t, err)
-	require.Equal(t, normalized, effective)
 
-	output, err = check(actionauthor.Spec{}, actionauthor.Spec{Slot: "get-credential"})
+	output, err = check(actionauthor.Spec{Slot: "get-credential"})
 	require.NoError(t, err)
 	require.Equal(t, problems(
 		"prerequisites: the get-credential slot needs at least one prerequisite",
@@ -419,13 +324,12 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 	encoded, err := json.Marshal(output)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"problems": ["prerequisites: the get-credential slot needs at least `+
-		`one prerequisite"], "plan": null, "summary": [], "prerequisites": [], "parameters": [], `+
-		`"plan_token": ""}`,
+		`one prerequisite"], "plan": null, "summary": [], "prerequisites": [], "parameters": []}`,
 		string(encoded))
 
 	missing := plan
 	missing.Prerequisites = []actionauthor.PrerequisiteSpec{{Action: namespace + "/x/y"}}
-	output, err = check(actionauthor.Spec{}, missing)
+	output, err = check(missing)
 	require.NoError(t, err)
 	require.Equal(t, problems(namespace+"/x/y not found"), output)
 
@@ -435,7 +339,7 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 		WaitSeconds:   240,
 		Prerequisites: []actionauthor.PrerequisiteSpec{{Action: onboarding}},
 	}
-	output, err = check(actionauthor.Spec{}, wait)
+	output, err = check(wait)
 	require.NoError(t, err)
 	require.Equal(t, CheckActionAuthorPlanOutput{
 		Problems: []string{},
@@ -447,16 +351,12 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 		},
 		Prerequisites: resolved,
 		Parameters:    []actionauthor.ParameterInfo{},
-	}, signed(output))
+	}, output)
 
 	wait.WaitSeconds = 0
-	output, err = check(actionauthor.Spec{}, wait)
+	output, err = check(wait)
 	require.NoError(t, err)
 	require.Equal(t, problems("wait_seconds: must be 1-600 for the wait outcome"), output)
-
-	output, err = check(actionauthor.Spec{Slot: "onboarding"}, plan)
-	require.NoError(t, err)
-	require.Equal(t, problems("this session's plan was fixed when it started"), output)
 }
 
 func TestResolveActionAuthorReference(t *testing.T) {

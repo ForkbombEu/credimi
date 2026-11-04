@@ -77,12 +77,12 @@ func (p sourceRedirectPolicy) RoundTrip(req *http.Request) (*http.Response, erro
 }
 
 // GenerateActionAuthorParametersInput selects the parameter list of the
-// caller's session: the candidate's, or the prerequisite's at Index.
-// PlanToken is the signed plan's token when the session has no start spec.
+// caller's session: the candidate's, or the prerequisite's at Index. Plan is
+// the plan Check action author plan returned, which Credimi checks again.
 type GenerateActionAuthorParametersInput struct {
-	Scope     string `json:"scope"`
-	Index     int    `json:"index"`
-	PlanToken string `json:"plan_token,omitempty"`
+	Scope string            `json:"scope"`
+	Index int               `json:"index"`
+	Plan  actionauthor.Spec `json:"plan"`
 }
 
 // GenerateActionAuthorParametersOutput carries fresh parameter values and, for
@@ -149,15 +149,11 @@ func (a *GenerateActionAuthorParametersActivity) generate(
 		Values:   map[string]string{},
 		Captures: map[string]map[string]string{},
 	}
-	ref, err := a.callerSession(ctx, &a.BaseActivity, caller)
+	_, selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return output, err
 	}
-	plan, err := EffectivePlan(a.app, ref, caller.WorkflowID, payload.PlanToken)
-	if err != nil {
-		return output, actionAuthorError(&a.BaseActivity, err)
-	}
-	selection, err := actionauthor.Select(a.app, caller.Namespace, ref.Session.BuildRequest)
+	plan, err := SessionPlan(a.app, selection, payload.Plan)
 	if err != nil {
 		return output, actionAuthorError(&a.BaseActivity, err)
 	}
@@ -306,12 +302,12 @@ func (a *GenerateActionAuthorParametersActivity) httpValue(
 }
 
 // CheckActionAuthorProtocolOutcomeInput names a candidate parameter with a
-// status check and the values captured when its value was generated;
-// PlanToken is the signed plan's token when the session has no start spec.
+// status check and the values captured when its value was generated; Plan is
+// the plan Check action author plan returned, which Credimi checks again.
 type CheckActionAuthorProtocolOutcomeInput struct {
 	Parameter string            `json:"parameter"`
 	Captures  map[string]string `json:"captures"`
-	PlanToken string            `json:"plan_token,omitempty"`
+	Plan      actionauthor.Spec `json:"plan"`
 }
 
 // CheckActionAuthorProtocolOutcomeOutput reports whether the protocol session
@@ -377,11 +373,11 @@ func (a *CheckActionAuthorProtocolOutcomeActivity) check(
 	payload CheckActionAuthorProtocolOutcomeInput,
 ) (CheckActionAuthorProtocolOutcomeOutput, error) {
 	var output CheckActionAuthorProtocolOutcomeOutput
-	ref, err := a.callerSession(ctx, &a.BaseActivity, caller)
+	_, selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return output, err
 	}
-	plan, err := EffectivePlan(a.app, ref, caller.WorkflowID, payload.PlanToken)
+	plan, err := SessionPlan(a.app, selection, payload.Plan)
 	if err != nil {
 		return output, actionAuthorError(&a.BaseActivity, err)
 	}

@@ -41,7 +41,7 @@ type Approval struct {
 
 // signingKey derives a signing key for one token kind from the users
 // collection's auth token secret, so rotating that secret also revokes
-// pending approvals and plans.
+// pending approvals.
 func signingKey(app core.App, label string) ([]byte, error) {
 	users, err := app.FindCollectionByNameOrId("users")
 	if err != nil {

@@ -7,9 +7,9 @@ package activities
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -22,9 +22,6 @@ const (
 	CheckActionAuthorPlanActivityName         = "Check action author plan"
 	ResolveActionAuthorReferenceActivityName  = "Resolve action author reference"
 )
-
-// planFixedProblem answers a plan set in a session started with a spec.
-const planFixedProblem = "this session's plan was fixed when it started"
 
 // sessionSelection reauthorizes the build of the caller's session.
 func (l authorSessionLookup) sessionSelection(
@@ -116,16 +113,14 @@ type CheckActionAuthorPlanInput struct {
 }
 
 // CheckActionAuthorPlanOutput lists the plan's problems or, when it has
-// none, the normalized plan with its summary, resolved prerequisites,
-// parameters and the plan token Credimi signed for the session. Its lists
-// are never null; with problems the plan is null and the token empty.
+// none, the normalized plan with its summary, resolved prerequisites and
+// parameters. Its lists are never null; with problems the plan is null.
 type CheckActionAuthorPlanOutput struct {
 	Problems      []string                            `json:"problems"`
 	Plan          *actionauthor.Spec                  `json:"plan"`
 	Summary       []string                            `json:"summary"`
 	Prerequisites []actionauthor.ResolvedPrerequisite `json:"prerequisites"`
 	Parameters    []actionauthor.ParameterInfo        `json:"parameters"`
-	PlanToken     string                              `json:"plan_token"`
 }
 
 // checkPlanProblems is the output of a plan with problems.
@@ -138,8 +133,8 @@ func checkPlanProblems(problems ...string) CheckActionAuthorPlanOutput {
 	}
 }
 
-// CheckActionAuthorPlanActivity checks the plan the agent sets and signs it
-// for the caller's workflow and its session's actor.
+// CheckActionAuthorPlanActivity checks the plan the agent sets for the
+// caller's session.
 type CheckActionAuthorPlanActivity struct {
 	workflowengine.BaseActivity
 	authorSessionLookup
@@ -176,19 +171,16 @@ func (a *CheckActionAuthorPlanActivity) Execute(
 	return result, nil
 }
 
-// check answers a plan with its problems, or with its summary and the plan
-// token Credimi signs for the caller's workflow and the session's actor.
+// check answers a plan with its problems, or with the normalized plan, its
+// summary, resolved prerequisites and parameters.
 func (a *CheckActionAuthorPlanActivity) check(
 	ctx context.Context,
 	caller authorCaller,
 	payload CheckActionAuthorPlanInput,
 ) (CheckActionAuthorPlanOutput, error) {
-	ref, selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
+	_, selection, err := a.sessionSelection(ctx, &a.BaseActivity, a.app, caller)
 	if err != nil {
 		return CheckActionAuthorPlanOutput{}, err
-	}
-	if !ref.Session.IsEmpty() {
-		return checkPlanProblems(planFixedProblem), nil
 	}
 	plan := payload.Plan
 	resolved, err := checkPlan(a.app, selection, &plan)
@@ -200,25 +192,12 @@ func (a *CheckActionAuthorPlanActivity) check(
 	if err != nil {
 		return CheckActionAuthorPlanOutput{}, actionAuthorError(&a.BaseActivity, err)
 	}
-	summary := actionauthor.PlanSummary(plan, resolved)
-	token, err := actionauthor.SignPlan(a.app, actionauthor.PlanGrant{
-		AuthorWorkflowID: caller.WorkflowID,
-		Plan:             plan,
-		Summary:          summary,
-		ActorID:          ref.Session.ActorID,
-		ActorCollection:  ref.Session.ActorCollection,
-		SignedAt:         time.Now().Unix(),
-	})
-	if err != nil {
-		return CheckActionAuthorPlanOutput{}, actionAuthorError(&a.BaseActivity, err)
-	}
 	return CheckActionAuthorPlanOutput{
 		Problems:      []string{},
 		Plan:          &plan,
-		Summary:       summary,
+		Summary:       actionauthor.PlanSummary(plan, resolved),
 		Prerequisites: resolved,
 		Parameters:    actionauthor.ParameterInfos(plan),
-		PlanToken:     token,
 	}, nil
 }
 
@@ -233,6 +212,25 @@ func checkPlan(
 		return nil, err
 	}
 	return actionauthor.ResolvePrerequisites(app, selection, plan)
+}
+
+// SessionPlan checks a plan the agent sends for its session exactly as
+// Check action author plan does: normalized, its prerequisites resolved
+// for the session's build. An empty plan is ErrInvalid.
+func SessionPlan(
+	app core.App,
+	selection actionauthor.Selection,
+	plan actionauthor.Spec,
+) (actionauthor.Spec, error) {
+	if plan.Slot == "" {
+		return actionauthor.Spec{}, fmt.Errorf(
+			"%w: no plan: set one with set_plan", actionauthor.ErrInvalid,
+		)
+	}
+	if _, err := checkPlan(app, selection, &plan); err != nil {
+		return actionauthor.Spec{}, err
+	}
+	return plan, nil
 }
 
 // ResolveActionAuthorReferenceInput is a reference the user gave the agent.

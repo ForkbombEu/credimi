@@ -127,7 +127,7 @@ async def test_reviews_are_sent_to_credimi():
         "tool_id: proposal.tool_id,",
         "...review.body(proposal, accepted),",
         "candidate_sha256: proposal.tool_input.candidate_sha256,",
-        "plan_token: proposal.tool_input.plan_token || '',",
+        "plan: proposal.tool_input.plan,",
     ):
         assert field in script
     # The token comes from the start page; a missing or expired one asks for a key.
@@ -152,17 +152,12 @@ async def test_save_review_shows_the_yaml_plan_and_checks_its_hash():
     assert "block.textContent = text;" in script
     assert "innerHTML" not in script
     assert "max-height: 40vh; overflow: auto;" in script
-    # The plan is the payload segment of the signed plan token.
-    assert "token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/')" in script
-    # An empty token means a plan fixed at start; one that does not decode blocks Accept.
-    assert "if (typeof token !== 'string' || !token) return { fixed: true };" in script
-    assert "return { unreadable: true };" in script
-    assert "'Unreadable plan token: refuse this candidate.'" in script
-    assert "if (tokenPlan(input.plan_token).unreadable) return false;" in script
-    assert (
-        "cannotAccept: (input) => "
-        "(tokenPlan(input.plan_token).unreadable ? unreadableToken : hashMismatch),"
-    ) in script
+    # The plan is the full plan JSON the agent sent; a candidate without one blocks Accept.
+    assert "JSON.stringify(input.plan, null, 2)" in script
+    assert "'No plan: refuse this candidate.'" in script
+    assert "if (!hasPlan(input)) return false;" in script
+    assert "cannotAccept: (input) => (hasPlan(input) ? hashMismatch : noPlan)," in script
+    assert "plan_token" not in script
     # Accept needs the shown YAML to hash to the digest Credimi's approval signs.
     assert "crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))" in script
     assert "byte.toString(16).padStart(2, '0')" in script

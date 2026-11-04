@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -192,8 +191,9 @@ func (a *SaveAuthoredWalletActionActivity) Execute(
 
 // save accepts only the ActionAuthor child of a running session in the
 // caller's namespace and a Credimi-signed approval of the candidate and plan
-// by the session's actor, and saves on behalf of the session's actor, build,
-// platform and effective plan rather than those of the payload.
+// by the session's actor, and saves on behalf of the session's actor, build
+// and platform rather than those of the payload, with the sent plan checked
+// again for the session's build.
 func (a *SaveAuthoredWalletActionActivity) save(
 	ctx context.Context,
 	caller authorCaller,
@@ -204,10 +204,6 @@ func (a *SaveAuthoredWalletActionActivity) save(
 		return actionauthor.Receipt{}, err
 	}
 	session := ref.Session
-	plan, err := EffectivePlan(a.app, ref, caller.WorkflowID, payload.PlanToken)
-	if err != nil {
-		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
-	}
 	if !matchesSession(payload.ActorID, session.ActorID) ||
 		!matchesSession(payload.ActorCollection, session.ActorCollection) ||
 		!matchesSession(payload.WalletVersionIdentifier, session.WalletVersionIdentifier) ||
@@ -215,6 +211,14 @@ func (a *SaveAuthoredWalletActionActivity) save(
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
 			"%w: save request does not match the session", actionauthor.ErrForbidden,
 		))
+	}
+	selection, err := actionauthor.Select(a.app, caller.Namespace, session.BuildRequest)
+	if err != nil {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
+	}
+	plan, err := SessionPlan(a.app, selection, payload.Spec)
+	if err != nil {
+		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
 	payload.BuildRequest = session.BuildRequest
 	payload.Spec = plan
@@ -316,61 +320,6 @@ func (l authorSessionLookup) callerSession(
 		return ActionAuthorSessionRef{}, lookupError(base, err)
 	}
 	return ref, nil
-}
-
-// EffectivePlan returns the normalized plan a session's activity acts on:
-// the spec fixed when the session started, or else the plan Credimi checked
-// and signed for the session, whose token the agent sends with each activity.
-// The start input is read from Temporal history, which a client may have
-// written without going through the start handler, so the start spec is
-// validated again. Errors wrap actionauthor.ErrInvalid or ErrForbidden.
-func EffectivePlan(
-	app core.App,
-	ref ActionAuthorSessionRef,
-	authorWorkflowID, token string,
-) (actionauthor.Spec, error) {
-	session := ref.Session
-	if !session.IsEmpty() {
-		if token != "" {
-			return actionauthor.Spec{}, fmt.Errorf(
-				"%w: this session's plan was fixed when it started", actionauthor.ErrInvalid,
-			)
-		}
-		plan, err := normalizedPlan(session.Spec)
-		if err != nil {
-			return actionauthor.Spec{}, fmt.Errorf("action author session spec: %w", err)
-		}
-		return plan, nil
-	}
-	if token == "" {
-		return actionauthor.Spec{}, fmt.Errorf(
-			"%w: no plan: set one with set_plan", actionauthor.ErrInvalid,
-		)
-	}
-	grant, err := actionauthor.VerifyPlan(app, token, authorWorkflowID)
-	if err != nil {
-		return actionauthor.Spec{}, err
-	}
-	if grant.ActorID != session.ActorID ||
-		grant.ActorCollection != session.ActorCollection {
-		return actionauthor.Spec{}, fmt.Errorf(
-			"%w: plan signed for another user", actionauthor.ErrForbidden,
-		)
-	}
-	plan, err := normalizedPlan(grant.Plan)
-	if err != nil {
-		return actionauthor.Spec{}, fmt.Errorf("signed plan: %w", err)
-	}
-	return plan, nil
-}
-
-// normalizedPlan normalizes a copy of spec, leaving spec as is.
-func normalizedPlan(spec actionauthor.Spec) (actionauthor.Spec, error) {
-	spec.Prerequisites = slices.Clone(spec.Prerequisites)
-	if err := spec.Normalize(); err != nil {
-		return actionauthor.Spec{}, err
-	}
-	return spec, nil
 }
 
 // actionAuthorSessionID returns the session workflow ID of an ActionAuthor

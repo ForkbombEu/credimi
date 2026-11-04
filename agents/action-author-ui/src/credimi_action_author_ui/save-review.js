@@ -14,7 +14,7 @@ let submitting = false;
 let refreshing = false;
 
 const hashMismatch = 'The reviewed YAML does not match its hash. Refuse this candidate.';
-const unreadableToken = 'Unreadable plan token: refuse this candidate.';
+const noPlan = 'No plan: refuse this candidate.';
 
 function textBlock(className, label, text) {
   const block = document.createElement('pre');
@@ -31,45 +31,17 @@ function paragraph(text) {
   return element;
 }
 
-// Each line in its own element: indented lines detail the line above them, so their leading
-// spaces must show.
-function summaryLines(lines) {
-  const element = document.createElement('div');
-  element.className = 'plan-summary';
-  for (const line of lines) {
-    const item = document.createElement('div');
-    item.className = 'summary-line';
-    item.textContent = String(line);
-    element.append(item);
-  }
-  return element;
-}
-
-// The plan a plan token signs: its first segment is base64url JSON of Credimi's plan grant,
-// whose summary the card shows. An empty token means the plan was fixed when the session
-// started; a token that does not decode to a plan is unreadable, and its candidate must not be
-// accepted.
-function tokenPlan(token) {
-  if (typeof token !== 'string' || !token) return { fixed: true };
-  try {
-    const segment = token.split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = segment + '='.repeat((4 - (segment.length % 4)) % 4);
-    const bytes = Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
-    const grant = JSON.parse(new TextDecoder().decode(bytes));
-    const plan = grant.plan;
-    const summary = Array.isArray(grant.summary) ? grant.summary : [];
-    if (plan && typeof plan === 'object') return { plan, summary };
-  } catch {
-    // An undecodable token is unreadable.
-  }
-  return { unreadable: true };
+// The plan the agent sent with the candidate: Credimi checks it again and binds the approval to
+// it, so a candidate without one cannot be accepted.
+function hasPlan(input) {
+  return input.plan !== null && typeof input.plan === 'object' && !Array.isArray(input.plan);
 }
 
 // The save of a candidate whose clean-state replay passed.
 const saveReview = {
   label: 'Review and save action',
   intro: 'Review the accepted YAML and the plan below, then confirm your decision.',
-  cannotAccept: (input) => (tokenPlan(input.plan_token).unreadable ? unreadableToken : hashMismatch),
+  cannotAccept: (input) => (hasPlan(input) ? hashMismatch : noPlan),
   endpoint: '/api/action-author/reviews',
   sending: (accepted) => (accepted ? 'Sending your acceptance to Credimi…' : 'Sending your refusal to Credimi…'),
   done: (accepted) => (accepted ? 'Accepted. Waiting for the save result…' : 'Not saved. You can request changes in this chat.'),
@@ -79,16 +51,19 @@ const saveReview = {
     heading.textContent = `Save “${input.name}”?`;
     const details = paragraph(`Build: ${input.build}. The clean-state replay passed. The action will be saved unpublished.`);
     const code = textBlock('review-code', 'Accepted YAML', typeof input.code === 'string' ? input.code : '');
-    const { plan, summary, unreadable } = tokenPlan(input.plan_token);
-    let planBlock = paragraph('Plan fixed when the session started.');
-    if (plan) planBlock = summaryLines(summary);
-    else if (unreadable) planBlock = paragraph(unreadableToken);
-    target.append(heading, details, code, paragraph('Plan:'), planBlock);
+    target.append(heading, details, code);
+    // The full plan as JSON: JSON escapes line breaks, so no field can add a line, and nothing
+    // is cut.
+    if (hasPlan(input)) {
+      target.append(paragraph('Plan:'), textBlock('review-code', 'Plan', JSON.stringify(input.plan, null, 2)));
+    } else {
+      target.append(paragraph(noPlan));
+    }
   },
   // Checks the card's YAML against candidate_sha256, the digest Credimi's approval signs, so the
-  // user never accepts a candidate other than the one shown, nor one whose plan cannot be shown.
+  // user never accepts a candidate other than the one shown, nor one without a plan.
   async canAccept(input) {
-    if (tokenPlan(input.plan_token).unreadable) return false;
+    if (!hasPlan(input)) return false;
     if (typeof input.code !== 'string' || typeof input.candidate_sha256 !== 'string') return false;
     try {
       return (await sha256Hex(input.code)) === input.candidate_sha256;
@@ -98,7 +73,7 @@ const saveReview = {
   },
   body: (proposal, accepted) => ({
     candidate_sha256: proposal.tool_input.candidate_sha256,
-    plan_token: proposal.tool_input.plan_token || '',
+    plan: proposal.tool_input.plan,
     accepted,
   }),
 };
@@ -117,11 +92,8 @@ ${nativeSelector} { display: none !important; }
   position: fixed; right: 24px; bottom: 24px; z-index: 1000; box-sizing: border-box;
   width: min(420px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto;
   box-shadow: 0 8px 24px rgb(0 0 0 / .35); display: grid; gap: 12px; font-family: inherit; }
-.action-review h3, .action-review p, .action-review ul { margin: 0; }
-.action-review p, .action-review li { overflow-wrap: anywhere; }
-.action-review ul { padding-left: 20px; }
-.action-review .plan-summary { display: grid; gap: 2px; }
-.action-review .summary-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+.action-review h3, .action-review p { margin: 0; }
+.action-review p { overflow-wrap: anywhere; }
 .action-review .review-buttons { display: flex; gap: 8px; }
 .action-review button { font: inherit; color: inherit; background: var(--surface-2, ButtonFace);
   border: 1px solid var(--border, ButtonBorder); border-radius: 6px; padding: 8px 16px;

@@ -7,54 +7,16 @@ package actionauthor
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/pocketbase/pocketbase/core"
 )
 
-const planKeyLabel = "credimi/action-author/plan/v1"
-
-// PlanGrant is a plan Credimi checked and signed for one ActionAuthor
-// workflow and its session's actor.
-type PlanGrant struct {
-	AuthorWorkflowID string   `json:"author_workflow_id"`
-	Plan             Spec     `json:"plan"`
-	Summary          []string `json:"summary"`
-	ActorID          string   `json:"actor_id"`
-	ActorCollection  string   `json:"actor_collection"`
-	SignedAt         int64    `json:"signed_at"`
-}
-
-// SignPlan returns the plan token, in the format of SignApproval.
-func SignPlan(app core.App, g PlanGrant) (string, error) {
-	return signToken(app, planKeyLabel, g)
-}
-
-// VerifyPlan accepts only a plan token Credimi signed for this workflow;
-// every other token is ErrForbidden. Plans do not expire: activities accept
-// them only while their session runs.
-func VerifyPlan(app core.App, token, authorWorkflowID string) (PlanGrant, error) {
-	var grant PlanGrant
-	if err := verifyToken(app, planKeyLabel, token, &grant); err != nil {
-		if errors.Is(err, errUnsigned) {
-			return PlanGrant{}, fmt.Errorf("%w: plan not signed by Credimi", ErrForbidden)
-		}
-		return PlanGrant{}, err
-	}
-	if grant.AuthorWorkflowID != authorWorkflowID {
-		return PlanGrant{}, fmt.Errorf("%w: plan for another session", ErrForbidden)
-	}
-	return grant, nil
-}
-
-// PlanSummary describes a normalized plan in the lines the save card shows:
-// every parameter source in full, so the reviewer sees what each run will call.
+// PlanSummary describes a normalized plan in lines for the agent: every
+// parameter source in full, so it can tell the user what each run will call.
 // Indented lines detail the line above them.
 func PlanSummary(s Spec, prerequisites []ResolvedPrerequisite) []string {
 	lines := []string{"Category: " + SlotCategory(s.Slot)}
