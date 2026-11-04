@@ -46,7 +46,6 @@ func newTransportTestRunner(runnerURL string, adminManaged bool) *core.Record {
 func TestTransportForAdminManagedRunners(t *testing.T) {
 	plain := newTransportTestRunner("http://runner.example", true)
 	require.Nil(t, Transport(plain))
-	require.Same(t, http.DefaultClient, HTTPClient(plain))
 
 	transport := Transport(newTransportTestRunner("https://demo.trycloudflare.com", true))
 	require.NotNil(t, transport)

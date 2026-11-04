@@ -154,6 +154,47 @@ The list lives in `workflowengine.CustomSearchAttributeTypes`. If an attribute i
 exist, trigger a Temporal visibility reindex to backfill historical data (see Temporal admin tooling docs for
 your deployment).
 
+## Observability (OpenTelemetry)
+
+Credimi exports traces, metrics and logs over OTLP/HTTP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, and exports
+nothing otherwise. The exporters read the standard `OTEL_*` variables:
+
+```sh
+OTEL_EXPORTER_OTLP_ENDPOINT=https://<collector host>
+# SigNoz collector basic auth; the header value is URL-encoded (space as %20)
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20$(printf 'signoz:<password>' | base64 -w0)
+OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=staging
+```
+
+- Every served request becomes a span named after the matched route (`GET /api/pipeline/list-executions`),
+  with the caller's `enduser.id` and `enduser.collection` and any handler error. Incoming `traceparent` headers
+  join the caller's trace.
+- Temporal clients and workers add `StartWorkflow`/`RunWorkflow`/`StartActivity`/`RunActivity` spans to the
+  same trace and report Temporal SDK metrics.
+- HTTP server, Go runtime and Temporal metrics are pushed every 60s.
+- `slog` and `log` records are exported and still printed to stderr; Temporal SDK logs (workflow and activity
+  logs, with `WorkflowID`/`RunID`) are exported and still written to the PocketBase logger. PocketBase's own logger
+  (`app.Logger()`, the `_logs` table) is not exported.
+- Calls to mobile runners carry `traceparent`. Outbound calls to other systems (issuers, verifiers under test) are
+  not traced, so Credimi adds no headers to them.
+
+### Following one run across components
+
+One pipeline run is one trace when Credimi and the runner export to the same collector:
+
+1. `POST /api/pipeline/queue` (Credimi HTTP span) → `StartWorkflow` → `RunWorkflow:Dynamic Pipeline Workflow`
+   (Credimi worker).
+2. `StartChildWorkflow:mobile-automation` → `RunWorkflow:mobile-automation` and its `RunActivity` spans on the
+   runner worker (`${runner_id}-TaskQueue`); Temporal headers carry the trace context.
+3. Inside runner activities, credimi-extra adds `mobile.*` span events and log records, and avdctl adds its
+   device spans and command logs, all under the activity span.
+4. Credimi's calls to the runner (`installer-action`, `pipeline-result`, `live-view`, `worker/{namespace}`) are
+   client spans; the runner's server spans for them join the same trace.
+
+In SigNoz, open the trace of the queue request, or filter logs by `trace_id` (and by `workflow_id` for Temporal SDK
+logs). Runners export only when an operator enables it in the runner dashboard (Observability: endpoint and the
+secret OTLP headers field).
+
 ## mobile device semaphore Ops (Internal)
 
 ### Defaults and knobs

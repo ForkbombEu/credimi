@@ -7,8 +7,11 @@ package temporalclient
 import (
 	"sync"
 
+	"github.com/forkbombeu/credimi/pkg/internal/observability"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"go.temporal.io/sdk/client"
+	temporalotel "go.temporal.io/sdk/contrib/opentelemetry"
+	"go.temporal.io/sdk/interceptor"
 	tlog "go.temporal.io/sdk/log"
 )
 
@@ -25,11 +28,23 @@ func ConfigureLogger(l tlog.Logger) {
 }
 
 // baseOptions returns the connection options shared by every Temporal client.
-// A nil logger is left unset so the SDK keeps its default.
+// A nil logger is left unset so the SDK keeps its default. With OpenTelemetry
+// export on, clients and the workers built on them propagate trace context
+// through workflow and activity headers and report SDK metrics.
 func baseOptions(namespace string) client.Options {
 	options := client.Options{
 		HostPort:  utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort),
 		Namespace: namespace,
+	}
+	if observability.Enabled() {
+		if tracing, err := temporalotel.NewTracingInterceptor(
+			temporalotel.TracerOptions{},
+		); err == nil {
+			options.Interceptors = []interceptor.ClientInterceptor{tracing}
+		}
+		options.MetricsHandler = temporalotel.NewMetricsHandler(
+			temporalotel.MetricsHandlerOptions{},
+		)
 	}
 	loggerMu.RLock()
 	defer loggerMu.RUnlock()
