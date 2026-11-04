@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // MobileRunnerHTTPActivity calls a mobile runner at the address stored on its
@@ -96,7 +97,7 @@ func (a *MobileRunnerHTTPActivity) Execute(
 		},
 		map[string]string{"Credimi-Api-Key": credential},
 		&a.BaseActivity,
-		mobilerunner.Transport(runner),
+		otelhttp.NewTransport(mobilerunner.Transport(runner)),
 		0,
 	)
 }

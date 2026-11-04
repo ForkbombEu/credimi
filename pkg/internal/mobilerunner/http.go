@@ -17,6 +17,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
 	"github.com/pocketbase/pocketbase/core"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // A quick-tunnel hostname is created when cloudflared connects and needs a few
@@ -43,14 +44,10 @@ var (
 )
 
 // HTTPClient returns the client every Credimi call to runner must use; see
-// Transport.
+// Transport. Requests carry the caller's trace context, so the runner's spans
+// join the Credimi trace.
 func HTTPClient(runner *core.Record) *http.Client {
-	transport := Transport(runner)
-	if transport == nil {
-		return http.DefaultClient
-	}
-
-	return &http.Client{Transport: transport}
+	return &http.Client{Transport: otelhttp.NewTransport(Transport(runner))}
 }
 
 // Transport returns the round tripper every Credimi call to runner must go
