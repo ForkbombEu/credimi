@@ -437,6 +437,10 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			return apiErr
 		}
 		ticketID := uuid.NewString()
+		// The ticket carries Credimi's signature of the enqueued session; the
+		// start activity checks it and signs the session itself
+		// (SessionInput.Grant), so no session grant reaches the semaphore's
+		// history.
 		sessionInput := authorsession.SessionInput{
 			DeviceID:                deviceID,
 			Platform:                platform,
@@ -444,7 +448,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			ActorID:                 actor.ActorID,
 			AppID:                   input.AppID,
 		}
-		sessionInput.Grant, err = actionauthor.SignSession(e.App, actionauthor.SessionGrant{
+		sessionInput.TicketGrant, err = actionauthor.SignTicket(e.App, actionauthor.SessionGrant{
 			SessionWorkflowID:       activities.ActionAuthorSessionWorkflowIDPrefix + ticketID,
 			Namespace:               namespace,
 			DeviceID:                sessionInput.DeviceID,

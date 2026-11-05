@@ -136,3 +136,32 @@ func TestSessionSignAndVerify(t *testing.T) {
 		})
 	}
 }
+
+func TestTicketAndSessionTokensAreNotInterchangeable(t *testing.T) {
+	app, _, _ := authoringFixture(t)
+	grant := SessionGrant{
+		SessionWorkflowID:       "ActionAuthorSession-ticket",
+		Namespace:               "org-a",
+		DeviceID:                "org-a/runner/pixel",
+		Platform:                "android",
+		WalletVersionIdentifier: "org-a/wallet/v1",
+		ActorID:                 "user-1",
+	}
+	ticket, err := SignTicket(app, grant)
+	require.NoError(t, err)
+	require.NoError(t, VerifyTicket(app, ticket, grant))
+	other := grant
+	other.ActorID = "user-2"
+	err = VerifyTicket(app, ticket, other)
+	require.ErrorIs(t, err, ErrForbidden)
+	assert.ErrorContains(t, err, "action author ticket was not enqueued by Credimi")
+
+	// A ticket copied from the semaphore's history is no session grant.
+	err = VerifySession(app, ticket, grant)
+	require.ErrorIs(t, err, ErrForbidden)
+	assert.ErrorContains(t, err, "action author session was not started by Credimi")
+	session, err := SignSession(app, grant)
+	require.NoError(t, err)
+	err = VerifyTicket(app, session, grant)
+	require.ErrorIs(t, err, ErrForbidden)
+}

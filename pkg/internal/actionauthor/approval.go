@@ -21,6 +21,7 @@ import (
 const (
 	approvalKeyLabel     = "credimi/action-author/approval/v1"
 	sessionKeyLabel      = "credimi/action-author/session/v1"
+	ticketKeyLabel       = "credimi/action-author/ticket/v1"
 	approvalMinSecretLen = 32
 	// ApprovalLifetime bounds how long a signed approval can be used by Save.
 	ApprovalLifetime = 30 * time.Minute
@@ -158,17 +159,48 @@ func SignSession(app core.App, g SessionGrant) (string, error) {
 // no expiry: the grant names the ticket's unique session workflow, and every
 // caller also requires that session to be running.
 func VerifySession(app core.App, token string, want SessionGrant) error {
+	return verifyGrant(
+		app,
+		sessionKeyLabel,
+		token,
+		want,
+		"action author session was not started by Credimi",
+	)
+}
+
+// SignTicket returns Credimi's signature of the session g that
+// POST /api/action-author/sessions enqueues after its checks. Its key differs
+// from SignSession's, so a ticket token copied from the semaphore's history
+// is never a session grant.
+func SignTicket(app core.App, g SessionGrant) (string, error) {
+	g.DeviceID = canonify.NormalizePath(g.DeviceID)
+	return signToken(app, ticketKeyLabel, g)
+}
+
+// VerifyTicket accepts only a ticket token Credimi signed for exactly want:
+// the start activity signs a session only for a ticket Credimi enqueued.
+func VerifyTicket(app core.App, token string, want SessionGrant) error {
+	return verifyGrant(
+		app,
+		ticketKeyLabel,
+		token,
+		want,
+		"action author ticket was not enqueued by Credimi",
+	)
+}
+
+func verifyGrant(app core.App, label, token string, want SessionGrant, refusal string) error {
 	var got SessionGrant
-	if err := verifyToken(app, sessionKeyLabel, token, &got); err != nil {
+	if err := verifyToken(app, label, token, &got); err != nil {
 		if errors.Is(err, errUnsigned) {
-			return fmt.Errorf("%w: action author session was not started by Credimi", ErrForbidden)
+			return fmt.Errorf("%w: %s", ErrForbidden, refusal)
 		}
 		return err
 	}
 	got.DeviceID = canonify.NormalizePath(got.DeviceID)
 	want.DeviceID = canonify.NormalizePath(want.DeviceID)
 	if got != want {
-		return fmt.Errorf("%w: action author session was not started by Credimi", ErrForbidden)
+		return fmt.Errorf("%w: %s", ErrForbidden, refusal)
 	}
 	return nil
 }

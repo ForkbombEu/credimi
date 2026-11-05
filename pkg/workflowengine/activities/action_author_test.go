@@ -103,9 +103,9 @@ func sessionHistory(t *testing.T, payload any) *fcafHistoryIterator {
 }
 
 // signedSessionHistory is the history of the session authorTestSessionID
-// that Credimi started with input, signed for the namespace of the wallet's
-// organization (the first segment of its identifier), as the start handler
-// signs it.
+// that Credimi started with input as run authorTestParentRun, signed and
+// recorded for the namespace of the wallet's organization (the first segment
+// of its identifier), as the start activity signs and records it.
 func signedSessionHistory(
 	t *testing.T,
 	app core.App,
@@ -127,6 +127,12 @@ func signedSessionHistory(
 		AppID:                   field("app_id"),
 	})
 	require.NoError(t, err)
+	require.NoError(t, actionauthor.RecordSessionRun(
+		app,
+		namespace,
+		authorTestSessionID,
+		authorTestParentRun,
+	))
 	signed := maps.Clone(input)
 	signed["grant"] = grant
 	return sessionHistory(t, signed)
@@ -694,4 +700,65 @@ func TestResolveActionAuthorBuildAcceptsOnlyCredimiSignedSessions(t *testing.T) 
 	_, err = executeActivity(t, a, session)
 	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 	require.ErrorContains(t, err, "caller is not an action author session")
+}
+
+// A grant copied from a session's history does not open another run of the
+// same workflow ID: a replay after the session closed, or a restart after it
+// was terminated.
+func TestLookupSessionStartAcceptsOnlyTheRecordedRun(t *testing.T) {
+	setFCAFTestEnv(t)
+	app := newCredimiTestApp(t)
+	session := authorTestSession()
+	input := map[string]any{
+		"device_id":                 "tenant/runner-1/device-1",
+		"platform":                  session.Platform,
+		"wallet_version_identifier": session.WalletVersionIdentifier,
+		"actor_id":                  session.ActorID,
+	}
+	lookup := func(namespace, runID string) (ActionAuthorSessionRef, error) {
+		mockClient := &temporalmocks.Client{}
+		mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, runID).
+			Return(sessionDescription(), nil)
+		mockClient.On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			authorTestSessionID,
+			runID,
+			false,
+			enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).Return(signedSessionHistory(t, app, input)).Maybe()
+		return lookupSessionStart(
+			t.Context(),
+			app,
+			mockClient,
+			namespace,
+			authorTestSessionID,
+			runID,
+		)
+	}
+
+	ref, err := lookup(authorTestNamespace, authorTestParentRun)
+	require.NoError(t, err)
+	require.Equal(t, authorTestParentRun, ref.SessionRunID)
+	require.Equal(t, session, ref.Session)
+
+	_, err = lookup(authorTestNamespace, "replayed-run")
+	require.ErrorIs(t, err, actionauthor.ErrForbidden)
+	require.ErrorContains(t, err, "action author session was not started by Credimi")
+
+	// The session's first activity can run before its start was recorded.
+	_, err = lookup("unrecorded", authorTestParentRun)
+	require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)
+	require.NotErrorIs(t, err, actionauthor.ErrForbidden)
+
+	a := NewResolveActionAuthorBuildActivity(app)
+	a.authorSessionLookup = validSessionLookup(t, app).lookup()
+	_, err = a.resolve(t.Context(), authorCaller{
+		Namespace:    "unrecorded",
+		WorkflowType: ActionAuthorSessionWorkflowName,
+		WorkflowID:   authorTestSessionID,
+		RunID:        authorTestParentRun,
+	}, session)
+	requireActivityError(t, err, errorcodes.UnexpectedWorkflowError, false)
+	require.ErrorContains(t, err, "action author session is not recorded yet")
 }

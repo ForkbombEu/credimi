@@ -430,12 +430,14 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 				require.NoError(t, json.Unmarshal(body, &response))
-				// Credimi signs the session it enqueues for the ticket's
-				// session workflow in the caller's namespace.
-				grant, _ := enqueued.ActionAuthor["grant"].(string)
+				// Credimi signs the ticket it enqueues for the ticket's
+				// session workflow in the caller's namespace; the start
+				// activity signs the session, so the ticket has no grant.
+				require.NotContains(t, enqueued.ActionAuthor, "grant")
+				ticketGrant, _ := enqueued.ActionAuthor["ticket_grant"].(string)
 				user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 				require.NoError(t, err)
-				require.NoError(t, actionauthor.VerifySession(app, grant, actionauthor.SessionGrant{
+				want := actionauthor.SessionGrant{
 					SessionWorkflowID:       "ActionAuthorSession-" + response.TicketID,
 					Namespace:               "usera-s-organization",
 					DeviceID:                deviceID,
@@ -443,8 +445,14 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 					WalletVersionIdentifier: scenario.version,
 					ActorID:                 user.Id,
 					AppID:                   "eu.wallet",
-				}))
-				delete(enqueued.ActionAuthor, "grant")
+				}
+				require.NoError(t, actionauthor.VerifyTicket(app, ticketGrant, want))
+				require.ErrorIs(
+					t,
+					actionauthor.VerifySession(app, ticketGrant, want),
+					actionauthor.ErrForbidden,
+				)
+				delete(enqueued.ActionAuthor, "ticket_grant")
 			},
 		}).Test(t)
 

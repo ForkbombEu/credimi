@@ -5,12 +5,15 @@ package activities
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"path"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
@@ -354,8 +357,12 @@ func (a *StartQueuedPipelineActivity) Execute(
 const actionAuthorSessionExecutionTimeout = 3 * time.Hour
 
 // startActionAuthorSession starts the "Action author session" of a granted
-// action_author ticket in the owner namespace. Sessions have no pipeline, so
-// no pipeline_results row is created.
+// action_author ticket in the owner namespace. It accepts only a ticket that
+// Credimi signed (ticket_grant), starts the session with Credimi's grant of
+// it instead, and records the run it started or reused: activities accept
+// only that run. The session grant thus exists only in the session's own
+// history, never in the semaphore's. Sessions have no pipeline, so no
+// pipeline_results row is created.
 func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	ctx context.Context,
 	payload StartQueuedPipelineActivityInput,
@@ -368,11 +375,41 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	if len(payload.ActionAuthor) == 0 {
 		return result, a.NewMissingOrInvalidPayloadError(fmt.Errorf("action_author is required"))
 	}
+	start, err := workflowengine.DecodePayload[sessionStart](payload.ActionAuthor)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
+	}
+	sessionWorkflowID := ActionAuthorSessionWorkflowIDPrefix + ticketKey
+	want := start.grant(payload.OwnerNamespace, sessionWorkflowID)
+	// The semaphore does not authenticate who enqueues: sign only a ticket
+	// that Credimi signed after its checks.
+	err = actionauthor.VerifyTicket(a.app, start.TicketGrant, want)
+	if errors.Is(err, actionauthor.ErrForbidden) {
+		return result, a.NewCodedError(errorcodes.RecordNotAccessible, false, err)
+	}
+	if err != nil {
+		return result, a.NewCodedError(
+			errorcodes.PipelineExecutionError,
+			true,
+			fmt.Errorf("verify action author ticket: %w", err),
+		)
+	}
+	grant, err := actionauthor.SignSession(a.app, want)
+	if err != nil {
+		return result, a.NewCodedError(
+			errorcodes.PipelineExecutionError,
+			true,
+			fmt.Errorf("sign action author session: %w", err),
+		)
+	}
+	sessionInput := maps.Clone(payload.ActionAuthor)
+	delete(sessionInput, "ticket_grant")
+	sessionInput["grant"] = grant
 
 	config := map[string]any{}
 	applySemaphoreTicketMetadata(config, payload)
 	options := client.StartWorkflowOptions{
-		ID:                       ActionAuthorSessionWorkflowIDPrefix + ticketKey,
+		ID:                       sessionWorkflowID,
 		TaskQueue:                pipelineTaskQueue,
 		WorkflowExecutionTimeout: actionAuthorSessionExecutionTimeout,
 		WorkflowIDReusePolicy:    enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
@@ -383,10 +420,19 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 		payload.OwnerNamespace,
 		options,
 		ActionAuthorSessionWorkflowName,
-		workflowengine.WorkflowInput{Payload: payload.ActionAuthor, Config: config},
+		workflowengine.WorkflowInput{Payload: sessionInput, Config: config},
 	)
 	if err != nil {
 		return result, err
+	}
+	// A retry reuses the same run (USE_EXISTING), so only another run that
+	// was recorded first is refused.
+	err = actionauthor.RecordSessionRun(a.app, payload.OwnerNamespace, workflowID, runID)
+	if errors.Is(err, actionauthor.ErrForbidden) {
+		return result, a.NewCodedError(errorcodes.RecordNotAccessible, false, err)
+	}
+	if err != nil {
+		return result, a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
 	}
 	result.Output = StartQueuedPipelineActivityOutput{
 		WorkflowID:        workflowID,

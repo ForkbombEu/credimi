@@ -67,10 +67,17 @@ type SessionInput struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
 	AppID                   string `json:"app_id,omitempty"`
+	// TicketGrant is Credimi's signature of the enqueued session
+	// (actionauthor.SignTicket), set by POST /api/action-author/sessions
+	// after its checks. The activity that starts the session accepts only a
+	// ticket signed for exactly the session it starts, and replaces it with
+	// Grant.
+	TicketGrant string `json:"ticket_grant,omitempty"`
 	// Grant is Credimi's signature of the session (actionauthor.SignSession),
-	// checked by every Credimi activity the session and its agent call. The
-	// workflow never reads it.
-	Grant string `json:"grant"`
+	// set by the activity that starts the session (never in the semaphore
+	// ticket) and checked by every Credimi activity the session and its
+	// agent call. The workflow never reads it.
+	Grant string `json:"grant,omitempty"`
 }
 
 // AuthoringBuild is the resolved build the agent authors against. Store

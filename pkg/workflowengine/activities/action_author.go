@@ -370,8 +370,35 @@ func sessionForbidden(reason string) error {
 	return fmt.Errorf("%w: %s", actionauthor.ErrForbidden, reason)
 }
 
+// sessionStart is the part of an authorsession.SessionInput that Credimi's
+// grants cover, and the grants (activities cannot import authorsession).
+type sessionStart struct {
+	DeviceID                string `json:"device_id"`
+	Platform                string `json:"platform"`
+	WalletVersionIdentifier string `json:"wallet_version_identifier"`
+	ActorID                 string `json:"actor_id"`
+	AppID                   string `json:"app_id"`
+	TicketGrant             string `json:"ticket_grant"`
+	Grant                   string `json:"grant"`
+}
+
+// grant is what Credimi signs for the session workflowID in namespace that
+// starts with s.
+func (s sessionStart) grant(namespace, workflowID string) actionauthor.SessionGrant {
+	return actionauthor.SessionGrant{
+		SessionWorkflowID:       workflowID,
+		Namespace:               namespace,
+		DeviceID:                s.DeviceID,
+		Platform:                s.Platform,
+		WalletVersionIdentifier: s.WalletVersionIdentifier,
+		ActorID:                 s.ActorID,
+		AppID:                   s.AppID,
+	}
+}
+
 // lookupSessionStart returns the running session's start input after
-// checking Credimi's grant for it.
+// checking that it is the run Credimi started and recorded
+// (actionauthor.SessionRun) and Credimi's grant for it.
 func lookupSessionStart(
 	ctx context.Context,
 	app core.App,
@@ -387,6 +414,15 @@ func lookupSessionStart(
 	if sessionInfo.GetType().GetName() != ActionAuthorSessionWorkflowName ||
 		sessionInfo.GetStatus() != enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING {
 		return ref, sessionForbidden("action author session is not running")
+	}
+	// A transient error, ErrSessionNotRecorded included: the session's first
+	// activity can run before the start activity recorded its run.
+	recordedRun, err := actionauthor.SessionRun(app, namespace, sessionID)
+	if err != nil {
+		return ref, fmt.Errorf("look up action author session: %w", err)
+	}
+	if recordedRun != sessionRunID {
+		return ref, sessionForbidden("action author session was not started by Credimi")
 	}
 	history := c.GetWorkflowHistory(
 		ctx,
@@ -415,23 +451,15 @@ func lookupSessionStart(
 		session.WalletVersionIdentifier == "" || session.Platform == "" {
 		return ref, sessionForbidden("action author session has no actor or build")
 	}
-	start, err := workflowengine.DecodePayload[struct {
-		DeviceID string `json:"device_id"`
-		AppID    string `json:"app_id"`
-		Grant    string `json:"grant"`
-	}](input.Payload)
+	start, err := workflowengine.DecodePayload[sessionStart](input.Payload)
 	if err != nil {
 		return ref, sessionForbidden("action author session has no device")
 	}
-	if err := actionauthor.VerifySession(app, start.Grant, actionauthor.SessionGrant{
-		SessionWorkflowID:       sessionID,
-		Namespace:               namespace,
-		DeviceID:                start.DeviceID,
-		Platform:                session.Platform,
-		WalletVersionIdentifier: session.WalletVersionIdentifier,
-		ActorID:                 session.ActorID,
-		AppID:                   start.AppID,
-	}); err != nil {
+	if err := actionauthor.VerifySession(
+		app,
+		start.Grant,
+		start.grant(namespace, sessionID),
+	); err != nil {
 		return ref, err
 	}
 	return ActionAuthorSessionRef{
