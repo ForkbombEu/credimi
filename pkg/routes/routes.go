@@ -32,6 +32,8 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 func bindAppHooks(app core.App) {
@@ -138,6 +140,9 @@ func createReverseProxy(target string) func(r *core.RequestEvent) error {
 			if referer := req.In.Header.Get("Referer"); referer != "" {
 				req.Out.Header.Set("Referer", referer)
 			}
+			// Server rendering continues this request's trace.
+			otel.GetTextMapPropagator().
+				Inject(req.In.Context(), propagation.HeaderCarrier(req.Out.Header))
 		}
 		proxy.ServeHTTP(r.Response, r.Request)
 		return nil

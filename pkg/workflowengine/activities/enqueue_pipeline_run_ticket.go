@@ -180,6 +180,8 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 			}
 		}
 	}
+	// Read once so every device of the ticket gets the same queue deadline.
+	waitTimeoutSeconds := semaphoreclient.WaitTimeoutSeconds()
 
 	for _, deviceID := range deviceIDs {
 		rollbackDeviceIDs = append(rollbackDeviceIDs, deviceID)
@@ -191,6 +193,7 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 			RequiredDeviceIDs:   deviceIDs,
 			LeaderDeviceID:      leaderDeviceID,
 			MaxPipelinesInQueue: payload.MaxPipelinesInQueue,
+			WaitTimeoutSeconds:  waitTimeoutSeconds,
 			PipelineIdentifier:  pipelineIdentifier,
 			YAML:                yaml,
 			PipelineConfig:      config,

@@ -318,6 +318,8 @@ func enqueuePipelineRun(
 			runContext.notification.GitHubPR.DeviceType = runContext.notification.GitHubPR.DeviceTypes[leaderDeviceID]
 		}
 	}
+	// Read once so every device of the ticket gets the same queue deadline.
+	waitTimeoutSeconds := semaphoreclient.WaitTimeoutSeconds()
 	now := time.Now().UTC()
 	ticketID := uuid.NewString()
 
@@ -365,6 +367,7 @@ func enqueuePipelineRun(
 			RequiredDeviceIDs:   deviceIDs,
 			LeaderDeviceID:      leaderDeviceID,
 			MaxPipelinesInQueue: maxPipelinesInQueue,
+			WaitTimeoutSeconds:  waitTimeoutSeconds,
 			PipelineIdentifier:  runContext.pipelineIdentifier,
 			YAML:                runContext.yaml,
 			PipelineConfig:      config,
@@ -834,7 +837,7 @@ func buildQueueStatusResponse(
 	ticketID string,
 	runnerStatuses []pipelineQueueRunnerStatus,
 ) PipelineQueueResponse {
-	status, position, lineLen, workflowID, runID, _ :=
+	status, position, lineLen, workflowID, runID, errorMessage :=
 		aggregateRunQueueStatus(runnerStatuses)
 	pos := position
 	line := lineLen
@@ -847,6 +850,10 @@ func buildQueueStatusResponse(
 	if workflowID != "" {
 		response.WorkflowID = workflowID
 		response.RunID = runID
+	}
+	// A failed ticket, e.g. one whose queue wait timed out, says why.
+	if status == workflowengine.MobileDeviceSemaphoreRunFailed {
+		response.ErrorMessage = errorMessage
 	}
 	return response
 }

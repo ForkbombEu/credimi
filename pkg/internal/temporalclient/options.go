@@ -37,8 +37,12 @@ func baseOptions(namespace string) client.Options {
 		Namespace: namespace,
 	}
 	if observability.Enabled() {
+		// Update spans are off: the SDK starts update handler spans during
+		// replay too, so every query on an uncached semaphore re-emits a span
+		// per update in its history (thousands a minute). Enqueue and cancel
+		// stay visible as their HTTP request spans.
 		if tracing, err := temporalotel.NewTracingInterceptor(
-			temporalotel.TracerOptions{},
+			temporalotel.TracerOptions{DisableUpdateTracing: true},
 		); err == nil {
 			options.Interceptors = []interceptor.ClientInterceptor{tracing}
 		}

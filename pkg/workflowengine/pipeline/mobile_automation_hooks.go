@@ -32,6 +32,10 @@ const (
 	mobilePlatformIOS                      = "ios"
 	mobileExternalInstallConfigKey         = "detect_external_install"
 	walletActionCategoryInstallApp         = "install-app"
+	// Runs started before this change published a device to the cleanup hook
+	// only after its setup succeeded; cleaning a device whose setup failed
+	// adds activities their history lacks.
+	mobileEarlyDeviceTrackingChange = "credimi-2026-10-pipeline-early-device-tracking"
 )
 
 // MobileExternalSourceVersionID is the version_id of a wallet installed outside
@@ -91,6 +95,9 @@ type processStepInput struct {
 	runData        *map[string]any
 	logger         log.Logger
 	globalDeviceID string
+	// trackDevicesEarly records a device's runner, type and serial before
+	// anything on the device can fail, so cleanup still reaches it.
+	trackDevicesEarly bool
 }
 
 type fetchAndInstallAPKInput struct {
@@ -113,6 +120,7 @@ type getOrCreateDeviceMapInput struct {
 	payload       *workflows.MobileAutomationWorkflowPipelinePayload
 	settedDevices map[string]any
 	stepID        string
+	trackEarly    bool
 }
 
 type setupNewDeviceInput struct {
@@ -122,6 +130,8 @@ type setupNewDeviceInput struct {
 	payload   *workflows.MobileAutomationWorkflowPipelinePayload
 	deviceMap map[string]any
 	stepID    string
+	// trackEarly: see processStepInput.trackDevicesEarly.
+	trackEarly bool
 }
 
 type fetchRunnerInfoInput struct {
@@ -256,6 +266,16 @@ func MobileAutomationSetupHook(
 	}
 
 	settedDevices := getOrCreateSettedDevices(runData)
+	trackDevicesEarly := len(deviceIDs) > 0 && workflow.GetVersion(
+		ctx,
+		mobileEarlyDeviceTrackingChange,
+		workflow.DefaultVersion,
+		1,
+	) == 1
+	if trackDevicesEarly {
+		// Published before any setup, so a device whose setup fails is cleaned.
+		SetRunDataValue(runData, "setted_devices", settedDevices)
+	}
 
 	if err := walkMutableStepSpecs(*steps, func(step *pipeline.StepSpec) error {
 		if step.Use != mobileAutomationStepUse {
@@ -263,14 +283,15 @@ func MobileAutomationSetupHook(
 		}
 
 		return processStep(processStepInput{
-			ctx:            ctx,
-			step:           step,
-			config:         config,
-			ao:             &ao,
-			settedDevices:  settedDevices,
-			runData:        runData,
-			logger:         logger,
-			globalDeviceID: globalDeviceID,
+			ctx:               ctx,
+			step:              step,
+			config:            config,
+			ao:                &ao,
+			settedDevices:     settedDevices,
+			runData:           runData,
+			logger:            logger,
+			globalDeviceID:    globalDeviceID,
+			trackDevicesEarly: trackDevicesEarly,
 		})
 	}); err != nil {
 		return err
@@ -490,6 +511,7 @@ func processStep(
 		},
 		// Cleanup sees the device from here on, as before the extraction.
 		func() { SetRunDataValue(input.runData, "setted_devices", input.settedDevices) },
+		input.trackDevicesEarly,
 	)
 	if err != nil {
 		return err
@@ -550,7 +572,8 @@ func PrepareMobileDevice(
 ) (PreparedMobileDevice, error) {
 	// Device lookups run on ctx itself, as in the setup hook.
 	ctx = workflow.WithActivityOptions(ctx, ao)
-	prepared, err := prepareMobileDevice(ctx, &ao, settedDevices, req, nil)
+	// Sessions have no old histories, and cleanup must reach a device whose setup failed.
+	prepared, err := prepareMobileDevice(ctx, &ao, settedDevices, req, nil, true)
 	if err != nil {
 		return PreparedMobileDevice{}, err
 	}
@@ -581,13 +604,15 @@ func PrepareMobileDevice(
 
 // prepareMobileDevice is the device sequence shared by processStep and
 // PrepareMobileDevice. tracked, when set, runs once the device and its
-// initial apps are known, before the device is touched.
+// initial apps are known, before the device is touched. trackEarly: see
+// processStepInput.trackDevicesEarly.
 func prepareMobileDevice(
 	ctx workflow.Context,
 	ao *workflow.ActivityOptions,
 	settedDevices map[string]any,
 	req MobileDeviceRequest,
 	tracked func(),
+	trackEarly bool,
 ) (PreparedMobileDevice, error) {
 	payload := &workflows.MobileAutomationWorkflowPipelinePayload{
 		DeviceID:  req.DeviceID,
@@ -603,6 +628,7 @@ func prepareMobileDevice(
 		payload:       payload,
 		settedDevices: settedDevices,
 		stepID:        req.StepID,
+		trackEarly:    trackEarly,
 	})
 	if err != nil {
 		return PreparedMobileDevice{}, err
@@ -844,12 +870,13 @@ func getOrCreateDeviceMap(
 	input.settedDevices[input.payload.DeviceID] = deviceMap
 
 	if err := setupNewDevice(setupNewDeviceInput{
-		ctx:       input.ctx,
-		mobileCtx: input.mobileCtx,
-		ao:        input.ao,
-		payload:   input.payload,
-		deviceMap: deviceMap,
-		stepID:    input.stepID,
+		ctx:        input.ctx,
+		mobileCtx:  input.mobileCtx,
+		ao:         input.ao,
+		payload:    input.payload,
+		deviceMap:  deviceMap,
+		stepID:     input.stepID,
+		trackEarly: input.trackEarly,
 	}); err != nil {
 		return nil, err
 	}
@@ -875,6 +902,12 @@ func setupNewDevice(
 		// causing Temporal's unlimited default retries for setup failures.
 		mobileRunnerActivityOptions(input.ao, runnerID),
 	)
+
+	if input.trackEarly {
+		input.deviceMap["type"] = deviceType.String()
+		input.deviceMap["runner_id"] = runnerID
+		input.deviceMap["serial"] = serial
+	}
 
 	deviceActivities := activitiesForDeviceType(deviceType)
 	if deviceType.IsManagedEmulator() {
@@ -1769,6 +1802,16 @@ func cleanupDevice(
 	deviceMap, err := parseDeviceMap(input.deviceID, input.raw)
 	if err != nil {
 		*input.cleanupErrs = append(*input.cleanupErrs, err)
+	}
+	if name, _ := deviceMap["name"].(string); name == "" &&
+		deviceTypeFromMap(deviceMap).IsManagedEmulator() {
+		// Only devices tracked from the start of setup get here: the emulator
+		// never started, so there is no clone to delete.
+		appendCleanupWarning(
+			input.output,
+			fmt.Sprintf("device cleanup skipped for %s because it never started", input.deviceID),
+		)
+		return nil
 	}
 
 	deviceType, serial, name, packages, err := extractDeviceInfo(input.deviceID, deviceMap)

@@ -15,16 +15,20 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"sync/atomic"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/router"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -134,9 +138,21 @@ func Setup(app core.App) {
 		return e.Next()
 	})
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		se.Router.BindFunc(func(e *core.RequestEvent) error {
-			err := e.Next()
+		se.Router.POST(BrowserTracesPath, browserTracesHandler())
+		se.Router.BindFunc(func(e *core.RequestEvent) (err error) {
 			span := trace.SpanFromContext(e.Request.Context())
+			defer func() {
+				if r := recover(); r != nil {
+					// PocketBase recovers the panic into a 500; record it first,
+					// while the stack still holds the panicking frames.
+					if err, ok := r.(error); !ok || !errors.Is(err, http.ErrAbortHandler) {
+						span.RecordError(fmt.Errorf("panic: %v", r), trace.WithStackTrace(true))
+						span.SetStatus(codes.Error, "panic")
+					}
+					panic(r)
+				}
+			}()
+			err = e.Next()
 			if p := e.Request.Pattern; p != "" {
 				span.SetName(p)
 				span.SetAttributes(semconv.HTTPRoute(p))
@@ -148,14 +164,46 @@ func Setup(app core.App) {
 				)
 			}
 			if err != nil {
-				span.RecordError(err)
+				RecordServerError(e.Request.Context(), err, errorStatus(err))
 			}
 			return err
 		})
 		if err := se.Next(); err != nil {
 			return err
 		}
-		se.Server.Handler = otelhttp.NewHandler(se.Server.Handler, "credimi")
+		// Browser exports would otherwise add a span every few seconds per tab.
+		se.Server.Handler = otelhttp.NewHandler(
+			se.Server.Handler,
+			"credimi",
+			otelhttp.WithFilter(
+				func(r *http.Request) bool { return r.URL.Path != BrowserTracesPath },
+			),
+		)
 		return nil
 	})
+}
+
+// RecordServerError records err as an exception on the request span when the
+// response is a server error. Client errors (4xx) are expected and stay as the
+// span's status code only.
+func RecordServerError(ctx context.Context, err error, status int) {
+	if err == nil || status < http.StatusInternalServerError {
+		return
+	}
+	span := trace.SpanFromContext(ctx)
+	span.RecordError(err)
+	span.SetStatus(codes.Error, err.Error())
+}
+
+// errorStatus is the status PocketBase answers err with.
+func errorStatus(err error) int {
+	var apiError *apierror.APIError
+	if errors.As(err, &apiError) {
+		return apiError.Code
+	}
+	var pbError *router.ApiError
+	if errors.As(err, &pbError) {
+		return pbError.Status
+	}
+	return http.StatusInternalServerError
 }
