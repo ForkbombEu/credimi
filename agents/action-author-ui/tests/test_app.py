@@ -292,6 +292,9 @@ async def test_start_page_queues_a_runner_device_session():
     # The UI follows the namespace Credimi returns for the session or the device.
     assert "await bindNamespace(result.workflow_namespace)" in page
     assert "selectedDevice()?.namespace" in page
+    # Each device names whose runner and which model would author on it.
+    assert "Runner of ${device.runner_owner}" in page
+    assert "model: ${device.model || 'unknown'}" in page
 
 
 async def test_start_page_needs_a_running_action_author():
