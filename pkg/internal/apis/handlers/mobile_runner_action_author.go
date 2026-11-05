@@ -41,6 +41,34 @@ func setRunnerActionAuthorSettings(record *core.Record, s *RunnerActionAuthorSet
 	record.Set("agent_model", s.Model)
 }
 
+// runnerSettingsPrincipal names the caller that may report a runner's action
+// author settings: "<auth collection>:<record id>", or "" for a request that
+// is not authenticated by a Credimi-Api-Key alone (runners always are).
+func runnerSettingsPrincipal(e *core.RequestEvent) string {
+	if e.Auth == nil || !authenticatedByAPIKeyOnly(e) {
+		return ""
+	}
+	return e.Auth.Collection().Name + ":" + e.Auth.Id
+}
+
+// trustedActionAuthorSettings returns settings only when the caller is the
+// identity that last registered the runner; any other caller's values are
+// ignored, so the runner's config.toml stays their only source.
+func trustedActionAuthorSettings(
+	e *core.RequestEvent,
+	runner *core.Record,
+	s *RunnerActionAuthorSettings,
+) *RunnerActionAuthorSettings {
+	if s == nil {
+		return nil
+	}
+	principal := runnerSettingsPrincipal(e)
+	if principal == "" || principal != runner.GetString("agent_settings_from") {
+		return nil
+	}
+	return s
+}
+
 // runnerActionAuthorUsage returns the runner's usage today, or nil after a
 // logged warning: a heartbeat never fails because of usage.
 func runnerActionAuthorUsage(

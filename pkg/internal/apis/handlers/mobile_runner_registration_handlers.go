@@ -712,7 +712,10 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		if input.Published != nil {
 			record.Set("published", *input.Published)
 		}
-		setRunnerActionAuthorSettings(record, input.ActionAuthor)
+		if principal := runnerSettingsPrincipal(e); principal != "" {
+			record.Set("agent_settings_from", principal)
+			setRunnerActionAuthorSettings(record, input.ActionAuthor)
+		}
 		record.Set("credential_generation", record.GetInt("credential_generation")+1)
 		credential, apiErr := mobileRunnerCredential(e.Auth, record)
 		if apiErr != nil {

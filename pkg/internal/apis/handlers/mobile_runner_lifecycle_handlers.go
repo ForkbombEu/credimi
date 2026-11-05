@@ -128,7 +128,7 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 			e.App,
 			record,
 			input.Devices,
-			input.ActionAuthor,
+			trustedActionAuthorSettings(e, record, input.ActionAuthor),
 			mobileRunnerLifecycleNow(),
 		)
 		if err != nil {
@@ -199,7 +199,7 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 			e.App,
 			record,
 			input.Devices,
-			input.ActionAuthor,
+			trustedActionAuthorSettings(e, record, input.ActionAuthor),
 			mobileRunnerLifecycleNow(),
 		)
 		if err != nil {

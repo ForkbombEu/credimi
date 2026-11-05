@@ -22,17 +22,64 @@ import (
 
 const agentRunnerID = "/usera-s-organization/agent-runner"
 
-// heartbeatAgentRunner sends a heartbeat of userA's agent-runner with the
-// given action author settings and returns the decoded response.
-func heartbeatAgentRunner(
+// performMobileRunnerKeyRequest builds a request authenticated by a
+// Credimi-Api-Key alone, as runners send them. The header value is not
+// checked: the event carries auth directly.
+func performMobileRunnerKeyRequest(
+	t testing.TB,
+	app *tests.TestApp,
+	auth *core.Record,
+	url string,
+	validatedInput any,
+) *core.RequestEvent {
+	t.Helper()
+	event := performMobileRunnerRequest(t, app, auth, url, validatedInput)
+	event.Request.Header.Set(APIKeyHeaderName, "test-key")
+	return event
+}
+
+// registerAgentRunner upserts userA's agent-runner as auth, by key or by
+// token, with the given action author settings.
+func registerAgentRunner(
 	t *testing.T,
 	app *tests.TestApp,
+	auth *core.Record,
+	byKey bool,
+	settings *RunnerActionAuthorSettings,
+) {
+	t.Helper()
+	perform := performMobileRunnerRequest
+	if byKey {
+		perform = performMobileRunnerKeyRequest
+	}
+	event := perform(
+		t,
+		app,
+		auth,
+		"/api/mobile-runner",
+		UpsertMobileRunnerRequest{
+			Name:         "Agent runner",
+			IP:           "https://runner.example",
+			Type:         "android_emulator",
+			ActionAuthor: settings,
+		},
+	)
+	require.NoError(t, HandleUpsertMobileRunner()(event))
+	require.Equal(t, http.StatusOK, responseRecorder(t, event).Code)
+}
+
+// sendAgentRunnerHeartbeat sends a heartbeat of userA's agent-runner as auth,
+// by key or by token, with the given action author settings and returns the
+// decoded response.
+func sendAgentRunnerHeartbeat(
+	t *testing.T,
+	app *tests.TestApp,
+	auth *core.Record,
+	byKey bool,
 	now time.Time,
 	settings *RunnerActionAuthorSettings,
 ) map[string]any {
 	t.Helper()
-	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-	require.NoError(t, err)
 	origNow := mobileRunnerLifecycleNow
 	origQuerySemaphore := queryMobileDeviceSemaphoreState
 	t.Cleanup(func() {
@@ -43,10 +90,14 @@ func heartbeatAgentRunner(
 	queryMobileDeviceSemaphoreState = func(context.Context, string) (workflows.MobileDeviceSemaphoreStateView, error) {
 		return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
 	}
-	event := performMobileRunnerRequest(
+	perform := performMobileRunnerRequest
+	if byKey {
+		perform = performMobileRunnerKeyRequest
+	}
+	event := perform(
 		t,
 		app,
-		user,
+		auth,
 		"/api/mobile-runner/lifecycle/heartbeat",
 		MobileRunnerLifecycleRequest{RunnerID: agentRunnerID, ActionAuthor: settings},
 	)
@@ -54,6 +105,20 @@ func heartbeatAgentRunner(
 	recorder := responseRecorder(t, event)
 	require.Equal(t, http.StatusOK, recorder.Code)
 	return decodeJSONBody(t, recorder)
+}
+
+// heartbeatAgentRunner sends a heartbeat of userA's agent-runner by userA's
+// key with the given action author settings and returns the decoded response.
+func heartbeatAgentRunner(
+	t *testing.T,
+	app *tests.TestApp,
+	now time.Time,
+	settings *RunnerActionAuthorSettings,
+) map[string]any {
+	t.Helper()
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	return sendAgentRunnerHeartbeat(t, app, user, true, now, settings)
 }
 
 func agentRunnerRecord(t *testing.T, app core.App) *core.Record {
@@ -68,9 +133,7 @@ func TestHeartbeatStoresActionAuthorSettingsAndReportsUsage(t *testing.T) {
 	defer app.Cleanup()
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
-	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
-	require.NoError(t, err)
-	createMobileRunnerRecord(t, app, orgID, "agent-runner", "https://runner.example", false)
+	registerAgentRunner(t, app, user, true, nil)
 	now := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
 
 	response := heartbeatAgentRunner(t, app, now, &RunnerActionAuthorSettings{
@@ -167,38 +230,99 @@ func TestUpsertMobileRunnerStoresActionAuthorSettings(t *testing.T) {
 	defer app.Cleanup()
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
-	upsert := func(settings *RunnerActionAuthorSettings) {
-		t.Helper()
-		event := performMobileRunnerRequest(
-			t,
-			app,
-			user,
-			"/api/mobile-runner",
-			UpsertMobileRunnerRequest{
-				Name:         "Agent runner",
-				IP:           "https://runner.example",
-				Type:         "android_emulator",
-				ActionAuthor: settings,
-			},
-		)
-		require.NoError(t, HandleUpsertMobileRunner()(event))
-		require.Equal(t, http.StatusOK, responseRecorder(t, event).Code)
-	}
 
-	upsert(&RunnerActionAuthorSettings{
+	registerAgentRunner(t, app, user, true, &RunnerActionAuthorSettings{
 		OwnDailyTokens:    0,
 		OthersDailyTokens: 5000,
 		Provider:          "openai_compatible",
 		Model:             "gpt-5",
 	})
 	runner := agentRunnerRecord(t, app)
+	require.Equal(t, "users:"+user.Id, runner.GetString("agent_settings_from"))
 	require.Zero(t, runner.GetInt("agent_own_daily_tokens"))
 	require.Equal(t, 5000, runner.GetInt("agent_others_daily_tokens"))
 	require.Equal(t, "openai_compatible", runner.GetString("agent_provider"))
 	require.Equal(t, "gpt-5", runner.GetString("agent_model"))
 
-	upsert(nil)
+	registerAgentRunner(t, app, user, true, nil)
 	runner = agentRunnerRecord(t, app)
 	require.Equal(t, 5000, runner.GetInt("agent_others_daily_tokens"))
 	require.Equal(t, "gpt-5", runner.GetString("agent_model"))
+
+	// A token-authenticated upsert stores no settings and keeps the identity.
+	registerAgentRunner(t, app, user, false, &RunnerActionAuthorSettings{
+		OwnDailyTokens:    1,
+		OthersDailyTokens: 999,
+		Provider:          "anthropic",
+		Model:             "other",
+	})
+	runner = agentRunnerRecord(t, app)
+	require.Equal(t, "users:"+user.Id, runner.GetString("agent_settings_from"))
+	require.Zero(t, runner.GetInt("agent_own_daily_tokens"))
+	require.Equal(t, 5000, runner.GetInt("agent_others_daily_tokens"))
+	require.Equal(t, "gpt-5", runner.GetString("agent_model"))
+}
+
+func TestUpsertMobileRunnerRejectsNegativeActionAuthorLimits(t *testing.T) {
+	token := authoringToken(t, "userA")
+	(&tests.ApiScenario{
+		Method: http.MethodPost,
+		URL:    "/api/mobile-runner",
+		Body: strings.NewReader(
+			`{"name":"Agent runner","ip":"https://runner.example","type":"android_emulator",` +
+				`"action_author":{"own_daily_tokens":-1}}`,
+		),
+		Headers:         map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus:  http.StatusBadRequest,
+		ExpectedContent: []string{`"request.validation"`, `failed on the 'min' tag`},
+		TestAppFactory:  setupMobileRunnerApp,
+	}).Test(t)
+}
+
+func TestHeartbeatIgnoresActionAuthorSettingsOfAnotherIdentity(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	registerAgentRunner(t, app, user, true, &RunnerActionAuthorSettings{
+		OwnDailyTokens:    100,
+		OthersDailyTokens: 0,
+		Model:             "gpt-5",
+	})
+
+	// userB becomes a member of userA's organization only.
+	member, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	memberRole, err := app.FindFirstRecordByData("orgRoles", "name", "member")
+	require.NoError(t, err)
+	authorization, err := app.FindFirstRecordByData("orgAuthorizations", "user", member.Id)
+	require.NoError(t, err)
+	authorization.Set("organization", orgID)
+	authorization.Set("role", memberRole.Id)
+	require.NoError(t, app.Save(authorization))
+
+	forged := &RunnerActionAuthorSettings{
+		OwnDailyTokens:    0,
+		OthersDailyTokens: 999,
+		Model:             "forged",
+	}
+	now := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		name  string
+		auth  *core.Record
+		byKey bool
+	}{
+		{"another member's key", member, true},
+		{"the registering user's token", user, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			sendAgentRunnerHeartbeat(t, app, c.auth, c.byKey, now, forged)
+			runner := agentRunnerRecord(t, app)
+			require.Equal(t, 100, runner.GetInt("agent_own_daily_tokens"))
+			require.Zero(t, runner.GetInt("agent_others_daily_tokens"))
+			require.Equal(t, "gpt-5", runner.GetString("agent_model"))
+		})
+	}
 }
