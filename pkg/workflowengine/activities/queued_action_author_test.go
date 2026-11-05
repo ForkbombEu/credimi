@@ -135,6 +135,7 @@ func TestStartQueuedPipelineActivityReusesClosedActionAuthorSession(t *testing.T
 		testOrgANamespace,
 		"ActionAuthorSession-ticket-author",
 		"run-closed",
+		actionauthor.SessionDetails{},
 	))
 
 	payload := actionAuthorTicketInput()
@@ -163,6 +164,7 @@ func TestStartQueuedPipelineActivityRefusesAnotherActionAuthorSessionRun(t *test
 		testOrgANamespace,
 		"ActionAuthorSession-ticket-author",
 		"run-first",
+		actionauthor.SessionDetails{},
 	))
 
 	payload := actionAuthorTicketInput()

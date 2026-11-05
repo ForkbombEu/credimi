@@ -27,6 +27,7 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -132,6 +133,7 @@ func signedSessionHistory(
 		namespace,
 		authorTestSessionID,
 		authorTestParentRun,
+		actionauthor.SessionDetails{},
 	))
 	signed := maps.Clone(input)
 	signed["grant"] = grant
@@ -767,4 +769,89 @@ func TestLookupSessionStartAcceptsOnlyTheRecordedRun(t *testing.T) {
 	}, session)
 	requireActivityError(t, err, errorcodes.UnexpectedWorkflowError, false)
 	require.ErrorContains(t, err, "action author session is not recorded yet")
+}
+
+func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
+	setFCAFTestEnv(t)
+	app := newCredimiTestApp(t)
+	session := authorTestSession()
+	history := signedSessionHistory(t, app, map[string]any{
+		"device_id":                 "tenant/runner-1/device-1",
+		"platform":                  session.Platform,
+		"wallet_version_identifier": session.WalletVersionIdentifier,
+		"actor_id":                  session.ActorID,
+	})
+	started := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	closed := started.Add(time.Hour)
+	completed := describeExecution(
+		ActionAuthorSessionWorkflowName,
+		enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+		nil,
+	)
+	completed.WorkflowExecutionInfo.StartTime = timestamppb.New(started)
+	completed.WorkflowExecutionInfo.CloseTime = timestamppb.New(closed)
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, authorTestParentRun).
+		Return(completed, nil)
+	mockClient.On(
+		"GetWorkflowHistory",
+		mock.Anything,
+		authorTestSessionID,
+		authorTestParentRun,
+		false,
+		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	).Return(history)
+
+	info, err := ReadActionAuthorSession(
+		t.Context(),
+		app,
+		mockClient,
+		authorTestNamespace,
+		authorTestSessionID,
+	)
+	require.NoError(t, err)
+	require.Equal(t, authorTestSessionID, info.SessionWorkflowID)
+	require.Equal(t, authorTestParentRun, info.SessionRunID)
+	require.Equal(t, session, info.Session)
+	require.Equal(t, "tenant/runner-1/device-1", info.DeviceID)
+	require.Equal(t, enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED, info.Status)
+	require.Equal(t, started, info.StartTime)
+	require.Equal(t, closed, info.CloseTime)
+}
+
+func TestReadActionAuthorSessionRefusesUnrecordedAndOtherWorkflows(t *testing.T) {
+	app := newCredimiTestApp(t)
+	mockClient := &temporalmocks.Client{}
+
+	_, err := ReadActionAuthorSession(
+		t.Context(),
+		app,
+		mockClient,
+		authorTestNamespace,
+		authorTestSessionID,
+	)
+	require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)
+
+	require.NoError(t, actionauthor.RecordSessionRun(
+		app,
+		authorTestNamespace,
+		authorTestSessionID,
+		authorTestParentRun,
+		actionauthor.SessionDetails{},
+	))
+	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, authorTestParentRun).
+		Return(describeExecution(
+			"Dynamic Pipeline Workflow",
+			enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			nil,
+		), nil)
+	_, err = ReadActionAuthorSession(
+		t.Context(),
+		app,
+		mockClient,
+		authorTestNamespace,
+		authorTestSessionID,
+	)
+	require.ErrorIs(t, err, actionauthor.ErrForbidden)
+	require.ErrorContains(t, err, "workflow is not an action author session")
 }

@@ -424,6 +424,18 @@ func lookupSessionStart(
 	if recordedRun != sessionRunID {
 		return ref, sessionForbidden("action author session was not started by Credimi")
 	}
+	return readSessionStart(ctx, app, c, namespace, sessionID, sessionRunID)
+}
+
+// readSessionStart reads the start input of the session run and checks
+// Credimi's grant for it.
+func readSessionStart(
+	ctx context.Context,
+	app core.App,
+	c client.Client,
+	namespace, sessionID, sessionRunID string,
+) (ActionAuthorSessionRef, error) {
+	var ref ActionAuthorSessionRef
 	history := c.GetWorkflowHistory(
 		ctx,
 		sessionID,
@@ -468,6 +480,51 @@ func lookupSessionStart(
 		Session:           session,
 		DeviceID:          start.DeviceID,
 	}, nil
+}
+
+// ActionAuthorSessionInfo is a session Credimi started and recorded, and its state.
+type ActionAuthorSessionInfo struct {
+	ActionAuthorSessionRef
+	Status    enumspb.WorkflowExecutionStatus
+	StartTime time.Time
+	CloseTime time.Time // zero while the session runs
+}
+
+// ReadActionAuthorSession reads a recorded session in any state. An
+// unrecorded session returns actionauthor.ErrSessionNotRecorded; an unknown
+// execution or another workflow type returns actionauthor.ErrForbidden.
+func ReadActionAuthorSession(
+	ctx context.Context,
+	app core.App,
+	c client.Client,
+	namespace, sessionID string,
+) (ActionAuthorSessionInfo, error) {
+	var info ActionAuthorSessionInfo
+	runID, err := actionauthor.SessionRun(app, namespace, sessionID)
+	if err != nil {
+		return info, err
+	}
+	described, err := c.DescribeWorkflowExecution(ctx, sessionID, runID)
+	if err != nil {
+		return info, describeLookupError(err)
+	}
+	execution := described.GetWorkflowExecutionInfo()
+	if execution.GetType().GetName() != ActionAuthorSessionWorkflowName {
+		return info, sessionForbidden("workflow is not an action author session")
+	}
+	ref, err := readSessionStart(ctx, app, c, namespace, sessionID, runID)
+	if err != nil {
+		return info, err
+	}
+	info.ActionAuthorSessionRef = ref
+	info.Status = execution.GetStatus()
+	if execution.GetStartTime() != nil {
+		info.StartTime = execution.GetStartTime().AsTime()
+	}
+	if execution.GetCloseTime() != nil {
+		info.CloseTime = execution.GetCloseTime().AsTime()
+	}
+	return info, nil
 }
 
 // describeLookupError rejects an unknown execution and retries transient failures.

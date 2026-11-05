@@ -427,7 +427,16 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	}
 	// A retry reuses the same run (USE_EXISTING), so only another run that
 	// was recorded first is refused.
-	err = actionauthor.RecordSessionRun(a.app, payload.OwnerNamespace, workflowID, runID)
+	err = actionauthor.RecordSessionRun(
+		a.app,
+		payload.OwnerNamespace,
+		workflowID,
+		runID,
+		actionauthor.SessionDetails{
+			WalletVersionIdentifier: start.WalletVersionIdentifier,
+			DeviceID:                start.DeviceID,
+		},
+	)
 	if errors.Is(err, actionauthor.ErrForbidden) {
 		return result, a.NewCodedError(errorcodes.RecordNotAccessible, false, err)
 	}
