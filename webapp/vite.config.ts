@@ -17,7 +17,8 @@ export default defineConfig(({ mode }) => {
 				'/api/': pocketbaseUrl,
 				'/_/': pocketbaseUrl,
 				'/temporal-ui': pocketbaseUrl,
-				'/action-author-ui': pocketbaseUrl
+				// Keep the browser's Host: the chat proxy refuses writes whose Origin is another host.
+				'/action-author-ui': { target: pocketbaseUrl, changeOrigin: false }
 			}
 		: undefined;
 	return {
