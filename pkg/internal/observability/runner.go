@@ -38,6 +38,10 @@ const (
 	// Traces and logs every few seconds, metrics every minute, per runner.
 	runnerRate  = rate.Limit(5)
 	runnerBurst = 50
+	// Before authentication, per client IP: bounds the key-verification work
+	// of invalid keys. Several runners can share one IP.
+	runnerPreAuthRate  = rate.Limit(50)
+	runnerPreAuthBurst = 500
 )
 
 // stampRunnerIdentity sets service.name and the key owner on every resource of
@@ -164,6 +168,22 @@ func isForcedKey(key string, forced []*commonpb.KeyValue) bool {
 		}
 	}
 	return false
+}
+
+// RunnerPreAuthLimit throttles runner telemetry per client IP before the API
+// key is verified.
+func RunnerPreAuthLimit() func(*core.RequestEvent) error {
+	limiter := &ipLimiter{
+		limiters: map[string]*rate.Limiter{},
+		rate:     runnerPreAuthRate,
+		burst:    runnerPreAuthBurst,
+	}
+	return func(e *core.RequestEvent) error {
+		if !limiter.allow(e.RealIP()) {
+			return e.TooManyRequestsError("", nil)
+		}
+		return e.Next()
+	}
 }
 
 // RunnerTelemetryHandler forwards runner OTLP batches. It must sit behind the

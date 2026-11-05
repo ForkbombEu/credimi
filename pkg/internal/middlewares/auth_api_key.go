@@ -133,6 +133,16 @@ func authenticateAPIKeyByScope(
 	apiKey string,
 	requiredScope string,
 ) (*core.Record, *apierror.APIError) {
+	matched, apiErr := findAPIKeyRecord(app, apiKey)
+	if apiErr != nil {
+		return nil, apiErr
+	}
+	return principalForAPIKey(app, matched, requiredScope)
+}
+
+// findAPIKeyRecord returns the api_keys record whose hash matches apiKey.
+// It bcrypt-compares every key, so callers on hot paths cache the result.
+func findAPIKeyRecord(app core.App, apiKey string) (*core.Record, *apierror.APIError) {
 	records, err := app.FindRecordsByFilter("api_keys", "", "", 0, 0)
 	if err != nil {
 		return nil, apierror.New(
@@ -152,7 +162,16 @@ func authenticateAPIKeyByScope(
 			"Invalid API key provided",
 		)
 	}
+	return matched, nil
+}
 
+// principalForAPIKey checks revocation, expiry, owner and scope of a matched
+// api_keys record and returns its owner.
+func principalForAPIKey(
+	app core.App,
+	matched *core.Record,
+	requiredScope string,
+) (*core.Record, *apierror.APIError) {
 	if matched.GetBool("revoked") {
 		return nil, apierror.New(
 			http.StatusUnauthorized,

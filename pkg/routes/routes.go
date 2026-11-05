@@ -64,9 +64,11 @@ func bindAppHooks(app core.App) {
 		if observability.Enabled() {
 			// Runners send telemetry with the Credimi API key they register with:
 			// a user key, or the internal admin key on admin-managed runners.
+			// The IP throttle runs before the (bcrypt) key check.
 			se.Router.POST(observability.RunnerTelemetryPath, observability.RunnerTelemetryHandler()).
 				BindFunc(middlewares.ErrorHandlingMiddleware).
-				Bind(middlewares.RequireInternalAdminOrAuth())
+				BindFunc(observability.RunnerPreAuthLimit()).
+				Bind(middlewares.RequireCachedAPIKey())
 		}
 		return se.Next()
 	})
