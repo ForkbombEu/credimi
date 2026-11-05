@@ -17,6 +17,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/semaphoreclient"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -430,6 +431,7 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 
 func TestActionAuthorStartQueuesStoreWalletSession(t *testing.T) {
 	token := authoringToken(t, "userA")
+	t.Setenv(semaphoreclient.WaitTimeoutEnv, "1h")
 	enqueued := stubActionAuthorQueue(t, true)
 	const storeWallet = "usera-s-organization/authoring-store-wallet"
 	deviceID := authoringAdminRunner + "/android-phone"
@@ -463,6 +465,7 @@ func TestActionAuthorStartQueuesStoreWalletSession(t *testing.T) {
 	require.Equal(t, deviceID, enqueued.DeviceID)
 	require.Equal(t, storeWallet, enqueued.ActionAuthor["wallet_version_identifier"])
 	require.Equal(t, "android", enqueued.ActionAuthor["platform"])
+	require.Equal(t, 3600, enqueued.WaitTimeoutSeconds)
 }
 
 func TestActionAuthorStartMapsQueueFailures(t *testing.T) {

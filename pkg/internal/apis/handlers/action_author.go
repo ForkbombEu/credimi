@@ -433,6 +433,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 				RequiredDeviceIDs:   []string{deviceID},
 				LeaderDeviceID:      deviceID,
 				MaxPipelinesInQueue: selection.Organization.GetInt("max_pipelines_in_queue"),
+				WaitTimeoutSeconds:  semaphoreclient.WaitTimeoutSeconds(),
 				RunKind:             mobiledevicesemaphore.RunKindActionAuthor,
 				ActionAuthor:        session,
 			},
