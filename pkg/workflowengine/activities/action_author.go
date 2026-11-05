@@ -138,7 +138,6 @@ func (a *SaveAuthoredWalletActionActivity) save(
 	}
 	session := ref.Session
 	if !matchesSession(payload.ActorID, session.ActorID) ||
-		!matchesSession(payload.ActorCollection, session.ActorCollection) ||
 		!matchesSession(payload.WalletVersionIdentifier, session.WalletVersionIdentifier) ||
 		!matchesSession(payload.Platform, session.Platform) {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
@@ -165,8 +164,7 @@ func (a *SaveAuthoredWalletActionActivity) save(
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
-	if approval.ApproverID != session.ActorID ||
-		approval.ApproverCollection != session.ActorCollection {
+	if approval.ApproverID != session.ActorID {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, fmt.Errorf(
 			"%w: the approval is not from the session's user", actionauthor.ErrForbidden,
 		))
@@ -329,7 +327,7 @@ func LookupActionAuthorSession(
 	// The session's SessionInput carries the build request; its other fields
 	// are ignored.
 	session, err := workflowengine.DecodePayload[actionauthor.BuildRequest](input.Payload)
-	if err != nil || session.ActorID == "" || session.ActorCollection == "" ||
+	if err != nil || session.ActorID == "" ||
 		session.WalletVersionIdentifier == "" || session.Platform == "" {
 		return ref, forbidden("action author session has no actor or build")
 	}

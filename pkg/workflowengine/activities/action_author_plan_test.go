@@ -208,12 +208,11 @@ func TestSaveAuthoredWalletActionChecksTheSentPlan(t *testing.T) {
 		"- assertVisible: Home\n- takeScreenshot: home\n"
 	approval := func(planSHA256 string) string {
 		token, err := actionauthor.SignApproval(app, actionauthor.Approval{
-			AuthorWorkflowID:   caller.WorkflowID,
-			CandidateSHA256:    actionauthor.CodeSHA256(code),
-			ApproverID:         session.ActorID,
-			ApproverCollection: session.ActorCollection,
-			ApprovedAt:         time.Now().Unix(),
-			PlanSHA256:         planSHA256,
+			AuthorWorkflowID: caller.WorkflowID,
+			CandidateSHA256:  actionauthor.CodeSHA256(code),
+			ApproverID:       session.ActorID,
+			ApprovedAt:       time.Now().Unix(),
+			PlanSHA256:       planSHA256,
 		})
 		require.NoError(t, err)
 		return token

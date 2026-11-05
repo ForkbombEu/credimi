@@ -66,7 +66,6 @@ type SessionInput struct {
 	Platform                string `json:"platform"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
-	ActorCollection         string `json:"actor_collection"`
 	AppID                   string `json:"app_id,omitempty"`
 }
 
@@ -101,7 +100,6 @@ type AuthoringDevice struct {
 type AuthoringContext struct {
 	WalletVersionIdentifier string          `json:"wallet_version_identifier"`
 	ActorID                 string          `json:"actor_id"`
-	ActorCollection         string          `json:"actor_collection"`
 	AppID                   string          `json:"app_id"`
 	Platform                string          `json:"platform"`
 	Build                   AuthoringBuild  `json:"build"`
@@ -327,10 +325,7 @@ func resolveBuild(ctx workflow.Context, session SessionInput) (actionauthor.Buil
 
 func buildRequest(session SessionInput) actionauthor.BuildRequest {
 	return actionauthor.BuildRequest{
-		Actor: actionauthor.Actor{
-			ActorID:         session.ActorID,
-			ActorCollection: session.ActorCollection,
-		},
+		Actor:                   actionauthor.Actor{ActorID: session.ActorID},
 		WalletVersionIdentifier: session.WalletVersionIdentifier,
 		Platform:                session.Platform,
 	}
@@ -344,7 +339,6 @@ func authoringContext(
 	return AuthoringContext{
 		WalletVersionIdentifier: session.WalletVersionIdentifier,
 		ActorID:                 session.ActorID,
-		ActorCollection:         session.ActorCollection,
 		AppID:                   session.AppID,
 		Platform:                session.Platform,
 		Build: AuthoringBuild{

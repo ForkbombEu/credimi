@@ -47,7 +47,7 @@ func authorTestCaller() authorCaller {
 
 func authorTestSession() actionauthor.BuildRequest {
 	return actionauthor.BuildRequest{
-		Actor:                   actionauthor.Actor{ActorID: "user-1", ActorCollection: "users"},
+		Actor:                   actionauthor.Actor{ActorID: "user-1"},
 		WalletVersionIdentifier: "tenant/wallet/v1",
 		Platform:                actionauthor.PlatformAndroid,
 	}
@@ -121,7 +121,6 @@ func validSessionLookup(t *testing.T) sessionLookup {
 			"platform":                  session.Platform,
 			"wallet_version_identifier": session.WalletVersionIdentifier,
 			"actor_id":                  session.ActorID,
-			"actor_collection":          session.ActorCollection,
 		}),
 	}
 }
@@ -315,12 +314,6 @@ func TestSaveAuthoredWalletActionRejectsCallersOutsideARunningSession(t *testing
 			message: "save request does not match the session",
 		},
 		{
-			name:    "payload names another collection",
-			payload: func(p *actionauthor.SaveRequest) { p.ActorCollection = "_superusers" },
-			code:    errorcodes.RecordNotAccessible,
-			message: "save request does not match the session",
-		},
-		{
 			name: "payload names another build",
 			payload: func(p *actionauthor.SaveRequest) {
 				p.WalletVersionIdentifier = "other/wallet/v1"
@@ -400,7 +393,7 @@ func authorSaveFixture(t *testing.T) (core.App, actionauthor.BuildRequest, strin
 		require.NoError(t, app.Save(actions))
 	}
 	return app, actionauthor.BuildRequest{
-		Actor:    actionauthor.Actor{ActorID: actor.Id, ActorCollection: "users"},
+		Actor:    actionauthor.Actor{ActorID: actor.Id},
 		Platform: actionauthor.PlatformAndroid,
 		WalletVersionIdentifier: strings.Join([]string{
 			org.GetString("canonified_name"),
@@ -423,7 +416,6 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 			"platform":                  session.Platform,
 			"wallet_version_identifier": session.WalletVersionIdentifier,
 			"actor_id":                  session.ActorID,
-			"actor_collection":          session.ActorCollection,
 		})
 		return lookup.activity(t, app)
 	}
@@ -431,11 +423,10 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 	caller.Namespace = namespace
 	approval := func(edit func(*actionauthor.Approval)) string {
 		approval := actionauthor.Approval{
-			AuthorWorkflowID:   caller.WorkflowID,
-			CandidateSHA256:    actionauthor.CodeSHA256(code),
-			ApproverID:         session.ActorID,
-			ApproverCollection: session.ActorCollection,
-			ApprovedAt:         time.Now().Unix(),
+			AuthorWorkflowID: caller.WorkflowID,
+			CandidateSHA256:  actionauthor.CodeSHA256(code),
+			ApproverID:       session.ActorID,
+			ApprovedAt:       time.Now().Unix(),
 			PlanSHA256: actionauthor.PlanSHA256(actionauthor.Spec{
 				Slot:    "other",
 				Outcome: actionauthor.OutcomeSuccess,

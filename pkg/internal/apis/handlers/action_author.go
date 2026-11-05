@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/authorsession"
@@ -43,7 +44,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorWalletVersions,
 			OperationID:    "actionAuthor.listWalletVersions",
 			Summary:        "List wallet versions available for authoring",
-			Description:    "List the builds available for authoring in organizations where the authenticated caller is an owner, with the platforms each build supports and its source. A build is a wallet version with an Android APK or iOS simulator app (source installer, identifier organization/wallet/version), or a wallet with a Play Store app (google_app_id, or the id of its play.google.com playstore_url) or an App Store app (apple_app_id and an apps.apple.com appstore_url), installed from the store at session start (source store, identifier organization/wallet, version_tag \"store install\"). These are the only builds accepted by the session start endpoint.",
+			Description:    "List the builds of the authenticated caller's organization (the user's first organization, as for pipeline runs) available for authoring, with the platforms each build supports and its source. A build is a wallet version with an Android APK or iOS simulator app (source installer, identifier organization/wallet/version), or a wallet with a Play Store app (google_app_id, or the id of its play.google.com playstore_url) or an App Store app (apple_app_id and an apps.apple.com appstore_url), installed from the store at session start (source store, identifier organization/wallet, version_tag \"store install\"). These are the only builds accepted by the session start endpoint. A caller without an organization gets an empty list.",
 			ResponseSchema: ActionAuthorWalletVersionsResponse{},
 		},
 		{
@@ -52,7 +53,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorDevices,
 			OperationID:    "actionAuthor.listDevices",
 			Summary:        "List devices available for authoring",
-			Description:    "List the Android devices and iOS simulators of enabled admin-managed runners owned by organizations where the authenticated caller is an owner (superusers: every admin-managed runner), with the authoring platform each device implies. agent_available reports whether the runner's action author polled its task queue in the last two minutes (false when Temporal is unreachable); only devices with is_online and agent_available can start a session. Sorted by runner name, then device name.",
+			Description:    "List the Android devices and iOS simulators the caller's organization can author on: devices of its own enabled runners, and of other organizations' enabled published runners that offer the agent to other organizations (a runner daily allowance for them above 0), with the authoring platform each device implies. namespace is the caller's organization namespace, where every session runs. agent_available reports whether the runner's action author polled its task queue in that namespace in the last two minutes (false when Temporal is unreachable); only devices with is_online and agent_available can start a session. Sorted by runner name, then device name. A caller without an organization gets an empty list.",
 			ResponseSchema: ActionAuthorDevicesResponse{},
 		},
 		{
@@ -82,7 +83,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Queue a wallet-action authoring session on a runner device",
-			Description:    "Authorize the caller for the selected wallet organization and queue an authoring session on the selected device through the mobile-device semaphore. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform, or organization/wallet for a wallet installed from the Play Store or App Store at session start (the device needs the store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both. The device must belong to an enabled, online admin-managed runner of the wallet's organization; a device of an organization the caller does not own answers 404 device_not_found, and a disabled runner answers like an offline one (503). A runner whose action author has not polled <runner_id>-ActionAuthor in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. Each organization has a daily allowance of model tokens (UTC day), set by a superuser on the organization (action_author_daily_tokens); new organizations have none. A start without an allowance or after the day's tokens reach it answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
+			Description:    "Queue an authoring session for a member of an organization (the user's first organization, as for pipeline runs) on the selected device through the mobile-device semaphore. The session runs in the caller's organization namespace. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform of the caller's organization, or organization/wallet for its wallet installed from the Play Store or App Store at session start (the device needs the store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both; a wallet of another organization answers 403 forbidden. The device must belong to an enabled, online runner of the caller's organization, or to a published runner of another organization that offers the agent to other organizations; any other device answers 404 device_not_found, and a disabled runner answers like an offline one (503). A caller who is not a member of any organization answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor in the caller's namespace in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. Each organization has a daily allowance of model tokens (UTC day), set by a superuser on the organization (action_author_daily_tokens); new organizations have none. A start without an allowance or after the day's tokens reach it answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
@@ -93,7 +94,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorReview,
 			OperationID:    "actionAuthor.reviewCandidate",
 			Summary:        "Accept or refuse a candidate action of an authoring session",
-			Description:    "Deliver the human decision on the pending save review tool_id of the agent workflow author_workflow_id in the organization namespace. Only the user who started the session can review it (403 forbidden otherwise); a namespace the caller does not own, or a workflow that is not the agent of a running session, answers 404 session_not_found. plan is the plan the save card shows; Credimi checks it again and binds the approval to it: for an acceptance, a missing or invalid plan answers 400 invalid_request; a refusal never reads the plan. An acceptance carries a Credimi-signed approval of candidate_sha256 and of the plan's hash (plan_sha256) that the save activity verifies (valid for 30 minutes); the agent cannot save without it, nor with another plan. A review that is no longer pending (unknown or settled tool_id) answers 409 review_not_pending.",
+			Description:    "Deliver the human decision on the pending save review tool_id of the agent workflow author_workflow_id in the organization namespace. Only the user who started the session can review it (403 forbidden otherwise); a namespace of an organization the caller is not a member of, or a workflow that is not the agent of a running session, answers 404 session_not_found. plan is the plan the save card shows; Credimi checks it again and binds the approval to it: for an acceptance, a missing or invalid plan answers 400 invalid_request; a refusal never reads the plan. An acceptance carries a Credimi-signed approval of candidate_sha256 and of the plan's hash (plan_sha256) that the save activity verifies (valid for 30 minutes); the agent cannot save without it, nor with another plan. A review that is no longer pending (unknown or settled tool_id) answers 409 review_not_pending.",
 			RequestSchema:  ActionAuthorReviewRequest{},
 			ResponseSchema: ActionAuthorReviewResponse{},
 		},
@@ -176,42 +177,43 @@ type ActionAuthorDevicesResponse struct {
 	Devices []ActionAuthorDevice `json:"devices"`
 }
 
-// HandleActionAuthorDevices lists the supported devices of admin-managed
-// runners owned by the caller's organizations.
+// HandleActionAuthorDevices lists the supported devices of the caller's
+// organization's runners and of other organizations' published runners that
+// offer the agent. Every session runs in the caller's organization namespace.
 func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if e.Auth == nil {
 			return authoringAPIError(e, actionauthor.ErrForbidden)
 		}
-		ownerFilter, err := actionauthor.OwnerFilter(e.App, authoringActor(e.Auth))
-		if err != nil {
-			return authoringAPIError(e, err)
+		if apiErr := requireAuthoringUser(e.Auth); apiErr != nil {
+			return apiErr
 		}
-		runners, err := e.App.FindAllRecords(
-			"mobile_runners",
-			dbx.HashExp{"admin_managed": true},
-			ownerFilter,
-		)
+		response := ActionAuthorDevicesResponse{Devices: []ActionAuthorDevice{}}
+		org, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
+		if err != nil {
+			return e.JSON(http.StatusOK, response)
+		}
+		listed, err := listMobileRunnerRecords(e.App, org.Id, org.GetBool("published"))
 		if err != nil {
 			return authoringAPIError(e, fmt.Errorf("list authoring runners: %w", err))
 		}
-		runners = enabledMobileRunnerRecords(runners)
-		namespaces := make([]string, len(runners))
-		for i, runner := range runners {
-			owner, err := e.App.FindRecordById("organizations", runner.GetString("owner"))
-			if err != nil {
-				return authoringAPIError(e, fmt.Errorf("find runner organization: %w", err))
+		runners := make([]*core.Record, 0, len(listed))
+		for _, runner := range enabledMobileRunnerRecords(listed) {
+			if actionAuthorRunnerOffered(runner, org.Id) {
+				runners = append(runners, runner)
 			}
-			namespaces[i] = owner.GetString("canonified_name")
+		}
+		namespace := org.GetString("canonified_name")
+		namespaces := make([]string, len(runners))
+		for i := range runners {
+			namespaces[i] = namespace
 		}
 		agents := runnersActionAuthorAvailable(e, runners, namespaces)
-		response := ActionAuthorDevicesResponse{Devices: []ActionAuthorDevice{}}
 		now := time.Now()
-		for i, runner := range runners {
+		for _, runner := range runners {
 			// Heartbeat freshness, as GET /api/mobile-devices reports it.
 			runnerOnline := mobilerunner.RecentlyAlive(runner, now) &&
 				mobilerunner.URLUsable(mobilerunner.RunnerURL(runner))
-			namespace := namespaces[i]
 			agentAvailable := agents[runner.Id]
 			devices, err := e.App.FindAllRecords(
 				"mobile_devices",
@@ -272,8 +274,29 @@ type ActionAuthorStartResponse struct {
 // enqueueActionAuthorTicket enqueues a session ticket and is stubbed in unit tests.
 var enqueueActionAuthorTicket = semaphoreclient.EnqueueRun
 
+// authoringActor is the actor of an auth record that requireAuthoringUser accepted.
 func authoringActor(auth *core.Record) actionauthor.Actor {
-	return actionauthor.Actor{ActorID: auth.Id, ActorCollection: auth.Collection().Name}
+	return actionauthor.Actor{ActorID: auth.Id}
+}
+
+// requireAuthoringUser refuses auth records outside the users collection:
+// sessions belong to organization members.
+func requireAuthoringUser(auth *core.Record) *apierror.APIError {
+	if auth.Collection().Name != "users" {
+		return apierror.New(
+			http.StatusForbidden,
+			"action_author",
+			"forbidden",
+			"the action author is for organization members",
+		)
+	}
+	return nil
+}
+
+// actionAuthorRunnerOffered reports whether a runner offers the agent to the
+// organization: always to its own, to others when it has an allowance for them.
+func actionAuthorRunnerOffered(runner *core.Record, orgID string) bool {
+	return runner.GetString("owner") == orgID || runner.GetInt("agent_others_daily_tokens") > 0
 }
 
 // actionAuthorPlatform maps a device type to its authoring platform; it is
@@ -316,8 +339,9 @@ func authoringAPIError(e *core.RequestEvent, err error) *apierror.APIError {
 	}
 }
 
-// HandleActionAuthorStart queues a session on an admin-managed runner device
-// of the wallet's organization.
+// HandleActionAuthorStart queues a session, in the caller's organization
+// namespace, on a device of a runner that offers the agent to the caller's
+// organization.
 func HandleActionAuthorStart() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[ActionAuthorStartRequest](e)
@@ -327,8 +351,20 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if e.Auth == nil {
 			return authoringAPIError(e, actionauthor.ErrForbidden)
 		}
-		deviceID := canonify.NormalizePath(input.DeviceID)
+		if apiErr := requireAuthoringUser(e.Auth); apiErr != nil {
+			return apiErr
+		}
 		actor := authoringActor(e.Auth)
+		org, err := pbutils.GetUserOrganization(e.App, actor.ActorID)
+		if err != nil {
+			return apierror.New(
+				http.StatusForbidden,
+				"action_author",
+				"forbidden",
+				"you are not a member of any organization",
+			)
+		}
+		deviceID := canonify.NormalizePath(input.DeviceID)
 		device, runner, err := mobilerunner.ResolveDevice(e.App, deviceID)
 		switch {
 		case errors.Is(err, mobilerunner.ErrDeviceNotFound),
@@ -337,13 +373,16 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		case err != nil:
 			return authoringAPIError(e, err)
 		}
-		// Devices of organizations the caller does not own answer as unknown
-		// devices, before their type or runner is revealed.
-		visible, err := actionAuthorRunnerVisible(e.App, actor, runner)
-		if err != nil {
+		// Devices the organization cannot use, or whose runner does not offer
+		// it the agent, answer as unknown devices before their type is revealed.
+		err = mobilerunner.ValidateDeviceAccess(e.App, org.Id, []string{deviceID})
+		switch {
+		case errors.Is(err, mobilerunner.ErrDeviceNotAccessible):
+			return actionAuthorDeviceNotFound(deviceID)
+		case err != nil:
 			return authoringAPIError(e, err)
 		}
-		if !visible {
+		if !actionAuthorRunnerOffered(runner, org.Id) {
 			return actionAuthorDeviceNotFound(deviceID)
 		}
 		platform := actionAuthorPlatform(device.GetString("type"))
@@ -360,29 +399,14 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if runner.GetBool("disabled") {
 			return mobileDeviceRunnerOfflineError(deviceID)
 		}
-		selection, err := actionauthor.Select(e.App, "", actionauthor.BuildRequest{
+		namespace := org.GetString("canonified_name")
+		selection, err := actionauthor.Select(e.App, namespace, actionauthor.BuildRequest{
 			Actor:                   actor,
 			WalletVersionIdentifier: input.WalletVersionIdentifier,
 			Platform:                platform,
 		})
 		if err != nil {
 			return authoringAPIError(e, err)
-		}
-		if !runner.GetBool("admin_managed") {
-			return apierror.New(
-				http.StatusForbidden,
-				"action_author",
-				"runner_not_supported",
-				"the action author runs only on admin-managed runners",
-			)
-		}
-		if runner.GetString("owner") != selection.Organization.Id {
-			return apierror.New(
-				http.StatusForbidden,
-				"action_author",
-				"runner_not_owned",
-				"the device's runner belongs to another organization",
-			)
 		}
 		if apiErr := requireMobileDeviceRunnersOnline(
 			e.Request.Context(),
@@ -391,7 +415,6 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		); apiErr != nil {
 			return apiErr
 		}
-		namespace := selection.Organization.GetString("canonified_name")
 		if apiErr := requireActionAuthorAgent(e, runner, namespace); apiErr != nil {
 			return apiErr
 		}
@@ -400,7 +423,6 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Platform:                platform,
 			WalletVersionIdentifier: selection.Identifier,
 			ActorID:                 actor.ActorID,
-			ActorCollection:         actor.ActorCollection,
 			AppID:                   input.AppID,
 		})
 		if err != nil {
@@ -412,13 +434,9 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			return temporalUnavailableError()
 		}
 		// Sessions count at enqueue; a refused or failed enqueue gives it back.
-		orgID := selection.Organization.Id
+		orgID := org.Id
 		reservedAt := time.Now()
-		if apiErr := reserveActionAuthorSession(
-			e,
-			selection.Organization,
-			reservedAt,
-		); apiErr != nil {
+		if apiErr := reserveActionAuthorSession(e, org, reservedAt); apiErr != nil {
 			return apiErr
 		}
 		resp, err := enqueueActionAuthorTicket(
@@ -432,7 +450,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 				DeviceID:            deviceID,
 				RequiredDeviceIDs:   []string{deviceID},
 				LeaderDeviceID:      deviceID,
-				MaxPipelinesInQueue: selection.Organization.GetInt("max_pipelines_in_queue"),
+				MaxPipelinesInQueue: org.GetInt("max_pipelines_in_queue"),
 				WaitTimeoutSeconds:  semaphoreclient.WaitTimeoutSeconds(),
 				RunKind:             mobiledevicesemaphore.RunKindActionAuthor,
 				ActionAuthor:        session,
@@ -513,28 +531,6 @@ func actionAuthorDeviceNotFound(deviceID string) *apierror.APIError {
 		"device_not_found",
 		"mobile device "+deviceID+" not found",
 	)
-}
-
-// actionAuthorRunnerVisible reports whether the runner belongs to an
-// organization the actor owns; superusers see every runner.
-func actionAuthorRunnerVisible(
-	app core.App,
-	actor actionauthor.Actor,
-	runner *core.Record,
-) (bool, error) {
-	ownerFilter, err := actionauthor.OwnerFilter(app, actor)
-	if err != nil {
-		return false, err
-	}
-	owned, err := app.FindAllRecords(
-		"mobile_runners",
-		dbx.HashExp{"id": runner.Id},
-		ownerFilter,
-	)
-	if err != nil {
-		return false, fmt.Errorf("check authoring runner owner: %w", err)
-	}
-	return len(owned) == 1, nil
 }
 
 // sessionInputMap encodes the session as the semaphore ticket carries it.

@@ -276,26 +276,14 @@ func TestActionAuthorStartRejectsInvalidDevicesAndRunners(t *testing.T) {
 			expected: []string{"selected version has no iOS app"},
 		},
 		{
-			name: "tenant runner",
-			body: startSessionBody(
-				authoringTenantRunner+"/android-phone",
-				authoringAndroidVersion,
-			),
-			status: http.StatusForbidden,
-			expected: []string{
-				`"runner_not_supported"`,
-				"the action author runs only on admin-managed runners",
-			},
-		},
-		{
-			name: "device of another organization",
+			name: "device of another organization's unpublished runner",
 			body: startSessionBody(
 				authoringForeignRunner+"/android-emulator",
 				authoringAndroidVersion,
 			),
 			status:     http.StatusNotFound,
 			expected:   []string{`"device_not_found"`},
-			unexpected: []string{"runner_not_owned", "android_emulator"},
+			unexpected: []string{"android_emulator"},
 		},
 		{
 			name:      "disabled runner",
@@ -335,7 +323,7 @@ func TestActionAuthorStartRejectsInvalidDevicesAndRunners(t *testing.T) {
 	}
 }
 
-func TestActionAuthorStartRejectsSuperuserOnRunnerOfAnotherOrganization(t *testing.T) {
+func TestActionAuthorStartRejectsSuperusers(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "admin@example.org")
@@ -346,27 +334,65 @@ func TestActionAuthorStartRejectsSuperuserOnRunnerOfAnotherOrganization(t *testi
 	enqueued := stubActionAuthorQueue(t, true)
 
 	(&tests.ApiScenario{
-		Name:   "superuser on a runner of another organization",
+		Name:   "superuser",
 		Method: http.MethodPost,
 		URL:    "/api/action-author/sessions",
 		Body: strings.NewReader(startSessionBody(
-			authoringForeignRunner+"/android-emulator",
+			authoringAdminRunner+"/android-emulator",
 			authoringAndroidVersion,
 		)),
 		Headers:        map[string]string{"Authorization": "Bearer " + token},
 		ExpectedStatus: http.StatusForbidden,
 		ExpectedContent: []string{
-			`"runner_not_owned"`,
-			"the device's runner belongs to another organization",
+			`"forbidden"`,
+			"the action author is for organization members",
 		},
 		TestAppFactory: setupActionAuthorApp,
 	}).Test(t)
 	require.Empty(t, enqueued.TicketID)
 }
 
+// demoteToMember makes the user a member, not an owner, of its organization.
+func demoteToMember(t testing.TB, app *tests.TestApp, email string) {
+	t.Helper()
+	user, err := app.FindAuthRecordByEmail("users", email)
+	require.NoError(t, err)
+	authorization, err := app.FindFirstRecordByData("orgAuthorizations", "user", user.Id)
+	require.NoError(t, err)
+	member, err := app.FindFirstRecordByData("orgRoles", "name", "member")
+	require.NoError(t, err)
+	authorization.Set("role", member.Id)
+	require.NoError(t, app.Save(authorization))
+}
+
+func TestActionAuthorStartQueuesSessionForMember(t *testing.T) {
+	token := authoringToken(t, "userA")
+	enqueued := stubActionAuthorQueue(t, true)
+	(&tests.ApiScenario{
+		Name:   "member who is not an owner",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/sessions",
+		Body: strings.NewReader(startSessionBody(
+			authoringAdminRunner+"/android-emulator",
+			authoringAndroidVersion,
+		)),
+		Headers:         map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus:  http.StatusAccepted,
+		ExpectedContent: []string{`"workflow_namespace":"` + authoringNamespace + `"`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			demoteToMember(t, app, "userA@example.org")
+			return app
+		},
+	}).Test(t)
+	require.NotEmpty(t, enqueued.TicketID)
+	require.Equal(t, authoringNamespace, enqueued.OwnerNamespace)
+}
+
 func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 	token := authoringToken(t, "userA")
 	scenarios := []struct {
+		runner   string
 		device   string
 		version  string
 		platform string
@@ -375,13 +401,24 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 		{device: "android-emulator", version: authoringAndroidVersion, platform: "android"},
 		{device: "redroid", version: authoringAndroidVersion, platform: "android"},
 		{device: "ios-simulator", version: authoringBothVersion, platform: "ios"},
+		// Tenant runners of the organization run the agent too.
+		{
+			runner:   authoringTenantRunner,
+			device:   "android-phone",
+			version:  authoringAndroidVersion,
+			platform: "android",
+		},
 	}
 	for _, scenario := range scenarios {
 		enqueued := stubActionAuthorQueue(t, true)
-		deviceID := authoringAdminRunner + "/" + scenario.device
+		runner := scenario.runner
+		if runner == "" {
+			runner = authoringAdminRunner
+		}
+		deviceID := runner + "/" + scenario.device
 		var response ActionAuthorStartResponse
 		(&tests.ApiScenario{
-			Name:   scenario.device,
+			Name:   deviceID,
 			Method: http.MethodPost,
 			URL:    "/api/action-author/sessions",
 			Body: strings.NewReader(
@@ -423,7 +460,6 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 			"platform":                  scenario.platform,
 			"wallet_version_identifier": scenario.version,
 			"actor_id":                  user.Id,
-			"actor_collection":          "users",
 			"app_id":                    "eu.wallet",
 		}, enqueued.ActionAuthor)
 	}
@@ -615,7 +651,10 @@ func TestActionAuthorStartRequiresRunningAgent(t *testing.T) {
 	}
 }
 
-func TestActionAuthorDevicesListsOwnedAdminRunnerDevices(t *testing.T) {
+func TestActionAuthorDevicesListsOwnAndOfferedRunnerDevices(t *testing.T) {
+	tenantPhone := authoringDevice("android-phone", "android_phone", "android", false)
+	tenantPhone.Path = authoringTenantRunner + "/android-phone"
+	tenantPhone.RunnerName = "tenant-runner"
 	for _, tc := range []struct {
 		user     string
 		expected []ActionAuthorDevice
@@ -627,6 +666,7 @@ func TestActionAuthorDevicesListsOwnedAdminRunnerDevices(t *testing.T) {
 				authoringDevice("android-phone", "android_phone", "android", false),
 				authoringDevice("ios-simulator", "ios_simulator", "ios", false),
 				authoringDevice("redroid", "redroid", "android", false),
+				tenantPhone,
 			},
 		},
 		{user: "userC", expected: []ActionAuthorDevice{}},
@@ -642,7 +682,15 @@ func TestActionAuthorDevicesListsOwnedAdminRunnerDevices(t *testing.T) {
 			ExpectedContent: []string{
 				`"devices"`,
 			},
-			TestAppFactory: setupActionAuthorApp,
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupActionAuthorApp(t)
+				// Published, but it offers the agent only to its own organization.
+				runner, err := app.FindFirstRecordByData("mobile_runners", "name", "foreign-admin-runner")
+				require.NoError(t, err)
+				runner.Set("published", true)
+				require.NoError(t, app.Save(runner))
+				return app
+			},
 			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
 				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
@@ -654,14 +702,7 @@ func TestActionAuthorDevicesListsOwnedAdminRunnerDevices(t *testing.T) {
 }
 
 func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "admin@example.org")
-	require.NoError(t, err)
-	token, err := superuser.NewAuthToken()
-	require.NoError(t, err)
-	app.Cleanup()
-
+	token := authoringToken(t, "userA")
 	for _, tc := range []struct {
 		name      string
 		clientErr error
@@ -669,12 +710,12 @@ func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
 	}{
 		{
 			name:     "agent on the admin runner only",
-			expected: map[string]bool{"admin-runner": true, "foreign-admin-runner": false},
+			expected: map[string]bool{"admin-runner": true, "tenant-runner": false},
 		},
 		{
 			name:      "temporal unreachable",
 			clientErr: errors.New("dial failed"),
-			expected:  map[string]bool{"admin-runner": false, "foreign-admin-runner": false},
+			expected:  map[string]bool{"admin-runner": false, "tenant-runner": false},
 		},
 	} {
 		stubActionAuthorQueue(t, true)
@@ -721,10 +762,10 @@ func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
 		if tc.clientErr != nil {
 			require.Empty(t, describes, tc.name)
 		} else {
-			// Once per runner in its organization's namespace, however many devices it has.
+			// Once per runner in the caller's namespace, however many devices it has.
 			require.Equal(t, map[string][]string{
-				authoringAdminRunner + "-ActionAuthor":   {authoringNamespace},
-				authoringForeignRunner + "-ActionAuthor": {authoringForeignNS},
+				authoringAdminRunner + "-ActionAuthor":  {authoringNamespace},
+				authoringTenantRunner + "-ActionAuthor": {authoringNamespace},
 			}, describes, tc.name)
 		}
 	}
@@ -737,13 +778,7 @@ type namespacedClient struct {
 }
 
 func TestActionAuthorDevicesChecksRunnerAgentsInParallel(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "admin@example.org")
-	require.NoError(t, err)
-	token, err := superuser.NewAuthToken()
-	require.NoError(t, err)
-	app.Cleanup()
+	token := authoringToken(t, "userA")
 
 	const checkDuration = 200 * time.Millisecond
 	stubActionAuthorQueue(t, true)
@@ -751,7 +786,7 @@ func TestActionAuthorDevicesChecksRunnerAgentsInParallel(t *testing.T) {
 		t,
 		func(taskQueue string) (*workflowservice.DescribeTaskQueueResponse, error) {
 			time.Sleep(checkDuration)
-			if taskQueue == authoringForeignRunner+"-ActionAuthor" {
+			if taskQueue == authoringTenantRunner+"-ActionAuthor" {
 				return &workflowservice.DescribeTaskQueueResponse{}, nil
 			}
 			return freshActionAuthorPoller(), nil
@@ -800,52 +835,10 @@ func TestActionAuthorDevicesChecksRunnerAgentsInParallel(t *testing.T) {
 		available[device.RunnerName] = device.AgentAvailable
 	}
 	require.Equal(t, map[string]bool{
-		"admin-runner":         true,
-		"second-admin-runner":  true,
-		"foreign-admin-runner": false,
+		"admin-runner":        true,
+		"second-admin-runner": true,
+		"tenant-runner":       false,
 	}, available)
-}
-
-func TestActionAuthorDevicesListsEveryAdminRunnerForSuperusers(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "admin@example.org")
-	require.NoError(t, err)
-	token, err := superuser.NewAuthToken()
-	require.NoError(t, err)
-	app.Cleanup()
-	stubActionAuthorQueue(t, true)
-
-	var response ActionAuthorDevicesResponse
-	(&tests.ApiScenario{
-		Name:            "superuser",
-		Method:          http.MethodGet,
-		URL:             "/api/action-author/devices",
-		Headers:         map[string]string{"Authorization": "Bearer " + token},
-		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{`"devices"`},
-		TestAppFactory:  setupActionAuthorApp,
-		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
-			body, err := io.ReadAll(res.Body)
-			require.NoError(t, err)
-			require.NoError(t, json.Unmarshal(body, &response))
-		},
-	}).Test(t)
-
-	runners := map[string]int{}
-	for _, device := range response.Devices {
-		runners[device.RunnerName]++
-	}
-	require.Equal(t, map[string]int{"admin-runner": 4, "foreign-admin-runner": 1}, runners)
-	require.Equal(t, "admin-runner", response.Devices[0].RunnerName)
-	for _, device := range response.Devices {
-		if device.RunnerName == "foreign-admin-runner" {
-			require.Equal(t, authoringForeignNS, device.Namespace)
-			require.NotEqual(t, response.Devices[0].Namespace, device.Namespace)
-		} else {
-			require.Equal(t, authoringNamespace, device.Namespace)
-		}
-	}
 }
 
 // authoringDevice is a device of userA's admin-managed runner.

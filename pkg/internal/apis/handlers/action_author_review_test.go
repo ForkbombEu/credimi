@@ -41,7 +41,7 @@ type reviewStub struct {
 func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr error) *reviewStub {
 	t.Helper()
 	stub := &reviewStub{session: actionauthor.BuildRequest{
-		Actor:                   actionauthor.Actor{ActorID: actorID, ActorCollection: "users"},
+		Actor:                   actionauthor.Actor{ActorID: actorID},
 		WalletVersionIdentifier: authoringAndroidVersion,
 		Platform:                actionauthor.PlatformAndroid,
 	}}
@@ -113,7 +113,6 @@ func TestActionAuthorReviewSignsAcceptedCandidates(t *testing.T) {
 			)
 			require.NoError(t, err)
 			require.Equal(t, user.Id, approval.ApproverID)
-			require.Equal(t, "users", approval.ApproverCollection)
 			require.Equal(t, actionauthor.PlanSHA256(actionauthor.Spec{
 				Slot:    "onboarding",
 				Outcome: actionauthor.OutcomeSuccess,
@@ -133,6 +132,23 @@ func TestActionAuthorReviewSignsAcceptedCandidates(t *testing.T) {
 		TestAppFactory:  setupActionAuthorApp,
 	}).Test(t)
 	require.Equal(t, map[string]any{"accepted": false, "approval": ""}, stub.result)
+
+	stub = stubActionAuthorReview(t, user.Id, nil, nil)
+	(&tests.ApiScenario{
+		Name:            "accepted by a member who is not an owner",
+		Method:          http.MethodPost,
+		URL:             "/api/action-author/reviews",
+		Body:            strings.NewReader(reviewBody(authoringNamespace, true)),
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"accepted":true`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			demoteToMember(t, app, "userA@example.org")
+			return app
+		},
+	}).Test(t)
+	require.Equal(t, true, stub.result["accepted"])
 }
 
 func TestActionAuthorReviewRejectsOtherUsersAndSettledReviews(t *testing.T) {
@@ -150,7 +166,7 @@ func TestActionAuthorReviewRejectsOtherUsersAndSettledReviews(t *testing.T) {
 		delivered bool
 	}{
 		{
-			name:      "organization the caller does not own",
+			name:      "organization the caller is not a member of",
 			user:      "userB",
 			namespace: authoringNamespace,
 			status:    http.StatusNotFound,

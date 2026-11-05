@@ -61,7 +61,7 @@ func authoringFixture(t *testing.T) (*tests.TestApp, BuildRequest, string) {
 		"/",
 	)
 	return app, BuildRequest{
-		Actor:                   Actor{ActorID: actor.Id, ActorCollection: "users"},
+		Actor:                   Actor{ActorID: actor.Id},
 		WalletVersionIdentifier: identifier,
 		Platform:                PlatformAndroid,
 	}, org.GetString("canonified_name")
@@ -100,7 +100,28 @@ func seedVersion(
 	}, "/")
 }
 
-func TestListBuildOptionsRequiresOwnershipAndInstaller(t *testing.T) {
+// newMember creates a user whose only organization is orgID, with the member role.
+func newMember(t *testing.T, app *tests.TestApp, orgID string) *core.Record {
+	t.Helper()
+	users, err := app.FindCollectionByNameOrId("users")
+	require.NoError(t, err)
+	user := core.NewRecord(users)
+	user.SetEmail("authoring-member@example.org")
+	user.SetPassword("authoring-member-password")
+	require.NoError(t, app.Save(user))
+	member, err := app.FindFirstRecordByData("orgRoles", "name", "member")
+	require.NoError(t, err)
+	authorizations, err := app.FindCollectionByNameOrId("orgAuthorizations")
+	require.NoError(t, err)
+	membership := core.NewRecord(authorizations)
+	membership.Set("user", user.Id)
+	membership.Set("organization", orgID)
+	membership.Set("role", member.Id)
+	require.NoError(t, app.Save(membership))
+	return user
+}
+
+func TestListBuildOptionsRequiresMembershipAndInstaller(t *testing.T) {
 	app, request, _ := authoringFixture(t)
 	selection, err := Select(app, "", request)
 	require.NoError(t, err)
@@ -114,19 +135,6 @@ func TestListBuildOptionsRequiresOwnershipAndInstaller(t *testing.T) {
 	require.NoError(t, app.Save(withoutInstaller))
 	iosOnly := seedVersion(t, app, selection, "ios-only", nil, []byte("ios app zip"))
 	both := seedVersion(t, app, selection, "both", []byte("apk"), []byte("ios app zip"))
-
-	// Another member of the organization neither hides the owner's builds nor sees them.
-	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
-	require.NoError(t, err)
-	member, err := app.FindFirstRecordByData("orgRoles", "name", "member")
-	require.NoError(t, err)
-	authorizations, err := app.FindCollectionByNameOrId("orgAuthorizations")
-	require.NoError(t, err)
-	membership := core.NewRecord(authorizations)
-	membership.Set("user", other.Id)
-	membership.Set("organization", selection.Organization.Id)
-	membership.Set("role", member.Id)
-	require.NoError(t, app.Save(membership))
 
 	options, err := ListBuildOptions(app, request.Actor)
 	require.NoError(t, err)
@@ -147,19 +155,28 @@ func TestListBuildOptionsRequiresOwnershipAndInstaller(t *testing.T) {
 		}
 	}
 
-	options, err = ListBuildOptions(app, Actor{ActorID: other.Id, ActorCollection: "users"})
+	// A member whose organization it is sees the same builds.
+	member := newMember(t, app, selection.Organization.Id)
+	memberOptions, err := ListBuildOptions(app, Actor{ActorID: member.Id})
+	require.NoError(t, err)
+	assert.Equal(t, options, memberOptions)
+
+	// userB's organization is its own: userA's builds are not listed.
+	other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	options, err = ListBuildOptions(app, Actor{ActorID: other.Id})
 	require.NoError(t, err)
 	assert.Empty(t, options)
 
+	// A user without an organization gets an empty list.
 	authorization, err := app.FindFirstRecordByFilter(
 		"orgAuthorizations",
-		"user = {:user} && organization = {:organization}",
-		dbx.Params{"user": request.ActorID, "organization": selection.Organization.Id},
+		"user = {:user}",
+		dbx.Params{"user": member.Id},
 	)
 	require.NoError(t, err)
-	authorization.Set("role", member.Id)
-	require.NoError(t, app.Save(authorization))
-	options, err = ListBuildOptions(app, request.Actor)
+	require.NoError(t, app.Delete(authorization))
+	options, err = ListBuildOptions(app, Actor{ActorID: member.Id})
 	require.NoError(t, err)
 	assert.Empty(t, options)
 }
@@ -241,6 +258,21 @@ func TestAuthoringBuildPermission(t *testing.T) {
 	_, err = Resolve(app, namespace, otherRequest)
 	require.ErrorIs(t, err, ErrForbidden)
 
+	// Superusers are not users: they cannot author.
+	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "admin@example.org")
+	require.NoError(t, err)
+	superuserRequest := request
+	superuserRequest.ActorID = superuser.Id
+	_, err = Resolve(app, namespace, superuserRequest)
+	require.ErrorIs(t, err, ErrForbidden)
+
+	org, err := app.FindFirstRecordByData("organizations", "canonified_name", namespace)
+	require.NoError(t, err)
+	memberRequest := request
+	memberRequest.ActorID = newMember(t, app, org.Id).Id
+	_, err = Resolve(app, namespace, memberRequest)
+	require.NoError(t, err)
+
 	authorization, err := app.FindFirstRecordByFilter(
 		"orgAuthorizations",
 		"user = {:user} && organization.canonified_name = {:org}",
@@ -268,10 +300,9 @@ func acceptedRequest(request BuildRequest, digest string) SaveRequest {
 
 // testApproval is the verified approval Save records.
 var testApproval = Approval{
-	AuthorWorkflowID:   "workflow",
-	ApproverID:         "approver",
-	ApproverCollection: "users",
-	ApprovedAt:         1_800_000_000,
+	AuthorWorkflowID: "workflow",
+	ApproverID:       "approver",
+	ApprovedAt:       1_800_000_000,
 }
 
 func TestAuthoringSaveIsUnpublishedIdempotentAndNeverReplaces(t *testing.T) {
@@ -346,7 +377,6 @@ func TestAuthoringSaveRecordsSpecAndApproval(t *testing.T) {
 	assert.Equal(t, []ProvenanceParameter{{Name: "deeplink", Kind: SourceLiteral}},
 		receipt.Provenance.Parameters)
 	assert.Equal(t, "approver", receipt.Provenance.ApproverID)
-	assert.Equal(t, "users", receipt.Provenance.ApproverCollection)
 	assert.Equal(t, "2027-01-15T08:00:00Z", receipt.Provenance.ApprovedAt)
 
 	// The action targets only the wallet package; the browser opens through openLink.

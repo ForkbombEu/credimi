@@ -191,7 +191,6 @@ async def test_harness_cannot_start_sessions_with_caller_supplied_actor():
                 "agent_workflow_type": "ActionAuthor",
                 "data": {
                     "actor_id": "someone-else",
-                    "actor_collection": "_superusers",
                     "wallet_version_identifier": "other/wallet/build",
                     "slot": "onboarding",
                 },

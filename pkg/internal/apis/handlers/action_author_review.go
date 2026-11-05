@@ -13,6 +13,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/pocketbase/core"
@@ -82,8 +83,8 @@ func actionAuthorSessionNotFound() *apierror.APIError {
 }
 
 // actionAuthorCallerSession authorizes the caller for the running session of
-// an agent workflow: the caller must own the namespace's organization and be
-// the user who started the session (forbidden answers otherwise).
+// an agent workflow: the caller must be a member of the namespace's
+// organization and the user who started the session (forbidden answers otherwise).
 func actionAuthorCallerSession(
 	e *core.RequestEvent,
 	namespace, authorWorkflowID, forbidden string,
@@ -91,6 +92,9 @@ func actionAuthorCallerSession(
 	var ref activities.ActionAuthorSessionRef
 	if e.Auth == nil {
 		return nil, ref, actionauthor.Actor{}, authoringAPIError(e, actionauthor.ErrForbidden)
+	}
+	if apiErr := requireAuthoringUser(e.Auth); apiErr != nil {
+		return nil, ref, actionauthor.Actor{}, apiErr
 	}
 	actor := authoringActor(e.Auth)
 	organization, err := e.App.FindFirstRecordByData(
@@ -104,12 +108,9 @@ func actionAuthorCallerSession(
 	if err != nil {
 		return nil, ref, actor, authoringAPIError(e, err)
 	}
-	owns, err := actionauthor.OwnsOrganization(e.App, actor, organization.Id)
-	if errors.Is(err, actionauthor.ErrForbidden) || (err == nil && !owns) {
+	orgID, err := pbutils.GetUserOrganizationID(e.App, actor.ActorID)
+	if err != nil || orgID != organization.Id {
 		return nil, ref, actor, actionAuthorSessionNotFound()
-	}
-	if err != nil {
-		return nil, ref, actor, authoringAPIError(e, err)
 	}
 	c, err := queueTemporalClient(namespace)
 	if err != nil {
@@ -122,8 +123,7 @@ func actionAuthorCallerSession(
 	if err != nil {
 		return nil, ref, actor, temporalUnavailableError()
 	}
-	if ref.Session.ActorID != actor.ActorID ||
-		ref.Session.ActorCollection != actor.ActorCollection {
+	if ref.Session.ActorID != actor.ActorID {
 		return nil, ref, actor, apierror.New(
 			http.StatusForbidden,
 			"action_author",
@@ -166,12 +166,11 @@ func HandleActionAuthorReview() func(*core.RequestEvent) error {
 				return authoringAPIError(e, err)
 			}
 			approval, err := actionauthor.SignApproval(e.App, actionauthor.Approval{
-				AuthorWorkflowID:   input.AuthorWorkflowID,
-				CandidateSHA256:    input.CandidateSHA256,
-				ApproverID:         actor.ActorID,
-				ApproverCollection: actor.ActorCollection,
-				ApprovedAt:         time.Now().Unix(),
-				PlanSHA256:         actionauthor.PlanSHA256(plan),
+				AuthorWorkflowID: input.AuthorWorkflowID,
+				CandidateSHA256:  input.CandidateSHA256,
+				ApproverID:       actor.ActorID,
+				ApprovedAt:       time.Now().Unix(),
+				PlanSHA256:       actionauthor.PlanSHA256(plan),
 			})
 			if err != nil {
 				return authoringAPIError(e, err)

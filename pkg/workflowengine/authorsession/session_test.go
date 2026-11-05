@@ -298,7 +298,6 @@ func sessionInput(platform string) SessionInput {
 		Platform:                platform,
 		WalletVersionIdentifier: testVersion,
 		ActorID:                 "user-1",
-		ActorCollection:         "users",
 	}
 }
 
@@ -313,7 +312,6 @@ func TestSessionStartsAuthorOnRunnerQueueWithAuthoringContext(t *testing.T) {
 	require.Equal(t, AuthoringContext{
 		WalletVersionIdentifier: testVersion,
 		ActorID:                 "user-1",
-		ActorCollection:         "users",
 		AppID:                   "",
 		Platform:                actionauthor.PlatformAndroid,
 		Build: AuthoringBuild{
@@ -340,7 +338,7 @@ func TestSessionStartsAuthorOnRunnerQueueWithAuthoringContext(t *testing.T) {
 	request, err := workflowengine.DecodePayload[actionauthor.BuildRequest](resolveCall.payload)
 	require.NoError(t, err)
 	require.Equal(t, actionauthor.BuildRequest{
-		Actor:                   actionauthor.Actor{ActorID: "user-1", ActorCollection: "users"},
+		Actor:                   actionauthor.Actor{ActorID: "user-1"},
 		WalletVersionIdentifier: testVersion,
 		Platform:                actionauthor.PlatformAndroid,
 	}, request)

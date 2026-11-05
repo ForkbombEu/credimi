@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,11 +18,10 @@ func TestApprovalSignAndVerify(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0)
 	sha := strings.Repeat("a", 64)
 	approval := Approval{
-		AuthorWorkflowID:   "ActionAuthorSession-t-author",
-		CandidateSHA256:    sha,
-		ApproverID:         "user-1",
-		ApproverCollection: "users",
-		ApprovedAt:         now.Unix(),
+		AuthorWorkflowID: "ActionAuthorSession-t-author",
+		CandidateSHA256:  sha,
+		ApproverID:       "user-1",
+		ApprovedAt:       now.Unix(),
 	}
 	token, err := SignApproval(app, approval)
 	require.NoError(t, err)
@@ -90,34 +88,4 @@ func TestApprovalSignAndVerify(t *testing.T) {
 	require.NoError(t, app.SaveNoValidate(users))
 	_, err = SignApproval(app, approval)
 	require.ErrorContains(t, err, "too short")
-}
-
-func TestOwnsOrganization(t *testing.T) {
-	app, request, namespace := authoringFixture(t)
-	selection, err := Select(app, namespace, request)
-	require.NoError(t, err)
-	orgID := selection.Organization.Id
-
-	owns, err := OwnsOrganization(app, request.Actor, orgID)
-	require.NoError(t, err)
-	assert.True(t, owns)
-
-	other, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
-	require.NoError(t, err)
-	owns, err = OwnsOrganization(app, request.Actor, other.Id)
-	require.NoError(t, err)
-	assert.False(t, owns)
-
-	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "admin@example.org")
-	require.NoError(t, err)
-	owns, err = OwnsOrganization(
-		app,
-		Actor{ActorID: superuser.Id, ActorCollection: core.CollectionNameSuperusers},
-		other.Id,
-	)
-	require.NoError(t, err)
-	assert.True(t, owns)
-
-	_, err = OwnsOrganization(app, Actor{ActorID: "missing", ActorCollection: "users"}, orgID)
-	require.ErrorIs(t, err, ErrForbidden)
 }

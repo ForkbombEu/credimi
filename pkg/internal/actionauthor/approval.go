@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -30,11 +29,10 @@ var tokenEncoding = base64.RawURLEncoding
 // Approval is a human's acceptance of one candidate of one ActionAuthor
 // workflow, signed by Credimi.
 type Approval struct {
-	AuthorWorkflowID   string `json:"author_workflow_id"`
-	CandidateSHA256    string `json:"candidate_sha256"`
-	ApproverID         string `json:"approver_id"`
-	ApproverCollection string `json:"approver_collection"`
-	ApprovedAt         int64  `json:"approved_at"`
+	AuthorWorkflowID string `json:"author_workflow_id"`
+	CandidateSHA256  string `json:"candidate_sha256"`
+	ApproverID       string `json:"approver_id"`
+	ApprovedAt       int64  `json:"approved_at"`
 	// PlanSHA256 binds the approval to the plan the session saves with.
 	PlanSHA256 string `json:"plan_sha256"`
 }
@@ -134,28 +132,4 @@ func VerifyApproval(
 		return Approval{}, forbidden("the approval expired")
 	}
 	return approval, nil
-}
-
-// OwnsOrganization reports whether the actor holds the owner role of the
-// organization, the role Select requires. Superusers own every organization.
-func OwnsOrganization(app core.App, in Actor, orgID string) (bool, error) {
-	actor, err := findActor(app, in)
-	if err != nil {
-		return false, err
-	}
-	if actor.IsSuperuser() {
-		return true, nil
-	}
-	authorizations, err := app.FindRecordsByFilter(
-		"orgAuthorizations",
-		"user = {:user} && organization = {:org} && role.name = 'owner'",
-		"",
-		1,
-		0,
-		dbx.Params{"user": actor.Id, "org": orgID},
-	)
-	if err != nil {
-		return false, fmt.Errorf("check organization owner: %w", err)
-	}
-	return len(authorizations) > 0, nil
 }

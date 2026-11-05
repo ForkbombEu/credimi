@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -33,10 +34,9 @@ var (
 	ErrConflict  = errors.New("authoring approval is stale or conflicts with an existing action")
 )
 
-// Actor identifies the authenticated Credimi principal that started the workflow.
+// Actor identifies the authenticated Credimi user that started the workflow.
 type Actor struct {
-	ActorID         string `json:"actor_id"`
-	ActorCollection string `json:"actor_collection"`
+	ActorID string `json:"actor_id"`
 }
 
 // Supported authoring platforms; each selects the wallet version installer field.
@@ -164,43 +164,21 @@ func playStorePage(storeURL, pkg string) string {
 	return "https://play.google.com/store/apps/details?id=" + pkg
 }
 
-// OwnerFilter restricts a query on a collection with an `owner` organization
-// to the organizations where the actor holds the owner role, the role Select
-// requires. Superusers are not restricted.
-func OwnerFilter(app core.App, in Actor) (dbx.Expression, error) {
+// ListBuildOptions returns the builds of the actor's organization, the
+// organization Select authorizes. A user without an organization gets none.
+func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 	actor, err := findActor(app, in)
 	if err != nil {
 		return nil, err
 	}
-	if actor.IsSuperuser() {
-		return dbx.NewExp("1=1"), nil
+	orgID, err := pbutils.GetUserOrganizationID(app, actor.Id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return []BuildOption{}, nil
 	}
-	// Resolve owned organizations first: PocketBase's `=` on a back-relation
-	// matches only when every authorization of the organization matches.
-	authorizations, err := app.FindRecordsByFilter(
-		"orgAuthorizations",
-		"user = {:user} && role.name = 'owner'",
-		"",
-		0,
-		0,
-		dbx.Params{"user": actor.Id},
-	)
 	if err != nil {
-		return nil, fmt.Errorf("list owned organizations: %w", err)
+		return nil, fmt.Errorf("find actor organization: %w", err)
 	}
-	owned := make([]any, 0, len(authorizations))
-	for _, authorization := range authorizations {
-		owned = append(owned, authorization.GetString("organization"))
-	}
-	return dbx.In("owner", owned...), nil
-}
-
-// ListBuildOptions returns only builds authorized by the same owner role as Select.
-func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
-	ownerFilter, err := OwnerFilter(app, in)
-	if err != nil {
-		return nil, err
-	}
+	ownerFilter := dbx.HashExp{"owner": orgID}
 	filter := []dbx.Expression{
 		dbx.Or(dbx.NewExp("[[android_installer]] != ''"), dbx.NewExp("[[ios_installer]] != ''")),
 		ownerFilter,
@@ -292,19 +270,20 @@ func storeBuildOptions(app core.App, ownerFilter dbx.Expression) ([]BuildOption,
 	return options, nil
 }
 
-// findActor accepts only user and superuser principals that still exist.
+// findActor accepts only users that still exist.
 func findActor(app core.App, in Actor) (*core.Record, error) {
-	if in.ActorCollection != "users" && in.ActorCollection != core.CollectionNameSuperusers {
+	if in.ActorID == "" {
 		return nil, ErrForbidden
 	}
-	actor, err := app.FindRecordById(in.ActorCollection, in.ActorID)
+	actor, err := app.FindRecordById("users", in.ActorID)
 	if err != nil {
 		return nil, ErrForbidden
 	}
 	return actor, nil
 }
 
-// Select authorizes the same owner role required by wallet_actions creation.
+// Select authorizes members of the wallet's organization, the same rule as
+// pipeline runs: the actor's organization is its first one.
 // `organization/wallet/version` selects an uploaded installer and
 // `organization/wallet` the wallet's store app.
 // An empty namespace is used only by the authenticated start endpoint; activities
@@ -363,13 +342,9 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 	if ownerNamespace == "" || (namespace != "" && namespace != ownerNamespace) {
 		return selection, ErrForbidden
 	}
-	if !actor.IsSuperuser() {
-		_, err = app.FindFirstRecordByFilter("orgAuthorizations",
-			"user = {:user} && organization = {:org} && role.name = 'owner'",
-			dbx.Params{"user": actor.Id, "org": organization.Id})
-		if err != nil {
-			return selection, ErrForbidden
-		}
+	orgID, err := pbutils.GetUserOrganizationID(app, actor.Id)
+	if err != nil || orgID != organization.Id {
+		return selection, ErrForbidden
 	}
 	installer, ok := installerFields[in.Platform]
 	if !ok {
@@ -490,7 +465,6 @@ type Provenance struct {
 	Prerequisites           []string              `json:"prerequisites"`
 	Parameters              []ProvenanceParameter `json:"parameters"`
 	ApproverID              string                `json:"approver_id"`
-	ApproverCollection      string                `json:"approver_collection"`
 	ApprovedAt              string                `json:"approved_at"`
 }
 
@@ -581,7 +555,6 @@ func Save(
 		RunID:                   runID,
 		ReplayCount:             in.ReplayCount,
 		ApproverID:              approval.ApproverID,
-		ApproverCollection:      approval.ApproverCollection,
 		ApprovedAt:              time.Unix(approval.ApprovedAt, 0).UTC().Format(time.RFC3339),
 	}
 	if selection.Source == SourceStore {
