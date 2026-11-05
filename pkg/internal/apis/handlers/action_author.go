@@ -164,12 +164,26 @@ type ActionAuthorDevice struct {
 	Namespace  string `json:"namespace"`
 	Name       string `json:"name"`
 	RunnerName string `json:"runner_name"`
-	Type       string `json:"type"`
-	Platform   string `json:"platform"`
-	IsOnline   bool   `json:"is_online"`
+	// RunnerOwner is the name of the organization that owns the runner.
+	RunnerOwner string `json:"runner_owner"`
+	// Model is the runner's model as "<provider> / <model>", the provider
+	// alone without a model, or empty when the runner reports neither.
+	Model    string `json:"model"`
+	Type     string `json:"type"`
+	Platform string `json:"platform"`
+	IsOnline bool   `json:"is_online"`
 	// AgentAvailable reports whether the runner's action author polled its
 	// task queue in the last two minutes; select only online devices with it.
 	AgentAvailable bool `json:"agent_available"`
+}
+
+// runnerAgentModel describes the model a runner reports for its agent.
+func runnerAgentModel(runner *core.Record) string {
+	provider, model := runner.GetString("agent_provider"), runner.GetString("agent_model")
+	if model == "" {
+		return provider
+	}
+	return provider + " / " + model
 }
 
 // ActionAuthorDevicesResponse lists the devices accepted by the session start endpoint.
@@ -211,10 +225,15 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 		agents := runnersActionAuthorAvailable(e, runners, namespaces)
 		now := time.Now()
 		for _, runner := range runners {
+			owner, err := e.App.FindRecordById("organizations", runner.GetString("owner"))
+			if err != nil {
+				return authoringAPIError(e, fmt.Errorf("find runner organization: %w", err))
+			}
 			// Heartbeat freshness, as GET /api/mobile-devices reports it.
 			runnerOnline := mobilerunner.RecentlyAlive(runner, now) &&
 				mobilerunner.URLUsable(mobilerunner.RunnerURL(runner))
 			agentAvailable := agents[runner.Id]
+			model := runnerAgentModel(runner)
 			devices, err := e.App.FindAllRecords(
 				"mobile_devices",
 				dbx.HashExp{"runner": runner.Id},
@@ -236,6 +255,8 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 					Namespace:      namespace,
 					Name:           device.GetString("name"),
 					RunnerName:     runner.GetString("name"),
+					RunnerOwner:    owner.GetString("name"),
+					Model:          model,
 					Type:           device.GetString("type"),
 					Platform:       platform,
 					IsOnline:       runnerOnline && device.GetBool("online"),

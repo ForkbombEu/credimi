@@ -651,9 +651,12 @@ func TestActionAuthorDevicesListsOwnAndOfferedRunnerDevices(t *testing.T) {
 	tenantPhone := authoringDevice("android-phone", "android_phone", "android", false)
 	tenantPhone.Path = authoringTenantRunner + "/android-phone"
 	tenantPhone.RunnerName = "tenant-runner"
+	tenantPhone.Model = "openai_compatible"
 	foreignEmulator := authoringDevice("android-emulator", "android_emulator", "android", true)
 	foreignEmulator.Path = authoringForeignRunner + "/android-emulator"
 	foreignEmulator.RunnerName = "foreign-admin-runner"
+	foreignEmulator.RunnerOwner = "userB's organization"
+	foreignEmulator.Model = ""
 	own := []ActionAuthorDevice{
 		authoringDevice("android-emulator", "android_emulator", "android", true),
 		authoringDevice("android-phone", "android_phone", "android", false),
@@ -698,6 +701,16 @@ func TestActionAuthorDevicesListsOwnAndOfferedRunnerDevices(t *testing.T) {
 				runner.Set("published", true)
 				runner.Set("agent_others_daily_tokens", tc.others)
 				require.NoError(t, app.Save(runner))
+				for name, agent := range map[string][2]string{
+					"admin-runner":  {"anthropic", "claude-sonnet-5-5"},
+					"tenant-runner": {"openai_compatible", ""},
+				} {
+					runner, err := app.FindFirstRecordByData("mobile_runners", "name", name)
+					require.NoError(t, err)
+					runner.Set("agent_provider", agent[0])
+					runner.Set("agent_model", agent[1])
+					require.NoError(t, app.Save(runner))
+				}
 				return app
 			},
 			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -850,13 +863,16 @@ func TestActionAuthorDevicesChecksRunnerAgentsInParallel(t *testing.T) {
 	}, available)
 }
 
-// authoringDevice is a device of userA's admin-managed runner.
+// authoringDevice is a device of userA's admin-managed runner, which reports
+// the anthropic provider and model.
 func authoringDevice(name, deviceType, platform string, online bool) ActionAuthorDevice {
 	return ActionAuthorDevice{
 		Path:           authoringAdminRunner + "/" + name,
 		Namespace:      authoringNamespace,
 		Name:           name,
 		RunnerName:     "admin-runner",
+		RunnerOwner:    "userA's organization",
+		Model:          "anthropic / claude-sonnet-5-5",
 		Type:           deviceType,
 		Platform:       platform,
 		IsOnline:       online,

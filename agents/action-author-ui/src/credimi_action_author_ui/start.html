@@ -243,7 +243,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				for (const device of devices) {
 					const option = document.createElement('option');
 					option.value = device.path;
-					option.textContent = `${device.name} — ${device.runner_name} (${PLATFORM_LABELS[device.platform] || device.platform})`
+					option.textContent = `${device.name} — ${device.runner_name} (${PLATFORM_LABELS[device.platform] || device.platform}) · Runner of ${device.runner_owner} · model: ${device.model || 'unknown'}`
 						+ (!device.is_online ? ' · offline' : device.agent_available ? '' : ' · agent not enabled');
 					option.disabled = !selectable(device);
 					deviceSelect.append(option);
