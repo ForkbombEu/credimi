@@ -208,7 +208,7 @@ async def test_chat_page_is_embeddable_by_credimi_only():
     assert css.status_code == 200
     assert css.headers["content-type"].startswith("text/css")
     assert css.headers["x-frame-options"] == "SAMEORIGIN"
-    assert "button.session-new, section.session-manager" in css.text
+    assert "button.session-new, button.start-new, section.session-manager" in css.text
 
 
 def test_registry_uses_the_chat_task_queue():

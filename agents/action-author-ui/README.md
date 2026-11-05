@@ -54,9 +54,9 @@ temporal_unavailable` and is retried on the next request.
 The harness routes run unchanged, on the request's namespace, except:
 
 - `GET /` serves the packaged chat page with `./action-embed.css` (relative, since the page sits
-  under Credimi's sub-path), which hides the harness **New session** button, its sessions
-  drawer and its `confirm_wallet_action_save` callback card: Credimi starts and lists sessions
-  and shows the save review on its session page.
+  under Credimi's sub-path), which hides the harness **New session** and **Start a new session**
+  buttons, its sessions drawer and its `confirm_wallet_action_save` callback card: Credimi starts
+  and lists sessions and shows the save review on its session page.
 - `GET /api/agents` lists the agent on the chat's own task queue (`<runner_id>-ActionAuthor`)
   with whether a worker polls it.
 - `GET /api/sessions` lists only the scoped chat: running, closed, or none before it starts.
