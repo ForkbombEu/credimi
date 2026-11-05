@@ -13,7 +13,12 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig(({ mode }) => {
 	const pocketbaseUrl = loadEnv(mode, process.cwd(), '').VITE_API;
 	const proxy = pocketbaseUrl
-		? { '/api/': pocketbaseUrl, '/_/': pocketbaseUrl, '/temporal-ui': pocketbaseUrl }
+		? {
+				'/api/': pocketbaseUrl,
+				'/_/': pocketbaseUrl,
+				'/temporal-ui': pocketbaseUrl,
+				'/action-author-ui': pocketbaseUrl
+			}
 		: undefined;
 	return {
 		plugins: [

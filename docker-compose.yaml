@@ -119,11 +119,23 @@ services:
       - TEMPORAL_DISABLE_NEWS_FETCH=true
       - TEMPORAL_NAV_COLLAPSED_BY_DEFAULT=true
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
+  # Agent chat UI embedded in Credimi action author session pages. No published port: only
+  # Credimi reaches it, through the session-scoped proxy at /action-author-ui (pkg/internal/actionauthorui).
+  action_author_ui:
+    build: ./agents/action-author-ui
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - ACTION_AUTHOR_UI_PORT=8080
   credimi:
     depends_on:
       temporal:
         condition: service_healthy
       temporal_ui_embedded:
+        condition: service_started
+      action_author_ui:
         condition: service_started
     stop_grace_period: 30s
     build:
@@ -135,6 +147,7 @@ services:
       - ADDRESS_GRAFANA=http://grafana:8085
       - ADDRESS_UI=http://localhost:5100
       - ADDRESS_TEMPORAL_UI=http://temporal_ui_embedded:8080
+      - ADDRESS_ACTION_AUTHOR_UI=http://action_author_ui:8080
       - ROOT_DIR=/app
       - DATA_DB_PATH=/app/pb_data/data.db
       - MAIL_SENDER=no-reply@credimi.io

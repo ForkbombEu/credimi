@@ -41,6 +41,7 @@ load_defaults() {
 		source "${WORKTREE_ENV_FILE}"
 	fi
 	set +a
+	ACTION_AUTHOR_UI_PORT="${ACTION_AUTHOR_UI_PORT:-8282}"
 }
 
 resolve_runtime_paths() {
@@ -100,8 +101,10 @@ UI_PORT=${UI_PORT}
 TEMPORAL_PORT=${TEMPORAL_PORT}
 TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT}
 TEMPORAL_UI_EMBEDDED_PORT=${TEMPORAL_UI_EMBEDDED_PORT}
+ACTION_AUTHOR_UI_PORT=${ACTION_AUTHOR_UI_PORT}
 ADDRESS_UI=http://localhost:${UI_PORT}
 ADDRESS_TEMPORAL_UI=http://localhost:${TEMPORAL_UI_EMBEDDED_PORT}
+ADDRESS_ACTION_AUTHOR_UI=http://localhost:${ACTION_AUTHOR_UI_PORT}
 TEMPORAL_ADDRESS=localhost:${TEMPORAL_PORT}
 COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
 COMPOSE_DEV_OVERRIDE_FILE=${COMPOSE_DEV_OVERRIDE_FILE}
@@ -130,6 +133,7 @@ UI_PORT=${UI_PORT}
 TEMPORAL_PORT=${TEMPORAL_PORT}
 TEMPORAL_UI_PORT=${TEMPORAL_UI_PORT}
 TEMPORAL_UI_EMBEDDED_PORT=${TEMPORAL_UI_EMBEDDED_PORT}
+ACTION_AUTHOR_UI_PORT=${ACTION_AUTHOR_UI_PORT}
 EOF
 }
 
@@ -154,6 +158,7 @@ cmd_write() {
 		TEMPORAL_PORT="$(pick_port "temporal")"
 		TEMPORAL_UI_PORT="$(pick_port "temporal-ui")"
 		TEMPORAL_UI_EMBEDDED_PORT="$(pick_port "temporal-ui-embedded")"
+		ACTION_AUTHOR_UI_PORT="$(pick_port "action-author-ui")"
 		write_ports_file "# Generated unique ports for worktree ${COMPOSE_PROJECT_NAME} (branch ${branch})
 # Seeds from Worktrunk hash_port; collision walk applied. Edit freely; not overwritten."
 	fi
