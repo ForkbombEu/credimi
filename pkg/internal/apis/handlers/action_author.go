@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"sort"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/authorsession"
@@ -29,6 +31,9 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/sdk/client"
 )
 
 // ActionAuthorRoutes starts sessions after authenticating and authorizing their Credimi actor.
@@ -88,6 +93,41 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
+		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/sessions",
+			Handler:        HandleActionAuthorSessions,
+			OperationID:    "actionAuthor.listSessions",
+			Summary:        "List a wallet's recent authoring sessions",
+			Description:    "List the ten latest authoring sessions Credimi started in the caller's organization namespace on the wallet organization/wallet (its Play Store build and every version), newest first, with their Temporal status (for example Running or Completed), start time (RFC 3339), build, device path and device name (empty when the device no longer exists). A session Temporal cannot describe is left out.",
+			ResponseSchema: ActionAuthorSessionsResponse{},
+			QuerySearchAttributes: []routing.QuerySearchAttribute{
+				{
+					Name:        "wallet",
+					Required:    true,
+					Description: "Wallet of the sessions: organization/wallet (canonified names).",
+				},
+			},
+		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/sessions/{session_id}",
+			Handler:        HandleActionAuthorSession,
+			OperationID:    "actionAuthor.getSession",
+			Summary:        "Read an authoring session",
+			Description:    "Read the authoring session session_id (ActionAuthorSession-<ticket uuid>, the session_id of the start response) that Credimi started in the caller's organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the candidate action waiting for the caller's review (POST /api/action-author/reviews), null otherwise. A session that has not started yet answers 404 session_not_started (follow its ticket in the device queue); an unknown session, or one of another organization, answers 404 session_not_found.",
+			ResponseSchema: ActionAuthorSessionResponse{},
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/sessions/{session_id}/close",
+			Handler:        HandleActionAuthorSessionClose,
+			OperationID:    "actionAuthor.closeSession",
+			Summary:        "End an authoring session",
+			Description:    "End the running authoring session session_id of the caller's organization namespace: Credimi asks the agent chat to close, or cancels the session while its device is still being prepared. The session then cleans and releases its device. A session that has already ended answers 409 session_not_running; unknown sessions answer 404 as GET /api/action-author/sessions/{session_id} does.",
+			ResponseStatus: http.StatusAccepted,
+			ResponseSchema: ActionAuthorSessionCloseResponse{},
 		},
 		{
 			Method:         http.MethodPost,
@@ -176,6 +216,9 @@ type ActionAuthorDevice struct {
 	// AgentAvailable reports whether the runner's action author polled its
 	// task queue in the last two minutes; select only online devices with it.
 	AgentAvailable bool `json:"agent_available"`
+	// QueueLength is the number of tickets in the device's queue, reported
+	// only for online devices whose queue could be read.
+	QueueLength *int `json:"queue_length,omitempty"`
 }
 
 // runnerAgentModel describes the model a runner reports for its agent.
@@ -185,6 +228,16 @@ func runnerAgentModel(runner *core.Record) string {
 		return provider
 	}
 	return provider + " / " + model
+}
+
+// actionAuthorRunnerDetails returns the name of the organization that owns
+// runner and the model its agent reports.
+func actionAuthorRunnerDetails(app core.App, runner *core.Record) (owner, model string, err error) {
+	organization, err := app.FindRecordById("organizations", runner.GetString("owner"))
+	if err != nil {
+		return "", "", fmt.Errorf("find runner organization: %w", err)
+	}
+	return organization.GetString("name"), runnerAgentModel(runner), nil
 }
 
 // ActionAuthorDevicesResponse lists the devices accepted by the session start endpoint.
@@ -225,15 +278,14 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 		agents := runnersActionAuthorAvailable(e, runners, namespace)
 		now := time.Now()
 		for _, runner := range runners {
-			owner, err := e.App.FindRecordById("organizations", runner.GetString("owner"))
+			owner, model, err := actionAuthorRunnerDetails(e.App, runner)
 			if err != nil {
-				return authoringAPIError(e, fmt.Errorf("find runner organization: %w", err))
+				return authoringAPIError(e, err)
 			}
 			// Heartbeat freshness, as GET /api/mobile-devices reports it.
 			runnerOnline := mobilerunner.RecentlyAlive(runner, now) &&
 				mobilerunner.URLUsable(mobilerunner.RunnerURL(runner))
 			agentAvailable := agents[runner.Id]
-			model := runnerAgentModel(runner)
 			devices, err := e.App.FindAllRecords(
 				"mobile_devices",
 				dbx.HashExp{"runner": runner.Id},
@@ -250,18 +302,29 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 				if err != nil {
 					return authoringAPIError(e, fmt.Errorf("build device path: %w", err))
 				}
-				response.Devices = append(response.Devices, ActionAuthorDevice{
+				entry := ActionAuthorDevice{
 					Path:           path,
 					Namespace:      namespace,
 					Name:           device.GetString("name"),
 					RunnerName:     runner.GetString("name"),
-					RunnerOwner:    owner.GetString("name"),
+					RunnerOwner:    owner,
 					Model:          model,
 					Type:           device.GetString("type"),
 					Platform:       platform,
 					IsOnline:       runnerOnline && device.GetBool("online"),
 					AgentAvailable: agentAvailable,
-				})
+				}
+				if entry.IsOnline {
+					// One unreadable queue never fails the list.
+					queueLength, apiErr := mobileDeviceQueueLen(e.Request.Context(), path)
+					if apiErr != nil {
+						e.App.Logger().
+							Warn("action author device queue", "device", path, "error", apiErr)
+					} else {
+						entry.QueueLength = &queueLength
+					}
+				}
+				response.Devices = append(response.Devices, entry)
 			}
 		}
 		sort.SliceStable(response.Devices, func(i, j int) bool {
@@ -284,6 +347,9 @@ type ActionAuthorStartRequest struct {
 
 // ActionAuthorStartResponse identifies the queued session ticket.
 type ActionAuthorStartResponse struct {
+	// SessionID is the session workflow the ticket starts once granted,
+	// ActionAuthorSession-<ticket_id>.
+	SessionID               string `json:"session_id"`
 	TicketID                string `json:"ticket_id"`
 	DeviceID                string `json:"device_id"`
 	Status                  string `json:"status"`
@@ -514,6 +580,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			)
 		}
 		return e.JSON(http.StatusAccepted, ActionAuthorStartResponse{
+			SessionID:               activities.ActionAuthorSessionWorkflowIDPrefix + ticketID,
 			TicketID:                ticketID,
 			DeviceID:                deviceID,
 			Status:                  string(resp.Status),
@@ -605,5 +672,384 @@ func rollbackActionAuthorTicket(e *core.RequestEvent, deviceID, ticketID, namesp
 			deviceID,
 			err,
 		))
+	}
+}
+
+// Agent chat workflow queries and signal of the Temporal Agent Harness that
+// the session page reads and sends.
+const (
+	actionAuthorIdleStateQuery   = "idle_state"
+	actionAuthorAgentStatusQuery = "agent_status"
+	actionAuthorCloseSignal      = "close"
+	actionAuthorSaveReviewTool   = "confirm_wallet_action_save"
+	actionAuthorRecentSessions   = 10
+)
+
+// actionAuthorSessionTemporalClient connects to the caller's namespace and is
+// stubbed in unit tests.
+var actionAuthorSessionTemporalClient = temporalclient.GetTemporalClientWithNamespace
+
+var actionAuthorWalletPattern = regexp.MustCompile(`^[^/]+/[^/]+$`)
+
+// ActionAuthorSessionResponse is a session Credimi started, running or closed.
+type ActionAuthorSessionResponse struct {
+	SessionID      string `json:"session_id"`
+	RunID          string `json:"run_id"`
+	ChatWorkflowID string `json:"chat_workflow_id"`
+	Namespace      string `json:"namespace"`
+	// Status is the Temporal status of the session, for example Running.
+	Status string `json:"status"`
+	// StartTime and CloseTime are RFC 3339; CloseTime is empty while the session runs.
+	StartTime               string `json:"start_time"`
+	CloseTime               string `json:"close_time,omitempty"`
+	WalletVersionIdentifier string `json:"wallet_version_identifier"`
+	Platform                string `json:"platform"`
+	DeviceID                string `json:"device_id"`
+	DeviceName              string `json:"device_name"`
+	RunnerName              string `json:"runner_name"`
+	RunnerOwner             string `json:"runner_owner"`
+	Model                   string `json:"model"`
+	// LiveView reports a running session on an Android device that streams its screen.
+	LiveView bool `json:"live_view"`
+	// ChatReady reports that the agent chat runs and has started its first turn.
+	ChatReady bool `json:"chat_ready"`
+	// ClosesAt is when the idle session closes, empty when unknown or while a turn runs.
+	ClosesAt      string                     `json:"closes_at"`
+	PendingReview *ActionAuthorPendingReview `json:"pending_review"`
+}
+
+// ActionAuthorPendingReview is the candidate action waiting for the caller's review.
+type ActionAuthorPendingReview struct {
+	ToolID          string `json:"tool_id"`
+	Name            string `json:"name"`
+	Build           string `json:"build"`
+	Code            string `json:"code"`
+	CandidateSHA256 string `json:"candidate_sha256"`
+	// Plan is nil when the candidate has no object plan.
+	Plan map[string]any `json:"plan"`
+}
+
+// ActionAuthorSessionsResponse lists a wallet's recent sessions.
+type ActionAuthorSessionsResponse struct {
+	Sessions []ActionAuthorSessionListItem `json:"sessions"`
+}
+
+// ActionAuthorSessionListItem is one recent session of a wallet.
+type ActionAuthorSessionListItem struct {
+	SessionID               string `json:"session_id"`
+	Status                  string `json:"status"`
+	StartTime               string `json:"start_time"`
+	WalletVersionIdentifier string `json:"wallet_version_identifier"`
+	DeviceID                string `json:"device_id"`
+	DeviceName              string `json:"device_name"`
+}
+
+// ActionAuthorSessionCloseResponse names the session asked to end.
+type ActionAuthorSessionCloseResponse struct {
+	SessionID string `json:"session_id"`
+}
+
+func actionAuthorSessionMissing() *apierror.APIError {
+	return apierror.New(
+		http.StatusNotFound,
+		"action_author",
+		"session_not_found",
+		"This authoring session does not exist.",
+	)
+}
+
+// actionAuthorCallerNamespace is the namespace of the authenticated
+// organization member.
+func actionAuthorCallerNamespace(e *core.RequestEvent) (string, *apierror.APIError) {
+	if e.Auth == nil {
+		return "", authoringAPIError(e, actionauthor.ErrForbidden)
+	}
+	if apiErr := requireAuthoringUser(e.Auth); apiErr != nil {
+		return "", apiErr
+	}
+	namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusForbidden,
+			"action_author",
+			"forbidden",
+			"you are not a member of any organization",
+		)
+	}
+	return namespace, nil
+}
+
+// readCallerActionAuthorSession reads the session session_id of the path in
+// the caller's namespace.
+func readCallerActionAuthorSession(
+	e *core.RequestEvent,
+) (client.Client, string, activities.ActionAuthorSessionInfo, *apierror.APIError) {
+	var info activities.ActionAuthorSessionInfo
+	namespace, apiErr := actionAuthorCallerNamespace(e)
+	if apiErr != nil {
+		return nil, "", info, apiErr
+	}
+	sessionID := e.Request.PathValue("session_id")
+	if !actionauthor.IsSessionID(sessionID) {
+		return nil, "", info, actionAuthorSessionMissing()
+	}
+	c, err := actionAuthorSessionTemporalClient(namespace)
+	if err != nil {
+		return nil, "", info, temporalUnavailableError()
+	}
+	info, err = activities.ReadActionAuthorSession(
+		e.Request.Context(),
+		e.App,
+		c,
+		namespace,
+		sessionID,
+	)
+	switch {
+	case errors.Is(err, actionauthor.ErrSessionNotRecorded):
+		return nil, "", info, apierror.New(
+			http.StatusNotFound,
+			"action_author",
+			"session_not_started",
+			"The session has not started yet.",
+		)
+	case errors.Is(err, actionauthor.ErrForbidden):
+		return nil, "", info, actionAuthorSessionMissing()
+	case err != nil:
+		return nil, "", info, authoringAPIError(e, err)
+	}
+	return c, namespace, info, nil
+}
+
+// HandleActionAuthorSession reads a session of the caller's namespace and,
+// while it runs, the state of its agent chat.
+func HandleActionAuthorSession() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		c, namespace, info, apiErr := readCallerActionAuthorSession(e)
+		if apiErr != nil {
+			return apiErr
+		}
+		running := info.Status == enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING
+		response := ActionAuthorSessionResponse{
+			SessionID:               info.SessionWorkflowID,
+			RunID:                   info.SessionRunID,
+			ChatWorkflowID:          info.SessionWorkflowID + activities.ActionAuthorWorkflowIDSuffix,
+			Namespace:               namespace,
+			Status:                  info.Status.String(),
+			StartTime:               info.StartTime.UTC().Format(time.RFC3339),
+			WalletVersionIdentifier: info.Session.WalletVersionIdentifier,
+			Platform:                info.Session.Platform,
+			DeviceID:                info.DeviceID,
+		}
+		if !info.CloseTime.IsZero() {
+			response.CloseTime = info.CloseTime.UTC().Format(time.RFC3339)
+		}
+		device, runner, err := mobilerunner.ResolveDevice(e.App, info.DeviceID)
+		if err == nil {
+			owner, model, err := actionAuthorRunnerDetails(e.App, runner)
+			if err != nil {
+				return authoringAPIError(e, err)
+			}
+			response.DeviceName = device.GetString("name")
+			response.RunnerName = runner.GetString("name")
+			response.RunnerOwner = owner
+			response.Model = model
+			response.LiveView = running &&
+				info.Session.Platform == actionauthor.PlatformAndroid &&
+				device.GetBool("live_stream")
+		}
+		if running {
+			readActionAuthorChat(e, c, response.ChatWorkflowID, &response)
+		}
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
+// readActionAuthorChat fills the chat state of a running session. A chat
+// that has not started its first turn, or a query that fails, leaves the
+// state empty.
+func readActionAuthorChat(
+	e *core.RequestEvent,
+	c client.Client,
+	chatID string,
+	response *ActionAuthorSessionResponse,
+) {
+	ctx := e.Request.Context()
+	described, err := c.DescribeWorkflowExecution(ctx, chatID, "")
+	if err != nil {
+		var notFound *serviceerror.NotFound
+		if !errors.As(err, &notFound) {
+			e.App.Logger().Warn("action author chat describe", "chat", chatID, "error", err)
+		}
+		return
+	}
+	chat := described.GetWorkflowExecutionInfo()
+	// The chat runs its first workflow task once the agent's worker picked it up.
+	response.ChatReady = chat.GetStatus() == enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING &&
+		chat.GetHistoryLength() > 2
+	if !response.ChatReady {
+		return
+	}
+	var idle struct {
+		ClosesAt string `json:"closes_at"`
+	}
+	if err := queryActionAuthorChat(ctx, c, chatID, actionAuthorIdleStateQuery, &idle); err != nil {
+		e.App.Logger().Warn("action author chat idle state", "chat", chatID, "error", err)
+	} else {
+		response.ClosesAt = idle.ClosesAt
+	}
+	var status struct {
+		PendingCallbacks []struct {
+			ToolID    string         `json:"tool_id"`
+			ToolName  string         `json:"tool_name"`
+			ToolInput map[string]any `json:"tool_input"`
+		} `json:"pending_callbacks"`
+	}
+	if err := queryActionAuthorChat(
+		ctx,
+		c,
+		chatID,
+		actionAuthorAgentStatusQuery,
+		&status,
+	); err != nil {
+		e.App.Logger().Warn("action author chat status", "chat", chatID, "error", err)
+		return
+	}
+	for _, callback := range status.PendingCallbacks {
+		if callback.ToolName != actionAuthorSaveReviewTool {
+			continue
+		}
+		text := func(key string) string {
+			value, _ := callback.ToolInput[key].(string)
+			return value
+		}
+		plan, _ := callback.ToolInput["plan"].(map[string]any)
+		response.PendingReview = &ActionAuthorPendingReview{
+			ToolID:          callback.ToolID,
+			Name:            text("name"),
+			Build:           text("build"),
+			Code:            text("code"),
+			CandidateSHA256: text("candidate_sha256"),
+			Plan:            plan,
+		}
+		return
+	}
+}
+
+func queryActionAuthorChat(
+	ctx context.Context,
+	c client.Client,
+	chatID, query string,
+	value any,
+) error {
+	encoded, err := c.QueryWorkflow(ctx, chatID, "", query)
+	if err != nil {
+		return err
+	}
+	return encoded.Get(value)
+}
+
+// HandleActionAuthorSessions lists the caller's namespace's latest sessions
+// of a wallet.
+func HandleActionAuthorSessions() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		namespace, apiErr := actionAuthorCallerNamespace(e)
+		if apiErr != nil {
+			return apiErr
+		}
+		wallet := e.Request.URL.Query().Get("wallet")
+		if !actionAuthorWalletPattern.MatchString(wallet) {
+			return authoringAPIError(e, fmt.Errorf(
+				"%w: wallet must be organization/wallet",
+				actionauthor.ErrInvalid,
+			))
+		}
+		recorded, err := actionauthor.RecentWalletSessions(
+			e.App,
+			namespace,
+			wallet,
+			actionAuthorRecentSessions,
+		)
+		if err != nil {
+			return authoringAPIError(e, err)
+		}
+		response := ActionAuthorSessionsResponse{Sessions: []ActionAuthorSessionListItem{}}
+		if len(recorded) == 0 {
+			return e.JSON(http.StatusOK, response)
+		}
+		c, err := actionAuthorSessionTemporalClient(namespace)
+		if err != nil {
+			return temporalUnavailableError()
+		}
+		for _, session := range recorded {
+			described, err := c.DescribeWorkflowExecution(
+				e.Request.Context(),
+				session.WorkflowID,
+				session.RunID,
+			)
+			if err != nil {
+				e.App.Logger().Warn(
+					"action author session describe",
+					"session", session.WorkflowID,
+					"error", err,
+				)
+				continue
+			}
+			execution := described.GetWorkflowExecutionInfo()
+			item := ActionAuthorSessionListItem{
+				SessionID: session.WorkflowID,
+				Status:    execution.GetStatus().String(),
+				StartTime: execution.GetStartTime().
+					AsTime().
+					UTC().
+					Format(time.RFC3339),
+				WalletVersionIdentifier: session.WalletVersionIdentifier,
+				DeviceID:                session.DeviceID,
+			}
+			if device, _, err := mobilerunner.ResolveDevice(e.App, session.DeviceID); err == nil {
+				item.DeviceName = device.GetString("name")
+			}
+			response.Sessions = append(response.Sessions, item)
+		}
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
+// HandleActionAuthorSessionClose asks the agent chat of a running session to
+// close, or cancels a session whose chat has not started; the session then
+// cleans and releases its device.
+func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		c, _, info, apiErr := readCallerActionAuthorSession(e)
+		if apiErr != nil {
+			return apiErr
+		}
+		if info.Status != enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING {
+			return apierror.New(
+				http.StatusConflict,
+				"action_author",
+				"session_not_running",
+				"The session has already ended.",
+			)
+		}
+		ctx := e.Request.Context()
+		chatID := info.SessionWorkflowID + activities.ActionAuthorWorkflowIDSuffix
+		err := c.SignalWorkflow(ctx, chatID, "", actionAuthorCloseSignal, nil)
+		var notFound *serviceerror.NotFound
+		if errors.As(err, &notFound) {
+			// The device is still being prepared: no chat runs yet.
+			err = c.CancelWorkflow(ctx, info.SessionWorkflowID, info.SessionRunID)
+		}
+		if err != nil {
+			e.App.Logger().Error(
+				"action author session close",
+				"session", info.SessionWorkflowID,
+				"error", err,
+			)
+			return temporalUnavailableError()
+		}
+		return e.JSON(
+			http.StatusAccepted,
+			ActionAuthorSessionCloseResponse{SessionID: info.SessionWorkflowID},
+		)
 	}
 }

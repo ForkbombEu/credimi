@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/semaphoreclient"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -174,11 +175,20 @@ func stubActionAuthorQueue(
 	origReachable := checkRunnerReachable
 	origClient := queueTemporalClient
 	origEnqueue := enqueueActionAuthorTicket
+	origQuerySemaphore := queryMobileDeviceSemaphoreState
 	t.Cleanup(func() {
 		checkRunnerReachable = origReachable
 		queueTemporalClient = origClient
 		enqueueActionAuthorTicket = origEnqueue
+		queryMobileDeviceSemaphoreState = origQuerySemaphore
 	})
+	// No device has a queue yet.
+	queryMobileDeviceSemaphoreState = func(
+		context.Context,
+		string,
+	) (workflows.MobileDeviceSemaphoreStateView, error) {
+		return workflows.MobileDeviceSemaphoreStateView{}, errSemaphoreNotFound
+	}
 	checkRunnerReachable = func(context.Context, *core.Record) (bool, error) { return reachable, nil }
 	queueTemporalClient = func(string) (client.Client, error) { return nil, nil }
 	enqueued := &mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunRequest{}
@@ -458,6 +468,7 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 
 		require.NotEmpty(t, response.TicketID)
 		require.Equal(t, ActionAuthorStartResponse{
+			SessionID:               "ActionAuthorSession-" + response.TicketID,
 			TicketID:                response.TicketID,
 			DeviceID:                deviceID,
 			Status:                  "queued",
@@ -919,6 +930,11 @@ func TestActionAuthorDevicesChecksRunnerAgentsInParallel(t *testing.T) {
 // authoringDevice is a device of userA's admin-managed runner, which reports
 // the anthropic provider and model.
 func authoringDevice(name, deviceType, platform string, online bool) ActionAuthorDevice {
+	var queueLength *int
+	if online {
+		// Online devices report their queue; stubActionAuthorQueue has none.
+		queueLength = new(int)
+	}
 	return ActionAuthorDevice{
 		Path:           authoringAdminRunner + "/" + name,
 		Namespace:      authoringNamespace,
@@ -930,5 +946,54 @@ func authoringDevice(name, deviceType, platform string, online bool) ActionAutho
 		Platform:       platform,
 		IsOnline:       online,
 		AgentAvailable: true,
+		QueueLength:    queueLength,
+	}
+}
+
+func TestActionAuthorDevicesReportsQueueLengthOfOnlineDevices(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		queueErr error
+		// expected queue_length of the online emulator; nil when absent.
+		expected *int
+	}{
+		{name: "queue read", expected: func() *int { length := 2; return &length }()},
+		{name: "queue unreadable", queueErr: errors.New("temporal down")},
+	} {
+		stubActionAuthorQueue(t, true)
+		queried := []string{}
+		queryMobileDeviceSemaphoreState = func(
+			_ context.Context,
+			deviceID string,
+		) (workflows.MobileDeviceSemaphoreStateView, error) {
+			queried = append(queried, deviceID)
+			return workflows.MobileDeviceSemaphoreStateView{QueueLen: 2}, tc.queueErr
+		}
+		var body map[string][]map[string]any
+		(&tests.ApiScenario{
+			Name:            tc.name,
+			Method:          http.MethodGet,
+			URL:             "/api/action-author/devices",
+			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+			ExpectedStatus:  http.StatusOK,
+			ExpectedContent: []string{`"devices"`},
+			TestAppFactory:  setupActionAuthorApp,
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+				raw, err := io.ReadAll(res.Body)
+				require.NoError(t, err)
+				require.NoError(t, json.Unmarshal(raw, &body))
+			},
+		}).Test(t)
+
+		// Only online devices are queried: userA's admin runner emulator.
+		require.Equal(t, []string{authoringAdminRunner + "/android-emulator"}, queried, tc.name)
+		for _, device := range body["devices"] {
+			length, reported := device["queue_length"]
+			if device["path"] == authoringAdminRunner+"/android-emulator" && tc.expected != nil {
+				require.Equal(t, float64(*tc.expected), length, tc.name)
+				continue
+			}
+			require.False(t, reported, "%s: %v", tc.name, device)
+		}
 	}
 }

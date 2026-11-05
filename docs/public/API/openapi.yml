@@ -105,6 +105,48 @@ paths:
           description: An unexpected error occurred.
       summary: Accept or refuse a candidate action of an authoring session
   /api/action-author/sessions:
+    get:
+      description: List the ten latest authoring sessions Credimi started in the caller's
+        organization namespace on the wallet organization/wallet (its Play Store build
+        and every version), newest first, with their Temporal status (for example
+        Running or Completed), start time (RFC 3339), build, device path and device
+        name (empty when the device no longer exists). A session Temporal cannot describe
+        is left out.
+      operationId: actionAuthor.listSessions
+      parameters:
+      - description: 'Wallet of the sessions: organization/wallet (canonified names).'
+        in: query
+        name: wallet
+        required: true
+        schema:
+          description: 'Wallet of the sessions: organization/wallet (canonified names).'
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorSessionsResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: List a wallet's recent authoring sessions
     post:
       description: 'Queue an authoring session for a member of an organization (the
         user''s first organization, as for pipeline runs) on the selected device through
@@ -169,6 +211,99 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: Queue a wallet-action authoring session on a runner device
+  /api/action-author/sessions/{session_id}:
+    get:
+      description: 'Read the authoring session session_id (ActionAuthorSession-<ticket
+        uuid>, the session_id of the start response) that Credimi started in the caller''s
+        organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id),
+        Temporal status, times, build, device, runner and model. live_view is true
+        while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view
+        opens it with the session ID and run). For a running session, chat_ready reports
+        whether the agent chat has started its first turn, closes_at (RFC 3339, empty
+        while a turn runs or when unknown) when the idle session closes to free the
+        device, and pending_review the candidate action waiting for the caller''s
+        review (POST /api/action-author/reviews), null otherwise. A session that has
+        not started yet answers 404 session_not_started (follow its ticket in the
+        device queue); an unknown session, or one of another organization, answers
+        404 session_not_found.'
+      operationId: actionAuthor.getSession
+      parameters:
+      - description: The ID for the session_id.
+        in: path
+        name: session_id
+        required: true
+        schema:
+          description: The ID for the session_id.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorSessionResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: Read an authoring session
+  /api/action-author/sessions/{session_id}/close:
+    post:
+      description: 'End the running authoring session session_id of the caller''s
+        organization namespace: Credimi asks the agent chat to close, or cancels the
+        session while its device is still being prepared. The session then cleans
+        and releases its device. A session that has already ended answers 409 session_not_running;
+        unknown sessions answer 404 as GET /api/action-author/sessions/{session_id}
+        does.'
+      operationId: actionAuthor.closeSession
+      parameters:
+      - description: The ID for the session_id.
+        in: path
+        name: session_id
+        required: true
+        schema:
+          description: The ID for the session_id.
+          type: string
+      - description: Bearer token for authentication.
+        in: header
+        name: Authorization
+        schema:
+          description: Bearer token for authentication.
+          type: string
+      - description: User API key or internal admin API key, depending on the endpoint.
+        in: header
+        name: Credimi-Api-Key
+        schema:
+          description: User API key or internal admin API key, depending on the endpoint.
+          type: string
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersActionAuthorSessionCloseResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorResponse'
+          description: An unexpected error occurred.
+      summary: End an authoring session
   /api/action-author/wallet-actions:
     get:
       description: List the actions of the wallet of wallet_version_identifier that
@@ -1156,6 +1291,9 @@ components:
           type: string
         platform:
           type: string
+        queue_length:
+          nullable: true
+          type: integer
         runner_name:
           type: string
         runner_owner:
@@ -1170,6 +1308,23 @@ components:
             $ref: '#/components/schemas/HandlersActionAuthorDevice'
           nullable: true
           type: array
+      type: object
+    HandlersActionAuthorPendingReview:
+      properties:
+        build:
+          type: string
+        candidate_sha256:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+        plan:
+          additionalProperties: {}
+          nullable: true
+          type: object
+        tool_id:
+          type: string
       type: object
     HandlersActionAuthorReviewRequest:
       properties:
@@ -1194,6 +1349,73 @@ components:
         tool_id:
           type: string
       type: object
+    HandlersActionAuthorSessionCloseResponse:
+      properties:
+        session_id:
+          type: string
+      type: object
+    HandlersActionAuthorSessionListItem:
+      properties:
+        device_id:
+          type: string
+        device_name:
+          type: string
+        session_id:
+          type: string
+        start_time:
+          type: string
+        status:
+          type: string
+        wallet_version_identifier:
+          type: string
+      type: object
+    HandlersActionAuthorSessionResponse:
+      properties:
+        chat_ready:
+          type: boolean
+        chat_workflow_id:
+          type: string
+        close_time:
+          type: string
+        closes_at:
+          type: string
+        device_id:
+          type: string
+        device_name:
+          type: string
+        live_view:
+          type: boolean
+        model:
+          type: string
+        namespace:
+          type: string
+        pending_review:
+          $ref: '#/components/schemas/HandlersActionAuthorPendingReview'
+        platform:
+          type: string
+        run_id:
+          type: string
+        runner_name:
+          type: string
+        runner_owner:
+          type: string
+        session_id:
+          type: string
+        start_time:
+          type: string
+        status:
+          type: string
+        wallet_version_identifier:
+          type: string
+      type: object
+    HandlersActionAuthorSessionsResponse:
+      properties:
+        sessions:
+          items:
+            $ref: '#/components/schemas/HandlersActionAuthorSessionListItem'
+          nullable: true
+          type: array
+      type: object
     HandlersActionAuthorStartRequest:
       properties:
         app_id:
@@ -1209,6 +1431,8 @@ components:
           type: string
         position:
           type: integer
+        session_id:
+          type: string
         status:
           type: string
         ticket_id:
