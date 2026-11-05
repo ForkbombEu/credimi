@@ -20,6 +20,7 @@ import (
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 	"golang.org/x/time/rate"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -32,7 +33,8 @@ const RunnerTelemetryPath = "/api/otlp/runner/v1/{signal}"
 const RunnerServiceName = "credimi-runner"
 
 const (
-	maxRunnerBatchBytes = 4 << 20
+	maxRunnerBatchBytes     = 4 << 20
+	maxRunnerResourceGroups = 4096
 	// Traces and logs every few seconds, metrics every minute, per runner.
 	runnerRate  = rate.Limit(5)
 	runnerBurst = 50
@@ -42,11 +44,28 @@ const (
 // an OTLP/protobuf export request, replacing whatever the sender claimed: a
 // runner can report only as the user whose key it holds.
 func stampRunnerIdentity(signal string, body []byte, owner *core.Record) ([]byte, error) {
+	switch signal {
+	case "traces", "metrics", "logs":
+	default:
+		return nil, fmt.Errorf("unknown signal %q", signal)
+	}
+
 	forced := []*commonpb.KeyValue{
 		stringKV("service.name", RunnerServiceName),
 		stringKV("credimi.owner.id", owner.Id),
 		stringKV("credimi.owner.collection", owner.Collection().Name),
 	}
+	groupCount, err := countRunnerResourceGroups(body)
+	if err != nil {
+		return nil, err
+	}
+	if groupCount > maxRunnerResourceGroups {
+		return nil, fmt.Errorf("too many resource groups: %d", groupCount)
+	}
+	if !runnerStampedSizeWithinBudget(len(body), groupCount, forced) {
+		return nil, fmt.Errorf("stamped batch exceeds size limit")
+	}
+
 	var msg proto.Message
 	var resources []*resourcepb.Resource
 	switch signal {
@@ -86,8 +105,6 @@ func stampRunnerIdentity(signal string, body []byte, owner *core.Record) ([]byte
 			resources = append(resources, rl.GetResource())
 		}
 		msg = req
-	default:
-		return nil, fmt.Errorf("unknown signal %q", signal)
 	}
 	for _, r := range resources {
 		kept := make([]*commonpb.KeyValue, 0, len(r.GetAttributes())+len(forced))
@@ -100,6 +117,37 @@ func stampRunnerIdentity(signal string, body []byte, owner *core.Record) ([]byte
 		r.Attributes = kept
 	}
 	return proto.Marshal(msg)
+}
+
+func countRunnerResourceGroups(body []byte) (int, error) {
+	count := 0
+	for len(body) > 0 {
+		num, typ, tagLen := protowire.ConsumeTag(body)
+		if tagLen < 0 {
+			return 0, protowire.ParseError(tagLen)
+		}
+		valueLen := protowire.ConsumeFieldValue(num, typ, body[tagLen:])
+		if valueLen < 0 {
+			return 0, protowire.ParseError(valueLen)
+		}
+		if num == 1 && typ == protowire.BytesType {
+			count++
+			if count > maxRunnerResourceGroups {
+				return count, nil
+			}
+		}
+		body = body[tagLen+valueLen:]
+	}
+	return count, nil
+}
+
+func runnerStampedSizeWithinBudget(bodySize, groupCount int, forced []*commonpb.KeyValue) bool {
+	resourceSize := proto.Size(&resourcepb.Resource{Attributes: forced})
+	groupGrowth := resourceSize +
+		protowire.SizeTag(1) +
+		protowire.SizeBytes(resourceSize) +
+		2*protowire.SizeVarint(^uint64(0))
+	return int64(bodySize)+int64(groupCount)*int64(groupGrowth) <= maxRunnerBatchBytes
 }
 
 func stringKV(key, value string) *commonpb.KeyValue {

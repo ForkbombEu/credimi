@@ -5,6 +5,8 @@
 package observability
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -54,4 +56,30 @@ func TestStampRunnerIdentity(t *testing.T) {
 	require.Error(t, err)
 	_, err = stampRunnerIdentity("metrics", []byte{0xff, 0xff}, owner)
 	require.Error(t, err)
+}
+
+func TestStampRunnerIdentityBoundsResourceGroupsForEverySignal(t *testing.T) {
+	owner := core.NewRecord(core.NewBaseCollection("users"))
+	owner.Id = "user123"
+	body := bytes.Repeat([]byte{0x0a, 0x00}, maxRunnerResourceGroups+1)
+
+	for _, signal := range []string{"traces", "metrics", "logs"} {
+		t.Run(signal, func(t *testing.T) {
+			_, err := stampRunnerIdentity(signal, body, owner)
+			require.ErrorContains(t, err, "too many resource groups")
+		})
+	}
+}
+
+func TestStampRunnerIdentityBoundsExpandedSizeForEverySignal(t *testing.T) {
+	owner := core.NewRecord(core.NewBaseCollection("users"))
+	owner.Id = strings.Repeat("x", maxRunnerBatchBytes)
+	body := []byte{0x0a, 0x00}
+
+	for _, signal := range []string{"traces", "metrics", "logs"} {
+		t.Run(signal, func(t *testing.T) {
+			_, err := stampRunnerIdentity(signal, body, owner)
+			require.ErrorContains(t, err, "stamped batch exceeds size limit")
+		})
+	}
 }
