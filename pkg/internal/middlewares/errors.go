@@ -10,12 +10,14 @@ import (
 	"net/http"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/observability"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
 )
 
 // ErrorHandlingMiddleware renders every error of a Credimi route group as an
-// apierror.Response.
+// apierror.Response, and records server errors (5xx) as exceptions on the
+// request span.
 //
 // Handlers return *apierror.APIError. PocketBase errors (apis.New*Error,
 // e.BadRequestError and the other RequestEvent helpers) keep their status, so a
@@ -29,12 +31,14 @@ func ErrorHandlingMiddleware(e *core.RequestEvent) error {
 	var apiError *apierror.APIError
 	if errors.As(err, &apiError) {
 		log.Printf("Handled API error: %v", apiError)
+		observability.RecordServerError(e.Request.Context(), err, apiError.Code)
 		return e.JSON(apiError.Code, apiError.Response())
 	}
 
 	var pbError *router.ApiError
 	if errors.As(err, &pbError) {
 		log.Printf("Handled PocketBase error: %v", pbError)
+		observability.RecordServerError(e.Request.Context(), err, pbError.Status)
 		apiError = apierror.New(
 			pbError.Status,
 			"request",
@@ -45,6 +49,7 @@ func ErrorHandlingMiddleware(e *core.RequestEvent) error {
 	}
 
 	log.Printf("Unhandled error: %v", err)
+	observability.RecordServerError(e.Request.Context(), err, http.StatusInternalServerError)
 	apiError = apierror.New(
 		http.StatusInternalServerError,
 		"internal",

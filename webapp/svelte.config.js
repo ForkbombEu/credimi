@@ -34,7 +34,13 @@ const config = {
 			$root: '..',
 			$config: './config'
 		},
-		version: { name: version }
+		version: { name: version },
+		// instrumentation.server.ts registers the OpenTelemetry SDK; SvelteKit
+		// emits server spans through it.
+		experimental: {
+			instrumentation: { server: true },
+			tracing: { server: true }
+		}
 	}
 };
 

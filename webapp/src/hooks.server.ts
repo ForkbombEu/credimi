@@ -4,6 +4,7 @@
 
 import type { Handle, HandleFetch } from '@sveltejs/kit';
 
+import { context, propagation } from '@opentelemetry/api';
 import { sequence } from '@sveltejs/kit/hooks';
 import { env } from '$env/dynamic/private';
 
@@ -52,9 +53,13 @@ const pocketbaseURL = env.VITE_API || 'http://localhost:8090';
 
 // The webapp calls PocketBase on its own origin (`/api/...`). On the server that origin is the
 // webapp itself, and SvelteKit answers same-origin fetches with its own router, which has no
-// `/api` routes. Send those requests to PocketBase instead.
+// `/api` routes. Send those requests to PocketBase instead, in the rendering's trace.
 export const handleFetch: HandleFetch = ({ event, request, fetch }) => {
 	const url = new URL(request.url);
 	if (url.origin !== event.url.origin || !url.pathname.startsWith('/api/')) return fetch(request);
-	return fetch(new Request(new URL(url.pathname + url.search, pocketbaseURL), request));
+	const forwarded = new Request(new URL(url.pathname + url.search, pocketbaseURL), request);
+	propagation.inject(context.active(), forwarded.headers, {
+		set: (headers, key, value) => headers.set(key, value)
+	});
+	return fetch(forwarded);
 };
