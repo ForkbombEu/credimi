@@ -5,6 +5,8 @@
 package cli
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -66,4 +68,64 @@ func TestWalkFCAFImports(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, paths, 1)
 	require.Contains(t, paths[0], "credentials")
+}
+
+func TestSyncFCAFWalletActionSyncsTags(t *testing.T) {
+	tests := []struct {
+		name    string
+		records []map[string]any
+		method  string
+		path    string
+	}{
+		{
+			name:    "create",
+			records: []map[string]any{},
+			method:  http.MethodPost,
+			path:    "/api/collections/wallet_actions/records",
+		},
+		{
+			name:    "update",
+			records: []map[string]any{{"id": "action-id"}},
+			method:  http.MethodPatch,
+			path:    "/api/collections/wallet_actions/records/action-id",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var payload map[string]any
+			server := newTestServer(
+				t,
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.Method == http.MethodGet {
+						require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+							"items": test.records,
+						}))
+						return
+					}
+					require.Equal(t, test.method, r.Method)
+					require.Equal(t, test.path, r.URL.Path)
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+				}),
+			)
+			defer server.Close()
+			restoreDefaults := overrideHTTPDefaults(server)
+			defer restoreDefaults()
+
+			err := syncFCAFWalletAction(
+				context.Background(),
+				"token",
+				"org-id",
+				"wallet-id",
+				fcafWalletActionRef{
+					Name:     "action",
+					Category: "other",
+					Tags:     "fcaf, ws_rp, helper",
+				},
+				"code",
+			)
+			require.NoError(t, err)
+			require.Equal(t, "fcaf, ws_rp, helper", payload["tags"])
+		})
+	}
 }
