@@ -218,11 +218,7 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 			}
 		}
 		namespace := org.GetString("canonified_name")
-		namespaces := make([]string, len(runners))
-		for i := range runners {
-			namespaces[i] = namespace
-		}
-		agents := runnersActionAuthorAvailable(e, runners, namespaces)
+		agents := runnersActionAuthorAvailable(e, runners, namespace)
 		now := time.Now()
 		for _, runner := range runners {
 			owner, err := e.App.FindRecordById("organizations", runner.GetString("owner"))

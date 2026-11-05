@@ -7,8 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 # Action author chat UI
 
 A local [Temporal Agent Harness](https://pypi.org/project/temporal-agent-harness/) chat UI for
-action author sessions. Credimi starts each session on a device of an admin-managed runner;
-the agent itself runs on that runner (`credimi-runner/agent`). This UI only shows the chat, the
+action author sessions. Credimi starts each session on a device of a runner of your organization,
+or of another organization's published runner that offers the agent; the agent itself runs on
+that runner (`credimi-runner/agent`). This UI only shows the chat, the
 review of the accepted YAML, and the **Accept** / **Refuse** card.
 
 ## Run
@@ -26,8 +27,8 @@ Open `http://localhost:8001/` or `http://127.0.0.1:8001/` (the UI binds to loopb
 answers only requests whose `Host` is one of those two addresses, refuses state-changing
 requests and API calls from any other `Origin`, and sends no CORS headers, so other web pages
 and DNS-rebinding hosts cannot drive it. The start page exchanges the key for a bearer token
-and lists the devices of admin-managed runners of organizations where you are an owner
-(superusers see all), and the wallet versions with an installer for the selected device's
+and lists the devices of your organization's runners and of other organizations' runners that
+offer the agent (each with its owner and model), and your organization's wallet versions with an installer for the selected device's
 platform, plus the wallets the session installs from the Play Store or App Store (listed as
 "installed from the store"; the device needs the store with a signed-in account). Starting a
 session queues it for the device; the page shows the queue position and
@@ -54,9 +55,9 @@ chat: its category, success or rejection, input values (PIN) and references (a C
 identifier, or a deeplink). The agent sets the **plan** itself: the slot, the outcome, the
 prerequisites (saved actions of the wallet) and the parameter sources, and asks only when
 something is unclear. Credimi checks the plan on every call that uses it, with no card; the
-save review shows it. A session can save several actions in a row, each with its own plan. An organization has no daily
-token allowance until a Credimi superuser sets one, and a missing or used-up allowance answers
-`429` with Credimi's message. Values are stored in Temporal history: use test data only.
+save review shows it. A session can save several actions in a row, each with its own plan. Each
+runner sets its own daily token limits, one for its organization and one for every other; a
+used-up limit answers `429` with Credimi's message. Values are stored in Temporal history: use test data only.
 
 ## Save review
 

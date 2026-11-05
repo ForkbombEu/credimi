@@ -84,10 +84,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<p class="eyebrow">Runner wallet tooling</p>
 			<h1>Start an authoring session:</h1>
 			<p class="lead">
-				Select a device of an admin-managed Credimi runner and an existing wallet version.
-				Credimi checks your organization ownership, reserves the device and installs the
-				wallet before the chat opens. This page then follows the device's organization, so
-				Existing sessions lists that organization's sessions.
+				Select a device of a Credimi runner and an existing wallet version of your organization.
+				Credimi checks your organization membership, reserves the device and installs the
+				wallet before the chat opens. The session runs in your organization's namespace, so
+				Existing sessions lists your organization's sessions.
 			</p>
 			<form id="start-form">
 				<div class="field">
@@ -106,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<div class="field">
 						<label for="device">Device</label>
 						<select id="device" name="device_id" required disabled></select>
-						<p class="hint">Devices of admin-managed runners of your organizations; offline devices and devices of runners without a running action author cannot be selected.</p>
+						<p class="hint">Devices of your organization's runners and of other organizations' runners that offer the agent; offline devices and devices of runners without a running action author cannot be selected.</p>
 					</div>
 					<div class="field">
 						<label for="wallet-version">Wallet version</label>
@@ -288,10 +288,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					versions = catalog.wallet_versions || [];
 					devices = deviceList.devices || [];
 					if (!devices.length) {
-						throw new Error('No admin-managed runner device is available to your organizations.');
+						throw new Error('No runner device is available to your organization.');
 					}
 					if (!versions.length) {
-						throw new Error('No wallet versions with an installer are available for your owner organizations.');
+						throw new Error('No wallet versions with an installer are available for your organization.');
 					}
 					versionSection.hidden = false;
 					existingButton.hidden = false;

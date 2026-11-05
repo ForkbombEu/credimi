@@ -281,7 +281,6 @@ async def test_start_page_queues_a_runner_device_session():
     assert "/api/action-author/devices" in page
     assert "/api/action-author/wallet-versions" in page
     assert 'id="platform"' not in page
-    assert "No admin-managed runner device is available to your organizations." in page
     # The session is queued, polled, cancellable, and its chat is the `-author` child.
     assert "device_id: device.path" in page
     assert "/api/pipeline/queue/" in page

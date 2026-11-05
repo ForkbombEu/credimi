@@ -676,7 +676,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 - status: open (agent defaults applied; human may revisit)
 - owner: human maintainer
-- context: steps 2-6 of the runners plan (`ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`, removed after implementation; see git history), done while PR #1553 is still open (plan contingency: no `WaitTimeoutSeconds`, no early device tracking). Some plan details disagree with the code they reference.
+- context: steps 2-6 of the runners plan (`ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`, removed after implementation; see git history), done while PR #1553 was still open (plan contingency then: no `WaitTimeoutSeconds`, no early device tracking; both are in since the 05/11/2026 merge of main). Some plan details disagree with the code they reference.
 - questions and options considered:
   1. The plan has `processStep` call `PrepareMobileDevice`, which fails without an installed package (`missing installed package for <version>`). Pipelines with `version_id: installed_from_external_source` install nothing, so that check would fail them, and `processStep` publishes `setted_devices` to run data between the device setup and the install, which decides whether a failed install is cleaned. Options: (a) `processStep` and `PrepareMobileDevice` share an unexported core with a tracking callback, and only `PrepareMobileDevice` adds the package and iOS installer-path checks; (b) apply the checks to pipelines too.
   2. The plan names the session results `"completed"`/`"failed"`; pipelines report `success`/`failed`/`canceled` (`pipeline.go`). Options: reuse the pipeline values, or add new ones the semaphore never saw.
@@ -690,7 +690,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   3. `409` with the queue endpoint's exact error, so one semaphore condition has one answer.
   4. `503 start_failed` plus a best-effort `CancelRun` of the ticket, so an enqueue that timed out does not hold the device for a session nobody watches.
   5. Keep the check (tested with a record saved without validation); `GET /api/action-author/devices` also skips unsupported types.
-- follow-up: when #1553 merges, move its early tracking into the shared core (plan contingency). The installer grant is deleted (plan step 6), so decision 3 of the 29/10/2026 code-review entry no longer applies; `RouteDefinition.ResponseContentType` stays without a user, per decision 2 of that entry.
+- follow-up: done 05/11/2026 with the merge of #1553: `prepareMobileDevice` takes main's `trackEarly` flag (pipelines pass the `GetVersion`-gated value, `PrepareMobileDevice` passes `true`), and session tickets carry `WaitTimeoutSeconds`. The installer grant is deleted (plan step 6), so decision 3 of the 29/10/2026 code-review entry no longer applies; `RouteDefinition.ResponseContentType` stays without a user, per decision 2 of that entry.
 
 ### 2026-10-30 - Action author review fixes: save caller contract and start-endpoint answers
 

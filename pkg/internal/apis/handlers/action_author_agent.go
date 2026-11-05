@@ -118,20 +118,20 @@ func runnerActionAuthorAvailable(e *core.RequestEvent, runner *core.Record, name
 	return available
 }
 
-// runnersActionAuthorAvailable checks the agents of runners in parallel,
-// runners[i] in namespaces[i], and reports them by runner record ID.
+// runnersActionAuthorAvailable checks the agents of runners in namespace, in
+// parallel, and reports them by runner record ID.
 func runnersActionAuthorAvailable(
 	e *core.RequestEvent,
 	runners []*core.Record,
-	namespaces []string,
+	namespace string,
 ) map[string]bool {
 	available := make(map[string]bool, len(runners))
 	var mu sync.Mutex
 	var group errgroup.Group
 	group.SetLimit(actionAuthorCheckConcurrency)
-	for i, runner := range runners {
+	for _, runner := range runners {
 		group.Go(func() error {
-			ok := runnerActionAuthorAvailable(e, runner, namespaces[i])
+			ok := runnerActionAuthorAvailable(e, runner, namespace)
 			mu.Lock()
 			defer mu.Unlock()
 			available[runner.Id] = ok
