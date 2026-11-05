@@ -5,6 +5,8 @@
 package middlewares
 
 import (
+	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"net/http"
 	"strings"
@@ -18,10 +20,21 @@ import (
 const maxVerifiedAPIKeys = 10000
 
 // verifiedAPIKeys remembers which api_keys record and scope a key was verified
-// against, so frequent callers skip the bcrypt scan over every key.
+// against, so frequent callers skip the bcrypt scan over every key. Entries are
+// keyed by an HMAC under a random per-process secret, so the cache holds no
+// value that can be checked against a guessed key outside the process.
 type verifiedAPIKeys struct {
 	mu      sync.Mutex
+	secret  []byte
 	entries map[[sha256.Size]byte]verifiedAPIKey
+}
+
+func (c *verifiedAPIKeys) sum(apiKey string) [sha256.Size]byte {
+	mac := hmac.New(sha256.New, c.secret)
+	mac.Write([]byte(apiKey))
+	var sum [sha256.Size]byte
+	copy(sum[:], mac.Sum(nil))
+	return sum
 }
 
 type verifiedAPIKey struct {
@@ -57,7 +70,13 @@ func (c *verifiedAPIKeys) forget(sum [sha256.Size]byte) {
 // by ID and check revocation, expiry, owner and scope again, so a revoked key
 // is refused on its next request.
 func RequireCachedAPIKey() *hook.Handler[*core.RequestEvent] {
-	cache := &verifiedAPIKeys{entries: map[[sha256.Size]byte]verifiedAPIKey{}}
+	cache := &verifiedAPIKeys{
+		secret:  make([]byte, 32),
+		entries: map[[sha256.Size]byte]verifiedAPIKey{},
+	}
+	if _, err := rand.Read(cache.secret); err != nil {
+		panic("api key cache secret: " + err.Error())
+	}
 	return &hook.Handler[*core.RequestEvent]{
 		Func: func(e *core.RequestEvent) error {
 			apiKey := strings.TrimSpace(e.Request.Header.Get(apiKeyHeaderName))
@@ -69,7 +88,7 @@ func RequireCachedAPIKey() *hook.Handler[*core.RequestEvent] {
 					"Credimi-Api-Key is required",
 				)
 			}
-			sum := sha256.Sum256([]byte(apiKey))
+			sum := cache.sum(apiKey)
 
 			if v, ok := cache.get(sum); ok {
 				record, err := e.App.FindRecordById("api_keys", v.recordID)
