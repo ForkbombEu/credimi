@@ -538,7 +538,8 @@ func TestHandleEnqueueRunReturnsExistingTicket(t *testing.T) {
 
 func TestHandleCancelRunPaths(t *testing.T) {
 	rt := newRuntimeForTests()
-	view, err := rt.handleCancelRun(MobileDeviceSemaphoreRunCancelRequest{
+	// The old cancel path (no pipeline cancel) runs no workflow code.
+	view, err := rt.handleCancelRun(nil, MobileDeviceSemaphoreRunCancelRequest{
 		TicketID:       "missing",
 		OwnerNamespace: "ns-1",
 	})
@@ -557,7 +558,7 @@ func TestHandleCancelRunPaths(t *testing.T) {
 		Status: mobileDeviceSemaphoreRunQueued,
 	}
 	rt.runQueue = []string{"ticket-1"}
-	view, err = rt.handleCancelRun(MobileDeviceSemaphoreRunCancelRequest{
+	view, err = rt.handleCancelRun(nil, MobileDeviceSemaphoreRunCancelRequest{
 		TicketID:       "ticket-1",
 		OwnerNamespace: "ns-1",
 	})
@@ -574,7 +575,7 @@ func TestHandleCancelRunPaths(t *testing.T) {
 		},
 		Status: mobileDeviceSemaphoreRunRunning,
 	}
-	view, err = rt.handleCancelRun(MobileDeviceSemaphoreRunCancelRequest{
+	view, err = rt.handleCancelRun(nil, MobileDeviceSemaphoreRunCancelRequest{
 		TicketID:       "ticket-2",
 		OwnerNamespace: "ns-1",
 	})
