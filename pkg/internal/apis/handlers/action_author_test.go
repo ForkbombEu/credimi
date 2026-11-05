@@ -485,43 +485,72 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 	}
 }
 
+const authoringStoreWallet = "usera-s-organization/authoring-store-wallet"
+
+// setupActionAuthorStoreApp adds to the action author fixture a wallet of
+// userA's organization on both the Play Store and the App Store.
+func setupActionAuthorStoreApp(t testing.TB) *tests.TestApp {
+	app := setupActionAuthorApp(t)
+	org, err := app.FindFirstRecordByData(
+		"organizations",
+		"canonified_name",
+		"usera-s-organization",
+	)
+	require.NoError(t, err)
+	wallets, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	wallet := core.NewRecord(wallets)
+	wallet.Set("owner", org.Id)
+	wallet.Set("name", "Authoring store wallet")
+	wallet.Set("google_app_id", "com.credenco.wallet")
+	wallet.Set("apple_app_id", "com.credenco.wallet")
+	wallet.Set("appstore_url", "https://apps.apple.com/app/credenco/id1")
+	require.NoError(t, app.Save(wallet))
+	return app
+}
+
 func TestActionAuthorStartQueuesStoreWalletSession(t *testing.T) {
 	token := authoringToken(t, "userA")
 	t.Setenv(semaphoreclient.WaitTimeoutEnv, "1h")
 	enqueued := stubActionAuthorQueue(t, true)
-	const storeWallet = "usera-s-organization/authoring-store-wallet"
 	deviceID := authoringAdminRunner + "/android-phone"
 	(&tests.ApiScenario{
-		Name:   "store wallet",
-		Method: http.MethodPost,
-		URL:    "/api/action-author/sessions",
-		Body: strings.NewReader(
-			`{"device_id":"` + deviceID + `","wallet_version_identifier":"` + storeWallet +
-				`"}`,
-		),
+		Name:            "store wallet",
+		Method:          http.MethodPost,
+		URL:             "/api/action-author/sessions",
+		Body:            strings.NewReader(startSessionBody(deviceID, authoringStoreWallet)),
 		Headers:         map[string]string{"Authorization": "Bearer " + token},
 		ExpectedStatus:  http.StatusAccepted,
-		ExpectedContent: []string{`"wallet_version_identifier":"` + storeWallet + `"`},
-		TestAppFactory: func(t testing.TB) *tests.TestApp {
-			app := setupActionAuthorApp(t)
-			org, err := app.FindFirstRecordByData("organizations", "canonified_name", "usera-s-organization")
-			require.NoError(t, err)
-			wallets, err := app.FindCollectionByNameOrId("wallets")
-			require.NoError(t, err)
-			wallet := core.NewRecord(wallets)
-			wallet.Set("owner", org.Id)
-			wallet.Set("name", "Authoring store wallet")
-			wallet.Set("google_app_id", "com.credenco.wallet")
-			require.NoError(t, app.Save(wallet))
-			return app
-		},
+		ExpectedContent: []string{`"wallet_version_identifier":"` + authoringStoreWallet + `"`},
+		TestAppFactory:  setupActionAuthorStoreApp,
 	}).Test(t)
 
 	require.NotEmpty(t, enqueued.TicketID)
 	require.Equal(t, deviceID, enqueued.DeviceID)
-	require.Equal(t, storeWallet, enqueued.ActionAuthor["wallet_version_identifier"])
+	require.Equal(t, authoringStoreWallet, enqueued.ActionAuthor["wallet_version_identifier"])
 	require.Equal(t, "android", enqueued.ActionAuthor["platform"])
 	require.Equal(t, 3600, enqueued.WaitTimeoutSeconds)
+}
+
+func TestActionAuthorStartRefusesStoreWalletOnIOSSimulator(t *testing.T) {
+	token := authoringToken(t, "userA")
+	enqueued := stubActionAuthorQueue(t, true)
+	(&tests.ApiScenario{
+		Name:   "store wallet on an iOS simulator",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/sessions",
+		Body: strings.NewReader(
+			startSessionBody(authoringAdminRunner+"/ios-simulator", authoringStoreWallet),
+		),
+		Headers:        map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus: http.StatusBadRequest,
+		ExpectedContent: []string{
+			`"invalid_request"`,
+			"the iOS simulator has no App Store: upload a simulator .app as a wallet version",
+		},
+		TestAppFactory: setupActionAuthorStoreApp,
+	}).Test(t)
+	require.Empty(t, enqueued.TicketID)
 }
 
 func TestActionAuthorStartMapsQueueFailures(t *testing.T) {

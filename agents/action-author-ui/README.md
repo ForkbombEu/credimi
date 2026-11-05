@@ -29,8 +29,9 @@ requests and API calls from any other `Origin`, and sends no CORS headers, so ot
 and DNS-rebinding hosts cannot drive it. The start page exchanges the key for a bearer token
 and lists the devices of your organization's runners and of other organizations' runners that
 offer the agent (each with its owner and model), and your organization's wallet versions with an installer for the selected device's
-platform, plus the wallets the session installs from the Play Store or App Store (listed as
-"installed from the store"; the device needs the store with a signed-in account). Starting a
+platform, plus, on Android devices, the wallets the session installs from the Play Store (listed
+as "installed from the store"; the device needs the Play Store with a signed-in account; the iOS
+simulator has no App Store, so iOS sessions need a version with a simulator `.app`). Starting a
 session queues it for the device; the page shows the queue position and
 the device preparation, offers **Cancel** while waiting, and opens the chat once the session
 runs. The key is never stored; the bearer token is kept in the tab's `sessionStorage`

@@ -112,10 +112,12 @@ paths:
         namespace. The device type decides the platform (Android devices: android,
         iOS simulators: ios). wallet_version_identifier is organization/wallet/version
         for an uploaded installer of that platform of the caller''s organization,
-        or organization/wallet for its wallet installed from the Play Store or App
-        Store at session start (the device needs the store with a signed-in account;
-        otherwise the agent reports the failure in the chat and closes the session);
-        GET /api/action-author/wallet-versions lists both; a wallet of another organization
+        or, on an Android device only, organization/wallet for its wallet installed
+        from the Play Store at session start (the device needs the Play Store with
+        a signed-in account; otherwise the agent reports the failure in the chat and
+        closes the session); GET /api/action-author/wallet-versions lists both. The
+        iOS simulator has no App Store: organization/wallet on an iOS simulator answers
+        400 invalid_request before anything is queued. A wallet of another organization
         answers 403 forbidden. The device must belong to an enabled, online runner
         of the caller''s organization, or to a published runner of another organization
         that offers the agent to other organizations; any other device answers 404
@@ -178,15 +180,15 @@ paths:
       operationId: actionAuthor.listWalletActions
       parameters:
       - description: 'Build the session authors on: organization/wallet/version for
-          an uploaded installer, or organization/wallet for a wallet installed from
-          the Play Store or App Store at session start.'
+          an uploaded installer, or, on android only, organization/wallet for a wallet
+          installed from the Play Store at session start.'
         in: query
         name: wallet_version_identifier
         required: true
         schema:
           description: 'Build the session authors on: organization/wallet/version
-            for an uploaded installer, or organization/wallet for a wallet installed
-            from the Play Store or App Store at session start.'
+            for an uploaded installer, or, on android only, organization/wallet for
+            a wallet installed from the Play Store at session start.'
           type: string
       - description: 'Authoring platform of the session device: android or ios.'
         in: query
@@ -227,10 +229,11 @@ paths:
         user's first organization, as for pipeline runs) available for authoring,
         with the platforms each build supports and its source. A build is a wallet
         version with an Android APK or iOS simulator app (source installer, identifier
-        organization/wallet/version), or a wallet with a Play Store app (google_app_id,
-        or the id of its play.google.com playstore_url) or an App Store app (apple_app_id
-        and an apps.apple.com appstore_url), installed from the store at session start
-        (source store, identifier organization/wallet, version_tag "store install").
+        organization/wallet/version), or, for Android only, a wallet with a Play Store
+        app (google_app_id, or the id of its play.google.com playstore_url), installed
+        from the Play Store at session start (source store, identifier organization/wallet,
+        version_tag "store install", platforms [android]). The iOS simulator has no
+        App Store, so iOS builds are only wallet versions with an iOS simulator app.
         These are the only builds accepted by the session start endpoint. A caller
         without an organization gets an empty list.
       operationId: actionAuthor.listWalletVersions

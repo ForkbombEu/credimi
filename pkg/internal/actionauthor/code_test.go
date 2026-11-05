@@ -26,7 +26,7 @@ func TestAllowedAppIDs(t *testing.T) {
 		[]string{codeTestWallet, "com.android.vending"},
 		AllowedAppIDs(codeTestWallet, "install-app", PlatformAndroid))
 	assert.Equal(t,
-		[]string{codeTestWallet, "com.apple.AppStore"},
+		[]string{codeTestWallet},
 		AllowedAppIDs(codeTestWallet, "install-app", PlatformIOS))
 }
 
@@ -47,10 +47,7 @@ func TestStoreLinks(t *testing.T) {
 	assert.Equal(t,
 		[]string{market, play, play + "&hl=en"},
 		StoreLinks("install-app", PlatformAndroid, codeTestWallet, play+"&hl=en"))
-	assert.Equal(t,
-		[]string{"https://apps.apple.com/app/x/id1"},
-		StoreLinks("install-app", PlatformIOS, codeTestWallet, "https://apps.apple.com/app/x/id1"))
-	assert.Nil(t, StoreLinks("install-app", PlatformIOS, codeTestWallet, ""))
+	assert.Nil(t, StoreLinks("install-app", PlatformIOS, codeTestWallet, play))
 }
 
 func TestValidateCode(t *testing.T) {

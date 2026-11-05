@@ -489,6 +489,8 @@ func TestAuthoringSaveRejectsUnreplayedOrChangedCandidate(t *testing.T) {
 	require.ErrorIs(t, err, ErrForbidden)
 }
 
+const noIOSStore = "the iOS simulator has no App Store: upload a simulator .app as a wallet version"
+
 // seedStoreWallet adds a wallet of the fixture organization with the given
 // store fields and returns its `organization/wallet` identifier.
 func seedStoreWallet(
@@ -525,12 +527,9 @@ func TestSelectStoreWallet(t *testing.T) {
 	playURL := seedStoreWallet(t, app, selection, "Play URL wallet", map[string]any{
 		"playstore_url": "https://play.google.com/store/apps/details?id=com.sphereon.ssi.wallet&hl=en",
 	})
-	appStore := seedStoreWallet(t, app, selection, "App Store wallet", map[string]any{
+	appleOnly := seedStoreWallet(t, app, selection, "Apple wallet", map[string]any{
 		"apple_app_id": "co.talao.wallet",
 		"appstore_url": "https://apps.apple.com/app/talao/id1582183266",
-	})
-	appleIDOnly := seedStoreWallet(t, app, selection, "Apple id wallet", map[string]any{
-		"apple_app_id": "co.talao.wallet",
 	})
 	foreignURL := seedStoreWallet(t, app, selection, "Foreign URL wallet", map[string]any{
 		"playstore_url": "https://example.org/store/apps/details?id=com.example.wallet",
@@ -594,11 +593,6 @@ func TestSelectStoreWallet(t *testing.T) {
 				"https://play.google.com/store/apps/details?id=com.example.matching&hl=it",
 			},
 		},
-		{
-			"ios", appStore, PlatformIOS, "co.talao.wallet",
-			"https://apps.apple.com/app/talao/id1582183266",
-			[]string{"https://apps.apple.com/app/talao/id1582183266"},
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			in := request
@@ -634,10 +628,10 @@ func TestSelectStoreWallet(t *testing.T) {
 	for _, tc := range []struct {
 		name, identifier, platform, message string
 	}{
-		{"android without app", appStore, PlatformAndroid, "wallet has no Play Store app (google_app_id)"},
+		{"android without app", appleOnly, PlatformAndroid, "wallet has no Play Store app (google_app_id)"},
 		{"android foreign store url", foreignURL, PlatformAndroid, "wallet has no Play Store app (google_app_id)"},
-		{"ios without app", googleApp, PlatformIOS, "wallet has no App Store app (apple_app_id and appstore_url)"},
-		{"ios without store url", appleIDOnly, PlatformIOS, "wallet has no App Store app (apple_app_id and appstore_url)"},
+		{"ios", appleOnly, PlatformIOS, noIOSStore},
+		{"ios with a Play Store app", googleApp, PlatformIOS, noIOSStore},
 		{"missing platform", googleApp, "", "platform must be android or ios"},
 		{"unknown wallet", namespace + "/missing-wallet", PlatformAndroid, "wallet not found"},
 		{"one segment", namespace, PlatformAndroid, "expected organization/wallet/version or organization/wallet"},
@@ -664,7 +658,7 @@ func TestSelectStoreWallet(t *testing.T) {
 	require.ErrorIs(t, err, ErrForbidden)
 }
 
-func TestListBuildOptionsIncludesStoreWallets(t *testing.T) {
+func TestListBuildOptionsIncludesPlayStoreWallets(t *testing.T) {
 	app, request, _ := authoringFixture(t)
 	selection, err := Select(app, "", request)
 	require.NoError(t, err)
@@ -690,7 +684,7 @@ func TestListBuildOptionsIncludesStoreWallets(t *testing.T) {
 		WalletName:       "Both stores wallet",
 		OrganizationName: "userA's organization",
 		VersionTag:       StoreVersionTag,
-		Platforms:        []string{PlatformAndroid, PlatformIOS},
+		Platforms:        []string{PlatformAndroid},
 		Source:           SourceStore,
 	}, byIdentifier[both])
 	assert.Equal(t, SourceInstaller, byIdentifier[request.WalletVersionIdentifier].Source)
@@ -800,4 +794,34 @@ func TestInstallAppSlotNeedsStoreWallet(t *testing.T) {
 	_, err = Save(app, namespace, "workflow", "run", in, testApproval)
 	require.ErrorIs(t, err, ErrInvalid)
 	assert.ErrorContains(t, err, "openLink is not allowed: this session has no parameters")
+}
+
+func TestInstallAppSlotRefusedOnIOS(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	request.WalletVersionIdentifier = seedVersion(
+		t, app, selection, "ios-build", nil, []byte("selected iOS app zip"),
+	)
+	request.Platform = PlatformIOS
+	ios, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	install := Spec{Slot: SlotInstallApp, Outcome: OutcomeSuccess}
+	code := "appId: eu.europa.ec.euidi\n---\n- launchApp\n- takeScreenshot: installed\n"
+
+	// iOS builds are simulator installers, never store wallets: the store-only
+	// rule refuses install-app in the plan check and on save.
+	_, err = CheckSpecRecords(app, ios, &install)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "the install-app slot needs a wallet selected from the store")
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	in := acceptedRequest(request, build.InstallerSHA256)
+	in.Name = "Install"
+	in.Code = code
+	in.CandidateSHA256 = CodeSHA256(code)
+	in.Spec = install
+	_, err = Save(app, namespace, "workflow", "run", in, testApproval)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "the install-app slot needs a wallet selected from the store")
 }

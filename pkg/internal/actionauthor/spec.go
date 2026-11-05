@@ -46,7 +46,8 @@ type SlotRule struct {
 const SlotInstallApp = "install-app"
 
 // Slots lists the action categories the agent can author.
-// install-app: the agent installs a store wallet; only for wallets selected from the store.
+// install-app: the agent installs a store wallet; only for wallets selected
+// from the Play Store, so Android only.
 var Slots = map[string]SlotRule{
 	"onboarding":   {Category: "onboarding", Prerequisites: PrereqForbidden},
 	SlotInstallApp: {Category: SlotInstallApp, Prerequisites: PrereqForbidden},

@@ -82,56 +82,37 @@ var (
 	codeScreenshot = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 )
 
-// Store apps an install-app action may target besides the wallet.
-const (
-	PlayStoreAppID = "com.android.vending"
-	AppStoreAppID  = "com.apple.AppStore"
-)
+// PlayStoreAppID is the store app an Android install-app action may target
+// besides the wallet.
+const PlayStoreAppID = "com.android.vending"
 
 // AllowedAppIDs returns the app IDs an action may target (header appId,
-// launchApp, setPermissions): the package under test and, for an install-app
-// action, the platform's store app. Web flows open the device's default
+// launchApp, setPermissions): the package under test and, for an Android
+// install-app action, the Play Store app. Web flows open the device's default
 // browser with openLink instead of targeting it.
 func AllowedAppIDs(packageID, slot, platform string) []string {
-	if slot != SlotInstallApp {
-		return []string{packageID}
-	}
-	switch platform {
-	case PlatformAndroid:
+	if slot == SlotInstallApp && platform == PlatformAndroid {
 		return []string{packageID, PlayStoreAppID}
-	case PlatformIOS:
-		return []string{packageID, AppStoreAppID}
-	default:
-		return []string{packageID}
 	}
+	return []string{packageID}
 }
 
 // StoreLinks returns the store pages an install-app action may open with
-// openLink: none for another slot; on Android the Play Store page of
-// packageID in its two forms plus the wallet's own storeURL; on iOS the
-// wallet's App Store page. An empty storeURL adds nothing.
+// openLink: none for another slot or platform; on Android the Play Store page
+// of packageID in its two forms plus the wallet's own storeURL. An empty
+// storeURL adds nothing.
 func StoreLinks(slot, platform, packageID, storeURL string) []string {
-	if slot != SlotInstallApp {
+	if slot != SlotInstallApp || platform != PlatformAndroid {
 		return nil
 	}
-	switch platform {
-	case PlatformAndroid:
-		links := []string{
-			"market://details?id=" + packageID,
-			"https://play.google.com/store/apps/details?id=" + packageID,
-		}
-		if storeURL != "" && !slices.Contains(links, storeURL) {
-			links = append(links, storeURL)
-		}
-		return links
-	case PlatformIOS:
-		if storeURL == "" {
-			return nil
-		}
-		return []string{storeURL}
-	default:
-		return nil
+	links := []string{
+		"market://details?id=" + packageID,
+		"https://play.google.com/store/apps/details?id=" + packageID,
 	}
+	if storeURL != "" && !slices.Contains(links, storeURL) {
+		links = append(links, storeURL)
+	}
+	return links
 }
 
 // CodeScope is what an action may use: AppIDs are the apps it may target,

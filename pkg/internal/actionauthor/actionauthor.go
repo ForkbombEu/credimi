@@ -53,7 +53,8 @@ var installerFields = map[string]struct{ field, missing string }{
 }
 
 // Build sources: an installer uploaded to a wallet version, or the wallet's
-// Play Store or App Store app installed at session start.
+// Play Store app installed at session start (Android only: the iOS simulator
+// has no App Store).
 const (
 	SourceInstaller = "installer"
 	SourceStore     = "store"
@@ -61,7 +62,7 @@ const (
 	StoreVersionTag = "store install"
 )
 
-// appIDPattern matches an Android package or iOS bundle identifier.
+// appIDPattern matches an Android package identifier.
 var appIDPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+$`)
 
 // BuildRequest selects an existing wallet version and platform on behalf of its authenticated actor.
@@ -119,38 +120,29 @@ type BuildOption struct {
 	Source           string   `json:"source"`
 }
 
-// storeApp returns the wallet's app on the platform's store and its store page.
-func storeApp(wallet *core.Record, platform string) (string, string, error) {
-	switch platform {
-	case PlatformAndroid:
-		pkg := wallet.GetString("google_app_id")
-		storeURL := wallet.GetString("playstore_url")
-		if pkg == "" && storeURL != "" {
-			if parsed, err := url.Parse(storeURL); err == nil && parsed.Host == "play.google.com" {
-				pkg = parsed.Query().Get("id")
-			}
+// errNoIOSStore refuses a store build on iOS: the action author's only iOS
+// devices are simulators, which have no App Store.
+var errNoIOSStore = fmt.Errorf(
+	"%w: the iOS simulator has no App Store: upload a simulator .app as a wallet version",
+	ErrInvalid,
+)
+
+// playStoreApp returns the wallet's Play Store app and its store page.
+func playStoreApp(wallet *core.Record) (string, string, error) {
+	pkg := wallet.GetString("google_app_id")
+	storeURL := wallet.GetString("playstore_url")
+	if pkg == "" && storeURL != "" {
+		if parsed, err := url.Parse(storeURL); err == nil && parsed.Host == "play.google.com" {
+			pkg = parsed.Query().Get("id")
 		}
-		if !appIDPattern.MatchString(pkg) {
-			return "", "", fmt.Errorf(
-				"%w: wallet has no Play Store app (google_app_id)",
-				ErrInvalid,
-			)
-		}
-		return pkg, playStorePage(storeURL, pkg), nil
-	case PlatformIOS:
-		pkg := wallet.GetString("apple_app_id")
-		storeURL := wallet.GetString("appstore_url")
-		if !appIDPattern.MatchString(pkg) ||
-			!strings.HasPrefix(storeURL, "https://apps.apple.com/") {
-			return "", "", fmt.Errorf(
-				"%w: wallet has no App Store app (apple_app_id and appstore_url)",
-				ErrInvalid,
-			)
-		}
-		return pkg, storeURL, nil
-	default:
-		return "", "", fmt.Errorf("%w: platform must be android or ios", ErrInvalid)
 	}
+	if !appIDPattern.MatchString(pkg) {
+		return "", "", fmt.Errorf(
+			"%w: wallet has no Play Store app (google_app_id)",
+			ErrInvalid,
+		)
+	}
+	return pkg, playStorePage(storeURL, pkg), nil
 }
 
 // playStorePage returns storeURL when it is an https page on play.google.com
@@ -233,7 +225,7 @@ func ListBuildOptions(app core.App, in Actor) ([]BuildOption, error) {
 	return options, nil
 }
 
-// storeBuildOptions lists the actor's wallets that have an app on a store.
+// storeBuildOptions lists the actor's wallets that have a Play Store app.
 func storeBuildOptions(app core.App, ownerFilter dbx.Expression) ([]BuildOption, error) {
 	wallets, err := app.FindAllRecords("wallets", ownerFilter)
 	if err != nil {
@@ -248,13 +240,7 @@ func storeBuildOptions(app core.App, ownerFilter dbx.Expression) ([]BuildOption,
 		if organization == nil {
 			continue
 		}
-		platforms := make([]string, 0, len(installerFields))
-		for _, platform := range []string{PlatformAndroid, PlatformIOS} {
-			if _, _, err := storeApp(wallet, platform); err == nil {
-				platforms = append(platforms, platform)
-			}
-		}
-		if len(platforms) == 0 {
+		if _, _, err := playStoreApp(wallet); err != nil {
 			continue
 		}
 		options = append(options, BuildOption{
@@ -263,7 +249,7 @@ func storeBuildOptions(app core.App, ownerFilter dbx.Expression) ([]BuildOption,
 			WalletName:       wallet.GetString("name"),
 			OrganizationName: organization.GetString("name"),
 			VersionTag:       StoreVersionTag,
-			Platforms:        platforms,
+			Platforms:        []string{PlatformAndroid},
 			Source:           SourceStore,
 		})
 	}
@@ -285,7 +271,7 @@ func findActor(app core.App, in Actor) (*core.Record, error) {
 // Select authorizes members of the wallet's organization, the same rule as
 // pipeline runs: the actor's organization is its first one.
 // `organization/wallet/version` selects an uploaded installer and
-// `organization/wallet` the wallet's store app.
+// `organization/wallet` the wallet's Play Store app (Android only).
 // An empty namespace is used only by the wallet-actions listing endpoint; activities
 // must pass their actual Temporal namespace, not a value from their payload.
 func Select(app core.App, namespace string, in BuildRequest) (Selection, error) {
@@ -360,7 +346,10 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 		Source:       SourceInstaller,
 	}
 	if version == nil {
-		pkg, storeURL, err := storeApp(wallet, in.Platform)
+		if in.Platform != PlatformAndroid {
+			return Selection{}, errNoIOSStore
+		}
+		pkg, storeURL, err := playStoreApp(wallet)
 		if err != nil {
 			return Selection{}, err
 		}

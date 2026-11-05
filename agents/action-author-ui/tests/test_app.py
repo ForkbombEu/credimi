@@ -326,7 +326,8 @@ async def test_start_page_labels_store_wallets():
         "${version.organization_name} (${version.identifier})`"
     ) in page
     assert (
-        "Store installs need the Play Store or App Store with a signed-in account on the device."
+        "Play Store installs need a signed-in account on the device. "
+        "iOS simulators have no App Store: upload a simulator .app as a wallet version."
     ) in page
 
 
