@@ -238,56 +238,6 @@ func TestOrganizationProtectedFieldsHooks_AllowsMaxPipelinesInQueueForSuperuser(
 	require.Equal(t, 99, event.Record.GetInt("max_pipelines_in_queue"))
 }
 
-func TestOrganizationProtectedFieldsHooks_ActionAuthorAllowance(t *testing.T) {
-	for name, tc := range map[string]struct {
-		collection string
-		want       int
-	}{
-		"user keeps the allowance":        {collection: "users", want: 0},
-		"superuser changes the allowance": {collection: core.CollectionNameSuperusers, want: 99},
-	} {
-		t.Run(name, func(t *testing.T) {
-			app, err := tests.NewTestApp(testDataDir)
-			require.NoError(t, err)
-			defer app.Cleanup()
-			registerOrganizationProtectedFieldsHooks(app)
-
-			orgID, err := getOrgIDfromName(app)
-			require.NoError(t, err)
-			org, err := app.FindRecordById("organizations", orgID)
-			require.NoError(t, err)
-			require.Equal(t, 0, org.GetInt("action_author_daily_tokens"))
-
-			auth := core.NewRecord(mustFindCollection(t, app, tc.collection))
-			event := newOrganizationUpdateRequestEvent(app, org, auth)
-			event.Record.Set("action_author_daily_tokens", 99)
-
-			err = app.OnRecordUpdateRequest("organizations").Trigger(
-				event,
-				func(_ *core.RecordRequestEvent) error { return nil },
-			)
-			require.NoError(t, err)
-			require.Equal(t, tc.want, event.Record.GetInt("action_author_daily_tokens"))
-		})
-	}
-}
-
-func TestOrganizationNamespaceHooksCreateLeavesNoActionAuthorAllowance(t *testing.T) {
-	app := pocketbase.NewWithConfig(pocketbase.Config{DefaultDataDir: t.TempDir()})
-	registerOrganizationNamespaceHooks(app)
-
-	record := core.NewRecord(core.NewBaseCollection("organizations"))
-	event := &core.RecordEvent{App: app}
-	event.Record = record
-
-	err := app.OnRecordCreate("organizations").Trigger(
-		event,
-		func(_ *core.RecordEvent) error { return nil },
-	)
-	require.NoError(t, err)
-	require.Equal(t, 0, record.GetInt("action_author_daily_tokens"))
-}
-
 func TestOrganizationProtectedFieldsHooks_RevertsPublishedForUser(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)

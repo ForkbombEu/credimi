@@ -1,4 +1,10 @@
 /// <reference path="../pb_data/types.d.ts" />
+// Runners report their action author daily limits; Credimi counts usage per
+// runner, pool (the runner's own organization or every other one) and UTC day.
+// Tenants cannot write the limits through the API: only the runner lifecycle
+// and registration handlers set them.
+const agentServerFields = "@request.body.agent_own_daily_tokens:isset = false &&\n@request.body.agent_others_daily_tokens:isset = false &&\n@request.body.agent_provider:isset = false &&\n@request.body.agent_model:isset = false &&\n"
+
 migrate((app) => {
   const collection = new Collection({
     "createRule": null,
@@ -20,16 +26,30 @@ migrate((app) => {
       },
       {
         "cascadeDelete": true,
-        "collectionId": "aako88kt3br4npt",
+        "collectionId": "pbc_500646217",
         "hidden": false,
-        "id": "relation3253625724",
+        "id": "relation1792060005",
         "maxSelect": 1,
         "minSelect": 0,
-        "name": "organization",
+        "name": "runner",
         "presentable": false,
         "required": true,
         "system": false,
         "type": "relation"
+      },
+      {
+        "hidden": false,
+        "id": "select1792060006",
+        "maxSelect": 1,
+        "name": "pool",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "own",
+          "others"
+        ]
       },
       {
         "autogeneratePattern": "",
@@ -126,7 +146,7 @@ migrate((app) => {
     ],
     "id": "pbc_3061840921",
     "indexes": [
-      "CREATE UNIQUE INDEX `idx_action_author_usage_org_day` ON `action_author_usage` (`organization`, `day`)"
+      "CREATE UNIQUE INDEX `idx_action_author_usage_runner_pool_day` ON `action_author_usage` (`runner`, `pool`, `day`)"
     ],
     "listRule": null,
     "name": "action_author_usage",
@@ -138,30 +158,61 @@ migrate((app) => {
 
   app.save(collection);
 
-  const organizations = app.findCollectionByNameOrId("aako88kt3br4npt");
+  const runners = app.findCollectionByNameOrId("pbc_500646217");
 
-  // add field
-  organizations.fields.addAt(999, new Field({
-    "hidden": false,
-    "id": "number1792070002",
-    "max": null,
-    "min": null,
-    "name": "action_author_daily_tokens",
-    "onlyInt": true,
-    "presentable": false,
-    "required": false,
-    "system": false,
-    "type": "number"
-  }));
+  for (const [id, name] of [
+    ["number1792060001", "agent_own_daily_tokens"],
+    ["number1792060002", "agent_others_daily_tokens"],
+  ]) {
+    runners.fields.addAt(999, new Field({
+      "hidden": false,
+      "id": id,
+      "max": null,
+      "min": 0,
+      "name": name,
+      "onlyInt": true,
+      "presentable": false,
+      "required": false,
+      "system": false,
+      "type": "number"
+    }));
+  }
+  for (const [id, name] of [
+    ["text1792060003", "agent_provider"],
+    ["text1792060004", "agent_model"],
+  ]) {
+    runners.fields.addAt(999, new Field({
+      "autogeneratePattern": "",
+      "hidden": false,
+      "id": id,
+      "max": 0,
+      "min": 0,
+      "name": name,
+      "pattern": "",
+      "presentable": false,
+      "primaryKey": false,
+      "required": false,
+      "system": false,
+      "type": "text"
+    }));
+  }
+  runners.createRule = agentServerFields + runners.createRule;
+  runners.updateRule = agentServerFields + runners.updateRule;
 
-  return app.save(organizations);
+  return app.save(runners);
 }, (app) => {
-  const organizations = app.findCollectionByNameOrId("aako88kt3br4npt");
+  const runners = app.findCollectionByNameOrId("pbc_500646217");
 
-  // remove field
-  organizations.fields.removeById("number1792070002");
+  for (const id of ["number1792060001", "number1792060002", "text1792060003", "text1792060004"]) {
+    runners.fields.removeById(id);
+  }
+  for (const rule of ["createRule", "updateRule"]) {
+    if (runners[rule].startsWith(agentServerFields)) {
+      runners[rule] = runners[rule].slice(agentServerFields.length);
+    }
+  }
 
-  app.save(organizations);
+  app.save(runners);
 
   const collection = app.findCollectionByNameOrId("pbc_3061840921");
 

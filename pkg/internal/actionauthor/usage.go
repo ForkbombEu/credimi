@@ -23,18 +23,53 @@ const (
 	usageReportIDs = 500
 )
 
-// ErrQuotaExceeded reports that an organization used up its daily action author quota.
+// ErrQuotaExceeded reports that a runner's daily action author allowance for
+// a pool is used up, or that the runner does not offer the agent to the pool.
 var ErrQuotaExceeded = errors.New("daily action author quota exceeded")
 
-// Quota bounds an organization's daily action author model tokens. A limit
-// <= 0 is no allowance at all: there is no unlimited value.
-type Quota struct {
-	Tokens int
+// Pool is whose sessions a runner's usage counts: the runner's own
+// organization, or every other organization together.
+type Pool string
+
+// Usage pools of a runner.
+const (
+	PoolOwn    Pool = "own"
+	PoolOthers Pool = "others"
+)
+
+// Allowance is a runner's daily token limit for one pool: 0 is no limit for
+// PoolOwn and not offered for PoolOthers.
+type Allowance struct {
+	RunnerID string
+	Pool     Pool
+	Tokens   int
 }
 
-// HasAllowance reports whether the organization may use the action author at all.
-func (q Quota) HasAllowance() bool {
-	return q.Tokens > 0
+// AllowanceFor returns the runner's allowance for sessions of orgID: the own
+// pool when the runner belongs to orgID, the others pool otherwise.
+func AllowanceFor(runner *core.Record, orgID string) Allowance {
+	if runner.GetString("owner") == orgID {
+		return Allowance{
+			RunnerID: runner.Id,
+			Pool:     PoolOwn,
+			Tokens:   runner.GetInt("agent_own_daily_tokens"),
+		}
+	}
+	return Allowance{
+		RunnerID: runner.Id,
+		Pool:     PoolOthers,
+		Tokens:   runner.GetInt("agent_others_daily_tokens"),
+	}
+}
+
+// Limited reports whether the pool has a daily token limit.
+func (a Allowance) Limited() bool {
+	return a.Tokens > 0
+}
+
+// Offered reports whether the runner offers the agent to the pool at all.
+func (a Allowance) Offered() bool {
+	return a.Pool == PoolOwn || a.Tokens > 0
 }
 
 // UsageDelta is the model usage consumed by an authoring session since its last report.
@@ -51,28 +86,26 @@ type UsageReport struct {
 	UsageDelta
 }
 
-// UsageState summarizes an organization's remaining daily token budget.
+// UsageState summarizes a pool's remaining daily tokens; TokensRemaining is
+// nil when the pool has no limit.
 type UsageState struct {
 	Exhausted       bool `json:"exhausted"`
-	TokensRemaining int  `json:"tokens_remaining"`
+	TokensRemaining *int `json:"tokens_remaining"`
 }
 
-// QuotaForOrganization returns the daily token quota a superuser set on the
-// organization record; new organizations have none.
-func QuotaForOrganization(org *core.Record) Quota {
-	return Quota{Tokens: org.GetInt("action_author_daily_tokens")}
-}
-
-// ReserveSession counts a new authoring session for orgID on now's UTC day, failing with
-// ErrQuotaExceeded when the token quota is already used up. Sessions are only recorded,
-// never limited.
-func ReserveSession(app core.App, orgID string, now time.Time, q Quota) error {
+// ReserveSession counts a new authoring session in a's pool on now's UTC day,
+// failing with ErrQuotaExceeded when the pool is not offered or its tokens are
+// used up. Sessions are only recorded, never limited.
+func ReserveSession(app core.App, a Allowance, now time.Time) error {
+	if !a.Offered() {
+		return ErrQuotaExceeded
+	}
 	return app.RunInTransaction(func(txApp core.App) error {
-		record, err := usageFindOrNew(txApp, orgID, now)
+		record, err := usageFindOrNew(txApp, a, now)
 		if err != nil {
 			return err
 		}
-		if !q.HasAllowance() || usageTokens(record) >= q.Tokens {
+		if a.Limited() && usageTokens(record) >= a.Tokens {
 			return ErrQuotaExceeded
 		}
 		record.Set("sessions", record.GetInt("sessions")+1)
@@ -83,11 +116,11 @@ func ReserveSession(app core.App, orgID string, now time.Time, q Quota) error {
 	})
 }
 
-// ReleaseSession returns a reserved session for orgID on now's UTC day; it never drops
-// below zero and is a no-op when the day has no usage.
-func ReleaseSession(app core.App, orgID string, now time.Time) error {
+// ReleaseSession returns a reserved session of a's pool on now's UTC day; it
+// never drops below zero and is a no-op when the day has no usage.
+func ReleaseSession(app core.App, a Allowance, now time.Time) error {
 	return app.RunInTransaction(func(txApp core.App) error {
-		record, err := usageFind(txApp, orgID, now)
+		record, err := usageFind(txApp, a, now)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
@@ -102,19 +135,13 @@ func ReleaseSession(app core.App, orgID string, now time.Time) error {
 	})
 }
 
-// RecordUsage adds r's usage to orgID's usage on now's UTC day and reports the remaining
-// token budget. A report whose ID the day already counted only reports the state.
-// Negative delta components are ignored.
-func RecordUsage(
-	app core.App,
-	orgID string,
-	now time.Time,
-	r UsageReport,
-	q Quota,
-) (UsageState, error) {
+// RecordUsage adds r's usage to a's pool on now's UTC day and reports the
+// pool's remaining tokens. A report whose ID the day already counted only
+// reports the state. Negative delta components are ignored.
+func RecordUsage(app core.App, a Allowance, now time.Time, r UsageReport) (UsageState, error) {
 	var state UsageState
 	err := app.RunInTransaction(func(txApp core.App) error {
-		record, err := usageFindOrNew(txApp, orgID, now)
+		record, err := usageFindOrNew(txApp, a, now)
 		if err != nil {
 			return err
 		}
@@ -125,7 +152,7 @@ func RecordUsage(
 			}
 		}
 		if slices.Contains(reportIDs, r.ReportID) {
-			state = usageStateOf(usageTokens(record), q)
+			state = usageStateOf(usageTokens(record), a)
 			return nil
 		}
 		reportIDs = append(reportIDs, r.ReportID)
@@ -139,7 +166,7 @@ func RecordUsage(
 		if err := txApp.Save(record); err != nil {
 			return fmt.Errorf("failed to save action author usage: %w", err)
 		}
-		state = usageStateOf(usageTokens(record), q)
+		state = usageStateOf(usageTokens(record), a)
 		return nil
 	})
 	if err != nil {
@@ -148,31 +175,71 @@ func RecordUsage(
 	return state, nil
 }
 
-func usageStateOf(used int, q Quota) UsageState {
-	if !q.HasAllowance() {
-		return UsageState{Exhausted: true}
+// ReadUsage reports a's pool's remaining tokens on now's UTC day.
+func ReadUsage(app core.App, a Allowance, now time.Time) (UsageState, error) {
+	used := 0
+	record, err := usageFind(app, a, now)
+	switch {
+	case err == nil:
+		used = usageTokens(record)
+	case !errors.Is(err, sql.ErrNoRows):
+		return UsageState{}, fmt.Errorf("failed to find action author usage: %w", err)
 	}
-	return UsageState{
-		Exhausted:       used >= q.Tokens,
-		TokensRemaining: max(0, q.Tokens-used),
+	return usageStateOf(used, a), nil
+}
+
+// TodayUsage returns the tokens the runner's own and others pools used on
+// now's UTC day.
+func TodayUsage(app core.App, runnerID string, now time.Time) (own, others int, err error) {
+	records, err := app.FindAllRecords(usageCollection, dbx.HashExp{
+		"runner": runnerID,
+		"day":    now.UTC().Format(usageDayLayout),
+	})
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to list action author usage: %w", err)
 	}
+	for _, record := range records {
+		switch Pool(record.GetString("pool")) {
+		case PoolOwn:
+			own += usageTokens(record)
+		case PoolOthers:
+			others += usageTokens(record)
+		}
+	}
+	return own, others, nil
+}
+
+func usageStateOf(used int, a Allowance) UsageState {
+	if !a.Offered() {
+		none := 0
+		return UsageState{Exhausted: true, TokensRemaining: &none}
+	}
+	if !a.Limited() {
+		return UsageState{}
+	}
+	remaining := max(0, a.Tokens-used)
+	return UsageState{Exhausted: used >= a.Tokens, TokensRemaining: &remaining}
 }
 
 func usageTokens(record *core.Record) int {
 	return record.GetInt("input_tokens") + record.GetInt("output_tokens")
 }
 
-func usageFind(app core.App, orgID string, now time.Time) (*core.Record, error) {
+func usageFind(app core.App, a Allowance, now time.Time) (*core.Record, error) {
 	return app.FindFirstRecordByFilter(
 		usageCollection,
-		"organization = {:organization} && day = {:day}",
-		dbx.Params{"organization": orgID, "day": now.UTC().Format(usageDayLayout)},
+		"runner = {:runner} && pool = {:pool} && day = {:day}",
+		dbx.Params{
+			"runner": a.RunnerID,
+			"pool":   string(a.Pool),
+			"day":    now.UTC().Format(usageDayLayout),
+		},
 	)
 }
 
 // usageFindOrNew returns the day's usage row, or an unsaved one when the day has no usage yet.
-func usageFindOrNew(app core.App, orgID string, now time.Time) (*core.Record, error) {
-	record, err := usageFind(app, orgID, now)
+func usageFindOrNew(app core.App, a Allowance, now time.Time) (*core.Record, error) {
+	record, err := usageFind(app, a, now)
 	if err == nil {
 		return record, nil
 	}
@@ -184,7 +251,8 @@ func usageFindOrNew(app core.App, orgID string, now time.Time) (*core.Record, er
 		return nil, fmt.Errorf("failed to find action author usage collection: %w", err)
 	}
 	record = core.NewRecord(collection)
-	record.Set("organization", orgID)
+	record.Set("runner", a.RunnerID)
+	record.Set("pool", string(a.Pool))
 	record.Set("day", now.UTC().Format(usageDayLayout))
 	return record, nil
 }

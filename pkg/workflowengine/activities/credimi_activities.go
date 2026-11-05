@@ -51,6 +51,7 @@ func CredimiActivities(app core.App) []workflowengine.ExecutableActivity {
 		NewGenerateActionAuthorParametersActivity(app),
 		NewCheckActionAuthorProtocolOutcomeActivity(app),
 		NewRecordActionAuthorUsageActivity(app),
+		NewReadActionAuthorUsageActivity(app),
 		NewListActionAuthorWalletActionsActivity(app),
 		NewCheckActionAuthorPlanActivity(app),
 		NewResolveActionAuthorReferenceActivity(app),

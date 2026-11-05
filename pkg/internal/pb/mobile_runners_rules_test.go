@@ -63,6 +63,16 @@ func TestMobileRunnersUpdateRuleGuardsPrivilegedFields(t *testing.T) {
 			wantCode: http.StatusNotFound,
 		},
 		{
+			name:     "org owner cannot set the action author limits",
+			body:     `{"agent_own_daily_tokens":1000,"agent_others_daily_tokens":1000}`,
+			wantCode: http.StatusNotFound,
+		},
+		{
+			name:     "org owner cannot set the action author model",
+			body:     `{"agent_provider":"anthropic","agent_model":"claude"}`,
+			wantCode: http.StatusNotFound,
+		},
+		{
 			name:     "non-member cannot self-grant admin_managed",
 			actor:    actorNonMember,
 			body:     `{"admin_managed":true,"published":true}`,
@@ -130,6 +140,10 @@ func TestMobileRunnersCreateRuleGuardsPrivilegedFields(t *testing.T) {
 			extra: `"last_heartbeat_at":"` + rulesTestHeartbeat + `"`,
 		},
 		{name: "org owner cannot create a disabled runner", extra: `"disabled":true`},
+		{
+			name:  "org owner cannot create a runner with agent limits",
+			extra: `"agent_others_daily_tokens":1`,
+		},
 		{name: "org owner can create an ordinary runner", wantCode: http.StatusOK},
 	}
 

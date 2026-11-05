@@ -123,10 +123,11 @@ paths:
         runner whose action author has not polled <runner_id>-ActionAuthor in the
         caller''s namespace in the last two minutes answers 503 agent_unavailable.
         The agent sets each action''s plan in the chat and Credimi checks it on every
-        call that uses it; the session can save several actions. Each organization
-        has a daily allowance of model tokens (UTC day), set by a superuser on the
-        organization (action_author_daily_tokens); new organizations have none. A
-        start without an allowance or after the day''s tokens reach it answers 429
+        call that uses it; the session can save several actions. The runner owner
+        sets two daily limits of model tokens (UTC day) in the runner''s configuration:
+        one for sessions of the runner''s own organization (0: no limit) and one shared
+        by every other organization (0: the agent is not offered to them). A start
+        after the day''s tokens of the caller''s pool reach its limit answers 429
         quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>:
         once running, its workflow_id is the session and <workflow_id>-author is the
         chat workflow. This endpoint does not save an action: the session''s user

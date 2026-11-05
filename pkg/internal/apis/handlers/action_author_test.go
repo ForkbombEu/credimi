@@ -54,10 +54,6 @@ func setupActionAuthorApp(t testing.TB) *tests.TestApp {
 	require.NoError(t, err)
 	foreignOrg, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
 	require.NoError(t, err)
-	// Organizations start without an action author allowance.
-	org.Set("action_author_daily_tokens", 5000000)
-	require.NoError(t, app.Save(org))
-
 	wallets, err := app.FindCollectionByNameOrId("wallets")
 	require.NoError(t, err)
 	wallet := core.NewRecord(wallets)
@@ -655,26 +651,39 @@ func TestActionAuthorDevicesListsOwnAndOfferedRunnerDevices(t *testing.T) {
 	tenantPhone := authoringDevice("android-phone", "android_phone", "android", false)
 	tenantPhone.Path = authoringTenantRunner + "/android-phone"
 	tenantPhone.RunnerName = "tenant-runner"
+	foreignEmulator := authoringDevice("android-emulator", "android_emulator", "android", true)
+	foreignEmulator.Path = authoringForeignRunner + "/android-emulator"
+	foreignEmulator.RunnerName = "foreign-admin-runner"
+	own := []ActionAuthorDevice{
+		authoringDevice("android-emulator", "android_emulator", "android", true),
+		authoringDevice("android-phone", "android_phone", "android", false),
+		authoringDevice("ios-simulator", "ios_simulator", "ios", false),
+		authoringDevice("redroid", "redroid", "android", false),
+	}
 	for _, tc := range []struct {
-		user     string
+		name   string
+		user   string
+		others int
+		// expected devices; foreign-admin-runner is published in every case.
 		expected []ActionAuthorDevice
 	}{
 		{
-			user: "userA",
-			expected: []ActionAuthorDevice{
-				authoringDevice("android-emulator", "android_emulator", "android", true),
-				authoringDevice("android-phone", "android_phone", "android", false),
-				authoringDevice("ios-simulator", "ios_simulator", "ios", false),
-				authoringDevice("redroid", "redroid", "android", false),
-				tenantPhone,
-			},
+			name:     "foreign runner offers the agent only to its organization",
+			user:     "userA",
+			expected: append(append([]ActionAuthorDevice{}, own...), tenantPhone),
 		},
-		{user: "userC", expected: []ActionAuthorDevice{}},
+		{
+			name:     "foreign runner offers the agent to other organizations",
+			user:     "userA",
+			others:   1000,
+			expected: append(append([]ActionAuthorDevice{}, own...), foreignEmulator, tenantPhone),
+		},
+		{name: "organization without runners", user: "userC", expected: []ActionAuthorDevice{}},
 	} {
 		stubActionAuthorQueue(t, true)
 		var response ActionAuthorDevicesResponse
 		(&tests.ApiScenario{
-			Name:           tc.user,
+			Name:           tc.name,
 			Method:         http.MethodGet,
 			URL:            "/api/action-author/devices",
 			Headers:        map[string]string{"Authorization": "Bearer " + authoringToken(t, tc.user)},
@@ -684,10 +693,10 @@ func TestActionAuthorDevicesListsOwnAndOfferedRunnerDevices(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupActionAuthorApp(t)
-				// Published, but it offers the agent only to its own organization.
 				runner, err := app.FindFirstRecordByData("mobile_runners", "name", "foreign-admin-runner")
 				require.NoError(t, err)
 				runner.Set("published", true)
+				runner.Set("agent_others_daily_tokens", tc.others)
 				require.NoError(t, app.Save(runner))
 				return app
 			},
@@ -697,7 +706,7 @@ func TestActionAuthorDevicesListsOwnAndOfferedRunnerDevices(t *testing.T) {
 				require.NoError(t, json.Unmarshal(body, &response))
 			},
 		}).Test(t)
-		require.Equal(t, tc.expected, response.Devices, tc.user)
+		require.Equal(t, tc.expected, response.Devices, tc.name)
 	}
 }
 

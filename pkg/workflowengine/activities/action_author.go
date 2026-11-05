@@ -261,11 +261,13 @@ func actionAuthorSessionID(authorWorkflowID string) (string, bool) {
 		strings.HasPrefix(sessionID, ActionAuthorSessionWorkflowIDPrefix)
 }
 
-// ActionAuthorSessionRef identifies a running session and its build request.
+// ActionAuthorSessionRef identifies a running session, its build request and
+// the device it runs on.
 type ActionAuthorSessionRef struct {
 	SessionWorkflowID string
 	SessionRunID      string
 	Session           actionauthor.BuildRequest
+	DeviceID          string
 }
 
 // LookupActionAuthorSession returns the running session whose ActionAuthor
@@ -324,17 +326,24 @@ func LookupActionAuthorSession(
 		temporalcrypto.DataConverter().FromPayloads(started.GetInput(), &input) != nil {
 		return ref, forbidden("action author session has no start input")
 	}
-	// The session's SessionInput carries the build request; its other fields
-	// are ignored.
+	// The session's SessionInput carries the build request and the device;
+	// its other fields are ignored.
 	session, err := workflowengine.DecodePayload[actionauthor.BuildRequest](input.Payload)
 	if err != nil || session.ActorID == "" ||
 		session.WalletVersionIdentifier == "" || session.Platform == "" {
 		return ref, forbidden("action author session has no actor or build")
 	}
+	device, err := workflowengine.DecodePayload[struct {
+		DeviceID string `json:"device_id"`
+	}](input.Payload)
+	if err != nil {
+		return ref, forbidden("action author session has no device")
+	}
 	return ActionAuthorSessionRef{
 		SessionWorkflowID: sessionID,
 		SessionRunID:      parent.GetRunId(),
 		Session:           session,
+		DeviceID:          device.DeviceID,
 	}, nil
 }
 

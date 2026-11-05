@@ -562,6 +562,9 @@ type UpsertMobileRunnerRequest struct {
 	Port         string `json:"port,omitempty"`
 	Serial       string `json:"serial,omitempty"`
 	Published    *bool  `json:"published,omitempty"`
+	// ActionAuthor carries the runner's action author settings; an absent
+	// value keeps the stored ones.
+	ActionAuthor *RunnerActionAuthorSettings `json:"action_author,omitempty"`
 }
 
 type UpsertMobileRunnerResponse struct {
@@ -709,6 +712,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		if input.Published != nil {
 			record.Set("published", *input.Published)
 		}
+		setRunnerActionAuthorSettings(record, input.ActionAuthor)
 		record.Set("credential_generation", record.GetInt("credential_generation")+1)
 		credential, apiErr := mobileRunnerCredential(e.Auth, record)
 		if apiErr != nil {

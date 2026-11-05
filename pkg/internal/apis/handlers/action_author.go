@@ -83,7 +83,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorStart,
 			OperationID:    "actionAuthor.startSession",
 			Summary:        "Queue a wallet-action authoring session on a runner device",
-			Description:    "Queue an authoring session for a member of an organization (the user's first organization, as for pipeline runs) on the selected device through the mobile-device semaphore. The session runs in the caller's organization namespace. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform of the caller's organization, or organization/wallet for its wallet installed from the Play Store or App Store at session start (the device needs the store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both; a wallet of another organization answers 403 forbidden. The device must belong to an enabled, online runner of the caller's organization, or to a published runner of another organization that offers the agent to other organizations; any other device answers 404 device_not_found, and a disabled runner answers like an offline one (503). A caller who is not a member of any organization answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor in the caller's namespace in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. Each organization has a daily allowance of model tokens (UTC day), set by a superuser on the organization (action_author_daily_tokens); new organizations have none. A start without an allowance or after the day's tokens reach it answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
+			Description:    "Queue an authoring session for a member of an organization (the user's first organization, as for pipeline runs) on the selected device through the mobile-device semaphore. The session runs in the caller's organization namespace. The device type decides the platform (Android devices: android, iOS simulators: ios). wallet_version_identifier is organization/wallet/version for an uploaded installer of that platform of the caller's organization, or organization/wallet for its wallet installed from the Play Store or App Store at session start (the device needs the store with a signed-in account; otherwise the agent reports the failure in the chat and closes the session); GET /api/action-author/wallet-versions lists both; a wallet of another organization answers 403 forbidden. The device must belong to an enabled, online runner of the caller's organization, or to a published runner of another organization that offers the agent to other organizations; any other device answers 404 device_not_found, and a disabled runner answers like an offline one (503). A caller who is not a member of any organization answers 403 forbidden. A runner whose action author has not polled <runner_id>-ActionAuthor in the caller's namespace in the last two minutes answers 503 agent_unavailable. The agent sets each action's plan in the chat and Credimi checks it on every call that uses it; the session can save several actions. The runner owner sets two daily limits of model tokens (UTC day) in the runner's configuration: one for sessions of the runner's own organization (0: no limit) and one shared by every other organization (0: the agent is not offered to them). A start after the day's tokens of the caller's pool reach its limit answers 429 quota_exceeded. Poll GET /api/pipeline/queue/{ticket_id}?device_ids=<device_id>: once running, its workflow_id is the session and <workflow_id>-author is the chat workflow. This endpoint does not save an action: the session's user accepts or refuses each candidate through POST /api/action-author/reviews.",
 			ResponseStatus: http.StatusAccepted,
 			RequestSchema:  ActionAuthorStartRequest{},
 			ResponseSchema: ActionAuthorStartResponse{},
@@ -296,7 +296,7 @@ func requireAuthoringUser(auth *core.Record) *apierror.APIError {
 // actionAuthorRunnerOffered reports whether a runner offers the agent to the
 // organization: always to its own, to others when it has an allowance for them.
 func actionAuthorRunnerOffered(runner *core.Record, orgID string) bool {
-	return runner.GetString("owner") == orgID || runner.GetInt("agent_others_daily_tokens") > 0
+	return actionauthor.AllowanceFor(runner, orgID).Offered()
 }
 
 // actionAuthorPlatform maps a device type to its authoring platform; it is
@@ -434,9 +434,9 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			return temporalUnavailableError()
 		}
 		// Sessions count at enqueue; a refused or failed enqueue gives it back.
-		orgID := org.Id
+		allowance := actionauthor.AllowanceFor(runner, org.Id)
 		reservedAt := time.Now()
-		if apiErr := reserveActionAuthorSession(e, org, reservedAt); apiErr != nil {
+		if apiErr := reserveActionAuthorSession(e, allowance, reservedAt); apiErr != nil {
 			return apiErr
 		}
 		resp, err := enqueueActionAuthorTicket(
@@ -457,7 +457,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			},
 		)
 		if err != nil {
-			releaseActionAuthorSession(e, orgID, reservedAt)
+			releaseActionAuthorSession(e, allowance, reservedAt)
 			if isQueueLimitExceeded(err) {
 				return apierror.New(
 					http.StatusConflict,
@@ -486,29 +486,28 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 	}
 }
 
-// reserveActionAuthorSession counts a session against the organization's
-// daily quota, answering 429 quota_exceeded when the organization has no
-// allowance or used it up.
+// reserveActionAuthorSession counts a session against the runner's daily
+// allowance for the caller's pool, answering 429 quota_exceeded when it is used up.
 func reserveActionAuthorSession(
 	e *core.RequestEvent,
-	org *core.Record,
+	allowance actionauthor.Allowance,
 	now time.Time,
 ) *apierror.APIError {
-	quota := actionauthor.QuotaForOrganization(org)
-	err := actionauthor.ReserveSession(e.App, org.Id, now, quota)
+	err := actionauthor.ReserveSession(e.App, allowance, now)
 	if errors.Is(err, actionauthor.ErrQuotaExceeded) {
-		message := fmt.Sprintf(
-			"your organization used today's action author allowance (%d tokens); it resets at 00:00 UTC",
-			quota.Tokens,
-		)
-		if !quota.HasAllowance() {
-			message = "your organization has no action author allowance; ask a Credimi administrator to set one"
+		whose := "its organization"
+		if allowance.Pool == actionauthor.PoolOthers {
+			whose = "other organizations"
 		}
 		return apierror.New(
 			http.StatusTooManyRequests,
 			"action_author",
 			"quota_exceeded",
-			message,
+			fmt.Sprintf(
+				"this runner's daily action author allowance for %s is used (%d tokens); it resets at 00:00 UTC",
+				whose,
+				allowance.Tokens,
+			),
 		)
 	}
 	if err != nil {
@@ -518,8 +517,12 @@ func reserveActionAuthorSession(
 }
 
 // releaseActionAuthorSession gives back a session whose enqueue failed.
-func releaseActionAuthorSession(e *core.RequestEvent, orgID string, reservedAt time.Time) {
-	if err := actionauthor.ReleaseSession(e.App, orgID, reservedAt); err != nil {
+func releaseActionAuthorSession(
+	e *core.RequestEvent,
+	allowance actionauthor.Allowance,
+	reservedAt time.Time,
+) {
+	if err := actionauthor.ReleaseSession(e.App, allowance, reservedAt); err != nil {
 		e.App.Logger().Warn("failed to release action author session quota", "error", err)
 	}
 }

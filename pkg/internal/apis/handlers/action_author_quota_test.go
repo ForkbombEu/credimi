@@ -14,20 +14,31 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 )
 
-// authoringSessionsToday reads userA's organization's sessions of today.
-func authoringSessionsToday(t testing.TB, app *tests.TestApp) int {
+const authoringForeignVersion = "userb-s-organization/foreign-wallet/android"
+
+// authoringAdminRunnerRecord returns userA's admin-managed runner.
+func authoringAdminRunnerRecord(t testing.TB, app *tests.TestApp) *core.Record {
 	t.Helper()
-	org, err := app.FindFirstRecordByData("organizations", "name", "userA's organization")
+	runner, err := app.FindFirstRecordByData("mobile_runners", "name", "admin-runner")
 	require.NoError(t, err)
+	return runner
+}
+
+// authoringSessionsToday reads the admin runner's sessions of today in pool.
+func authoringSessionsToday(t testing.TB, app *tests.TestApp, pool actionauthor.Pool) int {
+	t.Helper()
 	rows, err := app.FindAllRecords("action_author_usage", dbx.HashExp{
-		"organization": org.Id,
-		"day":          time.Now().UTC().Format("2006-01-02"),
+		"runner": authoringAdminRunnerRecord(t, app).Id,
+		"pool":   string(pool),
+		"day":    time.Now().UTC().Format("2006-01-02"),
 	})
 	require.NoError(t, err)
 	if len(rows) == 0 {
@@ -36,36 +47,66 @@ func authoringSessionsToday(t testing.TB, app *tests.TestApp) int {
 	return rows[0].GetInt("sessions")
 }
 
-// setAuthoringAllowance sets userA's organization's daily action author token allowance.
-func setAuthoringAllowance(t testing.TB, app *tests.TestApp, tokens int) {
+// setAuthoringLimits sets the admin runner's daily token limits.
+func setAuthoringLimits(t testing.TB, app *tests.TestApp, own, others int) {
 	t.Helper()
-	org, err := app.FindFirstRecordByData("organizations", "name", "userA's organization")
-	require.NoError(t, err)
-	org.Set("action_author_daily_tokens", tokens)
-	require.NoError(t, app.Save(org))
+	runner := authoringAdminRunnerRecord(t, app)
+	runner.Set("agent_own_daily_tokens", own)
+	runner.Set("agent_others_daily_tokens", others)
+	require.NoError(t, app.Save(runner))
 }
 
-// spendAuthoringTokens reserves a session for userA's organization today and records
-// tokens of model usage for it.
-func spendAuthoringTokens(t testing.TB, app *tests.TestApp, tokens int) {
+// spendAuthoringTokens reserves a session in the admin runner's pool today,
+// under the runner's stored limits, and records tokens of model usage for it.
+func spendAuthoringTokens(t testing.TB, app *tests.TestApp, pool actionauthor.Pool, tokens int) {
 	t.Helper()
-	org, err := app.FindFirstRecordByData("organizations", "name", "userA's organization")
-	require.NoError(t, err)
-	quota := actionauthor.QuotaForOrganization(org)
-	require.NoError(t, actionauthor.ReserveSession(app, org.Id, time.Now(), quota))
-	_, err = actionauthor.RecordUsage(app, org.Id, time.Now(), actionauthor.UsageReport{
+	runner := authoringAdminRunnerRecord(t, app)
+	orgID := runner.GetString("owner")
+	if pool == actionauthor.PoolOthers {
+		orgID = "another-organization"
+	}
+	a := actionauthor.AllowanceFor(runner, orgID)
+	require.NoError(t, actionauthor.ReserveSession(app, a, time.Now()))
+	_, err := actionauthor.RecordUsage(app, a, time.Now(), actionauthor.UsageReport{
 		ReportID:   "wf/1",
 		UsageDelta: actionauthor.UsageDelta{Requests: 1, InputTokens: tokens},
-	}, quota)
+	})
 	require.NoError(t, err)
 }
 
-func TestActionAuthorStartEnforcesDailyQuota(t *testing.T) {
+// shareAdminRunner publishes the admin runner and gives userB's organization
+// an Android build to author on it.
+func shareAdminRunner(t testing.TB, app *tests.TestApp) {
+	t.Helper()
+	runner := authoringAdminRunnerRecord(t, app)
+	runner.Set("published", true)
+	require.NoError(t, app.Save(runner))
+	org, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
+	require.NoError(t, err)
+	wallets, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	wallet := core.NewRecord(wallets)
+	wallet.Set("owner", org.Id)
+	wallet.Set("name", "Foreign wallet")
+	require.NoError(t, app.Save(wallet))
+	versions, err := app.FindCollectionByNameOrId("wallet_versions")
+	require.NoError(t, err)
+	version := core.NewRecord(versions)
+	version.Set("owner", org.Id)
+	version.Set("wallet", wallet.Id)
+	version.Set("tag", "android")
+	file, err := filesystem.NewFileFromBytes([]byte("apk"), "android_installer.zip")
+	require.NoError(t, err)
+	version.Set("android_installer", []*filesystem.File{file})
+	require.NoError(t, app.Save(version))
+}
+
+func TestActionAuthorStartEnforcesOwnDailyLimit(t *testing.T) {
 	token := authoringToken(t, "userA")
 	body := startSessionBody(authoringAdminRunner+"/android-emulator", authoringAndroidVersion)
 	limitedApp := func(t testing.TB) *tests.TestApp {
 		app := setupActionAuthorApp(t)
-		setAuthoringAllowance(t, app, 1000)
+		setAuthoringLimits(t, app, 1000, 0)
 		return app
 	}
 
@@ -80,7 +121,7 @@ func TestActionAuthorStartEnforcesDailyQuota(t *testing.T) {
 		ExpectedContent: []string{`"ticket_id"`},
 		TestAppFactory:  limitedApp,
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-			require.Equal(t, 1, authoringSessionsToday(t, app))
+			require.Equal(t, 1, authoringSessionsToday(t, app, actionauthor.PoolOwn))
 		},
 	}).Test(t)
 	require.NotEmpty(t, enqueued.TicketID)
@@ -96,11 +137,11 @@ func TestActionAuthorStartEnforcesDailyQuota(t *testing.T) {
 		ExpectedContent: []string{`"ticket_id"`},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := limitedApp(t)
-			spendAuthoringTokens(t, app, 999)
+			spendAuthoringTokens(t, app, actionauthor.PoolOwn, 999)
 			return app
 		},
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-			require.Equal(t, 2, authoringSessionsToday(t, app))
+			require.Equal(t, 2, authoringSessionsToday(t, app, actionauthor.PoolOwn))
 		},
 	}).Test(t)
 	require.NotEmpty(t, enqueued.TicketID)
@@ -115,45 +156,100 @@ func TestActionAuthorStartEnforcesDailyQuota(t *testing.T) {
 		ExpectedStatus: http.StatusTooManyRequests,
 		ExpectedContent: []string{
 			`"quota_exceeded"`,
-			"your organization used today's action author allowance (1000 tokens); it resets at 00:00 UTC",
+			"this runner's daily action author allowance for its organization is used (1000 tokens); it resets at 00:00 UTC",
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := limitedApp(t)
-			spendAuthoringTokens(t, app, 1000)
+			spendAuthoringTokens(t, app, actionauthor.PoolOwn, 1000)
 			return app
 		},
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-			require.Equal(t, 1, authoringSessionsToday(t, app))
+			require.Equal(t, 1, authoringSessionsToday(t, app, actionauthor.PoolOwn))
 		},
 	}).Test(t)
 	require.Empty(t, enqueued.TicketID)
-}
 
-func TestActionAuthorStartWithoutAllowance(t *testing.T) {
-	token := authoringToken(t, "userA")
-	enqueued := stubActionAuthorQueue(t, true)
+	enqueued = stubActionAuthorQueue(t, true)
 	(&tests.ApiScenario{
-		Name:   "organization left at 0",
-		Method: http.MethodPost,
-		URL:    "/api/action-author/sessions",
-		Body: strings.NewReader(
-			startSessionBody(authoringAdminRunner+"/android-emulator", authoringAndroidVersion),
-		),
-		Headers:        map[string]string{"Authorization": "Bearer " + token},
-		ExpectedStatus: http.StatusTooManyRequests,
-		ExpectedContent: []string{
-			`"action_author"`,
-			`"quota_exceeded"`,
-			"your organization has no action author allowance; ask a Credimi administrator to set one",
-		},
-		NotExpectedContent: []string{"unlimited", "tokens)"},
+		Name:            "own pool without a limit",
+		Method:          http.MethodPost,
+		URL:             "/api/action-author/sessions",
+		Body:            strings.NewReader(body),
+		Headers:         map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus:  http.StatusAccepted,
+		ExpectedContent: []string{`"ticket_id"`},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupActionAuthorApp(t)
-			setAuthoringAllowance(t, app, 0)
+			spendAuthoringTokens(t, app, actionauthor.PoolOwn, 1_000_000)
+			return app
+		},
+	}).Test(t)
+	require.NotEmpty(t, enqueued.TicketID)
+}
+
+func TestActionAuthorStartCountsOtherOrganizationsInTheOthersPool(t *testing.T) {
+	token := authoringToken(t, "userB")
+	body := startSessionBody(authoringAdminRunner+"/android-emulator", authoringForeignVersion)
+
+	enqueued := stubActionAuthorQueue(t, true)
+	(&tests.ApiScenario{
+		Name:           "published runner that does not offer the agent",
+		Method:         http.MethodPost,
+		URL:            "/api/action-author/sessions",
+		Body:           strings.NewReader(body),
+		Headers:        map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus: http.StatusNotFound,
+		ExpectedContent: []string{
+			`"device_not_found"`,
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			shareAdminRunner(t, app)
+			return app
+		},
+	}).Test(t)
+	require.Empty(t, enqueued.TicketID)
+
+	enqueued = stubActionAuthorQueue(t, true)
+	(&tests.ApiScenario{
+		Name:            "offered runner",
+		Method:          http.MethodPost,
+		URL:             "/api/action-author/sessions",
+		Body:            strings.NewReader(body),
+		Headers:         map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus:  http.StatusAccepted,
+		ExpectedContent: []string{`"workflow_namespace":"` + authoringForeignNS + `"`},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			shareAdminRunner(t, app)
+			setAuthoringLimits(t, app, 0, 500)
 			return app
 		},
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-			require.Equal(t, 0, authoringSessionsToday(t, app))
+			require.Equal(t, 1, authoringSessionsToday(t, app, actionauthor.PoolOthers))
+			require.Equal(t, 0, authoringSessionsToday(t, app, actionauthor.PoolOwn))
+		},
+	}).Test(t)
+	require.Equal(t, authoringForeignNS, enqueued.OwnerNamespace)
+
+	enqueued = stubActionAuthorQueue(t, true)
+	(&tests.ApiScenario{
+		Name:           "others pool used up",
+		Method:         http.MethodPost,
+		URL:            "/api/action-author/sessions",
+		Body:           strings.NewReader(body),
+		Headers:        map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus: http.StatusTooManyRequests,
+		ExpectedContent: []string{
+			`"quota_exceeded"`,
+			"this runner's daily action author allowance for other organizations is used (500 tokens); it resets at 00:00 UTC",
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			shareAdminRunner(t, app)
+			setAuthoringLimits(t, app, 0, 500)
+			spendAuthoringTokens(t, app, actionauthor.PoolOthers, 500)
+			return app
 		},
 	}).Test(t)
 	require.Empty(t, enqueued.TicketID)
@@ -207,7 +303,7 @@ func TestActionAuthorStartReleasesQuotaWhenEnqueueFails(t *testing.T) {
 			ExpectedContent: []string{`"error"`},
 			TestAppFactory:  setupActionAuthorApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-				require.Equal(t, 0, authoringSessionsToday(t, app), name)
+				require.Equal(t, 0, authoringSessionsToday(t, app, actionauthor.PoolOwn), name)
 			},
 		}).Test(t)
 	}
