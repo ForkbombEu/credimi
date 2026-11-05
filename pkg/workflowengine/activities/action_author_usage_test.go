@@ -46,8 +46,8 @@ func usageSessionLookup(
 		runner.GetString("canonified_name") + "/" + device.GetString("canonified_name")
 	// Each lookup reads the session's history afresh.
 	return func() authorSessionLookup {
-		lookup := validSessionLookup(t)
-		lookup.history = sessionHistory(t, map[string]any{
+		lookup := validSessionLookup(t, app)
+		lookup.history = signedSessionHistory(t, app, map[string]any{
 			"device_id":                 deviceID,
 			"platform":                  session.Platform,
 			"wallet_version_identifier": session.WalletVersionIdentifier,

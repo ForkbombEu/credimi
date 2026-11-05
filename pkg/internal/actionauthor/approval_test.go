@@ -89,3 +89,50 @@ func TestApprovalSignAndVerify(t *testing.T) {
 	_, err = SignApproval(app, approval)
 	require.ErrorContains(t, err, "too short")
 }
+
+func TestSessionSignAndVerify(t *testing.T) {
+	app, _, _ := authoringFixture(t)
+	grant := SessionGrant{
+		SessionWorkflowID:       "ActionAuthorSession-ticket",
+		Namespace:               "org-a",
+		DeviceID:                "org-a/runner/pixel",
+		Platform:                "android",
+		WalletVersionIdentifier: "org-a/wallet/v1",
+		ActorID:                 "user-1",
+		AppID:                   "com.example.wallet",
+	}
+	token, err := SignSession(app, grant)
+	require.NoError(t, err)
+	require.NoError(t, VerifySession(app, token, grant))
+	// Device paths compare normalized.
+	withSlash := grant
+	withSlash.DeviceID = "/" + grant.DeviceID
+	require.NoError(t, VerifySession(app, token, withSlash))
+
+	payload, _, _ := strings.Cut(token, ".")
+	changed := map[string]func(*SessionGrant){
+		"session":   func(g *SessionGrant) { g.SessionWorkflowID = "ActionAuthorSession-other" },
+		"namespace": func(g *SessionGrant) { g.Namespace = "org-b" },
+		"device":    func(g *SessionGrant) { g.DeviceID = "org-a/runner/other" },
+		"platform":  func(g *SessionGrant) { g.Platform = "ios" },
+		"wallet":    func(g *SessionGrant) { g.WalletVersionIdentifier = "org-a/wallet/v2" },
+		"actor":     func(g *SessionGrant) { g.ActorID = "user-2" },
+		"app":       func(g *SessionGrant) { g.AppID = "com.example.other" },
+	}
+	for name, change := range changed {
+		t.Run(name, func(t *testing.T) {
+			want := grant
+			change(&want)
+			err := VerifySession(app, token, want)
+			require.ErrorIs(t, err, ErrForbidden)
+			assert.ErrorContains(t, err, "action author session was not started by Credimi")
+		})
+	}
+	for name, bad := range map[string]string{"unsigned": payload, "empty": ""} {
+		t.Run(name, func(t *testing.T) {
+			err := VerifySession(app, bad, grant)
+			require.ErrorIs(t, err, ErrForbidden)
+			assert.ErrorContains(t, err, "action author session was not started by Credimi")
+		})
+	}
+}

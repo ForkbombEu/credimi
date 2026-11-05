@@ -111,7 +111,7 @@ func TestGenerateActionAuthorParametersChecksTheSentPlan(t *testing.T) {
 	}
 	generate := func(plan actionauthor.Spec) (GenerateActionAuthorParametersOutput, error) {
 		a := NewGenerateActionAuthorParametersActivity(app)
-		a.authorSessionLookup = buildSessionLookup(t, session).lookup()
+		a.authorSessionLookup = buildSessionLookup(t, app, session).lookup()
 		return a.generate(t.Context(), caller, GenerateActionAuthorParametersInput{
 			Scope: ParameterScopeCandidate,
 			Plan:  plan,
@@ -162,7 +162,7 @@ func TestCheckActionAuthorProtocolOutcomeChecksTheSentPlan(t *testing.T) {
 	}
 	check := func(plan actionauthor.Spec) (CheckActionAuthorProtocolOutcomeOutput, error) {
 		a := NewCheckActionAuthorProtocolOutcomeActivity(app)
-		a.authorSessionLookup = buildSessionLookup(t, session).lookup()
+		a.authorSessionLookup = buildSessionLookup(t, app, session).lookup()
 		a.transport = server.Client().Transport
 		return a.check(t.Context(), caller, CheckActionAuthorProtocolOutcomeInput{
 			Parameter: "deeplink",
@@ -230,7 +230,7 @@ func TestSaveAuthoredWalletActionChecksTheSentPlan(t *testing.T) {
 		}
 	}
 	save := func(payload actionauthor.SaveRequest) (actionauthor.Receipt, error) {
-		return buildSessionLookup(t, session).activity(t, app).
+		return buildSessionLookup(t, app, session).activity(t, app).
 			save(t.Context(), caller, payload)
 	}
 	approved := approval(actionauthor.PlanSHA256(normalized))
@@ -272,7 +272,7 @@ func TestListActionAuthorWalletActions(t *testing.T) {
 	recordStartsFrom(t, app, getPID, onboarding)
 	a := NewListActionAuthorWalletActionsActivity(app)
 	list := func(category string) (ListActionAuthorWalletActionsOutput, error) {
-		a.authorSessionLookup = buildSessionLookup(t, session).lookup()
+		a.authorSessionLookup = buildSessionLookup(t, app, session).lookup()
 		return a.list(t.Context(), caller, ListActionAuthorWalletActionsInput{Category: category})
 	}
 
@@ -318,7 +318,7 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 	)
 	check := func(plan actionauthor.Spec) (CheckActionAuthorPlanOutput, error) {
 		a := NewCheckActionAuthorPlanActivity(app)
-		a.authorSessionLookup = buildSessionLookup(t, session).lookup()
+		a.authorSessionLookup = buildSessionLookup(t, app, session).lookup()
 		return a.check(t.Context(), caller, CheckActionAuthorPlanInput{Plan: plan})
 	}
 	problems := func(problems ...string) CheckActionAuthorPlanOutput {
@@ -433,7 +433,7 @@ func TestResolveActionAuthorReference(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	a := NewResolveActionAuthorReferenceActivity(app)
-	a.authorSessionLookup = buildSessionLookup(t, session).lookup()
+	a.authorSessionLookup = buildSessionLookup(t, app, session).lookup()
 	a.transport = server.Client().Transport
 
 	resolution, err := a.resolve(t.Context(), caller, ResolveActionAuthorReferenceInput{

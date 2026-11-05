@@ -112,7 +112,7 @@ func NewGenerateActionAuthorParametersActivity(
 		BaseActivity: workflowengine.BaseActivity{
 			Name: GenerateActionAuthorParametersActivityName,
 		},
-		authorSessionLookup: newAuthorSessionLookup(),
+		authorSessionLookup: newAuthorSessionLookup(app),
 		app:                 app,
 		transport:           actionAuthorTransport(),
 		runStepCI:           runStepCIDeeplink,
@@ -338,7 +338,7 @@ func NewCheckActionAuthorProtocolOutcomeActivity(
 		BaseActivity: workflowengine.BaseActivity{
 			Name: CheckActionAuthorProtocolOutcomeActivityName,
 		},
-		authorSessionLookup: newAuthorSessionLookup(),
+		authorSessionLookup: newAuthorSessionLookup(app),
 		app:                 app,
 		transport:           actionAuthorTransport(),
 		interval:            actionAuthorStatusInterval,

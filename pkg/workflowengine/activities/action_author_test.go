@@ -6,6 +6,7 @@ package activities
 
 import (
 	"errors"
+	"maps"
 	"strings"
 	"testing"
 	"time"
@@ -101,8 +102,40 @@ func sessionHistory(t *testing.T, payload any) *fcafHistoryIterator {
 	}}}
 }
 
-// sessionLookup fakes the caller's namespace with the given executions.
+// signedSessionHistory is the history of the session authorTestSessionID
+// that Credimi started with input, signed for the namespace of the wallet's
+// organization (the first segment of its identifier), as the start handler
+// signs it.
+func signedSessionHistory(
+	t *testing.T,
+	app core.App,
+	input map[string]any,
+) *fcafHistoryIterator {
+	t.Helper()
+	field := func(name string) string {
+		value, _ := input[name].(string)
+		return value
+	}
+	namespace, _, _ := strings.Cut(field("wallet_version_identifier"), "/")
+	grant, err := actionauthor.SignSession(app, actionauthor.SessionGrant{
+		SessionWorkflowID:       authorTestSessionID,
+		Namespace:               namespace,
+		DeviceID:                field("device_id"),
+		Platform:                field("platform"),
+		WalletVersionIdentifier: field("wallet_version_identifier"),
+		ActorID:                 field("actor_id"),
+		AppID:                   field("app_id"),
+	})
+	require.NoError(t, err)
+	signed := maps.Clone(input)
+	signed["grant"] = grant
+	return sessionHistory(t, signed)
+}
+
+// sessionLookup fakes the caller's namespace with the given executions; app
+// checks the session's grant.
 type sessionLookup struct {
+	app        core.App
 	clientErr  error
 	author     *workflowservice.DescribeWorkflowExecutionResponse
 	authorErr  error
@@ -111,18 +144,25 @@ type sessionLookup struct {
 	history    client.HistoryEventIterator
 }
 
-func validSessionLookup(t *testing.T) sessionLookup {
+// validSessionLookup fakes the running, Credimi-signed session of
+// authorTestSession in authorTestNamespace.
+func validSessionLookup(t *testing.T, app core.App) sessionLookup {
+	t.Helper()
 	session := authorTestSession()
-	return sessionLookup{
+	lookup := sessionLookup{
+		app:     app,
 		author:  authorDescription(),
 		session: sessionDescription(),
-		history: sessionHistory(t, map[string]any{
+	}
+	if app != nil {
+		lookup.history = signedSessionHistory(t, app, map[string]any{
 			"device_id":                 "tenant/runner-1/device-1",
 			"platform":                  session.Platform,
 			"wallet_version_identifier": session.WalletVersionIdentifier,
 			"actor_id":                  session.ActorID,
-		}),
+		})
 	}
+	return lookup
 }
 
 // client fakes the caller's namespace client.
@@ -148,7 +188,7 @@ func (l sessionLookup) client() *temporalmocks.Client {
 // lookup resolves callers against the faked namespace.
 func (l sessionLookup) lookup() authorSessionLookup {
 	mockClient := l.client()
-	return authorSessionLookup{temporalClient: func(string) (client.Client, error) {
+	return authorSessionLookup{app: l.app, temporalClient: func(string) (client.Client, error) {
 		if l.clientErr != nil {
 			return nil, l.clientErr
 		}
@@ -165,6 +205,7 @@ func (l sessionLookup) activity(t *testing.T, app core.App) *SaveAuthoredWalletA
 
 func TestSaveAuthoredWalletActionRejectsCallersOutsideARunningSession(t *testing.T) {
 	setFCAFTestEnv(t)
+	app := newCredimiTestApp(t)
 	notFound := serviceerror.NewNotFound("not found")
 	tests := []struct {
 		name      string
@@ -327,10 +368,31 @@ func TestSaveAuthoredWalletActionRejectsCallersOutsideARunningSession(t *testing
 			code:    errorcodes.RecordNotAccessible,
 			message: "save request does not match the session",
 		},
+		{
+			name: "unsigned session",
+			lookup: func(l *sessionLookup) {
+				l.history = sessionHistory(t, map[string]any{
+					"device_id":                 "tenant/runner-1/device-1",
+					"platform":                  actionauthor.PlatformAndroid,
+					"wallet_version_identifier": "tenant/wallet/v1",
+					"actor_id":                  "user-1",
+				})
+			},
+			code:    errorcodes.RecordNotAccessible,
+			message: "action author session was not started by Credimi",
+		},
+		{
+			name: "grant for another session",
+			lookup: func(l *sessionLookup) {
+				l.history = grantForAnotherSession(t, app)
+			},
+			code:    errorcodes.RecordNotAccessible,
+			message: "action author session was not started by Credimi",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			lookup := validSessionLookup(t)
+			lookup := validSessionLookup(t, app)
 			if tc.lookup != nil {
 				tc.lookup(&lookup)
 			}
@@ -343,7 +405,7 @@ func TestSaveAuthoredWalletActionRejectsCallersOutsideARunningSession(t *testing
 				tc.payload(&payload)
 			}
 
-			_, err := lookup.activity(t, nil).save(t.Context(), caller, payload)
+			_, err := lookup.activity(t, app).save(t.Context(), caller, payload)
 
 			requireActivityError(t, err, tc.code, !tc.retryable)
 			require.ErrorContains(t, err, tc.message)
@@ -357,6 +419,30 @@ func (f *failingHistoryIterator) HasNext() bool { return true }
 
 func (f *failingHistoryIterator) Next() (*historypb.HistoryEvent, error) {
 	return nil, f.err
+}
+
+// grantForAnotherSession is the history of authorTestSession's start input
+// carrying Credimi's grant of another session.
+func grantForAnotherSession(t *testing.T, app core.App) *fcafHistoryIterator {
+	t.Helper()
+	session := authorTestSession()
+	input := map[string]any{
+		"device_id":                 "tenant/runner-1/device-1",
+		"platform":                  session.Platform,
+		"wallet_version_identifier": session.WalletVersionIdentifier,
+		"actor_id":                  session.ActorID,
+	}
+	grant, err := actionauthor.SignSession(app, actionauthor.SessionGrant{
+		SessionWorkflowID:       "ActionAuthorSession-other",
+		Namespace:               authorTestNamespace,
+		DeviceID:                "tenant/runner-1/device-1",
+		Platform:                session.Platform,
+		WalletVersionIdentifier: session.WalletVersionIdentifier,
+		ActorID:                 session.ActorID,
+	})
+	require.NoError(t, err)
+	input["grant"] = grant
+	return sessionHistory(t, input)
 }
 
 // authorSaveFixture seeds an Android build of userA's organization and
@@ -411,8 +497,8 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 	code := "appId: eu.wallet\n---\n- launchApp\n- assertVisible: Home\n- takeScreenshot: home\n"
 	// Each attempt reads the session's history afresh.
 	a := func() *SaveAuthoredWalletActionActivity {
-		lookup := validSessionLookup(t)
-		lookup.history = sessionHistory(t, map[string]any{
+		lookup := validSessionLookup(t, app)
+		lookup.history = signedSessionHistory(t, app, map[string]any{
 			"platform":                  session.Platform,
 			"wallet_version_identifier": session.WalletVersionIdentifier,
 			"actor_id":                  session.ActorID,
@@ -519,4 +605,93 @@ func TestSaveAuthoredWalletActionExecuteUsesActivityCaller(t *testing.T) {
 
 	_, err = executeActivity(t, a, "not a request")
 	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, false)
+}
+
+func TestResolveActionAuthorBuildAcceptsOnlyCredimiSignedSessions(t *testing.T) {
+	setFCAFTestEnv(t)
+	app, session, namespace := authorSaveFixture(t)
+	input := map[string]any{
+		"device_id":                 namespace + "/runner-1/device-1",
+		"platform":                  session.Platform,
+		"wallet_version_identifier": session.WalletVersionIdentifier,
+		"actor_id":                  session.ActorID,
+	}
+	sessionCaller := authorCaller{
+		Namespace:    namespace,
+		WorkflowType: ActionAuthorSessionWorkflowName,
+		WorkflowID:   authorTestSessionID,
+		RunID:        authorTestParentRun,
+	}
+	resolver := func(history *fcafHistoryIterator) *ResolveActionAuthorBuildActivity {
+		lookup := validSessionLookup(t, app)
+		lookup.history = history
+		a := NewResolveActionAuthorBuildActivity(app)
+		a.authorSessionLookup = lookup.lookup()
+		return a
+	}
+
+	build, err := resolver(signedSessionHistory(t, app, input)).
+		resolve(t.Context(), sessionCaller, session)
+	require.NoError(t, err)
+	require.Equal(t, session.WalletVersionIdentifier, build.VersionIdentifier)
+
+	for name, tc := range map[string]struct {
+		caller  func(*authorCaller)
+		history *fcafHistoryIterator
+		payload func(*actionauthor.BuildRequest)
+		message string
+	}{
+		"caller of another type": {
+			caller:  func(c *authorCaller) { c.WorkflowType = ActionAuthorWorkflowType },
+			message: "caller is not an action author session",
+		},
+		"caller without session prefix": {
+			caller:  func(c *authorCaller) { c.WorkflowID = "Pipeline-1" },
+			message: "caller is not an action author session",
+		},
+		"caller without namespace": {
+			caller:  func(c *authorCaller) { c.Namespace = "" },
+			message: "caller is not an action author session",
+		},
+		"unsigned session": {
+			history: sessionHistory(t, input),
+			message: "action author session was not started by Credimi",
+		},
+		"payload of another actor": {
+			payload: func(p *actionauthor.BuildRequest) { p.ActorID = "someone-else" },
+			message: "build request does not match the session",
+		},
+		"payload of another platform": {
+			payload: func(p *actionauthor.BuildRequest) { p.Platform = actionauthor.PlatformIOS },
+			message: "build request does not match the session",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			caller := sessionCaller
+			if tc.caller != nil {
+				tc.caller(&caller)
+			}
+			history := tc.history
+			if history == nil {
+				history = signedSessionHistory(t, app, input)
+			}
+			payload := session
+			if tc.payload != nil {
+				tc.payload(&payload)
+			}
+			_, err := resolver(history).resolve(t.Context(), caller, payload)
+			requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+			require.ErrorContains(t, err, tc.message)
+		})
+	}
+
+	// The test environment's caller is not a session workflow.
+	a := NewResolveActionAuthorBuildActivity(app)
+	a.temporalClient = func(string) (client.Client, error) {
+		t.Fatal("a caller that is not a session must not be looked up")
+		return nil, nil
+	}
+	_, err = executeActivity(t, a, session)
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(t, err, "caller is not an action author session")
 }

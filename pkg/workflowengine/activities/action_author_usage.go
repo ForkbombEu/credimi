@@ -33,7 +33,7 @@ type RecordActionAuthorUsageActivity struct {
 func NewRecordActionAuthorUsageActivity(app core.App) *RecordActionAuthorUsageActivity {
 	return &RecordActionAuthorUsageActivity{
 		BaseActivity:        workflowengine.BaseActivity{Name: RecordActionAuthorUsageActivityName},
-		authorSessionLookup: newAuthorSessionLookup(),
+		authorSessionLookup: newAuthorSessionLookup(app),
 		app:                 app,
 	}
 }
@@ -93,7 +93,7 @@ type ReadActionAuthorUsageActivity struct {
 func NewReadActionAuthorUsageActivity(app core.App) *ReadActionAuthorUsageActivity {
 	return &ReadActionAuthorUsageActivity{
 		BaseActivity:        workflowengine.BaseActivity{Name: ReadActionAuthorUsageActivityName},
-		authorSessionLookup: newAuthorSessionLookup(),
+		authorSessionLookup: newAuthorSessionLookup(app),
 		app:                 app,
 	}
 }

@@ -16,6 +16,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
@@ -59,9 +60,12 @@ func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr e
 	}
 	lookupActionAuthorSession = func(
 		_ context.Context,
+		app core.App,
 		_ client.Client,
-		authorWorkflowID, authorRunID string,
+		namespace, authorWorkflowID, authorRunID string,
 	) (activities.ActionAuthorSessionRef, error) {
+		require.NotNil(t, app)
+		require.Equal(t, stub.namespaces[len(stub.namespaces)-1], namespace)
 		require.Equal(t, reviewAuthorWorkflow, authorWorkflowID)
 		require.Empty(t, authorRunID)
 		return activities.ActionAuthorSessionRef{Session: stub.session}, lookupErr

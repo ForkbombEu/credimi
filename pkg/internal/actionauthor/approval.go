@@ -14,11 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/pocketbase/core"
 )
 
 const (
 	approvalKeyLabel     = "credimi/action-author/approval/v1"
+	sessionKeyLabel      = "credimi/action-author/session/v1"
 	approvalMinSecretLen = 32
 	// ApprovalLifetime bounds how long a signed approval can be used by Save.
 	ApprovalLifetime = 30 * time.Minute
@@ -132,4 +134,41 @@ func VerifyApproval(
 		return Approval{}, forbidden("the approval expired")
 	}
 	return approval, nil
+}
+
+// SessionGrant is Credimi's signature of a session it started after its
+// membership, device and allowance checks.
+type SessionGrant struct {
+	SessionWorkflowID       string `json:"session_workflow_id"`
+	Namespace               string `json:"namespace"`
+	DeviceID                string `json:"device_id"`
+	Platform                string `json:"platform"`
+	WalletVersionIdentifier string `json:"wallet_version_identifier"`
+	ActorID                 string `json:"actor_id"`
+	AppID                   string `json:"app_id"`
+}
+
+// SignSession returns the token base64url(json).base64url(hmac) of g.
+func SignSession(app core.App, g SessionGrant) (string, error) {
+	g.DeviceID = canonify.NormalizePath(g.DeviceID)
+	return signToken(app, sessionKeyLabel, g)
+}
+
+// VerifySession accepts only a token Credimi signed for exactly want. It has
+// no expiry: the grant names the ticket's unique session workflow, and every
+// caller also requires that session to be running.
+func VerifySession(app core.App, token string, want SessionGrant) error {
+	var got SessionGrant
+	if err := verifyToken(app, sessionKeyLabel, token, &got); err != nil {
+		if errors.Is(err, errUnsigned) {
+			return fmt.Errorf("%w: action author session was not started by Credimi", ErrForbidden)
+		}
+		return err
+	}
+	got.DeviceID = canonify.NormalizePath(got.DeviceID)
+	want.DeviceID = canonify.NormalizePath(want.DeviceID)
+	if got != want {
+		return fmt.Errorf("%w: action author session was not started by Credimi", ErrForbidden)
+	}
+	return nil
 }

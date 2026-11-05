@@ -24,11 +24,20 @@ import (
 	enumspb "go.temporal.io/api/enums/v1"
 )
 
-// buildSessionLookup fakes a running session that authors on session's build.
-func buildSessionLookup(t *testing.T, session actionauthor.BuildRequest) sessionLookup {
+// buildSessionLookup fakes a running, Credimi-signed session that authors on
+// session's build.
+func buildSessionLookup(
+	t *testing.T,
+	app core.App,
+	session actionauthor.BuildRequest,
+) sessionLookup {
 	t.Helper()
-	lookup := validSessionLookup(t)
-	lookup.history = sessionHistory(t, session)
+	lookup := validSessionLookup(t, app)
+	lookup.history = signedSessionHistory(t, app, map[string]any{
+		"platform":                  session.Platform,
+		"wallet_version_identifier": session.WalletVersionIdentifier,
+		"actor_id":                  session.ActorID,
+	})
 	return lookup
 }
 
@@ -131,7 +140,7 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 		index int,
 	) (GenerateActionAuthorParametersOutput, error) {
 		a := NewGenerateActionAuthorParametersActivity(app)
-		a.authorSessionLookup = buildSessionLookup(t, session).lookup()
+		a.authorSessionLookup = buildSessionLookup(t, app, session).lookup()
 		a.transport = server.Client().Transport
 		a.runStepCI = func(_ context.Context, code string, _ map[string]string) (string, error) {
 			require.Equal(t, "version: \"1.1\"\n", code)
@@ -239,7 +248,7 @@ func TestSourceRedirectPolicy(t *testing.T) {
 
 func TestGenerateActionAuthorParametersRejectsCallersOutsideASession(t *testing.T) {
 	setFCAFTestEnv(t)
-	lookup := validSessionLookup(t)
+	lookup := validSessionLookup(t, nil)
 	lookup.author = describeExecution(
 		ActionAuthorWorkflowType,
 		enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
@@ -262,6 +271,39 @@ func TestGenerateActionAuthorParametersRejectsCallersOutsideASession(t *testing.
 	)
 	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 	require.ErrorContains(t, err, "caller is not an action author session agent")
+}
+
+func TestGenerateActionAuthorParametersRejectsSessionsCredimiDidNotSign(t *testing.T) {
+	setFCAFTestEnv(t)
+	app := newCredimiTestApp(t)
+	session := authorTestSession()
+	for name, history := range map[string]*fcafHistoryIterator{
+		"unsigned": sessionHistory(t, map[string]any{
+			"device_id":                 "tenant/runner-1/device-1",
+			"platform":                  session.Platform,
+			"wallet_version_identifier": session.WalletVersionIdentifier,
+			"actor_id":                  session.ActorID,
+		}),
+		"grant for another session": grantForAnotherSession(t, app),
+	} {
+		t.Run(name, func(t *testing.T) {
+			lookup := validSessionLookup(t, app)
+			lookup.history = history
+			a := NewGenerateActionAuthorParametersActivity(app)
+			a.authorSessionLookup = lookup.lookup()
+
+			_, err := a.generate(
+				t.Context(),
+				authorTestCaller(),
+				GenerateActionAuthorParametersInput{
+					Scope: ParameterScopeCandidate,
+				},
+			)
+
+			requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+			require.ErrorContains(t, err, "action author session was not started by Credimi")
+		})
+	}
 }
 
 func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
@@ -322,7 +364,7 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 	) (CheckActionAuthorProtocolOutcomeOutput, error) {
 		status.Store(current)
 		a := NewCheckActionAuthorProtocolOutcomeActivity(app)
-		a.authorSessionLookup = buildSessionLookup(t, session).lookup()
+		a.authorSessionLookup = buildSessionLookup(t, app, session).lookup()
 		a.transport = server.Client().Transport
 		a.interval = 5 * time.Millisecond
 		a.timeout = 30 * time.Millisecond
@@ -370,7 +412,7 @@ func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 	require.ErrorContains(t, err, "capture session_id is missing")
 
 	a := NewCheckActionAuthorProtocolOutcomeActivity(app)
-	a.authorSessionLookup = buildSessionLookup(t, session).lookup()
+	a.authorSessionLookup = buildSessionLookup(t, app, session).lookup()
 	_, err = a.check(t.Context(), caller, CheckActionAuthorProtocolOutcomeInput{
 		Parameter: "PIN",
 		Plan:      spec(actionauthor.OutcomeSuccess),

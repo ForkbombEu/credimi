@@ -65,7 +65,7 @@ func NewListActionAuthorWalletActionsActivity(app core.App) *ListActionAuthorWal
 		BaseActivity: workflowengine.BaseActivity{
 			Name: ListActionAuthorWalletActionsActivityName,
 		},
-		authorSessionLookup: newAuthorSessionLookup(),
+		authorSessionLookup: newAuthorSessionLookup(app),
 		app:                 app,
 	}
 }
@@ -145,7 +145,7 @@ type CheckActionAuthorPlanActivity struct {
 func NewCheckActionAuthorPlanActivity(app core.App) *CheckActionAuthorPlanActivity {
 	return &CheckActionAuthorPlanActivity{
 		BaseActivity:        workflowengine.BaseActivity{Name: CheckActionAuthorPlanActivityName},
-		authorSessionLookup: newAuthorSessionLookup(),
+		authorSessionLookup: newAuthorSessionLookup(app),
 		app:                 app,
 	}
 }
@@ -254,7 +254,7 @@ func NewResolveActionAuthorReferenceActivity(app core.App) *ResolveActionAuthorR
 		BaseActivity: workflowengine.BaseActivity{
 			Name: ResolveActionAuthorReferenceActivityName,
 		},
-		authorSessionLookup: newAuthorSessionLookup(),
+		authorSessionLookup: newAuthorSessionLookup(app),
 		app:                 app,
 		transport:           actionAuthorTransport(),
 	}

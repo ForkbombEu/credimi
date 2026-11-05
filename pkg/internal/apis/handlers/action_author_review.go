@@ -116,7 +116,14 @@ func actionAuthorCallerSession(
 	if err != nil {
 		return nil, ref, actor, temporalUnavailableError()
 	}
-	ref, err = lookupActionAuthorSession(e.Request.Context(), c, authorWorkflowID, "")
+	ref, err = lookupActionAuthorSession(
+		e.Request.Context(),
+		e.App,
+		c,
+		namespace,
+		authorWorkflowID,
+		"",
+	)
 	if errors.Is(err, actionauthor.ErrForbidden) {
 		return nil, ref, actor, actionAuthorSessionNotFound()
 	}

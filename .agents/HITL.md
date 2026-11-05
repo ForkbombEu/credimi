@@ -761,3 +761,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   1. `GET /api/action-author/chat-ready/<workflow_id>` answers `{ready: history_length > 2, running, execution_status}` (`NOT_FOUND` for a chat not started yet); the page sends the chat queries only when `ready` and `running`.
   2. When the chat is first seen running: device preparation and wallet install run while the ticket is already `running` and can exceed 60 s, which would blame a healthy runner.
   3. The outermost `own_origin_only` middleware turns any `temporalio.service.RPCError` into `503 {"error": "temporal_unavailable", "message"}` with `Retry-After: 2`, framing headers kept, and one `temporal <STATUS> on <path>: <message>` warning.
+
+### 2026-11-05 - Action author session grants until Temporal authenticates callers
+
+- status: open
+- owner: human maintainer
+- context: Temporal is unauthenticated, so anyone who reaches it could start an `Action author session` workflow and skip the start endpoint's membership, device and allowance checks. Credimi now signs each session it starts (`actionauthor.SignSession`, `SessionInput.Grant`) and every Credimi activity the session or its agent calls checks the grant for the running session (`activities.lookupSessionStart`). Temporal authentication is out of scope and needs its own plan.
+- questions and options considered:
+  1. Runners serving a namespace can poll another runner's `<runner_id>-ActionAuthor` or `<runner_id>-TaskQueue` queues in it. Options: Temporal authorization per task queue; or per-runner namespaces.
+  2. A closed session's grant could be replayed by starting the same workflow ID with a reuse policy that allows duplicates. Options: an expiry in the grant; Temporal authorization of workflow starts; or a server-side record of granted tickets.
+- default risk: (1) a runner of the namespace can receive and answer another runner's agent or device tasks. (2) a replayed grant reopens a session on the same device, build and actor without new allowance or membership checks.
+- decisions: none yet; both stay open until Temporal authentication exists.

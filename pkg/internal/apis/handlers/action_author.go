@@ -21,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/authorsession"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/semaphoreclient"
@@ -435,17 +436,30 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if apiErr := requireActionAuthorAgent(e, runner, namespace); apiErr != nil {
 			return apiErr
 		}
-		session, err := sessionInputMap(authorsession.SessionInput{
+		ticketID := uuid.NewString()
+		sessionInput := authorsession.SessionInput{
 			DeviceID:                deviceID,
 			Platform:                platform,
 			WalletVersionIdentifier: selection.Identifier,
 			ActorID:                 actor.ActorID,
 			AppID:                   input.AppID,
+		}
+		sessionInput.Grant, err = actionauthor.SignSession(e.App, actionauthor.SessionGrant{
+			SessionWorkflowID:       activities.ActionAuthorSessionWorkflowIDPrefix + ticketID,
+			Namespace:               namespace,
+			DeviceID:                sessionInput.DeviceID,
+			Platform:                sessionInput.Platform,
+			WalletVersionIdentifier: sessionInput.WalletVersionIdentifier,
+			ActorID:                 sessionInput.ActorID,
+			AppID:                   sessionInput.AppID,
 		})
 		if err != nil {
 			return authoringAPIError(e, err)
 		}
-		ticketID := uuid.NewString()
+		session, err := sessionInputMap(sessionInput)
+		if err != nil {
+			return authoringAPIError(e, err)
+		}
 		c, err := queueTemporalClient(workflowengine.MobileDeviceSemaphoreDefaultNamespace)
 		if err != nil {
 			return temporalUnavailableError()

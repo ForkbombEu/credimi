@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/semaphoreclient"
@@ -425,10 +426,25 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 			ExpectedStatus:  http.StatusAccepted,
 			ExpectedContent: []string{`"ticket_id"`},
 			TestAppFactory:  setupActionAuthorApp,
-			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
 				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 				require.NoError(t, json.Unmarshal(body, &response))
+				// Credimi signs the session it enqueues for the ticket's
+				// session workflow in the caller's namespace.
+				grant, _ := enqueued.ActionAuthor["grant"].(string)
+				user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+				require.NoError(t, err)
+				require.NoError(t, actionauthor.VerifySession(app, grant, actionauthor.SessionGrant{
+					SessionWorkflowID:       "ActionAuthorSession-" + response.TicketID,
+					Namespace:               "usera-s-organization",
+					DeviceID:                deviceID,
+					Platform:                scenario.platform,
+					WalletVersionIdentifier: scenario.version,
+					ActorID:                 user.Id,
+					AppID:                   "eu.wallet",
+				}))
+				delete(enqueued.ActionAuthor, "grant")
 			},
 		}).Test(t)
 

@@ -67,6 +67,10 @@ type SessionInput struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
 	AppID                   string `json:"app_id,omitempty"`
+	// Grant is Credimi's signature of the session (actionauthor.SignSession),
+	// checked by every Credimi activity the session and its agent call. The
+	// workflow never reads it.
+	Grant string `json:"grant"`
 }
 
 // AuthoringBuild is the resolved build the agent authors against. Store
