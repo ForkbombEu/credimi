@@ -151,8 +151,10 @@ func cookieAuthToken(r *http.Request) string {
 	return payload.Token
 }
 
-// callerNamespace returns the organization namespace of the authenticated user.
-func callerNamespace(e *core.RequestEvent) (string, error) {
+// CallerNamespace returns the organization namespace of the authenticated user,
+// read from the request auth or the `pb_auth` cookie. Other embedded UIs
+// (actionauthorui) use it as their caller check.
+func CallerNamespace(e *core.RequestEvent) (string, error) {
 	user := e.Auth
 	if user == nil {
 		token := cookieAuthToken(e.Request)
@@ -194,7 +196,7 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 				nil,
 			)
 		}
-		namespace, err := callerNamespace(e)
+		namespace, err := CallerNamespace(e)
 		if err != nil {
 			return err
 		}
