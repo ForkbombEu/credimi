@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -531,6 +532,28 @@ func TestSessionCanceledWhileAuthorRunsReleasesDevice(t *testing.T) {
 	require.True(t, ok, "%v", h.names())
 	require.Equal(t, map[string]any{"platform": "ios", "template": "UDID-S"}, release.payload)
 	h.requireReleasedAfter(ReleaseDeviceActivityName, "canceled")
+}
+
+func TestSessionAnswersTheLiveViewDevicesQuery(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.childBlocks = true
+	var devices map[string]any
+	var queryErr error
+	h.env.RegisterDelayedCallback(func() {
+		value, err := h.env.QueryWorkflow(pipeline.PipelineMobileDevicesQuery)
+		if err == nil {
+			err = value.Get(&devices)
+		}
+		queryErr = err
+		h.env.CancelWorkflow()
+	}, time.Minute)
+
+	err := h.run(sessionInput(actionauthor.PlatformAndroid))
+
+	var canceled *temporal.CanceledError
+	require.ErrorAs(t, err, &canceled)
+	require.NoError(t, queryErr)
+	require.Contains(t, devices, testDeviceID)
 }
 
 func TestSessionFailsAndReleasesDeviceWhenAgentNeverStarts(t *testing.T) {

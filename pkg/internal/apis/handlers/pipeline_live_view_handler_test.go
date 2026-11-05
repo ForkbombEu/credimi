@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -68,14 +69,26 @@ func stubPipelineLiveViewTemporal(
 	devices map[string]any,
 ) {
 	t.Helper()
+	stubLiveViewTemporalOfType(t, "Dynamic Pipeline Workflow", status, devices)
+}
 
+func stubLiveViewTemporalOfType(
+	t *testing.T,
+	workflowType string,
+	status enums.WorkflowExecutionStatus,
+	devices map[string]any,
+) {
+	t.Helper()
+
+	description := pipelineMobileFlowDescription(t, status, []string{"tenant/runner-1"})
+	description.WorkflowExecutionInfo.Type.Name = workflowType
 	mockClient := temporalmocks.NewClient(t)
 	mockClient.On(
 		"DescribeWorkflowExecution",
 		mock.Anything,
 		"pipeline-1",
 		"run-1",
-	).Return(pipelineMobileFlowDescription(t, status, []string{"tenant/runner-1"}), nil).Once()
+	).Return(description, nil).Once()
 	if status == enums.WORKFLOW_EXECUTION_STATUS_RUNNING {
 		mockClient.On(
 			"QueryWorkflow",
@@ -207,6 +220,39 @@ func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
 		"run_id":            "run-1",
 		"run_identifier":    pipeline.RunIdentifier(namespace, "pipeline-1", "run-1"),
 	}, call.body)
+}
+
+// An action author session prepares its device with its workflow ID as the
+// run identifier, so the runner must look the live view up by it.
+func TestPipelineLiveViewOpensActionAuthorSessionDevice(t *testing.T) {
+	t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
+	app, authRecord, namespace := pipelineLiveViewTestApp(t)
+	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
+	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
+	stubLiveViewTemporalOfType(
+		t,
+		activities.ActionAuthorSessionWorkflowName,
+		enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+		map[string]any{
+			deviceID: map[string]any{"serial": "emulator-5554", "type": "android_emulator"},
+		},
+	)
+
+	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
+		WorkflowID: "pipeline-1",
+		RunID:      "run-1",
+	})
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Len(t, *calls, 1)
+	require.Equal(t, map[string]any{
+		"device_identifier": deviceID,
+		"serial":            "emulator-5554",
+		"namespace":         namespace,
+		"workflow_id":       "pipeline-1",
+		"run_id":            "run-1",
+		"run_identifier":    "pipeline-1",
+	}, (*calls)[0].body)
 }
 
 // A tenant chooses its runner's address, so Credimi must never connect to a

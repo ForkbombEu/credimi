@@ -179,6 +179,16 @@ func (w *Workflow) ExecuteWorkflow(
 			result:    sessionResult(ctx, finalErr),
 		})
 	}()
+	// The live view reads the prepared device with the pipeline's query.
+	if err := workflow.SetQueryHandler(
+		ctx,
+		pipeline.PipelineMobileDevicesQuery,
+		func() (map[string]any, error) {
+			return settedDevices, nil
+		},
+	); err != nil {
+		return result, err
+	}
 
 	session, err := workflowengine.DecodePayload[SessionInput](input.Payload)
 	if err != nil {
