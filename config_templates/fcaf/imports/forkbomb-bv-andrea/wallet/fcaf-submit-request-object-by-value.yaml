@@ -2,6 +2,7 @@ appId: eu.europa.ec.euidi
 name: FCAF submit request object by value
 tags:
   - fcaf
+  - ws_rp
   - request-object
   - by-value
 ---

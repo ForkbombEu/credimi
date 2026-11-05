@@ -40,11 +40,6 @@ type openID4VPTestInputFile struct {
 	Form     workflows.Form  `json:"form"    yaml:"form"`
 	TestName string          `json:"test"    yaml:"test"    validate:"required"`
 }
-type vLEICheckInput struct {
-	CredentialID string `json:"credentialID"`
-	ServerURL    string `json:"serverURL"`
-}
-
 type EudiwInput struct {
 	Nonce string `json:"nonce" yaml:"nonce" validate:"required"`
 	ID    string `json:"id"    yaml:"id"    validate:"required"`
@@ -93,7 +88,6 @@ var workflowRegistry = map[Author]WorkflowStarter{
 	Author(workflows.WebuildSuite):           startWebuildWorkflow,
 	Author(workflows.OpenIDConformanceSuite): startOpenID4VPWalletWorkflow,
 	Author(workflows.EudiwSuite):             startEudiwWorkflow,
-	Author(workflows.VLEISuite):              startvLEIWorkflow,
 }
 
 var (
@@ -120,10 +114,6 @@ var (
 	eudiwWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
 		w := workflows.NewEudiwWorkflow()
 		return w.Start(input)
-	}
-	vleiWorkflowStart = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		w := workflows.NewVLEIValidationWorkflow()
-		return w.Start(namespace, input)
 	}
 	customCheckWorkflowStart = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
 		w := workflows.NewCustomCheckWorkflow()
@@ -354,7 +344,7 @@ func startOpenID4VPWalletWorkflow(i WorkflowStarterParams) (workflowengine.Workf
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"yaml",
-			"YAML data is required for vLEI workflow",
+			"YAML data is required for OID4VP wallet workflow",
 			"missing YAML data",
 		)
 	}
@@ -654,75 +644,6 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 	results.Author = string(i.Author)
 	return results, nil
 }
-func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-	yamlData := i.YAMLData
-	namespace := i.Namespace
-	memo := i.Memo
-
-	if yamlData == "" {
-		return workflowengine.WorkflowResult{}, apierror.New(
-			http.StatusBadRequest,
-			"yaml",
-			"YAML data is required for OID4VP wallet workflow",
-			"missing YAML data",
-		)
-	}
-	var data interface{}
-
-	err := yaml.Unmarshal([]byte(yamlData), &data)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, apierror.New(
-			http.StatusBadRequest,
-			"yaml",
-			"failed to parse YAML input",
-			err.Error(),
-		)
-	}
-
-	dataMap := reduceData(data)
-
-	jsonDataFinal, err := json.Marshal(dataMap)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, apierror.New(
-			http.StatusBadRequest,
-			"json",
-			"failed to convert YAML to JSON",
-			err.Error(),
-		)
-	}
-
-	var parsedData vLEICheckInput
-	if err := json.Unmarshal(jsonDataFinal, &parsedData); err != nil {
-		return workflowengine.WorkflowResult{}, apierror.New(
-			http.StatusBadRequest,
-			"json",
-			"failed to parse JSON input",
-			err.Error(),
-		)
-	}
-	input := workflowengine.WorkflowInput{
-		Config: workflowengine.WithAppConfig(i.App, map[string]any{
-			"server_url": parsedData.ServerURL,
-			"memo":       memo,
-		}),
-		Payload: workflows.VLEIValidationWorkflowPayload{
-			CredentialID: parsedData.CredentialID,
-		},
-	}
-
-	results, err := vleiWorkflowStart(namespace, input)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, apierror.New(
-			http.StatusBadRequest,
-			"workflow",
-			"failed to start workflow",
-			err.Error(),
-		)
-	}
-	results.Author = string(i.Author)
-	return results, nil
-}
-
 func processJSONChecks(
 	app core.App,
 	testData string,

@@ -218,28 +218,6 @@ func orgWorkers(app core.App) []workerConfig {
 			}, activities.CredimiActivities(app)...),
 		},
 		{
-			TaskQueue: workflows.VLEIValidationTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				workflows.NewVLEIValidationWorkflow(),
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewHTTPActivity(),
-				activities.NewOpenIDNetLogsActivity(),
-				activities.NewCESRParsingActivity(),
-				activities.NewCESRValidateActivity(),
-			},
-		},
-		{
-			TaskQueue: workflows.VLEIValidationLocalTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				workflows.NewVLEIValidationLocalWorkflow(),
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewCESRParsingActivity(),
-				activities.NewCESRValidateActivity(),
-			},
-		},
-		{
 			TaskQueue: workflows.FidesCredentialIssuersTaskQueue,
 			Workflows: []workflowengine.Workflow{
 				workflows.NewFidesCredentialIssuersWorkflow(),

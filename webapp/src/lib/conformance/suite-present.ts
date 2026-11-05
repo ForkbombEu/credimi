@@ -11,8 +11,7 @@ const UID_WORD_SPELLINGS: Record<string, string> = {
 	fcaf: 'FCAF',
 	openid: 'OpenID',
 	openid4vci: 'OpenID4VCI',
-	openid4vp: 'OpenID4VP',
-	vlei: 'vLEI'
+	openid4vp: 'OpenID4VP'
 };
 
 /** Humanize a path UID for display when authored metadata is not on the catalog row. */

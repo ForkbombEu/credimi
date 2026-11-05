@@ -20,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/logo"
+	"github.com/forkbombeu/credimi/pkg/internal/observability"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/recordsecrets"
@@ -77,6 +78,7 @@ func bindAppHooks(app core.App) {
 //   - Registers and configures database migration commands with support
 //     for JavaScript-based templates and automatic migration.
 func Setup(app *pocketbase.PocketBase) {
+	observability.Setup(app)
 	bindAppHooks(app)
 	conformancecatalog.Register(app)
 	hooks.TemporalClientSetupHook(app)

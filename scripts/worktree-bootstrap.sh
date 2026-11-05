@@ -74,7 +74,7 @@ fi
 
 git submodule update --init --recursive
 
-if [[ ! -x .bin/stepci-captured-runner || ! -x .bin/et-tu-cesr ]]; then
+if [[ ! -x .bin/stepci-captured-runner ]]; then
 	echo "running make tools"
 	make tools
 fi

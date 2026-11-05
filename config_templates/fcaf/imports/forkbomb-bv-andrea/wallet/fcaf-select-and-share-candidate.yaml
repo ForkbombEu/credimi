@@ -1,0 +1,61 @@
+appId: eu.europa.ec.euidi
+name: FCAF select and share a matching PID
+tags:
+  - fcaf
+  - ws_rp
+---
+- launchApp:
+    stopApp: true
+    clearState: false
+- extendedWaitUntil:
+    visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "1"
+    commands:
+      - inputText: "12345"
+      - tapOn: "6"
+- extendedWaitUntil:
+    visible: "Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+- openLink:
+    link: "${deeplink}"
+    autoVerify: false
+    browser: false
+- tapOn:
+    text: "Just once"
+    optional: true
+- extendedWaitUntil:
+    visible: "Welcome back|Data sharing request"
+    timeout: 100000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
+- extendedWaitUntil:
+    visible: "Data sharing request"
+    timeout: 30000
+# M >= 2 proves several candidates are offered; reading "Option 2 of M"
+# after the tap proves the user could select the second one.
+- assertVisible: "Option 1 of [2-9][0-9]*"
+- takeScreenshot: pid-candidates-offered
+- tapOn:
+    point: "15%,53%"
+- assertVisible: "Option 2 of [2-9][0-9]*"
+- takeScreenshot: pid-candidate-selected
+- tapOn: "Share"
+- extendedWaitUntil:
+    visible: "1"
+    timeout: 30000
+- inputText: "12345"
+- tapOn: "6"
+- extendedWaitUntil:
+    visible: ".*successfully shared.*"
+    timeout: 30000
+- takeScreenshot: pid-candidate-shared

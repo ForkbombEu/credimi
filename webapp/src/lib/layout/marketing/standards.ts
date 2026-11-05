@@ -10,8 +10,7 @@ export const standards: { name: string; scope: string }[] = [
 	{ name: 'WE BUILD / EWC conformance', scope: 'Integrated' },
 	{ name: 'EUDIW verifier tests', scope: 'Integrated' },
 	{ name: 'SD-JWT VC and ISO mDoc PID', scope: 'Credential formats' },
-	{ name: 'DCQL and Digital Credentials API', scope: 'Scenarios' },
-	{ name: 'vLEI', scope: 'Organizational identity' }
+	{ name: 'DCQL and Digital Credentials API', scope: 'Scenarios' }
 ];
 
 /** EUDI FCAF catalog size; update together with the date below. */

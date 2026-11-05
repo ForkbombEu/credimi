@@ -1,0 +1,70 @@
+appId: eu.europa.ec.euidi
+name: FCAF exercise HTTP error redirect response - wallet follows error redirect
+tags:
+  - fcaf
+  - ws_rp
+---
+- launchApp:
+    stopApp: true
+    clearState: false
+    permissions:
+      camera: allow
+      notifications: allow
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - inputText: "12345"
+      - tapOn: "6"
+- waitForAnimationToEnd:
+    timeout: 3000
+- openLink:
+    link: "${deeplink}"
+    autoVerify: false
+    browser: false
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Requested data"
+    commands:
+      - tapOn: "Share"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - inputText: "12345"
+      - tapOn: "6"
+- extendedWaitUntil:
+    visible: "Oups! Something went wrong|Verifier rejected the response"
+    timeout: 30000
+    optional: true
+- takeScreenshot: "http-error-redirect-wallet-error"
+# The X is the error screen's only dismiss control (and the sibling
+# verifier-response-controls flows word the same screen as `Verifier
+# rejected the response`). It is tapped only while the error screen is up,
+# so a Wallet that worded its screen differently is not hit by a blind
+# coordinate tap. If the tap leaves the screen in place, the Android Back
+# gesture (which the Wallet's DC API error screen also accepts) is tried
+# before the browser is awaited.
+- runFlow:
+    when:
+      visible: "Oups! Something went wrong|Verifier rejected the response"
+    commands:
+      - tapOn:
+          point: "8%,9%"
+      - waitForAnimationToEnd:
+          timeout: 3000
+- runFlow:
+    when:
+      visible: "Oups! Something went wrong|Verifier rejected the response"
+    commands:
+      - pressKey: Back
+- extendedWaitUntil:
+    visible: "Presentation complete"
+    timeout: 30000
+    optional: true
+- takeScreenshot: "http-error-redirect-visit"

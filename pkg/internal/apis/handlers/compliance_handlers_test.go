@@ -963,7 +963,7 @@ func TestHandleDeeplink(t *testing.T) {
 		},
 		{
 			name:     "unsupported author",
-			describe: describeWithAuthor(t, workflows.VLEISuite),
+			describe: describeWithAuthor(t, "unsupported-suite"),
 			history: func(t *testing.T) client.HistoryEventIterator {
 				return deeplinkHistoryIterator(t, openIDResult)
 			},

@@ -5,7 +5,7 @@ description: What Credimi is and what you can do with it — domain concepts (wa
 
 # Credimi
 
-Credimi tests, evaluates and debugs credential **issuers**, **verifiers** and **wallets** against the conformance standards of the EUDI / decentralized-identity ecosystem (OpenID4VCI, OpenID4VP, OpenID Federation, EWC/WE BUILD, vLEI, FCAF).
+Credimi tests, evaluates and debugs credential **issuers**, **verifiers** and **wallets** against the conformance standards of the EUDI / decentralized-identity ecosystem (OpenID4VCI, OpenID4VP, OpenID Federation, EWC/WE BUILD, FCAF).
 A public **Hub** provides discovery and manual trying; the logged-in **Conformance & Interop** area runs checks and interop flows; the **Testing Automation** area chains StepCI (service side) and Maestro (wallet UI side) into **pipelines** orchestrated by Temporal and executed on devices through **Credimi runners**.
 
 Canonical product vocabulary is `CONTEXT.md` — use those terms, including its "Avoid" lists, for any user-facing copy.

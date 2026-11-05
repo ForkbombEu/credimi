@@ -76,18 +76,6 @@ var Registry = map[string]TaskFactory{
 		PayloadType: reflect.TypeOf(activities.CheckCredentialsIssuerActivityPayload{}),
 		OutputKind:  workflowengine.OutputMap,
 	},
-	"cesr-parse": {
-		Kind:        TaskActivity,
-		NewFunc:     func(core.App) any { return activities.NewCESRParsingActivity() },
-		PayloadType: reflect.TypeOf(activities.CESRParsingActivityPayload{}),
-		OutputKind:  workflowengine.OutputMap,
-	},
-	"cesr-validate": {
-		Kind:        TaskActivity,
-		NewFunc:     func(core.App) any { return activities.NewCESRValidateActivity() },
-		PayloadType: reflect.TypeOf(activities.CesrValidateActivityPayload{}),
-		OutputKind:  workflowengine.OutputAny,
-	},
 	"appstore-url-validation": {
 		Kind:        TaskActivity,
 		NewFunc:     func(core.App) any { return activities.NewParseWalletURLActivity() },

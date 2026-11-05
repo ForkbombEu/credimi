@@ -2,6 +2,7 @@ appId: com.android.chrome
 name: FCAF invoke the wallet through the Digital Credentials API
 tags:
   - fcaf
+  - ws_rp
   - dc-api
   - present
 ---

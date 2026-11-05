@@ -37,7 +37,6 @@ var Codes = map[string]Code{
 	IsNotCredentialIssuer:          {"CRE223", "The input issuer URL is not a credential issuer"},
 	InvalidJWTFormat:               {"CRE224", "Invalid JWT format"},
 	DecodeFailed:                   {"CRE225", "Failed to decode string"},
-	CESRParsingError:               {"CRE226", "Failed to parse CESR"},
 	PipelineParsingError:           {"CRE227", "Failed to parse pipeline yaml"},
 	PipelineInputError:             {"CRE228", "Failed to resolve pipeline inputs"},
 	PipelineExecutionError:         {"CRE229", "Failed to execute pipeline worflow"},
@@ -93,7 +92,6 @@ const (
 	IsNotCredentialIssuer          = "CRE223"
 	InvalidJWTFormat               = "CRE224"
 	DecodeFailed                   = "CRE225"
-	CESRParsingError               = "CRE226"
 	PipelineParsingError           = "CRE227"
 	PipelineInputError             = "CRE228"
 	PipelineExecutionError         = "CRE229"

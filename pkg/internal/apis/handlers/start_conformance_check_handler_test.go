@@ -573,32 +573,6 @@ func TestStartEudiwWorkflowSuccess(t *testing.T) {
 	require.Equal(t, string(params.Author), result.Author)
 }
 
-func TestStartVLEIWorkflowSuccess(t *testing.T) {
-	origStart := vleiWorkflowStart
-	t.Cleanup(func() {
-		vleiWorkflowStart = origStart
-	})
-	vleiWorkflowStart = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		return workflowengine.WorkflowResult{
-			WorkflowID:    "wf-vlei",
-			WorkflowRunID: "run-vlei",
-		}, nil
-	}
-
-	params := WorkflowStarterParams{
-		App:       newStarterTestApp(t),
-		YAMLData:  "credentialID: cred-1\nserverURL: https://vlei.example.com\n",
-		Namespace: "ns",
-		Memo:      map[string]interface{}{"test": "vlei/test"},
-		Author:    "vlei",
-	}
-
-	result, err := startvLEIWorkflow(params)
-	require.NoError(t, err)
-	require.Equal(t, "wf-vlei", result.WorkflowID)
-	require.Equal(t, string(params.Author), result.Author)
-}
-
 func TestProcessJSONChecksUnsupportedAuthor(t *testing.T) {
 	result, err := processJSONChecks(
 		nil,

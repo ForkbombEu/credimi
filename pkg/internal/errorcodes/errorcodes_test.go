@@ -36,7 +36,6 @@ var allCodes = []string{
 	IsNotCredentialIssuer,
 	InvalidJWTFormat,
 	DecodeFailed,
-	CESRParsingError,
 	PipelineParsingError,
 	PipelineInputError,
 	PipelineExecutionError,
