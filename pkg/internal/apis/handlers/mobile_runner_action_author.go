@@ -5,9 +5,12 @@
 package handlers
 
 import (
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -49,6 +52,34 @@ func runnerSettingsPrincipal(e *core.RequestEvent) string {
 		return ""
 	}
 	return e.Auth.Collection().Name + ":" + e.Auth.Id
+}
+
+// mayTakeRunnerSettings reports whether principal may become the identity
+// whose action author settings runner accepts: when the runner has none yet
+// or already names principal, or when the caller is a superuser or an owner
+// of the runner's organization. Another member re-registering the runner
+// keeps the runner's own identity and settings.
+func mayTakeRunnerSettings(e *core.RequestEvent, runner *core.Record, principal string) bool {
+	recorded := runner.GetString("agent_settings_from")
+	if recorded == "" || recorded == principal || isSuperuserAuth(e.Auth) {
+		return true
+	}
+	_, err := e.App.FindFirstRecordByFilter(
+		"orgAuthorizations",
+		"user = {:user} && organization = {:org} && role.name = 'owner'",
+		dbx.Params{"user": e.Auth.Id, "org": runner.GetString("owner")},
+	)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			e.App.Logger().Warn(
+				"failed to check runner organization ownership",
+				"runner", runner.Id,
+				"error", err,
+			)
+		}
+		return false
+	}
+	return true
 }
 
 // trustedActionAuthorSettings returns settings only when the caller is the

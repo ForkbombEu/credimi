@@ -712,7 +712,10 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		if input.Published != nil {
 			record.Set("published", *input.Published)
 		}
-		if principal := runnerSettingsPrincipal(e); principal != "" {
+		// Another member re-registering the runner keeps its identity, so
+		// the runner's own heartbeats still set its limits.
+		if principal := runnerSettingsPrincipal(e); principal != "" &&
+			mayTakeRunnerSettings(e, record, principal) {
 			record.Set("agent_settings_from", principal)
 			setRunnerActionAuthorSettings(record, input.ActionAuthor)
 		}

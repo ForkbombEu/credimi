@@ -58,9 +58,11 @@ func registerAgentRunner(
 		auth,
 		"/api/mobile-runner",
 		UpsertMobileRunnerRequest{
+			RunnerID:     agentRunnerID,
 			Name:         "Agent runner",
 			IP:           "https://runner.example",
 			Type:         "android_emulator",
+			Organization: "usera-s-organization",
 			ActionAuthor: settings,
 		},
 	)
@@ -126,6 +128,26 @@ func agentRunnerRecord(t *testing.T, app core.App) *core.Record {
 	record, err := canonify.Resolve(app, agentRunnerID)
 	require.NoError(t, err)
 	return record
+}
+
+// joinAgentRunnerOrganization makes userB a member of userA's organization
+// only, with the given orgRoles name, and returns userB.
+func joinAgentRunnerOrganization(t *testing.T, app core.App, role string) *core.Record {
+	t.Helper()
+	userA, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	member, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, userA.Id)
+	require.NoError(t, err)
+	roleRecord, err := app.FindFirstRecordByData("orgRoles", "name", role)
+	require.NoError(t, err)
+	authorization, err := app.FindFirstRecordByData("orgAuthorizations", "user", member.Id)
+	require.NoError(t, err)
+	authorization.Set("organization", orgID)
+	authorization.Set("role", roleRecord.Id)
+	require.NoError(t, app.Save(authorization))
+	return member
 }
 
 func TestHeartbeatStoresActionAuthorSettingsAndReportsUsage(t *testing.T) {
@@ -263,6 +285,83 @@ func TestUpsertMobileRunnerStoresActionAuthorSettings(t *testing.T) {
 	require.Equal(t, "gpt-5", runner.GetString("agent_model"))
 }
 
+func TestUpsertMobileRunnerKeepsSettingsIdentityFromOtherMembers(t *testing.T) {
+	registered := &RunnerActionAuthorSettings{OwnDailyTokens: 100, Model: "gpt-5"}
+	claimed := &RunnerActionAuthorSettings{OthersDailyTokens: 999, Model: "claimed"}
+	now := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		name  string
+		auth  func(t *testing.T, app core.App) *core.Record
+		takes bool
+	}{
+		{
+			name: "a member who is not an owner",
+			auth: func(t *testing.T, app core.App) *core.Record {
+				return joinAgentRunnerOrganization(t, app, "member")
+			},
+		},
+		{
+			name: "an owner",
+			auth: func(t *testing.T, app core.App) *core.Record {
+				return joinAgentRunnerOrganization(t, app, "owner")
+			},
+			takes: true,
+		},
+		{
+			name: "a superuser",
+			auth: func(t *testing.T, app core.App) *core.Record {
+				superuser, err := app.FindAuthRecordByEmail(
+					core.CollectionNameSuperusers,
+					"admin@example.org",
+				)
+				require.NoError(t, err)
+				return superuser
+			},
+			takes: true,
+		},
+		{
+			name: "the registering user",
+			auth: func(t *testing.T, app core.App) *core.Record {
+				user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+				require.NoError(t, err)
+				return user
+			},
+			takes: true,
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			app := setupMobileRunnerApp(t)
+			defer app.Cleanup()
+			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
+			registerAgentRunner(t, app, user, true, registered)
+			auth := c.auth(t, app)
+
+			registerAgentRunner(t, app, auth, true, claimed)
+			runner := agentRunnerRecord(t, app)
+			if !c.takes {
+				require.Equal(t, "users:"+user.Id, runner.GetString("agent_settings_from"))
+				require.Equal(t, 100, runner.GetInt("agent_own_daily_tokens"))
+				require.Zero(t, runner.GetInt("agent_others_daily_tokens"))
+				require.Equal(t, "gpt-5", runner.GetString("agent_model"))
+
+				// The runner's own heartbeats still set its limits.
+				heartbeatAgentRunner(t, app, now, &RunnerActionAuthorSettings{OwnDailyTokens: 7})
+				require.Equal(t, 7, agentRunnerRecord(t, app).GetInt("agent_own_daily_tokens"))
+				return
+			}
+			require.Equal(
+				t,
+				auth.Collection().Name+":"+auth.Id,
+				runner.GetString("agent_settings_from"),
+			)
+			require.Zero(t, runner.GetInt("agent_own_daily_tokens"))
+			require.Equal(t, 999, runner.GetInt("agent_others_daily_tokens"))
+			require.Equal(t, "claimed", runner.GetString("agent_model"))
+		})
+	}
+}
+
 func TestUpsertMobileRunnerRejectsNegativeActionAuthorLimits(t *testing.T) {
 	token := authoringToken(t, "userA")
 	(&tests.ApiScenario{
@@ -290,18 +389,7 @@ func TestHeartbeatIgnoresActionAuthorSettingsOfAnotherIdentity(t *testing.T) {
 		Model:             "gpt-5",
 	})
 
-	// userB becomes a member of userA's organization only.
-	member, err := app.FindAuthRecordByEmail("users", "userB@example.org")
-	require.NoError(t, err)
-	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
-	require.NoError(t, err)
-	memberRole, err := app.FindFirstRecordByData("orgRoles", "name", "member")
-	require.NoError(t, err)
-	authorization, err := app.FindFirstRecordByData("orgAuthorizations", "user", member.Id)
-	require.NoError(t, err)
-	authorization.Set("organization", orgID)
-	authorization.Set("role", memberRole.Id)
-	require.NoError(t, app.Save(authorization))
+	member := joinAgentRunnerOrganization(t, app, "member")
 
 	forged := &RunnerActionAuthorSettings{
 		OwnDailyTokens:    0,
