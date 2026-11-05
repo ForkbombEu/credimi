@@ -178,6 +178,22 @@ OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=staging
 - Calls to mobile runners carry `traceparent`. Outbound calls to other systems (issuers, verifiers under test) are
   not traced, so Credimi adds no headers to them.
 
+### Errors and exceptions
+
+SigNoz's **Exceptions** view lists span events named `exception`, grouped by type and message, each linked to its
+trace:
+
+- **Go API**: server errors (5xx) and panics, with the Go stack trace for panics. Client errors (4xx) are expected and
+  are only the span's status code.
+- **Webapp server rendering** (`credimi-webapp`): unexpected errors and 5xx in `handle`, `load` and actions, recorded by
+  SvelteKit's tracing. The SDK is registered in `webapp/src/instrumentation.server.ts` and uses the same `OTEL_*`
+  variables as the Go server.
+- **Browser** (`credimi-browser`, opt in with `PUBLIC_OTEL_BROWSER_ENABLED=true`): errors reaching SvelteKit's
+  `handleError`, uncaught errors and unhandled promise rejections, with page path and user ID. Same-origin `fetch`
+  calls are spans whose children are the backend's spans, so a click and the API work it caused are one trace.
+  Browsers send OTLP/JSON to `/api/otlp/v1/traces`; Credimi forwards it with the collector credentials, so browsers
+  never see them. Stacks are minified.
+
 ### Following one run across components
 
 One pipeline run is one trace when Credimi and the runner export to the same collector:
