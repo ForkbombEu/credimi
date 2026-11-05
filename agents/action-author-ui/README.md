@@ -6,113 +6,76 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Action author chat UI
 
-A local [Temporal Agent Harness](https://pypi.org/project/temporal-agent-harness/) chat UI for
-action author sessions. Credimi starts each session on a device of a runner of your organization,
-or of another organization's published runner that offers the agent; the agent itself runs on
-that runner (`credimi-runner/agent`). This UI only shows the chat, the
-review of the accepted YAML, and the **Accept** / **Refuse** card.
+The [Temporal Agent Harness](https://pypi.org/project/temporal-agent-harness/) chat UI that
+Credimi embeds in its action author session pages (`/my/action-author/<session id>`). Credimi
+starts each session from a wallet card on `/my/wallets`, on a device of a runner of your
+organization or of another organization's published runner that offers the agent; the agent
+itself runs on that runner (`credimi-runner/agent`). This service shows only the harness chat,
+the session flow, the timeline and the other harness panes. The session page itself shows the
+save review, the idle warning and the Android live view.
 
 ## Run
 
+Docker Compose runs the service as `action_author_ui` (built from this directory, listening on
+port 8080, no published port in production). Credimi reaches it at `ADDRESS_ACTION_AUTHOR_UI`
+(default `http://localhost:8282`; the worktree dev stack publishes it on
+`127.0.0.1:${ACTION_AUTHOR_UI_PORT}`, default 8282).
+
 ```sh
-make action-author.ui        # http://localhost:8001 (ACTION_AUTHOR_UI_PORT changes the port)
 make action-author.ui-test   # lint and tests; the Temporal-backed test needs the temporal CLI
 ```
 
-The UI needs only `TEMPORAL_ADDRESS` (the make target uses the dev stack's Temporal) and, at its
-start page, a Credimi URL and a **Credimi user API key** from your dashboard. No namespace or
-task queue is configured.
+Environment:
 
-Open `http://localhost:8001/` or `http://127.0.0.1:8001/` (the UI binds to loopback only). It
-answers only requests whose `Host` is one of those two addresses, refuses state-changing
-requests and API calls from any other `Origin`, and sends no CORS headers, so other web pages
-and DNS-rebinding hosts cannot drive it. The start page exchanges the key for a bearer token
-and lists the devices of your organization's runners and of other organizations' runners that
-offer the agent (each with its owner and model), and your organization's wallet versions with an installer for the selected device's
-platform, plus, on Android devices, the wallets the session installs from the Play Store (listed
-as "installed from the store"; the device needs the Play Store with a signed-in account; the iOS
-simulator has no App Store, so iOS sessions need a version with a simulator `.app`). Starting a
-session queues it for the device; the page shows the queue position and
-the device preparation, offers **Cancel** while waiting, and opens the chat once the session
-runs. The key is never stored; the bearer token is kept in the tab's `sessionStorage`
-(`credimi-action-author`, with the Credimi URL) so the chat's save reviews can call
-Credimi, and it never reaches workflow inputs or the URL.
+- `TEMPORAL_ADDRESS`, and the other `TEMPORAL_*` settings of the Temporal client config. No
+  namespace is configured: each request names its own.
+- `ACTION_AUTHOR_UI_PORT`: the listening port (default 8080).
 
-Credimi derives the actor and organization from authentication; the browser cannot supply
-either. Direct creation through the harness API is rejected, and **New session** in the harness
-returns to the start page. Keep the UI on loopback: it is not a hosted multi-user
-authentication layer.
+## Credimi's proxy
 
-No page can be framed. Every HTML page but the start page (which has its own policy) sends a
-`Content-Security-Policy` that runs only scripts of the UI's own origin: the harness chat page
-has no inline script, and the scripts the UI adds to it (`/action-new-session.js`,
-`/action-save-review.js`) are files. Styles may be inline; requests may go to the UI and, for
-the save reviews, to Credimi over HTTP(S).
+Browsers never reach the service directly. The session page frames
+`/action-author-ui/<session id>/?s=<chat id>&temporal-ui=…` on Credimi, and Credimi's proxy
+(`pkg/internal/actionauthorui`) is the security boundary: it authenticates the user from the
+browser session, checks that the caller's organization recorded the session, allows only the
+harness routes of that session's chat (`<session id>-author`), refuses cross-site state changes,
+strips the Credimi credentials, and forwards the request without the
+`/action-author-ui/<session id>` prefix with two headers:
 
-## Action plan
+- `X-Credimi-Namespace`: the caller's organization namespace;
+- `X-Credimi-Action-Author-Chat`: the chat workflow ID.
 
-The start page asks only for the device and the wallet version. Describe the action in the
-chat: its category, success or rejection, input values (PIN) and references (a Credimi URL or
-identifier, or a deeplink). The agent sets the **plan** itself: the slot, the outcome, the
-prerequisites (saved actions of the wallet) and the parameter sources, and asks only when
-something is unclear. Credimi checks the plan on every call that uses it, with no card; the
-save review shows it. A session can save several actions in a row, each with its own plan. Each
-runner sets its own daily token limits, one for its organization and one for every other; a
-used-up limit answers `429` with Credimi's message. Values are stored in Temporal history: use test data only.
+The service answers `400 missing_scope` to any request without both headers (or with a value
+that is not an organization name or a chat ID). It keeps one harness app, with its own Temporal
+client, per namespace, created on first use; a failed connection answers `503
+temporal_unavailable` and is retried on the next request.
 
-## Save review
+## Routes
 
-The **Accept** / **Refuse** card shows the accepted YAML (`tool_input.code`) and the full plan
-the agent sent (`tool_input.plan`) as indented JSON, text only and uncut (JSON escapes line
-breaks, so no field can add a line), and enables **Accept** only when the YAML's SHA-256 matches
-the review's `candidate_sha256`; otherwise it says `The reviewed YAML does not match its hash.
-Refuse this candidate.` and leaves only **Refuse**. A review without a plan shows `No plan:
-refuse this candidate.` and also leaves only **Refuse**.
-It sends the decision to Credimi, not to the workflow:
-`POST /api/action-author/reviews` with the bound namespace, the chat's workflow ID, the
-review's `tool_id`, `candidate_sha256` and `plan`, and the stored bearer token. Credimi
-checks that you started the session, checks the plan again, signs the approval of the YAML and
-the plan that the save activity verifies, and settles the review. Without a stored token, or
-after a `401`, the card asks for a Credimi user API key (and the Credimi URL when unknown) and
-retries; a `409` means the card is no longer pending and it reloads. The UI answers every
-`/api/callback-result` request with `403 review_through_credimi`, so the harness route cannot
-settle a review without Credimi.
+The harness routes run unchanged, on the request's namespace, except:
 
-## Idle close
+- `GET /` serves the packaged chat page with `./action-embed.css` (relative, since the page sits
+  under Credimi's sub-path), which hides the harness **New session** button, its sessions
+  drawer and its `confirm_wallet_action_save` callback card: Credimi starts and lists sessions
+  and shows the save review on its session page.
+- `GET /api/agents` lists the agent on the chat's own task queue (`<runner_id>-ActionAuthor`)
+  with whether a worker polls it.
+- `GET /api/sessions` lists only the scoped chat: running, closed, or none before it starts.
+- `GET /api/attach` and `POST /api/chat` replay a closed chat's events through the runner
+  agent's `authoring_events` query, since the upstream stream reader needs a running workflow.
+- `POST /api/sessions` answers `403 authenticated_start_required` and every
+  `/api/callback-result` request `403 review_through_credimi`: Credimi signs save approvals
+  through `POST /api/action-author/reviews`, so the harness route cannot settle a review.
 
-The agent closes a session after 5 minutes without activity (15 while a save review card is
-open) and Credimi frees the device. The chat page asks `GET /api/action-author/idle/<chat>`
-every 10 s, which answers the agent's `idle_state` query (`closes_at`, empty while a model call
-or tool runs, and for a closed, missing or unanswering chat); in the last minute it shows `No
-activity: this session closes in N s to free the device. Send a message to keep it open.` at
-the top of the page.
+The service never starts agent workflows: Credimi starts each chat on
+`<runner_id>-ActionAuthor`. Temporal service errors (for example `RESOURCE_EXHAUSTED`) answer
+`503 temporal_unavailable` with `Retry-After: 2` and one warning log line.
 
-## Namespace binding
+Every response sends `X-Frame-Options: SAMEORIGIN`, and HTML pages a `Content-Security-Policy`
+with `frame-ancestors 'self'` that runs only scripts of the page's own origin (the packaged chat
+page has no inline script): only Credimi's pages can frame the UI.
 
-Sessions run in the Temporal namespace of the device's organization. The start page binds the
-UI to it through `POST /api/action-author/namespace`: with the session's `workflow_namespace`
-when a session starts, and with the selected device's `namespace` (from
-`GET /api/action-author/devices`) on **Existing sessions**. A binding connects to that
-namespace, runs the harness session-manager worker in this process, and ensures the
-`action-author-session-manager` workflow there.
+## Large payloads
 
-The UI holds one binding at a time (one user, one organization): starting a session on a
-device of another organization switches it, and the previous organization's sessions leave the
-list until it is bound again. Until the first binding, API calls answer `409
-namespace_not_selected` and chat links redirect to the start page. The UI never starts agent
-workflows: Credimi starts each chat on `<runner_id>-ActionAuthor`, so the registry's task queue
-is a placeholder.
-
-## Runner agent
-
-A device is selectable only when Credimi reports it `is_online` and `agent_available` (its
-runner's action author polled `<runner_id>-ActionAuthor` in the last two minutes); others are
-labelled `· offline` or `· agent not enabled`, and a start Credimi refuses with `503
-agent_unavailable` shows Credimi's message. Once the session runs, the page asks
-`GET /api/action-author/chat-ready/<workflow_id>` (`{ready, running, execution_status}`;
-`ready` once the chat's history holds more than its start and first scheduled task) and sends
-the chat's status and interface queries only when it is ready, since Temporal buffers queries
-to a workflow no worker has run. If the started chat is not ready within 60 s, the page says
-the runner's action author is not answering and keeps **Cancel** available while it polls on.
-Temporal service errors (for example `RESOURCE_EXHAUSTED`) answer `503 temporal_unavailable`
-with `Retry-After: 2` and one warning log line.
+The service reads Temporal payloads with the default harness converter and no offload storage:
+it does not run on the runner host, so it cannot read payloads the runner agent offloads to its
+private directory. Stream events stay below the offload threshold.

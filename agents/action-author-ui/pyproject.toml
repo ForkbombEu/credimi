@@ -5,7 +5,7 @@
 [project]
 name = "credimi-action-author-ui"
 version = "0.1.0"
-description = "Local Temporal Agent Harness chat UI for Credimi action author sessions"
+description = "Temporal Agent Harness chat UI served to Credimi action author session pages"
 requires-python = ">=3.12"
 license = "AGPL-3.0-or-later"
 dependencies = [

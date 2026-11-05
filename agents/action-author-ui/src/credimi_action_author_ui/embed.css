@@ -1,0 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Forkbomb BV
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/* Credimi starts and lists sessions and shows the save review on its session page. */
+button.session-new, section.session-manager, [aria-label="Response: confirm_wallet_action_save"] { display: none !important; }

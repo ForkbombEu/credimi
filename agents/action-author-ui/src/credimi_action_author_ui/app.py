@@ -2,164 +2,111 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Serve the harness chat UI for Credimi action author sessions.
+"""Serve the harness chat UI embedded in Credimi action author session pages.
 
-Environment: TEMPORAL_ADDRESS (through the Temporal client config), ACTION_AUTHOR_UI_PORT
-(default 8001), ACTION_AUTHOR_PAYLOAD_DIR (the runner agent's offloaded payload directory, when
-the UI runs on the runner host). The namespace is not configured: the start page binds the UI to the
-organization namespace of the device the user picks (POST /api/action-author/namespace), and
-the UI runs that namespace's session-manager worker in process. It never starts agent
-workflows: Credimi starts each chat on `<runner_id>-ActionAuthor`.
+An internal service: only Credimi reaches it, through the session-scoped proxy at
+``/action-author-ui/<session id>`` (pkg/internal/actionauthorui). The proxy authenticates the
+user, allows only the routes of that session's chat and names the scope of every request in two
+headers: ``X-Credimi-Namespace`` (the caller's organization namespace) and
+``X-Credimi-Action-Author-Chat`` (the chat workflow ID). A request without both is refused.
 
-The UI listens on loopback and answers its own origin only: the Host header must name the
-loopback port (no DNS rebinding), state-changing requests and cross-origin API reads must come
-from the UI's own origin, and the upstream wildcard CORS middleware is removed.
+The service keeps one harness app, with its own Temporal client, per namespace. It never starts
+agent workflows: Credimi starts each chat on ``<runner_id>-ActionAuthor``.
+
+Environment: TEMPORAL_ADDRESS and the other TEMPORAL_* settings read by the Temporal client
+config (the namespace comes from each request), ACTION_AUTHOR_UI_PORT (default 8080).
 """
 
 import asyncio
 import base64
-import contextlib
 import json
 import logging
 import os
 import re
 from collections.abc import Awaitable, Callable
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import asdict
 from pathlib import Path
 
 import uvicorn
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import (
-    FileResponse,
-    HTMLResponse,
-    JSONResponse,
-    RedirectResponse,
-    StreamingResponse,
-)
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 from temporal_agent_harness.harness.agent_protocol import AgentEvent
 from temporal_agent_harness.plugin import AgentHarnessPlugin
-from temporal_agent_harness.utils.large_payload import local_payload_storage
 from temporal_agent_harness.web import create_agent_harness_app
-from temporal_agent_harness.web.agent_starts import agent_starts
 from temporal_agent_harness.web.app import (
-    _ensure_session_manager_workflow,
+    _sessions_with_execution_state,
     _sse_headers,
     _yield_item,
 )
-from temporal_agent_harness.web.session_manager import (
-    SESSION_MANAGER_TASK_QUEUE,
-    AgentDescriptor,
-    AgentRegistry,
-)
-from temporal_agent_harness.web.session_manager_worker import create_session_manager_worker
+from temporal_agent_harness.web.session_manager import AgentDescriptor, AgentRegistry, Session
+from temporal_agent_harness.web.task_queue_status import describe_task_queue_workers
 from temporalio.api.common.v1 import Payload
-from temporalio.client import Client, WorkflowExecutionStatus, WorkflowQueryFailedError
+from temporalio.client import Client, WorkflowExecutionStatus
 from temporalio.contrib.workflow_streams import WorkflowStreamClient
 from temporalio.envconfig import ClientConfig
 from temporalio.service import RPCError, RPCStatusCode
-from temporalio.worker import Worker
 
 logger = logging.getLogger(__name__)
 
 WORKFLOW_TYPE = "ActionAuthor"
 MANAGER_WORKFLOW_ID = "action-author-session-manager"
-# The registry needs a queue, but this UI never starts agents; Credimi starts each chat on
-# `<runner_id>-ActionAuthor`.
+# The registry needs a queue; the agents route describes the chat's own queue,
+# `<runner_id>-ActionAuthor`, where Credimi starts it.
 AGENT_TASK_QUEUE = "credimi-runner-ActionAuthor"
-NAMESPACE_PATH = "/api/action-author/namespace"
-CHAT_READY_PATH = "/api/action-author/chat-ready"
-# When the chat closes for inactivity: the agent's `idle_state` query.
-IDLE_PATH = "/api/action-author/idle"
 CALLBACK_RESULT_PATH = "/api/callback-result"
+NAMESPACE_HEADER = "x-credimi-namespace"
+CHAT_HEADER = "x-credimi-action-author-chat"
 # Names Credimi's canonify produces for organizations (pkg/internal/canonify): Unicode
 # letters and digits joined by `-`, never leading with `-`; at most 1000 characters.
 NAMESPACE_PATTERN = re.compile(r"[^\W_](?:[^\W_]|-){0,999}")
+# `<session id>-author`, the chat of a session Credimi started.
+CHAT_PATTERN = re.compile(
+    r"ActionAuthorSession-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-author"
+)
 
 AGENT_LABEL = "Credimi action author"
 AGENT_DESCRIPTION = (
-    "Authors actions for the wallet version selected on the start page, on a device of an "
+    "Authors actions for the wallet version selected in Credimi, on a device of an "
     "admin-managed Credimi runner (an Android device or an iOS simulator). Describe the action "
     "in the chat with its input values and references (a Credimi URL or identifier, or a "
     'deeplink), e.g. "Write the onboarding action with PIN 123456". The agent works out the '
     "plan (category, outcome, starting actions and parameter sources) and asks only when "
     "something is unclear. After a clean replay on the runner device, review the YAML and the "
-    "plan and choose Accept or Refuse to save an unpublished Credimi action; then ask for the "
-    "next action in the same chat. Credimi signs the save: the model cannot approve saving."
+    "plan on the Credimi session page and choose Accept or Refuse to save an unpublished Credimi "
+    "action; then ask for the next action in the same chat. Credimi signs the save: the model "
+    "cannot approve saving."
 )
 
-START_PAGE = Path(__file__).with_name("start.html")
-# Scripts the UI adds to the packaged chat page, by path.
-UI_SCRIPTS = {
-    "/action-save-review.js": Path(__file__).with_name("save-review.js"),
-    "/action-new-session.js": Path(__file__).with_name("new-session.js"),
-}
+# Hides what Credimi does itself: starting and listing sessions, and the save review.
+EMBED_CSS = Path(__file__).with_name("embed.css")
+EMBED_CSS_PATH = "/action-embed.css"
+# Relative: the page sits under Credimi's /action-author-ui/<session id>/.
+EMBED_CSS_LINK = f'<link rel="stylesheet" href=".{EMBED_CSS_PATH}">'
 NO_STORE = {"Cache-Control": "no-store"}
-# How long the start page waits before polling again after a Temporal error.
+# How long a client waits before retrying after a Temporal error.
 TEMPORAL_RETRY_AFTER = "2"
-DEFAULT_PORT = 8001
-# Methods that never change state; every other method needs the UI's own Origin.
-SAFE_METHODS = {"GET", "HEAD"}
-START_PAGE_HEADERS = {
-    **NO_STORE,
-    "Content-Security-Policy": (
-        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-        "connect-src http: https:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
-    ),
-}
-# Every response refuses framing; /start's own CSP already says frame-ancestors 'none'.
-NO_FRAMING_CSP = "frame-ancestors 'none'"
-# Every HTML page but /start (which has its own): the packaged chat page and the scripts the UI
-# adds load from the UI itself, the app styles itself inline, and the review card calls Credimi.
-# The packaged index.html has no inline script, so script-src needs no hash.
+DEFAULT_PORT = 8080
+# Only Credimi's own pages may frame the UI.
+FRAME_ANCESTORS_CSP = "frame-ancestors 'self'"
+# Every HTML page: the packaged chat page loads from the UI itself (through the proxy) and styles
+# itself inline. The packaged index.html has no inline script, so script-src needs no hash.
 HTML_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https: http:; "
-    "object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; "
+    f"object-src 'none'; base-uri 'none'; {FRAME_ANCESTORS_CSP}"
 )
-# Keep the packaged UI's new-session buttons on the authenticated setup path, and add the save
-# review card.
-CHAT_PAGE_SCRIPTS = (
-    '<script src="/action-new-session.js"></script>'
-    '<script type="module" src="/action-save-review.js"></script>'
-)
-
-
-def harness_plugin() -> AgentHarnessPlugin:
-    """The harness plugin, reading offloaded large payloads from ``ACTION_AUTHOR_PAYLOAD_DIR``
-    when set: the runner agent's private directory, readable by a UI on the runner host."""
-    directory = os.environ.get("ACTION_AUTHOR_PAYLOAD_DIR", "").strip()
-    if not directory:
-        return AgentHarnessPlugin()
-    return AgentHarnessPlugin(large_payload_offload=local_payload_storage(base_dir=directory))
 
 
 async def connect_namespace(namespace: str) -> Client:
     """Connect to the configured Temporal server, in one organization's namespace."""
     return await Client.connect(
         **{**ClientConfig.load_client_connect_config(), "namespace": namespace},
-        plugins=[harness_plugin()],
+        plugins=[AgentHarnessPlugin()],
     )
-
-
-@dataclass
-class Binding:
-    """The namespace the UI serves, with its client and session-manager worker."""
-
-    namespace: str
-    client: Client
-    worker: Worker
-    worker_task: asyncio.Task
-
-
-async def _stop_worker(worker: Worker, task: asyncio.Task) -> None:
-    if not task.done():
-        await worker.shutdown()
-    with contextlib.suppress(asyncio.CancelledError):
-        try:
-            await task
-        except Exception:
-            logger.exception("session-manager worker failed")
 
 
 async def _body(response) -> bytes:
@@ -213,14 +160,14 @@ def _closed_session(execution) -> dict:
     }
 
 
-def registry() -> AgentRegistry:
-    """The harness registry: the one agent, whose chats Credimi starts."""
+def registry(task_queue: str = AGENT_TASK_QUEUE) -> AgentRegistry:
+    """The harness registry: the one agent, whose chats Credimi starts on ``task_queue``."""
     return AgentRegistry(
         agents=[
             AgentDescriptor(
                 key="credimi-action-author",
                 workflow_type=WORKFLOW_TYPE,
-                task_queue=AGENT_TASK_QUEUE,
+                task_queue=task_queue,
                 label=AGENT_LABEL,
                 description=AGENT_DESCRIPTION,
                 start=None,
@@ -233,34 +180,17 @@ def _port() -> int:
     return int(os.environ.get("ACTION_AUTHOR_UI_PORT", str(DEFAULT_PORT)))
 
 
-def _own_hosts(port: int) -> set[str]:
-    return {f"127.0.0.1:{port}", f"localhost:{port}"}
-
-
-def _foreign_request(method: str, path: str, host: str, origin: str | None, port: int) -> str:
-    """Why a request is refused (empty: it comes from the UI itself)."""
-    host = host.lower()
-    if host not in _own_hosts(port):
-        return "host"
-    if origin is None and method in SAFE_METHODS:
-        return ""
-    if (method not in SAFE_METHODS or path.startswith("/api/")) and origin != f"http://{host}":
-        return "origin"
-    return ""
-
-
-def _refuse_framing(response) -> None:
-    """Keep any page of the UI out of other sites' frames, and give every HTML page without
-    its own policy (all but /start) HTML_CSP."""
-    response.headers["X-Frame-Options"] = "DENY"
-    policy = response.headers.get("Content-Security-Policy")
-    if not policy and response.headers.get("content-type", "").startswith("text/html"):
+def _frame_for_credimi(response) -> None:
+    """Let only Credimi's pages frame the UI, and give every HTML page HTML_CSP."""
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    if response.headers.get("content-type", "").startswith("text/html"):
         response.headers["Content-Security-Policy"] = HTML_CSP
         return
+    policy = response.headers.get("Content-Security-Policy")
     if not policy:
-        response.headers["Content-Security-Policy"] = NO_FRAMING_CSP
+        response.headers["Content-Security-Policy"] = FRAME_ANCESTORS_CSP
     elif "frame-ancestors" not in policy:
-        response.headers["Content-Security-Policy"] = f"{policy}; {NO_FRAMING_CSP}"
+        response.headers["Content-Security-Policy"] = f"{policy}; {FRAME_ANCESTORS_CSP}"
 
 
 def _temporal_error(exc: RPCError, path: str) -> JSONResponse:
@@ -273,151 +203,73 @@ def _temporal_error(exc: RPCError, path: str) -> JSONResponse:
     )
 
 
-async def _chat_ready(temporal, workflow_id: str) -> dict:
-    """Whether a chat workflow ran a workflow task, so its queries can be answered.
-
-    Until a worker completes the first workflow task, the history holds only the start and
-    the scheduled task, and every query waits in Temporal's buffer.
-    """
+async def _describe_chat(temporal, chat: str):
+    """The chat's execution, or None when Temporal does not know it."""
     try:
-        state = await temporal.get_workflow_handle(workflow_id).describe()
+        return await temporal.get_workflow_handle(chat).describe()
     except RPCError as exc:
         if exc.status != RPCStatusCode.NOT_FOUND:
             raise
-        return {"ready": False, "running": False, "execution_status": "NOT_FOUND"}
-    return {
-        "ready": state.history_length > 2,
-        "running": state.status == WorkflowExecutionStatus.RUNNING,
-        "execution_status": state.status.name,
-    }
+        return None
 
 
-async def _idle_state(temporal, workflow_id: str) -> dict:
-    """When a running chat closes for inactivity; "" for a closed, missing or unanswering chat."""
-    handle = temporal.get_workflow_handle(workflow_id)
-    try:
-        state = await handle.describe()
-    except RPCError as exc:
-        if exc.status != RPCStatusCode.NOT_FOUND:
-            raise
-        return {"closes_at": ""}
-    if state.status != WorkflowExecutionStatus.RUNNING:
-        return {"closes_at": ""}
-    try:
-        return await handle.query("idle_state")
-    except WorkflowQueryFailedError:
-        return {"closes_at": ""}
-
-
-def _reset_state(app) -> None:
-    app.state.binding = None
-    app.state.binding_lock = asyncio.Lock()
-    app.state.agent_starts = agent_starts(registry())
-
-
-async def _unbind(app) -> None:
-    binding = app.state.binding
-    if binding is None:
-        return
-    app.state.binding = None
-    await _stop_worker(binding.worker, binding.worker_task)
-
-
-async def bind(app, namespace: str) -> Binding:
-    """Serve `namespace`: connect, run its session-manager worker, ensure its manager."""
-    async with app.state.binding_lock:
-        current = app.state.binding
-        if current is not None and current.namespace == namespace:
-            return current
-        client = await app.state.connect(namespace)
-        worker = create_session_manager_worker(client)
-        task = asyncio.create_task(worker.run())
-        try:
-            manager = await _ensure_session_manager_workflow(
-                client,
-                registry=registry(),
-                manager_workflow_id=MANAGER_WORKFLOW_ID,
-                manager_task_queue=SESSION_MANAGER_TASK_QUEUE,
-            )
-        except BaseException:
-            await _stop_worker(worker, task)
-            raise
-        await _unbind(app)
-        app.state.temporal = client
-        app.state.manager_handle = manager
-        app.state.binding = Binding(namespace, client, worker, task)
-        return app.state.binding
-
-
-async def _namespace_request(app, request) -> JSONResponse:
-    if request.method == "GET":
-        binding = app.state.binding
-        return JSONResponse({"namespace": binding.namespace if binding else None}, headers=NO_STORE)
-    try:
-        body = await request.json()
-    except ValueError:
-        body = None
-    namespace = body.get("namespace") if isinstance(body, dict) else None
-    if not isinstance(namespace, str) or not NAMESPACE_PATTERN.fullmatch(namespace):
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": "invalid_namespace",
-                "message": "namespace must be a Credimi organization name",
-            },
+async def _agents(temporal, chat: str) -> JSONResponse:
+    """The agent of the scoped chat, with whether a worker polls the chat's task queue."""
+    execution = await _describe_chat(temporal, chat)
+    agents = []
+    if execution is not None:
+        task_queue = execution.task_queue
+        workers = await describe_task_queue_workers(temporal, [task_queue])
+        (descriptor,) = registry(task_queue).agents
+        agents.append(
+            {
+                **asdict(descriptor),
+                "init_data": None,
+                "worker": asdict(workers.for_task_queue(task_queue)),
+            }
         )
-    try:
-        binding = await bind(app, namespace)
-    except Exception as exc:
-        logger.exception("bind namespace %s", namespace)
-        return JSONResponse(
-            status_code=503,
-            content={"error": "temporal_unavailable", "message": str(exc)},
-        )
-    return JSONResponse({"namespace": binding.namespace}, headers=NO_STORE)
+    return JSONResponse({"agents": agents}, headers=NO_STORE)
 
 
-def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespace):
-    app = create_agent_harness_app(registry=registry, manager_workflow_id=MANAGER_WORKFLOW_ID)
-    # Upstream allows every origin; the UI only serves its own pages.
-    app.user_middleware = [m for m in app.user_middleware if m.cls is not CORSMiddleware]
-    app.state.connect = connect
-    _reset_state(app)
-
-    # Replaces the upstream startup, which connects to one fixed namespace.
-    @asynccontextmanager
-    async def _lifespan(app):
-        _reset_state(app)
-        try:
-            yield
-        finally:
-            await _unbind(app)
-
-    app.router.lifespan_context = _lifespan
-    port = _port()
-
-    @app.middleware("http")
-    async def authenticated_start_only(request, call_next):
-        method, path = request.method, request.url.path
-        if path == NAMESPACE_PATH and method in {"GET", "POST"}:
-            return await _namespace_request(app, request)
-        if method == "GET" and path in UI_SCRIPTS:
-            return FileResponse(UI_SCRIPTS[path], media_type="text/javascript", headers=NO_STORE)
-        if method == "GET" and path == "/start":
-            return FileResponse(START_PAGE, headers=START_PAGE_HEADERS)
-        if method == "GET" and path == "/" and not request.query_params:
-            return RedirectResponse("/start")
-        if app.state.binding is None:
-            if path.startswith("/api/"):
-                return JSONResponse(
-                    status_code=409,
-                    content={
-                        "error": "namespace_not_selected",
-                        "message": "Open /start and choose a device first.",
-                    },
+async def _sessions(temporal, chat: str) -> JSONResponse:
+    """Only the scoped chat: running with its upstream state, closed, or none yet."""
+    execution = await _describe_chat(temporal, chat)
+    if execution is None:
+        sessions = []
+    elif execution.status == WorkflowExecutionStatus.RUNNING:
+        sessions = await _sessions_with_execution_state(
+            temporal,
+            [
+                Session(
+                    workflow_id=chat,
+                    created_at=execution.start_time.timestamp(),
+                    label=AGENT_LABEL,
+                    agent_workflow_type=WORKFLOW_TYPE,
+                    is_discovered=True,
                 )
-            if method == "GET" and path == "/":
-                return RedirectResponse("/start?unbound=1")
+            ],
+        )
+    else:
+        sessions = [_closed_session(execution)]
+    return JSONResponse(sessions, headers=NO_STORE)
+
+
+def _create_harness(temporal) -> FastAPI:
+    """The upstream harness app on ``temporal``, serving the chat each request is scoped to.
+
+    Its lifespan never runs, so nothing reads its session manager or agent starts: the routes
+    that do are answered here.
+    """
+    harness = create_agent_harness_app(registry=registry, manager_workflow_id=MANAGER_WORKFLOW_ID)
+    # Upstream allows every origin; only Credimi's proxy reaches the service.
+    harness.user_middleware = [m for m in harness.user_middleware if m.cls is not CORSMiddleware]
+    harness.state.temporal = temporal
+
+    async def dispatch(request, call_next):
+        method, path = request.method, request.url.path
+        chat = request.scope["state"]["chat"]
+        if method == "GET" and path == EMBED_CSS_PATH:
+            return FileResponse(EMBED_CSS, media_type="text/css", headers=NO_STORE)
         if method == "GET" and path == "/":
             response = await call_next(request)
             if response.status_code != 200 or not response.headers.get(
@@ -426,35 +278,20 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
                 return response
             html = (await _body(response)).decode()
             return HTMLResponse(
-                html.replace("</head>", CHAT_PAGE_SCRIPTS + "</head>", 1),
-                headers=NO_STORE,
+                html.replace("</head>", EMBED_CSS_LINK + "</head>", 1), headers=NO_STORE
             )
         if method == "POST" and path.rstrip("/") == "/api/sessions":
             return JSONResponse(
                 status_code=403,
                 content={
                     "error": "authenticated_start_required",
-                    "message": "Start sessions through authenticated POST "
-                    "/api/action-author/sessions on Credimi, then select the session here.",
+                    "message": "Start sessions from the wallet page on Credimi.",
                 },
             )
+        if method == "GET" and path == "/api/agents":
+            return await _agents(temporal, chat)
         if method == "GET" and path == "/api/sessions":
-            response = await call_next(request)
-            if response.status_code != 200:
-                return response
-            sessions = json.loads(await _body(response))
-            known = {session["workflow_id"] for session in sessions}
-            # Direct Credimi starts are not in the harness manager's registry.
-            # Upstream discovers only running workflows, so add recent closed runs
-            # (newest first, one entry per workflow ID).
-            async for execution in app.state.temporal.list_workflows(
-                query=f"WorkflowType='{WORKFLOW_TYPE}' AND ExecutionStatus!='Running'",
-                limit=200,
-            ):
-                if execution.id not in known:
-                    known.add(execution.id)
-                    sessions.append(_closed_session(execution))
-            return JSONResponse(sessions, headers=NO_STORE)
+            return await _sessions(temporal, chat)
 
         session_id, offset = None, 0
         if method == "GET" and path == "/api/attach":
@@ -466,7 +303,6 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
             if not session_id or offset < 0:
                 # Upstream validation answers malformed requests.
                 return await call_next(request)
-            temporal = app.state.temporal
             state = await temporal.get_workflow_handle(session_id).describe()
             if state.status != WorkflowExecutionStatus.RUNNING:
                 return StreamingResponse(
@@ -481,9 +317,7 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
                 return await call_next(request)
             if isinstance(body, dict) and isinstance(body.get("session_id"), str):
                 session_id = body["session_id"]
-                offset = await WorkflowStreamClient.create(
-                    app.state.temporal, session_id
-                ).get_offset()
+                offset = await WorkflowStreamClient.create(temporal, session_id).get_offset()
         if not session_id:
             return await call_next(request)
         response = await call_next(request)
@@ -492,41 +326,14 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
         ):
             return response
         return StreamingResponse(
-            _complete_stream(response, app.state.temporal, session_id, offset),
+            _complete_stream(response, temporal, session_id, offset),
             media_type="text/event-stream",
             headers=_sse_headers(),
         )
 
-    @app.get(CHAT_READY_PATH + "/{workflow_id:path}")
-    async def chat_ready(workflow_id: str):
-        return JSONResponse(await _chat_ready(app.state.temporal, workflow_id), headers=NO_STORE)
-
-    # Other Temporal errors answer 503 through own_origin_only, like every route.
-    @app.get(IDLE_PATH + "/{workflow_id:path}")
-    async def idle_state(workflow_id: str):
-        return JSONResponse(await _idle_state(app.state.temporal, workflow_id), headers=NO_STORE)
-
-    # Registered last, so it runs first.
-    @app.middleware("http")
-    async def own_origin_only(request, call_next):
-        refused = _foreign_request(
-            request.method,
-            request.url.path,
-            request.headers.get("host", ""),
-            request.headers.get("origin"),
-            port,
-        )
-        if refused == "host":
-            response = JSONResponse(
-                status_code=421,
-                content={"error": "misdirected_request", "message": "unknown Host"},
-            )
-        elif refused:
-            response = JSONResponse(
-                status_code=403,
-                content={"error": "cross_origin_request", "message": "foreign Origin"},
-            )
-        elif request.url.path.rstrip("/") == CALLBACK_RESULT_PATH:
+    @harness.middleware("http")
+    async def scoped_chat(request, call_next):
+        if request.url.path.rstrip("/") == CALLBACK_RESULT_PATH:
             # Save approvals are signed by Credimi; the harness route would let the UI settle a
             # review without them.
             response = JSONResponse(
@@ -538,18 +345,73 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
             )
         else:
             try:
-                response = await call_next(request)
+                response = await dispatch(request, call_next)
             except RPCError as exc:
                 response = _temporal_error(exc, request.url.path)
-        _refuse_framing(response)
+        _frame_for_credimi(response)
         return response
 
+    return harness
+
+
+async def _harness_for(app, namespace: str) -> FastAPI:
+    """The namespace's harness app, connecting on first use. Entries are never evicted: there is
+    one per organization. A failed connect is not cached."""
+    async with app.state.lock:
+        harness = app.state.harnesses.get(namespace)
+        if harness is None:
+            harness = _create_harness(await app.state.connect(namespace))
+            app.state.harnesses[namespace] = harness
+        return harness
+
+
+class _ScopeMiddleware:
+    """Route each HTTP request to its namespace's harness app, scoped to the named chat."""
+
+    def __init__(self, app: ASGIApp, owner: Starlette) -> None:
+        self.app = app
+        self.owner = owner
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            name.decode("latin-1"): value.decode("latin-1") for name, value in scope["headers"]
+        }
+        namespace = headers.get(NAMESPACE_HEADER, "")
+        chat = headers.get(CHAT_HEADER, "")
+        if not NAMESPACE_PATTERN.fullmatch(namespace) or not CHAT_PATTERN.fullmatch(chat):
+            response = JSONResponse(status_code=400, content={"error": "missing_scope"})
+            await response(scope, receive, send)
+            return
+        try:
+            harness = await _harness_for(self.owner, namespace)
+        except Exception:
+            logger.exception("connect namespace %s", namespace)
+            response = JSONResponse(
+                status_code=503,
+                content={"error": "temporal_unavailable"},
+                headers={**NO_STORE, "Retry-After": TEMPORAL_RETRY_AFTER},
+            )
+            await response(scope, receive, send)
+            return
+        state = {**scope.get("state", {}), "chat": chat}
+        await harness({**scope, "state": state}, receive, send)
+
+
+def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespace) -> Starlette:
+    app = Starlette()
+    app.state.connect = connect
+    app.state.harnesses = {}
+    app.state.lock = asyncio.Lock()
+    app.user_middleware = [Middleware(_ScopeMiddleware, owner=app)]
     return app
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
-    uvicorn.run(create_app(), host="127.0.0.1", port=_port())
+    uvicorn.run(create_app(), host="0.0.0.0", port=_port())
 
 
 if __name__ == "__main__":
