@@ -65,5 +65,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/each}
 	</ul>
 
-	<LiveViewSheet bind:open={sheetOpen} {execution} deviceId={activeDeviceId} />
+	<LiveViewSheet
+		bind:open={sheetOpen}
+		workflowId={execution.execution.workflowId}
+		runId={execution.execution.runId}
+		title={execution.displayName}
+		deviceId={activeDeviceId}
+		deviceName={devices.find((d) => d.device_id === activeDeviceId)?.name}
+	/>
 {/if}

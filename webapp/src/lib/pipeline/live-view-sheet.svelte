@@ -13,25 +13,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import { requestLiveView } from './live-view';
-	import { getExecutionDevices, type ExecutionSummary } from './workflows';
 
 	type Props = {
 		open?: boolean;
-		execution: ExecutionSummary;
+		workflowId: string;
+		runId: string;
+		title: string;
 		deviceId: string | undefined;
+		deviceName?: string;
 	};
 
 	type LiveViewOutcome = { ok: true; url: string } | { ok: false; error: string };
 
-	let { open = $bindable(false), execution, deviceId }: Props = $props();
-
-	const workflowId = $derived(execution.execution.workflowId);
-	const runId = $derived(execution.execution.runId);
-	const deviceName = $derived(
-		deviceId
-			? getExecutionDevices(execution).find((d) => d.device_id === deviceId)?.name
-			: undefined
-	);
+	let {
+		open = $bindable(false),
+		workflowId,
+		runId,
+		title,
+		deviceId,
+		deviceName
+	}: Props = $props();
 
 	/** Fresh promise whenever the sheet opens or the device/run identity changes. */
 	const liveViewRequest = $derived.by((): Promise<LiveViewOutcome> | undefined => {
@@ -66,7 +67,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if liveViewRequest}
 			<div class="space-y-3 text-sm">
 				<div>
-					<p class="font-semibold">{execution.displayName}</p>
+					<p class="font-semibold">{title}</p>
 					{#if deviceName}
 						<p>{m.Device()}: {deviceName}</p>
 					{/if}

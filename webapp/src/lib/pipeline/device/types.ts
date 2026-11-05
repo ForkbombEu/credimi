@@ -14,4 +14,5 @@ export type DeviceRecord = {
 	url?: string;
 	type?: string;
 	queueLength?: number;
+	unavailableReason?: string;
 };

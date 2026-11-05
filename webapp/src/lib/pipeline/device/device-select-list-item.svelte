@@ -28,11 +28,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		presentation === 'run' && Pipeline.Device.Catalog.isReady() ? item.isOnline : undefined
 	);
 	const isOffline = $derived(presentation === 'run' && online === false);
+	const isBlocked = $derived(isOffline || !!item.unavailableReason);
 </script>
 
 <ItemCard
 	title={item.name}
-	onClick={isOffline
+	onClick={isBlocked
 		? undefined
 		: (e) => {
 				e.preventDefault();
@@ -41,9 +42,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class={[
 		'hover:cursor-pointer',
 		presentation !== 'minimal' && isSelected && 'border-blue-500 bg-blue-50!',
-		isOffline && 'bg-slate-100! opacity-50 hover:cursor-not-allowed'
+		isBlocked && 'bg-slate-100! opacity-50 hover:cursor-not-allowed'
 	]}
-	tooltip={isOffline ? 'Offline devices cannot be selected' : undefined}
+	tooltip={isOffline ? 'Offline devices cannot be selected' : item.unavailableReason}
 	hideArrow
 >
 	{#snippet afterContent()}
@@ -72,6 +73,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Badge variant="secondary">
 					{m.private()}
 				</Badge>
+			{/if}
+
+			{#if presentation === 'run' && item.queueLength}
+				<Badge variant="secondary"
+					>{m.Device_queue_length({ count: item.queueLength })}</Badge
+				>
 			{/if}
 
 			{#if presentation === 'run'}
