@@ -193,8 +193,11 @@ type ActionAuthorDevicesResponse struct {
 }
 
 // HandleActionAuthorDevices lists the supported devices of the caller's
-// organization's runners and of other organizations' published runners that
-// offer the agent. Every session runs in the caller's organization namespace.
+// organization's own enabled runners (admin-managed or not) and of runners of
+// other organizations that offer the agent to other organizations
+// (agent_others_daily_tokens above 0) and are shared with the caller's
+// organization as for pipelines (mobilerunner.SharedWith). Every session runs
+// in the caller's organization namespace.
 func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if e.Auth == nil {

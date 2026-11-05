@@ -671,6 +671,12 @@ func TestResolveActionAuthorBuildAcceptsOnlyCredimiSignedSessions(t *testing.T) 
 			payload: func(p *actionauthor.BuildRequest) { p.Platform = actionauthor.PlatformIOS },
 			message: "build request does not match the session",
 		},
+		"payload of another wallet version": {
+			payload: func(p *actionauthor.BuildRequest) {
+				p.WalletVersionIdentifier = namespace + "/wallet/other"
+			},
+			message: "build request does not match the session",
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			caller := sessionCaller
