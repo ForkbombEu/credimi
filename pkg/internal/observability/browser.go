@@ -32,26 +32,29 @@ const BrowserServiceName = "credimi-browser"
 const (
 	maxBrowserBatchBytes = 512 << 10
 	// An exporting tab sends a batch every few seconds at most.
-	browserRate         = rate.Limit(2)
-	browserBurst        = 20
-	maxTrackedBrowserIP = 10000
+	browserRate           = rate.Limit(2)
+	browserBurst          = 20
+	maxTrackedLimiterKeys = 10000
 )
 
+// ipLimiter rate-limits per key (client IP or API key owner).
 type ipLimiter struct {
 	mu       sync.Mutex
 	limiters map[string]*rate.Limiter
+	rate     rate.Limit
+	burst    int
 }
 
-func (l *ipLimiter) allow(ip string) bool {
+func (l *ipLimiter) allow(key string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	limiter, ok := l.limiters[ip]
+	limiter, ok := l.limiters[key]
 	if !ok {
-		if len(l.limiters) >= maxTrackedBrowserIP {
+		if len(l.limiters) >= maxTrackedLimiterKeys {
 			l.limiters = map[string]*rate.Limiter{}
 		}
-		limiter = rate.NewLimiter(browserRate, browserBurst)
-		l.limiters[ip] = limiter
+		limiter = rate.NewLimiter(l.rate, l.burst)
+		l.limiters[key] = limiter
 	}
 	return limiter.Allow()
 }
@@ -115,7 +118,11 @@ func forceServiceName(body []byte, service string) ([]byte, error) {
 func browserTracesHandler() func(*core.RequestEvent) error {
 	target := strings.TrimRight(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"), "/") + "/v1/traces"
 	headers := otlpHeaders(os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"))
-	limiter := &ipLimiter{limiters: map[string]*rate.Limiter{}}
+	limiter := &ipLimiter{
+		limiters: map[string]*rate.Limiter{},
+		rate:     browserRate,
+		burst:    browserBurst,
+	}
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	return func(e *core.RequestEvent) error {
