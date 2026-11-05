@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -171,12 +172,12 @@ func Setup(app core.App) {
 		if err := se.Next(); err != nil {
 			return err
 		}
-		// Browser exports would otherwise add a span every few seconds per tab.
+		// Telemetry exports would otherwise add a span per batch.
 		se.Server.Handler = otelhttp.NewHandler(
 			se.Server.Handler,
 			"credimi",
 			otelhttp.WithFilter(
-				func(r *http.Request) bool { return r.URL.Path != BrowserTracesPath },
+				func(r *http.Request) bool { return !strings.HasPrefix(r.URL.Path, "/api/otlp/") },
 			),
 		)
 		return nil

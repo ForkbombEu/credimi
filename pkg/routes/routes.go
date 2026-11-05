@@ -20,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/logo"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/observability"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
@@ -60,6 +61,15 @@ func bindAppHooks(app core.App) {
 		temporalUI := temporalui.Handler(target)
 		se.Router.Any(temporalui.PathPrefix, temporalUI)
 		se.Router.Any(temporalui.PathPrefix+"/{path...}", temporalUI)
+		if observability.Enabled() {
+			// Runners send telemetry with the Credimi API key they register with:
+			// a user key, or the internal admin key on admin-managed runners.
+			// The IP throttle runs before the (bcrypt) key check.
+			se.Router.POST(observability.RunnerTelemetryPath, observability.RunnerTelemetryHandler()).
+				BindFunc(middlewares.ErrorHandlingMiddleware).
+				BindFunc(observability.RunnerPreAuthLimit()).
+				Bind(middlewares.RequireCachedAPIKey())
+		}
 		return se.Next()
 	})
 }

@@ -208,8 +208,9 @@ One pipeline run is one trace when Credimi and the runner export to the same col
    client spans; the runner's server spans for them join the same trace.
 
 In SigNoz, open the trace of the queue request, or filter logs by `trace_id` (and by `workflow_id` for Temporal SDK
-logs). Runners export only when an operator enables it in the runner dashboard (Observability: endpoint and the
-secret OTLP headers field).
+logs). Runners export by default through Credimi's relay (`/api/otlp/runner/v1/…`), authenticated with their
+Credimi API key; Credimi labels each batch with the key owner and forwards it with its collector credentials. An
+operator can turn export off or point a runner at another collector in its dashboard (Observability).
 
 ## mobile device semaphore Ops (Internal)
 
