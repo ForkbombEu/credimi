@@ -53,10 +53,6 @@ from temporalio.service import RPCError, RPCStatusCode
 logger = logging.getLogger(__name__)
 
 WORKFLOW_TYPE = "ActionAuthor"
-MANAGER_WORKFLOW_ID = "action-author-session-manager"
-# The registry needs a queue; the agents route describes the chat's own queue,
-# `<runner_id>-ActionAuthor`, where Credimi starts it.
-AGENT_TASK_QUEUE = "credimi-runner-ActionAuthor"
 CALLBACK_RESULT_PATH = "/api/callback-result"
 NAMESPACE_HEADER = "x-credimi-namespace"
 CHAT_HEADER = "x-credimi-action-author-chat"
@@ -160,7 +156,7 @@ def _closed_session(execution) -> dict:
     }
 
 
-def registry(task_queue: str = AGENT_TASK_QUEUE) -> AgentRegistry:
+def registry(task_queue: str) -> AgentRegistry:
     """The harness registry: the one agent, whose chats Credimi starts on ``task_queue``."""
     return AgentRegistry(
         agents=[
@@ -260,7 +256,7 @@ def _create_harness(temporal) -> FastAPI:
     Its lifespan never runs, so nothing reads its session manager or agent starts: the routes
     that do are answered here.
     """
-    harness = create_agent_harness_app(registry=registry, manager_workflow_id=MANAGER_WORKFLOW_ID)
+    harness = create_agent_harness_app()
     # Upstream allows every origin; only Credimi's proxy reaches the service.
     harness.user_middleware = [m for m in harness.user_middleware if m.cls is not CORSMiddleware]
     harness.state.temporal = temporal
