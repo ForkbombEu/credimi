@@ -653,8 +653,11 @@ type ActionAuthorSessionResponse struct {
 	// IsOwner reports that the caller started the session: only the owner
 	// writes in its chat, ends it or opens its live view.
 	IsOwner bool `json:"is_owner"`
-	// ChatReady reports that the agent chat runs and has started its first turn.
+	// ChatReady reports that the agent chat has started its first turn; it
+	// stays true once the chat or the session ended.
 	ChatReady bool `json:"chat_ready"`
+	// ChatRunning reports that the agent chat still runs.
+	ChatRunning bool `json:"chat_running"`
 	// ClosesAt is when the idle session closes, empty when unknown or while a turn runs.
 	ClosesAt      string                     `json:"closes_at"`
 	PendingReview *ActionAuthorPendingReview `json:"pending_review"`
@@ -800,20 +803,19 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 				info.Session.Platform == actionauthor.PlatformAndroid &&
 				device.GetBool("live_stream")
 		}
-		if running {
-			readActionAuthorChat(e, c, response.ChatWorkflowID, &response)
-		}
+		readActionAuthorChat(e, c, response.ChatWorkflowID, running, &response)
 		return e.JSON(http.StatusOK, response)
 	}
 }
 
-// readActionAuthorChat fills the chat state of a running session. A chat
-// that has not started its first turn, or a query that fails, leaves the
-// state empty.
+// readActionAuthorChat fills the chat state of a session in any state. The
+// idle state and the pending review are read only while the session and its
+// started chat run. A missing chat, or a query that fails, leaves them empty.
 func readActionAuthorChat(
 	e *core.RequestEvent,
 	c client.Client,
 	chatID string,
+	sessionRunning bool,
 	response *ActionAuthorSessionResponse,
 ) {
 	ctx := e.Request.Context()
@@ -827,9 +829,9 @@ func readActionAuthorChat(
 	}
 	chat := described.GetWorkflowExecutionInfo()
 	// The chat runs its first workflow task once the agent's worker picked it up.
-	response.ChatReady = chat.GetStatus() == enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING &&
-		chat.GetHistoryLength() > 2
-	if !response.ChatReady {
+	response.ChatReady = chat.GetHistoryLength() > 2
+	response.ChatRunning = chat.GetStatus() == enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING
+	if !response.ChatReady || !response.ChatRunning || !sessionRunning {
 		return
 	}
 	var idle struct {

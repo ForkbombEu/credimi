@@ -246,6 +246,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 		LiveView:                true,
 		IsOwner:                 true,
 		ChatReady:               true,
+		ChatRunning:             true,
 		ClosesAt:                "2026-01-02T04:00:00Z",
 		PendingReview: &ActionAuthorPendingReview{
 			ToolID:          "tool-1",
@@ -258,9 +259,74 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 	}, response)
 }
 
+// A completed chat is still shown, of a running session that releases its
+// device as of a completed one, but its idle state and reviews are not read.
+func TestActionAuthorSessionReadsACompletedChat(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		status    enumspb.WorkflowExecutionStatus
+		closeTime string
+	}{
+		{name: "running session", status: enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING},
+		{
+			name:      "completed session",
+			status:    enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			closeTime: "2026-01-02T04:04:05Z",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &temporalmocks.Client{}
+			stubAuthoringSessionTemporal(t, c)
+			c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
+				Return(authoringExecution(
+					activities.ActionAuthorWorkflowType,
+					enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					10,
+				), nil)
+			var response ActionAuthorSessionResponse
+			(&tests.ApiScenario{
+				Name:   tc.name,
+				Method: http.MethodGet,
+				URL:    "/api/action-author/sessions/" + authoringSessionID,
+				Headers: map[string]string{
+					"Authorization": "Bearer " + authoringToken(t, "userA"),
+				},
+				ExpectedStatus:  http.StatusOK,
+				ExpectedContent: []string{`"chat_ready":true`, `"chat_running":false`},
+				TestAppFactory: func(t testing.TB) *tests.TestApp {
+					app := setupActionAuthorApp(t)
+					runningAuthoringSession(app, t, c, tc.status)
+					return app
+				},
+				AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+					decodeBody(t, res, &response)
+				},
+			}).Test(t)
+
+			require.Equal(t, tc.closeTime, response.CloseTime)
+			require.True(t, response.ChatReady)
+			require.False(t, response.ChatRunning)
+			require.False(t, response.LiveView)
+			require.Empty(t, response.ClosesAt)
+			require.Nil(t, response.PendingReview)
+			c.AssertNotCalled(
+				t,
+				"QueryWorkflow",
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+			)
+		})
+	}
+}
+
+// A session that ended before its chat started has no chat to show.
 func TestActionAuthorSessionReadsAClosedSessionWithoutItsChat(t *testing.T) {
 	c := &temporalmocks.Client{}
 	stubAuthoringSessionTemporal(t, c)
+	c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
+		Return(nil, serviceerror.NewNotFound("no chat"))
 	var response ActionAuthorSessionResponse
 	(&tests.ApiScenario{
 		Name:            "completed session",
@@ -281,15 +347,17 @@ func TestActionAuthorSessionReadsAClosedSessionWithoutItsChat(t *testing.T) {
 
 	require.Equal(t, "2026-01-02T04:04:05Z", response.CloseTime)
 	require.False(t, response.ChatReady)
+	require.False(t, response.ChatRunning)
 	require.False(t, response.LiveView)
 	require.Nil(t, response.PendingReview)
-	c.AssertNotCalled(t, "DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "")
 }
 
 // Another member of the organization reads the session but does not own it.
 func TestActionAuthorSessionIsNotOwnedByAnotherMember(t *testing.T) {
 	c := &temporalmocks.Client{}
 	stubAuthoringSessionTemporal(t, c)
+	c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
+		Return(nil, serviceerror.NewNotFound("no chat"))
 	var response ActionAuthorSessionResponse
 	(&tests.ApiScenario{
 		Name:           "another member",

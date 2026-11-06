@@ -1296,6 +1296,8 @@ components:
       properties:
         chat_ready:
           type: boolean
+        chat_running:
+          type: boolean
         chat_workflow_id:
           type: string
         close_time:
