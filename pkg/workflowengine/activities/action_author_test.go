@@ -770,6 +770,63 @@ func TestLookupSessionStartAcceptsOnlyTheRecordedRun(t *testing.T) {
 	require.ErrorContains(t, err, "action author session is not recorded yet")
 }
 
+// The recorded row's actor must be the start input's: a row of another
+// user, or one without an actor, refuses the session.
+func TestLookupSessionStartRequiresTheRecordedActor(t *testing.T) {
+	setFCAFTestEnv(t)
+	session := authorTestSession()
+	input := map[string]any{
+		"device_id":                 "tenant/runner-1/device-1",
+		"platform":                  session.Platform,
+		"wallet_version_identifier": session.WalletVersionIdentifier,
+		"actor_id":                  session.ActorID,
+	}
+	require.Equal(t, "user-1", session.ActorID)
+	for name, recordedActor := range map[string]string{
+		"another user": "user-2",
+		"no actor":     "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			app := newCredimiTestApp(t)
+			// Recorded first: signedSessionHistory records the same run again,
+			// which keeps this row.
+			require.NoError(t, actionauthor.RecordSessionRun(
+				app,
+				authorTestNamespace,
+				authorTestSessionID,
+				authorTestParentRun,
+				actionauthor.SessionDetails{ActorID: recordedActor},
+			))
+			mockClient := &temporalmocks.Client{}
+			mockClient.On(
+				"DescribeWorkflowExecution",
+				mock.Anything,
+				authorTestSessionID,
+				authorTestParentRun,
+			).Return(sessionDescription(), nil)
+			mockClient.On(
+				"GetWorkflowHistory",
+				mock.Anything,
+				authorTestSessionID,
+				authorTestParentRun,
+				false,
+				enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+			).Return(signedSessionHistory(t, app, input))
+
+			_, err := lookupSessionStart(
+				t.Context(),
+				app,
+				mockClient,
+				authorTestNamespace,
+				authorTestSessionID,
+				authorTestParentRun,
+			)
+			require.ErrorIs(t, err, actionauthor.ErrForbidden)
+			require.ErrorContains(t, err, "action author session was not started by Credimi")
+		})
+	}
+}
+
 func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
 	setFCAFTestEnv(t)
 	app := newCredimiTestApp(t)
