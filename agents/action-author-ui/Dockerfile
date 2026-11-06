@@ -15,6 +15,9 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never \
 WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
+# scripts/worktree-compose.sh checks the base image digest pins before Compose pulls
+# them; this in-image check is the last line of defence for deployments that build
+# without that script (Coolify).
 # The harness must equal the runners' agent harness (credimi-runner/agent/uv.lock).
 # An override of the locked version installs from PyPI without hash checks.
 RUN case "$PYTHON_VERSION" in *@sha256:*) ;; *) echo "PYTHON_VERSION must pin a digest (tag@sha256:...)" >&2; exit 1;; esac \
