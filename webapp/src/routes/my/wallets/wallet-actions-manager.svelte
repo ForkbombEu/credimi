@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { yaml } from '@codemirror/lang-yaml';
-	import { BotIcon, UploadIcon } from '@lucide/svelte';
+	import { UploadIcon } from '@lucide/svelte';
 	import { Wallet } from '$lib';
 	import SessionsSheet from '$lib/action-author/sessions-sheet.svelte';
 	import StartSessionButton from '$lib/action-author/start-session-button.svelte';
@@ -15,13 +15,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import { yamlStringSchema } from '$lib/utils/schemas';
 	import { categoryLabels } from '$lib/wallet/actions';
+	import AgentAuthoredIcon from '$lib/wallet/agent-authored-icon.svelte';
 	import { z } from 'zod/v3';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
-	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { CodeEditorField, SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
@@ -98,23 +98,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			{/snippet}
 			{#snippet afterName({ record })}
-				{#if Wallet.Action.isAgentAuthored(record)}
-					<Tooltip>
-						{#snippet child({ props })}
-							<span
-								{...props}
-								class="ml-0.5 inline-flex translate-y-px text-primary"
-								aria-label={m.Agent_authored_action()}
-								data-testid="agent-authored-action"
-							>
-								<BotIcon class="size-4" strokeWidth={1.5} />
-							</span>
-						{/snippet}
-						{#snippet content()}
-							<p>{m.Agent_authored_action()}</p>
-						{/snippet}
-					</Tooltip>
-				{/if}
+				<AgentAuthoredIcon authored={Wallet.Action.isAgentAuthored(record)} />
 			{/snippet}
 		</DashboardCardManagerUI>
 	{/snippet}

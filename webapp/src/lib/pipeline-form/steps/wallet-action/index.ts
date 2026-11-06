@@ -84,6 +84,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 			avatar: getHubItemLogo(wallet),
 			publicUrl,
 			beforeTitle: Wallet.Action.getCategoryLabel(action),
+			agentAuthored: Wallet.Action.isAgentAuthored(action),
 			meta: {
 				[m.Wallet()]: wallet.name,
 				['Device']: getDeviceLabel(device),
