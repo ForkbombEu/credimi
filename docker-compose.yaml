@@ -122,7 +122,12 @@ services:
   # Agent chat UI embedded in Credimi action author session pages. No published port: only
   # Credimi reaches it, through the session-scoped proxy at /action-author-ui (pkg/internal/actionauthorui).
   action_author_ui:
-    build: ./agents/action-author-ui
+    build:
+      context: ./agents/action-author-ui
+      args:
+        - PYTHON_VERSION=${ACTION_AUTHOR_UI_PYTHON_VERSION}
+        - UV_VERSION=${ACTION_AUTHOR_UI_UV_VERSION}
+        - AGENT_HARNESS_VERSION=${AGENT_HARNESS_VERSION}
     depends_on:
       temporal:
         condition: service_healthy
