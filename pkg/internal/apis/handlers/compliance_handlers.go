@@ -77,6 +77,14 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 		if apiErr := requireCallerNamespace(e.App, e.Auth, req.Namespace); apiErr != nil {
 			return apiErr
 		}
+		if isActionAuthorWorkflowID(req.WorkflowID) {
+			return apierror.New(
+				http.StatusNotFound,
+				"workflow",
+				"workflow not found",
+				"workflow not found",
+			)
+		}
 		c, err := complianceTemporalClient(req.Namespace)
 		if err != nil {
 			return temporalUnavailableError()
@@ -626,6 +634,14 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"runId",
 				"runId is required",
 				"missing runId",
+			)
+		}
+		if isActionAuthorWorkflowID(workflowID) {
+			return apierror.New(
+				http.StatusNotFound,
+				"workflow",
+				"workflow not found",
+				"workflow not found",
 			)
 		}
 

@@ -531,6 +531,52 @@ func TestHandleDeeplinkTemporalClientError(t *testing.T) {
 	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 }
 
+// Action author sessions and their chats answer as a missing workflow,
+// before any Temporal call.
+func TestHandleDeeplinkHidesActionAuthorWorkflows(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() { complianceTemporalClient = origClient })
+	complianceTemporalClient = func(string) (client.Client, error) {
+		t.Fatal("an action author workflow must not reach Temporal")
+		return nil, nil
+	}
+
+	for _, workflowID := range []string{"ActionAuthorSession-x", "ActionAuthorSession-x-author"} {
+		req := httptest.NewRequest(
+			http.MethodGet,
+			"/api/compliance/deeplink/"+workflowID+"/run-1",
+			nil,
+		)
+		req.SetPathValue("workflowId", workflowID)
+		req.SetPathValue("runId", "run-1")
+		rec := httptest.NewRecorder()
+
+		err = HandleDeeplink()(&core.RequestEvent{
+			App:  app,
+			Auth: authRecord,
+			Event: router.Event{
+				Request:  req,
+				Response: rec,
+			},
+		})
+		requireHandlerErrorHandled(t, rec, err)
+		require.Equal(t, http.StatusNotFound, rec.Code, workflowID)
+		require.Equal(
+			t,
+			"workflow not found",
+			decodeHandlerErrorResponse(t, rec).Error.Reason,
+			workflowID,
+		)
+	}
+}
+
 func TestHandleSendTemporalSignalMissingParams(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -690,7 +736,7 @@ func TestHandleSendTemporalSignalRefusesUnknownSignals(t *testing.T) {
 	require.NoError(t, err)
 
 	rec := performComplianceSignal(t, app, authRecord, HandleSendTemporalSignalInput{
-		WorkflowID: "ActionAuthorSession-x-author",
+		WorkflowID: "wf-1",
 		Namespace:  "usera-s-organization",
 		Signal:     "close",
 	})
@@ -706,6 +752,39 @@ func TestHandleSendTemporalSignalRefusesUnknownSignals(t *testing.T) {
 		mock.Anything,
 		mock.Anything,
 	)
+}
+
+// Action author sessions and their chats are not signalled here: they
+// answer as a missing workflow, before any Temporal call.
+func TestHandleSendTemporalSignalHidesActionAuthorWorkflows(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() { complianceTemporalClient = origClient })
+	complianceTemporalClient = func(string) (client.Client, error) {
+		t.Fatal("an action author workflow must not reach Temporal")
+		return nil, nil
+	}
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	for _, workflowID := range []string{"ActionAuthorSession-x", "ActionAuthorSession-x-author"} {
+		rec := performComplianceSignal(t, app, authRecord, HandleSendTemporalSignalInput{
+			WorkflowID: workflowID,
+			Namespace:  "usera-s-organization",
+			Signal:     workflows.EudiwStopCheckSignal,
+		})
+
+		require.Equal(t, http.StatusNotFound, rec.Code, workflowID)
+		require.Equal(
+			t,
+			"workflow not found",
+			decodeHandlerErrorResponse(t, rec).Error.Reason,
+			workflowID,
+		)
+	}
 }
 
 func TestHandleSendTemporalSignalNamespaceAuthorization(t *testing.T) {
