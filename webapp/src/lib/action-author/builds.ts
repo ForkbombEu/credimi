@@ -53,6 +53,19 @@ export function toDeviceRecords(devices: AuthorDevice[], platforms: Set<string>)
 		}));
 }
 
+/** The device a new session should use: online, with its agent running, shortest queue first; ties keep list order. */
+export function preferredDevice(
+	devices: AuthorDevice[],
+	platforms: Set<string>
+): AuthorDevice | undefined {
+	let preferred: AuthorDevice | undefined;
+	for (const d of devices) {
+		if (!platforms.has(d.platform) || !d.is_online || !d.agent_available) continue;
+		if (!preferred || (d.queue_length ?? 0) < (preferred.queue_length ?? 0)) preferred = d;
+	}
+	return preferred;
+}
+
 export function buildLabel(build: BuildOption): string {
 	return build.source === 'store' ? m.Installed_from_the_store() : build.version_tag;
 }

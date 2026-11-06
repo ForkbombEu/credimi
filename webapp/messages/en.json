@@ -1146,7 +1146,6 @@
 	"Review_not_pending": "This review is no longer pending.",
 	"Session_releasing_device": "The chat has ended. Releasing the device…",
 	"Session_ended_without_chat": "The session ended before the chat started.",
-	"Session_read_only": "Only the person who started this session can write in it or end it.",
 	"Leave_session_title": "End this authoring session?",
 	"Leave_session_warning": "Leaving this page ends the authoring session and frees the device. Actions you haven't saved are lost.",
 	"Leave_and_end_session": "End session and leave",

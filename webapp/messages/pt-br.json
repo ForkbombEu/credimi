@@ -1102,7 +1102,6 @@
 	"Review_not_pending": "Esta revisão não está mais pendente.",
 	"Session_releasing_device": "O chat terminou. Liberando o dispositivo…",
 	"Session_ended_without_chat": "A sessão terminou antes de o chat começar.",
-	"Session_read_only": "Somente quem iniciou esta sessão pode escrever nela ou encerrá-la.",
 	"Leave_session_title": "Encerrar esta sessão de escrita?",
 	"Leave_session_warning": "Se você sair desta página, a sessão de escrita será encerrada e o dispositivo será liberado. As actions que você não salvou serão perdidas.",
 	"Leave_and_end_session": "Encerrar sessão e sair",

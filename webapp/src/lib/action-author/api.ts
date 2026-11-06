@@ -66,8 +66,6 @@ export type Session = {
 	chat_ready: boolean;
 	/** Whether the chat workflow still runs; false once it ended, even while the session releases the device. */
 	chat_running: boolean;
-	/** Whether the caller started the session: only the starter writes in its chat, ends it or watches it live. */
-	is_owner: boolean;
 	closes_at: string;
 	pending_review: PendingReview | null;
 };
@@ -174,7 +172,7 @@ export function closeSession(
 	});
 }
 
-const TICKET_PREFIX = 'ActionAuthorSession-';
+export const TICKET_PREFIX = 'ActionAuthorSession-';
 
 /** Ends the session or its queued ticket while the page unloads; fire and forget. */
 export function endOnExit(sessionId: string, deviceId: string, queued: boolean): void {

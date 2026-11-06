@@ -29,6 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		buildLabel,
 		buildPlatforms,
 		buildsForPlatform,
+		preferredDevice,
 		toDeviceRecords,
 		walletBuilds,
 		walletPath
@@ -57,18 +58,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (devices.isErr) throw new Error(devices.error.message);
 		if (builds.isErr) throw new Error(builds.error.message);
 		const walletBuildList = walletBuilds(builds.value, walletPath(organization, wallet));
+		const platforms = buildPlatforms(walletBuildList);
+		const preferred = preferredDevice(devices.value, platforms);
+		selectedDevice = preferred;
+		selectedBuild = preferred
+			? (buildsForPlatform(walletBuildList, preferred.platform)[0]?.identifier ?? '')
+			: '';
 		return {
 			builds: walletBuildList,
 			devices: devices.value,
-			records: toDeviceRecords(devices.value, buildPlatforms(walletBuildList))
+			records: toDeviceRecords(devices.value, platforms)
 		};
 	}
 
 	$effect(() => {
 		if (!open) return;
 		options = loadOptions();
-		selectedDevice = undefined;
-		selectedBuild = '';
 		startError = '';
 	});
 

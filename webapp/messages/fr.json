@@ -1102,7 +1102,6 @@
 	"Review_not_pending": "Cette revue n'est plus en attente.",
 	"Session_releasing_device": "Le chat est terminé. Libération de l'appareil…",
 	"Session_ended_without_chat": "La session s'est terminée avant le début du chat.",
-	"Session_read_only": "Seule la personne qui a démarré cette session peut y écrire ou la terminer.",
 	"Leave_session_title": "Terminer cette session de rédaction ?",
 	"Leave_session_warning": "Si vous quittez cette page, la session de rédaction se termine et l'appareil est libéré. Les actions que vous n'avez pas enregistrées sont perdues.",
 	"Leave_and_end_session": "Terminer la session et quitter",

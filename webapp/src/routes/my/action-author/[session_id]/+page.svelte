@@ -9,7 +9,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Pipeline } from '$lib';
-	import { closeSession, endOnExit, getSession, type Session } from '$lib/action-author/api';
+	import {
+		closeSession,
+		endOnExit,
+		getSession,
+		TICKET_PREFIX,
+		type Session
+	} from '$lib/action-author/api';
 	import SaveReviewCard from '$lib/action-author/save-review-card.svelte';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
@@ -18,7 +24,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { confirm } from '$lib/utils';
 	import WorkflowStatusBadge from '$lib/workflows/workflow-status.svelte';
 	import { untrack } from 'svelte';
-	import { toast } from 'svelte-sonner';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fromStore } from 'svelte/store';
 
@@ -53,7 +58,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/* Polling */
 
 	const POLL_INTERVAL_MS = 2000;
-	const TICKET_PREFIX = 'ActionAuthorSession-';
 
 	$effect(() => {
 		const polled = { sessionId, deviceId };
@@ -167,52 +171,47 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		};
 	}
 
-	async function cancelTicket() {
+	/** Cancels the queued ticket; returns whether it succeeded. */
+	async function cancelTicket(): Promise<boolean> {
 		const ticket = sessionId.slice(TICKET_PREFIX.length);
-		await runWithLoading({
+		const done = await runWithLoading({
 			fn: async () => {
 				const res = await Pipeline.Queue.cancel(ticket, [deviceId]);
 				if (res.isErr) throw new Error(res.error);
+				return true;
 			}
 		});
 		pollNow();
+		return done === true;
 	}
 
-	async function endSession() {
+	/** Ends the session; returns whether it succeeded. */
+	async function endSession(): Promise<boolean> {
 		const id = sessionId;
-		await runWithLoading({
+		const done = await runWithLoading({
 			fn: async () => {
 				const res = await closeSession(id);
 				if (res.isErr) throw new Error(res.error.message);
+				return true;
 			}
 		});
 		pollNow();
+		return done === true;
 	}
 
 	/* Leaving the page ends the session */
 
-	// The queued ticket or the owner's running session holds a device until it ends.
+	// The queued ticket or the running chat holds a device until it ends; once the chat has
+	// ended the session only releases the device.
 	const guardActive = $derived(
-		(!!queue && !stoppedMessage) || (session?.status === 'Running' && session.is_owner)
+		(!!queue && !stoppedMessage) ||
+			(session?.status === 'Running' && (!session.chat_ready || session.chat_running))
 	);
 	let exitConfirmed = false;
 
-	/** Ends the queued ticket or the session; returns the error message, or '' on success. */
-	async function endBeforeLeaving(): Promise<string> {
-		const failure = await runWithLoading({
-			fn: async () => {
-				if (!session) {
-					const res = await Pipeline.Queue.cancel(sessionId.slice(TICKET_PREFIX.length), [
-						deviceId
-					]);
-					return res.isErr ? res.error : '';
-				}
-				const res = await closeSession(sessionId);
-				return res.isErr ? res.error.message : '';
-			},
-			showSuccessToast: false
-		});
-		return failure ?? '';
+	/** Ends the session, or the queued ticket before the session starts; returns whether it succeeded. */
+	function endBeforeLeaving(): Promise<boolean> {
+		return session ? endSession() : cancelTicket();
 	}
 
 	beforeNavigate(async (nav) => {
@@ -227,11 +226,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			destructive: true
 		});
 		if (!ok) return;
-		const failure = await endBeforeLeaving();
-		if (failure) {
-			toast.error(failure);
-			return;
-		}
+		if (!(await endBeforeLeaving())) return;
 		exitConfirmed = true;
 		await goto(`${target.pathname}${target.search}${target.hash}`);
 	});
@@ -317,18 +312,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			.join(' · ');
 	});
 
-	const readOnly = $derived(!!session && running && !session.is_owner);
-	const showReview = $derived(!!pendingReview && !!session?.is_owner);
-	const showLiveView = $derived(liveViewOpen && !!session?.live_view && !!session?.is_owner);
+	const showReview = $derived(!!pendingReview);
+	const showLiveView = $derived(liveViewOpen && !!session?.live_view);
 </script>
-
-<svelte:head>
-	<style>
-		body {
-			background-color: rgb(248 250 252);
-		}
-	</style>
-</svelte:head>
 
 <div class="flex h-dvh flex-col bg-slate-50">
 	<header class="shrink-0 border-b bg-white">
@@ -349,28 +335,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 
-			{#if session?.is_owner}
-				<div class="flex flex-wrap gap-2">
-					{#if session.live_view}
-						<Button
-							variant={liveViewOpen ? 'secondary' : 'outline'}
-							onclick={() => (liveViewOpen = !liveViewOpen)}
-						>
-							<MonitorPlayIcon />
-							{m.View_live()}
-						</Button>
-					{/if}
-					{#if running}
-						<Button variant="outline" onclick={endSession}>
-							<SquareIcon />
-							{m.End_session()}
-						</Button>
-					{/if}
-				</div>
-			{/if}
+			<div class="flex flex-wrap gap-2">
+				{#if session?.live_view}
+					<Button
+						variant={liveViewOpen ? 'secondary' : 'outline'}
+						onclick={() => (liveViewOpen = !liveViewOpen)}
+					>
+						<MonitorPlayIcon />
+						{m.View_live()}
+					</Button>
+				{/if}
+				{#if running}
+					<Button variant="outline" onclick={endSession}>
+						<SquareIcon />
+						{m.End_session()}
+					</Button>
+				{/if}
+			</div>
 		</div>
 
-		{#if pollError || idleSeconds !== undefined || readOnly}
+		{#if pollError || idleSeconds !== undefined}
 			<div class="padding-x space-y-2 pb-3">
 				{#if pollError}
 					<Alert variant="destructive" class="block border border-destructive p-3!">
@@ -381,9 +365,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Alert variant="warning" class="block p-3!" role="status">
 						{m.Session_idle_warning({ seconds: idleSeconds })}
 					</Alert>
-				{/if}
-				{#if readOnly}
-					<Alert class="block p-3!" role="status">{m.Session_read_only()}</Alert>
 				{/if}
 			</div>
 		{/if}
@@ -466,7 +447,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</section>
 
 		{#if session && (showReview || showLiveView)}
-			<aside class="flex w-full shrink-0 flex-col gap-4 overflow-y-auto lg:w-[26rem]">
+			<aside class="flex w-full shrink-0 flex-col gap-4 overflow-y-auto lg:w-[22rem]">
 				{#if pendingReview && showReview}
 					{#key pendingReview.tool_id}
 						<SaveReviewCard

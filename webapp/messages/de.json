@@ -1102,7 +1102,6 @@
 	"Review_not_pending": "Diese Prüfung steht nicht mehr aus.",
 	"Session_releasing_device": "Der Chat ist beendet. Das Gerät wird freigegeben…",
 	"Session_ended_without_chat": "Die Sitzung endete, bevor der Chat begann.",
-	"Session_read_only": "Nur die Person, die diese Sitzung gestartet hat, kann darin schreiben oder sie beenden.",
 	"Leave_session_title": "Diese Schreibsitzung beenden?",
 	"Leave_session_warning": "Wenn du diese Seite verlässt, endet die Schreibsitzung und das Gerät wird freigegeben. Actions, die du nicht gespeichert hast, gehen verloren.",
 	"Leave_and_end_session": "Sitzung beenden und verlassen",
