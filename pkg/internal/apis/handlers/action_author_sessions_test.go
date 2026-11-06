@@ -582,9 +582,11 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 		name      string
 		status    enumspb.WorkflowExecutionStatus
 		signalErr error
-		code      int
-		content   string
-		cancels   bool
+		// chatErr is the chat's describe answer after a NotFound signal.
+		chatErr error
+		code    int
+		content string
+		cancels bool
 	}{
 		{
 			name:    "chat runs",
@@ -596,9 +598,17 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 			name:      "device still being prepared",
 			status:    enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
 			signalErr: serviceerror.NewNotFound("no chat"),
+			chatErr:   serviceerror.NewNotFound("no chat"),
 			code:      http.StatusAccepted,
 			content:   `"session_id":"` + authoringSessionID + `"`,
 			cancels:   true,
+		},
+		{
+			name:      "chat already ended",
+			status:    enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			signalErr: serviceerror.NewNotFound("chat completed"),
+			code:      http.StatusAccepted,
+			content:   `"session_id":"` + authoringSessionID + `"`,
 		},
 		{
 			name:    "session ended",
@@ -618,6 +628,16 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 			return tc.signalErr
 		}
 		c.On("CancelWorkflow", mock.Anything, authoringSessionID, authoringSessionRun).Return(nil)
+		var chat *workflowservice.DescribeWorkflowExecutionResponse
+		if tc.chatErr == nil {
+			chat = authoringExecution(
+				"ActionAuthor",
+				enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+				0,
+			)
+		}
+		c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
+			Return(chat, tc.chatErr)
 		(&tests.ApiScenario{
 			Name:            tc.name,
 			Method:          http.MethodPost,
@@ -638,6 +658,7 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 			require.Equal(t, []signal{{authoringNamespace, authoringSessionChat}}, signals)
 		}
 		if tc.cancels {
+			c.AssertNumberOfCalls(t, "CancelWorkflow", 1)
 			c.AssertCalled(
 				t,
 				"CancelWorkflow",

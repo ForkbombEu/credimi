@@ -956,7 +956,8 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 
 // HandleActionAuthorSessionClose asks the agent chat of a running session to
 // close, or cancels a session whose chat has not started; the session then
-// cleans and releases its device.
+// cleans and releases its device. A chat that has already ended leaves the
+// session releasing its device on its own.
 func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		c, namespace, info, apiErr := readCallerActionAuthorSession(e)
@@ -976,8 +977,12 @@ func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 		err := signalChatClose(ctx, c, namespace, chatID)
 		var notFound *serviceerror.NotFound
 		if errors.As(err, &notFound) {
-			// The device is still being prepared: no chat runs yet.
-			err = c.CancelWorkflow(ctx, info.SessionWorkflowID, info.SessionRunID)
+			// Signals reach only running workflows: tell a chat that never
+			// started (the device is still being prepared) from one that ended.
+			_, err = c.DescribeWorkflowExecution(ctx, chatID, "")
+			if errors.As(err, &notFound) {
+				err = c.CancelWorkflow(ctx, info.SessionWorkflowID, info.SessionRunID)
+			}
 		}
 		if err != nil {
 			e.App.Logger().Error(
