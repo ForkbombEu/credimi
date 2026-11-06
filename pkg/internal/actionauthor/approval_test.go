@@ -99,7 +99,6 @@ func TestSessionSignAndVerify(t *testing.T) {
 		Platform:                "android",
 		WalletVersionIdentifier: "org-a/wallet/v1",
 		ActorID:                 "user-1",
-		AppID:                   "com.example.wallet",
 	}
 	token, err := SignSession(app, grant)
 	require.NoError(t, err)
@@ -117,7 +116,6 @@ func TestSessionSignAndVerify(t *testing.T) {
 		"platform":  func(g *SessionGrant) { g.Platform = "ios" },
 		"wallet":    func(g *SessionGrant) { g.WalletVersionIdentifier = "org-a/wallet/v2" },
 		"actor":     func(g *SessionGrant) { g.ActorID = "user-2" },
-		"app":       func(g *SessionGrant) { g.AppID = "com.example.other" },
 	}
 	for name, change := range changed {
 		t.Run(name, func(t *testing.T) {

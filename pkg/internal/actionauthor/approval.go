@@ -146,7 +146,6 @@ type SessionGrant struct {
 	Platform                string `json:"platform"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
-	AppID                   string `json:"app_id"`
 }
 
 // SignSession returns the token base64url(json).base64url(hmac) of g.

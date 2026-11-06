@@ -66,7 +66,6 @@ type SessionInput struct {
 	Platform                string `json:"platform"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
-	AppID                   string `json:"app_id,omitempty"`
 	// TicketGrant is Credimi's signature of the enqueued session
 	// (actionauthor.SignTicket), set by POST /api/action-author/sessions
 	// after its checks. The activity that starts the session accepts only a
@@ -111,7 +110,6 @@ type AuthoringDevice struct {
 type AuthoringContext struct {
 	WalletVersionIdentifier string          `json:"wallet_version_identifier"`
 	ActorID                 string          `json:"actor_id"`
-	AppID                   string          `json:"app_id"`
 	Platform                string          `json:"platform"`
 	Build                   AuthoringBuild  `json:"build"`
 	Device                  AuthoringDevice `json:"device"`
@@ -223,12 +221,6 @@ func (w *Workflow) ExecuteWorkflow(
 		return result, err
 	}
 	prepared = device
-
-	if session.AppID != "" && session.AppID != prepared.PackageID {
-		return result, invalidSessionError(
-			fmt.Sprintf("selected build is %s, not %s", prepared.PackageID, session.AppID),
-		)
-	}
 
 	authorWorkflowID := execution.ID + authorWorkflowIDSuffix
 	authorTaskQueue := prepared.RunnerID + AuthorTaskQueueSuffix
@@ -360,7 +352,6 @@ func authoringContext(
 	return AuthoringContext{
 		WalletVersionIdentifier: session.WalletVersionIdentifier,
 		ActorID:                 session.ActorID,
-		AppID:                   session.AppID,
 		Platform:                session.Platform,
 		Build: AuthoringBuild{
 			WalletID:          build.WalletID,

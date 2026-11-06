@@ -283,7 +283,6 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 type ActionAuthorStartRequest struct {
 	DeviceID                string `json:"device_id"                 validate:"required"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier" validate:"required"`
-	AppID                   string `json:"app_id,omitempty"`
 }
 
 // ActionAuthorStartResponse identifies the queued session ticket.
@@ -455,7 +454,6 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Platform:                platform,
 			WalletVersionIdentifier: selection.Identifier,
 			ActorID:                 actor.ActorID,
-			AppID:                   input.AppID,
 		}
 		sessionInput.TicketGrant, err = actionauthor.SignTicket(e.App, actionauthor.SessionGrant{
 			SessionWorkflowID:       activities.ActionAuthorSessionWorkflowIDPrefix + ticketID,
@@ -464,7 +462,6 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Platform:                sessionInput.Platform,
 			WalletVersionIdentifier: sessionInput.WalletVersionIdentifier,
 			ActorID:                 sessionInput.ActorID,
-			AppID:                   sessionInput.AppID,
 		})
 		if err != nil {
 			return authoringAPIError(e, err)

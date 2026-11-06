@@ -429,8 +429,7 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 			Method: http.MethodPost,
 			URL:    "/api/action-author/sessions",
 			Body: strings.NewReader(
-				`{"device_id":"` + deviceID + `","wallet_version_identifier":"` + scenario.version +
-					`","app_id":"eu.wallet"}`,
+				`{"device_id":"` + deviceID + `","wallet_version_identifier":"` + scenario.version + `"}`,
 			),
 			Headers:         map[string]string{"Authorization": "Bearer " + token},
 			ExpectedStatus:  http.StatusAccepted,
@@ -454,7 +453,6 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 					Platform:                scenario.platform,
 					WalletVersionIdentifier: scenario.version,
 					ActorID:                 user.Id,
-					AppID:                   "eu.wallet",
 				}
 				require.NoError(t, actionauthor.VerifyTicket(app, ticketGrant, want))
 				require.ErrorIs(
@@ -490,7 +488,6 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 			"platform":                  scenario.platform,
 			"wallet_version_identifier": scenario.version,
 			"actor_id":                  user.Id,
-			"app_id":                    "eu.wallet",
 		}, enqueued.ActionAuthor)
 	}
 }

@@ -377,7 +377,6 @@ type sessionStart struct {
 	Platform                string `json:"platform"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
-	AppID                   string `json:"app_id"`
 	TicketGrant             string `json:"ticket_grant"`
 	Grant                   string `json:"grant"`
 }
@@ -392,7 +391,6 @@ func (s sessionStart) grant(namespace, workflowID string) actionauthor.SessionGr
 		Platform:                s.Platform,
 		WalletVersionIdentifier: s.WalletVersionIdentifier,
 		ActorID:                 s.ActorID,
-		AppID:                   s.AppID,
 	}
 }
 

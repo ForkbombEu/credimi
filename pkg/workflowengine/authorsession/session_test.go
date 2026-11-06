@@ -313,7 +313,6 @@ func TestSessionStartsAuthorOnRunnerQueueWithAuthoringContext(t *testing.T) {
 	require.Equal(t, AuthoringContext{
 		WalletVersionIdentifier: testVersion,
 		ActorID:                 "user-1",
-		AppID:                   "",
 		Platform:                actionauthor.PlatformAndroid,
 		Build: AuthoringBuild{
 			WalletID:          "wallet-1",
@@ -430,18 +429,6 @@ func TestSessionCleansDeviceWhenSetupFailsAfterDeviceIsKnown(t *testing.T) {
 	require.Equal(t, "emulator-5554", cleanupPayload["serial"])
 }
 
-func TestSessionRejectsAppIDMismatchBeforeAuthorStarts(t *testing.T) {
-	h := newSessionHarness(t, "android_emulator")
-	session := sessionInput(actionauthor.PlatformAndroid)
-	session.AppID = "com.other"
-
-	err := h.run(session)
-
-	require.ErrorContains(t, err, "selected build is eu.wallet, not com.other")
-	require.Nil(t, h.childContext)
-	h.requireReleasedAfter("", "failed")
-}
-
 func TestSessionReleasesSimulatorClonesBeforeCleanup(t *testing.T) {
 	outcomes := map[string]error{
 		"completed":  nil,
@@ -482,7 +469,7 @@ func TestSessionSkipsSimulatorReleaseWhenDeviceWasNotPrepared(t *testing.T) {
 func TestSessionRejectsInvalidInputAndStillReleasesTicket(t *testing.T) {
 	h := newSessionHarness(t, "android_emulator")
 
-	err := h.run(SessionInput{AppID: testPackage})
+	err := h.run(SessionInput{ActorID: "user-1"})
 
 	require.ErrorContains(t, err, "device_id, platform and wallet_version_identifier are required")
 	require.NotContains(t, h.names(), activities.NewCleanupDeviceActivity().Name())

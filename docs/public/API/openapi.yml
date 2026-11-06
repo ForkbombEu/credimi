@@ -1345,8 +1345,6 @@ components:
       type: object
     HandlersActionAuthorStartRequest:
       properties:
-        app_id:
-          type: string
         device_id:
           type: string
         wallet_version_identifier:

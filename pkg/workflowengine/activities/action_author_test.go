@@ -125,7 +125,6 @@ func signedSessionHistory(
 		Platform:                field("platform"),
 		WalletVersionIdentifier: field("wallet_version_identifier"),
 		ActorID:                 field("actor_id"),
-		AppID:                   field("app_id"),
 	})
 	require.NoError(t, err)
 	require.NoError(t, actionauthor.RecordSessionRun(
