@@ -17,9 +17,17 @@ import (
 
 // PlanSummary describes a normalized plan in lines for the agent: every
 // parameter source in full, so it can tell the user what each run will call.
-// Indented lines detail the line above them.
-func PlanSummary(s Spec, prerequisites []ResolvedPrerequisite) []string {
+// Indented lines detail the line above them. replaces is the action the plan
+// replaces, nil without one.
+func PlanSummary(
+	s Spec,
+	prerequisites []ResolvedPrerequisite,
+	replaces *ReplaceTarget,
+) []string {
 	lines := []string{"Category: " + SlotCategory(s.Slot)}
+	if replaces != nil {
+		lines = append(lines, "Replaces: "+replaces.Name+" ("+replaces.Action+")")
+	}
 	switch s.Outcome {
 	case OutcomeRejection:
 		lines = append(lines, "Outcome: the wallet rejects the flow")

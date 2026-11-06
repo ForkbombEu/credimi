@@ -14,12 +14,14 @@ import (
 )
 
 // WalletAction is one action a session can run as a prerequisite. StartsFrom
-// lists the actions it was saved to start from, in order.
+// lists the actions it was saved to start from, in order. Owned actions
+// belong to the caller's organization: only they can be replaced.
 type WalletAction struct {
 	Path       string   `json:"path"`
 	Name       string   `json:"name"`
 	Category   string   `json:"category"`
 	Published  bool     `json:"published"`
+	Owned      bool     `json:"owned"`
 	Parameters []string `json:"parameters"`
 	StartsFrom []string `json:"starts_from"`
 }
@@ -70,6 +72,7 @@ func ListWalletActions(app core.App, selection Selection, category string) ([]Wa
 			Name:       record.GetString("name"),
 			Category:   record.GetString("category"),
 			Published:  record.GetBool("published"),
+			Owned:      record.GetString("owner") == selection.Organization.Id,
 			Parameters: ActionParameters(record.GetString("code")),
 			StartsFrom: startsFrom(record),
 		})

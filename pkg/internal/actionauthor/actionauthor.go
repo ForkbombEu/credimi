@@ -455,6 +455,8 @@ type Provenance struct {
 	Parameters              []ProvenanceParameter `json:"parameters"`
 	ApproverID              string                `json:"approver_id"`
 	ApprovedAt              string                `json:"approved_at"`
+	// ReplacedCodeSHA256 is the hash of the code a replacing save overwrote.
+	ReplacedCodeSHA256 string `json:"replaced_code_sha256,omitempty"`
 }
 
 // Receipt describes the saved record and its validation provenance.

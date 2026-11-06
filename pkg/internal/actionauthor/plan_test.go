@@ -81,7 +81,16 @@ func TestParameterInfosAndPlanSummary(t *testing.T) {
 		"${pin}: the fixed value \"123456\"",
 	}, PlanSummary(plan, []ResolvedPrerequisite{
 		{Action: "tenant/wallet/onboarding", Name: "Onboarding"},
-	}))
+	}, nil))
+
+	assert.Equal(t, []string{
+		"Category: verify-credential",
+		"Replaces: Verify PID (tenant/wallet/verify-pid)",
+		"Outcome: success",
+		"Starts from: Onboarding (tenant/wallet/onboarding)",
+	}, PlanSummary(Spec{Slot: "verify-credential", Outcome: OutcomeSuccess},
+		[]ResolvedPrerequisite{{Action: "tenant/wallet/onboarding", Name: "Onboarding"}},
+		&ReplaceTarget{Action: "tenant/wallet/verify-pid", Name: "Verify PID"}))
 
 	assert.Equal(t, []string{
 		"Category: get-credential-generic",
@@ -95,20 +104,20 @@ func TestParameterInfosAndPlanSummary(t *testing.T) {
 			Name:   "offer",
 			Source: SourceSpec{Kind: SourceCredentialOffer, Identifier: "tenant/issuer/pid"},
 		}},
-	}, nil))
+	}, nil, nil))
 
 	assert.Equal(t, []string{
 		"Category: other",
 		"Outcome: waits 240 s",
 		"Starts from: Onboarding (tenant/wallet/onboarding)",
 	}, PlanSummary(Spec{Slot: "other", Outcome: OutcomeWait, WaitSeconds: 240},
-		[]ResolvedPrerequisite{{Action: "tenant/wallet/onboarding", Name: "Onboarding"}}))
+		[]ResolvedPrerequisite{{Action: "tenant/wallet/onboarding", Name: "Onboarding"}}, nil))
 
 	assert.Equal(t, []string{
 		"Category: install-app",
 		"Outcome: success",
 		"Starts from: the wallet is not installed",
-	}, PlanSummary(Spec{Slot: "install-app", Outcome: OutcomeSuccess}, nil))
+	}, PlanSummary(Spec{Slot: "install-app", Outcome: OutcomeSuccess}, nil, nil))
 }
 
 func TestPlanSummaryDescribesSourcesInFull(t *testing.T) {
@@ -174,7 +183,7 @@ func TestPlanSummaryDescribesSourcesInFull(t *testing.T) {
 	lines := PlanSummary(plan, []ResolvedPrerequisite{
 		{Action: "tenant/wallet/onboarding", Name: "Onboarding"},
 		{Action: "tenant/wallet/get-pid", Name: "Get PID"},
-	})
+	}, nil)
 	longLine := "  body: " + string([]rune(`{"text":"` + strings.Repeat("é", 600))[:500]) + "…"
 	assert.Equal(t, []string{
 		"Category: verify-credential",

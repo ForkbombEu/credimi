@@ -128,6 +128,23 @@ type Spec struct {
 	WaitSeconds   int                `json:"wait_seconds,omitempty"`
 	Prerequisites []PrerequisiteSpec `json:"prerequisites,omitempty"`
 	Parameters    []ParameterSpec    `json:"parameters,omitempty"`
+	// Replaces names the caller's own action this plan rewrites in place.
+	Replaces *ReplaceSpec `json:"replaces,omitempty"`
+}
+
+// ReplaceSpec is the existing action a plan rewrites in place, and the hash
+// of its code when the plan was checked: the approval binds both.
+type ReplaceSpec struct {
+	Action     string `json:"action"`                // canonified org/wallet/action path
+	CodeSHA256 string `json:"code_sha256,omitempty"` // CodeSHA256 of the action's code when the plan was checked
+}
+
+// ReplaceTarget is the action a checked plan replaces, with its current code.
+type ReplaceTarget struct {
+	Action   string `json:"action"`
+	Name     string `json:"name"`
+	Category string `json:"category"`
+	Code     string `json:"code"`
 }
 
 // PrerequisiteSpec is a stored action that builds the starting state, with
@@ -349,6 +366,12 @@ func (s *Spec) Normalize() error {
 		}
 		if err := validateParameters(field+".parameters", prerequisite.Parameters, ""); err != nil {
 			return err
+		}
+	}
+	if s.Replaces != nil {
+		s.Replaces.Action = canonify.NormalizePath(s.Replaces.Action)
+		if s.Replaces.Action == "" {
+			return invalidf("replaces.action is required")
 		}
 	}
 	return validateParameters("parameters", s.Parameters, s.Outcome)
@@ -654,6 +677,76 @@ func CheckSpecRecords(app core.App, selection Selection, spec *Spec) ([]*core.Re
 		return nil, err
 	}
 	return prerequisites, nil
+}
+
+// CheckReplaceTarget checks the action the spec replaces, if any, and returns
+// its record; nil without Replaces. The target must be an action of the
+// selected wallet owned by the selected organization (a published action of
+// another organization is refused), of the slot's category and not one of
+// the spec's prerequisites. An empty CodeSHA256 is filled with the hash of
+// the target's current code; another hash must still match it, unless the
+// record holds exactly what a save replacing that hash wrote, so Save can
+// recognize its own retry.
+func CheckReplaceTarget(app core.App, selection Selection, spec *Spec) (*core.Record, error) {
+	if spec.Replaces == nil {
+		return nil, nil
+	}
+	record, err := replaceTarget(app, selection, spec)
+	if err != nil {
+		return nil, err
+	}
+	current := CodeSHA256(record.GetString("code"))
+	switch spec.Replaces.CodeSHA256 {
+	case "":
+		spec.Replaces.CodeSHA256 = current
+	case current:
+	default:
+		if !replacedFrom(record, spec.Replaces.CodeSHA256) {
+			return nil, invalidf(
+				"replaces: %s changed since the plan was checked; describe the action again",
+				spec.Replaces.Action,
+			)
+		}
+	}
+	return record, nil
+}
+
+// replaceTarget resolves the spec's replaced action and checks its owner,
+// wallet and category, and that it is not a prerequisite. It does not check
+// the code hash.
+func replaceTarget(app core.App, selection Selection, spec *Spec) (*core.Record, error) {
+	action := spec.Replaces.Action
+	record, err := resolveCollectionPath(app, "wallet_actions", action)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil &&
+		(record.GetString("owner") != selection.Organization.Id ||
+			record.GetString("wallet") != selection.Wallet.Id)) {
+		return nil, invalidf("replaces: %s is not an action of this wallet you can edit", action)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("resolve %s: %w", action, err)
+	}
+	if category := record.GetString("category"); category != SlotCategory(spec.Slot) {
+		return nil, invalidf(
+			"replaces: %s is a %s action; describe it with the slot of that category",
+			action,
+			category,
+		)
+	}
+	for _, prerequisite := range spec.Prerequisites {
+		if prerequisite.Action == action {
+			return nil, invalidf("replaces: %s cannot also be a starting action", action)
+		}
+	}
+	return record, nil
+}
+
+// replacedFrom reports whether a save replaced the record's code whose hash
+// was codeSHA256 and the record still holds the code that save wrote.
+func replacedFrom(record *core.Record, codeSHA256 string) bool {
+	var provenance Provenance
+	return json.Unmarshal([]byte(record.GetString("authoring_provenance")), &provenance) == nil &&
+		provenance.ReplacedCodeSHA256 == codeSHA256 &&
+		provenance.YAMLSHA256 == CodeSHA256(record.GetString("code"))
 }
 
 // ParameterNames returns the names of a parameter list, in order.

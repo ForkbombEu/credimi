@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -380,6 +381,11 @@ func TestSpecNormalize(t *testing.T) {
 				s.Parameters[0].Source.Status.Success = nil
 			},
 		},
+		{
+			name:    "replaces without action",
+			edit:    func(s *Spec) { s.Replaces = &ReplaceSpec{Action: " / "} },
+			message: "replaces.action is required",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -401,6 +407,130 @@ func TestSpecNormalizeDefaultsOutcome(t *testing.T) {
 	spec := Spec{Slot: "onboarding"}
 	require.NoError(t, spec.Normalize())
 	assert.Equal(t, OutcomeSuccess, spec.Outcome)
+}
+
+func TestSpecNormalizeCanonifiesReplaces(t *testing.T) {
+	spec := Spec{Slot: "onboarding", Replaces: &ReplaceSpec{Action: " /org/wallet/onboarding "}}
+	require.NoError(t, spec.Normalize())
+	assert.Equal(t, "org/wallet/onboarding", spec.Replaces.Action)
+	var decoded Spec
+	require.NoError(t, json.Unmarshal([]byte(`{"slot":"onboarding","replaces":null}`), &decoded))
+	assert.Nil(t, decoded.Replaces)
+	require.NoError(t, decoded.Normalize())
+}
+
+// seedWalletAction saves an action of the wallet owned by owner and returns
+// it with its canonified path.
+func seedWalletAction(
+	t *testing.T,
+	app core.App,
+	owner string,
+	wallet *core.Record,
+	name, category, code string,
+	published bool,
+) (*core.Record, string) {
+	t.Helper()
+	actions, err := app.FindCollectionByNameOrId("wallet_actions")
+	require.NoError(t, err)
+	action := core.NewRecord(actions)
+	action.Set("owner", owner)
+	action.Set("wallet", wallet.Id)
+	action.Set("name", name)
+	action.Set("code", code)
+	action.Set("category", category)
+	action.Set("published", published)
+	require.NoError(t, app.Save(action))
+	path, err := canonify.BuildPath(
+		app,
+		action,
+		canonify.CanonifyPaths["wallet_actions"],
+		action.GetString("canonified_name"),
+	)
+	require.NoError(t, err)
+	return action, path
+}
+
+func TestCheckReplaceTarget(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	other, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
+	require.NoError(t, err)
+	wallets, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	otherWallet := core.NewRecord(wallets)
+	otherWallet.Set("owner", selection.Organization.Id)
+	otherWallet.Set("name", "Replace other wallet")
+	require.NoError(t, app.Save(otherWallet))
+	const code = "appId: x\n---\n- launchApp\n"
+	orgID := selection.Organization.Id
+	_, own := seedWalletAction(t, app, orgID, selection.Wallet, "Replace onboarding",
+		"onboarding", code, true)
+	_, foreign := seedWalletAction(t, app, other.Id, selection.Wallet, "Replace foreign",
+		"onboarding", code, true)
+	_, elsewhere := seedWalletAction(t, app, orgID, otherWallet, "Replace elsewhere",
+		"onboarding", code, false)
+	_, starting := seedWalletAction(t, app, orgID, selection.Wallet, "Replace starting",
+		"other", code, false)
+	check := func(spec Spec) (*core.Record, Spec, error) {
+		require.NoError(t, spec.Normalize())
+		record, err := CheckReplaceTarget(app, selection, &spec)
+		return record, spec, err
+	}
+
+	record, _, err := check(Spec{Slot: "onboarding"})
+	require.NoError(t, err)
+	assert.Nil(t, record)
+
+	record, checked, err := check(Spec{Slot: "onboarding", Replaces: &ReplaceSpec{Action: own}})
+	require.NoError(t, err)
+	assert.Equal(t, CodeSHA256(code), checked.Replaces.CodeSHA256)
+	assert.Equal(t, code, record.GetString("code"))
+	_, _, err = check(checked)
+	require.NoError(t, err)
+
+	for _, path := range []string{foreign, elsewhere, namespace + "/missing/action"} {
+		_, _, err = check(Spec{Slot: "onboarding", Replaces: &ReplaceSpec{Action: path}})
+		require.ErrorIs(t, err, ErrInvalid)
+		assert.Equal(t, ErrInvalid.Error()+": replaces: "+path+
+			" is not an action of this wallet you can edit", err.Error())
+	}
+
+	_, _, err = check(Spec{Slot: "other", Replaces: &ReplaceSpec{Action: own}})
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.Equal(t, ErrInvalid.Error()+": replaces: "+own+
+		" is a onboarding action; describe it with the slot of that category", err.Error())
+
+	// The target cannot also build the starting state.
+	_, _, err = check(Spec{
+		Slot:          "other",
+		Replaces:      &ReplaceSpec{Action: starting},
+		Prerequisites: []PrerequisiteSpec{{Action: "/" + starting}},
+	})
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.Equal(t, ErrInvalid.Error()+": replaces: "+starting+
+		" cannot also be a starting action", err.Error())
+
+	_, _, err = check(Spec{
+		Slot:     "onboarding",
+		Replaces: &ReplaceSpec{Action: own, CodeSHA256: CodeSHA256("older code")},
+	})
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.Equal(t, ErrInvalid.Error()+": replaces: "+own+
+		" changed since the plan was checked; describe the action again", err.Error())
+
+	// A save that replaced that code, whose write the record still holds,
+	// keeps the old hash valid until Save recognizes its own retry.
+	record.Set("authoring_provenance", Provenance{
+		YAMLSHA256:         CodeSHA256(code),
+		ReplacedCodeSHA256: CodeSHA256("older code"),
+	})
+	require.NoError(t, app.Save(record))
+	_, _, err = check(Spec{
+		Slot:     "onboarding",
+		Replaces: &ReplaceSpec{Action: own, CodeSHA256: CodeSHA256("older code")},
+	})
+	require.NoError(t, err)
 }
 
 func TestSlotCategory(t *testing.T) {

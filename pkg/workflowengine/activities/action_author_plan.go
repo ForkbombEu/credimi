@@ -113,14 +113,16 @@ type CheckActionAuthorPlanInput struct {
 }
 
 // CheckActionAuthorPlanOutput lists the plan's problems or, when it has
-// none, the normalized plan with its summary, resolved prerequisites and
-// parameters. Its lists are never null; with problems the plan is null.
+// none, the normalized plan with its summary, resolved prerequisites,
+// parameters and the action it replaces, with its current code. Its lists
+// are never null; with problems the plan and its replaced action are null.
 type CheckActionAuthorPlanOutput struct {
 	Problems      []string                            `json:"problems"`
 	Plan          *actionauthor.Spec                  `json:"plan"`
 	Summary       []string                            `json:"summary"`
 	Prerequisites []actionauthor.ResolvedPrerequisite `json:"prerequisites"`
 	Parameters    []actionauthor.ParameterInfo        `json:"parameters"`
+	Replaces      *actionauthor.ReplaceTarget         `json:"replaces"` // null without a replacement or with problems
 }
 
 // checkPlanProblems is the output of a plan with problems.
@@ -183,7 +185,7 @@ func (a *CheckActionAuthorPlanActivity) check(
 		return CheckActionAuthorPlanOutput{}, err
 	}
 	plan := payload.Plan
-	resolved, err := checkPlan(a.app, selection, &plan)
+	checked, err := checkPlan(a.app, selection, &plan)
 	if errors.Is(err, actionauthor.ErrInvalid) {
 		return checkPlanProblems(
 			strings.TrimPrefix(err.Error(), actionauthor.ErrInvalid.Error()+": "),
@@ -192,31 +194,58 @@ func (a *CheckActionAuthorPlanActivity) check(
 	if err != nil {
 		return CheckActionAuthorPlanOutput{}, actionAuthorError(&a.BaseActivity, err)
 	}
+	var replaces *actionauthor.ReplaceTarget
+	if checked.target != nil {
+		replaces = &actionauthor.ReplaceTarget{
+			Action:   plan.Replaces.Action,
+			Name:     checked.target.GetString("name"),
+			Category: checked.target.GetString("category"),
+			Code:     checked.target.GetString("code"),
+		}
+	}
 	return CheckActionAuthorPlanOutput{
 		Problems:      []string{},
 		Plan:          &plan,
-		Summary:       actionauthor.PlanSummary(plan, resolved),
-		Prerequisites: resolved,
+		Summary:       actionauthor.PlanSummary(plan, checked.prerequisites, replaces),
+		Prerequisites: checked.prerequisites,
 		Parameters:    actionauthor.ParameterInfos(plan),
+		Replaces:      replaces,
 	}, nil
 }
 
-// checkPlan normalizes the plan and resolves its prerequisites; an invalid
-// plan wraps actionauthor.ErrInvalid.
+// checkedPlan is a plan's resolved prerequisites and the action it replaces,
+// nil without one.
+type checkedPlan struct {
+	prerequisites []actionauthor.ResolvedPrerequisite
+	target        *core.Record
+}
+
+// checkPlan normalizes the plan, resolves its prerequisites and checks the
+// action it replaces, filling its code hash; an invalid plan wraps
+// actionauthor.ErrInvalid.
 func checkPlan(
 	app core.App,
 	selection actionauthor.Selection,
 	plan *actionauthor.Spec,
-) ([]actionauthor.ResolvedPrerequisite, error) {
+) (checkedPlan, error) {
 	if err := plan.Normalize(); err != nil {
-		return nil, err
+		return checkedPlan{}, err
 	}
-	return actionauthor.ResolvePrerequisites(app, selection, plan)
+	target, err := actionauthor.CheckReplaceTarget(app, selection, plan)
+	if err != nil {
+		return checkedPlan{}, err
+	}
+	prerequisites, err := actionauthor.ResolvePrerequisites(app, selection, plan)
+	if err != nil {
+		return checkedPlan{}, err
+	}
+	return checkedPlan{prerequisites: prerequisites, target: target}, nil
 }
 
 // SessionPlan checks a plan the agent sends for its session exactly as
 // Check action author plan does: normalized, its prerequisites resolved
-// for the session's build. An empty plan is ErrInvalid.
+// and its replaced action checked for the session's build. An empty plan is
+// ErrInvalid.
 func SessionPlan(
 	app core.App,
 	selection actionauthor.Selection,

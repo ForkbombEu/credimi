@@ -270,6 +270,20 @@ func TestListActionAuthorWalletActions(t *testing.T) {
 	)
 	getPID := seedAuthorAction(t, app, session, "Get PID", "appId: eu.wallet\n---\n- back\n")
 	recordStartsFrom(t, app, getPID, onboarding)
+	selection, err := actionauthor.Select(app, "", session)
+	require.NoError(t, err)
+	other, err := app.FindFirstRecordByData("organizations", "name", "userB's organization")
+	require.NoError(t, err)
+	collection, err := app.FindCollectionByNameOrId("wallet_actions")
+	require.NoError(t, err)
+	published := core.NewRecord(collection)
+	published.Set("owner", other.Id)
+	published.Set("wallet", selection.Wallet.Id)
+	published.Set("name", "Published PID")
+	published.Set("code", "appId: eu.wallet\n---\n- back\n")
+	published.Set("category", "onboarding")
+	published.Set("published", true)
+	require.NoError(t, app.Save(published))
 	a := NewListActionAuthorWalletActionsActivity(app)
 	list := func(category string) (ListActionAuthorWalletActionsOutput, error) {
 		a.authorSessionLookup = buildSessionLookup(t, app, session).lookup()
@@ -282,22 +296,32 @@ func TestListActionAuthorWalletActions(t *testing.T) {
 		Path:       getPID,
 		Name:       "Get PID",
 		Category:   "onboarding",
+		Owned:      true,
 		Parameters: []string{},
 		StartsFrom: []string{onboarding},
 	}, {
 		Path:       onboarding,
 		Name:       "Onboarding",
 		Category:   "onboarding",
+		Owned:      true,
+		Parameters: []string{},
+		StartsFrom: []string{},
+	}, {
+		Path:       path.Dir(onboarding) + "/" + published.GetString("canonified_name"),
+		Name:       "Published PID",
+		Category:   "onboarding",
+		Published:  true,
 		Parameters: []string{},
 		StartsFrom: []string{},
 	}}, output.Actions)
 	encoded, err := json.Marshal(output.Actions[1])
 	require.NoError(t, err)
 	require.Contains(t, string(encoded), `"starts_from":[]`)
+	require.Contains(t, string(encoded), `"owned":true`)
 
 	output, err = list("onboarding")
 	require.NoError(t, err)
-	require.Len(t, output.Actions, 2)
+	require.Len(t, output.Actions, 3)
 
 	output, err = list("verify-credential")
 	require.NoError(t, err)
@@ -372,7 +396,8 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 	encoded, err := json.Marshal(output)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"problems": ["prerequisites: the get-credential slot needs at least `+
-		`one prerequisite"], "plan": null, "summary": [], "prerequisites": [], "parameters": []}`,
+		`one prerequisite"], "plan": null, "summary": [], "prerequisites": [], "parameters": [], `+
+		`"replaces": null}`,
 		string(encoded))
 
 	missing := plan
@@ -415,6 +440,47 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 	output, err = check(wait)
 	require.NoError(t, err)
 	require.Equal(t, problems("wait_seconds: must be 1-600 for the wait outcome"), output)
+
+	// A plan replacing an action gets its current code and the hash the
+	// approval binds.
+	onboardingCode := "appId: eu.wallet\n---\n- launchApp\n"
+	replace := actionauthor.Spec{
+		Slot:     "onboarding",
+		Replaces: &actionauthor.ReplaceSpec{Action: "/" + onboarding},
+	}
+	output, err = check(replace)
+	require.NoError(t, err)
+	require.Equal(t, CheckActionAuthorPlanOutput{
+		Problems: []string{},
+		Plan: &actionauthor.Spec{
+			Slot:    "onboarding",
+			Outcome: actionauthor.OutcomeSuccess,
+			Replaces: &actionauthor.ReplaceSpec{
+				Action:     onboarding,
+				CodeSHA256: actionauthor.CodeSHA256(onboardingCode),
+			},
+		},
+		Summary: []string{
+			"Category: onboarding",
+			"Replaces: Onboarding (" + onboarding + ")",
+			"Outcome: success",
+			"Starts from: a freshly installed app",
+		},
+		Prerequisites: []actionauthor.ResolvedPrerequisite{},
+		Parameters:    []actionauthor.ParameterInfo{},
+		Replaces: &actionauthor.ReplaceTarget{
+			Action:   onboarding,
+			Name:     "Onboarding",
+			Category: "onboarding",
+			Code:     onboardingCode,
+		},
+	}, output)
+
+	replace.Slot = "other"
+	output, err = check(replace)
+	require.NoError(t, err)
+	require.Equal(t, problems("replaces: "+onboarding+
+		" is a onboarding action; describe it with the slot of that category"), output)
 }
 
 func TestResolveActionAuthorReference(t *testing.T) {
