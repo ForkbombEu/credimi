@@ -128,7 +128,6 @@ services:
         condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
-      - ACTION_AUTHOR_UI_PORT=8080
   credimi:
     depends_on:
       temporal:
