@@ -68,3 +68,10 @@ button.session-new, button.start-new, section.session-manager, [aria-label="Resp
   --xy-edge-label-color-default: inherit;
   --xy-resize-background-color-default: #3367d9;
 }
+
+/* The rail fits the frame: the graph shrinks, the chat keeps its width. Outside the harness's
+   stacked layout (max-width: 860px), and not over its collapsed or full-width (bleed) panes. */
+@media not all and (max-width: 860px) {
+  .rail:not(.bleed) > .rail-slot[data-slot="graph"]:not(.collapsed) { flex: 1 1 0 !important; min-width: 0 !important; }
+  .rail:not(.bleed) > .rail-slot[data-slot="chat"]:not(.collapsed) { flex: 0 0 min(var(--slot-size), 50%) !important; min-width: min(var(--slot-min), 50%) !important; }
+}
