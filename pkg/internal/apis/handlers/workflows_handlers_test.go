@@ -985,6 +985,104 @@ func TestHandleListMyWorkflowsFiltersDynamicPipeline(t *testing.T) {
 	require.Equal(t, "wf-execute-child", resp.Executions[1].Children[0].Execution.WorkflowID)
 }
 
+func TestHandleListMyWorkflowsHidesActionAuthorSessions(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := listWorkflowsTemporalClient
+	origList := listWorkflows
+	t.Cleanup(func() {
+		listWorkflowsTemporalClient = origClient
+		listWorkflows = origList
+	})
+	listWorkflowsTemporalClient = func(string) (client.Client, error) {
+		return &temporalmocks.Client{}, nil
+	}
+	session := "ActionAuthorSession-0f8fad5b-d9cb-469f-a165-70867728950e"
+	execution := func(id, runID, workflowType string, parent *common.WorkflowExecution) *workflow.WorkflowExecutionInfo {
+		return &workflow.WorkflowExecutionInfo{
+			Execution:       &common.WorkflowExecution{WorkflowId: id, RunId: runID},
+			Type:            &common.WorkflowType{Name: workflowType},
+			ParentExecution: parent,
+			Status:          enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			StartTime:       timestamppb.New(time.Now().Add(-time.Minute)),
+		}
+	}
+	listWorkflows = func(context.Context, client.Client, string, string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+		return &workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{
+				execution(session, "run-session", "Action author session", nil),
+				execution(
+					session+"-author",
+					"run-chat",
+					"ActionAuthor",
+					&common.WorkflowExecution{WorkflowId: session, RunId: "run-session"},
+				),
+				execution("wf-check", "run-check", "CheckWorkflow", nil),
+			},
+		}, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/list-workflows", nil)
+	rec := httptest.NewRecorder()
+	err = HandleListMyWorkflows()(&core.RequestEvent{
+		App:   app,
+		Auth:  authRecord,
+		Event: router.Event{Request: req, Response: rec},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp ListMyWorkflowsResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+	require.Len(t, resp.Executions, 1)
+	require.Equal(t, "wf-check", resp.Executions[0].Execution.WorkflowID)
+	require.Empty(t, resp.Executions[0].Children)
+}
+
+func TestWorkflowRunHandlersHideActionAuthorSessions(t *testing.T) {
+	for name, handler := range map[string]func() func(*core.RequestEvent) error{
+		"get":    HandleGetMyWorkflowRun,
+		"cancel": HandleCancelMyWorkflowRun,
+	} {
+		for _, workflowID := range []string{
+			"ActionAuthorSession-x",
+			"ActionAuthorSession-x-author",
+		} {
+			t.Run(name+" "+workflowID, func(t *testing.T) {
+				app, err := tests.NewTestApp(testDataDir)
+				require.NoError(t, err)
+				defer app.Cleanup()
+				authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+				require.NoError(t, err)
+
+				origClient := workflowTemporalClient
+				t.Cleanup(func() { workflowTemporalClient = origClient })
+				workflowTemporalClient = func(string) (client.Client, error) {
+					t.Fatal("temporal client must not be created")
+					return nil, nil
+				}
+
+				req := httptest.NewRequest(http.MethodGet, "/api/my/workflows/x/runs/run-1", nil)
+				req.SetPathValue("workflowId", workflowID)
+				req.SetPathValue("runId", "run-1")
+				rec := httptest.NewRecorder()
+				err = handler()(&core.RequestEvent{
+					App:   app,
+					Auth:  authRecord,
+					Event: router.Event{Request: req, Response: rec},
+				})
+				requireHandlerErrorHandled(t, rec, err)
+				require.Equal(t, http.StatusNotFound, rec.Code)
+			})
+		}
+	}
+}
+
 func TestBuildWorkflowExecutionHierarchy(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)

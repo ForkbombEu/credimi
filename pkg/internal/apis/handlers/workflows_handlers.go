@@ -26,6 +26,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
@@ -217,6 +218,10 @@ func filterNonPipelineExecutions(
 		if exec == nil || exec.Execution == nil {
 			continue
 		}
+		// Action author sessions and their chats live on their own pages only.
+		if isActionAuthorWorkflowID(exec.Execution.WorkflowID) {
+			continue
+		}
 		if exec.Type.Name == pipelineWorkflowName &&
 			!isPipelineExecuteWorkflowID(exec.Execution.WorkflowID) {
 			continue
@@ -255,6 +260,12 @@ func filterNonPipelineExecutions(
 	}
 
 	return filtered, nil
+}
+
+// isActionAuthorWorkflowID reports an action author session or its chat
+// (<session>-author), which only the session's starter may see.
+func isActionAuthorWorkflowID(workflowID string) bool {
+	return strings.HasPrefix(workflowID, activities.ActionAuthorSessionWorkflowIDPrefix)
 }
 
 func isPipelineExecuteWorkflowID(workflowID string) bool {
@@ -350,6 +361,14 @@ func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 
 		workflowID := e.Request.PathValue("workflowId")
 		runID := e.Request.PathValue("runId")
+		if isActionAuthorWorkflowID(workflowID) {
+			return apierror.New(
+				http.StatusNotFound,
+				"workflow",
+				"workflow not found",
+				"workflow not found",
+			)
+		}
 		if runID == "" {
 			return apierror.New(
 				http.StatusBadRequest,
@@ -495,6 +514,14 @@ func HandleCancelMyWorkflowRun() func(*core.RequestEvent) error {
 
 		workflowID := e.Request.PathValue("workflowId")
 		runID := e.Request.PathValue("runId")
+		if isActionAuthorWorkflowID(workflowID) {
+			return apierror.New(
+				http.StatusNotFound,
+				"workflow",
+				"workflow execution not found",
+				"workflow not found",
+			)
+		}
 		if workflowID == "" || runID == "" {
 			return apierror.New(
 				http.StatusBadRequest,
