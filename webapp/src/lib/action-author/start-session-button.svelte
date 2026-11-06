@@ -53,17 +53,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let starting = $state(false);
 	let startError = $state('');
 
+	// A slower earlier load (after a quick close and reopen) must not overwrite the selection.
+	let loadId = 0;
+
 	async function loadOptions(): Promise<Options> {
+		const id = ++loadId;
 		const [devices, builds] = await Promise.all([listDevices(), listBuilds()]);
 		if (devices.isErr) throw new Error(devices.error.message);
 		if (builds.isErr) throw new Error(builds.error.message);
 		const walletBuildList = walletBuilds(builds.value, walletPath(organization, wallet));
 		const platforms = buildPlatforms(walletBuildList);
-		const preferred = preferredDevice(devices.value, platforms);
-		selectedDevice = preferred;
-		selectedBuild = preferred
-			? (buildsForPlatform(walletBuildList, preferred.platform)[0]?.identifier ?? '')
-			: '';
+		if (id === loadId) {
+			const preferred = preferredDevice(devices.value, platforms);
+			selectedDevice = preferred;
+			selectedBuild = preferred
+				? (buildsForPlatform(walletBuildList, preferred.platform)[0]?.identifier ?? '')
+				: '';
+		}
 		return {
 			builds: walletBuildList,
 			devices: devices.value,
