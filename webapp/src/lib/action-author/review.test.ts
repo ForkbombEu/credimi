@@ -21,6 +21,7 @@ function review(overrides: Partial<PendingReview>): PendingReview {
 		plan: { steps: [] },
 		replaces: '',
 		error: '',
+		used_by: 0,
 		...overrides
 	};
 }

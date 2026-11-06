@@ -1151,5 +1151,6 @@
 	"Leave_and_end_session": "End session and leave",
 	"Stay_on_page": "Stay",
 	"Review_replaces": "Replaces the existing action {action}. Its record and the pipelines that use it are kept.",
+	"Review_used_by": "Used by {count} pipelines: they run the fixed code after you save.",
 	"Review_previous_save_failed": "The last save failed"
 }

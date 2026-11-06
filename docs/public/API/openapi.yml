@@ -982,6 +982,8 @@ components:
           type: string
         tool_id:
           type: string
+        used_by:
+          type: integer
       type: object
     HandlersActionAuthorReviewRequest:
       properties:

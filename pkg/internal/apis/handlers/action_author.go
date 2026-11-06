@@ -670,6 +670,9 @@ type ActionAuthorPendingReview struct {
 	Replaces string `json:"replaces"`
 	// Error is why the previous save of this candidate failed, empty when none.
 	Error string `json:"error"`
+	// UsedBy counts the pipelines of the caller's organization or published
+	// that use the replaced action, 0 without a replacement.
+	UsedBy int `json:"used_by"`
 }
 
 // ActionAuthorSessionsResponse lists a wallet's recent sessions.
@@ -870,8 +873,33 @@ func readActionAuthorChat(
 			Replaces:        text("replaces"),
 			Error:           text("error"),
 		}
+		if response.PendingReview.Replaces != "" {
+			response.PendingReview.UsedBy = actionAuthorUsedBy(e, response.PendingReview.Replaces)
+		}
 		return
 	}
+}
+
+// actionAuthorUsedBy counts the pipelines owned by the caller's organization
+// or published whose YAML names action; 0, with a warning, on error.
+func actionAuthorUsedBy(e *core.RequestEvent, action string) int {
+	orgID, err := pbutils.GetUserOrganizationID(e.App, e.Auth.Id)
+	if err != nil {
+		e.App.Logger().Warn("action author used by", "action", action, "error", err)
+		return 0
+	}
+	count, err := e.App.CountRecords(
+		"pipelines",
+		dbx.And(
+			dbx.Or(dbx.HashExp{"owner": orgID}, dbx.HashExp{"published": true}),
+			dbx.Like("yaml", action),
+		),
+	)
+	if err != nil {
+		e.App.Logger().Warn("action author used by", "action", action, "error", err)
+		return 0
+	}
+	return int(count)
 }
 
 func queryActionAuthorChat(

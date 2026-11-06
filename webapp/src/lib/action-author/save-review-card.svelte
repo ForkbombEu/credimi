@@ -80,6 +80,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<p class="font-medium break-words text-amber-700">
 			{m.Review_replaces({ action: review.replaces })}
 		</p>
+		{#if review.used_by > 0}
+			<p class="break-words text-amber-700">{m.Review_used_by({ count: review.used_by })}</p>
+		{/if}
 	{/if}
 
 	<div class="space-y-1">

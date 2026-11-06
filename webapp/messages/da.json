@@ -1107,5 +1107,6 @@
 	"Leave_and_end_session": "Afslut session og forlad",
 	"Stay_on_page": "Bliv",
 	"Review_replaces": "Erstatter den eksisterende action {action}. Dens post og de pipelines, der bruger den, bevares.",
+	"Review_used_by": "Bruges af {count} pipelines: de kører den rettede kode, når du har gemt.",
 	"Review_previous_save_failed": "Den seneste gemning mislykkedes"
 }

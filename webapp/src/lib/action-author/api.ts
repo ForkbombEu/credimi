@@ -48,6 +48,8 @@ export type PendingReview = {
 	replaces: string;
 	/** Why the previous save of this candidate failed, empty when none. */
 	error: string;
+	/** Pipelines of the caller's organization or published that use the replaced action. */
+	used_by: number;
 };
 
 /** A recorded authoring session and its state (GET /api/action-author/sessions/{id}). */

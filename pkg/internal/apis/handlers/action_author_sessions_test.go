@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -223,6 +224,11 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 			runner.Set("agent_model", "claude")
 			require.NoError(t, app.Save(runner))
 			runningAuthoringSession(app, t, c, enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING)
+			replaced := "usera-s-organization/authoring-handler-wallet/install"
+			seedUsedByPipeline(t, app, "userA's organization", "Own user", replaced, false)
+			seedUsedByPipeline(t, app, "userA's organization", "Own other", "acme/x/y", false)
+			seedUsedByPipeline(t, app, "userB's organization", "Published user", replaced, true)
+			seedUsedByPipeline(t, app, "userB's organization", "Private user", replaced, false)
 			return app
 		},
 		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -258,8 +264,31 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 			Plan:            map[string]any{"slot": "install-app"},
 			Replaces:        "usera-s-organization/authoring-handler-wallet/install",
 			Error:           "save failed: try again",
+			UsedBy:          2,
 		},
 	}, response)
+}
+
+// seedUsedByPipeline adds a pipeline of the organization whose step runs action.
+func seedUsedByPipeline(
+	t testing.TB,
+	app *tests.TestApp,
+	organization, name, action string,
+	published bool,
+) {
+	t.Helper()
+	org, err := app.FindFirstRecordByData("organizations", "name", organization)
+	require.NoError(t, err)
+	collection, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	record := core.NewRecord(collection)
+	record.Set("owner", org.Id)
+	record.Set("name", name)
+	record.Set("description", name)
+	record.Set("yaml", "name: "+name+"\nsteps:\n  - id: run\n    use: mobile-automation\n"+
+		"    with:\n      action_id: "+action+"\n")
+	record.Set("published", published)
+	require.NoError(t, app.Save(record))
 }
 
 // A completed chat is still shown, of a running session that releases its

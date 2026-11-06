@@ -1114,5 +1114,6 @@
 	"Leave_and_end_session": "Termina sessione ed esci",
 	"Stay_on_page": "Resta",
 	"Review_replaces": "Sostituisce l'action esistente {action}. Il suo record e le pipeline che la usano restano invariati.",
+	"Review_used_by": "Usata da {count} pipeline: eseguiranno il codice corretto dopo il salvataggio.",
 	"Review_previous_save_failed": "L'ultimo salvataggio non è riuscito"
 }
