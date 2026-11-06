@@ -385,7 +385,7 @@ func TestActionAuthorStartQueuesSessionForMember(t *testing.T) {
 		)),
 		Headers:         map[string]string{"Authorization": "Bearer " + token},
 		ExpectedStatus:  http.StatusAccepted,
-		ExpectedContent: []string{`"workflow_namespace":"` + authoringNamespace + `"`},
+		ExpectedContent: []string{`"status":"queued"`},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupActionAuthorApp(t)
 			demoteToMember(t, app, "userA@example.org")
@@ -473,7 +473,6 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 			DeviceID:                deviceID,
 			Status:                  "queued",
 			Position:                1,
-			WorkflowNamespace:       "usera-s-organization",
 			WalletVersionIdentifier: scenario.version,
 		}, response)
 		require.Equal(t, response.TicketID, enqueued.TicketID)
@@ -937,7 +936,6 @@ func authoringDevice(name, deviceType, platform string, online bool) ActionAutho
 	}
 	return ActionAuthorDevice{
 		Path:           authoringAdminRunner + "/" + name,
-		Namespace:      authoringNamespace,
 		Name:           name,
 		RunnerName:     "admin-runner",
 		RunnerOwner:    "userA's organization",

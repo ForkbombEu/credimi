@@ -202,7 +202,6 @@ func HandleActionAuthorWalletActions() func(*core.RequestEvent) error {
 // ActionAuthorDevice is one runner device the caller can author on.
 type ActionAuthorDevice struct {
 	Path       string `json:"path"`
-	Namespace  string `json:"namespace"`
 	Name       string `json:"name"`
 	RunnerName string `json:"runner_name"`
 	// RunnerOwner is the name of the organization that owns the runner.
@@ -304,7 +303,6 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 				}
 				entry := ActionAuthorDevice{
 					Path:           path,
-					Namespace:      namespace,
 					Name:           device.GetString("name"),
 					RunnerName:     runner.GetString("name"),
 					RunnerOwner:    owner,
@@ -354,7 +352,6 @@ type ActionAuthorStartResponse struct {
 	DeviceID                string `json:"device_id"`
 	Status                  string `json:"status"`
 	Position                int    `json:"position"`
-	WorkflowNamespace       string `json:"workflow_namespace"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 }
 
@@ -585,7 +582,6 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			DeviceID:                deviceID,
 			Status:                  string(resp.Status),
 			Position:                resp.Position,
-			WorkflowNamespace:       namespace,
 			WalletVersionIdentifier: selection.Identifier,
 		})
 	}

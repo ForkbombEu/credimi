@@ -1285,8 +1285,6 @@ components:
           type: string
         name:
           type: string
-        namespace:
-          type: string
         path:
           type: string
         platform:
@@ -1438,8 +1436,6 @@ components:
         ticket_id:
           type: string
         wallet_version_identifier:
-          type: string
-        workflow_namespace:
           type: string
       type: object
     HandlersActionAuthorWalletActionsResponse:

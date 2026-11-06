@@ -218,7 +218,7 @@ func TestActionAuthorStartCountsOtherOrganizationsInTheOthersPool(t *testing.T) 
 		Body:            strings.NewReader(body),
 		Headers:         map[string]string{"Authorization": "Bearer " + token},
 		ExpectedStatus:  http.StatusAccepted,
-		ExpectedContent: []string{`"workflow_namespace":"` + authoringForeignNS + `"`},
+		ExpectedContent: []string{`"status":"queued"`},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupActionAuthorApp(t)
 			shareAdminRunner(t, app)
