@@ -304,60 +304,6 @@ paths:
                 $ref: '#/components/schemas/ApierrorResponse'
           description: An unexpected error occurred.
       summary: End an authoring session
-  /api/action-author/wallet-actions:
-    get:
-      description: List the actions of the wallet of wallet_version_identifier that
-        its organization owns or that are published, for a caller authorized to author
-        on that version and platform (android or ios; both query parameters are required).
-        Each action carries its canonified path, which a session's plan takes as a
-        prerequisite, and the sorted parameters its code references, which the prerequisite
-        must receive. Sorted by category, then name.
-      operationId: actionAuthor.listWalletActions
-      parameters:
-      - description: 'Build the session authors on: organization/wallet/version for
-          an uploaded installer, or, on android only, organization/wallet for a wallet
-          installed from the Play Store at session start.'
-        in: query
-        name: wallet_version_identifier
-        required: true
-        schema:
-          description: 'Build the session authors on: organization/wallet/version
-            for an uploaded installer, or, on android only, organization/wallet for
-            a wallet installed from the Play Store at session start.'
-          type: string
-      - description: 'Authoring platform of the session device: android or ios.'
-        in: query
-        name: platform
-        required: true
-        schema:
-          description: 'Authoring platform of the session device: android or ios.'
-          type: string
-      - description: Bearer token for authentication.
-        in: header
-        name: Authorization
-        schema:
-          description: Bearer token for authentication.
-          type: string
-      - description: User API key or internal admin API key, depending on the endpoint.
-        in: header
-        name: Credimi-Api-Key
-        schema:
-          description: User API key or internal admin API key, depending on the endpoint.
-          type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HandlersActionAuthorWalletActionsResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApierrorResponse'
-          description: An unexpected error occurred.
-      summary: List wallet actions usable as session prerequisites
   /api/action-author/wallet-versions:
     get:
       description: List the builds of the authenticated caller's organization (the
@@ -1234,27 +1180,6 @@ components:
         url:
           type: string
       type: object
-    ActionauthorWalletAction:
-      properties:
-        category:
-          type: string
-        name:
-          type: string
-        parameters:
-          items:
-            type: string
-          nullable: true
-          type: array
-        path:
-          type: string
-        published:
-          type: boolean
-        starts_from:
-          items:
-            type: string
-          nullable: true
-          type: array
-      type: object
     ApierrorAPIError:
       properties:
         code:
@@ -1437,14 +1362,6 @@ components:
           type: string
         wallet_version_identifier:
           type: string
-      type: object
-    HandlersActionAuthorWalletActionsResponse:
-      properties:
-        actions:
-          items:
-            $ref: '#/components/schemas/ActionauthorWalletAction'
-          nullable: true
-          type: array
       type: object
     HandlersActionAuthorWalletVersionsResponse:
       properties:

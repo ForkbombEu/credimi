@@ -272,8 +272,8 @@ func findActor(app core.App, in Actor) (*core.Record, error) {
 // pipeline runs: the actor's organization is its first one.
 // `organization/wallet/version` selects an uploaded installer and
 // `organization/wallet` the wallet's Play Store app (Android only).
-// An empty namespace is used only by the wallet-actions listing endpoint; activities
-// must pass their actual Temporal namespace, not a value from their payload.
+// An empty namespace skips the namespace check; activities must pass their
+// actual Temporal namespace, not a value from their payload.
 func Select(app core.App, namespace string, in BuildRequest) (Selection, error) {
 	var selection Selection
 	actor, err := findActor(app, in.Actor)

@@ -63,27 +63,6 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			ResponseSchema: ActionAuthorDevicesResponse{},
 		},
 		{
-			Method:         http.MethodGet,
-			Path:           "/wallet-actions",
-			Handler:        HandleActionAuthorWalletActions,
-			OperationID:    "actionAuthor.listWalletActions",
-			Summary:        "List wallet actions usable as session prerequisites",
-			Description:    "List the actions of the wallet of wallet_version_identifier that its organization owns or that are published, for a caller authorized to author on that version and platform (android or ios; both query parameters are required). Each action carries its canonified path, which a session's plan takes as a prerequisite, and the sorted parameters its code references, which the prerequisite must receive. Sorted by category, then name.",
-			ResponseSchema: ActionAuthorWalletActionsResponse{},
-			QuerySearchAttributes: []routing.QuerySearchAttribute{
-				{
-					Name:        "wallet_version_identifier",
-					Required:    true,
-					Description: "Build the session authors on: organization/wallet/version for an uploaded installer, or, on android only, organization/wallet for a wallet installed from the Play Store at session start.",
-				},
-				{
-					Name:        "platform",
-					Required:    true,
-					Description: "Authoring platform of the session device: android or ios.",
-				},
-			},
-		},
-		{
 			Method:         http.MethodPost,
 			Path:           "/sessions",
 			Handler:        HandleActionAuthorStart,
@@ -158,44 +137,6 @@ func HandleActionAuthorWalletVersions() func(*core.RequestEvent) error {
 			return authoringAPIError(e, err)
 		}
 		return e.JSON(http.StatusOK, ActionAuthorWalletVersionsResponse{WalletVersions: versions})
-	}
-}
-
-// ActionAuthorWalletActionsResponse lists the prerequisite candidates of a wallet.
-type ActionAuthorWalletActionsResponse struct {
-	Actions []actionauthor.WalletAction `json:"actions"`
-}
-
-// HandleActionAuthorWalletActions lists the wallet's owned and published
-// actions for a caller who can author on the selected version.
-func HandleActionAuthorWalletActions() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		if e.Auth == nil {
-			return authoringAPIError(e, actionauthor.ErrForbidden)
-		}
-		query := e.Request.URL.Query()
-		identifier := query.Get("wallet_version_identifier")
-		platform := query.Get("platform")
-		if identifier == "" ||
-			(platform != actionauthor.PlatformAndroid && platform != actionauthor.PlatformIOS) {
-			return authoringAPIError(e, fmt.Errorf(
-				"%w: wallet_version_identifier and platform (android or ios) are required",
-				actionauthor.ErrInvalid,
-			))
-		}
-		selection, err := actionauthor.Select(e.App, "", actionauthor.BuildRequest{
-			Actor:                   authoringActor(e.Auth),
-			WalletVersionIdentifier: identifier,
-			Platform:                platform,
-		})
-		if err != nil {
-			return authoringAPIError(e, err)
-		}
-		actions, err := actionauthor.ListWalletActions(e.App, selection, "")
-		if err != nil {
-			return authoringAPIError(e, err)
-		}
-		return e.JSON(http.StatusOK, ActionAuthorWalletActionsResponse{Actions: actions})
 	}
 }
 
