@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { untrack } from 'svelte';
+
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n';
 
@@ -26,13 +28,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let status = $state('');
 	let submitting = $state(false);
 
+	// Keyed on primitives: each poll brings a fresh but equal review object, which must not reset
+	// the Accept button.
+	const toolId = $derived(review.tool_id);
+	const code = $derived(review.code);
+	const digest = $derived(review.candidate_sha256);
+	const planPresent = $derived(hasPlan(review));
+
 	$effect(() => {
-		const current = review;
+		const current = { toolId, code, digest, planPresent };
 		acceptable = false;
-		canAccept(current).then((ok) => {
-			if (current !== review) return;
+		canAccept(untrack(() => review)).then((ok) => {
+			if (current.toolId !== toolId || current.digest !== digest) return;
 			acceptable = ok;
-			if (!ok) status = hasPlan(current) ? m.Review_hash_mismatch() : m.Review_no_plan();
+			if (ok) status = '';
+			else status = current.planPresent ? m.Review_hash_mismatch() : m.Review_no_plan();
 		});
 	});
 
@@ -60,7 +70,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <section
-	class="space-y-3 rounded-lg border bg-white p-4 text-sm shadow-lg"
+	class="space-y-3 rounded-[10px] border bg-white p-4 text-sm"
 	aria-label={m.Review_save_title({ name: review.name })}
 >
 	<h3 class="font-semibold">{m.Review_save_title({ name: review.name })}</h3>

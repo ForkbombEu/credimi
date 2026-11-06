@@ -1099,5 +1099,12 @@
 	"Review_no_plan": "Ingen plan: afvis denne kandidat.",
 	"Review_accepted": "Accepteret. Venter på resultatet af gemningen…",
 	"Review_refused": "Ikke gemt. Du kan bede om ændringer i denne chat.",
-	"Review_not_pending": "Denne gennemgang afventer ikke længere."
+	"Review_not_pending": "Denne gennemgang afventer ikke længere.",
+	"Session_releasing_device": "Chatten er afsluttet. Frigør enheden…",
+	"Session_ended_without_chat": "Sessionen sluttede, før chatten startede.",
+	"Session_read_only": "Kun den person, der startede denne session, kan skrive i den eller afslutte den.",
+	"Leave_session_title": "Afslut denne skrivesession?",
+	"Leave_session_warning": "Hvis du forlader denne side, afsluttes skrivesessionen, og enheden frigøres. Actions, du ikke har gemt, går tabt.",
+	"Leave_and_end_session": "Afslut session og forlad",
+	"Stay_on_page": "Bliv"
 }

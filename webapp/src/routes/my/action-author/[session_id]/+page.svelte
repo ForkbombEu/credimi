@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import SaveReviewCard from '$lib/action-author/save-review-card.svelte';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
-	import LiveViewSheet from '$lib/pipeline/live-view-sheet.svelte';
+	import LiveViewFrame from '$lib/pipeline/live-view-frame.svelte';
 	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
 	import WorkflowStatusBadge from '$lib/workflows/workflow-status.svelte';
 	import { untrack } from 'svelte';
@@ -231,6 +231,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 
 	let liveViewOpen = $state(false);
+
+	const metadata = $derived.by(() => {
+		if (!session) return '';
+		return [
+			session.wallet_version_identifier,
+			session.device_name,
+			session.runner_name,
+			session.runner_owner ? m.Runner_of({ owner: session.runner_owner }) : '',
+			session.model,
+			formatExecutionTimestamp(session.start_time, timezone),
+			running ? undefined : formatExecutionTimestamp(session.close_time, timezone)
+		]
+			.filter(Boolean)
+			.join(' · ');
+	});
+
+	const readOnly = $derived(!!session && running && !session.is_owner);
+	const showReview = $derived(!!pendingReview && !!session?.is_owner);
+	const showLiveView = $derived(liveViewOpen && !!session?.live_view && !!session?.is_owner);
 </script>
 
 <svelte:head>
@@ -241,174 +260,186 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</style>
 </svelte:head>
 
-<div class="bg-primary">
-	<div class="padding-x">
-		<BackButton href="/my/wallets" class="text-white" />
-	</div>
-</div>
+<div class="flex h-dvh flex-col bg-slate-50">
+	<header class="shrink-0 border-b bg-white">
+		<div class="padding-x flex flex-wrap items-center gap-x-6 gap-y-2 py-3">
+			<BackButton href="/my/wallets" />
 
-<div
-	class="bg-temporal padding-x flex flex-wrap items-start justify-between gap-4 py-4 sm:flex-nowrap sm:gap-8"
->
-	<div class="min-w-0 space-y-3">
-		<T tag="h1">{m.Authoring_session()}</T>
+			<div class="min-w-0 flex-1">
+				<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+					<T tag="h1">{m.Authoring_session()}</T>
+					{#if session}
+						<WorkflowStatusBadge status={session.status} />
+					{/if}
+				</div>
+				{#if metadata}
+					<p class="truncate font-mono text-xs text-muted-foreground" title={metadata}>
+						{metadata}
+					</p>
+				{/if}
+			</div>
 
-		{#if session}
-			<p class="font-mono text-xs break-words text-muted-foreground">
-				{[
-					session.wallet_version_identifier,
-					session.device_name,
-					session.runner_name,
-					session.runner_owner ? m.Runner_of({ owner: session.runner_owner }) : '',
-					session.model
-				]
-					.filter(Boolean)
-					.join(' · ')}
-			</p>
-
-			<WorkflowStatusBadge status={session.status} />
-
-			<table class="text-sm">
-				<tbody>
-					<tr>
-						<td class="italic">{m.Start_time()}</td>
-						<td class="pl-4"
-							>{formatExecutionTimestamp(session.start_time, timezone) ?? '-'}</td
+			{#if session?.is_owner}
+				<div class="flex flex-wrap gap-2">
+					{#if session.live_view}
+						<Button
+							variant={liveViewOpen ? 'secondary' : 'outline'}
+							onclick={() => (liveViewOpen = !liveViewOpen)}
 						>
-					</tr>
-					<tr>
-						<td class="italic">{m.End_time()}</td>
-						<td class="pl-4"
-							>{formatExecutionTimestamp(session.close_time, timezone) ?? '-'}</td
-						>
-					</tr>
-				</tbody>
-			</table>
-		{/if}
-
-		{#if pollError}
-			<Alert variant="destructive" class="block border border-destructive p-3!">
-				{pollError}
-			</Alert>
-		{/if}
-
-		{#if idleSeconds !== undefined}
-			<Alert variant="warning" class="block p-3!" role="status">
-				{m.Session_idle_warning({ seconds: idleSeconds })}
-			</Alert>
-		{/if}
-	</div>
-
-	{#if session}
-		<div class="flex flex-wrap gap-2">
-			{#if session.live_view}
-				<Button variant="outline" onclick={() => (liveViewOpen = true)}>
-					<MonitorPlayIcon />
-					{m.View_live()}
-				</Button>
-			{/if}
-			<Button variant="outline" onclick={endSession} disabled={!running}>
-				<SquareIcon />
-				{m.End_session()}
-			</Button>
-		</div>
-	{/if}
-</div>
-
-<div class="bg-temporal padding-x pb-6">
-	{#if stoppedMessage}
-		<Alert variant="destructive" class="block border border-destructive p-3!">
-			{stoppedMessage}
-		</Alert>
-	{:else if queue}
-		<div class="flex flex-wrap items-center gap-4 rounded-lg border bg-slate-200 px-4 py-6">
-			<Spinner size={16} />
-			<T class="text-muted-foreground">
-				{queue.kind === 'queued'
-					? m.Session_waiting_for_device({ position: queue.position, total: queue.total })
-					: m.Session_preparing_device()}
-			</T>
-			{#if queueCancellable}
-				<Button variant="outline" size="sm" onclick={cancelTicket}>
-					<XIcon />
-					{m.Cancel()}
-				</Button>
-			{/if}
-		</div>
-	{:else if !session}
-		<div class="flex items-center gap-2 rounded-lg border bg-slate-200 px-4 py-6">
-			<Spinner size={16} />
-			<T class="text-muted-foreground">{m.Loading()}</T>
-		</div>
-	{:else if running && !session.chat_ready}
-		<div class="flex items-center gap-2 rounded-lg border bg-slate-200 px-4 py-6">
-			<Spinner size={16} />
-			<T class="text-muted-foreground">{m.Session_preparing_device()}</T>
-		</div>
-	{:else if chatUrl}
-		<div class="relative" aria-busy={isChatLoading}>
-			{#if isChatLoading}
-				<div class="absolute inset-0 z-10">
-					<div
-						class={[
-							'rounded-lg border bg-slate-200 py-10 text-center',
-							'flex items-center justify-center gap-2',
-							'animate-pulse'
-						]}
-					>
-						<Spinner size={16} />
-						<T class="text-muted-foreground">{m.Loading()}</T>
-					</div>
+							<MonitorPlayIcon />
+							{m.View_live()}
+						</Button>
+					{/if}
+					{#if running}
+						<Button variant="outline" onclick={endSession}>
+							<SquareIcon />
+							{m.End_session()}
+						</Button>
+					{/if}
 				</div>
 			{/if}
-
-			<!-- Reloaded when the session ends, so the harness replays the closed chat. -->
-			{#key running}
-				<iframe
-					title={m.Authoring_session()}
-					src={chatUrl}
-					class="block h-[calc(100dvh-16rem)] min-h-[600px] w-full border-0"
-					onload={() => (loadedChatUrl = chatUrl)}
-				></iframe>
-			{/key}
 		</div>
-	{/if}
+
+		{#if pollError || idleSeconds !== undefined || readOnly}
+			<div class="padding-x space-y-2 pb-3">
+				{#if pollError}
+					<Alert variant="destructive" class="block border border-destructive p-3!">
+						{pollError}
+					</Alert>
+				{/if}
+				{#if idleSeconds !== undefined}
+					<Alert variant="warning" class="block p-3!" role="status">
+						{m.Session_idle_warning({ seconds: idleSeconds })}
+					</Alert>
+				{/if}
+				{#if readOnly}
+					<Alert class="block p-3!" role="status">{m.Session_read_only()}</Alert>
+				{/if}
+			</div>
+		{/if}
+	</header>
+
+	<main class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 lg:flex-row">
+		<section
+			class="relative flex min-h-[60dvh] min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] border bg-white lg:min-h-0"
+		>
+			{#if stoppedMessage}
+				<div class="p-4">
+					<Alert variant="destructive" class="block border border-destructive p-3!">
+						{stoppedMessage}
+					</Alert>
+				</div>
+			{:else if queue}
+				<div class="flex flex-1 flex-wrap items-center justify-center gap-4 p-6">
+					<Spinner size={16} />
+					<T class="text-muted-foreground">
+						{queue.kind === 'queued'
+							? m.Session_waiting_for_device({
+									position: queue.position,
+									total: queue.total
+								})
+							: m.Session_preparing_device()}
+					</T>
+					{#if queueCancellable}
+						<Button variant="outline" size="sm" onclick={cancelTicket}>
+							<XIcon />
+							{m.Cancel()}
+						</Button>
+					{/if}
+				</div>
+			{:else if !session}
+				<div class="flex flex-1 items-center justify-center gap-2 p-6">
+					<Spinner size={16} />
+					<T class="text-muted-foreground">{m.Loading()}</T>
+				</div>
+			{:else if !session.chat_ready}
+				<div class="flex flex-1 items-center justify-center gap-2 p-6">
+					{#if running}
+						<Spinner size={16} />
+						<T class="text-muted-foreground">{m.Session_preparing_device()}</T>
+					{:else}
+						<T class="text-muted-foreground">{m.Session_ended_without_chat()}</T>
+					{/if}
+				</div>
+			{:else if chatUrl}
+				{#if running && !session.chat_running}
+					<div
+						class="flex shrink-0 items-center gap-2 border-b bg-slate-50 px-4 py-2 text-sm text-muted-foreground"
+						role="status"
+					>
+						<Spinner size={14} />
+						{m.Session_releasing_device()}
+					</div>
+				{/if}
+
+				<div class="relative min-h-0 flex-1" aria-busy={isChatLoading}>
+					{#if isChatLoading}
+						<div
+							class="absolute inset-0 z-10 flex animate-pulse items-center justify-center gap-2 bg-white"
+						>
+							<Spinner size={16} />
+							<T class="text-muted-foreground">{m.Loading()}</T>
+						</div>
+					{/if}
+
+					<!-- Reloaded when the chat ends, so the harness replays the closed chat. -->
+					{#key session.chat_running}
+						<iframe
+							title={m.Authoring_session()}
+							src={chatUrl}
+							class="absolute inset-0 h-full w-full border-0"
+							onload={() => (loadedChatUrl = chatUrl)}
+						></iframe>
+					{/key}
+				</div>
+			{/if}
+		</section>
+
+		{#if session && (showReview || showLiveView)}
+			<aside class="flex w-full shrink-0 flex-col gap-4 overflow-y-auto lg:w-[26rem]">
+				{#if pendingReview && showReview}
+					{#key pendingReview.tool_id}
+						<SaveReviewCard
+							{session}
+							review={pendingReview}
+							onSettled={() => {
+								settledReviews.add(pendingReview.tool_id);
+								pollNow();
+							}}
+						/>
+					{/key}
+				{/if}
+
+				{#if showLiveView}
+					<section class="flex flex-col gap-2 rounded-[10px] border bg-white p-3">
+						<div class="flex items-center justify-between gap-2">
+							<T class="font-semibold">{m.Live_view()}: {session.device_name}</T>
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								aria-label={m.Close()}
+								onclick={() => (liveViewOpen = false)}
+							>
+								<XIcon />
+							</Button>
+						</div>
+						<LiveViewFrame
+							workflowId={session.session_id}
+							runId={session.run_id}
+							deviceId={session.device_id}
+							deviceName={session.device_name}
+							hideCommands
+							class="h-[min(70dvh,44rem)]"
+						/>
+					</section>
+				{/if}
+			</aside>
+		{/if}
+	</main>
 </div>
-
-{#if session && pendingReview}
-	<div
-		class="fixed right-6 bottom-6 z-50 max-h-[calc(100dvh-3rem)] w-[min(28rem,calc(100vw-3rem))] overflow-auto"
-	>
-		{#key pendingReview.tool_id}
-			<SaveReviewCard
-				{session}
-				review={pendingReview}
-				onSettled={() => {
-					settledReviews.add(pendingReview.tool_id);
-					pollNow();
-				}}
-			/>
-		{/key}
-	</div>
-{/if}
-
-{#if session}
-	<LiveViewSheet
-		bind:open={liveViewOpen}
-		workflowId={session.session_id}
-		runId={session.run_id}
-		title={m.Authoring_session()}
-		deviceId={session.device_id}
-		deviceName={session.device_name}
-	/>
-{/if}
 
 <style lang="postcss">
 	@reference 'tailwindcss';
-
-	.bg-temporal {
-		background-color: rgb(248 250 252);
-	}
 
 	.padding-x {
 		@apply px-4! md:px-8!;

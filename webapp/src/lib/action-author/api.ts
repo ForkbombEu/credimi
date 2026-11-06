@@ -64,6 +64,10 @@ export type Session = {
 	model: string;
 	live_view: boolean;
 	chat_ready: boolean;
+	/** Whether the chat workflow still runs; false once it ended, even while the session releases the device. */
+	chat_running: boolean;
+	/** Whether the caller started the session: only the starter writes in its chat, ends it or watches it live. */
+	is_owner: boolean;
 	closes_at: string;
 	pending_review: PendingReview | null;
 };
@@ -111,12 +115,13 @@ function toFailure(e: unknown): ApiFailure {
 
 async function call<T>(
 	path: string,
-	options: { method?: string; body?: unknown } = {}
+	options: { method?: string; body?: unknown; keepalive?: boolean } = {}
 ): Promise<Result<T, ApiFailure>> {
 	try {
 		const res = await pb.send<T>(`${BASE}${path}`, {
 			method: options.method ?? 'GET',
 			body: options.body,
+			keepalive: options.keepalive,
 			requestKey: null
 		});
 		return ok(res);
@@ -159,10 +164,29 @@ export async function listSessions(
 	return res.map((r) => r.sessions ?? []);
 }
 
-export function closeSession(id: string): Promise<Result<{ session_id: string }, ApiFailure>> {
+export function closeSession(
+	id: string,
+	options: { keepalive?: boolean } = {}
+): Promise<Result<{ session_id: string }, ApiFailure>> {
 	return call<{ session_id: string }>(`/sessions/${encodeURIComponent(id)}/close`, {
-		method: 'POST'
+		method: 'POST',
+		keepalive: options.keepalive
 	});
+}
+
+const TICKET_PREFIX = 'ActionAuthorSession-';
+
+/** Ends the session or its queued ticket while the page unloads; fire and forget. */
+export function endOnExit(sessionId: string, deviceId: string, queued: boolean): void {
+	if (!queued) {
+		void closeSession(sessionId, { keepalive: true });
+		return;
+	}
+	const ticket = sessionId.slice(TICKET_PREFIX.length);
+	pb.send(
+		`/api/pipeline/queue/${encodeURIComponent(ticket)}?device_ids=${encodeURIComponent(deviceId)}`,
+		{ method: 'DELETE', keepalive: true, requestKey: null }
+	).catch(() => {});
 }
 
 export function reviewCandidate(
