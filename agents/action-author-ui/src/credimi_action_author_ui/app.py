@@ -19,6 +19,7 @@ config (the namespace comes from each request), ACTION_AUTHOR_UI_PORT (default 8
 
 import asyncio
 import base64
+import importlib.metadata
 import json
 import logging
 import os
@@ -63,6 +64,20 @@ NAMESPACE_PATTERN = re.compile(r"[^\W_](?:[^\W_]|-){0,999}")
 CHAT_PATTERN = re.compile(
     r"ActionAuthorSession-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-author"
 )
+# Host names Credimi's proxy reaches the service under; others may be DNS rebinding of a dev port.
+ALLOWED_HOSTS = frozenset(
+    host.strip()
+    for host in os.environ.get(
+        "ACTION_AUTHOR_UI_ALLOWED_HOSTS", "action_author_ui,localhost,127.0.0.1"
+    ).split(",")
+)
+# Routes naming a chat in their path; the ID must be the scoped chat.
+CHAT_PATH_PATTERNS = (
+    re.compile(r"^/api/(?:workflow-status|status|agent-interface)/([^/]+)$"),
+    re.compile(r"^/api/sessions/([^/]+)/close$"),
+)
+# Routes naming a chat in their JSON body's session_id.
+CHAT_BODY_PATHS = frozenset({"/api/chat", "/api/messages"})
 
 AGENT_LABEL = "Credimi action author"
 AGENT_DESCRIPTION = (
@@ -250,6 +265,28 @@ async def _sessions(temporal, chat: str) -> JSONResponse:
     return JSONResponse(sessions, headers=NO_STORE)
 
 
+def _other_chat() -> JSONResponse:
+    return JSONResponse(status_code=403, content={"error": "other_chat"})
+
+
+async def _names_other_chat(request, chat: str) -> bool:
+    """Whether the request names a chat other than the scoped one, in its path, query or body."""
+    method, path = request.method, request.url.path
+    for pattern in CHAT_PATH_PATTERNS:
+        match = pattern.match(path)
+        if match is not None:
+            return match.group(1) != chat
+    if method == "GET" and path == "/api/attach":
+        return request.query_params.get("session_id") != chat
+    if method == "POST" and path in CHAT_BODY_PATHS:
+        try:
+            body = await request.json()
+        except ValueError:
+            return True
+        return not isinstance(body, dict) or body.get("session_id") != chat
+    return False
+
+
 def _create_harness(temporal) -> FastAPI:
     """The upstream harness app on ``temporal``, serving the chat each request is scoped to.
 
@@ -264,6 +301,11 @@ def _create_harness(temporal) -> FastAPI:
     async def dispatch(request, call_next):
         method, path = request.method, request.url.path
         chat = request.scope["state"]["chat"]
+        if path.rstrip("/") == "/api/approve" or path.startswith("/api/approve/"):
+            # No agent tool needs approval.
+            return JSONResponse(status_code=403, content={"error": "approvals_disabled"})
+        if await _names_other_chat(request, chat):
+            return _other_chat()
         if method == "GET" and path == EMBED_CSS_PATH:
             return FileResponse(EMBED_CSS, media_type="text/css", headers=NO_STORE)
         if method == "GET" and path == "/":
@@ -352,8 +394,12 @@ def _create_harness(temporal) -> FastAPI:
 
 async def _harness_for(app, namespace: str) -> FastAPI:
     """The namespace's harness app, connecting on first use. Entries are never evicted: there is
-    one per organization. A failed connect is not cached."""
-    async with app.state.lock:
+    one per organization. A failed connect is not cached. Each namespace connects under its own
+    lock, so a slow namespace does not hold up the others."""
+    harness = app.state.harnesses.get(namespace)
+    if harness is not None:
+        return harness
+    async with app.state.locks.setdefault(namespace, asyncio.Lock()):
         harness = app.state.harnesses.get(namespace)
         if harness is None:
             harness = _create_harness(await app.state.connect(namespace))
@@ -375,6 +421,11 @@ class _ScopeMiddleware:
         headers = {
             name.decode("latin-1"): value.decode("latin-1") for name, value in scope["headers"]
         }
+        host = headers.get("host", "").rsplit(":", 1)[0]
+        if host not in ALLOWED_HOSTS:
+            response = JSONResponse(status_code=421, content={"error": "misdirected_request"})
+            await response(scope, receive, send)
+            return
         namespace = headers.get(NAMESPACE_HEADER, "")
         chat = headers.get(CHAT_HEADER, "")
         if not NAMESPACE_PATTERN.fullmatch(namespace) or not CHAT_PATTERN.fullmatch(chat):
@@ -400,13 +451,17 @@ def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespac
     app = Starlette()
     app.state.connect = connect
     app.state.harnesses = {}
-    app.state.lock = asyncio.Lock()
+    app.state.locks = {}
     app.user_middleware = [Middleware(_ScopeMiddleware, owner=app)]
     return app
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
+    logger.info(
+        "action author ui: temporal-agent-harness %s",
+        importlib.metadata.version("temporal-agent-harness"),
+    )
     uvicorn.run(create_app(), host="0.0.0.0", port=_port())
 
 

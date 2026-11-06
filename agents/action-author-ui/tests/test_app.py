@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+import asyncio
 import base64
 import json
 import logging
@@ -151,6 +152,52 @@ async def test_connect_failures_are_retried():
     assert (failed.status_code, failed.json()) == (503, {"error": "temporal_unavailable"})
     assert served.status_code == 200
     assert attempts == ["org-a", "org-a"]
+
+
+async def test_a_slow_namespace_does_not_block_another():
+    released = asyncio.Event()
+
+    async def connect(namespace):
+        if namespace == "org-a":
+            await released.wait()
+        return _ChatTemporal()
+
+    async with ui_client(create_app(connect=connect)) as client:
+        slow = asyncio.create_task(client.get("/api/sessions", headers=_scope("org-a")))
+        fast = await asyncio.wait_for(client.get("/api/sessions", headers=_scope("org-b")), 5)
+        assert fast.status_code == 200
+        assert not slow.done()
+        released.set()
+        assert (await asyncio.wait_for(slow, 5)).status_code == 200
+
+
+async def test_requests_for_another_host_are_refused():
+    async with ui_client() as client:
+        response = await client.get("/api/sessions", headers={"Host": "evil.example"})
+    assert (response.status_code, response.json()) == (421, {"error": "misdirected_request"})
+
+
+OTHER = CHAT.replace("abcd-author", "dcba-author")
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "kwargs", "error"),
+    [
+        ("GET", f"/api/status/{OTHER}", {}, "other_chat"),
+        ("GET", f"/api/workflow-status/{OTHER}", {}, "other_chat"),
+        ("GET", "/api/attach", {"params": {"session_id": OTHER}}, "other_chat"),
+        ("POST", "/api/messages", {"json": {"session_id": OTHER, "text": "hi"}}, "other_chat"),
+        ("POST", "/api/chat", {"json": {"session_id": OTHER, "message": "hi"}}, "other_chat"),
+        ("POST", "/api/chat", {"json": [CHAT]}, "other_chat"),
+        ("POST", "/api/chat", {"content": b"{"}, "other_chat"),
+        ("POST", f"/api/sessions/{OTHER}/close", {}, "other_chat"),
+        ("POST", "/api/approve", {"json": {"session_id": CHAT}}, "approvals_disabled"),
+    ],
+)
+async def test_requests_for_another_chat_are_refused(method, path, kwargs, error):
+    async with ui_client() as client:
+        response = await client.request(method, path, **kwargs)
+    assert (response.status_code, response.json()) == (403, {"error": error})
 
 
 @pytest.mark.parametrize("method", ["GET", "POST", "PUT"])
