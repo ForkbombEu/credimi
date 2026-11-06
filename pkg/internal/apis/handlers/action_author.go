@@ -972,10 +972,20 @@ func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 		var notFound *serviceerror.NotFound
 		if errors.As(err, &notFound) {
 			// Signals reach only running workflows: tell a chat that never
-			// started (the device is still being prepared) from one that ended.
-			_, err = c.DescribeWorkflowExecution(ctx, chatID, "")
-			if errors.As(err, &notFound) {
+			// started (the device is still being prepared) from one that ended,
+			// or one that started since the signal.
+			var described *workflowservice.DescribeWorkflowExecutionResponse
+			described, err = c.DescribeWorkflowExecution(ctx, chatID, "")
+			switch {
+			case errors.As(err, &notFound):
 				err = c.CancelWorkflow(ctx, info.SessionWorkflowID, info.SessionRunID)
+			case err == nil && described.GetWorkflowExecutionInfo().GetStatus() ==
+				enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING:
+				err = signalChatClose(ctx, c, namespace, chatID)
+				if errors.As(err, &notFound) {
+					// It ended in between.
+					err = nil
+				}
 			}
 		}
 		if err != nil {

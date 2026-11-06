@@ -592,12 +592,18 @@ func TestActionAuthorSessionsValidatesTheWallet(t *testing.T) {
 }
 
 func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T) {
+	notFound := serviceerror.NewNotFound("no chat")
 	for _, tc := range []struct {
-		name      string
-		status    enumspb.WorkflowExecutionStatus
-		signalErr error
+		name   string
+		status enumspb.WorkflowExecutionStatus
+		// signalErrs answer the close signals in turn; missing ones succeed.
+		signalErrs []error
 		// chatErr is the chat's describe answer after a NotFound signal.
 		chatErr error
+		// chatRunning makes that describe find the chat running.
+		chatRunning bool
+		// signals is the number of close signals sent to a running session's chat.
+		signals int
 		code    int
 		content string
 		cancels bool
@@ -605,24 +611,45 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 		{
 			name:    "chat runs",
 			status:  enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			signals: 1,
 			code:    http.StatusAccepted,
 			content: `"session_id":"` + authoringSessionID + `"`,
 		},
 		{
-			name:      "device still being prepared",
-			status:    enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
-			signalErr: serviceerror.NewNotFound("no chat"),
-			chatErr:   serviceerror.NewNotFound("no chat"),
-			code:      http.StatusAccepted,
-			content:   `"session_id":"` + authoringSessionID + `"`,
-			cancels:   true,
+			name:       "device still being prepared",
+			status:     enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			signalErrs: []error{notFound},
+			chatErr:    notFound,
+			signals:    1,
+			code:       http.StatusAccepted,
+			content:    `"session_id":"` + authoringSessionID + `"`,
+			cancels:    true,
 		},
 		{
-			name:      "chat already ended",
-			status:    enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
-			signalErr: serviceerror.NewNotFound("chat completed"),
-			code:      http.StatusAccepted,
-			content:   `"session_id":"` + authoringSessionID + `"`,
+			name:       "chat already ended",
+			status:     enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			signalErrs: []error{serviceerror.NewNotFound("chat completed")},
+			signals:    1,
+			code:       http.StatusAccepted,
+			content:    `"session_id":"` + authoringSessionID + `"`,
+		},
+		{
+			name:        "chat started after the signal",
+			status:      enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			signalErrs:  []error{notFound},
+			chatRunning: true,
+			signals:     2,
+			code:        http.StatusAccepted,
+			content:     `"session_id":"` + authoringSessionID + `"`,
+		},
+		{
+			name:        "chat started and ended after the signal",
+			status:      enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			signalErrs:  []error{notFound, serviceerror.NewNotFound("chat completed")},
+			chatRunning: true,
+			signals:     2,
+			code:        http.StatusAccepted,
+			content:     `"session_id":"` + authoringSessionID + `"`,
 		},
 		{
 			name:    "session ended",
@@ -639,16 +666,19 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 		t.Cleanup(func() { signalChatClose = orig })
 		signalChatClose = func(_ context.Context, _ client.Client, namespace, chatID string) error {
 			signals = append(signals, signal{namespace, chatID})
-			return tc.signalErr
+			if len(signals) <= len(tc.signalErrs) {
+				return tc.signalErrs[len(signals)-1]
+			}
+			return nil
 		}
 		c.On("CancelWorkflow", mock.Anything, authoringSessionID, authoringSessionRun).Return(nil)
 		var chat *workflowservice.DescribeWorkflowExecutionResponse
 		if tc.chatErr == nil {
-			chat = authoringExecution(
-				"ActionAuthor",
-				enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED,
-				0,
-			)
+			chatStatus := enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED
+			if tc.chatRunning {
+				chatStatus = enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING
+			}
+			chat = authoringExecution("ActionAuthor", chatStatus, 0)
 		}
 		c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
 			Return(chat, tc.chatErr)
@@ -666,10 +696,9 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 			},
 		}).Test(t)
 
-		if tc.status != enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING {
-			require.Empty(t, signals)
-		} else {
-			require.Equal(t, []signal{{authoringNamespace, authoringSessionChat}}, signals)
+		require.Len(t, signals, tc.signals, tc.name)
+		for _, s := range signals {
+			require.Equal(t, signal{authoringNamespace, authoringSessionChat}, s, tc.name)
 		}
 		if tc.cancels {
 			c.AssertNumberOfCalls(t, "CancelWorkflow", 1)
