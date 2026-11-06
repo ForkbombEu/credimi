@@ -587,7 +587,14 @@ func TestHandleSendTemporalSignalNotFound(t *testing.T) {
 
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("SignalWorkflow", mock.Anything, "wf-1", "", "sig", mock.Anything).
+		On(
+			"SignalWorkflow",
+			mock.Anything,
+			"wf-1",
+			"",
+			workflows.EudiwStartCheckSignal,
+			mock.Anything,
+		).
 		Return(&serviceerror.NotFound{Message: "missing"})
 
 	complianceTemporalClient = func(_ string) (client.Client, error) {
@@ -600,7 +607,7 @@ func TestHandleSendTemporalSignalNotFound(t *testing.T) {
 	input := HandleSendTemporalSignalInput{
 		WorkflowID: "wf-1",
 		Namespace:  "usera-s-organization",
-		Signal:     "sig",
+		Signal:     workflows.EudiwStartCheckSignal,
 	}
 	req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
 	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, input))
@@ -630,7 +637,14 @@ func TestHandleSendTemporalSignalSuccess(t *testing.T) {
 
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("SignalWorkflow", mock.Anything, "wf-2", "", "sig", mock.Anything).
+		On(
+			"SignalWorkflow",
+			mock.Anything,
+			"wf-2",
+			"",
+			workflows.EudiwStartCheckSignal,
+			mock.Anything,
+		).
 		Return(nil)
 
 	complianceTemporalClient = func(_ string) (client.Client, error) {
@@ -643,7 +657,7 @@ func TestHandleSendTemporalSignalSuccess(t *testing.T) {
 	input := HandleSendTemporalSignalInput{
 		WorkflowID: "wf-2",
 		Namespace:  "usera-s-organization",
-		Signal:     "sig",
+		Signal:     workflows.EudiwStartCheckSignal,
 	}
 	req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
 	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, input))
@@ -659,6 +673,39 @@ func TestHandleSendTemporalSignalSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestHandleSendTemporalSignalRefusesUnknownSignals(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() { complianceTemporalClient = origClient })
+	mockClient := &temporalmocks.Client{}
+	complianceTemporalClient = func(string) (client.Client, error) {
+		return mockClient, nil
+	}
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	rec := performComplianceSignal(t, app, authRecord, HandleSendTemporalSignalInput{
+		WorkflowID: "ActionAuthorSession-x-author",
+		Namespace:  "usera-s-organization",
+		Signal:     "close",
+	})
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, "unknown_signal", decodeHandlerErrorResponse(t, rec).Error.Reason)
+	mockClient.AssertNotCalled(
+		t,
+		"SignalWorkflow",
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	)
 }
 
 func TestHandleSendTemporalSignalNamespaceAuthorization(t *testing.T) {
@@ -699,7 +746,14 @@ func TestHandleSendTemporalSignalNamespaceAuthorization(t *testing.T) {
 
 			mockClient := &temporalmocks.Client{}
 			mockClient.
-				On("SignalWorkflow", mock.Anything, "wf-b", "", "sig", mock.Anything).
+				On(
+					"SignalWorkflow",
+					mock.Anything,
+					"wf-b",
+					"",
+					workflows.EudiwStartCheckSignal,
+					mock.Anything,
+				).
 				Return(nil).
 				Maybe()
 			var requestedNamespaces []string
@@ -711,7 +765,7 @@ func TestHandleSendTemporalSignalNamespaceAuthorization(t *testing.T) {
 			input := HandleSendTemporalSignalInput{
 				WorkflowID: "wf-b",
 				Namespace:  s.namespace,
-				Signal:     "sig",
+				Signal:     workflows.EudiwStartCheckSignal,
 			}
 			req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
 			req = req.WithContext(
@@ -736,7 +790,7 @@ func TestHandleSendTemporalSignalNamespaceAuthorization(t *testing.T) {
 					mock.Anything,
 					"wf-b",
 					"",
-					"sig",
+					workflows.EudiwStartCheckSignal,
 					mock.Anything,
 				)
 			} else {
@@ -1096,7 +1150,7 @@ func TestHandleSendTemporalSignalDispatch(t *testing.T) {
 		rec := performComplianceSignal(t, app, nil, HandleSendTemporalSignalInput{
 			WorkflowID: "wf-1",
 			Namespace:  "usera-s-organization",
-			Signal:     "sig",
+			Signal:     workflows.EudiwStartCheckSignal,
 		})
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 		require.Equal(t, "authentication required", decodeHandlerErrorResponse(t, rec).Error.Reason)
@@ -1112,7 +1166,7 @@ func TestHandleSendTemporalSignalDispatch(t *testing.T) {
 	}{
 		{
 			name:       "temporal client creation failure",
-			signal:     "sig",
+			signal:     workflows.EudiwStartCheckSignal,
 			clientErr:  errors.New("dial failed"),
 			wantStatus: http.StatusServiceUnavailable,
 			wantReason: "temporal_unavailable",

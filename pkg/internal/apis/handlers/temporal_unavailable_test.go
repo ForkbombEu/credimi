@@ -38,24 +38,10 @@ func TestTemporalClientFailureAnswersTemporalUnavailable(t *testing.T) {
 			stub:    stubWorkflowTemporalClient(unavailable),
 		},
 		{
-			name:    "get workflow run history",
-			method:  http.MethodGet,
-			path:    "/api/my/workflows/wf-1/runs/run-1/history",
-			handler: HandleGetMyWorkflowRunHistory,
-			stub:    stubWorkflowTemporalClient(unavailable),
-		},
-		{
 			name:    "cancel workflow run",
 			method:  http.MethodPost,
 			path:    "/api/my/workflows/wf-1/runs/run-1/cancel",
 			handler: HandleCancelMyWorkflowRun,
-			stub:    stubWorkflowTemporalClient(unavailable),
-		},
-		{
-			name:    "export workflow run",
-			method:  http.MethodGet,
-			path:    "/api/my/workflows/wf-1/runs/run-1/export",
-			handler: HandleExportMyWorkflowRun,
 			stub:    stubWorkflowTemporalClient(unavailable),
 		},
 		{

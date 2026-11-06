@@ -95,8 +95,17 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 			err = sendEWCLikeLogUpdateStart(ctx, e.App, c, req)
 		case workflows.EwcStopCheckSignal:
 			err = sendEWCLikeLogUpdateStop(ctx, c, req)
-		default:
+		case workflows.EudiwStartCheckSignal,
+			workflows.EudiwStopCheckSignal,
+			workflows.OpenID4VPWalletStopCheckSignal:
 			err = sendTemporalSignal(ctx, c, req)
+		default:
+			return apierror.New(
+				http.StatusBadRequest,
+				"signal",
+				"unknown_signal",
+				"This signal cannot be sent.",
+			)
 		}
 		if err != nil {
 			apiErr := &apierror.APIError{}

@@ -217,12 +217,6 @@ type Payloads []Payload
 
 // Response types for checks handlers
 
-// ReRunWorkflowResponse represents the response when re-running a workflow.
-type ReRunWorkflowResponse struct {
-	WorkflowID string `json:"workflow_id" validate:"required"`
-	RunID      string `json:"run_id"      validate:"required"`
-}
-
 // ListMyWorkflowsResponse represents the response containing workflow executions.
 type ListMyWorkflowsResponse struct {
 	Executions []*WorkflowExecutionSummary `json:"executions" validate:"required"`
@@ -243,21 +237,6 @@ type GetMyWorkflowRunResponse struct {
 	Devices []PipelineExecutionDevice `json:"devices,omitempty"`
 }
 
-// ListMyWorkflowRunsResponse represents the response containing the runs of a workflow.
-type ListMyWorkflowRunsResponse struct {
-	Executions []*WorkflowExecutionSummary `json:"executions" validate:"required"`
-}
-
-// GetMyWorkflowRunHistoryResponse represents workflow execution history.
-type GetMyWorkflowRunHistoryResponse struct {
-	History    []map[string]interface{} `json:"history"    validate:"required"`
-	Count      int                      `json:"count"      validate:"required"`
-	Time       string                   `json:"time"       validate:"required"`
-	WorkflowID string                   `json:"workflowId" validate:"required"`
-	RunID      string                   `json:"runId"      validate:"required"`
-	Namespace  string                   `json:"namespace"  validate:"required"`
-}
-
 // CancelMyWorkflowRunResponse represents the response when canceling a workflow execution.
 type CancelMyWorkflowRunResponse struct {
 	Message    string `json:"message"    validate:"required"`
@@ -266,40 +245,6 @@ type CancelMyWorkflowRunResponse struct {
 	Status     string `json:"status"     validate:"required"`
 	Time       string `json:"time"       validate:"required"`
 	Namespace  string `json:"namespace"  validate:"required"`
-}
-
-// TerminateMyWorkflowRunResponse represents the response when terminating a workflow execution.
-type TerminateMyWorkflowRunResponse struct {
-	Message    string `json:"message"    validate:"required"`
-	WorkflowID string `json:"workflowId" validate:"required"`
-	RunID      string `json:"runId"      validate:"required"`
-	Status     string `json:"status"     validate:"required"`
-	Time       string `json:"time"       validate:"required"`
-	Namespace  string `json:"namespace"  validate:"required"`
-}
-
-// ExportMyWorkflowRunResponse represents the response when exporting a workflow run.
-type ExportMyWorkflowRunResponse struct {
-	Export WorkflowExportData `json:"export" validate:"required"`
-}
-
-// WorkflowExportData represents the exported workflow run data.
-type WorkflowExportData struct {
-	WorkflowID string                 `json:"workflowId" validate:"required"`
-	RunID      string                 `json:"runId"      validate:"required"`
-	Input      map[string]interface{} `json:"input"      validate:"required"`
-	Config     map[string]interface{} `json:"config"     validate:"required"`
-}
-
-// WorkflowLogsResponse represents the response for workflow log operations.
-type WorkflowLogsResponse struct {
-	Channel    string `json:"channel"     validate:"required"`
-	WorkflowID string `json:"workflow_id" validate:"required"`
-	RunID      string `json:"run_id"      validate:"required"`
-	Message    string `json:"message"     validate:"required"`
-	Status     string `json:"status"      validate:"required"`
-	Time       string `json:"time"        validate:"required"`
-	Namespace  string `json:"namespace"   validate:"required"`
 }
 
 // Supporting types for workflow execution details
