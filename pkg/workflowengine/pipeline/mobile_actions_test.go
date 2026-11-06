@@ -157,7 +157,7 @@ func TestResolveStoredMobileActionsComposesActions(t *testing.T) {
 					ID:  "first",
 					Use: mobileAutomationStepUse,
 					With: pipeline.StepInputs{Payload: map[string]any{
-						"version_id": mobileExternalSourceVersionID,
+						"version_id": MobileExternalSourceVersionID,
 						"parameters": map[string]any{"deeplink": "${{ a.outputs.deeplink }}"},
 						"actions":    actions("${{ offer-a.outputs.deeplink }}"),
 					}},
@@ -166,7 +166,7 @@ func TestResolveStoredMobileActionsComposesActions(t *testing.T) {
 					ID:  "second",
 					Use: mobileAutomationStepUse,
 					With: pipeline.StepInputs{Payload: map[string]any{
-						"version_id": mobileExternalSourceVersionID,
+						"version_id": MobileExternalSourceVersionID,
 						"actions":    actions("${{ offer-b.outputs.deeplink }}"),
 					}},
 				}},
@@ -253,7 +253,7 @@ func TestResolveStoredMobileActionsRejectsInvalidActions(t *testing.T) {
 				testResolveStoredMobileActionsWorkflow,
 				workflow.RegisterOptions{Name: "test-invalid-actions"},
 			)
-			tc.payload["version_id"] = mobileExternalSourceVersionID
+			tc.payload["version_id"] = MobileExternalSourceVersionID
 			env.ExecuteWorkflow("test-invalid-actions", []pipeline.StepDefinition{{
 				StepSpec: pipeline.StepSpec{
 					ID:   "step",

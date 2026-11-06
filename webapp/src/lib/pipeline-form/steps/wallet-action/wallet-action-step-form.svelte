@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { getHubItemTypeFilter } from '$lib/hub/utils.js';
 	import { bindDeviceCatalogSearch } from '$lib/pipeline/device/device-select-catalog.svelte.js';
 	import DeviceSelectList from '$lib/pipeline/device/device-select-list.svelte';
+	import AgentAuthoredIcon from '$lib/wallet/agent-authored-icon.svelte';
 	import {
 		ItemCard,
 		SearchInput,
@@ -96,7 +97,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 		{#if walletAction}
 			<WithLabel label={m.Wallet_action()}>
-				<ItemCard title={walletAction.name} onDiscard={() => form.removeAction()} />
+				<ItemCard title={walletAction.name} onDiscard={() => form.removeAction()}>
+					{#snippet titleRight()}
+						<AgentAuthoredIcon authored={Wallet.Action.isAgentAuthored(walletAction)} />
+					{/snippet}
+				</ItemCard>
 				{#snippet labelRight()}
 					<WalletActionForm {walletAction} />
 				{/snippet}
@@ -193,6 +198,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		{#snippet item({ record, onSelect })}
 			<ItemCard title={record.name} onClick={() => onSelect(record)}>
+				{#snippet titleRight()}
+					<AgentAuthoredIcon authored={Wallet.Action.isAgentAuthored(record)} />
+				{/snippet}
 				{#snippet beforeContent()}
 					{@const category = Wallet.Action.getCategoryLabel(record)}
 					{#if category}

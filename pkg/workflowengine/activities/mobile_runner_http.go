@@ -98,5 +98,6 @@ func (a *MobileRunnerHTTPActivity) Execute(
 		map[string]string{"Credimi-Api-Key": credential},
 		&a.BaseActivity,
 		otelhttp.NewTransport(mobilerunner.Transport(runner)),
+		0,
 	)
 }

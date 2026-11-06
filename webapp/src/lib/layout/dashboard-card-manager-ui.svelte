@@ -25,6 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		actions?: Snippet<[{ record: R }]>;
 		hideClone?: boolean;
 		beforeName?: Snippet<[{ record: R }]>;
+		afterName?: Snippet<[{ record: R }]>;
 	};
 
 	let {
@@ -34,7 +35,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		records,
 		actions: actionsSnippet,
 		hideClone,
-		beforeName: beforeNameSnippet
+		beforeName: beforeNameSnippet,
+		afterName: afterNameSnippet
 	}: Props = $props();
 </script>
 
@@ -52,6 +54,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/snippet}
 			{#snippet beforeName()}
 				{@render beforeNameSnippet?.({ record })}
+			{/snippet}
+			{#snippet afterName()}
+				{@render afterNameSnippet?.({ record })}
 			{/snippet}
 		</DashboardCardManagerItem>
 	{/each}

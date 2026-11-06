@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	import A from '@/components/ui-custom/a.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -15,9 +17,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		published: boolean;
 		class?: string;
 		textToCopy?: string;
+		afterLabel?: Snippet;
 	}
 
-	let { label, href, published, class: classValue, textToCopy }: Props = $props();
+	let { label, href, published, class: classValue, textToCopy, afterLabel }: Props = $props();
 </script>
 
 <T class={['gap-1 leading-snug font-medium text-balance', classValue]}>
@@ -30,6 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{label}
 		</span>
 	{/if}
+	{@render afterLabel?.()}
 	{#if textToCopy}
 		<CopyButtonSmall {textToCopy} size="mini" class="inline-flex translate-y-px" />
 	{/if}

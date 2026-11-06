@@ -50,16 +50,22 @@ func requireMobileDeviceRunnersOnline(
 			return apiErr
 		}
 		if !online {
-			return apierror.New(
-				http.StatusServiceUnavailable,
-				"device_id",
-				"device runner is offline",
-				"mobile device "+deviceID+" is hosted by a runner that is not reachable",
-			)
+			return mobileDeviceRunnerOfflineError(deviceID)
 		}
 	}
 
 	return nil
+}
+
+// mobileDeviceRunnerOfflineError rejects a run on a device whose runner
+// cannot take it.
+func mobileDeviceRunnerOfflineError(deviceID string) *apierror.APIError {
+	return apierror.New(
+		http.StatusServiceUnavailable,
+		"device_id",
+		"device runner is offline",
+		"mobile device "+deviceID+" is hosted by a runner that is not reachable",
+	)
 }
 
 func requireMobileDeviceRunnerOnline(

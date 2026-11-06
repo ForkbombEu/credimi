@@ -32,7 +32,7 @@ var realtimeLogTopics = []struct {
 	// ewcLikeLogsSubscription and the EWC status workflow trim "-status".
 	{suffix: workflows.EWCSubscription, workflowIDSuffixes: []string{"", "-status"}},
 	{suffix: workflows.EudiwSubscription, workflowIDSuffixes: []string{""}},
-	// HandleMyWorkflowLogs channel.
+	// <workflow ID>-logs channels.
 	{suffix: realtimeLogTopicSuffix, workflowIDSuffixes: []string{""}},
 }
 

@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { TriangleAlert } from '@lucide/svelte';
 	import { Comp } from '$lib/renderable';
+	import AgentAuthoredIcon from '$lib/wallet/agent-authored-icon.svelte';
 	import { showPipelineFormError } from '$pipeline-form/errors.js';
 	import { Enrich404Error, type EnrichedStep } from '$pipeline-form/shared/enriched-step.js';
 	import * as steps from '$pipeline-form/steps';
@@ -149,6 +150,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{:else}
 									{title}
 								{/if}
+
+								<AgentAuthoredIcon authored={cardData.agentAuthored ?? false} />
 
 								{#if copyText}
 									<CopyButtonSmall

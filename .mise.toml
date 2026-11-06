@@ -8,6 +8,7 @@ min_version = '2025.1.8'
 go = "1.27.3"
 bun = "latest"
 node = "24.13.0"
+uv = "0.13.6"
 "aqua:dyne/slangroom-exec" = "latest"
 pre-commit = "latest"
 golangci-lint = "latest"

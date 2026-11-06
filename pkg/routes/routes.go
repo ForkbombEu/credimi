@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthorui"
 	"github.com/forkbombeu/credimi/pkg/internal/apis"
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -45,6 +46,10 @@ func bindAppHooks(app core.App) {
 		"ADDRESS_TEMPORAL_UI",
 		"http://localhost:8281",
 	)
+	actionAuthorUITarget := utils.GetEnvironmentVariable(
+		"ADDRESS_ACTION_AUTHOR_UI",
+		"http://localhost:8282",
+	)
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.Any("/{path...}", func(e *core.RequestEvent) error {
 			// Unknown API paths answer 404 here: the Vite dev server proxies /api/
@@ -70,6 +75,11 @@ func bindAppHooks(app core.App) {
 				BindFunc(observability.RunnerPreAuthLimit()).
 				Bind(middlewares.RequireCachedAPIKey())
 		}
+		authorTarget, err := url.Parse(actionAuthorUITarget)
+		if err != nil {
+			return fmt.Errorf("parse ADDRESS_ACTION_AUTHOR_UI: %w", err)
+		}
+		se.Router.Any(actionauthorui.PathPrefix+"/{path...}", actionauthorui.Handler(authorTarget))
 		return se.Next()
 	})
 }

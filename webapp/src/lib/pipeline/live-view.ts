@@ -9,7 +9,7 @@ import { getExceptionMessage } from '@/utils/errors';
 
 //
 
-export type LiveViewStream = { device_id: string; device_name: string; url: string };
+type LiveViewStream = { device_id: string; device_name: string; url: string };
 
 type LiveViewResponse = { streams: LiveViewStream[] };
 

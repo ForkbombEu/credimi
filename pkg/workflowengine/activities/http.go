@@ -90,19 +90,21 @@ func (a *HTTPActivity) Execute(
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
-	return executeHTTPRequest(ctx, payload, nil, &a.BaseActivity, nil)
+	return executeHTTPRequest(ctx, payload, nil, &a.BaseActivity, nil, 0)
 }
 
 // executeHTTPRequest performs one request. transport is nil for every caller
 // that wants the default resolver and connection pool; a runner-directed call
 // passes mobilerunner.Transport, which applies the runner destination policy
-// and resolves quick-tunnel hostnames where they exist.
+// and resolves quick-tunnel hostnames where they exist. maxBody caps the
+// response body in bytes; 0 leaves it unlimited.
 func executeHTTPRequest(
 	ctx context.Context,
 	payload HTTPActivityPayload,
 	injectedHeaders map[string]string,
 	act *workflowengine.BaseActivity,
 	transport http.RoundTripper,
+	maxBody int64,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 	url := payload.URL
@@ -214,7 +216,14 @@ func executeHTTPRequest(
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	reader := io.Reader(resp.Body)
+	if maxBody > 0 {
+		reader = io.LimitReader(resp.Body, maxBody+1)
+	}
+	respBody, err := io.ReadAll(reader)
+	if err == nil && maxBody > 0 && int64(len(respBody)) > maxBody {
+		err = fmt.Errorf("response body exceeds %d bytes", maxBody)
+	}
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ReadFromReaderFailed]
 		return result, act.NewActivityError(

@@ -14,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/authorsession"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -928,6 +929,7 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 
 	require.Contains(t, fw.registeredWorkflows, pipelineWf)
 	require.Contains(t, fw.registeredWorkflows, "workflow-wf")
+	require.Contains(t, fw.registeredWorkflows, authorsession.WorkflowName)
 
 	require.Contains(t, fw.registeredActivities, debugAct)
 	require.Contains(t, fw.registeredActivities, githubPRCommentAct)
