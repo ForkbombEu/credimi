@@ -6,16 +6,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { MonitorPlayIcon, SquareIcon, XIcon } from '@lucide/svelte';
+	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Pipeline } from '$lib';
-	import { closeSession, getSession, type Session } from '$lib/action-author/api';
+	import { closeSession, endOnExit, getSession, type Session } from '$lib/action-author/api';
 	import SaveReviewCard from '$lib/action-author/save-review-card.svelte';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 	import LiveViewFrame from '$lib/pipeline/live-view-frame.svelte';
 	import { formatExecutionTimestamp } from '$lib/scoreboard/extras/format-date';
+	import { confirm } from '$lib/utils';
 	import WorkflowStatusBadge from '$lib/workflows/workflow-status.svelte';
 	import { untrack } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fromStore } from 'svelte/store';
 
@@ -23,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
+	import { goto, m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
 	//
@@ -185,6 +188,73 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		});
 		pollNow();
 	}
+
+	/* Leaving the page ends the session */
+
+	// The queued ticket or the owner's running session holds a device until it ends.
+	const guardActive = $derived(
+		(!!queue && !stoppedMessage) || (session?.status === 'Running' && session.is_owner)
+	);
+	let exitConfirmed = false;
+
+	/** Ends the queued ticket or the session; returns the error message, or '' on success. */
+	async function endBeforeLeaving(): Promise<string> {
+		const failure = await runWithLoading({
+			fn: async () => {
+				if (!session) {
+					const res = await Pipeline.Queue.cancel(sessionId.slice(TICKET_PREFIX.length), [
+						deviceId
+					]);
+					return res.isErr ? res.error : '';
+				}
+				const res = await closeSession(sessionId);
+				return res.isErr ? res.error.message : '';
+			},
+			showSuccessToast: false
+		});
+		return failure ?? '';
+	}
+
+	beforeNavigate(async (nav) => {
+		if (!guardActive || exitConfirmed || !nav.to || nav.type === 'leave') return;
+		nav.cancel();
+		const target = nav.to.url;
+		const ok = await confirm({
+			title: m.Leave_session_title(),
+			message: m.Leave_session_warning(),
+			confirmLabel: m.Leave_and_end_session(),
+			cancelLabel: m.Stay_on_page(),
+			destructive: true
+		});
+		if (!ok) return;
+		const failure = await endBeforeLeaving();
+		if (failure) {
+			toast.error(failure);
+			return;
+		}
+		exitConfirmed = true;
+		await goto(`${target.pathname}${target.search}${target.hash}`);
+	});
+
+	// Tab close and reload: the browser shows its own prompt (custom text isn't allowed there),
+	// and the session ends as the page goes away.
+	$effect(() => {
+		const onBeforeUnload = (e: BeforeUnloadEvent) => {
+			if (!guardActive || exitConfirmed) return;
+			e.preventDefault();
+			e.returnValue = '';
+		};
+		const onPageHide = () => {
+			if (!guardActive || exitConfirmed) return;
+			endOnExit(sessionId, deviceId, !session);
+		};
+		window.addEventListener('beforeunload', onBeforeUnload);
+		window.addEventListener('pagehide', onPageHide);
+		return () => {
+			window.removeEventListener('beforeunload', onBeforeUnload);
+			window.removeEventListener('pagehide', onPageHide);
+		};
+	});
 
 	/* Idle warning */
 
