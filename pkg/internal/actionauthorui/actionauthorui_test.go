@@ -60,7 +60,7 @@ func TestClassify(t *testing.T) {
 		{http.MethodPost, "api/sessions/" + otherChat + "/close", nil, routeForbidden},
 		{http.MethodPost, "api/messages", nil, routeBody},
 		{http.MethodPost, "api/chat", nil, routeBody},
-		{http.MethodPost, "api/approve", nil, routeBody},
+		{http.MethodPost, "api/approve", nil, routeForbidden},
 		{http.MethodGet, "api/messages", nil, routeForbidden},
 		{http.MethodPost, "api/callback-result", nil, routeForbidden},
 		{http.MethodGet, "api/files/x", nil, routeForbidden},
@@ -260,6 +260,28 @@ func TestHandler(t *testing.T) {
 		require.Len(t, calls, 1)
 		require.Equal(t, "/api/messages", calls[0].path)
 		require.Equal(t, body, calls[0].body)
+	})
+
+	t.Run("refuses ambiguous session ids", func(t *testing.T) {
+		host := "http://example.com"
+		for _, body := range []string{
+			`{"session_id":"` + otherChat + `","Session_Id":"` + chat + `"}`,
+			`{"SESSION_ID":"` + chat + `"}`,
+			`{"ſession_id":"` + chat + `"}`,
+			`{"session_id":"` + otherChat + `","session_id":"` + chat + `"}`,
+			`{"session_id":1}`,
+			`{"session_id":null}`,
+			`[]`,
+			`{"session_id":"` + chat + `"} {}`,
+		} {
+			_, err := serve(post(base+"/api/messages", host, body), authCookie)
+			requireStatus(t, err, http.StatusForbidden)
+		}
+		_, err := serve(
+			post(base+"/api/approve", host, `{"session_id":"`+chat+`"}`),
+			authCookie,
+		)
+		requireStatus(t, err, http.StatusForbidden)
 	})
 
 	t.Run("lets only the starter write", func(t *testing.T) {

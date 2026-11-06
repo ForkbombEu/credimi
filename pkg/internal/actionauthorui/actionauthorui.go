@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalui"
@@ -73,11 +74,11 @@ var chatRoutes = map[string]bool{
 	"agent-interface": true,
 }
 
-// bodyRoutes are the POST API routes whose JSON body names the session.
+// bodyRoutes are the POST API routes whose JSON body names the session. The
+// harness's /api/approve is not among them: no agent tool needs approval.
 var bodyRoutes = map[string]bool{
 	"messages": true,
 	"chat":     true,
-	"approve":  true,
 }
 
 // classify decides how a request for the path segments below the session is
@@ -227,6 +228,16 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 			}
 		case routeProxy:
 		}
+		if streams(method, segments) {
+			// The chat streams a whole turn; drop the server's write timeout as
+			// PocketBase's realtime does.
+			err := http.NewResponseController(e.Response).SetWriteDeadline(time.Time{})
+			if errors.Is(err, http.ErrNotSupported) {
+				e.App.Logger().Warn("action author ui: SetWriteDeadline is not supported")
+			} else if err != nil {
+				return e.InternalServerError("", err)
+			}
+		}
 
 		scoped := e.Request.WithContext(
 			context.WithValue(e.Request.Context(), forwardKey{}, forward{
@@ -241,6 +252,15 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 	}
 }
 
+// streams reports the routes that stream a turn for as long as it runs.
+func streams(method string, segments []string) bool {
+	if len(segments) != 2 || segments[0] != "api" {
+		return false
+	}
+	return method == http.MethodGet && segments[1] == "attach" ||
+		method == http.MethodPost && segments[1] == "chat"
+}
+
 // requireBodySession buffers the JSON body and refuses it unless its
 // session_id is chat; the buffered body is then forwarded unchanged.
 func requireBodySession(e *core.RequestEvent, chat string) error {
@@ -251,10 +271,7 @@ func requireBodySession(e *core.RequestEvent, chat string) error {
 	if len(body) > maxBody {
 		return router.NewApiError(http.StatusRequestEntityTooLarge, "Request body too large.", nil)
 	}
-	var payload struct {
-		SessionID string `json:"session_id"`
-	}
-	if err := json.Unmarshal(body, &payload); err != nil || payload.SessionID != chat {
+	if id, ok := bodySessionID(body); !ok || id != chat {
 		return e.ForbiddenError("This chat resource is not available.", nil)
 	}
 	e.Request.Body = io.NopCloser(bytes.NewReader(body))
@@ -263,6 +280,45 @@ func requireBodySession(e *core.RequestEvent, chat string) error {
 		return io.NopCloser(bytes.NewReader(body)), nil
 	}
 	return nil
+}
+
+// bodySessionID returns the session_id of a JSON object body. It refuses a
+// body that is not one object, has no or several exact session_id keys, a
+// non-string session_id, or a key that only case-folds to session_id: the
+// service's parser could read any of those differently from this check.
+func bodySessionID(body []byte) (string, bool) {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
+		return "", false
+	}
+	id, found := "", 0
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return "", false
+		}
+		key, _ := tok.(string)
+		var value json.RawMessage
+		if err := dec.Decode(&value); err != nil {
+			return "", false
+		}
+		switch {
+		case key == "session_id":
+			if len(value) == 0 || value[0] != '"' || json.Unmarshal(value, &id) != nil {
+				return "", false
+			}
+			found++
+		case strings.EqualFold(key, "session_id"):
+			return "", false
+		}
+	}
+	if _, err := dec.Token(); err != nil {
+		return "", false
+	}
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		return "", false
+	}
+	return id, found == 1
 }
 
 func newProxy(target *url.URL) *httputil.ReverseProxy {
