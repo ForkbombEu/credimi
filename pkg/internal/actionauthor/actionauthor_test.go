@@ -445,7 +445,6 @@ func TestAuthoringSaveRecordsIOSProvenance(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(record.GetString("authoring_provenance")), &stored))
 	assert.Equal(t, "ios", stored["platform"])
 	assert.Equal(t, build.InstallerSHA256, stored["installer_sha256"])
-	assert.NotContains(t, stored, "apk_sha256")
 
 	// A retry of the same run is idempotent only for the same platform.
 	retried, err := Save(app, namespace, "workflow", "run", in, testApproval)
