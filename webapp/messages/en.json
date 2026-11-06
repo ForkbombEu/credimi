@@ -1149,5 +1149,7 @@
 	"Leave_session_title": "End this authoring session?",
 	"Leave_session_warning": "Leaving this page ends the authoring session and frees the device. Actions you haven't saved are lost.",
 	"Leave_and_end_session": "End session and leave",
-	"Stay_on_page": "Stay"
+	"Stay_on_page": "Stay",
+	"Review_replaces": "Replaces the existing action {action}. Its record and the pipelines that use it are kept.",
+	"Review_previous_save_failed": "The last save failed"
 }

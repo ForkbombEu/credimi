@@ -1105,5 +1105,7 @@
 	"Leave_session_title": "Encerrar esta sessão de escrita?",
 	"Leave_session_warning": "Se você sair desta página, a sessão de escrita será encerrada e o dispositivo será liberado. As actions que você não salvou serão perdidas.",
 	"Leave_and_end_session": "Encerrar sessão e sair",
-	"Stay_on_page": "Ficar"
+	"Stay_on_page": "Ficar",
+	"Review_replaces": "Substitui a action existente {action}. O registro dela e as pipelines que a usam são mantidos.",
+	"Review_previous_save_failed": "O último salvamento falhou"
 }

@@ -850,6 +850,13 @@ components:
             $ref: '#/components/schemas/ActionauthorParameterSpec'
           type: array
       type: object
+    ActionauthorReplaceSpec:
+      properties:
+        action:
+          type: string
+        code_sha256:
+          type: string
+      type: object
     ActionauthorSourceSpec:
       properties:
         captures:
@@ -881,6 +888,8 @@ components:
           items:
             $ref: '#/components/schemas/ActionauthorPrerequisiteSpec'
           type: array
+        replaces:
+          $ref: '#/components/schemas/ActionauthorReplaceSpec'
         slot:
           type: string
         wait_seconds:
@@ -961,12 +970,16 @@ components:
           type: string
         code:
           type: string
+        error:
+          type: string
         name:
           type: string
         plan:
           additionalProperties: {}
           nullable: true
           type: object
+        replaces:
+          type: string
         tool_id:
           type: string
       type: object

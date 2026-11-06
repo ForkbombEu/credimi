@@ -1105,5 +1105,7 @@
 	"Leave_session_title": "Diese Schreibsitzung beenden?",
 	"Leave_session_warning": "Wenn du diese Seite verlässt, endet die Schreibsitzung und das Gerät wird freigegeben. Actions, die du nicht gespeichert hast, gehen verloren.",
 	"Leave_and_end_session": "Sitzung beenden und verlassen",
-	"Stay_on_page": "Bleiben"
+	"Stay_on_page": "Bleiben",
+	"Review_replaces": "Ersetzt die bestehende Action {action}. Ihr Datensatz und die Pipelines, die sie nutzen, bleiben erhalten.",
+	"Review_previous_save_failed": "Das letzte Speichern ist fehlgeschlagen"
 }

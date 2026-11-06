@@ -1105,5 +1105,7 @@
 	"Leave_session_title": "¿Terminar esta sesión de escritura?",
 	"Leave_session_warning": "Si sales de esta página, la sesión de escritura termina y el dispositivo se libera. Las actions que no hayas guardado se pierden.",
 	"Leave_and_end_session": "Terminar sesión y salir",
-	"Stay_on_page": "Quedarse"
+	"Stay_on_page": "Quedarse",
+	"Review_replaces": "Sustituye la action existente {action}. Se conservan su registro y las pipelines que la usan.",
+	"Review_previous_save_failed": "El último guardado falló"
 }

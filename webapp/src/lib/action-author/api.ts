@@ -44,6 +44,10 @@ export type PendingReview = {
 	code: string;
 	candidate_sha256: string;
 	plan: Record<string, unknown> | null;
+	/** Path of the action the candidate replaces in place, empty when none. */
+	replaces: string;
+	/** Why the previous save of this candidate failed, empty when none. */
+	error: string;
 };
 
 /** A recorded authoring session and its state (GET /api/action-author/sessions/{id}). */

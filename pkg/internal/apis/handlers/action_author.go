@@ -666,6 +666,10 @@ type ActionAuthorPendingReview struct {
 	CandidateSHA256 string `json:"candidate_sha256"`
 	// Plan is nil when the candidate has no object plan.
 	Plan map[string]any `json:"plan"`
+	// Replaces is the path of the action the candidate replaces, empty when none.
+	Replaces string `json:"replaces"`
+	// Error is why the previous save of this candidate failed, empty when none.
+	Error string `json:"error"`
 }
 
 // ActionAuthorSessionsResponse lists a wallet's recent sessions.
@@ -863,6 +867,8 @@ func readActionAuthorChat(
 			Code:            text("code"),
 			CandidateSHA256: text("candidate_sha256"),
 			Plan:            plan,
+			Replaces:        text("replaces"),
+			Error:           text("error"),
 		}
 		return
 	}

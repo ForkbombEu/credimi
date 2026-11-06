@@ -1112,5 +1112,7 @@
 	"Leave_session_title": "Terminare questa sessione di scrittura?",
 	"Leave_session_warning": "Se lasci questa pagina, la sessione di scrittura termina e il dispositivo viene liberato. Le action che non hai salvato vanno perse.",
 	"Leave_and_end_session": "Termina sessione ed esci",
-	"Stay_on_page": "Resta"
+	"Stay_on_page": "Resta",
+	"Review_replaces": "Sostituisce l'action esistente {action}. Il suo record e le pipeline che la usano restano invariati.",
+	"Review_previous_save_failed": "L'ultimo salvataggio non è riuscito"
 }

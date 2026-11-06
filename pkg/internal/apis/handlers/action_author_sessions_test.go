@@ -193,6 +193,8 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 					"code":             "appId: eu.wallet",
 					"candidate_sha256": "abc",
 					"plan":             map[string]any{"slot": "install-app"},
+					"replaces":         "usera-s-organization/authoring-handler-wallet/install",
+					"error":            "save failed: try again",
 				},
 			},
 		}}}, nil)
@@ -254,6 +256,8 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 			Code:            "appId: eu.wallet",
 			CandidateSHA256: "abc",
 			Plan:            map[string]any{"slot": "install-app"},
+			Replaces:        "usera-s-organization/authoring-handler-wallet/install",
+			Error:           "save failed: try again",
 		},
 	}, response)
 }

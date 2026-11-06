@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { untrack } from 'svelte';
 
+	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n';
 
@@ -75,6 +76,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<h3 class="font-semibold">{m.Review_save_title({ name: review.name })}</h3>
 	<p class="break-words">{m.Review_save_details({ build: review.build })}</p>
+	{#if review.replaces}
+		<p class="font-medium break-words text-amber-700">
+			{m.Review_replaces({ action: review.replaces })}
+		</p>
+	{/if}
 
 	<div class="space-y-1">
 		<p class="font-medium">{m.Accepted_YAML()}</p>
@@ -96,6 +102,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if status}
 		<p role="status" aria-live="polite" class="break-words">{status}</p>
+	{/if}
+
+	{#if review.error}
+		<Alert variant="destructive">
+			<p class="font-bold">{m.Review_previous_save_failed()}</p>
+			<p class="break-words">{review.error}</p>
+		</Alert>
 	{/if}
 
 	<div class="flex gap-2">

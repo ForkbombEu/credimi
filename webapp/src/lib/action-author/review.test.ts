@@ -19,6 +19,8 @@ function review(overrides: Partial<PendingReview>): PendingReview {
 		code: 'a',
 		candidate_sha256: SHA_A,
 		plan: { steps: [] },
+		replaces: '',
+		error: '',
 		...overrides
 	};
 }

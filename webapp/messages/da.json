@@ -1105,5 +1105,7 @@
 	"Leave_session_title": "Afslut denne skrivesession?",
 	"Leave_session_warning": "Hvis du forlader denne side, afsluttes skrivesessionen, og enheden frigøres. Actions, du ikke har gemt, går tabt.",
 	"Leave_and_end_session": "Afslut session og forlad",
-	"Stay_on_page": "Bliv"
+	"Stay_on_page": "Bliv",
+	"Review_replaces": "Erstatter den eksisterende action {action}. Dens post og de pipelines, der bruger den, bevares.",
+	"Review_previous_save_failed": "Den seneste gemning mislykkedes"
 }
