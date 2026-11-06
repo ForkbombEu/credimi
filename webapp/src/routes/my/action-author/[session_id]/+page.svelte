@@ -169,29 +169,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		};
 	}
 
-	/** Cancels the queued ticket; returns whether it succeeded. */
-	async function cancelTicket(): Promise<boolean> {
+	/** Cancels the queued ticket; returns whether it succeeded. quiet skips the success toast. */
+	async function cancelTicket({ quiet = false } = {}): Promise<boolean> {
 		const ticket = sessionId.slice(TICKET_PREFIX.length);
 		const done = await runWithLoading({
 			fn: async () => {
 				const res = await Pipeline.Queue.cancel(ticket, [deviceId]);
 				if (res.isErr) throw new Error(res.error);
 				return true;
-			}
+			},
+			showSuccessToast: !quiet
 		});
 		pollNow();
 		return done === true;
 	}
 
-	/** Ends the session; returns whether it succeeded. */
-	async function endSession(): Promise<boolean> {
+	/** Ends the session; returns whether it succeeded. quiet skips the success toast. */
+	async function endSession({ quiet = false } = {}): Promise<boolean> {
 		const id = sessionId;
 		const done = await runWithLoading({
 			fn: async () => {
 				const res = await closeSession(id);
 				if (res.isErr) throw new Error(res.error.message);
 				return true;
-			}
+			},
+			showSuccessToast: !quiet
 		});
 		pollNow();
 		return done === true;
@@ -209,7 +211,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	/** Ends the session, or the queued ticket before the session starts; returns whether it succeeded. */
 	function endBeforeLeaving(): Promise<boolean> {
-		return session ? endSession() : cancelTicket();
+		return session ? endSession({ quiet: true }) : cancelTicket({ quiet: true });
 	}
 
 	beforeNavigate(async (nav) => {
@@ -344,7 +346,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Button>
 				{/if}
 				{#if running}
-					<Button variant="outline" onclick={endSession}>
+					<Button variant="outline" onclick={() => endSession()}>
 						<SquareIcon />
 						{m.End_session()}
 					</Button>
@@ -390,7 +392,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							: m.Session_preparing_device()}
 					</T>
 					{#if queueCancellable}
-						<Button variant="outline" size="sm" onclick={cancelTicket}>
+						<Button variant="outline" size="sm" onclick={() => cancelTicket()}>
 							<XIcon />
 							{m.Cancel()}
 						</Button>
