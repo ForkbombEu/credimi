@@ -39,9 +39,18 @@ load_defaults() {
 	if [[ -f "${WORKTREE_ENV_FILE}" ]]; then
 		# shellcheck disable=SC1091
 		source "${WORKTREE_ENV_FILE}"
+		# Files written before the chat UI existed lack its port: classic
+		# checkouts keep 8282, worktrees get their own.
+		if ! grep -q '^ACTION_AUTHOR_UI_PORT=' "${WORKTREE_ENV_FILE}"; then
+			if head -n 1 "${WORKTREE_ENV_FILE}" | grep -q '^# Generated classic ports'; then
+				ACTION_AUTHOR_UI_PORT=8282
+			else
+				ACTION_AUTHOR_UI_PORT="$(pick_port "action-author-ui")"
+			fi
+			echo "ACTION_AUTHOR_UI_PORT=${ACTION_AUTHOR_UI_PORT}" >>"${WORKTREE_ENV_FILE}"
+		fi
 	fi
 	set +a
-	ACTION_AUTHOR_UI_PORT="${ACTION_AUTHOR_UI_PORT:-8282}"
 }
 
 resolve_runtime_paths() {
