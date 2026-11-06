@@ -14,7 +14,9 @@ The service keeps one harness app, with its own Temporal client, per namespace. 
 agent workflows: Credimi starts each chat on ``<runner_id>-ActionAuthor``.
 
 Environment: TEMPORAL_ADDRESS and the other TEMPORAL_* settings read by the Temporal client
-config (the namespace comes from each request), ACTION_AUTHOR_UI_PORT (default 8080).
+config (the namespace comes from each request), ACTION_AUTHOR_UI_PORT (default 8080),
+ACTION_AUTHOR_UI_ALLOWED_HOSTS (comma-separated hosts the service answers; default
+``action_author_ui,localhost,127.0.0.1``).
 """
 
 import asyncio
@@ -66,10 +68,13 @@ CHAT_PATTERN = re.compile(
 )
 # Host names Credimi's proxy reaches the service under; others may be DNS rebinding of a dev port.
 ALLOWED_HOSTS = frozenset(
-    host.strip()
-    for host in os.environ.get(
-        "ACTION_AUTHOR_UI_ALLOWED_HOSTS", "action_author_ui,localhost,127.0.0.1"
-    ).split(",")
+    {
+        host.strip()
+        for host in os.environ.get(
+            "ACTION_AUTHOR_UI_ALLOWED_HOSTS", "action_author_ui,localhost,127.0.0.1"
+        ).split(",")
+    }
+    - {""}
 )
 # Routes naming a chat in their path; the ID must be the scoped chat.
 CHAT_PATH_PATTERNS = (
@@ -304,6 +309,9 @@ def _create_harness(temporal) -> FastAPI:
         if path.rstrip("/") == "/api/approve" or path.startswith("/api/approve/"):
             # No agent tool needs approval.
             return JSONResponse(status_code=403, content={"error": "approvals_disabled"})
+        if path.startswith("/api/files/"):
+            # The agent works on the device, not on files of the service.
+            return JSONResponse(status_code=403, content={"error": "files_disabled"})
         if await _names_other_chat(request, chat):
             return _other_chat()
         if method == "GET" and path == EMBED_CSS_PATH:
@@ -331,14 +339,13 @@ def _create_harness(temporal) -> FastAPI:
         if method == "GET" and path == "/api/sessions":
             return await _sessions(temporal, chat)
 
-        session_id, offset = None, 0
         if method == "GET" and path == "/api/attach":
             session_id = request.query_params.get("session_id")
             try:
                 offset = int(request.query_params.get("from_offset", "0"))
             except ValueError:
                 offset = -1
-            if not session_id or offset < 0:
+            if offset < 0:
                 # Upstream validation answers malformed requests.
                 return await call_next(request)
             state = await temporal.get_workflow_handle(session_id).describe()
@@ -349,14 +356,9 @@ def _create_harness(temporal) -> FastAPI:
                     headers=_sse_headers(),
                 )
         elif method == "POST" and path == "/api/chat":
-            try:
-                body = await request.json()
-            except ValueError:
-                return await call_next(request)
-            if isinstance(body, dict) and isinstance(body.get("session_id"), str):
-                session_id = body["session_id"]
-                offset = await WorkflowStreamClient.create(temporal, session_id).get_offset()
-        if not session_id:
+            session_id = (await request.json())["session_id"]
+            offset = await WorkflowStreamClient.create(temporal, session_id).get_offset()
+        else:
             return await call_next(request)
         response = await call_next(request)
         if response.status_code != 200 or not response.headers.get("content-type", "").startswith(

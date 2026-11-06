@@ -4,6 +4,7 @@
 
 import asyncio
 import base64
+import importlib
 import json
 import logging
 import shutil
@@ -177,6 +178,19 @@ async def test_requests_for_another_host_are_refused():
     assert (response.status_code, response.json()) == (421, {"error": "misdirected_request"})
 
 
+async def test_an_empty_allowed_host_does_not_match_an_empty_host(monkeypatch):
+    monkeypatch.setenv("ACTION_AUTHOR_UI_ALLOWED_HOSTS", "action_author_ui,")
+    importlib.reload(ui_app)
+    try:
+        assert "" not in ui_app.ALLOWED_HOSTS
+        async with ui_client(ui_app.create_app(connect=_connecting(_ChatTemporal())[1])) as client:
+            response = await client.get("/api/sessions", headers={"Host": ""})
+    finally:
+        monkeypatch.delenv("ACTION_AUTHOR_UI_ALLOWED_HOSTS")
+        importlib.reload(ui_app)
+    assert (response.status_code, response.json()) == (421, {"error": "misdirected_request"})
+
+
 OTHER = CHAT.replace("abcd-author", "dcba-author")
 
 
@@ -192,6 +206,8 @@ OTHER = CHAT.replace("abcd-author", "dcba-author")
         ("POST", "/api/chat", {"content": b"{"}, "other_chat"),
         ("POST", f"/api/sessions/{OTHER}/close", {}, "other_chat"),
         ("POST", "/api/approve", {"json": {"session_id": CHAT}}, "approvals_disabled"),
+        ("POST", "/api/files/view", {"json": {"path": "/etc/passwd"}}, "files_disabled"),
+        ("GET", "/api/files/x", {}, "files_disabled"),
     ],
 )
 async def test_requests_for_another_chat_are_refused(method, path, kwargs, error):
