@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -345,4 +346,85 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 	}).Test(t)
 	require.Equal(t, reviewAuthorWorkflow, stub.workflowID)
 	require.Equal(t, map[string]any{"accepted": false, "approval": ""}, stub.result)
+}
+
+func TestActionAuthorReviewBindsTheReplacedCode(t *testing.T) {
+	user, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	const code = "appId: eu.wallet\n---\n- launchApp\n"
+	target := path.Dir(authoringAndroidVersion) + "/replaced-onboarding"
+	appWithTarget := func(t testing.TB) *tests.TestApp {
+		app := setupActionAuthorApp(t)
+		wallet, err := app.FindFirstRecordByData(
+			"wallets", "canonified_name", path.Base(path.Dir(authoringAndroidVersion)),
+		)
+		require.NoError(t, err)
+		actions, err := app.FindCollectionByNameOrId("wallet_actions")
+		require.NoError(t, err)
+		action := core.NewRecord(actions)
+		action.Set("owner", wallet.GetString("owner"))
+		action.Set("wallet", wallet.Id)
+		action.Set("name", "Replaced onboarding")
+		action.Set("code", code)
+		action.Set("category", "onboarding")
+		require.NoError(t, app.Save(action))
+		return app
+	}
+	plan := actionauthor.Spec{
+		Slot:     "onboarding",
+		Replaces: &actionauthor.ReplaceSpec{Action: target},
+	}
+
+	stub := stubActionAuthorReview(t, user.Id, nil, nil)
+	(&tests.ApiScenario{
+		Name:            "accepted replacing an action",
+		Method:          http.MethodPost,
+		URL:             "/api/action-author/reviews",
+		Body:            strings.NewReader(reviewBodyWithPlan(t, plan)),
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"accepted":true`},
+		TestAppFactory:  appWithTarget,
+		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+			approvalToken, _ := stub.result["approval"].(string)
+			approval, err := actionauthor.VerifyApproval(
+				app, approvalToken, reviewAuthorWorkflow, reviewCandidate, time.Now(),
+			)
+			require.NoError(t, err)
+			normalized := actionauthor.Spec{
+				Slot:    "onboarding",
+				Outcome: actionauthor.OutcomeSuccess,
+				Replaces: &actionauthor.ReplaceSpec{
+					Action:     target,
+					CodeSHA256: actionauthor.CodeSHA256(code),
+				},
+			}
+			require.Equal(t, actionauthor.PlanSHA256(normalized), approval.PlanSHA256)
+			normalized.Replaces.CodeSHA256 = actionauthor.CodeSHA256("other code")
+			require.NotEqual(t, actionauthor.PlanSHA256(normalized), approval.PlanSHA256)
+		},
+	}).Test(t)
+
+	stale := actionauthor.Spec{
+		Slot: "onboarding",
+		Replaces: &actionauthor.ReplaceSpec{
+			Action:     target,
+			CodeSHA256: actionauthor.CodeSHA256("other code"),
+		},
+	}
+	stub = stubActionAuthorReview(t, user.Id, nil, nil)
+	(&tests.ApiScenario{
+		Name:           "stale replaced code",
+		Method:         http.MethodPost,
+		URL:            "/api/action-author/reviews",
+		Body:           strings.NewReader(reviewBodyWithPlan(t, stale)),
+		Headers:        map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+		ExpectedStatus: http.StatusBadRequest,
+		ExpectedContent: []string{
+			`"invalid_request"`,
+			"changed since the plan was checked; describe the action again",
+		},
+		TestAppFactory: appWithTarget,
+	}).Test(t)
+	require.Empty(t, stub.workflowID)
 }

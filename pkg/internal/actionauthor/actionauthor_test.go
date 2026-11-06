@@ -305,7 +305,7 @@ var testApproval = Approval{
 	ApprovedAt:       1_800_000_000,
 }
 
-func TestAuthoringSaveIsUnpublishedIdempotentAndNeverReplaces(t *testing.T) {
+func TestAuthoringSaveWithoutReplacesIsUnpublishedIdempotentAndCreates(t *testing.T) {
 	app, request, namespace := authoringFixture(t)
 	build, err := Resolve(app, namespace, request)
 	require.NoError(t, err)
@@ -343,6 +343,80 @@ func TestAuthoringSaveIsUnpublishedIdempotentAndNeverReplaces(t *testing.T) {
 	_, err = Save(app, namespace, "new-workflow", "new-run", in, testApproval)
 	require.ErrorIs(t, err, ErrConflict)
 	assert.ErrorContains(t, err, "selected installer changed")
+}
+
+func TestAuthoringSaveReplacesInPlace(t *testing.T) {
+	app, request, namespace := authoringFixture(t)
+	build, err := Resolve(app, namespace, request)
+	require.NoError(t, err)
+	selection, err := Select(app, namespace, request)
+	require.NoError(t, err)
+	const oldCode = "appId: eu.europa.ec.euidi\n---\n- launchApp\n"
+	target, path := seedWalletAction(t, app, selection.Organization.Id, selection.Wallet,
+		"Existing onboarding", "onboarding", oldCode, true)
+	canonified := target.GetString("canonified_name")
+	seedWalletAction(t, app, selection.Organization.Id, selection.Wallet,
+		"Other onboarding", "onboarding", oldCode, false)
+	in := acceptedRequest(request, build.InstallerSHA256)
+	in.Name = "Existing onboarding"
+	replacing := func(codeSHA256 string) SaveRequest {
+		request := in
+		request.Spec.Replaces = &ReplaceSpec{Action: path, CodeSHA256: codeSHA256}
+		return request
+	}
+
+	_, err = Save(app, namespace, "workflow", "run", replacing(""), testApproval)
+	require.ErrorIs(t, err, ErrInvalid)
+	assert.ErrorContains(t, err, "replaces: the plan has no code_sha256; describe the action again")
+
+	_, err = Save(app, namespace, "workflow", "run", replacing(CodeSHA256("older code")),
+		testApproval)
+	require.ErrorIs(t, err, ErrConflict)
+	assert.ErrorContains(t, err, "replaces: "+path+
+		" changed since the plan was checked; describe the action again")
+
+	renamed := replacing(CodeSHA256(oldCode))
+	renamed.Name = "Other onboarding"
+	_, err = Save(app, namespace, "workflow", "run", renamed, testApproval)
+	require.ErrorIs(t, err, ErrConflict)
+	assert.ErrorContains(t, err, "an action with this name already exists")
+
+	receipt, err := Save(app, namespace, "workflow", "run", replacing(CodeSHA256(oldCode)),
+		testApproval)
+	require.NoError(t, err)
+	assert.False(t, receipt.Created)
+	assert.True(t, receipt.Replaced)
+	assert.True(t, receipt.Published)
+	assert.Equal(t, target.Id, receipt.RecordID)
+	assert.Equal(t, CodeSHA256(oldCode), receipt.Provenance.ReplacedCodeSHA256)
+	record, err := app.FindRecordById("wallet_actions", target.Id)
+	require.NoError(t, err)
+	assert.Equal(t, in.Code, record.GetString("code"))
+	assert.Equal(t, "onboarding", record.GetString("category"))
+	assert.Equal(t, canonified, record.GetString("canonified_name"))
+	assert.True(t, record.GetBool("published"))
+	var provenance Provenance
+	require.NoError(
+		t,
+		json.Unmarshal([]byte(record.GetString("authoring_provenance")), &provenance),
+	)
+	assert.Equal(t, receipt.Provenance, provenance)
+
+	// The activity retry finds its own write; the plan check still accepts
+	// the old hash for it.
+	retried, err := Save(app, namespace, "workflow", "run", replacing(CodeSHA256(oldCode)),
+		testApproval)
+	require.NoError(t, err)
+	assert.Equal(t, receipt, retried)
+	spec := replacing(CodeSHA256(oldCode)).Spec
+	_, err = CheckReplaceTarget(app, selection, &spec)
+	require.NoError(t, err)
+
+	// Another run with the old hash finds the code changed.
+	_, err = Save(app, namespace, "another-workflow", "another-run",
+		replacing(CodeSHA256(oldCode)), testApproval)
+	require.ErrorIs(t, err, ErrConflict)
+	assert.ErrorContains(t, err, "changed since the plan was checked")
 }
 
 func TestAuthoringSaveRecordsSpecAndApproval(t *testing.T) {

@@ -464,6 +464,7 @@ type Receipt struct {
 	RecordID   string     `json:"record_id"`
 	Name       string     `json:"name"`
 	Created    bool       `json:"created"`
+	Replaced   bool       `json:"replaced"`
 	Published  bool       `json:"published"`
 	Provenance Provenance `json:"provenance"`
 }
@@ -514,9 +515,12 @@ func provenanceSpec(provenance *Provenance, spec Spec) {
 	}
 }
 
-// Save creates the accepted action and its provenance in one transaction. It
-// never replaces an existing action: a name already in use by the wallet is a
-// conflict, except for a retry of the same workflow run that wrote it.
+// Save stores the accepted action and its provenance in one transaction.
+// Without Replaces it creates the action: a name already in use by the
+// wallet is a conflict, except for a retry of the same workflow run that
+// wrote it. With Replaces it rewrites the target's name, code, category and
+// provenance in place, keeping its id and published flag, when the target
+// still has the code the plan was checked against.
 // The caller is the trusted workflow's explicit human-confirmation handler,
 // after verifying the approval.
 func Save(
@@ -535,6 +539,9 @@ func Save(
 	}
 	if err := validateAcceptedAction(&in, selection); err != nil {
 		return receipt, err
+	}
+	if in.Spec.Replaces != nil && in.Spec.Replaces.CodeSHA256 == "" {
+		return receipt, invalidf("replaces: the plan has no code_sha256; describe the action again")
 	}
 	provenance := Provenance{
 		WalletVersionIdentifier: selection.Identifier,
@@ -583,6 +590,10 @@ func Save(
 			current.Installer() != selection.Installer() {
 			return fmt.Errorf("%w: selected version changed", ErrConflict)
 		}
+		if in.Spec.Replaces != nil {
+			receipt, err = replaceAction(tx, current, workflowID, runID, &in, provenance)
+			return err
+		}
 		record, err := tx.FindFirstRecordByFilter(
 			"wallet_actions",
 			"owner = {:owner} && wallet = {:wallet} && name = {:name}",
@@ -596,13 +607,8 @@ func Save(
 			return fmt.Errorf("find wallet action: %w", err)
 		}
 		if record != nil {
-			var previous Provenance
 			// A retried save of this workflow run finds its own write and returns it.
-			if json.Unmarshal([]byte(record.GetString("authoring_provenance")), &previous) == nil &&
-				previous.WorkflowID == workflowID && previous.RunID == runID &&
-				previous.YAMLSHA256 == in.CandidateSHA256 && previous.Platform == in.Platform &&
-				previous.InstallerSHA256 == in.InstallerSHA256 &&
-				CodeSHA256(record.GetString("code")) == in.CandidateSHA256 {
+			if previous, ok := savedBy(record, workflowID, runID, &in); ok {
 				receipt = Receipt{
 					RecordID:   record.Id,
 					Name:       record.GetString("name"),
@@ -638,4 +644,80 @@ func Save(
 		return nil
 	})
 	return receipt, err
+}
+
+// savedBy decodes the record's provenance and reports whether this workflow
+// run's save of the request wrote the record as it is.
+func savedBy(record *core.Record, workflowID, runID string, in *SaveRequest) (Provenance, bool) {
+	var previous Provenance
+	ok := json.Unmarshal([]byte(record.GetString("authoring_provenance")), &previous) == nil &&
+		previous.WorkflowID == workflowID && previous.RunID == runID &&
+		previous.YAMLSHA256 == in.CandidateSHA256 && previous.Platform == in.Platform &&
+		previous.InstallerSHA256 == in.InstallerSHA256 &&
+		record.GetString("code") == in.Code
+	return previous, ok
+}
+
+// replaceAction rewrites the plan's target in place inside Save's
+// transaction: its name, code, category and provenance, keeping its id and
+// published flag. A retry of the same workflow run returns its own write.
+func replaceAction(
+	tx core.App,
+	current Selection,
+	workflowID, runID string,
+	in *SaveRequest,
+	provenance Provenance,
+) (Receipt, error) {
+	record, err := replaceTarget(tx, current, &in.Spec)
+	if err != nil {
+		return Receipt{}, err
+	}
+	if previous, ok := savedBy(record, workflowID, runID, in); ok {
+		return Receipt{
+			RecordID:   record.Id,
+			Name:       record.GetString("name"),
+			Replaced:   true,
+			Published:  record.GetBool("published"),
+			Provenance: previous,
+		}, nil
+	}
+	replaced := CodeSHA256(record.GetString("code"))
+	if replaced != in.Spec.Replaces.CodeSHA256 {
+		return Receipt{}, fmt.Errorf(
+			"%w: replaces: %s changed since the plan was checked; describe the action again",
+			ErrConflict,
+			in.Spec.Replaces.Action,
+		)
+	}
+	other, err := tx.FindFirstRecordByFilter(
+		"wallet_actions",
+		"owner = {:owner} && wallet = {:wallet} && name = {:name} && id != {:id}",
+		dbx.Params{
+			"owner":  current.Organization.Id,
+			"wallet": current.Wallet.Id,
+			"name":   in.Name,
+			"id":     record.Id,
+		},
+	)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return Receipt{}, fmt.Errorf("find wallet action: %w", err)
+	}
+	if other != nil {
+		return Receipt{}, fmt.Errorf("%w: an action with this name already exists", ErrConflict)
+	}
+	provenance.ReplacedCodeSHA256 = replaced
+	record.Set("name", in.Name)
+	record.Set("code", in.Code)
+	record.Set("category", SlotCategory(in.Spec.Slot))
+	record.Set("authoring_provenance", provenance)
+	if err := tx.Save(record); err != nil {
+		return Receipt{}, fmt.Errorf("replace authored action: %w", err)
+	}
+	return Receipt{
+		RecordID:   record.Id,
+		Name:       record.GetString("name"),
+		Replaced:   true,
+		Published:  record.GetBool("published"),
+		Provenance: provenance,
+	}, nil
 }

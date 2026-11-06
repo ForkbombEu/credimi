@@ -256,6 +256,79 @@ func TestSaveAuthoredWalletActionChecksTheSentPlan(t *testing.T) {
 		receipt.Provenance.Parameters)
 }
 
+func TestSaveAuthoredWalletActionReplacesInPlace(t *testing.T) {
+	setFCAFTestEnv(t)
+	app, session, namespace := authorSaveFixture(t)
+	build, err := actionauthor.Resolve(app, namespace, session)
+	require.NoError(t, err)
+	caller := authorTestCaller()
+	caller.Namespace = namespace
+	oldCode := "appId: eu.wallet\n---\n- launchApp\n"
+	target := seedAuthorAction(t, app, session, "Onboarding", oldCode)
+	code := "appId: eu.wallet\n---\n- launchApp\n- assertVisible: Home\n- takeScreenshot: home\n"
+	// The agent sends the plan without the hash; the check fills it, and
+	// the approval binds it.
+	plan := actionauthor.Spec{
+		Slot:     "onboarding",
+		Replaces: &actionauthor.ReplaceSpec{Action: target},
+	}
+	normalized := actionauthor.Spec{
+		Slot:    "onboarding",
+		Outcome: actionauthor.OutcomeSuccess,
+		Replaces: &actionauthor.ReplaceSpec{
+			Action:     target,
+			CodeSHA256: actionauthor.CodeSHA256(oldCode),
+		},
+	}
+	token, err := actionauthor.SignApproval(app, actionauthor.Approval{
+		AuthorWorkflowID: caller.WorkflowID,
+		CandidateSHA256:  actionauthor.CodeSHA256(code),
+		ApproverID:       session.ActorID,
+		ApprovedAt:       time.Now().Unix(),
+		PlanSHA256:       actionauthor.PlanSHA256(normalized),
+	})
+	require.NoError(t, err)
+	request := func(plan actionauthor.Spec) actionauthor.SaveRequest {
+		return actionauthor.SaveRequest{
+			Name:            "Onboarding",
+			Code:            code,
+			CandidateSHA256: actionauthor.CodeSHA256(code),
+			InstallerSHA256: build.InstallerSHA256,
+			PackageID:       "eu.wallet",
+			ReplayCount:     1,
+			Approval:        token,
+			Spec:            plan,
+		}
+	}
+	save := func(payload actionauthor.SaveRequest) (actionauthor.Receipt, error) {
+		return buildSessionLookup(t, app, session).activity(t, app).
+			save(t.Context(), caller, payload)
+	}
+
+	stale := normalized
+	stale.Replaces = &actionauthor.ReplaceSpec{
+		Action:     target,
+		CodeSHA256: actionauthor.CodeSHA256("older code"),
+	}
+	_, err = save(request(stale))
+	requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
+	require.ErrorContains(t, err, "changed since the plan was checked")
+
+	receipt, err := save(request(plan))
+	require.NoError(t, err)
+	require.True(t, receipt.Replaced)
+	require.False(t, receipt.Created)
+	record, err := app.FindFirstRecordByData("wallet_actions", "canonified_name", path.Base(target))
+	require.NoError(t, err)
+	require.Equal(t, receipt.RecordID, record.Id)
+	require.Equal(t, code, record.GetString("code"))
+
+	// An activity retry with the plan the agent stored returns the same receipt.
+	retried, err := save(request(normalized))
+	require.NoError(t, err)
+	require.Equal(t, receipt, retried)
+}
+
 func TestListActionAuthorWalletActions(t *testing.T) {
 	setFCAFTestEnv(t)
 	app, session, namespace := authorSaveFixture(t)
