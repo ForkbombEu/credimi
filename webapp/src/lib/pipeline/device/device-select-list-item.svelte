@@ -25,7 +25,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const isSelected = $derived(selectedDevice === item.path);
 	const online = $derived(
-		presentation === 'run' && Pipeline.Device.Catalog.isReady() ? item.isOnline : undefined
+		presentation === 'run' && (item.statusKnown ?? Pipeline.Device.Catalog.isReady())
+			? item.isOnline
+			: undefined
 	);
 	const isOffline = $derived(presentation === 'run' && online === false);
 	const isBlocked = $derived(isOffline || !!item.unavailableReason);

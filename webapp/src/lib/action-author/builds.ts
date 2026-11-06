@@ -42,6 +42,8 @@ export function toDeviceRecords(devices: AuthorDevice[], platforms: Set<string>)
 			path: d.path,
 			runnerName: d.runner_name,
 			isOnline: d.is_online,
+			// The author device list carries its own online status, without the device catalog.
+			statusKnown: true,
 			queueLength: d.queue_length,
 			type: d.type,
 			isOwned: false,

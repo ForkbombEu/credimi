@@ -65,4 +65,9 @@ describe('toDeviceRecords', () => {
 		expect(records[0].unavailableReason).toBeTruthy();
 		expect(records[1].unavailableReason).toBeUndefined();
 	});
+
+	it('marks the online status as known without the device catalog', () => {
+		const records = toDeviceRecords([device('org/r/pixel', 'android')], new Set(['android']));
+		expect(records[0].statusKnown).toBe(true);
+	});
 });
