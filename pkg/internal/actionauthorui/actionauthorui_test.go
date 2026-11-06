@@ -88,18 +88,34 @@ func TestHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, namespace)
 	require.NoError(t, actionauthor.RecordSessionRun(
-		app, namespace, session, "run", actionauthor.SessionDetails{},
+		app, namespace, session, "run", actionauthor.SessionDetails{ActorID: user.Id},
 	))
 	foreign := "ActionAuthorSession-11111111-2222-3333-4444-555555555555"
 	require.NoError(t, actionauthor.RecordSessionRun(
 		app, "other-org", foreign, "run", actionauthor.SessionDetails{},
 	))
-	token, err := user.NewAuthToken()
-	require.NoError(t, err)
-	authCookie := &http.Cookie{
-		Name:  authCookieName,
-		Value: url.PathEscape(`{"token":"` + token + `","record":{"id":"` + user.Id + `"}}`),
+	cookieOf := func(user *core.Record) *http.Cookie {
+		token, err := user.NewAuthToken()
+		require.NoError(t, err)
+		return &http.Cookie{
+			Name:  authCookieName,
+			Value: url.PathEscape(`{"token":"` + token + `","record":{"id":"` + user.Id + `"}}`),
+		}
 	}
+	authCookie := cookieOf(user)
+	// userB joins userA's organization as a plain member.
+	member, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	orgID, err := pbutils.GetUserOrganizationID(app, user.Id)
+	require.NoError(t, err)
+	membership, err := app.FindFirstRecordByData("orgAuthorizations", "user", member.Id)
+	require.NoError(t, err)
+	memberRole, err := app.FindFirstRecordByData("orgRoles", "name", "member")
+	require.NoError(t, err)
+	membership.Set("organization", orgID)
+	membership.Set("role", memberRole.Id)
+	require.NoError(t, app.Save(membership))
+	memberCookie := cookieOf(member)
 
 	var calls []upstreamCall
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -244,6 +260,20 @@ func TestHandler(t *testing.T) {
 		require.Len(t, calls, 1)
 		require.Equal(t, "/api/messages", calls[0].path)
 		require.Equal(t, body, calls[0].body)
+	})
+
+	t.Run("lets only the starter write", func(t *testing.T) {
+		body := `{"session_id":"` + chat + `","content":"hi"}`
+		_, err := serve(post(base+"/api/messages", "http://example.com", body), memberCookie)
+		requireStatus(t, err, http.StatusForbidden)
+
+		_, err = serve(
+			httptest.NewRequest(http.MethodGet, base+"/api/status/"+chat, nil),
+			memberCookie,
+		)
+		require.NoError(t, err)
+		require.Len(t, calls, 1)
+		require.Equal(t, namespace, calls[0].namespace)
 	})
 
 	t.Run("refuses callback results", func(t *testing.T) {

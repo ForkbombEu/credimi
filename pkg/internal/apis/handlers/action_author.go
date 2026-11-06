@@ -650,6 +650,9 @@ type ActionAuthorSessionResponse struct {
 	Model                   string `json:"model"`
 	// LiveView reports a running session on an Android device that streams its screen.
 	LiveView bool `json:"live_view"`
+	// IsOwner reports that the caller started the session: only the owner
+	// writes in its chat, ends it or opens its live view.
+	IsOwner bool `json:"is_owner"`
 	// ChatReady reports that the agent chat runs and has started its first turn.
 	ChatReady bool `json:"chat_ready"`
 	// ClosesAt is when the idle session closes, empty when unknown or while a turn runs.
@@ -778,6 +781,7 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 			WalletVersionIdentifier: info.Session.WalletVersionIdentifier,
 			Platform:                info.Session.Platform,
 			DeviceID:                info.DeviceID,
+			IsOwner:                 info.Session.ActorID == e.Auth.Id,
 		}
 		if !info.CloseTime.IsZero() {
 			response.CloseTime = info.CloseTime.UTC().Format(time.RFC3339)
@@ -961,6 +965,14 @@ func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 		c, namespace, info, apiErr := readCallerActionAuthorSession(e)
 		if apiErr != nil {
 			return apiErr
+		}
+		if info.Session.ActorID != e.Auth.Id {
+			return apierror.New(
+				http.StatusForbidden,
+				"action_author",
+				"not_session_owner",
+				"Only the person who started this session can end it.",
+			)
 		}
 		if info.Status != enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING {
 			return apierror.New(

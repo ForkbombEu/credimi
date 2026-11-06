@@ -80,6 +80,7 @@ func recordAuthoringSession(
 		actionauthor.SessionDetails{
 			WalletVersionIdentifier: authoringAndroidVersion,
 			DeviceID:                authoringSessionDevice,
+			ActorID:                 user.Id,
 		},
 	))
 	input, err := temporalcrypto.DataConverter().ToPayloads(workflowengine.WorkflowInput{
@@ -243,6 +244,7 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 		RunnerOwner:             "userA's organization",
 		Model:                   "anthropic / claude",
 		LiveView:                true,
+		IsOwner:                 true,
 		ChatReady:               true,
 		ClosesAt:                "2026-01-02T04:00:00Z",
 		PendingReview: &ActionAuthorPendingReview{
@@ -282,6 +284,64 @@ func TestActionAuthorSessionReadsAClosedSessionWithoutItsChat(t *testing.T) {
 	require.False(t, response.LiveView)
 	require.Nil(t, response.PendingReview)
 	c.AssertNotCalled(t, "DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "")
+}
+
+// Another member of the organization reads the session but does not own it.
+func TestActionAuthorSessionIsNotOwnedByAnotherMember(t *testing.T) {
+	c := &temporalmocks.Client{}
+	stubAuthoringSessionTemporal(t, c)
+	var response ActionAuthorSessionResponse
+	(&tests.ApiScenario{
+		Name:           "another member",
+		Method:         http.MethodGet,
+		URL:            "/api/action-author/sessions/" + authoringSessionID,
+		Headers:        map[string]string{"Authorization": "Bearer " + authoringToken(t, "userB")},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"is_owner":false`,
+		},
+		TestAppFactory: func(testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			joinAgentRunnerOrganization(t, app, "member")
+			runningAuthoringSession(app, t, c, enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED)
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+			decodeBody(t, res, &response)
+		},
+	}).Test(t)
+
+	require.Equal(t, authoringSessionID, response.SessionID)
+	require.False(t, response.IsOwner)
+}
+
+func TestActionAuthorSessionCloseRefusesAnotherMember(t *testing.T) {
+	c := &temporalmocks.Client{}
+	stubAuthoringSessionTemporal(t, c)
+	signalled := false
+	orig := signalChatClose
+	t.Cleanup(func() { signalChatClose = orig })
+	signalChatClose = func(context.Context, client.Client, string, string) error {
+		signalled = true
+		return nil
+	}
+	(&tests.ApiScenario{
+		Name:            "another member",
+		Method:          http.MethodPost,
+		URL:             "/api/action-author/sessions/" + authoringSessionID + "/close",
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userB")},
+		ExpectedStatus:  http.StatusForbidden,
+		ExpectedContent: []string{`"reason":"not_session_owner"`},
+		TestAppFactory: func(testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			joinAgentRunnerOrganization(t, app, "member")
+			runningAuthoringSession(app, t, c, enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING)
+			return app
+		},
+	}).Test(t)
+
+	require.False(t, signalled)
+	c.AssertNotCalled(t, "CancelWorkflow", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestActionAuthorSessionAnswersNotFound(t *testing.T) {

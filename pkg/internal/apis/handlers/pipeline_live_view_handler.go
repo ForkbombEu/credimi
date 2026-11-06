@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
@@ -119,6 +120,14 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 		// as the run identifier (pkg/workflowengine/authorsession).
 		runIdentifier := pipeline.RunIdentifier(namespace, workflowID, runID)
 		if workflowType == activities.ActionAuthorSessionWorkflowName {
+			if apiErr := requireActionAuthorSessionOwner(
+				e,
+				namespace,
+				workflowID,
+				runID,
+			); apiErr != nil {
+				return apiErr
+			}
 			runIdentifier = workflowID
 		}
 
@@ -160,6 +169,39 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, PipelineLiveViewResponse{Streams: streams})
 	}
+}
+
+// requireActionAuthorSessionOwner allows the live view of an action author
+// session only to the user who started it.
+func requireActionAuthorSessionOwner(
+	e *core.RequestEvent,
+	namespace, workflowID, runID string,
+) *apierror.APIError {
+	recorded, err := actionauthor.FindSession(e.App, namespace, workflowID)
+	switch {
+	case errors.Is(err, actionauthor.ErrSessionNotRecorded) || err == nil && recorded.RunID != runID:
+		return apierror.New(
+			http.StatusNotFound,
+			"action_author",
+			"session_not_found",
+			"This authoring session does not exist.",
+		)
+	case err != nil:
+		return apierror.New(
+			http.StatusInternalServerError,
+			"action_author",
+			"session_lookup_failed",
+			err.Error(),
+		)
+	case recorded.ActorID != e.Auth.Id:
+		return apierror.New(
+			http.StatusForbidden,
+			"action_author",
+			"not_session_owner",
+			"Only the person who started this session can open its live view.",
+		)
+	}
+	return nil
 }
 
 func runningPipelineDevices(

@@ -435,6 +435,7 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 		actionauthor.SessionDetails{
 			WalletVersionIdentifier: start.WalletVersionIdentifier,
 			DeviceID:                start.DeviceID,
+			ActorID:                 start.ActorID,
 		},
 	)
 	if errors.Is(err, actionauthor.ErrForbidden) {

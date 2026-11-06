@@ -8,8 +8,10 @@
 // The UI service has no authentication of its own and is reachable only through
 // this proxy, so the proxy is the security boundary:
 //   - the caller is a Credimi user authenticated by the `pb_auth` cookie
-//     (temporalui.CallerNamespace), and the session must be one Credimi recorded
+//     (temporalui.Caller), and the session must be one Credimi recorded
 //     in the caller's organization namespace;
+//   - only the user who started the session sends state-changing requests;
+//     other members of the organization can read the chat;
 //   - the service learns the namespace and the session's chat workflow only from
 //     NamespaceHeader and ChatHeader, which the proxy always overwrites;
 //   - only the routes the embedded chat needs reach the service, and every route
@@ -192,11 +194,12 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 			return e.ForbiddenError("This chat resource is not available.", nil)
 		}
 
-		namespace, err := temporalui.CallerNamespace(e)
+		user, namespace, err := temporalui.Caller(e)
 		if err != nil {
 			return err
 		}
-		if _, err := actionauthor.SessionRun(e.App, namespace, sessionID); err != nil {
+		recorded, err := actionauthor.FindSession(e.App, namespace, sessionID)
+		if err != nil {
 			if errors.Is(err, actionauthor.ErrSessionNotRecorded) {
 				return e.NotFoundError(sessionMissing, nil)
 			}
@@ -207,6 +210,13 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 		method := e.Request.Method
 		if method != http.MethodGet && method != http.MethodHead && !sameOrigin(e.Request) {
 			return e.ForbiddenError("Cross-site requests are refused.", nil)
+		}
+		// Sessions recorded without an actor have no owner and are read-only.
+		if method != http.MethodGet && method != http.MethodHead && recorded.ActorID != user.Id {
+			return e.ForbiddenError(
+				"Only the person who started this session can write in its chat.",
+				nil,
+			)
 		}
 		switch classify(method, segments, e.Request.URL.Query(), chat) {
 		case routeForbidden:

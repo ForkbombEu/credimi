@@ -31,12 +31,14 @@ func IsSessionID(id string) bool {
 type SessionDetails struct {
 	WalletVersionIdentifier string
 	DeviceID                string
+	// ActorID is the user who started the session.
+	ActorID string
 }
 
 // RecordedSession is a row of action_author_sessions.
 type RecordedSession struct {
-	WorkflowID, RunID, WalletVersionIdentifier, DeviceID string
-	Created                                              time.Time
+	WorkflowID, RunID, WalletVersionIdentifier, DeviceID, ActorID string
+	Created                                                       time.Time
 }
 
 // ErrSessionNotRecorded reports that Credimi has not recorded the run of a
@@ -77,6 +79,7 @@ func RecordSessionRun(
 		record.Set("run_id", runID)
 		record.Set("wallet_version_identifier", details.WalletVersionIdentifier)
 		record.Set("device_id", details.DeviceID)
+		record.Set("actor_id", details.ActorID)
 		if err := txApp.Save(record); err != nil {
 			return fmt.Errorf("failed to record action author session run: %w", err)
 		}
@@ -87,18 +90,35 @@ func RecordSessionRun(
 // SessionRun returns the run of the session workflow that Credimi started in
 // namespace, or ErrSessionNotRecorded.
 func SessionRun(app core.App, namespace, workflowID string) (string, error) {
+	rec, err := FindSession(app, namespace, workflowID)
+	return rec.RunID, err
+}
+
+// FindSession returns the recorded session workflowID of namespace, or ErrSessionNotRecorded.
+func FindSession(app core.App, namespace, workflowID string) (RecordedSession, error) {
 	record, err := app.FindFirstRecordByFilter(
 		sessionsCollection,
 		"namespace = {:namespace} && workflow_id = {:workflow}",
 		dbx.Params{"namespace": namespace, "workflow": workflowID},
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", ErrSessionNotRecorded
+		return RecordedSession{}, ErrSessionNotRecorded
 	}
 	if err != nil {
-		return "", fmt.Errorf("failed to find action author session run: %w", err)
+		return RecordedSession{}, fmt.Errorf("failed to find action author session run: %w", err)
 	}
-	return record.GetString("run_id"), nil
+	return recordedSession(record), nil
+}
+
+func recordedSession(record *core.Record) RecordedSession {
+	return RecordedSession{
+		WorkflowID:              record.GetString("workflow_id"),
+		RunID:                   record.GetString("run_id"),
+		WalletVersionIdentifier: record.GetString("wallet_version_identifier"),
+		DeviceID:                record.GetString("device_id"),
+		ActorID:                 record.GetString("actor_id"),
+		Created:                 record.GetDateTime("created").Time(),
+	}
 }
 
 // RecentWalletSessions lists the namespace's latest sessions of wallet
@@ -122,13 +142,7 @@ func RecentWalletSessions(
 	}
 	sessions := make([]RecordedSession, 0, len(records))
 	for _, record := range records {
-		sessions = append(sessions, RecordedSession{
-			WorkflowID:              record.GetString("workflow_id"),
-			RunID:                   record.GetString("run_id"),
-			WalletVersionIdentifier: record.GetString("wallet_version_identifier"),
-			DeviceID:                record.GetString("device_id"),
-			Created:                 record.GetDateTime("created").Time(),
-		})
+		sessions = append(sessions, recordedSession(record))
 	}
 	return sessions, nil
 }

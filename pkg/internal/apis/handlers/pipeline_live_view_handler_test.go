@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
@@ -229,6 +230,13 @@ func TestPipelineLiveViewOpensActionAuthorSessionDevice(t *testing.T) {
 	app, authRecord, namespace := pipelineLiveViewTestApp(t)
 	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
 	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
+	require.NoError(t, actionauthor.RecordSessionRun(
+		app,
+		namespace,
+		"pipeline-1",
+		"run-1",
+		actionauthor.SessionDetails{DeviceID: deviceID, ActorID: authRecord.Id},
+	))
 	stubLiveViewTemporalOfType(
 		t,
 		activities.ActionAuthorSessionWorkflowName,
@@ -253,6 +261,76 @@ func TestPipelineLiveViewOpensActionAuthorSessionDevice(t *testing.T) {
 		"run_id":            "run-1",
 		"run_identifier":    "pipeline-1",
 	}, (*calls)[0].body)
+}
+
+// Only the user who started a recorded session opens its live view.
+func TestPipelineLiveViewRefusesActionAuthorSessionsOfOthers(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		record bool
+		runID  string
+		member bool
+		code   int
+		reason string
+	}{
+		{name: "unrecorded", code: http.StatusNotFound, reason: "session_not_found"},
+		{
+			name:   "another run",
+			record: true,
+			runID:  "run-0",
+			code:   http.StatusNotFound,
+			reason: "session_not_found",
+		},
+		{
+			name:   "another member",
+			record: true,
+			runID:  "run-1",
+			member: true,
+			code:   http.StatusForbidden,
+			reason: "not_session_owner",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
+			app, authRecord, namespace := pipelineLiveViewTestApp(t)
+			server, calls := newLiveViewRunner(
+				t,
+				http.StatusOK,
+				map[string]any{"path": "/live/tok"},
+			)
+			deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
+			if tc.record {
+				require.NoError(t, actionauthor.RecordSessionRun(
+					app,
+					namespace,
+					"pipeline-1",
+					tc.runID,
+					actionauthor.SessionDetails{DeviceID: deviceID, ActorID: authRecord.Id},
+				))
+			}
+			caller := authRecord
+			if tc.member {
+				caller = joinAgentRunnerOrganization(t, app, "member")
+			}
+			stubLiveViewTemporalOfType(
+				t,
+				activities.ActionAuthorSessionWorkflowName,
+				enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+				map[string]any{
+					deviceID: map[string]any{"serial": "emulator-5554", "type": "android_emulator"},
+				},
+			)
+
+			rec := servePipelineLiveView(t, app, caller, PipelineLiveViewInput{
+				WorkflowID: "pipeline-1",
+				RunID:      "run-1",
+			})
+
+			require.Equal(t, tc.code, rec.Code, rec.Body.String())
+			require.Contains(t, rec.Body.String(), tc.reason)
+			require.Empty(t, *calls)
+		})
+	}
 }
 
 // A tenant chooses its runner's address, so Credimi must never connect to a

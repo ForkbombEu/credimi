@@ -60,7 +60,11 @@ func TestRecordSessionRunKeepsTheFirstDetails(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	first := SessionDetails{WalletVersionIdentifier: "org/wallet/v1", DeviceID: "runner/device"}
+	first := SessionDetails{
+		WalletVersionIdentifier: "org/wallet/v1",
+		DeviceID:                "runner/device",
+		ActorID:                 "user-1",
+	}
 	require.NoError(t, RecordSessionRun(app, "tenant", "ActionAuthorSession-1", "run-1", first))
 	require.NoError(
 		t,
@@ -74,6 +78,13 @@ func TestRecordSessionRunKeepsTheFirstDetails(t *testing.T) {
 	require.Equal(t, "run-1", sessions[0].RunID)
 	require.Equal(t, first.WalletVersionIdentifier, sessions[0].WalletVersionIdentifier)
 	require.Equal(t, first.DeviceID, sessions[0].DeviceID)
+	require.Equal(t, first.ActorID, sessions[0].ActorID)
+
+	found, err := FindSession(app, "tenant", "ActionAuthorSession-1")
+	require.NoError(t, err)
+	require.Equal(t, sessions[0], found)
+	_, err = FindSession(app, "other", "ActionAuthorSession-1")
+	require.ErrorIs(t, err, ErrSessionNotRecorded)
 }
 
 func TestRecentWalletSessionsListsTheWalletNewestFirst(t *testing.T) {

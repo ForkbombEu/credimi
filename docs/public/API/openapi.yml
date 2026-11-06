@@ -1306,6 +1306,8 @@ components:
           type: string
         device_name:
           type: string
+        is_owner:
+          type: boolean
         live_view:
           type: boolean
         model:

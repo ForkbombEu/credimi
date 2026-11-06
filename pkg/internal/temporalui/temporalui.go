@@ -151,30 +151,30 @@ func cookieAuthToken(r *http.Request) string {
 	return payload.Token
 }
 
-// CallerNamespace returns the organization namespace of the authenticated user,
-// read from the request auth or the `pb_auth` cookie. Other embedded UIs
+// Caller returns the authenticated user, read from the request auth or the
+// `pb_auth` cookie, and the namespace of its organization. Other embedded UIs
 // (actionauthorui) use it as their caller check.
-func CallerNamespace(e *core.RequestEvent) (string, error) {
+func Caller(e *core.RequestEvent) (*core.Record, string, error) {
 	user := e.Auth
 	if user == nil {
 		token := cookieAuthToken(e.Request)
 		if token == "" {
-			return "", e.UnauthorizedError("Sign in to Credimi to see workflow details.", nil)
+			return nil, "", e.UnauthorizedError("Sign in to Credimi to see workflow details.", nil)
 		}
 		record, err := e.App.FindAuthRecordByToken(token, core.TokenTypeAuth)
 		if err != nil {
-			return "", e.UnauthorizedError("Your session expired, sign in again.", err)
+			return nil, "", e.UnauthorizedError("Your session expired, sign in again.", err)
 		}
 		user = record
 	}
 	if user.Collection().Name != "users" {
-		return "", e.ForbiddenError("Only organization members can see workflows.", nil)
+		return nil, "", e.ForbiddenError("Only organization members can see workflows.", nil)
 	}
 	namespace, err := pbutils.GetUserOrganizationCanonifiedName(e.App, user.Id)
 	if err != nil || namespace == "" {
-		return "", e.ForbiddenError("You are not a member of any organization.", err)
+		return nil, "", e.ForbiddenError("You are not a member of any organization.", err)
 	}
-	return namespace, nil
+	return user, namespace, nil
 }
 
 type requestScope struct {
@@ -196,7 +196,7 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 				nil,
 			)
 		}
-		namespace, err := CallerNamespace(e)
+		_, namespace, err := Caller(e)
 		if err != nil {
 			return err
 		}
