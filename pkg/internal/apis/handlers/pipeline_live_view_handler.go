@@ -107,6 +107,18 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 		ctx := e.Request.Context()
 		workflowID := strings.TrimSpace(input.WorkflowID)
 		runID := strings.TrimSpace(input.RunID)
+		// Only its starter learns anything of a session, its status included.
+		ownerChecked := isActionAuthorWorkflowID(workflowID)
+		if ownerChecked {
+			if apiErr := requireActionAuthorSessionOwner(
+				e,
+				namespace,
+				workflowID,
+				runID,
+			); apiErr != nil {
+				return apiErr
+			}
+		}
 		devices, workflowType, apiErr := runningPipelineDevices(
 			ctx,
 			temporalClient,
@@ -120,13 +132,15 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 		// as the run identifier (pkg/workflowengine/authorsession).
 		runIdentifier := pipeline.RunIdentifier(namespace, workflowID, runID)
 		if workflowType == activities.ActionAuthorSessionWorkflowName {
-			if apiErr := requireActionAuthorSessionOwner(
-				e,
-				namespace,
-				workflowID,
-				runID,
-			); apiErr != nil {
-				return apiErr
+			if !ownerChecked {
+				if apiErr := requireActionAuthorSessionOwner(
+					e,
+					namespace,
+					workflowID,
+					runID,
+				); apiErr != nil {
+					return apiErr
+				}
 			}
 			runIdentifier = workflowID
 		}

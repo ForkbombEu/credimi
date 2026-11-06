@@ -334,6 +334,91 @@ func TestPipelineLiveViewRefusesActionAuthorSessionsOfOthers(t *testing.T) {
 	}
 }
 
+// A session's status is the starter's only: anyone else gets the answer of
+// a session that does not exist whether it runs or has closed.
+func TestPipelineLiveViewChecksTheSessionOwnerBeforeItsStatus(t *testing.T) {
+	const sessionID = activities.ActionAuthorSessionWorkflowIDPrefix + "ticket"
+	for _, tc := range []struct {
+		name   string
+		status enums.WorkflowExecutionStatus
+		member bool
+		code   int
+		reason string
+	}{
+		{
+			name:   "another member, closed",
+			status: enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			member: true,
+			code:   http.StatusNotFound,
+			reason: "session_not_found",
+		},
+		{
+			name:   "another member, running",
+			status: enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			member: true,
+			code:   http.StatusNotFound,
+			reason: "session_not_found",
+		},
+		{
+			name:   "starter, closed",
+			status: enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			code:   http.StatusConflict,
+			reason: "pipeline workflow is not running",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
+			app, authRecord, namespace := pipelineLiveViewTestApp(t)
+			server, calls := newLiveViewRunner(
+				t,
+				http.StatusOK,
+				map[string]any{"path": "/live/tok"},
+			)
+			deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
+			require.NoError(t, actionauthor.RecordSessionRun(
+				app,
+				namespace,
+				sessionID,
+				"run-1",
+				actionauthor.SessionDetails{DeviceID: deviceID, ActorID: authRecord.Id},
+			))
+			caller := authRecord
+			if tc.member {
+				caller = joinAgentRunnerOrganization(t, app, "member")
+			}
+			description := pipelineMobileFlowDescription(t, tc.status, []string{"tenant/runner-1"})
+			description.WorkflowExecutionInfo.Type.Name = activities.ActionAuthorSessionWorkflowName
+			mockClient := &temporalmocks.Client{}
+			mockClient.On("DescribeWorkflowExecution", mock.Anything, sessionID, "run-1").
+				Return(description, nil).
+				Maybe()
+			original := pipelineLiveViewTemporalClient
+			t.Cleanup(func() { pipelineLiveViewTemporalClient = original })
+			pipelineLiveViewTemporalClient = func(string) (client.Client, error) {
+				return mockClient, nil
+			}
+
+			rec := servePipelineLiveView(t, app, caller, PipelineLiveViewInput{
+				WorkflowID: sessionID,
+				RunID:      "run-1",
+			})
+
+			require.Equal(t, tc.code, rec.Code, rec.Body.String())
+			require.Contains(t, rec.Body.String(), tc.reason)
+			require.Empty(t, *calls)
+			if tc.member {
+				mockClient.AssertNotCalled(
+					t,
+					"DescribeWorkflowExecution",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				)
+			}
+		})
+	}
+}
+
 // A tenant chooses its runner's address, so Credimi must never connect to a
 // loopback or private one on its behalf.
 func TestPipelineLiveViewNeverContactsTenantLoopbackRunner(t *testing.T) {
