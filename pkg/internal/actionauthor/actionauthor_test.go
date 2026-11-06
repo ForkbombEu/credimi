@@ -399,8 +399,8 @@ func TestAuthoringSaveWaitAction(t *testing.T) {
 	// The onboarding candidate asserts an outcome instead of waiting.
 	_, err = Save(app, namespace, "workflow", "run", in, testApproval)
 	require.ErrorIs(t, err, ErrInvalid)
-	assert.ErrorContains(t, err, "must wait 240 s: extendedWaitUntil with optional: true "+
-		"and timeout: 240000")
+	assert.ErrorContains(t, err, "must wait 240 s: extendedWaitUntil with visible: <text>, "+
+		"optional: true and timeout: 240000")
 
 	in.Code = "appId: eu.europa.ec.euidi\n---\n- launchApp\n- extendedWaitUntil:\n" +
 		"    visible: credimi-never-shown\n    optional: true\n    timeout: 240000\n" +

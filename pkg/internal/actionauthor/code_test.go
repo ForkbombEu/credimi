@@ -62,7 +62,7 @@ func TestValidateCode(t *testing.T) {
 		"`assertVisible`, or `extendedWaitUntil` with `visible`"
 
 	waitMessage := "the last command other than takeScreenshot must wait 240 s: " +
-		"extendedWaitUntil with optional: true and timeout: 240000"
+		"extendedWaitUntil with visible: <text>, optional: true and timeout: 240000"
 	waitTail := "- takeScreenshot: done\n"
 	staleMessage := func(selector string) string {
 		return "the final assertion checks \"" + selector + "\", which the action already " +

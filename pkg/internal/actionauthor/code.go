@@ -188,7 +188,7 @@ func ValidateCode(code string, scope CodeScope) []string {
 	case waitSeconds > 0:
 		if !codeIsWait(lastName, lastArg, waitSeconds) {
 			v.add(fmt.Sprintf("the last command other than takeScreenshot must wait %d s: "+
-				"extendedWaitUntil with optional: true and timeout: %d",
+				"extendedWaitUntil with visible: <text>, optional: true and timeout: %d",
 				waitSeconds, waitSeconds*1000))
 		}
 	case !codeIsOutcomeAssertion(lastName, lastArg):
