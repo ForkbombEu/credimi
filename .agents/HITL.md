@@ -712,7 +712,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-10-30 - Action author chat UI back in credimi, namespace bound at runtime
 
-- status: open (user decisions applied; human may revisit)
+- status: closed (06/11/2026), superseded: the start page, `make action-author.ui`, `POST /api/action-author/namespace`, the single namespace binding, the in-process session-manager worker and the `/start?unbound=1` redirect are removed; sessions start and run on the webapp session page (`/my/action-author/<session id>`), which frames the chat UI through the `pkg/internal/actionauthorui` proxy, scoped per request to the session's namespace and chat (AGENTS.md "Action Author Sessions").
 - owner: human maintainer
 - context: the harness chat UI lived in `credimi-runner/agent` and needed `TEMPORAL_NAMESPACE` and `ACTION_AUTHOR_TASK_QUEUE` of one runner, while its start page offered devices of every runner. It moved to `agents/action-author-ui` (`make action-author.ui`), which needs only `TEMPORAL_ADDRESS`; the runner keeps only the agent worker.
 - questions and options considered:
@@ -749,7 +749,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-10-30 - Action author chat UI waits for the chat's first workflow task
 
-- status: open (agent defaults; human may revisit)
+- status: closed (06/11/2026), superseded: the start page, `GET /api/action-author/chat-ready/<workflow_id>` and the `own_origin_only` middleware are removed; the webapp session page (`/my/action-author/<session id>`) waits for `chat_ready` of `GET /api/action-author/sessions/{session_id}` and frames the chat UI through the `pkg/internal/actionauthorui` proxy (AGENTS.md "Action Author Sessions").
 - owner: human maintainer
 - context: the start page queried `/api/status` and `/api/agent-interface` of a chat no worker had run; Temporal answered `consistent query buffer is full` every 2 s and uvicorn printed a traceback each time.
 - questions and options considered:
