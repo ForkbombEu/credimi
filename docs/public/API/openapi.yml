@@ -106,7 +106,7 @@ paths:
       summary: Accept or refuse a candidate action of an authoring session
   /api/action-author/sessions:
     get:
-      description: List the ten latest authoring sessions Credimi started in the caller's
+      description: List the ten latest authoring sessions the caller started in their
         organization namespace on the wallet organization/wallet (its Play Store build
         and every version), newest first, with their Temporal status (for example
         Running or Completed), start time (RFC 3339), build, device path and device
@@ -214,7 +214,7 @@ paths:
   /api/action-author/sessions/{session_id}:
     get:
       description: 'Read the authoring session session_id (ActionAuthorSession-<ticket
-        uuid>, the session_id of the start response) that Credimi started in the caller''s
+        uuid>, the session_id of the start response) that the caller started in their
         organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id),
         Temporal status, times, build, device, runner and model. live_view is true
         while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view
@@ -224,8 +224,8 @@ paths:
         device, and pending_review the candidate action waiting for the caller''s
         review (POST /api/action-author/reviews), null otherwise. A session that has
         not started yet answers 404 session_not_started (follow its ticket in the
-        device queue); an unknown session, or one of another organization, answers
-        404 session_not_found.'
+        device queue); an unknown session, or one another user started, answers 404
+        session_not_found.'
       operationId: actionAuthor.getSession
       parameters:
       - description: The ID for the session_id.
@@ -263,12 +263,12 @@ paths:
       summary: Read an authoring session
   /api/action-author/sessions/{session_id}/close:
     post:
-      description: 'End the running authoring session session_id of the caller''s
-        organization namespace: Credimi asks the agent chat to close, or cancels the
-        session while its device is still being prepared. The session then cleans
-        and releases its device. A session that has already ended answers 409 session_not_running;
-        unknown sessions answer 404 as GET /api/action-author/sessions/{session_id}
-        does.'
+      description: 'End the running authoring session session_id that the caller started:
+        Credimi asks the agent chat to close, or cancels the session while its device
+        is still being prepared. The session then cleans and releases its device.
+        A session that has already ended answers 409 session_not_running; an unknown
+        session, or one another user started, answers 404 session_not_found as GET
+        /api/action-author/sessions/{session_id} does.'
       operationId: actionAuthor.closeSession
       parameters:
       - description: The ID for the session_id.
@@ -1308,8 +1308,6 @@ components:
           type: string
         device_name:
           type: string
-        is_owner:
-          type: boolean
         live_view:
           type: boolean
         model:

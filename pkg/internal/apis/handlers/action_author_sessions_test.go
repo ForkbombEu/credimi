@@ -244,7 +244,6 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 		RunnerOwner:             "userA's organization",
 		Model:                   "anthropic / claude",
 		LiveView:                true,
-		IsOwner:                 true,
 		ChatReady:               true,
 		ChatRunning:             true,
 		ClosesAt:                "2026-01-02T04:00:00Z",
@@ -352,35 +351,26 @@ func TestActionAuthorSessionReadsAClosedSessionWithoutItsChat(t *testing.T) {
 	require.Nil(t, response.PendingReview)
 }
 
-// Another member of the organization reads the session but does not own it.
-func TestActionAuthorSessionIsNotOwnedByAnotherMember(t *testing.T) {
+// Another member of the organization gets the answer of a session that does not exist.
+func TestActionAuthorSessionIsHiddenFromAnotherMember(t *testing.T) {
 	c := &temporalmocks.Client{}
 	stubAuthoringSessionTemporal(t, c)
-	c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionChat, "").
-		Return(nil, serviceerror.NewNotFound("no chat"))
-	var response ActionAuthorSessionResponse
 	(&tests.ApiScenario{
-		Name:           "another member",
-		Method:         http.MethodGet,
-		URL:            "/api/action-author/sessions/" + authoringSessionID,
-		Headers:        map[string]string{"Authorization": "Bearer " + authoringToken(t, "userB")},
-		ExpectedStatus: http.StatusOK,
-		ExpectedContent: []string{
-			`"is_owner":false`,
-		},
+		Name:            "another member",
+		Method:          http.MethodGet,
+		URL:             "/api/action-author/sessions/" + authoringSessionID,
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userB")},
+		ExpectedStatus:  http.StatusNotFound,
+		ExpectedContent: []string{`"reason":"session_not_found"`},
 		TestAppFactory: func(testing.TB) *tests.TestApp {
 			app := setupActionAuthorApp(t)
 			joinAgentRunnerOrganization(t, app, "member")
 			runningAuthoringSession(app, t, c, enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED)
 			return app
 		},
-		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
-			decodeBody(t, res, &response)
-		},
 	}).Test(t)
 
-	require.Equal(t, authoringSessionID, response.SessionID)
-	require.False(t, response.IsOwner)
+	c.AssertNotCalled(t, "DescribeWorkflowExecution", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestActionAuthorSessionCloseRefusesAnotherMember(t *testing.T) {
@@ -398,8 +388,8 @@ func TestActionAuthorSessionCloseRefusesAnotherMember(t *testing.T) {
 		Method:          http.MethodPost,
 		URL:             "/api/action-author/sessions/" + authoringSessionID + "/close",
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userB")},
-		ExpectedStatus:  http.StatusForbidden,
-		ExpectedContent: []string{`"reason":"not_session_owner"`},
+		ExpectedStatus:  http.StatusNotFound,
+		ExpectedContent: []string{`"reason":"session_not_found"`},
 		TestAppFactory: func(testing.TB) *tests.TestApp {
 			app := setupActionAuthorApp(t)
 			joinAgentRunnerOrganization(t, app, "member")
@@ -501,19 +491,26 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 		ExpectedContent: []string{`"sessions":[`},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupActionAuthorApp(t)
-			for _, row := range []struct{ namespace, id, wallet, device string }{
-				{authoringNamespace, "ActionAuthorSession-store", "usera-s-organization/authoring-handler-wallet", authoringSessionDevice},
-				{authoringNamespace, "ActionAuthorSession-gone", authoringAndroidVersion, authoringSessionDevice},
-				{authoringNamespace, "ActionAuthorSession-version", authoringAndroidVersion, "usera-s-organization/removed-runner/phone"},
-				{authoringNamespace, "ActionAuthorSession-other-wallet", "usera-s-organization/authoring-handler-wallet2/v1", authoringSessionDevice},
-				{authoringForeignNS, "ActionAuthorSession-other-namespace", authoringAndroidVersion, authoringSessionDevice},
+			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
+			for _, row := range []struct{ namespace, id, wallet, device, actor string }{
+				{authoringNamespace, "ActionAuthorSession-store", "usera-s-organization/authoring-handler-wallet", authoringSessionDevice, user.Id},
+				{authoringNamespace, "ActionAuthorSession-gone", authoringAndroidVersion, authoringSessionDevice, user.Id},
+				{authoringNamespace, "ActionAuthorSession-version", authoringAndroidVersion, "usera-s-organization/removed-runner/phone", user.Id},
+				{authoringNamespace, "ActionAuthorSession-other-wallet", "usera-s-organization/authoring-handler-wallet2/v1", authoringSessionDevice, user.Id},
+				{authoringNamespace, "ActionAuthorSession-other-actor", authoringAndroidVersion, authoringSessionDevice, "another-user"},
+				{authoringForeignNS, "ActionAuthorSession-other-namespace", authoringAndroidVersion, authoringSessionDevice, user.Id},
 			} {
 				require.NoError(t, actionauthor.RecordSessionRun(
 					app,
 					row.namespace,
 					row.id,
 					"run",
-					actionauthor.SessionDetails{WalletVersionIdentifier: row.wallet, DeviceID: row.device},
+					actionauthor.SessionDetails{
+						WalletVersionIdentifier: row.wallet,
+						DeviceID:                row.device,
+						ActorID:                 row.actor,
+					},
 				))
 				// Rows of one test share a millisecond: order them by name.
 				_, err := app.DB().NewQuery(

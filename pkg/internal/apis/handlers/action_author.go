@@ -81,7 +81,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSessions,
 			OperationID:    "actionAuthor.listSessions",
 			Summary:        "List a wallet's recent authoring sessions",
-			Description:    "List the ten latest authoring sessions Credimi started in the caller's organization namespace on the wallet organization/wallet (its Play Store build and every version), newest first, with their Temporal status (for example Running or Completed), start time (RFC 3339), build, device path and device name (empty when the device no longer exists). A session Temporal cannot describe is left out.",
+			Description:    "List the ten latest authoring sessions the caller started in their organization namespace on the wallet organization/wallet (its Play Store build and every version), newest first, with their Temporal status (for example Running or Completed), start time (RFC 3339), build, device path and device name (empty when the device no longer exists). A session Temporal cannot describe is left out.",
 			ResponseSchema: ActionAuthorSessionsResponse{},
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
@@ -97,7 +97,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSession,
 			OperationID:    "actionAuthor.getSession",
 			Summary:        "Read an authoring session",
-			Description:    "Read the authoring session session_id (ActionAuthorSession-<ticket uuid>, the session_id of the start response) that Credimi started in the caller's organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the candidate action waiting for the caller's review (POST /api/action-author/reviews), null otherwise. A session that has not started yet answers 404 session_not_started (follow its ticket in the device queue); an unknown session, or one of another organization, answers 404 session_not_found.",
+			Description:    "Read the authoring session session_id (ActionAuthorSession-<ticket uuid>, the session_id of the start response) that the caller started in their organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the candidate action waiting for the caller's review (POST /api/action-author/reviews), null otherwise. A session that has not started yet answers 404 session_not_started (follow its ticket in the device queue); an unknown session, or one another user started, answers 404 session_not_found.",
 			ResponseSchema: ActionAuthorSessionResponse{},
 		},
 		{
@@ -106,7 +106,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSessionClose,
 			OperationID:    "actionAuthor.closeSession",
 			Summary:        "End an authoring session",
-			Description:    "End the running authoring session session_id of the caller's organization namespace: Credimi asks the agent chat to close, or cancels the session while its device is still being prepared. The session then cleans and releases its device. A session that has already ended answers 409 session_not_running; unknown sessions answer 404 as GET /api/action-author/sessions/{session_id} does.",
+			Description:    "End the running authoring session session_id that the caller started: Credimi asks the agent chat to close, or cancels the session while its device is still being prepared. The session then cleans and releases its device. A session that has already ended answers 409 session_not_running; an unknown session, or one another user started, answers 404 session_not_found as GET /api/action-author/sessions/{session_id} does.",
 			ResponseStatus: http.StatusAccepted,
 			ResponseSchema: ActionAuthorSessionCloseResponse{},
 		},
@@ -647,9 +647,6 @@ type ActionAuthorSessionResponse struct {
 	Model                   string `json:"model"`
 	// LiveView reports a running session on an Android device that streams its screen.
 	LiveView bool `json:"live_view"`
-	// IsOwner reports that the caller started the session: only the owner
-	// writes in its chat, ends it or opens its live view.
-	IsOwner bool `json:"is_owner"`
 	// ChatReady reports that the agent chat has started its first turn; it
 	// stays true once the chat or the session ended.
 	ChatReady bool `json:"chat_ready"`
@@ -721,8 +718,8 @@ func actionAuthorCallerNamespace(e *core.RequestEvent) (string, *apierror.APIErr
 	return namespace, nil
 }
 
-// readCallerActionAuthorSession reads the session session_id of the path in
-// the caller's namespace.
+// readCallerActionAuthorSession reads the session session_id of the path
+// that the caller started in their namespace.
 func readCallerActionAuthorSession(
 	e *core.RequestEvent,
 ) (client.Client, string, activities.ActionAuthorSessionInfo, *apierror.APIError) {
@@ -745,6 +742,7 @@ func readCallerActionAuthorSession(
 		c,
 		namespace,
 		sessionID,
+		e.Auth.Id,
 	)
 	switch {
 	case errors.Is(err, actionauthor.ErrSessionNotRecorded):
@@ -781,7 +779,6 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 			WalletVersionIdentifier: info.Session.WalletVersionIdentifier,
 			Platform:                info.Session.Platform,
 			DeviceID:                info.DeviceID,
-			IsOwner:                 info.Session.ActorID == e.Auth.Id,
 		}
 		if !info.CloseTime.IsZero() {
 			response.CloseTime = info.CloseTime.UTC().Format(time.RFC3339)
@@ -890,8 +887,8 @@ func queryActionAuthorChat(
 	return encoded.Get(value)
 }
 
-// HandleActionAuthorSessions lists the caller's namespace's latest sessions
-// of a wallet.
+// HandleActionAuthorSessions lists the latest sessions of a wallet that the
+// caller started in their namespace.
 func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		namespace, apiErr := actionAuthorCallerNamespace(e)
@@ -909,6 +906,7 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 			e.App,
 			namespace,
 			wallet,
+			e.Auth.Id,
 			actionAuthorRecentSessions,
 		)
 		if err != nil {
@@ -964,14 +962,6 @@ func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 		c, namespace, info, apiErr := readCallerActionAuthorSession(e)
 		if apiErr != nil {
 			return apiErr
-		}
-		if info.Session.ActorID != e.Auth.Id {
-			return apierror.New(
-				http.StatusForbidden,
-				"action_author",
-				"not_session_owner",
-				"Only the person who started this session can end it.",
-			)
 		}
 		if info.Status != enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING {
 			return apierror.New(

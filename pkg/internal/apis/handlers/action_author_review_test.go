@@ -204,11 +204,8 @@ func TestActionAuthorReviewRejectsOtherUsersAndSettledReviews(t *testing.T) {
 			user:      "userA",
 			namespace: authoringNamespace,
 			actorID:   "another-user",
-			status:    http.StatusForbidden,
-			expected: []string{
-				`"forbidden"`,
-				"only the user who started this session can review its actions",
-			},
+			status:    http.StatusNotFound,
+			expected:  []string{`"session_not_found"`},
 		},
 		{
 			name:      "settled review",

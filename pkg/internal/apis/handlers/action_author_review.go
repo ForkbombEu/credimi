@@ -84,10 +84,11 @@ func actionAuthorSessionNotFound() *apierror.APIError {
 
 // actionAuthorCallerSession authorizes the caller for the running session of
 // an agent workflow: the caller must be a member of the namespace's
-// organization and the user who started the session (forbidden answers otherwise).
+// organization and the user who started the session (404 session_not_found
+// otherwise).
 func actionAuthorCallerSession(
 	e *core.RequestEvent,
-	namespace, authorWorkflowID, forbidden string,
+	namespace, authorWorkflowID string,
 ) (client.Client, activities.ActionAuthorSessionRef, actionauthor.Actor, error) {
 	var ref activities.ActionAuthorSessionRef
 	if e.Auth == nil {
@@ -131,12 +132,7 @@ func actionAuthorCallerSession(
 		return nil, ref, actor, temporalUnavailableError()
 	}
 	if ref.Session.ActorID != actor.ActorID {
-		return nil, ref, actor, apierror.New(
-			http.StatusForbidden,
-			"action_author",
-			"forbidden",
-			forbidden,
-		)
+		return nil, ref, actor, actionAuthorSessionNotFound()
 	}
 	return c, ref, actor, nil
 }
@@ -155,7 +151,6 @@ func HandleActionAuthorReview() func(*core.RequestEvent) error {
 			e,
 			input.Namespace,
 			input.AuthorWorkflowID,
-			"only the user who started this session can review its actions",
 		)
 		if err != nil {
 			return err

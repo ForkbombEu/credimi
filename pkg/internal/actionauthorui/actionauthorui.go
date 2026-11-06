@@ -10,8 +10,8 @@
 //   - the caller is a Credimi user authenticated by the `pb_auth` cookie
 //     (temporalui.Caller), and the session must be one Credimi recorded
 //     in the caller's organization namespace;
-//   - only the user who started the session sends state-changing requests;
-//     other members of the organization can read the chat;
+//   - only the user who started the session can reach its chat; other users
+//     get 404, as for a session that does not exist;
 //   - the service learns the namespace and the session's chat workflow only from
 //     NamespaceHeader and ChatHeader, which the proxy always overwrites;
 //   - only the routes the embedded chat needs reach the service, and every route
@@ -206,18 +206,14 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 			}
 			return e.InternalServerError("", err)
 		}
+		if recorded.ActorID == "" || recorded.ActorID != user.Id {
+			return e.NotFoundError(sessionMissing, nil)
+		}
 		chat := sessionID + activities.ActionAuthorWorkflowIDSuffix
 
 		method := e.Request.Method
 		if method != http.MethodGet && method != http.MethodHead && !sameOrigin(e.Request) {
 			return e.ForbiddenError("Cross-site requests are refused.", nil)
-		}
-		// Sessions recorded without an actor have no owner and are read-only.
-		if method != http.MethodGet && method != http.MethodHead && recorded.ActorID != user.Id {
-			return e.ForbiddenError(
-				"Only the person who started this session can write in its chat.",
-				nil,
-			)
 		}
 		switch classify(method, segments, e.Request.URL.Query(), chat) {
 		case routeForbidden:

@@ -396,7 +396,7 @@ func (s sessionStart) grant(namespace, workflowID string) actionauthor.SessionGr
 
 // lookupSessionStart returns the running session's start input after
 // checking that it is the run Credimi started and recorded
-// (actionauthor.SessionRun) and Credimi's grant for it.
+// (actionauthor.FindSession), with the recorded actor, and Credimi's grant for it.
 func lookupSessionStart(
 	ctx context.Context,
 	app core.App,
@@ -415,14 +415,23 @@ func lookupSessionStart(
 	}
 	// A transient error, ErrSessionNotRecorded included: the session's first
 	// activity can run before the start activity recorded its run.
-	recordedRun, err := actionauthor.SessionRun(app, namespace, sessionID)
+	recorded, err := actionauthor.FindSession(app, namespace, sessionID)
 	if err != nil {
 		return ref, fmt.Errorf("look up action author session: %w", err)
 	}
-	if recordedRun != sessionRunID {
+	if recorded.RunID != sessionRunID {
 		return ref, sessionForbidden("action author session was not started by Credimi")
 	}
-	return readSessionStart(ctx, app, c, namespace, sessionID, sessionRunID)
+	ref, err = readSessionStart(ctx, app, c, namespace, sessionID, sessionRunID)
+	if err != nil {
+		return ref, err
+	}
+	if recorded.ActorID == "" || recorded.ActorID != ref.Session.ActorID {
+		return ActionAuthorSessionRef{}, sessionForbidden(
+			"action author session was not started by Credimi",
+		)
+	}
+	return ref, nil
 }
 
 // readSessionStart reads the start input of the session run and checks
@@ -454,8 +463,8 @@ func readSessionStart(
 		temporalcrypto.DataConverter().FromPayloads(started.GetInput(), &input) != nil {
 		return ref, sessionForbidden("action author session has no start input")
 	}
-	// The session's SessionInput carries the build request, the device, the
-	// app and Credimi's grant; its other fields are ignored.
+	// The session's SessionInput carries the build request, the device and
+	// Credimi's grant; its other fields are ignored.
 	session, err := workflowengine.DecodePayload[actionauthor.BuildRequest](input.Payload)
 	if err != nil || session.ActorID == "" ||
 		session.WalletVersionIdentifier == "" || session.Platform == "" {
@@ -488,20 +497,25 @@ type ActionAuthorSessionInfo struct {
 	CloseTime time.Time // zero while the session runs
 }
 
-// ReadActionAuthorSession reads a recorded session in any state. An
-// unrecorded session returns actionauthor.ErrSessionNotRecorded; an unknown
-// execution or another workflow type returns actionauthor.ErrForbidden.
+// ReadActionAuthorSession reads a recorded session that actorID started, in
+// any state. An unrecorded session returns actionauthor.ErrSessionNotRecorded;
+// a session another user started, an unknown execution or another workflow
+// type returns actionauthor.ErrForbidden.
 func ReadActionAuthorSession(
 	ctx context.Context,
 	app core.App,
 	c client.Client,
-	namespace, sessionID string,
+	namespace, sessionID, actorID string,
 ) (ActionAuthorSessionInfo, error) {
 	var info ActionAuthorSessionInfo
-	runID, err := actionauthor.SessionRun(app, namespace, sessionID)
+	recorded, err := actionauthor.FindSession(app, namespace, sessionID)
 	if err != nil {
 		return info, err
 	}
+	if recorded.ActorID == "" || recorded.ActorID != actorID {
+		return info, sessionForbidden("action author session belongs to another user")
+	}
+	runID := recorded.RunID
 	described, err := c.DescribeWorkflowExecution(ctx, sessionID, runID)
 	if err != nil {
 		return info, describeLookupError(err)

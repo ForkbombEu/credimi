@@ -132,7 +132,7 @@ func signedSessionHistory(
 		namespace,
 		authorTestSessionID,
 		authorTestParentRun,
-		actionauthor.SessionDetails{},
+		actionauthor.SessionDetails{ActorID: field("actor_id")},
 	))
 	signed := maps.Clone(input)
 	signed["grant"] = grant
@@ -807,6 +807,7 @@ func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
 		mockClient,
 		authorTestNamespace,
 		authorTestSessionID,
+		session.ActorID,
 	)
 	require.NoError(t, err)
 	require.Equal(t, authorTestSessionID, info.SessionWorkflowID)
@@ -816,6 +817,20 @@ func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
 	require.Equal(t, enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED, info.Status)
 	require.Equal(t, started, info.StartTime)
 	require.Equal(t, closed, info.CloseTime)
+
+	// Another user gets the answer of an unknown session, before any Temporal call.
+	other := &temporalmocks.Client{}
+	_, err = ReadActionAuthorSession(
+		t.Context(),
+		app,
+		other,
+		authorTestNamespace,
+		authorTestSessionID,
+		"another-user",
+	)
+	require.ErrorIs(t, err, actionauthor.ErrForbidden)
+	require.ErrorContains(t, err, "action author session belongs to another user")
+	other.AssertExpectations(t)
 }
 
 func TestReadActionAuthorSessionRefusesUnrecordedAndOtherWorkflows(t *testing.T) {
@@ -828,6 +843,7 @@ func TestReadActionAuthorSessionRefusesUnrecordedAndOtherWorkflows(t *testing.T)
 		mockClient,
 		authorTestNamespace,
 		authorTestSessionID,
+		"user-1",
 	)
 	require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)
 
@@ -836,7 +852,7 @@ func TestReadActionAuthorSessionRefusesUnrecordedAndOtherWorkflows(t *testing.T)
 		authorTestNamespace,
 		authorTestSessionID,
 		authorTestParentRun,
-		actionauthor.SessionDetails{},
+		actionauthor.SessionDetails{ActorID: "user-1"},
 	))
 	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, authorTestParentRun).
 		Return(describeExecution(
@@ -850,6 +866,7 @@ func TestReadActionAuthorSessionRefusesUnrecordedAndOtherWorkflows(t *testing.T)
 		mockClient,
 		authorTestNamespace,
 		authorTestSessionID,
+		"user-1",
 	)
 	require.ErrorIs(t, err, actionauthor.ErrForbidden)
 	require.ErrorContains(t, err, "workflow is not an action author session")

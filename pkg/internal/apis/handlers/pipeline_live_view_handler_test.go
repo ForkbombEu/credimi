@@ -263,7 +263,8 @@ func TestPipelineLiveViewOpensActionAuthorSessionDevice(t *testing.T) {
 	}, (*calls)[0].body)
 }
 
-// Only the user who started a recorded session opens its live view.
+// Only the user who started a recorded session opens its live view; anyone
+// else gets the answer of a session that does not exist.
 func TestPipelineLiveViewRefusesActionAuthorSessionsOfOthers(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -286,8 +287,8 @@ func TestPipelineLiveViewRefusesActionAuthorSessionsOfOthers(t *testing.T) {
 			record: true,
 			runID:  "run-1",
 			member: true,
-			code:   http.StatusForbidden,
-			reason: "not_session_owner",
+			code:   http.StatusNotFound,
+			reason: "session_not_found",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

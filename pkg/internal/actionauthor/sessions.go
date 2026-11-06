@@ -56,9 +56,9 @@ func RecordSessionRun(
 	details SessionDetails,
 ) error {
 	return app.RunInTransaction(func(txApp core.App) error {
-		recorded, err := SessionRun(txApp, namespace, workflowID)
+		recorded, err := FindSession(txApp, namespace, workflowID)
 		switch {
-		case err == nil && recorded == runID:
+		case err == nil && recorded.RunID == runID:
 			return nil
 		case err == nil:
 			return fmt.Errorf(
@@ -85,13 +85,6 @@ func RecordSessionRun(
 		}
 		return nil
 	})
-}
-
-// SessionRun returns the run of the session workflow that Credimi started in
-// namespace, or ErrSessionNotRecorded.
-func SessionRun(app core.App, namespace, workflowID string) (string, error) {
-	rec, err := FindSession(app, namespace, workflowID)
-	return rec.RunID, err
 }
 
 // FindSession returns the recorded session workflowID of namespace, or ErrSessionNotRecorded.
@@ -121,21 +114,21 @@ func recordedSession(record *core.Record) RecordedSession {
 	}
 }
 
-// RecentWalletSessions lists the namespace's latest sessions of wallet
-// (organization/wallet), newest first: rows whose wallet_version_identifier
-// is wallet or starts with wallet + "/".
+// RecentWalletSessions lists the latest sessions of wallet
+// (organization/wallet) that actorID started in namespace, newest first: rows
+// whose wallet_version_identifier is wallet or starts with wallet + "/".
 func RecentWalletSessions(
 	app core.App,
-	namespace, wallet string,
+	namespace, wallet, actorID string,
 	limit int,
 ) ([]RecordedSession, error) {
 	records, err := app.FindRecordsByFilter(
 		sessionsCollection,
-		"namespace = {:ns} && (wallet_version_identifier = {:wallet} || wallet_version_identifier ~ {:prefix})",
+		"namespace = {:ns} && actor_id = {:actor} && (wallet_version_identifier = {:wallet} || wallet_version_identifier ~ {:prefix})",
 		"-created",
 		limit,
 		0,
-		dbx.Params{"ns": namespace, "wallet": wallet, "prefix": wallet + "/%"},
+		dbx.Params{"ns": namespace, "actor": actorID, "wallet": wallet, "prefix": wallet + "/%"},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list action author sessions: %w", err)

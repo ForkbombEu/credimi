@@ -18,7 +18,7 @@ func TestRecordSessionRunAcceptsOnlyOneRun(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	_, err = SessionRun(app, "tenant", "ActionAuthorSession-1")
+	_, err = FindSession(app, "tenant", "ActionAuthorSession-1")
 	require.ErrorIs(t, err, ErrSessionNotRecorded)
 
 	require.NoError(
@@ -30,9 +30,9 @@ func TestRecordSessionRunAcceptsOnlyOneRun(t *testing.T) {
 		t,
 		RecordSessionRun(app, "tenant", "ActionAuthorSession-1", "run-1", SessionDetails{}),
 	)
-	runID, err := SessionRun(app, "tenant", "ActionAuthorSession-1")
+	recorded, err := FindSession(app, "tenant", "ActionAuthorSession-1")
 	require.NoError(t, err)
-	require.Equal(t, "run-1", runID)
+	require.Equal(t, "run-1", recorded.RunID)
 
 	err = RecordSessionRun(app, "tenant", "ActionAuthorSession-1", "run-2", SessionDetails{})
 	require.ErrorIs(t, err, ErrForbidden)
@@ -41,18 +41,18 @@ func TestRecordSessionRunAcceptsOnlyOneRun(t *testing.T) {
 		err,
 		"action author session ActionAuthorSession-1 already ran as another run",
 	)
-	runID, err = SessionRun(app, "tenant", "ActionAuthorSession-1")
+	recorded, err = FindSession(app, "tenant", "ActionAuthorSession-1")
 	require.NoError(t, err)
-	require.Equal(t, "run-1", runID)
+	require.Equal(t, "run-1", recorded.RunID)
 
 	// The same workflow ID in another namespace is another session.
 	require.NoError(
 		t,
 		RecordSessionRun(app, "other", "ActionAuthorSession-1", "run-2", SessionDetails{}),
 	)
-	runID, err = SessionRun(app, "other", "ActionAuthorSession-1")
+	recorded, err = FindSession(app, "other", "ActionAuthorSession-1")
 	require.NoError(t, err)
-	require.Equal(t, "run-2", runID)
+	require.Equal(t, "run-2", recorded.RunID)
 }
 
 func TestRecordSessionRunKeepsTheFirstDetails(t *testing.T) {
@@ -71,7 +71,7 @@ func TestRecordSessionRunKeepsTheFirstDetails(t *testing.T) {
 		RecordSessionRun(app, "tenant", "ActionAuthorSession-1", "run-1", SessionDetails{}),
 	)
 
-	sessions, err := RecentWalletSessions(app, "tenant", "org/wallet", 10)
+	sessions, err := RecentWalletSessions(app, "tenant", "org/wallet", first.ActorID, 10)
 	require.NoError(t, err)
 	require.Len(t, sessions, 1)
 	require.Equal(t, "ActionAuthorSession-1", sessions[0].WorkflowID)
@@ -93,13 +93,14 @@ func TestRecentWalletSessionsListsTheWalletNewestFirst(t *testing.T) {
 	defer app.Cleanup()
 
 	rows := []struct {
-		namespace, workflowID, wallet string
+		namespace, workflowID, wallet, actor string
 	}{
-		{"tenant", "ActionAuthorSession-store", "org/wallet"},
-		{"tenant", "ActionAuthorSession-version", "org/wallet/v1"},
-		{"tenant", "ActionAuthorSession-other-wallet", "org/wallet2/v1"},
-		{"other", "ActionAuthorSession-other-namespace", "org/wallet/v1"},
-		{"tenant", "ActionAuthorSession-latest", "org/wallet/v2"},
+		{"tenant", "ActionAuthorSession-store", "org/wallet", "user-1"},
+		{"tenant", "ActionAuthorSession-version", "org/wallet/v1", "user-1"},
+		{"tenant", "ActionAuthorSession-other-wallet", "org/wallet2/v1", "user-1"},
+		{"other", "ActionAuthorSession-other-namespace", "org/wallet/v1", "user-1"},
+		{"tenant", "ActionAuthorSession-other-actor", "org/wallet/v1", "user-2"},
+		{"tenant", "ActionAuthorSession-latest", "org/wallet/v2", "user-1"},
 	}
 	base := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	for i, row := range rows {
@@ -108,7 +109,11 @@ func TestRecentWalletSessionsListsTheWalletNewestFirst(t *testing.T) {
 			row.namespace,
 			row.workflowID,
 			"run",
-			SessionDetails{WalletVersionIdentifier: row.wallet, DeviceID: "device"},
+			SessionDetails{
+				WalletVersionIdentifier: row.wallet,
+				DeviceID:                "device",
+				ActorID:                 row.actor,
+			},
 		))
 		// Records created in one test share a millisecond; set distinct times.
 		_, err := app.DB().Update(
@@ -123,7 +128,7 @@ func TestRecentWalletSessionsListsTheWalletNewestFirst(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	sessions, err := RecentWalletSessions(app, "tenant", "org/wallet", 10)
+	sessions, err := RecentWalletSessions(app, "tenant", "org/wallet", "user-1", 10)
 	require.NoError(t, err)
 	ids := make([]string, 0, len(sessions))
 	for _, session := range sessions {
@@ -134,9 +139,9 @@ func TestRecentWalletSessionsListsTheWalletNewestFirst(t *testing.T) {
 		"ActionAuthorSession-version",
 		"ActionAuthorSession-store",
 	}, ids)
-	require.Equal(t, base.Add(4*time.Minute), sessions[0].Created.UTC())
+	require.Equal(t, base.Add(5*time.Minute), sessions[0].Created.UTC())
 
-	limited, err := RecentWalletSessions(app, "tenant", "org/wallet", 1)
+	limited, err := RecentWalletSessions(app, "tenant", "org/wallet", "user-1", 1)
 	require.NoError(t, err)
 	require.Len(t, limited, 1)
 	require.Equal(t, "ActionAuthorSession-latest", limited[0].WorkflowID)

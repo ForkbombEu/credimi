@@ -179,26 +179,20 @@ func requireActionAuthorSessionOwner(
 ) *apierror.APIError {
 	recorded, err := actionauthor.FindSession(e.App, namespace, workflowID)
 	switch {
-	case errors.Is(err, actionauthor.ErrSessionNotRecorded) || err == nil && recorded.RunID != runID:
-		return apierror.New(
-			http.StatusNotFound,
-			"action_author",
-			"session_not_found",
-			"This authoring session does not exist.",
-		)
-	case err != nil:
+	case err != nil && !errors.Is(err, actionauthor.ErrSessionNotRecorded):
 		return apierror.New(
 			http.StatusInternalServerError,
 			"action_author",
 			"session_lookup_failed",
 			err.Error(),
 		)
-	case recorded.ActorID != e.Auth.Id:
+	case err != nil || recorded.RunID != runID || recorded.ActorID != e.Auth.Id:
+		// Another user's session answers as one that does not exist.
 		return apierror.New(
-			http.StatusForbidden,
+			http.StatusNotFound,
 			"action_author",
-			"not_session_owner",
-			"Only the person who started this session can open its live view.",
+			"session_not_found",
+			"This authoring session does not exist.",
 		)
 	}
 	return nil

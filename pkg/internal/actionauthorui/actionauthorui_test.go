@@ -284,18 +284,17 @@ func TestHandler(t *testing.T) {
 		requireStatus(t, err, http.StatusForbidden)
 	})
 
-	t.Run("lets only the starter write", func(t *testing.T) {
+	t.Run("hides the chat from other users", func(t *testing.T) {
 		body := `{"session_id":"` + chat + `","content":"hi"}`
 		_, err := serve(post(base+"/api/messages", "http://example.com", body), memberCookie)
-		requireStatus(t, err, http.StatusForbidden)
+		requireStatus(t, err, http.StatusNotFound)
 
 		_, err = serve(
 			httptest.NewRequest(http.MethodGet, base+"/api/status/"+chat, nil),
 			memberCookie,
 		)
-		require.NoError(t, err)
-		require.Len(t, calls, 1)
-		require.Equal(t, namespace, calls[0].namespace)
+		requireStatus(t, err, http.StatusNotFound)
+		require.Len(t, calls, 0)
 	})
 
 	t.Run("refuses callback results", func(t *testing.T) {
