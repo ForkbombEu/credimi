@@ -31,8 +31,10 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 )
 
@@ -956,7 +958,7 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 // cleans and releases its device.
 func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		c, _, info, apiErr := readCallerActionAuthorSession(e)
+		c, namespace, info, apiErr := readCallerActionAuthorSession(e)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -970,7 +972,7 @@ func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 		}
 		ctx := e.Request.Context()
 		chatID := info.SessionWorkflowID + activities.ActionAuthorWorkflowIDSuffix
-		err := c.SignalWorkflow(ctx, chatID, "", actionAuthorCloseSignal, nil)
+		err := signalChatClose(ctx, c, namespace, chatID)
 		var notFound *serviceerror.NotFound
 		if errors.As(err, &notFound) {
 			// The device is still being prepared: no chat runs yet.
@@ -988,5 +990,22 @@ func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 			http.StatusAccepted,
 			ActionAuthorSessionCloseResponse{SessionID: info.SessionWorkflowID},
 		)
+	}
+}
+
+// signalChatClose sends the harness close signal without input: the agent's
+// handler takes no argument, and client.SignalWorkflow always sends one.
+var signalChatClose = func(ctx context.Context, c client.Client, namespace, chatID string) error {
+	_, err := c.WorkflowService().SignalWorkflowExecution(ctx, chatCloseRequest(namespace, chatID))
+	return err
+}
+
+func chatCloseRequest(namespace, chatID string) *workflowservice.SignalWorkflowExecutionRequest {
+	return &workflowservice.SignalWorkflowExecutionRequest{
+		Namespace:         namespace,
+		WorkflowExecution: &commonpb.WorkflowExecution{WorkflowId: chatID},
+		SignalName:        actionAuthorCloseSignal,
+		Identity:          "credimi",
+		RequestId:         uuid.NewString(),
 	}
 }

@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -483,8 +484,14 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 	} {
 		c := &temporalmocks.Client{}
 		stubAuthoringSessionTemporal(t, c)
-		c.On("SignalWorkflow", mock.Anything, authoringSessionChat, "", "close", nil).
-			Return(tc.signalErr)
+		type signal struct{ namespace, chatID string }
+		signals := []signal{}
+		orig := signalChatClose
+		t.Cleanup(func() { signalChatClose = orig })
+		signalChatClose = func(_ context.Context, _ client.Client, namespace, chatID string) error {
+			signals = append(signals, signal{namespace, chatID})
+			return tc.signalErr
+		}
 		c.On("CancelWorkflow", mock.Anything, authoringSessionID, authoringSessionRun).Return(nil)
 		(&tests.ApiScenario{
 			Name:            tc.name,
@@ -501,25 +508,9 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 		}).Test(t)
 
 		if tc.status != enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING {
-			c.AssertNotCalled(
-				t,
-				"SignalWorkflow",
-				mock.Anything,
-				mock.Anything,
-				mock.Anything,
-				mock.Anything,
-				mock.Anything,
-			)
+			require.Empty(t, signals)
 		} else {
-			c.AssertCalled(
-				t,
-				"SignalWorkflow",
-				mock.Anything,
-				authoringSessionChat,
-				"",
-				"close",
-				nil,
-			)
+			require.Equal(t, []signal{{authoringNamespace, authoringSessionChat}}, signals)
 		}
 		if tc.cancels {
 			c.AssertCalled(
@@ -533,4 +524,12 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 			c.AssertNotCalled(t, "CancelWorkflow", mock.Anything, mock.Anything, mock.Anything)
 		}
 	}
+}
+
+func TestChatCloseRequestHasNoInput(t *testing.T) {
+	request := chatCloseRequest("org", "x-author")
+	require.Nil(t, request.GetInput())
+	require.Equal(t, "close", request.GetSignalName())
+	require.Equal(t, "x-author", request.GetWorkflowExecution().GetWorkflowId())
+	require.Equal(t, "org", request.GetNamespace())
 }
