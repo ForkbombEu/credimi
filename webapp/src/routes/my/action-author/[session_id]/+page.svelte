@@ -90,11 +90,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return res.value.status === 'Running';
 			}
 
+			// Unrecorded yet: the ticket may still wait in the device queue.
 			const failure = res.error;
-			const notStarted =
-				failure.status === 404 &&
-				(failure.reason === 'session_not_started' ||
-					failure.reason === 'session_not_found');
+			const notStarted = failure.status === 404 && failure.reason === 'session_not_found';
 			if (!notStarted) {
 				pollError = failure.message;
 				return true;

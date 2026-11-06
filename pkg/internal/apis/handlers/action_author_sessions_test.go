@@ -402,34 +402,48 @@ func TestActionAuthorSessionCloseRefusesAnotherMember(t *testing.T) {
 	c.AssertNotCalled(t, "CancelWorkflow", mock.Anything, mock.Anything, mock.Anything)
 }
 
+// An unknown session and one another member started give the same answer.
 func TestActionAuthorSessionAnswersNotFound(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		sessionID string
 		// namespace the session is recorded in; empty records none.
 		namespace string
-		reason    string
+		// user reading the session; empty is userA, who records it.
+		user string
 	}{
-		{name: "malformed id", sessionID: "ActionAuthorSession-ticket", reason: "session_not_found"},
-		{name: "unrecorded", sessionID: authoringSessionID, reason: "session_not_started"},
+		{name: "malformed id", sessionID: "ActionAuthorSession-ticket"},
+		{name: "unrecorded", sessionID: authoringSessionID},
 		{
 			name:      "recorded in another namespace",
 			sessionID: authoringSessionID,
 			namespace: authoringForeignNS,
-			reason:    "session_not_started",
+		},
+		{
+			name:      "started by another member",
+			sessionID: authoringSessionID,
+			namespace: authoringNamespace,
+			user:      "userB",
 		},
 	} {
 		c := &temporalmocks.Client{}
 		stubAuthoringSessionTemporal(t, c)
+		user := tc.user
+		if user == "" {
+			user = "userA"
+		}
 		(&tests.ApiScenario{
 			Name:            tc.name,
 			Method:          http.MethodGet,
 			URL:             "/api/action-author/sessions/" + tc.sessionID,
-			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, user)},
 			ExpectedStatus:  http.StatusNotFound,
-			ExpectedContent: []string{`"reason":"` + tc.reason + `"`},
-			TestAppFactory: func(t testing.TB) *tests.TestApp {
+			ExpectedContent: []string{`"reason":"session_not_found"`},
+			TestAppFactory: func(testing.TB) *tests.TestApp {
 				app := setupActionAuthorApp(t)
+				if tc.user != "" {
+					joinAgentRunnerOrganization(t, app, "member")
+				}
 				if tc.namespace != "" {
 					recordAuthoringSession(t, app, tc.namespace)
 				}

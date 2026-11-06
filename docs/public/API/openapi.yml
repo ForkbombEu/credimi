@@ -223,9 +223,8 @@ paths:
         while a turn runs or when unknown) when the idle session closes to free the
         device, and pending_review the candidate action waiting for the caller''s
         review (POST /api/action-author/reviews), null otherwise. A session that has
-        not started yet answers 404 session_not_started (follow its ticket in the
-        device queue); an unknown session, or one another user started, answers 404
-        session_not_found.'
+        not started yet, an unknown session and one another user started all answer
+        404 session_not_found (follow a queued session''s ticket in the device queue).'
       operationId: actionAuthor.getSession
       parameters:
       - description: The ID for the session_id.
