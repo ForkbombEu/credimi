@@ -78,6 +78,11 @@ services:
     image: temporalio/server:${TEMPORAL_VERSION}
     ports:
       - ${TEMPORAL_PORT:-7233}:7233
+    # Caddy serves gRPC at temporal.credimi.io:443 (Coolify domain
+    # https://temporal.credimi.io:7233); gRPC needs HTTP/2 to the container.
+    labels:
+      - caddy_0.reverse_proxy.transport=http
+      - caddy_0.reverse_proxy.transport.versions=h2c 2
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "7233"]
       interval: 5s
