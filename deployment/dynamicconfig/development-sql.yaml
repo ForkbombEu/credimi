@@ -14,3 +14,8 @@ limit.blobSize.error:
 limit.blobSize.warn:
   - value: 104857600
     constraints: {}
+# Pipelines with many wallet actions exceed the default 2KB per search
+# attribute value (ActionsID keyword list), which rejects the workflow start.
+limit.searchAttributesSizeOfValue:
+  - value: 16384
+    constraints: {}
