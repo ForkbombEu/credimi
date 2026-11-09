@@ -78,6 +78,11 @@ services:
     image: temporalio/server:${TEMPORAL_VERSION}
     ports:
       - ${TEMPORAL_PORT:-7233}:7233
+    # Caddy serves gRPC at temporal.credimi.io:443 (Coolify domain
+    # https://temporal.credimi.io:7233); gRPC needs HTTP/2 to the container.
+    labels:
+      - caddy_0.reverse_proxy.transport=http
+      - caddy_0.reverse_proxy.transport.versions=h2c 2
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "7233"]
       interval: 5s
@@ -101,8 +106,9 @@ services:
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
       - TEMPORAL_UI_PORT=8280
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
+    # Loopback only: a published port bypasses Caddy and its basic auth.
     ports:
-      - ${TEMPORAL_UI_PORT:-8280}:8280
+      - 127.0.0.1:${TEMPORAL_UI_PORT:-8280}:8280
     labels:
       - 'caddy_0.basicauth.admin="${TEMPORAL_BASIC_AUTH_HASH:?}"'
   # Read-only Temporal UI embedded in Credimi run pages. No published port: only
