@@ -6,6 +6,7 @@ docs/.vitepress/cache/
 /tmp
 /pb_data
 /pb_data*
+/temporal-jwks
 .DS_Store
 .bin
 .env

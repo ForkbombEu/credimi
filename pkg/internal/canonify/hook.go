@@ -12,6 +12,26 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// Organizations become Temporal namespaces. They never take Credimi's shared
+// namespace (default) or a name in Temporal's own space (temporal-*, which
+// includes the system namespace temporal-system).
+const reservedNamespacePrefix = "temporal-"
+
+// IsReservedNamespace reports whether an organization may not use namespace.
+func IsReservedNamespace(namespace string) bool {
+	return namespace == "default" || strings.HasPrefix(namespace, reservedNamespacePrefix)
+}
+
+// organizationCanonifyInput prefixes names whose canonified form would start
+// with the reserved prefix, so "Temporal System" canonifies to
+// "org-temporal-system".
+func organizationCanonifyInput(name string) string {
+	if strings.HasPrefix(CanonifyPlain(name), reservedNamespacePrefix) {
+		return "org " + name
+	}
+	return name
+}
+
 // MakeExistsFunc reports whether candidateName is already used by another
 // record of collectionName under the same parent path. It returns an error
 // when the path cannot be built (for example a missing parent record) or the
@@ -26,6 +46,12 @@ func MakeExistsFunc(
 		tpl, ok := CanonifyPaths[collectionName]
 		if !ok {
 			return false, fmt.Errorf("canonify: no path template for collection %q", collectionName)
+		}
+		// A reserved name is taken, except the one an existing organization
+		// already holds: saving it must not move its namespace and workflows.
+		if collectionName == "organizations" && IsReservedNamespace(candidateName) &&
+			(rec.IsNew() || candidateName != rec.Original().GetString(tpl.CanonifiedField)) {
+			return true, nil
 		}
 		path, err := BuildPath(app, rec, tpl, candidateName)
 		if err != nil {
@@ -86,6 +112,9 @@ func RegisterCanonifyHooks(app core.App) {
 		})
 		app.OnRecordCreate(col).BindFunc(func(e *core.RecordEvent) error {
 			name := e.Record.GetString(tpl.Field)
+			if col == "organizations" {
+				name = organizationCanonifyInput(name)
+			}
 			if tpl.Field == "workflow_id" {
 				name = fmt.Sprintf("%s-%s", name, e.Record.GetString("run_id"))
 			}
@@ -102,6 +131,9 @@ func RegisterCanonifyHooks(app core.App) {
 			name := e.Record.GetString(tpl.Field)
 			if name == "" {
 				return e.Next()
+			}
+			if col == "organizations" && name != e.Record.Original().GetString(tpl.Field) {
+				name = organizationCanonifyInput(name)
 			}
 			if tpl.Field == "workflow_id" {
 				name = fmt.Sprintf("%s-%s", name, e.Record.GetString("run_id"))

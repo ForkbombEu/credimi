@@ -85,8 +85,10 @@ func WorkersHook(app *pocketbase.PocketBase) {
 			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
 			go startAllWorkersByNamespace(se.App, ns)
 
+			// Tenant runners never serve default: their Temporal tokens grant
+			// organization namespaces only.
 			runnerIDs := adminRunnerIDs
-			if ns == "default" || publishedByNamespace[ns] {
+			if publishedByNamespace[ns] {
 				runnerIDs = combineWorkerManagerRunnerIDs(adminRunnerIDs, publishedRunnerIDs)
 			}
 			startWorkerManagerWorkflow(ns, "", runnerIDs)

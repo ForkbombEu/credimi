@@ -1187,7 +1187,9 @@ func TestUpsertMobileRunner(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "lab device", record.GetString("description"))
 		require.Equal(t, "https://runner.example.trycloudflare.com", record.GetString("ip"))
-		require.True(t, record.GetBool("published"))
+		// Tenants cannot publish runners: the requested flag is ignored.
+		require.False(t, record.GetBool("published"))
+		require.Equal(t, false, body["published"])
 	})
 
 	t.Run("runner_id update keeps the same record", func(t *testing.T) {
@@ -1273,6 +1275,7 @@ func TestUpsertMobileRunner(t *testing.T) {
 		superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
 		require.NoError(t, err)
 
+		published := true
 		event := performMobileRunnerRequest(
 			t,
 			app,
@@ -1283,6 +1286,7 @@ func TestUpsertMobileRunner(t *testing.T) {
 				Name:         "Runner B",
 				IP:           "https://runner-b.example",
 				Type:         "android_emulator",
+				Published:    &published,
 			},
 		)
 
@@ -1297,6 +1301,7 @@ func TestUpsertMobileRunner(t *testing.T) {
 		runner, err := canonify.Resolve(app, "/userb-s-organization/runner-b")
 		require.NoError(t, err)
 		require.True(t, runner.GetBool("admin_managed"))
+		require.True(t, runner.GetBool("published"))
 	})
 
 	t.Run("admin update existing runner does not flip admin_managed", func(t *testing.T) {
@@ -1473,28 +1478,6 @@ func TestUpsertMobileRunnerIssuesRunnerCredential(t *testing.T) {
 			credentials[1],
 			decodeJSONBody(t, responseRecorder(t, heartbeat))["runner_credential"],
 		)
-	})
-
-	t.Run("an organization member publishes its runner", func(t *testing.T) {
-		app := setupMobileRunnerApp(t)
-		defer app.Cleanup()
-
-		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-		require.NoError(t, err)
-		memberRole, err := app.FindFirstRecordByData("orgRoles", "name", "member")
-		require.NoError(t, err)
-		authorization, err := app.FindFirstRecordByData("orgAuthorizations", "user", user.Id)
-		require.NoError(t, err)
-		authorization.Set("role", memberRole.Id)
-		require.NoError(t, app.Save(authorization))
-
-		event, err := upsertRotatingPhone(t, app, user, "")
-		require.NoError(t, err)
-		require.Equal(t, true, decodeJSONBody(t, responseRecorder(t, event))["published"])
-
-		record, err := canonify.Resolve(app, "/usera-s-organization/rotating-phone")
-		require.NoError(t, err)
-		require.True(t, record.GetBool("published"))
 	})
 
 	t.Run("missing secret saves nothing", func(t *testing.T) {
