@@ -42,7 +42,7 @@ type StepDefinition struct {
 }
 
 // LinkedStepsWorkflowName is the Temporal workflow type that runs a block of linked steps.
-const LinkedStepsWorkflowName = "Linked Steps Workflow"
+const LinkedStepsWorkflowName = "Run linked steps"
 
 // LinkedStepBlocks returns the inclusive [start, end] index ranges of the blocks of at
 // least two steps formed by consecutive linked_to fields.

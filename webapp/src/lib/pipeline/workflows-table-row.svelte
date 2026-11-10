@@ -123,12 +123,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</TdDash>
 
 	<TdDash nest>
-		<WorkflowStatusTag
-			status={workflow.status}
-			queueData={row.isRoot ? workflow.queue : undefined}
-			failureReason={workflow.failure_reason}
-			size={row.isRoot && !row.isCompact ? 'md' : 'sm'}
-		/>
+		<div class="flex items-center gap-1">
+			<WorkflowStatusTag
+				status={workflow.status}
+				queueData={row.isRoot ? workflow.queue : undefined}
+				failureReason={workflow.failure_reason}
+				size={row.isRoot && !row.isCompact ? 'md' : 'sm'}
+			/>
+			{#if workflow.attempt && workflow.attempt > 1}
+				<span
+					class="rounded-sm border px-1 text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
+				>
+					{m.Linked_steps_attempt({
+						attempt: workflow.attempt,
+						max_attempts: workflow.max_attempts || workflow.attempt
+					})}
+				</span>
+			{/if}
+		</div>
 	</TdDash>
 
 	{#if row.isRoot}
@@ -158,14 +170,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="flex min-w-0 items-baseline gap-1.5">
 				<span class="shrink-0 font-normal">{workflow.type.name}</span>
 				<span class="min-w-0 truncate text-muted-foreground">{workflow.displayName}</span>
-				{#if workflow.attempt}
-					<span class="shrink-0 font-mono text-xs text-muted-foreground">
-						{m.Linked_steps_attempt({
-							attempt: workflow.attempt,
-							max_attempts: workflow.max_attempts || workflow.attempt
-						})}
-					</span>
-				{/if}
 				{#if workflow.has_logs}
 					<Tooltip>
 						{#snippet child({ props })}
