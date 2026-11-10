@@ -587,6 +587,76 @@ func TestPipelineQueueEnqueueProbesEveryRunnerOnce(t *testing.T) {
 	require.Empty(t, stub.enqueueRequests)
 }
 
+func TestPipelineQueueEnqueueRejectsInvalidLinkedSteps(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	origStart := startPipelineWorkflow
+	t.Cleanup(func() {
+		startPipelineWorkflow = origStart
+	})
+	startPipelineWorkflow = func(
+		string,
+		map[string]any,
+		map[string]any,
+		string,
+	) (workflowengine.WorkflowResult, error) {
+		t.Fatal("pipeline must not start")
+		return workflowengine.WorkflowResult{}, nil
+	}
+
+	linkedYaml := `name: test
+steps:
+  - id: first
+    use: http-request
+    with:
+      payload:
+        method: GET
+        url: https://example.org
+  - id: second
+    use: http-request
+    linked_to: wrong
+    with:
+      payload:
+        method: GET
+        url: https://example.org
+`
+	app := setupPipelineQueueAppWithPipeline(t, orgID, linkedYaml)
+	defer app.Cleanup()
+
+	baseRouter, err := apis.NewRouter(app)
+	require.NoError(t, err)
+
+	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+		mux, err := e.Router.BuildMux()
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/queue",
+			jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"yaml":                linkedYaml,
+			}),
+		)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("content-type", "application/json")
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+		require.Contains(t, rec.Body.String(), "invalid linked steps")
+		require.Contains(t, rec.Body.String(), "must name the previous step")
+		return nil
+	})
+	require.NoError(t, serveErr)
+}
+
 func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)

@@ -230,7 +230,7 @@ func enqueuePipelineRun(
 	// whether it starts directly or through the device semaphore.
 	config[pipeline.CompletionNotificationConfigKey] = true
 	applyPipelineQueueCleanupConfig(config, runContext.cleanup)
-	deviceInfo, err := pipeline.ParsePipelineDeviceInfo(runContext.yaml)
+	workflowDefinition, err := pipelineinternal.ParseWorkflow(runContext.yaml)
 	if err != nil {
 		return PipelineQueueResponse{}, apierror.New(
 			http.StatusBadRequest,
@@ -239,6 +239,15 @@ func enqueuePipelineRun(
 			err.Error(),
 		)
 	}
+	if err := pipelineinternal.ValidateLinkedSteps(workflowDefinition); err != nil {
+		return PipelineQueueResponse{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"invalid linked steps",
+			err.Error(),
+		)
+	}
+	deviceInfo := pipeline.DeviceInfoFromDefinition(workflowDefinition)
 	deviceIDs, err := resolvePipelineDeviceIDs(runContext.yaml, deviceInfo)
 	if err != nil {
 		return PipelineQueueResponse{}, apierror.New(

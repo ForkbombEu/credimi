@@ -85,6 +85,7 @@ func TestGenerateSingleStepSchemaMobileAutomation(t *testing.T) {
 	properties := schema["properties"].(map[string]any)
 	with := properties["with"].(map[string]any)
 	require.Contains(t, with, "oneOf")
+	require.Equal(t, "string", properties["linked_to"].(map[string]any)["type"])
 }
 
 func TestExtractXOneOfGroups(t *testing.T) {
