@@ -17,7 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { InCardHostChrome } from '../in-card/in-card-host-chrome.js';
 
 	import InCardHost from '../in-card/in-card-host.svelte';
-
 	import ContinueOnErrorFooter from './continue-on-error-footer.svelte';
 	import { isStepEditable } from './utils.js';
 
@@ -40,7 +39,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{...chrome}
 	footer={comp(ContinueOnErrorFooter, {
 		step,
-		onCheckedChange: (checked) => builder.setContinueOnError(index, checked)
+		onCheckedChange: (checked) => builder.setContinueOnError(index, checked),
+		linked: 'linked_to' in step[0] && Boolean(step[0].linked_to),
+		canLink: builder.canLinkToPrevious(index),
+		linkReadonly: builder.isFormMode,
+		onLinkedChange: (checked) => builder.setLinkedToPrevious(index, checked)
 	})}
 >
 	{#snippet topRight()}

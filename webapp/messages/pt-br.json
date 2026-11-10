@@ -786,6 +786,8 @@
 	"save_pipeline_description": "Before saving, add some metadata to your pipeline.",
 	"parameters": "Parameters",
 	"Continue_on_error": "Continuar on error",
+	"Linked_to_previous_step": "Linked to previous step",
+	"Linked_steps_attempt": "Attempt {attempt} of {max_attempts}",
 	"Run_now": "Executar now",
 	"Record_video_of_wallet_action": "Turn on/off video recording of wallet action",
 	"Conformance_check": "Conformidade check",

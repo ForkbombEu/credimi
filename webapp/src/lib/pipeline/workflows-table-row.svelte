@@ -158,6 +158,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="flex min-w-0 items-baseline gap-1.5">
 				<span class="shrink-0 font-normal">{workflow.type.name}</span>
 				<span class="min-w-0 truncate text-muted-foreground">{workflow.displayName}</span>
+				{#if workflow.attempt}
+					<span class="shrink-0 font-mono text-xs text-muted-foreground">
+						{m.Linked_steps_attempt({
+							attempt: workflow.attempt,
+							max_attempts: workflow.max_attempts || workflow.attempt
+						})}
+					</span>
+				{/if}
 				{#if workflow.has_logs}
 					<Tooltip>
 						{#snippet child({ props })}

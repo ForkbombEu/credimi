@@ -6,10 +6,17 @@ import type { PipelineStep } from '$lib/pipeline/types';
 
 /**
  * Stable YAML key order for pipeline step cards:
- * use → id → continue_on_error → activity_options → with
+ * use → id → continue_on_error → linked_to → activity_options → with
  * (omit absent keys; keep any unexpected keys after these).
  */
-const STEP_YAML_KEY_ORDER = ['use', 'id', 'continue_on_error', 'activity_options', 'with'] as const;
+const STEP_YAML_KEY_ORDER = [
+	'use',
+	'id',
+	'continue_on_error',
+	'linked_to',
+	'activity_options',
+	'with'
+] as const;
 
 export function orderStepKeys(step: PipelineStep): PipelineStep {
 	const source = step as Record<string, unknown>;
