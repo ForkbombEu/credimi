@@ -29,6 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { page } from '$app/state';
+	import { subscribeToStartFailures } from '$lib/pipeline/start-failures';
 
 	import { Separator } from '@/components/ui/separator/index.js';
 	import * as Sidebar from '@/components/ui/sidebar/index.js';
@@ -36,7 +37,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { getSidebarData } from './_partials/sidebar-data.svelte';
 	import AppSidebar from './_partials/sidebar.svelte';
 
-	let { children } = $props();
+	let { children, data } = $props();
+
+	// A queued run can fail to start hours after the user queued it; open tabs of the
+	// organization hear about it here, closed ones through Web Push.
+	$effect(() => {
+		const organizationId = data.organization?.id;
+		if (!organizationId) return;
+		let unsubscribe: (() => Promise<void>) | undefined;
+		let disposed = false;
+		subscribeToStartFailures(organizationId)
+			.then((stop) => {
+				if (disposed) void stop();
+				else unsubscribe = stop;
+			})
+			.catch((e: unknown) => console.error('Pipeline start failure subscription failed:', e));
+		return () => {
+			disposed = true;
+			void unsubscribe?.();
+		};
+	});
 
 	// onNavigate(() => {
 	// 	dashboardNavbar.title = undefined;

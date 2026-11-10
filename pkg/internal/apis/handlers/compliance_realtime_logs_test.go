@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/internal/pipelinealerts"
 	"github.com/forkbombeu/credimi/pkg/internal/realtimelogs"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -212,4 +214,48 @@ func TestNotifyLogsUpdateReachesOnlyAuthorizedSubscribers(t *testing.T) {
 	require.JSONEq(t, `[{"message":"secret-step-log"}]`, string(msg.Data))
 	require.False(t, guest.HasSubscription(topic))
 	require.False(t, otherOrg.HasSubscription(topic))
+}
+
+// Start failure messages carry pipeline names and errors, so only members of
+// the organization (and superusers) may hold its topic.
+func TestStartFailureTopicIsOrganizationScoped(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	userA, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	userB, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+	require.NoError(t, err)
+	superuser, err := app.FindAuthRecordByEmail(core.CollectionNameSuperusers, "admin@example.org")
+	require.NoError(t, err)
+	orgA, err := pbutils.GetUserOrganizationID(app, userA.Id)
+	require.NoError(t, err)
+	orgB, err := pbutils.GetUserOrganizationID(app, userB.Id)
+	require.NoError(t, err)
+	require.NotEqual(t, orgA, orgB)
+
+	topicA := pipelinealerts.StartFailureTopic(orgA)
+	topicB := pipelinealerts.StartFailureTopic(orgB)
+	topics := []string{topicA, topicB, pipelinealerts.StartFailureTopicPrefix}
+
+	scenarios := []struct {
+		name     string
+		auth     *core.Record
+		expected []string
+	}{
+		{name: "guest holds none", auth: nil, expected: []string{}},
+		{name: "member holds only its organization", auth: userA, expected: []string{topicA}},
+		{name: "other member holds only its organization", auth: userB, expected: []string{topicB}},
+		{name: "superuser holds all", auth: superuser, expected: topics},
+	}
+	for _, s := range scenarios {
+		t.Run(s.name, func(t *testing.T) {
+			require.ElementsMatch(
+				t,
+				s.expected,
+				authorizedRealtimeSubscriptions(t.Context(), app, s.auth, topics),
+			)
+		})
+	}
 }

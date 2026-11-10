@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/internal/pipelinealerts"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
@@ -37,10 +38,11 @@ var realtimeLogTopics = []struct {
 }
 
 // RegisterRealtimeLogsAuthorizationHook strips realtime subscriptions to
-// workflow log topics that the requester's organization does not own.
-// realtimelogs.Notify delivers by topic name only, so this hook is the access
-// decision for log streams: guests hold no log topics, and users only hold
-// topics of workflows that exist in their organization namespace.
+// workflow log topics that the requester's organization does not own, and to
+// pipeline start failure topics of other organizations.
+// realtimelogs.Notify and pipelinealerts.NotifyStartFailure deliver by topic
+// name only, so this hook is the access decision for those streams: guests
+// hold none, and users only hold topics of their own organization.
 func RegisterRealtimeLogsAuthorizationHook(app core.App) {
 	app.OnRealtimeSubscribeRequest().BindFunc(func(e *core.RealtimeSubscribeRequestEvent) error {
 		e.Subscriptions = authorizedRealtimeSubscriptions(
@@ -62,8 +64,27 @@ func authorizedRealtimeSubscriptions(
 	allowed := make([]string, 0, len(topics))
 	var temporalClient client.Client
 	clientResolved := false
+	userOrgID := ""
+	userOrgResolved := false
 
 	for _, topic := range topics {
+		if topicOrgID, ok := pipelinealerts.StartFailureTopicOrgID(topic); ok {
+			if auth == nil {
+				continue
+			}
+			if auth.IsSuperuser() {
+				allowed = append(allowed, topic)
+				continue
+			}
+			if !userOrgResolved {
+				userOrgResolved = true
+				userOrgID, _ = pbutils.GetUserOrganizationID(app, auth.Id)
+			}
+			if userOrgID != "" && userOrgID == topicOrgID {
+				allowed = append(allowed, topic)
+			}
+			continue
+		}
 		workflowIDs := realtimeLogTopicWorkflowIDs(topic)
 		if workflowIDs == nil {
 			allowed = append(allowed, topic)

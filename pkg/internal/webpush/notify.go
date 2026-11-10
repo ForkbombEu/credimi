@@ -59,6 +59,23 @@ type subscriptionKeys struct {
 	Auth   string `json:"auth"`
 }
 
+// StartFailureResult is the push payload result of a queued pipeline run that
+// could not start; it never got a Temporal run.
+const StartFailureResult = "start_failed"
+
+// StartFailureRequest describes a queued or scheduled pipeline run that the
+// device semaphore could not start.
+type StartFailureRequest struct {
+	OrgID        string
+	PipelineName string
+	// PipelinePath is the canonified pipeline path (`<org>/<pipeline>`); the
+	// notification links to its pipeline page.
+	PipelinePath string
+	Organization string
+	Error        string
+	AppURL       string
+}
+
 // NotifyPipelineRunCompletion sends a Web Push notification about a finished
 // pipeline run to every push subscription of the organization members.
 // Per-subscription failures are collected into the returned error without
@@ -68,17 +85,7 @@ func NotifyPipelineRunCompletion(
 	app core.App,
 	req CompletionRequest,
 ) (int, error) {
-	publicKey, privateKey, err := GetVAPIDKeyPair(app)
-	if err != nil {
-		return 0, err
-	}
-
-	subscriptions, err := findOrgMemberSubscriptions(app, req.OrgID)
-	if err != nil {
-		return 0, err
-	}
-
-	payload, err := json.Marshal(pushPayload{
+	return notifyOrganization(ctx, app, req.OrgID, req.AppURL, pushPayload{
 		PipelineName: req.PipelineName,
 		Organization: req.Organization,
 		Result:       req.Result,
@@ -86,6 +93,43 @@ func NotifyPipelineRunCompletion(
 		Error:        req.Error,
 		URL:          buildPipelineRunURL(req.AppURL, req.WorkflowID, req.RunID),
 	})
+}
+
+// NotifyPipelineStartFailure sends a Web Push notification about a pipeline
+// run that could not start to every push subscription of the organization
+// members, with the same delivery rules as NotifyPipelineRunCompletion.
+func NotifyPipelineStartFailure(
+	ctx context.Context,
+	app core.App,
+	req StartFailureRequest,
+) (int, error) {
+	return notifyOrganization(ctx, app, req.OrgID, req.AppURL, pushPayload{
+		PipelineName: req.PipelineName,
+		Organization: req.Organization,
+		Result:       StartFailureResult,
+		Error:        req.Error,
+		URL:          utils.JoinURL(req.AppURL, "my", "pipelines", req.PipelinePath),
+	})
+}
+
+func notifyOrganization(
+	ctx context.Context,
+	app core.App,
+	orgID string,
+	appURL string,
+	push pushPayload,
+) (int, error) {
+	publicKey, privateKey, err := GetVAPIDKeyPair(app)
+	if err != nil {
+		return 0, err
+	}
+
+	subscriptions, err := findOrgMemberSubscriptions(app, orgID)
+	if err != nil {
+		return 0, err
+	}
+
+	payload, err := json.Marshal(push)
 	if err != nil {
 		return 0, fmt.Errorf("failed to marshal push payload: %w", err)
 	}
@@ -101,7 +145,7 @@ func NotifyPipelineRunCompletion(
 			payload,
 			publicKey,
 			privateKey,
-			req.AppURL,
+			appURL,
 		)
 		cancel()
 		if err != nil {

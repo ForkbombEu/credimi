@@ -5,6 +5,7 @@ package workflows
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -35,6 +36,10 @@ const (
 	// Runs started before this change only flagged a canceled running ticket;
 	// canceling its pipeline would add activities their history lacks.
 	mobileDeviceSemaphoreCancelRunningChange = "credimi-2026-10-semaphore-cancel-running-pipeline"
+	// Runs started before this change did not tell the organization that a
+	// ticket failed to start; the notification activity would add commands
+	// their history lacks.
+	mobileDeviceSemaphoreStartFailureNotifyChange = "credimi-2026-11-semaphore-start-failure-notification"
 )
 
 type MobileDeviceSemaphoreWorkflow struct {
@@ -106,6 +111,12 @@ func (w *MobileDeviceSemaphoreWorkflow) ExecuteWorkflow(
 	runtime.cancelRunningPipelines = workflow.GetVersion(
 		ctx,
 		mobileDeviceSemaphoreCancelRunningChange,
+		workflow.DefaultVersion,
+		1,
+	) == 1
+	runtime.notifyStartFailures = workflow.GetVersion(
+		ctx,
+		mobileDeviceSemaphoreStartFailureNotifyChange,
 		workflow.DefaultVersion,
 		1,
 	) == 1
@@ -186,10 +197,11 @@ type mobileDeviceSemaphoreRuntime struct {
 	shutdownAfterSeconds int
 	updateCount          int
 	countAllUpdates      bool
-	// queueWaitTimeouts and cancelRunningPipelines record the GetVersion
-	// decisions of this run.
+	// queueWaitTimeouts, cancelRunningPipelines and notifyStartFailures record
+	// the GetVersion decisions of this run.
 	queueWaitTimeouts      bool
 	cancelRunningPipelines bool
+	notifyStartFailures    bool
 	// queueWaitGeneration changes whenever a ticket joins the queue, so the
 	// expirer recomputes its next deadline.
 	queueWaitGeneration int
@@ -1189,6 +1201,58 @@ func (r *mobileDeviceSemaphoreRuntime) markRunTicketFailed(
 		"",
 		state.ErrorMessage,
 	)
+	if r.notifyStartFailures {
+		r.notifyStartFailure(r.ctx, ticketID, state, err)
+	}
+}
+
+// notifyStartFailure tells the owner organization, through the realtime
+// session of open tabs and Web Push, that ticketID could not start. The
+// failure happens when the devices free up, possibly hours after the user
+// queued the run, so the enqueue response cannot carry it.
+func (r *mobileDeviceSemaphoreRuntime) notifyStartFailure(
+	ctx workflow.Context,
+	ticketID string,
+	state MobileDeviceSemaphoreRunTicketState,
+	err error,
+) {
+	notifyActivity := activities.NewNotifyPipelineStartFailureActivity(nil)
+	activityOptions := DefaultActivityOptions
+	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 3}
+	input := workflowengine.ActivityInput{
+		Payload: activities.NotifyPipelineStartFailureInput{
+			OwnerNamespace:     state.Request.OwnerNamespace,
+			PipelineIdentifier: state.Request.PipelineIdentifier,
+			TicketID:           ticketID,
+			ErrorMessage:       startFailureMessage(err),
+		},
+	}
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
+		if err := workflow.ExecuteActivity(activityCtx, notifyActivity.Name(), input).
+			Get(activityCtx, nil); err != nil {
+			workflow.GetLogger(ctx).Error(
+				"failed to notify pipeline start failure",
+				"ticket_id",
+				ticketID,
+				"error",
+				err,
+			)
+		}
+	})
+}
+
+// startFailureMessage returns the cause a user can act on: the application
+// error raised by the start activity, without Temporal's activity wrapper.
+func startFailureMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	var appErr *temporal.ApplicationError
+	if errors.As(err, &appErr) {
+		return appErr.Message()
+	}
+	return err.Error()
 }
 
 func (r *mobileDeviceSemaphoreRuntime) checkRunCompletion(ctx workflow.Context) {
