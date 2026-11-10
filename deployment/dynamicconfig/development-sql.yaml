@@ -16,6 +16,8 @@ limit.blobSize.warn:
     constraints: {}
 # Pipelines with many wallet actions exceed the default 2KB per search
 # attribute value (ActionsID keyword list), which rejects the workflow start.
-limit.searchAttributesSizeOfValue:
+# Temporal 1.32 registers it as frontend.searchAttributesSizeOfValueLimit and
+# ignores the old limit.searchAttributesSizeOfValue name as "unregistered".
+frontend.searchAttributesSizeOfValueLimit:
   - value: 16384
     constraints: {}
