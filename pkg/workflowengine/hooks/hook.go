@@ -292,6 +292,7 @@ func defaultWorkers(app core.App) []workerConfig {
 				activities.NewQueryMobileDeviceSemaphoreRunStatusActivity(),
 				activities.NewUpdateGitHubPRCommentActivity(),
 				activities.NewPatchGitHubPRCommentActivity(),
+				activities.NewNotifyPipelineStartFailureActivity(app),
 			},
 		},
 		{
