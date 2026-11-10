@@ -910,8 +910,9 @@ var deeplinkProducers = map[string]struct{}{
 // linkScenarioBlocks links every wallet step of one scenario to the deeplink
 // producers it opens, together with the steps between them, so a retry runs
 // the whole range again with a fresh deeplink. Overlapping ranges merge into
-// one chain. Inside a chain every step runs once per attempt, so only the last
-// step's retry policy, which sets the chain's attempts, is kept.
+// one chain. Inside a chain every step runs once per attempt and the last
+// step's retry policy sets the chain's attempts, so a policy set on an earlier
+// step moves to the last one, unless that step has its own.
 func linkScenarioBlocks(steps []map[string]any) {
 	index := make(map[string]int, len(steps))
 	for i, step := range steps {
@@ -942,18 +943,31 @@ func linkScenarioBlocks(steps []map[string]any) {
 			steps[k]["linked_to"] = steps[k-1]["id"]
 		}
 	}
+	var carried any
 	for k, step := range steps {
-		if k+1 >= len(steps) || steps[k+1]["linked_to"] == nil {
-			continue
-		}
 		options, _ := step["activity_options"].(map[string]any)
-		if options == nil {
+		if k+1 < len(steps) && steps[k+1]["linked_to"] != nil {
+			if policy, ok := options["retry_policy"]; ok {
+				if carried == nil {
+					carried = policy
+				}
+				delete(options, "retry_policy")
+				if len(options) == 0 {
+					delete(step, "activity_options")
+				}
+			}
 			continue
 		}
-		delete(options, "retry_policy")
-		if len(options) == 0 {
-			delete(step, "activity_options")
+		if carried != nil && step["linked_to"] != nil {
+			if options == nil {
+				options = map[string]any{}
+				step["activity_options"] = options
+			}
+			if _, ok := options["retry_policy"]; !ok {
+				options["retry_policy"] = carried
+			}
 		}
+		carried = nil
 	}
 }
 

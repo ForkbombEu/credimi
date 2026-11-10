@@ -99,6 +99,14 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NotNil(t, presentation)
 	presentationOptions, _ := presentation["activity_options"].(map[string]any)
 	require.NotContains(t, presentationOptions, "retry_policy")
+	walletOptions, _ := stepsByID["dcql-credentials-match-cc301c32-present-with-reference-implementation"]["activity_options"].(map[string]any)
+	walletPolicy, _ := walletOptions["retry_policy"].(map[string]any)
+	require.Equal(
+		t,
+		3,
+		walletPolicy["maximum_attempts"],
+		"the chain keeps the producer's retry policy",
+	)
 
 	committed, err := os.ReadFile(filepath.Join(
 		root,

@@ -405,7 +405,13 @@ steps:
             Content-Type: application/json
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
+    - activity_options:
+        retry_policy:
+            backoff_coefficient: 2
+            initial_interval: 5s
+            maximum_attempts: 3
+            maximum_interval: 30s
+      continue_on_error: true
       id: dcql-credentials-match-cc301c32-present-with-reference-implementation
       linked_to: dcql-credentials-match-cc301c32-create-presentation
       use: mobile-automation
