@@ -18,6 +18,10 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// NotifyPipelineStartFailureActivityName is registered on the mobile device
+// semaphore worker, the only caller.
+const NotifyPipelineStartFailureActivityName = "Notify pipeline start failure"
+
 // NotifyPipelineStartFailureInput identifies a queued pipeline run that the
 // device semaphore could not start.
 type NotifyPipelineStartFailureInput struct {
