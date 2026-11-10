@@ -31,7 +31,7 @@ func failedDependencyError(step pipeline.StepDefinition, failedSteps map[string]
 		label = "steps"
 	}
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
-	return workflowengine.NewAppError(workflowengine.WorkflowError{
+	return workflowengine.NewNonRetryableAppError(workflowengine.WorkflowError{
 		Code:    errCode.Code,
 		Summary: errCode.Description,
 		Message: fmt.Sprintf(

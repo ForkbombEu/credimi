@@ -312,6 +312,97 @@ func TestLoadKeepsTheOutputAFailedTaskWorkflowReports(t *testing.T) {
 	}, run.Outputs)
 }
 
+func blockInitiatedEvent(t *testing.T, id int64) *historypb.HistoryEvent {
+	return &historypb.HistoryEvent{
+		EventId:   id,
+		EventType: enums.EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_INITIATED,
+		Attributes: &historypb.HistoryEvent_StartChildWorkflowExecutionInitiatedEventAttributes{
+			StartChildWorkflowExecutionInitiatedEventAttributes: &historypb.StartChildWorkflowExecutionInitiatedEventAttributes{
+				WorkflowType: &commonpb.WorkflowType{
+					Name: pipelineinternal.LinkedStepsWorkflowName,
+				},
+				// A block input carries pipeline_config, never a step_id config.
+				Input: toPayloads(t, map[string]any{
+					"pipeline_config": map[string]any{workflowengine.StepIDConfigKey: "offer"},
+				}),
+			},
+		},
+	}
+}
+
+func TestLoadUnpacksLinkedStepsBlocks(t *testing.T) {
+	def := &pipelineinternal.WorkflowDefinition{
+		Name: "history",
+		Steps: []pipelineinternal.StepDefinition{
+			{StepSpec: pipelineinternal.StepSpec{ID: "offer", Use: "credential-offer"}},
+			{
+				StepSpec: pipelineinternal.StepSpec{ID: "wallet", Use: "mobile-automation"},
+				LinkedTo: "offer",
+			},
+		},
+	}
+	blockOutput := map[string]any{
+		"offer": map[string]any{"outputs": map[string]any{"deeplink": "x"}},
+		"wallet": map[string]any{"outputs": map[string]any{
+			"flow_output": map[string]any{"maestro_screenshot_urls": []any{"u"}},
+		}},
+		"unknown": map[string]any{"outputs": "ignored"},
+	}
+	wantOutputs := map[string]any{
+		"offer": map[string]any{"deeplink": "x"},
+		"wallet": map[string]any{
+			"flow_output": map[string]any{"maestro_screenshot_urls": []any{"u"}},
+		},
+	}
+
+	t.Run("completed", func(t *testing.T) {
+		events := []*historypb.HistoryEvent{
+			startedEvent(t, def),
+			blockInitiatedEvent(t, 5),
+			childCompletedEvent(t, 9, 5, workflowengine.WorkflowResult{Output: blockOutput}),
+		}
+		run, err := Load(context.Background(), mockHistory(events), "wf-1", "run-1", testOutputKind)
+		require.NoError(t, err)
+		require.Equal(t, wantOutputs, run.Outputs)
+		require.Equal(t, map[string]int64{"offer": 9, "wallet": 9}, run.EventIDs)
+	})
+
+	t.Run("failed", func(t *testing.T) {
+		events := []*historypb.HistoryEvent{
+			startedEvent(t, def),
+			blockInitiatedEvent(t, 5),
+			childFailedEvent(9, 5, workflowengine.NewAppError(workflowengine.WorkflowError{
+				Code:    "CRE228",
+				Details: map[string]any{"output": blockOutput},
+			})),
+		}
+		run, err := Load(context.Background(), mockHistory(events), "wf-1", "run-1", testOutputKind)
+		require.NoError(t, err)
+		require.Equal(t, wantOutputs, run.Outputs)
+		require.Equal(t, map[string]int64{"offer": 9, "wallet": 9}, run.EventIDs)
+	})
+
+	t.Run("terminated", func(t *testing.T) {
+		events := []*historypb.HistoryEvent{
+			startedEvent(t, def),
+			blockInitiatedEvent(t, 5),
+			{
+				EventId:   9,
+				EventType: enums.EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_TERMINATED,
+				Attributes: &historypb.HistoryEvent_ChildWorkflowExecutionTerminatedEventAttributes{
+					ChildWorkflowExecutionTerminatedEventAttributes: &historypb.ChildWorkflowExecutionTerminatedEventAttributes{
+						InitiatedEventId: 5,
+					},
+				},
+			},
+		}
+		run, err := Load(context.Background(), mockHistory(events), "wf-1", "run-1", testOutputKind)
+		require.NoError(t, err)
+		require.Empty(t, run.Outputs)
+		require.Empty(t, run.EventIDs)
+	})
+}
+
 func TestLoadErrors(t *testing.T) {
 	t.Run("missing definition", func(t *testing.T) {
 		events := []*historypb.HistoryEvent{startedEvent(t, nil)}

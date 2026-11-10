@@ -7,6 +7,16 @@ package workflowengine
 // CredimiCapabilitiesMemoKey identifies Credimi-owned workflow capabilities in Temporal memo.
 const CredimiCapabilitiesMemoKey = "credimi_capabilities"
 
+// LinkedStepsMemoKey identifies the memo of a Linked Steps Workflow: its step IDs and the
+// attempts its retry policy allows.
+const LinkedStepsMemoKey = "credimi_linked_steps"
+
+// LinkedStepsMemo is the memo of a Linked Steps Workflow run.
+type LinkedStepsMemo struct {
+	Steps           []string `json:"steps"`
+	MaximumAttempts int32    `json:"maximum_attempts"`
+}
+
 // CredimiCapabilities describes optional product capabilities of one workflow execution.
 type CredimiCapabilities struct {
 	Logs bool `json:"logs"`

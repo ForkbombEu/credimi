@@ -145,6 +145,16 @@ func RunPageURL(config map[string]any, execution workflow.Execution) string {
 }
 
 func NewWorkflowError(err error, metadata *WorkflowRunMetadata) error {
+	return newWorkflowError(err, metadata, false)
+}
+
+// NewNonRetryableWorkflowError is NewWorkflowError marked non-retryable, so Temporal does
+// not retry the workflow that returns it.
+func NewNonRetryableWorkflowError(err error, metadata *WorkflowRunMetadata) error {
+	return newWorkflowError(err, metadata, true)
+}
+
+func newWorkflowError(err error, metadata *WorkflowRunMetadata, nonRetryable bool) error {
 	if err == nil {
 		return nil
 	}
@@ -161,6 +171,14 @@ func NewWorkflowError(err error, metadata *WorkflowRunMetadata) error {
 
 	applyWorkflowRunMetadata(&failure, metadata)
 
+	if nonRetryable {
+		return temporal.NewNonRetryableApplicationError(
+			workflowFailureMessage(failure),
+			failure.Code,
+			nil,
+			failure,
+		)
+	}
 	return temporal.NewApplicationError(
 		workflowFailureMessage(failure),
 		failure.Code,
@@ -333,6 +351,16 @@ func NewWorkflowCancellationError(metadata *WorkflowRunMetadata) error {
 
 func NewAppError(failure WorkflowError) error {
 	return temporal.NewApplicationError(workflowFailureMessage(failure), failure.Code, failure)
+}
+
+// NewNonRetryableAppError is NewAppError marked non-retryable.
+func NewNonRetryableAppError(failure WorkflowError) error {
+	return temporal.NewNonRetryableApplicationError(
+		workflowFailureMessage(failure),
+		failure.Code,
+		nil,
+		failure,
+	)
 }
 
 func workflowFailureMessage(failure WorkflowError) string {

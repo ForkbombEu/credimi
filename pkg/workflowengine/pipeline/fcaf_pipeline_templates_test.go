@@ -28,6 +28,7 @@ func TestFCAFGeneratedPipelineTemplateParses(t *testing.T) {
 			def, err := pipelineinternal.ParseWorkflow(string(raw))
 			require.NoError(t, err)
 			require.NotEmpty(t, def.Steps)
+			require.NoError(t, pipelineinternal.ValidateLinkedSteps(def))
 		})
 	}
 }

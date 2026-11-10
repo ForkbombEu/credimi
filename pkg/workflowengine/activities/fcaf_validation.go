@@ -72,7 +72,8 @@ type FCAFEvidenceReference struct {
 	Ref string `json:"ref"`
 	// StepID is the first segment of the expression's initial value.
 	StepID string `json:"step_id"`
-	// EventID is the history event that recorded StepID's output; 0 when none did.
+	// EventID is the history event that recorded StepID's output; 0 when none did. Steps run
+	// inside a linked block are recorded at the block's completion or failure event.
 	EventID int64 `json:"event_id"`
 	// SHA256 is the hex sha256 of the JSON of the resolved leaf; empty when it is nil.
 	SHA256 string `json:"sha256"`
