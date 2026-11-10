@@ -1206,10 +1206,10 @@ func (r *mobileDeviceSemaphoreRuntime) markRunTicketFailed(
 	}
 }
 
-// notifyStartFailure tells the owner organization, through the realtime
-// session of open tabs and Web Push, that ticketID could not start. The
-// failure happens when the devices free up, possibly hours after the user
-// queued the run, so the enqueue response cannot carry it.
+// notifyStartFailure tells the owner organization, through Web Push, that
+// ticketID could not start. The failure happens when the devices free up,
+// possibly hours after the user queued the run, so the enqueue response
+// cannot carry it.
 func (r *mobileDeviceSemaphoreRuntime) notifyStartFailure(
 	ctx workflow.Context,
 	ticketID string,

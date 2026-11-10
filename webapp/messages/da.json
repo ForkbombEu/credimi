@@ -952,7 +952,6 @@
 	"Runner_status_checking": "Checking runner status…",
 	"Failed_to_enqueue_pipeline": "Mislykkedes to enqueue pipeline",
 	"Pipeline_queued": "Pipeline queued (position {position})",
-	"Pipeline_failed_to_start": "{name} kunne ikke starte",
 	"Failed_to_cancel_pipeline": "Mislykkedes to cancel pipeline",
 	"Pipeline_execution_canceled": "Pipeline execution canceled",
 	"Queued": "Queued",

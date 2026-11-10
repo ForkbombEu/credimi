@@ -13,11 +13,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
-	"github.com/forkbombeu/credimi/pkg/internal/pipelinealerts"
 	"github.com/forkbombeu/credimi/pkg/internal/webpush"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
-	"go.temporal.io/sdk/activity"
 )
 
 // NotifyPipelineStartFailureInput identifies a queued pipeline run that the
@@ -36,8 +34,8 @@ type NotifyPipelineStartFailureOutput struct {
 }
 
 // NotifyPipelineStartFailureActivity tells the members of the owner
-// organization that a queued pipeline run could not start: a realtime message
-// for open sessions and a Web Push notification. Nothing is stored.
+// organization, through Web Push, that a queued pipeline run could not start.
+// Nothing is stored.
 type NotifyPipelineStartFailureActivity struct {
 	workflowengine.BaseActivity
 	app core.App
@@ -56,8 +54,7 @@ func (a *NotifyPipelineStartFailureActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
-// Execute sends the realtime message on the first attempt only, so a retry
-// caused by a failed push send does not show the failure twice in open tabs.
+// Execute sends the start failure as a Web Push to the owner organization.
 func (a *NotifyPipelineStartFailureActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
@@ -79,21 +76,6 @@ func (a *NotifyPipelineStartFailureActivity) Execute(
 	if pipeline, err := canonify.Resolve(a.app, payload.PipelineIdentifier); err == nil {
 		if name := pipeline.GetString("name"); name != "" {
 			pipelineName = name
-		}
-	}
-
-	if activity.GetInfo(ctx).Attempt <= 1 {
-		if err := pipelinealerts.NotifyStartFailure(
-			a.app,
-			organization.Id,
-			pipelinealerts.StartFailure{
-				PipelineName:       pipelineName,
-				PipelineIdentifier: payload.PipelineIdentifier,
-				TicketID:           payload.TicketID,
-				Error:              payload.ErrorMessage,
-			},
-		); err != nil {
-			return result, a.NewCodedError(errorcodes.JSONMarshalFailed, false, err)
 		}
 	}
 

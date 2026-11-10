@@ -982,7 +982,6 @@
 	"Runner_misconfigured_run_disabled": "The selected runner has an invalid URL. Configure it with http:// or https:// before running this pipeline.",
 	"Failed_to_enqueue_pipeline": "Failed to enqueue pipeline",
 	"Pipeline_queued": "Pipeline queued (position {position})",
-	"Pipeline_failed_to_start": "{name} failed to start",
 	"Failed_to_cancel_pipeline": "Failed to cancel pipeline",
 	"Pipeline_execution_canceled": "Pipeline execution canceled",
 	"Queued": "Queued",
