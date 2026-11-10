@@ -59,11 +59,6 @@ func (LinkedStepsWorkflow) Name() string {
 	return pipeline.LinkedStepsWorkflowName
 }
 
-// GetOptions returns no activity options: the block's input carries the pipeline's.
-func (LinkedStepsWorkflow) GetOptions() workflow.ActivityOptions {
-	return workflow.ActivityOptions{}
-}
-
 // Workflow runs the block once, as the current Temporal attempt.
 func (w *LinkedStepsWorkflow) Workflow(
 	ctx workflow.Context,
@@ -132,10 +127,9 @@ func (w *LinkedStepsWorkflow) run(
 				runMetadata,
 			)
 		}
+		// executeRegularStep reports every step failure through handleRegularStepError,
+		// which keeps the step's own error in state.stepErr.
 		stepErr := state.stepErr
-		if stepErr == nil {
-			stepErr = err
-		}
 		output := linkedStepsOutput(input.Steps, state.finalOutput)
 		failure := newPipelineStepFailure(step.ID, stepErr)
 		failures := []pipelineStepFailure{failure}
@@ -474,11 +468,6 @@ func handleLinkedStepsFailure(
 			failed = true
 		}
 		if _, ran := state.finalOutput[step.ID]; failed || !ran {
-			state.failedSteps[step.ID] = struct{}{}
-		}
-	}
-	if !failed {
-		for _, step := range block {
 			state.failedSteps[step.ID] = struct{}{}
 		}
 	}
