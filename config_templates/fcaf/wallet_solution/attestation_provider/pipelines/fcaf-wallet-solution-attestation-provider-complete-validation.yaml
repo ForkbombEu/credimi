@@ -32,6 +32,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: authorization-code-issuance-fd1aa51f-obtain-issued-credential
+      linked_to: authorization-code-issuance-fd1aa51f-create-issuance-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
@@ -92,6 +93,7 @@ steps:
         url: https://capture-wallet.credimi.io/openid4vp/sessions
     - continue_on_error: true
       id: authorization-code-issuance-fd1aa51f-present-issued-credential
+      linked_to: authorization-code-issuance-fd1aa51f-create-presentation-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -122,6 +124,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: credential-offer-by-value-30064ee6-engage-valid-offer
+      linked_to: credential-offer-by-value-30064ee6-create-valid-offer-session
       use: mobile-automation
       with:
         actions:
@@ -164,6 +167,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: credential-offer-by-value-30064ee6-engage-offer-without-issuer
+      linked_to: credential-offer-by-value-30064ee6-create-offer-without-issuer-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
@@ -204,6 +208,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: credential-offer-by-value-30064ee6-engage-offer-without-ids
+      linked_to: credential-offer-by-value-30064ee6-create-offer-without-ids-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
@@ -246,6 +251,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: credential-request-denied-2122ce7a-accept-offer
+      linked_to: credential-request-denied-2122ce7a-create-issuance-session
       use: mobile-automation
       with:
         actions:
@@ -305,6 +311,7 @@ steps:
         url: https://capture-wallet.credimi.io/openid4vp/sessions
     - continue_on_error: true
       id: credential-request-denied-2122ce7a-probe-stored-credential-issue-pid-session
+      linked_to: credential-request-denied-2122ce7a-create-stored-credential-probe
       use: http-request
       with:
         body:
@@ -317,6 +324,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: credential-request-denied-2122ce7a-probe-stored-credential
+      linked_to: credential-request-denied-2122ce7a-probe-stored-credential-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -351,6 +359,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: jwt-key-attestation-issuance-d607cf80-obtain-jwt-key-attestation-credential
+      linked_to: jwt-key-attestation-issuance-d607cf80-create-jwt-key-attestation-issuance-session
       use: mobile-automation
       with:
         actions:
@@ -390,6 +399,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: offer-scheme-engagement-55c51c7f-engage-haip-vci-offer
+      linked_to: offer-scheme-engagement-55c51c7f-create-haip-vci-session
       use: mobile-automation
       with:
         actions:
@@ -429,6 +439,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: offer-scheme-engagement-55c51c7f-engage-eu-eaa-offer
+      linked_to: offer-scheme-engagement-55c51c7f-create-eu-eaa-offer-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engage-credential-offer
@@ -469,6 +480,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: par-response-without-request-uri-5f3c4ae9-accept-offer
+      linked_to: par-response-without-request-uri-5f3c4ae9-create-issuance-session
       use: mobile-automation
       with:
         actions:

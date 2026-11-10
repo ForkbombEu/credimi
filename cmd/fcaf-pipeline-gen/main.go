@@ -410,7 +410,7 @@ func buildAggregate(
 			walletUsed = true
 			pidAvailable = map[credentialFormat]int{}
 		}
-
+		scenarioStart := len(aggregate.Steps)
 		for _, step := range definition.Steps {
 			use, _ := step["use"].(string)
 			if use == validationTask {
@@ -464,6 +464,7 @@ func buildAggregate(
 			aggregate.Steps = append(aggregate.Steps, rewritten)
 			emitted[id] = rewritten
 		}
+		linkScenarioBlocks(aggregate.Steps[scenarioStart:])
 	}
 
 	for _, id := range allowedTestIDs {
@@ -897,6 +898,68 @@ func deeplinkSourceStep(step map[string]any, earlier map[string]map[string]any) 
 		}
 	}
 	return nil
+}
+
+// deeplinkProducers are the step kinds whose output is a single-use deeplink.
+var deeplinkProducers = map[string]struct{}{
+	"credential-offer":               {},
+	"use-case-verification-deeplink": {},
+	"http-request":                   {},
+}
+
+// linkScenarioBlocks links every wallet step of one scenario to the deeplink
+// producers it opens, together with the steps between them, so a retry runs
+// the whole range again with a fresh deeplink. Overlapping ranges merge into
+// one chain. Inside a chain every step runs once per attempt, so only the last
+// step's retry policy, which sets the chain's attempts, is kept.
+func linkScenarioBlocks(steps []map[string]any) {
+	index := make(map[string]int, len(steps))
+	for i, step := range steps {
+		if id, _ := step["id"].(string); id != "" {
+			index[id] = i
+		}
+	}
+	for j, step := range steps {
+		if use, _ := step["use"].(string); use != mobileAutomationTask {
+			continue
+		}
+		with, err := yaml.Marshal(step["with"])
+		if err != nil {
+			continue
+		}
+		start := j
+		for _, match := range deeplinkSource.FindAllStringSubmatch(string(with), -1) {
+			i, found := index[match[1]]
+			if !found || i >= j {
+				continue
+			}
+			if use, _ := steps[i]["use"].(string); !isDeeplinkProducer(use) {
+				continue
+			}
+			start = min(start, i)
+		}
+		for k := start + 1; k <= j; k++ {
+			steps[k]["linked_to"] = steps[k-1]["id"]
+		}
+	}
+	for k, step := range steps {
+		if k+1 >= len(steps) || steps[k+1]["linked_to"] == nil {
+			continue
+		}
+		options, _ := step["activity_options"].(map[string]any)
+		if options == nil {
+			continue
+		}
+		delete(options, "retry_policy")
+		if len(options) == 0 {
+			delete(step, "activity_options")
+		}
+	}
+}
+
+func isDeeplinkProducer(use string) bool {
+	_, ok := deeplinkProducers[use]
+	return ok
 }
 
 // issuedCredentialFormat reports the PID format an issuance adds, read from

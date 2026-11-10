@@ -21,6 +21,7 @@ steps:
         credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt
+      linked_to: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
@@ -111,6 +112,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp
+      linked_to: engagement-haip-vp-4bb0f83a-create-capture-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp

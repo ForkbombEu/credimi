@@ -44,6 +44,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-baseline-ab869899-create-request-uri-media-type-probe
+      linked_to: dcql-baseline-ab869899-create-capture-session
       use: http-request
       with:
         body:
@@ -71,6 +72,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-baseline-ab869899-probe-request-uri-response
+      linked_to: dcql-baseline-ab869899-create-request-uri-media-type-probe
       use: http-request
       with:
         expected_status: 200
@@ -78,6 +80,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-baseline-ab869899-create-request-uri-media-type-probe.outputs.body.session_id }}/request
     - continue_on_error: true
       id: dcql-baseline-ab869899-exercise-wallet-issue-pid-session
+      linked_to: dcql-baseline-ab869899-probe-request-uri-response
       use: http-request
       with:
         body:
@@ -90,6 +93,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-baseline-ab869899-exercise-wallet
+      linked_to: dcql-baseline-ab869899-exercise-wallet-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -121,6 +125,7 @@ steps:
         credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-035-obtain-pid-mdoc
+      linked_to: dcql-credential-formats-3cfeac03-credential-formats-035-create-pid-mdoc-offer
       use: mobile-automation
       with:
         actions:
@@ -144,6 +149,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-035-obtain-pid-person-b
+      linked_to: dcql-credential-formats-3cfeac03-credential-formats-035-create-pid-person-b-issuance
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
@@ -181,6 +187,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-035-present-pid-mdoc
+      linked_to: dcql-credential-formats-3cfeac03-credential-formats-035-create-capture-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -201,6 +208,7 @@ steps:
         credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-036-obtain-pid-sdjwt
+      linked_to: dcql-credential-formats-3cfeac03-credential-formats-036-create-pid-sdjwt-offer
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
@@ -236,6 +244,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-036-present-pid-sdjwt
+      linked_to: dcql-credential-formats-3cfeac03-credential-formats-036-create-capture-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -278,6 +287,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-039-exercise-wallet
+      linked_to: dcql-credential-formats-3cfeac03-credential-formats-039-create-capture-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
@@ -320,6 +330,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid-session
+      linked_to: dcql-credential-formats-3cfeac03-credential-formats-040-create-capture-session
       use: http-request
       with:
         body:
@@ -332,6 +343,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet
+      linked_to: dcql-credential-formats-3cfeac03-credential-formats-040-exercise-wallet-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -356,6 +368,7 @@ steps:
         credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: dcql-credentials-match-cc301c32-obtain-pid-sdjwt
+      linked_to: dcql-credentials-match-cc301c32-create-pid-sdjwt-offer
       use: mobile-automation
       with:
         actions:
@@ -365,11 +378,6 @@ steps:
                 deeplink: ${{ dcql-credentials-match-cc301c32-create-pid-sdjwt-offer.outputs }}
         version_id: installed_from_external_source
     - activity_options:
-        retry_policy:
-            backoff_coefficient: 2
-            initial_interval: 5s
-            maximum_attempts: 3
-            maximum_interval: 30s
         start_to_close_timeout: 2m
       continue_on_error: true
       id: dcql-credentials-match-cc301c32-create-presentation
@@ -399,6 +407,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-credentials-match-cc301c32-present-with-reference-implementation
+      linked_to: dcql-credentials-match-cc301c32-create-presentation
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -453,6 +462,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-interaction-metadata-f9737358-reject-aud-mismatch-issue-pid-session
+      linked_to: dcql-interaction-metadata-f9737358-create-aud-mismatch-session
       use: http-request
       with:
         body:
@@ -465,6 +475,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-interaction-metadata-f9737358-reject-aud-mismatch
+      linked_to: dcql-interaction-metadata-f9737358-reject-aud-mismatch-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -518,6 +529,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid-session
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-019-create-presentation
       use: http-request
       with:
         body:
@@ -530,6 +542,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-019-present-with-reference-implementation-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -583,6 +596,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid-session
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-020-create-presentation
       use: http-request
       with:
         body:
@@ -595,6 +609,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-020-present-second-preferred-option-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -635,6 +650,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-022-reject-claim-sets-without-claims-issue-pid-session
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-022-create-presentation
       use: http-request
       with:
         body:
@@ -647,6 +663,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-022-reject-claim-sets-without-claims
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-022-reject-claim-sets-without-claims-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -700,6 +717,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-025-create-presentation
       use: http-request
       with:
         body:
@@ -712,6 +730,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-025-present-partial-fallback-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -755,6 +774,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-026-exercise-no-match-issue-pid-session
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-026-create-presentation
       use: http-request
       with:
         body:
@@ -767,6 +787,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-026-exercise-no-match
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-026-exercise-no-match-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -814,6 +835,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid-session
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-027-create-presentation
       use: http-request
       with:
         body:
@@ -826,6 +848,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-027-exercise-no-match-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -850,6 +873,7 @@ steps:
         credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-028-obtain-pid-mdoc
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-028-create-pid-mdoc-offer
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
@@ -876,6 +900,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-028-present-full-disclosure
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-028-create-presentation
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -896,6 +921,7 @@ steps:
         credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-029-obtain-pid-sdjwt
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-029-create-pid-sdjwt-offer
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
@@ -938,6 +964,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-029-present-required-option
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-029-create-presentation
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -976,6 +1003,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-043-create-optional-no-match-presentation
       use: http-request
       with:
         body:
@@ -988,6 +1016,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-043-present-optional-no-match-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -1012,6 +1041,7 @@ steps:
         credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-obtain-pid-sdjwt
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-030-create-pid-sdjwt-offer
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
@@ -1050,6 +1080,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-030-present-available-option
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-030-create-presentation
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -1070,6 +1101,7 @@ steps:
         credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-obtain-pid-sdjwt
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-pid-sdjwt-offer
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
@@ -1109,6 +1141,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-031-present-combined-option
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-031-create-presentation
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
@@ -1159,6 +1192,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-039-create-two-credentials-presentation
       use: http-request
       with:
         body:
@@ -1171,6 +1205,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-session
       use: http-request
       with:
         body:
@@ -1183,6 +1218,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials
+      linked_to: dcql-main-interaction-eeb8ef1f-main-interaction-039-present-two-credentials-issue-pid-2-session
       use: mobile-automation
       with:
         actions:
@@ -1237,6 +1273,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid-session
+      linked_to: dcql-protocol-messages-a25772b2-create-transaction-data-session
       use: http-request
       with:
         body:
@@ -1249,6 +1286,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-protocol-messages-a25772b2-reject-transaction-data
+      linked_to: dcql-protocol-messages-a25772b2-reject-transaction-data-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -1297,6 +1335,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-reject-did-session-issue-pid-session
+      linked_to: dcql-rp-integrity-3576cc79-create-did-session
       use: http-request
       with:
         body:
@@ -1309,6 +1348,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-rp-integrity-3576cc79-reject-did-session
+      linked_to: dcql-rp-integrity-3576cc79-reject-did-session-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -1363,6 +1403,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-session-encryption-210827bd-exercise-wallet-issue-pid-session
+      linked_to: dcql-session-encryption-210827bd-create-capture-session
       use: http-request
       with:
         body:
@@ -1375,6 +1416,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-session-encryption-210827bd-exercise-wallet
+      linked_to: dcql-session-encryption-210827bd-exercise-wallet-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -1426,6 +1468,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid-session
+      linked_to: dcql-trust-mechanisms-157d0f39-create-capture-session
       use: http-request
       with:
         body:
@@ -1438,6 +1481,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-exercise-wallet
+      linked_to: dcql-trust-mechanisms-157d0f39-exercise-wallet-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -1489,6 +1533,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-expect-no-matching-credential-issue-pid-session
+      linked_to: dcql-trust-mechanisms-157d0f39-create-no-match-session
       use: http-request
       with:
         body:
@@ -1501,6 +1546,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: dcql-trust-mechanisms-157d0f39-expect-no-matching-credential
+      linked_to: dcql-trust-mechanisms-157d0f39-expect-no-matching-credential-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -1549,6 +1595,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid-session
+      linked_to: direct-post-jwt-response-transport-57ec17f1-create-capture-session
       use: http-request
       with:
         body:
@@ -1561,6 +1608,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: direct-post-jwt-response-transport-57ec17f1-exercise-wallet
+      linked_to: direct-post-jwt-response-transport-57ec17f1-exercise-wallet-issue-pid-session
       use: mobile-automation
       with:
         actions:
@@ -1586,6 +1634,7 @@ steps:
         credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-dc-sd-jwt
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-obtain-pid-sdjwt
+      linked_to: engagement-haip-vp-4bb0f83a-create-pid-sdjwt-offer
       use: mobile-automation
       with:
         actions:
@@ -1678,6 +1727,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: engagement-haip-vp-4bb0f83a-invoke-wallet-with-haip-vp
+      linked_to: engagement-haip-vp-4bb0f83a-create-capture-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -1705,6 +1755,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: pid-domestic-7fac1fb7-obtain-domestic-sdjwt
+      linked_to: pid-domestic-7fac1fb7-create-domestic-sdjwt-issuance
       use: mobile-automation
       with:
         actions:
@@ -1765,6 +1816,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: pid-domestic-7fac1fb7-present-domestic-sdjwt
+      linked_to: pid-domestic-7fac1fb7-create-domestic-sdjwt-presentation
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -1792,6 +1844,7 @@ steps:
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
       id: pid-domestic-7fac1fb7-obtain-domestic-mdoc
+      linked_to: pid-domestic-7fac1fb7-create-domestic-mdoc-issuance
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
@@ -1858,6 +1911,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: pid-domestic-7fac1fb7-present-domestic-mdoc
+      linked_to: pid-domestic-7fac1fb7-create-domestic-mdoc-presentation
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -1878,6 +1932,7 @@ steps:
         credential_id: /forkbomb-bv-andrea/misc-issuer-integration-demo/capture-issuer-pid-mdoc
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-obtain-pid-mdoc
+      linked_to: pid-mdoc-data-model-8f915369-create-pid-mdoc-offer
       use: mobile-automation
       with:
         actions:
@@ -1987,6 +2042,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: pid-mdoc-data-model-8f915369-invoke-wallet-with-haip-vp
+      linked_to: pid-mdoc-data-model-8f915369-create-capture-session
       use: mobile-automation
       with:
         action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
@@ -2032,6 +2088,7 @@ steps:
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
       id: request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid-session
+      linked_to: request-object-by-value-f1c94061-create-presentation
       use: http-request
       with:
         body:
@@ -2044,6 +2101,7 @@ steps:
         url: ${fixture.verifier_url}/sessions
     - continue_on_error: true
       id: request-object-by-value-f1c94061-submit-request-object-by-value
+      linked_to: request-object-by-value-f1c94061-submit-request-object-by-value-issue-pid-session
       use: mobile-automation
       with:
         actions:
