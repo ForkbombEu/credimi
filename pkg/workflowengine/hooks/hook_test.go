@@ -881,6 +881,25 @@ func TestStartWorkerRegistersEntries(t *testing.T) {
 	require.Equal(t, []string{"act-1"}, fw.registeredActivities)
 }
 
+// The semaphore worker registers its own activity list, not CredimiActivities:
+// an activity the semaphore schedules but this list misses fails at runtime
+// with ActivityNotRegisteredError.
+func TestDefaultWorkersSemaphoreRegistersItsActivities(t *testing.T) {
+	var names []string
+	for _, cfg := range defaultWorkers(nil) {
+		if cfg.TaskQueue != workflows.MobileDeviceSemaphoreTaskQueue {
+			continue
+		}
+		for _, act := range cfg.Activities {
+			names = append(names, act.Name())
+		}
+	}
+	require.Subset(t, names, []string{
+		activities.StartQueuedPipelineActivityName,
+		activities.NotifyPipelineStartFailureActivityName,
+	})
+}
+
 func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	origNewWorker := newWorkerFn
 	origRegistry := registry.Registry

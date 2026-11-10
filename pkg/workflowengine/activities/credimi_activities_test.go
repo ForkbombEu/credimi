@@ -26,6 +26,5 @@ func TestCredimiActivitiesRegistersEveryNameOnce(t *testing.T) {
 		StoreCredentialIssuerActivityName,
 		StoreIssuerCredentialActivityName,
 		DeletePipelineResultFilesActivityName,
-		NotifyPipelineStartFailureActivityName,
 	}, names)
 }
