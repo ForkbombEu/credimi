@@ -10,6 +10,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/conformancecatalog"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -354,7 +355,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 		}
 
 		child := NewOpenID4VPWalletLogsWorkflow()
-		childID = workflow.GetInfo(ctx).WorkflowExecution.ID + "-log"
+		childID = temporalid.BoundedWithSuffix(workflow.GetInfo(ctx).WorkflowExecution.ID, "-log")
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        childID,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
@@ -445,7 +446,10 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				input.RunMetadata,
 			)
 		}
-		childID = workflow.GetInfo(ctx).WorkflowExecution.ID + "-status"
+		childID = temporalid.BoundedWithSuffix(
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			"-status",
+		)
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        childID,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,

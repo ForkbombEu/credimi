@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -210,7 +211,7 @@ func taskWorkflowID(ctx workflow.Context, stepID string) string {
 	if info.WorkflowType.Name == pipeline.LinkedStepsWorkflowName {
 		id = fmt.Sprintf("%s-a%d", id, info.Attempt)
 	}
-	return id
+	return temporalid.Bounded(id)
 }
 
 func Execute(
@@ -385,12 +386,12 @@ func runChildPipeline(
 	options.Options.Memo = memo
 
 	childOpts := workflow.ChildWorkflowOptions{
-		WorkflowID: fmt.Sprintf(
+		WorkflowID: temporalid.Bounded(fmt.Sprintf(
 			"%s-%s-%s",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			canonify.CanonifyPlain(step.ID),
 			wfDef.Name,
-		),
+		)),
 		TaskQueue:         PipelineTaskQueue,
 		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 		StaticSummary:     summaryLine(step.ID + ": " + wfDef.Name),

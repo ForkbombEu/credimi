@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -144,7 +145,7 @@ func HandlePipelineMobileFlow() func(*core.RequestEvent) error {
 // the pipeline's workspace, so its live view commands belong to the pipeline run.
 func pipelineMobileFlowConfig(namespace, workflowID, runID, runnerID string) map[string]any {
 	return map[string]any{
-		"taskqueue":      fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(runnerID)),
+		"taskqueue":      temporalid.RunnerTaskQueue(canonify.NormalizePath(runnerID)),
 		"run_identifier": pipeline.RunIdentifier(namespace, workflowID, runID),
 	}
 }

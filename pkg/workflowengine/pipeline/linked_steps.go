@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -344,11 +343,7 @@ func (w *PipelineWorkflow) executeLinkedSteps(
 
 	info := workflow.GetInfo(ctx)
 	childCtx := workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
-		WorkflowID: fmt.Sprintf(
-			"%s-%s",
-			info.WorkflowExecution.ID,
-			canonify.CanonifyPlain(first.ID),
-		),
+		WorkflowID:        pipeline.LinkedStepsBlockID(info.WorkflowExecution.ID, first.ID),
 		TaskQueue:         PipelineTaskQueue,
 		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 		RetryPolicy:       rp,

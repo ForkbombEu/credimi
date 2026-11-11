@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -478,7 +479,10 @@ func (w *OpenID4VPWalletLogsWorkflow) ExecuteWorkflow(
 //   - A new workflow.Context configured with the specified child workflow options.
 func (w *OpenID4VPWalletLogsWorkflow) Configure(ctx workflow.Context) workflow.Context {
 	childOptions := workflow.ChildWorkflowOptions{
-		WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-log",
+		WorkflowID: temporalid.BoundedWithSuffix(
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			"-log",
+		),
 		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 	}
 	return workflow.WithChildOptions(ctx, childOptions)

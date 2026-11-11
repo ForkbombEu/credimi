@@ -12,6 +12,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/githubapp"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
@@ -181,7 +182,9 @@ func fetchGitHubPRHeadSHA(ctx context.Context, repository string, prNumber int) 
 
 func GitHubPRCommentWorkflowID(repository string, prNumber int) string {
 	repository = strings.Trim(strings.TrimSpace(repository), "/")
-	return utils.JoinURL("github-pr-comment", repository, strconv.Itoa(prNumber))
+	return temporalid.Bounded(
+		utils.JoinURL("github-pr-comment", repository, strconv.Itoa(prNumber)),
+	)
 }
 
 func buildGitHubPRCommentBody(input UpdateGitHubPRCommentInput) string {
