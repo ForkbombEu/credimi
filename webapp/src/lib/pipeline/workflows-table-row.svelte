@@ -108,6 +108,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				'h-auto gap-0.5 px-2 py-0.5 font-normal',
 				row.isCompact ? 'text-xs' : 'text-sm'
 			]}
+			style={depth > 0 ? `margin-left: ${depth * 0.75}rem` : undefined}
 			aria-expanded={row.isExpanded}
 			aria-label={m.count_children({ count: row.childCount })}
 			onclick={() => onToggle(workflow.execution.runId)}
