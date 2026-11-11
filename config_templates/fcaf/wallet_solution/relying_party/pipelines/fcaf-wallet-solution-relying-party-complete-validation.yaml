@@ -14894,7 +14894,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_family_name_uppercase
+            document_number: CREDIMI-MDOC-STATUS-WITHOUT-STATUS-LIST
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: status_without_status_list
@@ -14934,12 +14934,11 @@ steps:
                                 - eu.europa.ec.eudi.pid.1
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-CASE
+                                - CREDIMI-MDOC-STATUS-WITHOUT-STATUS-LIST
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
                 nonce: mdoc-status-reference-status-without-status-list
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -14949,30 +14948,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-status-without-status-list-issue-pid-session
-      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-status-without-status-list-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-status-without-status-list
-      linked_to: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-status-without-status-list-issue-pid-session
+      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-status-without-status-list-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-status-without-status-list-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-status-without-status-list-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-status-without-status-list-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-status-without-status-list-probe
@@ -14987,7 +14969,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_family_name_trailing_space
+            document_number: CREDIMI-MDOC-NEGATIVE-INDEX
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: negative_index
@@ -15025,12 +15007,11 @@ steps:
                                 - eu.europa.ec.eudi.pid.1
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-SPACE
+                                - CREDIMI-MDOC-NEGATIVE-INDEX
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
                 nonce: mdoc-status-reference-negative-index
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -15040,30 +15021,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-negative-index-issue-pid-session
-      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-negative-index-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-negative-index
-      linked_to: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-negative-index-issue-pid-session
+      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-negative-index-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-negative-index-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-negative-index-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-negative-index-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-negative-index-probe
@@ -15078,7 +15042,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_locality_diacritics
+            document_number: CREDIMI-MDOC-MISSING-INDEX
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: missing_index
@@ -15116,12 +15080,11 @@ steps:
                                 - eu.europa.ec.eudi.pid.1
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-UMLAUT
+                                - CREDIMI-MDOC-MISSING-INDEX
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
                 nonce: mdoc-status-reference-missing-index
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -15131,30 +15094,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-index-issue-pid-session
-      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-index-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-index
-      linked_to: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-index-issue-pid-session
+      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-index-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-index-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-index-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-index-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-missing-index-probe
@@ -15169,7 +15115,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_locality_no_diacritics
+            document_number: CREDIMI-MDOC-MALFORMED-URI
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: malformed_uri
@@ -15207,12 +15153,11 @@ steps:
                                 - eu.europa.ec.eudi.pid.1
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-NOUMLAUT
+                                - CREDIMI-MDOC-MALFORMED-URI
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
                 nonce: mdoc-status-reference-malformed-uri
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -15222,30 +15167,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-malformed-uri-issue-pid-session
-      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-malformed-uri-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-malformed-uri
-      linked_to: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-malformed-uri-issue-pid-session
+      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-malformed-uri-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-malformed-uri-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-malformed-uri-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-malformed-uri-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-malformed-uri-probe
@@ -15260,7 +15188,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_multiple_nationalities
+            document_number: CREDIMI-MDOC-MISSING-URI
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: missing_uri
@@ -15298,12 +15226,11 @@ steps:
                                 - eu.europa.ec.eudi.pid.1
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-ARRAY
+                                - CREDIMI-MDOC-MISSING-URI
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
                 nonce: mdoc-status-reference-missing-uri
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -15313,30 +15240,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-uri-issue-pid-session
-      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-uri-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-uri
-      linked_to: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-uri-issue-pid-session
+      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-uri-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-missing-uri-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-uri-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-missing-uri-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-missing-uri-probe
@@ -15351,7 +15261,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_person_b
+            document_number: CREDIMI-MDOC-URI-MISSING-SCHEME
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: uri_missing_scheme
@@ -15389,12 +15299,11 @@ steps:
                                 - eu.europa.ec.eudi.pid.1
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-002
+                                - CREDIMI-MDOC-URI-MISSING-SCHEME
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
                 nonce: mdoc-status-reference-uri-missing-scheme
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -15404,30 +15313,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-missing-scheme-issue-pid-session
-      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-missing-scheme
-      linked_to: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-missing-scheme-issue-pid-session
+      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-missing-scheme-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-missing-scheme-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-missing-scheme-probe
@@ -15442,7 +15334,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_under_18
+            document_number: CREDIMI-MDOC-URI-SPACE-IN-HOST
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: uri_space_in_host
@@ -15480,12 +15372,11 @@ steps:
                                 - eu.europa.ec.eudi.pid.1
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-U18
+                                - CREDIMI-MDOC-URI-SPACE-IN-HOST
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
                 nonce: mdoc-status-reference-uri-space-in-host
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -15495,30 +15386,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-space-in-host-issue-pid-session
-      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-space-in-host
-      linked_to: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-space-in-host-issue-pid-session
+      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-space-in-host-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-space-in-host-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-space-in-host-probe
@@ -15533,7 +15407,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_expiry_2032
+            document_number: CREDIMI-MDOC-URI-INVALID-PERCENT-ENCODING
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: uri_invalid_percent_encoding
@@ -15571,12 +15445,11 @@ steps:
                                 - eu.europa.ec.eudi.pid.1
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-EXPIRY
+                                - CREDIMI-MDOC-URI-INVALID-PERCENT-ENCODING
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
                 nonce: mdoc-status-reference-uri-invalid-percent-encoding
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -15586,30 +15459,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-invalid-percent-encoding-issue-pid-session
-      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-invalid-percent-encoding
-      linked_to: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-invalid-percent-encoding-issue-pid-session
+      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-invalid-percent-encoding-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-invalid-percent-encoding-probe
@@ -15624,7 +15480,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_locality_diacritics
+            document_number: CREDIMI-MDOC-URI-ILLEGAL-CHARACTERS
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: uri_illegal_characters
@@ -15662,12 +15518,11 @@ steps:
                                 - eu.europa.ec.eudi.pid.1
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-UMLAUT
+                                - CREDIMI-MDOC-URI-ILLEGAL-CHARACTERS
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
                 nonce: mdoc-status-reference-uri-illegal-characters
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -15677,30 +15532,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-illegal-characters-issue-pid-session
-      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-illegal-characters
-      linked_to: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-illegal-characters-issue-pid-session
+      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-illegal-characters-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-illegal-characters-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-illegal-characters-probe
@@ -15715,7 +15553,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            fixture_id: pid_family_name_uppercase
+            document_number: CREDIMI-MDOC-URI-EMPTY
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: uri_empty
@@ -15753,12 +15591,11 @@ steps:
                                 - eu.europa.ec.eudi.pid.1
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-CASE
+                                - CREDIMI-MDOC-URI-EMPTY
                           format: mso_mdoc
                           id: pid_mdoc
                           meta:
                             doctype_value: eu.europa.ec.eudi.pid.1
-                          multiple: true
                 nonce: mdoc-status-reference-uri-empty
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -15768,30 +15605,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-empty-issue-pid-session
-      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-empty
-      linked_to: mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-empty-issue-pid-session
+      linked_to: mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-probe-mdoc-uri-empty-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ mdoc-status-reference-rejection-46c13b7f-create-mdoc-uri-empty-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: mdoc-status-reference-rejection-46c13b7f-fetch-mdoc-uri-empty-probe
@@ -19691,7 +19511,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            fixture_id: pid_family_name_uppercase
+            document_number: CREDIMI-SDJWT-STATUS-WITHOUT-STATUS-LIST
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: status_without_status_list
@@ -19730,13 +19550,12 @@ steps:
                             - path:
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-CASE
+                                - CREDIMI-SDJWT-STATUS-WITHOUT-STATUS-LIST
                           format: dc+sd-jwt
                           id: pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                          multiple: true
                 nonce: status-reference-status-without-status-list
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -19746,30 +19565,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: status-reference-rejection-0adf5c5d-probe-status-without-status-list-issue-pid-session
-      linked_to: status-reference-rejection-0adf5c5d-create-status-without-status-list-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-status-without-status-list
-      linked_to: status-reference-rejection-0adf5c5d-probe-status-without-status-list-issue-pid-session
+      linked_to: status-reference-rejection-0adf5c5d-create-status-without-status-list-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-status-without-status-list-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-status-without-status-list-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-status-without-status-list-probe
@@ -19784,7 +19586,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            fixture_id: pid_family_name_trailing_space
+            document_number: CREDIMI-SDJWT-NEGATIVE-INDEX
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: negative_index
@@ -19821,13 +19623,12 @@ steps:
                             - path:
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-SPACE
+                                - CREDIMI-SDJWT-NEGATIVE-INDEX
                           format: dc+sd-jwt
                           id: pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                          multiple: true
                 nonce: status-reference-negative-index
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -19837,30 +19638,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: status-reference-rejection-0adf5c5d-probe-negative-index-issue-pid-session
-      linked_to: status-reference-rejection-0adf5c5d-create-negative-index-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-negative-index
-      linked_to: status-reference-rejection-0adf5c5d-probe-negative-index-issue-pid-session
+      linked_to: status-reference-rejection-0adf5c5d-create-negative-index-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-negative-index-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-create-negative-index-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-negative-index-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-negative-index-probe
@@ -19875,7 +19659,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            fixture_id: pid_locality_diacritics
+            document_number: CREDIMI-SDJWT-MISSING-INDEX
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: missing_index
@@ -19912,13 +19696,12 @@ steps:
                             - path:
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-UMLAUT
+                                - CREDIMI-SDJWT-MISSING-INDEX
                           format: dc+sd-jwt
                           id: pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                          multiple: true
                 nonce: status-reference-missing-index
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -19928,30 +19711,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: status-reference-rejection-0adf5c5d-probe-missing-index-issue-pid-session
-      linked_to: status-reference-rejection-0adf5c5d-create-missing-index-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-missing-index
-      linked_to: status-reference-rejection-0adf5c5d-probe-missing-index-issue-pid-session
+      linked_to: status-reference-rejection-0adf5c5d-create-missing-index-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-missing-index-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-create-missing-index-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-missing-index-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-missing-index-probe
@@ -19966,7 +19732,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            fixture_id: pid_locality_no_diacritics
+            document_number: CREDIMI-SDJWT-MALFORMED-URI
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: malformed_uri
@@ -20003,13 +19769,12 @@ steps:
                             - path:
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-NOUMLAUT
+                                - CREDIMI-SDJWT-MALFORMED-URI
                           format: dc+sd-jwt
                           id: pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                          multiple: true
                 nonce: status-reference-malformed-uri
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -20019,30 +19784,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: status-reference-rejection-0adf5c5d-probe-malformed-uri-issue-pid-session
-      linked_to: status-reference-rejection-0adf5c5d-create-malformed-uri-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-malformed-uri
-      linked_to: status-reference-rejection-0adf5c5d-probe-malformed-uri-issue-pid-session
+      linked_to: status-reference-rejection-0adf5c5d-create-malformed-uri-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-malformed-uri-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-create-malformed-uri-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-malformed-uri-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-malformed-uri-probe
@@ -20057,7 +19805,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            fixture_id: pid_multiple_nationalities
+            document_number: CREDIMI-SDJWT-MISSING-URI
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: missing_uri
@@ -20094,13 +19842,12 @@ steps:
                             - path:
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-ARRAY
+                                - CREDIMI-SDJWT-MISSING-URI
                           format: dc+sd-jwt
                           id: pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                          multiple: true
                 nonce: status-reference-missing-uri
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -20110,30 +19857,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: status-reference-rejection-0adf5c5d-probe-missing-uri-issue-pid-session
-      linked_to: status-reference-rejection-0adf5c5d-create-missing-uri-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-missing-uri
-      linked_to: status-reference-rejection-0adf5c5d-probe-missing-uri-issue-pid-session
+      linked_to: status-reference-rejection-0adf5c5d-create-missing-uri-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-missing-uri-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-create-missing-uri-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-missing-uri-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-missing-uri-probe
@@ -20148,7 +19878,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            fixture_id: pid_person_b
+            document_number: CREDIMI-SDJWT-URI-MISSING-SCHEME
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: uri_missing_scheme
@@ -20185,13 +19915,12 @@ steps:
                             - path:
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-002
+                                - CREDIMI-SDJWT-URI-MISSING-SCHEME
                           format: dc+sd-jwt
                           id: pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                          multiple: true
                 nonce: status-reference-uri-missing-scheme
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -20201,30 +19930,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: status-reference-rejection-0adf5c5d-probe-uri-missing-scheme-issue-pid-session
-      linked_to: status-reference-rejection-0adf5c5d-create-uri-missing-scheme-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-uri-missing-scheme
-      linked_to: status-reference-rejection-0adf5c5d-probe-uri-missing-scheme-issue-pid-session
+      linked_to: status-reference-rejection-0adf5c5d-create-uri-missing-scheme-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-uri-missing-scheme-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-missing-scheme-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-missing-scheme-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-uri-missing-scheme-probe
@@ -20239,7 +19951,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            fixture_id: pid_under_18
+            document_number: CREDIMI-SDJWT-URI-SPACE-IN-HOST
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: uri_space_in_host
@@ -20276,13 +19988,12 @@ steps:
                             - path:
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-U18
+                                - CREDIMI-SDJWT-URI-SPACE-IN-HOST
                           format: dc+sd-jwt
                           id: pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                          multiple: true
                 nonce: status-reference-uri-space-in-host
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -20292,30 +20003,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: status-reference-rejection-0adf5c5d-probe-uri-space-in-host-issue-pid-session
-      linked_to: status-reference-rejection-0adf5c5d-create-uri-space-in-host-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-uri-space-in-host
-      linked_to: status-reference-rejection-0adf5c5d-probe-uri-space-in-host-issue-pid-session
+      linked_to: status-reference-rejection-0adf5c5d-create-uri-space-in-host-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-uri-space-in-host-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-space-in-host-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-space-in-host-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-uri-space-in-host-probe
@@ -20330,7 +20024,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            fixture_id: pid_expiry_2032
+            document_number: CREDIMI-SDJWT-URI-INVALID-PERCENT-ENCODING
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: uri_invalid_percent_encoding
@@ -20367,13 +20061,12 @@ steps:
                             - path:
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-EXPIRY
+                                - CREDIMI-SDJWT-URI-INVALID-PERCENT-ENCODING
                           format: dc+sd-jwt
                           id: pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                          multiple: true
                 nonce: status-reference-uri-invalid-percent-encoding
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -20383,30 +20076,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: status-reference-rejection-0adf5c5d-probe-uri-invalid-percent-encoding-issue-pid-session
-      linked_to: status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-uri-invalid-percent-encoding
-      linked_to: status-reference-rejection-0adf5c5d-probe-uri-invalid-percent-encoding-issue-pid-session
+      linked_to: status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-uri-invalid-percent-encoding-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-invalid-percent-encoding-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-uri-invalid-percent-encoding-probe
@@ -20421,7 +20097,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            fixture_id: pid_locality_diacritics
+            document_number: CREDIMI-SDJWT-URI-ILLEGAL-CHARACTERS
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: uri_illegal_characters
@@ -20458,13 +20134,12 @@ steps:
                             - path:
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-UMLAUT
+                                - CREDIMI-SDJWT-URI-ILLEGAL-CHARACTERS
                           format: dc+sd-jwt
                           id: pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                          multiple: true
                 nonce: status-reference-uri-illegal-characters
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -20474,30 +20149,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: status-reference-rejection-0adf5c5d-probe-uri-illegal-characters-issue-pid-session
-      linked_to: status-reference-rejection-0adf5c5d-create-uri-illegal-characters-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-uri-illegal-characters
-      linked_to: status-reference-rejection-0adf5c5d-probe-uri-illegal-characters-issue-pid-session
+      linked_to: status-reference-rejection-0adf5c5d-create-uri-illegal-characters-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-uri-illegal-characters-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-illegal-characters-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-illegal-characters-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-uri-illegal-characters-probe
@@ -20512,7 +20170,7 @@ steps:
       with:
         body:
             credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            fixture_id: pid_family_name_uppercase
+            document_number: CREDIMI-SDJWT-URI-EMPTY
             issuer_configuration_id: eu-pid-device-bound
             status_list_enabled: true
             status_reference: uri_empty
@@ -20549,13 +20207,12 @@ steps:
                             - path:
                                 - document_number
                               values:
-                                - CREDIMI-DEMO-CASE
+                                - CREDIMI-SDJWT-URI-EMPTY
                           format: dc+sd-jwt
                           id: pid
                           meta:
                             vct_values:
                                 - urn:eudi:pid:1
-                          multiple: true
                 nonce: status-reference-uri-empty
             request_uri_method: post
             response_mode: direct_post.jwt
@@ -20565,30 +20222,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: status-reference-rejection-0adf5c5d-probe-uri-empty-issue-pid-session
-      linked_to: status-reference-rejection-0adf5c5d-create-uri-empty-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-probe-uri-empty
-      linked_to: status-reference-rejection-0adf5c5d-probe-uri-empty-issue-pid-session
+      linked_to: status-reference-rejection-0adf5c5d-create-uri-empty-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-probe-uri-empty-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-empty-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ status-reference-rejection-0adf5c5d-create-uri-empty-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: status-reference-rejection-0adf5c5d-fetch-uri-empty-probe

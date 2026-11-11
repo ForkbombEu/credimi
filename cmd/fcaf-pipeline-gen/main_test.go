@@ -33,7 +33,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1460)
+	require.Len(t, definition.Steps, 1440)
 	require.NotContains(
 		t,
 		string(data),
@@ -281,7 +281,9 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 // every wallet action runs after its own scenario's reset, a presentation that
 // can reach Share is preceded by an unspent issuance of the format it requests
 // from the same scenario, and a presentation the wallet refuses still finds a
-// PID of that format, so the refusal is not just an empty wallet. A step's
+// PID of that format, so the refusal is not just an empty wallet. An absence
+// probe is the exception: it checks that the wallet holds nothing matching a
+// credential it had to refuse, so no PID may be issued for it. A step's
 // `actions` run in order, so each entry counts as a wallet step of its own.
 func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 	root := filepath.Join(
@@ -318,6 +320,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 		resets := 0
 		shares := 0
 		injected := 0
+		absenceProbes := 0
 		for index, step := range definition.Steps {
 			id, _ := step["id"].(string)
 			if use, _ := step["use"].(string); use != mobileAutomationTask {
@@ -432,6 +435,19 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 					}
 				}
 				if consumed == 0 && opensPresentationRequest(action, source) {
+					if probesAbsence(action) {
+						require.Falsef(
+							t,
+							slices.ContainsFunc(definition.Steps, func(other map[string]any) bool {
+								return other["id"] == id+"-issue-pid-session"
+							}),
+							"%s: absence probe %q gets an injected PID",
+							pipeline,
+							id,
+						)
+						absenceProbes++
+						continue
+					}
 					for _, format := range presentedCredentialFormats(source, 1) {
 						require.Positivef(
 							t,
@@ -449,11 +465,12 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 		require.Positivef(t, resets, "%s: no scenario resets the wallet", pipeline)
 		require.Positivef(t, shares, "%s: no presentation shares a credential", pipeline)
 		t.Logf(
-			"%s: %d resets, %d shares, %d injected issuances",
+			"%s: %d resets, %d shares, %d injected issuances, %d absence probes",
 			pipeline,
 			resets,
 			shares,
 			injected,
+			absenceProbes,
 		)
 	}
 }

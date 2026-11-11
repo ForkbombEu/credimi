@@ -476,6 +476,11 @@ query for the issued `document_number`.
 | `WS_RP_MS_Metadata__090` | `missing_uri` | `pid_multiple_nationalities` | `CREDIMI-DEMO-ARRAY` |
 | `WS_RP_MS_Metadata__092`/`__096`/`__097`/`__099`/`__100` | the same five shapes as mdoc (`urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required`) | — | `doctype`/namespace `eu.europa.ec.eudi.pid.1` |
 
+Since 11/11/2026 the scenarios issue every case on the baseline PID with its own
+`document_number` (`CREDIMI-SDJWT-<SHAPE>`, `CREDIMI-MDOC-<SHAPE>`) and probe with
+`fcaf-expect-credential-absent`, which fails on the consent screen without
+sharing; the table records the fixtures of the 13/10/2026 run.
+
 ### Observed
 
 - The offer flow ends on the wallet's "Document issued" success screen — the

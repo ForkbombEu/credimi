@@ -53,7 +53,10 @@ var generatedSuites = []string{relyingPartySuite, attestationProviderSuite}
 // reach a successful share needs its own freshly issued PID. A presentation
 // that the wallet refuses before consent leaves its instance untouched; it only
 // needs the wallet to hold a PID of the requested format, which an earlier
-// issuance of the same scenario or one injected issuance provides.
+// issuance of the same scenario or one injected issuance provides. An absence
+// probe needs none: it asks for a credential its scenario offered and the
+// wallet had to refuse, so the wallet holding nothing that matches is exactly
+// what it checks.
 const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
 	// issuanceActionID is the issuance scenarios author; its credential-added
@@ -65,6 +68,7 @@ const (
 	// screenshots must evidence the presentation alone.
 	injectedIssuanceActionID = walletActionNamespace + "fcaf-issue-pid"
 	resetActionID            = walletActionNamespace + "fcaf-reset-and-onboard"
+	absenceProbeActionID     = walletActionNamespace + "fcaf-expect-credential-absent"
 	pidIssuerConfigID        = "eu-pid-device-bound"
 	pidSDJWTConfigID         = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
 	pidMdocConfigID          = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
@@ -538,7 +542,8 @@ func claimStepID(seen map[string]string, id string, path string) error {
 // presentation the wallet refuses or cannot satisfy spends nothing, but its
 // evidence only means something when the wallet holds a PID of the requested
 // format: otherwise a rejection or a no-match screen is just the empty wallet.
-// That PID stays unspent until the next reset.
+// That PID stays unspent until the next reset. An absence probe gets none (see
+// probesAbsence).
 func pidIssuancesBefore(
 	step map[string]any,
 	source map[string]any,
@@ -571,7 +576,7 @@ func pidIssuancesBefore(
 			available[format] = 0
 		}
 	}
-	if consumed > 0 || !opensPresentationRequest(step, source) {
+	if consumed > 0 || !opensPresentationRequest(step, source) || probesAbsence(step) {
 		return sessions, issuances
 	}
 	for _, format := range presentedCredentialFormats(source, 1) {
@@ -803,6 +808,17 @@ func opensPresentationRequest(step map[string]any, source map[string]any) bool {
 	with, _ := source["with"].(map[string]any)
 	url, _ := with["url"].(string)
 	return strings.HasSuffix(url, "/openid4vp/sessions")
+}
+
+// probesAbsence reports whether a wallet step is an absence probe: a request
+// pinned to a credential its scenario offered and the wallet had to refuse,
+// which passes only when the wallet holds nothing that matches. Issuing a PID
+// before it adds no evidence, because no PID the generator issues can match the
+// pinned value.
+func probesAbsence(step map[string]any) bool {
+	with, _ := step["with"].(map[string]any)
+	actionID, _ := with["action_id"].(string)
+	return actionID == absenceProbeActionID
 }
 
 // loadWalletActions maps every declared wallet action identifier to its Maestro

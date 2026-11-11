@@ -50,6 +50,10 @@ actions:
     category: verify-credential
     tags: fcaf, ws_rp, ws_ap, expect, no-match
     file: wallet/fcaf-expect-no-matching-document.yaml
+  - name: fcaf-expect-credential-absent
+    category: verify-credential
+    tags: fcaf, ws_rp, expect, no-match, absent
+    file: wallet/fcaf-expect-credential-absent.yaml
   - name: fcaf-dc-api-present
     category: verify-credential
     tags: fcaf, ws_rp, dc-api, present
