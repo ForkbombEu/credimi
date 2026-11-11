@@ -27,6 +27,8 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	/** Display-ready devices with optional live-view affordance. */
 	devices?: ExecutionDevice[];
 	progress?: PipelineProgress;
+	/** Started main steps; absent when the run's history could not be read. */
+	step_count?: number;
 }
 
 export function getExecutionDevices(

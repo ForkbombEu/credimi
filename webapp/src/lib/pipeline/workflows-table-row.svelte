@@ -60,9 +60,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				: undefined
 			: splitExecutionTimes(workflow.startTime, workflow.endTime, timezone);
 
+		// An unknown count (history not readable) still lets the user try to expand.
+		const hasSteps = !workflow.queue && workflow.step_count !== 0;
+
 		return {
 			isCompact,
-			isExpanded: expandedRunIds.has(workflow.execution.runId) && !workflow.queue,
+			hasSteps,
+			isExpanded: expandedRunIds.has(workflow.execution.runId) && hasSteps,
 			artifacts: fromApiSummary(workflow),
 			timeParts,
 			endClock: timeParts ? formatEndClock(timeParts) : undefined,
@@ -82,11 +86,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	]}
 	style:--nest-pl="var(--td-px)"
 >
-	<TdDash expand when={!workflow.queue}>
+	<TdDash expand when={row.hasSteps}>
 		<Button
 			variant="ghost"
 			size="sm"
-			class="h-auto px-2 py-0.5 font-normal"
+			class={[
+				'h-auto gap-0.5 px-2 py-0.5 font-normal',
+				row.isCompact ? 'text-xs' : 'text-sm'
+			]}
 			aria-expanded={row.isExpanded}
 			aria-label={m.Show_steps()}
 			onclick={() => onToggle(workflow.execution.runId)}
@@ -97,6 +104,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{ 'rotate-180': row.isExpanded }
 				]}
 			/>
+			{#if workflow.step_count !== undefined}
+				<span class="text-muted-foreground tabular-nums">{workflow.step_count}</span>
+			{/if}
 		</Button>
 	</TdDash>
 

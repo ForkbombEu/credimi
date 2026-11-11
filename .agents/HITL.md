@@ -657,8 +657,8 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: one history read per expanded run; long histories cost a request per expand (closed runs are cached in the browser).
 - decision: (a).
   - New endpoint `GET /api/pipeline/executions/{id}/{workflow_id}/{run_id}/steps`; `block_workflow_id` + `block_run_id` list the inner steps of one linked steps block of that run.
-  - Pipeline execution summaries no longer carry `children`, `attempt` or `max_attempts`.
+  - Pipeline execution summaries no longer carry `children`, `attempt` or `max_attempts`. They carry `step_count`, the number of started main steps, so collapsed runs show it (user decision 11/11/2026). Each listed run's history is read for it; closed runs are counted once per process (`pipelineStepCounts`, at most 10000 runs), running runs on every request. A failed read leaves it unset and does not fail the list.
   - Only main pipeline steps that started are listed, in execution order: no finally steps, hooks or setup/cleanup activities, and no steps that never started (including those failed before scheduling with `CRE228`).
   - Activity steps link to their event in the embedded Temporal UI (`/history/events/<eventId>`); workflow steps link to their run page.
   - Linked steps blocks are one row, expanded lazily to their inner steps, with `Attempt N of M` after a retry.
-- follow-up: add a bounded in-memory cache for closed runs if production step reads exceed 2s.
+- follow-up: add a bounded in-memory cache of step lists for closed runs if production step reads exceed 2s.
