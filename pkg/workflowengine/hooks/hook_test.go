@@ -946,6 +946,7 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	githubPRCommentAct := activities.NewUpdateGitHubPRCommentActivity().Name()
 
 	require.Contains(t, fw.registeredWorkflows, pipelineWf)
+	require.Contains(t, fw.registeredWorkflows, pipeline.NewLinkedStepsWorkflow().Name())
 	require.Contains(t, fw.registeredWorkflows, "workflow-wf")
 
 	require.Contains(t, fw.registeredActivities, debugAct)

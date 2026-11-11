@@ -631,9 +631,28 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 		}
 	}
 
+	latestBlocks := map[string]*WorkflowExecution{}
+	blockAttempts := map[string]int{}
+	blockIDs := []string{}
 	for _, childExecution := range childExecutions {
+		if childExecution == nil || childExecution.Execution == nil {
+			continue
+		}
+		if childExecution.Type.Name == pipelineinternal.LinkedStepsWorkflowName {
+			blockID := childExecution.Execution.WorkflowID
+			latest, seen := latestBlocks[blockID]
+			if !seen {
+				blockIDs = append(blockIDs, blockID)
+			}
+			blockAttempts[blockID]++
+			if !seen ||
+				utils.CompareTimeStrings(childExecution.StartTime, latest.StartTime) > 0 {
+				latestBlocks[blockID] = childExecution
+			}
+			continue
+		}
 		childSummary := buildWorkflowExecutionSummary(ctx, childExecution, b.client)
-		if childSummary == nil || childExecution.Execution == nil {
+		if childSummary == nil {
 			continue
 		}
 		childSummary.DisplayName = computeChildDisplayName(childExecution.Execution.WorkflowID)
@@ -641,6 +660,10 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 		childSummary.HasQR = workflowExecutionHasQR(childExecution)
 		rootSummary.Children = append(rootSummary.Children, childSummary)
 	}
+	rootSummary.Children = append(
+		rootSummary.Children,
+		b.buildLinkedStepsSummaries(ctx, blockIDs, latestBlocks, blockAttempts)...,
+	)
 	sortWorkflowExecutionSummaries(rootSummary.Children, true)
 
 	runnerInfo := b.pipelineRunnerInfo(pipelineRecord)
@@ -682,6 +705,94 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	summary.PipelineIdentifier = pipelineIdentifier
 	summary.PipelineName = resolvePipelineNameFromRecord(pipelineRecord, pipelineIdentifier)
 	return summary, nil
+}
+
+// buildLinkedStepsSummaries builds one row per linked steps block from its latest run, with
+// the steps that run executed as its children. Each Temporal retry of a block is a new run
+// with the same workflow ID, so the number of runs is the attempt.
+func (b *pipelineExecutionSummaryBuilder) buildLinkedStepsSummaries(
+	ctx context.Context,
+	blockIDs []string,
+	latestBlocks map[string]*WorkflowExecution,
+	blockAttempts map[string]int,
+) []*WorkflowExecutionSummary {
+	if len(blockIDs) == 0 {
+		return nil
+	}
+	summaries := make([]*WorkflowExecutionSummary, 0, len(blockIDs))
+	summaryByRef := make(map[workflowExecutionRef]*WorkflowExecutionSummary, len(blockIDs))
+	refs := make([]workflowExecutionRef, 0, len(blockIDs))
+	for _, blockID := range blockIDs {
+		block := latestBlocks[blockID]
+		summary := buildWorkflowExecutionSummary(ctx, block, b.client)
+		if summary == nil {
+			continue
+		}
+		summary.Attempt = blockAttempts[blockID]
+		if memo, ok := workflowExecutionLinkedSteps(block); ok {
+			summary.DisplayName = strings.Join(memo.Steps, " → ")
+			summary.MaxAttempts = int(memo.MaximumAttempts)
+		} else {
+			summary.DisplayName = computeChildDisplayName(blockID)
+		}
+		summaries = append(summaries, summary)
+		if ref, ok := workflowExecutionReference(block); ok {
+			summaryByRef[ref] = summary
+			refs = append(refs, ref)
+		}
+	}
+	if b.client == nil {
+		return summaries
+	}
+
+	innerByBlock, err := getChildWorkflowsByParents(ctx, b.client, b.namespace, refs)
+	if err != nil {
+		b.app.Logger().Warn(
+			"failed to list steps of linked steps blocks",
+			"error", err,
+		)
+		return summaries
+	}
+	for ref, inner := range innerByBlock {
+		blockSummary := summaryByRef[ref]
+		if blockSummary == nil {
+			continue
+		}
+		for _, innerExecution := range inner {
+			innerSummary := buildWorkflowExecutionSummary(ctx, innerExecution, b.client)
+			if innerSummary == nil {
+				continue
+			}
+			innerSummary.DisplayName = linkedInnerDisplayName(
+				ref.WorkflowID,
+				innerExecution.Execution.WorkflowID,
+			)
+			blockSummary.Children = append(blockSummary.Children, innerSummary)
+		}
+	}
+	return summaries
+}
+
+// workflowExecutionLinkedSteps decodes the linked steps memo of a Linked Steps Workflow run.
+func workflowExecutionLinkedSteps(
+	exec *WorkflowExecution,
+) (workflowengine.LinkedStepsMemo, bool) {
+	if exec == nil || exec.Memo == nil {
+		return workflowengine.LinkedStepsMemo{}, false
+	}
+	payload := exec.Memo.Fields[workflowengine.LinkedStepsMemoKey]
+	if payload == nil || payload.Data == nil {
+		return workflowengine.LinkedStepsMemo{}, false
+	}
+	data, err := base64.StdEncoding.DecodeString(*payload.Data)
+	if err != nil {
+		return workflowengine.LinkedStepsMemo{}, false
+	}
+	var memo workflowengine.LinkedStepsMemo
+	if err := json.Unmarshal(data, &memo); err != nil {
+		return workflowengine.LinkedStepsMemo{}, false
+	}
+	return memo, true
 }
 
 func workflowExecutionHasLogs(exec *WorkflowExecution) bool {

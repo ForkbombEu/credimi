@@ -630,3 +630,19 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: (a) breaks organization creation flows for an unlikely name; (b) the canonified name differs visibly from the name.
 - decision: (b). `default` and every `temporal-*` name are reserved through `canonify.IsReservedNamespace`. "Default" canonifies to `default-1`; new or renamed organizations whose name would canonify to `temporal-*` get `org-temporal-*`. Existing organizations keep their namespace until renamed, but tenant runner tokens are refused for them (`409 organization_namespace_reserved`).
 - follow-up: before deploying, the operator checks production for organizations whose `canonified_name` is `default` or `temporal-*` and asks a maintainer if any exist.
+
+### 2026-11-10 - Linked pipeline steps retried as one block
+
+- status: resolved (user decision 10/11/2026)
+- owner: human maintainer
+- context: A deeplink step (`credential-offer`, `use-case-verification-deeplink`, or an `http-request` that creates a session) produces a single-use deeplink that the next step consumes; retrying only the consumer reuses the spent deeplink.
+- question: How are producer and consumer retried together?
+- options considered: (a) step field `linked_to` grouping consecutive steps into one child workflow retried by Temporal; (b) retry logic inside the pipeline workflow; (c) per-step "retry from" pointers.
+- default risk: blocks hide inner steps behind one child row; a wrong retry decision repeats a non-retryable failure.
+- decision: (a).
+  - Contract: `linked_to: <id of the immediately previous main step>` on main steps only (not hook or finally steps). Rules (`ValidateLinkedSteps`): not on the first step; the previous step needs an id; it must name the previous step; `child-pipeline`, `debug`, `fcaf-validation` and `conformance-check` steps cannot be linked; linked steps carry no `on_error`/`on_success`; only the last step of a block may set `activity_options.retry_policy`, and that policy (else the runtime/global one) sets the block's attempts; every step of a block shares `continue_on_error`.
+  - Workflow type `Run linked steps` (sentence case, like the other step workflow types); block workflow ID `<pipeline wf id>-<canonified first step id>`; inner task workflow ID `<block wf id>-<canonified step id>-a<attempt>`.
+  - Executions list: one block row showing the latest attempt's status and inner steps; an `Attempt N of M` chip beside the status appears only after a retry.
+  - Pipeline composer: adjacent steps are linked and unlinked with a link button in the gap between their cards, which shows a connector line when linked; no drag and drop.
+  - Only the final attempt's screenshots are kept on `pipeline_results.maestro_screenshots`.
+- follow-up: document the `linked_to` contract in the AGENTS.md "Dynamic Pipeline Workflow" section.

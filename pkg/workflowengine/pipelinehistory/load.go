@@ -42,7 +42,8 @@ type Run struct {
 	// finalOutput[id]["outputs"].
 	Outputs map[string]any
 	// EventIDs maps a main step ID to the ID of the completion or failure event that
-	// recorded its output.
+	// recorded its output. Steps run inside a linked block are recorded at the block's
+	// completion or failure event.
 	EventIDs map[string]int64
 }
 
@@ -69,12 +70,14 @@ type loader struct {
 	steps      map[string]mainStep
 	scheduled  map[int64]string
 	initiated  map[int64]string
+	blocks     map[int64]struct{}
 }
 
 // Load reads the history of one pipeline run and rebuilds the outputs of its main steps,
 // following the same rules the pipeline workflow uses to fill its in-memory finalOutput.
 // Steps are identified by the step_id carried in their activity or child workflow input
-// config; hook, finally and internal events are ignored.
+// config; hook, finally and internal events are ignored. Steps run inside a linked block
+// are recorded at the block's completion or failure event, from the block's output map.
 func Load(
 	ctx context.Context,
 	c client.Client,
@@ -95,6 +98,7 @@ func Load(
 		steps:     map[string]mainStep{},
 		scheduled: map[int64]string{},
 		initiated: map[int64]string{},
+		blocks:    map[int64]struct{}{},
 	}
 
 	iter := c.GetWorkflowHistory(
@@ -184,6 +188,10 @@ func (l *loader) apply(event *historypb.HistoryEvent) error {
 			} `json:"workflow_input"`
 		}
 		attrs := event.GetStartChildWorkflowExecutionInitiatedEventAttributes()
+		if attrs.GetWorkflowType().GetName() == pipelineinternal.LinkedStepsWorkflowName {
+			l.blocks[eventID] = struct{}{}
+			return nil
+		}
 		// An input that does not decode as a workflow input belongs to no step.
 		if l.decodeFirst(attrs.GetInput(), &input) == nil {
 			cfg := input.Config
@@ -197,6 +205,14 @@ func (l *loader) apply(event *historypb.HistoryEvent) error {
 
 	case enums.EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_COMPLETED:
 		attrs := event.GetChildWorkflowExecutionCompletedEventAttributes()
+		if l.isBlock(attrs.GetInitiatedEventId()) {
+			var result workflowengine.WorkflowResult
+			if err := l.decodeFirst(attrs.GetResult(), &result); err != nil {
+				return fmt.Errorf("decode result of linked steps block: %w", err)
+			}
+			l.recordBlock(eventID, workflowengine.AsMap(result.Output))
+			return nil
+		}
 		id, ok := l.initiated[attrs.GetInitiatedEventId()]
 		if !ok {
 			return nil
@@ -210,12 +226,18 @@ func (l *loader) apply(event *historypb.HistoryEvent) error {
 	case enums.EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_FAILED:
 		attrs := event.GetChildWorkflowExecutionFailedEventAttributes()
 		err := l.fc.FailureToError(attrs.GetFailure())
+		if l.isBlock(attrs.GetInitiatedEventId()) {
+			l.recordBlock(eventID, workflowengine.ExtractOutputFromError(err))
+			return nil
+		}
 		l.recordChildFailure(
 			attrs.GetInitiatedEventId(),
 			eventID,
 			workflowengine.ExtractOutputFromError(err),
 			temporal.IsTimeoutError(err) || temporal.IsCanceledError(err),
 		)
+	// Blocks are never in l.initiated, so a terminated, unstarted, timed out or canceled
+	// block records nothing.
 	case enums.EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_TERMINATED:
 		attrs := event.GetChildWorkflowExecutionTerminatedEventAttributes()
 		l.recordChildFailure(attrs.GetInitiatedEventId(), eventID, nil, false)
@@ -302,6 +324,23 @@ func (l *loader) recordChildFailure(
 		output = failureOutput
 	}
 	l.record(id, eventID, output)
+}
+
+// isBlock reports whether a child initiated event started a Linked Steps Workflow.
+func (l *loader) isBlock(initiatedEventID int64) bool {
+	_, ok := l.blocks[initiatedEventID]
+	return ok
+}
+
+// recordBlock unpacks a Linked Steps Workflow output, {stepID: {"outputs": value}}, into the
+// outputs of the main steps it ran.
+func (l *loader) recordBlock(eventID int64, output map[string]any) {
+	for id, entry := range output {
+		if _, ok := l.steps[id]; !ok {
+			continue
+		}
+		l.record(id, eventID, workflowengine.AsMap(entry)["outputs"])
+	}
 }
 
 func (l *loader) record(id string, eventID int64, output any) {

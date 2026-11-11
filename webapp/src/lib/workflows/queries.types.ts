@@ -52,6 +52,8 @@ export interface WorkflowExecutionSummary {
 	displayName: string;
 	queue?: WorkflowQueueSummary;
 	children?: Array<WorkflowExecutionSummary>;
+	attempt?: number;
+	max_attempts?: number;
 	results?: Array<WorkflowExecutionResult>;
 	maestro_screenshots?: string[];
 	report?: string;

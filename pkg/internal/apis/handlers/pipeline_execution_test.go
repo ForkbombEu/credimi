@@ -179,6 +179,32 @@ func TestHandlePipelineExecute_MixedStepTypes(t *testing.T) {
 	scenario.Test(t)
 }
 
+func TestHandlePipelineExecute_InvalidLinkedSteps(t *testing.T) {
+	scenario := tests.ApiScenario{
+		Name:   "linked_to naming another step returns 400",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/execute",
+		Body: rawBody(`name: linked
+steps:
+  - id: first
+    use: http-request
+    with:
+      method: GET
+      url: https://example.org
+  - id: second
+    use: http-request
+    linked_to: missing
+    with:
+      method: GET
+      url: https://example.org
+`),
+		ExpectedContent: []string{"invalid linked steps", "must name the previous step"},
+		ExpectedStatus:  http.StatusBadRequest,
+		TestAppFactory:  setupPipelineExecuteApp,
+	}
+	scenario.Test(t)
+}
+
 func TestHandlePipelineExecute_NonHTTPRequestHookAndFinallySteps(t *testing.T) {
 	cases := []struct {
 		name string

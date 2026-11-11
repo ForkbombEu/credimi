@@ -51,7 +51,7 @@ func ExecuteStep(
 	}
 	err := pipeline.ResolveInputs(s, stepGlobalCfg, dataCtx)
 	if err != nil {
-		appErr := workflowengine.NewAppError(
+		appErr := workflowengine.NewNonRetryableAppError(
 			workflowengine.WorkflowError{
 				Code:    errCode.Code,
 				Summary: errCode.Description,
@@ -65,7 +65,7 @@ func ExecuteStep(
 	case registry.TaskActivity:
 		payload, err := DecodePayload(s)
 		if err != nil {
-			appErr := workflowengine.NewAppError(
+			appErr := workflowengine.NewNonRetryableAppError(
 				workflowengine.WorkflowError{
 					Code:    errCode.Code,
 					Summary: errCode.Description,
@@ -93,7 +93,7 @@ func ExecuteStep(
 			cfgAct := act.(workflowengine.ConfigurableActivity)
 
 			if err := cfgAct.Configure(&input); err != nil {
-				appErr := workflowengine.NewAppError(
+				appErr := workflowengine.NewNonRetryableAppError(
 					workflowengine.WorkflowError{
 						Code:    errCode.Code,
 						Summary: errCode.Description,
@@ -110,7 +110,7 @@ func ExecuteStep(
 		}
 		execAct, ok := act.(workflowengine.ExecutableActivity)
 		if !ok {
-			appErr := workflowengine.NewAppError(
+			appErr := workflowengine.NewNonRetryableAppError(
 				workflowengine.WorkflowError{
 					Code:    errCode.Code,
 					Summary: errCode.Description,
@@ -133,7 +133,7 @@ func ExecuteStep(
 	case registry.TaskWorkflow:
 		payload, err := DecodePayload(s)
 		if err != nil {
-			appErr := workflowengine.NewAppError(
+			appErr := workflowengine.NewNonRetryableAppError(
 				workflowengine.WorkflowError{
 					Code:    errCode.Code,
 					Summary: errCode.Description,
@@ -152,7 +152,7 @@ func ExecuteStep(
 			configuredTaskQueue, ok := s.With.Config["taskqueue"].(string)
 			if !ok || strings.TrimSpace(configuredTaskQueue) == "" {
 				errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-				return nil, workflowengine.NewAppError(
+				return nil, workflowengine.NewNonRetryableAppError(
 					workflowengine.WorkflowError{
 						Code:    errCode.Code,
 						Summary: errCode.Description,
@@ -174,11 +174,7 @@ func ExecuteStep(
 
 		var result workflowengine.WorkflowResult
 		opts := workflow.ChildWorkflowOptions{
-			WorkflowID: fmt.Sprintf(
-				"%s-%s",
-				workflow.GetInfo(ctx).WorkflowExecution.ID,
-				canonify.CanonifyPlain(s.ID),
-			),
+			WorkflowID:        taskWorkflowID(ctx, s.ID),
 			TaskQueue:         taskqueue,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 			Memo:              memo,
@@ -203,6 +199,18 @@ func ExecuteStep(
 	}
 
 	return nil, nil
+}
+
+// taskWorkflowID is the workflow ID of a task workflow step: the running workflow's ID and
+// the step ID, plus the attempt inside a Linked Steps Workflow, whose attempts would
+// otherwise reuse one child workflow ID.
+func taskWorkflowID(ctx workflow.Context, stepID string) string {
+	info := workflow.GetInfo(ctx)
+	id := fmt.Sprintf("%s-%s", info.WorkflowExecution.ID, canonify.CanonifyPlain(stepID))
+	if info.WorkflowType.Name == pipeline.LinkedStepsWorkflowName {
+		id = fmt.Sprintf("%s-a%d", id, info.Attempt)
+	}
+	return id
 }
 
 func Execute(
@@ -263,7 +271,7 @@ func ensureStepInputSize(stepID string, input any) error {
 		return nil
 	}
 	errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-	return workflowengine.NewAppError(workflowengine.WorkflowError{
+	return workflowengine.NewNonRetryableAppError(workflowengine.WorkflowError{
 		Code:    errCode.Code,
 		Summary: errCode.Description,
 		Message: fmt.Sprintf(

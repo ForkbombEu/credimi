@@ -230,6 +230,9 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 			"continue_on_error": map[string]any{
 				"type": "boolean",
 			},
+			"linked_to": map[string]any{
+				"type": "string",
+			},
 		},
 		"required":             []string{"id", "use", "with"},
 		"additionalProperties": false,

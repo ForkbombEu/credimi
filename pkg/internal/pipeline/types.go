@@ -32,10 +32,33 @@ type StepSpec struct {
 }
 
 type StepDefinition struct {
-	StepSpec        `                           yaml:",inline"                     json:",inline"`
-	ContinueOnError bool                       `yaml:"continue_on_error,omitempty" json:"continue_on_error,omitempty"`
-	OnError         []*OnErrorStepDefinition   `yaml:"on_error,omitempty"          json:"on_error,omitempty"`
-	OnSuccess       []*OnSuccessStepDefinition `yaml:"on_success,omitempty"        json:"on_success,omitempty"`
+	StepSpec        `     yaml:",inline"                     json:",inline"`
+	ContinueOnError bool `yaml:"continue_on_error,omitempty" json:"continue_on_error,omitempty"`
+	// LinkedTo names the immediately previous main step. Consecutive linked steps form a
+	// block that runs as one Linked Steps Workflow, retried as a whole by Temporal.
+	LinkedTo  string                     `yaml:"linked_to,omitempty"  json:"linked_to,omitempty"`
+	OnError   []*OnErrorStepDefinition   `yaml:"on_error,omitempty"   json:"on_error,omitempty"`
+	OnSuccess []*OnSuccessStepDefinition `yaml:"on_success,omitempty" json:"on_success,omitempty"`
+}
+
+// LinkedStepsWorkflowName is the Temporal workflow type that runs a block of linked steps.
+const LinkedStepsWorkflowName = "Run linked steps"
+
+// LinkedStepBlocks returns the inclusive [start, end] index ranges of the blocks of at
+// least two steps formed by consecutive linked_to fields.
+func LinkedStepBlocks(steps []StepDefinition) [][2]int {
+	var blocks [][2]int
+	for i := 0; i < len(steps); i++ {
+		end := i
+		for end+1 < len(steps) && steps[end+1].LinkedTo != "" {
+			end++
+		}
+		if end > i {
+			blocks = append(blocks, [2]int{i, end})
+		}
+		i = end
+	}
+	return blocks
 }
 
 type OnErrorStepDefinition struct {

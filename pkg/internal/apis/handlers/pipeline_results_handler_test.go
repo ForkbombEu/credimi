@@ -6,6 +6,8 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,6 +17,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -604,6 +607,117 @@ func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.
 	require.Equal(t, "child-1", rootSummary.Children[0].Execution.WorkflowID)
 	require.Equal(t, "child-2", rootSummary.Children[1].Execution.WorkflowID)
 	require.True(t, rootSummary.Children[0].HasLogs)
+}
+
+func TestPipelineExecutionSummaryBuilderGroupsLinkedStepsBlocks(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	memoData, err := json.Marshal(workflowengine.LinkedStepsMemo{
+		Steps:           []string{"offer", "wallet"},
+		MaximumAttempts: 3,
+	})
+	require.NoError(t, err)
+	encodedMemo := base64.StdEncoding.EncodeToString(memoData)
+	blockMemo := &Memo{Fields: map[string]*Payload{
+		workflowengine.LinkedStepsMemoKey: {Data: &encodedMemo},
+	}}
+
+	pipelineWf := pipeline.PipelineWorkflow{}
+	root := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "wf-1", RunID: "run-1"},
+		Type:      WorkflowType{Name: pipelineWf.Name()},
+		StartTime: "2025-01-01T00:00:00Z",
+		CloseTime: "2025-01-01T00:10:00Z",
+		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+	}
+	blockID := "wf-1-offer"
+	firstAttempt := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: blockID, RunID: "block-run-1"},
+		Type:      WorkflowType{Name: pipelineinternal.LinkedStepsWorkflowName},
+		Memo:      blockMemo,
+		StartTime: "2025-01-01T00:01:00Z",
+		CloseTime: "2025-01-01T00:02:00Z",
+		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+	}
+	secondAttempt := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: blockID, RunID: "block-run-2"},
+		Type:      WorkflowType{Name: pipelineinternal.LinkedStepsWorkflowName},
+		Memo:      blockMemo,
+		StartTime: "2025-01-01T00:03:00Z",
+		CloseTime: "2025-01-01T00:04:00Z",
+		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+	}
+	other := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "wf-1-report", RunID: "run-report"},
+		Type:      WorkflowType{Name: "ChildWorkflow"},
+		StartTime: "2025-01-01T00:05:00Z",
+		CloseTime: "2025-01-01T00:06:00Z",
+		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+	}
+
+	innerInfo := func(stepID, runID string, minute int) *workflow.WorkflowExecutionInfo {
+		return &workflow.WorkflowExecutionInfo{
+			Execution: &common.WorkflowExecution{
+				WorkflowId: blockID + "-" + stepID + "-a2",
+				RunId:      runID,
+			},
+			Type:      &common.WorkflowType{Name: "Task Workflow"},
+			StartTime: timestamppb.New(time.Date(2025, 1, 1, 0, minute, 0, 0, time.UTC)),
+			CloseTime: timestamppb.New(time.Date(2025, 1, 1, 0, minute, 30, 0, time.UTC)),
+			Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			ParentExecution: &common.WorkflowExecution{
+				WorkflowId: blockID,
+				RunId:      "block-run-2",
+			},
+		}
+	}
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), `ParentWorkflowId="wf-1-offer"`) &&
+					strings.Contains(req.GetQuery(), `ParentRunId="block-run-2"`) &&
+					!strings.Contains(req.GetQuery(), "block-run-1")
+			}),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{
+				innerInfo("wallet", "inner-wallet", 4),
+				innerInfo("offer", "inner-offer", 3),
+			},
+		}, nil).
+		Once()
+
+	builder := newPipelineExecutionSummaryBuilder(app, mockClient, "ns-1")
+	summary, err := builder.Build(
+		context.Background(),
+		nil,
+		"default/pipeline",
+		root,
+		[]*WorkflowExecution{secondAttempt, other, firstAttempt},
+		nil,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	require.Len(t, summary.Children, 2)
+
+	block := summary.Children[0]
+	require.Equal(t, "block-run-2", block.Execution.RunID)
+	require.Equal(t, "offer → wallet", block.DisplayName)
+	require.Equal(t, 2, block.Attempt)
+	require.Equal(t, 3, block.MaxAttempts)
+	require.Len(t, block.Children, 2)
+	names := []string{block.Children[0].DisplayName, block.Children[1].DisplayName}
+	require.Equal(t, []string{"offer", "wallet"}, names)
+	require.Zero(t, block.Children[0].Attempt)
+
+	require.Equal(t, "wf-1-report", summary.Children[1].Execution.WorkflowID)
+	require.Zero(t, summary.Children[1].Attempt)
+	mockClient.AssertExpectations(t)
 }
 
 func TestBuildChildWorkflowParentQueryPipelineResults(t *testing.T) {
