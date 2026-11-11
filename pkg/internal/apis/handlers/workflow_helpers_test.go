@@ -139,29 +139,6 @@ func TestSortExecutionSummaries(t *testing.T) {
 	require.Equal(t, "2025-01-02T08:20:00Z", list[1].Children[0].Children[1].StartTime)
 }
 
-func TestLinkedInnerDisplayName(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name    string
-		blockID string
-		innerID string
-		want    string
-	}{
-		{"step with attempt", "wf-1-offer", "wf-1-offer-offer-a1", "offer"},
-		{"multi digit attempt", "wf-1-offer", "wf-1-offer-wallet-step-a12", "wallet-step"},
-		{"no attempt suffix", "wf-1-offer", "wf-1-offer-wallet", "wallet"},
-		{"foreign id", "wf-1-offer", "other-a3", "other"},
-		{"only suffix kept", "wf-1-offer", "wf-1-offer-a1", "a1"},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			require.Equal(t, tt.want, linkedInnerDisplayName(tt.blockID, tt.innerID))
-		})
-	}
-}
-
 func TestFilterNonPipelineExecutionsDropsLinkedSteps(t *testing.T) {
 	t.Parallel()
 

@@ -660,3 +660,19 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   - Every ID builder that takes user-chosen text calls it inside the function that builds the ID, so code that rebuilds an ID (`pipeline.LinkedStepsBlockID`, the semaphore and PR comment IDs) gets the same value. IDs that fit are unchanged, so running workflows replay as before.
   - Runner task queues (`<runner path>-TaskQueue`) are built by `temporalid.RunnerTaskQueue` in Credimi and in credimi-runner, which polls them; both must use it so the queue names match.
 - follow-up: credimi-runner depends on a Credimi pseudo-version for `pkg/temporalid` until a Credimi release contains it; bump it to that release tag.
+
+### 2026-11-11 - Pipeline execution steps read from Temporal history
+
+- status: resolved (user decision 11/11/2026)
+- owner: human maintainer
+- context: An expanded pipeline execution listed only child workflows (visibility query on `ParentWorkflowId`/`ParentRunId`), so steps that run as activities in the pipeline workflow (`http-request`, `json-parse`, `email`, `fcaf-validation`) were invisible, also inside linked-step blocks.
+- question: Where does the execution step list come from, and what does it show?
+- options considered: (a) rebuild the step list from the run's Temporal history, fetched when a run is expanded; (b) keep the visibility child list and add activity rows from `pipeline_results`; (c) record step progress in PocketBase.
+- default risk: one history read per expanded run, plus one per listed run of the per-pipeline list for `step_count`, repeated on every poll while a run is running (closed runs are cached server-side).
+- decision: (a).
+  - New endpoint `GET /api/pipeline/executions/{id}/{workflow_id}/{run_id}/steps`; `block_workflow_id` + `block_run_id` list the inner steps of one linked steps block of that run.
+  - Pipeline execution summaries no longer carry `children`, `attempt` or `max_attempts`. Summaries of the per-pipeline list (`GET /api/pipeline/list-executions/{id}`) carry `step_count`, the number of started main steps, so collapsed runs show it (user decision 11/11/2026); the overview and single-run endpoints do not count. Each listed run's history is read for it; closed runs are counted once per process (`pipelineStepCounts`, at most 10000 runs), running runs on every request. A failed read leaves it unset and does not fail the list.
+  - Only main pipeline steps that started are listed, in execution order: no finally steps, hooks or setup/cleanup activities, and no steps that never started (including those failed before scheduling with `CRE228`).
+  - Activity steps link to their event in the embedded Temporal UI (`/history/events/<eventId>`); workflow steps link to their run page.
+  - Linked steps blocks are one row, expanded lazily to their inner steps, with `Attempt N of M` after a retry. Block rows carry `step_count` too, the started steps of the block's latest run, read when the parent run's steps are listed and cached once visibility reports that block run closed.
+- follow-up: add a bounded in-memory cache of step lists for closed runs if production step reads exceed 2s.

@@ -1312,8 +1312,6 @@ components:
       type: object
     HandlersWorkflowExecutionSummary:
       properties:
-        attempt:
-          type: integer
         children:
           items:
             $ref: '#/components/schemas/HandlersWorkflowExecutionSummary'
@@ -1343,8 +1341,6 @@ components:
           items:
             type: string
           type: array
-        max_attempts:
-          type: integer
         queue:
           $ref: '#/components/schemas/HandlersWorkflowQueueSummary'
         report:

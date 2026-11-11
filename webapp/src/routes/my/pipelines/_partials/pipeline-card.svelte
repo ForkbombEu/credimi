@@ -216,6 +216,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					: undefined}
 				<div class="space-y-3">
 					<Pipeline.Workflows.Table
+						pipelineId={pipeline.id}
 						{workflows}
 						density="compact"
 						onCancel={refreshWorkflows}
