@@ -9,6 +9,7 @@ package temporalid
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"unicode/utf8"
 )
 
 // MaxLength is the longest workflow, schedule or update ID Temporal accepts
@@ -70,6 +71,12 @@ func bounded(id string, limit int) string {
 	if len(id) <= limit {
 		return id
 	}
+	// Temporal counts bytes, and gRPC rejects invalid UTF-8, so the cut moves back to the
+	// start of a character: a name with multi-byte characters ends a few bytes short.
+	cut := limit - hashLength - 1
+	for cut > 0 && !utf8.RuneStart(id[cut]) {
+		cut--
+	}
 	sum := sha256.Sum256([]byte(id))
-	return id[:limit-hashLength-1] + "-" + hex.EncodeToString(sum[:])[:hashLength]
+	return id[:cut] + "-" + hex.EncodeToString(sum[:])[:hashLength]
 }

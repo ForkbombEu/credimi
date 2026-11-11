@@ -7,6 +7,7 @@ package temporalid
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 )
@@ -41,4 +42,16 @@ func TestBoundedScheduleIDsLeaveRoomForTemporalAffixes(t *testing.T) {
 func TestRunnerTaskQueue(t *testing.T) {
 	require.Equal(t, "org/runner-TaskQueue", RunnerTaskQueue("org/runner"))
 	require.Len(t, RunnerTaskQueue(strings.Repeat("r", 300)), MaxLength)
+}
+
+func TestBoundedKeepsValidUTF8(t *testing.T) {
+	// A child pipeline ID ends in the child pipeline's raw name, which may hold
+	// multi-byte characters across the cut.
+	for offset := range 4 {
+		id := strings.Repeat("a", offset) + strings.Repeat("è€😀", 60)
+		bounded := Bounded(id)
+		require.True(t, utf8.ValidString(bounded), "offset %d", offset)
+		require.LessOrEqual(t, len(bounded), MaxLength)
+		require.Greater(t, len(bounded), MaxLength-4)
+	}
 }
