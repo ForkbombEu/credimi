@@ -91,7 +91,7 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Method:      http.MethodGet,
 			Path:        "/executions/{id}/{workflow_id}/{run_id}",
 			Handler:     HandleGetPipelineExecution,
-			Description: "Get one pipeline execution with its child workflows",
+			Description: "Get one pipeline execution",
 		},
 		{
 			Method:         http.MethodGet,
@@ -414,7 +414,7 @@ func listPipelineExecutionHistoryPage(
 	return summaries, nil
 }
 
-// HandleGetPipelineExecution returns one exact pipeline execution and its child workflows.
+// HandleGetPipelineExecution returns one exact pipeline execution.
 func HandleGetPipelineExecution() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		scope, apiErr := resolvePipelineExecutionScope(
@@ -434,25 +434,6 @@ func HandleGetPipelineExecution() func(*core.RequestEvent) error {
 		if apiErr != nil {
 			return apiErr
 		}
-		ref := workflowExecutionRef{
-			WorkflowID: execution.Execution.WorkflowID,
-			RunID:      execution.Execution.RunID,
-		}
-
-		childrenByParent, err := getChildWorkflowsByParents(
-			e.Request.Context(),
-			temporalClient,
-			scope.Namespace,
-			[]workflowExecutionRef{ref},
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list child workflows",
-				err.Error(),
-			)
-		}
 
 		builder := newPipelineExecutionSummaryBuilder(
 			e.App,
@@ -464,7 +445,6 @@ func HandleGetPipelineExecution() func(*core.RequestEvent) error {
 			scope.Pipeline,
 			scope.PipelineIdentifier,
 			execution,
-			childrenByParent[ref],
 			resultRecord,
 		)
 		if err != nil {
@@ -989,7 +969,6 @@ func HandleListPipelineExecutionOverview() func(*core.RequestEvent) error {
 					pipelineRecord,
 					pipelineIdentifier,
 					execution,
-					nil,
 					resultRecords[ref],
 				)
 				if err != nil {

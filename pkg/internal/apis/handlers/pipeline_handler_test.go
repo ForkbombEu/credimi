@@ -489,35 +489,6 @@ func TestHandleListPipelineExecutionHistoryFiltersAndPaginates(t *testing.T) {
 		Once()
 	mockClient.
 		On(
-			"ListWorkflow",
-			mock.Anything,
-			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-				return strings.Contains(req.GetQuery(), `ParentWorkflowId="wf-2"`) &&
-					strings.Contains(req.GetQuery(), `ParentRunId="run-2"`)
-			}),
-		).
-		Return(&workflowservice.ListWorkflowExecutionsResponse{
-			Executions: []*workflow.WorkflowExecutionInfo{
-				{
-					Execution: &common.WorkflowExecution{
-						WorkflowId: "child-1",
-						RunId:      "child-run-1",
-					},
-					Type:      &common.WorkflowType{Name: "ChildWorkflow"},
-					Memo:      temporalMemoWithLogsCapability(t, true),
-					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
-					StartTime: timestamppb.New(time.Now().Add(-30 * time.Second)),
-					CloseTime: timestamppb.New(time.Now().Add(-20 * time.Second)),
-					ParentExecution: &common.WorkflowExecution{
-						WorkflowId: "wf-2",
-						RunId:      "run-2",
-					},
-				},
-			},
-		}, nil).
-		Once()
-	mockClient.
-		On(
 			"GetWorkflowHistory",
 			mock.Anything,
 			"wf-2",
@@ -559,12 +530,7 @@ func TestHandleListPipelineExecutionHistoryFiltersAndPaginates(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "wf-2", execution["workflowId"])
 	require.Equal(t, pipelineIdentifier, response[0]["pipeline_identifier"])
-	children, ok := response[0]["children"].([]any)
-	require.True(t, ok)
-	require.Len(t, children, 1)
-	childResponse, ok := children[0].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, true, childResponse["has_logs"])
+	require.Empty(t, response[0]["children"])
 }
 
 func TestHandleListPipelineExecutionHistoryQueuedOnly(t *testing.T) {
@@ -720,17 +686,6 @@ func TestHandleListPipelineExecutionHistoryIncludesQueuedInPagination(t *testing
 			},
 		}, nil).
 		Once()
-	mockClient.
-		On(
-			"ListWorkflow",
-			mock.Anything,
-			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-				return strings.Contains(req.GetQuery(), `ParentWorkflowId="wf-1"`) &&
-					strings.Contains(req.GetQuery(), `ParentRunId="run-1"`)
-			}),
-		).
-		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
-		Maybe()
 	mockClient.
 		On(
 			"GetWorkflowHistory",
@@ -922,17 +877,6 @@ func TestHandleListPipelineExecutionHistoryPublishedPipelineShowsOnlyMyRuns(t *t
 		Once()
 	mockClient.
 		On(
-			"ListWorkflow",
-			mock.Anything,
-			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-				return strings.Contains(req.GetQuery(), `ParentWorkflowId="wf-foreign"`) &&
-					strings.Contains(req.GetQuery(), `ParentRunId="run-foreign"`)
-			}),
-		).
-		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
-		Maybe()
-	mockClient.
-		On(
 			"GetWorkflowHistory",
 			mock.Anything,
 			"wf-foreign",
@@ -1030,7 +974,7 @@ func TestHandleListPipelineExecutionHistoryListError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestHandleGetPipelineExecutionReturnsOneRunWithChildren(t *testing.T) {
+func TestHandleGetPipelineExecutionReturnsOneRun(t *testing.T) {
 	app := setupPipelineStartApp(t)
 	defer app.Cleanup()
 
@@ -1042,18 +986,6 @@ func TestHandleGetPipelineExecutionReturnsOneRunWithChildren(t *testing.T) {
 	pipelineIdentifier := pipelineIdentifierForTest(t, app, pipelineRecord)
 
 	root := buildPipelineExecutionInfo("wf-1", "run-1", pipelineIdentifier)
-	child := &workflow.WorkflowExecutionInfo{
-		Execution: &common.WorkflowExecution{WorkflowId: "child-1", RunId: "child-run-1"},
-		ParentExecution: &common.WorkflowExecution{
-			WorkflowId: "wf-1",
-			RunId:      "run-1",
-		},
-		Type:      &common.WorkflowType{Name: "ChildWorkflow"},
-		Memo:      temporalMemoWithLogsCapability(t, true),
-		Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
-		StartTime: timestamppb.New(time.Now().Add(-time.Minute)),
-		CloseTime: timestamppb.New(time.Now()),
-	}
 
 	mockClient := &temporalmocks.Client{}
 	mockClient.On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
@@ -1061,16 +993,6 @@ func TestHandleGetPipelineExecutionReturnsOneRunWithChildren(t *testing.T) {
 			WorkflowExecutionInfo: root,
 		}, nil).
 		Once()
-	mockClient.On(
-		"ListWorkflow",
-		mock.Anything,
-		mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-			return strings.Contains(req.GetQuery(), `ParentWorkflowId="wf-1"`) &&
-				strings.Contains(req.GetQuery(), `ParentRunId="run-1"`)
-		}),
-	).Return(&workflowservice.ListWorkflowExecutionsResponse{
-		Executions: []*workflow.WorkflowExecutionInfo{child},
-	}, nil).Once()
 	originalTemporalClient := pipelineTemporalClient
 	t.Cleanup(func() { pipelineTemporalClient = originalTemporalClient })
 	pipelineTemporalClient = func(string) (client.Client, error) { return mockClient, nil }
@@ -1095,56 +1017,7 @@ func TestHandleGetPipelineExecutionReturnsOneRunWithChildren(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 	require.Equal(t, "wf-1", response.Execution.WorkflowID)
 	require.Equal(t, pipelineIdentifier, response.PipelineIdentifier)
-	require.Len(t, response.Children, 1)
-	require.Equal(t, "child-1", response.Children[0].Execution.WorkflowID)
-	require.True(t, response.Children[0].HasLogs)
-	mockClient.AssertExpectations(t)
-}
-
-func TestHandleGetPipelineExecutionReturnsChildQueryError(t *testing.T) {
-	app := setupPipelineStartApp(t)
-	defer app.Cleanup()
-
-	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-	require.NoError(t, err)
-	organization, err := pbutils.GetUserOrganization(app, authRecord.Id)
-	require.NoError(t, err)
-	pipelineRecord := createPipelineExecutionTestPipeline(t, app, organization.Id)
-	pipelineIdentifier := pipelineIdentifierForTest(t, app, pipelineRecord)
-
-	mockClient := &temporalmocks.Client{}
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
-			WorkflowExecutionInfo: buildPipelineExecutionInfo(
-				"wf-1",
-				"run-1",
-				pipelineIdentifier,
-			),
-		}, nil).
-		Once()
-	mockClient.On("ListWorkflow", mock.Anything, mock.Anything).
-		Return((*workflowservice.ListWorkflowExecutionsResponse)(nil), errors.New("children unavailable")).
-		Once()
-
-	originalTemporalClient := pipelineTemporalClient
-	t.Cleanup(func() { pipelineTemporalClient = originalTemporalClient })
-	pipelineTemporalClient = func(string) (client.Client, error) { return mockClient, nil }
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.SetPathValue("id", pipelineRecord.Id)
-	req.SetPathValue("workflow_id", "wf-1")
-	req.SetPathValue("run_id", "run-1")
-	rec := httptest.NewRecorder()
-	err = HandleGetPipelineExecution()(&core.RequestEvent{
-		App:  app,
-		Auth: authRecord,
-		Event: router.Event{
-			Request:  req,
-			Response: rec,
-		},
-	})
-	requireHandlerErrorHandled(t, rec, err)
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Empty(t, response.Children)
 	mockClient.AssertExpectations(t)
 }
 

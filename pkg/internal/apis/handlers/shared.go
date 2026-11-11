@@ -91,8 +91,6 @@ type WorkflowExecutionSummary struct {
 	FailureReason      *string                           `json:"failure_reason,omitempty"`
 	HasLogs            bool                              `json:"has_logs,omitempty"`
 	HasQR              bool                              `json:"has_qr,omitempty"`
-	Attempt            int                               `json:"attempt,omitempty"`
-	MaxAttempts        int                               `json:"max_attempts,omitempty"`
 }
 
 type WorkflowQueueSummary struct {
