@@ -10,6 +10,13 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Engagement controls for request_uri_not_retrieved, 11/11/2026
+
+`WS_RP_IA_ProtocolFlow__002e_UF` and `WS_RP_MS_ProtocolMessages__043` decided their verdict with `oid4vp.request_uri_not_retrieved`, which passes whenever Capture recorded no retrieval and is outside the wallet-engagement guard. With `fcaf-expect-request-rejected` (never fails, unconditional `request-refused` screenshot for `evidence.non_empty`), a Wallet that never handled the link passed both.
+
+- Each scenario now opens an engagement control on the same invocation path with valid parameters (`openid4vp://` by-reference POST for 002e, Capture's HTTPS `request_uri` for 043), pinned to `document_number` `CREDIMI-ENGAGEMENT-CONTROL`, which no credential carries, through `fcaf-expect-credential-absent` (no share, no injected PID). Both tests now also assert `oid4vp.request_uri_retrieval` `method: POST` on the control. 002e still accepts a silent refusal, as its source allows. Aggregate 1439 → 1445 steps.
+- Reference Wallet 2026.09.42 on `emulator-5554`: the DELETE request and the HTTP `request_uri` target stayed `created` (the Wallet showed `Oups! Something went wrong` for the DELETE one); both controls reached `request_retrieved` with a POST retrieval and the no-match notice.
+
 ## MainInteraction 032 probes before spending the under-18 PID, 11/11/2026
 
 `pid-under-18-constraint` presented the single-use `pid_under_18` instance (`present-under-18-match`) before the `age_over_18: true` probe, so the probe met a Wallet with no usable under-18 PID and showed the no-match notice whether or not the Wallet enforces the constraint: the same vacuous pass as `033` (15/10/2026). The generator also injected a `pid_default` before the probe that its pinned `birthdate: 2012-03-04` could never match.

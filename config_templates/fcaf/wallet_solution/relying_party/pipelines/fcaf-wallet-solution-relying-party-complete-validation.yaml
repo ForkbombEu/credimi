@@ -568,6 +568,50 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-http-request-uri-target.outputs.body.session_id }}
     - continue_on_error: true
+      id: client-id-binding-controls-616e872a-create-https-request-uri-control
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-ENGAGEMENT-CONTROL
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: https-request-uri-control
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-probe-https-request-uri-control
+      linked_to: client-id-binding-controls-616e872a-create-https-request-uri-control
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ client-id-binding-controls-616e872a-create-https-request-uri-control.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: client-id-binding-controls-616e872a-fetch-https-request-uri-control
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ client-id-binding-controls-616e872a-create-https-request-uri-control.outputs.body.session_id }}
+    - continue_on_error: true
       id: client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri
       use: http-request
       with:
@@ -14470,6 +14514,51 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ invalid-request-uri-method-f8c49ad9-create-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: invalid-request-uri-method-f8c49ad9-create-valid-method-control
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - document_number
+                              values:
+                                - CREDIMI-ENGAGEMENT-CONTROL
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: fcaf-152-valid-request-uri-method-control
+            request_delivery: by_reference
+            request_uri_method: post
+            response_mode: direct_post.jwt
+            response_type: vp_token
+            scheme: openid4vp://
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: invalid-request-uri-method-f8c49ad9-probe-valid-method-control
+      linked_to: invalid-request-uri-method-f8c49ad9-create-valid-method-control
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ invalid-request-uri-method-f8c49ad9-create-valid-method-control.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: invalid-request-uri-method-f8c49ad9-fetch-valid-method-control
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ invalid-request-uri-method-f8c49ad9-create-valid-method-control.outputs.body.session_id }}
+    - continue_on_error: true
       id: malformed-dcql-1e84df7a-create
       use: http-request
       with:
@@ -23015,6 +23104,7 @@ steps:
             pipeline.oid4vp.invalid-request-uri-method:
                 output:
                     capture_session: ${{ invalid-request-uri-method-f8c49ad9-fetch-result.outputs.body | optional }}
+                    control_session: ${{ invalid-request-uri-method-f8c49ad9-fetch-valid-method-control.outputs.body | optional }}
                     create-presentation: ${{ invalid-request-uri-method-f8c49ad9-create-presentation.outputs | optional }}
                     dcql_exchange: ${{ invalid-request-uri-method-f8c49ad9-fetch-result.outputs.body | optional }}
                     fetch-result: ${{ invalid-request-uri-method-f8c49ad9-fetch-result.outputs | optional }}
@@ -23068,6 +23158,7 @@ steps:
                     hash_mismatch_request_object: ${{ client-id-binding-controls-616e872a-fetch-hash-mismatch.outputs.body.raw.authorization_request_jwt | optional }}
                     hash_mismatch_session: ${{ client-id-binding-controls-616e872a-fetch-hash-mismatch.outputs.body | optional }}
                     hash_mismatch_visual_evidence: ${{ client-id-binding-controls-616e872a-reject-hash-mismatch.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    http_request_uri_control_session: ${{ client-id-binding-controls-616e872a-fetch-https-request-uri-control.outputs.body | optional }}
                     http_request_uri_outer_request: ${{ client-id-binding-controls-616e872a-fetch-http-request-uri.outputs.body.raw.outer_request_delivered | optional }}
                     http_request_uri_session: ${{ client-id-binding-controls-616e872a-fetch-http-request-uri.outputs.body | optional }}
                     http_request_uri_target_session: ${{ client-id-binding-controls-616e872a-fetch-http-request-uri-target.outputs.body | optional }}
