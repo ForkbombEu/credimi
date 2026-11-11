@@ -66,6 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@render children?.()}
 		{/if}
 	{:else if fallback === 'dash'}
-		<span class="text-muted-foreground opacity-50">—</span>
+		<!-- In the expand column, line the dash up with the expand buttons' chevron. -->
+		<span class={['text-muted-foreground opacity-50', expand && 'px-2']}>—</span>
 	{/if}
 </td>

@@ -1544,8 +1544,12 @@ func TestHandleListPipelineExecutionStepsCountsBlockAttempts(t *testing.T) {
 				StepSpec: pipelineinternal.StepSpec{ID: "offer", Use: "credential-offer"},
 			},
 			pipelineinternal.StepDefinition{
-				StepSpec: pipelineinternal.StepSpec{ID: "wallet", Use: "mobile-automation"},
+				StepSpec: pipelineinternal.StepSpec{ID: "check", Use: "http-request"},
 				LinkedTo: "offer",
+			},
+			pipelineinternal.StepDefinition{
+				StepSpec: pipelineinternal.StepSpec{ID: "wallet", Use: "mobile-automation"},
+				LinkedTo: "check",
 			},
 		),
 		stepsChildInitiatedEvent(
@@ -1629,7 +1633,7 @@ func TestHandleListPipelineExecutionStepsCountsBlockAttempts(t *testing.T) {
 	require.Len(t, response.Steps, 1)
 	block := response.Steps[0]
 	require.Equal(t, "block", block.Kind)
-	require.Equal(t, "offer → wallet", block.DisplayName)
+	require.Equal(t, "offer → check → wallet", block.DisplayName)
 	require.Equal(t, "Running", block.Status)
 	require.Equal(t, int32(2), block.Attempt)
 	require.Equal(t, int32(3), block.MaxAttempts)

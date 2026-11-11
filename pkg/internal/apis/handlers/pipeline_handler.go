@@ -550,7 +550,7 @@ type PipelineExecutionStep struct {
 	// Kind is activity, workflow or block.
 	Kind string `json:"kind"`
 	Type string `json:"type"`
-	// DisplayName is the step ID, or "first → last" step ID for blocks.
+	// DisplayName is the step ID, or every step ID of a block joined with " → ".
 	DisplayName   string                   `json:"display_name"`
 	Status        string                   `json:"status"`
 	StartTime     string                   `json:"start_time,omitempty"`
@@ -736,8 +736,7 @@ func pipelineExecutionStep(
 	case pipelinehistory.StepKindActivity:
 		out.Attempt = step.Attempt
 	case pipelinehistory.StepKindBlock:
-		ids := step.BlockStepIDs
-		out.DisplayName = strings.Join([]string{ids[0], ids[len(ids)-1]}, " → ")
+		out.DisplayName = strings.Join(step.BlockStepIDs, " → ")
 		out.Attempt = 1
 		if blockRuns != nil {
 			out.Attempt = int32(blockRuns.count) //nolint:gosec // runs of one block are few
