@@ -23,12 +23,15 @@ evidence:
     from: pipeline.ap.credential-request-denied.outputs.issuance_exchange
   stored_credential_probe:
     from: pipeline.ap.credential-request-denied.outputs.stored_credential_probe
+  stored_credential_probe_visual_evidence:
+    from: pipeline.ap.credential-request-denied.outputs.stored_credential_probe_visual_evidence
   issuance_visual_evidence:
     from: pipeline.ap.credential-request-denied.outputs.issuance_visual_evidence
 assertions:
 # Credo issues behind the denial, so the session status is no evidence. The probe asks for
-# family_name Bianchi, which only the denied pid_person_b credential carries, while the
-# Wallet holds another PID. Informing the user is "if applicable" and not asserted.
+# family_name Bianchi, which only the denied pid_person_b credential carries. It shares
+# nothing, so a Wallet that kept the credential fails on the missing no-match notice.
+# Informing the user is "if applicable" and not asserted.
 - id: issuer_denies_the_credential_request
   validator: oid4vci.issuer_response
   input: evidence.issuance_exchange
@@ -47,5 +50,9 @@ assertions:
 - id: denied_credential_is_not_stored
   validator: oid4vp.no_presentation_returned
   input: evidence.stored_credential_probe
+- id: wallet_reports_no_matching_credential
+  validator: evidence.screenshot_named
+  input: evidence.stored_credential_probe_visual_evidence
+  params: { name: no-match-notice }
 verdict:
   pass_when: all_assertions_pass

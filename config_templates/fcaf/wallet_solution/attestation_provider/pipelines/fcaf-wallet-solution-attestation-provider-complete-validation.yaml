@@ -310,30 +310,13 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/openid4vp/sessions
     - continue_on_error: true
-      id: credential-request-denied-2122ce7a-probe-stored-credential-issue-pid-session
-      linked_to: credential-request-denied-2122ce7a-create-stored-credential-probe
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: credential-request-denied-2122ce7a-probe-stored-credential
-      linked_to: credential-request-denied-2122ce7a-probe-stored-credential-issue-pid-session
+      linked_to: credential-request-denied-2122ce7a-create-stored-credential-probe
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ credential-request-denied-2122ce7a-probe-stored-credential-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ credential-request-denied-2122ce7a-create-stored-credential-probe.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ credential-request-denied-2122ce7a-create-stored-credential-probe.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: credential-request-denied-2122ce7a-fetch-stored-credential-probe
@@ -550,6 +533,7 @@ steps:
                         session_requests: ${{ credential-request-denied-2122ce7a-fetch-issuance-requests.outputs.body | optional }}
                     issuance_visual_evidence: ${{ credential-request-denied-2122ce7a-accept-offer.outputs.flow_output.maestro_screenshot_urls | optional }}
                     stored_credential_probe: ${{ credential-request-denied-2122ce7a-fetch-stored-credential-probe.outputs.body | optional }}
+                    stored_credential_probe_visual_evidence: ${{ credential-request-denied-2122ce7a-probe-stored-credential.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.ap.jwt-key-attestation-issuance:
                 output:
                     issuance_exchange:

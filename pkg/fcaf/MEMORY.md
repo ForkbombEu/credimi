@@ -10,6 +10,12 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Attestation-provider 031b_UF probes with the strict absence action, 11/11/2026
+
+`credential-request-denied` probed for the denied `pid_person_b` (`family_name` Bianchi) with `fcaf-expect-no-matching-document`, after an injected `pid_default` (Rossi) that could never match the probe. The probe now uses `fcaf-expect-credential-absent` (tagged `ws_ap`), so no PID is injected (AP aggregate 48 → 47 steps), and `WS_AP_IA_MainInteraction_031b_UF` also asserts `evidence.screenshot_named` `no-match-notice` on the probe's screenshots, because the probe no longer shares on a Wallet that kept the credential.
+
+- Reference Wallet 2026.09.42 on `emulator-5554`, production Capture: PAR 201, authorize and redirect 302, token and nonce 200, `/credential` 400; `fcaf-expect-credential-rejected` passed and the Bianchi probe showed the no-match notice, session `request_retrieved`, nothing shared. A first attempt stopped on `Issuance request` with no request recorded (the Accept tap did not register); the retry went through.
+
 ## Credential type in the generator's instance accounting, 11/11/2026
 
 `cmd/fcaf-pipeline-gen` counted instances by format only, so the degree SD-JWT VC of `interaction-degree-sdjwt` (034c–034g, one degree issued for five presentations) counted as an SD-JWT PID: after the first presentation it injected a `pid_default` before each of the other four, which no `vct urn:credimi:degree:1` query can match.
