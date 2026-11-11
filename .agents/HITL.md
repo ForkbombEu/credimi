@@ -646,3 +646,19 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   - Pipeline composer: adjacent steps are linked and unlinked with a link button in the gap between their cards, which shows a connector line when linked; no drag and drop.
   - Only the final attempt's screenshots are kept on `pipeline_results.maestro_screenshots`.
 - follow-up: document the `linked_to` contract in the AGENTS.md "Dynamic Pipeline Workflow" section.
+
+### 2026-11-11 - Pipeline execution steps read from Temporal history
+
+- status: resolved (user decision 11/11/2026)
+- owner: human maintainer
+- context: An expanded pipeline execution listed only child workflows (visibility query on `ParentWorkflowId`/`ParentRunId`), so steps that run as activities in the pipeline workflow (`http-request`, `json-parse`, `email`, `fcaf-validation`) were invisible, also inside linked-step blocks.
+- question: Where does the execution step list come from, and what does it show?
+- options considered: (a) rebuild the step list from the run's Temporal history, fetched when a run is expanded; (b) keep the visibility child list and add activity rows from `pipeline_results`; (c) record step progress in PocketBase.
+- default risk: one history read per expanded run; long histories cost a request per expand (closed runs are cached in the browser).
+- decision: (a).
+  - New endpoint `GET /api/pipeline/executions/{id}/{workflow_id}/{run_id}/steps`; `block_workflow_id` + `block_run_id` list the inner steps of one linked steps block of that run.
+  - Pipeline execution summaries no longer carry `children`, `attempt` or `max_attempts`.
+  - Only main pipeline steps that started are listed, in execution order: no finally steps, hooks or setup/cleanup activities, and no steps that never started (including those failed before scheduling with `CRE228`).
+  - Activity steps link to their event in the embedded Temporal UI (`/history/events/<eventId>`); workflow steps link to their run page.
+  - Linked steps blocks are one row, expanded lazily to their inner steps, with `Attempt N of M` after a retry.
+- follow-up: add a bounded in-memory cache for closed runs if production step reads exceed 2s.
