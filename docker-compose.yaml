@@ -93,6 +93,8 @@ services:
       retries: 60
     volumes:
       - ./deployment/dynamicconfig:/etc/temporal/config/dynamicconfig
+      # Public keys Credimi writes at startup (TEMPORAL_JWT_KEY_SOURCE1).
+      - ./temporal-jwks:/etc/temporal/jwks:ro
     logging:
       driver: local
       options:
@@ -153,10 +155,13 @@ services:
       - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:?TURNSTILE_SECRET_KEY is required}
       - CREDIMI_RUNNER_CREDENTIAL_SECRET=${CREDIMI_RUNNER_CREDENTIAL_SECRET:?CREDIMI_RUNNER_CREDENTIAL_SECRET is required}
       - CREDIMI_TEMPORAL_SECRETS_ENCRYPTION_KEY=${CREDIMI_TEMPORAL_SECRETS_ENCRYPTION_KEY:?CREDIMI_TEMPORAL_SECRETS_ENCRYPTION_KEY is required}
+      - CREDIMI_TEMPORAL_JWT_KEYS=${CREDIMI_TEMPORAL_JWT_KEYS:?CREDIMI_TEMPORAL_JWT_KEYS is required}
+      - CREDIMI_TEMPORAL_JWKS_DIR=/app/temporal-jwks
     ports:
       - 8090:8090
     volumes:
       - ./pb_data/:/app/pb_data
+      - ./temporal-jwks:/app/temporal-jwks
       - /var/run/docker.sock:/var/run/docker.sock
 volumes:
   esdata:

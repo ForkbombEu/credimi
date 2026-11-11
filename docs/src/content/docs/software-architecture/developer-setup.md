@@ -221,6 +221,7 @@ operator can turn export off or point a runner at another collector in its dashb
 - Disable semaphore (no-op acquire/release): `MOBILE_DEVICE_SEMAPHORE_DISABLED=1`.
 - Internal admin key: an `internal_admin` key in `api_keys`. The Credimi server needs no env var for it; admin-managed runners and operators hold its plaintext (conventionally `CREDIMI_INTERNAL_ADMIN_KEY` in their own environment) to call the runner/operator routes guarded by it. Credimi never sends it to runners.
 - Runner credential secret: `CREDIMI_RUNNER_CREDENTIAL_SECRET=<random secret>` (required in deployments, e.g. `openssl rand -hex 32`; `make dev` sets a dev default). Per-runner credentials sent to runners as `Credimi-Api-Key` are derived from it and delivered to each runner on registration and lifecycle responses; rotating it invalidates runner credentials until each runner's next registration or heartbeat.
+- Temporal JWT signing keys: `CREDIMI_TEMPORAL_JWT_KEYS=<base64 PEM P-256 private key>[,<key>...]` (required in deployments; generate one with `openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt | base64 -w0`; `make dev` sets a dev default). Credimi signs short-lived (15 minute) Temporal tokens with the first key and writes every key's public half to `temporal-jwks/jwks.json` next to `docker-compose.yaml` at startup. Runners obtain their token from `POST /api/mobile-runner/temporal-token`. To rotate: add the new key second and deploy, move it first and deploy, then drop the old key after 15 minutes.
 
 ### Internal admin API key rollout
 

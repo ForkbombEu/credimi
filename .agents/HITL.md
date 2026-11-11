@@ -598,6 +598,39 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: (a) another client's metadata fetch or `/authorize` within the window fails a conforming Wallet; (b) a Wallet that does send the forbidden request is reported inconclusive, never failed, by these two checks; (c) needs a separate deployment.
 - decision: (b). A forbidden request attributed to the session still fails; a match among unattributed requests reports inconclusive, and no match passes (`unattributedMatch` in `pkg/fcaf/validators/oid4vci_ws_ap.go`).
 
+### 2026-11-09 - Published mobile runners are superuser-only until a task-queue authorizer exists
+
+- status: resolved
+- owner: human maintainer
+- context: Temporal namespace roles cannot scope a runner to its own task queue. A published tenant runner receives `<namespace>:write` on every published organization's namespace, so a tenant publishing its own runner could poll or answer other tenants' activity tasks.
+- question: Who may set `mobile_runners.published`?
+- options considered: (a) any organization owner (former behavior); (b) superusers only; (c) keep tenant publishing behind an authorizer.
+- default risk: (a) cross-tenant task access; (b) tenants can no longer offer runners to others without an operator.
+- decision: (b). Migration `1792000000_restrict_mobile_runner_published.js` blocks the field in the collection rules, and `HandleUpsertMobileRunner` ignores it from non-superusers (runners resend their flag on every registration and must keep registering). Existing published tenant runners are reviewed manually by the operator.
+- follow-up: "Custom Temporal authorizer for runner task-queue isolation" below.
+
+### 2026-11-09 - Custom Temporal authorizer for runner task-queue isolation
+
+- status: open
+- owner: human maintainer
+- context: Runner tokens grant namespace-wide `write`. The token subject is `mobile-runner:<canonical runner path>`, so the runner's task queue is the subject without the prefix plus `-TaskQueue`.
+- question: How should Temporal limit a runner to its own task queue?
+- options considered: (a) a custom authorizer compiled into a Temporal server build, limiting a `mobile-runner:` subject to its own `-TaskQueue` and the activity-task APIs; (b) an authorizing gRPC proxy in front of Temporal; (c) running mobile flows in the runner owner's namespace.
+- default risk: until one lands, any runner holding namespace write can call every API in that namespace. Task tokens are unsigned and carry no task queue, so even (a) must decide how to authorize `RespondActivityTask*` calls.
+- decision: default (a), pending maintainer confirmation.
+- follow-up: required before tenant runner publishing is reopened.
+
+### 2026-11-09 - Organization names reserved for Temporal namespaces
+
+- status: resolved
+- owner: human maintainer
+- context: `organizations.canonified_name` is the Temporal namespace, any user can create or rename an organization, and Temporal's default claim mapper treats the `temporal-system` permission namespace as system-wide.
+- question: Which organization namespaces are reserved, and how are colliding names handled?
+- options considered: (a) reject reserved names with a validation error; (b) rewrite them silently through canonify.
+- default risk: (a) breaks organization creation flows for an unlikely name; (b) the canonified name differs visibly from the name.
+- decision: (b). `default` and every `temporal-*` name are reserved through `canonify.IsReservedNamespace`. "Default" canonifies to `default-1`; new or renamed organizations whose name would canonify to `temporal-*` get `org-temporal-*`. Existing organizations keep their namespace until renamed, but tenant runner tokens are refused for them (`409 organization_namespace_reserved`).
+- follow-up: before deploying, the operator checks production for organizations whose `canonified_name` is `default` or `temporal-*` and asks a maintainer if any exist.
+
 ### 2026-11-10 - Linked pipeline steps retried as one block
 
 - status: resolved (user decision 10/11/2026)

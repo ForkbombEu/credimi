@@ -116,6 +116,8 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 		export TURNSTILE_SECRET_KEY="$${TURNSTILE_SECRET_KEY:-1x0000000000000000000000000000000AA}"; \
 		export CREDIMI_SEED_SUPERUSER_PASSWORD="$${CREDIMI_SEED_SUPERUSER_PASSWORD:-adminadmin}"; \
 		export CREDIMI_RUNNER_CREDENTIAL_SECRET="$${CREDIMI_RUNNER_CREDENTIAL_SECRET:-dev-runner-credential-secret}"; \
+		export CREDIMI_TEMPORAL_JWT_KEYS="$${CREDIMI_TEMPORAL_JWT_KEYS:-LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ3Zzd2psVnVzd2NqcjlmUDQKM3BsSElab2dpcUlwNDFmam5UN2RobjUrdGplaFJBTkNBQVNOczRoZUJMeUlWUlB1MVo3WXo3OWM1R1dyVE11TgpSVy9ubUlCa1U3THFiM0NIYzRaNkdxRE00Vy9QZ3JVNWxHcDJxMmpFeHhTYzZ6dkdmZWxCYmpzNwotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==}"; \
+		mkdir -p "$(ROOT_DIR)/temporal-jwks"; \
 		./scripts/worktree-compose.sh prepare; \
 		trap "./scripts/worktree-compose.sh stop" EXIT; \
 		./scripts/worktree-compose.sh up; \

@@ -68,36 +68,24 @@ var MobileRunnerLifecycleRoutes = routing.RouteGroup{
 		{Func: middlewares.ErrorHandlingMiddleware},
 	},
 	Routes: []routing.RouteDefinition{
-		{
-			Method:         http.MethodPost,
-			Path:           "/resume",
-			Handler:        HandleMobileRunnerLifecycleResume,
-			RequestSchema:  MobileRunnerLifecycleRequest{},
-			ResponseSchema: MobileRunnerLifecycleResponse{},
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminOrAuth(),
-			},
-		},
-		{
-			Method:         http.MethodPost,
-			Path:           "/heartbeat",
-			Handler:        HandleMobileRunnerLifecycleHeartbeat,
-			RequestSchema:  MobileRunnerLifecycleRequest{},
-			ResponseSchema: MobileRunnerLifecycleResponse{},
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminOrAuth(),
-			},
-		},
-		{
-			Method:         http.MethodPost,
-			Path:           "/pause",
-			Handler:        HandleMobileRunnerLifecyclePause,
-			RequestSchema:  MobileRunnerLifecycleRequest{},
-			ResponseSchema: MobileRunnerLifecycleResponse{},
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminOrAuth(),
-			},
-		},
+		runnerPostRoute(
+			"/resume",
+			HandleMobileRunnerLifecycleResume,
+			MobileRunnerLifecycleRequest{},
+			MobileRunnerLifecycleResponse{},
+		),
+		runnerPostRoute(
+			"/heartbeat",
+			HandleMobileRunnerLifecycleHeartbeat,
+			MobileRunnerLifecycleRequest{},
+			MobileRunnerLifecycleResponse{},
+		),
+		runnerPostRoute(
+			"/pause",
+			HandleMobileRunnerLifecyclePause,
+			MobileRunnerLifecycleRequest{},
+			MobileRunnerLifecycleResponse{},
+		),
 	},
 }
 

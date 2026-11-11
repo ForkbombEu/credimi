@@ -69,17 +69,22 @@ func TestMobileRunnersUpdateRuleGuardsPrivilegedFields(t *testing.T) {
 			wantCode: http.StatusNotFound,
 		},
 		{
+			name:     "org owner cannot publish the runner",
+			body:     `{"published":true}`,
+			wantCode: http.StatusNotFound,
+		},
+		{
 			name:     "org owner can still edit ordinary fields",
-			body:     `{"name":"renamed-runner","published":true}`,
+			body:     `{"name":"renamed-runner"}`,
 			wantCode: http.StatusOK,
-			want:     map[string]any{"name": "renamed-runner", "published": true},
+			want:     map[string]any{"name": "renamed-runner"},
 		},
 		{
 			name:     "superuser can change privileged fields",
 			actor:    actorSuperuser,
-			body:     `{"admin_managed":true,"disabled":false}`,
+			body:     `{"admin_managed":true,"disabled":false,"published":true}`,
 			wantCode: http.StatusOK,
-			want:     map[string]any{"admin_managed": true, "disabled": false},
+			want:     map[string]any{"admin_managed": true, "disabled": false, "published": true},
 		},
 	}
 
@@ -130,6 +135,7 @@ func TestMobileRunnersCreateRuleGuardsPrivilegedFields(t *testing.T) {
 			extra: `"last_heartbeat_at":"` + rulesTestHeartbeat + `"`,
 		},
 		{name: "org owner cannot create a disabled runner", extra: `"disabled":true`},
+		{name: "org owner cannot create a published runner", extra: `"published":true`},
 		{name: "org owner can create an ordinary runner", wantCode: http.StatusOK},
 	}
 

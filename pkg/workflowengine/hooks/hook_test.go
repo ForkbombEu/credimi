@@ -342,7 +342,7 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 			t.Fatal("timeout waiting for start worker manager call")
 		}
 	}
-	require.Equal(t, []string{"admin/runner", "tenant/runner"}, gotManagers["default"])
+	require.Equal(t, []string{"admin/runner"}, gotManagers["default"])
 	require.Equal(t, []string{"admin/runner"}, gotManagers["org-1"])
 
 	terminateErr := app.OnTerminate().Trigger(
