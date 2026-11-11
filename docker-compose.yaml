@@ -75,9 +75,19 @@ services:
       # Listen on localhost too, for the healthcheck.
       - BIND_ON_IP=0.0.0.0
       - LOG_LEVEL=info
+      # JWT authorization: Credimi signs tokens, public keys come from the jwks volume.
+      - TEMPORAL_AUTH_AUTHORIZER=default
+      - TEMPORAL_AUTH_CLAIM_MAPPER=default
+      - TEMPORAL_JWT_KEY_SOURCE1=file:///etc/temporal/jwks/jwks.json
+      - TEMPORAL_JWT_KEY_REFRESH=10s
+      # Temporal's own system workers (Schedules, batch) and both UIs carry no
+      # token; they use the internal frontend on 7236, never published.
+      - USE_INTERNAL_FRONTEND=true
+      - TEMPORAL_SERVICES=frontend,internal-frontend,history,matching,worker
     image: temporalio/server:${TEMPORAL_VERSION}
+    # Loopback only: clients outside the server use temporal.credimi.io:443 through Caddy.
     ports:
-      - ${TEMPORAL_PORT:-7233}:7233
+      - 127.0.0.1:${TEMPORAL_PORT:-7233}:7233
     # Caddy serves gRPC at temporal.credimi.io:443 (Coolify domain
     # https://temporal.credimi.io:7233); gRPC needs HTTP/2 to the container.
     # Coolify generates the proxy as caddy_0.handle_path.0_reverse_proxy
@@ -106,7 +116,7 @@ services:
       temporal:
         condition: service_healthy
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_ADDRESS=temporal:7236
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
       - TEMPORAL_UI_PORT=8280
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
@@ -122,7 +132,7 @@ services:
       temporal:
         condition: service_healthy
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_ADDRESS=temporal:7236
       - TEMPORAL_UI_PORT=8080
       - TEMPORAL_UI_PUBLIC_PATH=/temporal-ui
       - TEMPORAL_DISABLE_WRITE_ACTIONS=true
