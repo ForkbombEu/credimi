@@ -33,7 +33,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1445)
+	require.Len(t, definition.Steps, 1449)
 	require.NotContains(
 		t,
 		string(data),
@@ -413,7 +413,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 				// example to prove a held credential does not match the request,
 				// but every Share must find an unspent instance of the requested
 				// format.
-				for _, format := range presentedCredentialFormats(source, consumed) {
+				for _, format := range presentedCredentialFormats(source, consumed, available) {
 					require.GreaterOrEqualf(
 						t,
 						available[format],
@@ -430,7 +430,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 				// A multiple: true query returns, and so spends, every instance
 				// of its format the wallet holds.
 				if consumed > 0 {
-					for _, format := range formatsSpentEntirely(source) {
+					for _, format := range formatsSpentEntirely(source, available) {
 						available[format] = 0
 					}
 				}
@@ -448,7 +448,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 						absenceProbes++
 						continue
 					}
-					for _, format := range presentedCredentialFormats(source, 1) {
+					for _, format := range presentedCredentialFormats(source, 1, available) {
 						require.Positivef(
 							t,
 							available[format],

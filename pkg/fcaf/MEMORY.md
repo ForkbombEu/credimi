@@ -10,6 +10,14 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Credential type in the generator's instance accounting, 11/11/2026
+
+`cmd/fcaf-pipeline-gen` counted instances by format only, so the degree SD-JWT VC of `interaction-degree-sdjwt` (034c–034g, one degree issued for five presentations) counted as an SD-JWT PID: after the first presentation it injected a `pid_default` before each of the other four, which no `vct urn:credimi:degree:1` query can match.
+
+- SD-JWT instances are now keyed by `vct` (`sdJWTFormat`; Capture configurations name it before `.sd-jwt`, the EU PID maps to `urn:eudi:pid:1`). mdoc stays keyed by format, because the domestic and EU PID mdoc share the doctype `eu.europa.ec.eudi.pid.1`. A type the scenario never issued resolves to the PID (`resolveFormat`), so the near-miss scenarios (`not-the-wallet-pid`, `urn:missing`, …) generate as before. A presentation of a type the scenario issued with none unspent fails generation, since the generator issues only PIDs (`TestPresentationsSpendTheirOwnCredentialType`).
+- The degree scenario issues one degree before each presentation. Aggregate 1445 → 1449 steps; no other scenario's steps changed.
+- Reference Wallet 2026.09.42 on `emulator-5554`: a degree presented twice without a new issuance was accepted both times, and after three presentations both held degrees still showed `1/1`, while a presented PID showed `0/1`. The Wallet's reuse policy spends PIDs once but reuses this attestation, so the old pipeline would not have failed 034d–034g on this Wallet; one issuance per presentation keeps them independent of a Wallet's reuse policy at the cost of four issuances.
+
 ## Engagement controls for request_uri_not_retrieved, 11/11/2026
 
 `WS_RP_IA_ProtocolFlow__002e_UF` and `WS_RP_MS_ProtocolMessages__043` decided their verdict with `oid4vp.request_uri_not_retrieved`, which passes whenever Capture recorded no retrieval and is outside the wallet-engagement guard. With `fcaf-expect-request-rejected` (never fails, unconditional `request-refused` screenshot for `evidence.non_empty`), a Wallet that never handled the link passed both.

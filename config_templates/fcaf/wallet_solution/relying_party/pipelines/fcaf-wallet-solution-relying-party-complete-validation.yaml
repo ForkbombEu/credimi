@@ -13810,6 +13810,27 @@ steps:
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-degree-sdjwt-d51c1dad-create-middle-degree-presentation.outputs.body.session_id }}
     - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-all-degrees
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-obtain-degree-for-all-degrees
+      linked_to: interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-all-degrees
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-all-degrees.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-create-all-degrees-presentation
       use: http-request
       with:
@@ -13841,30 +13862,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: interaction-degree-sdjwt-d51c1dad-present-all-degrees-issue-pid-session
-      linked_to: interaction-degree-sdjwt-d51c1dad-create-all-degrees-presentation
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-present-all-degrees
-      linked_to: interaction-degree-sdjwt-d51c1dad-present-all-degrees-issue-pid-session
+      linked_to: interaction-degree-sdjwt-d51c1dad-create-all-degrees-presentation
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ interaction-degree-sdjwt-d51c1dad-present-all-degrees-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-              parameters:
-                deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-all-degrees-presentation.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-all-degrees-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-fetch-all-degrees-presentation
@@ -13873,6 +13877,27 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-degree-sdjwt-d51c1dad-create-all-degrees-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-first-degree
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-obtain-degree-for-first-degree
+      linked_to: interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-first-degree
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-first-degree.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-create-first-degree-presentation
       use: http-request
@@ -13905,30 +13930,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: interaction-degree-sdjwt-d51c1dad-present-first-degree-issue-pid-session
-      linked_to: interaction-degree-sdjwt-d51c1dad-create-first-degree-presentation
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-present-first-degree
-      linked_to: interaction-degree-sdjwt-d51c1dad-present-first-degree-issue-pid-session
+      linked_to: interaction-degree-sdjwt-d51c1dad-create-first-degree-presentation
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ interaction-degree-sdjwt-d51c1dad-present-first-degree-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-              parameters:
-                deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-first-degree-presentation.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-first-degree-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-fetch-first-degree-presentation
@@ -13937,6 +13945,27 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-degree-sdjwt-d51c1dad-create-first-degree-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-last-degree
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-obtain-degree-for-last-degree
+      linked_to: interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-last-degree
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-last-degree.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-create-last-degree-presentation
       use: http-request
@@ -13969,30 +13998,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: interaction-degree-sdjwt-d51c1dad-present-last-degree-issue-pid-session
-      linked_to: interaction-degree-sdjwt-d51c1dad-create-last-degree-presentation
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-present-last-degree
-      linked_to: interaction-degree-sdjwt-d51c1dad-present-last-degree-issue-pid-session
+      linked_to: interaction-degree-sdjwt-d51c1dad-create-last-degree-presentation
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ interaction-degree-sdjwt-d51c1dad-present-last-degree-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-              parameters:
-                deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-last-degree-presentation.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-last-degree-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-fetch-last-degree-presentation
@@ -14001,6 +14013,27 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ interaction-degree-sdjwt-d51c1dad-create-last-degree-presentation.outputs.body.session_id }}
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-address-property
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: https://capture-wallet.credimi.io/sessions
+    - continue_on_error: true
+      id: interaction-degree-sdjwt-d51c1dad-obtain-degree-for-address-property
+      linked_to: interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-address-property
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-degree-issuance-for-address-property.outputs.body.deeplink }}
+        version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-create-address-property-presentation
       use: http-request
@@ -14033,30 +14066,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: interaction-degree-sdjwt-d51c1dad-present-address-property-issue-pid-session
-      linked_to: interaction-degree-sdjwt-d51c1dad-create-address-property-presentation
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-present-address-property
-      linked_to: interaction-degree-sdjwt-d51c1dad-present-address-property-issue-pid-session
+      linked_to: interaction-degree-sdjwt-d51c1dad-create-address-property-presentation
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ interaction-degree-sdjwt-d51c1dad-present-address-property-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
-              parameters:
-                deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-address-property-presentation.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-engagement-haip-vp
+        parameters:
+            deeplink: ${{ interaction-degree-sdjwt-d51c1dad-create-address-property-presentation.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: interaction-degree-sdjwt-d51c1dad-fetch-address-property-presentation

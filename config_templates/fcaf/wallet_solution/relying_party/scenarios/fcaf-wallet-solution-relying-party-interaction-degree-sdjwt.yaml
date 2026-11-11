@@ -2,6 +2,10 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+# Capture issues a single-use degree instance (no batch issuance), and the
+# Wallet spends it on its first presentation, so every presentation below gets
+# its own degree issuance. cmd/fcaf-pipeline-gen can only issue PIDs, which can
+# never answer a degree query.
 name: FCAF main-interaction degree SD-JWT VC
 runtime:
   fixture:
@@ -69,6 +73,23 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-middle-degree-presentation.outputs.body.session_id }}
     expected_status: 200
+- id: create-degree-issuance-for-all-degrees
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+- id: obtain-degree-for-all-degrees
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-degree-issuance-for-all-degrees.outputs.body.deeplink }}
 - id: create-all-degrees-presentation
   use: http-request
   with:
@@ -106,6 +127,23 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-all-degrees-presentation.outputs.body.session_id }}
     expected_status: 200
+- id: create-degree-issuance-for-first-degree
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+- id: obtain-degree-for-first-degree
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-degree-issuance-for-first-degree.outputs.body.deeplink }}
 - id: create-first-degree-presentation
   use: http-request
   with:
@@ -143,6 +181,23 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-first-degree-presentation.outputs.body.session_id }}
     expected_status: 200
+- id: create-degree-issuance-for-last-degree
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+- id: obtain-degree-for-last-degree
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-degree-issuance-for-last-degree.outputs.body.deeplink }}
 - id: create-last-degree-presentation
   use: http-request
   with:
@@ -180,6 +235,23 @@ steps:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-last-degree-presentation.outputs.body.session_id }}
     expected_status: 200
+- id: create-degree-issuance-for-address-property
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.issuer_url}/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      issuer_configuration_id: eu-pid-device-bound
+      credential_configuration_id: urn:credimi:degree:1.sd-jwt.key-attestation-required
+- id: obtain-degree-for-address-property
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/getcredential-generic-credential-without-authentication
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: ${{ create-degree-issuance-for-address-property.outputs.body.deeplink }}
 - id: create-address-property-presentation
   use: http-request
   with:
