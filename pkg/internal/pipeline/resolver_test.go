@@ -117,6 +117,18 @@ steps:
 	require.Equal(t, "https://credimi.example", step.With.Config[workflowengine.AppURLConfigKey])
 }
 
+func TestReferencedStepIDs(t *testing.T) {
+	ids, all := ReferencedStepIDs(StepInputs{Payload: map[string]any{
+		"x": "${{ a.outputs.x | optional }}",
+		"y": []any{"${{ pipeline_output.b.outputs }}"},
+	}})
+	require.Equal(t, []string{"a", "b"}, ids)
+	require.False(t, all)
+
+	_, all = ReferencedStepIDs(StepInputs{Config: map[string]any{"all": "${{ pipeline_output }}"}})
+	require.True(t, all)
+}
+
 func TestResolveRef(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -37,6 +37,16 @@ export function createPipelineYaml(
 		if ('id' in step) {
 			assignStepId(step, idCounters);
 		}
+		// Builder state only marks "linked to the previous step": rewrite it to the previous
+		// step's (already assigned) id, or drop it when that step cannot be linked to.
+		if ('linked_to' in step && step.linked_to) {
+			const previous = clonedSteps[index - 1];
+			if (previous && previous.use !== 'debug' && previous.id) {
+				step.linked_to = previous.id;
+			} else {
+				delete step.linked_to;
+			}
+		}
 		if (config.linkProcedure && 'with' in step) {
 			config.linkProcedure?.(step.with, clonedSteps.slice(0, index));
 		}

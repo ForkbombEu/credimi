@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WorkflowStatus as WorkflowStatusValue } from '$lib/workflows/types';
 
 	import { XIcon } from '@lucide/svelte';
+	import { page } from '$app/state';
 	import { Workflow } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
@@ -71,6 +72,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// Use /history (not /timeline): older Temporal UI builds have no /timeline route and
 	// their SvelteKit router logs `Not found: /temporal-ui/.../timeline` in the iframe.
 	// Temporal UI >= 2.52 redirects /history → /timeline, so this stays compatible both ways.
+	// `?event=<id>` (pipeline step links) opens the history at that event.
+	const eventId = $derived(page.url.searchParams.get('event'));
 	const temporalUiUrl = $derived(
 		[
 			'/temporal-ui/namespaces',
@@ -78,7 +81,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'workflows',
 			encodeURIComponent(workflowId),
 			encodeURIComponent(runId),
-			'history'
+			'history',
+			...(eventId && /^\d+$/.test(eventId) ? ['events', eventId] : [])
 		].join('/')
 	);
 	let loadedTemporalUiUrl = $state<string>();

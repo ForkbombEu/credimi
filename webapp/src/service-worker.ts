@@ -15,7 +15,8 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 const PUSH_RESULT_TITLE: Record<string, string> = {
 	success: 'completed',
 	failed: 'failed',
-	canceled: 'canceled'
+	canceled: 'canceled',
+	start_failed: 'failed to start'
 };
 
 const FALLBACK_TITLE = 'finished';

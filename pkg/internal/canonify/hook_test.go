@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -364,4 +365,57 @@ func TestCanonifyHookFailsFastOnMissingParent(t *testing.T) {
 
 	err = app.Save(record)
 	require.ErrorContains(t, err, "build path for credential_issuers")
+}
+
+func TestIsReservedNamespace(t *testing.T) {
+	for namespace, want := range map[string]bool{
+		"default":         true,
+		"temporal-system": true,
+		"temporal-x":      true,
+		"temporal":        false,
+		"my-temporal-org": false,
+		"default-1":       false,
+	} {
+		require.Equal(t, want, IsReservedNamespace(namespace), namespace)
+	}
+}
+
+func TestOrganizationCanonifySkipsReservedNamespaces(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	RegisterCanonifyHooks(app)
+
+	collection, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	create := func(name string) *core.Record {
+		record := core.NewRecord(collection)
+		record.Set("name", name)
+		require.NoError(t, app.Save(record))
+		return record
+	}
+
+	require.Equal(t, "default-1", create("Default").GetString("canonified_name"))
+	require.Equal(
+		t,
+		"org-temporal-system",
+		create("Temporal System").GetString("canonified_name"),
+	)
+
+	renamed := create("Plain Org")
+	renamed.Set("name", "Temporal Tests")
+	require.NoError(t, app.Save(renamed))
+	require.Equal(t, "org-temporal-tests", renamed.GetString("canonified_name"))
+
+	legacy := create("Legacy Org")
+	_, err = app.DB().
+		NewQuery("UPDATE organizations SET canonified_name='temporal-legacy', name='Temporal Legacy' WHERE id={:id}").
+		Bind(dbx.Params{"id": legacy.Id}).
+		Execute()
+	require.NoError(t, err)
+	legacy, err = app.FindRecordById("organizations", legacy.Id)
+	require.NoError(t, err)
+	legacy.Set("description", "unrelated change")
+	require.NoError(t, app.Save(legacy))
+	require.Equal(t, "temporal-legacy", legacy.GetString("canonified_name"))
 }

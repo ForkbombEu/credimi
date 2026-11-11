@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
-
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fromStore } from 'svelte/store';
 
@@ -20,13 +18,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Density = 'compact' | 'comfortable';
 
 	type Props = {
+		pipelineId: string;
 		workflows: ExecutionSummary[];
 		density?: Density;
 		/** Called after a successful cancel from the row actions menu. */
 		onCancel?: () => void;
 	};
 
-	let { workflows, density = 'comfortable', onCancel }: Props = $props();
+	let { pipelineId, workflows, density = 'comfortable', onCancel }: Props = $props();
 
 	const isCompact = $derived(density === 'compact');
 	const user = fromStore(currentUser);
@@ -36,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const autoSeededRunIds = new SvelteSet<string>();
 
 	$effect(() => {
-		const validIds = collectRunIds(workflows);
+		const validIds = new Set(workflows.map((item) => item.execution.runId));
 		for (const id of [...expandedRunIds]) {
 			if (!validIds.has(id)) {
 				expandedRunIds.delete(id);
@@ -49,37 +48,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 
 		if (density === 'comfortable') {
-			seedComfortableDefaults(workflows, 0);
+			seedComfortableDefaults(workflows);
 		}
 	});
 
-	function collectRunIds(
-		items: Array<{ execution: { runId: string }; children?: WorkflowExecutionSummary[] }>,
-		ids = new SvelteSet<string>()
-	): SvelteSet<string> {
-		for (const item of items) {
-			ids.add(item.execution.runId);
-			if (item.children?.length) {
-				collectRunIds(item.children, ids);
-			}
-		}
-		return ids;
-	}
-
-	function seedComfortableDefaults(items: WorkflowExecutionSummary[], depth: number) {
+	/** Expands, once per run, the first run and every running one. */
+	function seedComfortableDefaults(items: ExecutionSummary[]) {
 		items.forEach((item, index) => {
-			const children = item.children ?? [];
-			if (children.length > 0) {
-				const shouldExpand =
-					depth === 0
-						? item.status === 'Running' || index === 0
-						: item.status === 'Running' || index === items.length - 1;
-				const id = item.execution.runId;
-				if (shouldExpand && !autoSeededRunIds.has(id)) {
-					autoSeededRunIds.add(id);
-					expandedRunIds.add(id);
-				}
-				seedComfortableDefaults(children, depth + 1);
+			const id = item.execution.runId;
+			const shouldExpand = !item.queue && (item.status === 'Running' || index === 0);
+			if (shouldExpand && !autoSeededRunIds.has(id)) {
+				autoSeededRunIds.add(id);
+				expandedRunIds.add(id);
 			}
 		});
 	}
@@ -119,6 +99,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<tbody>
 				{#each workflows as workflow, index (workflow.execution.runId)}
 					<WorkflowsTableRow
+						{pipelineId}
 						{workflow}
 						{density}
 						{timezone}

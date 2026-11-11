@@ -86,8 +86,10 @@ func WorkersHook(app *pocketbase.PocketBase) {
 			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
 			go startAllWorkersByNamespace(se.App, ns)
 
+			// Tenant runners never serve default: their Temporal tokens grant
+			// organization namespaces only.
 			runnerIDs := adminRunnerIDs
-			if ns == "default" || publishedByNamespace[ns] {
+			if publishedByNamespace[ns] {
 				runnerIDs = combineWorkerManagerRunnerIDs(adminRunnerIDs, publishedRunnerIDs)
 			}
 			startWorkerManagerWorkflow(ns, "", runnerIDs)
@@ -291,6 +293,7 @@ func defaultWorkers(app core.App) []workerConfig {
 				activities.NewQueryMobileDeviceSemaphoreRunStatusActivity(),
 				activities.NewUpdateGitHubPRCommentActivity(),
 				activities.NewPatchGitHubPRCommentActivity(),
+				activities.NewNotifyPipelineStartFailureActivity(app),
 			},
 		},
 		{
@@ -388,6 +391,11 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 		w.RegisterWorkflowWithOptions(
 			authorSessionWf.Workflow,
 			workflow.RegisterOptions{Name: authorSessionWf.Name()},
+		)
+		linkedStepsWf := pipeline.NewLinkedStepsWorkflow()
+		w.RegisterWorkflowWithOptions(
+			linkedStepsWf.Workflow,
+			workflow.RegisterOptions{Name: linkedStepsWf.Name()},
 		)
 		debugAct := pipeline.NewDebugActivity()
 		w.RegisterActivityWithOptions(

@@ -1292,6 +1292,11 @@ func TestMobileDeviceSemaphoreWorkflowRunStartFailureAdvancesQueue(t *testing.T)
 		startAct.Execute,
 		activity.RegisterOptions{Name: startAct.Name()},
 	)
+	notifyAct := activities.NewNotifyPipelineStartFailureActivity(nil)
+	env.RegisterActivityWithOptions(
+		notifyAct.Execute,
+		activity.RegisterOptions{Name: notifyAct.Name()},
+	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{}, temporal.NewNonRetryableApplicationError("start failed", "test", nil)).
 		Once()
@@ -1305,6 +1310,18 @@ func TestMobileDeviceSemaphoreWorkflowRunStartFailureAdvancesQueue(t *testing.T)
 		},
 		nil,
 	)
+
+	notified := make(chan activities.NotifyPipelineStartFailureInput, 2)
+	env.OnActivity(notifyAct.Name(), mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			input := args.Get(1).(workflowengine.ActivityInput)
+			payload, err := workflowengine.DecodePayload[activities.NotifyPipelineStartFailureInput](
+				input.Payload,
+			)
+			require.NoError(t, err)
+			notified <- payload
+		}).
+		Return(workflowengine.ActivityResult{}, nil)
 
 	errCh := make(chan error, 3)
 	statusCh := make(chan MobileDeviceSemaphoreRunStatusView, 2)
@@ -1401,6 +1418,17 @@ func TestMobileDeviceSemaphoreWorkflowRunStartFailureAdvancesQueue(t *testing.T)
 	require.Equal(t, "wf-2", runningStatus.WorkflowID)
 
 	require.Empty(t, drainErrors(errCh))
+
+	// The failed ticket notifies its organization once, with the start
+	// activity's own error rather than Temporal's activity wrapper; the
+	// ticket that started does not.
+	require.Len(t, notified, 1)
+	require.Equal(t, activities.NotifyPipelineStartFailureInput{
+		OwnerNamespace:     "tenant-1",
+		PipelineIdentifier: "pipelines/test",
+		TicketID:           "ticket-fail-1",
+		ErrorMessage:       "start failed",
+	}, <-notified)
 }
 
 func TestMobileDeviceSemaphoreWorkflowRunStartFailureContinuesQueue(t *testing.T) {

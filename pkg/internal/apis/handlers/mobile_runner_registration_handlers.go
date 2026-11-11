@@ -15,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
+	"github.com/forkbombeu/credimi/pkg/internal/observability"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/dbx"
@@ -31,27 +32,52 @@ var MobileRunnerRegistrationRoutes = routing.RouteGroup{
 		{Func: middlewares.ErrorHandlingMiddleware},
 	},
 	Routes: []routing.RouteDefinition{
+		runnerPostRoute(
+			"/preview-id",
+			HandlePreviewMobileRunnerID,
+			PreviewMobileRunnerIDRequest{},
+			PreviewMobileRunnerIDResponse{},
+		),
+		runnerPostRoute(
+			"",
+			HandleUpsertMobileRunner,
+			UpsertMobileRunnerRequest{},
+			UpsertMobileRunnerResponse{},
+		),
 		{
 			Method:         http.MethodPost,
-			Path:           "/preview-id",
-			Handler:        HandlePreviewMobileRunnerID,
-			RequestSchema:  PreviewMobileRunnerIDRequest{},
-			ResponseSchema: PreviewMobileRunnerIDResponse{},
+			Path:           "/temporal-token",
+			Handler:        HandleMobileRunnerTemporalToken,
+			RequestSchema:  MobileRunnerTemporalTokenRequest{},
+			ResponseSchema: MobileRunnerTemporalTokenResponse{},
+			// Runners call this on every worker start: verify the key once per
+			// process and throttle by IP before the key check.
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminOrAuth(),
-			},
-		},
-		{
-			Method:         http.MethodPost,
-			Path:           "",
-			Handler:        HandleUpsertMobileRunner,
-			RequestSchema:  UpsertMobileRunnerRequest{},
-			ResponseSchema: UpsertMobileRunnerResponse{},
-			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				middlewares.RequireInternalAdminOrAuth(),
+				{Func: observability.RunnerPreAuthLimit()},
+				middlewares.RequireCachedAPIKey(),
 			},
 		},
 	},
+}
+
+// runnerPostRoute is a POST route that runners call with their Credimi API
+// key, the internal admin key, or a user token.
+func runnerPostRoute(
+	path string,
+	handler routing.HandlerFactory,
+	request any,
+	response any,
+) routing.RouteDefinition {
+	return routing.RouteDefinition{
+		Method:         http.MethodPost,
+		Path:           path,
+		Handler:        handler,
+		RequestSchema:  request,
+		ResponseSchema: response,
+		Middlewares: []*hook.Handler[*core.RequestEvent]{
+			middlewares.RequireInternalAdminOrAuth(),
+		},
+	}
 }
 
 var MobileDeviceRegistrationRoutes = routing.RouteGroup{
@@ -709,7 +735,9 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		record.Set("type", strings.TrimSpace(input.Type))
 		record.Set("port", strings.TrimSpace(input.Port))
 		record.Set("serial", strings.TrimSpace(input.Serial))
-		if input.Published != nil {
+		// Only superusers publish runners: a published runner serves every
+		// published organization's namespace.
+		if input.Published != nil && isSuperuserAuth(e.Auth) {
 			record.Set("published", *input.Published)
 		}
 		// Another member re-registering the runner keeps its identity, so

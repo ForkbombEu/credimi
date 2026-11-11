@@ -26,6 +26,7 @@ const (
 	StoreCredentialIssuerActivityName          = "Store a credential issuer"
 	StoreIssuerCredentialActivityName          = "Store an issuer credential"
 	DeletePipelineResultFilesActivityName      = "Delete old pipeline result files"
+	DeletePipelineStepScreenshotsActivityName  = "Delete pipeline step screenshots"
 )
 
 // errRecordNotFound reports a Credimi record that does not exist or that the
@@ -56,6 +57,7 @@ func CredimiActivities(app core.App) []workflowengine.ExecutableActivity {
 		NewCheckActionAuthorPlanActivity(app),
 		NewReadActionAuthorPipelineRunActivity(app),
 		NewResolveActionAuthorReferenceActivity(app),
+		NewDeletePipelineStepScreenshotsActivity(app),
 	}
 }
 

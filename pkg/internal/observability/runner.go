@@ -170,8 +170,8 @@ func isForcedKey(key string, forced []*commonpb.KeyValue) bool {
 	return false
 }
 
-// RunnerPreAuthLimit throttles runner telemetry per client IP before the API
-// key is verified.
+// RunnerPreAuthLimit throttles runner routes per client IP before the API key
+// is verified.
 func RunnerPreAuthLimit() func(*core.RequestEvent) error {
 	limiter := &ipLimiter{
 		limiters: map[string]*rate.Limiter{},

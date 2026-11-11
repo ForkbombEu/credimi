@@ -134,14 +134,7 @@ func HandleGetVisibleOrganizationNamespaces() func(*core.RequestEvent) error {
 			)
 		}
 
-		records, err := e.App.FindRecordsByFilter(
-			"organizations",
-			"published = true || id = {:id}",
-			"name",
-			-1,
-			0,
-			dbx.Params{"id": orgRecord.Id},
-		)
+		namespaces, err := visibleOrganizationNamespaces(e.App, orgRecord.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -151,24 +144,41 @@ func HandleGetVisibleOrganizationNamespaces() func(*core.RequestEvent) error {
 			)
 		}
 
-		seen := make(map[string]struct{}, len(records))
-		namespaces := make([]string, 0, len(records))
-		for _, record := range records {
-			namespace := record.GetString("canonified_name")
-			if namespace == "" {
-				continue
-			}
-			if _, ok := seen[namespace]; ok {
-				continue
-			}
-
-			seen[namespace] = struct{}{}
-			namespaces = append(namespaces, namespace)
-		}
-		sort.Strings(namespaces)
-
 		return e.JSON(http.StatusOK, map[string]any{
 			"namespaces": namespaces,
 		})
 	}
+}
+
+// visibleOrganizationNamespaces returns the sorted, deduplicated namespaces of
+// organization orgID and every published organization.
+func visibleOrganizationNamespaces(app core.App, orgID string) ([]string, error) {
+	records, err := app.FindRecordsByFilter(
+		"organizations",
+		"published = true || id = {:id}",
+		"name",
+		-1,
+		0,
+		dbx.Params{"id": orgID},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	seen := make(map[string]struct{}, len(records))
+	namespaces := make([]string, 0, len(records))
+	for _, record := range records {
+		namespace := record.GetString("canonified_name")
+		if namespace == "" {
+			continue
+		}
+		if _, ok := seen[namespace]; ok {
+			continue
+		}
+
+		seen[namespace] = struct{}{}
+		namespaces = append(namespaces, namespace)
+	}
+	sort.Strings(namespaces)
+	return namespaces, nil
 }

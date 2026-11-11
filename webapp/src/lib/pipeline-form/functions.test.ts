@@ -14,7 +14,12 @@ vi.mock('./steps', () => ({
 
 import type { PipelineStep } from '$lib/pipeline/types';
 
+import { parse } from 'yaml';
+
 import { createPipelineYaml } from './functions.js';
+
+// Mirrors `LINK_TO_PREVIOUS` in steps-builder.svelte.ts (not imported: it pulls in Svelte components).
+const LINK_TO_PREVIOUS = 'previous-step';
 
 describe('createPipelineYaml step key order', () => {
 	it('emits use, id, continue_on_error, activity_options, with in that order', () => {
@@ -166,5 +171,39 @@ describe('createPipelineYaml step key order', () => {
       start_to_close_timeout: 20m
       retry_policy:
         maximum_attempts: 3`);
+	});
+});
+
+describe('createPipelineYaml linked_to', () => {
+	it('rewrites the builder link marker to the generated id of the previous step', () => {
+		const steps = [
+			{ use: 'credential-offer', id: '', with: { credential_id: 'c' } },
+			{
+				use: 'mobile-automation',
+				id: '',
+				linked_to: LINK_TO_PREVIOUS,
+				with: { action_id: 'a', version_id: 'v' }
+			}
+		] as unknown as PipelineStep[];
+
+		const parsed = parse(createPipelineYaml('linked', steps, {}));
+		const [offer, wallet] = parsed.steps;
+
+		expect(offer.id).toBeTruthy();
+		expect(offer.linked_to).toBeUndefined();
+		expect(wallet.linked_to).toBe(offer.id);
+	});
+
+	it('removes linked_to from the first step', () => {
+		const steps = [
+			{
+				use: 'credential-offer',
+				id: '',
+				linked_to: LINK_TO_PREVIOUS,
+				with: { credential_id: 'c' }
+			}
+		] as unknown as PipelineStep[];
+
+		expect(createPipelineYaml('linked', steps, {})).not.toContain('linked_to');
 	});
 });

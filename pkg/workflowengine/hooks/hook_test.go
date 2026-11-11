@@ -343,7 +343,7 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 			t.Fatal("timeout waiting for start worker manager call")
 		}
 	}
-	require.Equal(t, []string{"admin/runner", "tenant/runner"}, gotManagers["default"])
+	require.Equal(t, []string{"admin/runner"}, gotManagers["default"])
 	require.Equal(t, []string{"admin/runner"}, gotManagers["org-1"])
 
 	terminateErr := app.OnTerminate().Trigger(
@@ -882,6 +882,25 @@ func TestStartWorkerRegistersEntries(t *testing.T) {
 	require.Equal(t, []string{"act-1"}, fw.registeredActivities)
 }
 
+// The semaphore worker registers its own activity list, not CredimiActivities:
+// an activity the semaphore schedules but this list misses fails at runtime
+// with ActivityNotRegisteredError.
+func TestDefaultWorkersSemaphoreRegistersItsActivities(t *testing.T) {
+	var names []string
+	for _, cfg := range defaultWorkers(nil) {
+		if cfg.TaskQueue != workflows.MobileDeviceSemaphoreTaskQueue {
+			continue
+		}
+		for _, act := range cfg.Activities {
+			names = append(names, act.Name())
+		}
+	}
+	require.Subset(t, names, []string{
+		activities.StartQueuedPipelineActivityName,
+		activities.NotifyPipelineStartFailureActivityName,
+	})
+}
+
 func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	origNewWorker := newWorkerFn
 	origRegistry := registry.Registry
@@ -928,6 +947,7 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	githubPRCommentAct := activities.NewUpdateGitHubPRCommentActivity().Name()
 
 	require.Contains(t, fw.registeredWorkflows, pipelineWf)
+	require.Contains(t, fw.registeredWorkflows, pipeline.NewLinkedStepsWorkflow().Name())
 	require.Contains(t, fw.registeredWorkflows, "workflow-wf")
 	require.Contains(t, fw.registeredWorkflows, authorsession.WorkflowName)
 

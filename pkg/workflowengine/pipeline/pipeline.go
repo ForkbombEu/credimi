@@ -56,6 +56,17 @@ type pipelineExecutionState struct {
 	previousStepID string
 	// failedSteps holds the main steps that failed and let the pipeline continue.
 	failedSteps map[string]struct{}
+	// linkedBlock marks the state of a Linked Steps Workflow, whose steps run once each:
+	// Temporal retries the whole block instead.
+	linkedBlock bool
+	// priorFailures reports that the parent pipeline already had failures.
+	priorFailures bool
+	// stepErr is the error of the step that stopped the run.
+	stepErr error
+}
+
+func (s *pipelineExecutionState) hasFailures() bool {
+	return len(s.failures) > 0 || s.priorFailures
 }
 
 func NewPipelineWorkflow() *PipelineWorkflow {
@@ -419,11 +430,32 @@ func (w *PipelineWorkflow) executeSteps(
 	debug bool,
 	logger log.Logger,
 ) error {
-	for _, step := range steps {
+	for i := 0; i < len(steps); i++ {
+		if i+1 < len(steps) && steps[i+1].LinkedTo != "" {
+			j := i + 1
+			for j+1 < len(steps) && steps[j+1].LinkedTo != "" {
+				j++
+			}
+			if err := w.executeLinkedSteps(
+				ctx,
+				input,
+				steps[i:j+1],
+				ao,
+				config,
+				runMetadata,
+				state,
+				debug,
+				logger,
+			); err != nil {
+				return err
+			}
+			i = j
+			continue
+		}
 		if err := w.executeStep(
 			ctx,
 			input,
-			step,
+			steps[i],
 			ao,
 			config,
 			runMetadata,
@@ -523,8 +555,14 @@ func addPipelineExecutionContext(ctx workflow.Context, dataCtx map[string]any) {
 		return
 	}
 	info := workflow.GetInfo(ctx)
-	dataCtx["workflow_id"] = info.WorkflowExecution.ID
-	dataCtx["run_id"] = info.WorkflowExecution.RunID
+	execution := info.WorkflowExecution
+	// Steps of a linked block see the pipeline run, the same on every block attempt.
+	if info.WorkflowType.Name == pipeline.LinkedStepsWorkflowName &&
+		info.ParentWorkflowExecution != nil {
+		execution = *info.ParentWorkflowExecution
+	}
+	dataCtx["workflow_id"] = execution.ID
+	dataCtx["run_id"] = execution.RunID
 	dataCtx["organization_id"] = info.Namespace
 }
 
@@ -757,6 +795,9 @@ func (w *PipelineWorkflow) executeRegularStep(
 	logger.Info("Running step", "id", step.ID, "use", step.Use)
 
 	stepAO := PrepareActivityOptions(ao, step.ActivityOptions)
+	if state.linkedBlock {
+		stepAO.RetryPolicy.MaximumAttempts = 1
+	}
 
 	pipelineName := input.WorkflowDefinition.Name
 	pipelineURL := runMetadata.TemporalUI
@@ -767,7 +808,7 @@ func (w *PipelineWorkflow) executeRegularStep(
 		state.finalOutput,
 		pipelineName,
 		pipelineURL,
-		len(state.failures) > 0,
+		state.hasFailures(),
 	)
 
 	if depErr := failedDependencyError(step, state.failedSteps); depErr != nil {
@@ -814,7 +855,7 @@ func (w *PipelineWorkflow) executeRegularStep(
 		state.finalOutput,
 		pipelineName,
 		pipelineURL,
-		len(state.failures) > 0,
+		state.hasFailures(),
 	)
 
 	state.failures = runStepSuccessHooks(
@@ -854,6 +895,7 @@ func handleRegularStepError(
 	pipelineName string,
 	pipelineURL string,
 ) error {
+	state.stepErr = err
 	if temporal.IsCanceledError(err) {
 		return workflowengine.NewWorkflowCancellationError(runMetadata)
 	}

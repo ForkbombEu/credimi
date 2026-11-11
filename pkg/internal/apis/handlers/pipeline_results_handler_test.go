@@ -325,50 +325,6 @@ func TestListPipelineExecutionHistoryTemporalError(t *testing.T) {
 	require.ErrorContains(t, err, "list pipeline workflows")
 }
 
-func TestListPipelineExecutionHistoryReturnsChildQueryError(t *testing.T) {
-	app, pipelineRecord := setupPipelineResultsApp(t)
-	defer app.Cleanup()
-	pipelineIdentifier := pipelineIdentifierForTest(t, app, pipelineRecord)
-
-	mockClient := &temporalmocks.Client{}
-	mockClient.On(
-		"ListWorkflow",
-		mock.Anything,
-		mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-			return !strings.Contains(req.GetQuery(), "ParentWorkflowId")
-		}),
-	).Return(&workflowservice.ListWorkflowExecutionsResponse{
-		Executions: []*workflow.WorkflowExecutionInfo{
-			buildPipelineExecutionInfo("wf-1", "run-1", pipelineIdentifier),
-		},
-	}, nil).Once()
-	mockClient.On(
-		"ListWorkflow",
-		mock.Anything,
-		mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-			return strings.Contains(req.GetQuery(), "ParentWorkflowId")
-		}),
-	).Return(
-		(*workflowservice.ListWorkflowExecutionsResponse)(nil),
-		errors.New("children unavailable"),
-	).Once()
-
-	_, err := listPipelineExecutionHistory(
-		context.Background(),
-		pipelineExecutionHistoryRequest{
-			App:                app,
-			TemporalClient:     mockClient,
-			Namespace:          "ns-1",
-			OwnerID:            pipelineRecord.GetString("owner"),
-			PipelineRecord:     pipelineRecord,
-			PipelineIdentifier: pipelineIdentifier,
-			Limit:              1,
-		},
-	)
-	require.ErrorContains(t, err, "list child workflows")
-	mockClient.AssertExpectations(t)
-}
-
 func TestListPipelineExecutionHistoryFilters(t *testing.T) {
 	app, pipelineRecord := setupPipelineResultsApp(t)
 	defer app.Cleanup()
@@ -414,16 +370,6 @@ func TestListPipelineExecutionHistoryFilters(t *testing.T) {
 			},
 		}, nil).
 		Once()
-	mockClient.
-		On(
-			"ListWorkflow",
-			mock.Anything,
-			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-				return strings.Contains(req.GetQuery(), "ParentWorkflowId")
-			}),
-		).
-		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
-		Maybe()
 	mockClient.
 		On(
 			"GetWorkflowHistory",
@@ -506,16 +452,6 @@ func TestListPipelineExecutionHistorySortsByParsedStartTime(t *testing.T) {
 		Once()
 	mockClient.
 		On(
-			"ListWorkflow",
-			mock.Anything,
-			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-				return strings.Contains(req.GetQuery(), "ParentWorkflowId")
-			}),
-		).
-		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
-		Maybe()
-	mockClient.
-		On(
 			"GetWorkflowHistory",
 			mock.Anything,
 			mock.Anything,
@@ -545,7 +481,7 @@ func TestListPipelineExecutionHistorySortsByParsedStartTime(t *testing.T) {
 	require.Equal(t, "wf-old", summaries[1].Execution.WorkflowID)
 }
 
-func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.T) {
+func TestPipelineExecutionSummaryBuilderIncludesArtifacts(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -570,21 +506,6 @@ func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.
 		CloseTime: "2025-01-01T00:01:00Z",
 		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
 	}
-	child := &WorkflowExecution{
-		Execution: &WorkflowIdentifier{WorkflowID: "child-1", RunID: "run-2"},
-		Type:      WorkflowType{Name: "ChildWorkflow"},
-		Memo:      localMemoWithLogsCapability(t, true),
-		StartTime: "2025-01-01T00:02:00Z",
-		CloseTime: "2025-01-01T00:03:00Z",
-		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
-	}
-	newerChild := &WorkflowExecution{
-		Execution: &WorkflowIdentifier{WorkflowID: "child-2", RunID: "run-3"},
-		Type:      WorkflowType{Name: "ChildWorkflow"},
-		StartTime: "2025-01-01T00:04:00Z",
-		CloseTime: "2025-01-01T00:05:00Z",
-		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
-	}
 
 	builder := newPipelineExecutionSummaryBuilder(app, nil, "")
 	rootSummary, err := builder.Build(
@@ -592,7 +513,6 @@ func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.
 		nil,
 		"default/pipeline",
 		root,
-		[]*WorkflowExecution{newerChild, child},
 		record,
 	)
 	require.NoError(t, err)
@@ -600,10 +520,7 @@ func TestPipelineExecutionSummaryBuilderIncludesArtifactsAndChildren(t *testing.
 	require.Len(t, rootSummary.Results, 1)
 	require.Contains(t, rootSummary.Results[0].Log, "sample_logfile_1.zip")
 	require.Contains(t, rootSummary.Report, "run_report.md")
-	require.Len(t, rootSummary.Children, 2)
-	require.Equal(t, "child-1", rootSummary.Children[0].Execution.WorkflowID)
-	require.Equal(t, "child-2", rootSummary.Children[1].Execution.WorkflowID)
-	require.True(t, rootSummary.Children[0].HasLogs)
+	require.Empty(t, rootSummary.Children)
 }
 
 func TestBuildChildWorkflowParentQueryPipelineResults(t *testing.T) {
@@ -710,7 +627,6 @@ steps:
 		pipelineRecord,
 		"default/pipeline123",
 		root,
-		nil,
 		nil,
 	)
 	require.NoError(t, err)

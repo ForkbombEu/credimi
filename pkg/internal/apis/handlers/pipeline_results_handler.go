@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -24,6 +25,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipelinehistory"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	commonpb "go.temporal.io/api/common/v1"
@@ -83,16 +85,6 @@ func listPipelineExecutionHistory(
 		return []*pipelineWorkflowSummary{}, nil
 	}
 
-	childrenByParent, err := getChildWorkflowsByParents(
-		ctx,
-		request.TemporalClient,
-		request.Namespace,
-		executionRefs,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("list child workflows: %w", err)
-	}
-
 	resultRecords, err := fetchPipelineResultRecords(
 		request.App,
 		request.OwnerID,
@@ -107,6 +99,7 @@ func listPipelineExecutionHistory(
 		request.TemporalClient,
 		request.Namespace,
 	)
+	builder.countSteps = true
 	summaries := make([]*pipelineWorkflowSummary, 0, len(executions))
 	for _, execution := range executions {
 		ref, ok := workflowExecutionReference(execution)
@@ -119,7 +112,6 @@ func listPipelineExecutionHistory(
 			request.PipelineRecord,
 			request.PipelineIdentifier,
 			execution,
-			childrenByParent[ref],
 			resultRecords[ref],
 		)
 		if err != nil {
@@ -566,6 +558,9 @@ type pipelineExecutionSummaryBuilder struct {
 	namespace   string
 	runnerCache map[string]map[string]any
 	runnerInfo  map[string]pipeline.PipelineDeviceInfo
+	// countSteps reads each run's history for its step count. Only the per-pipeline list
+	// shows the count, so other callers skip the history reads.
+	countSteps bool
 }
 
 func newPipelineExecutionSummaryBuilder(
@@ -587,7 +582,6 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	pipelineRecord *core.Record,
 	pipelineIdentifier string,
 	rootExecution *WorkflowExecution,
-	childExecutions []*WorkflowExecution,
 	resultRecord *core.Record,
 ) (*pipelineWorkflowSummary, error) {
 	rootSummary := buildWorkflowExecutionSummary(ctx, rootExecution, b.client)
@@ -631,18 +625,6 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 		}
 	}
 
-	for _, childExecution := range childExecutions {
-		childSummary := buildWorkflowExecutionSummary(ctx, childExecution, b.client)
-		if childSummary == nil || childExecution.Execution == nil {
-			continue
-		}
-		childSummary.DisplayName = computeChildDisplayName(childExecution.Execution.WorkflowID)
-		childSummary.HasLogs = workflowExecutionHasLogs(childExecution)
-		childSummary.HasQR = workflowExecutionHasQR(childExecution)
-		rootSummary.Children = append(rootSummary.Children, childSummary)
-	}
-	sortWorkflowExecutionSummaries(rootSummary.Children, true)
-
 	runnerInfo := b.pipelineRunnerInfo(pipelineRecord)
 	globalDeviceID := ""
 	if b.client != nil && runnerInfo.NeedsGlobalDevice {
@@ -681,7 +663,113 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	}
 	summary.PipelineIdentifier = pipelineIdentifier
 	summary.PipelineName = resolvePipelineNameFromRecord(pipelineRecord, pipelineIdentifier)
+	if b.countSteps {
+		summary.StepCount = b.stepCount(ctx, rootSummary)
+	}
 	return summary, nil
+}
+
+// stepCount counts the started main steps of a pipeline run, the rows its steps endpoint
+// lists.
+func (b *pipelineExecutionSummaryBuilder) stepCount(
+	ctx context.Context,
+	run *WorkflowExecutionSummary,
+) *int {
+	if b.client == nil || run.Execution == nil {
+		return nil
+	}
+	return countStartedSteps(
+		ctx,
+		b.app,
+		b.client,
+		b.namespace,
+		workflowExecutionRef{WorkflowID: run.Execution.WorkflowID, RunID: run.Execution.RunID},
+		run.Status != string(WorkflowStatusRunning),
+	)
+}
+
+// countStartedSteps counts the started main steps in the history of a pipeline run or of a
+// linked steps block run. Closed runs are counted once per process. A failed read leaves
+// the count unset.
+func countStartedSteps(
+	ctx context.Context,
+	app core.App,
+	temporalClient client.Client,
+	namespace string,
+	run workflowExecutionRef,
+	closed bool,
+) *int {
+	key := namespace + "\x00" + run.WorkflowID + "\x00" + run.RunID
+	if closed {
+		if count, ok := pipelineStepCounts.get(key); ok {
+			return &count
+		}
+	}
+	steps, err := pipelinehistory.LoadSteps(ctx, temporalClient, run.WorkflowID, run.RunID)
+	if err != nil {
+		app.Logger().Warn(
+			"failed to count pipeline steps",
+			"workflow_id", run.WorkflowID,
+			"run_id", run.RunID,
+			"error", err,
+		)
+		return nil
+	}
+	count := len(steps)
+	if closed {
+		pipelineStepCounts.put(key, count)
+	}
+	return &count
+}
+
+// stepCountCacheSize bounds the closed runs whose step count is kept in memory.
+const stepCountCacheSize = 10000
+
+// pipelineStepCounts caches the step count of closed pipeline runs, whose history no
+// longer changes.
+var pipelineStepCounts = &stepCountCache{counts: map[string]int{}}
+
+type stepCountCache struct {
+	mu     sync.Mutex
+	counts map[string]int
+}
+
+func (c *stepCountCache) get(key string) (int, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	count, ok := c.counts[key]
+	return count, ok
+}
+
+func (c *stepCountCache) put(key string, count int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.counts) >= stepCountCacheSize {
+		clear(c.counts)
+	}
+	c.counts[key] = count
+}
+
+// workflowExecutionLinkedSteps decodes the linked steps memo of a Linked Steps Workflow run.
+func workflowExecutionLinkedSteps(
+	exec *WorkflowExecution,
+) (workflowengine.LinkedStepsMemo, bool) {
+	if exec == nil || exec.Memo == nil {
+		return workflowengine.LinkedStepsMemo{}, false
+	}
+	payload := exec.Memo.Fields[workflowengine.LinkedStepsMemoKey]
+	if payload == nil || payload.Data == nil {
+		return workflowengine.LinkedStepsMemo{}, false
+	}
+	data, err := base64.StdEncoding.DecodeString(*payload.Data)
+	if err != nil {
+		return workflowengine.LinkedStepsMemo{}, false
+	}
+	var memo workflowengine.LinkedStepsMemo
+	if err := json.Unmarshal(data, &memo); err != nil {
+		return workflowengine.LinkedStepsMemo{}, false
+	}
+	return memo, true
 }
 
 func workflowExecutionHasLogs(exec *WorkflowExecution) bool {
@@ -998,6 +1086,8 @@ type pipelineWorkflowSummary struct {
 	GlobalDeviceID     string                    `json:"global_device_id,omitempty"`
 	DeviceIDs          []string                  `json:"device_ids,omitempty"`
 	Devices            []PipelineExecutionDevice `json:"devices,omitempty"`
+	// StepCount is the number of started main steps; unset when the history could not be read.
+	StepCount *int `json:"step_count,omitempty"`
 }
 
 func appendQueuedPipelineSummaries(

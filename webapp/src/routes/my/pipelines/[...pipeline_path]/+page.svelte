@@ -161,6 +161,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </div>
 <Pipeline.Workflows.Table
+	pipelineId={pipeline.id}
 	workflows={workflows.data ?? []}
 	density="comfortable"
 	onCancel={refreshWorkflows}

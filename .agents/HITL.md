@@ -772,3 +772,68 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   2. `WorkflowInput.Config` of the session (the semaphore ticket metadata: ticket ID, device IDs, leader device, owner namespace) is not covered by the grant. Options: sign it into the grant too; or Temporal authorization of workflow starts.
 - default risk: (1) a runner of the namespace can receive and answer another runner's agent or device tasks. (2) whoever can send updates to a runner's semaphore in `default` can enqueue a copied signed ticket with other ticket metadata (required and leader devices); the start activity accepts it, and the session's run data and device release use that metadata while its grants still verify.
 - decisions: none yet; both stay open until Temporal authentication exists.
+
+### 2026-11-09 - Published mobile runners are superuser-only until a task-queue authorizer exists
+
+- status: resolved
+- owner: human maintainer
+- context: Temporal namespace roles cannot scope a runner to its own task queue. A published tenant runner receives `<namespace>:write` on every published organization's namespace, so a tenant publishing its own runner could poll or answer other tenants' activity tasks.
+- question: Who may set `mobile_runners.published`?
+- options considered: (a) any organization owner (former behavior); (b) superusers only; (c) keep tenant publishing behind an authorizer.
+- default risk: (a) cross-tenant task access; (b) tenants can no longer offer runners to others without an operator.
+- decision: (b). Migration `1792000000_restrict_mobile_runner_published.js` blocks the field in the collection rules, and `HandleUpsertMobileRunner` ignores it from non-superusers (runners resend their flag on every registration and must keep registering). Existing published tenant runners are reviewed manually by the operator.
+- follow-up: "Custom Temporal authorizer for runner task-queue isolation" below.
+
+### 2026-11-09 - Custom Temporal authorizer for runner task-queue isolation
+
+- status: open
+- owner: human maintainer
+- context: Runner tokens grant namespace-wide `write`. The token subject is `mobile-runner:<canonical runner path>`, so the runner's task queue is the subject without the prefix plus `-TaskQueue`.
+- question: How should Temporal limit a runner to its own task queue?
+- options considered: (a) a custom authorizer compiled into a Temporal server build, limiting a `mobile-runner:` subject to its own `-TaskQueue` and the activity-task APIs; (b) an authorizing gRPC proxy in front of Temporal; (c) running mobile flows in the runner owner's namespace.
+- default risk: until one lands, any runner holding namespace write can call every API in that namespace. Task tokens are unsigned and carry no task queue, so even (a) must decide how to authorize `RespondActivityTask*` calls.
+- decision: default (a), pending maintainer confirmation.
+- follow-up: required before tenant runner publishing is reopened.
+
+### 2026-11-09 - Organization names reserved for Temporal namespaces
+
+- status: resolved
+- owner: human maintainer
+- context: `organizations.canonified_name` is the Temporal namespace, any user can create or rename an organization, and Temporal's default claim mapper treats the `temporal-system` permission namespace as system-wide.
+- question: Which organization namespaces are reserved, and how are colliding names handled?
+- options considered: (a) reject reserved names with a validation error; (b) rewrite them silently through canonify.
+- default risk: (a) breaks organization creation flows for an unlikely name; (b) the canonified name differs visibly from the name.
+- decision: (b). `default` and every `temporal-*` name are reserved through `canonify.IsReservedNamespace`. "Default" canonifies to `default-1`; new or renamed organizations whose name would canonify to `temporal-*` get `org-temporal-*`. Existing organizations keep their namespace until renamed, but tenant runner tokens are refused for them (`409 organization_namespace_reserved`).
+- follow-up: before deploying, the operator checks production for organizations whose `canonified_name` is `default` or `temporal-*` and asks a maintainer if any exist.
+
+### 2026-11-10 - Linked pipeline steps retried as one block
+
+- status: resolved (user decision 10/11/2026)
+- owner: human maintainer
+- context: A deeplink step (`credential-offer`, `use-case-verification-deeplink`, or an `http-request` that creates a session) produces a single-use deeplink that the next step consumes; retrying only the consumer reuses the spent deeplink.
+- question: How are producer and consumer retried together?
+- options considered: (a) step field `linked_to` grouping consecutive steps into one child workflow retried by Temporal; (b) retry logic inside the pipeline workflow; (c) per-step "retry from" pointers.
+- default risk: blocks hide inner steps behind one child row; a wrong retry decision repeats a non-retryable failure.
+- decision: (a).
+  - Contract: `linked_to: <id of the immediately previous main step>` on main steps only (not hook or finally steps). Rules (`ValidateLinkedSteps`): not on the first step; the previous step needs an id; it must name the previous step; `child-pipeline`, `debug`, `fcaf-validation` and `conformance-check` steps cannot be linked; linked steps carry no `on_error`/`on_success`; only the last step of a block may set `activity_options.retry_policy`, and that policy (else the runtime/global one) sets the block's attempts; every step of a block shares `continue_on_error`.
+  - Workflow type `Run linked steps` (sentence case, like the other step workflow types); block workflow ID `<pipeline wf id>-<canonified first step id>`; inner task workflow ID `<block wf id>-<canonified step id>-a<attempt>`.
+  - Executions list: one block row showing the latest attempt's status and inner steps; an `Attempt N of M` chip beside the status appears only after a retry.
+  - Pipeline composer: adjacent steps are linked and unlinked with a link button in the gap between their cards, which shows a connector line when linked; no drag and drop.
+  - Only the final attempt's screenshots are kept on `pipeline_results.maestro_screenshots`.
+- follow-up: document the `linked_to` contract in the AGENTS.md "Dynamic Pipeline Workflow" section.
+
+### 2026-11-11 - Pipeline execution steps read from Temporal history
+
+- status: resolved (user decision 11/11/2026)
+- owner: human maintainer
+- context: An expanded pipeline execution listed only child workflows (visibility query on `ParentWorkflowId`/`ParentRunId`), so steps that run as activities in the pipeline workflow (`http-request`, `json-parse`, `email`, `fcaf-validation`) were invisible, also inside linked-step blocks.
+- question: Where does the execution step list come from, and what does it show?
+- options considered: (a) rebuild the step list from the run's Temporal history, fetched when a run is expanded; (b) keep the visibility child list and add activity rows from `pipeline_results`; (c) record step progress in PocketBase.
+- default risk: one history read per expanded run, plus one per listed run of the per-pipeline list for `step_count`, repeated on every poll while a run is running (closed runs are cached server-side).
+- decision: (a).
+  - New endpoint `GET /api/pipeline/executions/{id}/{workflow_id}/{run_id}/steps`; `block_workflow_id` + `block_run_id` list the inner steps of one linked steps block of that run.
+  - Pipeline execution summaries no longer carry `children`, `attempt` or `max_attempts`. Summaries of the per-pipeline list (`GET /api/pipeline/list-executions/{id}`) carry `step_count`, the number of started main steps, so collapsed runs show it (user decision 11/11/2026); the overview and single-run endpoints do not count. Each listed run's history is read for it; closed runs are counted once per process (`pipelineStepCounts`, at most 10000 runs), running runs on every request. A failed read leaves it unset and does not fail the list.
+  - Only main pipeline steps that started are listed, in execution order: no finally steps, hooks or setup/cleanup activities, and no steps that never started (including those failed before scheduling with `CRE228`).
+  - Activity steps link to their event in the embedded Temporal UI (`/history/events/<eventId>`); workflow steps link to their run page.
+  - Linked steps blocks are one row, expanded lazily to their inner steps, with `Attempt N of M` after a retry. Block rows carry `step_count` too, the started steps of the block's latest run, read when the parent run's steps are listed and cached once visibility reports that block run closed.
+- follow-up: add a bounded in-memory cache of step lists for closed runs if production step reads exceed 2s.

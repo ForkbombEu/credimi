@@ -226,6 +226,10 @@ func filterNonPipelineExecutions(
 			!isPipelineExecuteWorkflowID(exec.Execution.WorkflowID) {
 			continue
 		}
+		// Linked steps blocks and the steps they run belong to their pipeline run.
+		if exec.Type.Name == pipelineinternal.LinkedStepsWorkflowName {
+			continue
+		}
 		if exec.ParentExecution == nil {
 			filtered = append(filtered, exec)
 			continue
@@ -236,6 +240,9 @@ func filterNonPipelineExecutions(
 			if parent != nil &&
 				parent.Type.Name == pipelineWorkflowName &&
 				!isPipelineExecuteWorkflowID(parent.Execution.WorkflowID) {
+				continue
+			}
+			if parent != nil && parent.Type.Name == pipelineinternal.LinkedStepsWorkflowName {
 				continue
 			}
 			filtered = append(filtered, exec)
@@ -253,6 +260,9 @@ func filterNonPipelineExecutions(
 		}
 		if parentType == pipelineWorkflowName &&
 			!isPipelineExecuteWorkflowID(exec.ParentExecution.WorkflowID) {
+			continue
+		}
+		if parentType == pipelineinternal.LinkedStepsWorkflowName {
 			continue
 		}
 
@@ -664,6 +674,8 @@ func sortExecutionSummaries(list []*WorkflowExecutionSummary, ascending bool) {
 	sortWorkflowExecutionSummaries(list, ascending)
 }
 
+// sortWorkflowExecutionSummaries sorts roots in the caller's order and every nested level
+// chronologically.
 func sortWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, ascending bool) {
 	slices.SortFunc(list, func(a, b *WorkflowExecutionSummary) int {
 		comparison := utils.CompareTimeStrings(a.StartTime, b.StartTime)
@@ -675,7 +687,7 @@ func sortWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, ascending 
 
 	for _, e := range list {
 		if len(e.Children) > 0 {
-			sortWorkflowExecutionSummaries(e.Children, !ascending)
+			sortWorkflowExecutionSummaries(e.Children, true)
 		}
 	}
 }

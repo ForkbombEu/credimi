@@ -5,15 +5,22 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/api/common/v1"
+	"go.temporal.io/api/workflow/v1"
+	"go.temporal.io/api/workflowservice/v1"
+	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
 func TestParsePageParams(t *testing.T) {
@@ -108,6 +115,10 @@ func TestSortExecutionSummaries(t *testing.T) {
 			{
 				StartTime: "2025-01-02T08:00:00Z",
 				EndTime:   "2025-01-02T08:30:00Z",
+				Children: []*WorkflowExecutionSummary{
+					{StartTime: "2025-01-02T08:20:00Z"},
+					{StartTime: "2025-01-02T08:10:00Z"},
+				},
 			},
 		},
 	}
@@ -123,6 +134,54 @@ func TestSortExecutionSummaries(t *testing.T) {
 	require.Equal(t, "2025-01-02T10:00:00Z", list[1].StartTime)
 	require.Equal(t, "2025-01-02T08:00:00Z", list[1].Children[0].StartTime)
 	require.Equal(t, "2025-01-02T09:00:00Z", list[1].Children[1].StartTime)
+	// Every nested level is chronological, whatever the roots' order.
+	require.Equal(t, "2025-01-02T08:10:00Z", list[1].Children[0].Children[0].StartTime)
+	require.Equal(t, "2025-01-02T08:20:00Z", list[1].Children[0].Children[1].StartTime)
+}
+
+func TestFilterNonPipelineExecutionsDropsLinkedSteps(t *testing.T) {
+	t.Parallel()
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "block-unlisted", "run-unlisted").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+				Type: &common.WorkflowType{Name: pipelineinternal.LinkedStepsWorkflowName},
+			},
+		}, nil).
+		Once()
+
+	check := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "check", RunID: "run-check"},
+		Type:      WorkflowType{Name: "Mobile Automation"},
+	}
+	block := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "block", RunID: "run-block"},
+		Type:      WorkflowType{Name: pipelineinternal.LinkedStepsWorkflowName},
+	}
+	innerListed := &WorkflowExecution{
+		Execution:       &WorkflowIdentifier{WorkflowID: "block-wallet-a1", RunID: "run-inner"},
+		Type:            WorkflowType{Name: "Mobile Automation"},
+		ParentExecution: &WorkflowIdentifier{WorkflowID: "block", RunID: "run-block"},
+	}
+	innerUnlisted := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "block-offer-a1", RunID: "run-inner-2"},
+		Type:      WorkflowType{Name: "Credentials Issuance"},
+		ParentExecution: &WorkflowIdentifier{
+			WorkflowID: "block-unlisted",
+			RunID:      "run-unlisted",
+		},
+	}
+
+	filtered, err := filterNonPipelineExecutions(
+		context.Background(),
+		mockClient,
+		[]*WorkflowExecution{check, block, innerListed, innerUnlisted},
+	)
+	require.NoError(t, err)
+	require.Equal(t, []*WorkflowExecution{check}, filtered)
+	mockClient.AssertExpectations(t)
 }
 
 func TestBaseKey(t *testing.T) {
