@@ -987,69 +987,101 @@ func TestHandleGetPipelineExecutionReturnsOneRun(t *testing.T) {
 
 	root := buildPipelineExecutionInfo("wf-1", "run-1", pipelineIdentifier)
 
+	// The single-run summary counts no steps, so it never reads the run's history.
 	mockClient := &temporalmocks.Client{}
 	mockClient.On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
 		Return(&workflowservice.DescribeWorkflowExecutionResponse{
 			WorkflowExecutionInfo: root,
 		}, nil).
-		Twice()
-	// The run is closed: its history is read once, the second request uses the cached count.
-	mockClient.On(
-		"GetWorkflowHistory",
-		mock.Anything,
-		"wf-1",
-		"run-1",
-		false,
-		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-	).Return(&fakeHistoryIterator{events: []*historypb.HistoryEvent{
-		stepsStartedEvent(t, pipelineinternal.StepDefinition{
-			StepSpec: pipelineinternal.StepSpec{ID: "fetch", Use: "http-request"},
-		}),
-		{
-			EventId:   5,
-			EventType: enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED,
-			Attributes: &historypb.HistoryEvent_ActivityTaskScheduledEventAttributes{
-				ActivityTaskScheduledEventAttributes: &historypb.ActivityTaskScheduledEventAttributes{
-					Input: stepsPayloads(t, map[string]any{
-						"config": map[string]any{workflowengine.StepIDConfigKey: "fetch"},
-					}),
+		Once()
+	originalTemporalClient := pipelineTemporalClient
+	t.Cleanup(func() { pipelineTemporalClient = originalTemporalClient })
+	pipelineTemporalClient = func(string) (client.Client, error) { return mockClient, nil }
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.SetPathValue("id", pipelineRecord.Id)
+	req.SetPathValue("workflow_id", "wf-1")
+	req.SetPathValue("run_id", "run-1")
+	rec := httptest.NewRecorder()
+	err = HandleGetPipelineExecution()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response pipelineWorkflowSummary
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Equal(t, "wf-1", response.Execution.WorkflowID)
+	require.Equal(t, pipelineIdentifier, response.PipelineIdentifier)
+	require.Empty(t, response.Children)
+	require.Nil(t, response.StepCount)
+	mockClient.AssertExpectations(t)
+}
+
+func TestCountStartedStepsCachesClosedRunsOnly(t *testing.T) {
+	app := setupPipelineStartApp(t)
+	defer app.Cleanup()
+
+	history := func() *fakeHistoryIterator {
+		return &fakeHistoryIterator{events: []*historypb.HistoryEvent{
+			stepsStartedEvent(t, pipelineinternal.StepDefinition{
+				StepSpec: pipelineinternal.StepSpec{ID: "fetch", Use: "http-request"},
+			}),
+			{
+				EventId:   5,
+				EventType: enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED,
+				Attributes: &historypb.HistoryEvent_ActivityTaskScheduledEventAttributes{
+					ActivityTaskScheduledEventAttributes: &historypb.ActivityTaskScheduledEventAttributes{
+						Input: stepsPayloads(t, map[string]any{
+							"config": map[string]any{workflowengine.StepIDConfigKey: "fetch"},
+						}),
+					},
 				},
 			},
-		},
-	}}).Once()
-	originalTemporalClient := pipelineTemporalClient
+		}}
+	}
+	mockClient := &temporalmocks.Client{}
+	// The closed run is read once; the running run on every call.
+	for _, tc := range []struct {
+		runID string
+		reads int
+	}{{"closed", 1}, {"running", 2}} {
+		mockClient.On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-1",
+			tc.runID,
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).Return(func(context.Context, string, string, bool, enums.HistoryEventFilterType) client.HistoryEventIterator {
+			return history()
+		}).Times(tc.reads)
+	}
 	originalStepCounts := pipelineStepCounts
-	t.Cleanup(func() {
-		pipelineTemporalClient = originalTemporalClient
-		pipelineStepCounts = originalStepCounts
-	})
-	pipelineTemporalClient = func(string) (client.Client, error) { return mockClient, nil }
+	t.Cleanup(func() { pipelineStepCounts = originalStepCounts })
 	pipelineStepCounts = &stepCountCache{counts: map[string]int{}}
 
 	for range 2 {
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.SetPathValue("id", pipelineRecord.Id)
-		req.SetPathValue("workflow_id", "wf-1")
-		req.SetPathValue("run_id", "run-1")
-		rec := httptest.NewRecorder()
-		err = HandleGetPipelineExecution()(&core.RequestEvent{
-			App:  app,
-			Auth: authRecord,
-			Event: router.Event{
-				Request:  req,
-				Response: rec,
-			},
-		})
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, rec.Code)
-
-		var response pipelineWorkflowSummary
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
-		require.Equal(t, "wf-1", response.Execution.WorkflowID)
-		require.Equal(t, pipelineIdentifier, response.PipelineIdentifier)
-		require.Empty(t, response.Children)
-		require.NotNil(t, response.StepCount)
-		require.Equal(t, 1, *response.StepCount)
+		for _, tc := range []struct {
+			runID  string
+			closed bool
+		}{{"closed", true}, {"running", false}} {
+			count := countStartedSteps(
+				context.Background(),
+				app,
+				mockClient,
+				"org",
+				workflowExecutionRef{WorkflowID: "wf-1", RunID: tc.runID},
+				tc.closed,
+			)
+			require.NotNil(t, count)
+			require.Equal(t, 1, *count)
+		}
 	}
 	mockClient.AssertExpectations(t)
 }

@@ -99,6 +99,7 @@ func listPipelineExecutionHistory(
 		request.TemporalClient,
 		request.Namespace,
 	)
+	builder.countSteps = true
 	summaries := make([]*pipelineWorkflowSummary, 0, len(executions))
 	for _, execution := range executions {
 		ref, ok := workflowExecutionReference(execution)
@@ -557,6 +558,9 @@ type pipelineExecutionSummaryBuilder struct {
 	namespace   string
 	runnerCache map[string]map[string]any
 	runnerInfo  map[string]pipeline.PipelineDeviceInfo
+	// countSteps reads each run's history for its step count. Only the per-pipeline list
+	// shows the count, so other callers skip the history reads.
+	countSteps bool
 }
 
 func newPipelineExecutionSummaryBuilder(
@@ -659,7 +663,9 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 	}
 	summary.PipelineIdentifier = pipelineIdentifier
 	summary.PipelineName = resolvePipelineNameFromRecord(pipelineRecord, pipelineIdentifier)
-	summary.StepCount = b.stepCount(ctx, rootSummary)
+	if b.countSteps {
+		summary.StepCount = b.stepCount(ctx, rootSummary)
+	}
 	return summary, nil
 }
 

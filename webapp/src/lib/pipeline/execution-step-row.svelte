@@ -137,7 +137,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<TdDash fallback="empty" />
 </tr>
 
-{#if expanded && step.execution}
+{#if expanded && step.execution && step.step_count !== 0}
 	<ExecutionSteps
 		{pipelineId}
 		{run}

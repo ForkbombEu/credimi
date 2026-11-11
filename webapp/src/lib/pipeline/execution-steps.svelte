@@ -45,6 +45,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		staleTime: running ? 0 : Infinity
 	}));
 
+	// Changing staleTime alone does not refetch: load the final steps once the run stops.
+	let wasRunning = running;
+	$effect(() => {
+		if (wasRunning && !running) void steps.refetch();
+		wasRunning = running;
+	});
+
 	let showAll = $state(false);
 
 	const shown = $derived(steps.data ? visibleSteps(steps.data, showAll) : []);
@@ -54,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const tdPy = $derived(density === 'comfortable' ? '0.25rem' : undefined);
 </script>
 
-{#if steps.isSuccess && steps.data.length > 0}
+{#if steps.data && steps.data.length > 0}
 	{#each shown as step (step.history_event.event_id)}
 		<ExecutionStepRow {pipelineId} {run} {step} {depth} {density} {timezone} />
 	{/each}

@@ -290,8 +290,7 @@ func resolvePipelineExecutionScope(
 	}, nil
 }
 
-// HandleListPipelineExecutionHistory lists paginated executions for one pipeline,
-// including each execution's child workflows.
+// HandleListPipelineExecutionHistory lists paginated executions for one pipeline.
 func HandleListPipelineExecutionHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		scope, apiErr := resolvePipelineExecutionScope(e, e.Request.PathValue("id"))
@@ -679,8 +678,13 @@ func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
 			Steps: make([]PipelineExecutionStep, 0, len(steps)),
 		}
 		for _, step := range steps {
-			out := pipelineExecutionStep(step, owner, children, blocks[step.ChildWorkflowID])
+			runs := blocks[step.ChildWorkflowID]
+			out := pipelineExecutionStep(step, owner, children, runs)
 			if out.Kind == string(pipelinehistory.StepKindBlock) && out.Execution != nil {
+				// Cache the count only once visibility reports the counted block run as
+				// closed: a block's status in the parent can close before its run stops.
+				closed := runs != nil && runs.latest != nil &&
+					normalizeTemporalStatus(runs.latest.Status) != string(WorkflowStatusRunning)
 				out.StepCount = countStartedSteps(
 					ctx,
 					e.App,
@@ -690,7 +694,7 @@ func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
 						WorkflowID: out.Execution.WorkflowID,
 						RunID:      out.Execution.RunID,
 					},
-					out.Status != string(WorkflowStatusRunning),
+					closed,
 				)
 			}
 			response.Steps = append(response.Steps, out)
