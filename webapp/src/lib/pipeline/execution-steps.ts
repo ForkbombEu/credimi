@@ -33,6 +33,8 @@ export type ExecutionStep = {
 	execution?: ExecutionRef;
 	has_logs?: boolean;
 	has_qr?: boolean;
+	/** Block steps: started steps in the block's latest run. */
+	step_count?: number;
 };
 
 export async function listExecutionSteps(

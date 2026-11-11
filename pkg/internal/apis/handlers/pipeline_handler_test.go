@@ -1550,6 +1550,46 @@ func TestHandleListPipelineExecutionStepsCountsBlockAttempts(t *testing.T) {
 		),
 	)
 
+	// The latest block run has started its first step only.
+	f.history("wf-1-offer", "block-run-2",
+		&historypb.HistoryEvent{
+			EventId:   1,
+			EventType: enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED,
+			Attributes: &historypb.HistoryEvent_WorkflowExecutionStartedEventAttributes{
+				WorkflowExecutionStartedEventAttributes: &historypb.WorkflowExecutionStartedEventAttributes{
+					Input: stepsPayloads(t, map[string]any{
+						"steps": []pipelineinternal.StepDefinition{
+							{
+								StepSpec: pipelineinternal.StepSpec{
+									ID:  "offer",
+									Use: "credential-offer",
+								},
+							},
+							{
+								StepSpec: pipelineinternal.StepSpec{
+									ID:  "wallet",
+									Use: "mobile-automation",
+								},
+								LinkedTo: "offer",
+							},
+						},
+					}),
+				},
+			},
+		},
+		&historypb.HistoryEvent{
+			EventId:   5,
+			EventType: enums.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED,
+			Attributes: &historypb.HistoryEvent_ActivityTaskScheduledEventAttributes{
+				ActivityTaskScheduledEventAttributes: &historypb.ActivityTaskScheduledEventAttributes{
+					Input: stepsPayloads(t, map[string]any{
+						"config": map[string]any{workflowengine.StepIDConfigKey: "offer"},
+					}),
+				},
+			},
+		},
+	)
+
 	rec := f.serve(t, "")
 	require.Equal(t, http.StatusOK, rec.Code)
 	var response PipelineExecutionStepsResponse
@@ -1566,6 +1606,8 @@ func TestHandleListPipelineExecutionStepsCountsBlockAttempts(t *testing.T) {
 		&WorkflowIdentifier{WorkflowID: "wf-1-offer", RunID: "block-run-2"},
 		block.Execution,
 	)
+	require.NotNil(t, block.StepCount)
+	require.Equal(t, 1, *block.StepCount)
 }
 
 func TestHandleListPipelineExecutionStepsRejectsABlockOfAnotherRun(t *testing.T) {

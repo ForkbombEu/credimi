@@ -53,11 +53,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	style:--nest-pl={row.nestPl}
 	style:--td-py={row.tdPy}
 >
-	<TdDash expand when={step.kind === 'block' && Boolean(step.execution)} fallback="empty">
+	<TdDash
+		expand
+		when={step.kind === 'block' && Boolean(step.execution) && step.step_count !== 0}
+		fallback="empty"
+	>
 		<Button
 			variant="ghost"
 			size="sm"
-			class="h-auto px-2 py-0.5 font-normal"
+			class={[
+				'h-auto gap-0.5 px-2 py-0.5 font-normal',
+				row.isCompact ? 'text-xs' : 'text-sm'
+			]}
 			style={`margin-left: ${depth * 0.75}rem`}
 			aria-expanded={expanded}
 			aria-label={m.Show_steps()}
@@ -66,6 +73,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<ChevronDownIcon
 				class={['size-3 transition-transform duration-200', { 'rotate-180': expanded }]}
 			/>
+			{#if step.step_count !== undefined}
+				<span class="text-muted-foreground tabular-nums">{step.step_count}</span>
+			{/if}
 		</Button>
 	</TdDash>
 

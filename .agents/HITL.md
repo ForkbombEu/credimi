@@ -660,5 +660,5 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   - Pipeline execution summaries no longer carry `children`, `attempt` or `max_attempts`. They carry `step_count`, the number of started main steps, so collapsed runs show it (user decision 11/11/2026). Each listed run's history is read for it; closed runs are counted once per process (`pipelineStepCounts`, at most 10000 runs), running runs on every request. A failed read leaves it unset and does not fail the list.
   - Only main pipeline steps that started are listed, in execution order: no finally steps, hooks or setup/cleanup activities, and no steps that never started (including those failed before scheduling with `CRE228`).
   - Activity steps link to their event in the embedded Temporal UI (`/history/events/<eventId>`); workflow steps link to their run page.
-  - Linked steps blocks are one row, expanded lazily to their inner steps, with `Attempt N of M` after a retry.
+  - Linked steps blocks are one row, expanded lazily to their inner steps, with `Attempt N of M` after a retry. Block rows carry `step_count` too, the started steps of the block's latest run, read when the parent run's steps are listed and cached like run counts once the block closed.
 - follow-up: add a bounded in-memory cache of step lists for closed runs if production step reads exceed 2s.

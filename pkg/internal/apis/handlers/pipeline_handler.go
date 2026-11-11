@@ -564,6 +564,9 @@ type PipelineExecutionStep struct {
 	Execution     *WorkflowIdentifier      `json:"execution,omitempty"`
 	HasLogs       bool                     `json:"has_logs,omitempty"`
 	HasQR         bool                     `json:"has_qr,omitempty"`
+	// StepCount is the number of started steps inside a block's latest run; unset for other
+	// steps and when the block's history could not be read.
+	StepCount *int `json:"step_count,omitempty"`
 }
 
 type PipelineExecutionStepsResponse struct {
@@ -676,10 +679,21 @@ func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
 			Steps: make([]PipelineExecutionStep, 0, len(steps)),
 		}
 		for _, step := range steps {
-			response.Steps = append(
-				response.Steps,
-				pipelineExecutionStep(step, owner, children, blocks[step.ChildWorkflowID]),
-			)
+			out := pipelineExecutionStep(step, owner, children, blocks[step.ChildWorkflowID])
+			if out.Kind == string(pipelinehistory.StepKindBlock) && out.Execution != nil {
+				out.StepCount = countStartedSteps(
+					ctx,
+					e.App,
+					temporalClient,
+					scope.Namespace,
+					workflowExecutionRef{
+						WorkflowID: out.Execution.WorkflowID,
+						RunID:      out.Execution.RunID,
+					},
+					out.Status != string(WorkflowStatusRunning),
+				)
+			}
+			response.Steps = append(response.Steps, out)
 		}
 		return e.JSON(http.StatusOK, response)
 	}

@@ -664,7 +664,7 @@ func (b *pipelineExecutionSummaryBuilder) Build(
 }
 
 // stepCount counts the started main steps of a pipeline run, the rows its steps endpoint
-// lists. Closed runs are counted once per process. A failed read leaves the count unset.
+// lists.
 func (b *pipelineExecutionSummaryBuilder) stepCount(
 	ctx context.Context,
 	run *WorkflowExecutionSummary,
@@ -672,24 +672,39 @@ func (b *pipelineExecutionSummaryBuilder) stepCount(
 	if b.client == nil || run.Execution == nil {
 		return nil
 	}
-	key := b.namespace + "\x00" + run.Execution.WorkflowID + "\x00" + run.Execution.RunID
-	closed := run.Status != string(WorkflowStatusRunning)
+	return countStartedSteps(
+		ctx,
+		b.app,
+		b.client,
+		b.namespace,
+		workflowExecutionRef{WorkflowID: run.Execution.WorkflowID, RunID: run.Execution.RunID},
+		run.Status != string(WorkflowStatusRunning),
+	)
+}
+
+// countStartedSteps counts the started main steps in the history of a pipeline run or of a
+// linked steps block run. Closed runs are counted once per process. A failed read leaves
+// the count unset.
+func countStartedSteps(
+	ctx context.Context,
+	app core.App,
+	temporalClient client.Client,
+	namespace string,
+	run workflowExecutionRef,
+	closed bool,
+) *int {
+	key := namespace + "\x00" + run.WorkflowID + "\x00" + run.RunID
 	if closed {
 		if count, ok := pipelineStepCounts.get(key); ok {
 			return &count
 		}
 	}
-	steps, err := pipelinehistory.LoadSteps(
-		ctx,
-		b.client,
-		run.Execution.WorkflowID,
-		run.Execution.RunID,
-	)
+	steps, err := pipelinehistory.LoadSteps(ctx, temporalClient, run.WorkflowID, run.RunID)
 	if err != nil {
-		b.app.Logger().Warn(
+		app.Logger().Warn(
 			"failed to count pipeline steps",
-			"workflow_id", run.Execution.WorkflowID,
-			"run_id", run.Execution.RunID,
+			"workflow_id", run.WorkflowID,
+			"run_id", run.RunID,
 			"error", err,
 		)
 		return nil
