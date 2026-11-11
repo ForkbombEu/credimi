@@ -66,7 +66,7 @@ import { EXTERNAL_VERSION, GLOBAL_DEVICE } from '$pipeline-form/execution-target
 import { WalletActionStepForm } from '$pipeline-form/steps/wallet-action/index.js';
 
 import { getBulkWalletVersionContext, isChangeWalletVersionAvailable } from './_partials/index.js';
-import { StepsBuilder } from './steps-builder.svelte.js';
+import { LINK_TO_PREVIOUS, StepsBuilder } from './steps-builder.svelte.js';
 
 const VALID_YAML = `name: test
 
@@ -284,6 +284,152 @@ describe('StepsBuilder form mode', () => {
 
 		builder.deleteStep(1);
 		expect(builder.stepKeys).toEqual([key1, key0]);
+	});
+});
+
+describe('StepsBuilder linked steps', () => {
+	function rawStep(use: string, id: string, linked_to?: string) {
+		return { use, id, with: {}, ...(linked_to ? { linked_to } : {}) };
+	}
+
+	function builderWith(...steps: object[]) {
+		return new StepsBuilder({
+			steps: steps.map((step) => [step, {}] as unknown as EnrichedStep),
+			yamlPreview: () => VALID_YAML
+		});
+	}
+
+	function links(builder: StepsBuilder) {
+		return builder.steps.map(([step]) => ('linked_to' in step ? step.linked_to : undefined));
+	}
+
+	it('does nothing when linking the first step', () => {
+		const builder = builderWith(rawStep('http-request', 'a'), rawStep('http-request', 'b'));
+
+		expect(builder.canLinkToPrevious(0)).toBe(false);
+		builder.setLinkedToPrevious(0, true);
+		expect(links(builder)).toEqual([undefined, undefined]);
+
+		builder.setLinkedToPrevious(1, true);
+		expect(links(builder)).toEqual([undefined, LINK_TO_PREVIOUS]);
+		builder.setLinkedToPrevious(1, false);
+		expect(links(builder)).toEqual([undefined, undefined]);
+	});
+
+	it('cannot link to or from a debug step', () => {
+		const builder = builderWith(
+			rawStep('http-request', 'a'),
+			{ use: 'debug' },
+			rawStep('http-request', 'b')
+		);
+
+		expect(builder.canLinkToPrevious(1)).toBe(false);
+		expect(builder.canLinkToPrevious(2)).toBe(false);
+	});
+
+	it('drops the link when cloning a step', () => {
+		const builder = builderWith(
+			rawStep('http-request', 'a'),
+			rawStep('http-request', 'b', LINK_TO_PREVIOUS)
+		);
+
+		builder.cloneStep(1);
+
+		expect(links(builder)).toEqual([undefined, LINK_TO_PREVIOUS, undefined]);
+	});
+
+	it('clears the link of the step that followed a cloned step', () => {
+		const builder = builderWith(
+			rawStep('http-request', 'a'),
+			rawStep('http-request', 'b', LINK_TO_PREVIOUS),
+			rawStep('http-request', 'c', LINK_TO_PREVIOUS)
+		);
+
+		builder.cloneStep(1);
+
+		expect(links(builder)).toEqual([undefined, LINK_TO_PREVIOUS, undefined, undefined]);
+	});
+
+	it('keeps continue_on_error the same across a linked chain', () => {
+		const continueOnError = (builder: StepsBuilder) =>
+			builder.steps.map(([step]) =>
+				'continue_on_error' in step ? step.continue_on_error : undefined
+			);
+		const builder = builderWith(
+			{ ...rawStep('http-request', 'a'), continue_on_error: true },
+			{ ...rawStep('http-request', 'b'), continue_on_error: false },
+			{ ...rawStep('http-request', 'c', LINK_TO_PREVIOUS), continue_on_error: false },
+			{ ...rawStep('http-request', 'd'), continue_on_error: false }
+		);
+
+		builder.setLinkedToPrevious(1, true);
+		expect(continueOnError(builder)).toEqual([true, true, true, false]);
+
+		builder.setContinueOnError(2, false);
+		expect(continueOnError(builder)).toEqual([false, false, false, false]);
+	});
+
+	it('clears the link of a moved step and of the step that followed it', () => {
+		const builder = builderWith(
+			rawStep('http-request', 'a'),
+			rawStep('http-request', 'b', LINK_TO_PREVIOUS),
+			rawStep('http-request', 'c', LINK_TO_PREVIOUS),
+			rawStep('http-request', 'd', LINK_TO_PREVIOUS)
+		);
+
+		builder.shiftStep(1, 1);
+
+		expect(builder.steps.map(([step]) => ('id' in step ? step.id : undefined))).toEqual([
+			'a',
+			'c',
+			'b',
+			'd'
+		]);
+		expect(links(builder)).toEqual([undefined, undefined, undefined, undefined]);
+	});
+
+	it("clears the follower's link when deleting a step", () => {
+		const builder = builderWith(
+			rawStep('http-request', 'a'),
+			rawStep('http-request', 'b', LINK_TO_PREVIOUS),
+			rawStep('http-request', 'c', LINK_TO_PREVIOUS),
+			rawStep('http-request', 'd', LINK_TO_PREVIOUS)
+		);
+
+		builder.deleteStep(1);
+
+		expect(links(builder)).toEqual([undefined, undefined, LINK_TO_PREVIOUS]);
+	});
+
+	it('links a mobile step consuming a deeplink appended after a credential offer', () => {
+		const builder = builderWith(rawStep('credential-offer', 'offer'));
+		const internal = builder as unknown as {
+			stateManager: { run: (fn: (state: unknown) => void) => void };
+			placeNewStep: (
+				state: unknown,
+				config: unknown,
+				data: unknown,
+				section: string
+			) => boolean;
+		};
+		const config = {
+			use: 'mobile-automation',
+			serialize: (data: unknown) => data
+		};
+
+		const deeplinkData = {
+			action_id: 'a',
+			version_id: 'v',
+			parameters: { deeplink: '${{ offer.outputs }}' }
+		};
+		internal.stateManager.run((state) => {
+			internal.placeNewStep(state, config, deeplinkData, 'steps');
+		});
+		internal.stateManager.run((state) => {
+			internal.placeNewStep(state, config, { action_id: 'a', version_id: 'v' }, 'steps');
+		});
+
+		expect(links(builder)).toEqual([undefined, LINK_TO_PREVIOUS, undefined]);
 	});
 });
 

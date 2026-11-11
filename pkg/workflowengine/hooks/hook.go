@@ -384,6 +384,11 @@ func startPipelineWorker(ctx context.Context, app core.App, c client.Client, wg 
 			pipelineWf.Workflow,
 			workflow.RegisterOptions{Name: pipelineWf.Name()},
 		)
+		linkedStepsWf := pipeline.NewLinkedStepsWorkflow()
+		w.RegisterWorkflowWithOptions(
+			linkedStepsWf.Workflow,
+			workflow.RegisterOptions{Name: linkedStepsWf.Name()},
+		)
 		debugAct := pipeline.NewDebugActivity()
 		w.RegisterActivityWithOptions(
 			debugAct.Execute,

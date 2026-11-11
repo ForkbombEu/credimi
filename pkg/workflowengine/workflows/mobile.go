@@ -32,6 +32,15 @@ const (
 	mobileActivityScheduleToStartTimeout = 30 * time.Second
 )
 
+// Storing screenshots retries on its own: inside a linked block the step allows one
+// attempt, and a network blip must not spend a block attempt and its deeplink.
+const (
+	screenshotStoreInitialInterval    = 5 * time.Second
+	screenshotStoreBackoffCoefficient = 2
+	screenshotStoreMaximumInterval    = time.Minute
+	screenshotStoreMaximumAttempts    = 5
+)
+
 // MobileAutomationWorkflow is a workflow that runs a mobile automation flow
 type MobileAutomationWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
@@ -335,6 +344,12 @@ func storeMobileFlowScreenshots(
 	}
 
 	activityOptions := mobileActivityOptions(input.ActivityOptions, pipelineTaskQueue)
+	activityOptions.RetryPolicy = &temporal.RetryPolicy{
+		InitialInterval:    screenshotStoreInitialInterval,
+		BackoffCoefficient: screenshotStoreBackoffCoefficient,
+		MaximumInterval:    screenshotStoreMaximumInterval,
+		MaximumAttempts:    screenshotStoreMaximumAttempts,
+	}
 	storageCtx := workflow.WithActivityOptions(ctx, activityOptions)
 	httpActivity := activities.NewMobileRunnerHTTPActivity(nil)
 	var storeResult workflowengine.ActivityResult

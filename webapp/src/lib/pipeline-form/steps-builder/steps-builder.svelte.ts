@@ -81,6 +81,52 @@ type CreatedCardRef = {
 	token: number;
 };
 
+/** Builder-state marker for "linked to the previous step"; `createPipelineYaml` rewrites it to the real id. */
+export const LINK_TO_PREVIOUS = 'previous-step';
+
+type LinkableStep = Exclude<PipelineStep, { use: 'debug' | 'child-pipeline' }>;
+
+/** Step types the backend refuses inside a linked block (`ValidateLinkedSteps`). */
+const UNLINKABLE_USES: Partial<Record<PipelineStep['use'], true>> = {
+	debug: true,
+	'child-pipeline': true,
+	'fcaf-validation': true,
+	'conformance-check': true
+};
+
+function isLinkableStep(step: PipelineStep): step is LinkableStep {
+	return !UNLINKABLE_USES[step.use];
+}
+
+function capturePredecessors(state: State): Map<string, string | undefined> {
+	return new Map(state.stepKeys.map((key, i) => [key, state.stepKeys[i - 1]]));
+}
+
+/** Drop `linked_to` from every step whose previous step changed. */
+function clearBrokenLinks(state: State, predecessors: Map<string, string | undefined>) {
+	state.stepKeys.forEach((key, i) => {
+		if (state.stepKeys[i - 1] === predecessors.get(key)) return;
+		const step = state.steps[i];
+		if (step && 'linked_to' in step[0]) delete step[0].linked_to;
+	});
+}
+
+/** Linked steps must share `continue_on_error` (`ValidateLinkedSteps`): set it on the whole chain of `index`. */
+function setChainContinueOnError(state: State, index: number, continueOnError: boolean) {
+	const isLinked = (i: number) => {
+		const step = state.steps[i]?.[0];
+		return Boolean(step && 'linked_to' in step && step.linked_to);
+	};
+	let start = index;
+	while (start > 0 && isLinked(start)) start--;
+	let end = index;
+	while (end + 1 < state.steps.length && isLinked(end + 1)) end++;
+	for (let i = start; i <= end; i++) {
+		const step = state.steps[i]?.[0];
+		if (step && step.use !== 'debug') step.continue_on_error = continueOnError;
+	}
+}
+
 export class StepsBuilder implements Renderable<StepsBuilder> {
 	readonly Component = Component;
 
@@ -337,6 +383,22 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			return true;
 		}
 
+		const previousStep = state.steps.at(-1)?.[0];
+		const previous = previousStep?.use;
+		// Wallet steps consuming a deeplink are linked by default to the deeplink step before them.
+		if (
+			step.use === 'mobile-automation' &&
+			'parameters' in step.with &&
+			step.with.parameters?.deeplink &&
+			(previous === 'credential-offer' || previous === 'use-case-verification-deeplink')
+		) {
+			step.linked_to = LINK_TO_PREVIOUS;
+			step.continue_on_error = Boolean(
+				previousStep &&
+				'continue_on_error' in previousStep &&
+				previousStep.continue_on_error
+			);
+		}
 		state.steps.push([step, formData as GenericRecord]);
 		state.stepKeys.push(newCardKey());
 		this.markCreatedCard('steps', state.steps.length - 1);
@@ -412,8 +474,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	deleteStep(index: number) {
 		if (this.isFormMode) return;
 		this.stateManager.run((state) => {
+			const predecessors = capturePredecessors(state);
 			state.steps.splice(index, 1);
 			state.stepKeys.splice(index, 1);
+			clearBrokenLinks(state, predecessors);
 		});
 	}
 
@@ -435,8 +499,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			if (pipelineStep.use !== 'debug' && 'id' in pipelineStep) {
 				pipelineStep.id = '';
 			}
+			const predecessors = capturePredecessors(state);
 			state.steps.splice(index + 1, 0, [pipelineStep, formData]);
 			state.stepKeys.splice(index + 1, 0, newCardKey());
+			clearBrokenLinks(state, predecessors);
 			insertedAt = index + 1;
 			this.markCreatedCard('steps', insertedAt);
 		});
@@ -447,7 +513,36 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		this.stateManager.run((state) => {
 			const step = state.steps[index];
 			if (!step || step[0].use == 'debug') return;
-			step[0].continue_on_error = continueOnError;
+			setChainContinueOnError(state, index, continueOnError);
+		});
+	}
+
+	canLinkToPrevious(index: number): boolean {
+		if (index <= 0) return false;
+		const step = this.state.steps[index];
+		const previous = this.state.steps[index - 1];
+		if (!step || !previous) return false;
+		return isLinkableStep(step[0]) && isLinkableStep(previous[0]);
+	}
+
+	setLinkedToPrevious(index: number, linked: boolean) {
+		if (!this.canLinkToPrevious(index)) return;
+		this.stateManager.run((state) => {
+			const step = state.steps[index]?.[0];
+			if (!step || !isLinkableStep(step)) return;
+			if (linked) {
+				step.linked_to = LINK_TO_PREVIOUS;
+				const previous = state.steps[index - 1]?.[0];
+				setChainContinueOnError(
+					state,
+					index,
+					Boolean(
+						previous && 'continue_on_error' in previous && previous.continue_on_error
+					)
+				);
+			} else {
+				delete step.linked_to;
+			}
 		});
 	}
 
@@ -512,10 +607,12 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		this.stateManager.run((state) => {
 			const indices = this.calculateShiftIndices(state, index, change);
 			if (!indices) return;
+			const predecessors = capturePredecessors(state);
 			const [movedItem] = state.steps.splice(indices.index, 1);
 			const [movedKey] = state.stepKeys.splice(indices.index, 1);
 			state.steps.splice(indices.newIndex, 0, movedItem);
 			state.stepKeys.splice(indices.newIndex, 0, movedKey);
+			clearBrokenLinks(state, predecessors);
 		});
 	}
 

@@ -207,6 +207,9 @@
               "id": {
                 "type": "string"
               },
+              "linked_to": {
+                "type": "string"
+              },
               "metadata": {
                 "additionalProperties": true,
                 "type": "object"
@@ -248,6 +251,9 @@
                 "type": "boolean"
               },
               "id": {
+                "type": "string"
+              },
+              "linked_to": {
                 "type": "string"
               },
               "metadata": {
@@ -299,6 +305,9 @@
               "id": {
                 "type": "string"
               },
+              "linked_to": {
+                "type": "string"
+              },
               "metadata": {
                 "additionalProperties": true,
                 "type": "object"
@@ -342,6 +351,9 @@
               "id": {
                 "type": "string"
               },
+              "linked_to": {
+                "type": "string"
+              },
               "metadata": {
                 "additionalProperties": true,
                 "type": "object"
@@ -383,6 +395,9 @@
                 "type": "boolean"
               },
               "id": {
+                "type": "string"
+              },
+              "linked_to": {
                 "type": "string"
               },
               "metadata": {
@@ -461,6 +476,9 @@
               "id": {
                 "type": "string"
               },
+              "linked_to": {
+                "type": "string"
+              },
               "metadata": {
                 "additionalProperties": true,
                 "type": "object"
@@ -519,6 +537,9 @@
               "id": {
                 "type": "string"
               },
+              "linked_to": {
+                "type": "string"
+              },
               "metadata": {
                 "additionalProperties": true,
                 "type": "object"
@@ -575,6 +596,9 @@
                 "type": "boolean"
               },
               "id": {
+                "type": "string"
+              },
+              "linked_to": {
                 "type": "string"
               },
               "metadata": {
@@ -662,6 +686,9 @@
               "id": {
                 "type": "string"
               },
+              "linked_to": {
+                "type": "string"
+              },
               "metadata": {
                 "additionalProperties": true,
                 "type": "object"
@@ -707,6 +734,9 @@
                 "type": "boolean"
               },
               "id": {
+                "type": "string"
+              },
+              "linked_to": {
                 "type": "string"
               },
               "metadata": {
@@ -755,6 +785,9 @@
                 "type": "boolean"
               },
               "id": {
+                "type": "string"
+              },
+              "linked_to": {
                 "type": "string"
               },
               "metadata": {
@@ -945,6 +978,9 @@
               "id": {
                 "type": "string"
               },
+              "linked_to": {
+                "type": "string"
+              },
               "metadata": {
                 "additionalProperties": true,
                 "type": "object"
@@ -992,6 +1028,9 @@
                 "type": "boolean"
               },
               "id": {
+                "type": "string"
+              },
+              "linked_to": {
                 "type": "string"
               },
               "metadata": {

@@ -119,19 +119,39 @@ func ReferencedStepOutputs(def *WorkflowDefinition, stepID string) []string {
 // and unique. A reference counts when its expression does not start with the `optional`
 // function; `pipeline_output.<id>` references count for <id>.
 func RequiredStepIDs(inputs StepInputs) []string {
+	ids, _ := collectStepRefs(inputs, false)
+	return slices.Sorted(maps.Keys(ids))
+}
+
+// ReferencedStepIDs returns the IDs of the steps whose outputs the step inputs reference,
+// sorted and unique, `optional` references included. all reports a bare `pipeline_output`
+// reference, which needs every step output.
+func ReferencedStepIDs(inputs StepInputs) (ids []string, all bool) {
+	refs, all := collectStepRefs(inputs, true)
+	delete(refs, "pipeline_output")
+	return slices.Sorted(maps.Keys(refs)), all
+}
+
+func collectStepRefs(inputs StepInputs, includeOptional bool) (map[string]struct{}, bool) {
 	ids := map[string]struct{}{}
+	all := false
 	var walk func(value any)
 	walk = func(value any) {
 		switch typed := value.(type) {
 		case string:
 			for _, ref := range ExpressionRefs(typed) {
 				initial, functions, err := ParsePipeline(ref)
-				if err != nil || len(functions) > 0 && functions[0] == "optional" {
+				if err != nil ||
+					!includeOptional && len(functions) > 0 && functions[0] == "optional" {
 					continue
 				}
 				segments := strings.Split(initial, ".")
-				if segments[0] == "pipeline_output" && len(segments) > 1 {
-					segments = segments[1:]
+				if segments[0] == "pipeline_output" {
+					if len(segments) > 1 {
+						segments = segments[1:]
+					} else {
+						all = true
+					}
 				}
 				id, _, _ := strings.Cut(segments[0], "[")
 				ids[id] = struct{}{}
@@ -148,7 +168,7 @@ func RequiredStepIDs(inputs StepInputs) []string {
 	}
 	walk(inputs.Config)
 	walk(inputs.Payload)
-	return slices.Sorted(maps.Keys(ids))
+	return ids, all
 }
 
 // helper to check if a string is exactly a single ${{ ... }} ref

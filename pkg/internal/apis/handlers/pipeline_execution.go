@@ -106,6 +106,14 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 				"",
 			)
 		}
+		if err := InternalPipeline.ValidateLinkedSteps(wfDef); err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"yaml",
+				"invalid linked steps",
+				err.Error(),
+			)
+		}
 
 		// 5. Determine Temporal namespace based on user organization (or default)
 		namespace := "default"

@@ -40,6 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		YamlPreviewPane
 	} from './_partials/index.js';
 	import { FollowUpCard, StepCard } from './cards/index.js';
+	import LinkConnector from './cards/link-connector.svelte';
 	import { isInCardExpandReady } from './in-card/in-card-session.svelte.js';
 	import { STEPS_BUILDER_PANE_LAYOUT as LAYOUT, type PaneHandle } from './pane-layout.js';
 	import { createTwinPaneSession } from './twin-pane-session.svelte.js';
@@ -249,6 +250,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							class="absolute left-0 w-full pb-3"
 							style:top="{vItem.start}px"
 						>
+							{#if step && builder.canLinkToPrevious(index)}
+								<LinkConnector
+									linked={'linked_to' in step[0] && Boolean(step[0].linked_to)}
+									disabled={builder.isFormMode}
+									onToggle={() =>
+										builder.setLinkedToPrevious(
+											index,
+											!('linked_to' in step[0] && step[0].linked_to)
+										)}
+								/>
+							{/if}
 							{#snippet stepCardBody()}
 								{#if step}
 									{@const editing =

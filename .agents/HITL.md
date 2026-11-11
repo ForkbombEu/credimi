@@ -597,3 +597,19 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - options considered: (a) assume an idle deployment and say so in the result (former implementation); (b) report inconclusive when a forbidden path matches an unattributed request; (c) a dedicated Capture deployment for these runs.
 - default risk: (a) another client's metadata fetch or `/authorize` within the window fails a conforming Wallet; (b) a Wallet that does send the forbidden request is reported inconclusive, never failed, by these two checks; (c) needs a separate deployment.
 - decision: (b). A forbidden request attributed to the session still fails; a match among unattributed requests reports inconclusive, and no match passes (`unattributedMatch` in `pkg/fcaf/validators/oid4vci_ws_ap.go`).
+
+### 2026-11-10 - Linked pipeline steps retried as one block
+
+- status: resolved (user decision 10/11/2026)
+- owner: human maintainer
+- context: A deeplink step (`credential-offer`, `use-case-verification-deeplink`, or an `http-request` that creates a session) produces a single-use deeplink that the next step consumes; retrying only the consumer reuses the spent deeplink.
+- question: How are producer and consumer retried together?
+- options considered: (a) step field `linked_to` grouping consecutive steps into one child workflow retried by Temporal; (b) retry logic inside the pipeline workflow; (c) per-step "retry from" pointers.
+- default risk: blocks hide inner steps behind one child row; a wrong retry decision repeats a non-retryable failure.
+- decision: (a).
+  - Contract: `linked_to: <id of the immediately previous main step>` on main steps only (not hook or finally steps). Rules (`ValidateLinkedSteps`): not on the first step; the previous step needs an id; it must name the previous step; `child-pipeline`, `debug`, `fcaf-validation` and `conformance-check` steps cannot be linked; linked steps carry no `on_error`/`on_success`; only the last step of a block may set `activity_options.retry_policy`, and that policy (else the runtime/global one) sets the block's attempts; every step of a block shares `continue_on_error`.
+  - Workflow type `Run linked steps` (sentence case, like the other step workflow types); block workflow ID `<pipeline wf id>-<canonified first step id>`; inner task workflow ID `<block wf id>-<canonified step id>-a<attempt>`.
+  - Executions list: one block row showing the latest attempt's status and inner steps; an `Attempt N of M` chip beside the status appears only after a retry.
+  - Pipeline composer: adjacent steps are linked and unlinked with a link button in the gap between their cards, which shows a connector line when linked; no drag and drop.
+  - Only the final attempt's screenshots are kept on `pipeline_results.maestro_screenshots`.
+- follow-up: document the `linked_to` contract in the AGENTS.md "Dynamic Pipeline Workflow" section.

@@ -75,6 +75,39 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	}
 	require.Len(t, with["pipeline_outputs"], 216)
 
+	stepsByID := make(map[string]map[string]any, len(definition.Steps))
+	for _, step := range definition.Steps {
+		id, _ := step["id"].(string)
+		stepsByID[id] = step
+	}
+	require.Equal(
+		t,
+		"dcql-credentials-match-cc301c32-create-pid-sdjwt-offer",
+		stepsByID["dcql-credentials-match-cc301c32-obtain-pid-sdjwt"]["linked_to"],
+	)
+	require.Equal(
+		t,
+		"callback-redirect-298d09a0-exercise-wallet-issue-pid-session",
+		stepsByID["callback-redirect-298d09a0-exercise-wallet"]["linked_to"],
+	)
+	require.Equal(
+		t,
+		"callback-redirect-298d09a0-create-callback-session",
+		stepsByID["callback-redirect-298d09a0-exercise-wallet-issue-pid-session"]["linked_to"],
+	)
+	presentation := stepsByID["dcql-credentials-match-cc301c32-create-presentation"]
+	require.NotNil(t, presentation)
+	presentationOptions, _ := presentation["activity_options"].(map[string]any)
+	require.NotContains(t, presentationOptions, "retry_policy")
+	walletOptions, _ := stepsByID["dcql-credentials-match-cc301c32-present-with-reference-implementation"]["activity_options"].(map[string]any)
+	walletPolicy, _ := walletOptions["retry_policy"].(map[string]any)
+	require.Equal(
+		t,
+		3,
+		walletPolicy["maximum_attempts"],
+		"the chain keeps the producer's retry policy",
+	)
+
 	committed, err := os.ReadFile(filepath.Join(
 		root,
 		"pipelines",
