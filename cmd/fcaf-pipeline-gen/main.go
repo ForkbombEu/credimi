@@ -54,9 +54,8 @@ var generatedSuites = []string{relyingPartySuite, attestationProviderSuite}
 // that the wallet refuses before consent leaves its instance untouched; it only
 // needs the wallet to hold a PID of the requested format, which an earlier
 // issuance of the same scenario or one injected issuance provides. An absence
-// probe needs none: it asks for a credential its scenario offered and the
-// wallet had to refuse, so the wallet holding nothing that matches is exactly
-// what it checks.
+// probe needs none: its request pins a value only a credential of its own
+// scenario carries, so no injected PID can match it.
 const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
 	// issuanceActionID is the issuance scenarios author; its credential-added
@@ -811,10 +810,9 @@ func opensPresentationRequest(step map[string]any, source map[string]any) bool {
 }
 
 // probesAbsence reports whether a wallet step is an absence probe: a request
-// pinned to a credential its scenario offered and the wallet had to refuse,
-// which passes only when the wallet holds nothing that matches. Issuing a PID
-// before it adds no evidence, because no PID the generator issues can match the
-// pinned value.
+// pinned to a value only a credential of its own scenario carries, which passes
+// only when the wallet offers nothing for it. Issuing a PID before it adds no
+// evidence, because no PID the generator issues can match the pinned value.
 func probesAbsence(step map[string]any) bool {
 	with, _ := step["with"].(map[string]any)
 	actionID, _ := with["action_id"].(string)

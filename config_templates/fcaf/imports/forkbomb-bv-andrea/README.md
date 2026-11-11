@@ -55,10 +55,11 @@ The FCAF scenarios additionally share nine flows. They must exist as
   so that a positive flow cannot skip the consent screen.
 - `fcaf-expect-no-matching-document`: the Wallet reports that it holds no
   credential satisfying the request.
-- `fcaf-expect-credential-absent`: the probe for a credential the scenario
-  offered and the Wallet had to refuse. It passes only on the no-match notice
-  and fails, without sharing, on any other screen, including the consent screen
-  of a Wallet that kept the credential. It never shares, so
+- `fcaf-expect-credential-absent`: the probe for a request pinned to a value
+  only a credential of the scenario carries (one the Wallet had to refuse, or
+  one issued under a constraint it fails). It passes only on the no-match
+  notice and fails, without sharing, on any other screen, including the consent
+  screen of a Wallet that would present that credential. It never shares, so
   `cmd/fcaf-pipeline-gen` issues no PID before it.
 - `fcaf-expect-credential-rejected`: the Wallet accepts a credential offer and
   then refuses to store the credential, showing an error screen or returning to

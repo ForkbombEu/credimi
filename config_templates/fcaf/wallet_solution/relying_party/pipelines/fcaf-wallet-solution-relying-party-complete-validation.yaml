@@ -16720,6 +16720,52 @@ steps:
         method: GET
         url: https://capture-wallet.credimi.io/sessions/${{ pid-under-18-constraint-e7f0d444-create-under-18-issuance.outputs.body.session_id }}
     - continue_on_error: true
+      id: pid-under-18-constraint-e7f0d444-create-over-18-constraint
+      use: http-request
+      with:
+        body:
+            presentation_request:
+                dcql_query:
+                    credentials:
+                        - claims:
+                            - path:
+                                - age_over_18
+                              values:
+                                - true
+                            - path:
+                                - birthdate
+                              values:
+                                - "2012-03-04"
+                          format: dc+sd-jwt
+                          id: pid
+                          meta:
+                            vct_values:
+                                - urn:eudi:pid:1
+                nonce: pid-over-18-constraint
+            request_uri_method: post
+            response_mode: direct_post.jwt
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/openid4vp/sessions
+    - continue_on_error: true
+      id: pid-under-18-constraint-e7f0d444-reject-over-18-constraint
+      linked_to: pid-under-18-constraint-e7f0d444-create-over-18-constraint
+      use: mobile-automation
+      with:
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+        parameters:
+            deeplink: ${{ pid-under-18-constraint-e7f0d444-create-over-18-constraint.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: pid-under-18-constraint-e7f0d444-fetch-over-18-constraint
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ pid-under-18-constraint-e7f0d444-create-over-18-constraint.outputs.body.session_id }}
+    - continue_on_error: true
       id: pid-under-18-constraint-e7f0d444-create-under-18-match
       use: http-request
       with:
@@ -16768,69 +16814,6 @@ steps:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ pid-under-18-constraint-e7f0d444-create-under-18-match.outputs.body.session_id }}
-    - continue_on_error: true
-      id: pid-under-18-constraint-e7f0d444-create-over-18-constraint
-      use: http-request
-      with:
-        body:
-            presentation_request:
-                dcql_query:
-                    credentials:
-                        - claims:
-                            - path:
-                                - age_over_18
-                              values:
-                                - true
-                            - path:
-                                - birthdate
-                              values:
-                                - "2012-03-04"
-                          format: dc+sd-jwt
-                          id: pid
-                          meta:
-                            vct_values:
-                                - urn:eudi:pid:1
-                nonce: pid-over-18-constraint
-            request_uri_method: post
-            response_mode: direct_post.jwt
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/openid4vp/sessions
-    - continue_on_error: true
-      id: pid-under-18-constraint-e7f0d444-reject-over-18-constraint-issue-pid-session
-      linked_to: pid-under-18-constraint-e7f0d444-create-over-18-constraint
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
-      id: pid-under-18-constraint-e7f0d444-reject-over-18-constraint
-      linked_to: pid-under-18-constraint-e7f0d444-reject-over-18-constraint-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ pid-under-18-constraint-e7f0d444-reject-over-18-constraint-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-              parameters:
-                deeplink: ${{ pid-under-18-constraint-e7f0d444-create-over-18-constraint.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: pid-under-18-constraint-e7f0d444-fetch-over-18-constraint
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ pid-under-18-constraint-e7f0d444-create-over-18-constraint.outputs.body.session_id }}
     - continue_on_error: true
       id: plain-redirect-uri-82b46bbe-create-presentation
       use: http-request

@@ -10,6 +10,13 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## MainInteraction 032 probes before spending the under-18 PID, 11/11/2026
+
+`pid-under-18-constraint` presented the single-use `pid_under_18` instance (`present-under-18-match`) before the `age_over_18: true` probe, so the probe met a Wallet with no usable under-18 PID and showed the no-match notice whether or not the Wallet enforces the constraint: the same vacuous pass as `033` (15/10/2026). The generator also injected a `pid_default` before the probe that its pinned `birthdate: 2012-03-04` could never match.
+
+- The probe now runs first and uses `fcaf-expect-credential-absent` (never shares, no injected PID), so the under-18 PID is unspent for the matching presentation after it. `wallet_withholds_the_pid_from_the_over_18_constraint` now pins `age_over_18 = true`. The action's documentation covers this second use: a request pinned to a value only a credential of the scenario carries. Aggregate 1440 → 1439 steps.
+- Reference Wallet 2026.09.42 on `emulator-5554`, production Capture: issuance `credential_issued` with `credential-added`; probe showed the no-match notice with the PID held (`no-match-notice` stored, session `request_retrieved`, nothing shared); the matching presentation then reached `presentation_validated`.
+
 ## Status-reference probes are strict absence probes, 11/11/2026
 
 The SD-JWT (`084`, `086`, `087`, `089`, `090`) and mdoc (`092`, `094`, `096`, `097`, `099`, `100`) status-reference scenarios issued each malformed token on a claim-set fixture, two of which were reused (`CREDIMI-DEMO-CASE`, `CREDIMI-DEMO-UMLAUT`), and probed with `fcaf-expect-no-matching-document`, which shares on a consent screen. The generator also injected a `pid_default` PID before every probe (20 issuances); its `CREDIMI-DEMO-001` could never match a pinned probe, so it added runtime and no evidence.
