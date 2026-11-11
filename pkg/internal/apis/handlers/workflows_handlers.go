@@ -1323,18 +1323,6 @@ func sortWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, ascending 
 	}
 }
 
-// linkedInnerDisplayName names a step run inside a linked steps block from its task workflow
-// ID, `<block id>-<step id>-a<attempt>`.
-func linkedInnerDisplayName(blockWorkflowID, innerWorkflowID string) string {
-	name := strings.TrimPrefix(innerWorkflowID, blockWorkflowID+"-")
-	if loc := linkedAttemptSuffix.FindStringIndex(name); loc != nil && loc[0] > 0 {
-		name = name[:loc[0]]
-	}
-	return name
-}
-
-var linkedAttemptSuffix = regexp.MustCompile(`-a\d+$`)
-
 // resolveQueuedPipelineDisplayName picks the best available name for queued pipeline rows.
 func resolveQueuedPipelineDisplayName(app core.App, identifier string) string {
 	fallback := strings.TrimSpace(identifier)

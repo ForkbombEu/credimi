@@ -8,19 +8,23 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipelinehistory"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+	"go.temporal.io/sdk/client"
 )
 
 var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
@@ -87,7 +91,14 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Method:      http.MethodGet,
 			Path:        "/executions/{id}/{workflow_id}/{run_id}",
 			Handler:     HandleGetPipelineExecution,
-			Description: "Get one pipeline execution with its child workflows",
+			Description: "Get one pipeline execution",
+		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/executions/{id}/{workflow_id}/{run_id}/steps",
+			Handler:        HandleListPipelineExecutionSteps,
+			ResponseSchema: PipelineExecutionStepsResponse{},
+			Description:    "List the started main steps of one pipeline execution, or of one linked steps block in it",
 		},
 		{
 			Method:         http.MethodPost,
@@ -279,8 +290,7 @@ func resolvePipelineExecutionScope(
 	}, nil
 }
 
-// HandleListPipelineExecutionHistory lists paginated executions for one pipeline,
-// including each execution's child workflows.
+// HandleListPipelineExecutionHistory lists paginated executions for one pipeline.
 func HandleListPipelineExecutionHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		scope, apiErr := resolvePipelineExecutionScope(e, e.Request.PathValue("id"))
@@ -403,7 +413,7 @@ func listPipelineExecutionHistoryPage(
 	return summaries, nil
 }
 
-// HandleGetPipelineExecution returns one exact pipeline execution and its child workflows.
+// HandleGetPipelineExecution returns one exact pipeline execution.
 func HandleGetPipelineExecution() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		scope, apiErr := resolvePipelineExecutionScope(
@@ -414,74 +424,14 @@ func HandleGetPipelineExecution() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
-		workflowID := strings.TrimSpace(e.Request.PathValue("workflow_id"))
-		runID := strings.TrimSpace(e.Request.PathValue("run_id"))
-		if workflowID == "" || runID == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"workflow",
-				"workflow ID and run ID are required",
-				"missing workflow_id or run_id path parameter",
-			)
-		}
-
 		temporalClient, err := pipelineTemporalClient(scope.Namespace)
 		if err != nil {
 			return temporalUnavailableError()
 		}
 
-		execution, apiErr := describeWorkflowExecution(
-			e.Request.Context(),
-			temporalClient,
-			workflowID,
-			runID,
-		)
+		execution, resultRecord, apiErr := resolveOwnedPipelineRun(e, scope, temporalClient)
 		if apiErr != nil {
 			return apiErr
-		}
-		if execution.Type.Name != pipeline.NewPipelineWorkflow().Name() {
-			return pipelineExecutionNotFound()
-		}
-
-		ref := workflowExecutionRef{WorkflowID: workflowID, RunID: runID}
-		resultRecords, err := fetchPipelineResultRecords(
-			e.App,
-			scope.Organization.Id,
-			[]workflowExecutionRef{ref},
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"database",
-				"failed to fetch pipeline results",
-				err.Error(),
-			)
-		}
-		resultRecord := resultRecords[ref]
-		identifier := pipelineIdentifierFromSearchAttributes(execution.SearchAttributes)
-		matchesSearchAttribute := identifier == scope.PipelineIdentifier
-		matchesResultRecord := resultRecord != nil &&
-			resultRecord.GetString("pipeline") == scope.Pipeline.Id
-		if !matchesSearchAttribute && !matchesResultRecord {
-			return pipelineExecutionNotFound()
-		}
-		if !matchesResultRecord {
-			resultRecord = nil
-		}
-
-		childrenByParent, err := getChildWorkflowsByParents(
-			e.Request.Context(),
-			temporalClient,
-			scope.Namespace,
-			[]workflowExecutionRef{ref},
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list child workflows",
-				err.Error(),
-			)
 		}
 
 		builder := newPipelineExecutionSummaryBuilder(
@@ -494,7 +444,6 @@ func HandleGetPipelineExecution() func(*core.RequestEvent) error {
 			scope.Pipeline,
 			scope.PipelineIdentifier,
 			execution,
-			childrenByParent[ref],
 			resultRecord,
 		)
 		if err != nil {
@@ -519,6 +468,302 @@ func pipelineExecutionNotFound() *apierror.APIError {
 		"pipeline execution not found",
 		"workflow execution does not belong to the requested pipeline",
 	)
+}
+
+// resolveOwnedPipelineRun describes the pipeline run named by the workflow_id and run_id
+// path parameters and checks that it is a run of the scope's pipeline, through its
+// PipelineIdentifier search attribute or its pipeline_results record. The record is
+// returned only when it matches the pipeline.
+func resolveOwnedPipelineRun(
+	e *core.RequestEvent,
+	scope *pipelineExecutionScope,
+	temporalClient client.Client,
+) (*WorkflowExecution, *core.Record, *apierror.APIError) {
+	workflowID := strings.TrimSpace(e.Request.PathValue("workflow_id"))
+	runID := strings.TrimSpace(e.Request.PathValue("run_id"))
+	if workflowID == "" || runID == "" {
+		return nil, nil, apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"workflow ID and run ID are required",
+			"missing workflow_id or run_id path parameter",
+		)
+	}
+
+	execution, apiErr := describeWorkflowExecution(
+		e.Request.Context(),
+		temporalClient,
+		workflowID,
+		runID,
+	)
+	if apiErr != nil {
+		return nil, nil, apiErr
+	}
+	if execution.Type.Name != pipeline.NewPipelineWorkflow().Name() {
+		return nil, nil, pipelineExecutionNotFound()
+	}
+	if execution.Execution == nil {
+		execution.Execution = &WorkflowIdentifier{}
+	}
+	execution.Execution.WorkflowID = workflowID
+	execution.Execution.RunID = runID
+
+	ref := workflowExecutionRef{WorkflowID: workflowID, RunID: runID}
+	resultRecords, err := fetchPipelineResultRecords(
+		e.App,
+		scope.Organization.Id,
+		[]workflowExecutionRef{ref},
+	)
+	if err != nil {
+		return nil, nil, apierror.New(
+			http.StatusInternalServerError,
+			"database",
+			"failed to fetch pipeline results",
+			err.Error(),
+		)
+	}
+	resultRecord := resultRecords[ref]
+	identifier := pipelineIdentifierFromSearchAttributes(execution.SearchAttributes)
+	matchesSearchAttribute := identifier == scope.PipelineIdentifier
+	matchesResultRecord := resultRecord != nil &&
+		resultRecord.GetString("pipeline") == scope.Pipeline.Id
+	if !matchesSearchAttribute && !matchesResultRecord {
+		return nil, nil, pipelineExecutionNotFound()
+	}
+	if !matchesResultRecord {
+		resultRecord = nil
+	}
+	return execution, resultRecord, nil
+}
+
+// PipelineStepHistoryEvent names the history event that started a step: the scheduled
+// event of an activity, or the initiated event of a child workflow.
+type PipelineStepHistoryEvent struct {
+	WorkflowID string `json:"workflow_id"`
+	RunID      string `json:"run_id"`
+	EventID    int64  `json:"event_id"`
+}
+
+// PipelineExecutionStep is one main step that started in a pipeline execution.
+type PipelineExecutionStep struct {
+	StepID string `json:"step_id"`
+	// Kind is activity, workflow or block.
+	Kind string `json:"kind"`
+	Type string `json:"type"`
+	// DisplayName is the step ID, or every step ID of a block joined with " → ".
+	DisplayName   string                   `json:"display_name"`
+	Status        string                   `json:"status"`
+	StartTime     string                   `json:"start_time,omitempty"`
+	EndTime       string                   `json:"end_time,omitempty"`
+	Duration      string                   `json:"duration,omitempty"`
+	Attempt       int32                    `json:"attempt,omitempty"`
+	MaxAttempts   int32                    `json:"max_attempts,omitempty"`
+	FailureReason string                   `json:"failure_reason,omitempty"`
+	HistoryEvent  PipelineStepHistoryEvent `json:"history_event"`
+	Execution     *WorkflowIdentifier      `json:"execution,omitempty"`
+	HasLogs       bool                     `json:"has_logs,omitempty"`
+	HasQR         bool                     `json:"has_qr,omitempty"`
+	// StepCount is the number of started steps inside a block's latest run; unset for other
+	// steps and when the block's history could not be read.
+	StepCount *int `json:"step_count,omitempty"`
+}
+
+type PipelineExecutionStepsResponse struct {
+	Steps []PipelineExecutionStep `json:"steps"`
+}
+
+// linkedStepsRuns is what visibility knows about the runs of one linked steps block.
+type linkedStepsRuns struct {
+	count  int
+	latest *WorkflowExecution
+}
+
+// HandleListPipelineExecutionSteps lists the started main steps of one pipeline run, read
+// from its Temporal history. With block_workflow_id and block_run_id it lists the steps of
+// one linked steps block run of that pipeline run.
+func HandleListPipelineExecutionSteps() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		scope, apiErr := resolvePipelineExecutionScope(e, e.Request.PathValue("id"))
+		if apiErr != nil {
+			return apiErr
+		}
+		temporalClient, err := pipelineTemporalClient(scope.Namespace)
+		if err != nil {
+			return temporalUnavailableError()
+		}
+		execution, _, apiErr := resolveOwnedPipelineRun(e, scope, temporalClient)
+		if apiErr != nil {
+			return apiErr
+		}
+		ctx := e.Request.Context()
+		owner := workflowExecutionRef{
+			WorkflowID: execution.Execution.WorkflowID,
+			RunID:      execution.Execution.RunID,
+		}
+
+		query := e.Request.URL.Query()
+		blockWorkflowID := strings.TrimSpace(query.Get("block_workflow_id"))
+		blockRunID := strings.TrimSpace(query.Get("block_run_id"))
+		if (blockWorkflowID == "") != (blockRunID == "") {
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"block_workflow_id and block_run_id go together",
+				"set both or neither",
+			)
+		}
+		if blockWorkflowID != "" {
+			block, apiErr := describeWorkflowExecution(
+				ctx,
+				temporalClient,
+				blockWorkflowID,
+				blockRunID,
+			)
+			if apiErr != nil {
+				return apiErr
+			}
+			parent := block.ParentExecution
+			if block.Type.Name != pipelineinternal.LinkedStepsWorkflowName || parent == nil ||
+				parent.WorkflowID != owner.WorkflowID || parent.RunID != owner.RunID {
+				return pipelineExecutionNotFound()
+			}
+			owner = workflowExecutionRef{WorkflowID: blockWorkflowID, RunID: blockRunID}
+		}
+
+		steps, err := pipelinehistory.LoadSteps(ctx, temporalClient, owner.WorkflowID, owner.RunID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to read pipeline steps",
+				err.Error(),
+			)
+		}
+
+		childrenByParent, err := getChildWorkflowsByParents(
+			ctx,
+			temporalClient,
+			scope.Namespace,
+			[]workflowExecutionRef{owner},
+		)
+		if err != nil {
+			e.App.Logger().Warn("failed to list pipeline step workflows", "error", err)
+		}
+		children := map[workflowExecutionRef]*WorkflowExecution{}
+		blocks := map[string]*linkedStepsRuns{}
+		for _, child := range childrenByParent[owner] {
+			if child.Execution == nil {
+				continue
+			}
+			children[workflowExecutionRef{
+				WorkflowID: child.Execution.WorkflowID,
+				RunID:      child.Execution.RunID,
+			}] = child
+			if child.Type.Name != pipelineinternal.LinkedStepsWorkflowName {
+				continue
+			}
+			runs := blocks[child.Execution.WorkflowID]
+			if runs == nil {
+				runs = &linkedStepsRuns{}
+				blocks[child.Execution.WorkflowID] = runs
+			}
+			runs.count++
+			if runs.latest == nil ||
+				utils.CompareTimeStrings(child.StartTime, runs.latest.StartTime) > 0 {
+				runs.latest = child
+			}
+		}
+
+		response := PipelineExecutionStepsResponse{
+			Steps: make([]PipelineExecutionStep, 0, len(steps)),
+		}
+		for _, step := range steps {
+			runs := blocks[step.ChildWorkflowID]
+			out := pipelineExecutionStep(step, owner, children, runs)
+			if out.Kind == string(pipelinehistory.StepKindBlock) && out.Execution != nil {
+				// Cache the count only once visibility reports the counted block run as
+				// closed: a block's status in the parent can close before its run stops.
+				closed := runs != nil && runs.latest != nil &&
+					normalizeTemporalStatus(runs.latest.Status) != string(WorkflowStatusRunning)
+				out.StepCount = countStartedSteps(
+					ctx,
+					e.App,
+					temporalClient,
+					scope.Namespace,
+					workflowExecutionRef{
+						WorkflowID: out.Execution.WorkflowID,
+						RunID:      out.Execution.RunID,
+					},
+					closed,
+				)
+			}
+			response.Steps = append(response.Steps, out)
+		}
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
+func pipelineExecutionStep(
+	step pipelinehistory.Step,
+	owner workflowExecutionRef,
+	children map[workflowExecutionRef]*WorkflowExecution,
+	blockRuns *linkedStepsRuns,
+) PipelineExecutionStep {
+	out := PipelineExecutionStep{
+		StepID:        step.ID,
+		Kind:          string(step.Kind),
+		Type:          step.TypeName,
+		DisplayName:   step.ID,
+		Status:        step.Status,
+		StartTime:     formatStepTime(step.StartTime),
+		EndTime:       formatStepTime(step.EndTime),
+		FailureReason: step.FailureMessage,
+		HistoryEvent: PipelineStepHistoryEvent{
+			WorkflowID: owner.WorkflowID,
+			RunID:      owner.RunID,
+			EventID:    step.EventID,
+		},
+	}
+	out.Duration = calculateDuration(out.StartTime, out.EndTime)
+
+	if step.ChildRunID != "" {
+		out.Execution = &WorkflowIdentifier{
+			WorkflowID: step.ChildWorkflowID,
+			RunID:      step.ChildRunID,
+		}
+	}
+	switch step.Kind {
+	case pipelinehistory.StepKindActivity:
+		out.Attempt = step.Attempt
+	case pipelinehistory.StepKindBlock:
+		out.DisplayName = strings.Join(step.BlockStepIDs, " → ")
+		out.Attempt = 1
+		if blockRuns != nil {
+			out.Attempt = int32(blockRuns.count) //nolint:gosec // runs of one block are few
+			if memo, ok := workflowExecutionLinkedSteps(blockRuns.latest); ok {
+				out.MaxAttempts = memo.MaximumAttempts
+			}
+			out.Execution = blockRuns.latest.Execution
+		}
+	case pipelinehistory.StepKindWorkflow:
+	}
+	if out.Execution != nil {
+		if child := children[workflowExecutionRef{
+			WorkflowID: out.Execution.WorkflowID,
+			RunID:      out.Execution.RunID,
+		}]; child != nil {
+			out.HasLogs = workflowExecutionHasLogs(child)
+			out.HasQR = workflowExecutionHasQR(child)
+		}
+	}
+	return out
+}
+
+func formatStepTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339Nano)
 }
 
 func shouldIncludeQueuedPipelineExecutions(statusFilter string) bool {
@@ -741,7 +986,6 @@ func HandleListPipelineExecutionOverview() func(*core.RequestEvent) error {
 					pipelineRecord,
 					pipelineIdentifier,
 					execution,
-					nil,
 					resultRecords[ref],
 				)
 				if err != nil {
