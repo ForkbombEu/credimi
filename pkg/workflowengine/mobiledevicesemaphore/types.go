@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 )
 
 const (
@@ -251,5 +252,5 @@ type MobileDeviceSemaphoreRunTicketState struct {
 
 func WorkflowID(deviceID string) string {
 	deviceID = canonify.NormalizePath(deviceID)
-	return fmt.Sprintf("mobile-device-semaphore/%s", deviceID)
+	return temporalid.Bounded(fmt.Sprintf("mobile-device-semaphore/%s", deviceID))
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -1764,7 +1765,7 @@ func cleanupDevice(
 }
 
 func mobileRunnerTaskQueue(hostRunnerID string) string {
-	return fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(hostRunnerID))
+	return temporalid.RunnerTaskQueue(canonify.NormalizePath(hostRunnerID))
 }
 
 func mobileDeviceHostRunnerID(deviceMap map[string]any) (string, bool) {

@@ -15,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	InternalPipeline "github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	pip "github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/google/uuid"
@@ -141,12 +142,12 @@ func HandlePipelineExecute() func(*core.RequestEvent) error {
 		// This endpoint executes ephemeral YAML directly, not a stored pipeline record.
 		// Do not attach PipelineIdentifier search attributes or create pipeline_results.
 		workflowOptions := client.StartWorkflowOptions{
-			ID: fmt.Sprintf(
+			ID: temporalid.Bounded(fmt.Sprintf(
 				"%s%s-%s",
 				pipelineExecuteWorkflowIDPrefix,
 				canonify.CanonifyPlain(wfDef.Name),
 				uuid.NewString(),
-			),
+			)),
 			TaskQueue: pip.PipelineTaskQueue,
 		}
 

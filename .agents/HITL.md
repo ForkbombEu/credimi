@@ -647,6 +647,20 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   - Only the final attempt's screenshots are kept on `pipeline_results.maestro_screenshots`.
 - follow-up: document the `linked_to` contract in the AGENTS.md "Dynamic Pipeline Workflow" section.
 
+### 2026-11-11 - Temporal IDs built from user-chosen names stay within 255 bytes
+
+- status: resolved (user decision 11/11/2026)
+- owner: human maintainer
+- context: Workflow, schedule and update IDs built from pipeline names, step IDs, repository names or runner and device paths have no length bound, and Temporal rejects IDs over 255 bytes (`BadStartChildExecutionAttributes: WorkflowId ... exceeds length limit`, seen on a linked block step of the FCAF attestation provider pipeline).
+- question: How are over-long IDs handled?
+- options considered: (a) raise `limit.maxIDLength` on the server; (b) shorten the linked block ID format; (c) one shared helper that leaves IDs that fit unchanged and cuts longer ones, ending them in a hash of the full ID.
+- default risk: a shortened ID no longer carries its full name, so code that parses names out of IDs (semaphore device IDs, `-log`/`-status` parent IDs) only works for IDs that fit.
+- decision: (c), `pkg/temporalid` (public, so credimi-runner imports it too).
+  - `Bounded` for workflow and update IDs; `BoundedSchedule` and `BoundedScheduledWorkflow` leave room for the `temporal-sys-scheduler:` prefix and the run time Temporal appends; `BoundedWithSuffix` keeps the `-log`/`-status` suffix that compliance handlers strip.
+  - Every ID builder that takes user-chosen text calls it inside the function that builds the ID, so code that rebuilds an ID (`pipeline.LinkedStepsBlockID`, the semaphore and PR comment IDs) gets the same value. IDs that fit are unchanged, so running workflows replay as before.
+  - Runner task queues (`<runner path>-TaskQueue`) are built by `temporalid.RunnerTaskQueue` in Credimi and in credimi-runner, which polls them; both must use it so the queue names match.
+- follow-up: credimi-runner depends on a Credimi pseudo-version for `pkg/temporalid` until a Credimi release contains it; bump it to that release tag.
+
 ### 2026-11-11 - Pipeline execution steps read from Temporal history
 
 - status: resolved (user decision 11/11/2026)

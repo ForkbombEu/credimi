@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -514,8 +515,12 @@ func startScheduledPipelineWithOptions(
 	}
 
 	canonifyName := canonify.CanonifyPlain(pipelineName)
-	scheduleID := fmt.Sprintf("Schedule_ID-%s-%s", canonifyName, uuid.NewString())
-	workflowID := fmt.Sprintf("Scheduled-%s-%s", canonifyName, uuid.NewString())
+	scheduleID := temporalid.BoundedSchedule(
+		fmt.Sprintf("Schedule_ID-%s-%s", canonifyName, uuid.NewString()),
+	)
+	workflowID := temporalid.BoundedScheduledWorkflow(
+		fmt.Sprintf("Scheduled-%s-%s", canonifyName, uuid.NewString()),
+	)
 
 	calendarSpec := workflowengine.BuildCalendarSpec(scheduleMode)
 	scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{

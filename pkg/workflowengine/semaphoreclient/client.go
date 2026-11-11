@@ -15,6 +15,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -52,7 +53,7 @@ func WaitTimeoutSeconds() int {
 // UpdateID builds the stable update ID of a semaphore update for a ticket.
 func UpdateID(prefix, deviceID, ticketID string) string {
 	deviceID = canonify.NormalizePath(deviceID)
-	return prefix + "/" + deviceID + "/" + ticketID
+	return temporalid.Bounded(prefix + "/" + deviceID + "/" + ticketID)
 }
 
 // startOptions starts the device semaphore, or attaches to the running one.
