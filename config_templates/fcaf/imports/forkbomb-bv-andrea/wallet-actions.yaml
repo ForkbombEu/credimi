@@ -118,10 +118,6 @@ actions:
     category: verify-credential
     tags: fcaf, ws_rp
     file: wallet/fcaf-exercise-trusted-authorities-values-empty-string.yaml
-  - name: fcaf-exercise-trusted-authorities-values-non-array
-    category: verify-credential
-    tags: fcaf, ws_rp
-    file: wallet/fcaf-exercise-trusted-authorities-values-non-array.yaml
   - name: fcaf-present-unchecked-claim
     category: verify-credential
     tags: fcaf, ws_rp

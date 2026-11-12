@@ -208,6 +208,30 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 			variant,
 		)
 	}
+	trustedAuthoritiesValuesPrefix := "dcql-trusted-authorities-values-non-2ccb8dca-"
+	for _, variant := range []string{"null", "true", "false", "zero", "number", "string", "object"} {
+		exercise := stepsByID[trustedAuthoritiesValuesPrefix+"exercise-"+variant]
+		exerciseWith, _ := exercise["with"].(map[string]any)
+		actions, ok := exerciseWith["actions"].([]any)
+		require.True(t, ok, "exercise-%s must compose wallet actions", variant)
+		require.NotEmpty(t, actions, "exercise-%s must run the strict rejection action", variant)
+		action, ok := actions[len(actions)-1].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, walletActionNamespace+"fcaf-expect-request-rejected", action["id"])
+		parameters, _ := action["parameters"].(map[string]any)
+		require.Equal(
+			t,
+			"${{ "+trustedAuthoritiesValuesPrefix+"create-"+variant+".outputs.body.deeplink }}",
+			parameters["deeplink"],
+		)
+		require.NotContains(
+			t,
+			stepsByID[trustedAuthoritiesValuesPrefix+"fetch-"+variant],
+			"linked_to",
+			"fetch-%s must run after a failed rejection action",
+			variant,
+		)
+	}
 	trustedAuthoritiesPrefix := "dcql-trusted-authorities-type-non-st-4e26a188-"
 	for _, variant := range []string{"null", "true", "false", "zero", "number", "array", "object"} {
 		exercise := stepsByID[trustedAuthoritiesPrefix+"exercise-"+variant]
