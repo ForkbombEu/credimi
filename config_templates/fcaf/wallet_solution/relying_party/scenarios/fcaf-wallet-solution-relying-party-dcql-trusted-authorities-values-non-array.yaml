@@ -50,6 +50,19 @@ steps:
                 - type: aki
                   values: null
         verification_applies: false
+- id: exercise-null
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-null.outputs.body.deeplink }}
+- id: fetch-null
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-null.outputs.body.session_id }}
+    expected_status: 200
 - id: create-true
   use: http-request
   with:
@@ -93,6 +106,19 @@ steps:
                 - type: aki
                   values: true
         verification_applies: false
+- id: exercise-true
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-true.outputs.body.deeplink }}
+- id: fetch-true
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-true.outputs.body.session_id }}
+    expected_status: 200
 - id: create-false
   use: http-request
   with:
@@ -136,6 +162,19 @@ steps:
                 - type: aki
                   values: false
         verification_applies: false
+- id: exercise-false
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-false.outputs.body.deeplink }}
+- id: fetch-false
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-false.outputs.body.session_id }}
+    expected_status: 200
 - id: create-zero
   use: http-request
   with:
@@ -179,6 +218,19 @@ steps:
                 - type: aki
                   values: 0
         verification_applies: false
+- id: exercise-zero
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-zero.outputs.body.deeplink }}
+- id: fetch-zero
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-zero.outputs.body.session_id }}
+    expected_status: 200
 - id: create-number
   use: http-request
   with:
@@ -222,6 +274,19 @@ steps:
                 - type: aki
                   values: 73
         verification_applies: false
+- id: exercise-number
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-number.outputs.body.deeplink }}
+- id: fetch-number
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-number.outputs.body.session_id }}
+    expected_status: 200
 - id: create-string
   use: http-request
   with:
@@ -265,6 +330,19 @@ steps:
                 - type: aki
                   values: not-an-array
         verification_applies: false
+- id: exercise-string
+  use: mobile-automation
+  with:
+    version_id: installed_from_external_source
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    parameters:
+      deeplink: ${{ create-string.outputs.body.deeplink }}
+- id: fetch-string
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-string.outputs.body.session_id }}
+    expected_status: 200
 - id: create-object
   use: http-request
   with:
@@ -309,55 +387,13 @@ steps:
                   values:
                     key: value
         verification_applies: false
-- id: exercise-trusted-authorities-values-non-array
+- id: exercise-object
   use: mobile-automation
   with:
     version_id: installed_from_external_source
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-trusted-authorities-values-non-array
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
     parameters:
-      deeplink_NULL: ${{ create-null.outputs.body.deeplink }}
-      deeplink_TRUE: ${{ create-true.outputs.body.deeplink }}
-      deeplink_FALSE: ${{ create-false.outputs.body.deeplink }}
-      deeplink_ZERO: ${{ create-zero.outputs.body.deeplink }}
-      deeplink_NUMBER: ${{ create-number.outputs.body.deeplink }}
-      deeplink_STRING: ${{ create-string.outputs.body.deeplink }}
-      deeplink_OBJECT: ${{ create-object.outputs.body.deeplink }}
-- id: fetch-null
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-null.outputs.body.session_id }}
-    expected_status: 200
-- id: fetch-true
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-true.outputs.body.session_id }}
-    expected_status: 200
-- id: fetch-false
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-false.outputs.body.session_id }}
-    expected_status: 200
-- id: fetch-zero
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-zero.outputs.body.session_id }}
-    expected_status: 200
-- id: fetch-number
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-number.outputs.body.session_id }}
-    expected_status: 200
-- id: fetch-string
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-string.outputs.body.session_id }}
-    expected_status: 200
+      deeplink: ${{ create-object.outputs.body.deeplink }}
 - id: fetch-object
   use: http-request
   with:
@@ -380,7 +416,13 @@ steps:
           random_number: ${{ fetch-number.outputs.body.raw.authorization_request_delivered }}
           string_value: ${{ fetch-string.outputs.body.raw.authorization_request_delivered }}
           object_value: ${{ fetch-object.outputs.body.raw.authorization_request_delivered }}
-          visual_evidence: ${{ exercise-trusted-authorities-values-non-array.outputs.flow_output.maestro_screenshot_urls }}
+          null_visual_evidence: ${{ exercise-null.outputs.flow_output.maestro_screenshot_urls }}
+          true_visual_evidence: ${{ exercise-true.outputs.flow_output.maestro_screenshot_urls }}
+          false_visual_evidence: ${{ exercise-false.outputs.flow_output.maestro_screenshot_urls }}
+          zero_visual_evidence: ${{ exercise-zero.outputs.flow_output.maestro_screenshot_urls }}
+          random_number_visual_evidence: ${{ exercise-number.outputs.flow_output.maestro_screenshot_urls }}
+          string_visual_evidence: ${{ exercise-string.outputs.flow_output.maestro_screenshot_urls }}
+          object_visual_evidence: ${{ exercise-object.outputs.flow_output.maestro_screenshot_urls }}
           null_value_session: ${{ fetch-null.outputs.body }}
           true_value_session: ${{ fetch-true.outputs.body }}
           false_value_session: ${{ fetch-false.outputs.body }}
@@ -410,8 +452,26 @@ outputs:
   object_value:
     path: $.output.fetch-object.outputs.body.raw.authorization_request_delivered
     decoder: raw
-  visual_evidence:
-    path: $.output.exercise-trusted-authorities-values-non-array.outputs.flow_output.maestro_screenshot_urls
+  null_visual_evidence:
+    path: $.output.exercise-null.outputs.flow_output.maestro_screenshot_urls
+    decoder: raw
+  true_visual_evidence:
+    path: $.output.exercise-true.outputs.flow_output.maestro_screenshot_urls
+    decoder: raw
+  false_visual_evidence:
+    path: $.output.exercise-false.outputs.flow_output.maestro_screenshot_urls
+    decoder: raw
+  zero_visual_evidence:
+    path: $.output.exercise-zero.outputs.flow_output.maestro_screenshot_urls
+    decoder: raw
+  random_number_visual_evidence:
+    path: $.output.exercise-number.outputs.flow_output.maestro_screenshot_urls
+    decoder: raw
+  string_visual_evidence:
+    path: $.output.exercise-string.outputs.flow_output.maestro_screenshot_urls
+    decoder: raw
+  object_visual_evidence:
+    path: $.output.exercise-object.outputs.flow_output.maestro_screenshot_urls
     decoder: raw
   null_value_session:
     path: $.output.fetch-null.outputs.body

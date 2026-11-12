@@ -17,13 +17,18 @@ tags:
 # request, no-match notice, Wallet error, blocked presentation) proves the
 # request reached the Wallet. Home/Documents is therefore accepted only after
 # two bounded, optional waits for a decisive screen: a 30 s probe and, when that
-# finds nothing, a further 100 s window, so a Wallet slower than 33 s is not
-# misread as having discontinued the interaction. A tolerant Wallet that shows
-# the consent screen is answered with Share and the PIN, so the Verifier records
-# a real Authorization Response and the source's negative assertion fails on
-# evidence instead of passing on a Wallet that never engaged. The flow itself
-# never fails its step: every wait is optional, the screenshot is the evidence
-# of which screen appeared, and the protocol assertion decides the verdict.
+# finds nothing, a further 100 s window, so a Wallet that reacts within 130 s is
+# not misread as having discontinued the interaction.
+#
+# A consent screen is captured, then answered with Share and the PIN so the
+# Verifier records the Authorization Response. The action fails afterwards:
+# reaching consent is itself a failure for every caller of this strict
+# rejection action.
+#
+# PocketBase keeps only the first 100 characters of the snake-cased
+# `<step id>-<screenshot name>` stem (tools/filesystem/file.go). Screenshot
+# names here stay within 15 characters (`request-refused`), which leaves room
+# for step ids of up to 84 characters.
 - launchApp:
     stopApp: true
     clearState: false
@@ -91,27 +96,30 @@ tags:
     visible: "Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked|Home|Documents|Add document|Welcome, .*"
     timeout: 30000
     optional: true
-# Phase 4: a tolerant Wallet that lists Requested data has accepted the request;
-# share it so the Verifier records the Authorization Response the source test
-# must refute. The terminal wait is optional because this flow must reach its
-# screenshot even when the Wallet stops on an unexpected screen.
+# Phase 4: a consent screen means the Wallet accepted a request it had to
+# reject. Capture both the consent and post-Share state so the Verifier records
+# its response, then fail this Wallet action regardless of that response.
 - runFlow:
     when:
       visible: "Requested data"
     commands:
-      - tapOn: "Share"
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - inputText: "12345"
-      - tapOn: "6"
-      - extendedWaitUntil:
-          visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
-          timeout: 30000
-          optional: true
-# The terminal screenshot is stored whatever screen the Wallet showed, so a
-# Wallet that stopped on a screen listed above is still recorded. The name must
-# leave room for the step id: the longest step id that uses this action is 84
-# characters and PocketBase keeps only the first 100 characters of the
-# snake-cased `<step id>-<screenshot name>` stem
-# (tools/filesystem/file.go), so the name may not exceed 15 characters.
+    - takeScreenshot: consent
+    - tapOn: "Share"
+    - waitForAnimationToEnd:
+        timeout: 3000
+    - inputText: "12345"
+    - tapOn: "6"
+    - extendedWaitUntil:
+        visible: ".*successfully shared.*|Oups! Something went wrong|invalid request"
+        timeout: 30000
+        optional: true
+    - takeScreenshot: post-share
+    - assertNotVisible:
+        text: ".*successfully shared.*"
+        label: "Wallet must not complete a presentation for a rejected request"
+    - assertTrue:
+        condition: "false"
+        label: "Wallet displayed consent for a request it must reject"
+# When the Wallet never presented a consent screen, preserve its terminal state
+# for the protocol assertion to classify.
 - takeScreenshot: request-refused

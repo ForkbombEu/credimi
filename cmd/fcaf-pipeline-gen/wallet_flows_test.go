@@ -36,6 +36,11 @@ func TestWalletActionShareConsumption(t *testing.T) {
 			want:   1,
 		},
 		{
+			name:   "request observation never presents",
+			action: walletActionNamespace + "fcaf-observe-request",
+			want:   0,
+		},
+		{
 			name:   "conditional consent share of a no-match request",
 			action: walletActionNamespace + "fcaf-expect-no-matching-document",
 			want:   1,
@@ -114,18 +119,20 @@ func TestMultipleTruePresentationSpendsEveryHeldInstance(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			available := map[credentialFormat]int{formatSDJWT: 3}
-			sessions, issuances := pidIssuancesBefore(
+			sessions, issuances, err := pidIssuancesBefore(
 				present,
 				session(testCase.multiple),
 				1,
 				available,
 				nil,
 			)
+			require.NoError(t, err)
 			require.Empty(t, sessions)
 			require.Empty(t, issuances)
 			require.Equal(t, testCase.wantRemaining, available[formatSDJWT])
 
-			_, next := pidIssuancesBefore(present, session(false), 1, available, nil)
+			_, next, err := pidIssuancesBefore(present, session(false), 1, available, nil)
+			require.NoError(t, err)
 			if testCase.wantRemaining == 0 {
 				require.NotEmpty(t, next, "a later Share must get a freshly issued PID")
 			} else {
@@ -133,4 +140,92 @@ func TestMultipleTruePresentationSpendsEveryHeldInstance(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRefusedOfferAnswersItsOwnProbe pins that a credential offer the Wallet
+// must refuse counts as the credential its probe targets: a probe that shares
+// when the Wallet kept that credential gets no injected PID, which could never
+// match the probe's pinned value. Without the offer the same probe gets one.
+func TestRefusedOfferAnswersItsOwnProbe(t *testing.T) {
+	offer := map[string]any{
+		"id":   "offer-malformed-credential",
+		"use":  mobileAutomationTask,
+		"with": map[string]any{"action_id": rejectedOfferActionID},
+	}
+	offerSession := map[string]any{"with": map[string]any{"body": map[string]any{
+		"credential_configuration_id": pidSDJWTConfigID,
+	}}}
+	probeSession := map[string]any{"with": map[string]any{"body": map[string]any{
+		"presentation_request": map[string]any{"dcql_query": map[string]any{
+			"credentials": []any{map[string]any{"id": "pid", "format": "dc+sd-jwt"}},
+		}},
+	}}}
+	probe := map[string]any{"id": "probe-malformed-credential", "use": mobileAutomationTask}
+
+	available := map[credentialFormat]int{}
+	_, _, err := pidIssuancesBefore(offer, offerSession, 0, available, nil)
+	require.NoError(t, err)
+	sessions, _, err := pidIssuancesBefore(probe, probeSession, 1, available, nil)
+	require.NoError(t, err)
+	require.Empty(t, sessions, "the refused offer is the credential the probe targets")
+
+	sessions, _, err = pidIssuancesBefore(
+		probe,
+		probeSession,
+		1,
+		map[credentialFormat]int{},
+		nil,
+	)
+	require.NoError(t, err)
+	require.Len(t, sessions, 1, "a probe with no earlier offer gets an injected PID")
+}
+
+// TestPresentationsSpendTheirOwnCredentialType pins that a Share of a
+// non-PID SD-JWT VC the scenario issued spends that type, never a PID, and
+// that running out of it stops generation instead of injecting a PID no query
+// for that type can match. A type the scenario never issued is a near-miss
+// request, answered by the PID the wallet holds.
+func TestPresentationsSpendTheirOwnCredentialType(t *testing.T) {
+	const degree = "urn:credimi:degree:1"
+	issueDegree := map[string]any{
+		"id":   "obtain-degree",
+		"use":  mobileAutomationTask,
+		"with": map[string]any{"action_id": issuanceActionID},
+	}
+	degreeOffer := map[string]any{"with": map[string]any{"body": map[string]any{
+		"credential_configuration_id": degree + ".sd-jwt.key-attestation-required",
+	}}}
+	request := func(vct string) map[string]any {
+		return map[string]any{"with": map[string]any{"body": map[string]any{
+			"presentation_request": map[string]any{"dcql_query": map[string]any{
+				"credentials": []any{map[string]any{
+					"id":     "credential",
+					"format": "dc+sd-jwt",
+					"meta":   map[string]any{"vct_values": []any{vct}},
+				}},
+			}},
+		}}}
+	}
+	present := map[string]any{"id": "present", "use": mobileAutomationTask}
+
+	available := map[credentialFormat]int{}
+	_, _, err := pidIssuancesBefore(issueDegree, degreeOffer, 0, available, nil)
+	require.NoError(t, err)
+
+	sessions, _, err := pidIssuancesBefore(present, request(degree), 1, available, nil)
+	require.NoError(t, err)
+	require.Empty(t, sessions, "the issued degree answers the first degree presentation")
+
+	_, _, err = pidIssuancesBefore(present, request(degree), 1, available, nil)
+	require.ErrorContains(t, err, degree, "a spent degree must not be replaced by a PID")
+
+	sessions, _, err = pidIssuancesBefore(
+		present,
+		request("urn:credimi:unissued:1"),
+		1,
+		available,
+		nil,
+	)
+	require.NoError(t, err)
+	require.Len(t, sessions, 1, "a type the scenario never issued falls back to a PID")
 }

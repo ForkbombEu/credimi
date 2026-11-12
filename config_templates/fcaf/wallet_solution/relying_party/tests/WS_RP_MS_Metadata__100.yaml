@@ -26,24 +26,22 @@ assertions:
   validator: json.field_equals
   input: evidence.issuance_session
   params: { field: status_reference, value: missing_uri }
-- id: issuer_used_the_identifying_claim_fixture
+- id: issuer_issued_the_probed_document_number
   validator: json.field_equals
   input: evidence.issuance_session
-  params: { field: fixture_id, value: pid_multiple_nationalities }
+  params: { field: document_number, value: CREDIMI-MDOC-MISSING-URI }
 - id: issuer_offered_an_mdoc_pid
   validator: json.field_equals
   input: evidence.issuance_session
-  params: { field: credential_configuration_id, value: urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required }
-- id: wallet_retained_no_mdoc_carrying_the_malformed_status
-  validator: oid4vp.malformed_status_credential_absent
+  params: { field: credential_configuration_id, value: "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required" }
+- id: wallet_matched_nothing_for_the_refused_document_number
+  validator: dcql.response_satisfies_constraints
   input: evidence.probe_exchange
   params:
-    doctype: eu.europa.ec.eudi.pid.1
-    namespace: eu.europa.ec.eudi.pid.1
-    claim: document_number
-    value: CREDIMI-DEMO-ARRAY
-    shape: missing_uri
-- id: rejection_visual_evidence_is_stored
+    mode: claims_values_no_match
+    expected_claim_path: [eu.europa.ec.eudi.pid.1, document_number]
+    expected_value: CREDIMI-MDOC-MISSING-URI
+- id: wallet_reaction_to_the_probe_is_recorded
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

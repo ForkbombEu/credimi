@@ -240,6 +240,36 @@ steps:
 - id: fetch-http-request-uri-target
   use: http-request
   with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-http-request-uri-target.outputs.body.session_id }}", expected_status: 200 }
+# Engagement control for the plain-HTTP request_uri: the same by-reference POST
+# invocation with Capture's own HTTPS request_uri. A Wallet that never handles
+# the link leaves the target unretrieved too, and request_uri_not_retrieved would
+# pass for it; this request must be retrieved. It pins a document_number no
+# credential carries, so the strict absence probe shares nothing and needs no PID.
+- id: create-https-request-uri-control
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers: { Content-Type: application/json }
+    body:
+      request_delivery: by_reference
+      request_uri_method: post
+      response_type: vp_token
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: https-request-uri-control
+        dcql_query:
+          credentials: [{ id: pid, format: dc+sd-jwt, meta: { vct_values: ["urn:eudi:pid:1"] }, claims: [{ path: [document_number], values: [CREDIMI-ENGAGEMENT-CONTROL] }] }]
+- id: probe-https-request-uri-control
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    version_id: installed_from_external_source
+    parameters: { deeplink: "${{ create-https-request-uri-control.outputs.body.deeplink }}" }
+- id: fetch-https-request-uri-control
+  use: http-request
+  with: { method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-https-request-uri-control.outputs.body.session_id }}", expected_status: 200 }
 - id: run-fcaf-validators
   use: fcaf-validation
   with:
@@ -282,3 +312,4 @@ steps:
           http_request_uri_outer_request: ${{ fetch-http-request-uri.outputs.body.raw.outer_request_delivered }}
           http_request_uri_target_session: ${{ fetch-http-request-uri-target.outputs.body }}
           http_request_uri_visual_evidence: ${{ reject-http-request-uri.outputs.flow_output.maestro_screenshot_urls }}
+          http_request_uri_control_session: ${{ fetch-https-request-uri-control.outputs.body }}

@@ -15,8 +15,8 @@ normative_references:
   section: '6.2'
   url: https://www.ietf.org/archive/id/draft-ietf-oauth-status-list-13.html
 # One issuance and one probe per malformed uri: the source's five steps plus the
-# unparseable uri the objective also covers. Each probe pins its fixture's
-# document_number and fails only on a credential carrying that exact shape.
+# unparseable uri the objective also covers. Each issuance carries its own
+# document_number, and its probe asks for that number alone.
 evidence:
   malformed_uri_issuance_session:
     from: pipeline.fixtures.status-reference.outputs.malformed_uri_issuance
@@ -60,19 +60,18 @@ assertions:
   validator: json.field_equals
   input: evidence.malformed_uri_issuance_session
   params: { field: status_reference, value: malformed_uri }
-- id: malformed_uri_issuer_used_the_identifying_claim_fixture
+- id: malformed_uri_issuer_issued_the_probed_document_number
   validator: json.field_equals
   input: evidence.malformed_uri_issuance_session
-  params: { field: fixture_id, value: pid_locality_no_diacritics }
-- id: malformed_uri_wallet_retained_no_credential_carrying_the_shape
-  validator: oid4vp.malformed_status_credential_absent
+  params: { field: document_number, value: CREDIMI-SDJWT-MALFORMED-URI }
+- id: malformed_uri_wallet_matched_nothing_for_the_refused_document_number
+  validator: dcql.response_satisfies_constraints
   input: evidence.malformed_uri_probe_exchange
   params:
-    vct: urn:eudi:pid:1
-    claim: document_number
-    value: CREDIMI-DEMO-NOUMLAUT
-    shape: malformed_uri
-- id: malformed_uri_rejection_visual_evidence_is_stored
+    mode: claims_values_no_match
+    expected_claim_path: [document_number]
+    expected_value: CREDIMI-SDJWT-MALFORMED-URI
+- id: malformed_uri_wallet_reaction_is_recorded
   validator: evidence.non_empty
   input: evidence.malformed_uri_visual_evidence
 # step 1, no scheme
@@ -80,19 +79,18 @@ assertions:
   validator: json.field_equals
   input: evidence.uri_missing_scheme_issuance_session
   params: { field: status_reference, value: uri_missing_scheme }
-- id: uri_missing_scheme_issuer_used_the_identifying_claim_fixture
+- id: uri_missing_scheme_issuer_issued_the_probed_document_number
   validator: json.field_equals
   input: evidence.uri_missing_scheme_issuance_session
-  params: { field: fixture_id, value: pid_person_b }
-- id: uri_missing_scheme_wallet_retained_no_credential_carrying_the_shape
-  validator: oid4vp.malformed_status_credential_absent
+  params: { field: document_number, value: CREDIMI-SDJWT-URI-MISSING-SCHEME }
+- id: uri_missing_scheme_wallet_matched_nothing_for_the_refused_document_number
+  validator: dcql.response_satisfies_constraints
   input: evidence.uri_missing_scheme_probe_exchange
   params:
-    vct: urn:eudi:pid:1
-    claim: document_number
-    value: CREDIMI-DEMO-002
-    shape: uri_missing_scheme
-- id: uri_missing_scheme_rejection_visual_evidence_is_stored
+    mode: claims_values_no_match
+    expected_claim_path: [document_number]
+    expected_value: CREDIMI-SDJWT-URI-MISSING-SCHEME
+- id: uri_missing_scheme_wallet_reaction_is_recorded
   validator: evidence.non_empty
   input: evidence.uri_missing_scheme_visual_evidence
 # step 2, unencoded space in the host
@@ -100,19 +98,18 @@ assertions:
   validator: json.field_equals
   input: evidence.uri_space_in_host_issuance_session
   params: { field: status_reference, value: uri_space_in_host }
-- id: uri_space_in_host_issuer_used_the_identifying_claim_fixture
+- id: uri_space_in_host_issuer_issued_the_probed_document_number
   validator: json.field_equals
   input: evidence.uri_space_in_host_issuance_session
-  params: { field: fixture_id, value: pid_under_18 }
-- id: uri_space_in_host_wallet_retained_no_credential_carrying_the_shape
-  validator: oid4vp.malformed_status_credential_absent
+  params: { field: document_number, value: CREDIMI-SDJWT-URI-SPACE-IN-HOST }
+- id: uri_space_in_host_wallet_matched_nothing_for_the_refused_document_number
+  validator: dcql.response_satisfies_constraints
   input: evidence.uri_space_in_host_probe_exchange
   params:
-    vct: urn:eudi:pid:1
-    claim: document_number
-    value: CREDIMI-DEMO-U18
-    shape: uri_space_in_host
-- id: uri_space_in_host_rejection_visual_evidence_is_stored
+    mode: claims_values_no_match
+    expected_claim_path: [document_number]
+    expected_value: CREDIMI-SDJWT-URI-SPACE-IN-HOST
+- id: uri_space_in_host_wallet_reaction_is_recorded
   validator: evidence.non_empty
   input: evidence.uri_space_in_host_visual_evidence
 # step 3, invalid percent-encoding
@@ -120,19 +117,18 @@ assertions:
   validator: json.field_equals
   input: evidence.uri_invalid_percent_encoding_issuance_session
   params: { field: status_reference, value: uri_invalid_percent_encoding }
-- id: uri_invalid_percent_encoding_issuer_used_the_identifying_claim_fixture
+- id: uri_invalid_percent_encoding_issuer_issued_the_probed_document_number
   validator: json.field_equals
   input: evidence.uri_invalid_percent_encoding_issuance_session
-  params: { field: fixture_id, value: pid_expiry_2032 }
-- id: uri_invalid_percent_encoding_wallet_retained_no_credential_carrying_the_shape
-  validator: oid4vp.malformed_status_credential_absent
+  params: { field: document_number, value: CREDIMI-SDJWT-URI-INVALID-PERCENT-ENCODING }
+- id: uri_invalid_percent_encoding_wallet_matched_nothing_for_the_refused_document_number
+  validator: dcql.response_satisfies_constraints
   input: evidence.uri_invalid_percent_encoding_probe_exchange
   params:
-    vct: urn:eudi:pid:1
-    claim: document_number
-    value: CREDIMI-DEMO-EXPIRY
-    shape: uri_invalid_percent_encoding
-- id: uri_invalid_percent_encoding_rejection_visual_evidence_is_stored
+    mode: claims_values_no_match
+    expected_claim_path: [document_number]
+    expected_value: CREDIMI-SDJWT-URI-INVALID-PERCENT-ENCODING
+- id: uri_invalid_percent_encoding_wallet_reaction_is_recorded
   validator: evidence.non_empty
   input: evidence.uri_invalid_percent_encoding_visual_evidence
 # step 4, illegal characters <, > and |
@@ -140,19 +136,18 @@ assertions:
   validator: json.field_equals
   input: evidence.uri_illegal_characters_issuance_session
   params: { field: status_reference, value: uri_illegal_characters }
-- id: uri_illegal_characters_issuer_used_the_identifying_claim_fixture
+- id: uri_illegal_characters_issuer_issued_the_probed_document_number
   validator: json.field_equals
   input: evidence.uri_illegal_characters_issuance_session
-  params: { field: fixture_id, value: pid_locality_diacritics }
-- id: uri_illegal_characters_wallet_retained_no_credential_carrying_the_shape
-  validator: oid4vp.malformed_status_credential_absent
+  params: { field: document_number, value: CREDIMI-SDJWT-URI-ILLEGAL-CHARACTERS }
+- id: uri_illegal_characters_wallet_matched_nothing_for_the_refused_document_number
+  validator: dcql.response_satisfies_constraints
   input: evidence.uri_illegal_characters_probe_exchange
   params:
-    vct: urn:eudi:pid:1
-    claim: document_number
-    value: CREDIMI-DEMO-UMLAUT
-    shape: uri_illegal_characters
-- id: uri_illegal_characters_rejection_visual_evidence_is_stored
+    mode: claims_values_no_match
+    expected_claim_path: [document_number]
+    expected_value: CREDIMI-SDJWT-URI-ILLEGAL-CHARACTERS
+- id: uri_illegal_characters_wallet_reaction_is_recorded
   validator: evidence.non_empty
   input: evidence.uri_illegal_characters_visual_evidence
 # step 5, empty string
@@ -160,19 +155,18 @@ assertions:
   validator: json.field_equals
   input: evidence.uri_empty_issuance_session
   params: { field: status_reference, value: uri_empty }
-- id: uri_empty_issuer_used_the_identifying_claim_fixture
+- id: uri_empty_issuer_issued_the_probed_document_number
   validator: json.field_equals
   input: evidence.uri_empty_issuance_session
-  params: { field: fixture_id, value: pid_family_name_uppercase }
-- id: uri_empty_wallet_retained_no_credential_carrying_the_shape
-  validator: oid4vp.malformed_status_credential_absent
+  params: { field: document_number, value: CREDIMI-SDJWT-URI-EMPTY }
+- id: uri_empty_wallet_matched_nothing_for_the_refused_document_number
+  validator: dcql.response_satisfies_constraints
   input: evidence.uri_empty_probe_exchange
   params:
-    vct: urn:eudi:pid:1
-    claim: document_number
-    value: CREDIMI-DEMO-CASE
-    shape: uri_empty
-- id: uri_empty_rejection_visual_evidence_is_stored
+    mode: claims_values_no_match
+    expected_claim_path: [document_number]
+    expected_value: CREDIMI-SDJWT-URI-EMPTY
+- id: uri_empty_wallet_reaction_is_recorded
   validator: evidence.non_empty
   input: evidence.uri_empty_visual_evidence
 verdict:

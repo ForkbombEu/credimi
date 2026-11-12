@@ -26,19 +26,18 @@ assertions:
   validator: json.field_equals
   input: evidence.issuance_session
   params: { field: status_reference, value: negative_index }
-- id: issuer_used_the_identifying_claim_fixture
+- id: issuer_issued_the_probed_document_number
   validator: json.field_equals
   input: evidence.issuance_session
-  params: { field: fixture_id, value: pid_family_name_trailing_space }
-- id: wallet_retained_no_credential_carrying_the_malformed_status
-  validator: oid4vp.malformed_status_credential_absent
+  params: { field: document_number, value: CREDIMI-SDJWT-NEGATIVE-INDEX }
+- id: wallet_matched_nothing_for_the_refused_document_number
+  validator: dcql.response_satisfies_constraints
   input: evidence.probe_exchange
   params:
-    vct: urn:eudi:pid:1
-    claim: document_number
-    value: CREDIMI-DEMO-SPACE
-    shape: negative_index
-- id: rejection_visual_evidence_is_stored
+    mode: claims_values_no_match
+    expected_claim_path: [document_number]
+    expected_value: CREDIMI-SDJWT-NEGATIVE-INDEX
+- id: wallet_reaction_to_the_probe_is_recorded
   validator: evidence.non_empty
   input: evidence.visual_evidence
 verdict:

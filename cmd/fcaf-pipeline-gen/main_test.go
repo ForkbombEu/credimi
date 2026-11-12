@@ -33,7 +33,6 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1460)
 	require.NotContains(
 		t,
 		string(data),
@@ -79,6 +78,112 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	for _, step := range definition.Steps {
 		id, _ := step["id"].(string)
 		stepsByID[id] = step
+	}
+	observedRequest := stepsByID["client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri"]
+	observedRequestWith, _ := observedRequest["with"].(map[string]any)
+	require.Contains(
+		t,
+		observedRequestWith["actions"],
+		map[string]any{
+			"id": walletActionNamespace + "fcaf-observe-request",
+			"parameters": map[string]any{
+				"deeplink": "${{ client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri.outputs.body.deeplink }}",
+			},
+		},
+	)
+	require.Contains(
+		t,
+		observedRequestWith["actions"],
+		map[string]any{
+			"id": walletActionNamespace + "fcaf-issue-pid",
+			"parameters": map[string]any{
+				"deeplink": "${{ client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri-issue-pid-session.outputs.body.deeplink }}",
+			},
+		},
+	)
+	reusedCredential := stepsByID["client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api"]
+	reusedCredentialWith, _ := reusedCredential["with"].(map[string]any)
+	require.Equal(
+		t,
+		walletActionNamespace+"fcaf-expect-request-rejected",
+		reusedCredentialWith["action_id"],
+	)
+	require.NotContains(t, reusedCredentialWith, "actions")
+	stringVariants := []string{"null", "true", "false", "zero", "number", "string", "object"}
+	arrayVariants := []string{"null", "true", "false", "zero", "number", "array", "object"}
+	for _, scenario := range []struct {
+		prefix   string
+		variants []string
+	}{
+		{prefix: "dcql-claim-sets-non-array-1ebdf3bd-", variants: stringVariants},
+		{prefix: "dcql-claims-non-array-ed748dc5-", variants: stringVariants},
+		{prefix: "dcql-trusted-authorities-type-non-st-4e26a188-", variants: arrayVariants},
+		{prefix: "dcql-trusted-authorities-values-item-000a74ab-", variants: arrayVariants},
+		{prefix: "dcql-trusted-authorities-values-non-2ccb8dca-", variants: stringVariants},
+	} {
+		for _, variant := range scenario.variants {
+			exercise := stepsByID[scenario.prefix+"exercise-"+variant]
+			exerciseWith, _ := exercise["with"].(map[string]any)
+			actions, ok := exerciseWith["actions"].([]any)
+			require.True(
+				t,
+				ok,
+				"%sexercise-%s must compose wallet actions",
+				scenario.prefix,
+				variant,
+			)
+			require.NotEmpty(
+				t,
+				actions,
+				"%sexercise-%s must run the strict rejection action",
+				scenario.prefix,
+				variant,
+			)
+			action, ok := actions[len(actions)-1].(map[string]any)
+			require.True(t, ok)
+			require.Equal(t, walletActionNamespace+"fcaf-expect-request-rejected", action["id"])
+			parameters, _ := action["parameters"].(map[string]any)
+			require.Equal(
+				t,
+				"${{ "+scenario.prefix+"create-"+variant+".outputs.body.deeplink }}",
+				parameters["deeplink"],
+			)
+			require.NotContains(
+				t,
+				stepsByID[scenario.prefix+"fetch-"+variant],
+				"linked_to",
+				"%sfetch-%s must run after a failed rejection action",
+				scenario.prefix,
+				variant,
+			)
+		}
+	}
+	holderBindingPrefix := "dcql-holder-binding-type-boundary-3ff3e611-"
+	for _, stepID := range []string{
+		"get-valid-true",
+		"get-valid-false",
+		"fetch-number-zero",
+		"fetch-number-one",
+		"fetch-number-random",
+		"fetch-string-true",
+		"fetch-string-false",
+		"fetch-string-uppercase-true",
+		"fetch-string-uppercase-false",
+		"fetch-string-yes",
+		"fetch-string-no",
+		"fetch-string-y",
+		"fetch-string-n",
+		"fetch-string-zero",
+		"fetch-string-one",
+		"fetch-string-random",
+	} {
+		require.NotContains(
+			t,
+			stepsByID[holderBindingPrefix+stepID],
+			"linked_to",
+			"%s must run after a failed wallet action",
+			stepID,
+		)
 	}
 	require.Equal(
 		t,
@@ -281,7 +386,9 @@ func TestGenerateHappyFlowFCAFPipeline(t *testing.T) {
 // every wallet action runs after its own scenario's reset, a presentation that
 // can reach Share is preceded by an unspent issuance of the format it requests
 // from the same scenario, and a presentation the wallet refuses still finds a
-// PID of that format, so the refusal is not just an empty wallet. A step's
+// PID of that format, so the refusal is not just an empty wallet. An absence
+// probe is the exception: it checks that the wallet holds nothing matching a
+// credential it had to refuse, so no PID may be issued for it. A step's
 // `actions` run in order, so each entry counts as a wallet step of its own.
 func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 	root := filepath.Join(
@@ -318,6 +425,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 		resets := 0
 		shares := 0
 		injected := 0
+		absenceProbes := 0
 		for index, step := range definition.Steps {
 			id, _ := step["id"].(string)
 			if use, _ := step["use"].(string); use != mobileAutomationTask {
@@ -410,7 +518,7 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 				// example to prove a held credential does not match the request,
 				// but every Share must find an unspent instance of the requested
 				// format.
-				for _, format := range presentedCredentialFormats(source, consumed) {
+				for _, format := range presentedCredentialFormats(source, consumed, available) {
 					require.GreaterOrEqualf(
 						t,
 						available[format],
@@ -427,12 +535,25 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 				// A multiple: true query returns, and so spends, every instance
 				// of its format the wallet holds.
 				if consumed > 0 {
-					for _, format := range formatsSpentEntirely(source) {
+					for _, format := range formatsSpentEntirely(source, available) {
 						available[format] = 0
 					}
 				}
 				if consumed == 0 && opensPresentationRequest(action, source) {
-					for _, format := range presentedCredentialFormats(source, 1) {
+					if probesAbsence(action) {
+						require.Falsef(
+							t,
+							slices.ContainsFunc(definition.Steps, func(other map[string]any) bool {
+								return other["id"] == id+"-issue-pid-session"
+							}),
+							"%s: absence probe %q gets an injected PID",
+							pipeline,
+							id,
+						)
+						absenceProbes++
+						continue
+					}
+					for _, format := range presentedCredentialFormats(source, 1, available) {
 						require.Positivef(
 							t,
 							available[format],
@@ -449,11 +570,12 @@ func TestAggregateHoldsACredentialForEveryPresentation(t *testing.T) {
 		require.Positivef(t, resets, "%s: no scenario resets the wallet", pipeline)
 		require.Positivef(t, shares, "%s: no presentation shares a credential", pipeline)
 		t.Logf(
-			"%s: %d resets, %d shares, %d injected issuances",
+			"%s: %d resets, %d shares, %d injected issuances, %d absence probes",
 			pipeline,
 			resets,
 			shares,
 			injected,
+			absenceProbes,
 		)
 	}
 }

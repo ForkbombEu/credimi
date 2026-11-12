@@ -10,6 +10,55 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Status-reference probes share on consent, 12/11/2026
+
+The `status-reference-rejection` and `mdoc-status-reference-rejection` probes (Metadata `084`, `086`, `087`, `089`, `090`, `092`, `096`, `097`, `099`, `100`; 20 probes) moved from `fcaf-expect-credential-absent` to `fcaf-expect-request-rejected`. A Wallet that kept the malformed credential now shares it on the consent screen, so the Verifier records the presentation and `claims_values_no_match` fails on protocol evidence. Before, the probe failed without sharing, the session stayed `request_retrieved` and only `evidence.screenshot_named` `no-match-notice` failed the test, which also failed a compliant Wallet that refuses silently or returns Home.
+
+- Tests replace `evidence.screenshot_named` with `evidence.non_empty` on the probe screenshots. `claims_values_no_match` is engagement guarded, so a Wallet that never retrieved the request blocks instead of passing.
+- `cmd/fcaf-pipeline-gen` counts a `fcaf-expect-credential-rejected` offer as an issuance (`issuesCredential`): the probe's Share spends that credential, so no PID is injected before it (`TestRefusedOfferAnswersItsOwnProbe`). Aggregate step count unchanged; only the 20 probe action ids differ.
+- `fcaf-expect-credential-absent` stays for `MainInteraction__032` (sharing would spend the under-18 PID its matching presentation needs), the `ProtocolFlow__002e_UF` and `ProtocolMessages__043` engagement controls, and the attestation-provider `031b_UF` probe.
+- Not run on the reference Wallet yet.
+
+## Attestation-provider 031b_UF probes with the strict absence action, 11/11/2026
+
+`credential-request-denied` probed for the denied `pid_person_b` (`family_name` Bianchi) with `fcaf-expect-no-matching-document`, after an injected `pid_default` (Rossi) that could never match the probe. The probe now uses `fcaf-expect-credential-absent` (tagged `ws_ap`), so no PID is injected (AP aggregate 48 → 47 steps), and `WS_AP_IA_MainInteraction_031b_UF` also asserts `evidence.screenshot_named` `no-match-notice` on the probe's screenshots, because the probe no longer shares on a Wallet that kept the credential.
+
+- Reference Wallet 2026.09.42 on `emulator-5554`, production Capture: PAR 201, authorize and redirect 302, token and nonce 200, `/credential` 400; `fcaf-expect-credential-rejected` passed and the Bianchi probe showed the no-match notice, session `request_retrieved`, nothing shared. A first attempt stopped on `Issuance request` with no request recorded (the Accept tap did not register); the retry went through.
+
+## Credential type in the generator's instance accounting, 11/11/2026
+
+`cmd/fcaf-pipeline-gen` counted instances by format only, so the degree SD-JWT VC of `interaction-degree-sdjwt` (034c–034g, one degree issued for five presentations) counted as an SD-JWT PID: after the first presentation it injected a `pid_default` before each of the other four, which no `vct urn:credimi:degree:1` query can match.
+
+- SD-JWT instances are now keyed by `vct` (`sdJWTFormat`; Capture configurations name it before `.sd-jwt`, the EU PID maps to `urn:eudi:pid:1`). mdoc stays keyed by format, because the domestic and EU PID mdoc share the doctype `eu.europa.ec.eudi.pid.1`. A type the scenario never issued resolves to the PID (`resolveFormat`), so the near-miss scenarios (`not-the-wallet-pid`, `urn:missing`, …) generate as before. A presentation of a type the scenario issued with none unspent fails generation, since the generator issues only PIDs (`TestPresentationsSpendTheirOwnCredentialType`).
+- The degree scenario issues one degree before each presentation. Aggregate 1445 → 1449 steps; no other scenario's steps changed.
+- Reference Wallet 2026.09.42 on `emulator-5554`: a degree presented twice without a new issuance was accepted both times, and after three presentations both held degrees still showed `1/1`, while a presented PID showed `0/1`. The Wallet's reuse policy spends PIDs once but reuses this attestation, so the old pipeline would not have failed 034d–034g on this Wallet; one issuance per presentation keeps them independent of a Wallet's reuse policy at the cost of four issuances.
+
+## Engagement controls for request_uri_not_retrieved, 11/11/2026
+
+`WS_RP_IA_ProtocolFlow__002e_UF` and `WS_RP_MS_ProtocolMessages__043` decided their verdict with `oid4vp.request_uri_not_retrieved`, which passes whenever Capture recorded no retrieval and is outside the wallet-engagement guard. With `fcaf-expect-request-rejected` (never fails, unconditional `request-refused` screenshot for `evidence.non_empty`), a Wallet that never handled the link passed both.
+
+- Each scenario now opens an engagement control on the same invocation path with valid parameters (`openid4vp://` by-reference POST for 002e, Capture's HTTPS `request_uri` for 043), pinned to `document_number` `CREDIMI-ENGAGEMENT-CONTROL`, which no credential carries, through `fcaf-expect-credential-absent` (no share, no injected PID). Both tests now also assert `oid4vp.request_uri_retrieval` `method: POST` on the control. 002e still accepts a silent refusal, as its source allows. Aggregate 1439 → 1445 steps.
+- Reference Wallet 2026.09.42 on `emulator-5554`: the DELETE request and the HTTP `request_uri` target stayed `created` (the Wallet showed `Oups! Something went wrong` for the DELETE one); both controls reached `request_retrieved` with a POST retrieval and the no-match notice.
+
+## MainInteraction 032 probes before spending the under-18 PID, 11/11/2026
+
+`pid-under-18-constraint` presented the single-use `pid_under_18` instance (`present-under-18-match`) before the `age_over_18: true` probe, so the probe met a Wallet with no usable under-18 PID and showed the no-match notice whether or not the Wallet enforces the constraint: the same vacuous pass as `033` (15/10/2026). The generator also injected a `pid_default` before the probe that its pinned `birthdate: 2012-03-04` could never match.
+
+- The probe now runs first and uses `fcaf-expect-credential-absent` (never shares, no injected PID), so the under-18 PID is unspent for the matching presentation after it. `wallet_withholds_the_pid_from_the_over_18_constraint` now pins `age_over_18 = true`. The action's documentation covers this second use: a request pinned to a value only a credential of the scenario carries. Aggregate 1440 → 1439 steps.
+- Reference Wallet 2026.09.42 on `emulator-5554`, production Capture: issuance `credential_issued` with `credential-added`; probe showed the no-match notice with the PID held (`no-match-notice` stored, session `request_retrieved`, nothing shared); the matching presentation then reached `presentation_validated`.
+
+## Status-reference probes are strict absence probes, 11/11/2026
+
+The SD-JWT (`084`, `086`, `087`, `089`, `090`) and mdoc (`092`, `094`, `096`, `097`, `099`, `100`) status-reference scenarios issued each malformed token on a claim-set fixture, two of which were reused (`CREDIMI-DEMO-CASE`, `CREDIMI-DEMO-UMLAUT`), and probed with `fcaf-expect-no-matching-document`, which shares on a consent screen. The generator also injected a `pid_default` PID before every probe (20 issuances); its `CREDIMI-DEMO-001` could never match a pinned probe, so it added runtime and no evidence.
+
+- Capture `d000c7b` (deployed) accepts `document_number` on `POST /sessions` and records it at the top level of the issuance capture, for SD-JWT and mdoc, with a malformed `status_reference` too. Each sub-case now issues the baseline PID with its own `CREDIMI-SDJWT-<SHAPE>` / `CREDIMI-MDOC-<SHAPE>` number and no `fixture_id`; probes pin that number without `multiple`.
+- New action `fcaf-expect-credential-absent`: passes only on the no-match notice (screenshot `no-match-notice`), otherwise screenshots `absence-probe` and fails without sharing. `cmd/fcaf-pipeline-gen` injects no PID before it (`probesAbsence`); `TestAggregateHoldsACredentialForEveryPresentation` asserts that. Aggregate 1460 → 1440 steps.
+- Tests assert `json.field_equals` on `document_number`, `dcql.response_satisfies_constraints` `claims_values_no_match` pinned to it (wallet engagement guarded), and `evidence.screenshot_named` `no-match-notice`. The screenshot assertion is what fails a Wallet that kept the token, since nothing reaches the verifier. `oid4vp.malformed_status_credential_absent` had no other user and was removed; its RFC 3986 helpers moved to `oid4vci_ws_ap.go` for `rfc3986URIProblem`.
+- Engine smoke on synthetic evidence: rejection passes; kept-and-not-shared, kept-and-shared and a probe pinned to another number fail; a never-fetched request blocks the DCQL assertion and fails the test on the missing notice.
+- Reference Wallet 2026.09.42 on `emulator-5554` (Pixel 7, Android 17, existing wallet state, no reset), Maestro CLI, production Capture: the `__084` offer (`CREDIMI-SDJWT-STATUS-WITHOUT-STATUS-LIST`) reached `View details`, so `fcaf-expect-credential-rejected` failed and Capture recorded `credential_issued` (RI-WALLET-009 still holds). The pinned probe showed the consent screen listing the Credimi Demo PID; `fcaf-expect-credential-absent` stored `absence-probe`, failed on its final assertion and never shared: the verifier session stayed `request_retrieved` with no wallet response. Fed to the engine, those real sessions give `__084` fail on `wallet_showed_the_no_match_notice` only. Control probe for `CREDIMI-SDJWT-NEVER-ISSUED`: no-match notice, both screenshots, flow passed.
+
+Still open: the `wallet_actions` record on credimi.io must be created from the import file before the aggregate runs. The emulator wallet now holds the malformed `CREDIMI-SDJWT-STATUS-WITHOUT-STATUS-LIST` PID; the aggregate resets the wallet per scenario, a manual probe without reset does not.
+
 ## Relying-party stored wallet actions, 30/10/2026
 
 Extracted 26 inline `action_code` occurrences across 22 relying-party scenarios into 25 reusable actions under `config_templates/fcaf/imports/forkbomb-bv-andrea/wallet/`; the two identical invalid-DCQL flows share `fcaf-reject-invalid-dcql`. Replaced every inline occurrence with a stored `action_id`, registered the new actions in `wallet-actions.yaml`, and added `ws_rp` to all 37 actions referenced by the regenerated relying-party pipelines, in both the manifest and Maestro headers.

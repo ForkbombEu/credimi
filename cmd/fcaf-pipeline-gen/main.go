@@ -53,7 +53,10 @@ var generatedSuites = []string{relyingPartySuite, attestationProviderSuite}
 // reach a successful share needs its own freshly issued PID. A presentation
 // that the wallet refuses before consent leaves its instance untouched; it only
 // needs the wallet to hold a PID of the requested format, which an earlier
-// issuance of the same scenario or one injected issuance provides.
+// issuance of the same scenario or one injected issuance provides. An absence
+// probe needs none: its request pins a value only a credential of its own
+// scenario carries, so no injected PID can match it. A credential offer the
+// Wallet must refuse counts as an issuance too (issuesCredential).
 const (
 	walletActionNamespace = "forkbomb-bv-andrea/eudiw-beta-wallet/"
 	// issuanceActionID is the issuance scenarios author; its credential-added
@@ -65,10 +68,13 @@ const (
 	// screenshots must evidence the presentation alone.
 	injectedIssuanceActionID = walletActionNamespace + "fcaf-issue-pid"
 	resetActionID            = walletActionNamespace + "fcaf-reset-and-onboard"
-	pidIssuerConfigID        = "eu-pid-device-bound"
-	pidSDJWTConfigID         = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
-	pidMdocConfigID          = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
-	mobileAutomationTask     = "mobile-automation"
+	absenceProbeActionID     = walletActionNamespace + "fcaf-expect-credential-absent"
+	// rejectedOfferActionID opens a credential offer the Wallet must refuse.
+	rejectedOfferActionID = walletActionNamespace + "fcaf-expect-credential-rejected"
+	pidIssuerConfigID     = "eu-pid-device-bound"
+	pidSDJWTConfigID      = "urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required"
+	pidMdocConfigID       = "urn:eu.europa.ec.eudi:pid:1.mdoc.key-attestation-required"
+	mobileAutomationTask  = "mobile-automation"
 )
 
 // shareTap counts the consent screen's Share action, which is the point at
@@ -83,14 +89,50 @@ var shareTap = regexp.MustCompile(
 	`tapOn:\s*(?:"Share"|\{[^}\n]*text:\s*"Share"|\n\s*text:\s*"Share")`,
 )
 
-// credentialFormat separates the PID instances the wallet holds: an mdoc
-// request cannot spend an SD-JWT VC instance, nor the other way round.
+// credentialFormat separates the credential instances the wallet holds: an
+// mdoc request cannot spend an SD-JWT VC instance, nor the other way round, and
+// an SD-JWT VC request names its type through vct, so a degree request cannot
+// spend a PID. formatSDJWT and formatMdoc are the PID formats, the only ones the
+// generator issues; an SD-JWT VC of another type is keyed by its vct
+// (sdJWTFormat). mdoc instances are keyed by format alone, because the domestic
+// and the EU PID mdoc share the doctype eu.europa.ec.eudi.pid.1.
 type credentialFormat string
 
 const (
 	formatSDJWT credentialFormat = "sd-jwt"
 	formatMdoc  credentialFormat = "mdoc"
+	// pidVCT is the vct of the PID SD-JWT VC; its Capture configurations start
+	// with pidConfigurationPrefix instead.
+	pidVCT                 = "urn:eudi:pid:1"
+	pidConfigurationPrefix = "urn:eu.europa.ec.eudi:pid:1."
 )
+
+// sdJWTFormat keys an SD-JWT VC instance by its vct; the PID keeps formatSDJWT.
+func sdJWTFormat(vct string) credentialFormat {
+	if vct == "" || vct == pidVCT {
+		return formatSDJWT
+	}
+	return credentialFormat(string(formatSDJWT) + " " + vct)
+}
+
+func isPIDFormat(format credentialFormat) bool {
+	return format == formatSDJWT || format == formatMdoc
+}
+
+// resolveFormat maps a requested credential type the scenario never issued to
+// the PID of its format: such a request is a near-miss the wallet must refuse,
+// and the PID it holds is what makes the refusal mean more than an empty
+// wallet. A type the scenario issued keeps its own key, so its instances are
+// counted and spent on their own.
+func resolveFormat(format credentialFormat, available map[credentialFormat]int) credentialFormat {
+	if isPIDFormat(format) {
+		return format
+	}
+	if _, issued := available[format]; issued {
+		return format
+	}
+	return formatSDJWT
+}
 
 // deeplinkSource finds the step whose output a wallet step opens.
 var deeplinkSource = regexp.MustCompile(`\$\{\{\s*([A-Za-z0-9_.-]+?)\.outputs\b`)
@@ -434,27 +476,16 @@ func buildAggregate(
 			if err := claimStepID(seenStepIDs, id, path); err != nil {
 				return err
 			}
-			consumed, err := credentialInstancesConsumed(rewritten, walletActions)
-			if err != nil {
-				return fmt.Errorf("FCAF scenario %s step %q: %w", path, id, err)
-			}
-			source := deeplinkSourceStep(rewritten, emitted)
-			sessions, issuances := pidIssuancesBefore(
-				rewritten,
-				source,
-				consumed,
-				pidAvailable,
-				fixture,
-			)
 			var stepReset map[string]any
 			if use == mobileAutomationTask {
 				stepReset, reset = reset, nil
 			}
-			inserted, err := injectWalletActions(
+			inserted, err := walletStepsBefore(
 				rewritten,
 				stepReset,
-				sessions,
-				issuances,
+				emitted,
+				pidAvailable,
+				fixture,
 				walletActions,
 			)
 			if err != nil {
@@ -538,26 +569,42 @@ func claimStepID(seen map[string]string, id string, path string) error {
 // presentation the wallet refuses or cannot satisfy spends nothing, but its
 // evidence only means something when the wallet holds a PID of the requested
 // format: otherwise a rejection or a no-match screen is just the empty wallet.
-// That PID stays unspent until the next reset.
+// That PID stays unspent until the next reset. An absence probe gets none (see
+// probesAbsence). A presentation of another credential type the scenario
+// issued is an error when no instance of it is left, because the generator
+// issues only PIDs and no PID can answer it.
 func pidIssuancesBefore(
 	step map[string]any,
 	source map[string]any,
 	consumed int,
 	available map[credentialFormat]int,
 	fixture map[string]any,
-) ([]map[string]any, []map[string]any) {
+) ([]map[string]any, []map[string]any, error) {
 	if issuesCredential(step) {
 		available[issuedCredentialFormat(source)]++
 	}
 	id, _ := step["id"].(string)
 	var sessions []map[string]any
 	var issuances []map[string]any
-	issue := func(format credentialFormat) {
+	var missing error
+	issue := func(format credentialFormat) bool {
+		if !isPIDFormat(format) {
+			if missing == nil {
+				missing = fmt.Errorf(
+					"presentation %q needs an unspent %q instance and the generator issues "+
+						"only PIDs: issue one in the scenario before it",
+					id,
+					format,
+				)
+			}
+			return false
+		}
 		session, issuance := pidIssuance(id, len(issuances), format, fixture)
 		sessions = append(sessions, session)
 		issuances = append(issuances, issuance)
+		return true
 	}
-	for _, format := range presentedCredentialFormats(source, consumed) {
+	for _, format := range presentedCredentialFormats(source, consumed, available) {
 		for need := consumed; need > 0; need-- {
 			if available[format] > 0 {
 				available[format]--
@@ -567,21 +614,50 @@ func pidIssuancesBefore(
 		}
 	}
 	if consumed > 0 {
-		for _, format := range formatsSpentEntirely(source) {
+		for _, format := range formatsSpentEntirely(source, available) {
 			available[format] = 0
 		}
 	}
-	if consumed > 0 || !opensPresentationRequest(step, source) {
-		return sessions, issuances
+	if consumed > 0 || !opensPresentationRequest(step, source) || probesAbsence(step) {
+		return sessions, issuances, missing
 	}
-	for _, format := range presentedCredentialFormats(source, 1) {
+	for _, format := range presentedCredentialFormats(source, 1, available) {
 		if available[format] > 0 {
 			continue
 		}
-		issue(format)
-		available[format]++
+		if issue(format) {
+			available[format]++
+		}
 	}
-	return sessions, issuances
+	return sessions, issuances, missing
+}
+
+// walletStepsBefore returns the steps to insert before a scenario step: the
+// PIDs its presentation needs (pidIssuancesBefore) and its scenario's wallet
+// reset, run inside the step's own flow when they can be (injectWalletActions).
+func walletStepsBefore(
+	step map[string]any,
+	reset map[string]any,
+	emitted map[string]map[string]any,
+	available map[credentialFormat]int,
+	fixture map[string]any,
+	actions map[string]string,
+) ([]map[string]any, error) {
+	consumed, err := credentialInstancesConsumed(step, actions)
+	if err != nil {
+		return nil, err
+	}
+	sessions, issuances, err := pidIssuancesBefore(
+		step,
+		deeplinkSourceStep(step, emitted),
+		consumed,
+		available,
+		fixture,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return injectWalletActions(step, reset, sessions, issuances, actions)
 }
 
 // injectWalletActions returns the steps to insert before a wallet step for
@@ -805,6 +881,16 @@ func opensPresentationRequest(step map[string]any, source map[string]any) bool {
 	return strings.HasSuffix(url, "/openid4vp/sessions")
 }
 
+// probesAbsence reports whether a wallet step is an absence probe: a request
+// pinned to a value only a credential of its own scenario carries, which passes
+// only when the wallet offers nothing for it. Issuing a PID before it adds no
+// evidence, because no PID the generator issues can match the pinned value.
+func probesAbsence(step map[string]any) bool {
+	with, _ := step["with"].(map[string]any)
+	actionID, _ := with["action_id"].(string)
+	return actionID == absenceProbeActionID
+}
+
 // loadWalletActions maps every declared wallet action identifier to its Maestro
 // flow source so the generator can tell a consuming presentation from one the
 // wallet is expected to refuse.
@@ -845,15 +931,20 @@ func loadWalletActions(importsDir string) (map[string]string, error) {
 	return actions, nil
 }
 
-// issuesCredential reports whether a step already adds a credential instance to
-// the wallet, which the next consuming presentation can spend.
+// issuesCredential reports whether a step adds, or may add, a credential
+// instance to the wallet, which the next consuming presentation can spend. A
+// credential offer the Wallet must refuse counts: the probe that follows it
+// targets exactly that credential, so a Wallet that kept it spends it there,
+// and a PID injected before the probe could never answer it.
 func issuesCredential(step map[string]any) bool {
 	if use, _ := step["use"].(string); use != mobileAutomationTask {
 		return false
 	}
 	with, _ := step["with"].(map[string]any)
 	actionID, _ := with["action_id"].(string)
-	return actionID == issuanceActionID || actionID == injectedIssuanceActionID
+	return actionID == issuanceActionID ||
+		actionID == injectedIssuanceActionID ||
+		actionID == rejectedOfferActionID
 }
 
 // credentialInstancesConsumed reports how many credential instances a step
@@ -976,33 +1067,46 @@ func isDeeplinkProducer(use string) bool {
 	return ok
 }
 
-// issuedCredentialFormat reports the PID format an issuance adds, read from
-// the issuer session or credential offer that produced its deeplink.
+// issuedCredentialFormat reports the credential an issuance adds, read from
+// the issuer session or credential offer that produced its deeplink. A Capture
+// configuration names its type before `.sd-jwt` or `.mdoc`; a credential offer
+// of a Credimi credential record is a PID.
 func issuedCredentialFormat(source map[string]any) credentialFormat {
 	with, _ := source["with"].(map[string]any)
 	identifier, _ := with["credential_id"].(string)
+	configuration := ""
 	if body, ok := with["body"].(map[string]any); ok {
-		if configuration, ok := body["credential_configuration_id"].(string); ok {
+		configuration, _ = body["credential_configuration_id"].(string)
+		if configuration != "" {
 			identifier = configuration
 		}
 	}
 	if strings.Contains(strings.ToLower(identifier), "mdoc") {
 		return formatMdoc
 	}
+	if vct, _, found := strings.Cut(configuration, ".sd-jwt"); found &&
+		!strings.HasPrefix(configuration, pidConfigurationPrefix) {
+		return sdJWTFormat(vct)
+	}
 	return formatSDJWT
 }
 
-// presentedCredentialFormats lists the PID formats a consuming presentation
-// spends, read from the DCQL query of the verifier session it opens. A query
-// asking for both formats spends one instance of each per Share.
-func presentedCredentialFormats(source map[string]any, consumed int) []credentialFormat {
+// presentedCredentialFormats lists the credentials a consuming presentation
+// spends, read from the DCQL query of the verifier session it opens and
+// resolved against what the scenario issued (resolveFormat). A query asking
+// for both formats spends one instance of each per Share.
+func presentedCredentialFormats(
+	source map[string]any,
+	consumed int,
+	available map[credentialFormat]int,
+) []credentialFormat {
 	if consumed == 0 {
 		return nil
 	}
 	formats := make([]credentialFormat, 0, 2)
 	seen := map[credentialFormat]bool{}
 	for _, credential := range sessionCredentialQueries(source) {
-		format := credentialQueryFormat(credential)
+		format := resolveFormat(credentialQueryFormat(credential), available)
 		if !seen[format] {
 			seen[format] = true
 			formats = append(formats, format)
@@ -1014,15 +1118,18 @@ func presentedCredentialFormats(source map[string]any, consumed int) []credentia
 	return formats
 }
 
-// formatsSpentEntirely lists the PID formats whose credential query in the
-// session's DCQL query sets multiple: true. The wallet answers such a query with
-// every matching instance it holds, so a Share spends all of them and a later
+// formatsSpentEntirely lists the credentials whose query in the session's DCQL
+// query sets multiple: true. The wallet answers such a query with every
+// matching instance it holds, so a Share spends all of them and a later
 // presentation of the same scenario finds none left.
-func formatsSpentEntirely(source map[string]any) []credentialFormat {
+func formatsSpentEntirely(
+	source map[string]any,
+	available map[credentialFormat]int,
+) []credentialFormat {
 	var formats []credentialFormat
 	for _, credential := range sessionCredentialQueries(source) {
 		if multiple, _ := credential["multiple"].(bool); multiple {
-			formats = append(formats, credentialQueryFormat(credential))
+			formats = append(formats, resolveFormat(credentialQueryFormat(credential), available))
 		}
 	}
 	return formats
@@ -1047,11 +1154,26 @@ func sessionCredentialQueries(source map[string]any) []map[string]any {
 	return credentials
 }
 
+// credentialQueryFormat reports the credential a DCQL credential query asks
+// for: the mdoc PID format, the SD-JWT PID when its vct_values include the PID
+// vct (or name none), and otherwise its first vct.
 func credentialQueryFormat(credential map[string]any) credentialFormat {
 	if declared, _ := credential["format"].(string); declared == "mso_mdoc" {
 		return formatMdoc
 	}
-	return formatSDJWT
+	meta, _ := credential["meta"].(map[string]any)
+	values, _ := meta["vct_values"].([]any)
+	first := ""
+	for _, value := range values {
+		vct, _ := value.(string)
+		if vct == pidVCT {
+			return formatSDJWT
+		}
+		if first == "" {
+			first = vct
+		}
+	}
+	return sdJWTFormat(first)
 }
 
 // pidIssuance issues one fresh PID of the given format for the presentation
