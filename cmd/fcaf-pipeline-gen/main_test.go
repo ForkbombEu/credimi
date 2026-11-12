@@ -79,7 +79,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 		id, _ := step["id"].(string)
 		stepsByID[id] = step
 	}
-	observedRequest := stepsByID["client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri"]
+	observedRequest := stepsByID["client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri"]
 	observedRequestWith, _ := observedRequest["with"].(map[string]any)
 	require.Contains(
 		t,
@@ -97,7 +97,7 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 		map[string]any{
 			"id": walletActionNamespace + "fcaf-issue-pid",
 			"parameters": map[string]any{
-				"deeplink": "${{ client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri-issue-pid-session.outputs.body.deeplink }}",
+				"deeplink": "${{ client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri-issue-pid-session.outputs.body.deeplink }}",
 			},
 		},
 	)
@@ -109,53 +109,54 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 		reusedCredentialWith["action_id"],
 	)
 	require.NotContains(t, reusedCredentialWith, "actions")
-	claimSetsPrefix := "dcql-claim-sets-non-array-1ebdf3bd-"
-	for _, variant := range []string{"null", "true", "false", "zero", "number", "string", "object"} {
-		exercise := stepsByID[claimSetsPrefix+"exercise-"+variant]
-		exerciseWith, _ := exercise["with"].(map[string]any)
-		actions, ok := exerciseWith["actions"].([]any)
-		require.True(t, ok, "exercise-%s must compose wallet actions", variant)
-		require.NotEmpty(t, actions, "exercise-%s must run the strict rejection action", variant)
-		action, ok := actions[len(actions)-1].(map[string]any)
-		require.True(t, ok)
-		require.Equal(t, walletActionNamespace+"fcaf-expect-request-rejected", action["id"])
-		parameters, _ := action["parameters"].(map[string]any)
-		require.Equal(
-			t,
-			"${{ "+claimSetsPrefix+"create-"+variant+".outputs.body.deeplink }}",
-			parameters["deeplink"],
-		)
-		require.NotContains(
-			t,
-			stepsByID[claimSetsPrefix+"fetch-"+variant],
-			"linked_to",
-			"fetch-%s must run after a failed rejection action",
-			variant,
-		)
-	}
-	claimsPrefix := "dcql-claims-non-array-ed748dc5-"
-	for _, variant := range []string{"null", "true", "false", "zero", "number", "string", "object"} {
-		exercise := stepsByID[claimsPrefix+"exercise-"+variant]
-		exerciseWith, _ := exercise["with"].(map[string]any)
-		actions, ok := exerciseWith["actions"].([]any)
-		require.True(t, ok, "exercise-%s must compose wallet actions", variant)
-		require.NotEmpty(t, actions, "exercise-%s must run the strict rejection action", variant)
-		action, ok := actions[len(actions)-1].(map[string]any)
-		require.True(t, ok)
-		require.Equal(t, walletActionNamespace+"fcaf-expect-request-rejected", action["id"])
-		parameters, _ := action["parameters"].(map[string]any)
-		require.Equal(
-			t,
-			"${{ "+claimsPrefix+"create-"+variant+".outputs.body.deeplink }}",
-			parameters["deeplink"],
-		)
-		require.NotContains(
-			t,
-			stepsByID[claimsPrefix+"fetch-"+variant],
-			"linked_to",
-			"fetch-%s must run after a failed rejection action",
-			variant,
-		)
+	stringVariants := []string{"null", "true", "false", "zero", "number", "string", "object"}
+	arrayVariants := []string{"null", "true", "false", "zero", "number", "array", "object"}
+	for _, scenario := range []struct {
+		prefix   string
+		variants []string
+	}{
+		{prefix: "dcql-claim-sets-non-array-1ebdf3bd-", variants: stringVariants},
+		{prefix: "dcql-claims-non-array-ed748dc5-", variants: stringVariants},
+		{prefix: "dcql-trusted-authorities-type-non-st-4e26a188-", variants: arrayVariants},
+		{prefix: "dcql-trusted-authorities-values-item-000a74ab-", variants: arrayVariants},
+		{prefix: "dcql-trusted-authorities-values-non-2ccb8dca-", variants: stringVariants},
+	} {
+		for _, variant := range scenario.variants {
+			exercise := stepsByID[scenario.prefix+"exercise-"+variant]
+			exerciseWith, _ := exercise["with"].(map[string]any)
+			actions, ok := exerciseWith["actions"].([]any)
+			require.True(
+				t,
+				ok,
+				"%sexercise-%s must compose wallet actions",
+				scenario.prefix,
+				variant,
+			)
+			require.NotEmpty(
+				t,
+				actions,
+				"%sexercise-%s must run the strict rejection action",
+				scenario.prefix,
+				variant,
+			)
+			action, ok := actions[len(actions)-1].(map[string]any)
+			require.True(t, ok)
+			require.Equal(t, walletActionNamespace+"fcaf-expect-request-rejected", action["id"])
+			parameters, _ := action["parameters"].(map[string]any)
+			require.Equal(
+				t,
+				"${{ "+scenario.prefix+"create-"+variant+".outputs.body.deeplink }}",
+				parameters["deeplink"],
+			)
+			require.NotContains(
+				t,
+				stepsByID[scenario.prefix+"fetch-"+variant],
+				"linked_to",
+				"%sfetch-%s must run after a failed rejection action",
+				scenario.prefix,
+				variant,
+			)
+		}
 	}
 	holderBindingPrefix := "dcql-holder-binding-type-boundary-3ff3e611-"
 	for _, stepID := range []string{
@@ -182,78 +183,6 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 			"linked_to",
 			"%s must run after a failed wallet action",
 			stepID,
-		)
-	}
-	trustedAuthoritiesValueItemPrefix := "dcql-trusted-authorities-values-item-000a74ab-"
-	for _, variant := range []string{"null", "true", "false", "zero", "number", "array", "object"} {
-		exercise := stepsByID[trustedAuthoritiesValueItemPrefix+"exercise-"+variant]
-		exerciseWith, _ := exercise["with"].(map[string]any)
-		actions, ok := exerciseWith["actions"].([]any)
-		require.True(t, ok, "exercise-%s must compose wallet actions", variant)
-		require.NotEmpty(t, actions, "exercise-%s must run the strict rejection action", variant)
-		action, ok := actions[len(actions)-1].(map[string]any)
-		require.True(t, ok)
-		require.Equal(t, walletActionNamespace+"fcaf-expect-request-rejected", action["id"])
-		parameters, _ := action["parameters"].(map[string]any)
-		require.Equal(
-			t,
-			"${{ "+trustedAuthoritiesValueItemPrefix+"create-"+variant+".outputs.body.deeplink }}",
-			parameters["deeplink"],
-		)
-		require.NotContains(
-			t,
-			stepsByID[trustedAuthoritiesValueItemPrefix+"fetch-"+variant],
-			"linked_to",
-			"fetch-%s must run after a failed rejection action",
-			variant,
-		)
-	}
-	trustedAuthoritiesValuesPrefix := "dcql-trusted-authorities-values-non-2ccb8dca-"
-	for _, variant := range []string{"null", "true", "false", "zero", "number", "string", "object"} {
-		exercise := stepsByID[trustedAuthoritiesValuesPrefix+"exercise-"+variant]
-		exerciseWith, _ := exercise["with"].(map[string]any)
-		actions, ok := exerciseWith["actions"].([]any)
-		require.True(t, ok, "exercise-%s must compose wallet actions", variant)
-		require.NotEmpty(t, actions, "exercise-%s must run the strict rejection action", variant)
-		action, ok := actions[len(actions)-1].(map[string]any)
-		require.True(t, ok)
-		require.Equal(t, walletActionNamespace+"fcaf-expect-request-rejected", action["id"])
-		parameters, _ := action["parameters"].(map[string]any)
-		require.Equal(
-			t,
-			"${{ "+trustedAuthoritiesValuesPrefix+"create-"+variant+".outputs.body.deeplink }}",
-			parameters["deeplink"],
-		)
-		require.NotContains(
-			t,
-			stepsByID[trustedAuthoritiesValuesPrefix+"fetch-"+variant],
-			"linked_to",
-			"fetch-%s must run after a failed rejection action",
-			variant,
-		)
-	}
-	trustedAuthoritiesPrefix := "dcql-trusted-authorities-type-non-st-4e26a188-"
-	for _, variant := range []string{"null", "true", "false", "zero", "number", "array", "object"} {
-		exercise := stepsByID[trustedAuthoritiesPrefix+"exercise-"+variant]
-		exerciseWith, _ := exercise["with"].(map[string]any)
-		actions, ok := exerciseWith["actions"].([]any)
-		require.True(t, ok, "exercise-%s must compose wallet actions", variant)
-		require.NotEmpty(t, actions, "exercise-%s must run the strict rejection action", variant)
-		action, ok := actions[len(actions)-1].(map[string]any)
-		require.True(t, ok)
-		require.Equal(t, walletActionNamespace+"fcaf-expect-request-rejected", action["id"])
-		parameters, _ := action["parameters"].(map[string]any)
-		require.Equal(
-			t,
-			"${{ "+trustedAuthoritiesPrefix+"create-"+variant+".outputs.body.deeplink }}",
-			parameters["deeplink"],
-		)
-		require.NotContains(
-			t,
-			stepsByID[trustedAuthoritiesPrefix+"fetch-"+variant],
-			"linked_to",
-			"fetch-%s must run after a failed rejection action",
-			variant,
 		)
 	}
 	require.Equal(

@@ -646,7 +646,7 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri-issue-pid-session
+      id: client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri-issue-pid-session
       linked_to: client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri
       use: http-request
       with:
@@ -659,15 +659,15 @@ steps:
         method: POST
         url: https://capture-wallet.credimi.io/sessions
     - continue_on_error: true
-      id: client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri
-      linked_to: client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri-issue-pid-session
+      id: client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri
+      linked_to: client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri-issue-pid-session
       use: mobile-automation
       with:
         actions:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
-                deeplink: ${{ client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri-issue-pid-session.outputs.body.deeplink }}
+                deeplink: ${{ client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri-issue-pid-session.outputs.body.deeplink }}
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-request
               parameters:
                 deeplink: ${{ client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri.outputs.body.deeplink }}
@@ -23436,7 +23436,7 @@ steps:
                     signed_redirect_uri_outer_request: ${{ client-id-prefix-controls-f49aa8ab-fetch-signed-redirect-uri.outputs.body.raw.outer_request_delivered | optional }}
                     signed_redirect_uri_request_uri_payload: ${{ client-id-prefix-controls-f49aa8ab-fetch-signed-redirect-uri.outputs.body.observed.request_uri_payload.value | optional }}
                     signed_redirect_uri_session: ${{ client-id-prefix-controls-f49aa8ab-fetch-signed-redirect-uri.outputs.body | optional }}
-                    signed_redirect_uri_visual_evidence: ${{ client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    signed_redirect_uri_visual_evidence: ${{ client-id-prefix-controls-f49aa8ab-observe-signed-redirect-uri.outputs.flow_output.maestro_screenshot_urls | optional }}
                     unsigned_https_outer_request: ${{ client-id-prefix-controls-f49aa8ab-fetch-unsigned-https.outputs.body.raw.outer_request_delivered | optional }}
                     unsigned_https_session: ${{ client-id-prefix-controls-f49aa8ab-fetch-unsigned-https.outputs.body | optional }}
                     unsigned_https_visual_evidence: ${{ client-id-prefix-controls-f49aa8ab-reject-unsigned-https.outputs.flow_output.maestro_screenshot_urls | optional }}
