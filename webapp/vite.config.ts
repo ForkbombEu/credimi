@@ -13,7 +13,13 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig(({ mode }) => {
 	const pocketbaseUrl = loadEnv(mode, process.cwd(), '').VITE_API;
 	const proxy = pocketbaseUrl
-		? { '/api/': pocketbaseUrl, '/_/': pocketbaseUrl, '/temporal-ui': pocketbaseUrl }
+		? {
+				'/api/': pocketbaseUrl,
+				'/_/': pocketbaseUrl,
+				'/temporal-ui': pocketbaseUrl,
+				// Keep the browser's Host: the chat proxy refuses writes whose Origin is another host.
+				'/action-author-ui': { target: pocketbaseUrl, changeOrigin: false }
+			}
 		: undefined;
 	return {
 		plugins: [

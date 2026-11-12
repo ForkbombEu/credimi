@@ -14,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalauth"
 	"github.com/pocketbase/dbx"
@@ -22,9 +23,16 @@ import (
 
 var errReservedNamespace = errors.New("organization namespace is reserved")
 
+// MobileRunnerTemporalTokenScopeAgent asks for the runner's action author
+// token: write access to the runner's agent namespace only.
+const MobileRunnerTemporalTokenScopeAgent = "agent"
+
 // MobileRunnerTemporalTokenRequest names the runner a Temporal token is for.
 type MobileRunnerTemporalTokenRequest struct {
 	RunnerID string `json:"runner_id" validate:"required"`
+	// Scope is empty for the runner's own token, or "agent" for its action
+	// author's token, which grants only `runner-<record id>:write`.
+	Scope string `json:"scope,omitempty"`
 }
 
 // MobileRunnerTemporalTokenResponse carries a runner's Temporal JWT.
@@ -34,8 +42,75 @@ type MobileRunnerTemporalTokenResponse struct {
 	ExpiresIn int `json:"expires_in"`
 }
 
+// authorizeRunnerKey resolves the runner a runner-facing call names and
+// allows it only to owners of the runner's organization (and superusers), only
+// to the internal admin key or a superuser for an admin-managed runner, and
+// never for a disabled runner. It returns the runner and its canonical ID.
+func authorizeRunnerKey(
+	e *core.RequestEvent,
+	runnerID string,
+) (*core.Record, string, *apierror.APIError) {
+	record, canonicalID, apiErr := resolveLifecycleRunner(e.App, e.Auth, runnerID)
+	if apiErr != nil {
+		return nil, "", apiErr
+	}
+	if !isSuperuserAuth(e.Auth) {
+		_, err := e.App.FindFirstRecordByFilter(
+			"orgAuthorizations",
+			"user = {:user} && organization = {:org} && role.name = {:role}",
+			dbx.Params{"user": e.Auth.Id, "org": record.GetString("owner"), "role": "owner"},
+		)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", apierror.New(
+				http.StatusForbidden,
+				"runner_id",
+				"runner_owner_role_required",
+				"only organization owners can obtain a Temporal token",
+			)
+		}
+		if err != nil {
+			return nil, "", apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed_to_check_role",
+				err.Error(),
+			)
+		}
+	}
+	if record.GetBool("admin_managed") && !isSuperuserAuth(e.Auth) {
+		return nil, "", apierror.New(
+			http.StatusForbidden,
+			"runner_id",
+			"admin_managed_runner",
+			"only the internal admin key can obtain a Temporal token for an admin-managed runner",
+		)
+	}
+	if record.GetBool("disabled") {
+		return nil, "", apierror.New(
+			http.StatusForbidden,
+			"runner_id",
+			"runner_disabled",
+			"mobile runner is disabled",
+		)
+	}
+	return record, canonicalID, nil
+}
+
+// agentNotEnabledError refuses an action author call of a runner whose agent
+// is not enabled.
+func agentNotEnabledError() *apierror.APIError {
+	return apierror.New(
+		http.StatusForbidden,
+		"scope",
+		"agent_not_enabled",
+		"the runner's action author is not enabled",
+	)
+}
+
 // HandleMobileRunnerTemporalToken returns a Temporal JWT that grants the
-// runner write access to the namespaces its workers poll.
+// runner write access to the namespaces its workers poll, plus its agent
+// namespace when its action author is enabled. With scope "agent" it returns
+// the action author's token instead: its agent namespace only.
 func HandleMobileRunnerTemporalToken() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[MobileRunnerTemporalTokenRequest](e)
@@ -47,71 +122,33 @@ func HandleMobileRunnerTemporalToken() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
+		if input.Scope != "" && input.Scope != MobileRunnerTemporalTokenScopeAgent {
+			return apierror.New(
+				http.StatusBadRequest,
+				"scope",
+				"invalid_request",
+				fmt.Sprintf("unknown token scope %q", input.Scope),
+			)
+		}
 
-		record, canonicalID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
+		record, canonicalID, apiErr := authorizeRunnerKey(e, input.RunnerID)
 		if apiErr != nil {
 			return apiErr
 		}
-		if !isSuperuserAuth(e.Auth) {
-			_, err := e.App.FindFirstRecordByFilter(
-				"orgAuthorizations",
-				"user = {:user} && organization = {:org} && role.name = {:role}",
-				dbx.Params{"user": e.Auth.Id, "org": record.GetString("owner"), "role": "owner"},
-			)
-			if errors.Is(err, sql.ErrNoRows) {
-				return apierror.New(
-					http.StatusForbidden,
-					"runner_id",
-					"runner_owner_role_required",
-					"only organization owners can obtain a Temporal token",
-				)
-			}
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"organization",
-					"failed_to_check_role",
-					err.Error(),
-				)
-			}
-		}
-		if record.GetBool("admin_managed") && !isSuperuserAuth(e.Auth) {
-			return apierror.New(
-				http.StatusForbidden,
-				"runner_id",
-				"admin_managed_runner",
-				"only the internal admin key can obtain a Temporal token for an admin-managed runner",
-			)
-		}
-		if record.GetBool("disabled") {
-			return apierror.New(
-				http.StatusForbidden,
-				"runner_id",
-				"runner_disabled",
-				"mobile runner is disabled",
-			)
-		}
 
-		namespaces, err := mobileRunnerTemporalNamespaces(e.App, record)
-		if err != nil {
-			if errors.Is(err, errReservedNamespace) {
-				return apierror.New(
-					http.StatusConflict,
-					"organizations",
-					"organization_namespace_reserved",
-					"rename the organization: its namespace is reserved",
-				)
+		subject := "mobile-runner:" + canonify.NormalizePath(canonicalID)
+		var permissions []string
+		if input.Scope == MobileRunnerTemporalTokenScopeAgent {
+			if !record.GetBool("agent_enabled") {
+				return agentNotEnabledError()
 			}
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organizations",
-				"failed_to_list_namespaces",
-				err.Error(),
-			)
-		}
-		permissions := make([]string, len(namespaces))
-		for i, ns := range namespaces {
-			permissions[i] = ns + ":write"
+			subject = "mobile-runner-agent:" + canonify.NormalizePath(canonicalID)
+			permissions = []string{mobilerunner.AgentNamespace(record.Id) + ":write"}
+		} else {
+			permissions, apiErr = mobileRunnerTemporalPermissions(e.App, record)
+			if apiErr != nil {
+				return apiErr
+			}
 		}
 
 		signer, err := temporalauth.DefaultSigner()
@@ -123,11 +160,7 @@ func HandleMobileRunnerTemporalToken() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		token, _, err := signer.Sign(
-			"mobile-runner:"+canonify.NormalizePath(canonicalID),
-			permissions,
-			time.Now(),
-		)
+		token, _, err := signer.Sign(subject, permissions, time.Now())
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -142,6 +175,43 @@ func HandleMobileRunnerTemporalToken() func(*core.RequestEvent) error {
 			ExpiresIn: int(temporalauth.TokenTTL.Seconds()),
 		})
 	}
+}
+
+// mobileRunnerTemporalPermissions returns the runner token's permissions:
+// write on the namespaces its workers poll, plus its agent namespace when its
+// action author is enabled.
+func mobileRunnerTemporalPermissions(
+	app core.App,
+	record *core.Record,
+) ([]string, *apierror.APIError) {
+	namespaces, err := mobileRunnerTemporalNamespaces(app, record)
+	if err != nil {
+		if errors.Is(err, errReservedNamespace) {
+			return nil, apierror.New(
+				http.StatusConflict,
+				"organizations",
+				"organization_namespace_reserved",
+				"rename the organization: its namespace is reserved",
+			)
+		}
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"organizations",
+			"failed_to_list_namespaces",
+			err.Error(),
+		)
+	}
+	// An enabled agent polls the runner's own namespace, ready or not.
+	if record.GetBool("agent_enabled") {
+		namespaces = append(namespaces, mobilerunner.AgentNamespace(record.Id))
+		slices.Sort(namespaces)
+		namespaces = slices.Compact(namespaces)
+	}
+	permissions := make([]string, len(namespaces))
+	for i, ns := range namespaces {
+		permissions[i] = ns + ":write"
+	}
+	return permissions, nil
 }
 
 // mobileRunnerTemporalNamespaces returns the sorted, deduplicated namespaces a

@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { TriangleAlert } from '@lucide/svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import * as Wallet from '$lib/wallet';
+	import AgentAuthoredIcon from '$lib/wallet/agent-authored-icon.svelte';
 	import { EmptyState, ItemCard, WithLabel } from '$pipeline-form/steps/_partials/index.js';
 
 	import Spinner from '@/components/ui-custom/spinner.svelte';
@@ -156,6 +157,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								title={action.name}
 								onClick={() => form.selectWalletAction(action)}
 							>
+								{#snippet titleRight()}
+									<AgentAuthoredIcon
+										authored={Wallet.Action.isAgentAuthored(action)}
+									/>
+								{/snippet}
 								{#snippet beforeContent()}
 									{@const category = Wallet.Action.getCategoryLabel(action)}
 									{#if category}

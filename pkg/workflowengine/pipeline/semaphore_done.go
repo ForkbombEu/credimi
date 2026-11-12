@@ -15,7 +15,11 @@ const (
 	mobileDeviceSemaphoreLeaderDeviceIDKey = "mobile_device_semaphore_leader_device_id"
 )
 
-func reportMobileDeviceSemaphoreDone(
+// ReportMobileDeviceSemaphoreDone tells the leader device semaphore that the
+// run of a semaphore ticket ended, so the ticket's devices are released. It
+// does nothing without the injected mobile_device_semaphore_* config keys and
+// only logs a failed report.
+func ReportMobileDeviceSemaphoreDone(
 	ctx workflow.Context,
 	logger log.Logger,
 	config map[string]any,

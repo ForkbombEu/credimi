@@ -20,3 +20,10 @@ export const categoryLabels: Record<WalletActionsCategoryOptions, string> = {
 export function getCategoryLabel(action: WalletActionsResponse): string | undefined {
 	return categoryLabels[action.category];
 }
+
+/** Set by Credimi on actions the action author agent wrote; cleared when their code is edited. */
+type EnrichedWalletAction = WalletActionsResponse & { __agent_authored__?: boolean };
+
+export function isAgentAuthored(action: WalletActionsResponse): boolean {
+	return (action as EnrichedWalletAction).__agent_authored__ === true;
+}

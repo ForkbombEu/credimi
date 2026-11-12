@@ -8,11 +8,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { yaml } from '@codemirror/lang-yaml';
 	import { UploadIcon } from '@lucide/svelte';
 	import { Wallet } from '$lib';
+	import SessionsSheet from '$lib/action-author/sessions-sheet.svelte';
+	import StartSessionButton from '$lib/action-author/start-session-button.svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import { yamlStringSchema } from '$lib/utils/schemas';
 	import { categoryLabels } from '$lib/wallet/actions';
+	import AgentAuthoredIcon from '$lib/wallet/agent-authored-icon.svelte';
 	import { z } from 'zod/v3';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
@@ -73,7 +76,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			recordCreateOptions={{
 				formTitle: `${m.Wallet()}: ${wallet.name} — ${m.Add_new_action()}`
 			}}
-		/>
+		>
+			{#snippet actions()}
+				<SessionsSheet {wallet} {organization} />
+				<StartSessionButton {wallet} {organization} />
+			{/snippet}
+		</DashboardCardManagerTop>
 	{/snippet}
 
 	{#snippet records({ records })}
@@ -88,6 +96,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{category}
 					</Badge>
 				{/if}
+			{/snippet}
+			{#snippet afterName({ record })}
+				<AgentAuthoredIcon authored={Wallet.Action.isAgentAuthored(record)} />
 			{/snippet}
 		</DashboardCardManagerUI>
 	{/snippet}

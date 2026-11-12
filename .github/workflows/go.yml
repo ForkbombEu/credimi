@@ -14,6 +14,7 @@ on:
       - ".golangci.yaml"
       - "Makefile"
       - ".github/workflows/go.yml"
+      - "agents/action-author-ui/**"
 
 jobs:
   lint:
@@ -156,3 +157,19 @@ jobs:
 
       - name: Run go tests
         run: make test
+
+  action-author-ui:
+    name: 📱 Action author UI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@v4
+
+      - name: Lint and test the action author UI
+        run: make action-author.ui-test

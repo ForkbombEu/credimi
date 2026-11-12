@@ -11,7 +11,10 @@ export type DeviceRecord = {
 	isOwned: boolean;
 	isPublished: boolean;
 	isOnline: boolean;
+	/** Whether `isOnline` is current without the device catalog; the catalog decides otherwise. */
+	statusKnown?: boolean;
 	url?: string;
 	type?: string;
 	queueLength?: number;
+	unavailableReason?: string;
 };

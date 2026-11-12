@@ -51,12 +51,33 @@ func (f fakeWorkflowRun) GetWithOptions(
 }
 
 type capturingTemporalClient struct {
-	run         client.WorkflowRun
-	executeErr  error
-	describeRun string
-	lastOptions client.StartWorkflowOptions
-	lastArgs    []interface{}
-	described   []string
+	run          client.WorkflowRun
+	executeErr   error
+	describeRun  string
+	lastOptions  client.StartWorkflowOptions
+	lastArgs     []interface{}
+	lastWorkflow interface{}
+	described    []string
+	// namespaces lists the namespace of every client the activity asked for.
+	namespaces []string
+	// signals records every signal sent, and signalErr fails them.
+	signals   []capturedSignal
+	signalErr error
+}
+
+type capturedSignal struct {
+	workflowID, runID, name string
+	arg                     any
+}
+
+// SignalWorkflow records the signal and returns signalErr.
+func (c *capturingTemporalClient) SignalWorkflow(
+	ctx context.Context,
+	workflowID, runID, signalName string,
+	arg interface{},
+) error {
+	c.signals = append(c.signals, capturedSignal{workflowID, runID, signalName, arg})
+	return c.signalErr
 }
 
 // ExecuteWorkflow records workflow start options for assertions and returns the stubbed run.
@@ -67,6 +88,7 @@ func (c *capturingTemporalClient) ExecuteWorkflow(
 	args ...interface{},
 ) (client.WorkflowRun, error) {
 	c.lastOptions = options
+	c.lastWorkflow = workflow
 	c.lastArgs = append([]interface{}(nil), args...)
 	if c.executeErr != nil {
 		return nil, c.executeErr
@@ -98,6 +120,7 @@ func newCapturingQueuedPipelineActivity(
 	}
 	act := NewStartQueuedPipelineActivity(newPipelineResultsTestApp(t))
 	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
+		captured.namespaces = append(captured.namespaces, namespace)
 		return captured, nil
 	}
 	return act, captured

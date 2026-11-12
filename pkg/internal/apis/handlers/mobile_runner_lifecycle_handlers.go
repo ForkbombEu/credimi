@@ -43,6 +43,9 @@ type MobileRunnerLifecycleRequest struct {
 	RequestID string                       `json:"request_id,omitempty"`
 	Reason    string                       `json:"reason,omitempty"`
 	Devices   []MobileDeviceLifecycleState `json:"devices,omitempty"`
+	// ActionAuthor carries the runner's action author settings on heartbeat
+	// and resume; pause ignores it, and an absent value keeps the stored ones.
+	ActionAuthor *RunnerActionAuthorSettings `json:"action_author,omitempty"`
 }
 
 type MobileDeviceLifecycleState struct {
@@ -59,6 +62,9 @@ type MobileRunnerLifecycleResponse struct {
 	ShutdownAfterSeconds    int    `json:"shutdown_after_seconds"`
 	// RunnerCredential is the key Credimi currently presents to this runner.
 	RunnerCredential string `json:"runner_credential"`
+	// AgentNamespace is the Temporal namespace the runner's action author
+	// serves; absent until Credimi has prepared it for an enabled agent.
+	AgentNamespace string `json:"agent_namespace,omitempty"`
 }
 
 var MobileRunnerLifecycleRoutes = routing.RouteGroup{
@@ -106,10 +112,12 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
+		settings := trustedActionAuthorSettings(e, record, input.ActionAuthor)
 		deviceStates, err := applyRunnerHeartbeatDevices(
 			e.App,
 			record,
 			input.Devices,
+			settings,
 			mobileRunnerLifecycleNow(),
 		)
 		if err != nil {
@@ -120,6 +128,8 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
+		// The response's agent namespace follows the settings just stored.
+		setRunnerActionAuthorSettings(record, settings)
 		for deviceID, online := range deviceStates {
 			if !online {
 				continue
@@ -176,10 +186,12 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
+		settings := trustedActionAuthorSettings(e, record, input.ActionAuthor)
 		deviceStates, err := applyRunnerHeartbeatDevices(
 			e.App,
 			record,
 			input.Devices,
+			settings,
 			mobileRunnerLifecycleNow(),
 		)
 		if err != nil {
@@ -190,6 +202,8 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
+		// The response's agent namespace follows the settings just stored.
+		setRunnerActionAuthorSettings(record, settings)
 		for deviceID, online := range deviceStates {
 			if online {
 				if err := ensureRunQueueSemaphoreWorkflow(
@@ -271,6 +285,7 @@ func applyRunnerHeartbeatDevices(
 	app core.App,
 	runner *core.Record,
 	reported []MobileDeviceLifecycleState,
+	actionAuthor *RunnerActionAuthorSettings,
 	now time.Time,
 ) (map[string]bool, error) {
 	states := map[string]bool{}
@@ -280,6 +295,7 @@ func applyRunnerHeartbeatDevices(
 			return err
 		}
 		setRunnerHeartbeat(currentRunner, true, now)
+		setRunnerActionAuthorSettings(currentRunner, actionAuthor)
 		if err := txApp.Save(currentRunner); err != nil {
 			return err
 		}
@@ -578,6 +594,7 @@ func lifecycleResponse(
 		HeartbeatTimeoutSeconds: int(mobilerunnerlifecycle.HeartbeatTimeout() / time.Second),
 		ShutdownAfterSeconds:    int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 		RunnerCredential:        credential,
+		AgentNamespace:          runnerAgentNamespace(runner),
 	})
 }
 

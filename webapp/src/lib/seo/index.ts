@@ -100,6 +100,7 @@ export const PRIVATE_PATHS = [
 	'/api/',
 	'/_/',
 	'/temporal-ui/',
+	'/action-author-ui/',
 	'/login',
 	'/register',
 	'/forgot-password',

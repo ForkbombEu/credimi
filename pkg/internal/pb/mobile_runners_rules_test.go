@@ -63,6 +63,50 @@ func TestMobileRunnersUpdateRuleGuardsPrivilegedFields(t *testing.T) {
 			wantCode: http.StatusNotFound,
 		},
 		{
+			name:     "org owner cannot set the action author limits",
+			body:     `{"agent_own_daily_tokens":1000,"agent_others_daily_tokens":1000}`,
+			wantCode: http.StatusNotFound,
+		},
+		{
+			name:     "org owner cannot set the action author model",
+			body:     `{"agent_provider":"anthropic","agent_model":"claude"}`,
+			wantCode: http.StatusNotFound,
+		},
+		{
+			// agent_settings_from is hidden: PocketBase drops it from a
+			// non-superuser body before the rule runs.
+			name:     "org owner cannot set the action author settings identity",
+			body:     `{"agent_settings_from":"x"}`,
+			wantCode: http.StatusOK,
+			want:     map[string]any{"agent_settings_from": ""},
+		},
+		{
+			name:     "org owner cannot enable the action author",
+			body:     `{"agent_enabled":true}`,
+			wantCode: http.StatusNotFound,
+		},
+		{
+			// agent_namespace_ready is hidden and guarded: only Credimi
+			// marks a runner's agent namespace ready.
+			name:     "org owner cannot mark the agent namespace ready",
+			body:     `{"agent_namespace_ready":true}`,
+			wantCode: http.StatusOK,
+			want:     map[string]any{"agent_namespace_ready": false},
+		},
+		{
+			// The usage fields are hidden and guarded: only the runner's
+			// trusted heartbeats report its usage.
+			name: "org owner cannot report the action author usage",
+			body: `{"agent_usage_day":"2026-11-05","agent_own_tokens_used":1,` +
+				`"agent_others_tokens_used":1}`,
+			wantCode: http.StatusOK,
+			want: map[string]any{
+				"agent_usage_day":          "",
+				"agent_own_tokens_used":    "0",
+				"agent_others_tokens_used": "0",
+			},
+		},
+		{
 			name:     "non-member cannot self-grant admin_managed",
 			actor:    actorNonMember,
 			body:     `{"admin_managed":true,"published":true}`,
@@ -127,6 +171,8 @@ func TestMobileRunnersCreateRuleGuardsPrivilegedFields(t *testing.T) {
 		name     string
 		extra    string
 		wantCode int
+		// wantUnset lists fields the created runner must not store.
+		wantUnset []string
 	}{
 		{name: "org owner cannot create an admin_managed runner", extra: `"admin_managed":true`},
 		{name: "org owner cannot create a runner as online", extra: `"online":true`},
@@ -135,7 +181,30 @@ func TestMobileRunnersCreateRuleGuardsPrivilegedFields(t *testing.T) {
 			extra: `"last_heartbeat_at":"` + rulesTestHeartbeat + `"`,
 		},
 		{name: "org owner cannot create a disabled runner", extra: `"disabled":true`},
+		{
+			name:  "org owner cannot create a runner with agent limits",
+			extra: `"agent_others_daily_tokens":1`,
+		},
 		{name: "org owner cannot create a published runner", extra: `"published":true`},
+		{
+			// The agent namespace is runner-<id>: a chosen id could claim a
+			// deleted runner's namespace.
+			name:  "org owner cannot choose the runner record id",
+			extra: `"id":"chosenrunnerid1"`,
+		},
+		{
+			// The usage fields are hidden: PocketBase drops them from the
+			// body, so the runner is created without them.
+			name: "org owner cannot create a runner with reported usage",
+			extra: `"agent_usage_day":"2026-11-05","agent_own_tokens_used":1,` +
+				`"agent_others_tokens_used":1`,
+			wantCode: http.StatusOK,
+			wantUnset: []string{
+				"agent_usage_day",
+				"agent_own_tokens_used",
+				"agent_others_tokens_used",
+			},
+		},
 		{name: "org owner can create an ordinary runner", wantCode: http.StatusOK},
 	}
 
@@ -160,7 +229,44 @@ func TestMobileRunnersCreateRuleGuardsPrivilegedFields(t *testing.T) {
 			)
 			require.Equal(t, tc.wantCode, rec.Code, rec.Body.String())
 			assertCreatedCount(t, app, "mobile_runners", "created-runner", tc.wantCode)
+			if len(tc.wantUnset) > 0 {
+				created, err := app.FindFirstRecordByData(
+					"mobile_runners",
+					"name",
+					"created-runner",
+				)
+				require.NoError(t, err)
+				for _, field := range tc.wantUnset {
+					assert.Empty(t, created.Get(field), field)
+				}
+			}
 		})
+	}
+}
+
+// TestMobileRunnersRulesGuardEveryAgentField checks that the rules guard
+// every action author field of a runner, hidden or not.
+func TestMobileRunnersRulesGuardEveryAgentField(t *testing.T) {
+	app := newRulesTestApp(t)
+	runners, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+	require.NotNil(t, runners.CreateRule)
+	require.NotNil(t, runners.UpdateRule)
+	for _, field := range []string{
+		"agent_own_daily_tokens",
+		"agent_others_daily_tokens",
+		"agent_provider",
+		"agent_model",
+		"agent_settings_from",
+		"agent_enabled",
+		"agent_namespace_ready",
+		"agent_usage_day",
+		"agent_own_tokens_used",
+		"agent_others_tokens_used",
+	} {
+		guard := "@request.body." + field + ":isset = false"
+		assert.Contains(t, *runners.CreateRule, guard)
+		assert.Contains(t, *runners.UpdateRule, guard)
 	}
 }
 

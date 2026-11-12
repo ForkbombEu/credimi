@@ -150,7 +150,7 @@ func (w *PipelineWorkflow) Workflow(
 			runID,
 			finalResult,
 		)
-		reportMobileDeviceSemaphoreDone(
+		ReportMobileDeviceSemaphoreDone(
 			reportCtx,
 			logger,
 			config,

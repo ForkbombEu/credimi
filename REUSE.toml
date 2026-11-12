@@ -23,6 +23,8 @@ path = [
     ".vscode/settings.json",
     "config_templates/**/*",
     "docs/**/*",
+    "agents/action-author-ui/.python-version",
+    "agents/action-author-ui/uv.lock",
     "fixtures/test_pb_data/types.d.ts",
     "go.sum",
     "mocked_templates/**/*",

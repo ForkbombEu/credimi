@@ -96,7 +96,7 @@ The worker manager receives runner identifiers (`runner_ids`) in its workflow pa
 
 **Pipelines (internal).** `/api/pipeline/store-step-screenshots`, `/mobile-flow`, `/scoreboard/aggregate/start`, `DELETE /scoreboard/aggregate/schedule/{schedule_id}`, `POST|DELETE /retention/schedule` — internal-admin, except `store-step-screenshots` (internal-or-auth) and `mobile-flow`, which currently has **no auth middleware** (flagged as a likely oversight). Pipeline results, evidence, reports, scoreboard and retention file deletion are written in-process by activities (see the conformance reference).
 
-**Workflows.** `GET /api/my/workflows/{workflowId}/runs[/{runId}]` (+ `/history`, `/export`, `/logs?action=start|stop`), `POST …/rerun`, `…/cancel`, `…/terminate`, `GET /api/list-workflows` (U; non-pipeline trees only).
+**Workflows.** `GET /api/my/workflows/{workflowId}/runs/{runId}`, `POST /api/my/workflows/{workflowId}/runs/{runId}/cancel`, `GET /api/list-workflows` (U; non-pipeline trees only).
 
 **Schedules.** `POST /api/my/schedules/start`, `GET /api/my/schedules`, `POST /api/my/schedules/{scheduleId}/{cancel,pause,resume}` (U).
 

@@ -33,6 +33,8 @@ type RouteInfo struct {
 	OperationID           string
 	InputSchema           any
 	OutputSchema          any
+	ResponseStatus        int
+	ResponseContentType   string
 	QuerySearchAttributes []routing.QuerySearchAttribute
 	AuthHeaders           []authHeaderParam
 	PathParams            []string
@@ -79,6 +81,8 @@ func main() {
 				OperationID:           route.OperationID,
 				Summary:               route.Summary,
 				Description:           route.Description,
+				ResponseStatus:        route.ResponseStatus,
+				ResponseContentType:   route.ResponseContentType,
 				QuerySearchAttributes: route.QuerySearchAttributes,
 				AuthHeaders: authHeadersForRoute(
 					group.AuthenticationRequired,
@@ -227,17 +231,25 @@ func addOperationRequest(operation openapi.OperationContext, route RouteInfo) er
 }
 
 func addOperationResponses(operation openapi.OperationContext, route RouteInfo) {
+	status := route.ResponseStatus
+	if status == 0 {
+		status = http.StatusOK
+	}
+	contentType := route.ResponseContentType
+	if contentType == "" {
+		contentType = "application/json"
+	}
 	if route.OutputSchema != nil {
 		operation.AddRespStructure(
 			route.OutputSchema,
-			openapi.WithHTTPStatus(http.StatusOK),
-			openapi.WithContentType("application/json"),
+			openapi.WithHTTPStatus(status),
+			openapi.WithContentType(contentType),
 			withResponseDescription("Successful response"),
 		)
 	} else {
 		operation.AddRespStructure(
 			nil,
-			openapi.WithHTTPStatus(http.StatusOK),
+			openapi.WithHTTPStatus(status),
 			withResponseDescription("Successful response without a body"),
 		)
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/safehttp"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -27,7 +28,6 @@ import (
 )
 
 const walletAPKFormFileField = "apk_file"
-const walletAPKExternalSourceVersionID = "installed_from_external_source"
 const walletAPKCleanupConfigKey = "temp_wallet_version"
 const walletAPKMobileAutomationStepUse = "mobile-automation"
 const walletAPKMaxBytes = int64(1000 << 20)
@@ -499,7 +499,7 @@ func resolvePipelineRunWalletAPKWallet(
 	walletIDs := map[string]*core.Record{}
 	for _, ref := range references {
 		versionID := canonify.NormalizePath(ref.VersionID)
-		if versionID == walletAPKExternalSourceVersionID {
+		if versionID == pipeline.MobileExternalSourceVersionID {
 			return nil, nil, apierror.New(
 				http.StatusBadRequest,
 				"wallet_version",

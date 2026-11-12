@@ -653,7 +653,7 @@ func TestFetchAndInstallAPKRequestsInstallerWithoutActionIdentifier(t *testing.T
 				"installed": map[string]string{},
 			}
 
-			err := fetchAndInstallAPK(fetchAndInstallAPKInput{
+			installerPath, err := fetchAndInstallAPK(fetchAndInstallAPKInput{
 				ctx:        ctx,
 				mobileCtx:  ctx,
 				step:       &step.StepSpec,
@@ -669,8 +669,9 @@ func TestFetchAndInstallAPKRequestsInstallerWithoutActionIdentifier(t *testing.T
 			}
 
 			return map[string]any{
-				"action_code": step.With.Payload["action_code"],
-				"installed":   deviceMap["installed"].(map[string]string)["ver-1"],
+				"action_code":    step.With.Payload["action_code"],
+				"installed":      deviceMap["installed"].(map[string]string)["ver-1"],
+				"installer_path": installerPath,
 			}, nil
 		},
 		workflow.RegisterOptions{Name: "test-fetch-and-install-apk"},
@@ -739,6 +740,7 @@ func TestFetchAndInstallAPKRequestsInstallerWithoutActionIdentifier(t *testing.T
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "code-1", result["action_code"])
 	require.Equal(t, "pkg-1", result["installed"])
+	require.Equal(t, "/tmp/app.apk", result["installer_path"])
 }
 
 func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
@@ -776,7 +778,7 @@ func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
 							"action_code":        "code-1",
 							"stored_action_code": true,
 							"device_id":          "tenant/runner-1/device-1",
-							"version_id":         mobileExternalSourceVersionID,
+							"version_id":         MobileExternalSourceVersionID,
 						},
 					},
 				},
@@ -785,13 +787,13 @@ func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
 				ActionID:   "action-1",
 				ActionCode: "code-1",
 				DeviceID:   "tenant/runner-1/device-1",
-				VersionID:  mobileExternalSourceVersionID,
+				VersionID:  MobileExternalSourceVersionID,
 			}
 			deviceMap := map[string]any{
 				"installed": map[string]string{},
 			}
 
-			err := fetchAndInstallAPK(fetchAndInstallAPKInput{
+			installerPath, err := fetchAndInstallAPK(fetchAndInstallAPKInput{
 				ctx:           ctx,
 				mobileCtx:     ctx,
 				step:          &step.StepSpec,
@@ -808,9 +810,10 @@ func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
 			}
 
 			return map[string]any{
-				"use":       step.Use,
-				"payload":   step.With.Payload,
-				"installed": len(deviceMap["installed"].(map[string]string)),
+				"use":            step.Use,
+				"payload":        step.With.Payload,
+				"installed":      len(deviceMap["installed"].(map[string]string)),
+				"installer_path": installerPath,
 			}, nil
 		},
 		workflow.RegisterOptions{Name: "test-fetch-and-install-apk-skip-installer"},
@@ -828,9 +831,10 @@ func TestFetchAndInstallAPKSkipInstallerMakesNoRunnerCall(t *testing.T) {
 		"action_code":        "code-1",
 		"stored_action_code": true,
 		"device_id":          "tenant/runner-1/device-1",
-		"version_id":         mobileExternalSourceVersionID,
+		"version_id":         MobileExternalSourceVersionID,
 	}, result["payload"])
 	require.Equal(t, float64(0), result["installed"])
+	require.Empty(t, result["installer_path"])
 }
 
 func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
@@ -1857,7 +1861,7 @@ func TestResolveStoredMobileActionsPreparesNestedSpecs(t *testing.T) {
 func nestedMobilePreparationPayload(deviceID, suffix string) map[string]any {
 	payload := map[string]any{
 		"action_id":  "tenant/action-" + suffix,
-		"version_id": mobileExternalSourceVersionID,
+		"version_id": MobileExternalSourceVersionID,
 	}
 	if deviceID != "" {
 		payload["device_id"] = deviceID
@@ -1868,7 +1872,7 @@ func nestedMobilePreparationPayload(deviceID, suffix string) map[string]any {
 func nestedExternalInstallPayload(suffix string) map[string]any {
 	return map[string]any{
 		"action_id":  "tenant/action-" + suffix,
-		"version_id": mobileExternalSourceVersionID,
+		"version_id": MobileExternalSourceVersionID,
 	}
 }
 

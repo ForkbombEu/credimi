@@ -498,6 +498,23 @@ func TestHTTPActivity_WithOutputRules(t *testing.T) {
 	}
 }
 
+func TestExecuteHTTPRequestMaxBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("0123456789"))
+	}))
+	t.Cleanup(server.Close)
+	act := &workflowengine.BaseActivity{}
+	payload := HTTPActivityPayload{Method: http.MethodGet, URL: server.URL}
+
+	for _, maxBody := range []int64{0, 10} {
+		result, err := executeHTTPRequest(t.Context(), payload, nil, act, nil, maxBody)
+		require.NoError(t, err)
+		require.Equal(t, "0123456789", result.Output.(map[string]any)["body"])
+	}
+	_, err := executeHTTPRequest(t.Context(), payload, nil, act, nil, 9)
+	require.ErrorContains(t, err, "response body exceeds 9 bytes")
+}
+
 func TestValidateExpectedStatus(t *testing.T) {
 	// Crea un'attività base per gli errori
 	act := &workflowengine.BaseActivity{}

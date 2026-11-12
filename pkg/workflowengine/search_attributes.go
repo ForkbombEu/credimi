@@ -22,6 +22,12 @@ const (
 	UseCaseSearchAttribute           = "UseCaseID"
 	ConformanceCheckSearchAttribute  = "ConformanceCheckID"
 	CustomCheckSearchAttribute       = "CustomCheckID"
+	// ActionAuthorActorSearchAttribute stores the user record ID of the
+	// starter of an action author session.
+	ActionAuthorActorSearchAttribute = "ActionAuthorActor"
+	// ActionAuthorWalletSearchAttribute stores the wallet
+	// (<organization>/<wallet>) of an action author session.
+	ActionAuthorWalletSearchAttribute = "ActionAuthorWallet"
 )
 
 // CustomSearchAttributeTypes returns the custom search attributes every Credimi
@@ -36,6 +42,8 @@ func CustomSearchAttributeTypes() map[string]enumspb.IndexedValueType {
 		UseCaseSearchAttribute:            enumspb.INDEXED_VALUE_TYPE_KEYWORD_LIST,
 		ConformanceCheckSearchAttribute:   enumspb.INDEXED_VALUE_TYPE_KEYWORD_LIST,
 		CustomCheckSearchAttribute:        enumspb.INDEXED_VALUE_TYPE_KEYWORD_LIST,
+		ActionAuthorActorSearchAttribute:  enumspb.INDEXED_VALUE_TYPE_KEYWORD,
+		ActionAuthorWalletSearchAttribute: enumspb.INDEXED_VALUE_TYPE_KEYWORD,
 	}
 }
 
@@ -97,6 +105,16 @@ func PipelineTypedSearchAttributes(
 		return temporal.NewSearchAttributes()
 	}
 	return temporal.NewSearchAttributes(attrs...)
+}
+
+// ActionAuthorSessionSearchAttributes returns the search attributes an action
+// author session starts with: its starter's user record ID and its wallet
+// (<organization>/<wallet>).
+func ActionAuthorSessionSearchAttributes(actorID, wallet string) temporal.SearchAttributes {
+	return temporal.NewSearchAttributes(
+		temporal.NewSearchAttributeKeyKeyword(ActionAuthorActorSearchAttribute).ValueSet(actorID),
+		temporal.NewSearchAttributeKeyKeyword(ActionAuthorWalletSearchAttribute).ValueSet(wallet),
+	)
 }
 
 // ApplyPipelineSearchAttributes ensures StartWorkflowOptions include pipeline visibility attributes.

@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -68,29 +70,57 @@ func stubPipelineLiveViewTemporal(
 	devices map[string]any,
 ) {
 	t.Helper()
+	stubLiveViewTemporalOfType(t, "Dynamic Pipeline Workflow", status, devices)
+}
 
+func stubLiveViewTemporalOfType(
+	t *testing.T,
+	workflowType string,
+	status enums.WorkflowExecutionStatus,
+	devices map[string]any,
+) {
+	t.Helper()
+	stubLiveViewWorkflow(t, "pipeline-1", workflowType, status, devices)
+}
+
+// stubLiveViewWorkflow answers the run run-1 of workflowID and returns the
+// namespaces of the clients the handler asked for.
+func stubLiveViewWorkflow(
+	t *testing.T,
+	workflowID string,
+	workflowType string,
+	status enums.WorkflowExecutionStatus,
+	devices map[string]any,
+) *[]string {
+	t.Helper()
+
+	description := pipelineMobileFlowDescription(t, status, []string{"tenant/runner-1"})
+	description.WorkflowExecutionInfo.Type.Name = workflowType
 	mockClient := temporalmocks.NewClient(t)
 	mockClient.On(
 		"DescribeWorkflowExecution",
 		mock.Anything,
-		"pipeline-1",
+		workflowID,
 		"run-1",
-	).Return(pipelineMobileFlowDescription(t, status, []string{"tenant/runner-1"}), nil).Once()
+	).Return(description, nil).Once()
 	if status == enums.WORKFLOW_EXECUTION_STATUS_RUNNING {
 		mockClient.On(
 			"QueryWorkflow",
 			mock.Anything,
-			"pipeline-1",
+			workflowID,
 			"run-1",
 			pipeline.PipelineMobileDevicesQuery,
 		).Return(converter.EncodedValue(pipelineMobileFlowEncodedValue{devices: devices}), nil).Once()
 	}
 
+	namespaces := []string{}
 	original := pipelineLiveViewTemporalClient
 	t.Cleanup(func() { pipelineLiveViewTemporalClient = original })
-	pipelineLiveViewTemporalClient = func(string) (client.Client, error) {
+	pipelineLiveViewTemporalClient = func(namespace string) (client.Client, error) {
+		namespaces = append(namespaces, namespace)
 		return mockClient, nil
 	}
+	return &namespaces
 }
 
 func servePipelineLiveView(
@@ -207,6 +237,347 @@ func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
 		"run_id":            "run-1",
 		"run_identifier":    pipeline.RunIdentifier(namespace, "pipeline-1", "run-1"),
 	}, call.body)
+}
+
+// liveViewSession is the action author session authoringSessionID that the
+// live view looks up through actionAuthorSessionTemporalClient.
+type liveViewSession struct {
+	authoringSessionGrant
+	// unsigned leaves the start input without Credimi's grant.
+	unsigned bool
+	// runs are the session's runs, oldest first; the first is the trusted one.
+	runs   []string
+	status enums.WorkflowExecutionStatus
+	// clientErr fails the session namespace's client.
+	clientErr error
+}
+
+// stubLiveViewSession makes actionAuthorSessionTemporalClient answer s and
+// returns the namespaces asked for.
+func stubLiveViewSession(t *testing.T, app *tests.TestApp, s liveViewSession) *[]string {
+	t.Helper()
+	setAuthoringSessionKey(t)
+	c := &temporalmocks.Client{}
+	stubSessionRuns(t, c, s.sessionID, s.runs...)
+	if len(s.runs) > 0 {
+		c.On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			s.sessionID,
+			s.runs[0],
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).Return(s.history(t, app, s.runs[0], !s.unsigned)).Maybe()
+		c.On("DescribeWorkflowExecution", mock.Anything, s.sessionID, s.runs[0]).
+			Return(authoringExecution(activities.ActionAuthorSessionWorkflowName, s.status, 0), nil).
+			Maybe()
+	}
+	namespaces := []string{}
+	original := actionAuthorSessionTemporalClient
+	t.Cleanup(func() { actionAuthorSessionTemporalClient = original })
+	actionAuthorSessionTemporalClient = func(namespace string) (client.Client, error) {
+		namespaces = append(namespaces, namespace)
+		return c, s.clientErr
+	}
+	return &namespaces
+}
+
+// refuseLiveViewTemporal fails the test if the handler reads the workflow.
+func refuseLiveViewTemporal(t *testing.T) *temporalmocks.Client {
+	t.Helper()
+	c := &temporalmocks.Client{}
+	original := pipelineLiveViewTemporalClient
+	t.Cleanup(func() { pipelineLiveViewTemporalClient = original })
+	pipelineLiveViewTemporalClient = func(string) (client.Client, error) { return c, nil }
+	return c
+}
+
+// An action author session prepares its device with its workflow ID as the
+// run identifier, so the runner must look the live view up by it, in the
+// runner namespace the session runs in.
+func TestPipelineLiveViewOpensActionAuthorSessionDevice(t *testing.T) {
+	t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
+	app, authRecord, namespace := pipelineLiveViewTestApp(t)
+	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
+	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
+	stubLiveViewSession(t, app, liveViewSession{
+		authoringSessionGrant: authoringSessionGrant{
+			sessionID:    authoringSessionID,
+			organization: namespace,
+			device:       deviceID,
+			version:      authoringAndroidVersion,
+			actorID:      authRecord.Id,
+		},
+		runs:   []string{"run-1"},
+		status: enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+	})
+	namespaces := stubLiveViewWorkflow(
+		t,
+		authoringSessionID,
+		activities.ActionAuthorSessionWorkflowName,
+		enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+		map[string]any{
+			deviceID: map[string]any{"serial": "emulator-5554", "type": "android_emulator"},
+		},
+	)
+
+	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
+		WorkflowID: authoringSessionID,
+		RunID:      "run-1",
+	})
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, []string{authoringSessionNamespace}, *namespaces)
+	require.Len(t, *calls, 1)
+	require.Equal(t, map[string]any{
+		"device_identifier": deviceID,
+		"serial":            "emulator-5554",
+		"namespace":         authoringSessionNamespace,
+		"workflow_id":       authoringSessionID,
+		"run_id":            "run-1",
+		"run_identifier":    authoringSessionID,
+	}, (*calls)[0].body)
+}
+
+// Only the user who started a session opens the live view of its trusted
+// run; anyone else gets the answer of a session that does not exist.
+func TestPipelineLiveViewRefusesActionAuthorSessionsOfOthers(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// runs are the session's runs, oldest first; none is not visible.
+		runs     []string
+		unsigned bool
+		member   bool
+		// organization and namespace override the ones the grant names, the
+		// caller's organization and the session's runner namespace.
+		organization string
+		namespace    string
+		clientErr    error
+		code         int
+		reason       string
+	}{
+		{name: "not visible in Temporal", code: http.StatusNotFound, reason: "session_not_found"},
+		{
+			name:         "started for another organization",
+			runs:         []string{"run-1"},
+			organization: "other-organization",
+			code:         http.StatusNotFound,
+			reason:       "session_not_found",
+		},
+		{
+			name:      "granted for another namespace",
+			runs:      []string{"run-1"},
+			namespace: "runner-otherrunner0001",
+			code:      http.StatusNotFound,
+			reason:    "session_not_found",
+		},
+		{
+			name:     "not signed by Credimi",
+			runs:     []string{"run-1"},
+			unsigned: true,
+			code:     http.StatusNotFound,
+			reason:   "session_not_found",
+		},
+		{
+			name:   "a later run",
+			runs:   []string{"run-0", "run-1"},
+			code:   http.StatusNotFound,
+			reason: "session_not_found",
+		},
+		{
+			name:   "another member",
+			runs:   []string{"run-1"},
+			member: true,
+			code:   http.StatusNotFound,
+			reason: "session_not_found",
+		},
+		{
+			name:      "Temporal unavailable",
+			runs:      []string{"run-1"},
+			clientErr: errors.New("dial failed"),
+			code:      http.StatusInternalServerError,
+			reason:    "session_lookup_failed",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
+			app, authRecord, namespace := pipelineLiveViewTestApp(t)
+			server, calls := newLiveViewRunner(
+				t,
+				http.StatusOK,
+				map[string]any{"path": "/live/tok"},
+			)
+			deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
+			organization := namespace
+			if tc.organization != "" {
+				organization = tc.organization
+			}
+			stubLiveViewSession(t, app, liveViewSession{
+				authoringSessionGrant: authoringSessionGrant{
+					sessionID:    authoringSessionID,
+					organization: organization,
+					device:       deviceID,
+					version:      authoringAndroidVersion,
+					actorID:      authRecord.Id,
+					namespace:    tc.namespace,
+				},
+				unsigned:  tc.unsigned,
+				runs:      tc.runs,
+				status:    enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+				clientErr: tc.clientErr,
+			})
+			caller := authRecord
+			if tc.member {
+				caller = joinAgentRunnerOrganization(t, app, "member")
+			}
+			workflow := refuseLiveViewTemporal(t)
+
+			rec := servePipelineLiveView(t, app, caller, PipelineLiveViewInput{
+				WorkflowID: authoringSessionID,
+				RunID:      "run-1",
+			})
+
+			require.Equal(t, tc.code, rec.Code, rec.Body.String())
+			require.Contains(t, rec.Body.String(), tc.reason)
+			require.Empty(t, *calls)
+			workflow.AssertNotCalled(
+				t,
+				"DescribeWorkflowExecution",
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+			)
+		})
+	}
+}
+
+// A workflow of the session type under an ID that names no session is no
+// session anyone started.
+func TestPipelineLiveViewRefusesSessionWorkflowsOfOtherIDs(t *testing.T) {
+	t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
+	app, authRecord, _ := pipelineLiveViewTestApp(t)
+	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
+	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
+	namespaces := stubLiveViewSession(t, app, liveViewSession{})
+	stubLiveViewTemporalOfType(
+		t,
+		activities.ActionAuthorSessionWorkflowName,
+		enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+		map[string]any{
+			deviceID: map[string]any{"serial": "emulator-5554", "type": "android_emulator"},
+		},
+	)
+
+	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
+		WorkflowID: "pipeline-1",
+		RunID:      "run-1",
+	})
+
+	require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), "session_not_found")
+	require.Empty(t, *calls)
+	require.Empty(t, *namespaces)
+}
+
+// A session's status is the starter's only: anyone else gets the answer of
+// a session that does not exist whether it runs or has closed.
+func TestPipelineLiveViewChecksTheSessionOwnerBeforeItsStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status enums.WorkflowExecutionStatus
+		member bool
+		// organization overrides the one the grant names, the caller's.
+		organization string
+		code         int
+		reason       string
+	}{
+		{
+			name:         "another organization, running",
+			status:       enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			organization: "other-organization",
+			code:         http.StatusNotFound,
+			reason:       "session_not_found",
+		},
+		{
+			name:   "another member, closed",
+			status: enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			member: true,
+			code:   http.StatusNotFound,
+			reason: "session_not_found",
+		},
+		{
+			name:   "another member, running",
+			status: enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			member: true,
+			code:   http.StatusNotFound,
+			reason: "session_not_found",
+		},
+		{
+			name:   "starter, closed",
+			status: enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			code:   http.StatusConflict,
+			reason: "pipeline workflow is not running",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
+			app, authRecord, namespace := pipelineLiveViewTestApp(t)
+			server, calls := newLiveViewRunner(
+				t,
+				http.StatusOK,
+				map[string]any{"path": "/live/tok"},
+			)
+			deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
+			organization := namespace
+			if tc.organization != "" {
+				organization = tc.organization
+			}
+			stubLiveViewSession(t, app, liveViewSession{
+				authoringSessionGrant: authoringSessionGrant{
+					sessionID:    authoringSessionID,
+					organization: organization,
+					device:       deviceID,
+					version:      authoringAndroidVersion,
+					actorID:      authRecord.Id,
+				},
+				runs:   []string{"run-1"},
+				status: tc.status,
+			})
+			caller := authRecord
+			if tc.member {
+				caller = joinAgentRunnerOrganization(t, app, "member")
+			}
+			description := pipelineMobileFlowDescription(t, tc.status, []string{"tenant/runner-1"})
+			description.WorkflowExecutionInfo.Type.Name = activities.ActionAuthorSessionWorkflowName
+			mockClient := &temporalmocks.Client{}
+			mockClient.On("DescribeWorkflowExecution", mock.Anything, authoringSessionID, "run-1").
+				Return(description, nil).
+				Maybe()
+			original := pipelineLiveViewTemporalClient
+			t.Cleanup(func() { pipelineLiveViewTemporalClient = original })
+			pipelineLiveViewTemporalClient = func(string) (client.Client, error) {
+				return mockClient, nil
+			}
+
+			rec := servePipelineLiveView(t, app, caller, PipelineLiveViewInput{
+				WorkflowID: authoringSessionID,
+				RunID:      "run-1",
+			})
+
+			require.Equal(t, tc.code, rec.Code, rec.Body.String())
+			require.Contains(t, rec.Body.String(), tc.reason)
+			require.Empty(t, *calls)
+			if tc.code == http.StatusNotFound {
+				mockClient.AssertNotCalled(
+					t,
+					"DescribeWorkflowExecution",
+					mock.Anything,
+					mock.Anything,
+					mock.Anything,
+				)
+			}
+		})
+	}
 }
 
 // A tenant chooses its runner's address, so Credimi must never connect to a

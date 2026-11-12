@@ -73,6 +73,8 @@ export interface CardData {
 	meta?: Record<string, unknown>;
 	publicUrl?: string;
 	beforeTitle?: string;
+	/** Shows the action author icon after the title (a stored wallet action the agent wrote). */
+	agentAuthored?: boolean;
 }
 
 // Utilities

@@ -163,12 +163,20 @@ func credentialOffer(
 	app core.App,
 	identifier string,
 ) (CredentialOfferOutput, map[string]string, error) {
-	var output CredentialOfferOutput
 	record, err := resolveByIdentifier(app, "credential", identifier)
 	if err != nil {
-		return output, nil, err
+		return CredentialOfferOutput{}, nil, err
 	}
+	return recordCredentialOffer(app, record)
+}
 
+// recordCredentialOffer returns the offer of a credential record and, for
+// dynamic credentials, their parsed secrets.
+func recordCredentialOffer(
+	app core.App,
+	record *core.Record,
+) (CredentialOfferOutput, map[string]string, error) {
+	var output CredentialOfferOutput
 	if code := record.GetString("yaml"); code != "" {
 		secrets, err := parseRecordSecrets(record)
 		if err != nil {

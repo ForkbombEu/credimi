@@ -57,6 +57,19 @@ var MobileRunnerRegistrationRoutes = routing.RouteGroup{
 				middlewares.RequireCachedAPIKey(),
 			},
 		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/action-author-session-pool",
+			Handler:        HandleMobileRunnerSessionPool,
+			RequestSchema:  MobileRunnerSessionPoolRequest{},
+			ResponseSchema: MobileRunnerSessionPoolResponse{},
+			// The runner's model proxy asks once per session: same key
+			// handling as /temporal-token.
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				{Func: observability.RunnerPreAuthLimit()},
+				middlewares.RequireCachedAPIKey(),
+			},
+		},
 	},
 }
 
@@ -588,6 +601,9 @@ type UpsertMobileRunnerRequest struct {
 	Port         string `json:"port,omitempty"`
 	Serial       string `json:"serial,omitempty"`
 	Published    *bool  `json:"published,omitempty"`
+	// ActionAuthor carries the runner's action author settings; an absent
+	// value keeps the stored ones.
+	ActionAuthor *RunnerActionAuthorSettings `json:"action_author,omitempty"`
 }
 
 type UpsertMobileRunnerResponse struct {
@@ -606,6 +622,9 @@ type UpsertMobileRunnerResponse struct {
 	// RunnerCredential is the key Credimi presents to this runner from now
 	// on; every upsert rotates it.
 	RunnerCredential string `json:"runner_credential"`
+	// AgentNamespace is the Temporal namespace the runner's action author
+	// serves; absent until Credimi has prepared it for an enabled agent.
+	AgentNamespace string `json:"agent_namespace,omitempty"`
 }
 
 func HandlePreviewMobileRunnerID() func(*core.RequestEvent) error {
@@ -737,6 +756,13 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 		if input.Published != nil && isSuperuserAuth(e.Auth) {
 			record.Set("published", *input.Published)
 		}
+		// Another member re-registering the runner keeps its identity, so
+		// the runner's own heartbeats still set its limits.
+		if principal := runnerSettingsPrincipal(e); principal != "" &&
+			mayTakeRunnerSettings(e, record, principal) {
+			record.Set("agent_settings_from", principal)
+			setRunnerActionAuthorSettings(record, input.ActionAuthor)
+		}
 		record.Set("credential_generation", record.GetInt("credential_generation")+1)
 		credential, apiErr := mobileRunnerCredential(e.Auth, record)
 		if apiErr != nil {
@@ -776,6 +802,7 @@ func HandleUpsertMobileRunner() func(*core.RequestEvent) error {
 			Published:        record.GetBool("published"),
 			AdminManaged:     record.GetBool("admin_managed"),
 			RunnerCredential: credential,
+			AgentNamespace:   runnerAgentNamespace(record),
 		})
 	}
 }

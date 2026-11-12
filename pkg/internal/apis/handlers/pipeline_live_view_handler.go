@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
@@ -22,6 +23,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/enums/v1"
@@ -97,17 +99,48 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 			)
 		}
 
-		temporalClient, err := pipelineLiveViewTemporalClient(namespace)
-		if err != nil {
-			return temporalUnavailableError()
-		}
-
 		ctx := e.Request.Context()
 		workflowID := strings.TrimSpace(input.WorkflowID)
 		runID := strings.TrimSpace(input.RunID)
-		devices, apiErr := runningPipelineDevices(ctx, temporalClient, workflowID, runID)
+		// Pipelines run in the organization's namespace, action author
+		// sessions in their runner's namespace.
+		workflowNamespace := namespace
+		// Only its starter learns anything of a session, its status included.
+		ownerChecked := isActionAuthorWorkflowID(workflowID)
+		if ownerChecked {
+			session, apiErr := requireActionAuthorSessionOwner(
+				e,
+				namespace,
+				workflowID,
+				runID,
+			)
+			if apiErr != nil {
+				return apiErr
+			}
+			workflowNamespace = session.Namespace
+		}
+		temporalClient, err := pipelineLiveViewTemporalClient(workflowNamespace)
+		if err != nil {
+			return temporalUnavailableError()
+		}
+		devices, workflowType, apiErr := runningPipelineDevices(
+			ctx,
+			temporalClient,
+			workflowID,
+			runID,
+		)
 		if apiErr != nil {
 			return apiErr
+		}
+		// An action author session prepares its device with its workflow ID
+		// as the run identifier (pkg/workflowengine/authorsession).
+		runIdentifier := pipeline.RunIdentifier(namespace, workflowID, runID)
+		if workflowType == activities.ActionAuthorSessionWorkflowName {
+			// Credimi starts sessions only under session IDs.
+			if !ownerChecked {
+				return actionAuthorSessionMissing()
+			}
+			runIdentifier = workflowID
 		}
 
 		explicit := strings.TrimSpace(input.DeviceID) != ""
@@ -125,10 +158,10 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 				deviceID,
 				devices[deviceID],
 				runnerLiveViewRequest{
-					Namespace:     namespace,
+					Namespace:     workflowNamespace,
 					WorkflowID:    workflowID,
 					RunID:         runID,
-					RunIdentifier: pipeline.RunIdentifier(namespace, workflowID, runID),
+					RunIdentifier: runIdentifier,
 				},
 			)
 			if apiErr != nil {
@@ -150,24 +183,57 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 	}
 }
 
+// requireActionAuthorSessionOwner allows the live view of an action author
+// session only to the user who started it for organization (a
+// canonified_name), and returns the session's trusted run.
+func requireActionAuthorSessionOwner(
+	e *core.RequestEvent,
+	organization, workflowID, runID string,
+) (activities.ActionAuthorSessionRef, *apierror.APIError) {
+	info, err := activities.ReadActionAuthorSession(
+		e.Request.Context(),
+		e.App,
+		actionAuthorSessionTemporalClient,
+		organization,
+		workflowID,
+		e.Auth.Id,
+	)
+	switch {
+	case errors.Is(err, actionauthor.ErrForbidden),
+		errors.Is(err, actionauthor.ErrSessionNotVisible):
+		// Another user's session answers as one that does not exist.
+		return info.ActionAuthorSessionRef, actionAuthorSessionMissing()
+	case err != nil:
+		return info.ActionAuthorSessionRef, apierror.New(
+			http.StatusInternalServerError,
+			"action_author",
+			"session_lookup_failed",
+			err.Error(),
+		)
+	case info.SessionRunID != runID:
+		return info.ActionAuthorSessionRef, actionAuthorSessionMissing()
+	}
+	return info.ActionAuthorSessionRef, nil
+}
+
 func runningPipelineDevices(
 	ctx context.Context,
 	temporalClient client.Client,
 	workflowID string,
 	runID string,
-) (map[string]map[string]any, *apierror.APIError) {
+) (map[string]map[string]any, string, *apierror.APIError) {
 	description, err := temporalClient.DescribeWorkflowExecution(ctx, workflowID, runID)
 	if err != nil {
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &notFound) {
-			return nil, apierror.New(
+			return nil, "", apierror.New(
 				http.StatusNotFound,
 				"workflow",
 				"pipeline workflow not found",
 				"This pipeline execution was not found.",
 			)
 		}
-		return nil, apierror.New(
+		return nil, "", apierror.New(
 			http.StatusInternalServerError,
 			"workflow",
 			"unable to describe pipeline workflow",
@@ -176,19 +242,21 @@ func runningPipelineDevices(
 	}
 	info := description.GetWorkflowExecutionInfo()
 	if info == nil || info.GetStatus() != enums.WORKFLOW_EXECUTION_STATUS_RUNNING {
-		return nil, apierror.New(
+		return nil, "", apierror.New(
 			http.StatusConflict,
 			"workflow",
 			"pipeline workflow is not running",
 			"This execution is no longer running, so there is nothing to watch live.",
 		)
 	}
-	if info.GetType() == nil || info.GetType().GetName() != "Dynamic Pipeline Workflow" {
-		return nil, apierror.New(
+	workflowType := info.GetType().GetName()
+	if workflowType != "Dynamic Pipeline Workflow" &&
+		workflowType != activities.ActionAuthorSessionWorkflowName {
+		return nil, "", apierror.New(
 			http.StatusUnprocessableEntity,
 			"workflow",
-			"workflow is not a dynamic pipeline",
-			"Live view is available only for pipeline executions.",
+			"workflow has no live view",
+			"Live view is available only for pipeline executions and authoring sessions.",
 		)
 	}
 
@@ -199,11 +267,11 @@ func runningPipelineDevices(
 		pipeline.PipelineMobileDevicesQuery,
 	)
 	if err != nil {
-		return nil, liveViewDevicesNotReady()
+		return nil, "", liveViewDevicesNotReady()
 	}
 	var raw map[string]any
 	if err := encoded.Get(&raw); err != nil {
-		return nil, apierror.New(
+		return nil, "", apierror.New(
 			http.StatusInternalServerError,
 			"device_id",
 			"failed to read initialized pipeline devices",
@@ -218,7 +286,7 @@ func runningPipelineDevices(
 		}
 	}
 
-	return devices, nil
+	return devices, workflowType, nil
 }
 
 func selectLiveViewDevices(

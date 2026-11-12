@@ -598,6 +598,182 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: (a) another client's metadata fetch or `/authorize` within the window fails a conforming Wallet; (b) a Wallet that does send the forbidden request is reported inconclusive, never failed, by these two checks; (c) needs a separate deployment.
 - decision: (b). A forbidden request attributed to the session still fails; a match among unattributed requests reports inconclusive, and no match passes (`unattributedMatch` in `pkg/fcaf/validators/oid4vci_ws_ap.go`).
 
+### 2026-10-27 - Action author model provider for local first tests
+
+- status: resolved (user decision 27/10/2026)
+- owner: human maintainer
+- context: phase 0 still needs a real-model authoring run, but no separate Anthropic API key is available; the user has a ChatGPT/Codex subscription and approved local-only testing.
+- question: May the action-author worker use OpenAI's documented ChatGPT-plan OAuth and Responses API for local tests?
+- options considered: (a) worker-side ChatGPT OAuth provider using the existing harness Responses activities; (b) a Codex CLI subprocess; (c) reuse Codex's cached credentials; (d) defer until an API key is available.
+- default risk: (b) replaces the harness-owned model/tool loop; (c) mixes client registrations and token refresh ownership; (d) leaves phase 0 unproven. The selected flow is restricted to local/open-source use and requires streamed Responses; tools use `additional_tools` developer inputs to preserve the harness's bare-name tool identities.
+- decision: (a), local only. No production/hosted multi-user authorization is implied; usage and cost evaluation remain deferred until the implementation is stronger.
+
+### 2026-10-28 - Action author phase 1: authenticated organization binding
+
+- status: resolved (user selected authenticated Credimi start on 28/10/2026)
+- owner: human maintainer
+- context: phase 0 authoring/replay has passed and the harness is upgraded to 0.8.0. The user requested warning cleanup followed by phase 1. The original proposal specifies Credimi wallet-version/APK selection and approval-gated, owner-scoped Go persistence; it does not define how the local harness session acquires a trusted organization. The current local worker uses the `default` namespace.
+- question: Should phase 1 add an authenticated Credimi session-start endpoint and use the caller's authorized organization namespace, retaining the harness UI for review and approval, or remain a local single-user API-key bridge?
+- options considered: (a) authenticated Credimi start endpoint, organization namespace, Go activities holding `core.App` for owner-scoped resolution and persistence (recommended; requires a new API contract and namespace integration); (b) local Python activities calling the existing PocketBase API with a worker-held user API key (no new API/namespace change, but departs from the proposed Go persistence boundary and is not a hosted multi-user design).
+- default risk: accepting a model- or client-supplied owner in the unauthenticated local harness could authorize writes to the wrong organization. Neither an internal-admin key nor a model-selected owner is a safe substitute for caller authorization.
+- phase 1 invariants: selected existing wallet version and APK provenance; literal supplied test PIN in accepted YAML; two successful clean-state replays before saving; human approval of the exact accepted YAML; unpublished creation; explicit approval before replacement. Runner reservation/execution/final cleanup remain phase 2, and embedded Credimi chat remains phase 3.
+- decision: (a). Authenticated `POST /api/action-author/sessions` derives the actor and authorized organization from Credimi; Python workers and the review UI use that organization namespace. Go `core.App` activities resolve the existing wallet version and save only the human-confirmed, twice-replayed candidate. The local harness rejects direct session creation. Short-lived, build-bound installer grants avoid giving the Python worker a Credimi API key.
+- persistence: new actions are unpublished; replacing an existing action requires its record ID and current code SHA256. Hidden provenance binds the build, APK, candidate and workflow/run; native code edits invalidate it. PocketBase strips non-superuser writes to hidden fields before request hooks, so a native update can answer 200 without changing provenance.
+- verification: isolated Credimi/Temporal/UI smoke exercised a real APK download and metadata inspection, simulated installation and two replays, then human-only saving and browser reload. Physical-device execution was not repeated. Runner lifecycle and cleanup are intentionally unchanged.
+
+### 2026-10-28 - Action author phase 1 validation: existing x/net vulnerability
+
+- status: resolved (user approved the security upgrade on 28/10/2026; `make lint` passes)
+- owner: human maintainer
+- context: phase 1's full Go tests pass, but `make lint` stops at govulncheck on GO-2026-6860 in the unchanged `golang.org/x/net v0.60.0`; the reported call path is `activities.extractOutputRules` → `html.Parse`. The advisory identifies `v0.62.0` as fixed.
+- question: Should the public dependency upgrade be a separate maintenance change or explicitly included in the action-author branch?
+- options considered: (a) upgrade and validate x/net separately; (b) extend this branch with the upgrade. Do not suppress the advisory or change the HTTP activity merely to bypass the check.
+- default risk: the existing HTML parser has an availability vulnerability; phase 1 must not be described as having a green aggregate lint gate until it is resolved.
+- decision: (b). Upgrade `golang.org/x/net` to `v0.62.0` and the related x/* versions required by its module graph. Preserve Forkbomb dependencies. Module hygiene, module verification, vet, reachable-code vulnerability scanning and golangci-lint all pass after the upgrade.
+
+### 2026-10-29 - Action author code review: open conventions and deferred findings
+
+- status: resolved (user decisions 29/10/2026)
+- owner: human maintainer
+- context: a full review of `agents/action-author` and the branch's Go code fixed the bugs listed in the review report. The items below are conventions without a documented rule, or findings deliberately left unfixed.
+- questions:
+  1. Temporal-client failures in handlers: `POST /api/action-author/sessions` answers `503 temporal_unavailable`, `conformance_check_handlers` answers `500`. Which is the repository convention?
+  2. Binary responses in route definitions: the installer route is the first user of `ResponseContentType` with an empty `ResponseSchema`. Is that the pattern for future binary endpoints?
+  3. Installer grants are signed with a key derived from the `users` auth-token secret, so rotating it invalidates outstanding (10-minute) grants, and a grant may be used any number of times within its lifetime. Is that acceptable, or should grants be single-use (server-side state)?
+  4. The model's requested action name is kept for the session until another `set_target` names a new one. Should a target change without a name reset it to `Onboarding`?
+  5. `maestro_inspect_screen` can run before `set_target`, although device operations are otherwise refused until a target is chosen. Enforcing it needs a new workflow patch id.
+  6. The harness publishes tool inputs (`set_target` parameters, `fill` text) unmasked to the event stream; masking them needs an upstream harness change.
+  7. Anthropic replies truncated by `max_tokens`/`pause_turn` raise before usage reaches the per-message token budget, so those tokens are not counted.
+  8. Should the README's historical prose (version-upgrade notes, dated acceptance narratives) move to a changelog?
+- options considered: keep current behaviour (default) or change per item; none is a regression introduced by the review.
+- default risk: items 3 and 6 are the only security-relevant ones; both are limited to the local loopback authoring setup and a dedicated test PIN.
+- decisions:
+  1. `503`, domain `temporal`, reason `temporal_unavailable`, is the convention whenever a Credimi route-group handler cannot reach Temporal. Existing endpoints moved to the shared `temporalUnavailableError()` in #1551; the action-author session endpoint uses it too, and AGENTS.md documents the rule.
+  2. Keep `ResponseContentType` with an empty `ResponseSchema` as the pattern for binary responses.
+  3. Keep reusable 10-minute grants signed from the `users` token secret; revisit single-use grants when runners download from machines outside local control.
+  4. Keep the requested name for the whole session.
+  5. Fixed: `maestro_inspect_screen` refuses to run before `set_target`, behind patch id `action-author-inspect-requires-target-v1`.
+  6. Accepted: Credimi test PINs (typically `123456`) are not secrets, so unmasked tool inputs in the harness stream are acceptable. Masking was removed entirely.
+  7. Fixed: a Claude reply truncated by `max_tokens`/`pause_turn` becomes a normal reply without its unfinished tool call, so its tokens count toward the budget and the turn's completed work is retained; `Continue` resumes.
+  8. Done: historical README prose moved to `agents/action-author/CHANGELOG.md`.
+
+### 2026-10-29 - Action author on iOS simulators (local Mac mode)
+
+- status: closed (30/10/2026): the local mode is deleted (plan step 13); its iOS rules, adapted to runner devices, live in `credimi-runner/agent/README.md`, section "iOS simulator". Items 4 and 5 are superseded there: the device type decides the platform, and the reset's app poll checks the clone.
+- owner: human maintainer
+- context: the local action author drove only adb phones. The user asked for the same agent on iOS simulators, before the runner plan (`ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`), keeping agent-device for exploration. A spike on a clone of the Mac's `credimi` simulator showed agent-device (0.21.32) and Maestro (2.11/2.12) driving one simulator at once, `simctl clone`+boot in about 11 s, the first Maestro run on a fresh clone in about 37 s, and that Maestro's `back` is a no-op on iOS.
+- decisions:
+  1. `ios_installer` is a zipped simulator `.app` (user). The worker extracts it with `ditto` and accepts exactly one `.app`, at the top level or under `Payload/`, like the runner's `unzipIOSAppIfNeeded`.
+  2. Reset by simulator clone, as pipelines do (user): no new `credimi-extra` activity. The worker clones the base simulator into a session template with the app installed, and every reset or replay boots a fresh clone of the template.
+  3. Provenance and the build contract name the installer (user): `apk_sha256` became `installer_sha256`, plus `platform`. No migration: `authoring_provenance` is JSON and the branch is unmerged.
+  4. Agent decision: `POST /api/action-author/sessions` requires `platform` (`android`|`ios`), chosen on the start page; the worker refuses a session for the other platform before resolving the build. Alternative: infer the platform from the worker, which Credimi cannot see at start.
+  5. Agent decision: on iOS the build check binds the template to the bundle ID and zip digest the worker installed and checks the clone still has the bundle; an installed `.app` cannot be hashed back to the zip, unlike Android's APK SHA256.
+- default risk: agent-device has no iOS device allowlist, so iOS pinning relies only on the wrapper overwriting `udid`. Clones of a killed worker are removed at the next worker start, not before.
+- verification (29/10/2026): worker on the Mac (iOS 26.5 clone of `credimi`) against local Credimi and Temporal through an SSH tunnel, version `forkbomb-bv-andrea/eudiw-beta-wallet/2026-10-43-demo`, Claude `claude-sonnet-5-5`. agent-device explored the onboarding, the first submission passed both replays (48.2 s, 39.3 s), and Accept saved unpublished action `7ouelbtgpwgd5kn` with provenance `platform: ios`. The worker deleted its template and clone on stop.
+- follow-up: the runners plan (`ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`, implemented and removed; see git history) covered both platforms on runners (device type decides the platform; the run's clone becomes the template; agent source embedded in the runner binary for native macOS).
+
+### 2026-10-30 - Action author on runners: plan details resolved from code
+
+- status: open (agent defaults applied; human may revisit)
+- owner: human maintainer
+- context: steps 2-6 of the runners plan (`ACTION_AUTHOR_ON_CREDIMI_RUNNERS_PLAN.md`, removed after implementation; see git history), done while PR #1553 was still open (plan contingency then: no `WaitTimeoutSeconds`, no early device tracking; both are in since the 05/11/2026 merge of main). Some plan details disagree with the code they reference.
+- questions and options considered:
+  1. The plan has `processStep` call `PrepareMobileDevice`, which fails without an installed package (`missing installed package for <version>`). Pipelines with `version_id: installed_from_external_source` install nothing, so that check would fail them, and `processStep` publishes `setted_devices` to run data between the device setup and the install, which decides whether a failed install is cleaned. Options: (a) `processStep` and `PrepareMobileDevice` share an unexported core with a tracking callback, and only `PrepareMobileDevice` adds the package and iOS installer-path checks; (b) apply the checks to pipelines too.
+  2. The plan names the session results `"completed"`/`"failed"`; pipelines report `success`/`failed`/`canceled` (`pipeline.go`). Options: reuse the pipeline values, or add new ones the semaphore never saw.
+  3. The plan says to map queue-limit errors of `POST /api/action-author/sessions` "the way `enqueuePipelineRun` does (`isQueueLimitExceeded`, `429`)", but `enqueuePipelineRun` answers `409`, domain `queue_limit`, reason `queue limit exceeded`. Options: `409` like the queue endpoint, or `429` as written.
+  4. The plan does not say how other enqueue failures answer. Options: keep the endpoint's existing `503 start_failed` (`cannot start authoring session`) and cancel the ticket best-effort, as `enqueuePipelineRun` rolls back ambiguous failures; or a new reason.
+  5. The `mobile_devices.type` select does not list `ios_phone`, which the plan rejects with `422 device_type_not_supported`. Options: keep the check for records written without validation or a future type value, or drop it.
+- default risk: (1b) and new result values would change pipeline behavior or semaphore history; a different queue-limit status splits one semaphore condition across two codes for the same clients.
+- decisions (agent defaults):
+  1. (a): pipeline behavior and history are unchanged; the session path keeps the plan's checks.
+  2. Pipeline values: `success` when the agent ended in any way, `failed` when setup failed, `canceled` when the session was canceled.
+  3. `409` with the queue endpoint's exact error, so one semaphore condition has one answer.
+  4. `503 start_failed` plus a best-effort `CancelRun` of the ticket, so an enqueue that timed out does not hold the device for a session nobody watches.
+  5. Keep the check (tested with a record saved without validation); `GET /api/action-author/devices` also skips unsupported types.
+- follow-up: done 05/11/2026 with the merge of #1553: `prepareMobileDevice` takes main's `trackEarly` flag (pipelines pass the `GetVersion`-gated value, `PrepareMobileDevice` passes `true`), and session tickets carry `WaitTimeoutSeconds`. The installer grant is deleted (plan step 6), so decision 3 of the 29/10/2026 code-review entry no longer applies; `RouteDefinition.ResponseContentType` stays without a user, per decision 2 of that entry.
+
+### 2026-10-30 - Action author review fixes: save caller contract and start-endpoint answers
+
+- status: open (agent defaults applied; human may revisit)
+- owner: human maintainer
+- context: fixes of the security, Credimi and runner reviews of the action author on runners, before end-to-end testing.
+- questions and options considered:
+  1. How the `Save authored wallet action` activity trusts its caller. Options: trust the payload's actor and build (any workflow of the namespace could save as anyone); or accept only the `ActionAuthor` child (`ActionAuthorSession-<ticket>-author`) of a running `Action author session` of the same namespace and take actor, version and platform from the session's start input.
+  2. How a save answers an existing action with the same name. Options: the explicit replacement precondition (`replace_action_id`, `expected_existing_sha256`), which the harness callback path never used; or a conflict that names neither the action id nor its code SHA256.
+  3. How `POST /api/action-author/sessions` answers a device whose runner is `disabled`. Options: a new `403 runner_disabled`; or the existing offline answer (`503`, domain `device_id`, reason `device runner is offline`).
+  4. How it answers a device of an organization the caller does not own. Options: `403 runner_not_owned` after the type check (reveals existence and type); or `404 device_not_found` before any device detail.
+- default risk: (1) costs two `DescribeWorkflowExecution` calls and one history read per save; a Temporal lookup failure is retried, a non-matching caller is a non-retryable `CRE234`. (3) a disabled runner looks unreachable rather than administratively disabled.
+- decisions (agent defaults):
+  1. The session contract; a payload value that differs from the session's is `CRE234`, an omitted one is filled from the session.
+  2. Conflict without id or hash; actions are never replaced by the authoring path, and a retry of the same workflow run still returns its own record.
+  3. The offline `503`: the device list hides disabled runners, `mobilerunner.RecentlyAlive` and the worker start already treat a disabled runner as offline, so one condition keeps one answer.
+  4. `404 device_not_found`, the same answer as an unknown device; superusers see every runner and still get `403 runner_not_owned` when the runner and the wallet belong to different organizations.
+- follow-up: the iOS `release_device` activity has a 30 s schedule-to-start timeout, so a runner without the agent worker no longer blocks cleanup and RunDone.
+
+### 2026-10-30 - Action author chat UI back in credimi, namespace bound at runtime
+
+- status: closed (06/11/2026), superseded: the start page, `make action-author.ui`, `POST /api/action-author/namespace`, the single namespace binding, the in-process session-manager worker and the `/start?unbound=1` redirect are removed; sessions start and run on the webapp session page (`/my/action-author/<session id>`), which frames the chat UI through the `pkg/internal/actionauthorui` proxy, scoped per request to the session's namespace and chat (AGENTS.md "Action Author Sessions").
+- owner: human maintainer
+- context: the harness chat UI lived in `credimi-runner/agent` and needed `TEMPORAL_NAMESPACE` and `ACTION_AUTHOR_TASK_QUEUE` of one runner, while its start page offered devices of every runner. It moved to `agents/action-author-ui` (`make action-author.ui`), which needs only `TEMPORAL_ADDRESS`; the runner keeps only the agent worker.
+- questions and options considered:
+  1. Where the namespace comes from. Options: an environment variable per UI process; or Credimi's answers (`namespace` per device in `GET /api/action-author/devices`, `workflow_namespace` of `POST /api/action-author/sessions`), posted by the start page to `POST /api/action-author/namespace`.
+  2. How many namespaces one UI process serves. Options: one binding at a time, switched by the start page; or a client per namespace with namespace-aware routing of every harness API call.
+  3. Who runs the harness session-manager workflow. Options: a separate `temporal-agent-harness session-manager` process per namespace; or an in-process worker per binding.
+  4. Which task queue the harness registry names. Options: a real runner queue (unknown to the UI); or a placeholder, since the UI never starts agents.
+  5. What the start page does when it cannot bind after Credimi queued the session. Options: leave the session queued; or cancel the ticket, since nobody could watch the chat.
+- default risk: (2) sessions of the previously bound organization leave the list until the UI is bound to it again; a UI restart drops the binding, so chat links redirect to `/start?unbound=1`.
+- decisions:
+  1. Credimi's answers (user decision); the namespace must match the canonified organization name pattern.
+  2. One binding (user decision: one user belongs to one organization).
+  3. In-process worker, stopped when the binding changes or the UI stops; the UI's own lifespan replaces the harness startup, which connected to one fixed namespace.
+  4. Placeholder `credimi-runner-ActionAuthor`; Credimi starts each chat on `<runner_id>-ActionAuthor`.
+  5. Cancel the ticket (agent default).
+- follow-up: harness large-payload offload is local to the worker host; if a chat shows undecodable events when the UI and the runner run on different hosts, the UI needs the runner's offload storage.
+
+### 2026-10-30 - Action author sessions require a polling agent worker
+
+- status: open (agent defaults; human may revisit)
+- owner: human maintainer
+- context: a session was queued on a runner whose `[agent]` was disabled. Nothing polled `<runner_id>-ActionAuthor`, the chat workflow never ran a task, and the dev UI's queries hit `consistent query buffer is full` every 2 s.
+- questions and options considered:
+  1. How Credimi knows the agent runs. Options: a runner heartbeat field; or Temporal `DescribeTaskQueue` (workflow task queue type) of `<runner_id>-ActionAuthor` in the runner organization's namespace.
+  2. How fresh a poller must be. Options: any listed poller; or one seen within a window.
+  3. What a describe failure answers on start. Options: `temporal_unavailable`; or the same `503 agent_unavailable`.
+  4. What the device list does when Temporal is unreachable. Options: fail the list; or report `agent_available=false` for every device.
+- default risk: (2) an agent that stopped less than two minutes ago is still reported available; its session then waits for the agent like before. (4) a Temporal outage greys out every device without an error.
+- decisions (agent defaults):
+  1. `DescribeTaskQueue`, no new runner field (`actionAuthorAgentAvailable` in `pkg/internal/apis/handlers/action_author_agent.go`, task queue from `authorsession.AuthorTaskQueueSuffix`).
+  2. A poller whose `LastAccessTime` is within 2 minutes; Temporal keeps idle pollers listed for a while after they stop.
+  3. `503 agent_unavailable`, logged; a missing Temporal client still answers `temporal_unavailable`.
+  4. `agent_available=false`; the list stays usable and the start endpoint gives the precise reason.
+
+### 2026-10-30 - Action author chat UI waits for the chat's first workflow task
+
+- status: closed (06/11/2026), superseded: the start page, `GET /api/action-author/chat-ready/<workflow_id>` and the `own_origin_only` middleware are removed; the webapp session page (`/my/action-author/<session id>`) waits for `chat_ready` of `GET /api/action-author/sessions/{session_id}` and frames the chat UI through the `pkg/internal/actionauthorui` proxy (AGENTS.md "Action Author Sessions").
+- owner: human maintainer
+- context: the start page queried `/api/status` and `/api/agent-interface` of a chat no worker had run; Temporal answered `consistent query buffer is full` every 2 s and uvicorn printed a traceback each time.
+- questions and options considered:
+  1. How the page knows the chat can answer queries. Options: the harness `GET /api/workflow-status/<id>` (only `execution_status` and `closed`, no history length); or a UI route that describes the workflow.
+  2. When the 60 s "not answering" timer starts. Options: when the ticket becomes `running`; or when the chat workflow is first seen running.
+  3. How Temporal service errors reach the browser. Options: the default 500 with a traceback; or one middleware answer.
+- default risk: (2) a chat that Credimi never starts (session stuck before the child) keeps the "Preparing the device" message instead of the agent warning; the ticket's own failure still ends the wait.
+- decisions (agent defaults):
+  1. `GET /api/action-author/chat-ready/<workflow_id>` answers `{ready: history_length > 2, running, execution_status}` (`NOT_FOUND` for a chat not started yet); the page sends the chat queries only when `ready` and `running`.
+  2. When the chat is first seen running: device preparation and wallet install run while the ticket is already `running` and can exceed 60 s, which would blame a healthy runner.
+  3. The outermost `own_origin_only` middleware turns any `temporalio.service.RPCError` into `503 {"error": "temporal_unavailable", "message"}` with `Retry-After: 2`, framing headers kept, and one `temporal <STATUS> on <path>: <message>` warning.
+
+### 2026-11-05 - Action author session grants until Temporal authenticates callers
+
+- status: open (item 1 superseded for the agent queue on 12/11/2026, see "Action author sessions in per-runner namespaces"; item 2 stays open)
+- owner: human maintainer
+- context: Temporal is unauthenticated, so anyone who reaches it could start an `Action author session` workflow, or enqueue a semaphore ticket, and skip the start endpoint's membership, device and allowance checks. The start endpoint signs each ticket it enqueues (`actionauthor.SignTicket`, `SessionInput.TicketGrant`); the semaphore's start activity starts only a ticket signed for exactly its session, then signs the session itself (`actionauthor.SignSession`, `SessionInput.Grant`; the session grant is only in the session's own history, never in the semaphore's), records the run it started (`action_author_sessions`, `actionauthor.RecordSessionRun`), and every Credimi activity the session or its agent calls accepts only that run with a valid grant (`activities.lookupSessionStart`). A ticket enqueued without Credimi's signature, a closed session's grant replayed under the same workflow ID, a terminated session restarted with its copied input, and a workflow started under the ticket's ID before Credimi (adopted by `USE_EXISTING` but without a grant) are therefore refused. Temporal authentication is out of scope and needs its own plan.
+- questions and options considered:
+  1. A runner serving a namespace can poll another runner's queues there (`<runner_id>-ActionAuthor`, `<runner_id>-TaskQueue`). Options: Temporal authorization per task queue; or per-runner namespaces.
+  2. `WorkflowInput.Config` of the session (the semaphore ticket metadata: ticket ID, device IDs, leader device, owner namespace) is not covered by the grant. Options: sign it into the grant too; or Temporal authorization of workflow starts.
+- default risk: (1) a runner of the namespace can receive and answer another runner's agent or device tasks. (2) whoever can send updates to a runner's semaphore in `default` can enqueue a copied signed ticket with other ticket metadata (required and leader devices); the start activity accepts it, and the session's run data and device release use that metadata while its grants still verify.
+- decisions: (1) for the agent queue: superseded by per-runner namespaces (entry of 12/11/2026); `<runner_id>-TaskQueue` in organization namespaces stays open. (2) none yet; stays open until Temporal authentication exists.
+- update (2026-11-12, agent): the `action_author_sessions` table and `actionauthor.RecordSessionRun` are removed; activities accept the session's trusted run instead, the earliest run of its ID with a valid grant (`activities.TrustedActionAuthorSession`), and the start activity uses the `FAIL` conflict policy so a run started earlier by someone else fails Credimi's start. Items 1 and 2 are unchanged.
+
 ### 2026-11-09 - Published mobile runners are superuser-only until a task-queue authorizer exists
 
 - status: resolved
@@ -676,3 +852,63 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   - Activity steps link to their event in the embedded Temporal UI (`/history/events/<eventId>`); workflow steps link to their run page.
   - Linked steps blocks are one row, expanded lazily to their inner steps, with `Attempt N of M` after a retry. Block rows carry `step_count` too, the started steps of the block's latest run, read when the parent run's steps are listed and cached once visibility reports that block run closed.
 - follow-up: add a bounded in-memory cache of step lists for closed runs if production step reads exceed 2s.
+
+### 2026-11-12 - Action author sessions in per-runner namespaces
+
+- status: resolved (plan approved by the user 12/11/2026)
+- owner: human maintainer
+- context: Temporal JWT roles stop at the namespace. Admin-managed runners' agents polled `<runner_id>-ActionAuthor` in every organization namespace, so any organization owner who minted a token for their own namespace (`POST /api/mobile-runner/temporal-token` for their own runner) could schedule the admin agent's activities (model calls on Credimi's key, raw Maestro, app resets) without a session.
+- question: Where do action author sessions and their agent run, and how do Credimi and the chat UI authorize them?
+- options considered: (a) per-runner namespaces; (b) a custom Temporal authorizer per task queue; (c) keep organization namespaces and rely on grants.
+- default risk: (c) leaves the attack open; (b) needs a custom Temporal build.
+- decision: (a).
+  - Every session runs in `runner-<mobile_runners record id>`, prepared by Credimi only for runners with `agent_enabled` (sent by the runner as `action_author.enabled`) that are not disabled, and returned to the runner as `agent_namespace` once ready. Runner tokens grant it; tenant runners serve it for their own organization's sessions.
+  - Credimi records each session's `organization` and binds it in the ticket and session grants; activities and handlers take the organization from the recorded, verified session, never from the Temporal namespace. Pipelines stay in organization namespaces.
+  - The chat UI service connects with an ES256 token Credimi signs per session namespace (`X-Credimi-Temporal-Token`, subject `credimi-action-author-ui`, `<namespace>:write`, 15 minutes).
+  - `runner-` is a reserved namespace prefix (`canonify.IsReservedNamespace`): new or renamed organizations whose name would canonify to `runner-*` get `org-runner-*`.
+- follow-up: before deploying, the operator checks production for organizations whose `canonified_name` starts with `runner-` and asks a maintainer if any exist (their tenant runners would get `409 organization_namespace_reserved`).
+- update (2026-11-12, agent): sessions are no longer recorded in a table: the namespace comes from the session ID (`ActionAuthorSession-<runner record id>-<ticket>`) and the organization from the grant of the session's trusted run, the earliest run of that ID (`activities.TrustedActionAuthorSession`, AGENTS.md "Action Author Sessions").
+
+### 2026-11-12 - Action author pre-deploy review: runner ID claim, agent token scope, runner dashboard secrets
+
+- status: resolved (user decisions 12/11/2026); the runner-side decisions land with credimi-runner PR #126
+- owner: human maintainer
+- context: the pre-deploy review of the per-runner namespaces (entry "Action author sessions in per-runner namespaces" above) found that (1) an organization owner could create a `mobile_runners` record with a chosen `id` through the records API and so claim `runner-<id>` of a deleted runner, a namespace Credimi never deletes; (2) the agent used the runner's own token, with `write` on every namespace the runner's workers poll; (3) a restarted Credimi answered heartbeats without `agent_namespace` until it had prepared the namespaces again, so runners stopped their agent and cut running sessions; (4) an enable and a disable of one runner could interleave and leave a disabled runner's namespace served and ready; (5) the chat UI service trusted the `X-Credimi-Temporal-Token` it received from anything on the Compose network. A follow-up probe found that the credimi-runner dashboard (`127.0.0.1:8051`, already on credimi-runner `main`) returns every runner secret in clear (`GET /config/secret/{key}`, `GET /config/raw?reveal=1`) and is open when no `DASHBOARD_TOKEN` is set, so a Maestro flow of any tenant pipeline on the runner (`evalScript` + `http.get`) could read the runner's Credimi API key, its model key and, on Coolify runners, the internal admin key.
+- question: How are these closed before the per-runner namespaces deploy?
+- options considered: per item, fix before merge or record as a known risk; for the dashboard, (a) write-only secrets or (b) reveal behind the dashboard token; for the token, (a) generated by the runner when unset or (b) required configuration; for the agent's model key, (a) a runner-local proxy or (b) the key in the agent's environment.
+- default risk: each item left open exposes another tenant's or Credimi's credentials or a runner namespace; the fixes need Credimi deployed before the runners.
+- decisions:
+  1. Runner record IDs are server-generated only: the `mobile_runners` create rule rejects a body `id` (`pb_migrations/1792130000_mobile_runner_server_ids.js`); `POST /api/mobile-runner` already generated them.
+  2. The agent gets its own token: `POST /api/mobile-runner/temporal-token` with `scope: "agent"` needs `agent_enabled` (`403 agent_not_enabled`), grants only `runner-<record id>:write`, subject `mobile-runner-agent:<canonical runner path>`; any other non-empty scope is `400 invalid_request`. The default runner token keeps `runner-<record id>:write`, since the runner's own device worker polls `<runner_id>-TaskQueue` there. The runner never hands its own token to the agent: an older Credimi that refuses or ignores the scope, or a token holding anything but `runner-<id>:write`, keeps the agent waiting.
+  3. Readiness is persisted on the runner (`agent_namespace_ready`, hidden, written only by Credimi, `pb_migrations/1792140000_mobile_runner_agent_namespace_ready.js`), cleared when the agent is turned off or the runner disabled; at startup Credimi prepares agent namespaces before it serves (8 at a time, at most 90 s each), and failures go on in the background.
+  4. Preparation and stop of one runner run one at a time (`hooks.lockRunnerAgent`) and re-read the runner before marking ready or stopping.
+  5. The chat UI verifies each token (ES256 against `jwks.json` of a read-only `./temporal-jwks` mount, expiry, `<X-Credimi-Namespace>:write`) and answers `403 invalid_token` otherwise.
+  6. Runner dashboard (user decisions): (a) secrets are write-only, like API keys elsewhere: they can be replaced, never read back (the reveal route and `reveal=1` are removed); (a) the dashboard always requires a token, which the runner generates and stores when none is set, and a `?token=` page load is exchanged for an `HttpOnly; SameSite=Strict` cookie.
+  7. The model key stays in the runner: the agent reaches the model through a runner-local proxy with a per-process secret (option (a)). On native macOS the agent runs under a `sandbox-exec` profile hiding the runner's config and state, with no unsandboxed fallback.
+  8. No limit on agent runners per organization (user decision): each costs one Temporal namespace and one Credimi pipeline worker in it, which is acceptable for now.
+- follow-up: deploy Credimi before the runners, and the chat UI only with its `./temporal-jwks` mount. Decisions 6 and 7 are credimi-runner changes (PR #126); the dashboard exposure stays on runners until that release is deployed. Still open: "Custom Temporal authorizer for runner task-queue isolation" and item 2 of "Action author session grants until Temporal authenticates callers", with `<runner_id>-TaskQueue` in organization namespaces.
+- update (2026-11-12, agent): the migrations of decisions 1 and 3 (`1792130000_mobile_runner_server_ids.js`, `1792140000_mobile_runner_agent_namespace_ready.js`) are merged into `pb_migrations/1792060000_mobile_runner_action_author.js`; the behaviour is unchanged.
+
+### 2026-11-12 - Action author known risks accepted for the first deploy
+
+- status: open
+- owner: human maintainer
+- context: the final pre-deploy review of the action author (credimi #1550, ForkbombEu/credimi-runner#126) found risks that only matter if the agent's own process tree is compromised (Python dependencies, the agent-device npm package, Maestro's JVM, or an exploit through untrusted wallet screens or issuer and verifier responses):
+  1. On native macOS the agent's `sandbox-exec` profile allows every write except the runner's config and state, `~/Library/LaunchAgents` and the runner binary (`credimi-runner internal/agentworker/sandbox.go`). A compromised agent can replace a binary the runner runs outside the sandbox, such as `adb` under `~/Library/Android/sdk` or a Homebrew tool, or a shell startup file, and so read `config.toml` (internal admin key, model key, dashboard token). A hard link to a hidden file is refused (checked on macOS 27).
+  2. credimi-extra (`mobile/maestro.go`, v1.19.4) passes pipeline parameters to Maestro as `-e K=V` on its command line and logs the arguments. `/proc/<pid>/cmdline` is readable by the `credimi-agent` user in the runner container, so on a runner shared by several organizations the agent can read other organizations' flow parameters (PINs, test credentials).
+  3. The runner's model proxy forwards any model call that carries its per-process secret, and Credimi's daily limits count the usage the agent reports. A compromised agent can read the secret from its own environment and call the model past the limit on the runner owner's key.
+  4. Sessions of every organization a runner serves share `runner-<id>`: a compromised agent holding `runner-<id>:write` can read other organizations' session histories and payloads on that runner. Saves still need the session starter's signed approval.
+- question: Which of these must be fixed before the agent is enabled on shared runners and on macOS runners?
+- options considered: (1) a write-deny-by-default profile, or the agent as a separate macOS user (simulators belong to the user who created them, so that needs iOS testing); (2) parameters through a 0600 file or the environment, and no argument logging (credimi-extra change); (3) the proxy reads `usage` from responses, enforces the budget and pins the configured model; (4) one agent process per organization, or accept it.
+- default risk: 1 exposes the runner's keys, including the internal admin key on admin-managed Macs; 2-4 expose other organizations' test data and the model budget on shared runners.
+- decision: none yet. For the first deploy the agent is enabled only on Linux Docker and Coolify runners, and kept off on native macOS runners that hold the internal admin key or run other organizations' pipelines.
+- follow-up: fix 1 before enabling the agent on Macs; decide 2-4 before offering the agent to other organizations (`others_daily_tokens` above 0).
+- update (2026-11-12, agent): risk 3 is partly addressed: the runner's model proxy now meters tokens from model responses and enforces both daily limits itself (the pool comes from `POST /api/mobile-runner/action-author-session-pool`); Credimi no longer counts agent-reported usage. The proxy does not pin the configured model.
+
+### 2026-11-12 - Action author trusted run bound by a signed run signal
+
+- status: resolved
+- owner: human maintainer
+- context: Temporal 1.32.2 lets any holder of `<namespace>:write` call `DeleteWorkflowExecution` (`go.temporal.io/server` `common/api/metadata.go`), and the runner's and its agent's tokens hold `runner-<id>:write`. A compromised runner or agent could read Credimi's session grant from a session's history, delete Credimi's run and start the same session ID again with the copied input: the replay became the earliest run with a valid grant, which `activities.TrustedActionAuthorSession` trusted forever.
+- decision: the trusted run is the earliest run with Credimi's grant and Credimi's signed `credimi_run_grant` signal for that run ID. Right after the start (and on every reuse of its own earlier attempt) the start activity signals the run an `actionauthor.SignRun` token of `RunGrant` (session workflow ID, run ID), signed with the existing action author HMAC key derivation from the users collection's auth token secret under the label `credimi/action-author/run/v1`; no new secret or environment variable. Invalid signals are skipped; a run without a valid one is `ErrSessionNotVisible` for 2 minutes after its start, then refused, so a replay carrying a copied signal of the deleted run is never trusted. AGENTS.md "Action Author Sessions" describes it.
+- follow-up: none. Item 3 of "Action author known risks accepted for the first deploy" is partly closed by the proxy metering (the runner's model proxy meters and enforces the daily limits itself); still open for a compromised agent: concurrent calls can overshoot a limit before the proxy sees their usage, and the proxy secret is per process, not per session, so a compromised agent can make its calls count against another session's pool.

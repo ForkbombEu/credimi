@@ -9,8 +9,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_VERSIONS_FILE="${ROOT_DIR}/scripts/dev-compose.env"
-INFRA_SERVICES=(elasticsearch postgresql temporal temporal_ui temporal_ui_embedded)
-UP_SERVICES=(elasticsearch postgresql temporal temporal_ui temporal_ui_embedded temporal_schema)
+INFRA_SERVICES=(elasticsearch postgresql temporal temporal_ui temporal_ui_embedded action_author_ui)
+UP_SERVICES=(elasticsearch postgresql temporal temporal_ui temporal_ui_embedded action_author_ui temporal_schema)
 
 usage() {
 	cat <<'USAGE'
@@ -39,6 +39,18 @@ load_env() {
 	set +a
 }
 
+# The action_author_ui Dockerfile checks the pins too, but only after Compose
+# pulled the base images: refuse unpinned ones before anything is pulled.
+require_pinned_action_author_ui_bases() {
+	local value
+	for value in "${ACTION_AUTHOR_UI_PYTHON_VERSION:-}" "${ACTION_AUTHOR_UI_UV_VERSION:-}"; do
+		if [[ "${value}" != *@sha256:* ]]; then
+			echo "ACTION_AUTHOR_UI_PYTHON_VERSION and ACTION_AUTHOR_UI_UV_VERSION must pin a digest (tag@sha256:...)" >&2
+			exit 1
+		fi
+	done
+}
+
 prepare() {
 	local quiet="${1:-0}"
 	if [[ "${quiet}" -eq 1 ]]; then
@@ -65,6 +77,7 @@ main() {
 		;;
 	up)
 		load_env
+		require_pinned_action_author_ui_bases
 		prepare 1
 		compose up --build -d "${UP_SERVICES[@]}"
 		;;

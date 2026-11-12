@@ -58,6 +58,7 @@ var Codes = map[string]Code{
 	OpenID4VCIIssuerCheckFailed:    {"CRE313", "OID4VCI issuer check failed"},
 	DockerCommandExecutionFailed:   {"CRE311", "Docker command execution failed"},
 	MobileRunnerBusy:               {"CRE312", "Mobile runner busy"},
+	ActionAuthorAgentNotStarted:    {"CRE314", "Action author agent did not start"},
 	ReadFromReaderFailed:           {"CRE901", "Failed to read from reader"},
 	CopyFromReaderFailed:           {"CRE902", "Failed to copy from reader"},
 	MkdirFailed:                    {"CRE903", "Failed to create a new folder"},
@@ -113,6 +114,7 @@ const (
 	OpenID4VCIIssuerCheckFailed    = "CRE313"
 	DockerCommandExecutionFailed   = "CRE311"
 	MobileRunnerBusy               = "CRE312"
+	ActionAuthorAgentNotStarted    = "CRE314"
 	ReadFromReaderFailed           = "CRE901"
 	CopyFromReaderFailed           = "CRE902"
 	MkdirFailed                    = "CRE903"

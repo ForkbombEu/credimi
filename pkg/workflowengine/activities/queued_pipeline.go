@@ -5,12 +5,15 @@ package activities
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"maps"
 	"path"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
@@ -19,6 +22,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/pocketbase/pocketbase/core"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/workflowservice/v1"
@@ -33,6 +37,9 @@ type StartQueuedPipelineActivity struct {
 	workflowengine.BaseActivity
 	app                   core.App
 	temporalClientFactory func(namespace string) (temporalWorkflowStarter, error)
+	// sessionClientFactory reads an action author session that a retried
+	// start finds already started.
+	sessionClientFactory func(namespace string) (client.Client, error)
 }
 
 type StartQueuedPipelineActivityInput struct {
@@ -44,6 +51,10 @@ type StartQueuedPipelineActivityInput struct {
 	YAML               string         `json:"yaml"`
 	PipelineConfig     map[string]any `json:"pipeline_config,omitempty"`
 	Memo               map[string]any `json:"memo,omitempty"`
+	// RunKind is "" for a pipeline run or mobiledevicesemaphore.RunKindActionAuthor.
+	RunKind string `json:"run_kind,omitempty"`
+	// ActionAuthor is the authorsession.SessionInput of an action author run, as a map.
+	ActionAuthor map[string]any `json:"action_author,omitempty"`
 }
 
 type StartQueuedPipelineActivityOutput struct {
@@ -119,6 +130,11 @@ type temporalWorkflowStarter interface {
 		ctx context.Context,
 		workflowID, runID string,
 	) (*workflowservice.DescribeWorkflowExecutionResponse, error)
+	SignalWorkflow(
+		ctx context.Context,
+		workflowID, runID, signalName string,
+		arg interface{},
+	) error
 }
 
 // StartQueuedPipelineActivityName is the registered name of
@@ -134,6 +150,7 @@ func NewStartQueuedPipelineActivity(app core.App) *StartQueuedPipelineActivity {
 		temporalClientFactory: func(namespace string) (temporalWorkflowStarter, error) {
 			return temporalclient.GetTemporalClientWithNamespace(namespace)
 		},
+		sessionClientFactory: temporalclient.GetTemporalClientWithNamespace,
 	}
 }
 
@@ -159,6 +176,15 @@ func (a *StartQueuedPipelineActivity) Execute(
 				Summary: errCode.Description,
 				Message: "owner_namespace is required",
 			},
+		)
+	}
+	switch payload.RunKind {
+	case "":
+	case mobiledevicesemaphore.RunKindActionAuthor:
+		return a.startActionAuthorSession(ctx, payload)
+	default:
+		return result, a.NewMissingOrInvalidPayloadError(
+			fmt.Errorf("unsupported run_kind %q", payload.RunKind),
 		)
 	}
 	if strings.TrimSpace(payload.PipelineIdentifier) == "" {
@@ -273,24 +299,6 @@ func (a *StartQueuedPipelineActivity) Execute(
 	if !ok || namespace == "" {
 		return result, a.NewMissingOrInvalidPayloadError(fmt.Errorf("namespace config is required"))
 	}
-	temporalFactory := a.temporalClientFactory
-	if temporalFactory == nil {
-		temporalFactory = func(namespace string) (temporalWorkflowStarter, error) {
-			return temporalclient.GetTemporalClientWithNamespace(namespace)
-		}
-	}
-	temporalClient, err := temporalFactory(namespace)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return result, a.NewActivityError(
-			workflowengine.ActivityError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: err.Error(),
-			},
-		)
-	}
-
 	workflowInput := map[string]any{
 		"workflow_definition": workflowDefMap,
 		"workflow_input": workflowengine.WorkflowInput{
@@ -300,41 +308,15 @@ func (a *StartQueuedPipelineActivity) Execute(
 		"debug": workflowDef.Runtime.Debug,
 	}
 
-	workflowID := options.Options.ID
-	var runID string
-	workflowRun, err := temporalClient.ExecuteWorkflow(
+	workflowID, runID, err := a.startOrReuseWorkflow(
 		ctx,
+		namespace,
 		options.Options,
 		pipelineWorkflowName,
 		workflowInput,
 	)
-	switch {
-	case err == nil:
-		workflowID = workflowRun.GetID()
-		runID = workflowRun.GetRunID()
-	case temporal.IsWorkflowExecutionAlreadyStartedError(err):
-		// A retry after the ticket's run already closed: reuse that run.
-		desc, descErr := temporalClient.DescribeWorkflowExecution(ctx, workflowID, "")
-		if descErr != nil {
-			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-			return result, a.NewActivityError(
-				workflowengine.ActivityError{
-					Code:    errCode.Code,
-					Summary: errCode.Description,
-					Message: fmt.Sprintf("describe already started workflow: %v", descErr),
-				},
-			)
-		}
-		runID = desc.GetWorkflowExecutionInfo().GetExecution().GetRunId()
-	default:
-		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return result, a.NewActivityError(
-			workflowengine.ActivityError{
-				Code:    errCode.Code,
-				Summary: errCode.Description,
-				Message: err.Error(),
-			},
-		)
+	if err != nil {
+		return result, err
 	}
 
 	output := StartQueuedPipelineActivityOutput{
@@ -378,6 +360,256 @@ func (a *StartQueuedPipelineActivity) Execute(
 		)
 	}
 	return result, nil
+}
+
+// actionAuthorSessionExecutionTimeout bounds a session: its agent child has a
+// 2h timeout, plus device preparation and cleanup.
+const actionAuthorSessionExecutionTimeout = 3 * time.Hour
+
+// startActionAuthorSession starts the "Action author session" of a granted
+// action_author ticket in the runner's agent namespace the ticket names
+// (runner-<record id>), for the ticket owner's organization. It accepts only a ticket that
+// Credimi signed (ticket_grant), starts the session with Credimi's grant of
+// it instead, and then signals the run Credimi's run grant
+// (ActionAuthorRunGrantSignal). Activities accept only the earliest run of
+// the session ID with that signal (TrustedActionAuthorSession), so the start
+// fails rather than adopt a run someone else started first. The session
+// grant thus exists only in the session's own history, never in the
+// semaphore's. Sessions have no pipeline, so no pipeline_results row is
+// created.
+func (a *StartQueuedPipelineActivity) startActionAuthorSession(
+	ctx context.Context,
+	payload StartQueuedPipelineActivityInput,
+) (workflowengine.ActivityResult, error) {
+	var result workflowengine.ActivityResult
+	ticketKey := path.Base(strings.TrimSpace(payload.TicketID))
+	if ticketKey == "." || ticketKey == "/" {
+		return result, a.NewMissingOrInvalidPayloadError(fmt.Errorf("ticket_id is required"))
+	}
+	if len(payload.ActionAuthor) == 0 {
+		return result, a.NewMissingOrInvalidPayloadError(fmt.Errorf("action_author is required"))
+	}
+	start, err := workflowengine.DecodePayload[sessionStart](payload.ActionAuthor)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
+	}
+	// A session runs in its runner's agent namespace, for the organization
+	// that owns the ticket.
+	if !strings.HasPrefix(start.Namespace, canonify.RunnerNamespacePrefix) {
+		return result, a.NewCodedError(errorcodes.MissingOrInvalidPayload, false, fmt.Errorf(
+			"action author session namespace %q is not a runner namespace",
+			start.Namespace,
+		))
+	}
+	if start.Organization != payload.OwnerNamespace {
+		return result, a.NewCodedError(errorcodes.MissingOrInvalidPayload, false, fmt.Errorf(
+			"action author session organization %q is not the ticket owner %q",
+			start.Organization,
+			payload.OwnerNamespace,
+		))
+	}
+	sessionWorkflowID := actionauthor.SessionWorkflowID(
+		strings.TrimPrefix(start.Namespace, canonify.RunnerNamespacePrefix),
+		ticketKey,
+	)
+	want := start.grant(start.Namespace, sessionWorkflowID)
+	// The semaphore does not authenticate who enqueues: sign only a ticket
+	// that Credimi signed after its checks.
+	err = actionauthor.VerifyTicket(a.app, start.TicketGrant, want)
+	if errors.Is(err, actionauthor.ErrForbidden) {
+		return result, a.NewCodedError(errorcodes.RecordNotAccessible, false, err)
+	}
+	if err != nil {
+		return result, a.NewCodedError(
+			errorcodes.PipelineExecutionError,
+			true,
+			fmt.Errorf("verify action author ticket: %w", err),
+		)
+	}
+	grant, err := actionauthor.SignSession(a.app, want)
+	if err != nil {
+		return result, a.NewCodedError(
+			errorcodes.PipelineExecutionError,
+			true,
+			fmt.Errorf("sign action author session: %w", err),
+		)
+	}
+	sessionInput := maps.Clone(payload.ActionAuthor)
+	delete(sessionInput, "ticket_grant")
+	sessionInput["grant"] = grant
+
+	config := map[string]any{}
+	applySemaphoreTicketMetadata(config, payload)
+	options := client.StartWorkflowOptions{
+		ID:                       sessionWorkflowID,
+		TaskQueue:                pipelineTaskQueue,
+		WorkflowExecutionTimeout: actionAuthorSessionExecutionTimeout,
+		WorkflowIDReusePolicy:    enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
+		WorkflowIDConflictPolicy: enumspb.WORKFLOW_ID_CONFLICT_POLICY_FAIL,
+		TypedSearchAttributes: workflowengine.ActionAuthorSessionSearchAttributes(
+			start.ActorID,
+			actionauthor.SessionWallet(start.WalletVersionIdentifier),
+		),
+	}
+	runID, err := a.startSessionWorkflow(
+		ctx,
+		start.Namespace,
+		options,
+		workflowengine.WorkflowInput{Payload: sessionInput, Config: config},
+	)
+	if err != nil {
+		return result, err
+	}
+	result.Output = StartQueuedPipelineActivityOutput{
+		WorkflowID:        sessionWorkflowID,
+		RunID:             runID,
+		WorkflowNamespace: start.Namespace,
+	}
+	return result, nil
+}
+
+// startSessionWorkflow starts an action author session, signals its run
+// Credimi's run grant and returns the run. A retry whose session already
+// started signals only the run its earlier attempt recorded in its heartbeat
+// right after the start, if that run still carries Credimi's grant: the
+// earlier attempt may have ended before its signal, and a duplicate valid
+// signal is harmless.
+func (a *StartQueuedPipelineActivity) startSessionWorkflow(
+	ctx context.Context,
+	namespace string,
+	options client.StartWorkflowOptions,
+	input workflowengine.WorkflowInput,
+) (string, error) {
+	starter, err := a.temporalClientFactory(namespace)
+	if err != nil {
+		return "", a.NewCodedError(errorcodes.PipelineExecutionError, true, err)
+	}
+	runID, err := a.startOrReuseSessionRun(ctx, starter, options, input)
+	if err != nil {
+		return "", err
+	}
+	token, err := actionauthor.SignRun(a.app, actionauthor.RunGrant{
+		SessionWorkflowID: options.ID,
+		RunID:             runID,
+	})
+	if err == nil {
+		err = starter.SignalWorkflow(ctx, options.ID, runID, ActionAuthorRunGrantSignal, token)
+	}
+	if err != nil {
+		return "", a.NewCodedError(
+			errorcodes.PipelineExecutionError,
+			true,
+			fmt.Errorf("signal action author session run grant: %w", err),
+		)
+	}
+	return runID, nil
+}
+
+// startOrReuseSessionRun starts the session and records its run in the
+// activity heartbeat, or, when it already started, returns the run an
+// earlier attempt recorded. Any other run of the ID may be one a runner
+// namespace writer started after deleting Credimi's, with its grant copied.
+func (a *StartQueuedPipelineActivity) startOrReuseSessionRun(
+	ctx context.Context,
+	starter temporalWorkflowStarter,
+	options client.StartWorkflowOptions,
+	input workflowengine.WorkflowInput,
+) (string, error) {
+	run, err := starter.ExecuteWorkflow(ctx, options, ActionAuthorSessionWorkflowName, input)
+	switch {
+	case err == nil:
+		// The first heartbeat of an attempt is sent at once, and Temporal
+		// hands its details to the next attempts.
+		workflowengine.RecordHeartbeat(ctx, run.GetRunID())
+		return run.GetRunID(), nil
+	case !temporal.IsWorkflowExecutionAlreadyStartedError(err):
+		return "", a.NewCodedError(errorcodes.PipelineExecutionError, true, err)
+	}
+	runID, err := recordedSessionRun(ctx)
+	if err == nil {
+		err = checkCredimiRun(ctx, a.app, a.sessionClientFactory, options.ID, runID)
+	}
+	switch {
+	case err == nil:
+		return runID, nil
+	case errors.Is(err, actionauthor.ErrForbidden):
+		return "", a.NewCodedError(errorcodes.RecordNotAccessible, false, fmt.Errorf(
+			"action author session %s was not started by Credimi: %w",
+			options.ID,
+			err,
+		))
+	default:
+		return "", a.NewCodedError(errorcodes.PipelineExecutionError, true, err)
+	}
+}
+
+// recordedSessionRun returns the session run an earlier attempt of the
+// activity started and recorded in its heartbeat.
+func recordedSessionRun(ctx context.Context) (string, error) {
+	if !activity.IsActivity(ctx) || !activity.HasHeartbeatDetails(ctx) {
+		return "", sessionForbidden("no earlier attempt recorded a started run")
+	}
+	var runID string
+	if err := activity.GetHeartbeatDetails(ctx, &runID); err != nil || runID == "" {
+		return "", sessionForbidden("the recorded run is unreadable")
+	}
+	return runID, nil
+}
+
+// startOrReuseWorkflow starts a ticket's workflow; with the ticket-derived ID
+// and the REJECT_DUPLICATE/USE_EXISTING policies, a retried start resolves to
+// the same execution, also after it closed.
+func (a *StartQueuedPipelineActivity) startOrReuseWorkflow(
+	ctx context.Context,
+	namespace string,
+	options client.StartWorkflowOptions,
+	workflowName string,
+	workflowInput any,
+) (string, string, error) {
+	temporalFactory := a.temporalClientFactory
+	if temporalFactory == nil {
+		temporalFactory = func(namespace string) (temporalWorkflowStarter, error) {
+			return temporalclient.GetTemporalClientWithNamespace(namespace)
+		}
+	}
+	errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+	temporalClient, err := temporalFactory(namespace)
+	if err != nil {
+		return "", "", a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
+	}
+
+	workflowRun, err := temporalClient.ExecuteWorkflow(ctx, options, workflowName, workflowInput)
+	switch {
+	case err == nil:
+		return workflowRun.GetID(), workflowRun.GetRunID(), nil
+	case temporal.IsWorkflowExecutionAlreadyStartedError(err):
+		// A retry after the ticket's run already closed: reuse that run.
+		desc, descErr := temporalClient.DescribeWorkflowExecution(ctx, options.ID, "")
+		if descErr != nil {
+			return "", "", a.NewActivityError(
+				workflowengine.ActivityError{
+					Code:    errCode.Code,
+					Summary: errCode.Description,
+					Message: fmt.Sprintf("describe already started workflow: %v", descErr),
+				},
+			)
+		}
+		return options.ID, desc.GetWorkflowExecutionInfo().GetExecution().GetRunId(), nil
+	default:
+		return "", "", a.NewActivityError(
+			workflowengine.ActivityError{
+				Code:    errCode.Code,
+				Summary: errCode.Description,
+				Message: err.Error(),
+			},
+		)
+	}
 }
 
 func isReservedQueuedWorkflowConfigKey(key string) bool {

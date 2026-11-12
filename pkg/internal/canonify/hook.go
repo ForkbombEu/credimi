@@ -12,21 +12,35 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// RunnerNamespacePrefix starts the Temporal namespace of a mobile runner's
+// action author agent: "runner-" + the mobile_runners record ID.
+const RunnerNamespacePrefix = "runner-"
+
 // Organizations become Temporal namespaces. They never take Credimi's shared
-// namespace (default) or a name in Temporal's own space (temporal-*, which
-// includes the system namespace temporal-system).
-const reservedNamespacePrefix = "temporal-"
+// namespace (default), a name in Temporal's own space (temporal-*, which
+// includes the system namespace temporal-system) or a runner agent namespace
+// (runner-*).
+var reservedNamespacePrefixes = []string{"temporal-", RunnerNamespacePrefix}
 
 // IsReservedNamespace reports whether an organization may not use namespace.
 func IsReservedNamespace(namespace string) bool {
-	return namespace == "default" || strings.HasPrefix(namespace, reservedNamespacePrefix)
+	return namespace == "default" || hasReservedNamespacePrefix(namespace)
+}
+
+func hasReservedNamespacePrefix(name string) bool {
+	for _, prefix := range reservedNamespacePrefixes {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // organizationCanonifyInput prefixes names whose canonified form would start
-// with the reserved prefix, so "Temporal System" canonifies to
-// "org-temporal-system".
+// with a reserved prefix, so "Temporal System" canonifies to
+// "org-temporal-system" and "Runner X" to "org-runner-x".
 func organizationCanonifyInput(name string) string {
-	if strings.HasPrefix(CanonifyPlain(name), reservedNamespacePrefix) {
+	if hasReservedNamespacePrefix(CanonifyPlain(name)) {
 		return "org " + name
 	}
 	return name
