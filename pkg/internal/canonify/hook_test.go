@@ -375,6 +375,8 @@ func TestIsReservedNamespace(t *testing.T) {
 		"temporal":        false,
 		"my-temporal-org": false,
 		"default-1":       false,
+		"runner-abc":      true,
+		"runners":         false,
 	} {
 		require.Equal(t, want, IsReservedNamespace(namespace), namespace)
 	}
@@ -401,6 +403,7 @@ func TestOrganizationCanonifySkipsReservedNamespaces(t *testing.T) {
 		"org-temporal-system",
 		create("Temporal System").GetString("canonified_name"),
 	)
+	require.Equal(t, "org-runner-x", create("Runner X").GetString("canonified_name"))
 
 	renamed := create("Plain Org")
 	renamed.Set("name", "Temporal Tests")
