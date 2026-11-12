@@ -52,7 +52,7 @@ export type PendingReview = {
 	used_by: number;
 };
 
-/** A recorded authoring session and its state (GET /api/action-author/sessions/{id}). */
+/** An authoring session and its state (GET /api/action-author/sessions/{id}). */
 export type Session = {
 	session_id: string;
 	run_id: string;
@@ -176,12 +176,15 @@ export function closeSession(
 	});
 }
 
-const SESSION_TICKET =
+/** An action author session ID: ActionAuthorSession-<runner id>-<ticket uuid>. */
+export const SESSION_ID_PATTERN =
 	/^ActionAuthorSession-[a-z0-9]{15}-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
-/** The ticket of a session ID (ActionAuthorSession-<runner id>-<ticket>), or null. */
-export function ticketOf(sessionId: string): string | null {
-	return SESSION_TICKET.exec(sessionId)?.[1] ?? null;
+/** The ticket of a session ID (ActionAuthorSession-<runner id>-<ticket>). */
+export function ticketOf(sessionId: string): string {
+	const ticket = SESSION_ID_PATTERN.exec(sessionId)?.[1];
+	if (ticket === undefined) throw new Error('not an action author session id');
+	return ticket;
 }
 
 /** Ends the session or its queued ticket while the page unloads; fire and forget. */
@@ -191,7 +194,6 @@ export function endOnExit(sessionId: string, deviceId: string, queued: boolean):
 		return;
 	}
 	const ticket = ticketOf(sessionId);
-	if (ticket === null) return;
 	pb.send(
 		`/api/pipeline/queue/${encodeURIComponent(ticket)}?device_ids=${encodeURIComponent(deviceId)}`,
 		{ method: 'DELETE', keepalive: true, requestKey: null }

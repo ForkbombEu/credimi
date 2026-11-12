@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const user = fromStore(currentUser);
 	const timezone = $derived(user.current?.Timezone);
 
-	/** Before the session is recorded, its ticket waits in the device queue. */
+	/** Before the session starts, its ticket waits in the device queue. */
 	type QueueState = { kind: 'queued'; position: number; total: number } | { kind: 'preparing' };
 
 	let session = $state<Session>();
@@ -102,10 +102,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 
 			const ticket = ticketOf(polledSessionId);
-			if (ticket === null) {
-				stoppedMessage = m.Session_not_found();
-				return false;
-			}
 			const status = await Pipeline.Queue.status(ticket, [polledDeviceId]);
 			if (!active) return false;
 			if (status.isErr) {
@@ -175,7 +171,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/** Cancels the queued ticket; returns whether it succeeded. quiet skips the success toast. */
 	async function cancelTicket({ quiet = false } = {}): Promise<boolean> {
 		const ticket = ticketOf(sessionId);
-		if (ticket === null) return false;
 		const done = await runWithLoading({
 			fn: async () => {
 				const res = await Pipeline.Queue.cancel(ticket, [deviceId]);
