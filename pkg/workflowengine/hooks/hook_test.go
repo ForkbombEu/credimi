@@ -745,7 +745,8 @@ func stubRunnerAgentWorkers(t *testing.T, ensure func(string) error) (*tests.Tes
 	origStartWorker := startWorkerFn
 	origStartPipelineWorker := startPipelineWorkerFn
 	t.Cleanup(func() {
-		StopRunnerAgentWorkers(runnerID)
+		mobilerunner.SetAgentNamespaceServed(runnerID, false)
+		StopAllWorkersByNamespace(mobilerunner.AgentNamespace(runnerID))
 		ensureNamespaceReadyFn = origEnsure
 		getTemporalClient = origGetTemporalClient
 		startWorkerFn = origStartWorker
@@ -774,10 +775,110 @@ func TestEnsureRunnerAgentNamespaceMarksReadyOnSuccess(t *testing.T) {
 	_, ok := workerSets.Load(namespace)
 	require.True(t, ok)
 
-	StopRunnerAgentWorkers(runnerID)
+	// A stop while the stored runner still has its agent on keeps it.
+	StopRunnerAgentWorkers(app, runnerID)
+	require.True(t, mobilerunner.AgentNamespaceServed(runnerID))
+	_, ok = workerSets.Load(namespace)
+	require.True(t, ok)
+
+	setRunnerField(t, app, runnerID, "disabled", true)
+	StopRunnerAgentWorkers(app, runnerID)
 	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
 	_, ok = workerSets.Load(namespace)
 	require.False(t, ok)
+}
+
+// setRunnerField saves value as the runner's field.
+func setRunnerField(t *testing.T, app core.App, runnerID, field string, value any) {
+	t.Helper()
+	runner, err := app.FindRecordById("mobile_runners", runnerID)
+	require.NoError(t, err)
+	runner.Set(field, value)
+	require.NoError(t, app.Save(runner))
+}
+
+func TestEnsureRunnerAgentNamespaceStopsWorkersTurnedOffMeanwhile(t *testing.T) {
+	var app core.App
+	var runnerID string
+	// The runner is disabled between the namespace's registration and its
+	// marking as ready.
+	app, runnerID = stubRunnerAgentWorkers(t, func(string) error {
+		setRunnerField(t, app, runnerID, "disabled", true)
+		return nil
+	})
+
+	EnsureRunnerAgentNamespace(app, runnerID)
+	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
+	require.False(t, agentNamespaceReadyOnRecord(t, app, runnerID))
+	_, ok := workerSets.Load(mobilerunner.AgentNamespace(runnerID))
+	require.False(t, ok)
+}
+
+func TestRunnerAgentEnableAndDisableDoNotInterleave(t *testing.T) {
+	registering := make(chan struct{})
+	release := make(chan struct{})
+	app, runnerID := stubRunnerAgentWorkers(t, func(string) error {
+		close(registering)
+		<-release
+		return nil
+	})
+
+	ensured := make(chan struct{})
+	go func() {
+		EnsureRunnerAgentNamespace(app, runnerID)
+		close(ensured)
+	}()
+	<-registering
+
+	// The disable lands while the namespace is being registered; its stop
+	// waits for the preparation instead of running before it.
+	setRunnerField(t, app, runnerID, "disabled", true)
+	stopped := make(chan struct{})
+	go func() {
+		StopRunnerAgentWorkers(app, runnerID)
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+		t.Fatal("stop ran while the namespace was being prepared")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(release)
+	<-ensured
+	<-stopped
+	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
+	require.False(t, agentNamespaceReadyOnRecord(t, app, runnerID))
+	_, ok := workerSets.Load(mobilerunner.AgentNamespace(runnerID))
+	require.False(t, ok)
+}
+
+func TestEnsureRunnerAgentNamespaceRestoresReadyFlag(t *testing.T) {
+	var calls atomic.Int32
+	app, runnerID := stubRunnerAgentWorkers(t, func(string) error {
+		calls.Add(1)
+		return nil
+	})
+	EnsureRunnerAgentNamespace(app, runnerID)
+	require.True(t, agentNamespaceReadyOnRecord(t, app, runnerID))
+
+	// A save of a runner read before the namespace was marked ready.
+	setRunnerField(t, app, runnerID, mobilerunner.AgentNamespaceReadyField, false)
+
+	EnsureRunnerAgentNamespace(app, runnerID)
+	require.True(t, agentNamespaceReadyOnRecord(t, app, runnerID))
+	require.Equal(t, int32(1), calls.Load())
+}
+
+func TestEnsureRunnerAgentNamespaceSkipsRunnerWithAgentOff(t *testing.T) {
+	app, runnerID := stubRunnerAgentWorkers(t, func(string) error {
+		t.Error("a runner whose agent is off is not prepared")
+		return nil
+	})
+	setRunnerField(t, app, runnerID, "agent_enabled", false)
+
+	EnsureRunnerAgentNamespace(app, runnerID)
+	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
 }
 
 func TestEnsureRunnerAgentNamespaceNotReadyOnError(t *testing.T) {

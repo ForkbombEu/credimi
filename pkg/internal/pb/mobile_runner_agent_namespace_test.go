@@ -25,7 +25,7 @@ func TestRegisterMobileRunnerAgentNamespaceHooks(t *testing.T) {
 	ensureRunnerAgentNamespaceFn = func(_ core.App, runnerID string) {
 		calls <- "ensure " + runnerID
 	}
-	stopRunnerAgentWorkersFn = func(runnerID string) {
+	stopRunnerAgentWorkersFn = func(_ core.App, runnerID string) {
 		calls <- "stop " + runnerID
 	}
 	RegisterMobileRunnerAgentNamespaceHooks(app)

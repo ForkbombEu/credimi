@@ -40,13 +40,13 @@ func RegisterMobileRunnerAgentNamespaceHooks(app core.App) {
 		case mobilerunner.AgentEnabled(e.Record):
 			go ensureRunnerAgentNamespaceFn(e.App, e.Record.Id)
 		case mobilerunner.AgentEnabled(e.Record.Original()):
-			go stopRunnerAgentWorkersFn(e.Record.Id)
+			go stopRunnerAgentWorkersFn(e.App, e.Record.Id)
 		}
 		return e.Next()
 	})
 
 	app.OnRecordAfterDeleteSuccess("mobile_runners").BindFunc(func(e *core.RecordEvent) error {
-		go stopRunnerAgentWorkersFn(e.Record.Id)
+		go stopRunnerAgentWorkersFn(e.App, e.Record.Id)
 		return e.Next()
 	})
 }

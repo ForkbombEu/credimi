@@ -10,6 +10,7 @@ package hooks
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -675,8 +676,32 @@ func prepareRunnerAgentNamespaces(app core.App, runnerIDs []string) {
 	wg.Wait()
 }
 
-// ensuringRunnerAgentNamespaces is the in-flight set of EnsureRunnerAgentNamespace.
-var ensuringRunnerAgentNamespaces sync.Map // runner record ID -> struct{}
+// runnerAgentLocks serializes the preparation and the stop of each runner's
+// agent namespace, so an enable and a disable of the same runner can't
+// interleave.
+var runnerAgentLocks sync.Map // runner record ID -> *sync.Mutex
+
+// lockRunnerAgent locks the runner's agent namespace and returns the unlock.
+func lockRunnerAgent(runnerID string) func() {
+	value, _ := runnerAgentLocks.LoadOrStore(runnerID, &sync.Mutex{})
+	mu := value.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
+}
+
+// agentEnabledRunner reads the runner with record ID runnerID and reports
+// whether its agent is enabled and it is not disabled. A runner that can't be
+// read counts as off.
+func agentEnabledRunner(app core.App, runnerID string) (*core.Record, bool) {
+	runner, err := app.FindRecordById("mobile_runners", runnerID)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			log.Printf("[WorkersHook] failed to read runner %s: %v", runnerID, err)
+		}
+		return nil, false
+	}
+	return runner, mobilerunner.AgentEnabled(runner)
+}
 
 // StartRunnerAgentWorkers starts the worker set of a runner agent namespace:
 // the pipeline worker alone, which registers the action author session
@@ -686,18 +711,33 @@ func StartRunnerAgentWorkers(app core.App, namespace string) error {
 }
 
 // EnsureRunnerAgentNamespace prepares the agent namespace of the runner with
-// record ID runnerID: registers it with Credimi's search attributes and starts
-// its workers, then marks it served by this process and ready on the record
-// (mobilerunner.MarkAgentNamespaceReady). A namespace already served or being
-// prepared is left alone.
+// record ID runnerID while its agent is enabled and it is not disabled:
+// registers it with Credimi's search attributes and starts its workers, then,
+// if the stored runner still has its agent on, marks it served by this process
+// and ready on the record (mobilerunner.MarkAgentNamespaceReady); otherwise
+// it stops the workers again. A namespace already served only gets its record
+// flag restored. Calls for one runner run one at a time, with
+// StopRunnerAgentWorkers.
 func EnsureRunnerAgentNamespace(app core.App, runnerID string) {
-	if TemporalWorkersDisabled() || mobilerunner.AgentNamespaceServed(runnerID) {
+	if TemporalWorkersDisabled() {
 		return
 	}
-	if _, loaded := ensuringRunnerAgentNamespaces.LoadOrStore(runnerID, struct{}{}); loaded {
+	defer lockRunnerAgent(runnerID)()
+
+	runner, enabled := agentEnabledRunner(app, runnerID)
+	if !enabled {
 		return
 	}
-	defer ensuringRunnerAgentNamespaces.Delete(runnerID)
+	if mobilerunner.AgentNamespaceServed(runnerID) {
+		// A save of a runner read before the namespace was marked ready
+		// writes the flag back to false.
+		if !runner.GetBool(mobilerunner.AgentNamespaceReadyField) {
+			if err := mobilerunner.MarkAgentNamespaceReady(app, runnerID); err != nil {
+				log.Printf("[WorkersHook] %v", err)
+			}
+		}
+		return
+	}
 
 	namespace := mobilerunner.AgentNamespace(runnerID)
 	if err := ensureNamespaceReadyFn(namespace); err != nil {
@@ -708,6 +748,14 @@ func EnsureRunnerAgentNamespace(app core.App, runnerID string) {
 		log.Printf("[WorkersHook] runner agent namespace %s not ready: %v", namespace, err)
 		return
 	}
+	if _, enabled := agentEnabledRunner(app, runnerID); !enabled {
+		log.Printf(
+			"[WorkersHook] runner agent namespace %s turned off while preparing it",
+			namespace,
+		)
+		StopAllWorkersByNamespace(namespace)
+		return
+	}
 	mobilerunner.SetAgentNamespaceServed(runnerID, true)
 	if err := mobilerunner.MarkAgentNamespaceReady(app, runnerID); err != nil {
 		log.Printf("[WorkersHook] %v", err)
@@ -715,10 +763,17 @@ func EnsureRunnerAgentNamespace(app core.App, runnerID string) {
 }
 
 // StopRunnerAgentWorkers stops the workers of the agent namespace of the
-// runner with record ID runnerID. The record update that turned the agent off
-// or disabled the runner already cleared its readiness. The namespace stays in
-// Temporal; its histories expire by retention.
-func StopRunnerAgentWorkers(runnerID string) {
+// runner with record ID runnerID unless the stored runner has its agent on
+// again. The record update that turned the agent off or disabled the runner
+// already cleared its readiness. The namespace stays in Temporal; its
+// histories expire by retention. Calls for one runner run one at a time, with
+// EnsureRunnerAgentNamespace.
+func StopRunnerAgentWorkers(app core.App, runnerID string) {
+	defer lockRunnerAgent(runnerID)()
+
+	if _, enabled := agentEnabledRunner(app, runnerID); enabled {
+		return
+	}
 	mobilerunner.SetAgentNamespaceServed(runnerID, false)
 	StopAllWorkersByNamespace(mobilerunner.AgentNamespace(runnerID))
 }
