@@ -12091,8 +12091,41 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-create-true
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-null-issue-pid-session
       linked_to: dcql-trusted-authorities-values-item-000a74ab-create-null
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-null
+      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-null-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-null-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-create-null.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-fetch-null
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-null.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-create-true
       use: http-request
       with:
         body:
@@ -12137,8 +12170,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-create-false
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-true-issue-pid-session
       linked_to: dcql-trusted-authorities-values-item-000a74ab-create-true
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-true
+      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-true-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-true-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-create-true.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-fetch-true
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-true.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-create-false
       use: http-request
       with:
         body:
@@ -12183,8 +12248,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-create-zero
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-false-issue-pid-session
       linked_to: dcql-trusted-authorities-values-item-000a74ab-create-false
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-false
+      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-false-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-false-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-create-false.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-fetch-false
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-false.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-create-zero
       use: http-request
       with:
         body:
@@ -12229,8 +12326,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-create-number
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-zero-issue-pid-session
       linked_to: dcql-trusted-authorities-values-item-000a74ab-create-zero
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-zero
+      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-zero-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-zero-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-create-zero.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-fetch-zero
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-zero.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-create-number
       use: http-request
       with:
         body:
@@ -12275,8 +12404,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-create-array
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-number-issue-pid-session
       linked_to: dcql-trusted-authorities-values-item-000a74ab-create-number
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-number
+      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-number-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-number-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-create-number.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-fetch-number
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-number.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-create-array
       use: http-request
       with:
         body:
@@ -12321,8 +12482,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-create-object
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-array-issue-pid-session
       linked_to: dcql-trusted-authorities-values-item-000a74ab-create-array
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-array
+      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-array-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-array-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-create-array.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-fetch-array
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-array.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-item-000a74ab-create-object
       use: http-request
       with:
         body:
@@ -12367,7 +12560,7 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-session
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-object-issue-pid-session
       linked_to: dcql-trusted-authorities-values-item-000a74ab-create-object
       use: http-request
       with:
@@ -12380,163 +12573,18 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-2-session
-      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-3-session
-      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-2-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-4-session
-      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-3-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-5-session
-      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-4-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-6-session
-      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-5-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-7-session
-      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-6-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string
-      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-7-session
+      id: dcql-trusted-authorities-values-item-000a74ab-exercise-object
+      linked_to: dcql-trusted-authorities-values-item-000a74ab-exercise-object-issue-pid-session
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-object-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-2-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-3-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-4-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-5-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-6-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string-issue-pid-7-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-trusted-authorities-values-item-non-string
-              parameters:
-                deeplink_ARRAY: ${{ dcql-trusted-authorities-values-item-000a74ab-create-array.outputs.body.deeplink }}
-                deeplink_FALSE: ${{ dcql-trusted-authorities-values-item-000a74ab-create-false.outputs.body.deeplink }}
-                deeplink_NULL: ${{ dcql-trusted-authorities-values-item-000a74ab-create-null.outputs.body.deeplink }}
-                deeplink_NUMBER: ${{ dcql-trusted-authorities-values-item-000a74ab-create-number.outputs.body.deeplink }}
-                deeplink_OBJECT: ${{ dcql-trusted-authorities-values-item-000a74ab-create-object.outputs.body.deeplink }}
-                deeplink_TRUE: ${{ dcql-trusted-authorities-values-item-000a74ab-create-true.outputs.body.deeplink }}
-                deeplink_ZERO: ${{ dcql-trusted-authorities-values-item-000a74ab-create-zero.outputs.body.deeplink }}
+                deeplink: ${{ dcql-trusted-authorities-values-item-000a74ab-create-object.outputs.body.deeplink }}
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-fetch-null
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-null.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-fetch-true
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-true.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-fetch-false
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-false.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-fetch-zero
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-zero.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-fetch-number
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-number.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-item-000a74ab-fetch-array
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-item-000a74ab-create-array.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-trusted-authorities-values-item-000a74ab-fetch-object
       use: http-request
@@ -22986,19 +23034,25 @@ steps:
                 output:
                     array_value: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-array.outputs.body.raw.authorization_request_delivered | optional }}
                     array_value_session: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-array.outputs.body | optional }}
+                    array_visual_evidence: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-array.outputs.flow_output.maestro_screenshot_urls | optional }}
                     false_value: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-false.outputs.body.raw.authorization_request_delivered | optional }}
                     false_value_session: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-false.outputs.body | optional }}
+                    false_visual_evidence: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-false.outputs.flow_output.maestro_screenshot_urls | optional }}
                     null_value: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-null.outputs.body.raw.authorization_request_delivered | optional }}
                     null_value_session: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-null.outputs.body | optional }}
+                    null_visual_evidence: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-null.outputs.flow_output.maestro_screenshot_urls | optional }}
                     object_value: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-object.outputs.body.raw.authorization_request_delivered | optional }}
                     object_value_session: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-object.outputs.body | optional }}
+                    object_visual_evidence: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-object.outputs.flow_output.maestro_screenshot_urls | optional }}
                     random_number: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-number.outputs.body.raw.authorization_request_delivered | optional }}
                     random_number_session: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-number.outputs.body | optional }}
+                    random_number_visual_evidence: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-number.outputs.flow_output.maestro_screenshot_urls | optional }}
                     true_value: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-true.outputs.body.raw.authorization_request_delivered | optional }}
                     true_value_session: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-true.outputs.body | optional }}
-                    visual_evidence: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-trusted-authorities-values-item-non-string.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    true_visual_evidence: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-true.outputs.flow_output.maestro_screenshot_urls | optional }}
                     zero_value: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-zero.outputs.body.raw.authorization_request_delivered | optional }}
                     zero_value_session: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-zero.outputs.body | optional }}
+                    zero_visual_evidence: ${{ dcql-trusted-authorities-values-item-000a74ab-exercise-zero.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.trusted-authorities-values-non-array:
                 output:
                     false_value: ${{ dcql-trusted-authorities-values-non-2ccb8dca-fetch-false.outputs.body.raw.authorization_request_delivered | optional }}
