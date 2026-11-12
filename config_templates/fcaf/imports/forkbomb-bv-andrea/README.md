@@ -46,13 +46,14 @@ The public wallet action exports included here are:
 - `choose-eudi-wallet`
 - `fcaf-engagement-haip-vp`
 
-The FCAF scenarios additionally share nine flows. They must exist as
-`wallet_actions` records before the aggregate pipeline runs:
+The FCAF scenarios additionally share flows that must exist as `wallet_actions`
+records before the aggregate pipeline runs:
 
-- `fcaf-expect-request-rejected`: the Wallet answers with an error screen or
-  returns to Home. `fcaf-exercise-wallet-generic` cannot serve these cases,
-  because its post-`openLink` wait deliberately excludes `Home` and `Documents`
-  so that a positive flow cannot skip the consent screen.
+- `fcaf-expect-request-rejected`: strict negative flow. The Wallet answers
+  with an error screen or returns Home; showing consent records the Verifier
+  response and fails the Wallet action.
+- `fcaf-observe-request`: records request processing that ends before
+  credential selection without selecting or sharing a credential.
 - `fcaf-expect-no-matching-document`: the Wallet reports that it holds no
   credential satisfying the request.
 - `fcaf-expect-credential-absent`: the probe for a request pinned to a value

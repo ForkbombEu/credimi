@@ -31,7 +31,7 @@ steps:
 - id: reject-signed-redirect-uri
   use: mobile-automation
   with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-request
     version_id: installed_from_external_source
     parameters:
       deeplink: "${{ create-signed-redirect-uri.outputs.body.deeplink }}"

@@ -46,6 +46,10 @@ actions:
     category: verify-credential
     tags: fcaf, ws_rp, expect, rejected
     file: wallet/fcaf-expect-request-rejected.yaml
+  - name: fcaf-observe-request
+    category: verify-credential
+    tags: fcaf, ws_rp, observe, engagement
+    file: wallet/fcaf-observe-request.yaml
   - name: fcaf-expect-no-matching-document
     category: verify-credential
     tags: fcaf, ws_rp, ws_ap, expect, no-match

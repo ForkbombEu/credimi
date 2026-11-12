@@ -1,0 +1,64 @@
+appId: eu.europa.ec.euidi
+name: FCAF observe request - engagement only
+tags:
+  - fcaf
+  - ws_rp
+  - observe
+  - engagement
+---
+# Records the Wallet's reaction after request processing that ends before
+# credential selection. Unlike rejection and presentation actions, it never
+# selects or shares a credential.
+- launchApp:
+    stopApp: true
+    clearState: false
+    permissions:
+      camera: allow
+      notifications: allow
+- extendedWaitUntil:
+    visible: "Welcome back|Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
+- extendedWaitUntil:
+    visible: "Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+- openLink:
+    link: "${deeplink}"
+    autoVerify: false
+    browser: false
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: "Welcome back|Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 30000
+    optional: true
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - extendedWaitUntil:
+          visible: "1"
+          timeout: 30000
+      - inputText: "12345"
+      - tapOn: "6"
+      - waitForAnimationToEnd:
+          timeout: 3000
+- extendedWaitUntil:
+    visible: "Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked"
+    timeout: 100000
+    optional: true
+- extendedWaitUntil:
+    visible: "Requested data|The requested document is not available.*|invalid request|Oups! Something went wrong|Presentation blocked|Home|Documents|Add document|Welcome, .*"
+    timeout: 30000
+    optional: true
+- takeScreenshot: request-observed

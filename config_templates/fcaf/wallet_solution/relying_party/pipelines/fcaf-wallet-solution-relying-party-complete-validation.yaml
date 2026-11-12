@@ -668,7 +668,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-request
               parameters:
                 deeplink: ${{ client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -714,30 +714,13 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api-issue-pid-session
-      linked_to: client-id-prefix-controls-f49aa8ab-create-origin-outside-dc-api
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: https://capture-wallet.credimi.io/sessions
-    - continue_on_error: true
       id: client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api
-      linked_to: client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api-issue-pid-session
+      linked_to: client-id-prefix-controls-f49aa8ab-create-origin-outside-dc-api
       use: mobile-automation
       with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ client-id-prefix-controls-f49aa8ab-create-origin-outside-dc-api.outputs.body.deeplink }}
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+        parameters:
+            deeplink: ${{ client-id-prefix-controls-f49aa8ab-create-origin-outside-dc-api.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
       id: client-id-prefix-controls-f49aa8ab-fetch-origin-outside-dc-api

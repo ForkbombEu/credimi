@@ -36,6 +36,11 @@ func TestWalletActionShareConsumption(t *testing.T) {
 			want:   1,
 		},
 		{
+			name:   "request observation never presents",
+			action: walletActionNamespace + "fcaf-observe-request",
+			want:   0,
+		},
+		{
 			name:   "conditional consent share of a no-match request",
 			action: walletActionNamespace + "fcaf-expect-no-matching-document",
 			want:   1,

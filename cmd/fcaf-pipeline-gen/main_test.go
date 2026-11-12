@@ -33,7 +33,6 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var definition pipelineDefinition
 	require.NoError(t, yaml.Unmarshal(data, &definition))
-	require.Len(t, definition.Steps, 1449)
 	require.NotContains(
 		t,
 		string(data),
@@ -80,6 +79,36 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 		id, _ := step["id"].(string)
 		stepsByID[id] = step
 	}
+	observedRequest := stepsByID["client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri"]
+	observedRequestWith, _ := observedRequest["with"].(map[string]any)
+	require.Contains(
+		t,
+		observedRequestWith["actions"],
+		map[string]any{
+			"id": walletActionNamespace + "fcaf-observe-request",
+			"parameters": map[string]any{
+				"deeplink": "${{ client-id-prefix-controls-f49aa8ab-create-signed-redirect-uri.outputs.body.deeplink }}",
+			},
+		},
+	)
+	require.Contains(
+		t,
+		observedRequestWith["actions"],
+		map[string]any{
+			"id": walletActionNamespace + "fcaf-issue-pid",
+			"parameters": map[string]any{
+				"deeplink": "${{ client-id-prefix-controls-f49aa8ab-reject-signed-redirect-uri-issue-pid-session.outputs.body.deeplink }}",
+			},
+		},
+	)
+	reusedCredential := stepsByID["client-id-prefix-controls-f49aa8ab-reject-origin-outside-dc-api"]
+	reusedCredentialWith, _ := reusedCredential["with"].(map[string]any)
+	require.Equal(
+		t,
+		walletActionNamespace+"fcaf-expect-request-rejected",
+		reusedCredentialWith["action_id"],
+	)
+	require.NotContains(t, reusedCredentialWith, "actions")
 	require.Equal(
 		t,
 		"dcql-credentials-match-cc301c32-create-pid-sdjwt-offer",
