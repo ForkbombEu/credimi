@@ -2,10 +2,6 @@ organization: forkbomb-bv-andrea
 wallet: eudiw-beta-wallet
 version: 2026-06-38-demo
 actions:
-  - name: getcredential-pid-formeu-issuer-eudiw-dev
-    category: get-credential-specific
-    tags: fcaf, pid, formeu
-    file: wallet/getcredential-pid-formeu-issuer-eudiw-dev.yaml
   - name: getcredential-generic-credential-without-authentication
     category: get-credential-generic
     tags: fcaf, ws_rp, ws_ap, credential, generic
@@ -18,18 +14,10 @@ actions:
     category: get-credential-generic
     tags: fcaf, ws_rp, ws_ap, expect, rejected, credential
     file: wallet/fcaf-expect-credential-rejected.yaml
-  - name: verifycredential-pid-formeu-issuer-eudiw-dev
-    category: verify-credential
-    tags: fcaf, pid, formeu
-    file: wallet/verifycredential-pid-formeu-issuer-eudiw-dev.yaml
   - name: unlock-wallet
     category: other
     tags: fcaf, helper
     file: wallet/unlock-wallet.yaml
-  - name: choose-eudi-wallet
-    category: other
-    tags: fcaf, helper
-    file: wallet/choose-eudi-wallet.yaml
   - name: fcaf-reset-and-onboard
     category: onboarding
     tags: fcaf, ws_rp, ws_ap, helper, reset, onboarding
@@ -78,18 +66,10 @@ actions:
     category: get-credential-generic
     tags: fcaf, ws_ap, engagement, credential
     file: wallet/fcaf-engage-credential-offer.yaml
-  - name: fcaf-observe-wallet-after-denial
+  - name: fcaf-observe-wallet
     category: other
     tags: fcaf, ws_ap
-    file: wallet/fcaf-observe-wallet-after-denial.yaml
-  - name: fcaf-observe-wallet-after-par-response
-    category: other
-    tags: fcaf, ws_ap
-    file: wallet/fcaf-observe-wallet-after-par-response.yaml
-  - name: fcaf-callback-redirect
-    category: verify-credential
-    tags: fcaf, ws_rp
-    file: wallet/fcaf-callback-redirect.yaml
+    file: wallet/fcaf-observe-wallet.yaml
   - name: fcaf-present-all-credentials
     category: verify-credential
     tags: fcaf, ws_rp
@@ -102,10 +82,6 @@ actions:
     category: verify-credential
     tags: fcaf, ws_rp
     file: wallet/fcaf-present-claims-union.yaml
-  - name: fcaf-reject-invalid-dcql
-    category: verify-credential
-    tags: fcaf, ws_rp
-    file: wallet/fcaf-reject-invalid-dcql.yaml
   - name: fcaf-present-two-credentials
     category: verify-credential
     tags: fcaf, ws_rp
@@ -114,10 +90,6 @@ actions:
     category: verify-credential
     tags: fcaf, ws_rp
     file: wallet/fcaf-present-same-credential-multiple-queries.yaml
-  - name: fcaf-exercise-trusted-authorities-values-empty-string
-    category: verify-credential
-    tags: fcaf, ws_rp
-    file: wallet/fcaf-exercise-trusted-authorities-values-empty-string.yaml
   - name: fcaf-present-unchecked-claim
     category: verify-credential
     tags: fcaf, ws_rp
@@ -142,27 +114,15 @@ actions:
     category: verify-credential
     tags: fcaf, ws_rp
     file: wallet/fcaf-submit-and-follow-redirect.yaml
-  - name: fcaf-exercise-unknown-response-parameter
+  - name: fcaf-exercise-wallet-redirect
     category: verify-credential
     tags: fcaf, ws_rp
-    file: wallet/fcaf-exercise-unknown-response-parameter.yaml
-  - name: fcaf-exercise-unknown-request-and-response-parameter
+    file: wallet/fcaf-exercise-wallet-redirect.yaml
+  - name: fcaf-exercise-wallet-error
     category: verify-credential
     tags: fcaf, ws_rp
-    file: wallet/fcaf-exercise-unknown-request-and-response-parameter.yaml
-  - name: fcaf-exercise-non-json-response
-    category: verify-credential
-    tags: fcaf, ws_rp
-    file: wallet/fcaf-exercise-non-json-response.yaml
-  - name: fcaf-exercise-http-error-response
-    category: verify-credential
-    tags: fcaf, ws_rp
-    file: wallet/fcaf-exercise-http-error-response.yaml
+    file: wallet/fcaf-exercise-wallet-error.yaml
   - name: fcaf-exercise-http-error-redirect-response
     category: verify-credential
     tags: fcaf, ws_rp
     file: wallet/fcaf-exercise-http-error-redirect-response.yaml
-  - name: fcaf-exercise-no-redirect-response
-    category: verify-credential
-    tags: fcaf, ws_rp
-    file: wallet/fcaf-exercise-no-redirect-response.yaml

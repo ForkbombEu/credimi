@@ -1,0 +1,13 @@
+appId: eu.europa.ec.euidi
+name: FCAF observe the Wallet for the 20 s observation window
+tags:
+  - fcaf
+  - ws_ap
+---
+# Leaves the Wallet untouched for 20 s, so requests it sends after the issuer's
+# response land inside the window oid4vci.no_request_after observes. The text
+# never renders; the optional wait is the delay.
+- extendedWaitUntil:
+    visible: "FCAF observation window has not elapsed"
+    timeout: 20000
+    optional: true

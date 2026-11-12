@@ -63,7 +63,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ callback-redirect-298d09a0-exercise-wallet-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-callback-redirect
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-redirect
               parameters:
                 deeplink: ${{ callback-redirect-298d09a0-create-callback-session.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -4244,7 +4244,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-credential-id-duplicate-0ca7fa96-reject-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reject-invalid-dcql
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-credential-id-duplicate-0ca7fa96-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -4519,7 +4519,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ dcql-credential-sets-empty-84f34308-reject-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reject-invalid-dcql
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
                 deeplink: ${{ dcql-credential-sets-empty-84f34308-create.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -11941,8 +11941,41 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-empt-9ce9e426-create-mixed
+      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-single-issue-pid-session
       linked_to: dcql-trusted-authorities-values-empt-9ce9e426-create-single
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-single
+      linked_to: dcql-trusted-authorities-values-empt-9ce9e426-exercise-single-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-single-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-create-single.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-empt-9ce9e426-fetch-single
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-empt-9ce9e426-create-single.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-trusted-authorities-values-empt-9ce9e426-create-mixed
       use: http-request
       with:
         body:
@@ -11988,7 +12021,7 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-session
+      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-mixed-issue-pid-session
       linked_to: dcql-trusted-authorities-values-empt-9ce9e426-create-mixed
       use: http-request
       with:
@@ -12001,43 +12034,18 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/sessions
     - continue_on_error: true
-      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-2-session
-      linked_to: dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string
-      linked_to: dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-2-session
+      id: dcql-trusted-authorities-values-empt-9ce9e426-exercise-mixed
+      linked_to: dcql-trusted-authorities-values-empt-9ce9e426-exercise-mixed-issue-pid-session
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-mixed-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
-                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string-issue-pid-2-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-trusted-authorities-values-empty-string
-              parameters:
-                deeplink_MIXED: ${{ dcql-trusted-authorities-values-empt-9ce9e426-create-mixed.outputs.body.deeplink }}
-                deeplink_SINGLE: ${{ dcql-trusted-authorities-values-empt-9ce9e426-create-single.outputs.body.deeplink }}
+                deeplink: ${{ dcql-trusted-authorities-values-empt-9ce9e426-create-mixed.outputs.body.deeplink }}
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-trusted-authorities-values-empt-9ce9e426-fetch-single
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-trusted-authorities-values-empt-9ce9e426-create-single.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-trusted-authorities-values-empt-9ce9e426-fetch-mixed
       use: http-request
@@ -20983,7 +20991,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ unknown-parameter-controls-e7438d99-exercise-unknown-response-parameter-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-unknown-response-parameter
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-redirect
               parameters:
                 deeplink: ${{ unknown-parameter-controls-e7438d99-create-unknown-response-parameter.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21050,7 +21058,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ unknown-parameter-controls-e7438d99-exercise-unknown-request-and-response-parameter-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-unknown-request-and-response-parameter
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-redirect
               parameters:
                 deeplink: ${{ unknown-parameter-controls-e7438d99-create-unknown-request-and-response-parameter.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21817,7 +21825,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-exercise-non-json-response-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-non-json-response
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-error
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-create-non-json-response.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21879,7 +21887,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-exercise-http-error-response-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-http-error-response
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-error
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-create-http-error-response.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -21998,7 +22006,7 @@ steps:
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-exercise-no-redirect-response-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-no-redirect-response
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-error
               parameters:
                 deeplink: ${{ verifier-response-controls-f1d3d4c9-create-no-redirect-response.outputs.body.deeplink }}
         version_id: installed_from_external_source
@@ -23075,9 +23083,10 @@ steps:
                 output:
                     mixed_value: ${{ dcql-trusted-authorities-values-empt-9ce9e426-fetch-mixed.outputs.body.raw.authorization_request_delivered | optional }}
                     mixed_value_session: ${{ dcql-trusted-authorities-values-empt-9ce9e426-fetch-mixed.outputs.body | optional }}
+                    mixed_visual_evidence: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-mixed.outputs.flow_output.maestro_screenshot_urls | optional }}
                     single_value: ${{ dcql-trusted-authorities-values-empt-9ce9e426-fetch-single.outputs.body.raw.authorization_request_delivered | optional }}
                     single_value_session: ${{ dcql-trusted-authorities-values-empt-9ce9e426-fetch-single.outputs.body | optional }}
-                    visual_evidence: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-trusted-authorities-values-empty-string.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    single_visual_evidence: ${{ dcql-trusted-authorities-values-empt-9ce9e426-exercise-single.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.trusted-authorities-values-item-non-string:
                 output:
                     array_value: ${{ dcql-trusted-authorities-values-item-000a74ab-fetch-array.outputs.body.raw.authorization_request_delivered | optional }}

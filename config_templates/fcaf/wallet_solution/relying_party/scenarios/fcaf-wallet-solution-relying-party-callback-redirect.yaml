@@ -37,7 +37,7 @@ steps:
     with:
       version_id: installed_from_external_source
       parameters: {deeplink: "${{ create-callback-session.outputs.body.deeplink }}"}
-      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-callback-redirect
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-redirect
   - id: fetch-callback-session
     use: http-request
     with: {method: GET, url: "${fixture.verifier_url}/openid4vp/sessions/${{ create-callback-session.outputs.body.session_id }}", expected_status: 200}

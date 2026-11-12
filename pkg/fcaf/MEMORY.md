@@ -10,6 +10,17 @@ Temporary coordination state for agents implementing FCAF definitions. Read `.ag
 
 Upstream and local quality findings are maintained as copy-paste-ready issue drafts in `pkg/fcaf/TEST-AUTHOR-FEEDBACK.md`.
 
+## Wallet action cleanup, 12/11/2026
+
+Removed 18 wallet flow files; the manifest went from 41 to 31 actions, and every file under `wallet/` is now registered.
+
+- Dead, no references: `getcredential-pid-formeu-issuer-eudiw-dev`, `verifycredential-pid-formeu-issuer-eudiw-dev`, `choose-eudi-wallet`, and the unregistered `obtain-pid-mdoc`, `obtain-pid-sdjwt`, `onboarding`, `pipeline-pid-presentation-mdoc-all-claims-elements`, `pipeline-pid-presentation-sdjwt-all-claims` (their `runFlow.file` targets did not exist).
+- `fcaf-reject-invalid-dcql` → `fcaf-expect-request-rejected` (`dcql-credential-id-duplicate`, `dcql-credential-sets-empty`; tests 066 and 058 unchanged).
+- Identical flows merged: `fcaf-callback-redirect` + `fcaf-exercise-unknown-response-parameter` + `fcaf-exercise-unknown-request-and-response-parameter` → `fcaf-exercise-wallet-redirect`; `fcaf-exercise-non-json-response` + `fcaf-exercise-http-error-response` + `fcaf-exercise-no-redirect-response` → `fcaf-exercise-wallet-error` (screenshot `wallet-error`; `MainInteraction__066`, `ProtocolMessages__125`, `__126` assert that name); `fcaf-observe-wallet-after-denial` + `fcaf-observe-wallet-after-par-response` → `fcaf-observe-wallet`.
+- `fcaf-exercise-trusted-authorities-values-empty-string` drove both deeplinks in one flow; `dcql-trusted-authorities-values-empty-string` now runs one `fcaf-expect-request-rejected` step per variant, and `ProtocolMessages__094` checks `evidence.non_empty` per variant instead of `minimum_items: 2`.
+- Kept, pending a reference Wallet run: the five positive presentation variants (`fcaf-present-all-credentials`, `-allowed-claim-path-components`, `-claims-union`, `-two-credentials`, `-same-credential-multiple-queries`) look replaceable by `fcaf-exercise-wallet-generic`, but their card taps must first be shown unnecessary for Share.
+- credimi.io still holds `wallet_actions` records for the removed names; `fcaf sync` creates the three new ones.
+
 ## Status-reference probes share on consent, 12/11/2026
 
 The `status-reference-rejection` and `mdoc-status-reference-rejection` probes (Metadata `084`, `086`, `087`, `089`, `090`, `092`, `096`, `097`, `099`, `100`; 20 probes) moved from `fcaf-expect-credential-absent` to `fcaf-expect-request-rejected`. A Wallet that kept the malformed credential now shares it on the consent screen, so the Verifier records the presentation and `claims_values_no_match` fails on protocol evidence. Before, the probe failed without sharing, the session stayed `request_retrieved` and only `evidence.screenshot_named` `no-match-notice` failed the test, which also failed a compliant Wallet that refuses silently or returns Home.

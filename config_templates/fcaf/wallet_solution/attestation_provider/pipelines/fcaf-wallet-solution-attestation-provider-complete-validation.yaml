@@ -264,7 +264,7 @@ steps:
       id: credential-request-denied-2122ce7a-observe-wallet-after-denial
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-wallet-after-denial
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-wallet
         version_id: installed_from_external_source
     - continue_on_error: true
       id: credential-request-denied-2122ce7a-fetch-issuance-session
@@ -476,7 +476,7 @@ steps:
       id: par-response-without-request-uri-5f3c4ae9-observe-wallet-after-par-response
       use: mobile-automation
       with:
-        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-wallet-after-par-response
+        action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-observe-wallet
         version_id: installed_from_external_source
     - continue_on_error: true
       id: par-response-without-request-uri-5f3c4ae9-fetch-issuance-session
