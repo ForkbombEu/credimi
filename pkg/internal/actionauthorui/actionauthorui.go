@@ -279,36 +279,52 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 var clientFor = temporalclient.GetTemporalClientWithNamespace
 
 // sessionRefs caches trusted sessions by ID, because the chat polls through
-// the proxy: a trusted run's start input never changes. It is cleared whole
-// when it passes maxSessionRefs entries.
+// the proxy. An entry is trusted for sessionRefTTL only, so a session whose
+// runs are gone stops being served as GET /api/action-author/sessions/{id}
+// stops answering it. It is cleared whole when it passes maxSessionRefs
+// entries.
 var (
 	sessionRefs     sync.Map
 	sessionRefCount atomic.Int64
 )
 
-const maxSessionRefs = 4096
+const (
+	maxSessionRefs = 4096
+	sessionRefTTL  = 60 * time.Second
+)
+
+// now tells the time of session lookups; tests stub it.
+var now = time.Now
+
+// sessionRefEntry is a trusted session and when it was looked up.
+type sessionRefEntry struct {
+	ref      activities.ActionAuthorSessionRef
+	lookedUp time.Time
+}
 
 // trustedSession returns the trusted run of sessionID, from sessionRefs when
-// it was looked up before.
+// it was looked up less than sessionRefTTL ago.
 func trustedSession(
 	ctx context.Context,
 	app core.App,
 	sessionID string,
 ) (activities.ActionAuthorSessionRef, error) {
 	if cached, ok := sessionRefs.Load(sessionID); ok {
-		if ref, ok := cached.(activities.ActionAuthorSessionRef); ok {
-			return ref, nil
+		if entry, ok := cached.(sessionRefEntry); ok &&
+			now().Sub(entry.lookedUp) < sessionRefTTL {
+			return entry.ref, nil
 		}
 	}
 	ref, err := activities.TrustedActionAuthorSession(ctx, app, clientFor, sessionID)
 	if err != nil {
+		sessionRefs.Delete(sessionID)
 		return ref, err
 	}
 	if sessionRefCount.Add(1) > maxSessionRefs {
 		sessionRefs.Clear()
 		sessionRefCount.Store(1)
 	}
-	sessionRefs.Store(sessionID, ref)
+	sessionRefs.Store(sessionID, sessionRefEntry{ref: ref, lookedUp: now()})
 	return ref, nil
 }
 

@@ -543,4 +543,40 @@ func TestHandler(t *testing.T) {
 		require.Equal(t, clientsBefore+1, *clients)
 		require.Equal(t, listsBefore+1, lists())
 	})
+
+	t.Run("looks a session up again after a minute", func(t *testing.T) {
+		sessionRefs.Clear()
+		sessionRefCount.Store(0)
+		start := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+		at := start
+		origNow, origClientFor := now, clientFor
+		t.Cleanup(func() { now, clientFor = origNow, origClientFor })
+		now = func() time.Time { return at }
+		_, err := serve(
+			httptest.NewRequest(http.MethodGet, base+"/api/status/"+chat, nil),
+			authCookie,
+		)
+		require.NoError(t, err)
+		require.Len(t, calls, 1)
+
+		// The session's runs are deleted in Temporal.
+		gone := &temporalmocks.Client{}
+		stubSessionRuns(t, gone, session)
+		clientFor = func(string) (client.Client, error) { return gone, nil }
+
+		at = start.Add(59 * time.Second)
+		_, err = serve(
+			httptest.NewRequest(http.MethodGet, base+"/api/status/"+chat, nil),
+			authCookie,
+		)
+		require.NoError(t, err)
+		require.Len(t, calls, 1)
+
+		at = start.Add(61 * time.Second)
+		_, err = serve(
+			httptest.NewRequest(http.MethodGet, base+"/api/status/"+chat, nil),
+			authCookie,
+		)
+		requireStatus(t, err, http.StatusNotFound)
+	})
 }
