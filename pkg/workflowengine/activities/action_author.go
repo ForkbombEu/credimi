@@ -377,6 +377,8 @@ type sessionStart struct {
 	Platform                string `json:"platform"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
+	Namespace               string `json:"namespace"`
+	Organization            string `json:"organization"`
 	TicketGrant             string `json:"ticket_grant"`
 	Grant                   string `json:"grant"`
 }
@@ -387,6 +389,7 @@ func (s sessionStart) grant(namespace, workflowID string) actionauthor.SessionGr
 	return actionauthor.SessionGrant{
 		SessionWorkflowID:       workflowID,
 		Namespace:               namespace,
+		Organization:            s.Organization,
 		DeviceID:                s.DeviceID,
 		Platform:                s.Platform,
 		WalletVersionIdentifier: s.WalletVersionIdentifier,
@@ -415,11 +418,11 @@ func lookupSessionStart(
 	}
 	// A transient error, ErrSessionNotRecorded included: the session's first
 	// activity can run before the start activity recorded its run.
-	recorded, err := actionauthor.FindSession(app, namespace, sessionID)
+	recorded, err := actionauthor.FindSession(app, sessionID)
 	if err != nil {
 		return ref, fmt.Errorf("look up action author session: %w", err)
 	}
-	if recorded.RunID != sessionRunID {
+	if recorded.Namespace != namespace || recorded.RunID != sessionRunID {
 		return ref, sessionForbidden("action author session was not started by Credimi")
 	}
 	ref, err = readSessionStart(ctx, app, c, namespace, sessionID, sessionRunID)
@@ -508,9 +511,12 @@ func ReadActionAuthorSession(
 	namespace, sessionID, actorID string,
 ) (ActionAuthorSessionInfo, error) {
 	var info ActionAuthorSessionInfo
-	recorded, err := actionauthor.FindSession(app, namespace, sessionID)
+	recorded, err := actionauthor.FindSession(app, sessionID)
 	if err != nil {
 		return info, err
+	}
+	if recorded.Namespace != namespace {
+		return info, actionauthor.ErrSessionNotRecorded
 	}
 	if recorded.ActorID == "" || recorded.ActorID != actorID {
 		return info, sessionForbidden("action author session belongs to another user")

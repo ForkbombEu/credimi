@@ -32,7 +32,7 @@ func buildSessionLookup(
 	session actionauthor.BuildRequest,
 ) sessionLookup {
 	t.Helper()
-	lookup := validSessionLookup(t, app)
+	lookup := unsignedSessionLookup(app)
 	lookup.history = signedSessionHistory(t, app, map[string]any{
 		"platform":                  session.Platform,
 		"wallet_version_identifier": session.WalletVersionIdentifier,

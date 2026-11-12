@@ -191,7 +191,7 @@ func requireActionAuthorSessionOwner(
 	e *core.RequestEvent,
 	namespace, workflowID, runID string,
 ) *apierror.APIError {
-	recorded, err := actionauthor.FindSession(e.App, namespace, workflowID)
+	recorded, err := actionauthor.FindSession(e.App, workflowID)
 	switch {
 	case err != nil && !errors.Is(err, actionauthor.ErrSessionNotRecorded):
 		return apierror.New(
@@ -200,7 +200,8 @@ func requireActionAuthorSessionOwner(
 			"session_lookup_failed",
 			err.Error(),
 		)
-	case err != nil || recorded.RunID != runID || recorded.ActorID != e.Auth.Id:
+	case err != nil || recorded.Namespace != namespace ||
+		recorded.RunID != runID || recorded.ActorID != e.Auth.Id:
 		// Another user's session answers as one that does not exist.
 		return apierror.New(
 			http.StatusNotFound,

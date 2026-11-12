@@ -138,10 +138,13 @@ func VerifyApproval(
 }
 
 // SessionGrant is Credimi's signature of a session it started after its
-// membership, device and allowance checks.
+// membership, device and allowance checks. Namespace is the Temporal
+// namespace the session runs in (its runner's); Organization is the
+// canonified_name of the organization it was started for.
 type SessionGrant struct {
 	SessionWorkflowID       string `json:"session_workflow_id"`
 	Namespace               string `json:"namespace"`
+	Organization            string `json:"organization"`
 	DeviceID                string `json:"device_id"`
 	Platform                string `json:"platform"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`

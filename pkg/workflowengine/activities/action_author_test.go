@@ -132,7 +132,7 @@ func signedSessionHistory(
 		namespace,
 		authorTestSessionID,
 		authorTestParentRun,
-		actionauthor.SessionDetails{ActorID: field("actor_id")},
+		actionauthor.SessionDetails{ActorID: field("actor_id"), Organization: namespace},
 	))
 	signed := maps.Clone(input)
 	signed["grant"] = grant
@@ -151,16 +151,22 @@ type sessionLookup struct {
 	history    client.HistoryEventIterator
 }
 
+// unsignedSessionLookup fakes the running session without a history: tests
+// set one with signedSessionHistory, which records the session once.
+func unsignedSessionLookup(app core.App) sessionLookup {
+	return sessionLookup{
+		app:     app,
+		author:  authorDescription(),
+		session: sessionDescription(),
+	}
+}
+
 // validSessionLookup fakes the running, Credimi-signed session of
 // authorTestSession in authorTestNamespace.
 func validSessionLookup(t *testing.T, app core.App) sessionLookup {
 	t.Helper()
 	session := authorTestSession()
-	lookup := sessionLookup{
-		app:     app,
-		author:  authorDescription(),
-		session: sessionDescription(),
-	}
+	lookup := unsignedSessionLookup(app)
 	if app != nil {
 		lookup.history = signedSessionHistory(t, app, map[string]any{
 			"device_id":                 "tenant/runner-1/device-1",
@@ -504,7 +510,7 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 	code := "appId: eu.wallet\n---\n- launchApp\n- assertVisible: Home\n- takeScreenshot: home\n"
 	// Each attempt reads the session's history afresh.
 	a := func() *SaveAuthoredWalletActionActivity {
-		lookup := validSessionLookup(t, app)
+		lookup := unsignedSessionLookup(app)
 		lookup.history = signedSessionHistory(t, app, map[string]any{
 			"platform":                  session.Platform,
 			"wallet_version_identifier": session.WalletVersionIdentifier,
@@ -753,15 +759,34 @@ func TestLookupSessionStartAcceptsOnlyTheRecordedRun(t *testing.T) {
 	require.ErrorIs(t, err, actionauthor.ErrForbidden)
 	require.ErrorContains(t, err, "action author session was not started by Credimi")
 
+	// A session recorded in another namespace is refused.
+	_, err = lookup("runner-other", authorTestParentRun)
+	require.ErrorIs(t, err, actionauthor.ErrForbidden)
+	require.ErrorContains(t, err, "action author session was not started by Credimi")
+
 	// The session's first activity can run before its start was recorded.
-	_, err = lookup("unrecorded", authorTestParentRun)
+	_, err = app.DB().NewQuery("DELETE FROM action_author_sessions").Execute()
+	require.NoError(t, err)
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, authorTestParentRun).
+		Return(sessionDescription(), nil)
+	_, err = lookupSessionStart(
+		t.Context(),
+		app,
+		mockClient,
+		authorTestNamespace,
+		authorTestSessionID,
+		authorTestParentRun,
+	)
 	require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)
 	require.NotErrorIs(t, err, actionauthor.ErrForbidden)
 
 	a := NewResolveActionAuthorBuildActivity(app)
 	a.authorSessionLookup = validSessionLookup(t, app).lookup()
+	_, err = app.DB().NewQuery("DELETE FROM action_author_sessions").Execute()
+	require.NoError(t, err)
 	_, err = a.resolve(t.Context(), authorCaller{
-		Namespace:    "unrecorded",
+		Namespace:    authorTestNamespace,
 		WorkflowType: ActionAuthorSessionWorkflowName,
 		WorkflowID:   authorTestSessionID,
 		RunID:        authorTestParentRun,

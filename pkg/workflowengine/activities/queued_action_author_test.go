@@ -111,13 +111,11 @@ func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 		RunID:             "run-author",
 		WorkflowNamespace: testOrgANamespace,
 	}, result.Output)
-	recorded, err := actionauthor.FindSession(
-		act.app,
-		testOrgANamespace,
-		"ActionAuthorSession-ticket-author",
-	)
+	recorded, err := actionauthor.FindSession(act.app, "ActionAuthorSession-ticket-author")
 	require.NoError(t, err)
 	require.Equal(t, "run-author", recorded.RunID)
+	require.Equal(t, testOrgANamespace, recorded.Namespace)
+	require.Equal(t, testOrgANamespace, recorded.Organization)
 	records, err := act.app.FindAllRecords(
 		"pipeline_results",
 		dbx.HashExp{"workflow_id": "ActionAuthorSession-ticket-author"},
@@ -191,7 +189,7 @@ func TestActionAuthorSessionStartedBeforeCredimiIsRefused(t *testing.T) {
 
 	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{Payload: payload})
 	require.NoError(t, err)
-	recorded, err := actionauthor.FindSession(act.app, authorTestNamespace, authorTestSessionID)
+	recorded, err := actionauthor.FindSession(act.app, authorTestSessionID)
 	require.NoError(t, err)
 	require.Equal(t, authorTestParentRun, recorded.RunID)
 
@@ -275,11 +273,7 @@ func TestStartQueuedPipelineActivityRefusesUnsignedActionAuthorTickets(t *testin
 			requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 			require.ErrorContains(t, err, "action author ticket was not enqueued by Credimi")
 			require.Nil(t, captured.lastWorkflow)
-			_, err = actionauthor.FindSession(
-				act.app,
-				payload.OwnerNamespace,
-				"ActionAuthorSession-ticket-author",
-			)
+			_, err = actionauthor.FindSession(act.app, "ActionAuthorSession-ticket-author")
 			require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)
 		})
 	}

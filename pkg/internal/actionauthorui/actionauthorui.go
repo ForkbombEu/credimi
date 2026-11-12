@@ -199,7 +199,10 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		recorded, err := actionauthor.FindSession(e.App, namespace, sessionID)
+		recorded, err := actionauthor.FindSession(e.App, sessionID)
+		if err == nil && recorded.Namespace != namespace {
+			err = actionauthor.ErrSessionNotRecorded
+		}
 		if err != nil {
 			if errors.Is(err, actionauthor.ErrSessionNotRecorded) {
 				return e.NotFoundError(sessionMissing, nil)

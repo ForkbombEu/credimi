@@ -82,6 +82,7 @@ func recordAuthoringSession(
 			WalletVersionIdentifier: authoringAndroidVersion,
 			DeviceID:                authoringSessionDevice,
 			ActorID:                 user.Id,
+			Organization:            namespace,
 		},
 	))
 	input, err := temporalcrypto.DataConverter().ToPayloads(workflowengine.WorkflowInput{
@@ -557,6 +558,7 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 						WalletVersionIdentifier: row.wallet,
 						DeviceID:                row.device,
 						ActorID:                 row.actor,
+						Organization:            row.namespace,
 					},
 				))
 				// Rows of one test share a millisecond: order them by name.

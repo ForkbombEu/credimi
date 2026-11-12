@@ -18,41 +18,39 @@ func TestRecordSessionRunAcceptsOnlyOneRun(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	_, err = FindSession(app, "tenant", "ActionAuthorSession-1")
+	_, err = FindSession(app, "ActionAuthorSession-1")
 	require.ErrorIs(t, err, ErrSessionNotRecorded)
 
+	details := SessionDetails{Organization: "tenant"}
 	require.NoError(
 		t,
-		RecordSessionRun(app, "tenant", "ActionAuthorSession-1", "run-1", SessionDetails{}),
+		RecordSessionRun(app, "runner-xyz", "ActionAuthorSession-1", "run-1", details),
 	)
 	// A retried start records the same run again.
 	require.NoError(
 		t,
-		RecordSessionRun(app, "tenant", "ActionAuthorSession-1", "run-1", SessionDetails{}),
+		RecordSessionRun(app, "runner-xyz", "ActionAuthorSession-1", "run-1", details),
 	)
-	recorded, err := FindSession(app, "tenant", "ActionAuthorSession-1")
+	recorded, err := FindSession(app, "ActionAuthorSession-1")
 	require.NoError(t, err)
 	require.Equal(t, "run-1", recorded.RunID)
+	require.Equal(t, "runner-xyz", recorded.Namespace)
+	require.Equal(t, "tenant", recorded.Organization)
 
-	err = RecordSessionRun(app, "tenant", "ActionAuthorSession-1", "run-2", SessionDetails{})
+	err = RecordSessionRun(app, "runner-xyz", "ActionAuthorSession-1", "run-2", details)
 	require.ErrorIs(t, err, ErrForbidden)
 	require.ErrorContains(
 		t,
 		err,
 		"action author session ActionAuthorSession-1 already ran as another run",
 	)
-	recorded, err = FindSession(app, "tenant", "ActionAuthorSession-1")
+	// Session workflow IDs are unique across namespaces.
+	err = RecordSessionRun(app, "runner-other", "ActionAuthorSession-1", "run-2", details)
+	require.ErrorIs(t, err, ErrForbidden)
+	recorded, err = FindSession(app, "ActionAuthorSession-1")
 	require.NoError(t, err)
 	require.Equal(t, "run-1", recorded.RunID)
-
-	// The same workflow ID in another namespace is another session.
-	require.NoError(
-		t,
-		RecordSessionRun(app, "other", "ActionAuthorSession-1", "run-2", SessionDetails{}),
-	)
-	recorded, err = FindSession(app, "other", "ActionAuthorSession-1")
-	require.NoError(t, err)
-	require.Equal(t, "run-2", recorded.RunID)
+	require.Equal(t, "runner-xyz", recorded.Namespace)
 }
 
 func TestRecordSessionRunKeepsTheFirstDetails(t *testing.T) {
@@ -64,11 +62,15 @@ func TestRecordSessionRunKeepsTheFirstDetails(t *testing.T) {
 		WalletVersionIdentifier: "org/wallet/v1",
 		DeviceID:                "runner/device",
 		ActorID:                 "user-1",
+		Organization:            "tenant",
 	}
-	require.NoError(t, RecordSessionRun(app, "tenant", "ActionAuthorSession-1", "run-1", first))
 	require.NoError(
 		t,
-		RecordSessionRun(app, "tenant", "ActionAuthorSession-1", "run-1", SessionDetails{}),
+		RecordSessionRun(app, "runner-xyz", "ActionAuthorSession-1", "run-1", first),
+	)
+	require.NoError(
+		t,
+		RecordSessionRun(app, "runner-xyz", "ActionAuthorSession-1", "run-1", SessionDetails{}),
 	)
 
 	sessions, err := RecentWalletSessions(app, "tenant", "org/wallet", first.ActorID, 10)
@@ -79,12 +81,12 @@ func TestRecordSessionRunKeepsTheFirstDetails(t *testing.T) {
 	require.Equal(t, first.WalletVersionIdentifier, sessions[0].WalletVersionIdentifier)
 	require.Equal(t, first.DeviceID, sessions[0].DeviceID)
 	require.Equal(t, first.ActorID, sessions[0].ActorID)
+	require.Equal(t, "runner-xyz", sessions[0].Namespace)
+	require.Equal(t, "tenant", sessions[0].Organization)
 
-	found, err := FindSession(app, "tenant", "ActionAuthorSession-1")
+	found, err := FindSession(app, "ActionAuthorSession-1")
 	require.NoError(t, err)
 	require.Equal(t, sessions[0], found)
-	_, err = FindSession(app, "other", "ActionAuthorSession-1")
-	require.ErrorIs(t, err, ErrSessionNotRecorded)
 }
 
 func TestRecentWalletSessionsListsTheWalletNewestFirst(t *testing.T) {
@@ -92,15 +94,16 @@ func TestRecentWalletSessionsListsTheWalletNewestFirst(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
+	// Sessions of one organization run in its runners' namespaces.
 	rows := []struct {
-		namespace, workflowID, wallet, actor string
+		namespace, organization, workflowID, wallet, actor string
 	}{
-		{"tenant", "ActionAuthorSession-store", "org/wallet", "user-1"},
-		{"tenant", "ActionAuthorSession-version", "org/wallet/v1", "user-1"},
-		{"tenant", "ActionAuthorSession-other-wallet", "org/wallet2/v1", "user-1"},
-		{"other", "ActionAuthorSession-other-namespace", "org/wallet/v1", "user-1"},
-		{"tenant", "ActionAuthorSession-other-actor", "org/wallet/v1", "user-2"},
-		{"tenant", "ActionAuthorSession-latest", "org/wallet/v2", "user-1"},
+		{"runner-a", "tenant", "ActionAuthorSession-store", "org/wallet", "user-1"},
+		{"runner-b", "tenant", "ActionAuthorSession-version", "org/wallet/v1", "user-1"},
+		{"runner-a", "tenant", "ActionAuthorSession-other-wallet", "org/wallet2/v1", "user-1"},
+		{"runner-a", "other", "ActionAuthorSession-other-org", "org/wallet/v1", "user-1"},
+		{"runner-a", "tenant", "ActionAuthorSession-other-actor", "org/wallet/v1", "user-2"},
+		{"runner-a", "tenant", "ActionAuthorSession-latest", "org/wallet/v2", "user-1"},
 	}
 	base := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	for i, row := range rows {
@@ -113,6 +116,7 @@ func TestRecentWalletSessionsListsTheWalletNewestFirst(t *testing.T) {
 				WalletVersionIdentifier: row.wallet,
 				DeviceID:                "device",
 				ActorID:                 row.actor,
+				Organization:            row.organization,
 			},
 		))
 		// Records created in one test share a millisecond; set distinct times.
@@ -122,7 +126,7 @@ func TestRecentWalletSessionsListsTheWalletNewestFirst(t *testing.T) {
 				"created": base.Add(time.Duration(i) * time.Minute).
 					Format("2006-01-02 15:04:05.000Z"),
 			},
-			dbx.HashExp{"namespace": row.namespace, "workflow_id": row.workflowID},
+			dbx.HashExp{"workflow_id": row.workflowID},
 		).
 			Execute()
 		require.NoError(t, err)

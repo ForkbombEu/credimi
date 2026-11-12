@@ -454,10 +454,13 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Platform:                platform,
 			WalletVersionIdentifier: selection.Identifier,
 			ActorID:                 actor.ActorID,
+			Namespace:               namespace,
+			Organization:            namespace,
 		}
 		sessionInput.TicketGrant, err = actionauthor.SignTicket(e.App, actionauthor.SessionGrant{
 			SessionWorkflowID:       activities.ActionAuthorSessionWorkflowIDPrefix + ticketID,
-			Namespace:               namespace,
+			Namespace:               sessionInput.Namespace,
+			Organization:            sessionInput.Organization,
 			DeviceID:                sessionInput.DeviceID,
 			Platform:                sessionInput.Platform,
 			WalletVersionIdentifier: sessionInput.WalletVersionIdentifier,

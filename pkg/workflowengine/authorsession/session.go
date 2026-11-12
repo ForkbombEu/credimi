@@ -66,6 +66,11 @@ type SessionInput struct {
 	Platform                string `json:"platform"`
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	ActorID                 string `json:"actor_id"`
+	// Namespace is the runner namespace the session runs in and
+	// Organization the canonified_name of the caller's organization. Both
+	// are bound by TicketGrant and Grant; the workflow does not read them.
+	Namespace    string `json:"namespace"`
+	Organization string `json:"organization"`
 	// TicketGrant is Credimi's signature of the enqueued session
 	// (actionauthor.SignTicket), set by POST /api/action-author/sessions
 	// after its checks. The activity that starts the session accepts only a

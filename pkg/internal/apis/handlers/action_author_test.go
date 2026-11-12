@@ -449,6 +449,7 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 				want := actionauthor.SessionGrant{
 					SessionWorkflowID:       "ActionAuthorSession-" + response.TicketID,
 					Namespace:               "usera-s-organization",
+					Organization:            "usera-s-organization",
 					DeviceID:                deviceID,
 					Platform:                scenario.platform,
 					WalletVersionIdentifier: scenario.version,
@@ -488,6 +489,8 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 			"platform":                  scenario.platform,
 			"wallet_version_identifier": scenario.version,
 			"actor_id":                  user.Id,
+			"namespace":                 "usera-s-organization",
+			"organization":              "usera-s-organization",
 		}, enqueued.ActionAuthor)
 	}
 }

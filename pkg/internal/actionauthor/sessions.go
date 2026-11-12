@@ -33,12 +33,19 @@ type SessionDetails struct {
 	DeviceID                string
 	// ActorID is the user who started the session.
 	ActorID string
+	// Organization is the canonified_name of the organization the session
+	// was started for; the session itself runs in its runner's namespace.
+	Organization string
 }
 
 // RecordedSession is a row of action_author_sessions.
 type RecordedSession struct {
 	WorkflowID, RunID, WalletVersionIdentifier, DeviceID, ActorID string
-	Created                                                       time.Time
+	// Namespace is the Temporal namespace the session runs in.
+	Namespace string
+	// Organization is the canonified_name of the session's organization.
+	Organization string
+	Created      time.Time
 }
 
 // ErrSessionNotRecorded reports that Credimi has not recorded the run of a
@@ -47,7 +54,8 @@ type RecordedSession struct {
 var ErrSessionNotRecorded = errors.New("action author session is not recorded yet")
 
 // RecordSessionRun records runID as the only run of the session workflow
-// that Credimi started in namespace. Recording the same run again is a no-op;
+// that Credimi started in namespace for details.Organization. Recording the
+// same run again is a no-op;
 // another run fails with ErrForbidden. details are set only when the row is
 // created.
 func RecordSessionRun(
@@ -56,7 +64,7 @@ func RecordSessionRun(
 	details SessionDetails,
 ) error {
 	return app.RunInTransaction(func(txApp core.App) error {
-		recorded, err := FindSession(txApp, namespace, workflowID)
+		recorded, err := FindSession(txApp, workflowID)
 		switch {
 		case err == nil && recorded.RunID == runID:
 			return nil
@@ -80,6 +88,7 @@ func RecordSessionRun(
 		record.Set("wallet_version_identifier", details.WalletVersionIdentifier)
 		record.Set("device_id", details.DeviceID)
 		record.Set("actor_id", details.ActorID)
+		record.Set("organization", details.Organization)
 		if err := txApp.Save(record); err != nil {
 			return fmt.Errorf("failed to record action author session run: %w", err)
 		}
@@ -87,12 +96,13 @@ func RecordSessionRun(
 	})
 }
 
-// FindSession returns the recorded session workflowID of namespace, or ErrSessionNotRecorded.
-func FindSession(app core.App, namespace, workflowID string) (RecordedSession, error) {
+// FindSession returns the recorded session workflowID, in any namespace, or
+// ErrSessionNotRecorded. Callers check its Namespace or Organization.
+func FindSession(app core.App, workflowID string) (RecordedSession, error) {
 	record, err := app.FindFirstRecordByFilter(
 		sessionsCollection,
-		"namespace = {:namespace} && workflow_id = {:workflow}",
-		dbx.Params{"namespace": namespace, "workflow": workflowID},
+		"workflow_id = {:workflow}",
+		dbx.Params{"workflow": workflowID},
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return RecordedSession{}, ErrSessionNotRecorded
@@ -110,25 +120,33 @@ func recordedSession(record *core.Record) RecordedSession {
 		WalletVersionIdentifier: record.GetString("wallet_version_identifier"),
 		DeviceID:                record.GetString("device_id"),
 		ActorID:                 record.GetString("actor_id"),
+		Namespace:               record.GetString("namespace"),
+		Organization:            record.GetString("organization"),
 		Created:                 record.GetDateTime("created").Time(),
 	}
 }
 
 // RecentWalletSessions lists the latest sessions of wallet
-// (organization/wallet) that actorID started in namespace, newest first: rows
-// whose wallet_version_identifier is wallet or starts with wallet + "/".
+// (organization/wallet) that actorID started for organization (its
+// canonified_name), newest first: rows whose wallet_version_identifier is
+// wallet or starts with wallet + "/".
 func RecentWalletSessions(
 	app core.App,
-	namespace, wallet, actorID string,
+	organization, wallet, actorID string,
 	limit int,
 ) ([]RecordedSession, error) {
 	records, err := app.FindRecordsByFilter(
 		sessionsCollection,
-		"namespace = {:ns} && actor_id = {:actor} && (wallet_version_identifier = {:wallet} || wallet_version_identifier ~ {:prefix})",
+		"organization = {:org} && actor_id = {:actor} && (wallet_version_identifier = {:wallet} || wallet_version_identifier ~ {:prefix})",
 		"-created",
 		limit,
 		0,
-		dbx.Params{"ns": namespace, "actor": actorID, "wallet": wallet, "prefix": wallet + "/%"},
+		dbx.Params{
+			"org":    organization,
+			"actor":  actorID,
+			"wallet": wallet,
+			"prefix": wallet + "/%",
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list action author sessions: %w", err)

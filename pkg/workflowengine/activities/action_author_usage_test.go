@@ -46,7 +46,7 @@ func usageSessionLookup(
 		runner.GetString("canonified_name") + "/" + device.GetString("canonified_name")
 	// Each lookup reads the session's history afresh.
 	return func() authorSessionLookup {
-		lookup := validSessionLookup(t, app)
+		lookup := unsignedSessionLookup(app)
 		lookup.history = signedSessionHistory(t, app, map[string]any{
 			"device_id":                 deviceID,
 			"platform":                  session.Platform,

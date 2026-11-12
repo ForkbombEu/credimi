@@ -94,7 +94,8 @@ func TestSessionSignAndVerify(t *testing.T) {
 	app, _, _ := authoringFixture(t)
 	grant := SessionGrant{
 		SessionWorkflowID:       "ActionAuthorSession-ticket",
-		Namespace:               "org-a",
+		Namespace:               "runner-abc",
+		Organization:            "org-a",
 		DeviceID:                "org-a/runner/pixel",
 		Platform:                "android",
 		WalletVersionIdentifier: "org-a/wallet/v1",
@@ -111,7 +112,8 @@ func TestSessionSignAndVerify(t *testing.T) {
 	payload, _, _ := strings.Cut(token, ".")
 	changed := map[string]func(*SessionGrant){
 		"session":   func(g *SessionGrant) { g.SessionWorkflowID = "ActionAuthorSession-other" },
-		"namespace": func(g *SessionGrant) { g.Namespace = "org-b" },
+		"namespace": func(g *SessionGrant) { g.Namespace = "runner-other" },
+		"org":       func(g *SessionGrant) { g.Organization = "org-b" },
 		"device":    func(g *SessionGrant) { g.DeviceID = "org-a/runner/other" },
 		"platform":  func(g *SessionGrant) { g.Platform = "ios" },
 		"wallet":    func(g *SessionGrant) { g.WalletVersionIdentifier = "org-a/wallet/v2" },
