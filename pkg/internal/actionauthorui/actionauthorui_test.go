@@ -23,9 +23,9 @@ import (
 
 const (
 	testDataDir = "../../../test_pb_data"
-	session     = "ActionAuthorSession-0f8fad5b-d9cb-469f-a165-70867728950e"
+	session     = "ActionAuthorSession-testrunner00001-0f8fad5b-d9cb-469f-a165-70867728950e"
 	chat        = session + "-author"
-	otherChat   = "ActionAuthorSession-00000000-0000-0000-0000-000000000000-author"
+	otherChat   = "ActionAuthorSession-testrunner00001-00000000-0000-0000-0000-000000000000-author"
 )
 
 func TestClassify(t *testing.T) {
@@ -106,12 +106,12 @@ func TestHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, organization)
 	// Sessions run in their runner's namespace, for the caller's organization.
-	const namespace = "runner-xyz"
+	const namespace = "runner-testrunner00001"
 	require.NoError(t, actionauthor.RecordSessionRun(
 		app, namespace, session, "run",
 		actionauthor.SessionDetails{ActorID: user.Id, Organization: organization},
 	))
-	foreign := "ActionAuthorSession-11111111-2222-3333-4444-555555555555"
+	foreign := "ActionAuthorSession-testrunner00001-11111111-2222-3333-4444-555555555555"
 	require.NoError(t, actionauthor.RecordSessionRun(
 		app, namespace, foreign, "run",
 		actionauthor.SessionDetails{ActorID: user.Id, Organization: "other-org"},
@@ -195,7 +195,7 @@ func TestHandler(t *testing.T) {
 	})
 
 	t.Run("hides unrecorded and foreign sessions", func(t *testing.T) {
-		unrecorded := PathPrefix + "/ActionAuthorSession-00000000-0000-0000-0000-000000000000/"
+		unrecorded := PathPrefix + "/ActionAuthorSession-testrunner00001-00000000-0000-0000-0000-000000000000/"
 		_, err := serve(httptest.NewRequest(http.MethodGet, unrecorded, nil), authCookie)
 		requireStatus(t, err, http.StatusNotFound)
 		_, err = serve(

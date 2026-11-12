@@ -395,7 +395,10 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 			payload.OwnerNamespace,
 		))
 	}
-	sessionWorkflowID := ActionAuthorSessionWorkflowIDPrefix + ticketKey
+	sessionWorkflowID := actionauthor.SessionWorkflowID(
+		strings.TrimPrefix(start.Namespace, canonify.RunnerNamespacePrefix),
+		ticketKey,
+	)
 	want := start.grant(start.Namespace, sessionWorkflowID)
 	// The semaphore does not authenticate who enqueues: sign only a ticket
 	// that Credimi signed after its checks.

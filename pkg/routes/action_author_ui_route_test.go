@@ -45,7 +45,7 @@ func TestActionAuthorUIRouteBeatsCatchAll(t *testing.T) {
 		mux, buildErr := se.Router.BuildMux()
 		require.NoError(t, buildErr)
 
-		path := "/action-author-ui/ActionAuthorSession-00000000-0000-0000-0000-000000000000/"
+		path := "/action-author-ui/ActionAuthorSession-testrunner00001-00000000-0000-0000-0000-000000000000/"
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 

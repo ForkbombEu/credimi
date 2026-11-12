@@ -176,7 +176,13 @@ export function closeSession(
 	});
 }
 
-export const TICKET_PREFIX = 'ActionAuthorSession-';
+const SESSION_TICKET =
+	/^ActionAuthorSession-[a-z0-9]{15}-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+
+/** The ticket of a session ID (ActionAuthorSession-<runner id>-<ticket>), or null. */
+export function ticketOf(sessionId: string): string | null {
+	return SESSION_TICKET.exec(sessionId)?.[1] ?? null;
+}
 
 /** Ends the session or its queued ticket while the page unloads; fire and forget. */
 export function endOnExit(sessionId: string, deviceId: string, queued: boolean): void {
@@ -184,7 +190,8 @@ export function endOnExit(sessionId: string, deviceId: string, queued: boolean):
 		void closeSession(sessionId, { keepalive: true });
 		return;
 	}
-	const ticket = sessionId.slice(TICKET_PREFIX.length);
+	const ticket = ticketOf(sessionId);
+	if (ticket === null) return;
 	pb.send(
 		`/api/pipeline/queue/${encodeURIComponent(ticket)}?device_ids=${encodeURIComponent(deviceId)}`,
 		{ method: 'DELETE', keepalive: true, requestKey: null }

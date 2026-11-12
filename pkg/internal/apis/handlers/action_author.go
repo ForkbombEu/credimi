@@ -97,7 +97,7 @@ var ActionAuthorRoutes = routing.RouteGroup{
 			Handler:        HandleActionAuthorSession,
 			OperationID:    "actionAuthor.getSession",
 			Summary:        "Read an authoring session",
-			Description:    "Read the authoring session session_id (ActionAuthorSession-<ticket uuid>, the session_id of the start response) that the caller started in their organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the candidate action waiting for the caller's review (POST /api/action-author/reviews), null otherwise. A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
+			Description:    "Read the authoring session session_id (ActionAuthorSession-<runner record id>-<ticket uuid>, the session_id of the start response) that the caller started in their organization namespace, running or closed: its run, agent chat workflow (chat_workflow_id), Temporal status, times, build, device, runner and model. live_view is true while a session runs on an Android device that streams its screen (POST /api/pipeline/live-view opens it with the session ID and run). For a running session, chat_ready reports whether the agent chat has started its first turn, closes_at (RFC 3339, empty while a turn runs or when unknown) when the idle session closes to free the device, and pending_review the candidate action waiting for the caller's review (POST /api/action-author/reviews), null otherwise. A session that has not started yet, an unknown session and one another user started all answer 404 session_not_found (follow a queued session's ticket in the device queue).",
 			ResponseSchema: ActionAuthorSessionResponse{},
 		},
 		{
@@ -287,7 +287,7 @@ type ActionAuthorStartRequest struct {
 // ActionAuthorStartResponse identifies the queued session ticket.
 type ActionAuthorStartResponse struct {
 	// SessionID is the session workflow the ticket starts once granted,
-	// ActionAuthorSession-<ticket_id>.
+	// ActionAuthorSession-<runner record id>-<ticket_id>.
 	SessionID               string `json:"session_id"`
 	TicketID                string `json:"ticket_id"`
 	DeviceID                string `json:"device_id"`
@@ -458,7 +458,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Organization:            orgNamespace,
 		}
 		sessionInput.TicketGrant, err = actionauthor.SignTicket(e.App, actionauthor.SessionGrant{
-			SessionWorkflowID:       activities.ActionAuthorSessionWorkflowIDPrefix + ticketID,
+			SessionWorkflowID:       actionauthor.SessionWorkflowID(runner.Id, ticketID),
 			Namespace:               sessionInput.Namespace,
 			Organization:            sessionInput.Organization,
 			DeviceID:                sessionInput.DeviceID,
@@ -520,7 +520,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			)
 		}
 		return e.JSON(http.StatusAccepted, ActionAuthorStartResponse{
-			SessionID:               activities.ActionAuthorSessionWorkflowIDPrefix + ticketID,
+			SessionID:               actionauthor.SessionWorkflowID(runner.Id, ticketID),
 			TicketID:                ticketID,
 			DeviceID:                deviceID,
 			Status:                  string(resp.Status),

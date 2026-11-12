@@ -33,9 +33,9 @@ import (
 const (
 	// authorTestNamespace is the runner namespace sessions run in;
 	// authorTestOrganization is the organization of authorTestSession.
-	authorTestNamespace    = "runner-xyz"
+	authorTestNamespace    = "runner-testrunner00001"
 	authorTestOrganization = "tenant"
-	authorTestSessionID    = "ActionAuthorSession-ticket-1"
+	authorTestSessionID    = "ActionAuthorSession-testrunner00001-00000000-0000-4000-8000-000000000001"
 	authorTestAuthorID     = authorTestSessionID + "-author"
 	authorTestAuthorRun    = "author-run"
 	authorTestParentRun    = "session-run"

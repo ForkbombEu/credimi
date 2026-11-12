@@ -250,7 +250,7 @@ func TestPipelineLiveViewOpensActionAuthorSessionDevice(t *testing.T) {
 	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
 	require.NoError(t, actionauthor.RecordSessionRun(
 		app,
-		"runner-xyz",
+		"runner-testrunner00001",
 		sessionID,
 		"run-1",
 		actionauthor.SessionDetails{
@@ -275,12 +275,12 @@ func TestPipelineLiveViewOpensActionAuthorSessionDevice(t *testing.T) {
 	})
 
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	require.Equal(t, []string{"runner-xyz"}, *namespaces)
+	require.Equal(t, []string{"runner-testrunner00001"}, *namespaces)
 	require.Len(t, *calls, 1)
 	require.Equal(t, map[string]any{
 		"device_identifier": deviceID,
 		"serial":            "emulator-5554",
-		"namespace":         "runner-xyz",
+		"namespace":         "runner-testrunner00001",
 		"workflow_id":       sessionID,
 		"run_id":            "run-1",
 		"run_identifier":    sessionID,
@@ -315,7 +315,7 @@ func TestPipelineLiveViewRefusesActionAuthorSessionsOfOthers(t *testing.T) {
 			name:      "recorded in another namespace",
 			record:    true,
 			runID:     "run-1",
-			namespace: "runner-xyz",
+			namespace: "runner-testrunner00001",
 			code:      http.StatusNotFound,
 			reason:    "session_not_found",
 		},
@@ -445,7 +445,7 @@ func TestPipelineLiveViewChecksTheSessionOwnerBeforeItsStatus(t *testing.T) {
 			}
 			require.NoError(t, actionauthor.RecordSessionRun(
 				app,
-				"runner-xyz",
+				"runner-testrunner00001",
 				sessionID,
 				"run-1",
 				actionauthor.SessionDetails{

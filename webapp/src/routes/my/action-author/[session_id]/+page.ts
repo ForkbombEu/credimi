@@ -7,7 +7,7 @@ import { error } from '@sveltejs/kit';
 //
 
 const SESSION_ID =
-	/^ActionAuthorSession-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+	/^ActionAuthorSession-[a-z0-9]{15}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export const load = ({ params, url }) => {
 	if (!SESSION_ID.test(params.session_id)) error(404);

@@ -1002,7 +1002,7 @@ func TestHandleListMyWorkflowsHidesActionAuthorSessions(t *testing.T) {
 	listWorkflowsTemporalClient = func(string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	session := "ActionAuthorSession-0f8fad5b-d9cb-469f-a165-70867728950e"
+	session := "ActionAuthorSession-testrunner00001-0f8fad5b-d9cb-469f-a165-70867728950e"
 	execution := func(id, runID, workflowType string, parent *common.WorkflowExecution) *workflow.WorkflowExecutionInfo {
 		return &workflow.WorkflowExecutionInfo{
 			Execution:       &common.WorkflowExecution{WorkflowId: id, RunId: runID},

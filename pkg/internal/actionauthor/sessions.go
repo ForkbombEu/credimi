@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -18,13 +19,38 @@ import (
 const sessionsCollection = "action_author_sessions"
 
 var sessionIDPattern = regexp.MustCompile(
-	`^ActionAuthorSession-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`,
+	`^ActionAuthorSession-([a-z0-9]{15})-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`,
 )
 
 // IsSessionID reports whether id has the form of the session workflow IDs
-// Credimi starts: ActionAuthorSession-<lowercase ticket uuid>.
+// Credimi starts: ActionAuthorSession-<runner record id>-<lowercase ticket uuid>.
 func IsSessionID(id string) bool {
 	return sessionIDPattern.MatchString(id)
+}
+
+// SessionWorkflowID is the workflow ID of the session that ticketID starts on
+// a device of runnerID.
+func SessionWorkflowID(runnerID, ticketID string) string {
+	return "ActionAuthorSession-" + runnerID + "-" + ticketID
+}
+
+// SessionRunnerID returns the record ID of the runner sessionID runs on.
+func SessionRunnerID(sessionID string) (string, bool) {
+	match := sessionIDPattern.FindStringSubmatch(sessionID)
+	if match == nil {
+		return "", false
+	}
+	return match[1], true
+}
+
+// SessionNamespace returns the Temporal namespace sessionID runs in: its
+// runner's agent namespace.
+func SessionNamespace(sessionID string) (string, bool) {
+	runnerID, ok := SessionRunnerID(sessionID)
+	if !ok {
+		return "", false
+	}
+	return canonify.RunnerNamespacePrefix + runnerID, true
 }
 
 // SessionDetails are what Credimi lists about a recorded session.

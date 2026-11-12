@@ -461,7 +461,7 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 				user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 				require.NoError(t, err)
 				want := actionauthor.SessionGrant{
-					SessionWorkflowID:       "ActionAuthorSession-" + response.TicketID,
+					SessionWorkflowID:       actionauthor.SessionWorkflowID(strings.TrimPrefix(runnerNamespace, "runner-"), response.TicketID),
 					Namespace:               runnerNamespace,
 					Organization:            "usera-s-organization",
 					DeviceID:                deviceID,
@@ -481,7 +481,10 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 
 		require.NotEmpty(t, response.TicketID)
 		require.Equal(t, ActionAuthorStartResponse{
-			SessionID:               "ActionAuthorSession-" + response.TicketID,
+			SessionID: actionauthor.SessionWorkflowID(
+				strings.TrimPrefix(runnerNamespace, "runner-"),
+				response.TicketID,
+			),
 			TicketID:                response.TicketID,
 			DeviceID:                deviceID,
 			Status:                  "queued",

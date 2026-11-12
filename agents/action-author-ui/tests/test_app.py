@@ -31,7 +31,7 @@ from credimi_action_author_ui import app as ui_app
 from credimi_action_author_ui.app import HTML_CSP, create_app, registry
 
 UI = "http://action_author_ui:8080"
-CHAT = "ActionAuthorSession-0123abcd-0000-4000-8000-00000000abcd-author"
+CHAT = "ActionAuthorSession-testrunner00001-0123abcd-0000-4000-8000-00000000abcd-author"
 STARTED = datetime(2026, 11, 3, 10, 0, tzinfo=UTC)
 # Credimi's signing key, published in the test jwks.json; FOREIGN_KEY is not published.
 SIGNING_KEY = ec.generate_private_key(ec.SECP256R1())
@@ -591,7 +591,7 @@ async def test_closed_chat_replays_its_events():
             return await Client.connect(target, namespace=namespace, plugins=[AgentHarnessPlugin()])
 
         org_b = await connect("org-b")
-        chat = f"ActionAuthorSession-{uuid.uuid4()}-author"
+        chat = f"ActionAuthorSession-testrunner00001-{uuid.uuid4()}-author"
         events = [await _encoded_reply(org_b, text) for text in ("Hello", " world")]
         # Queries on the closed run replay it, so the worker stays up.
         async with Worker(

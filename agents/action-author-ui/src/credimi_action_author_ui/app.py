@@ -82,7 +82,7 @@ TOKEN_ROLE = "write"
 NAMESPACE_PATTERN = re.compile(r"[^\W_](?:[^\W_]|-){0,999}")
 # `<session id>-author`, the chat of a session Credimi started.
 CHAT_PATTERN = re.compile(
-    r"ActionAuthorSession-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-author"
+    r"ActionAuthorSession-[a-z0-9]{15}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-author"
 )
 # Host names Credimi's proxy reaches the service under; others may be DNS rebinding of a dev port.
 ALLOWED_HOSTS = frozenset(

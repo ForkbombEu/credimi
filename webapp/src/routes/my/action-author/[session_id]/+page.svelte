@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		closeSession,
 		endOnExit,
 		getSession,
-		TICKET_PREFIX,
+		ticketOf,
 		type Session
 	} from '$lib/action-author/api';
 	import SaveReviewCard from '$lib/action-author/save-review-card.svelte';
@@ -101,7 +101,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return false;
 			}
 
-			const ticket = polledSessionId.slice(TICKET_PREFIX.length);
+			const ticket = ticketOf(polledSessionId);
+			if (ticket === null) {
+				stoppedMessage = m.Session_not_found();
+				return false;
+			}
 			const status = await Pipeline.Queue.status(ticket, [polledDeviceId]);
 			if (!active) return false;
 			if (status.isErr) {
@@ -170,7 +174,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	/** Cancels the queued ticket; returns whether it succeeded. quiet skips the success toast. */
 	async function cancelTicket({ quiet = false } = {}): Promise<boolean> {
-		const ticket = sessionId.slice(TICKET_PREFIX.length);
+		const ticket = ticketOf(sessionId);
+		if (ticket === null) return false;
 		const done = await runWithLoading({
 			fn: async () => {
 				const res = await Pipeline.Queue.cancel(ticket, [deviceId]);

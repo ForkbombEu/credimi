@@ -319,8 +319,7 @@ func (l authorSessionLookup) callerSession(
 // workflow ID, "<session workflow ID>-author".
 func actionAuthorSessionID(authorWorkflowID string) (string, bool) {
 	sessionID, isAuthor := strings.CutSuffix(authorWorkflowID, ActionAuthorWorkflowIDSuffix)
-	return sessionID, isAuthor && len(sessionID) > len(ActionAuthorSessionWorkflowIDPrefix) &&
-		strings.HasPrefix(sessionID, ActionAuthorSessionWorkflowIDPrefix)
+	return sessionID, isAuthor && actionauthor.IsSessionID(sessionID)
 }
 
 // ActionAuthorSessionRef identifies a running session, its build request and

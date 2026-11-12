@@ -32,12 +32,12 @@ import (
 )
 
 const (
-	authoringSessionID     = "ActionAuthorSession-0f8fad5b-d9cb-469f-a165-70867728950e"
+	authoringSessionID     = "ActionAuthorSession-testrunner00001-0f8fad5b-d9cb-469f-a165-70867728950e"
 	authoringSessionChat   = authoringSessionID + "-author"
 	authoringSessionRun    = "session-run"
 	authoringSessionDevice = authoringAdminRunner + "/android-emulator"
 	// authoringSessionNamespace is the runner namespace sessions run in.
-	authoringSessionNamespace = "runner-xyz"
+	authoringSessionNamespace = "runner-testrunner00001"
 )
 
 var authoringSessionStart = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)

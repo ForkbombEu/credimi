@@ -24,20 +24,20 @@ func TestRecordSessionRunAcceptsOnlyOneRun(t *testing.T) {
 	details := SessionDetails{Organization: "tenant"}
 	require.NoError(
 		t,
-		RecordSessionRun(app, "runner-xyz", "ActionAuthorSession-1", "run-1", details),
+		RecordSessionRun(app, "runner-testrunner00001", "ActionAuthorSession-1", "run-1", details),
 	)
 	// A retried start records the same run again.
 	require.NoError(
 		t,
-		RecordSessionRun(app, "runner-xyz", "ActionAuthorSession-1", "run-1", details),
+		RecordSessionRun(app, "runner-testrunner00001", "ActionAuthorSession-1", "run-1", details),
 	)
 	recorded, err := FindSession(app, "ActionAuthorSession-1")
 	require.NoError(t, err)
 	require.Equal(t, "run-1", recorded.RunID)
-	require.Equal(t, "runner-xyz", recorded.Namespace)
+	require.Equal(t, "runner-testrunner00001", recorded.Namespace)
 	require.Equal(t, "tenant", recorded.Organization)
 
-	err = RecordSessionRun(app, "runner-xyz", "ActionAuthorSession-1", "run-2", details)
+	err = RecordSessionRun(app, "runner-testrunner00001", "ActionAuthorSession-1", "run-2", details)
 	require.ErrorIs(t, err, ErrForbidden)
 	require.ErrorContains(
 		t,
@@ -50,7 +50,7 @@ func TestRecordSessionRunAcceptsOnlyOneRun(t *testing.T) {
 	recorded, err = FindSession(app, "ActionAuthorSession-1")
 	require.NoError(t, err)
 	require.Equal(t, "run-1", recorded.RunID)
-	require.Equal(t, "runner-xyz", recorded.Namespace)
+	require.Equal(t, "runner-testrunner00001", recorded.Namespace)
 }
 
 func TestRecordSessionRunKeepsTheFirstDetails(t *testing.T) {
@@ -66,11 +66,17 @@ func TestRecordSessionRunKeepsTheFirstDetails(t *testing.T) {
 	}
 	require.NoError(
 		t,
-		RecordSessionRun(app, "runner-xyz", "ActionAuthorSession-1", "run-1", first),
+		RecordSessionRun(app, "runner-testrunner00001", "ActionAuthorSession-1", "run-1", first),
 	)
 	require.NoError(
 		t,
-		RecordSessionRun(app, "runner-xyz", "ActionAuthorSession-1", "run-1", SessionDetails{}),
+		RecordSessionRun(
+			app,
+			"runner-testrunner00001",
+			"ActionAuthorSession-1",
+			"run-1",
+			SessionDetails{},
+		),
 	)
 
 	sessions, err := RecentWalletSessions(app, "tenant", "org/wallet", first.ActorID, 10)
@@ -81,7 +87,7 @@ func TestRecordSessionRunKeepsTheFirstDetails(t *testing.T) {
 	require.Equal(t, first.WalletVersionIdentifier, sessions[0].WalletVersionIdentifier)
 	require.Equal(t, first.DeviceID, sessions[0].DeviceID)
 	require.Equal(t, first.ActorID, sessions[0].ActorID)
-	require.Equal(t, "runner-xyz", sessions[0].Namespace)
+	require.Equal(t, "runner-testrunner00001", sessions[0].Namespace)
 	require.Equal(t, "tenant", sessions[0].Organization)
 
 	found, err := FindSession(app, "ActionAuthorSession-1")
@@ -152,15 +158,40 @@ func TestRecentWalletSessionsListsTheWalletNewestFirst(t *testing.T) {
 }
 
 func TestIsSessionID(t *testing.T) {
-	require.True(t, IsSessionID("ActionAuthorSession-0f8fad5b-d9cb-469f-a165-70867728950e"))
+	require.True(
+		t,
+		IsSessionID("ActionAuthorSession-testrunner00001-0f8fad5b-d9cb-469f-a165-70867728950e"),
+	)
 	for _, id := range []string{
 		"",
 		"ActionAuthorSession-",
 		"ActionAuthorSession-0F8FAD5B-D9CB-469F-A165-70867728950E",
-		"ActionAuthorSession-0f8fad5b-d9cb-469f-a165-70867728950e-author",
-		"x-ActionAuthorSession-0f8fad5b-d9cb-469f-a165-70867728950e",
+		"ActionAuthorSession-testrunner00001-0f8fad5b-d9cb-469f-a165-70867728950e-author",
+		"x-ActionAuthorSession-testrunner00001-0f8fad5b-d9cb-469f-a165-70867728950e",
 		"ActionAuthorSession-ticket",
+		"ActionAuthorSession-0f8fad5b-d9cb-469f-a165-70867728950e",
+		"ActionAuthorSession-TestRunner00001-0f8fad5b-d9cb-469f-a165-70867728950e",
+		"ActionAuthorSession-testrunner0001-0f8fad5b-d9cb-469f-a165-70867728950e",
 	} {
 		require.False(t, IsSessionID(id), id)
+	}
+}
+
+func TestSessionWorkflowIDRoundTrip(t *testing.T) {
+	id := SessionWorkflowID("q432kn0bisw9pfm", "2fe33961-f99b-422f-90f1-5353e201ae7a")
+	require.Equal(t, "ActionAuthorSession-q432kn0bisw9pfm-2fe33961-f99b-422f-90f1-5353e201ae7a", id)
+	require.True(t, IsSessionID(id))
+	runnerID, ok := SessionRunnerID(id)
+	require.True(t, ok)
+	require.Equal(t, "q432kn0bisw9pfm", runnerID)
+	namespace, ok := SessionNamespace(id)
+	require.True(t, ok)
+	require.Equal(t, "runner-q432kn0bisw9pfm", namespace)
+
+	for _, malformed := range []string{"", "ActionAuthorSession-ticket", id + "-author"} {
+		_, ok = SessionRunnerID(malformed)
+		require.False(t, ok, malformed)
+		_, ok = SessionNamespace(malformed)
+		require.False(t, ok, malformed)
 	}
 }
