@@ -479,11 +479,13 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if err != nil {
 			return temporalUnavailableError()
 		}
-		// Sessions count at enqueue; a refused or failed enqueue gives it back.
-		allowance := actionauthor.AllowanceFor(runner, org.Id)
-		reservedAt := time.Now()
-		if apiErr := reserveActionAuthorSession(e, allowance, reservedAt); apiErr != nil {
-			return apiErr
+		// The runner meters its model's usage and reports it in heartbeats;
+		// a pool it reports used up today refuses new sessions.
+		if allowance := actionauthor.AllowanceFor(runner, org.Id); allowance.Exhausted(
+			runner,
+			time.Now(),
+		) {
+			return actionAuthorQuotaExceeded(allowance)
 		}
 		resp, err := enqueueActionAuthorTicket(
 			e.Request.Context(),
@@ -503,7 +505,6 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			},
 		)
 		if err != nil {
-			releaseActionAuthorSession(e, allowance, reservedAt)
 			if isQueueLimitExceeded(err) {
 				return apierror.New(
 					http.StatusConflict,
@@ -532,45 +533,23 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 	}
 }
 
-// reserveActionAuthorSession counts a session against the runner's daily
-// allowance for the caller's pool, answering 429 quota_exceeded when it is used up.
-func reserveActionAuthorSession(
-	e *core.RequestEvent,
-	allowance actionauthor.Allowance,
-	now time.Time,
-) *apierror.APIError {
-	err := actionauthor.ReserveSession(e.App, allowance, now)
-	if errors.Is(err, actionauthor.ErrQuotaExceeded) {
-		whose := "its organization"
-		if allowance.Pool == actionauthor.PoolOthers {
-			whose = "other organizations"
-		}
-		return apierror.New(
-			http.StatusTooManyRequests,
-			"action_author",
-			"quota_exceeded",
-			fmt.Sprintf(
-				"this runner's daily action author allowance for %s is used (%d tokens); it resets at 00:00 UTC",
-				whose,
-				allowance.Tokens,
-			),
-		)
+// actionAuthorQuotaExceeded refuses a session whose pool the runner reported
+// used up today.
+func actionAuthorQuotaExceeded(allowance actionauthor.Allowance) *apierror.APIError {
+	whose := "its organization"
+	if allowance.Pool == actionauthor.PoolOthers {
+		whose = "other organizations"
 	}
-	if err != nil {
-		return authoringAPIError(e, err)
-	}
-	return nil
-}
-
-// releaseActionAuthorSession gives back a session whose enqueue failed.
-func releaseActionAuthorSession(
-	e *core.RequestEvent,
-	allowance actionauthor.Allowance,
-	reservedAt time.Time,
-) {
-	if err := actionauthor.ReleaseSession(e.App, allowance, reservedAt); err != nil {
-		e.App.Logger().Warn("failed to release action author session quota", "error", err)
-	}
+	return apierror.New(
+		http.StatusTooManyRequests,
+		"action_author",
+		"quota_exceeded",
+		fmt.Sprintf(
+			"this runner's daily action author allowance for %s is used (%d tokens); it resets at 00:00 UTC",
+			whose,
+			allowance.Tokens,
+		),
+	)
 }
 
 func actionAuthorDeviceNotFound(deviceID string) *apierror.APIError {

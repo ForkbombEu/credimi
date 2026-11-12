@@ -62,9 +62,6 @@ type MobileRunnerLifecycleResponse struct {
 	ShutdownAfterSeconds    int    `json:"shutdown_after_seconds"`
 	// RunnerCredential is the key Credimi currently presents to this runner.
 	RunnerCredential string `json:"runner_credential"`
-	// ActionAuthorUsage is today's action author usage of the runner; it is
-	// absent when it cannot be read.
-	ActionAuthorUsage *RunnerActionAuthorUsage `json:"action_author_usage,omitempty"`
 	// AgentNamespace is the Temporal namespace the runner's action author
 	// serves; absent until Credimi has prepared it for an enabled agent.
 	AgentNamespace string `json:"agent_namespace,omitempty"`
@@ -597,7 +594,6 @@ func lifecycleResponse(
 		HeartbeatTimeoutSeconds: int(mobilerunnerlifecycle.HeartbeatTimeout() / time.Second),
 		ShutdownAfterSeconds:    int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 		RunnerCredential:        credential,
-		ActionAuthorUsage:       runnerActionAuthorUsage(e.App, runner, mobileRunnerLifecycleNow()),
 		AgentNamespace:          runnerAgentNamespace(runner),
 	})
 }

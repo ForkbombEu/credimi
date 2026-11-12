@@ -7,9 +7,8 @@ package handlers
 import (
 	"database/sql"
 	"errors"
-	"time"
+	"regexp"
 
-	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -18,25 +17,30 @@ import (
 // RunnerActionAuthorSettings are the action author settings a runner reports
 // with registration and every heartbeat: whether its agent is enabled (old
 // runners omit it: disabled), its two daily token limits (0 own: no limit;
-// 0 others: not offered to other organizations) and its model.
+// 0 others: not offered to other organizations), its model, and the model
+// usage its proxy metered today.
 type RunnerActionAuthorSettings struct {
-	Enabled           bool   `json:"enabled"`
-	OwnDailyTokens    int    `json:"own_daily_tokens"    validate:"min=0"`
-	OthersDailyTokens int    `json:"others_daily_tokens" validate:"min=0"`
-	Provider          string `json:"provider"`
-	Model             string `json:"model"`
+	Enabled           bool                     `json:"enabled"`
+	OwnDailyTokens    int                      `json:"own_daily_tokens"    validate:"min=0"`
+	OthersDailyTokens int                      `json:"others_daily_tokens" validate:"min=0"`
+	Provider          string                   `json:"provider"`
+	Model             string                   `json:"model"`
+	Usage             *RunnerActionAuthorUsage `json:"usage,omitempty"`
 }
 
-// RunnerActionAuthorUsage is the runner's action author usage on the UTC day,
-// in tokens per pool.
+// RunnerActionAuthorUsage is the runner's action author usage on the UTC day
+// (YYYY-MM-DD), in tokens per pool.
 type RunnerActionAuthorUsage struct {
 	Day          string `json:"day"`
-	OwnTokens    int    `json:"own_tokens"`
-	OthersTokens int    `json:"others_tokens"`
+	OwnTokens    int    `json:"own_tokens"    validate:"min=0"`
+	OthersTokens int    `json:"others_tokens" validate:"min=0"`
 }
 
+// usageDayPattern is the form of a reported usage day.
+var usageDayPattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
 // setRunnerActionAuthorSettings stores the reported settings; nil leaves the
-// stored values unchanged.
+// stored values unchanged, and so does a usage without a well-formed day.
 func setRunnerActionAuthorSettings(record *core.Record, s *RunnerActionAuthorSettings) {
 	if s == nil {
 		return
@@ -46,6 +50,11 @@ func setRunnerActionAuthorSettings(record *core.Record, s *RunnerActionAuthorSet
 	record.Set("agent_others_daily_tokens", s.OthersDailyTokens)
 	record.Set("agent_provider", s.Provider)
 	record.Set("agent_model", s.Model)
+	if s.Usage != nil && usageDayPattern.MatchString(s.Usage.Day) {
+		record.Set("agent_usage_day", s.Usage.Day)
+		record.Set("agent_own_tokens_used", s.Usage.OwnTokens)
+		record.Set("agent_others_tokens_used", s.Usage.OthersTokens)
+	}
 }
 
 // runnerSettingsPrincipal names the caller that may report a runner's action
@@ -112,24 +121,4 @@ func runnerAgentNamespace(runner *core.Record) string {
 		return ""
 	}
 	return mobilerunner.AgentNamespace(runner.Id)
-}
-
-// runnerActionAuthorUsage returns the runner's usage today, or nil after a
-// logged warning: a heartbeat never fails because of usage.
-func runnerActionAuthorUsage(
-	app core.App,
-	runner *core.Record,
-	now time.Time,
-) *RunnerActionAuthorUsage {
-	own, others, err := actionauthor.TodayUsage(app, runner.Id, now)
-	if err != nil {
-		app.Logger().
-			Warn("failed to read runner action author usage", "runner", runner.Id, "error", err)
-		return nil
-	}
-	return &RunnerActionAuthorUsage{
-		Day:          now.UTC().Format(time.DateOnly),
-		OwnTokens:    own,
-		OthersTokens: others,
-	}
 }

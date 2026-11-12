@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
@@ -152,7 +151,7 @@ func joinAgentRunnerOrganization(t *testing.T, app core.App, role string) *core.
 	return member
 }
 
-func TestHeartbeatStoresActionAuthorSettingsAndReportsUsage(t *testing.T) {
+func TestHeartbeatStoresActionAuthorSettingsAndUsage(t *testing.T) {
 	app := setupMobileRunnerApp(t)
 	defer app.Cleanup()
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
@@ -165,55 +164,40 @@ func TestHeartbeatStoresActionAuthorSettingsAndReportsUsage(t *testing.T) {
 		OthersDailyTokens: 200000,
 		Provider:          "anthropic",
 		Model:             "claude-sonnet-5-5",
+		Usage: &RunnerActionAuthorUsage{
+			Day:          "2026-11-05",
+			OwnTokens:    1234,
+			OthersTokens: 56,
+		},
 	})
 	runner := agentRunnerRecord(t, app)
 	require.Equal(t, 1000, runner.GetInt("agent_own_daily_tokens"))
 	require.Equal(t, 200000, runner.GetInt("agent_others_daily_tokens"))
 	require.Equal(t, "anthropic", runner.GetString("agent_provider"))
 	require.Equal(t, "claude-sonnet-5-5", runner.GetString("agent_model"))
-	require.Equal(t, map[string]any{
-		"day":           "2026-11-05",
-		"own_tokens":    float64(0),
-		"others_tokens": float64(0),
-	}, response["action_author_usage"])
-
-	// Usage of both pools today; another day's usage does not count.
-	for pool, tokens := range map[actionauthor.Pool]int{
-		actionauthor.PoolOwn:    1234,
-		actionauthor.PoolOthers: 56,
-	} {
-		_, err := actionauthor.RecordUsage(
-			app,
-			actionauthor.Allowance{RunnerID: runner.Id, Pool: pool},
-			now,
-			actionauthor.UsageReport{
-				ReportID:   "wf/1",
-				UsageDelta: actionauthor.UsageDelta{InputTokens: tokens},
-			},
-		)
-		require.NoError(t, err)
-	}
-	_, err = actionauthor.RecordUsage(
-		app,
-		actionauthor.Allowance{RunnerID: runner.Id, Pool: actionauthor.PoolOwn},
-		now.Add(-24*time.Hour),
-		actionauthor.UsageReport{
-			ReportID:   "wf/0",
-			UsageDelta: actionauthor.UsageDelta{InputTokens: 99},
-		},
-	)
-	require.NoError(t, err)
+	require.Equal(t, "2026-11-05", runner.GetString("agent_usage_day"))
+	require.Equal(t, 1234, runner.GetInt("agent_own_tokens_used"))
+	require.Equal(t, 56, runner.GetInt("agent_others_tokens_used"))
+	// The runner meters usage itself: Credimi does not send it back.
+	require.NotContains(t, response, "action_author_usage")
 
 	// A heartbeat without settings keeps the stored ones.
-	response = heartbeatAgentRunner(t, app, now, nil)
+	heartbeatAgentRunner(t, app, now, nil)
 	runner = agentRunnerRecord(t, app)
 	require.Equal(t, 1000, runner.GetInt("agent_own_daily_tokens"))
 	require.Equal(t, "claude-sonnet-5-5", runner.GetString("agent_model"))
-	require.Equal(t, map[string]any{
-		"day":           "2026-11-05",
-		"own_tokens":    float64(1234),
-		"others_tokens": float64(56),
-	}, response["action_author_usage"])
+	require.Equal(t, 1234, runner.GetInt("agent_own_tokens_used"))
+
+	// A usage without a well-formed day keeps the stored usage.
+	for _, day := range []string{"", "05/11/2026", "2026-11-5"} {
+		heartbeatAgentRunner(t, app, now, &RunnerActionAuthorSettings{
+			OwnDailyTokens: 1000,
+			Usage:          &RunnerActionAuthorUsage{Day: day, OwnTokens: 1},
+		})
+		runner = agentRunnerRecord(t, app)
+		require.Equal(t, "2026-11-05", runner.GetString("agent_usage_day"), day)
+		require.Equal(t, 1234, runner.GetInt("agent_own_tokens_used"), day)
+	}
 
 	// A disabled agent reports zeros and empty strings.
 	heartbeatAgentRunner(t, app, now, &RunnerActionAuthorSettings{})
@@ -342,6 +326,8 @@ func TestLifecycleRejectsNegativeActionAuthorLimits(t *testing.T) {
 	for _, body := range []string{
 		`{"runner_id":"` + agentRunnerID + `","action_author":{"own_daily_tokens":-1}}`,
 		`{"runner_id":"` + agentRunnerID + `","action_author":{"others_daily_tokens":-1}}`,
+		`{"runner_id":"` + agentRunnerID + `","action_author":{"usage":{"day":"2026-11-05","own_tokens":-1}}}`,
+		`{"runner_id":"` + agentRunnerID + `","action_author":{"usage":{"day":"2026-11-05","others_tokens":-1}}}`,
 	} {
 		(&tests.ApiScenario{
 			Name:            body,
@@ -510,6 +496,7 @@ func TestHeartbeatIgnoresActionAuthorSettingsOfAnotherIdentity(t *testing.T) {
 		OwnDailyTokens:    0,
 		OthersDailyTokens: 999,
 		Model:             "forged",
+		Usage:             &RunnerActionAuthorUsage{Day: "2026-11-05", OwnTokens: 999},
 	}
 	now := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
 	for _, c := range []struct {
@@ -526,6 +513,8 @@ func TestHeartbeatIgnoresActionAuthorSettingsOfAnotherIdentity(t *testing.T) {
 			require.Equal(t, 100, runner.GetInt("agent_own_daily_tokens"))
 			require.Zero(t, runner.GetInt("agent_others_daily_tokens"))
 			require.Equal(t, "gpt-5", runner.GetString("agent_model"))
+			require.Empty(t, runner.GetString("agent_usage_day"))
+			require.Zero(t, runner.GetInt("agent_own_tokens_used"))
 		})
 	}
 }
