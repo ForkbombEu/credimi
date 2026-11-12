@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/require"
 )
@@ -21,11 +22,11 @@ func TestRegisterMobileRunnerAgentNamespaceHooks(t *testing.T) {
 		stopRunnerAgentWorkersFn = origStop
 	})
 	calls := make(chan string, 4)
-	ensureRunnerAgentNamespaceFn = func(_ core.App, namespace string) {
-		calls <- "ensure " + namespace
+	ensureRunnerAgentNamespaceFn = func(_ core.App, runnerID string) {
+		calls <- "ensure " + runnerID
 	}
-	stopRunnerAgentWorkersFn = func(namespace string) {
-		calls <- "stop " + namespace
+	stopRunnerAgentWorkersFn = func(runnerID string) {
+		calls <- "stop " + runnerID
 	}
 	RegisterMobileRunnerAgentNamespaceHooks(app)
 
@@ -56,8 +57,8 @@ func TestRegisterMobileRunnerAgentNamespaceHooks(t *testing.T) {
 	runner.Set("ip", "127.0.0.1")
 	runner.Set("agent_enabled", true)
 	require.NoError(t, app.Save(runner))
-	namespace := "runner-" + runner.Id
-	require.Equal(t, "ensure "+namespace, next())
+	id := runner.Id
+	require.Equal(t, "ensure "+id, next())
 
 	// update saves a freshly read runner, so its Original is the stored one.
 	update := func(field string, value any) {
@@ -68,23 +69,42 @@ func TestRegisterMobileRunnerAgentNamespaceHooks(t *testing.T) {
 		runner.Set(field, value)
 		require.NoError(t, app.Save(runner))
 	}
+	// markReady marks the namespace ready as EnsureRunnerAgentNamespace does.
+	markReady := func() {
+		t.Helper()
+		require.NoError(t, mobilerunner.MarkAgentNamespaceReady(app, id))
+		stored, err := app.FindRecordById("mobile_runners", id)
+		require.NoError(t, err)
+		require.True(t, stored.GetBool(mobilerunner.AgentNamespaceReadyField))
+	}
+	readyCleared := func() {
+		t.Helper()
+		stored, err := app.FindRecordById("mobile_runners", id)
+		require.NoError(t, err)
+		require.False(t, stored.GetBool(mobilerunner.AgentNamespaceReadyField))
+	}
 
-	// Disabling the runner stops the namespace's workers.
+	// Disabling the runner clears its readiness and stops the namespace's
+	// workers.
+	markReady()
 	update("disabled", true)
-	require.Equal(t, "stop "+namespace, next())
+	readyCleared()
+	require.Equal(t, "stop "+id, next())
 
 	// An update of a runner whose agent was already off does nothing.
 	update("name", "renamed")
 	none()
 
 	update("disabled", false)
-	require.Equal(t, "ensure "+namespace, next())
+	require.Equal(t, "ensure "+id, next())
 
+	markReady()
 	update("agent_enabled", false)
-	require.Equal(t, "stop "+namespace, next())
+	readyCleared()
+	require.Equal(t, "stop "+id, next())
 
 	require.NoError(t, app.Delete(runner))
-	require.Equal(t, "stop "+namespace, next())
+	require.Equal(t, "stop "+id, next())
 
 	// A runner created with its agent off is left alone.
 	off := core.NewRecord(collection)

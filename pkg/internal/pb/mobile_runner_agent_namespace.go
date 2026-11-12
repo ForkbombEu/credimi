@@ -17,29 +17,36 @@ var (
 
 // RegisterMobileRunnerAgentNamespaceHooks prepares a runner's agent namespace
 // while its agent is enabled and the runner is not disabled, and stops the
-// namespace's workers otherwise. Namespaces are never deleted from Temporal;
-// their histories expire by retention.
+// namespace's workers otherwise. Every save of a runner whose agent is off or
+// that is disabled clears its agent namespace readiness. Namespaces are never
+// deleted from Temporal; their histories expire by retention.
 func RegisterMobileRunnerAgentNamespaceHooks(app core.App) {
+	app.OnRecordUpdate("mobile_runners").BindFunc(func(e *core.RecordEvent) error {
+		if !mobilerunner.AgentEnabled(e.Record) {
+			e.Record.Set(mobilerunner.AgentNamespaceReadyField, false)
+		}
+		return e.Next()
+	})
+
 	app.OnRecordAfterCreateSuccess("mobile_runners").BindFunc(func(e *core.RecordEvent) error {
 		if mobilerunner.AgentEnabled(e.Record) {
-			go ensureRunnerAgentNamespaceFn(e.App, mobilerunner.AgentNamespace(e.Record.Id))
+			go ensureRunnerAgentNamespaceFn(e.App, e.Record.Id)
 		}
 		return e.Next()
 	})
 
 	app.OnRecordAfterUpdateSuccess("mobile_runners").BindFunc(func(e *core.RecordEvent) error {
-		namespace := mobilerunner.AgentNamespace(e.Record.Id)
 		switch {
 		case mobilerunner.AgentEnabled(e.Record):
-			go ensureRunnerAgentNamespaceFn(e.App, namespace)
+			go ensureRunnerAgentNamespaceFn(e.App, e.Record.Id)
 		case mobilerunner.AgentEnabled(e.Record.Original()):
-			go stopRunnerAgentWorkersFn(namespace)
+			go stopRunnerAgentWorkersFn(e.Record.Id)
 		}
 		return e.Next()
 	})
 
 	app.OnRecordAfterDeleteSuccess("mobile_runners").BindFunc(func(e *core.RecordEvent) error {
-		go stopRunnerAgentWorkersFn(mobilerunner.AgentNamespace(e.Record.Id))
+		go stopRunnerAgentWorkersFn(e.Record.Id)
 		return e.Next()
 	})
 }

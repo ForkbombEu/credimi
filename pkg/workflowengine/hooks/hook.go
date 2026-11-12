@@ -96,13 +96,13 @@ func WorkersHook(app *pocketbase.PocketBase) {
 			startWorkerManagerWorkflow(ns, "", runnerIDs)
 		}
 
-		agentNamespaces, err := runnerAgentNamespacesFn(app)
+		agentRunnerIDs, err := runnerAgentIDsFn(app)
 		if err != nil {
 			log.Printf("[WorkersHook] Failed to list runners with an enabled agent: %v", err)
 		}
-		for _, ns := range agentNamespaces {
-			go EnsureRunnerAgentNamespace(se.App, ns)
-		}
+		// Before serving: a heartbeat answered meanwhile would lack the
+		// namespace of a runner not marked ready yet and stop its agent.
+		prepareRunnerAgentNamespaces(se.App, agentRunnerIDs)
 
 		log.Printf("[WorkersHook] All namespaces ready, workers started")
 		return se.Next()
@@ -340,7 +340,8 @@ var (
 	workerManagerOrgRecordsFn  = workerManagerAllOrganizationRecords
 	adminRunnerIDsFn           = WorkerManagerAdminRunnerIDs
 	publishedRunnerIDsFn       = WorkerManagerPublishedNonAdminRunnerIDs
-	runnerAgentNamespacesFn    = RunnerAgentNamespaces
+	runnerAgentIDsFn           = RunnerAgentIDs
+	ensureRunnerAgentNamespace = EnsureRunnerAgentNamespace
 	ensureNamespaceReadyFn     = EnsureNamespaceReady
 	addSearchAttributesFn      = addSearchAttributes
 	startAllWorkersByNamespace = StartAllWorkersByNamespace
@@ -355,9 +356,16 @@ var (
 	executeWorkerManagerWorkflowFn     = executeWorkerManagerWorkflow
 )
 
+// runnerAgentPrepareTimeout bounds how long startup waits for one runner
+// agent namespace, as EnsureNamespaceReady bounds its own retries.
+var runnerAgentPrepareTimeout = 90 * time.Second
+
 const (
-	workerStartInitialBackoff = time.Second
-	workerStartMaxBackoff     = 30 * time.Second
+	// runnerAgentPrepareConcurrency bounds the runner agent namespaces
+	// prepared at once at startup.
+	runnerAgentPrepareConcurrency = 8
+	workerStartInitialBackoff     = time.Second
+	workerStartMaxBackoff         = 30 * time.Second
 	// workerStopTimeout lets in-flight activities finish when a worker stops.
 	workerStopTimeout = 20 * time.Second
 	// workerStopWait bounds how long a stop waits for a namespace's workers.
@@ -611,9 +619,9 @@ func startNamespaceWorkerSet(app core.App, namespace string, workers []workerCon
 	return nil
 }
 
-// RunnerAgentNamespaces lists the agent namespaces of the runners whose agent
-// is enabled and that are not disabled.
-func RunnerAgentNamespaces(app core.App) ([]string, error) {
+// RunnerAgentIDs lists the record IDs of the runners whose agent is enabled
+// and that are not disabled.
+func RunnerAgentIDs(app core.App) ([]string, error) {
 	runners, err := app.FindRecordsByFilter(
 		"mobile_runners",
 		"agent_enabled = true && disabled = false",
@@ -624,15 +632,51 @@ func RunnerAgentNamespaces(app core.App) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	namespaces := make([]string, 0, len(runners))
+	ids := make([]string, 0, len(runners))
 	for _, r := range runners {
-		namespaces = append(namespaces, mobilerunner.AgentNamespace(r.Id))
+		ids = append(ids, r.Id)
 	}
-	return namespaces, nil
+	return ids, nil
+}
+
+// prepareRunnerAgentNamespaces prepares the agent namespaces of runnerIDs,
+// runnerAgentPrepareConcurrency at a time, waiting at most
+// runnerAgentPrepareTimeout for each. A preparation still running then goes
+// on in the background; a failed one is logged and retried on the runner's
+// next update.
+func prepareRunnerAgentNamespaces(app core.App, runnerIDs []string) {
+	ensure, timeout := ensureRunnerAgentNamespace, runnerAgentPrepareTimeout
+	slots := make(chan struct{}, runnerAgentPrepareConcurrency)
+	var wg sync.WaitGroup
+	for _, runnerID := range runnerIDs {
+		slots <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-slots }()
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				ensure(app, runnerID)
+			}()
+			timer := time.NewTimer(timeout)
+			defer timer.Stop()
+			select {
+			case <-done:
+			case <-timer.C:
+				log.Printf(
+					"[WorkersHook] runner agent namespace %s still preparing after %s, continuing in background",
+					mobilerunner.AgentNamespace(runnerID),
+					timeout,
+				)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 // ensuringRunnerAgentNamespaces is the in-flight set of EnsureRunnerAgentNamespace.
-var ensuringRunnerAgentNamespaces sync.Map // namespace -> struct{}
+var ensuringRunnerAgentNamespaces sync.Map // runner record ID -> struct{}
 
 // StartRunnerAgentWorkers starts the worker set of a runner agent namespace:
 // the pipeline worker alone, which registers the action author session
@@ -641,18 +685,21 @@ func StartRunnerAgentWorkers(app core.App, namespace string) error {
 	return startNamespaceWorkerSet(app, namespace, nil)
 }
 
-// EnsureRunnerAgentNamespace prepares a runner agent namespace: registers it
-// with Credimi's search attributes and starts its workers, then marks it
-// ready. A namespace already ready or being prepared is left alone.
-func EnsureRunnerAgentNamespace(app core.App, namespace string) {
-	if TemporalWorkersDisabled() || mobilerunner.AgentNamespaceReady(namespace) {
+// EnsureRunnerAgentNamespace prepares the agent namespace of the runner with
+// record ID runnerID: registers it with Credimi's search attributes and starts
+// its workers, then marks it served by this process and ready on the record
+// (mobilerunner.MarkAgentNamespaceReady). A namespace already served or being
+// prepared is left alone.
+func EnsureRunnerAgentNamespace(app core.App, runnerID string) {
+	if TemporalWorkersDisabled() || mobilerunner.AgentNamespaceServed(runnerID) {
 		return
 	}
-	if _, loaded := ensuringRunnerAgentNamespaces.LoadOrStore(namespace, struct{}{}); loaded {
+	if _, loaded := ensuringRunnerAgentNamespaces.LoadOrStore(runnerID, struct{}{}); loaded {
 		return
 	}
-	defer ensuringRunnerAgentNamespaces.Delete(namespace)
+	defer ensuringRunnerAgentNamespaces.Delete(runnerID)
 
+	namespace := mobilerunner.AgentNamespace(runnerID)
 	if err := ensureNamespaceReadyFn(namespace); err != nil {
 		log.Printf("[WorkersHook] runner agent namespace %s not ready: %v", namespace, err)
 		return
@@ -661,15 +708,19 @@ func EnsureRunnerAgentNamespace(app core.App, namespace string) {
 		log.Printf("[WorkersHook] runner agent namespace %s not ready: %v", namespace, err)
 		return
 	}
-	mobilerunner.SetAgentNamespaceReady(namespace, true)
+	mobilerunner.SetAgentNamespaceServed(runnerID, true)
+	if err := mobilerunner.MarkAgentNamespaceReady(app, runnerID); err != nil {
+		log.Printf("[WorkersHook] %v", err)
+	}
 }
 
-// StopRunnerAgentWorkers marks a runner agent namespace not ready and stops
-// its workers. The namespace stays in Temporal; its histories expire by
-// retention.
-func StopRunnerAgentWorkers(namespace string) {
-	mobilerunner.SetAgentNamespaceReady(namespace, false)
-	StopAllWorkersByNamespace(namespace)
+// StopRunnerAgentWorkers stops the workers of the agent namespace of the
+// runner with record ID runnerID. The record update that turned the agent off
+// or disabled the runner already cleared its readiness. The namespace stays in
+// Temporal; its histories expire by retention.
+func StopRunnerAgentWorkers(runnerID string) {
+	mobilerunner.SetAgentNamespaceServed(runnerID, false)
+	StopAllWorkersByNamespace(mobilerunner.AgentNamespace(runnerID))
 }
 
 // StopAllWorkersByNamespace cancels the namespace's workers and waits up to

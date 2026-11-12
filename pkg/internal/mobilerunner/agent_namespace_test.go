@@ -33,10 +33,30 @@ func TestAgentEnabled(t *testing.T) {
 }
 
 func TestAgentNamespaceReady(t *testing.T) {
-	const namespace = "runner-readytest"
-	require.False(t, AgentNamespaceReady(namespace))
-	SetAgentNamespaceReady(namespace, true)
-	require.True(t, AgentNamespaceReady(namespace))
-	SetAgentNamespaceReady(namespace, false)
-	require.False(t, AgentNamespaceReady(namespace))
+	coll := core.NewBaseCollection("mobile_runners")
+	runner := core.NewRecord(coll)
+	runner.Id = "readytest"
+	runner.Set("agent_enabled", true)
+	require.False(t, AgentNamespaceReady(runner))
+
+	// Prepared by an earlier Credimi process.
+	runner.Set(AgentNamespaceReadyField, true)
+	require.True(t, AgentNamespaceReady(runner))
+
+	// Prepared by this process.
+	runner.Set(AgentNamespaceReadyField, false)
+	SetAgentNamespaceServed(runner.Id, true)
+	require.True(t, AgentNamespaceServed(runner.Id))
+	require.True(t, AgentNamespaceReady(runner))
+
+	// Never ready while the agent is off or the runner disabled.
+	runner.Set(AgentNamespaceReadyField, true)
+	runner.Set("disabled", true)
+	require.False(t, AgentNamespaceReady(runner))
+	runner.Set("disabled", false)
+	runner.Set("agent_enabled", false)
+	require.False(t, AgentNamespaceReady(runner))
+
+	SetAgentNamespaceServed(runner.Id, false)
+	require.False(t, AgentNamespaceServed(runner.Id))
 }

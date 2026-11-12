@@ -14,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -243,12 +244,14 @@ func TestHeartbeatStoresActionAuthorEnabled(t *testing.T) {
 	require.Equal(t, 1, runner.GetInt("agent_own_daily_tokens"))
 }
 
-// stubAgentNamespaceReady makes ready the only prepared agent namespace.
-func stubAgentNamespaceReady(t *testing.T, ready *string) {
+// markAgentNamespaceReady marks the agent runner's namespace ready on its
+// record only, as a Credimi restarted before preparing it again finds it.
+func markAgentNamespaceReady(t *testing.T, app core.App) string {
 	t.Helper()
-	orig := runnerAgentNamespaceReadyFn
-	t.Cleanup(func() { runnerAgentNamespaceReadyFn = orig })
-	runnerAgentNamespaceReadyFn = func(namespace string) bool { return namespace == *ready }
+	runner := agentRunnerRecord(t, app)
+	require.NoError(t, mobilerunner.MarkAgentNamespaceReady(app, runner.Id))
+	require.False(t, mobilerunner.AgentNamespaceServed(runner.Id))
+	return mobilerunner.AgentNamespace(runner.Id)
 }
 
 func TestLifecycleResponseCarriesReadyAgentNamespace(t *testing.T) {
@@ -257,9 +260,6 @@ func TestLifecycleResponseCarriesReadyAgentNamespace(t *testing.T) {
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 	registerAgentRunner(t, app, user, true, nil)
-	namespace := "runner-" + agentRunnerRecord(t, app).Id
-	ready := ""
-	stubAgentNamespaceReady(t, &ready)
 	now := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
 	enabled := &RunnerActionAuthorSettings{Enabled: true}
 
@@ -267,7 +267,9 @@ func TestLifecycleResponseCarriesReadyAgentNamespace(t *testing.T) {
 	response := heartbeatAgentRunner(t, app, now, enabled)
 	require.NotContains(t, response, "agent_namespace")
 
-	ready = namespace
+	// Marked ready on the record, while this process is still preparing it:
+	// a restarted Credimi keeps answering with the namespace.
+	namespace := markAgentNamespaceReady(t, app)
 	response = heartbeatAgentRunner(t, app, now, enabled)
 	require.Equal(t, namespace, response["agent_namespace"])
 
@@ -283,13 +285,25 @@ func TestLifecycleResponseCarriesReadyAgentNamespace(t *testing.T) {
 	require.Empty(t, runnerAgentNamespace(runner))
 }
 
+func TestRunnerAgentNamespaceServedByThisProcess(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	registerAgentRunner(t, app, user, true, &RunnerActionAuthorSettings{Enabled: true})
+	runner := agentRunnerRecord(t, app)
+	require.Empty(t, runnerAgentNamespace(runner))
+
+	mobilerunner.SetAgentNamespaceServed(runner.Id, true)
+	t.Cleanup(func() { mobilerunner.SetAgentNamespaceServed(runner.Id, false) })
+	require.Equal(t, mobilerunner.AgentNamespace(runner.Id), runnerAgentNamespace(runner))
+}
+
 func TestUpsertResponseCarriesReadyAgentNamespace(t *testing.T) {
 	app := setupMobileRunnerApp(t)
 	defer app.Cleanup()
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
-	ready := ""
-	stubAgentNamespaceReady(t, &ready)
 
 	upsert := func(settings *RunnerActionAuthorSettings) map[string]any {
 		event := performMobileRunnerKeyRequest(
@@ -315,7 +329,7 @@ func TestUpsertResponseCarriesReadyAgentNamespace(t *testing.T) {
 	response := upsert(&RunnerActionAuthorSettings{Enabled: true})
 	require.NotContains(t, response, "agent_namespace")
 
-	ready = "runner-" + agentRunnerRecord(t, app).Id
+	ready := markAgentNamespaceReady(t, app)
 	response = upsert(&RunnerActionAuthorSettings{Enabled: true})
 	require.Equal(t, ready, response["agent_namespace"])
 

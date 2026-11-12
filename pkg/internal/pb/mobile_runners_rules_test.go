@@ -86,6 +86,14 @@ func TestMobileRunnersUpdateRuleGuardsPrivilegedFields(t *testing.T) {
 			wantCode: http.StatusNotFound,
 		},
 		{
+			// agent_namespace_ready is hidden and guarded: only Credimi
+			// marks a runner's agent namespace ready.
+			name:     "org owner cannot mark the agent namespace ready",
+			body:     `{"agent_namespace_ready":true}`,
+			wantCode: http.StatusOK,
+			want:     map[string]any{"agent_namespace_ready": false},
+		},
+		{
 			name:     "non-member cannot self-grant admin_managed",
 			actor:    actorNonMember,
 			body:     `{"admin_managed":true,"published":true}`,
@@ -213,6 +221,7 @@ func TestMobileRunnersRulesGuardEveryAgentField(t *testing.T) {
 		"agent_model",
 		"agent_settings_from",
 		"agent_enabled",
+		"agent_namespace_ready",
 	} {
 		guard := "@request.body." + field + ":isset = false"
 		assert.Contains(t, *runners.CreateRule, guard)
