@@ -764,14 +764,14 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 
 ### 2026-11-05 - Action author session grants until Temporal authenticates callers
 
-- status: open
+- status: open (item 1 superseded for the agent queue on 12/11/2026, see "Action author sessions in per-runner namespaces"; item 2 stays open)
 - owner: human maintainer
 - context: Temporal is unauthenticated, so anyone who reaches it could start an `Action author session` workflow, or enqueue a semaphore ticket, and skip the start endpoint's membership, device and allowance checks. The start endpoint signs each ticket it enqueues (`actionauthor.SignTicket`, `SessionInput.TicketGrant`); the semaphore's start activity starts only a ticket signed for exactly its session, then signs the session itself (`actionauthor.SignSession`, `SessionInput.Grant`; the session grant is only in the session's own history, never in the semaphore's), records the run it started (`action_author_sessions`, `actionauthor.RecordSessionRun`), and every Credimi activity the session or its agent calls accepts only that run with a valid grant (`activities.lookupSessionStart`). A ticket enqueued without Credimi's signature, a closed session's grant replayed under the same workflow ID, a terminated session restarted with its copied input, and a workflow started under the ticket's ID before Credimi (adopted by `USE_EXISTING` but without a grant) are therefore refused. Temporal authentication is out of scope and needs its own plan.
 - questions and options considered:
   1. A runner serving a namespace can poll another runner's queues there (`<runner_id>-ActionAuthor`, `<runner_id>-TaskQueue`). Options: Temporal authorization per task queue; or per-runner namespaces.
   2. `WorkflowInput.Config` of the session (the semaphore ticket metadata: ticket ID, device IDs, leader device, owner namespace) is not covered by the grant. Options: sign it into the grant too; or Temporal authorization of workflow starts.
 - default risk: (1) a runner of the namespace can receive and answer another runner's agent or device tasks. (2) whoever can send updates to a runner's semaphore in `default` can enqueue a copied signed ticket with other ticket metadata (required and leader devices); the start activity accepts it, and the session's run data and device release use that metadata while its grants still verify.
-- decisions: none yet; both stay open until Temporal authentication exists.
+- decisions: (1) for the agent queue: superseded by per-runner namespaces (entry of 12/11/2026); `<runner_id>-TaskQueue` in organization namespaces stays open. (2) none yet; stays open until Temporal authentication exists.
 
 ### 2026-11-09 - Published mobile runners are superuser-only until a task-queue authorizer exists
 
@@ -837,3 +837,18 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   - Activity steps link to their event in the embedded Temporal UI (`/history/events/<eventId>`); workflow steps link to their run page.
   - Linked steps blocks are one row, expanded lazily to their inner steps, with `Attempt N of M` after a retry. Block rows carry `step_count` too, the started steps of the block's latest run, read when the parent run's steps are listed and cached once visibility reports that block run closed.
 - follow-up: add a bounded in-memory cache of step lists for closed runs if production step reads exceed 2s.
+
+### 2026-11-12 - Action author sessions in per-runner namespaces
+
+- status: resolved (plan approved by the user 12/11/2026)
+- owner: human maintainer
+- context: Temporal JWT roles stop at the namespace. Admin-managed runners' agents polled `<runner_id>-ActionAuthor` in every organization namespace, so any organization owner who minted a token for their own namespace (`POST /api/mobile-runner/temporal-token` for their own runner) could schedule the admin agent's activities (model calls on Credimi's key, raw Maestro, app resets) without a session.
+- question: Where do action author sessions and their agent run, and how do Credimi and the chat UI authorize them?
+- options considered: (a) per-runner namespaces; (b) a custom Temporal authorizer per task queue; (c) keep organization namespaces and rely on grants.
+- default risk: (c) leaves the attack open; (b) needs a custom Temporal build.
+- decision: (a).
+  - Every session runs in `runner-<mobile_runners record id>`, prepared by Credimi only for runners with `agent_enabled` (sent by the runner as `action_author.enabled`) that are not disabled, and returned to the runner as `agent_namespace` once ready. Runner tokens grant it; tenant runners serve it for their own organization's sessions.
+  - Credimi records each session's `organization` and binds it in the ticket and session grants; activities and handlers take the organization from the recorded, verified session, never from the Temporal namespace. Pipelines stay in organization namespaces.
+  - The chat UI service connects with an ES256 token Credimi signs per session namespace (`X-Credimi-Temporal-Token`, subject `credimi-action-author-ui`, `<namespace>:write`, 15 minutes).
+  - `runner-` is a reserved namespace prefix (`canonify.IsReservedNamespace`): new or renamed organizations whose name would canonify to `runner-*` get `org-runner-*`.
+- follow-up: before deploying, the operator checks production for organizations whose `canonified_name` starts with `runner-` and asks a maintainer if any exist (their tenant runners would get `409 organization_namespace_reserved`).
