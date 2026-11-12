@@ -89,6 +89,23 @@ func TestHandleMobileRunnerTemporalToken(t *testing.T) {
 		assert.Equal(t, []string{"usera-s-organization:write"}, permissions)
 	})
 
+	t.Run("runner with an enabled agent also gets its agent namespace", func(t *testing.T) {
+		f := setupRegistrationFixture(t)
+		f.setRunnerField(t, "published", false)
+		f.setRunnerField(t, "agent_enabled", true)
+		record, err := canonify.Resolve(f.app, "/"+tokenTestRunnerID)
+		require.NoError(t, err)
+
+		event, err := f.requestTemporalToken(t, f.user, tokenTestRunnerID)
+		require.NoError(t, err)
+		_, permissions := tokenClaims(t, event)
+		assert.Equal(
+			t,
+			[]string{"runner-" + record.Id + ":write", "usera-s-organization:write"},
+			permissions,
+		)
+	})
+
 	t.Run("published runner gets published organizations but not default", func(t *testing.T) {
 		f := setupRegistrationFixture(t)
 		f.setRunnerField(t, "published", true)

@@ -243,6 +243,86 @@ func TestHeartbeatStoresActionAuthorEnabled(t *testing.T) {
 	require.Equal(t, 1, runner.GetInt("agent_own_daily_tokens"))
 }
 
+// stubAgentNamespaceReady makes ready the only prepared agent namespace.
+func stubAgentNamespaceReady(t *testing.T, ready *string) {
+	t.Helper()
+	orig := runnerAgentNamespaceReadyFn
+	t.Cleanup(func() { runnerAgentNamespaceReadyFn = orig })
+	runnerAgentNamespaceReadyFn = func(namespace string) bool { return namespace == *ready }
+}
+
+func TestLifecycleResponseCarriesReadyAgentNamespace(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	registerAgentRunner(t, app, user, true, nil)
+	namespace := "runner-" + agentRunnerRecord(t, app).Id
+	ready := ""
+	stubAgentNamespaceReady(t, &ready)
+	now := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
+	enabled := &RunnerActionAuthorSettings{Enabled: true}
+
+	// Enabled but not prepared yet.
+	response := heartbeatAgentRunner(t, app, now, enabled)
+	require.NotContains(t, response, "agent_namespace")
+
+	ready = namespace
+	response = heartbeatAgentRunner(t, app, now, enabled)
+	require.Equal(t, namespace, response["agent_namespace"])
+
+	// The heartbeat that turns the agent off gets no namespace.
+	response = heartbeatAgentRunner(t, app, now, &RunnerActionAuthorSettings{})
+	require.NotContains(t, response, "agent_namespace")
+
+	// A disabled runner gets no namespace.
+	heartbeatAgentRunner(t, app, now, enabled)
+	runner := agentRunnerRecord(t, app)
+	runner.Set("disabled", true)
+	require.NoError(t, app.Save(runner))
+	require.Empty(t, runnerAgentNamespace(runner))
+}
+
+func TestUpsertResponseCarriesReadyAgentNamespace(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	ready := ""
+	stubAgentNamespaceReady(t, &ready)
+
+	upsert := func(settings *RunnerActionAuthorSettings) map[string]any {
+		event := performMobileRunnerKeyRequest(
+			t,
+			app,
+			user,
+			"/api/mobile-runner",
+			UpsertMobileRunnerRequest{
+				RunnerID:     agentRunnerID,
+				Name:         "Agent runner",
+				IP:           "https://runner.example",
+				Type:         "android_emulator",
+				Organization: "usera-s-organization",
+				ActionAuthor: settings,
+			},
+		)
+		require.NoError(t, HandleUpsertMobileRunner()(event))
+		recorder := responseRecorder(t, event)
+		require.Equal(t, http.StatusOK, recorder.Code)
+		return decodeJSONBody(t, recorder)
+	}
+
+	response := upsert(&RunnerActionAuthorSettings{Enabled: true})
+	require.NotContains(t, response, "agent_namespace")
+
+	ready = "runner-" + agentRunnerRecord(t, app).Id
+	response = upsert(&RunnerActionAuthorSettings{Enabled: true})
+	require.Equal(t, ready, response["agent_namespace"])
+
+	response = upsert(&RunnerActionAuthorSettings{})
+	require.NotContains(t, response, "agent_namespace")
+}
+
 func TestLifecycleRejectsNegativeActionAuthorLimits(t *testing.T) {
 	token := authoringToken(t, "userA")
 	for _, body := range []string{

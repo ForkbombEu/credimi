@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/authorsession"
@@ -248,8 +249,15 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	origStartAll := startAllWorkersByNamespace
 	origStartWorkerManager := startWorkerManagerWorkflow
 	origShutdown := shutdownTemporalClientsFn
+	origAgentNamespaces := runnerAgentNamespacesFn
+	origGetTemporalClient := getTemporalClient
+	origStartPipelineWorker := startPipelineWorkerFn
 
 	t.Cleanup(func() {
+		runnerAgentNamespacesFn = origAgentNamespaces
+		getTemporalClient = origGetTemporalClient
+		startPipelineWorkerFn = origStartPipelineWorker
+		StopRunnerAgentWorkers("runner-boot")
 		fetchNamespacesFn = origFetch
 		workerManagerOrgRecordsFn = origOrgRecords
 		adminRunnerIDsFn = origAdminIDs
@@ -277,7 +285,15 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 		return []string{"tenant/runner"}, nil
 	}
 
-	ensureCalls := make(chan string, 2)
+	runnerAgentNamespacesFn = func(core.App) ([]string, error) {
+		return []string{"runner-boot"}, nil
+	}
+	getTemporalClient = func(string) (client.Client, error) { return nil, nil }
+	startPipelineWorkerFn = func(_ context.Context, _ core.App, _ client.Client, wg *sync.WaitGroup) {
+		wg.Done()
+	}
+
+	ensureCalls := make(chan string, 3)
 	ensureNamespaceReadyFn = func(ns string) error {
 		ensureCalls <- ns
 		return nil
@@ -311,7 +327,7 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	require.NoError(t, serveErr)
 
 	gotEnsure := map[string]struct{}{}
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 3; i++ {
 		select {
 		case ns := <-ensureCalls:
 			gotEnsure[ns] = struct{}{}
@@ -321,6 +337,10 @@ func TestWorkersHookStartsWorkersAndShutdowns(t *testing.T) {
 	}
 	require.Contains(t, gotEnsure, "default")
 	require.Contains(t, gotEnsure, "org-1")
+	require.Contains(t, gotEnsure, "runner-boot")
+	require.Eventually(t, func() bool {
+		return mobilerunner.AgentNamespaceReady("runner-boot")
+	}, time.Second, 10*time.Millisecond)
 
 	gotWorkers := map[string]struct{}{}
 	for i := 0; i < 2; i++ {
@@ -606,6 +626,129 @@ func stubNamespaceSetup(
 		return addErr
 	}
 	return &added
+}
+
+func TestRunnerAgentNamespaces(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	before, err := RunnerAgentNamespaces(app)
+	require.NoError(t, err)
+
+	collection, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+	org, err := app.FindFirstRecordByFilter("organizations", "")
+	require.NoError(t, err)
+	create := func(name string, enabled, disabled bool) *core.Record {
+		record := core.NewRecord(collection)
+		record.Set("owner", org.Id)
+		record.Set("name", name)
+		record.Set("ip", "127.0.0.1")
+		record.Set("agent_enabled", enabled)
+		record.Set("disabled", disabled)
+		require.NoError(t, app.Save(record))
+		return record
+	}
+	enabled := create("agent-on", true, false)
+	create("agent-off", false, false)
+	create("agent-on-disabled", true, true)
+
+	got, err := RunnerAgentNamespaces(app)
+	require.NoError(t, err)
+	require.ElementsMatch(t, append(before, "runner-"+enabled.Id), got)
+}
+
+// stubRunnerAgentWorkers stubs the namespace preparation and the workers of
+// EnsureRunnerAgentNamespace and resets the namespace afterwards.
+func stubRunnerAgentWorkers(t *testing.T, namespace string, ensure func(string) error) {
+	t.Helper()
+	t.Setenv(TemporalWorkersDisabledEnv, "")
+	origEnsure := ensureNamespaceReadyFn
+	origGetTemporalClient := getTemporalClient
+	origStartWorker := startWorkerFn
+	origStartPipelineWorker := startPipelineWorkerFn
+	t.Cleanup(func() {
+		StopRunnerAgentWorkers(namespace)
+		ensureNamespaceReadyFn = origEnsure
+		getTemporalClient = origGetTemporalClient
+		startWorkerFn = origStartWorker
+		startPipelineWorkerFn = origStartPipelineWorker
+	})
+	ensureNamespaceReadyFn = ensure
+	getTemporalClient = func(string) (client.Client, error) { return nil, nil }
+	startWorkerFn = func(context.Context, client.Client, workerConfig, *sync.WaitGroup) {
+		t.Error("runner agent namespaces run the pipeline worker only")
+	}
+	startPipelineWorkerFn = func(ctx context.Context, _ core.App, _ client.Client, wg *sync.WaitGroup) {
+		defer wg.Done()
+		<-ctx.Done()
+	}
+}
+
+func TestEnsureRunnerAgentNamespaceMarksReadyOnSuccess(t *testing.T) {
+	const namespace = "runner-ensureok"
+	stubRunnerAgentWorkers(t, namespace, func(string) error { return nil })
+
+	EnsureRunnerAgentNamespace(nil, namespace)
+	require.True(t, mobilerunner.AgentNamespaceReady(namespace))
+	_, ok := workerSets.Load(namespace)
+	require.True(t, ok)
+
+	StopRunnerAgentWorkers(namespace)
+	require.False(t, mobilerunner.AgentNamespaceReady(namespace))
+	_, ok = workerSets.Load(namespace)
+	require.False(t, ok)
+}
+
+func TestEnsureRunnerAgentNamespaceNotReadyOnError(t *testing.T) {
+	const namespace = "runner-ensurefail"
+	stubRunnerAgentWorkers(t, namespace, func(string) error { return errors.New("denied") })
+
+	EnsureRunnerAgentNamespace(nil, namespace)
+	require.False(t, mobilerunner.AgentNamespaceReady(namespace))
+	_, ok := workerSets.Load(namespace)
+	require.False(t, ok)
+}
+
+func TestEnsureRunnerAgentNamespaceRunsOnce(t *testing.T) {
+	const namespace = "runner-ensureonce"
+	var calls atomic.Int32
+	release := make(chan struct{})
+	stubRunnerAgentWorkers(t, namespace, func(string) error {
+		calls.Add(1)
+		<-release
+		return nil
+	})
+
+	var wg sync.WaitGroup
+	for range 5 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			EnsureRunnerAgentNamespace(nil, namespace)
+		}()
+	}
+	require.Eventually(t, func() bool { return calls.Load() == 1 }, time.Second, time.Millisecond)
+	close(release)
+	wg.Wait()
+	require.True(t, mobilerunner.AgentNamespaceReady(namespace))
+
+	// A ready namespace is not prepared again.
+	EnsureRunnerAgentNamespace(nil, namespace)
+	require.Equal(t, int32(1), calls.Load())
+}
+
+func TestEnsureRunnerAgentNamespaceSkipsWhenTemporalWorkersDisabled(t *testing.T) {
+	const namespace = "runner-ensureoff"
+	stubRunnerAgentWorkers(t, namespace, func(string) error {
+		t.Error("ensure must not run when workers are disabled")
+		return nil
+	})
+	t.Setenv(TemporalWorkersDisabledEnv, "1")
+
+	EnsureRunnerAgentNamespace(nil, namespace)
+	require.False(t, mobilerunner.AgentNamespaceReady(namespace))
 }
 
 func TestEnsureNamespaceReadySuccess(t *testing.T) {

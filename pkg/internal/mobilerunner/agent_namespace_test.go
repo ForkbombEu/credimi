@@ -31,3 +31,12 @@ func TestAgentEnabled(t *testing.T) {
 		require.Equal(t, tc.want, AgentEnabled(record), tc)
 	}
 }
+
+func TestAgentNamespaceReady(t *testing.T) {
+	const namespace = "runner-readytest"
+	require.False(t, AgentNamespaceReady(namespace))
+	SetAgentNamespaceReady(namespace, true)
+	require.True(t, AgentNamespaceReady(namespace))
+	SetAgentNamespaceReady(namespace, false)
+	require.False(t, AgentNamespaceReady(namespace))
+}

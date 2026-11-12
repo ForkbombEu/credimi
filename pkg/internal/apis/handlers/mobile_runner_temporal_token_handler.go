@@ -14,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalauth"
 	"github.com/pocketbase/dbx"
@@ -35,7 +36,8 @@ type MobileRunnerTemporalTokenResponse struct {
 }
 
 // HandleMobileRunnerTemporalToken returns a Temporal JWT that grants the
-// runner write access to the namespaces its workers poll.
+// runner write access to the namespaces its workers poll, plus its agent
+// namespace when its action author is enabled.
 func HandleMobileRunnerTemporalToken() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[MobileRunnerTemporalTokenRequest](e)
@@ -108,6 +110,12 @@ func HandleMobileRunnerTemporalToken() func(*core.RequestEvent) error {
 				"failed_to_list_namespaces",
 				err.Error(),
 			)
+		}
+		// An enabled agent polls the runner's own namespace, ready or not.
+		if record.GetBool("agent_enabled") {
+			namespaces = append(namespaces, mobilerunner.AgentNamespace(record.Id))
+			slices.Sort(namespaces)
+			namespaces = slices.Compact(namespaces)
 		}
 		permissions := make([]string, len(namespaces))
 		for i, ns := range namespaces {

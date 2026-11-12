@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -101,6 +102,23 @@ func trustedActionAuthorSettings(
 		return nil
 	}
 	return s
+}
+
+// runnerAgentNamespaceReadyFn reports whether Credimi has prepared a runner
+// agent namespace.
+var runnerAgentNamespaceReadyFn = mobilerunner.AgentNamespaceReady
+
+// runnerAgentNamespace returns the namespace runner's agent serves, or ""
+// while its agent is off or Credimi has not prepared the namespace yet.
+func runnerAgentNamespace(runner *core.Record) string {
+	if !mobilerunner.AgentEnabled(runner) {
+		return ""
+	}
+	namespace := mobilerunner.AgentNamespace(runner.Id)
+	if !runnerAgentNamespaceReadyFn(namespace) {
+		return ""
+	}
+	return namespace
 }
 
 // runnerActionAuthorUsage returns the runner's usage today, or nil after a

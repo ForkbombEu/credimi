@@ -65,6 +65,9 @@ type MobileRunnerLifecycleResponse struct {
 	// ActionAuthorUsage is today's action author usage of the runner; it is
 	// absent when it cannot be read.
 	ActionAuthorUsage *RunnerActionAuthorUsage `json:"action_author_usage,omitempty"`
+	// AgentNamespace is the Temporal namespace the runner's action author
+	// serves; absent until Credimi has prepared it for an enabled agent.
+	AgentNamespace string `json:"agent_namespace,omitempty"`
 }
 
 var MobileRunnerLifecycleRoutes = routing.RouteGroup{
@@ -112,11 +115,12 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
+		settings := trustedActionAuthorSettings(e, record, input.ActionAuthor)
 		deviceStates, err := applyRunnerHeartbeatDevices(
 			e.App,
 			record,
 			input.Devices,
-			trustedActionAuthorSettings(e, record, input.ActionAuthor),
+			settings,
 			mobileRunnerLifecycleNow(),
 		)
 		if err != nil {
@@ -127,6 +131,8 @@ func HandleMobileRunnerLifecycleResume() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
+		// The response's agent namespace follows the settings just stored.
+		setRunnerActionAuthorSettings(record, settings)
 		for deviceID, online := range deviceStates {
 			if !online {
 				continue
@@ -183,11 +189,12 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 			return apiErr
 		}
 
+		settings := trustedActionAuthorSettings(e, record, input.ActionAuthor)
 		deviceStates, err := applyRunnerHeartbeatDevices(
 			e.App,
 			record,
 			input.Devices,
-			trustedActionAuthorSettings(e, record, input.ActionAuthor),
+			settings,
 			mobileRunnerLifecycleNow(),
 		)
 		if err != nil {
@@ -198,6 +205,8 @@ func HandleMobileRunnerLifecycleHeartbeat() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
+		// The response's agent namespace follows the settings just stored.
+		setRunnerActionAuthorSettings(record, settings)
 		for deviceID, online := range deviceStates {
 			if online {
 				if err := ensureRunQueueSemaphoreWorkflow(
@@ -589,6 +598,7 @@ func lifecycleResponse(
 		ShutdownAfterSeconds:    int(mobilerunnerlifecycle.ShutdownAfter() / time.Second),
 		RunnerCredential:        credential,
 		ActionAuthorUsage:       runnerActionAuthorUsage(e.App, runner, mobileRunnerLifecycleNow()),
+		AgentNamespace:          runnerAgentNamespace(runner),
 	})
 }
 
