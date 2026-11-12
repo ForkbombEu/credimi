@@ -678,24 +678,39 @@ func prepareRunnerAgentNamespaces(app core.App, runnerIDs []string) {
 
 // runnerAgentLocks serializes the preparation and the stop of each runner's
 // agent namespace, so an enable and a disable of the same runner can't
-// interleave.
+// interleave. The entry of a runner found deleted is removed while held.
 var runnerAgentLocks sync.Map // runner record ID -> *sync.Mutex
 
-// lockRunnerAgent locks the runner's agent namespace and returns the unlock.
-func lockRunnerAgent(runnerID string) func() {
-	value, _ := runnerAgentLocks.LoadOrStore(runnerID, &sync.Mutex{})
-	mu := value.(*sync.Mutex)
-	mu.Lock()
-	return mu.Unlock
+// ensuringRunnerAgentNamespaces holds the IDs of the runners whose agent
+// namespace preparation is queued or running, so repeated triggers (every
+// heartbeat saves the runner) don't pile up behind a slow or failing one.
+var ensuringRunnerAgentNamespaces sync.Map // runner record ID -> struct{}
+
+// lockRunnerAgent locks the runner's agent namespace and returns the held
+// mutex. A mutex removed from runnerAgentLocks while waiting for it is
+// dropped for the current one.
+func lockRunnerAgent(runnerID string) *sync.Mutex {
+	for {
+		value, _ := runnerAgentLocks.LoadOrStore(runnerID, &sync.Mutex{})
+		mu := value.(*sync.Mutex)
+		mu.Lock()
+		if current, ok := runnerAgentLocks.Load(runnerID); ok && current == mu {
+			return mu
+		}
+		mu.Unlock()
+	}
 }
 
 // agentEnabledRunner reads the runner with record ID runnerID and reports
 // whether its agent is enabled and it is not disabled. A runner that can't be
-// read counts as off.
-func agentEnabledRunner(app core.App, runnerID string) (*core.Record, bool) {
+// read counts as off; one that no longer exists also gets its entry in
+// runnerAgentLocks, whose mutex mu the caller holds, removed.
+func agentEnabledRunner(app core.App, runnerID string, mu *sync.Mutex) (*core.Record, bool) {
 	runner, err := app.FindRecordById("mobile_runners", runnerID)
 	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
+			runnerAgentLocks.CompareAndDelete(runnerID, mu)
+		} else {
 			log.Printf("[WorkersHook] failed to read runner %s: %v", runnerID, err)
 		}
 		return nil, false
@@ -717,14 +732,20 @@ func StartRunnerAgentWorkers(app core.App, namespace string) error {
 // and ready on the record (mobilerunner.MarkAgentNamespaceReady); otherwise
 // it stops the workers again. A namespace already served only gets its record
 // flag restored. Calls for one runner run one at a time, with
-// StopRunnerAgentWorkers.
+// StopRunnerAgentWorkers; a call while another for the same runner is queued
+// or running returns at once.
 func EnsureRunnerAgentNamespace(app core.App, runnerID string) {
 	if TemporalWorkersDisabled() {
 		return
 	}
-	defer lockRunnerAgent(runnerID)()
+	if _, ensuring := ensuringRunnerAgentNamespaces.LoadOrStore(runnerID, struct{}{}); ensuring {
+		return
+	}
+	defer ensuringRunnerAgentNamespaces.Delete(runnerID)
+	mu := lockRunnerAgent(runnerID)
+	defer mu.Unlock()
 
-	runner, enabled := agentEnabledRunner(app, runnerID)
+	runner, enabled := agentEnabledRunner(app, runnerID, mu)
 	if !enabled {
 		return
 	}
@@ -748,7 +769,7 @@ func EnsureRunnerAgentNamespace(app core.App, runnerID string) {
 		log.Printf("[WorkersHook] runner agent namespace %s not ready: %v", namespace, err)
 		return
 	}
-	if _, enabled := agentEnabledRunner(app, runnerID); !enabled {
+	if _, enabled := agentEnabledRunner(app, runnerID, mu); !enabled {
 		log.Printf(
 			"[WorkersHook] runner agent namespace %s turned off while preparing it",
 			namespace,
@@ -767,11 +788,12 @@ func EnsureRunnerAgentNamespace(app core.App, runnerID string) {
 // again. The record update that turned the agent off or disabled the runner
 // already cleared its readiness. The namespace stays in Temporal; its
 // histories expire by retention. Calls for one runner run one at a time, with
-// EnsureRunnerAgentNamespace.
+// EnsureRunnerAgentNamespace, and are never skipped.
 func StopRunnerAgentWorkers(app core.App, runnerID string) {
-	defer lockRunnerAgent(runnerID)()
+	mu := lockRunnerAgent(runnerID)
+	defer mu.Unlock()
 
-	if _, enabled := agentEnabledRunner(app, runnerID); enabled {
+	if _, enabled := agentEnabledRunner(app, runnerID, mu); enabled {
 		return
 	}
 	mobilerunner.SetAgentNamespaceServed(runnerID, false)

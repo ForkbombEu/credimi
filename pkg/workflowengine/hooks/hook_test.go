@@ -838,6 +838,8 @@ func TestRunnerAgentEnableAndDisableDoNotInterleave(t *testing.T) {
 		StopRunnerAgentWorkers(app, runnerID)
 		close(stopped)
 	}()
+	// An ensure while the preparation is in flight returns at once.
+	EnsureRunnerAgentNamespace(app, runnerID)
 	select {
 	case <-stopped:
 		t.Fatal("stop ran while the namespace was being prepared")
@@ -916,6 +918,75 @@ func TestEnsureRunnerAgentNamespaceRunsOnce(t *testing.T) {
 	// A served namespace is not prepared again.
 	EnsureRunnerAgentNamespace(app, runnerID)
 	require.Equal(t, int32(1), calls.Load())
+}
+
+func TestEnsureRunnerAgentNamespaceDropsCallsWhileOneIsInFlight(t *testing.T) {
+	var calls atomic.Int32
+	release := make(chan struct{})
+	app, runnerID := stubRunnerAgentWorkers(t, func(string) error {
+		calls.Add(1)
+		<-release
+		return errors.New("denied")
+	})
+
+	var returned atomic.Int32
+	var wg sync.WaitGroup
+	for range 5 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			EnsureRunnerAgentNamespace(app, runnerID)
+			returned.Add(1)
+		}()
+	}
+	// The four calls behind the failing preparation return without queueing.
+	require.Eventually(t, func() bool {
+		return calls.Load() == 1 && returned.Load() == 4
+	}, time.Second, time.Millisecond)
+	close(release)
+	wg.Wait()
+	require.Equal(t, int32(1), calls.Load())
+	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
+
+	// Once it finished, the next call prepares the namespace again.
+	EnsureRunnerAgentNamespace(app, runnerID)
+	require.Equal(t, int32(2), calls.Load())
+}
+
+func TestStopRunnerAgentWorkersForgetsDeletedRunnerLock(t *testing.T) {
+	app, runnerID := stubRunnerAgentWorkers(t, func(string) error { return nil })
+	EnsureRunnerAgentNamespace(app, runnerID)
+	_, ok := runnerAgentLocks.Load(runnerID)
+	require.True(t, ok)
+
+	runner, err := app.FindRecordById("mobile_runners", runnerID)
+	require.NoError(t, err)
+	require.NoError(t, app.Delete(runner))
+	StopRunnerAgentWorkers(app, runnerID)
+	require.False(t, mobilerunner.AgentNamespaceServed(runnerID))
+	_, ok = workerSets.Load(mobilerunner.AgentNamespace(runnerID))
+	require.False(t, ok)
+	_, ok = runnerAgentLocks.Load(runnerID)
+	require.False(t, ok)
+}
+
+func TestLockRunnerAgentWaiterTakesCurrentLock(t *testing.T) {
+	const runnerID = "forgotten-runner"
+	t.Cleanup(func() { runnerAgentLocks.Delete(runnerID) })
+	held := lockRunnerAgent(runnerID)
+
+	acquired := make(chan *sync.Mutex)
+	go func() { acquired <- lockRunnerAgent(runnerID) }()
+	time.Sleep(10 * time.Millisecond)
+
+	// The runner is forgotten while the waiter is blocked on its old mutex.
+	runnerAgentLocks.CompareAndDelete(runnerID, held)
+	held.Unlock()
+	mu := <-acquired
+	defer mu.Unlock()
+	current, ok := runnerAgentLocks.Load(runnerID)
+	require.True(t, ok)
+	require.Same(t, mu, current)
 }
 
 func TestEnsureRunnerAgentNamespaceSkipsWhenTemporalWorkersDisabled(t *testing.T) {
