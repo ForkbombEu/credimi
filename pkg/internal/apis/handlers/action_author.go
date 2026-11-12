@@ -729,46 +729,51 @@ func actionAuthorCallerNamespace(e *core.RequestEvent) (string, *apierror.APIErr
 }
 
 // readCallerActionAuthorSession reads the session session_id of the path
-// that the caller started in their namespace.
+// that the caller started for their organization, and returns a client of
+// the namespace the session runs in.
 func readCallerActionAuthorSession(
 	e *core.RequestEvent,
-) (client.Client, string, activities.ActionAuthorSessionInfo, *apierror.APIError) {
+) (client.Client, activities.ActionAuthorSessionInfo, *apierror.APIError) {
 	var info activities.ActionAuthorSessionInfo
-	namespace, apiErr := actionAuthorCallerNamespace(e)
+	organization, apiErr := actionAuthorCallerNamespace(e)
 	if apiErr != nil {
-		return nil, "", info, apiErr
+		return nil, info, apiErr
 	}
 	sessionID := e.Request.PathValue("session_id")
 	if !actionauthor.IsSessionID(sessionID) {
-		return nil, "", info, actionAuthorSessionMissing()
+		return nil, info, actionAuthorSessionMissing()
 	}
-	c, err := actionAuthorSessionTemporalClient(namespace)
-	if err != nil {
-		return nil, "", info, temporalUnavailableError()
+	var c client.Client
+	var clientErr error
+	clientFor := func(namespace string) (client.Client, error) {
+		c, clientErr = actionAuthorSessionTemporalClient(namespace)
+		return c, clientErr
 	}
-	info, err = activities.ReadActionAuthorSession(
+	info, err := activities.ReadActionAuthorSession(
 		e.Request.Context(),
 		e.App,
-		c,
-		namespace,
+		clientFor,
+		organization,
 		sessionID,
 		e.Auth.Id,
 	)
 	switch {
 	case errors.Is(err, actionauthor.ErrSessionNotRecorded),
 		errors.Is(err, actionauthor.ErrForbidden):
-		return nil, "", info, actionAuthorSessionMissing()
+		return nil, info, actionAuthorSessionMissing()
+	case clientErr != nil:
+		return nil, info, temporalUnavailableError()
 	case err != nil:
-		return nil, "", info, authoringAPIError(e, err)
+		return nil, info, authoringAPIError(e, err)
 	}
-	return c, namespace, info, nil
+	return c, info, nil
 }
 
 // HandleActionAuthorSession reads a session of the caller's namespace and,
 // while it runs, the state of its agent chat.
 func HandleActionAuthorSession() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		c, namespace, info, apiErr := readCallerActionAuthorSession(e)
+		c, info, apiErr := readCallerActionAuthorSession(e)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -777,7 +782,7 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 			SessionID:               info.SessionWorkflowID,
 			RunID:                   info.SessionRunID,
 			ChatWorkflowID:          info.SessionWorkflowID + activities.ActionAuthorWorkflowIDSuffix,
-			Namespace:               namespace,
+			Namespace:               info.Namespace,
 			Status:                  info.Status.String(),
 			StartTime:               info.StartTime.UTC().Format(time.RFC3339),
 			WalletVersionIdentifier: info.Session.WalletVersionIdentifier,
@@ -991,7 +996,7 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 // session releasing its device on its own.
 func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		c, namespace, info, apiErr := readCallerActionAuthorSession(e)
+		c, info, apiErr := readCallerActionAuthorSession(e)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -1005,7 +1010,7 @@ func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 		}
 		ctx := e.Request.Context()
 		chatID := info.SessionWorkflowID + activities.ActionAuthorWorkflowIDSuffix
-		err := signalChatClose(ctx, c, namespace, chatID)
+		err := signalChatClose(ctx, c, info.Namespace, chatID)
 		var notFound *serviceerror.NotFound
 		if errors.As(err, &notFound) {
 			// Signals reach only running workflows: tell a chat that never
@@ -1018,7 +1023,7 @@ func HandleActionAuthorSessionClose() func(*core.RequestEvent) error {
 				err = c.CancelWorkflow(ctx, info.SessionWorkflowID, info.SessionRunID)
 			case err == nil && described.GetWorkflowExecutionInfo().GetStatus() ==
 				enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING:
-				err = signalChatClose(ctx, c, namespace, chatID)
+				err = signalChatClose(ctx, c, info.Namespace, chatID)
 				if errors.As(err, &notFound) {
 					// It ended in between.
 					err = nil

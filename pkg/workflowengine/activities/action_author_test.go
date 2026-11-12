@@ -31,11 +31,14 @@ import (
 )
 
 const (
-	authorTestNamespace = "tenant"
-	authorTestSessionID = "ActionAuthorSession-ticket-1"
-	authorTestAuthorID  = authorTestSessionID + "-author"
-	authorTestAuthorRun = "author-run"
-	authorTestParentRun = "session-run"
+	// authorTestNamespace is the runner namespace sessions run in;
+	// authorTestOrganization is the organization of authorTestSession.
+	authorTestNamespace    = "runner-xyz"
+	authorTestOrganization = "tenant"
+	authorTestSessionID    = "ActionAuthorSession-ticket-1"
+	authorTestAuthorID     = authorTestSessionID + "-author"
+	authorTestAuthorRun    = "author-run"
+	authorTestParentRun    = "session-run"
 )
 
 func authorTestCaller() authorCaller {
@@ -104,9 +107,10 @@ func sessionHistory(t *testing.T, payload any) *fcafHistoryIterator {
 }
 
 // signedSessionHistory is the history of the session authorTestSessionID
-// that Credimi started with input as run authorTestParentRun, signed and
-// recorded for the namespace of the wallet's organization (the first segment
-// of its identifier), as the start activity signs and records it.
+// that Credimi started with input as run authorTestParentRun in
+// authorTestNamespace, for the wallet's organization (the first segment of
+// its identifier), signed and recorded as the start activity signs and
+// records it.
 func signedSessionHistory(
 	t *testing.T,
 	app core.App,
@@ -117,10 +121,11 @@ func signedSessionHistory(
 		value, _ := input[name].(string)
 		return value
 	}
-	namespace, _, _ := strings.Cut(field("wallet_version_identifier"), "/")
+	organization, _, _ := strings.Cut(field("wallet_version_identifier"), "/")
 	grant, err := actionauthor.SignSession(app, actionauthor.SessionGrant{
 		SessionWorkflowID:       authorTestSessionID,
-		Namespace:               namespace,
+		Namespace:               authorTestNamespace,
+		Organization:            organization,
 		DeviceID:                field("device_id"),
 		Platform:                field("platform"),
 		WalletVersionIdentifier: field("wallet_version_identifier"),
@@ -129,12 +134,14 @@ func signedSessionHistory(
 	require.NoError(t, err)
 	require.NoError(t, actionauthor.RecordSessionRun(
 		app,
-		namespace,
+		authorTestNamespace,
 		authorTestSessionID,
 		authorTestParentRun,
-		actionauthor.SessionDetails{ActorID: field("actor_id"), Organization: namespace},
+		actionauthor.SessionDetails{ActorID: field("actor_id"), Organization: organization},
 	))
 	signed := maps.Clone(input)
+	signed["namespace"] = authorTestNamespace
+	signed["organization"] = organization
 	signed["grant"] = grant
 	return sessionHistory(t, signed)
 }
@@ -444,10 +451,12 @@ func grantForAnotherSession(t *testing.T, app core.App) *fcafHistoryIterator {
 		"platform":                  session.Platform,
 		"wallet_version_identifier": session.WalletVersionIdentifier,
 		"actor_id":                  session.ActorID,
+		"organization":              authorTestOrganization,
 	}
 	grant, err := actionauthor.SignSession(app, actionauthor.SessionGrant{
 		SessionWorkflowID:       "ActionAuthorSession-other",
 		Namespace:               authorTestNamespace,
+		Organization:            authorTestOrganization,
 		DeviceID:                "tenant/runner-1/device-1",
 		Platform:                session.Platform,
 		WalletVersionIdentifier: session.WalletVersionIdentifier,
@@ -519,7 +528,6 @@ func TestSaveAuthoredWalletActionSavesForTheSessionActor(t *testing.T) {
 		return lookup.activity(t, app)
 	}
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	approval := func(edit func(*actionauthor.Approval)) string {
 		approval := actionauthor.Approval{
 			AuthorWorkflowID: caller.WorkflowID,
@@ -630,7 +638,7 @@ func TestResolveActionAuthorBuildAcceptsOnlyCredimiSignedSessions(t *testing.T) 
 		"actor_id":                  session.ActorID,
 	}
 	sessionCaller := authorCaller{
-		Namespace:    namespace,
+		Namespace:    authorTestNamespace,
 		WorkflowType: ActionAuthorSessionWorkflowName,
 		WorkflowID:   authorTestSessionID,
 		RunID:        authorTestParentRun,
@@ -883,15 +891,26 @@ func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
 		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 	).Return(history)
 
+	var clientNamespaces []string
+	clientFor := func(c client.Client) func(string) (client.Client, error) {
+		return func(namespace string) (client.Client, error) {
+			clientNamespaces = append(clientNamespaces, namespace)
+			return c, nil
+		}
+	}
 	info, err := ReadActionAuthorSession(
 		t.Context(),
 		app,
-		mockClient,
-		authorTestNamespace,
+		clientFor(mockClient),
+		authorTestOrganization,
 		authorTestSessionID,
 		session.ActorID,
 	)
 	require.NoError(t, err)
+	// The session is read in the namespace it was recorded in.
+	require.Equal(t, []string{authorTestNamespace}, clientNamespaces)
+	require.Equal(t, authorTestNamespace, info.Namespace)
+	require.Equal(t, authorTestOrganization, info.Organization)
 	require.Equal(t, authorTestSessionID, info.SessionWorkflowID)
 	require.Equal(t, authorTestParentRun, info.SessionRunID)
 	require.Equal(t, session, info.Session)
@@ -900,30 +919,39 @@ func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
 	require.Equal(t, started, info.StartTime)
 	require.Equal(t, closed, info.CloseTime)
 
-	// Another user gets the answer of an unknown session, before any Temporal call.
-	other := &temporalmocks.Client{}
-	_, err = ReadActionAuthorSession(
-		t.Context(),
-		app,
-		other,
-		authorTestNamespace,
-		authorTestSessionID,
-		"another-user",
-	)
-	require.ErrorIs(t, err, actionauthor.ErrForbidden)
-	require.ErrorContains(t, err, "action author session belongs to another user")
-	other.AssertExpectations(t)
+	// Another user, or a member of another organization, gets the answer of
+	// an unknown session, before any Temporal call.
+	clientNamespaces = nil
+	for _, caller := range [][2]string{
+		{authorTestOrganization, "another-user"},
+		{"other-org", session.ActorID},
+		{authorTestNamespace, session.ActorID},
+	} {
+		_, err = ReadActionAuthorSession(
+			t.Context(),
+			app,
+			clientFor(&temporalmocks.Client{}),
+			caller[0],
+			authorTestSessionID,
+			caller[1],
+		)
+		require.ErrorIs(t, err, actionauthor.ErrForbidden, caller)
+		require.ErrorContains(t, err, "action author session belongs to another user", caller)
+	}
+	require.Empty(t, clientNamespaces)
 }
 
 func TestReadActionAuthorSessionRefusesUnrecordedAndOtherWorkflows(t *testing.T) {
 	app := newCredimiTestApp(t)
 	mockClient := &temporalmocks.Client{}
 
+	clientFor := func(string) (client.Client, error) { return mockClient, nil }
+
 	_, err := ReadActionAuthorSession(
 		t.Context(),
 		app,
-		mockClient,
-		authorTestNamespace,
+		clientFor,
+		authorTestOrganization,
 		authorTestSessionID,
 		"user-1",
 	)
@@ -934,7 +962,7 @@ func TestReadActionAuthorSessionRefusesUnrecordedAndOtherWorkflows(t *testing.T)
 		authorTestNamespace,
 		authorTestSessionID,
 		authorTestParentRun,
-		actionauthor.SessionDetails{ActorID: "user-1"},
+		actionauthor.SessionDetails{ActorID: "user-1", Organization: authorTestOrganization},
 	))
 	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, authorTestParentRun).
 		Return(describeExecution(
@@ -945,8 +973,8 @@ func TestReadActionAuthorSessionRefusesUnrecordedAndOtherWorkflows(t *testing.T)
 	_, err = ReadActionAuthorSession(
 		t.Context(),
 		app,
-		mockClient,
-		authorTestNamespace,
+		clientFor,
+		authorTestOrganization,
 		authorTestSessionID,
 		"user-1",
 	)

@@ -99,9 +99,8 @@ func foreignPlan(t *testing.T, app core.App, plan actionauthor.Spec) actionautho
 
 func TestGenerateActionAuthorParametersChecksTheSentPlan(t *testing.T) {
 	setFCAFTestEnv(t)
-	app, session, namespace := authorSaveFixture(t)
+	app, session, _ := authorSaveFixture(t)
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	plan := actionauthor.Spec{
 		Slot: "other",
 		Parameters: []actionauthor.ParameterSpec{{
@@ -134,9 +133,8 @@ func TestGenerateActionAuthorParametersChecksTheSentPlan(t *testing.T) {
 
 func TestCheckActionAuthorProtocolOutcomeChecksTheSentPlan(t *testing.T) {
 	setFCAFTestEnv(t)
-	app, session, namespace := authorSaveFixture(t)
+	app, session, _ := authorSaveFixture(t)
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": "done"})
 	}))
@@ -194,7 +192,6 @@ func TestSaveAuthoredWalletActionChecksTheSentPlan(t *testing.T) {
 	build, err := actionauthor.Resolve(app, namespace, session)
 	require.NoError(t, err)
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	plan := actionauthor.Spec{
 		Slot: "other",
 		Parameters: []actionauthor.ParameterSpec{{
@@ -262,7 +259,6 @@ func TestSaveAuthoredWalletActionReplacesInPlace(t *testing.T) {
 	build, err := actionauthor.Resolve(app, namespace, session)
 	require.NoError(t, err)
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	oldCode := "appId: eu.wallet\n---\n- launchApp\n"
 	target := seedAuthorAction(t, app, session, "Onboarding", oldCode)
 	code := "appId: eu.wallet\n---\n- launchApp\n- assertVisible: Home\n- takeScreenshot: home\n"
@@ -331,9 +327,8 @@ func TestSaveAuthoredWalletActionReplacesInPlace(t *testing.T) {
 
 func TestListActionAuthorWalletActions(t *testing.T) {
 	setFCAFTestEnv(t)
-	app, session, namespace := authorSaveFixture(t)
+	app, session, _ := authorSaveFixture(t)
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	onboarding := seedAuthorAction(
 		t,
 		app,
@@ -405,7 +400,6 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 	setFCAFTestEnv(t)
 	app, session, namespace := authorSaveFixture(t)
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	onboarding := seedAuthorAction(
 		t,
 		app,
@@ -558,9 +552,8 @@ func TestCheckActionAuthorPlan(t *testing.T) {
 
 func TestResolveActionAuthorReference(t *testing.T) {
 	setFCAFTestEnv(t)
-	app, session, namespace := authorSaveFixture(t)
+	app, session, _ := authorSaveFixture(t)
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	credential := seedDynamicCredential(t, app, session)
 	offer, err := json.Marshal(map[string]any{
 		"credential_issuer":            "https://issuer.example.test",

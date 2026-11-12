@@ -74,7 +74,7 @@ func seedDynamicCredential(t *testing.T, app core.App, session actionauthor.Buil
 
 func TestGenerateActionAuthorParameters(t *testing.T) {
 	setFCAFTestEnv(t)
-	app, session, namespace := authorSaveFixture(t)
+	app, session, _ := authorSaveFixture(t)
 	credential := seedDynamicCredential(t, app, session)
 	var sessions atomic.Int32
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +133,6 @@ func TestGenerateActionAuthorParameters(t *testing.T) {
 		},
 	}
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	generate := func(
 		plan actionauthor.Spec,
 		scope string,
@@ -308,10 +307,9 @@ func TestGenerateActionAuthorParametersRejectsSessionsCredimiDidNotSign(t *testi
 
 func TestCheckActionAuthorProtocolOutcome(t *testing.T) {
 	setFCAFTestEnv(t)
-	app, session, namespace := authorSaveFixture(t)
+	app, session, _ := authorSaveFixture(t)
 	getPID := seedAuthorAction(t, app, session, "Get PID", "appId: eu.wallet\n---\n- launchApp\n")
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	var status atomic.Value
 	var mu sync.Mutex
 	var paths []string

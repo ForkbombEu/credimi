@@ -61,9 +61,8 @@ func remainingTokens(n int) *int { return &n }
 
 func TestRecordAndReadActionAuthorUsage(t *testing.T) {
 	setFCAFTestEnv(t)
-	app, session, namespace := authorSaveFixture(t)
+	app, session, _ := authorSaveFixture(t)
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	lookup, runner := usageSessionLookup(t, app, session, 1000)
 	record := func() *RecordActionAuthorUsageActivity {
 		activity := NewRecordActionAuthorUsageActivity(app)
@@ -127,9 +126,8 @@ func TestRecordAndReadActionAuthorUsage(t *testing.T) {
 
 func TestReadActionAuthorUsageWithoutLimit(t *testing.T) {
 	setFCAFTestEnv(t)
-	app, session, namespace := authorSaveFixture(t)
+	app, session, _ := authorSaveFixture(t)
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	lookup, _ := usageSessionLookup(t, app, session, 0)
 	a := NewReadActionAuthorUsageActivity(app)
 	a.authorSessionLookup = lookup()

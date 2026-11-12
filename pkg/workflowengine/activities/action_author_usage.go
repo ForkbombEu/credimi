@@ -144,7 +144,7 @@ func sessionAllowance(
 	if err != nil {
 		return actionauthor.Allowance{}, err
 	}
-	selection, err := actionauthor.Select(app, caller.Namespace, ref.Session)
+	selection, err := actionauthor.Select(app, ref.Organization, ref.Session)
 	if err != nil {
 		return actionauthor.Allowance{}, actionAuthorError(base, err)
 	}

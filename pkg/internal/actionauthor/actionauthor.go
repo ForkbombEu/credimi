@@ -272,9 +272,11 @@ func findActor(app core.App, in Actor) (*core.Record, error) {
 // pipeline runs: the actor's organization is its first one.
 // `organization/wallet/version` selects an uploaded installer and
 // `organization/wallet` the wallet's Play Store app (Android only).
-// An empty namespace skips the namespace check; activities must pass their
-// actual Temporal namespace, not a value from their payload.
-func Select(app core.App, namespace string, in BuildRequest) (Selection, error) {
+// organization is the canonified_name of the organization the caller acts
+// for; the wallet must be its own. An empty organization skips that check;
+// activities must pass the organization of their verified session, never a
+// value from their payload.
+func Select(app core.App, organization string, in BuildRequest) (Selection, error) {
 	var selection Selection
 	actor, err := findActor(app, in.Actor)
 	if err != nil {
@@ -290,7 +292,7 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 			break
 		}
 	}
-	var version, wallet, organization *core.Record
+	var version, wallet, owner *core.Record
 	switch len(segments) {
 	case 3:
 		version, err = app.FindFirstRecordByFilter(
@@ -320,16 +322,16 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 			ErrInvalid,
 		)
 	}
-	organization, err = app.FindRecordById("organizations", wallet.GetString("owner"))
+	owner, err = app.FindRecordById("organizations", wallet.GetString("owner"))
 	if err != nil {
 		return selection, ErrForbidden
 	}
-	ownerNamespace := organization.GetString("canonified_name")
-	if ownerNamespace == "" || (namespace != "" && namespace != ownerNamespace) {
+	ownerNamespace := owner.GetString("canonified_name")
+	if ownerNamespace == "" || (organization != "" && organization != ownerNamespace) {
 		return selection, ErrForbidden
 	}
 	orgID, err := pbutils.GetUserOrganizationID(app, actor.Id)
-	if err != nil || orgID != organization.Id {
+	if err != nil || orgID != owner.Id {
 		return selection, ErrForbidden
 	}
 	installer, ok := installerFields[in.Platform]
@@ -339,7 +341,7 @@ func Select(app core.App, namespace string, in BuildRequest) (Selection, error) 
 	selection = Selection{
 		Version:      version,
 		Wallet:       wallet,
-		Organization: organization,
+		Organization: owner,
 		Actor:        in.Actor,
 		Identifier:   strings.Join(segments, "/"),
 		Platform:     in.Platform,
@@ -386,8 +388,9 @@ func installerDigest(app core.App, selection Selection) (string, error) {
 // Resolve hashes the authorized platform installer, the provenance Save checks.
 // The runner installs the installer itself, through the pipeline device code.
 // Store builds have no installer: the session installs their app from the store.
-func Resolve(app core.App, namespace string, in BuildRequest) (Build, error) {
-	selection, err := Select(app, namespace, in)
+// organization is the caller's organization, as for Select.
+func Resolve(app core.App, organization string, in BuildRequest) (Build, error) {
+	selection, err := Select(app, organization, in)
 	if err != nil {
 		return Build{}, err
 	}
@@ -522,15 +525,16 @@ func provenanceSpec(provenance *Provenance, spec Spec) {
 // provenance in place, keeping its id and published flag, when the target
 // still has the code the plan was checked against.
 // The caller is the trusted workflow's explicit human-confirmation handler,
-// after verifying the approval.
+// after verifying the approval; organization is the session's organization,
+// as for Select.
 func Save(
 	app core.App,
-	namespace, workflowID, runID string,
+	organization, workflowID, runID string,
 	in SaveRequest,
 	approval Approval,
 ) (Receipt, error) {
 	var receipt Receipt
-	selection, err := Select(app, namespace, in.BuildRequest)
+	selection, err := Select(app, organization, in.BuildRequest)
 	if err != nil {
 		return receipt, err
 	}
@@ -577,7 +581,7 @@ func Save(
 	provenanceSpec(&provenance, in.Spec)
 	err = app.RunInTransaction(func(tx core.App) error {
 		// Recheck authorization and record binding inside the write transaction.
-		current, err := Select(tx, namespace, in.BuildRequest)
+		current, err := Select(tx, organization, in.BuildRequest)
 		if err != nil {
 			return err
 		}

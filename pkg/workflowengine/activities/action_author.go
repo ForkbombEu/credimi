@@ -84,8 +84,8 @@ func (a *ResolveActionAuthorBuildActivity) Execute(
 }
 
 // resolve accepts only a running session workflow that Credimi signed, whose
-// build request is the payload, and resolves the session's build in its own
-// organization namespace.
+// build request is the payload, and resolves the session's build for the
+// session's organization.
 func (a *ResolveActionAuthorBuildActivity) resolve(
 	ctx context.Context,
 	caller authorCaller,
@@ -126,7 +126,7 @@ func (a *ResolveActionAuthorBuildActivity) resolve(
 			"%w: build request does not match the session", actionauthor.ErrForbidden,
 		))
 	}
-	build, err := actionauthor.Resolve(a.app, caller.Namespace, ref.Session)
+	build, err := actionauthor.Resolve(a.app, ref.Organization, ref.Session)
 	if err != nil {
 		return actionauthor.Build{}, actionAuthorError(&a.BaseActivity, err)
 	}
@@ -194,7 +194,7 @@ func (a *SaveAuthoredWalletActionActivity) save(
 			"%w: save request does not match the session", actionauthor.ErrForbidden,
 		))
 	}
-	selection, err := actionauthor.Select(a.app, caller.Namespace, session)
+	selection, err := actionauthor.Select(a.app, ref.Organization, session)
 	if err != nil {
 		return actionauthor.Receipt{}, actionAuthorError(&a.BaseActivity, err)
 	}
@@ -226,7 +226,7 @@ func (a *SaveAuthoredWalletActionActivity) save(
 	}
 	receipt, err := actionauthor.Save(
 		a.app,
-		caller.Namespace,
+		ref.Organization,
 		caller.WorkflowID,
 		caller.RunID,
 		payload,
@@ -328,8 +328,14 @@ func actionAuthorSessionID(authorWorkflowID string) (string, bool) {
 type ActionAuthorSessionRef struct {
 	SessionWorkflowID string
 	SessionRunID      string
-	Session           actionauthor.BuildRequest
-	DeviceID          string
+	// Namespace is the Temporal namespace the session runs in (its runner's
+	// agent namespace).
+	Namespace string
+	// Organization is the canonified_name of the organization the session
+	// was started for, from its verified start input.
+	Organization string
+	Session      actionauthor.BuildRequest
+	DeviceID     string
 }
 
 // LookupActionAuthorSession returns the running session whose ActionAuthor
@@ -437,8 +443,9 @@ func lookupSessionStart(
 	return ref, nil
 }
 
-// readSessionStart reads the start input of the session run and checks
-// Credimi's grant for it.
+// readSessionStart reads the start input of the session run in namespace and
+// checks Credimi's grant for it, which binds the namespace and the start
+// input's organization.
 func readSessionStart(
 	ctx context.Context,
 	app core.App,
@@ -484,9 +491,16 @@ func readSessionStart(
 	); err != nil {
 		return ref, err
 	}
+	// Grants signed before sessions recorded their organization have none;
+	// an empty organization would skip actionauthor.Select's check.
+	if start.Organization == "" {
+		return ref, sessionForbidden("action author session has no organization")
+	}
 	return ActionAuthorSessionRef{
 		SessionWorkflowID: sessionID,
 		SessionRunID:      sessionRunID,
+		Namespace:         namespace,
+		Organization:      start.Organization,
 		Session:           session,
 		DeviceID:          start.DeviceID,
 	}, nil
@@ -500,27 +514,32 @@ type ActionAuthorSessionInfo struct {
 	CloseTime time.Time // zero while the session runs
 }
 
-// ReadActionAuthorSession reads a recorded session that actorID started, in
-// any state. An unrecorded session returns actionauthor.ErrSessionNotRecorded;
-// a session another user started, an unknown execution or another workflow
-// type returns actionauthor.ErrForbidden.
+// ReadActionAuthorSession reads a recorded session that actorID started for
+// organization (a canonified_name), in any state, through clientFor of the
+// namespace the session was recorded in. An unrecorded session returns
+// actionauthor.ErrSessionNotRecorded; a session of another organization or
+// user, an unknown execution or another workflow type returns
+// actionauthor.ErrForbidden.
 func ReadActionAuthorSession(
 	ctx context.Context,
 	app core.App,
-	c client.Client,
-	namespace, sessionID, actorID string,
+	clientFor func(namespace string) (client.Client, error),
+	organization, sessionID, actorID string,
 ) (ActionAuthorSessionInfo, error) {
 	var info ActionAuthorSessionInfo
 	recorded, err := actionauthor.FindSession(app, sessionID)
 	if err != nil {
 		return info, err
 	}
-	if recorded.Namespace != namespace {
-		return info, actionauthor.ErrSessionNotRecorded
-	}
-	if recorded.ActorID == "" || recorded.ActorID != actorID {
+	if recorded.Organization == "" || recorded.Organization != organization ||
+		recorded.ActorID == "" || recorded.ActorID != actorID {
 		return info, sessionForbidden("action author session belongs to another user")
 	}
+	c, err := clientFor(recorded.Namespace)
+	if err != nil {
+		return info, fmt.Errorf("look up action author session: %w", err)
+	}
+	namespace := recorded.Namespace
 	runID := recorded.RunID
 	described, err := c.DescribeWorkflowExecution(ctx, sessionID, runID)
 	if err != nil {

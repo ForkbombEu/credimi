@@ -67,6 +67,7 @@ func recordAuthoringSession(
 	grant, err := actionauthor.SignSession(app, actionauthor.SessionGrant{
 		SessionWorkflowID:       authoringSessionID,
 		Namespace:               namespace,
+		Organization:            namespace,
 		DeviceID:                authoringSessionDevice,
 		Platform:                actionauthor.PlatformAndroid,
 		WalletVersionIdentifier: authoringAndroidVersion,
@@ -91,6 +92,8 @@ func recordAuthoringSession(
 			"platform":                  actionauthor.PlatformAndroid,
 			"wallet_version_identifier": authoringAndroidVersion,
 			"actor_id":                  user.Id,
+			"namespace":                 namespace,
+			"organization":              namespace,
 			"grant":                     grant,
 		},
 	})

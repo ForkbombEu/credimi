@@ -89,7 +89,7 @@ func (a *ReadActionAuthorPipelineRunActivity) Execute(
 
 // read accepts only the ActionAuthor child of a running session and reads
 // the referenced run, or the latest failed run of the referenced pipeline,
-// in the caller's namespace.
+// in the namespace of the session's organization.
 func (a *ReadActionAuthorPipelineRunActivity) read(
 	ctx context.Context,
 	caller authorCaller,
@@ -104,7 +104,9 @@ func (a *ReadActionAuthorPipelineRunActivity) read(
 	if err != nil {
 		return output, actionAuthorError(&a.BaseActivity, err)
 	}
-	c, err := a.temporalClient(caller.Namespace)
+	// Pipelines run in the session organization's namespace, not in the
+	// runner namespace the session runs in.
+	c, err := a.temporalClient(selection.Organization.GetString("canonified_name"))
 	if err != nil {
 		return output, lookupError(&a.BaseActivity, fmt.Errorf("read pipeline run: %w", err))
 	}

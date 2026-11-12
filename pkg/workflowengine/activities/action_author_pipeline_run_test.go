@@ -41,6 +41,8 @@ type pipelineRunFixture struct {
 	caller    authorCaller
 	client    *temporalmocks.Client
 	selection actionauthor.Selection
+	// namespaces lists the namespace of every client the activity asked for.
+	namespaces *[]string
 }
 
 func newPipelineRunFixture(t *testing.T) pipelineRunFixture {
@@ -48,15 +50,15 @@ func newPipelineRunFixture(t *testing.T) pipelineRunFixture {
 	setFCAFTestEnv(t)
 	app, session, namespace := authorSaveFixture(t)
 	caller := authorTestCaller()
-	caller.Namespace = namespace
 	selection, err := actionauthor.Select(app, namespace, session)
 	require.NoError(t, err)
 	return pipelineRunFixture{
-		app:       app,
-		session:   session,
-		caller:    caller,
-		client:    replayedSessionClient(buildSessionLookup(t, app, session)),
-		selection: selection,
+		app:        app,
+		session:    session,
+		caller:     caller,
+		client:     replayedSessionClient(buildSessionLookup(t, app, session)),
+		selection:  selection,
+		namespaces: &[]string{},
 	}
 }
 
@@ -90,8 +92,11 @@ func (f pipelineRunFixture) read(
 	t.Helper()
 	a := NewReadActionAuthorPipelineRunActivity(f.app)
 	a.authorSessionLookup = authorSessionLookup{
-		app:            f.app,
-		temporalClient: func(string) (client.Client, error) { return f.client, nil },
+		app: f.app,
+		temporalClient: func(namespace string) (client.Client, error) {
+			*f.namespaces = append(*f.namespaces, namespace)
+			return f.client, nil
+		},
 	}
 	return a.read(t.Context(), caller, ReadActionAuthorPipelineRunInput{Text: text})
 }
@@ -334,6 +339,12 @@ func TestReadActionAuthorPipelineRunWithoutStepErrors(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, output.Failures)
 	require.Equal(t, []string{"Failed to parse pipeline yaml"}, output.OtherFailures)
+	// The session is looked up in the runner namespace it runs in, the run
+	// in the namespace of the session's organization.
+	require.Equal(t, []string{
+		authorTestNamespace,
+		f.selection.Organization.GetString("canonified_name"),
+	}, *f.namespaces)
 }
 
 func TestReadActionAuthorPipelineRunOfACompletedRun(t *testing.T) {
