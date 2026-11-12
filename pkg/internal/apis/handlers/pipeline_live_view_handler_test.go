@@ -267,7 +267,7 @@ func stubLiveViewSession(t *testing.T, app *tests.TestApp, s liveViewSession) *[
 			s.runs[0],
 			false,
 			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-		).Return(s.history(t, app, !s.unsigned)).Maybe()
+		).Return(s.history(t, app, s.runs[0], !s.unsigned)).Maybe()
 		c.On("DescribeWorkflowExecution", mock.Anything, s.sessionID, s.runs[0]).
 			Return(authoringExecution(activities.ActionAuthorSessionWorkflowName, s.status, 0), nil).
 			Maybe()

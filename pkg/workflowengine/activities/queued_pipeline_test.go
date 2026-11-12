@@ -60,6 +60,24 @@ type capturingTemporalClient struct {
 	described    []string
 	// namespaces lists the namespace of every client the activity asked for.
 	namespaces []string
+	// signals records every signal sent, and signalErr fails them.
+	signals   []capturedSignal
+	signalErr error
+}
+
+type capturedSignal struct {
+	workflowID, runID, name string
+	arg                     any
+}
+
+// SignalWorkflow records the signal and returns signalErr.
+func (c *capturingTemporalClient) SignalWorkflow(
+	ctx context.Context,
+	workflowID, runID, signalName string,
+	arg interface{},
+) error {
+	c.signals = append(c.signals, capturedSignal{workflowID, runID, signalName, arg})
+	return c.signalErr
 }
 
 // ExecuteWorkflow records workflow start options for assertions and returns the stubbed run.

@@ -165,3 +165,32 @@ func TestTicketAndSessionTokensAreNotInterchangeable(t *testing.T) {
 	err = VerifyTicket(app, session, grant)
 	require.ErrorIs(t, err, ErrForbidden)
 }
+
+func TestRunSignAndVerify(t *testing.T) {
+	app, _, _ := authoringFixture(t)
+	run := RunGrant{SessionWorkflowID: "ActionAuthorSession-ticket", RunID: "run-1"}
+	token, err := SignRun(app, run)
+	require.NoError(t, err)
+	require.NoError(t, VerifyRun(app, token, run))
+
+	session, err := SignSession(app, SessionGrant{SessionWorkflowID: run.SessionWorkflowID})
+	require.NoError(t, err)
+	payload, _, _ := strings.Cut(token, ".")
+	for name, tc := range map[string]struct {
+		token string
+		want  RunGrant
+	}{
+		// A run grant copied to a run started later under the same ID.
+		"other run":     {token, RunGrant{SessionWorkflowID: run.SessionWorkflowID, RunID: "run-2"}},
+		"other session": {token, RunGrant{SessionWorkflowID: "ActionAuthorSession-x", RunID: "run-1"}},
+		"session grant": {session, run},
+		"unsigned":      {payload, run},
+		"empty":         {"", run},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := VerifyRun(app, tc.token, tc.want)
+			require.ErrorIs(t, err, ErrForbidden)
+			assert.ErrorContains(t, err, "action author session run was not started by Credimi")
+		})
+	}
+}

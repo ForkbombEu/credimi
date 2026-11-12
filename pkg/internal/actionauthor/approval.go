@@ -22,6 +22,7 @@ const (
 	approvalKeyLabel     = "credimi/action-author/approval/v1"
 	sessionKeyLabel      = "credimi/action-author/session/v1"
 	ticketKeyLabel       = "credimi/action-author/ticket/v1"
+	runKeyLabel          = "credimi/action-author/run/v1"
 	approvalMinSecretLen = 32
 	// ApprovalLifetime bounds how long a signed approval can be used by Save.
 	ApprovalLifetime = 30 * time.Minute
@@ -192,15 +193,56 @@ func VerifyTicket(app core.App, token string, want SessionGrant) error {
 }
 
 func verifyGrant(app core.App, label, token string, want SessionGrant, refusal string) error {
-	var got SessionGrant
+	want.DeviceID = canonify.NormalizePath(want.DeviceID)
+	return verifyExact(app, label, token, want, refusal, func(got *SessionGrant) {
+		got.DeviceID = canonify.NormalizePath(got.DeviceID)
+	})
+}
+
+// RunGrant is Credimi's signature of the run it started for a session: the
+// start activity signals it to that run, so a run started later under the
+// same ID with a copied start input never carries a valid one.
+type RunGrant struct {
+	SessionWorkflowID string `json:"session_workflow_id"`
+	RunID             string `json:"run_id"`
+}
+
+// SignRun returns the token base64url(json).base64url(hmac) of g.
+func SignRun(app core.App, g RunGrant) (string, error) {
+	return signToken(app, runKeyLabel, g)
+}
+
+// VerifyRun accepts only a run token Credimi signed for exactly want.
+func VerifyRun(app core.App, token string, want RunGrant) error {
+	return verifyExact(
+		app,
+		runKeyLabel,
+		token,
+		want,
+		"action author session run was not started by Credimi",
+	)
+}
+
+// verifyExact accepts only a token signed with the key of label whose
+// payload, after normalize, is want; every other token is ErrForbidden with
+// refusal.
+func verifyExact[T comparable](
+	app core.App,
+	label, token string,
+	want T,
+	refusal string,
+	normalize ...func(*T),
+) error {
+	var got T
 	if err := verifyToken(app, label, token, &got); err != nil {
 		if errors.Is(err, errUnsigned) {
 			return fmt.Errorf("%w: %s", ErrForbidden, refusal)
 		}
 		return err
 	}
-	got.DeviceID = canonify.NormalizePath(got.DeviceID)
-	want.DeviceID = canonify.NormalizePath(want.DeviceID)
+	for _, n := range normalize {
+		n(&got)
+	}
 	if got != want {
 		return fmt.Errorf("%w: %s", ErrForbidden, refusal)
 	}

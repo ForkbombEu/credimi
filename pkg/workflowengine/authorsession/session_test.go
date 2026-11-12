@@ -65,17 +65,36 @@ type sessionHarness struct {
 	childTaskQueue string
 	childTimeout   time.Duration
 	childContext   *AuthoringContext
+
+	logs warnLog
+}
+
+// warnLog records the warnings the session logs.
+type warnLog struct {
+	mu       sync.Mutex
+	warnings []string
+}
+
+func (l *warnLog) Debug(string, ...any) {}
+func (l *warnLog) Info(string, ...any)  {}
+func (l *warnLog) Error(string, ...any) {}
+
+func (l *warnLog) Warn(msg string, keyvals ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.warnings = append(l.warnings, fmt.Sprint(append([]any{msg}, keyvals...)...))
 }
 
 func newSessionHarness(t *testing.T, deviceType string) *sessionHarness {
 	t.Helper()
-	suite := &testsuite.WorkflowTestSuite{}
 	h := &sessionHarness{
 		t:             t,
-		env:           suite.NewTestWorkflowEnvironment(),
 		deviceType:    deviceType,
 		installerPath: "/runner/wallet.apk",
 	}
+	suite := &testsuite.WorkflowTestSuite{}
+	suite.SetLogger(&h.logs)
+	h.env = suite.NewTestWorkflowEnvironment()
 	if deviceType == deviceTypeIOSSimulator {
 		h.installerPath = "/runner/wallet.app"
 	}
@@ -599,4 +618,23 @@ func TestSessionAcceptsAgentThatEndsBeforeSignaling(t *testing.T) {
 	require.NoError(t, h.run(sessionInput(actionauthor.PlatformAndroid)))
 
 	h.requireReleasedAfter("", "success")
+}
+
+// The start activity signals the session Credimi's run grant, which the
+// session drains: it is read from the history only.
+func TestSessionDrainsTheRunGrantSignal(t *testing.T) {
+	h := newSessionHarness(t, "android_emulator")
+	h.childRuns = time.Hour
+	h.env.RegisterDelayedCallback(func() {
+		h.env.SignalWorkflow(activities.ActionAuthorRunGrantSignal, "token")
+	}, time.Minute)
+
+	require.NoError(t, h.run(sessionInput(actionauthor.PlatformAndroid)))
+
+	require.True(t, h.childRan)
+	h.logs.mu.Lock()
+	defer h.logs.mu.Unlock()
+	for _, warning := range h.logs.warnings {
+		require.NotContains(t, warning, "unhandled signals")
+	}
 }

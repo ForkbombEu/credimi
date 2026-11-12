@@ -36,6 +36,11 @@ const SaveAuthoredWalletActionActivityName = "Save authored wallet action"
 // action_author semaphore ticket starts.
 const ActionAuthorSessionWorkflowName = "Action author session"
 
+// ActionAuthorRunGrantSignal is the signal the start activity sends to the
+// session run it started; its payload is actionauthor.SignRun's token for
+// that run (see TrustedActionAuthorSession).
+const ActionAuthorRunGrantSignal = "credimi_run_grant"
+
 // Identity of the Python agent's ActionAuthor child workflow that the
 // session workflow (pkg/workflowengine/authorsession) starts with the ID
 // "<session workflow ID>-author"; the session's ID is
@@ -448,39 +453,135 @@ const (
 	trustedSessionMaxPages = 10
 )
 
+// runGrantGrace is how long after a run starts TrustedActionAuthorSession
+// waits for Credimi's run grant signal before it refuses the run.
+const runGrantGrace = 2 * time.Minute
+
 // TrustedActionAuthorSession reads the run of sessionID that Credimi started:
 // the earliest run of that workflow ID, whose start input must carry
-// Credimi's grant for it.
+// Credimi's grant for it and whose history must hold Credimi's signed
+// ActionAuthorRunGrantSignal for that run ID.
 //
 // Credimi signs the session grant right before it starts the session with
 // the REJECT_DUPLICATE reuse and FAIL conflict policies, so no run of that ID
 // can carry a valid grant before Credimi's, a run started earlier by someone
 // else makes Credimi's start fail, and a run started later with a copied
-// grant is never the earliest.
+// grant is never the earliest. A runner namespace writer can delete
+// Credimi's run, though, and start the ID again with the copied input: that
+// run lacks the run grant, which names Credimi's run ID. Until runGrantGrace
+// after the start, a run without it returns actionauthor.ErrSessionNotVisible:
+// Credimi signals it right after the start.
 func TrustedActionAuthorSession(
 	ctx context.Context,
 	app core.App,
 	clientFor func(namespace string) (client.Client, error),
 	sessionID string,
 ) (ActionAuthorSessionRef, error) {
-	namespace, ok := actionauthor.SessionNamespace(sessionID)
-	if !ok {
-		return ActionAuthorSessionRef{}, sessionForbidden("not an action author session")
-	}
-	c, err := clientFor(namespace)
-	if err != nil {
-		return ActionAuthorSessionRef{}, fmt.Errorf("look up action author session: %w", err)
-	}
-	earliest, err := earliestSessionRun(ctx, c, namespace, sessionID)
+	run, err := credimiStartedRun(ctx, app, clientFor, sessionID)
 	if err != nil {
 		return ActionAuthorSessionRef{}, err
 	}
-	if earliest.GetType().GetName() != ActionAuthorSessionWorkflowName {
+	signed, err := hasRunGrant(app, run.history, actionauthor.RunGrant{
+		SessionWorkflowID: sessionID,
+		RunID:             run.ref.SessionRunID,
+	})
+	switch {
+	case err != nil:
+		return ActionAuthorSessionRef{}, err
+	case signed:
+		return run.ref, nil
+	case time.Since(run.startTime) < runGrantGrace:
+		return ActionAuthorSessionRef{}, actionauthor.ErrSessionNotVisible
+	default:
 		return ActionAuthorSessionRef{}, sessionForbidden(
-			"workflow is not an action author session",
+			"action author session run was not started by Credimi",
 		)
 	}
-	return readSessionStart(ctx, app, c, namespace, sessionID, earliest.GetExecution().GetRunId())
+}
+
+// startedRun is the earliest run of a session, which carries Credimi's
+// session grant, and the rest of its history.
+type startedRun struct {
+	ref       ActionAuthorSessionRef
+	startTime time.Time
+	// history continues after the run's start event.
+	history client.HistoryEventIterator
+}
+
+// credimiStartedRun reads the earliest run of sessionID, whose start input
+// must carry Credimi's grant for it. It does not require the run grant
+// signal: the start activity reuses with it a run it started but may not
+// have signaled yet.
+func credimiStartedRun(
+	ctx context.Context,
+	app core.App,
+	clientFor func(namespace string) (client.Client, error),
+	sessionID string,
+) (startedRun, error) {
+	namespace, ok := actionauthor.SessionNamespace(sessionID)
+	if !ok {
+		return startedRun{}, sessionForbidden("not an action author session")
+	}
+	c, err := clientFor(namespace)
+	if err != nil {
+		return startedRun{}, fmt.Errorf("look up action author session: %w", err)
+	}
+	earliest, err := earliestSessionRun(ctx, c, namespace, sessionID)
+	if err != nil {
+		return startedRun{}, err
+	}
+	if earliest.GetType().GetName() != ActionAuthorSessionWorkflowName {
+		return startedRun{}, sessionForbidden("workflow is not an action author session")
+	}
+	runID := earliest.GetExecution().GetRunId()
+	history := c.GetWorkflowHistory(
+		ctx,
+		sessionID,
+		runID,
+		false,
+		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	)
+	ref, err := readSessionStart(app, history, namespace, sessionID, runID)
+	if err != nil {
+		return startedRun{}, err
+	}
+	return startedRun{
+		ref:       ref,
+		startTime: earliest.GetStartTime().AsTime(),
+		history:   history,
+	}, nil
+}
+
+// hasRunGrant reports whether history holds an ActionAuthorRunGrantSignal
+// whose token Credimi signed for want. It skips every other signal: anyone
+// who can write to the namespace can signal the run.
+func hasRunGrant(
+	app core.App,
+	history client.HistoryEventIterator,
+	want actionauthor.RunGrant,
+) (bool, error) {
+	for history.HasNext() {
+		event, err := history.Next()
+		if err != nil {
+			return false, fmt.Errorf("look up action author session: %w", err)
+		}
+		signaled := event.GetWorkflowExecutionSignaledEventAttributes()
+		if signaled.GetSignalName() != ActionAuthorRunGrantSignal {
+			continue
+		}
+		var token string
+		if temporalcrypto.DataConverter().FromPayloads(signaled.GetInput(), &token) != nil {
+			continue
+		}
+		err = actionauthor.VerifyRun(app, token, want)
+		switch {
+		case err == nil:
+			return true, nil
+		case !errors.Is(err, actionauthor.ErrForbidden):
+			return false, err
+		}
+	}
+	return false, nil
 }
 
 // earliestSessionRun lists the runs of sessionID in namespace and returns the
@@ -523,23 +624,15 @@ func earliestSessionRun(
 	return earliest, nil
 }
 
-// readSessionStart reads the start input of the session run in namespace and
-// checks Credimi's grant for it, which binds the namespace and the start
-// input's organization.
+// readSessionStart reads the start input of the session run in namespace,
+// the first event of its history, and checks Credimi's grant for it, which
+// binds the namespace and the start input's organization.
 func readSessionStart(
-	ctx context.Context,
 	app core.App,
-	c client.Client,
+	history client.HistoryEventIterator,
 	namespace, sessionID, sessionRunID string,
 ) (ActionAuthorSessionRef, error) {
 	var ref ActionAuthorSessionRef
-	history := c.GetWorkflowHistory(
-		ctx,
-		sessionID,
-		sessionRunID,
-		false,
-		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-	)
 	if !history.HasNext() {
 		return ref, sessionForbidden("action author session has no start input")
 	}

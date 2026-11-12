@@ -129,6 +129,11 @@ type temporalWorkflowStarter interface {
 		ctx context.Context,
 		workflowID, runID string,
 	) (*workflowservice.DescribeWorkflowExecutionResponse, error)
+	SignalWorkflow(
+		ctx context.Context,
+		workflowID, runID, signalName string,
+		arg interface{},
+	) error
 }
 
 // StartQueuedPipelineActivityName is the registered name of
@@ -364,11 +369,13 @@ const actionAuthorSessionExecutionTimeout = 3 * time.Hour
 // action_author ticket in the runner's agent namespace the ticket names
 // (runner-<record id>), for the ticket owner's organization. It accepts only a ticket that
 // Credimi signed (ticket_grant), starts the session with Credimi's grant of
-// it instead. Activities accept only the earliest run of the session ID
-// (TrustedActionAuthorSession), so the start fails rather than adopt a run
-// someone else started first. The session grant thus exists only in the
-// session's own history, never in the semaphore's. Sessions have no
-// pipeline, so no pipeline_results row is created.
+// it instead, and then signals the run Credimi's run grant
+// (ActionAuthorRunGrantSignal). Activities accept only the earliest run of
+// the session ID with that signal (TrustedActionAuthorSession), so the start
+// fails rather than adopt a run someone else started first. The session
+// grant thus exists only in the session's own history, never in the
+// semaphore's. Sessions have no pipeline, so no pipeline_results row is
+// created.
 func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	ctx context.Context,
 	payload StartQueuedPipelineActivityInput,
@@ -460,9 +467,11 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	return result, nil
 }
 
-// startSessionWorkflow starts an action author session and returns its run.
-// A retry whose session already started reuses the run only when it is the
-// session's trusted run, the one Credimi started first.
+// startSessionWorkflow starts an action author session, signals its run
+// Credimi's run grant and returns the run. A retry whose session already
+// started reuses the run only when Credimi started it first, and signals it
+// again: the previous attempt may have ended before its signal, and a
+// duplicate valid signal is harmless.
 func (a *StartQueuedPipelineActivity) startSessionWorkflow(
 	ctx context.Context,
 	namespace string,
@@ -473,6 +482,35 @@ func (a *StartQueuedPipelineActivity) startSessionWorkflow(
 	if err != nil {
 		return "", a.NewCodedError(errorcodes.PipelineExecutionError, true, err)
 	}
+	runID, err := a.startOrReuseSessionRun(ctx, starter, options, input)
+	if err != nil {
+		return "", err
+	}
+	token, err := actionauthor.SignRun(a.app, actionauthor.RunGrant{
+		SessionWorkflowID: options.ID,
+		RunID:             runID,
+	})
+	if err == nil {
+		err = starter.SignalWorkflow(ctx, options.ID, runID, ActionAuthorRunGrantSignal, token)
+	}
+	if err != nil {
+		return "", a.NewCodedError(
+			errorcodes.PipelineExecutionError,
+			true,
+			fmt.Errorf("signal action author session run grant: %w", err),
+		)
+	}
+	return runID, nil
+}
+
+// startOrReuseSessionRun starts the session, or returns the run Credimi
+// started first when it already started.
+func (a *StartQueuedPipelineActivity) startOrReuseSessionRun(
+	ctx context.Context,
+	starter temporalWorkflowStarter,
+	options client.StartWorkflowOptions,
+	input workflowengine.WorkflowInput,
+) (string, error) {
 	run, err := starter.ExecuteWorkflow(ctx, options, ActionAuthorSessionWorkflowName, input)
 	switch {
 	case err == nil:
@@ -480,10 +518,10 @@ func (a *StartQueuedPipelineActivity) startSessionWorkflow(
 	case !temporal.IsWorkflowExecutionAlreadyStartedError(err):
 		return "", a.NewCodedError(errorcodes.PipelineExecutionError, true, err)
 	}
-	ref, err := TrustedActionAuthorSession(ctx, a.app, a.sessionClientFactory, options.ID)
+	started, err := credimiStartedRun(ctx, a.app, a.sessionClientFactory, options.ID)
 	switch {
 	case err == nil:
-		return ref.SessionRunID, nil
+		return started.ref.SessionRunID, nil
 	case errors.Is(err, actionauthor.ErrForbidden):
 		return "", a.NewCodedError(errorcodes.RecordNotAccessible, false, fmt.Errorf(
 			"action author session %s was not started by Credimi: %w",

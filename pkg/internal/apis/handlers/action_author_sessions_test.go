@@ -65,11 +65,13 @@ type authoringSessionGrant struct {
 	namespace                                         string
 }
 
-// history returns the session's history: its start input, signed when
-// signed is true.
+// history returns the history of the session's run: its start input, and
+// when signed is true Credimi's grant in it and Credimi's run grant signal
+// for run.
 func (g authoringSessionGrant) history(
 	t testing.TB,
 	app *tests.TestApp,
+	run string,
 	signed bool,
 ) client.HistoryEventIterator {
 	t.Helper()
@@ -104,14 +106,44 @@ func (g authoringSessionGrant) history(
 		Payload: payload,
 	})
 	require.NoError(t, err)
-	return &fakeHistoryIterator{events: []*historypb.HistoryEvent{{
+	events := []*historypb.HistoryEvent{{
 		EventType: enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED,
 		Attributes: &historypb.HistoryEvent_WorkflowExecutionStartedEventAttributes{
 			WorkflowExecutionStartedEventAttributes: &historypb.WorkflowExecutionStartedEventAttributes{
 				Input: input,
 			},
 		},
-	}}}
+	}}
+	if signed {
+		events = append(events, runGrantSignal(t, app, g.sessionID, run))
+	}
+	return &fakeHistoryIterator{events: events}
+}
+
+// runGrantSignal is the run grant signal the start activity sends to the run
+// of sessionID.
+func runGrantSignal(
+	t testing.TB,
+	app *tests.TestApp,
+	sessionID, run string,
+) *historypb.HistoryEvent {
+	t.Helper()
+	token, err := actionauthor.SignRun(app, actionauthor.RunGrant{
+		SessionWorkflowID: sessionID,
+		RunID:             run,
+	})
+	require.NoError(t, err)
+	input, err := temporalcrypto.DataConverter().ToPayloads(token)
+	require.NoError(t, err)
+	return &historypb.HistoryEvent{
+		EventType: enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_SIGNALED,
+		Attributes: &historypb.HistoryEvent_WorkflowExecutionSignaledEventAttributes{
+			WorkflowExecutionSignaledEventAttributes: &historypb.WorkflowExecutionSignaledEventAttributes{
+				SignalName: activities.ActionAuthorRunGrantSignal,
+				Input:      input,
+			},
+		},
+	}
 }
 
 // startAuthoringSession fakes, as the start activity leaves it in Temporal,
@@ -141,7 +173,7 @@ func startAuthoringSession(
 		device:       authoringSessionDevice,
 		version:      authoringAndroidVersion,
 		actorID:      user.Id,
-	}.history(t, app, true))
+	}.history(t, app, authoringSessionRun, true))
 }
 
 // sessionRunExecutions are runs (oldest first) of sessionID of workflowType,
@@ -644,7 +676,7 @@ func (s listedAuthoringSession) stub(t testing.TB, app *tests.TestApp, c *tempor
 		s.run,
 		false,
 		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-	).Return(s.history(t, app, s.signed))
+	).Return(s.history(t, app, s.run, s.signed))
 	if s.status != enumspb.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED {
 		described := authoringExecution(activities.ActionAuthorSessionWorkflowName, s.status, 0)
 		described.WorkflowExecutionInfo.StartTime = timestamppb.New(s.started)

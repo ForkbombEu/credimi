@@ -111,7 +111,8 @@ func sessionHistory(t *testing.T, payload any) *fcafHistoryIterator {
 // signedSessionHistory is the history of the session authorTestSessionID
 // that Credimi started with input as run authorTestParentRun in
 // authorTestNamespace, for the wallet's organization (the first segment of
-// its identifier), signed as the start activity signs it.
+// its identifier), signed as the start activity signs it: Credimi's grant in
+// its start input and its run grant signal.
 func signedSessionHistory(
 	t *testing.T,
 	app core.App,
@@ -137,7 +138,37 @@ func signedSessionHistory(
 	signed["namespace"] = authorTestNamespace
 	signed["organization"] = organization
 	signed["grant"] = grant
-	return sessionHistory(t, signed)
+	history := sessionHistory(t, signed)
+	history.events = append(history.events, runGrantSignal(t, app, authorTestParentRun))
+	return history
+}
+
+// runGrantSignal is the run grant signal the start activity sends to the run
+// runID of authorTestSessionID.
+func runGrantSignal(t *testing.T, app core.App, runID string) *historypb.HistoryEvent {
+	t.Helper()
+	token, err := actionauthor.SignRun(app, actionauthor.RunGrant{
+		SessionWorkflowID: authorTestSessionID,
+		RunID:             runID,
+	})
+	require.NoError(t, err)
+	return signalEvent(t, ActionAuthorRunGrantSignal, token)
+}
+
+// signalEvent is the signal name with arg received by a session.
+func signalEvent(t *testing.T, name string, arg any) *historypb.HistoryEvent {
+	t.Helper()
+	input, err := temporalcrypto.DataConverter().ToPayloads(arg)
+	require.NoError(t, err)
+	return &historypb.HistoryEvent{
+		EventType: enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_SIGNALED,
+		Attributes: &historypb.HistoryEvent_WorkflowExecutionSignaledEventAttributes{
+			WorkflowExecutionSignaledEventAttributes: &historypb.WorkflowExecutionSignaledEventAttributes{
+				SignalName: name,
+				Input:      input,
+			},
+		},
+	}
 }
 
 // sessionLookup fakes the caller's namespace with the given executions; app
@@ -846,6 +877,102 @@ func TestTrustedActionAuthorSessionTrustsOnlyTheEarliestRun(t *testing.T) {
 		"ActionAuthorSession-ticket",
 	)
 	require.ErrorIs(t, err, actionauthor.ErrForbidden)
+}
+
+// A runner namespace writer can delete Credimi's run and start the session ID
+// again with the copied start input and copied signals: the run grant names
+// Credimi's run ID, so that run is never trusted. A run without a valid run
+// grant is refused once Credimi's signal had time to arrive.
+func TestTrustedActionAuthorSessionRequiresCredimisRunGrant(t *testing.T) {
+	setFCAFTestEnv(t)
+	app := newCredimiTestApp(t)
+	input := authorTestSessionInput()
+	trusted := func(c client.Client) (ActionAuthorSessionRef, error) {
+		return TrustedActionAuthorSession(
+			t.Context(),
+			app,
+			func(string) (client.Client, error) { return c, nil },
+			authorTestSessionID,
+		)
+	}
+	// startOnly is Credimi's signed start input without its run grant.
+	startOnly := func() *fcafHistoryIterator {
+		history := signedSessionHistory(t, app, input)
+		history.events = history.events[:1]
+		return history
+	}
+	sessionGrant := startOnly().events[0]
+	other, err := actionauthor.SignRun(app, actionauthor.RunGrant{
+		SessionWorkflowID: authorTestSessionID,
+		RunID:             "replayed-run",
+	})
+	require.NoError(t, err)
+	// Signals that are no run grant of "replayed-run": forged, malformed, a
+	// copy of Credimi's run's, and a valid token under another signal name.
+	junk := []*historypb.HistoryEvent{
+		signalEvent(t, ActionAuthorRunGrantSignal, "forged.token"),
+		signalEvent(t, ActionAuthorRunGrantSignal, map[string]any{"run_id": "replayed-run"}),
+		runGrantSignal(t, app, authorTestParentRun),
+		signalEvent(t, "other_signal", other),
+	}
+
+	ref, err := trusted(sessionRunsClient(t, map[string]*fcafHistoryIterator{
+		authorTestParentRun: signedSessionHistory(t, app, input),
+	}, authorTestParentRun))
+	require.NoError(t, err)
+	require.Equal(t, authorTestParentRun, ref.SessionRunID)
+
+	// Junk signals before Credimi's do not hide it.
+	signed := startOnly()
+	signed.events = append(signed.events, junk[:2]...)
+	signed.events = append(signed.events, runGrantSignal(t, app, authorTestParentRun))
+	ref, err = trusted(sessionRunsClient(t, map[string]*fcafHistoryIterator{
+		authorTestParentRun: signed,
+	}, authorTestParentRun))
+	require.NoError(t, err)
+	require.Equal(t, authorTestParentRun, ref.SessionRunID)
+
+	// Credimi's run was deleted; the replay copies its grant and its signal.
+	replayed := signedSessionHistory(t, app, input)
+	_, err = trusted(sessionRunsClient(t, map[string]*fcafHistoryIterator{
+		"replayed-run": replayed,
+	}, "replayed-run"))
+	require.ErrorIs(t, err, actionauthor.ErrForbidden)
+	require.ErrorContains(t, err, "action author session run was not started by Credimi")
+
+	// A run whose signals are all junk, started long ago, is refused.
+	junkOnly := startOnly()
+	junkOnly.events = append(junkOnly.events, junk...)
+	_, err = trusted(sessionRunsClient(t, map[string]*fcafHistoryIterator{
+		"replayed-run": junkOnly,
+	}, "replayed-run"))
+	require.ErrorIs(t, err, actionauthor.ErrForbidden)
+	require.ErrorContains(t, err, "action author session run was not started by Credimi")
+
+	// A run started moments ago may still wait for Credimi's signal.
+	recent := &temporalmocks.Client{}
+	recent.On("ListWorkflow", mock.Anything, mock.Anything).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflowpb.WorkflowExecutionInfo{{
+				Execution: &commonpb.WorkflowExecution{
+					WorkflowId: authorTestSessionID,
+					RunId:      "replayed-run",
+				},
+				Type:      &commonpb.WorkflowType{Name: ActionAuthorSessionWorkflowName},
+				StartTime: timestamppb.New(time.Now().Add(-time.Minute)),
+			}},
+		}, nil)
+	recent.On(
+		"GetWorkflowHistory",
+		mock.Anything,
+		authorTestSessionID,
+		"replayed-run",
+		false,
+		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	).Return(&fcafHistoryIterator{events: append([]*historypb.HistoryEvent{sessionGrant}, junk...)})
+	_, err = trusted(recent)
+	require.ErrorIs(t, err, actionauthor.ErrSessionNotVisible)
+	require.NotErrorIs(t, err, actionauthor.ErrForbidden)
 }
 
 // An agent whose parent is a later run of its session ID is refused, also

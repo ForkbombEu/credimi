@@ -130,7 +130,7 @@ func stubSessionRuns(t *testing.T, c *temporalmocks.Client, sessionID string, ru
 	)).Return(&workflowservice.ListWorkflowExecutionsResponse{Executions: executions}, nil).Maybe()
 }
 
-// historyIterator iterates over a session's start event.
+// historyIterator iterates over a session's history.
 type historyIterator struct{ events []*historypb.HistoryEvent }
 
 func (h *historyIterator) HasNext() bool { return len(h.events) > 0 }
@@ -146,7 +146,7 @@ func (h *historyIterator) Next() (*historypb.HistoryEvent, error) {
 
 // startSession fakes in c the session sessionID that actorID started for
 // organization, as the start activity leaves it: its only run "run" with
-// Credimi's grant in its start input.
+// Credimi's grant in its start input and Credimi's run grant signal.
 func startSession(
 	t *testing.T,
 	app core.App,
@@ -182,6 +182,13 @@ func startSession(
 		},
 	})
 	require.NoError(t, err)
+	token, err := actionauthor.SignRun(app, actionauthor.RunGrant{
+		SessionWorkflowID: sessionID,
+		RunID:             "run",
+	})
+	require.NoError(t, err)
+	runGrant, err := temporalcrypto.DataConverter().ToPayloads(token)
+	require.NoError(t, err)
 	stubSessionRuns(t, c, sessionID, "run")
 	c.On(
 		"GetWorkflowHistory",
@@ -202,6 +209,15 @@ func startSession(
 			Attributes: &historypb.HistoryEvent_WorkflowExecutionStartedEventAttributes{
 				WorkflowExecutionStartedEventAttributes: &historypb.WorkflowExecutionStartedEventAttributes{
 					Input: input,
+				},
+			},
+		}, {
+			// Credimi's run grant signal for the run.
+			EventType: enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_SIGNALED,
+			Attributes: &historypb.HistoryEvent_WorkflowExecutionSignaledEventAttributes{
+				WorkflowExecutionSignaledEventAttributes: &historypb.WorkflowExecutionSignaledEventAttributes{
+					SignalName: activities.ActionAuthorRunGrantSignal,
+					Input:      runGrant,
 				},
 			},
 		}}}

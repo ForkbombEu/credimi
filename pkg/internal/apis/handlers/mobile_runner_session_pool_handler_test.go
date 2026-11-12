@@ -63,7 +63,7 @@ func (f registrationFixture) startPoolSession(
 		device:       tokenTestRunnerID + "/phone",
 		version:      orgNamespace(t, f, orgID) + "/wallet/v1",
 		actorID:      f.user.Id,
-	}.history(t, f.app, true)).Maybe()
+	}.history(t, f.app, authoringSessionRun, true)).Maybe()
 	c.On("DescribeWorkflowExecution", mock.Anything, sessionID, authoringSessionRun).
 		Return(authoringExecution(activities.ActionAuthorSessionWorkflowName, status, 1), nil).
 		Maybe()

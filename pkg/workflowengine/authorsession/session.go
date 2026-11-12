@@ -192,6 +192,7 @@ func (w *Workflow) ExecuteWorkflow(
 	); err != nil {
 		return result, err
 	}
+	drainRunGrant(ctx)
 
 	session, err := workflowengine.DecodePayload[SessionInput](input.Payload)
 	if err != nil {
@@ -471,5 +472,17 @@ func invalidSessionError(message string) error {
 		Code:    errCode.Code,
 		Summary: errCode.Description,
 		Message: message,
+	})
+}
+
+// drainRunGrant receives and ignores the start activity's run grant signals,
+// which Credimi reads from the history only, so the SDK does not warn about
+// unhandled signals. Receiving adds no commands, so it is replay safe.
+func drainRunGrant(ctx workflow.Context) {
+	signals := workflow.GetSignalChannel(ctx, activities.ActionAuthorRunGrantSignal)
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		for {
+			signals.Receive(ctx, nil)
+		}
 	})
 }
