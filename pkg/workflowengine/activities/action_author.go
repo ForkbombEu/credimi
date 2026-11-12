@@ -510,8 +510,7 @@ type startedRun struct {
 
 // credimiStartedRun reads the earliest run of sessionID, whose start input
 // must carry Credimi's grant for it. It does not require the run grant
-// signal: the start activity reuses with it a run it started but may not
-// have signaled yet.
+// signal: TrustedActionAuthorSession waits for it after the start.
 func credimiStartedRun(
 	ctx context.Context,
 	app core.App,
@@ -530,10 +529,51 @@ func credimiStartedRun(
 	if err != nil {
 		return startedRun{}, err
 	}
-	if earliest.GetType().GetName() != ActionAuthorSessionWorkflowName {
+	return readCredimiRun(ctx, app, c, namespace, sessionID, earliest)
+}
+
+// checkCredimiRun checks that the run sessionRunID of sessionID exists and
+// that its start input carries Credimi's grant for it.
+func checkCredimiRun(
+	ctx context.Context,
+	app core.App,
+	clientFor func(namespace string) (client.Client, error),
+	sessionID, sessionRunID string,
+) error {
+	namespace, ok := actionauthor.SessionNamespace(sessionID)
+	if !ok {
+		return sessionForbidden("not an action author session")
+	}
+	c, err := clientFor(namespace)
+	if err != nil {
+		return fmt.Errorf("look up action author session: %w", err)
+	}
+	// A deleted run is not found.
+	described, err := c.DescribeWorkflowExecution(ctx, sessionID, sessionRunID)
+	if err != nil {
+		return describeLookupError(err)
+	}
+	info := described.GetWorkflowExecutionInfo()
+	if info.GetExecution().GetRunId() != sessionRunID {
+		return sessionForbidden("action author session run not found")
+	}
+	_, err = readCredimiRun(ctx, app, c, namespace, sessionID, info)
+	return err
+}
+
+// readCredimiRun checks that run is an action author session whose start
+// input carries Credimi's grant for sessionID in namespace.
+func readCredimiRun(
+	ctx context.Context,
+	app core.App,
+	c client.Client,
+	namespace, sessionID string,
+	run *workflowpb.WorkflowExecutionInfo,
+) (startedRun, error) {
+	if run.GetType().GetName() != ActionAuthorSessionWorkflowName {
 		return startedRun{}, sessionForbidden("workflow is not an action author session")
 	}
-	runID := earliest.GetExecution().GetRunId()
+	runID := run.GetExecution().GetRunId()
 	history := c.GetWorkflowHistory(
 		ctx,
 		sessionID,
@@ -547,7 +587,7 @@ func credimiStartedRun(
 	}
 	return startedRun{
 		ref:       ref,
-		startTime: earliest.GetStartTime().AsTime(),
+		startTime: run.GetStartTime().AsTime(),
 		history:   history,
 	}, nil
 }

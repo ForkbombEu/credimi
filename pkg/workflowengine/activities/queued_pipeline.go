@@ -470,9 +470,10 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 
 // startSessionWorkflow starts an action author session, signals its run
 // Credimi's run grant and returns the run. A retry whose session already
-// started reuses the run only when Credimi started it first, and signals it
-// again: the previous attempt may have ended before its signal, and a
-// duplicate valid signal is harmless.
+// started signals only the run its earlier attempt recorded in its heartbeat
+// right after the start, if that run still carries Credimi's grant: the
+// earlier attempt may have ended before its signal, and a duplicate valid
+// signal is harmless.
 func (a *StartQueuedPipelineActivity) startSessionWorkflow(
 	ctx context.Context,
 	namespace string,
@@ -504,8 +505,10 @@ func (a *StartQueuedPipelineActivity) startSessionWorkflow(
 	return runID, nil
 }
 
-// startOrReuseSessionRun starts the session, or returns the run Credimi
-// started first when it already started.
+// startOrReuseSessionRun starts the session and records its run in the
+// activity heartbeat, or, when it already started, returns the run an
+// earlier attempt recorded. Any other run of the ID may be one a runner
+// namespace writer started after deleting Credimi's, with its grant copied.
 func (a *StartQueuedPipelineActivity) startOrReuseSessionRun(
 	ctx context.Context,
 	starter temporalWorkflowStarter,
@@ -515,14 +518,20 @@ func (a *StartQueuedPipelineActivity) startOrReuseSessionRun(
 	run, err := starter.ExecuteWorkflow(ctx, options, ActionAuthorSessionWorkflowName, input)
 	switch {
 	case err == nil:
+		// The first heartbeat of an attempt is sent at once, and Temporal
+		// hands its details to the next attempts.
+		workflowengine.RecordHeartbeat(ctx, run.GetRunID())
 		return run.GetRunID(), nil
 	case !temporal.IsWorkflowExecutionAlreadyStartedError(err):
 		return "", a.NewCodedError(errorcodes.PipelineExecutionError, true, err)
 	}
-	started, err := credimiStartedRun(ctx, a.app, a.sessionClientFactory, options.ID)
+	runID, err := recordedSessionRun(ctx)
+	if err == nil {
+		err = checkCredimiRun(ctx, a.app, a.sessionClientFactory, options.ID, runID)
+	}
 	switch {
 	case err == nil:
-		return started.ref.SessionRunID, nil
+		return runID, nil
 	case errors.Is(err, actionauthor.ErrForbidden):
 		return "", a.NewCodedError(errorcodes.RecordNotAccessible, false, fmt.Errorf(
 			"action author session %s was not started by Credimi: %w",
@@ -530,9 +539,21 @@ func (a *StartQueuedPipelineActivity) startOrReuseSessionRun(
 			err,
 		))
 	default:
-		// ErrSessionNotVisible included: Temporal lists the run shortly.
 		return "", a.NewCodedError(errorcodes.PipelineExecutionError, true, err)
 	}
+}
+
+// recordedSessionRun returns the session run an earlier attempt of the
+// activity started and recorded in its heartbeat.
+func recordedSessionRun(ctx context.Context) (string, error) {
+	if !activity.IsActivity(ctx) || !activity.HasHeartbeatDetails(ctx) {
+		return "", sessionForbidden("no earlier attempt recorded a started run")
+	}
+	var runID string
+	if err := activity.GetHeartbeatDetails(ctx, &runID); err != nil || runID == "" {
+		return "", sessionForbidden("the recorded run is unreadable")
+	}
+	return runID, nil
 }
 
 // startOrReuseWorkflow starts a ticket's workflow; with the ticket-derived ID

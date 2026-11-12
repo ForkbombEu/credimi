@@ -18,11 +18,17 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
+	workflowpb "go.temporal.io/api/workflow/v1"
+	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/workflow"
 )
 
 // testRunnerNamespace is the agent namespace of the runner of the
@@ -175,7 +181,7 @@ func requireRunGrantSignal(
 
 // startedSessionClient fakes the runner namespace of a session the ticket's
 // start finds already started, whose runs (oldest first) start with
-// histories[run].
+// histories[run]. Any other run is not found: it was deleted.
 func startedSessionClient(
 	t *testing.T,
 	act *StartQueuedPipelineActivity,
@@ -186,6 +192,13 @@ func startedSessionClient(
 	mockClient := &temporalmocks.Client{}
 	stubSessionRuns(mockClient, queuedSessionID, runs...)
 	for _, run := range runs {
+		mockClient.On("DescribeWorkflowExecution", mock.Anything, queuedSessionID, run).
+			Return(&workflowservice.DescribeWorkflowExecutionResponse{
+				WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
+					Execution: &commonpb.WorkflowExecution{WorkflowId: queuedSessionID, RunId: run},
+					Type:      &commonpb.WorkflowType{Name: ActionAuthorSessionWorkflowName},
+				},
+			}, nil).Maybe()
 		mockClient.On(
 			"GetWorkflowHistory",
 			mock.Anything,
@@ -195,6 +208,8 @@ func startedSessionClient(
 			enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 		).Return(replayHistory(histories[run])).Maybe()
 	}
+	mockClient.On("DescribeWorkflowExecution", mock.Anything, queuedSessionID, mock.Anything).
+		Return(nil, serviceerror.NewNotFound("workflow not found")).Maybe()
 	var namespaces []string
 	act.sessionClientFactory = func(namespace string) (client.Client, error) {
 		namespaces = append(namespaces, namespace)
@@ -227,49 +242,162 @@ func queuedSessionHistory(
 	return sessionHistory(t, input)
 }
 
-// A retried start whose session already started reuses the run Credimi
-// started first, and signals it its run grant: the previous attempt may have
-// ended before it signaled, so the run may have none yet.
-func TestStartQueuedPipelineActivityReusesItsOwnActionAuthorSession(t *testing.T) {
+// startActivityEnvironment runs act as Temporal runs a retry of it: with the
+// heartbeat details of an earlier attempt, if any.
+func startActivityEnvironment(
+	act *StartQueuedPipelineActivity,
+) *testsuite.TestActivityEnvironment {
+	var ts testsuite.WorkflowTestSuite
+	env := ts.NewTestActivityEnvironment()
+	env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+	return env
+}
+
+// retriedSessionStarter fakes a runner namespace in which the session's
+// first start succeeds, its first run grant signal fails and every later
+// start finds the session already started.
+type retriedSessionStarter struct {
+	*capturingTemporalClient
+	starts int
+}
+
+func (s *retriedSessionStarter) ExecuteWorkflow(
+	ctx context.Context,
+	options client.StartWorkflowOptions,
+	workflowType interface{},
+	args ...interface{},
+) (client.WorkflowRun, error) {
+	s.starts++
+	if s.starts > 1 {
+		return nil, serviceerror.NewWorkflowExecutionAlreadyStarted("already started", "", "")
+	}
+	return s.capturingTemporalClient.ExecuteWorkflow(ctx, options, workflowType, args...)
+}
+
+func (s *retriedSessionStarter) SignalWorkflow(
+	ctx context.Context,
+	workflowID, runID, signalName string,
+	arg interface{},
+) error {
+	if err := s.capturingTemporalClient.SignalWorkflow(
+		ctx, workflowID, runID, signalName, arg,
+	); err != nil {
+		return err
+	}
+	if len(s.signals) == 1 {
+		return serviceerror.NewUnavailable("temporal unavailable")
+	}
+	return nil
+}
+
+// A start whose run grant signal fails is retried, with the semaphore's
+// retry policy and no heartbeat timeout: the retry finds the session
+// started and signals the run the first attempt recorded in its heartbeat.
+func TestStartQueuedPipelineActivityRetriesAFailedRunGrantSignal(t *testing.T) {
+	setFCAFTestEnv(t)
+	act, captured := newCapturingQueuedPipelineActivity(t, queuedSessionID, "run-author")
+	starter := &retriedSessionStarter{capturingTemporalClient: captured}
+	act.temporalClientFactory = func(string) (temporalWorkflowStarter, error) {
+		return starter, nil
+	}
+	payload := actionAuthorTicketInput()
+	signActionAuthorTicket(t, act.app, &payload)
+	// A later run of the ID with a copied grant is never signalled.
+	namespaces := startedSessionClient(t, act, map[string]*fcafHistoryIterator{
+		"run-author": queuedSessionHistory(t, act.app, payload, true),
+		"run-replay": queuedSessionHistory(t, act.app, payload, true),
+	}, "run-author", "run-replay")
+
+	var ts testsuite.WorkflowTestSuite
+	env := ts.NewTestWorkflowEnvironment()
+	env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+	env.RegisterWorkflowWithOptions(func(
+		ctx workflow.Context,
+		input workflowengine.ActivityInput,
+	) (workflowengine.ActivityResult, error) {
+		ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+			StartToCloseTimeout: 5 * time.Minute,
+			RetryPolicy:         &temporal.RetryPolicy{MaximumAttempts: 3},
+		})
+		var result workflowengine.ActivityResult
+		err := workflow.ExecuteActivity(ctx, act.Name(), input).Get(ctx, &result)
+		return result, err
+	}, workflow.RegisterOptions{Name: "start-session"})
+
+	env.ExecuteWorkflow("start-session", workflowengine.ActivityInput{Payload: payload})
+
+	require.NoError(t, env.GetWorkflowError())
+	var result workflowengine.ActivityResult
+	require.NoError(t, env.GetWorkflowResult(&result))
+	output, err := workflowengine.DecodePayload[StartQueuedPipelineActivityOutput](result.Output)
+	require.NoError(t, err)
+	require.Equal(t, "run-author", output.RunID)
+	require.Equal(t, 2, starter.starts)
+	// Only the retry looks the run up, in the runner namespace.
+	require.Equal(t, []string{testRunnerNamespace}, *namespaces)
+	require.Len(t, captured.signals, 2)
+	for _, signal := range captured.signals {
+		require.Equal(t, "run-author", signal.runID)
+	}
+	token, ok := captured.signals[1].arg.(string)
+	require.True(t, ok)
+	require.NoError(t, actionauthor.VerifyRun(act.app, token, actionauthor.RunGrant{
+		SessionWorkflowID: queuedSessionID,
+		RunID:             "run-author",
+	}))
+}
+
+// A runner namespace writer can delete the run an earlier attempt started
+// and recorded, and start the ID again with its input, grant included: the
+// retry fails for good and does not signal that run.
+func TestStartQueuedPipelineActivityRefusesARunReplacingTheRecordedOne(t *testing.T) {
 	setFCAFTestEnv(t)
 	act, captured := newCapturingQueuedPipelineActivity(t, "unused", "unused")
 	captured.executeErr = serviceerror.NewWorkflowExecutionAlreadyStarted("already started", "", "")
 	payload := actionAuthorTicketInput()
 	signActionAuthorTicket(t, act.app, &payload)
-	namespaces := startedSessionClient(t, act, map[string]*fcafHistoryIterator{
-		"run-first":  queuedSessionHistory(t, act.app, payload, true),
-		"run-replay": queuedSessionHistory(t, act.app, payload, true),
-	}, "run-first", "run-replay")
+	startedSessionClient(t, act, map[string]*fcafHistoryIterator{
+		"run-foreign": queuedSessionHistory(t, act.app, payload, true),
+	}, "run-foreign")
+	env := startActivityEnvironment(act)
+	env.SetHeartbeatDetails("run-deleted")
 
-	result, err := act.Execute(
-		context.Background(),
-		workflowengine.ActivityInput{Payload: payload},
+	_, err := env.ExecuteActivity(act.Name(), workflowengine.ActivityInput{Payload: payload})
+
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(
+		t,
+		err,
+		"action author session "+queuedSessionID+" was not started by Credimi",
 	)
-	require.NoError(t, err)
-
-	require.Equal(t, []string{testRunnerNamespace}, *namespaces)
-	require.Equal(t, StartQueuedPipelineActivityOutput{
-		WorkflowID:        queuedSessionID,
-		RunID:             "run-first",
-		WorkflowNamespace: testRunnerNamespace,
-	}, result.Output)
-	requireRunGrantSignal(t, act.app, captured, "run-first")
+	require.Empty(t, captured.signals)
 }
 
-// A start whose run grant signal fails is retried: the retry reuses the run
-// and signals it again.
-func TestStartQueuedPipelineActivityRetriesAFailedRunGrantSignal(t *testing.T) {
-	act, captured := newCapturingQueuedPipelineActivity(t, queuedSessionID, "run-author")
-	captured.signalErr = serviceerror.NewUnavailable("temporal unavailable")
+// A retry whose earlier attempt recorded no run (it ended before its
+// heartbeat) adopts no run of the session, not even one with Credimi's
+// grant: a copied grant is valid too.
+func TestStartQueuedPipelineActivityRefusesAnUnrecordedActionAuthorSession(t *testing.T) {
+	setFCAFTestEnv(t)
+	act, captured := newCapturingQueuedPipelineActivity(t, "unused", "unused")
+	captured.executeErr = serviceerror.NewWorkflowExecutionAlreadyStarted("already started", "", "")
 	payload := actionAuthorTicketInput()
 	signActionAuthorTicket(t, act.app, &payload)
+	startedSessionClient(t, act, map[string]*fcafHistoryIterator{
+		"run-first": queuedSessionHistory(t, act.app, payload, true),
+	}, "run-first")
 
-	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{Payload: payload})
+	_, err := startActivityEnvironment(act).ExecuteActivity(
+		act.Name(),
+		workflowengine.ActivityInput{Payload: payload},
+	)
 
-	requireActivityError(t, err, errorcodes.PipelineExecutionError, false)
-	require.ErrorContains(t, err, "signal action author session run grant")
-	require.Len(t, captured.signals, 1)
-	require.Equal(t, "run-author", captured.signals[0].runID)
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(
+		t,
+		err,
+		"action author session "+queuedSessionID+" was not started by Credimi",
+	)
+	require.Empty(t, captured.signals)
 }
 
 // A workflow started under the ticket's session ID before Credimi is never
@@ -296,23 +424,6 @@ func TestStartQueuedPipelineActivityRefusesAForeignEarlierSession(t *testing.T) 
 		"action author session "+queuedSessionID+" was not started by Credimi",
 	)
 	require.Empty(t, captured.signals)
-}
-
-// A started session Temporal does not list yet is retried.
-func TestStartQueuedPipelineActivityRetriesAnInvisibleActionAuthorSession(t *testing.T) {
-	act, captured := newCapturingQueuedPipelineActivity(t, "unused", "unused")
-	captured.executeErr = serviceerror.NewWorkflowExecutionAlreadyStarted("already started", "", "")
-	payload := actionAuthorTicketInput()
-	signActionAuthorTicket(t, act.app, &payload)
-	startedSessionClient(t, act, nil)
-
-	_, err := act.Execute(
-		context.Background(),
-		workflowengine.ActivityInput{Payload: payload},
-	)
-
-	requireActivityError(t, err, errorcodes.PipelineExecutionError, false)
-	require.ErrorContains(t, err, "action author session is not visible in Temporal yet")
 }
 
 // The semaphore does not authenticate who enqueues: a ticket without
