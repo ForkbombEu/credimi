@@ -36,9 +36,9 @@ Environment:
 Browsers never reach the service directly. The session page frames
 `/action-author-ui/<session id>/?s=<chat id>&temporal-ui=…` on Credimi, and Credimi's proxy
 (`pkg/internal/actionauthorui`) is the security boundary: it authenticates the user from the
-browser session, checks that the caller's organization recorded the session, allows only the
-harness routes of that session's chat (`<session id>-author`), refuses cross-site state changes,
-strips the Credimi credentials, and forwards the request without the
+browser session, checks that Credimi started the session for the caller's organization, allows
+only the harness routes of that session's chat (`<session id>-author`), refuses cross-site state
+changes, strips the Credimi credentials, and forwards the request without the
 `/action-author-ui/<session id>` prefix with two headers:
 
 - `X-Credimi-Namespace`: the caller's organization namespace;
