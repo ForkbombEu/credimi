@@ -11,14 +11,22 @@ import (
 	"time"
 )
 
+// tokenCache holds one token for subject with permissions, renewed
+// refreshBefore its expiry.
 type tokenCache struct {
-	mu        sync.Mutex
-	now       func() time.Time
-	token     string
-	expiresAt time.Time
+	mu          sync.Mutex
+	now         func() time.Time
+	subject     string
+	permissions []string
+	token       string
+	expiresAt   time.Time
 }
 
-var systemTokens = &tokenCache{now: time.Now}
+var systemTokens = &tokenCache{
+	now:         time.Now,
+	subject:     issuer,
+	permissions: []string{SystemPermission},
+}
 
 // SystemToken returns Credimi's own Temporal token, signed with
 // SystemPermission and renewed refreshBefore its expiry. Its signature
@@ -36,11 +44,11 @@ func (c *tokenCache) get(signer func() (*Signer, error)) (string, error) {
 	}
 	s, err := signer()
 	if err != nil {
-		return "", fmt.Errorf("sign Temporal system token: %w", err)
+		return "", fmt.Errorf("sign Temporal token for %s: %w", c.subject, err)
 	}
-	token, expiresAt, err := s.Sign(issuer, []string{SystemPermission}, now)
+	token, expiresAt, err := s.Sign(c.subject, c.permissions, now)
 	if err != nil {
-		return "", fmt.Errorf("sign Temporal system token: %w", err)
+		return "", fmt.Errorf("sign Temporal token for %s: %w", c.subject, err)
 	}
 	c.token, c.expiresAt = token, expiresAt
 	return token, nil

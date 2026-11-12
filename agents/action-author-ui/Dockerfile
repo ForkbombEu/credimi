@@ -19,14 +19,15 @@ COPY src ./src
 # them; this in-image check is the last line of defence for deployments that build
 # without that script (Coolify).
 # The harness must equal the runners' agent harness (credimi-runner/agent/uv.lock).
-# An override of the locked version installs from PyPI without hash checks.
+# Only the locked, hash-checked harness is installed: another version needs a uv.lock change.
 RUN case "$PYTHON_VERSION" in *@sha256:*) ;; *) echo "PYTHON_VERSION must pin a digest (tag@sha256:...)" >&2; exit 1;; esac \
  && case "$UV_VERSION" in *@sha256:*) ;; *) echo "UV_VERSION must pin a digest (tag@sha256:...)" >&2; exit 1;; esac \
  && test -n "$AGENT_HARNESS_VERSION" \
  && uv sync --frozen --no-dev \
  && locked="$(/app/.venv/bin/python -c 'import importlib.metadata as m; print(m.version("temporal-agent-harness"))')" \
  && if [ "$locked" != "$AGENT_HARNESS_VERSION" ]; then \
-      uv pip install --python /app/.venv/bin/python "temporal-agent-harness[ui]==${AGENT_HARNESS_VERSION}"; \
+      echo "AGENT_HARNESS_VERSION=${AGENT_HARNESS_VERSION} but uv.lock pins ${locked}; update uv.lock" >&2; \
+      exit 1; \
     fi \
  && useradd --create-home --uid 10001 app
 USER app

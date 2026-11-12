@@ -6,15 +6,18 @@
 
 An internal service: only Credimi reaches it, through the session-scoped proxy at
 ``/action-author-ui/<session id>`` (pkg/internal/actionauthorui). The proxy authenticates the
-user, allows only the routes of that session's chat and names the scope of every request in two
-headers: ``X-Credimi-Namespace`` (the caller's organization namespace) and
-``X-Credimi-Action-Author-Chat`` (the chat workflow ID). A request without both is refused.
+user, allows only the routes of that session's chat and names the scope of every request in
+three headers: ``X-Credimi-Namespace`` (the runner namespace the session runs in),
+``X-Credimi-Action-Author-Chat`` (the chat workflow ID) and ``X-Credimi-Temporal-Token``
+(Credimi's short-lived Temporal token for that namespace). A request without all three is refused.
 
-The service keeps one harness app, with its own Temporal client, per namespace. It never starts
-agent workflows: Credimi starts each chat on ``<runner_id>-ActionAuthor``.
+The service keeps one harness app, with its own Temporal client, per namespace, and sets the
+client's API key to each request's token. It never starts agent workflows: Credimi starts each
+chat on ``<runner_id>-ActionAuthor``.
 
 Environment: TEMPORAL_ADDRESS and the other TEMPORAL_* settings read by the Temporal client
-config (the namespace comes from each request), ACTION_AUTHOR_UI_PORT (default 8080),
+config (the namespace and API key come from each request), TEMPORAL_TLS (``true`` for TLS;
+anything else is plaintext), ACTION_AUTHOR_UI_PORT (default 8080),
 ACTION_AUTHOR_UI_ALLOWED_HOSTS (comma-separated hosts the service answers; default
 ``action_author_ui,localhost,127.0.0.1``).
 """
@@ -59,7 +62,9 @@ WORKFLOW_TYPE = "ActionAuthor"
 CALLBACK_RESULT_PATH = "/api/callback-result"
 NAMESPACE_HEADER = "x-credimi-namespace"
 CHAT_HEADER = "x-credimi-action-author-chat"
-# Names Credimi's canonify produces for organizations (pkg/internal/canonify): Unicode
+# Credimi's short-lived Temporal token for the namespace, sent on every request.
+TOKEN_HEADER = "x-credimi-temporal-token"
+# Names Credimi's canonify produces (pkg/internal/canonify), runner namespaces included: Unicode
 # letters and digits joined by `-`, never leading with `-`; at most 1000 characters.
 NAMESPACE_PATTERN = re.compile(r"[^\W_](?:[^\W_]|-){0,999}")
 # `<session id>-author`, the chat of a session Credimi started.
@@ -117,11 +122,23 @@ HTML_CSP = (
 )
 
 
-async def connect_namespace(namespace: str) -> Client:
-    """Connect to the configured Temporal server, in one organization's namespace."""
+def _tls() -> bool:
+    """TLS to Temporal; explicit, since temporalio turns TLS on whenever an API key is set."""
+    return os.environ.get("TEMPORAL_TLS", "").strip().lower() == "true"
+
+
+async def connect_namespace(namespace: str, token: str) -> Client:
+    """Connect to the configured Temporal server, in one session namespace, with Credimi's
+    token for it. Large payloads are not offloaded: the UI only decodes stream events, far
+    below the offload threshold, and must not write to /tmp."""
     return await Client.connect(
-        **{**ClientConfig.load_client_connect_config(), "namespace": namespace},
-        plugins=[AgentHarnessPlugin()],
+        **{
+            **ClientConfig.load_client_connect_config(),
+            "namespace": namespace,
+            "api_key": token,
+            "tls": _tls(),
+        },
+        plugins=[AgentHarnessPlugin(large_payload_offload=None)],
     )
 
 
@@ -394,19 +411,22 @@ def _create_harness(temporal) -> FastAPI:
     return harness
 
 
-async def _harness_for(app, namespace: str) -> FastAPI:
-    """The namespace's harness app, connecting on first use. Entries are never evicted: there is
-    one per organization. A failed connect is not cached. Each namespace connects under its own
-    lock, so a slow namespace does not hold up the others."""
+async def _harness_for(app, namespace: str, token: str) -> FastAPI:
+    """The namespace's harness app, connecting on first use with token. Entries are never
+    evicted: there is one per runner namespace. A failed connect is not cached. Each namespace
+    connects under its own lock, so a slow namespace does not hold up the others. Every request
+    carries Credimi's current token, which replaces the client's."""
     harness = app.state.harnesses.get(namespace)
-    if harness is not None:
-        return harness
-    async with app.state.locks.setdefault(namespace, asyncio.Lock()):
-        harness = app.state.harnesses.get(namespace)
-        if harness is None:
-            harness = _create_harness(await app.state.connect(namespace))
-            app.state.harnesses[namespace] = harness
-        return harness
+    if harness is None:
+        async with app.state.locks.setdefault(namespace, asyncio.Lock()):
+            harness = app.state.harnesses.get(namespace)
+            if harness is None:
+                client = await app.state.connect(namespace, token)
+                harness = _create_harness(client)
+                app.state.clients[namespace] = client
+                app.state.harnesses[namespace] = harness
+    app.state.clients[namespace].api_key = token
+    return harness
 
 
 class _ScopeMiddleware:
@@ -430,12 +450,17 @@ class _ScopeMiddleware:
             return
         namespace = headers.get(NAMESPACE_HEADER, "")
         chat = headers.get(CHAT_HEADER, "")
-        if not NAMESPACE_PATTERN.fullmatch(namespace) or not CHAT_PATTERN.fullmatch(chat):
+        token = headers.get(TOKEN_HEADER, "")
+        if (
+            not NAMESPACE_PATTERN.fullmatch(namespace)
+            or not CHAT_PATTERN.fullmatch(chat)
+            or not token
+        ):
             response = JSONResponse(status_code=400, content={"error": "missing_scope"})
             await response(scope, receive, send)
             return
         try:
-            harness = await _harness_for(self.owner, namespace)
+            harness = await _harness_for(self.owner, namespace, token)
         except Exception:
             logger.exception("connect namespace %s", namespace)
             response = JSONResponse(
@@ -449,9 +474,12 @@ class _ScopeMiddleware:
         await harness({**scope, "state": state}, receive, send)
 
 
-def create_app(*, connect: Callable[[str], Awaitable[Client]] = connect_namespace) -> Starlette:
+def create_app(
+    *, connect: Callable[[str, str], Awaitable[Client]] = connect_namespace
+) -> Starlette:
     app = Starlette()
     app.state.connect = connect
+    app.state.clients = {}
     app.state.harnesses = {}
     app.state.locks = {}
     app.user_middleware = [Middleware(_ScopeMiddleware, owner=app)]

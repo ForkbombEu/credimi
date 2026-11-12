@@ -145,14 +145,15 @@ services:
     build:
       context: ./agents/action-author-ui
       args:
-        - PYTHON_VERSION=${ACTION_AUTHOR_UI_PYTHON_VERSION}
-        - UV_VERSION=${ACTION_AUTHOR_UI_UV_VERSION}
-        - AGENT_HARNESS_VERSION=${AGENT_HARNESS_VERSION}
+        - PYTHON_VERSION=${ACTION_AUTHOR_UI_PYTHON_VERSION:?ACTION_AUTHOR_UI_PYTHON_VERSION is required}
+        - UV_VERSION=${ACTION_AUTHOR_UI_UV_VERSION:?ACTION_AUTHOR_UI_UV_VERSION is required}
+        - AGENT_HARNESS_VERSION=${AGENT_HARNESS_VERSION:?AGENT_HARNESS_VERSION is required}
     depends_on:
       temporal:
         condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_TLS=false
   credimi:
     depends_on:
       temporal:

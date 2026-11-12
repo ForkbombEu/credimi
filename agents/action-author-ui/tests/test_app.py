@@ -30,8 +30,12 @@ CHAT = "ActionAuthorSession-0123abcd-0000-4000-8000-00000000abcd-author"
 STARTED = datetime(2026, 11, 3, 10, 0, tzinfo=UTC)
 
 
-def _scope(namespace: str = "org-a", chat: str = CHAT) -> dict[str, str]:
-    return {"X-Credimi-Namespace": namespace, "X-Credimi-Action-Author-Chat": chat}
+def _scope(namespace: str = "org-a", chat: str = CHAT, token: str = "token-1") -> dict[str, str]:
+    return {
+        "X-Credimi-Namespace": namespace,
+        "X-Credimi-Action-Author-Chat": chat,
+        "X-Credimi-Temporal-Token": token,
+    }
 
 
 class _ChatTemporal:
@@ -88,7 +92,7 @@ class _BusyTemporal:
 def _connecting(temporal) -> tuple[list[str], object]:
     connected: list[str] = []
 
-    async def connect(namespace):
+    async def connect(namespace, _token):
         connected.append(namespace)
         return temporal
 
@@ -111,6 +115,8 @@ def ui_client(app=None, headers: dict[str, str] | None = None) -> httpx.AsyncCli
         {},
         {"X-Credimi-Namespace": "org-a"},
         {"X-Credimi-Action-Author-Chat": CHAT},
+        {"X-Credimi-Namespace": "org-a", "X-Credimi-Action-Author-Chat": CHAT},
+        _scope(token=""),
         _scope(namespace=""),
         _scope(namespace="-org"),
         _scope(namespace="org/a"),
@@ -138,10 +144,47 @@ async def test_each_namespace_gets_its_own_client():
     assert connected == ["org-a", "org-b"]
 
 
+async def test_each_request_sets_its_token_on_the_client():
+    clients: dict[str, _ChatTemporal] = {}
+    connected: list[tuple[str, str]] = []
+
+    async def connect(namespace, token):
+        connected.append((namespace, token))
+        clients[namespace] = _ChatTemporal()
+        return clients[namespace]
+
+    async with ui_client(create_app(connect=connect)) as client:
+        first = await client.get("/api/sessions", headers=_scope("runner-a", token="token-1"))
+        assert first.status_code == 200
+        assert clients["runner-a"].api_key == "token-1"
+        # A renewed token reaches the same client, without reconnecting.
+        again = await client.get("/api/sessions", headers=_scope("runner-a", token="token-2"))
+        assert again.status_code == 200
+    assert connected == [("runner-a", "token-1")]
+    assert clients["runner-a"].api_key == "token-2"
+
+
+async def test_connect_namespace_sends_the_token_with_explicit_tls(monkeypatch):
+    calls: list[dict] = []
+
+    async def fake_connect(**kwargs):
+        calls.append(kwargs)
+        return "client"
+
+    monkeypatch.setattr(ui_app.Client, "connect", fake_connect)
+    monkeypatch.setenv("TEMPORAL_ADDRESS", "temporal:7233")
+    for tls, expected in (("false", False), ("", False), ("TRUE", True)):
+        monkeypatch.setenv("TEMPORAL_TLS", tls)
+        assert await ui_app.connect_namespace("runner-a", "token-1") == "client"
+        assert calls[-1]["namespace"] == "runner-a"
+        assert calls[-1]["api_key"] == "token-1"
+        assert calls[-1]["tls"] is expected
+
+
 async def test_connect_failures_are_retried():
     attempts: list[str] = []
 
-    async def connect(namespace):
+    async def connect(namespace, _token):
         attempts.append(namespace)
         if len(attempts) == 1:
             raise RuntimeError("temporal is down")
@@ -158,7 +201,7 @@ async def test_connect_failures_are_retried():
 async def test_a_slow_namespace_does_not_block_another():
     released = asyncio.Event()
 
-    async def connect(namespace):
+    async def connect(namespace, _token):
         if namespace == "org-a":
             await released.wait()
         return _ChatTemporal()
@@ -419,7 +462,7 @@ async def test_closed_chat_replays_its_events():
     ) as env:
         target = env.client.service_client.config.target_host
 
-        async def connect(namespace):
+        async def connect(namespace, _token=""):
             return await Client.connect(target, namespace=namespace, plugins=[AgentHarnessPlugin()])
 
         org_b = await connect("org-b")

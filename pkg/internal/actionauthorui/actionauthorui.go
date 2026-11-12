@@ -9,11 +9,12 @@
 // this proxy, so the proxy is the security boundary:
 //   - the caller is a Credimi user authenticated by the `pb_auth` cookie
 //     (temporalui.Caller), and the session must be one Credimi recorded
-//     in the caller's organization namespace;
+//     for the caller's organization;
 //   - only the user who started the session can reach its chat; other users
 //     get 404, as for a session that does not exist;
-//   - the service learns the namespace and the session's chat workflow only from
-//     NamespaceHeader and ChatHeader, which the proxy always overwrites;
+//   - the service learns the session's namespace, its chat workflow and its
+//     Temporal token only from NamespaceHeader, ChatHeader and TokenHeader,
+//     which the proxy always overwrites; the token grants only that namespace;
 //   - only the routes the embedded chat needs reach the service, and every route
 //     naming a workflow must name the session's chat;
 //   - state-changing requests must come from Credimi's own origin.
@@ -33,6 +34,8 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalauth"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalui"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/pocketbase/core"
@@ -43,11 +46,18 @@ import (
 const PathPrefix = "/action-author-ui"
 
 const (
-	// NamespaceHeader carries the caller's organization namespace to the service.
+	// NamespaceHeader carries the namespace the session runs in to the service.
 	NamespaceHeader = "X-Credimi-Namespace"
 	// ChatHeader carries the session's chat workflow ID to the service.
 	ChatHeader = "X-Credimi-Action-Author-Chat"
+	// TokenHeader carries the service's Temporal token for that namespace
+	// (temporalauth.NamespaceToken).
+	TokenHeader = "X-Credimi-Temporal-Token"
 )
+
+// namespaceTokenFn signs the service's token for a namespace and is stubbed
+// in unit tests.
+var namespaceTokenFn = temporalauth.NamespaceToken
 
 // maxBody bounds the JSON bodies the proxy reads to check their session.
 const maxBody = 1 << 20
@@ -172,7 +182,7 @@ func sameOrigin(r *http.Request) bool {
 }
 
 type forward struct {
-	namespace, chat, path, rawPath string
+	namespace, chat, token, path, rawPath string
 }
 
 type forwardKey struct{}
@@ -195,21 +205,19 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 			return e.ForbiddenError("This chat resource is not available.", nil)
 		}
 
-		user, namespace, err := temporalui.Caller(e)
+		user, organization, err := temporalui.Caller(e)
 		if err != nil {
 			return err
 		}
 		recorded, err := actionauthor.FindSession(e.App, sessionID)
-		if err == nil && recorded.Namespace != namespace {
-			err = actionauthor.ErrSessionNotRecorded
-		}
 		if err != nil {
 			if errors.Is(err, actionauthor.ErrSessionNotRecorded) {
 				return e.NotFoundError(sessionMissing, nil)
 			}
 			return e.InternalServerError("", err)
 		}
-		if recorded.ActorID == "" || recorded.ActorID != user.Id {
+		if recorded.Organization == "" || recorded.Organization != organization ||
+			recorded.ActorID == "" || recorded.ActorID != user.Id {
 			return e.NotFoundError(sessionMissing, nil)
 		}
 		chat := sessionID + activities.ActionAuthorWorkflowIDSuffix
@@ -238,10 +246,23 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 			}
 		}
 
+		token, err := namespaceTokenFn(recorded.Namespace)
+		if err != nil {
+			e.App.Logger().Error("action author ui: Temporal token", "error", err)
+			unavailable := apierror.New(
+				http.StatusServiceUnavailable,
+				"temporal",
+				"temporal_unavailable",
+				"cannot connect to Temporal",
+			)
+			return e.JSON(unavailable.Code, unavailable.Response())
+		}
+
 		scoped := e.Request.WithContext(
 			context.WithValue(e.Request.Context(), forwardKey{}, forward{
-				namespace: namespace,
+				namespace: recorded.Namespace,
 				chat:      chat,
+				token:     token,
 				path:      "/" + strings.Join(segments, "/"),
 				rawPath:   rawRest,
 			}),
@@ -332,8 +353,10 @@ func newProxy(target *url.URL) *httputil.ReverseProxy {
 			stripCookie(pr.Out, authCookieName)
 			pr.Out.Header.Del(NamespaceHeader)
 			pr.Out.Header.Del(ChatHeader)
+			pr.Out.Header.Del(TokenHeader)
 			pr.Out.Header.Set(NamespaceHeader, scope.namespace)
 			pr.Out.Header.Set(ChatHeader, scope.chat)
+			pr.Out.Header.Set(TokenHeader, scope.token)
 		},
 		// Stream server-sent events (/api/attach, /api/chat) as they arrive.
 		FlushInterval: -1,

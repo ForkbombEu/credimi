@@ -160,7 +160,11 @@ func TestTokenCacheRenewsBeforeExpiry(t *testing.T) {
 	require.NoError(t, err)
 	t0 := time.Now()
 	now := t0
-	cache := &tokenCache{now: func() time.Time { return now }}
+	cache := &tokenCache{
+		now:         func() time.Time { return now },
+		subject:     issuer,
+		permissions: []string{SystemPermission},
+	}
 	getSigner := func() (*Signer, error) { return signer, nil }
 
 	first, err := cache.get(getSigner)
@@ -177,8 +181,8 @@ func TestTokenCacheRenewsBeforeExpiry(t *testing.T) {
 }
 
 func TestTokenCacheReportsSignerError(t *testing.T) {
-	cache := &tokenCache{now: time.Now}
+	cache := &tokenCache{now: time.Now, subject: issuer}
 	_, err := cache.get(func() (*Signer, error) { return nil, ErrKeysMissing })
 	require.ErrorIs(t, err, ErrKeysMissing)
-	assert.Contains(t, err.Error(), "sign Temporal system token")
+	assert.Contains(t, err.Error(), "sign Temporal token for credimi")
 }

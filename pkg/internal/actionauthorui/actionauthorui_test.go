@@ -5,6 +5,7 @@
 package actionauthorui
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -74,7 +75,24 @@ func TestClassify(t *testing.T) {
 }
 
 type upstreamCall struct {
-	path, query, namespace, chat, cookie, auth, body string
+	path, query, namespace, chat, token, cookie, auth, body string
+}
+
+// stubNamespaceToken signs "token-<namespace>", or fails with err, and
+// records the namespaces asked for.
+func stubNamespaceToken(t *testing.T, err error) *[]string {
+	t.Helper()
+	namespaces := []string{}
+	orig := namespaceTokenFn
+	t.Cleanup(func() { namespaceTokenFn = orig })
+	namespaceTokenFn = func(namespace string) (string, error) {
+		namespaces = append(namespaces, namespace)
+		if err != nil {
+			return "", err
+		}
+		return "token-" + namespace, nil
+	}
+	return &namespaces
 }
 
 func TestHandler(t *testing.T) {
@@ -84,16 +102,21 @@ func TestHandler(t *testing.T) {
 
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
-	namespace, err := pbutils.GetUserOrganizationCanonifiedName(app, user.Id)
+	organization, err := pbutils.GetUserOrganizationCanonifiedName(app, user.Id)
 	require.NoError(t, err)
-	require.NotEmpty(t, namespace)
+	require.NotEmpty(t, organization)
+	// Sessions run in their runner's namespace, for the caller's organization.
+	const namespace = "runner-xyz"
 	require.NoError(t, actionauthor.RecordSessionRun(
-		app, namespace, session, "run", actionauthor.SessionDetails{ActorID: user.Id},
+		app, namespace, session, "run",
+		actionauthor.SessionDetails{ActorID: user.Id, Organization: organization},
 	))
 	foreign := "ActionAuthorSession-11111111-2222-3333-4444-555555555555"
 	require.NoError(t, actionauthor.RecordSessionRun(
-		app, "other-org", foreign, "run", actionauthor.SessionDetails{},
+		app, namespace, foreign, "run",
+		actionauthor.SessionDetails{ActorID: user.Id, Organization: "other-org"},
 	))
+	tokenNamespaces := stubNamespaceToken(t, nil)
 	cookieOf := func(user *core.Record) *http.Cookie {
 		token, err := user.NewAuthToken()
 		require.NoError(t, err)
@@ -125,6 +148,7 @@ func TestHandler(t *testing.T) {
 			query:     r.URL.RawQuery,
 			namespace: r.Header.Get(NamespaceHeader),
 			chat:      r.Header.Get(ChatHeader),
+			token:     r.Header.Get(TokenHeader),
 			cookie:    r.Header.Get("Cookie"),
 			auth:      r.Header.Get("Authorization"),
 			body:      string(body),
@@ -190,15 +214,31 @@ func TestHandler(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, base+"/api/status/"+chat, nil)
 		req.Header.Set(NamespaceHeader, "evil")
 		req.Header.Set(ChatHeader, otherChat)
+		req.Header.Set(TokenHeader, "forged")
 		req.Header.Set("Authorization", "Bearer x")
+		*tokenNamespaces = nil
 		_, err := serve(req, authCookie, &http.Cookie{Name: "keep", Value: "1"})
 		require.NoError(t, err)
 		require.Equal(t, []upstreamCall{{
 			path:      "/api/status/" + chat,
 			namespace: namespace,
 			chat:      chat,
+			token:     "token-" + namespace,
 			cookie:    "keep=1",
 		}}, calls)
+		require.Equal(t, []string{namespace}, *tokenNamespaces)
+	})
+
+	t.Run("answers 503 without a Temporal token", func(t *testing.T) {
+		stubNamespaceToken(t, errors.New("no signing key"))
+		rec, err := serve(
+			httptest.NewRequest(http.MethodGet, base+"/api/status/"+chat, nil),
+			authCookie,
+		)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+		require.Contains(t, rec.Body.String(), `"reason":"temporal_unavailable"`)
+		require.Empty(t, calls)
 	})
 
 	t.Run("keeps the query of attach", func(t *testing.T) {
