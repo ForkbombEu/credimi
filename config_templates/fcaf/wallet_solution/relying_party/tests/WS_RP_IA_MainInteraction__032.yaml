@@ -33,10 +33,14 @@ assertions:
   validator: dcql.response_satisfies_constraints
   input: evidence.matching_exchange
   params: { mode: credentials_match }
+# The constrained probe runs before the matching presentation, while the
+# single-use under-18 PID is still unspent, so a Wallet that ignored
+# age_over_18 would offer it on the shared birthdate; the probe flow then fails
+# without sharing and stores no notice.
 - id: wallet_withholds_the_pid_from_the_over_18_constraint
   validator: dcql.response_satisfies_constraints
   input: evidence.constrained_exchange
-  params: { mode: claims_values_no_match }
+  params: { mode: claims_values_no_match, expected_claim_path: [age_over_18], expected_value: true }
 - id: visual_evidence_of_the_held_pid_is_stored
   validator: evidence.non_empty
   input: evidence.matching_visual_evidence

@@ -20,6 +20,7 @@ evidence:
   outer_request: { from: pipeline.protocol.client-id-binding-controls.outputs.http_request_uri_outer_request }
   target_session: { from: pipeline.protocol.client-id-binding-controls.outputs.http_request_uri_target_session }
   visual_evidence: { from: pipeline.protocol.client-id-binding-controls.outputs.http_request_uri_visual_evidence }
+  control_session: { from: pipeline.protocol.client-id-binding-controls.outputs.http_request_uri_control_session }
 assertions:
 - id: request_uri_uses_plain_http
   validator: json.field_string_prefix
@@ -32,6 +33,13 @@ assertions:
 - id: wallet_does_not_retrieve_the_http_request_uri
   validator: oid4vp.request_uri_not_retrieved
   input: evidence.target_session
+# wallet_does_not_retrieve_the_http_request_uri also passes for a Wallet that
+# never handled the link; the HTTPS control on the same invocation path proves
+# it did.
+- id: wallet_retrieves_an_https_request_uri_on_the_same_path
+  validator: oid4vp.request_uri_retrieval
+  input: evidence.control_session
+  params: { method: POST }
 - id: visual_evidence_is_stored
   validator: evidence.non_empty
   input: evidence.visual_evidence

@@ -46,15 +46,26 @@ The public wallet action exports included here are:
 - `choose-eudi-wallet`
 - `fcaf-engagement-haip-vp`
 
-The FCAF scenarios additionally share eight flows. They must exist as
-`wallet_actions` records before the aggregate pipeline runs:
+The FCAF scenarios additionally share flows that must exist as `wallet_actions`
+records before the aggregate pipeline runs:
 
-- `fcaf-expect-request-rejected`: the Wallet answers with an error screen or
-  returns to Home. `fcaf-exercise-wallet-generic` cannot serve these cases,
-  because its post-`openLink` wait deliberately excludes `Home` and `Documents`
-  so that a positive flow cannot skip the consent screen.
+- `fcaf-expect-request-rejected`: strict negative flow. The Wallet answers
+  with an error screen or the no-match notice, or returns Home; showing consent
+  records the Verifier response and fails the Wallet action.
+- `fcaf-observe-request`: records the Wallet's reaction to a request without
+  selecting or sharing a credential. A consent screen is recorded and left
+  unanswered; the calling test proves engagement from the Verifier's capture
+  (`oid4vp.request_uri_retrieval`), not from this action.
 - `fcaf-expect-no-matching-document`: the Wallet reports that it holds no
   credential satisfying the request.
+- `fcaf-expect-credential-absent`: the probe for a request pinned to a value
+  only a credential of the scenario carries, or none (a PID issued under a
+  constraint it fails, a credential the issuer denied, an engagement control).
+  It passes only on the no-match notice and fails, without sharing, on any
+  other screen, including the consent screen of a Wallet that would present
+  that credential. It never shares, so `cmd/fcaf-pipeline-gen` issues no PID
+  before it. Status-reference probes use `fcaf-expect-request-rejected`
+  instead, so a kept credential reaches the Verifier.
 - `fcaf-expect-credential-rejected`: the Wallet accepts a credential offer and
   then refuses to store the credential, showing an error screen or returning to
   Home. It fails on the `View details` success screen that

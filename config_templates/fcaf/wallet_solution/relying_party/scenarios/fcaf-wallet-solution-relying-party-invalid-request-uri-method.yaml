@@ -37,6 +37,46 @@ steps:
       method: GET
       url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-presentation.outputs.body.session_id }}
       expected_status: 200
+  # Engagement control: the same invocation with a valid request_uri_method.
+  # A Wallet that never handles the link leaves both sessions unretrieved, and
+  # "the invalid request was not retrieved" would pass for it; this request
+  # must be retrieved. It pins a document_number no credential carries, so the
+  # strict absence probe shares nothing and needs no PID.
+  - id: create-valid-method-control
+    use: http-request
+    with:
+      method: POST
+      url: ${fixture.verifier_url}/openid4vp/sessions
+      expected_status: 201
+      headers: { Content-Type: application/json }
+      body:
+        scheme: openid4vp://
+        request_uri_method: post
+        request_delivery: by_reference
+        response_type: vp_token
+        response_mode: direct_post.jwt
+        presentation_request:
+          nonce: fcaf-152-valid-request-uri-method-control
+          dcql_query:
+            credentials:
+              - id: pid
+                format: dc+sd-jwt
+                meta: { vct_values: ["urn:eudi:pid:1"] }
+                claims:
+                  - { path: [document_number], values: [CREDIMI-ENGAGEMENT-CONTROL] }
+  - id: probe-valid-method-control
+    use: mobile-automation
+    with:
+      action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+      version_id: installed_from_external_source
+      parameters:
+        deeplink: ${{ create-valid-method-control.outputs.body.deeplink }}
+  - id: fetch-valid-method-control
+    use: http-request
+    with:
+      method: GET
+      url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-valid-method-control.outputs.body.session_id }}
+      expected_status: 200
 
   - id: run-fcaf-validators
     use: fcaf-validation
@@ -53,6 +93,7 @@ steps:
             presentation_request: ${{ create-presentation.outputs.body }}
             wallet_response: ${{ fetch-result.outputs.body }}
             visual_evidence: ${{ reject-invalid-request-uri-method.outputs.flow_output.maestro_screenshot_urls }}
+            control_session: ${{ fetch-valid-method-control.outputs.body }}
             create-presentation: ${{ create-presentation.outputs }}
             reject-invalid-request-uri-method: ${{ reject-invalid-request-uri-method.outputs }}
             fetch-result: ${{ fetch-result.outputs }}

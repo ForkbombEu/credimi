@@ -1,3 +1,8 @@
+# The over-18 probe runs first, while the single-use under-18 PID is unspent:
+# a Wallet that ignored the age_over_18 constraint would then offer it on the
+# birthdate alone. fcaf-expect-credential-absent passes only on the no-match
+# notice and never shares, so the PID stays available for the matching
+# presentation that follows and proves the Wallet holds it.
 name: FCAF PID under-18 claim constraint
 runtime:
   fixture:
@@ -35,6 +40,48 @@ steps:
   with:
     method: GET
     url: ${fixture.issuer_url}/sessions/${{ create-under-18-issuance.outputs.body.session_id }}
+    expected_status: 200
+- id: create-over-18-constraint
+  use: http-request
+  with:
+    method: POST
+    url: ${fixture.verifier_url}/openid4vp/sessions
+    expected_status: 201
+    headers:
+      Content-Type: application/json
+    body:
+      request_uri_method: post
+      response_mode: direct_post.jwt
+      presentation_request:
+        nonce: pid-over-18-constraint
+        dcql_query:
+          credentials:
+          - id: pid
+            format: dc+sd-jwt
+            meta:
+              vct_values:
+              - urn:eudi:pid:1
+            claims:
+            - path:
+              - age_over_18
+              values:
+              - true
+            - path:
+              - birthdate
+              values:
+              - '2012-03-04'
+- id: reject-over-18-constraint
+  use: mobile-automation
+  with:
+    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-credential-absent
+    version_id: installed_from_external_source
+    parameters:
+      deeplink: "${{ create-over-18-constraint.outputs.body.deeplink }}"
+- id: fetch-over-18-constraint
+  use: http-request
+  with:
+    method: GET
+    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-over-18-constraint.outputs.body.session_id }}
     expected_status: 200
 - id: create-under-18-match
   use: http-request
@@ -80,48 +127,6 @@ steps:
   with:
     method: GET
     url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-under-18-match.outputs.body.session_id }}
-    expected_status: 200
-- id: create-over-18-constraint
-  use: http-request
-  with:
-    method: POST
-    url: ${fixture.verifier_url}/openid4vp/sessions
-    expected_status: 201
-    headers:
-      Content-Type: application/json
-    body:
-      request_uri_method: post
-      response_mode: direct_post.jwt
-      presentation_request:
-        nonce: pid-over-18-constraint
-        dcql_query:
-          credentials:
-          - id: pid
-            format: dc+sd-jwt
-            meta:
-              vct_values:
-              - urn:eudi:pid:1
-            claims:
-            - path:
-              - age_over_18
-              values:
-              - true
-            - path:
-              - birthdate
-              values:
-              - '2012-03-04'
-- id: reject-over-18-constraint
-  use: mobile-automation
-  with:
-    action_id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-no-matching-document
-    version_id: installed_from_external_source
-    parameters:
-      deeplink: "${{ create-over-18-constraint.outputs.body.deeplink }}"
-- id: fetch-over-18-constraint
-  use: http-request
-  with:
-    method: GET
-    url: ${fixture.verifier_url}/openid4vp/sessions/${{ create-over-18-constraint.outputs.body.session_id }}
     expected_status: 200
 - id: run-fcaf-validators
   use: fcaf-validation

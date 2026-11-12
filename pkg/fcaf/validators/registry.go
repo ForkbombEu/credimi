@@ -97,7 +97,6 @@ func DefaultRegistry() (*Registry, error) {
 		OID4VPNoPresentationValidator{},
 		SDJWTPresentationDigestAlgorithmValidator{},
 		OID4VPDCQLValueConstraintsSatisfiedValidator{},
-		OID4VPMalformedStatusCredentialAbsentValidator{},
 		OID4VPDCAPIInvocationValidator{},
 		OID4VPRequestCertificateChainValidator{},
 		OID4VPResponseEndpointCallbackValidator{},

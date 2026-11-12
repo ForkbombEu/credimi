@@ -172,67 +172,6 @@ func (JSONValueShapeValidator) Validate(_ context.Context, input Input) Result {
 	}
 }
 
-// URISyntaxValidator requires selected strings to be syntactically correct
-// RFC 3986 URIs: a scheme, only permitted characters, valid percent-encoding,
-// and at most one fragment delimiter.
-type URISyntaxValidator struct{}
-
-func (URISyntaxValidator) ID() string { return "uri.syntax" }
-
-func (URISyntaxValidator) Validate(_ context.Context, input Input) Result {
-	selected, result := resolveSelection(input)
-	if result != nil {
-		return *result
-	}
-	for _, item := range selected {
-		text, result := selectedString(item)
-		if result != nil {
-			return *result
-		}
-		if problem := rfc3986URIProblem(text); problem != "" {
-			return Result{
-				Status:  StatusFail,
-				Message: fmt.Sprintf("%s %q %s", item.label, text, problem),
-			}
-		}
-	}
-	return Result{
-		Status:  StatusPass,
-		Message: fmt.Sprintf("%d value(s) are syntactically correct RFC 3986 URIs", len(selected)),
-	}
-}
-
-// rfc3986URIProblem names the first RFC 3986 rule a URI breaks, or returns "".
-func rfc3986URIProblem(raw string) string {
-	if raw == "" {
-		return "is empty"
-	}
-	end, ok := statusURISchemeEnd(raw)
-	if !ok {
-		return "has no RFC 3986 scheme"
-	}
-	if end == len(raw) {
-		return "has an empty hierarchical part"
-	}
-	if statusURIHasIllegalCharacter(raw) {
-		return "contains a character outside the RFC 3986 set"
-	}
-	if !statusURIPercentEncodingValid(raw) {
-		return "contains an invalid percent-encoding"
-	}
-	if strings.Count(raw, "#") > 1 {
-		return "contains more than one fragment delimiter"
-	}
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return "does not parse: " + err.Error()
-	}
-	if parsed.Host == "" && strings.ContainsAny(parsed.Opaque+parsed.Path, "[]") {
-		return "uses [ or ] outside an IP literal host"
-	}
-	return ""
-}
-
 // requestValueRef names a value of the Wallet's requests: the path inside
 // every request ending in `request`.
 type requestValueRef struct {
