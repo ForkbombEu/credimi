@@ -99,25 +99,29 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 			)
 		}
 
-		temporalClient, err := pipelineLiveViewTemporalClient(namespace)
-		if err != nil {
-			return temporalUnavailableError()
-		}
-
 		ctx := e.Request.Context()
 		workflowID := strings.TrimSpace(input.WorkflowID)
 		runID := strings.TrimSpace(input.RunID)
+		// Pipelines run in the organization's namespace, action author
+		// sessions in the namespace they were recorded in (their runner's).
+		workflowNamespace := namespace
 		// Only its starter learns anything of a session, its status included.
 		ownerChecked := isActionAuthorWorkflowID(workflowID)
 		if ownerChecked {
-			if apiErr := requireActionAuthorSessionOwner(
+			recorded, apiErr := requireActionAuthorSessionOwner(
 				e,
 				namespace,
 				workflowID,
 				runID,
-			); apiErr != nil {
+			)
+			if apiErr != nil {
 				return apiErr
 			}
+			workflowNamespace = recorded.Namespace
+		}
+		temporalClient, err := pipelineLiveViewTemporalClient(workflowNamespace)
+		if err != nil {
+			return temporalUnavailableError()
 		}
 		devices, workflowType, apiErr := runningPipelineDevices(
 			ctx,
@@ -133,13 +137,17 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 		runIdentifier := pipeline.RunIdentifier(namespace, workflowID, runID)
 		if workflowType == activities.ActionAuthorSessionWorkflowName {
 			if !ownerChecked {
-				if apiErr := requireActionAuthorSessionOwner(
+				recorded, apiErr := requireActionAuthorSessionOwner(
 					e,
 					namespace,
 					workflowID,
 					runID,
-				); apiErr != nil {
+				)
+				if apiErr != nil {
 					return apiErr
+				}
+				if recorded.Namespace != workflowNamespace {
+					return actionAuthorSessionMissing()
 				}
 			}
 			runIdentifier = workflowID
@@ -160,7 +168,7 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 				deviceID,
 				devices[deviceID],
 				runnerLiveViewRequest{
-					Namespace:     namespace,
+					Namespace:     workflowNamespace,
 					WorkflowID:    workflowID,
 					RunID:         runID,
 					RunIdentifier: runIdentifier,
@@ -186,31 +194,27 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 }
 
 // requireActionAuthorSessionOwner allows the live view of an action author
-// session only to the user who started it.
+// session only to the user who started it for organization (a
+// canonified_name), and returns the recorded session.
 func requireActionAuthorSessionOwner(
 	e *core.RequestEvent,
-	namespace, workflowID, runID string,
-) *apierror.APIError {
+	organization, workflowID, runID string,
+) (actionauthor.RecordedSession, *apierror.APIError) {
 	recorded, err := actionauthor.FindSession(e.App, workflowID)
 	switch {
 	case err != nil && !errors.Is(err, actionauthor.ErrSessionNotRecorded):
-		return apierror.New(
+		return recorded, apierror.New(
 			http.StatusInternalServerError,
 			"action_author",
 			"session_lookup_failed",
 			err.Error(),
 		)
-	case err != nil || recorded.Namespace != namespace ||
+	case err != nil || recorded.Organization != organization ||
 		recorded.RunID != runID || recorded.ActorID != e.Auth.Id:
 		// Another user's session answers as one that does not exist.
-		return apierror.New(
-			http.StatusNotFound,
-			"action_author",
-			"session_not_found",
-			"This authoring session does not exist.",
-		)
+		return recorded, actionAuthorSessionMissing()
 	}
-	return nil
+	return recorded, nil
 }
 
 func runningPipelineDevices(

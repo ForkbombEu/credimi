@@ -24,7 +24,10 @@ import (
 	"go.temporal.io/sdk/temporal"
 )
 
-const reviewAuthorWorkflow = "ActionAuthorSession-ticket-1-author"
+const (
+	reviewSessionWorkflow = "ActionAuthorSession-ticket-1"
+	reviewAuthorWorkflow  = reviewSessionWorkflow + "-author"
+)
 
 var reviewCandidate = strings.Repeat("ab", 32)
 
@@ -38,8 +41,41 @@ type reviewStub struct {
 	session    actionauthor.BuildRequest
 }
 
+// recordReviewSession records the session of reviewAuthorWorkflow in
+// authoringSessionNamespace for organization, started by actor (userA when
+// empty).
+func recordReviewSession(t testing.TB, app core.App, organization, actor string) {
+	t.Helper()
+	if actor == "" {
+		user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+		require.NoError(t, err)
+		actor = user.Id
+	}
+	require.NoError(t, actionauthor.RecordSessionRun(
+		app,
+		authoringSessionNamespace,
+		reviewSessionWorkflow,
+		"session-run",
+		actionauthor.SessionDetails{
+			WalletVersionIdentifier: authoringAndroidVersion,
+			DeviceID:                authoringSessionDevice,
+			ActorID:                 actor,
+			Organization:            organization,
+		},
+	))
+}
+
+// setupActionAuthorReviewApp is the action author fixture with userA's
+// session of reviewAuthorWorkflow recorded for userA's organization.
+func setupActionAuthorReviewApp(t testing.TB) *tests.TestApp {
+	app := setupActionAuthorApp(t)
+	recordReviewSession(t, app, authoringNamespace, "")
+	return app
+}
+
 // stubActionAuthorReview answers the session lookup with an Android session
-// of the handler wallet started by actorID, and the update with updateErr.
+// of the handler wallet started by actorID for userA's organization, and the
+// update with updateErr.
 func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr error) *reviewStub {
 	t.Helper()
 	stub := &reviewStub{session: actionauthor.BuildRequest{
@@ -69,7 +105,11 @@ func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr e
 		require.Equal(t, stub.namespaces[len(stub.namespaces)-1], namespace)
 		require.Equal(t, reviewAuthorWorkflow, authorWorkflowID)
 		require.Empty(t, authorRunID)
-		return activities.ActionAuthorSessionRef{Session: stub.session}, lookupErr
+		return activities.ActionAuthorSessionRef{
+			Namespace:    namespace,
+			Organization: authoringNamespace,
+			Session:      stub.session,
+		}, lookupErr
 	}
 	updateActionAuthorWorkflow = func(
 		_ context.Context,
@@ -84,10 +124,9 @@ func stubActionAuthorReview(t *testing.T, actorID string, lookupErr, updateErr e
 }
 
 // reviewBody reviews the candidate of an onboarding plan.
-func reviewBody(namespace string, accepted bool) string {
+func reviewBody(accepted bool) string {
 	return fmt.Sprintf(
-		`{"namespace":%q,"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":%t,"plan":{"slot":"onboarding"}}`,
-		namespace,
+		`{"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":%t,"plan":{"slot":"onboarding"}}`,
 		reviewAuthorWorkflow,
 		reviewCandidate,
 		accepted,
@@ -102,13 +141,14 @@ func TestActionAuthorReviewSignsAcceptedCandidates(t *testing.T) {
 		Name:            "accepted",
 		Method:          http.MethodPost,
 		URL:             "/api/action-author/reviews",
-		Body:            strings.NewReader(reviewBody(authoringNamespace, true)),
+		Body:            strings.NewReader(reviewBody(true)),
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusOK,
 		ExpectedContent: []string{`"accepted":true`, `"tool_id":"tool-1"`},
-		TestAppFactory:  setupActionAuthorApp,
+		TestAppFactory:  setupActionAuthorReviewApp,
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-			require.Equal(t, []string{authoringNamespace}, stub.namespaces)
+			// The session is looked up in the runner namespace it runs in.
+			require.Equal(t, []string{authoringSessionNamespace}, stub.namespaces)
 			require.Equal(t, reviewAuthorWorkflow, stub.workflowID)
 			require.Equal(t, "tool-1", stub.toolID)
 			require.Equal(t, true, stub.result["accepted"])
@@ -130,11 +170,11 @@ func TestActionAuthorReviewSignsAcceptedCandidates(t *testing.T) {
 		Name:            "refused",
 		Method:          http.MethodPost,
 		URL:             "/api/action-author/reviews",
-		Body:            strings.NewReader(reviewBody(authoringNamespace, false)),
+		Body:            strings.NewReader(reviewBody(false)),
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusOK,
 		ExpectedContent: []string{`"accepted":false`},
-		TestAppFactory:  setupActionAuthorApp,
+		TestAppFactory:  setupActionAuthorReviewApp,
 	}).Test(t)
 	require.Equal(t, map[string]any{"accepted": false, "approval": ""}, stub.result)
 
@@ -143,16 +183,33 @@ func TestActionAuthorReviewSignsAcceptedCandidates(t *testing.T) {
 		Name:            "accepted by a member who is not an owner",
 		Method:          http.MethodPost,
 		URL:             "/api/action-author/reviews",
-		Body:            strings.NewReader(reviewBody(authoringNamespace, true)),
+		Body:            strings.NewReader(reviewBody(true)),
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusOK,
 		ExpectedContent: []string{`"accepted":true`},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
-			app := setupActionAuthorApp(t)
+			app := setupActionAuthorReviewApp(t)
 			demoteToMember(t, app, "userA@example.org")
 			return app
 		},
 	}).Test(t)
+	require.Equal(t, true, stub.result["accepted"])
+
+	// A body that still names a namespace is accepted; the field is ignored.
+	stub = stubActionAuthorReview(t, user.Id, nil, nil)
+	(&tests.ApiScenario{
+		Name:   "body with a namespace",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/reviews",
+		Body: strings.NewReader(
+			strings.Replace(reviewBody(true), "{", `{"namespace":"userb-s-organization",`, 1),
+		),
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+		ExpectedStatus:  http.StatusOK,
+		ExpectedContent: []string{`"accepted":true`},
+		TestAppFactory:  setupActionAuthorReviewApp,
+	}).Test(t)
+	require.Equal(t, []string{authoringSessionNamespace}, stub.namespaces)
 	require.Equal(t, true, stub.result["accepted"])
 }
 
@@ -160,60 +217,77 @@ func TestActionAuthorReviewRejectsOtherUsersAndSettledReviews(t *testing.T) {
 	user, err := getUserRecordFromName("userA")
 	require.NoError(t, err)
 	for _, tc := range []struct {
-		name      string
-		user      string
-		namespace string
-		actorID   string
-		lookupErr error
-		updateErr error
-		status    int
-		expected  []string
-		delivered bool
+		name string
+		user string
+		// organization the session is recorded for, empty for none;
+		// recordedActor its actor, empty for userA.
+		organization  string
+		recordedActor string
+		actorID       string
+		lookupErr     error
+		updateErr     error
+		status        int
+		expected      []string
+		delivered     bool
 	}{
 		{
-			name:      "organization the caller is not a member of",
-			user:      "userB",
-			namespace: authoringNamespace,
-			status:    http.StatusNotFound,
-			expected:  []string{`"session_not_found"`},
+			name:         "member of another organization",
+			user:         "userB",
+			organization: authoringNamespace,
+			status:       http.StatusNotFound,
+			expected:     []string{`"session_not_found"`},
 		},
 		{
-			name:      "unknown namespace",
-			user:      "userA",
-			namespace: "missing-organization",
-			status:    http.StatusNotFound,
-			expected:  []string{`"session_not_found"`},
+			name:     "unrecorded session",
+			user:     "userA",
+			status:   http.StatusNotFound,
+			expected: []string{`"session_not_found"`},
 		},
 		{
-			name:      "not a running session agent",
-			user:      "userA",
-			namespace: authoringNamespace,
-			lookupErr: fmt.Errorf("%w: action author session is not running", actionauthor.ErrForbidden),
-			status:    http.StatusNotFound,
-			expected:  []string{`"session_not_found"`},
+			name:         "session of another organization",
+			user:         "userA",
+			organization: authoringForeignNS,
+			status:       http.StatusNotFound,
+			expected:     []string{`"session_not_found"`},
 		},
 		{
-			name:      "Temporal unavailable",
-			user:      "userA",
-			namespace: authoringNamespace,
-			lookupErr: errors.New("dial failed"),
-			status:    http.StatusServiceUnavailable,
-			expected:  []string{`"temporal_unavailable"`},
+			name:          "session recorded for another user",
+			user:          "userA",
+			organization:  authoringNamespace,
+			recordedActor: "another-user",
+			status:        http.StatusNotFound,
+			expected:      []string{`"session_not_found"`},
 		},
 		{
-			name:      "another user's session",
-			user:      "userA",
-			namespace: authoringNamespace,
-			actorID:   "another-user",
-			status:    http.StatusNotFound,
-			expected:  []string{`"session_not_found"`},
+			name:         "not a running session agent",
+			user:         "userA",
+			organization: authoringNamespace,
+			lookupErr:    fmt.Errorf("%w: action author session is not running", actionauthor.ErrForbidden),
+			status:       http.StatusNotFound,
+			expected:     []string{`"session_not_found"`},
 		},
 		{
-			name:      "settled review",
-			user:      "userA",
-			namespace: authoringNamespace,
-			updateErr: temporal.NewApplicationError("unknown tool id", "ValueError"),
-			status:    http.StatusConflict,
+			name:         "Temporal unavailable",
+			user:         "userA",
+			organization: authoringNamespace,
+			lookupErr:    errors.New("dial failed"),
+			status:       http.StatusServiceUnavailable,
+			expected:     []string{`"temporal_unavailable"`},
+		},
+		{
+			name:         "another user's session",
+			user:         "userA",
+			organization: authoringNamespace,
+			actorID:      "another-user",
+			status:       http.StatusNotFound,
+			expected:     []string{`"session_not_found"`},
+		},
+		{
+			name:         "settled review",
+			user:         "userA",
+			organization: authoringNamespace,
+			updateErr:    temporal.NewApplicationError("unknown tool id", "ValueError"),
+			status:       http.StatusConflict,
 			expected: []string{
 				`"review_not_pending"`,
 				"this save review is no longer pending; reload the chat",
@@ -230,11 +304,17 @@ func TestActionAuthorReviewRejectsOtherUsersAndSettledReviews(t *testing.T) {
 			Name:            tc.name,
 			Method:          http.MethodPost,
 			URL:             "/api/action-author/reviews",
-			Body:            strings.NewReader(reviewBody(tc.namespace, true)),
+			Body:            strings.NewReader(reviewBody(true)),
 			Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, tc.user)},
 			ExpectedStatus:  tc.status,
 			ExpectedContent: tc.expected,
-			TestAppFactory:  setupActionAuthorApp,
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupActionAuthorApp(t)
+				if tc.organization != "" {
+					recordReviewSession(t, app, tc.organization, tc.recordedActor)
+				}
+				return app
+			},
 		}).Test(t)
 		require.Equal(t, tc.delivered, stub.workflowID != "", tc.name)
 	}
@@ -244,12 +324,12 @@ func TestActionAuthorReviewRejectsOtherUsersAndSettledReviews(t *testing.T) {
 		Method: http.MethodPost,
 		URL:    "/api/action-author/reviews",
 		Body: strings.NewReader(
-			`{"namespace":"x","author_workflow_id":"y","tool_id":"z","candidate_sha256":"short","accepted":true}`,
+			`{"author_workflow_id":"y","tool_id":"z","candidate_sha256":"short","accepted":true}`,
 		),
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusBadRequest,
 		ExpectedContent: []string{"CandidateSHA256"},
-		TestAppFactory:  setupActionAuthorApp,
+		TestAppFactory:  setupActionAuthorReviewApp,
 	}).Test(t)
 }
 
@@ -259,8 +339,7 @@ func reviewBodyWithPlan(t *testing.T, plan actionauthor.Spec) string {
 	encoded, err := json.Marshal(plan)
 	require.NoError(t, err)
 	return fmt.Sprintf(
-		`{"namespace":%q,"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":true,"plan":%s}`,
-		authoringNamespace,
+		`{"author_workflow_id":%q,"tool_id":"tool-1","candidate_sha256":%q,"accepted":true,"plan":%s}`,
 		reviewAuthorWorkflow,
 		reviewCandidate,
 		encoded,
@@ -287,7 +366,7 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusOK,
 		ExpectedContent: []string{`"accepted":true`},
-		TestAppFactory:  setupActionAuthorApp,
+		TestAppFactory:  setupActionAuthorReviewApp,
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
 			approvalToken, _ := stub.result["approval"].(string)
 			approval, err := actionauthor.VerifyApproval(
@@ -325,7 +404,7 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 			ExpectedStatus:     http.StatusBadRequest,
 			ExpectedContent:    tc.expected,
 			NotExpectedContent: []string{"not authorized to author actions for this wallet"},
-			TestAppFactory:     setupActionAuthorApp,
+			TestAppFactory:     setupActionAuthorReviewApp,
 		}).Test(t)
 		require.Empty(t, stub.workflowID, tc.name)
 	}
@@ -342,7 +421,7 @@ func TestActionAuthorReviewBindsThePlan(t *testing.T) {
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusOK,
 		ExpectedContent: []string{`"accepted":false`, `"tool_id":"tool-1"`},
-		TestAppFactory:  setupActionAuthorApp,
+		TestAppFactory:  setupActionAuthorReviewApp,
 	}).Test(t)
 	require.Equal(t, reviewAuthorWorkflow, stub.workflowID)
 	require.Equal(t, map[string]any{"accepted": false, "approval": ""}, stub.result)
@@ -354,7 +433,7 @@ func TestActionAuthorReviewBindsTheReplacedCode(t *testing.T) {
 	const code = "appId: eu.wallet\n---\n- launchApp\n"
 	target := path.Dir(authoringAndroidVersion) + "/replaced-onboarding"
 	appWithTarget := func(t testing.TB) *tests.TestApp {
-		app := setupActionAuthorApp(t)
+		app := setupActionAuthorReviewApp(t)
 		wallet, err := app.FindFirstRecordByData(
 			"wallets", "canonified_name", path.Base(path.Dir(authoringAndroidVersion)),
 		)

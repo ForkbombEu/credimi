@@ -51,7 +51,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (submitting || (accepted && !acceptable)) return;
 		submitting = true;
 		const res = await reviewCandidate({
-			namespace: session.namespace,
 			author_workflow_id: session.chat_workflow_id,
 			tool_id: review.tool_id,
 			candidate_sha256: review.candidate_sha256,

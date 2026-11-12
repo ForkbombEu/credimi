@@ -994,8 +994,6 @@ components:
           type: string
         candidate_sha256:
           type: string
-        namespace:
-          type: string
         plan:
           $ref: '#/components/schemas/ActionauthorSpec'
         tool_id:
@@ -1047,8 +1045,6 @@ components:
         live_view:
           type: boolean
         model:
-          type: string
-        namespace:
           type: string
         pending_review:
           $ref: '#/components/schemas/HandlersActionAuthorPendingReview'

@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { MonitorPlayIcon, SquareIcon, XIcon } from '@lucide/svelte';
 	import { beforeNavigate } from '$app/navigation';
-	import { page } from '$app/state';
 	import { Pipeline } from '$lib';
 	import {
 		closeSession,
@@ -274,16 +273,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// authenticates the `pb_auth` cookie and scopes every call to this session's chat.
 	const chatUrl = $derived.by(() => {
 		if (!session) return undefined;
-		const temporalUi = [
-			page.url.origin,
-			'temporal-ui/namespaces',
-			encodeURIComponent(session.namespace),
-			'workflows'
-		].join('/');
 		return (
 			`/action-author-ui/${session.session_id}/` +
-			`?s=${encodeURIComponent(session.chat_workflow_id)}` +
-			`&temporal-ui=${encodeURIComponent(temporalUi)}`
+			`?s=${encodeURIComponent(session.chat_workflow_id)}`
 		);
 	});
 	let loadedChatUrl = $state<string>();

@@ -36,6 +36,8 @@ const (
 	authoringSessionChat   = authoringSessionID + "-author"
 	authoringSessionRun    = "session-run"
 	authoringSessionDevice = authoringAdminRunner + "/android-emulator"
+	// authoringSessionNamespace is the runner namespace sessions run in.
+	authoringSessionNamespace = "runner-xyz"
 )
 
 var authoringSessionStart = time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
@@ -54,20 +56,21 @@ func (v jsonEncodedValue) Get(valuePtr any) error {
 }
 
 // recordAuthoringSession signs and records, as the start activity does, the
-// session authoringSessionID that userA started in namespace on the admin
-// runner's emulator, and returns its history.
+// session authoringSessionID that userA started for organization on the
+// admin runner's emulator, in authoringSessionNamespace, and returns its
+// history.
 func recordAuthoringSession(
 	t testing.TB,
 	app *tests.TestApp,
-	namespace string,
+	organization string,
 ) client.HistoryEventIterator {
 	t.Helper()
 	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 	grant, err := actionauthor.SignSession(app, actionauthor.SessionGrant{
 		SessionWorkflowID:       authoringSessionID,
-		Namespace:               namespace,
-		Organization:            namespace,
+		Namespace:               authoringSessionNamespace,
+		Organization:            organization,
 		DeviceID:                authoringSessionDevice,
 		Platform:                actionauthor.PlatformAndroid,
 		WalletVersionIdentifier: authoringAndroidVersion,
@@ -76,14 +79,14 @@ func recordAuthoringSession(
 	require.NoError(t, err)
 	require.NoError(t, actionauthor.RecordSessionRun(
 		app,
-		namespace,
+		authoringSessionNamespace,
 		authoringSessionID,
 		authoringSessionRun,
 		actionauthor.SessionDetails{
 			WalletVersionIdentifier: authoringAndroidVersion,
 			DeviceID:                authoringSessionDevice,
 			ActorID:                 user.Id,
-			Organization:            namespace,
+			Organization:            organization,
 		},
 	))
 	input, err := temporalcrypto.DataConverter().ToPayloads(workflowengine.WorkflowInput{
@@ -92,8 +95,8 @@ func recordAuthoringSession(
 			"platform":                  actionauthor.PlatformAndroid,
 			"wallet_version_identifier": authoringAndroidVersion,
 			"actor_id":                  user.Id,
-			"namespace":                 namespace,
-			"organization":              namespace,
+			"namespace":                 authoringSessionNamespace,
+			"organization":              organization,
 			"grant":                     grant,
 		},
 	})
@@ -148,8 +151,8 @@ func setAuthoringSessionKey(t testing.TB) {
 	)
 }
 
-// runningAuthoringSession fakes the running session recorded in userA's
-// namespace and its chat in its first turn, with a pending save review.
+// runningAuthoringSession fakes the running session recorded for userA's
+// organization and its chat in its first turn, with a pending save review.
 func runningAuthoringSession(
 	app *tests.TestApp,
 	t testing.TB,
@@ -240,12 +243,12 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 		},
 	}).Test(t)
 
-	require.Equal(t, []string{authoringNamespace}, *namespaces)
+	// The session and its chat are read in the runner namespace it runs in.
+	require.Equal(t, []string{authoringSessionNamespace}, *namespaces)
 	require.Equal(t, ActionAuthorSessionResponse{
 		SessionID:               authoringSessionID,
 		RunID:                   authoringSessionRun,
 		ChatWorkflowID:          authoringSessionChat,
-		Namespace:               authoringNamespace,
 		Status:                  "Running",
 		StartTime:               "2026-01-02T03:04:05Z",
 		WalletVersionIdentifier: authoringAndroidVersion,
@@ -444,23 +447,32 @@ func TestActionAuthorSessionAnswersNotFound(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		sessionID string
-		// namespace the session is recorded in; empty records none.
-		namespace string
+		// organization the session is recorded for; empty records none.
+		organization string
 		// user reading the session; empty is userA, who records it.
 		user string
+		// member makes user a member of userA's organization.
+		member bool
 	}{
 		{name: "malformed id", sessionID: "ActionAuthorSession-ticket"},
 		{name: "unrecorded", sessionID: authoringSessionID},
 		{
-			name:      "recorded in another namespace",
-			sessionID: authoringSessionID,
-			namespace: authoringForeignNS,
+			name:         "recorded for another organization",
+			sessionID:    authoringSessionID,
+			organization: authoringForeignNS,
 		},
 		{
-			name:      "started by another member",
-			sessionID: authoringSessionID,
-			namespace: authoringNamespace,
-			user:      "userB",
+			name:         "started by another member",
+			sessionID:    authoringSessionID,
+			organization: authoringNamespace,
+			user:         "userB",
+			member:       true,
+		},
+		{
+			name:         "read by a member of another organization",
+			sessionID:    authoringSessionID,
+			organization: authoringNamespace,
+			user:         "userB",
 		},
 	} {
 		c := &temporalmocks.Client{}
@@ -478,11 +490,11 @@ func TestActionAuthorSessionAnswersNotFound(t *testing.T) {
 			ExpectedContent: []string{`"reason":"session_not_found"`},
 			TestAppFactory: func(testing.TB) *tests.TestApp {
 				app := setupActionAuthorApp(t)
-				if tc.user != "" {
+				if tc.member {
 					joinAgentRunnerOrganization(t, app, "member")
 				}
-				if tc.namespace != "" {
-					recordAuthoringSession(t, app, tc.namespace)
+				if tc.organization != "" {
+					recordAuthoringSession(t, app, tc.organization)
 				}
 				return app
 			},
@@ -544,13 +556,13 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 			app := setupActionAuthorApp(t)
 			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 			require.NoError(t, err)
-			for _, row := range []struct{ namespace, id, wallet, device, actor string }{
-				{authoringNamespace, "ActionAuthorSession-store", "usera-s-organization/authoring-handler-wallet", authoringSessionDevice, user.Id},
-				{authoringNamespace, "ActionAuthorSession-gone", authoringAndroidVersion, authoringSessionDevice, user.Id},
-				{authoringNamespace, "ActionAuthorSession-version", authoringAndroidVersion, "usera-s-organization/removed-runner/phone", user.Id},
-				{authoringNamespace, "ActionAuthorSession-other-wallet", "usera-s-organization/authoring-handler-wallet2/v1", authoringSessionDevice, user.Id},
-				{authoringNamespace, "ActionAuthorSession-other-actor", authoringAndroidVersion, authoringSessionDevice, "another-user"},
-				{authoringForeignNS, "ActionAuthorSession-other-namespace", authoringAndroidVersion, authoringSessionDevice, user.Id},
+			for _, row := range []struct{ namespace, organization, id, wallet, device, actor string }{
+				{"runner-other", authoringNamespace, "ActionAuthorSession-store", "usera-s-organization/authoring-handler-wallet", authoringSessionDevice, user.Id},
+				{authoringSessionNamespace, authoringNamespace, "ActionAuthorSession-gone", authoringAndroidVersion, authoringSessionDevice, user.Id},
+				{authoringSessionNamespace, authoringNamespace, "ActionAuthorSession-version", authoringAndroidVersion, "usera-s-organization/removed-runner/phone", user.Id},
+				{authoringSessionNamespace, authoringNamespace, "ActionAuthorSession-other-wallet", "usera-s-organization/authoring-handler-wallet2/v1", authoringSessionDevice, user.Id},
+				{authoringSessionNamespace, authoringNamespace, "ActionAuthorSession-other-actor", authoringAndroidVersion, authoringSessionDevice, "another-user"},
+				{authoringSessionNamespace, authoringForeignNS, "ActionAuthorSession-other-organization", authoringAndroidVersion, authoringSessionDevice, user.Id},
 			} {
 				require.NoError(t, actionauthor.RecordSessionRun(
 					app,
@@ -561,7 +573,7 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 						WalletVersionIdentifier: row.wallet,
 						DeviceID:                row.device,
 						ActorID:                 row.actor,
-						Organization:            row.namespace,
+						Organization:            row.organization,
 					},
 				))
 				// Rows of one test share a millisecond: order them by name.
@@ -584,7 +596,12 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 		},
 	}).Test(t)
 
-	require.Equal(t, []string{authoringNamespace}, *namespaces)
+	// Each session is described in the namespace it was recorded in.
+	require.Equal(
+		t,
+		[]string{authoringSessionNamespace, authoringSessionNamespace, "runner-other"},
+		*namespaces,
+	)
 	require.Equal(t, []ActionAuthorSessionListItem{
 		{
 			SessionID:               "ActionAuthorSession-version",
@@ -736,7 +753,7 @@ func TestActionAuthorSessionCloseSignalsTheChatOrCancelsTheSession(t *testing.T)
 
 		require.Len(t, signals, tc.signals, tc.name)
 		for _, s := range signals {
-			require.Equal(t, signal{authoringNamespace, authoringSessionChat}, s, tc.name)
+			require.Equal(t, signal{authoringSessionNamespace, authoringSessionChat}, s, tc.name)
 		}
 		if tc.cancels {
 			c.AssertNumberOfCalls(t, "CancelWorkflow", 1)

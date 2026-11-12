@@ -624,7 +624,7 @@ const (
 	actionAuthorRecentSessions   = 10
 )
 
-// actionAuthorSessionTemporalClient connects to the caller's namespace and is
+// actionAuthorSessionTemporalClient connects to a session's namespace and is
 // stubbed in unit tests.
 var actionAuthorSessionTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
@@ -635,7 +635,6 @@ type ActionAuthorSessionResponse struct {
 	SessionID      string `json:"session_id"`
 	RunID          string `json:"run_id"`
 	ChatWorkflowID string `json:"chat_workflow_id"`
-	Namespace      string `json:"namespace"`
 	// Status is the Temporal status of the session, for example Running.
 	Status string `json:"status"`
 	// StartTime and CloseTime are RFC 3339; CloseTime is empty while the session runs.
@@ -707,8 +706,8 @@ func actionAuthorSessionMissing() *apierror.APIError {
 	)
 }
 
-// actionAuthorCallerNamespace is the namespace of the authenticated
-// organization member.
+// actionAuthorCallerNamespace is the organization canonified_name of the
+// authenticated organization member.
 func actionAuthorCallerNamespace(e *core.RequestEvent) (string, *apierror.APIError) {
 	if e.Auth == nil {
 		return "", authoringAPIError(e, actionauthor.ErrForbidden)
@@ -769,7 +768,7 @@ func readCallerActionAuthorSession(
 	return c, info, nil
 }
 
-// HandleActionAuthorSession reads a session of the caller's namespace and,
+// HandleActionAuthorSession reads a session the caller started and,
 // while it runs, the state of its agent chat.
 func HandleActionAuthorSession() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -782,7 +781,6 @@ func HandleActionAuthorSession() func(*core.RequestEvent) error {
 			SessionID:               info.SessionWorkflowID,
 			RunID:                   info.SessionRunID,
 			ChatWorkflowID:          info.SessionWorkflowID + activities.ActionAuthorWorkflowIDSuffix,
-			Namespace:               info.Namespace,
 			Status:                  info.Status.String(),
 			StartTime:               info.StartTime.UTC().Format(time.RFC3339),
 			WalletVersionIdentifier: info.Session.WalletVersionIdentifier,
@@ -924,10 +922,11 @@ func queryActionAuthorChat(
 }
 
 // HandleActionAuthorSessions lists the latest sessions of a wallet that the
-// caller started in their namespace.
+// caller started for their organization, each described in the namespace it
+// runs in.
 func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		namespace, apiErr := actionAuthorCallerNamespace(e)
+		organization, apiErr := actionAuthorCallerNamespace(e)
 		if apiErr != nil {
 			return apiErr
 		}
@@ -940,7 +939,7 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 		}
 		recorded, err := actionauthor.RecentWalletSessions(
 			e.App,
-			namespace,
+			organization,
 			wallet,
 			e.Auth.Id,
 			actionAuthorRecentSessions,
@@ -949,14 +948,11 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 			return authoringAPIError(e, err)
 		}
 		response := ActionAuthorSessionsResponse{Sessions: []ActionAuthorSessionListItem{}}
-		if len(recorded) == 0 {
-			return e.JSON(http.StatusOK, response)
-		}
-		c, err := actionAuthorSessionTemporalClient(namespace)
-		if err != nil {
-			return temporalUnavailableError()
-		}
 		for _, session := range recorded {
+			c, err := actionAuthorSessionTemporalClient(session.Namespace)
+			if err != nil {
+				return temporalUnavailableError()
+			}
 			described, err := c.DescribeWorkflowExecution(
 				e.Request.Context(),
 				session.WorkflowID,

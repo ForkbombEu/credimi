@@ -57,7 +57,6 @@ export type Session = {
 	session_id: string;
 	run_id: string;
 	chat_workflow_id: string;
-	namespace: string;
 	status: WorkflowStatus;
 	start_time: string;
 	close_time?: string;
@@ -91,7 +90,6 @@ export type StartedSession = { session_id: string; ticket_id: string; device_id:
 export type ApiFailure = { status: number; reason: string; message: string };
 
 export type ReviewDecision = {
-	namespace: string;
 	author_workflow_id: string;
 	tool_id: string;
 	candidate_sha256: string;

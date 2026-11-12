@@ -80,6 +80,19 @@ func stubLiveViewTemporalOfType(
 	devices map[string]any,
 ) {
 	t.Helper()
+	stubLiveViewWorkflow(t, "pipeline-1", workflowType, status, devices)
+}
+
+// stubLiveViewWorkflow answers the run run-1 of workflowID and returns the
+// namespaces of the clients the handler asked for.
+func stubLiveViewWorkflow(
+	t *testing.T,
+	workflowID string,
+	workflowType string,
+	status enums.WorkflowExecutionStatus,
+	devices map[string]any,
+) *[]string {
+	t.Helper()
 
 	description := pipelineMobileFlowDescription(t, status, []string{"tenant/runner-1"})
 	description.WorkflowExecutionInfo.Type.Name = workflowType
@@ -87,24 +100,27 @@ func stubLiveViewTemporalOfType(
 	mockClient.On(
 		"DescribeWorkflowExecution",
 		mock.Anything,
-		"pipeline-1",
+		workflowID,
 		"run-1",
 	).Return(description, nil).Once()
 	if status == enums.WORKFLOW_EXECUTION_STATUS_RUNNING {
 		mockClient.On(
 			"QueryWorkflow",
 			mock.Anything,
-			"pipeline-1",
+			workflowID,
 			"run-1",
 			pipeline.PipelineMobileDevicesQuery,
 		).Return(converter.EncodedValue(pipelineMobileFlowEncodedValue{devices: devices}), nil).Once()
 	}
 
+	namespaces := []string{}
 	original := pipelineLiveViewTemporalClient
 	t.Cleanup(func() { pipelineLiveViewTemporalClient = original })
-	pipelineLiveViewTemporalClient = func(string) (client.Client, error) {
+	pipelineLiveViewTemporalClient = func(namespace string) (client.Client, error) {
+		namespaces = append(namespaces, namespace)
 		return mockClient, nil
 	}
+	return &namespaces
 }
 
 func servePipelineLiveView(
@@ -224,21 +240,28 @@ func TestPipelineLiveViewOpensAndroidDevice(t *testing.T) {
 }
 
 // An action author session prepares its device with its workflow ID as the
-// run identifier, so the runner must look the live view up by it.
+// run identifier, so the runner must look the live view up by it, in the
+// runner namespace the session runs in.
 func TestPipelineLiveViewOpensActionAuthorSessionDevice(t *testing.T) {
+	const sessionID = activities.ActionAuthorSessionWorkflowIDPrefix + "ticket"
 	t.Setenv(mobilerunner.CredentialSecretEnvVar, "runner-credential-secret")
 	app, authRecord, namespace := pipelineLiveViewTestApp(t)
 	server, calls := newLiveViewRunner(t, http.StatusOK, map[string]any{"path": "/live/tok"})
 	deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
 	require.NoError(t, actionauthor.RecordSessionRun(
 		app,
-		namespace,
-		"pipeline-1",
+		"runner-xyz",
+		sessionID,
 		"run-1",
-		actionauthor.SessionDetails{DeviceID: deviceID, ActorID: authRecord.Id},
+		actionauthor.SessionDetails{
+			DeviceID:     deviceID,
+			ActorID:      authRecord.Id,
+			Organization: namespace,
+		},
 	))
-	stubLiveViewTemporalOfType(
+	namespaces := stubLiveViewWorkflow(
 		t,
+		sessionID,
 		activities.ActionAuthorSessionWorkflowName,
 		enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
 		map[string]any{
@@ -247,19 +270,20 @@ func TestPipelineLiveViewOpensActionAuthorSessionDevice(t *testing.T) {
 	)
 
 	rec := servePipelineLiveView(t, app, authRecord, PipelineLiveViewInput{
-		WorkflowID: "pipeline-1",
+		WorkflowID: sessionID,
 		RunID:      "run-1",
 	})
 
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Equal(t, []string{"runner-xyz"}, *namespaces)
 	require.Len(t, *calls, 1)
 	require.Equal(t, map[string]any{
 		"device_identifier": deviceID,
 		"serial":            "emulator-5554",
-		"namespace":         namespace,
-		"workflow_id":       "pipeline-1",
+		"namespace":         "runner-xyz",
+		"workflow_id":       sessionID,
 		"run_id":            "run-1",
-		"run_identifier":    "pipeline-1",
+		"run_identifier":    sessionID,
 	}, (*calls)[0].body)
 }
 
@@ -271,10 +295,30 @@ func TestPipelineLiveViewRefusesActionAuthorSessionsOfOthers(t *testing.T) {
 		record bool
 		runID  string
 		member bool
-		code   int
-		reason string
+		// organization and namespace override the recorded ones, the
+		// caller's organization and its namespace.
+		organization string
+		namespace    string
+		code         int
+		reason       string
 	}{
 		{name: "unrecorded", code: http.StatusNotFound, reason: "session_not_found"},
+		{
+			name:         "recorded for another organization",
+			record:       true,
+			runID:        "run-1",
+			organization: "other-organization",
+			code:         http.StatusNotFound,
+			reason:       "session_not_found",
+		},
+		{
+			name:      "recorded in another namespace",
+			record:    true,
+			runID:     "run-1",
+			namespace: "runner-xyz",
+			code:      http.StatusNotFound,
+			reason:    "session_not_found",
+		},
 		{
 			name:   "another run",
 			record: true,
@@ -301,12 +345,23 @@ func TestPipelineLiveViewRefusesActionAuthorSessionsOfOthers(t *testing.T) {
 			)
 			deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
 			if tc.record {
+				organization, recordedNamespace := namespace, namespace
+				if tc.organization != "" {
+					organization = tc.organization
+				}
+				if tc.namespace != "" {
+					recordedNamespace = tc.namespace
+				}
 				require.NoError(t, actionauthor.RecordSessionRun(
 					app,
-					namespace,
+					recordedNamespace,
 					"pipeline-1",
 					tc.runID,
-					actionauthor.SessionDetails{DeviceID: deviceID, ActorID: authRecord.Id},
+					actionauthor.SessionDetails{
+						DeviceID:     deviceID,
+						ActorID:      authRecord.Id,
+						Organization: organization,
+					},
 				))
 			}
 			caller := authRecord
@@ -342,9 +397,18 @@ func TestPipelineLiveViewChecksTheSessionOwnerBeforeItsStatus(t *testing.T) {
 		name   string
 		status enums.WorkflowExecutionStatus
 		member bool
-		code   int
-		reason string
+		// organization overrides the recorded one, the caller's.
+		organization string
+		code         int
+		reason       string
 	}{
+		{
+			name:         "another organization, running",
+			status:       enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			organization: "other-organization",
+			code:         http.StatusNotFound,
+			reason:       "session_not_found",
+		},
 		{
 			name:   "another member, closed",
 			status: enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
@@ -375,12 +439,20 @@ func TestPipelineLiveViewChecksTheSessionOwnerBeforeItsStatus(t *testing.T) {
 				map[string]any{"path": "/live/tok"},
 			)
 			deviceID, _ := createLiveViewDevice(t, app, authRecord, server.URL, true)
+			organization := namespace
+			if tc.organization != "" {
+				organization = tc.organization
+			}
 			require.NoError(t, actionauthor.RecordSessionRun(
 				app,
-				namespace,
+				"runner-xyz",
 				sessionID,
 				"run-1",
-				actionauthor.SessionDetails{DeviceID: deviceID, ActorID: authRecord.Id},
+				actionauthor.SessionDetails{
+					DeviceID:     deviceID,
+					ActorID:      authRecord.Id,
+					Organization: organization,
+				},
 			))
 			caller := authRecord
 			if tc.member {
@@ -406,7 +478,7 @@ func TestPipelineLiveViewChecksTheSessionOwnerBeforeItsStatus(t *testing.T) {
 			require.Equal(t, tc.code, rec.Code, rec.Body.String())
 			require.Contains(t, rec.Body.String(), tc.reason)
 			require.Empty(t, *calls)
-			if tc.member {
+			if tc.code == http.StatusNotFound {
 				mockClient.AssertNotCalled(
 					t,
 					"DescribeWorkflowExecution",

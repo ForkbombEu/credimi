@@ -7,6 +7,9 @@
 /* Credimi starts and lists sessions and shows the save review on its session page. */
 button.session-new, button.start-new, section.session-manager, [aria-label="Response: confirm_wallet_action_save"] { display: none !important; }
 
+/* Sessions run in runner namespaces, which the Temporal UI does not open for users. */
+a.session-temporal { display: none !important; }
+
 /* Credimi's light theme over the harness's dark-only one. */
 :root {
   color-scheme: light;

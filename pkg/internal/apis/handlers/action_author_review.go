@@ -6,9 +6,9 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
@@ -28,7 +28,6 @@ const actionAuthorReviewUpdate = "provide_callback_result"
 
 // ActionAuthorReviewRequest is a human decision on a pending save review.
 type ActionAuthorReviewRequest struct {
-	Namespace        string `json:"namespace"          validate:"required"`
 	AuthorWorkflowID string `json:"author_workflow_id" validate:"required"`
 	ToolID           string `json:"tool_id"            validate:"required"`
 	CandidateSHA256  string `json:"candidate_sha256"   validate:"required,len=64,hexadecimal"`
@@ -83,12 +82,13 @@ func actionAuthorSessionNotFound() *apierror.APIError {
 }
 
 // actionAuthorCallerSession authorizes the caller for the running session of
-// an agent workflow: the caller must be a member of the namespace's
-// organization and the user who started the session (404 session_not_found
-// otherwise).
+// an agent workflow: the session must be recorded for the caller's
+// organization and started by the caller (404 session_not_found otherwise).
+// It looks the session up in the namespace it runs in and returns that
+// namespace's client.
 func actionAuthorCallerSession(
 	e *core.RequestEvent,
-	namespace, authorWorkflowID string,
+	authorWorkflowID string,
 ) (client.Client, activities.ActionAuthorSessionRef, actionauthor.Actor, error) {
 	var ref activities.ActionAuthorSessionRef
 	if e.Auth == nil {
@@ -98,22 +98,22 @@ func actionAuthorCallerSession(
 		return nil, ref, actionauthor.Actor{}, apiErr
 	}
 	actor := authoringActor(e.Auth)
-	organization, err := e.App.FindFirstRecordByData(
-		"organizations",
-		"canonified_name",
-		namespace,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
+	organization, err := pbutils.GetUserOrganizationCanonifiedName(e.App, actor.ActorID)
+	if err != nil {
+		return nil, ref, actor, actionAuthorSessionNotFound()
+	}
+	sessionID := strings.TrimSuffix(authorWorkflowID, activities.ActionAuthorWorkflowIDSuffix)
+	recorded, err := actionauthor.FindSession(e.App, sessionID)
+	if errors.Is(err, actionauthor.ErrSessionNotRecorded) {
 		return nil, ref, actor, actionAuthorSessionNotFound()
 	}
 	if err != nil {
 		return nil, ref, actor, authoringAPIError(e, err)
 	}
-	orgID, err := pbutils.GetUserOrganizationID(e.App, actor.ActorID)
-	if err != nil || orgID != organization.Id {
+	if recorded.Organization != organization || recorded.ActorID != actor.ActorID {
 		return nil, ref, actor, actionAuthorSessionNotFound()
 	}
-	c, err := queueTemporalClient(namespace)
+	c, err := queueTemporalClient(recorded.Namespace)
 	if err != nil {
 		return nil, ref, actor, temporalUnavailableError()
 	}
@@ -121,7 +121,7 @@ func actionAuthorCallerSession(
 		e.Request.Context(),
 		e.App,
 		c,
-		namespace,
+		recorded.Namespace,
 		authorWorkflowID,
 		"",
 	)
@@ -147,11 +147,7 @@ func HandleActionAuthorReview() func(*core.RequestEvent) error {
 		if err != nil {
 			return authoringAPIError(e, actionauthor.ErrInvalid)
 		}
-		c, ref, actor, err := actionAuthorCallerSession(
-			e,
-			input.Namespace,
-			input.AuthorWorkflowID,
-		)
+		c, ref, actor, err := actionAuthorCallerSession(e, input.AuthorWorkflowID)
 		if err != nil {
 			return err
 		}
@@ -159,7 +155,7 @@ func HandleActionAuthorReview() func(*core.RequestEvent) error {
 		// candidate with a missing or invalid plan must still reach the agent.
 		result := map[string]any{"accepted": false, "approval": ""}
 		if *input.Accepted {
-			selection, err := actionauthor.Select(e.App, input.Namespace, ref.Session)
+			selection, err := actionauthor.Select(e.App, ref.Organization, ref.Session)
 			if err != nil {
 				return authoringAPIError(e, err)
 			}
