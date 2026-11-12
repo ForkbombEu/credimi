@@ -133,6 +133,30 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 			variant,
 		)
 	}
+	trustedAuthoritiesPrefix := "dcql-trusted-authorities-type-non-st-4e26a188-"
+	for _, variant := range []string{"null", "true", "false", "zero", "number", "array", "object"} {
+		exercise := stepsByID[trustedAuthoritiesPrefix+"exercise-"+variant]
+		exerciseWith, _ := exercise["with"].(map[string]any)
+		actions, ok := exerciseWith["actions"].([]any)
+		require.True(t, ok, "exercise-%s must compose wallet actions", variant)
+		require.NotEmpty(t, actions, "exercise-%s must run the strict rejection action", variant)
+		action, ok := actions[len(actions)-1].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, walletActionNamespace+"fcaf-expect-request-rejected", action["id"])
+		parameters, _ := action["parameters"].(map[string]any)
+		require.Equal(
+			t,
+			"${{ "+trustedAuthoritiesPrefix+"create-"+variant+".outputs.body.deeplink }}",
+			parameters["deeplink"],
+		)
+		require.NotContains(
+			t,
+			stepsByID[trustedAuthoritiesPrefix+"fetch-"+variant],
+			"linked_to",
+			"fetch-%s must run after a failed rejection action",
+			variant,
+		)
+	}
 	require.Equal(
 		t,
 		"dcql-credentials-match-cc301c32-create-pid-sdjwt-offer",
