@@ -73,6 +73,19 @@ func TestMobileRunnersUpdateRuleGuardsPrivilegedFields(t *testing.T) {
 			wantCode: http.StatusNotFound,
 		},
 		{
+			// agent_settings_from is hidden: PocketBase drops it from a
+			// non-superuser body before the rule runs.
+			name:     "org owner cannot set the action author settings identity",
+			body:     `{"agent_settings_from":"x"}`,
+			wantCode: http.StatusOK,
+			want:     map[string]any{"agent_settings_from": ""},
+		},
+		{
+			name:     "org owner cannot enable the action author",
+			body:     `{"agent_enabled":true}`,
+			wantCode: http.StatusNotFound,
+		},
+		{
 			name:     "non-member cannot self-grant admin_managed",
 			actor:    actorNonMember,
 			body:     `{"admin_managed":true,"published":true}`,
@@ -175,6 +188,29 @@ func TestMobileRunnersCreateRuleGuardsPrivilegedFields(t *testing.T) {
 			require.Equal(t, tc.wantCode, rec.Code, rec.Body.String())
 			assertCreatedCount(t, app, "mobile_runners", "created-runner", tc.wantCode)
 		})
+	}
+}
+
+// TestMobileRunnersRulesGuardEveryAgentField checks the rules after
+// 1792110000, which restores the agent guards that 1792000000 drops when it
+// runs after 1792060000 and 1792070000.
+func TestMobileRunnersRulesGuardEveryAgentField(t *testing.T) {
+	app := newRulesTestApp(t)
+	runners, err := app.FindCollectionByNameOrId("mobile_runners")
+	require.NoError(t, err)
+	require.NotNil(t, runners.CreateRule)
+	require.NotNil(t, runners.UpdateRule)
+	for _, field := range []string{
+		"agent_own_daily_tokens",
+		"agent_others_daily_tokens",
+		"agent_provider",
+		"agent_model",
+		"agent_settings_from",
+		"agent_enabled",
+	} {
+		guard := "@request.body." + field + ":isset = false"
+		assert.Contains(t, *runners.CreateRule, guard)
+		assert.Contains(t, *runners.UpdateRule, guard)
 	}
 }
 

@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -220,6 +221,26 @@ func TestHeartbeatStoresActionAuthorSettingsAndReportsUsage(t *testing.T) {
 	require.Zero(t, runner.GetInt("agent_others_daily_tokens"))
 	require.Empty(t, runner.GetString("agent_provider"))
 	require.Empty(t, runner.GetString("agent_model"))
+}
+
+func TestHeartbeatStoresActionAuthorEnabled(t *testing.T) {
+	app := setupMobileRunnerApp(t)
+	defer app.Cleanup()
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	registerAgentRunner(t, app, user, true, nil)
+	now := time.Date(2026, 11, 5, 9, 0, 0, 0, time.UTC)
+
+	heartbeatAgentRunner(t, app, now, &RunnerActionAuthorSettings{Enabled: true, Model: "m"})
+	require.True(t, agentRunnerRecord(t, app).GetBool("agent_enabled"))
+
+	// Old runners omit enabled: their agent is off.
+	var settings RunnerActionAuthorSettings
+	require.NoError(t, json.Unmarshal([]byte(`{"own_daily_tokens":1,"model":"m"}`), &settings))
+	heartbeatAgentRunner(t, app, now, &settings)
+	runner := agentRunnerRecord(t, app)
+	require.False(t, runner.GetBool("agent_enabled"))
+	require.Equal(t, 1, runner.GetInt("agent_own_daily_tokens"))
 }
 
 func TestLifecycleRejectsNegativeActionAuthorLimits(t *testing.T) {

@@ -15,9 +15,11 @@ import (
 )
 
 // RunnerActionAuthorSettings are the action author settings a runner reports
-// with registration and every heartbeat: its two daily token limits (0 own:
-// no limit; 0 others: not offered to other organizations) and its model.
+// with registration and every heartbeat: whether its agent is enabled (old
+// runners omit it: disabled), its two daily token limits (0 own: no limit;
+// 0 others: not offered to other organizations) and its model.
 type RunnerActionAuthorSettings struct {
+	Enabled           bool   `json:"enabled"`
 	OwnDailyTokens    int    `json:"own_daily_tokens"    validate:"min=0"`
 	OthersDailyTokens int    `json:"others_daily_tokens" validate:"min=0"`
 	Provider          string `json:"provider"`
@@ -38,6 +40,7 @@ func setRunnerActionAuthorSettings(record *core.Record, s *RunnerActionAuthorSet
 	if s == nil {
 		return
 	}
+	record.Set("agent_enabled", s.Enabled)
 	record.Set("agent_own_daily_tokens", s.OwnDailyTokens)
 	record.Set("agent_others_daily_tokens", s.OthersDailyTokens)
 	record.Set("agent_provider", s.Provider)
