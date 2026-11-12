@@ -25,12 +25,23 @@ func (f registrationFixture) requestTemporalToken(
 ) (*core.RequestEvent, error) {
 	t.Helper()
 
+	return f.requestScopedTemporalToken(t, auth, runnerID, "")
+}
+
+func (f registrationFixture) requestScopedTemporalToken(
+	t *testing.T,
+	auth *core.Record,
+	runnerID string,
+	scope string,
+) (*core.RequestEvent, error) {
+	t.Helper()
+
 	event := performMobileRunnerRequest(
 		t,
 		f.app,
 		auth,
 		"/api/mobile-runner/temporal-token",
-		MobileRunnerTemporalTokenRequest{RunnerID: runnerID},
+		MobileRunnerTemporalTokenRequest{RunnerID: runnerID, Scope: scope},
 	)
 	return event, HandleMobileRunnerTemporalToken()(event)
 }
@@ -234,4 +245,60 @@ func TestHandleMobileRunnerTemporalTokenReservedNamespace(t *testing.T) {
 		"organizations",
 		"organization_namespace_reserved",
 	)
+}
+
+func TestHandleMobileRunnerTemporalTokenAgentScope(t *testing.T) {
+	t.Run("agent scope grants only the agent namespace", func(t *testing.T) {
+		f := setupRegistrationFixture(t)
+		f.setRunnerField(t, "published", true)
+		f.setRunnerField(t, "agent_enabled", true)
+		record, err := canonify.Resolve(f.app, "/"+tokenTestRunnerID)
+		require.NoError(t, err)
+
+		event, err := f.requestScopedTemporalToken(
+			t,
+			f.user,
+			tokenTestRunnerID,
+			MobileRunnerTemporalTokenScopeAgent,
+		)
+		require.NoError(t, err)
+		sub, permissions := tokenClaims(t, event)
+		assert.Equal(t, "mobile-runner-agent:"+tokenTestRunnerID, sub)
+		assert.Equal(t, []string{"runner-" + record.Id + ":write"}, permissions)
+	})
+
+	t.Run("agent scope needs an enabled agent", func(t *testing.T) {
+		f := setupRegistrationFixture(t)
+		f.setRunnerField(t, "agent_enabled", false)
+
+		_, err := f.requestScopedTemporalToken(
+			t,
+			f.user,
+			tokenTestRunnerID,
+			MobileRunnerTemporalTokenScopeAgent,
+		)
+		requireRegistrationAPIError(t, err, http.StatusForbidden, "scope", "agent_not_enabled")
+	})
+
+	t.Run("agent scope keeps the runner checks", func(t *testing.T) {
+		f := setupRegistrationFixture(t)
+		f.setRunnerField(t, "agent_enabled", true)
+		f.setRunnerField(t, "disabled", true)
+
+		_, err := f.requestScopedTemporalToken(
+			t,
+			f.user,
+			tokenTestRunnerID,
+			MobileRunnerTemporalTokenScopeAgent,
+		)
+		requireRegistrationAPIError(t, err, http.StatusForbidden, "runner_id", "runner_disabled")
+	})
+
+	t.Run("unknown scope is rejected", func(t *testing.T) {
+		f := setupRegistrationFixture(t)
+		f.setRunnerField(t, "agent_enabled", true)
+
+		_, err := f.requestScopedTemporalToken(t, f.user, tokenTestRunnerID, "runner")
+		requireRegistrationAPIError(t, err, http.StatusBadRequest, "scope", "invalid_request")
+	})
 }
