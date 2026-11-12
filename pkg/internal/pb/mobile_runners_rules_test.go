@@ -163,6 +163,12 @@ func TestMobileRunnersCreateRuleGuardsPrivilegedFields(t *testing.T) {
 			extra: `"agent_others_daily_tokens":1`,
 		},
 		{name: "org owner cannot create a published runner", extra: `"published":true`},
+		{
+			// The agent namespace is runner-<id>: a chosen id could claim a
+			// deleted runner's namespace.
+			name:  "org owner cannot choose the runner record id",
+			extra: `"id":"chosenrunnerid1"`,
+		},
 		{name: "org owner can create an ordinary runner", wantCode: http.StatusOK},
 	}
 
