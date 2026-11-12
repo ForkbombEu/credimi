@@ -21,6 +21,10 @@ import (
 	"go.temporal.io/api/serviceerror"
 )
 
+// testRunnerNamespace is the agent namespace of the runner of the
+// action author tickets' device.
+const testRunnerNamespace = "runner-xyz"
+
 func actionAuthorTicketInput() StartQueuedPipelineActivityInput {
 	return StartQueuedPipelineActivityInput{
 		TicketID:          "ticket-author",
@@ -29,8 +33,10 @@ func actionAuthorTicketInput() StartQueuedPipelineActivityInput {
 		LeaderDeviceID:    "tenant/runner-1/device-1",
 		RunKind:           mobiledevicesemaphore.RunKindActionAuthor,
 		ActionAuthor: map[string]any{
-			"device_id": "tenant/runner-1/device-1",
-			"platform":  "android",
+			"device_id":    "tenant/runner-1/device-1",
+			"platform":     "android",
+			"namespace":    testRunnerNamespace,
+			"organization": testOrgANamespace,
 		},
 	}
 }
@@ -46,7 +52,7 @@ func signActionAuthorTicket(
 	start, err := workflowengine.DecodePayload[sessionStart](payload.ActionAuthor)
 	require.NoError(t, err)
 	token, err := actionauthor.SignTicket(app, start.grant(
-		payload.OwnerNamespace,
+		start.Namespace,
 		ActionAuthorSessionWorkflowIDPrefix+payload.TicketID,
 	))
 	require.NoError(t, err)
@@ -68,6 +74,8 @@ func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, ActionAuthorSessionWorkflowName, captured.lastWorkflow)
+	// The session runs in the runner's agent namespace.
+	require.Equal(t, []string{testRunnerNamespace}, captured.namespaces)
 	require.Equal(t, "ActionAuthorSession-ticket-author", captured.lastOptions.ID)
 	require.Equal(t, pipelineTaskQueue, captured.lastOptions.TaskQueue)
 	require.Equal(t, 3*time.Hour, captured.lastOptions.WorkflowExecutionTimeout)
@@ -89,7 +97,8 @@ func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 	grant, _ := started["grant"].(string)
 	require.NoError(t, actionauthor.VerifySession(act.app, grant, actionauthor.SessionGrant{
 		SessionWorkflowID: "ActionAuthorSession-ticket-author",
-		Namespace:         testOrgANamespace,
+		Namespace:         testRunnerNamespace,
+		Organization:      testOrgANamespace,
 		DeviceID:          "tenant/runner-1/device-1",
 		Platform:          "android",
 	}))
@@ -109,12 +118,12 @@ func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 	require.Equal(t, StartQueuedPipelineActivityOutput{
 		WorkflowID:        "ActionAuthorSession-ticket-author",
 		RunID:             "run-author",
-		WorkflowNamespace: testOrgANamespace,
+		WorkflowNamespace: testRunnerNamespace,
 	}, result.Output)
 	recorded, err := actionauthor.FindSession(act.app, "ActionAuthorSession-ticket-author")
 	require.NoError(t, err)
 	require.Equal(t, "run-author", recorded.RunID)
-	require.Equal(t, testOrgANamespace, recorded.Namespace)
+	require.Equal(t, testRunnerNamespace, recorded.Namespace)
 	require.Equal(t, testOrgANamespace, recorded.Organization)
 	records, err := act.app.FindAllRecords(
 		"pipeline_results",
@@ -130,7 +139,7 @@ func TestStartQueuedPipelineActivityReusesClosedActionAuthorSession(t *testing.T
 	captured.describeRun = "run-closed"
 	require.NoError(t, actionauthor.RecordSessionRun(
 		act.app,
-		testOrgANamespace,
+		testRunnerNamespace,
 		"ActionAuthorSession-ticket-author",
 		"run-closed",
 		actionauthor.SessionDetails{},
@@ -159,7 +168,7 @@ func TestStartQueuedPipelineActivityRefusesAnotherActionAuthorSessionRun(t *test
 	)
 	require.NoError(t, actionauthor.RecordSessionRun(
 		act.app,
-		testOrgANamespace,
+		testRunnerNamespace,
 		"ActionAuthorSession-ticket-author",
 		"run-first",
 		actionauthor.SessionDetails{},
@@ -185,6 +194,7 @@ func TestActionAuthorSessionStartedBeforeCredimiIsRefused(t *testing.T) {
 	payload := actionAuthorTicketInput()
 	payload.TicketID = "ticket-1"
 	payload.OwnerNamespace = authorTestNamespace
+	payload.ActionAuthor["organization"] = authorTestNamespace
 	signActionAuthorTicket(t, act.app, &payload)
 
 	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{Payload: payload})
@@ -208,7 +218,7 @@ func TestActionAuthorSessionStartedBeforeCredimiIsRefused(t *testing.T) {
 		t.Context(),
 		act.app,
 		lookup.client(),
-		authorTestNamespace,
+		testRunnerNamespace,
 		authorTestSessionID,
 		authorTestParentRun,
 	)
@@ -239,7 +249,16 @@ func TestStartQueuedPipelineActivityRefusesUnsignedActionAuthorTickets(t *testin
 			p *StartQueuedPipelineActivityInput,
 		) {
 			signActionAuthorTicket(t, app, p)
+			p.ActionAuthor["namespace"] = "runner-other"
+		},
+		"ticket grant of another organization": func(
+			t *testing.T,
+			app core.App,
+			p *StartQueuedPipelineActivityInput,
+		) {
+			signActionAuthorTicket(t, app, p)
 			p.OwnerNamespace = "userb-s-organization"
+			p.ActionAuthor["organization"] = "userb-s-organization"
 		},
 		"session grant instead of a ticket grant": func(
 			t *testing.T,
@@ -249,7 +268,7 @@ func TestStartQueuedPipelineActivityRefusesUnsignedActionAuthorTickets(t *testin
 			start, err := workflowengine.DecodePayload[sessionStart](p.ActionAuthor)
 			require.NoError(t, err)
 			token, err := actionauthor.SignSession(app, start.grant(
-				p.OwnerNamespace,
+				start.Namespace,
 				ActionAuthorSessionWorkflowIDPrefix+p.TicketID,
 			))
 			require.NoError(t, err)
@@ -272,6 +291,51 @@ func TestStartQueuedPipelineActivityRefusesUnsignedActionAuthorTickets(t *testin
 
 			requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 			require.ErrorContains(t, err, "action author ticket was not enqueued by Credimi")
+			require.Nil(t, captured.lastWorkflow)
+			_, err = actionauthor.FindSession(act.app, "ActionAuthorSession-ticket-author")
+			require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)
+		})
+	}
+}
+
+// A ticket starts a session only in a runner namespace and only for the
+// organization that owns the ticket, even when Credimi signed it.
+func TestStartQueuedPipelineActivityRefusesActionAuthorTicketScope(t *testing.T) {
+	for name, tc := range map[string]struct {
+		namespace    string
+		organization string
+		message      string
+	}{
+		"organization namespace": {
+			namespace:    testOrgANamespace,
+			organization: testOrgANamespace,
+			message:      `namespace "usera-s-organization" is not a runner namespace`,
+		},
+		"organization other than the ticket owner": {
+			namespace:    testRunnerNamespace,
+			organization: "userb-s-organization",
+			message: `organization "userb-s-organization" is not the ticket owner ` +
+				`"usera-s-organization"`,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			act, captured := newCapturingQueuedPipelineActivity(
+				t,
+				"ActionAuthorSession-ticket-author",
+				"run-author",
+			)
+			payload := actionAuthorTicketInput()
+			payload.ActionAuthor["namespace"] = tc.namespace
+			payload.ActionAuthor["organization"] = tc.organization
+			signActionAuthorTicket(t, act.app, &payload)
+
+			_, err := act.Execute(
+				context.Background(),
+				workflowengine.ActivityInput{Payload: payload},
+			)
+
+			requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
+			require.ErrorContains(t, err, tc.message)
 			require.Nil(t, captured.lastWorkflow)
 			_, err = actionauthor.FindSession(act.app, "ActionAuthorSession-ticket-author")
 			require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)

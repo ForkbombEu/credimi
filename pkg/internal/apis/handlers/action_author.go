@@ -192,7 +192,7 @@ type ActionAuthorDevicesResponse struct {
 // other organizations that offer the agent to other organizations
 // (agent_others_daily_tokens above 0) and are shared with the caller's
 // organization as for pipelines (mobilerunner.SharedWith). Every session runs
-// in the caller's organization namespace.
+// in its runner's agent namespace (mobilerunner.AgentNamespace).
 func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if e.Auth == nil {
@@ -216,8 +216,7 @@ func HandleActionAuthorDevices() func(*core.RequestEvent) error {
 				runners = append(runners, runner)
 			}
 		}
-		namespace := org.GetString("canonified_name")
-		agents := runnersActionAuthorAvailable(e, runners, namespace)
+		agents := runnersActionAuthorAvailable(e, runners)
 		now := time.Now()
 		for _, runner := range runners {
 			owner, model, err := actionAuthorRunnerDetails(e.App, runner)
@@ -365,8 +364,8 @@ func authoringAPIError(e *core.RequestEvent, err error) *apierror.APIError {
 	}
 }
 
-// HandleActionAuthorStart queues a session, in the caller's organization
-// namespace, on a device of a runner that offers the agent to the caller's
+// HandleActionAuthorStart queues a session, in the runner's agent namespace
+// for the caller's organization, on a device of a runner that offers the agent to the caller's
 // organization.
 func HandleActionAuthorStart() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -425,8 +424,9 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		if runner.GetBool("disabled") {
 			return mobileDeviceRunnerOfflineError(deviceID)
 		}
-		namespace := org.GetString("canonified_name")
-		selection, err := actionauthor.Select(e.App, namespace, actionauthor.BuildRequest{
+		orgNamespace := org.GetString("canonified_name")
+		runnerNamespace := mobilerunner.AgentNamespace(runner.Id)
+		selection, err := actionauthor.Select(e.App, orgNamespace, actionauthor.BuildRequest{
 			Actor:                   actor,
 			WalletVersionIdentifier: input.WalletVersionIdentifier,
 			Platform:                platform,
@@ -441,7 +441,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 		); apiErr != nil {
 			return apiErr
 		}
-		if apiErr := requireActionAuthorAgent(e, runner, namespace); apiErr != nil {
+		if apiErr := requireActionAuthorAgent(e, runner); apiErr != nil {
 			return apiErr
 		}
 		ticketID := uuid.NewString()
@@ -454,8 +454,8 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			Platform:                platform,
 			WalletVersionIdentifier: selection.Identifier,
 			ActorID:                 actor.ActorID,
-			Namespace:               namespace,
-			Organization:            namespace,
+			Namespace:               runnerNamespace,
+			Organization:            orgNamespace,
 		}
 		sessionInput.TicketGrant, err = actionauthor.SignTicket(e.App, actionauthor.SessionGrant{
 			SessionWorkflowID:       activities.ActionAuthorSessionWorkflowIDPrefix + ticketID,
@@ -489,7 +489,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 			deviceID,
 			mobiledevicesemaphore.MobileDeviceSemaphoreEnqueueRunRequest{
 				TicketID:            ticketID,
-				OwnerNamespace:      namespace,
+				OwnerNamespace:      orgNamespace,
 				EnqueuedAt:          time.Now().UTC(),
 				DeviceID:            deviceID,
 				RequiredDeviceIDs:   []string{deviceID},
@@ -511,7 +511,7 @@ func HandleActionAuthorStart() func(*core.RequestEvent) error {
 				)
 			}
 			// A failed enqueue can still have reached the semaphore (timeouts).
-			rollbackActionAuthorTicket(e, deviceID, ticketID, namespace)
+			rollbackActionAuthorTicket(e, deviceID, ticketID, orgNamespace)
 			return apierror.New(
 				http.StatusServiceUnavailable,
 				"action_author",

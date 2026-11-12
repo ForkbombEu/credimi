@@ -58,6 +58,8 @@ type capturingTemporalClient struct {
 	lastArgs     []interface{}
 	lastWorkflow interface{}
 	described    []string
+	// namespaces lists the namespace of every client the activity asked for.
+	namespaces []string
 }
 
 // ExecuteWorkflow records workflow start options for assertions and returns the stubbed run.
@@ -100,6 +102,7 @@ func newCapturingQueuedPipelineActivity(
 	}
 	act := NewStartQueuedPipelineActivity(newPipelineResultsTestApp(t))
 	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
+		captured.namespaces = append(captured.namespaces, namespace)
 		return captured, nil
 	}
 	return act, captured

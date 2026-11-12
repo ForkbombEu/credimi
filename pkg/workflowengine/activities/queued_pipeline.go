@@ -357,7 +357,8 @@ func (a *StartQueuedPipelineActivity) Execute(
 const actionAuthorSessionExecutionTimeout = 3 * time.Hour
 
 // startActionAuthorSession starts the "Action author session" of a granted
-// action_author ticket in the owner namespace. It accepts only a ticket that
+// action_author ticket in the runner's agent namespace the ticket names
+// (runner-<record id>), for the ticket owner's organization. It accepts only a ticket that
 // Credimi signed (ticket_grant), starts the session with Credimi's grant of
 // it instead, and records the run it started or reused: activities accept
 // only that run. The session grant thus exists only in the session's own
@@ -379,8 +380,23 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
+	// A session runs in its runner's agent namespace, for the organization
+	// that owns the ticket.
+	if !strings.HasPrefix(start.Namespace, canonify.RunnerNamespacePrefix) {
+		return result, a.NewCodedError(errorcodes.MissingOrInvalidPayload, false, fmt.Errorf(
+			"action author session namespace %q is not a runner namespace",
+			start.Namespace,
+		))
+	}
+	if start.Organization != payload.OwnerNamespace {
+		return result, a.NewCodedError(errorcodes.MissingOrInvalidPayload, false, fmt.Errorf(
+			"action author session organization %q is not the ticket owner %q",
+			start.Organization,
+			payload.OwnerNamespace,
+		))
+	}
 	sessionWorkflowID := ActionAuthorSessionWorkflowIDPrefix + ticketKey
-	want := start.grant(payload.OwnerNamespace, sessionWorkflowID)
+	want := start.grant(start.Namespace, sessionWorkflowID)
 	// The semaphore does not authenticate who enqueues: sign only a ticket
 	// that Credimi signed after its checks.
 	err = actionauthor.VerifyTicket(a.app, start.TicketGrant, want)
@@ -417,7 +433,7 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	}
 	workflowID, runID, err := a.startOrReuseWorkflow(
 		ctx,
-		payload.OwnerNamespace,
+		start.Namespace,
 		options,
 		ActionAuthorSessionWorkflowName,
 		workflowengine.WorkflowInput{Payload: sessionInput, Config: config},
@@ -429,14 +445,14 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	// was recorded first is refused.
 	err = actionauthor.RecordSessionRun(
 		a.app,
-		payload.OwnerNamespace,
+		start.Namespace,
 		workflowID,
 		runID,
 		actionauthor.SessionDetails{
 			WalletVersionIdentifier: start.WalletVersionIdentifier,
 			DeviceID:                start.DeviceID,
 			ActorID:                 start.ActorID,
-			Organization:            payload.OwnerNamespace,
+			Organization:            start.Organization,
 		},
 	)
 	if errors.Is(err, actionauthor.ErrForbidden) {
@@ -448,7 +464,7 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	result.Output = StartQueuedPipelineActivityOutput{
 		WorkflowID:        workflowID,
 		RunID:             runID,
-		WorkflowNamespace: payload.OwnerNamespace,
+		WorkflowNamespace: start.Namespace,
 	}
 	return result, nil
 }

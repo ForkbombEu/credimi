@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"path"
 	"strings"
 	"sync"
 	"testing"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/semaphoreclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -124,6 +126,7 @@ func createAuthoringRunner(
 	runner.Set("name", name)
 	runner.Set("ip", "https://"+name+".example.test")
 	runner.Set("admin_managed", adminManaged)
+	runner.Set("agent_enabled", true)
 	runner.Set("online", true)
 	runner.Set("last_heartbeat_at", types.NowDateTime())
 	require.NoError(t, app.Save(runner))
@@ -154,6 +157,14 @@ func createAuthoringDevice(
 		return
 	}
 	require.NoError(t, app.Save(device))
+}
+
+// authoringAgentNamespace is the agent namespace of the fixture runner name.
+func authoringAgentNamespace(t testing.TB, app core.App, name string) string {
+	t.Helper()
+	runner, err := app.FindFirstRecordByData("mobile_runners", "name", name)
+	require.NoError(t, err)
+	return mobilerunner.AgentNamespace(runner.Id)
 }
 
 func authoringToken(t *testing.T, user string) string {
@@ -424,6 +435,7 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 		}
 		deviceID := runner + "/" + scenario.device
 		var response ActionAuthorStartResponse
+		var runnerNamespace string
 		(&tests.ApiScenario{
 			Name:   deviceID,
 			Method: http.MethodPost,
@@ -440,15 +452,17 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, json.Unmarshal(body, &response))
 				// Credimi signs the ticket it enqueues for the ticket's
-				// session workflow in the caller's namespace; the start
-				// activity signs the session, so the ticket has no grant.
+				// session workflow in the runner's agent namespace, for the
+				// caller's organization; the start activity signs the
+				// session, so the ticket has no grant.
 				require.NotContains(t, enqueued.ActionAuthor, "grant")
+				runnerNamespace = authoringAgentNamespace(t, app, path.Base(runner))
 				ticketGrant, _ := enqueued.ActionAuthor["ticket_grant"].(string)
 				user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 				require.NoError(t, err)
 				want := actionauthor.SessionGrant{
 					SessionWorkflowID:       "ActionAuthorSession-" + response.TicketID,
-					Namespace:               "usera-s-organization",
+					Namespace:               runnerNamespace,
 					Organization:            "usera-s-organization",
 					DeviceID:                deviceID,
 					Platform:                scenario.platform,
@@ -489,7 +503,7 @@ func TestActionAuthorStartQueuesSessionWithDevicePlatform(t *testing.T) {
 			"platform":                  scenario.platform,
 			"wallet_version_identifier": scenario.version,
 			"actor_id":                  user.Id,
-			"namespace":                 "usera-s-organization",
+			"namespace":                 runnerNamespace,
 			"organization":              "usera-s-organization",
 		}, enqueued.ActionAuthor)
 	}
@@ -649,7 +663,7 @@ func TestActionAuthorStartRequiresRunningAgent(t *testing.T) {
 			status: http.StatusServiceUnavailable,
 			expected: []string{
 				`"agent_unavailable"`,
-				"the runner's action author is not enabled or not running",
+				"this runner's action author is not enabled or not running",
 			},
 		},
 		{
@@ -699,15 +713,61 @@ func TestActionAuthorStartRequiresRunningAgent(t *testing.T) {
 			ExpectedStatus:  tc.status,
 			ExpectedContent: tc.expected,
 			TestAppFactory:  setupActionAuthorApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				// The agent is described in the runner's agent namespace.
+				require.Equal(
+					t,
+					authoringAgentNamespace(t, app, "admin-runner"),
+					namespaces[0],
+					tc.name,
+				)
+			},
 		}).Test(t)
 		require.Equal(t, []string{authoringAdminRunner + "-ActionAuthor"}, taskQueues, tc.name)
-		require.Equal(t, authoringNamespace, namespaces[0], tc.name)
 		if tc.status == http.StatusAccepted {
 			require.NotEmpty(t, enqueued.TicketID, tc.name)
 		} else {
 			require.Empty(t, enqueued.TicketID, tc.name)
 		}
 	}
+}
+
+func TestActionAuthorStartRefusesRunnerWithoutAgent(t *testing.T) {
+	token := authoringToken(t, "userA")
+	enqueued := stubActionAuthorQueue(t, true)
+	var described []string
+	stubActionAuthorAgent(
+		t,
+		func(taskQueue string) (*workflowservice.DescribeTaskQueueResponse, error) {
+			described = append(described, taskQueue)
+			return freshActionAuthorPoller(), nil
+		},
+	)
+	(&tests.ApiScenario{
+		Name:   "agent not enabled",
+		Method: http.MethodPost,
+		URL:    "/api/action-author/sessions",
+		Body: strings.NewReader(
+			startSessionBody(authoringAdminRunner+"/android-emulator", authoringAndroidVersion),
+		),
+		Headers:        map[string]string{"Authorization": "Bearer " + token},
+		ExpectedStatus: http.StatusServiceUnavailable,
+		ExpectedContent: []string{
+			`"agent_unavailable"`,
+			"this runner's action author is not enabled or not running",
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			runner, err := app.FindFirstRecordByData("mobile_runners", "name", "admin-runner")
+			require.NoError(t, err)
+			runner.Set("agent_enabled", false)
+			require.NoError(t, app.Save(runner))
+			return app
+		},
+	}).Test(t)
+	// The agent namespace exists only for enabled agents: Temporal is not asked.
+	require.Empty(t, described)
+	require.Empty(t, enqueued.TicketID)
 }
 
 func TestActionAuthorDevicesListsOwnAndOfferedRunnerDevices(t *testing.T) {
@@ -824,6 +884,7 @@ func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
 			return &workflowservice.DescribeTaskQueueResponse{}, nil
 		}
 		var response ActionAuthorDevicesResponse
+		var adminNamespace, tenantNamespace string
 		(&tests.ApiScenario{
 			Name:            tc.name,
 			Method:          http.MethodGet,
@@ -832,10 +893,12 @@ func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
 			ExpectedStatus:  http.StatusOK,
 			ExpectedContent: []string{`"agent_available"`},
 			TestAppFactory:  setupActionAuthorApp,
-			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
 				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 				require.NoError(t, json.Unmarshal(body, &response))
+				adminNamespace = authoringAgentNamespace(t, app, "admin-runner")
+				tenantNamespace = authoringAgentNamespace(t, app, "tenant-runner")
 			},
 		}).Test(t)
 
@@ -847,10 +910,10 @@ func TestActionAuthorDevicesReportsAgentPerRunner(t *testing.T) {
 		if tc.clientErr != nil {
 			require.Empty(t, describes, tc.name)
 		} else {
-			// Once per runner in the caller's namespace, however many devices it has.
+			// Once per runner in its agent namespace, however many devices it has.
 			require.Equal(t, map[string][]string{
-				authoringAdminRunner + "-ActionAuthor":  {authoringNamespace},
-				authoringTenantRunner + "-ActionAuthor": {authoringNamespace},
+				authoringAdminRunner + "-ActionAuthor":  {adminNamespace},
+				authoringTenantRunner + "-ActionAuthor": {tenantNamespace},
 			}, describes, tc.name)
 		}
 	}

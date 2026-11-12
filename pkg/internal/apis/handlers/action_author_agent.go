@@ -43,7 +43,8 @@ var describeActionAuthorTaskQueue = func(
 
 // actionAuthorAgentAvailable reports whether the runner's action author
 // agent polled <runnerID>-ActionAuthor within actionAuthorPollerFreshness.
-// c must be a client of the runner organization's namespace.
+// c must be a client of the runner's agent namespace
+// (mobilerunner.AgentNamespace).
 func actionAuthorAgentAvailable(
 	ctx context.Context,
 	c client.Client,
@@ -65,18 +66,18 @@ func actionAuthorAgentAvailable(
 	return false, nil
 }
 
-// requireActionAuthorAgent refuses runners whose action author agent does
-// not poll its task queue in the runner organization's namespace.
-func requireActionAuthorAgent(
-	e *core.RequestEvent,
-	runner *core.Record,
-	namespace string,
-) *apierror.APIError {
+// requireActionAuthorAgent refuses runners whose action author is not
+// enabled, or whose agent does not poll its task queue in the runner's agent
+// namespace.
+func requireActionAuthorAgent(e *core.RequestEvent, runner *core.Record) *apierror.APIError {
+	if !mobilerunner.AgentEnabled(runner) {
+		return actionAuthorAgentUnavailableError()
+	}
 	runnerID, err := mobilerunner.RunnerIdentifier(e.App, runner)
 	if err != nil {
 		return authoringAPIError(e, fmt.Errorf("build runner identifier: %w", err))
 	}
-	c, err := queueTemporalClient(namespace)
+	c, err := queueTemporalClient(mobilerunner.AgentNamespace(runner.Id))
 	if err != nil {
 		return temporalUnavailableError()
 	}
@@ -95,14 +96,18 @@ func requireActionAuthorAgent(
 }
 
 // runnerActionAuthorAvailable reports a runner's agent for the device list;
-// any error, including an unreachable Temporal, reports it unavailable.
-func runnerActionAuthorAvailable(e *core.RequestEvent, runner *core.Record, namespace string) bool {
+// a runner whose agent is not enabled, and any error, including an
+// unreachable Temporal, report it unavailable.
+func runnerActionAuthorAvailable(e *core.RequestEvent, runner *core.Record) bool {
+	if !mobilerunner.AgentEnabled(runner) {
+		return false
+	}
 	runnerID, err := mobilerunner.RunnerIdentifier(e.App, runner)
 	if err != nil {
 		e.App.Logger().Warn(fmt.Sprintf("cannot identify runner %s: %v", runner.Id, err))
 		return false
 	}
-	c, err := queueTemporalClient(namespace)
+	c, err := queueTemporalClient(mobilerunner.AgentNamespace(runner.Id))
 	if err != nil {
 		e.App.Logger().Warn(fmt.Sprintf(
 			"cannot check the action author of runner %s: %v", runnerID, err,
@@ -118,20 +123,16 @@ func runnerActionAuthorAvailable(e *core.RequestEvent, runner *core.Record, name
 	return available
 }
 
-// runnersActionAuthorAvailable checks the agents of runners in namespace, in
-// parallel, and reports them by runner record ID.
-func runnersActionAuthorAvailable(
-	e *core.RequestEvent,
-	runners []*core.Record,
-	namespace string,
-) map[string]bool {
+// runnersActionAuthorAvailable checks the agents of runners, each in its own
+// agent namespace, in parallel, and reports them by runner record ID.
+func runnersActionAuthorAvailable(e *core.RequestEvent, runners []*core.Record) map[string]bool {
 	available := make(map[string]bool, len(runners))
 	var mu sync.Mutex
 	var group errgroup.Group
 	group.SetLimit(actionAuthorCheckConcurrency)
 	for _, runner := range runners {
 		group.Go(func() error {
-			ok := runnerActionAuthorAvailable(e, runner, namespace)
+			ok := runnerActionAuthorAvailable(e, runner)
 			mu.Lock()
 			defer mu.Unlock()
 			available[runner.Id] = ok
@@ -148,6 +149,6 @@ func actionAuthorAgentUnavailableError() *apierror.APIError {
 		http.StatusServiceUnavailable,
 		"action_author",
 		"agent_unavailable",
-		"the runner's action author is not enabled or not running",
+		"this runner's action author is not enabled or not running",
 	)
 }
