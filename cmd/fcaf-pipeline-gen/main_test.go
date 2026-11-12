@@ -157,6 +157,33 @@ func TestGenerateCompleteFCAFPipeline(t *testing.T) {
 			variant,
 		)
 	}
+	holderBindingPrefix := "dcql-holder-binding-type-boundary-3ff3e611-"
+	for _, stepID := range []string{
+		"get-valid-true",
+		"get-valid-false",
+		"fetch-number-zero",
+		"fetch-number-one",
+		"fetch-number-random",
+		"fetch-string-true",
+		"fetch-string-false",
+		"fetch-string-uppercase-true",
+		"fetch-string-uppercase-false",
+		"fetch-string-yes",
+		"fetch-string-no",
+		"fetch-string-y",
+		"fetch-string-n",
+		"fetch-string-zero",
+		"fetch-string-one",
+		"fetch-string-random",
+	} {
+		require.NotContains(
+			t,
+			stepsByID[holderBindingPrefix+stepID],
+			"linked_to",
+			"%s must run after a failed wallet action",
+			stepID,
+		)
+	}
 	trustedAuthoritiesPrefix := "dcql-trusted-authorities-type-non-st-4e26a188-"
 	for _, variant := range []string{"null", "true", "false", "zero", "number", "array", "object"} {
 		exercise := stepsByID[trustedAuthoritiesPrefix+"exercise-"+variant]

@@ -5940,8 +5940,41 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-valid-false
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-valid-true
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-true.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-get-valid-true
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-true.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-valid-false
       use: http-request
       with:
         body:
@@ -5970,8 +6003,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-number-zero
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-valid-false
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-false.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-get-valid-false
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-false.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-number-zero
       use: http-request
       with:
         body:
@@ -6015,8 +6080,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-number-one
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-number-zero
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-zero.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-number-zero
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-zero.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-number-one
       use: http-request
       with:
         body:
@@ -6060,8 +6157,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-number-random
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-number-one
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-one.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-number-one
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-one.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-number-random
       use: http-request
       with:
         body:
@@ -6105,8 +6234,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-number-random
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-random.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-number-random
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-random.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-true
       use: http-request
       with:
         body:
@@ -6150,8 +6311,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-false
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-true
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-true.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-true
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-true.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-false
       use: http-request
       with:
         body:
@@ -6195,8 +6388,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-false
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-false.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-false
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-false.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-true
       use: http-request
       with:
         body:
@@ -6240,8 +6465,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-false
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-true
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-true.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-uppercase-true
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-true.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-false
       use: http-request
       with:
         body:
@@ -6285,8 +6542,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-yes
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-false
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-false.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-uppercase-false
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-false.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-yes
       use: http-request
       with:
         body:
@@ -6330,8 +6619,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-no
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-yes
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-yes.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-yes
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-yes.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-no
       use: http-request
       with:
         body:
@@ -6375,8 +6696,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-y
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-no
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-no.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-no
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-no.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-y
       use: http-request
       with:
         body:
@@ -6420,8 +6773,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-n
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-y
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-y.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-y
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-y.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-n
       use: http-request
       with:
         body:
@@ -6465,8 +6850,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-zero
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-n
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-n.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-n
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-n.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-zero
       use: http-request
       with:
         body:
@@ -6510,8 +6927,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-one
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-zero
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-zero.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-zero
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-zero.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-one
       use: http-request
       with:
         body:
@@ -6555,8 +7004,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-random
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one-issue-pid-session
       linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-one
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-one.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-one
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-one.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-holder-binding-type-boundary-3ff3e611-create-string-random
       use: http-request
       with:
         body:
@@ -6600,399 +7081,8 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-random
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-true.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-true
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-wallet-generic
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-false.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-valid-false
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-zero.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-zero
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-one.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-one
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-random.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-number-random
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-true.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-true
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-false.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-false
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-true.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-true
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-false.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-uppercase-false
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-yes.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-yes
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-no.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-no
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-y.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-y
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-n.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-n
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-zero.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-zero
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one-issue-pid-session
-      use: mobile-automation
-      with:
-        actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
-              parameters:
-                deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-one.outputs.body.deeplink }}
-        version_id: installed_from_external_source
-    - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-random-issue-pid-session
-      linked_to: dcql-holder-binding-type-boundary-3ff3e611-exercise-string-one
+      linked_to: dcql-holder-binding-type-boundary-3ff3e611-create-string-random
       use: http-request
       with:
         body:
@@ -7017,117 +7107,12 @@ steps:
                 deeplink: ${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-random.outputs.body.deeplink }}
         version_id: installed_from_external_source
     - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-number-zero
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-zero.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-number-one
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-one.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-number-random
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-number-random.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-true
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-true.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-false
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-false.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-uppercase-true
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-true.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-uppercase-false
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-uppercase-false.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-yes
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-yes.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-no
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-no.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-y
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-y.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-n
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-n.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-zero
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-zero.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-one
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-one.outputs.body.session_id }}
-    - continue_on_error: true
       id: dcql-holder-binding-type-boundary-3ff3e611-fetch-string-random
       use: http-request
       with:
         expected_status: 200
         method: GET
         url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-string-random.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-get-valid-true
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-true.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-holder-binding-type-boundary-3ff3e611-get-valid-false
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-holder-binding-type-boundary-3ff3e611-create-valid-false.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-interaction-metadata-f9737358-create-aud-mismatch-session
       use: http-request
