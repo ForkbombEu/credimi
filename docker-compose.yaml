@@ -154,6 +154,10 @@ services:
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_TLS=false
+      - CREDIMI_TEMPORAL_JWKS_DIR=/etc/credimi/temporal-jwks
+    volumes:
+      # Public keys Credimi writes at startup; the UI verifies each request's token with them.
+      - ./temporal-jwks:/etc/credimi/temporal-jwks:ro
   credimi:
     depends_on:
       temporal:

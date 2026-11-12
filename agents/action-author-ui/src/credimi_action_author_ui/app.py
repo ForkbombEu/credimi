@@ -11,15 +11,21 @@ three headers: ``X-Credimi-Namespace`` (the runner namespace the session runs in
 ``X-Credimi-Action-Author-Chat`` (the chat workflow ID) and ``X-Credimi-Temporal-Token``
 (Credimi's short-lived Temporal token for that namespace). A request without all three is refused.
 
+The service does not trust the token it receives: it must carry a valid ES256 signature by a key
+Credimi publishes in ``jwks.json``, must not be expired, and its ``permissions`` must hold
+``<X-Credimi-Namespace>:write``; otherwise the request is refused with 403, so nothing else on
+the Compose network can steer a namespace's client with a token for another one.
+
 The service keeps one harness app, with its own Temporal client, per namespace, and sets the
-client's API key to each request's token. It never starts agent workflows: Credimi starts each
-chat on ``<runner_id>-ActionAuthor``.
+client's API key to each verified request's token. It never starts agent workflows: Credimi
+starts each chat on ``<runner_id>-ActionAuthor``.
 
 Environment: TEMPORAL_ADDRESS and the other TEMPORAL_* settings read by the Temporal client
 config (the namespace and API key come from each request), TEMPORAL_TLS (``true`` for TLS;
 anything else is plaintext), ACTION_AUTHOR_UI_PORT (default 8080),
 ACTION_AUTHOR_UI_ALLOWED_HOSTS (comma-separated hosts the service answers; default
-``action_author_ui,localhost,127.0.0.1``).
+``action_author_ui,localhost,127.0.0.1``), CREDIMI_TEMPORAL_JWKS_DIR (required: the directory
+holding Credimi's ``jwks.json``, re-read whenever the file changes).
 """
 
 import asyncio
@@ -33,6 +39,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from pathlib import Path
 
+import jwt
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -64,6 +71,12 @@ NAMESPACE_HEADER = "x-credimi-namespace"
 CHAT_HEADER = "x-credimi-action-author-chat"
 # Credimi's short-lived Temporal token for the namespace, sent on every request.
 TOKEN_HEADER = "x-credimi-temporal-token"
+# Credimi writes its public keys here (pkg/internal/temporalauth.WriteJWKS).
+JWKS_DIR_ENV = "CREDIMI_TEMPORAL_JWKS_DIR"
+JWKS_FILE_NAME = "jwks.json"
+TOKEN_ALGORITHM = "ES256"
+# The Temporal role a namespace's token must grant (temporalauth.UIPermissionRole).
+TOKEN_ROLE = "write"
 # Names Credimi's canonify produces (pkg/internal/canonify), runner namespaces included: Unicode
 # letters and digits joined by `-`, never leading with `-`; at most 1000 characters.
 NAMESPACE_PATTERN = re.compile(r"[^\W_](?:[^\W_]|-){0,999}")
@@ -411,6 +424,52 @@ def _create_harness(temporal) -> FastAPI:
     return harness
 
 
+class TokenVerifier:
+    """Verifies Credimi's Temporal tokens against the public keys in ``jwks.json``.
+
+    The keys are cached and re-read when the file changes: Credimi replaces it atomically
+    (rename) at startup and on key rotation, so a new mtime or inode means new keys.
+    """
+
+    def __init__(self, jwks_path: Path) -> None:
+        self._path = jwks_path
+        self._version: tuple[int, int] | None = None
+        self._keys: dict[str, jwt.PyJWK] = {}
+
+    def _current_keys(self) -> dict[str, jwt.PyJWK]:
+        stat = self._path.stat()
+        version = (stat.st_mtime_ns, stat.st_ino)
+        if version != self._version:
+            keys = jwt.PyJWKSet.from_json(self._path.read_text()).keys
+            self._keys = {
+                key.key_id: key
+                for key in keys
+                if key.key_id and key.algorithm_name == TOKEN_ALGORITHM
+            }
+            self._version = version
+        return self._keys
+
+    def allows(self, token: str, namespace: str) -> bool:
+        """Whether token is a valid, unexpired Credimi token granting write on namespace."""
+        try:
+            kid = jwt.get_unverified_header(token).get("kid")
+            key = self._current_keys().get(kid) if isinstance(kid, str) else None
+            if key is None:
+                logger.warning("token for namespace %s: unknown signing key", namespace)
+                return False
+            claims = jwt.decode(
+                token, key=key, algorithms=[TOKEN_ALGORITHM], options={"require": ["exp"]}
+            )
+        except (OSError, ValueError, jwt.PyJWTError) as exc:
+            logger.warning("token for namespace %s: %s", namespace, type(exc).__name__)
+            return False
+        permissions = claims.get("permissions")
+        if not isinstance(permissions, list) or f"{namespace}:{TOKEN_ROLE}" not in permissions:
+            logger.warning("token for namespace %s: no %s permission", namespace, TOKEN_ROLE)
+            return False
+        return True
+
+
 async def _harness_for(app, namespace: str, token: str) -> FastAPI:
     """The namespace's harness app, connecting on first use with token. Entries are never
     evicted: there is one per runner namespace. A failed connect is not cached. Each namespace
@@ -459,6 +518,10 @@ class _ScopeMiddleware:
             response = JSONResponse(status_code=400, content={"error": "missing_scope"})
             await response(scope, receive, send)
             return
+        if not self.owner.state.verifier.allows(token, namespace):
+            response = JSONResponse(status_code=403, content={"error": "invalid_token"})
+            await response(scope, receive, send)
+            return
         try:
             harness = await _harness_for(self.owner, namespace, token)
         except Exception:
@@ -475,10 +538,19 @@ class _ScopeMiddleware:
 
 
 def create_app(
-    *, connect: Callable[[str, str], Awaitable[Client]] = connect_namespace
+    *,
+    connect: Callable[[str, str], Awaitable[Client]] = connect_namespace,
+    jwks_dir: Path | None = None,
 ) -> Starlette:
+    """The service; jwks_dir defaults to CREDIMI_TEMPORAL_JWKS_DIR, which is then required."""
+    if jwks_dir is None:
+        configured = os.environ.get(JWKS_DIR_ENV, "").strip()
+        if not configured:
+            raise RuntimeError(f"{JWKS_DIR_ENV} is required")
+        jwks_dir = Path(configured)
     app = Starlette()
     app.state.connect = connect
+    app.state.verifier = TokenVerifier(jwks_dir / JWKS_FILE_NAME)
     app.state.clients = {}
     app.state.harnesses = {}
     app.state.locks = {}

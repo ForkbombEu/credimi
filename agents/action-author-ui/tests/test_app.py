@@ -7,12 +7,17 @@ import base64
 import importlib
 import json
 import logging
+import os
 import shutil
+import time
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
+import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
 from temporal_agent_harness.harness.agent_protocol import AgentEvent, ReplyDelta
 from temporal_agent_harness.plugin import AgentHarnessPlugin
 from temporal_agent_harness.web.task_queue_status import RegistryWorkers, TaskQueueWorkers
@@ -28,13 +33,56 @@ from credimi_action_author_ui.app import HTML_CSP, create_app, registry
 UI = "http://action_author_ui:8080"
 CHAT = "ActionAuthorSession-0123abcd-0000-4000-8000-00000000abcd-author"
 STARTED = datetime(2026, 11, 3, 10, 0, tzinfo=UTC)
+# Credimi's signing key, published in the test jwks.json; FOREIGN_KEY is not published.
+SIGNING_KEY = ec.generate_private_key(ec.SECP256R1())
+FOREIGN_KEY = ec.generate_private_key(ec.SECP256R1())
+KID = "credimi-key-1"
 
 
-def _scope(namespace: str = "org-a", chat: str = CHAT, token: str = "token-1") -> dict[str, str]:
+def _jwk(key: ec.EllipticCurvePrivateKey, kid: str) -> dict:
+    jwk = jwt.algorithms.ECAlgorithm.to_jwk(key.public_key(), as_dict=True)
+    return {**jwk, "alg": "ES256", "use": "sig", "kid": kid}
+
+
+def _write_jwks(directory: Path, *keys: tuple[ec.EllipticCurvePrivateKey, str]) -> None:
+    """Replace jwks.json atomically, as Credimi does (temporalauth.WriteJWKS)."""
+    tmp = directory / ".jwks-test.json"
+    tmp.write_text(json.dumps({"keys": [_jwk(key, kid) for key, kid in keys]}))
+    os.replace(tmp, directory / "jwks.json")
+
+
+@pytest.fixture(autouse=True)
+def jwks_dir(tmp_path, monkeypatch) -> Path:
+    _write_jwks(tmp_path, (SIGNING_KEY, KID))
+    monkeypatch.setenv("CREDIMI_TEMPORAL_JWKS_DIR", str(tmp_path))
+    return tmp_path
+
+
+def _token(
+    namespace: str = "org-a",
+    *,
+    key: ec.EllipticCurvePrivateKey = SIGNING_KEY,
+    kid: str = KID,
+    expires_in: int = 900,
+    permissions: list[str] | None = None,
+) -> str:
+    """A token as temporalauth.NamespaceToken signs it."""
+    now = int(time.time())
+    claims = {
+        "iss": "credimi",
+        "sub": "credimi-action-author-ui",
+        "permissions": [f"{namespace}:write"] if permissions is None else permissions,
+        "iat": now,
+        "exp": now + expires_in,
+    }
+    return jwt.encode(claims, key, algorithm="ES256", headers={"kid": kid})
+
+
+def _scope(namespace: str = "org-a", chat: str = CHAT, token: str | None = None) -> dict[str, str]:
     return {
         "X-Credimi-Namespace": namespace,
         "X-Credimi-Action-Author-Chat": chat,
-        "X-Credimi-Temporal-Token": token,
+        "X-Credimi-Temporal-Token": _token(namespace) if token is None else token,
     }
 
 
@@ -153,15 +201,92 @@ async def test_each_request_sets_its_token_on_the_client():
         clients[namespace] = _ChatTemporal()
         return clients[namespace]
 
+    first_token = _token("runner-a")
+    renewed_token = _token("runner-a", expires_in=1800)
     async with ui_client(create_app(connect=connect)) as client:
-        first = await client.get("/api/sessions", headers=_scope("runner-a", token="token-1"))
+        first = await client.get("/api/sessions", headers=_scope("runner-a", token=first_token))
         assert first.status_code == 200
-        assert clients["runner-a"].api_key == "token-1"
+        assert clients["runner-a"].api_key == first_token
         # A renewed token reaches the same client, without reconnecting.
-        again = await client.get("/api/sessions", headers=_scope("runner-a", token="token-2"))
+        again = await client.get("/api/sessions", headers=_scope("runner-a", token=renewed_token))
         assert again.status_code == 200
-    assert connected == [("runner-a", "token-1")]
-    assert clients["runner-a"].api_key == "token-2"
+    assert connected == [("runner-a", first_token)]
+    assert clients["runner-a"].api_key == renewed_token
+
+
+def _unsigned_token(namespace: str = "org-a") -> str:
+    claims = {"permissions": [f"{namespace}:write"], "exp": int(time.time()) + 900}
+    return jwt.encode(claims, None, algorithm="none", headers={"kid": KID})
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        pytest.param(_token("org-b"), id="other namespace"),
+        pytest.param(_token(permissions=["org-a:read"]), id="other role"),
+        pytest.param(_token(permissions=["org-a-x:write"]), id="namespace prefix"),
+        pytest.param(_token(expires_in=-60), id="expired"),
+        pytest.param(_token(key=FOREIGN_KEY), id="foreign key, published kid"),
+        pytest.param(_token(key=FOREIGN_KEY, kid="foreign"), id="unknown kid"),
+        pytest.param(_unsigned_token(), id="unsigned"),
+        pytest.param(_token()[:-4] + "AAAA", id="bad signature"),
+        pytest.param("token-1", id="not a jwt"),
+    ],
+)
+async def test_unverified_tokens_are_refused(token):
+    connected, connect = _connecting(_ChatTemporal())
+    async with ui_client(create_app(connect=connect), headers=_scope("org-a", token=token)) as c:
+        response = await c.get("/api/sessions")
+    assert (response.status_code, response.json()) == (403, {"error": "invalid_token"})
+    assert connected == []
+
+
+async def test_a_token_cannot_steer_another_namespace_client():
+    clients: dict[str, _ChatTemporal] = {}
+
+    async def connect(namespace, _token):
+        clients[namespace] = _ChatTemporal()
+        return clients[namespace]
+
+    org_a_token = _token("org-a")
+    async with ui_client(create_app(connect=connect)) as client:
+        assert (await client.get("/api/sessions", headers=_scope(token=org_a_token))).is_success
+        refused = await client.get("/api/sessions", headers=_scope(token=_token("org-b")))
+    assert refused.status_code == 403
+    assert clients["org-a"].api_key == org_a_token
+
+
+async def test_rotated_keys_are_reloaded(jwks_dir):
+    rotated = _token(key=FOREIGN_KEY, kid="credimi-key-2")
+    async with ui_client() as client:
+        before = await client.get("/api/sessions", headers=_scope(token=rotated))
+        _write_jwks(jwks_dir, (FOREIGN_KEY, "credimi-key-2"), (SIGNING_KEY, KID))
+        after = await client.get("/api/sessions", headers=_scope(token=rotated))
+        old = await client.get("/api/sessions", headers=_scope())
+        # A dropped key no longer verifies.
+        _write_jwks(jwks_dir, (FOREIGN_KEY, "credimi-key-2"))
+        dropped = await client.get("/api/sessions", headers=_scope())
+    assert before.status_code == 403
+    assert after.status_code == 200
+    assert old.status_code == 200
+    assert dropped.status_code == 403
+
+
+@pytest.mark.parametrize("content", [None, "", "{", '{"keys": []}'])
+async def test_without_readable_keys_every_token_is_refused(jwks_dir, content):
+    if content is None:
+        (jwks_dir / "jwks.json").unlink()
+    else:
+        (jwks_dir / "jwks.json").write_text(content)
+    async with ui_client(create_app(connect=_connecting(_ChatTemporal())[1])) as client:
+        response = await client.get("/api/sessions")
+    assert (response.status_code, response.json()) == (403, {"error": "invalid_token"})
+
+
+def test_the_jwks_dir_is_required(monkeypatch):
+    monkeypatch.delenv("CREDIMI_TEMPORAL_JWKS_DIR")
+    with pytest.raises(RuntimeError, match="CREDIMI_TEMPORAL_JWKS_DIR is required"):
+        create_app()
 
 
 async def test_connect_namespace_sends_the_token_with_explicit_tls(monkeypatch):
