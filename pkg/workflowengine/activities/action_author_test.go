@@ -5,7 +5,9 @@
 package activities
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"strings"
 	"testing"
@@ -109,8 +111,7 @@ func sessionHistory(t *testing.T, payload any) *fcafHistoryIterator {
 // signedSessionHistory is the history of the session authorTestSessionID
 // that Credimi started with input as run authorTestParentRun in
 // authorTestNamespace, for the wallet's organization (the first segment of
-// its identifier), signed and recorded as the start activity signs and
-// records it.
+// its identifier), signed as the start activity signs it.
 func signedSessionHistory(
 	t *testing.T,
 	app core.App,
@@ -132,13 +133,6 @@ func signedSessionHistory(
 		ActorID:                 field("actor_id"),
 	})
 	require.NoError(t, err)
-	require.NoError(t, actionauthor.RecordSessionRun(
-		app,
-		authorTestNamespace,
-		authorTestSessionID,
-		authorTestParentRun,
-		actionauthor.SessionDetails{ActorID: field("actor_id"), Organization: organization},
-	))
 	signed := maps.Clone(input)
 	signed["namespace"] = authorTestNamespace
 	signed["organization"] = organization
@@ -156,15 +150,42 @@ type sessionLookup struct {
 	session    *workflowservice.DescribeWorkflowExecutionResponse
 	sessionErr error
 	history    client.HistoryEventIterator
+	// runs are the session's runs Temporal lists, oldest first.
+	runs []string
+}
+
+// stubSessionRuns makes c list runs (oldest first) as the runs of sessionID,
+// newest first as Temporal's visibility lists them.
+func stubSessionRuns(t *testing.T, c *temporalmocks.Client, sessionID string, runs ...string) {
+	t.Helper()
+	listSessionRuns(c, sessionID, runs...)
+}
+
+func listSessionRuns(c *temporalmocks.Client, sessionID string, runs ...string) {
+	start := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	executions := make([]*workflowpb.WorkflowExecutionInfo, 0, len(runs))
+	for i := len(runs) - 1; i >= 0; i-- {
+		executions = append(executions, &workflowpb.WorkflowExecutionInfo{
+			Execution: &commonpb.WorkflowExecution{WorkflowId: sessionID, RunId: runs[i]},
+			Type:      &commonpb.WorkflowType{Name: ActionAuthorSessionWorkflowName},
+			StartTime: timestamppb.New(start.Add(time.Duration(i) * time.Minute)),
+		})
+	}
+	c.On("ListWorkflow", mock.Anything, mock.MatchedBy(
+		func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+			return req.GetQuery() == fmt.Sprintf("WorkflowId = %q", sessionID)
+		},
+	)).Return(&workflowservice.ListWorkflowExecutionsResponse{Executions: executions}, nil).Maybe()
 }
 
 // unsignedSessionLookup fakes the running session without a history: tests
-// set one with signedSessionHistory, which records the session once.
+// set one with signedSessionHistory.
 func unsignedSessionLookup(app core.App) sessionLookup {
 	return sessionLookup{
 		app:     app,
 		author:  authorDescription(),
 		session: sessionDescription(),
+		runs:    []string{authorTestParentRun},
 	}
 }
 
@@ -188,6 +209,7 @@ func validSessionLookup(t *testing.T, app core.App) sessionLookup {
 // client fakes the caller's namespace client.
 func (l sessionLookup) client() *temporalmocks.Client {
 	mockClient := &temporalmocks.Client{}
+	listSessionRuns(mockClient, authorTestSessionID, l.runs...)
 	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
 		Return(l.author, l.authorErr).
 		Maybe()
@@ -723,153 +745,183 @@ func TestResolveActionAuthorBuildAcceptsOnlyCredimiSignedSessions(t *testing.T) 
 	require.ErrorContains(t, err, "caller is not an action author session")
 }
 
-// A grant copied from a session's history does not open another run of the
-// same workflow ID: a replay after the session closed, or a restart after it
-// was terminated.
-func TestLookupSessionStartAcceptsOnlyTheRecordedRun(t *testing.T) {
-	setFCAFTestEnv(t)
-	app := newCredimiTestApp(t)
+// sessionRunsClient fakes a runner namespace that lists runs (oldest first)
+// of authorTestSessionID, each described as running and starting with
+// histories[run].
+func sessionRunsClient(
+	t *testing.T,
+	histories map[string]*fcafHistoryIterator,
+	runs ...string,
+) *temporalmocks.Client {
+	t.Helper()
+	mockClient := &temporalmocks.Client{}
+	stubSessionRuns(t, mockClient, authorTestSessionID, runs...)
+	for _, run := range runs {
+		mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, run).
+			Return(sessionDescription(), nil).
+			Maybe()
+		mockClient.On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			authorTestSessionID,
+			run,
+			false,
+			enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).Return(replayHistory(histories[run])).Maybe()
+	}
+	return mockClient
+}
+
+// replayHistory returns a fresh iterator over history's events on every
+// read, as Temporal does; nil has no events.
+func replayHistory(
+	history *fcafHistoryIterator,
+) func(context.Context, string, string, bool, enumspb.HistoryEventFilterType) client.HistoryEventIterator {
+	return func(
+		context.Context, string, string, bool, enumspb.HistoryEventFilterType,
+	) client.HistoryEventIterator {
+		if history == nil {
+			return &fcafHistoryIterator{}
+		}
+		return &fcafHistoryIterator{events: history.events}
+	}
+}
+
+func authorTestSessionInput() map[string]any {
 	session := authorTestSession()
-	input := map[string]any{
+	return map[string]any{
 		"device_id":                 "tenant/runner-1/device-1",
 		"platform":                  session.Platform,
 		"wallet_version_identifier": session.WalletVersionIdentifier,
 		"actor_id":                  session.ActorID,
 	}
-	lookup := func(namespace, runID string) (ActionAuthorSessionRef, error) {
-		mockClient := &temporalmocks.Client{}
-		mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, runID).
-			Return(sessionDescription(), nil)
-		mockClient.On(
-			"GetWorkflowHistory",
-			mock.Anything,
-			authorTestSessionID,
-			runID,
-			false,
-			enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-		).Return(signedSessionHistory(t, app, input)).Maybe()
-		return lookupSessionStart(
+}
+
+// The trusted run is the earliest run of the session ID: a later run with a
+// grant copied from Credimi's (a replay after the session closed, or a
+// restart after it was terminated) is not trusted, and an earliest run
+// without Credimi's grant makes the session untrusted.
+func TestTrustedActionAuthorSessionTrustsOnlyTheEarliestRun(t *testing.T) {
+	setFCAFTestEnv(t)
+	app := newCredimiTestApp(t)
+	input := authorTestSessionInput()
+	trusted := func(c client.Client) (ActionAuthorSessionRef, error) {
+		var namespaces []string
+		ref, err := TrustedActionAuthorSession(
 			t.Context(),
 			app,
-			mockClient,
-			namespace,
+			func(namespace string) (client.Client, error) {
+				namespaces = append(namespaces, namespace)
+				return c, nil
+			},
 			authorTestSessionID,
-			runID,
 		)
+		require.Equal(t, []string{authorTestNamespace}, namespaces)
+		return ref, err
+	}
+
+	ref, err := trusted(sessionRunsClient(t, map[string]*fcafHistoryIterator{
+		authorTestParentRun: signedSessionHistory(t, app, input),
+		"replayed-run":      signedSessionHistory(t, app, input),
+	}, authorTestParentRun, "replayed-run"))
+	require.NoError(t, err)
+	require.Equal(t, authorTestParentRun, ref.SessionRunID)
+	require.Equal(t, authorTestNamespace, ref.Namespace)
+	require.Equal(t, authorTestOrganization, ref.Organization)
+	require.Equal(t, authorTestSession(), ref.Session)
+
+	_, err = trusted(sessionRunsClient(t, map[string]*fcafHistoryIterator{
+		"foreign-run":       sessionHistory(t, input),
+		authorTestParentRun: signedSessionHistory(t, app, input),
+	}, "foreign-run", authorTestParentRun))
+	require.ErrorIs(t, err, actionauthor.ErrForbidden)
+	require.ErrorContains(t, err, "action author session was not started by Credimi")
+
+	_, err = trusted(sessionRunsClient(t, nil))
+	require.ErrorIs(t, err, actionauthor.ErrSessionNotVisible)
+	require.NotErrorIs(t, err, actionauthor.ErrForbidden)
+
+	_, err = TrustedActionAuthorSession(
+		t.Context(),
+		app,
+		func(string) (client.Client, error) {
+			t.Fatal("a malformed session ID must not be looked up")
+			return nil, nil
+		},
+		"ActionAuthorSession-ticket",
+	)
+	require.ErrorIs(t, err, actionauthor.ErrForbidden)
+}
+
+// An agent whose parent is a later run of its session ID is refused, also
+// when that run carries a copied grant.
+func TestLookupSessionStartAcceptsOnlyTheTrustedRun(t *testing.T) {
+	setFCAFTestEnv(t)
+	app := newCredimiTestApp(t)
+	input := authorTestSessionInput()
+	runs := sessionRunsClient(t, map[string]*fcafHistoryIterator{
+		authorTestParentRun: signedSessionHistory(t, app, input),
+		"replayed-run":      signedSessionHistory(t, app, input),
+	}, authorTestParentRun, "replayed-run")
+	lookup := func(namespace, runID string) (ActionAuthorSessionRef, error) {
+		return lookupSessionStart(t.Context(), app, runs, namespace, authorTestSessionID, runID)
 	}
 
 	ref, err := lookup(authorTestNamespace, authorTestParentRun)
 	require.NoError(t, err)
 	require.Equal(t, authorTestParentRun, ref.SessionRunID)
-	require.Equal(t, session, ref.Session)
+	require.Equal(t, authorTestSession(), ref.Session)
 
 	_, err = lookup(authorTestNamespace, "replayed-run")
 	require.ErrorIs(t, err, actionauthor.ErrForbidden)
 	require.ErrorContains(t, err, "action author session was not started by Credimi")
 
-	// A session recorded in another namespace is refused.
+	// A caller in another namespace than the session's runner namespace.
 	_, err = lookup("runner-other", authorTestParentRun)
 	require.ErrorIs(t, err, actionauthor.ErrForbidden)
 	require.ErrorContains(t, err, "action author session was not started by Credimi")
 
-	// The session's first activity can run before its start was recorded.
-	_, err = app.DB().NewQuery("DELETE FROM action_author_sessions").Execute()
-	require.NoError(t, err)
-	mockClient := &temporalmocks.Client{}
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, authorTestParentRun).
-		Return(sessionDescription(), nil)
-	_, err = lookupSessionStart(
-		t.Context(),
-		app,
-		mockClient,
-		authorTestNamespace,
-		authorTestSessionID,
-		authorTestParentRun,
-	)
-	require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)
-	require.NotErrorIs(t, err, actionauthor.ErrForbidden)
+	a := NewSaveAuthoredWalletActionActivity(app)
+	l := validSessionLookup(t, app)
+	l.runs = []string{authorTestParentRun, "replayed-run"}
+	l.author.WorkflowExecutionInfo.ParentExecution.RunId = "replayed-run"
+	l.session = nil
+	mockClient := sessionRunsClient(t, map[string]*fcafHistoryIterator{
+		authorTestParentRun: signedSessionHistory(t, app, input),
+		"replayed-run":      signedSessionHistory(t, app, input),
+	}, l.runs...)
+	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
+		Return(l.author, nil)
+	a.authorSessionLookup = authorSessionLookup{
+		app:            app,
+		temporalClient: func(string) (client.Client, error) { return mockClient, nil },
+	}
+	_, err = a.save(t.Context(), authorTestCaller(), actionauthor.SaveRequest{
+		BuildRequest: authorTestSession(),
+	})
+	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
+	require.ErrorContains(t, err, "action author session was not started by Credimi")
 
-	a := NewResolveActionAuthorBuildActivity(app)
-	a.authorSessionLookup = validSessionLookup(t, app).lookup()
-	_, err = app.DB().NewQuery("DELETE FROM action_author_sessions").Execute()
-	require.NoError(t, err)
-	_, err = a.resolve(t.Context(), authorCaller{
+	// The session's first activity can run before Temporal lists its run:
+	// the activity retries.
+	resolver := NewResolveActionAuthorBuildActivity(app)
+	l = validSessionLookup(t, app)
+	l.runs = nil
+	resolver.authorSessionLookup = l.lookup()
+	_, err = resolver.resolve(t.Context(), authorCaller{
 		Namespace:    authorTestNamespace,
 		WorkflowType: ActionAuthorSessionWorkflowName,
 		WorkflowID:   authorTestSessionID,
 		RunID:        authorTestParentRun,
-	}, session)
+	}, authorTestSession())
 	requireActivityError(t, err, errorcodes.UnexpectedWorkflowError, false)
-	require.ErrorContains(t, err, "action author session is not recorded yet")
+	require.ErrorContains(t, err, "action author session is not visible in Temporal yet")
 }
 
-// The recorded row's actor must be the start input's: a row of another
-// user, or one without an actor, refuses the session.
-func TestLookupSessionStartRequiresTheRecordedActor(t *testing.T) {
-	setFCAFTestEnv(t)
-	session := authorTestSession()
-	input := map[string]any{
-		"device_id":                 "tenant/runner-1/device-1",
-		"platform":                  session.Platform,
-		"wallet_version_identifier": session.WalletVersionIdentifier,
-		"actor_id":                  session.ActorID,
-	}
-	require.Equal(t, "user-1", session.ActorID)
-	for name, recordedActor := range map[string]string{
-		"another user": "user-2",
-		"no actor":     "",
-	} {
-		t.Run(name, func(t *testing.T) {
-			app := newCredimiTestApp(t)
-			// Recorded first: signedSessionHistory records the same run again,
-			// which keeps this row.
-			require.NoError(t, actionauthor.RecordSessionRun(
-				app,
-				authorTestNamespace,
-				authorTestSessionID,
-				authorTestParentRun,
-				actionauthor.SessionDetails{ActorID: recordedActor},
-			))
-			mockClient := &temporalmocks.Client{}
-			mockClient.On(
-				"DescribeWorkflowExecution",
-				mock.Anything,
-				authorTestSessionID,
-				authorTestParentRun,
-			).Return(sessionDescription(), nil)
-			mockClient.On(
-				"GetWorkflowHistory",
-				mock.Anything,
-				authorTestSessionID,
-				authorTestParentRun,
-				false,
-				enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-			).Return(signedSessionHistory(t, app, input))
-
-			_, err := lookupSessionStart(
-				t.Context(),
-				app,
-				mockClient,
-				authorTestNamespace,
-				authorTestSessionID,
-				authorTestParentRun,
-			)
-			require.ErrorIs(t, err, actionauthor.ErrForbidden)
-			require.ErrorContains(t, err, "action author session was not started by Credimi")
-		})
-	}
-}
-
-func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
+func TestReadActionAuthorSessionReadsATrustedSessionInAnyState(t *testing.T) {
 	setFCAFTestEnv(t)
 	app := newCredimiTestApp(t)
 	session := authorTestSession()
-	history := signedSessionHistory(t, app, map[string]any{
-		"device_id":                 "tenant/runner-1/device-1",
-		"platform":                  session.Platform,
-		"wallet_version_identifier": session.WalletVersionIdentifier,
-		"actor_id":                  session.ActorID,
-	})
 	started := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	closed := started.Add(time.Hour)
 	completed := describeExecution(
@@ -879,17 +931,25 @@ func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
 	)
 	completed.WorkflowExecutionInfo.StartTime = timestamppb.New(started)
 	completed.WorkflowExecutionInfo.CloseTime = timestamppb.New(closed)
-	mockClient := &temporalmocks.Client{}
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, authorTestParentRun).
-		Return(completed, nil)
-	mockClient.On(
-		"GetWorkflowHistory",
-		mock.Anything,
-		authorTestSessionID,
-		authorTestParentRun,
-		false,
-		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-	).Return(history)
+	newClient := func() *temporalmocks.Client {
+		mockClient := &temporalmocks.Client{}
+		stubSessionRuns(t, mockClient, authorTestSessionID, authorTestParentRun)
+		mockClient.On(
+			"DescribeWorkflowExecution",
+			mock.Anything,
+			authorTestSessionID,
+			authorTestParentRun,
+		).Return(completed, nil).Maybe()
+		mockClient.On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			authorTestSessionID,
+			authorTestParentRun,
+			false,
+			enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).Return(signedSessionHistory(t, app, authorTestSessionInput()))
+		return mockClient
+	}
 
 	var clientNamespaces []string
 	clientFor := func(c client.Client) func(string) (client.Client, error) {
@@ -901,13 +961,13 @@ func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
 	info, err := ReadActionAuthorSession(
 		t.Context(),
 		app,
-		clientFor(mockClient),
+		clientFor(newClient()),
 		authorTestOrganization,
 		authorTestSessionID,
 		session.ActorID,
 	)
 	require.NoError(t, err)
-	// The session is read in the namespace it was recorded in.
+	// The session is read in its runner's namespace, named by its ID.
 	require.Equal(t, []string{authorTestNamespace}, clientNamespaces)
 	require.Equal(t, authorTestNamespace, info.Namespace)
 	require.Equal(t, authorTestOrganization, info.Organization)
@@ -920,8 +980,7 @@ func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
 	require.Equal(t, closed, info.CloseTime)
 
 	// Another user, or a member of another organization, gets the answer of
-	// an unknown session, before any Temporal call.
-	clientNamespaces = nil
+	// an unknown session.
 	for _, caller := range [][2]string{
 		{authorTestOrganization, "another-user"},
 		{"other-org", session.ActorID},
@@ -930,7 +989,7 @@ func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
 		_, err = ReadActionAuthorSession(
 			t.Context(),
 			app,
-			clientFor(&temporalmocks.Client{}),
+			clientFor(newClient()),
 			caller[0],
 			authorTestSessionID,
 			caller[1],
@@ -938,46 +997,37 @@ func TestReadActionAuthorSessionReadsARecordedSessionInAnyState(t *testing.T) {
 		require.ErrorIs(t, err, actionauthor.ErrForbidden, caller)
 		require.ErrorContains(t, err, "action author session belongs to another user", caller)
 	}
-	require.Empty(t, clientNamespaces)
 }
 
-func TestReadActionAuthorSessionRefusesUnrecordedAndOtherWorkflows(t *testing.T) {
+func TestReadActionAuthorSessionRefusesInvisibleAndOtherWorkflows(t *testing.T) {
 	app := newCredimiTestApp(t)
-	mockClient := &temporalmocks.Client{}
+	read := func(c client.Client) error {
+		_, err := ReadActionAuthorSession(
+			t.Context(),
+			app,
+			func(string) (client.Client, error) { return c, nil },
+			authorTestOrganization,
+			authorTestSessionID,
+			"user-1",
+		)
+		return err
+	}
 
-	clientFor := func(string) (client.Client, error) { return mockClient, nil }
+	require.ErrorIs(t, read(sessionRunsClient(t, nil)), actionauthor.ErrSessionNotVisible)
 
-	_, err := ReadActionAuthorSession(
-		t.Context(),
-		app,
-		clientFor,
-		authorTestOrganization,
-		authorTestSessionID,
-		"user-1",
-	)
-	require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)
-
-	require.NoError(t, actionauthor.RecordSessionRun(
-		app,
-		authorTestNamespace,
-		authorTestSessionID,
-		authorTestParentRun,
-		actionauthor.SessionDetails{ActorID: "user-1", Organization: authorTestOrganization},
-	))
-	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, authorTestParentRun).
-		Return(describeExecution(
-			"Dynamic Pipeline Workflow",
-			enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
-			nil,
-		), nil)
-	_, err = ReadActionAuthorSession(
-		t.Context(),
-		app,
-		clientFor,
-		authorTestOrganization,
-		authorTestSessionID,
-		"user-1",
-	)
+	pipeline := &temporalmocks.Client{}
+	pipeline.On("ListWorkflow", mock.Anything, mock.Anything).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflowpb.WorkflowExecutionInfo{{
+				Execution: &commonpb.WorkflowExecution{
+					WorkflowId: authorTestSessionID,
+					RunId:      authorTestParentRun,
+				},
+				Type:      &commonpb.WorkflowType{Name: "Dynamic Pipeline Workflow"},
+				StartTime: timestamppb.Now(),
+			}},
+		}, nil)
+	err := read(pipeline)
 	require.ErrorIs(t, err, actionauthor.ErrForbidden)
 	require.ErrorContains(t, err, "workflow is not an action author session")
 }

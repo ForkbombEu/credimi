@@ -19,6 +19,8 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
+	workflowpb "go.temporal.io/api/workflow/v1"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 )
@@ -403,43 +405,122 @@ func (s sessionStart) grant(namespace, workflowID string) actionauthor.SessionGr
 }
 
 // lookupSessionStart returns the running session's start input after
-// checking that it is the run Credimi started and recorded
-// (actionauthor.FindSession), with the recorded actor, and Credimi's grant for it.
+// checking that sessionRunID is the run Credimi started: the trusted run of
+// TrustedActionAuthorSession, in namespace.
 func lookupSessionStart(
 	ctx context.Context,
 	app core.App,
 	c client.Client,
 	namespace, sessionID, sessionRunID string,
 ) (ActionAuthorSessionRef, error) {
-	var ref ActionAuthorSessionRef
 	described, err := c.DescribeWorkflowExecution(ctx, sessionID, sessionRunID)
 	if err != nil {
-		return ref, describeLookupError(err)
+		return ActionAuthorSessionRef{}, describeLookupError(err)
 	}
 	sessionInfo := described.GetWorkflowExecutionInfo()
 	if sessionInfo.GetType().GetName() != ActionAuthorSessionWorkflowName ||
 		sessionInfo.GetStatus() != enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING {
-		return ref, sessionForbidden("action author session is not running")
+		return ActionAuthorSessionRef{}, sessionForbidden("action author session is not running")
 	}
-	// A transient error, ErrSessionNotRecorded included: the session's first
-	// activity can run before the start activity recorded its run.
-	recorded, err := actionauthor.FindSession(app, sessionID)
+	// A transient error, ErrSessionNotVisible included: the session's first
+	// activity can run before Temporal lists its run.
+	ref, err := TrustedActionAuthorSession(
+		ctx,
+		app,
+		func(string) (client.Client, error) { return c, nil },
+		sessionID,
+	)
 	if err != nil {
-		return ref, fmt.Errorf("look up action author session: %w", err)
+		return ActionAuthorSessionRef{}, err
 	}
-	if recorded.Namespace != namespace || recorded.RunID != sessionRunID {
-		return ref, sessionForbidden("action author session was not started by Credimi")
-	}
-	ref, err = readSessionStart(ctx, app, c, namespace, sessionID, sessionRunID)
-	if err != nil {
-		return ref, err
-	}
-	if recorded.ActorID == "" || recorded.ActorID != ref.Session.ActorID {
+	if ref.Namespace != namespace || ref.SessionRunID != sessionRunID {
 		return ActionAuthorSessionRef{}, sessionForbidden(
 			"action author session was not started by Credimi",
 		)
 	}
 	return ref, nil
+}
+
+// trustedSession* bound the listing of the runs of one session ID in
+// TrustedActionAuthorSession.
+const (
+	trustedSessionPageSize = 100
+	trustedSessionMaxPages = 10
+)
+
+// TrustedActionAuthorSession reads the run of sessionID that Credimi started:
+// the earliest run of that workflow ID, whose start input must carry
+// Credimi's grant for it.
+//
+// Credimi signs the session grant right before it starts the session with
+// the REJECT_DUPLICATE reuse and FAIL conflict policies, so no run of that ID
+// can carry a valid grant before Credimi's, a run started earlier by someone
+// else makes Credimi's start fail, and a run started later with a copied
+// grant is never the earliest.
+func TrustedActionAuthorSession(
+	ctx context.Context,
+	app core.App,
+	clientFor func(namespace string) (client.Client, error),
+	sessionID string,
+) (ActionAuthorSessionRef, error) {
+	namespace, ok := actionauthor.SessionNamespace(sessionID)
+	if !ok {
+		return ActionAuthorSessionRef{}, sessionForbidden("not an action author session")
+	}
+	c, err := clientFor(namespace)
+	if err != nil {
+		return ActionAuthorSessionRef{}, fmt.Errorf("look up action author session: %w", err)
+	}
+	earliest, err := earliestSessionRun(ctx, c, namespace, sessionID)
+	if err != nil {
+		return ActionAuthorSessionRef{}, err
+	}
+	if earliest.GetType().GetName() != ActionAuthorSessionWorkflowName {
+		return ActionAuthorSessionRef{}, sessionForbidden(
+			"workflow is not an action author session",
+		)
+	}
+	return readSessionStart(ctx, app, c, namespace, sessionID, earliest.GetExecution().GetRunId())
+}
+
+// earliestSessionRun lists the runs of sessionID in namespace and returns the
+// one that started first.
+func earliestSessionRun(
+	ctx context.Context,
+	c client.Client,
+	namespace, sessionID string,
+) (*workflowpb.WorkflowExecutionInfo, error) {
+	var earliest *workflowpb.WorkflowExecutionInfo
+	var token []byte
+	for page := 0; ; page++ {
+		if page == trustedSessionMaxPages {
+			return nil, sessionForbidden("action author session has too many runs")
+		}
+		// IsSessionID admits only [a-z0-9-], so the ID needs no escaping.
+		resp, err := c.ListWorkflow(ctx, &workflowservice.ListWorkflowExecutionsRequest{
+			Namespace:     namespace,
+			PageSize:      trustedSessionPageSize,
+			NextPageToken: token,
+			Query:         fmt.Sprintf("WorkflowId = %q", sessionID),
+		})
+		if err != nil {
+			return nil, describeLookupError(err)
+		}
+		for _, execution := range resp.GetExecutions() {
+			if earliest == nil ||
+				execution.GetStartTime().AsTime().Before(earliest.GetStartTime().AsTime()) {
+				earliest = execution
+			}
+		}
+		token = resp.GetNextPageToken()
+		if len(token) == 0 {
+			break
+		}
+	}
+	if earliest == nil {
+		return nil, actionauthor.ErrSessionNotVisible
+	}
+	return earliest, nil
 }
 
 // readSessionStart reads the start input of the session run in namespace and
@@ -505,7 +586,7 @@ func readSessionStart(
 	}, nil
 }
 
-// ActionAuthorSessionInfo is a session Credimi started and recorded, and its state.
+// ActionAuthorSessionInfo is a session Credimi started, and its state.
 type ActionAuthorSessionInfo struct {
 	ActionAuthorSessionRef
 	Status    enumspb.WorkflowExecutionStatus
@@ -513,11 +594,11 @@ type ActionAuthorSessionInfo struct {
 	CloseTime time.Time // zero while the session runs
 }
 
-// ReadActionAuthorSession reads a recorded session that actorID started for
-// organization (a canonified_name), in any state, through clientFor of the
-// namespace the session was recorded in. An unrecorded session returns
-// actionauthor.ErrSessionNotRecorded; a session of another organization or
-// user, an unknown execution or another workflow type returns
+// ReadActionAuthorSession reads the trusted run of a session that actorID
+// started for organization (a canonified_name), in any state, through
+// clientFor of the session's runner namespace. A session Temporal does not
+// list yet returns actionauthor.ErrSessionNotVisible; a session of another
+// organization or user, an unknown execution or another workflow type returns
 // actionauthor.ErrForbidden.
 func ReadActionAuthorSession(
 	ctx context.Context,
@@ -526,32 +607,28 @@ func ReadActionAuthorSession(
 	organization, sessionID, actorID string,
 ) (ActionAuthorSessionInfo, error) {
 	var info ActionAuthorSessionInfo
-	recorded, err := actionauthor.FindSession(app, sessionID)
+	var c client.Client
+	ref, err := TrustedActionAuthorSession(
+		ctx,
+		app,
+		func(namespace string) (client.Client, error) {
+			var err error
+			c, err = clientFor(namespace)
+			return c, err
+		},
+		sessionID,
+	)
 	if err != nil {
 		return info, err
 	}
-	if recorded.Organization == "" || recorded.Organization != organization ||
-		recorded.ActorID == "" || recorded.ActorID != actorID {
+	if ref.Organization != organization || ref.Session.ActorID != actorID {
 		return info, sessionForbidden("action author session belongs to another user")
 	}
-	c, err := clientFor(recorded.Namespace)
-	if err != nil {
-		return info, fmt.Errorf("look up action author session: %w", err)
-	}
-	namespace := recorded.Namespace
-	runID := recorded.RunID
-	described, err := c.DescribeWorkflowExecution(ctx, sessionID, runID)
+	described, err := c.DescribeWorkflowExecution(ctx, sessionID, ref.SessionRunID)
 	if err != nil {
 		return info, describeLookupError(err)
 	}
 	execution := described.GetWorkflowExecutionInfo()
-	if execution.GetType().GetName() != ActionAuthorSessionWorkflowName {
-		return info, sessionForbidden("workflow is not an action author session")
-	}
-	ref, err := readSessionStart(ctx, app, c, namespace, sessionID, runID)
-	if err != nil {
-		return info, err
-	}
 	info.ActionAuthorSessionRef = ref
 	info.Status = execution.GetStatus()
 	if execution.GetStartTime() != nil {

@@ -16,9 +16,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
+	"go.temporal.io/sdk/temporal"
 )
 
 // testRunnerNamespace is the agent namespace of the runner of the
@@ -30,16 +34,18 @@ const testRunnerID = "testrunner00001"
 
 func actionAuthorTicketInput() StartQueuedPipelineActivityInput {
 	return StartQueuedPipelineActivityInput{
-		TicketID:          "ticket-author",
+		TicketID:          "00000000-0000-4000-8000-0000000000aa",
 		OwnerNamespace:    testOrgANamespace,
 		RequiredDeviceIDs: []string{"tenant/runner-1/device-1"},
 		LeaderDeviceID:    "tenant/runner-1/device-1",
 		RunKind:           mobiledevicesemaphore.RunKindActionAuthor,
 		ActionAuthor: map[string]any{
-			"device_id":    "tenant/runner-1/device-1",
-			"platform":     "android",
-			"namespace":    testRunnerNamespace,
-			"organization": testOrgANamespace,
+			"device_id":                 "tenant/runner-1/device-1",
+			"platform":                  "android",
+			"wallet_version_identifier": testOrgANamespace + "/wallet/v1",
+			"actor_id":                  "user-1",
+			"namespace":                 testRunnerNamespace,
+			"organization":              testOrgANamespace,
 		},
 	}
 }
@@ -65,7 +71,7 @@ func signActionAuthorTicket(
 func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 	act, captured := newCapturingQueuedPipelineActivity(
 		t,
-		"ActionAuthorSession-testrunner00001-ticket-author",
+		queuedSessionID,
 		"run-author",
 	)
 	payload := actionAuthorTicketInput()
@@ -79,7 +85,7 @@ func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 	require.Equal(t, ActionAuthorSessionWorkflowName, captured.lastWorkflow)
 	// The session runs in the runner's agent namespace.
 	require.Equal(t, []string{testRunnerNamespace}, captured.namespaces)
-	require.Equal(t, "ActionAuthorSession-testrunner00001-ticket-author", captured.lastOptions.ID)
+	require.Equal(t, queuedSessionID, captured.lastOptions.ID)
 	require.Equal(t, pipelineTaskQueue, captured.lastOptions.TaskQueue)
 	require.Equal(t, 3*time.Hour, captured.lastOptions.WorkflowExecutionTimeout)
 	require.Equal(
@@ -89,9 +95,20 @@ func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 	)
 	require.Equal(
 		t,
-		enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
+		enumspb.WORKFLOW_ID_CONFLICT_POLICY_FAIL,
 		captured.lastOptions.WorkflowIDConflictPolicy,
 	)
+	attributes := captured.lastOptions.TypedSearchAttributes
+	actor, ok := attributes.GetKeyword(
+		temporal.NewSearchAttributeKeyKeyword(workflowengine.ActionAuthorActorSearchAttribute),
+	)
+	require.True(t, ok)
+	require.Equal(t, "user-1", actor)
+	wallet, ok := attributes.GetKeyword(
+		temporal.NewSearchAttributeKeyKeyword(workflowengine.ActionAuthorWalletSearchAttribute),
+	)
+	require.True(t, ok)
+	require.Equal(t, testOrgANamespace+"/wallet", wallet)
 	require.Len(t, captured.lastArgs, 1)
 	input, ok := captured.lastArgs[0].(workflowengine.WorkflowInput)
 	require.True(t, ok)
@@ -99,11 +116,13 @@ func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 	require.True(t, ok)
 	grant, _ := started["grant"].(string)
 	require.NoError(t, actionauthor.VerifySession(act.app, grant, actionauthor.SessionGrant{
-		SessionWorkflowID: "ActionAuthorSession-testrunner00001-ticket-author",
-		Namespace:         testRunnerNamespace,
-		Organization:      testOrgANamespace,
-		DeviceID:          "tenant/runner-1/device-1",
-		Platform:          "android",
+		SessionWorkflowID:       queuedSessionID,
+		Namespace:               testRunnerNamespace,
+		Organization:            testOrgANamespace,
+		DeviceID:                "tenant/runner-1/device-1",
+		Platform:                "android",
+		WalletVersionIdentifier: testOrgANamespace + "/wallet/v1",
+		ActorID:                 "user-1",
 	}))
 	delete(started, "grant")
 	// The ticket's own grant does not reach the session.
@@ -112,128 +131,146 @@ func TestStartQueuedPipelineActivityStartsActionAuthorSession(t *testing.T) {
 	delete(ticketSession, "ticket_grant")
 	require.Equal(t, ticketSession, started)
 	require.Equal(t, map[string]any{
-		mobileDeviceSemaphoreTicketIDConfigKey:       "ticket-author",
+		mobileDeviceSemaphoreTicketIDConfigKey:       "00000000-0000-4000-8000-0000000000aa",
 		mobileDeviceSemaphoreDeviceIDsConfigKey:      []string{"tenant/runner-1/device-1"},
 		mobileDeviceSemaphoreLeaderDeviceIDConfigKey: "tenant/runner-1/device-1",
 		mobileDeviceSemaphoreOwnerNamespaceConfigKey: testOrgANamespace,
 	}, input.Config)
 
 	require.Equal(t, StartQueuedPipelineActivityOutput{
-		WorkflowID:        "ActionAuthorSession-testrunner00001-ticket-author",
+		WorkflowID:        queuedSessionID,
 		RunID:             "run-author",
 		WorkflowNamespace: testRunnerNamespace,
 	}, result.Output)
-	recorded, err := actionauthor.FindSession(
-		act.app,
-		"ActionAuthorSession-testrunner00001-ticket-author",
-	)
-	require.NoError(t, err)
-	require.Equal(t, "run-author", recorded.RunID)
-	require.Equal(t, testRunnerNamespace, recorded.Namespace)
-	require.Equal(t, testOrgANamespace, recorded.Organization)
 	records, err := act.app.FindAllRecords(
 		"pipeline_results",
-		dbx.HashExp{"workflow_id": "ActionAuthorSession-testrunner00001-ticket-author"},
+		dbx.HashExp{"workflow_id": queuedSessionID},
 	)
 	require.NoError(t, err)
 	require.Empty(t, records)
 }
 
-func TestStartQueuedPipelineActivityReusesClosedActionAuthorSession(t *testing.T) {
+// startedSessionClient fakes the runner namespace of a session the ticket's
+// start finds already started, whose runs (oldest first) start with
+// histories[run].
+func startedSessionClient(
+	t *testing.T,
+	act *StartQueuedPipelineActivity,
+	histories map[string]*fcafHistoryIterator,
+	runs ...string,
+) *[]string {
+	t.Helper()
+	mockClient := &temporalmocks.Client{}
+	stubSessionRuns(t, mockClient, queuedSessionID, runs...)
+	for _, run := range runs {
+		mockClient.On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			queuedSessionID,
+			run,
+			false,
+			enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).Return(replayHistory(histories[run])).Maybe()
+	}
+	var namespaces []string
+	act.sessionClientFactory = func(namespace string) (client.Client, error) {
+		namespaces = append(namespaces, namespace)
+		return mockClient, nil
+	}
+	return &namespaces
+}
+
+// queuedSessionID is the session of actionAuthorTicketInput.
+const queuedSessionID = "ActionAuthorSession-testrunner00001-00000000-0000-4000-8000-0000000000aa"
+
+// queuedSessionHistory is the start of the session of payload, with
+// Credimi's grant of it when signed.
+func queuedSessionHistory(
+	t *testing.T,
+	app core.App,
+	payload StartQueuedPipelineActivityInput,
+	signed bool,
+) *fcafHistoryIterator {
+	t.Helper()
+	input := maps.Clone(payload.ActionAuthor)
+	delete(input, "ticket_grant")
+	if signed {
+		start, err := workflowengine.DecodePayload[sessionStart](payload.ActionAuthor)
+		require.NoError(t, err)
+		grant, err := actionauthor.SignSession(app, start.grant(start.Namespace, queuedSessionID))
+		require.NoError(t, err)
+		input["grant"] = grant
+	}
+	return sessionHistory(t, input)
+}
+
+// A retried start whose session already started reuses the run Credimi
+// started first.
+func TestStartQueuedPipelineActivityReusesItsOwnActionAuthorSession(t *testing.T) {
+	setFCAFTestEnv(t)
 	act, captured := newCapturingQueuedPipelineActivity(t, "unused", "unused")
 	captured.executeErr = serviceerror.NewWorkflowExecutionAlreadyStarted("already started", "", "")
-	captured.describeRun = "run-closed"
-	require.NoError(t, actionauthor.RecordSessionRun(
-		act.app,
-		testRunnerNamespace,
-		"ActionAuthorSession-testrunner00001-ticket-author",
-		"run-closed",
-		actionauthor.SessionDetails{},
-	))
-
 	payload := actionAuthorTicketInput()
 	signActionAuthorTicket(t, act.app, &payload)
+	namespaces := startedSessionClient(t, act, map[string]*fcafHistoryIterator{
+		"run-first":  queuedSessionHistory(t, act.app, payload, true),
+		"run-replay": queuedSessionHistory(t, act.app, payload, true),
+	}, "run-first", "run-replay")
+
 	result, err := act.Execute(
 		context.Background(),
 		workflowengine.ActivityInput{Payload: payload},
 	)
 	require.NoError(t, err)
 
-	require.Equal(
-		t,
-		[]string{"ActionAuthorSession-testrunner00001-ticket-author/"},
-		captured.described,
-	)
-	output, ok := result.Output.(StartQueuedPipelineActivityOutput)
-	require.True(t, ok)
-	require.Equal(t, "ActionAuthorSession-testrunner00001-ticket-author", output.WorkflowID)
-	require.Equal(t, "run-closed", output.RunID)
+	require.Equal(t, []string{testRunnerNamespace}, *namespaces)
+	require.Equal(t, StartQueuedPipelineActivityOutput{
+		WorkflowID:        queuedSessionID,
+		RunID:             "run-first",
+		WorkflowNamespace: testRunnerNamespace,
+	}, result.Output)
 }
 
-func TestStartQueuedPipelineActivityRefusesAnotherActionAuthorSessionRun(t *testing.T) {
-	act, _ := newCapturingQueuedPipelineActivity(
-		t,
-		"ActionAuthorSession-testrunner00001-ticket-author",
-		"run-restarted",
-	)
-	require.NoError(t, actionauthor.RecordSessionRun(
-		act.app,
-		testRunnerNamespace,
-		"ActionAuthorSession-testrunner00001-ticket-author",
-		"run-first",
-		actionauthor.SessionDetails{},
-	))
-
+// A workflow started under the ticket's session ID before Credimi is never
+// adopted: the start fails for good.
+func TestStartQueuedPipelineActivityRefusesAForeignEarlierSession(t *testing.T) {
+	setFCAFTestEnv(t)
+	act, captured := newCapturingQueuedPipelineActivity(t, "unused", "unused")
+	captured.executeErr = serviceerror.NewWorkflowExecutionAlreadyStarted("already started", "", "")
 	payload := actionAuthorTicketInput()
 	signActionAuthorTicket(t, act.app, &payload)
+	startedSessionClient(t, act, map[string]*fcafHistoryIterator{
+		"run-foreign": queuedSessionHistory(t, act.app, payload, false),
+	}, "run-foreign")
+
 	_, err := act.Execute(
 		context.Background(),
 		workflowengine.ActivityInput{Payload: payload},
 	)
 
 	requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
-	require.ErrorContains(t, err, "already ran as another run")
+	require.ErrorContains(
+		t,
+		err,
+		"action author session "+queuedSessionID+" was not started by Credimi",
+	)
 }
 
-// A workflow started under the ticket's session ID before Credimi (attack c)
-// is adopted by USE_EXISTING and recorded, but its input has no grant, so
-// every lookup still refuses it.
-func TestActionAuthorSessionStartedBeforeCredimiIsRefused(t *testing.T) {
-	setFCAFTestEnv(t)
-	act, _ := newCapturingQueuedPipelineActivity(t, authorTestSessionID, authorTestParentRun)
+// A started session Temporal does not list yet is retried.
+func TestStartQueuedPipelineActivityRetriesAnInvisibleActionAuthorSession(t *testing.T) {
+	act, captured := newCapturingQueuedPipelineActivity(t, "unused", "unused")
+	captured.executeErr = serviceerror.NewWorkflowExecutionAlreadyStarted("already started", "", "")
 	payload := actionAuthorTicketInput()
-	payload.TicketID = "ticket-1"
-	payload.OwnerNamespace = authorTestNamespace
-	payload.ActionAuthor["organization"] = authorTestNamespace
 	signActionAuthorTicket(t, act.app, &payload)
+	startedSessionClient(t, act, nil)
 
-	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{Payload: payload})
-	require.NoError(t, err)
-	recorded, err := actionauthor.FindSession(act.app, authorTestSessionID)
-	require.NoError(t, err)
-	require.Equal(t, authorTestParentRun, recorded.RunID)
-
-	session := authorTestSession()
-	lookup := sessionLookup{
-		app:     act.app,
-		session: sessionDescription(),
-		history: sessionHistory(t, map[string]any{
-			"device_id":                 "tenant/runner-1/device-1",
-			"platform":                  session.Platform,
-			"wallet_version_identifier": session.WalletVersionIdentifier,
-			"actor_id":                  session.ActorID,
-		}),
-	}
-	_, err = lookupSessionStart(
-		t.Context(),
-		act.app,
-		lookup.client(),
-		testRunnerNamespace,
-		authorTestSessionID,
-		authorTestParentRun,
+	_, err := act.Execute(
+		context.Background(),
+		workflowengine.ActivityInput{Payload: payload},
 	)
-	require.ErrorIs(t, err, actionauthor.ErrForbidden)
-	require.ErrorContains(t, err, "action author session was not started by Credimi")
+
+	requireActivityError(t, err, errorcodes.PipelineExecutionError, false)
+	require.ErrorContains(t, err, "action author session is not visible in Temporal yet")
 }
 
 // The semaphore does not authenticate who enqueues: a ticket without
@@ -288,7 +325,7 @@ func TestStartQueuedPipelineActivityRefusesUnsignedActionAuthorTickets(t *testin
 		t.Run(name, func(t *testing.T) {
 			act, captured := newCapturingQueuedPipelineActivity(
 				t,
-				"ActionAuthorSession-testrunner00001-ticket-author",
+				queuedSessionID,
 				"run-author",
 			)
 			payload := actionAuthorTicketInput()
@@ -302,11 +339,6 @@ func TestStartQueuedPipelineActivityRefusesUnsignedActionAuthorTickets(t *testin
 			requireActivityError(t, err, errorcodes.RecordNotAccessible, true)
 			require.ErrorContains(t, err, "action author ticket was not enqueued by Credimi")
 			require.Nil(t, captured.lastWorkflow)
-			_, err = actionauthor.FindSession(
-				act.app,
-				"ActionAuthorSession-testrunner00001-ticket-author",
-			)
-			require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)
 		})
 	}
 }
@@ -334,7 +366,7 @@ func TestStartQueuedPipelineActivityRefusesActionAuthorTicketScope(t *testing.T)
 		t.Run(name, func(t *testing.T) {
 			act, captured := newCapturingQueuedPipelineActivity(
 				t,
-				"ActionAuthorSession-testrunner00001-ticket-author",
+				queuedSessionID,
 				"run-author",
 			)
 			payload := actionAuthorTicketInput()
@@ -350,11 +382,6 @@ func TestStartQueuedPipelineActivityRefusesActionAuthorTicketScope(t *testing.T)
 			requireActivityError(t, err, errorcodes.MissingOrInvalidPayload, true)
 			require.ErrorContains(t, err, tc.message)
 			require.Nil(t, captured.lastWorkflow)
-			_, err = actionauthor.FindSession(
-				act.app,
-				"ActionAuthorSession-testrunner00001-ticket-author",
-			)
-			require.ErrorIs(t, err, actionauthor.ErrSessionNotRecorded)
 		})
 	}
 }

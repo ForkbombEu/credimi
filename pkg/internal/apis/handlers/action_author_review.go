@@ -82,9 +82,9 @@ func actionAuthorSessionNotFound() *apierror.APIError {
 }
 
 // actionAuthorCallerSession authorizes the caller for the running session of
-// an agent workflow: the session must be recorded for the caller's
-// organization and started by the caller (404 session_not_found otherwise).
-// It looks the session up in the namespace it runs in and returns that
+// an agent workflow: the session's trusted run must have been started for the
+// caller's organization by the caller (404 session_not_found otherwise). It
+// looks the session up in the runner namespace its ID names and returns that
 // namespace's client.
 func actionAuthorCallerSession(
 	e *core.RequestEvent,
@@ -103,17 +103,11 @@ func actionAuthorCallerSession(
 		return nil, ref, actor, actionAuthorSessionNotFound()
 	}
 	sessionID := strings.TrimSuffix(authorWorkflowID, activities.ActionAuthorWorkflowIDSuffix)
-	recorded, err := actionauthor.FindSession(e.App, sessionID)
-	if errors.Is(err, actionauthor.ErrSessionNotRecorded) {
+	namespace, ok := actionauthor.SessionNamespace(sessionID)
+	if !ok {
 		return nil, ref, actor, actionAuthorSessionNotFound()
 	}
-	if err != nil {
-		return nil, ref, actor, authoringAPIError(e, err)
-	}
-	if recorded.Organization != organization || recorded.ActorID != actor.ActorID {
-		return nil, ref, actor, actionAuthorSessionNotFound()
-	}
-	c, err := queueTemporalClient(recorded.Namespace)
+	c, err := queueTemporalClient(namespace)
 	if err != nil {
 		return nil, ref, actor, temporalUnavailableError()
 	}
@@ -121,17 +115,18 @@ func actionAuthorCallerSession(
 		e.Request.Context(),
 		e.App,
 		c,
-		recorded.Namespace,
+		namespace,
 		authorWorkflowID,
 		"",
 	)
-	if errors.Is(err, actionauthor.ErrForbidden) {
+	if errors.Is(err, actionauthor.ErrForbidden) ||
+		errors.Is(err, actionauthor.ErrSessionNotVisible) {
 		return nil, ref, actor, actionAuthorSessionNotFound()
 	}
 	if err != nil {
 		return nil, ref, actor, temporalUnavailableError()
 	}
-	if ref.Session.ActorID != actor.ActorID {
+	if ref.Organization != organization || ref.Session.ActorID != actor.ActorID {
 		return nil, ref, actor, actionAuthorSessionNotFound()
 	}
 	return c, ref, actor, nil

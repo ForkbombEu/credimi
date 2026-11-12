@@ -8,8 +8,8 @@
 // The UI service has no authentication of its own and is reachable only through
 // this proxy, so the proxy is the security boundary:
 //   - the caller is a Credimi user authenticated by the `pb_auth` cookie
-//     (temporalui.Caller), and the session must be one Credimi recorded
-//     for the caller's organization;
+//     (temporalui.Caller), and the session must be one Credimi started for
+//     the caller's organization (activities.TrustedActionAuthorSession);
 //   - only the user who started the session can reach its chat; other users
 //     get 404, as for a session that does not exist;
 //   - the service learns the session's namespace, its chat workflow and its
@@ -31,11 +31,14 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalauth"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalui"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/pocketbase/core"
@@ -209,15 +212,15 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		recorded, err := actionauthor.FindSession(e.App, sessionID)
-		if err != nil {
-			if errors.Is(err, actionauthor.ErrSessionNotRecorded) {
-				return e.NotFoundError(sessionMissing, nil)
-			}
+		session, err := trustedSession(e.Request.Context(), e.App, sessionID)
+		switch {
+		case errors.Is(err, actionauthor.ErrForbidden),
+			errors.Is(err, actionauthor.ErrSessionNotVisible):
+			return e.NotFoundError(sessionMissing, nil)
+		case err != nil:
 			return e.InternalServerError("", err)
 		}
-		if recorded.Organization == "" || recorded.Organization != organization ||
-			recorded.ActorID == "" || recorded.ActorID != user.Id {
+		if session.Organization != organization || session.Session.ActorID != user.Id {
 			return e.NotFoundError(sessionMissing, nil)
 		}
 		chat := sessionID + activities.ActionAuthorWorkflowIDSuffix
@@ -246,7 +249,7 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 			}
 		}
 
-		token, err := namespaceTokenFn(recorded.Namespace)
+		token, err := namespaceTokenFn(session.Namespace)
 		if err != nil {
 			e.App.Logger().Error("action author ui: Temporal token", "error", err)
 			unavailable := apierror.New(
@@ -260,7 +263,7 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 
 		scoped := e.Request.WithContext(
 			context.WithValue(e.Request.Context(), forwardKey{}, forward{
-				namespace: recorded.Namespace,
+				namespace: session.Namespace,
 				chat:      chat,
 				token:     token,
 				path:      "/" + strings.Join(segments, "/"),
@@ -270,6 +273,43 @@ func Handler(target *url.URL) func(*core.RequestEvent) error {
 		proxy.ServeHTTP(e.Response, scoped)
 		return nil
 	}
+}
+
+// clientFor connects to a session's namespace; tests stub it.
+var clientFor = temporalclient.GetTemporalClientWithNamespace
+
+// sessionRefs caches trusted sessions by ID, because the chat polls through
+// the proxy: a trusted run's start input never changes. It is cleared whole
+// when it passes maxSessionRefs entries.
+var (
+	sessionRefs     sync.Map
+	sessionRefCount atomic.Int64
+)
+
+const maxSessionRefs = 4096
+
+// trustedSession returns the trusted run of sessionID, from sessionRefs when
+// it was looked up before.
+func trustedSession(
+	ctx context.Context,
+	app core.App,
+	sessionID string,
+) (activities.ActionAuthorSessionRef, error) {
+	if cached, ok := sessionRefs.Load(sessionID); ok {
+		if ref, ok := cached.(activities.ActionAuthorSessionRef); ok {
+			return ref, nil
+		}
+	}
+	ref, err := activities.TrustedActionAuthorSession(ctx, app, clientFor, sessionID)
+	if err != nil {
+		return ref, err
+	}
+	if sessionRefCount.Add(1) > maxSessionRefs {
+		sessionRefs.Clear()
+		sessionRefCount.Store(1)
+	}
+	sessionRefs.Store(sessionID, ref)
+	return ref, nil
 }
 
 // streams reports the routes that stream a turn for as long as it runs.

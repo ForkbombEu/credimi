@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
+	workflowpb "go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 )
@@ -757,7 +759,7 @@ func readCallerActionAuthorSession(
 		e.Auth.Id,
 	)
 	switch {
-	case errors.Is(err, actionauthor.ErrSessionNotRecorded),
+	case errors.Is(err, actionauthor.ErrSessionNotVisible),
 		errors.Is(err, actionauthor.ErrForbidden):
 		return nil, info, actionAuthorSessionMissing()
 	case clientErr != nil:
@@ -922,8 +924,10 @@ func queryActionAuthorChat(
 }
 
 // HandleActionAuthorSessions lists the latest sessions of a wallet that the
-// caller started for their organization, each described in the namespace it
-// runs in.
+// caller started for their organization: Temporal lists them by search
+// attributes in the agent namespaces of the runners that offer the caller's
+// organization the agent, and each listed run is kept only when it is the
+// session's trusted run.
 func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		organization, apiErr := actionAuthorCallerNamespace(e)
@@ -937,47 +941,73 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 				actionauthor.ErrInvalid,
 			))
 		}
-		recorded, err := actionauthor.RecentWalletSessions(
-			e.App,
-			organization,
-			wallet,
-			e.Auth.Id,
-			actionAuthorRecentSessions,
-		)
+		org, err := pbutils.GetUserOrganization(e.App, e.Auth.Id)
 		if err != nil {
-			return authoringAPIError(e, err)
+			return authoringAPIError(e, actionauthor.ErrForbidden)
 		}
-		response := ActionAuthorSessionsResponse{Sessions: []ActionAuthorSessionListItem{}}
-		for _, session := range recorded {
-			c, err := actionAuthorSessionTemporalClient(session.Namespace)
+		listed, err := listMobileRunnerRecords(e.App, org.Id, org.GetBool("published"))
+		if err != nil {
+			return authoringAPIError(e, fmt.Errorf("list authoring runners: %w", err))
+		}
+		ctx := e.Request.Context()
+		query := fmt.Sprintf(
+			`WorkflowType = "%s" and %s = "%s" and %s = "%s"`,
+			escapeTemporalQueryValue(activities.ActionAuthorSessionWorkflowName),
+			workflowengine.ActionAuthorActorSearchAttribute,
+			escapeTemporalQueryValue(e.Auth.Id),
+			workflowengine.ActionAuthorWalletSearchAttribute,
+			escapeTemporalQueryValue(wallet),
+		)
+		var executions []*workflowpb.WorkflowExecutionInfo
+		for _, runner := range enabledMobileRunnerRecords(listed) {
+			if !actionAuthorRunnerOffered(runner, org.Id) || !runner.GetBool("agent_enabled") {
+				continue
+			}
+			listed, err := listRunnerActionAuthorSessions(
+				e,
+				mobilerunner.AgentNamespace(runner.Id),
+				query,
+			)
 			if err != nil {
 				return temporalUnavailableError()
 			}
-			described, err := c.DescribeWorkflowExecution(
-				e.Request.Context(),
-				session.WorkflowID,
-				session.RunID,
+			executions = append(executions, listed...)
+		}
+		slices.SortStableFunc(executions, func(a, b *workflowpb.WorkflowExecutionInfo) int {
+			return b.GetStartTime().AsTime().Compare(a.GetStartTime().AsTime())
+		})
+		if len(executions) > actionAuthorRecentSessions {
+			executions = executions[:actionAuthorRecentSessions]
+		}
+		response := ActionAuthorSessionsResponse{Sessions: []ActionAuthorSessionListItem{}}
+		for _, execution := range executions {
+			sessionID := execution.GetExecution().GetWorkflowId()
+			// Search attributes are written by whoever starts a workflow:
+			// only the trusted run of a session the caller started counts.
+			info, err := activities.ReadActionAuthorSession(
+				ctx,
+				e.App,
+				actionAuthorSessionTemporalClient,
+				organization,
+				sessionID,
+				e.Auth.Id,
 			)
 			if err != nil {
 				e.App.Logger().Warn(
-					"action author session describe",
-					"session", session.WorkflowID,
+					"action author session skipped",
+					"session", sessionID,
 					"error", err,
 				)
 				continue
 			}
-			execution := described.GetWorkflowExecutionInfo()
 			item := ActionAuthorSessionListItem{
-				SessionID: session.WorkflowID,
-				Status:    execution.GetStatus().String(),
-				StartTime: execution.GetStartTime().
-					AsTime().
-					UTC().
-					Format(time.RFC3339),
-				WalletVersionIdentifier: session.WalletVersionIdentifier,
-				DeviceID:                session.DeviceID,
+				SessionID:               sessionID,
+				Status:                  info.Status.String(),
+				StartTime:               info.StartTime.UTC().Format(time.RFC3339),
+				WalletVersionIdentifier: info.Session.WalletVersionIdentifier,
+				DeviceID:                info.DeviceID,
 			}
-			if device, _, err := mobilerunner.ResolveDevice(e.App, session.DeviceID); err == nil {
+			if device, _, err := mobilerunner.ResolveDevice(e.App, info.DeviceID); err == nil {
 				item.DeviceName = device.GetString("name")
 			}
 			response.Sessions = append(response.Sessions, item)
@@ -985,6 +1015,47 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 		return e.JSON(http.StatusOK, response)
 	}
 }
+
+// listRunnerActionAuthorSessions returns the first page of the sessions query
+// lists in a runner's agent namespace. A namespace without a client, not
+// registered or without the search attributes yet is skipped; other list
+// failures are returned.
+func listRunnerActionAuthorSessions(
+	e *core.RequestEvent,
+	namespace, query string,
+) ([]*workflowpb.WorkflowExecutionInfo, error) {
+	c, err := actionAuthorSessionTemporalClient(namespace)
+	if err != nil {
+		e.App.Logger().Warn(
+			"action author sessions namespace skipped",
+			"namespace", namespace,
+			"error", err,
+		)
+		return nil, nil
+	}
+	resp, err := c.ListWorkflow(e.Request.Context(), &workflowservice.ListWorkflowExecutionsRequest{
+		Namespace: namespace,
+		PageSize:  actionAuthorSessionsPageSize,
+		Query:     query,
+	})
+	var notFound *serviceerror.NotFound
+	var invalid *serviceerror.InvalidArgument
+	switch {
+	case errors.As(err, &notFound), errors.As(err, &invalid):
+		e.App.Logger().Warn(
+			"action author sessions namespace skipped",
+			"namespace", namespace,
+			"error", err,
+		)
+		return nil, nil
+	case err != nil:
+		return nil, fmt.Errorf("list action author sessions in %s: %w", namespace, err)
+	}
+	return resp.GetExecutions(), nil
+}
+
+// actionAuthorSessionsPageSize is how many sessions one runner namespace lists.
+const actionAuthorSessionsPageSize = 20
 
 // HandleActionAuthorSessionClose asks the agent chat of a running session to
 // close, or cancels a session whose chat has not started; the session then

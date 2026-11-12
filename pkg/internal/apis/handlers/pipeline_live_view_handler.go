@@ -103,12 +103,12 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 		workflowID := strings.TrimSpace(input.WorkflowID)
 		runID := strings.TrimSpace(input.RunID)
 		// Pipelines run in the organization's namespace, action author
-		// sessions in the namespace they were recorded in (their runner's).
+		// sessions in their runner's namespace.
 		workflowNamespace := namespace
 		// Only its starter learns anything of a session, its status included.
 		ownerChecked := isActionAuthorWorkflowID(workflowID)
 		if ownerChecked {
-			recorded, apiErr := requireActionAuthorSessionOwner(
+			session, apiErr := requireActionAuthorSessionOwner(
 				e,
 				namespace,
 				workflowID,
@@ -117,7 +117,7 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 			if apiErr != nil {
 				return apiErr
 			}
-			workflowNamespace = recorded.Namespace
+			workflowNamespace = session.Namespace
 		}
 		temporalClient, err := pipelineLiveViewTemporalClient(workflowNamespace)
 		if err != nil {
@@ -136,19 +136,9 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 		// as the run identifier (pkg/workflowengine/authorsession).
 		runIdentifier := pipeline.RunIdentifier(namespace, workflowID, runID)
 		if workflowType == activities.ActionAuthorSessionWorkflowName {
+			// Credimi starts sessions only under session IDs.
 			if !ownerChecked {
-				recorded, apiErr := requireActionAuthorSessionOwner(
-					e,
-					namespace,
-					workflowID,
-					runID,
-				)
-				if apiErr != nil {
-					return apiErr
-				}
-				if recorded.Namespace != workflowNamespace {
-					return actionAuthorSessionMissing()
-				}
+				return actionAuthorSessionMissing()
 			}
 			runIdentifier = workflowID
 		}
@@ -195,26 +185,35 @@ func HandlePipelineLiveView() func(*core.RequestEvent) error {
 
 // requireActionAuthorSessionOwner allows the live view of an action author
 // session only to the user who started it for organization (a
-// canonified_name), and returns the recorded session.
+// canonified_name), and returns the session's trusted run.
 func requireActionAuthorSessionOwner(
 	e *core.RequestEvent,
 	organization, workflowID, runID string,
-) (actionauthor.RecordedSession, *apierror.APIError) {
-	recorded, err := actionauthor.FindSession(e.App, workflowID)
+) (activities.ActionAuthorSessionRef, *apierror.APIError) {
+	info, err := activities.ReadActionAuthorSession(
+		e.Request.Context(),
+		e.App,
+		actionAuthorSessionTemporalClient,
+		organization,
+		workflowID,
+		e.Auth.Id,
+	)
 	switch {
-	case err != nil && !errors.Is(err, actionauthor.ErrSessionNotRecorded):
-		return recorded, apierror.New(
+	case errors.Is(err, actionauthor.ErrForbidden),
+		errors.Is(err, actionauthor.ErrSessionNotVisible):
+		// Another user's session answers as one that does not exist.
+		return info.ActionAuthorSessionRef, actionAuthorSessionMissing()
+	case err != nil:
+		return info.ActionAuthorSessionRef, apierror.New(
 			http.StatusInternalServerError,
 			"action_author",
 			"session_lookup_failed",
 			err.Error(),
 		)
-	case err != nil || recorded.Organization != organization ||
-		recorded.RunID != runID || recorded.ActorID != e.Auth.Id:
-		// Another user's session answers as one that does not exist.
-		return recorded, actionAuthorSessionMissing()
+	case info.SessionRunID != runID:
+		return info.ActionAuthorSessionRef, actionAuthorSessionMissing()
 	}
-	return recorded, nil
+	return info.ActionAuthorSessionRef, nil
 }
 
 func runningPipelineDevices(

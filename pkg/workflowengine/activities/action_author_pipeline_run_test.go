@@ -67,6 +67,7 @@ func newPipelineRunFixture(t *testing.T) pipelineRunFixture {
 func replayedSessionClient(lookup sessionLookup) *temporalmocks.Client {
 	events := lookup.history.(*fcafHistoryIterator).events
 	mockClient := &temporalmocks.Client{}
+	listSessionRuns(mockClient, authorTestSessionID, lookup.runs...)
 	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
 		Return(lookup.author, nil).
 		Maybe()

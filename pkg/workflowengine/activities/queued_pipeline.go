@@ -36,6 +36,9 @@ type StartQueuedPipelineActivity struct {
 	workflowengine.BaseActivity
 	app                   core.App
 	temporalClientFactory func(namespace string) (temporalWorkflowStarter, error)
+	// sessionClientFactory reads an action author session that a retried
+	// start finds already started.
+	sessionClientFactory func(namespace string) (client.Client, error)
 }
 
 type StartQueuedPipelineActivityInput struct {
@@ -141,6 +144,7 @@ func NewStartQueuedPipelineActivity(app core.App) *StartQueuedPipelineActivity {
 		temporalClientFactory: func(namespace string) (temporalWorkflowStarter, error) {
 			return temporalclient.GetTemporalClientWithNamespace(namespace)
 		},
+		sessionClientFactory: temporalclient.GetTemporalClientWithNamespace,
 	}
 }
 
@@ -360,10 +364,11 @@ const actionAuthorSessionExecutionTimeout = 3 * time.Hour
 // action_author ticket in the runner's agent namespace the ticket names
 // (runner-<record id>), for the ticket owner's organization. It accepts only a ticket that
 // Credimi signed (ticket_grant), starts the session with Credimi's grant of
-// it instead, and records the run it started or reused: activities accept
-// only that run. The session grant thus exists only in the session's own
-// history, never in the semaphore's. Sessions have no pipeline, so no
-// pipeline_results row is created.
+// it instead. Activities accept only the earliest run of the session ID
+// (TrustedActionAuthorSession), so the start fails rather than adopt a run
+// someone else started first. The session grant thus exists only in the
+// session's own history, never in the semaphore's. Sessions have no
+// pipeline, so no pipeline_results row is created.
 func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	ctx context.Context,
 	payload StartQueuedPipelineActivityInput,
@@ -432,44 +437,64 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 		TaskQueue:                pipelineTaskQueue,
 		WorkflowExecutionTimeout: actionAuthorSessionExecutionTimeout,
 		WorkflowIDReusePolicy:    enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
-		WorkflowIDConflictPolicy: enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING,
+		WorkflowIDConflictPolicy: enumspb.WORKFLOW_ID_CONFLICT_POLICY_FAIL,
+		TypedSearchAttributes: workflowengine.ActionAuthorSessionSearchAttributes(
+			start.ActorID,
+			actionauthor.SessionWallet(start.WalletVersionIdentifier),
+		),
 	}
-	workflowID, runID, err := a.startOrReuseWorkflow(
+	runID, err := a.startSessionWorkflow(
 		ctx,
 		start.Namespace,
 		options,
-		ActionAuthorSessionWorkflowName,
 		workflowengine.WorkflowInput{Payload: sessionInput, Config: config},
 	)
 	if err != nil {
 		return result, err
 	}
-	// A retry reuses the same run (USE_EXISTING), so only another run that
-	// was recorded first is refused.
-	err = actionauthor.RecordSessionRun(
-		a.app,
-		start.Namespace,
-		workflowID,
-		runID,
-		actionauthor.SessionDetails{
-			WalletVersionIdentifier: start.WalletVersionIdentifier,
-			DeviceID:                start.DeviceID,
-			ActorID:                 start.ActorID,
-			Organization:            start.Organization,
-		},
-	)
-	if errors.Is(err, actionauthor.ErrForbidden) {
-		return result, a.NewCodedError(errorcodes.RecordNotAccessible, false, err)
-	}
-	if err != nil {
-		return result, a.NewCodedError(errorcodes.DatabaseOperationFailed, true, err)
-	}
+	workflowID := sessionWorkflowID
 	result.Output = StartQueuedPipelineActivityOutput{
 		WorkflowID:        workflowID,
 		RunID:             runID,
 		WorkflowNamespace: start.Namespace,
 	}
 	return result, nil
+}
+
+// startSessionWorkflow starts an action author session and returns its run.
+// A retry whose session already started reuses the run only when it is the
+// session's trusted run, the one Credimi started first.
+func (a *StartQueuedPipelineActivity) startSessionWorkflow(
+	ctx context.Context,
+	namespace string,
+	options client.StartWorkflowOptions,
+	input workflowengine.WorkflowInput,
+) (string, error) {
+	starter, err := a.temporalClientFactory(namespace)
+	if err != nil {
+		return "", a.NewCodedError(errorcodes.PipelineExecutionError, true, err)
+	}
+	run, err := starter.ExecuteWorkflow(ctx, options, ActionAuthorSessionWorkflowName, input)
+	switch {
+	case err == nil:
+		return run.GetRunID(), nil
+	case !temporal.IsWorkflowExecutionAlreadyStartedError(err):
+		return "", a.NewCodedError(errorcodes.PipelineExecutionError, true, err)
+	}
+	ref, err := TrustedActionAuthorSession(ctx, a.app, a.sessionClientFactory, options.ID)
+	switch {
+	case err == nil:
+		return ref.SessionRunID, nil
+	case errors.Is(err, actionauthor.ErrForbidden):
+		return "", a.NewCodedError(errorcodes.RecordNotAccessible, false, fmt.Errorf(
+			"action author session %s was not started by Credimi: %w",
+			options.ID,
+			err,
+		))
+	default:
+		// ErrSessionNotVisible included: Temporal lists the run shortly.
+		return "", a.NewCodedError(errorcodes.PipelineExecutionError, true, err)
+	}
 }
 
 // startOrReuseWorkflow starts a ticket's workflow; with the ticket-derived ID

@@ -5,20 +5,35 @@
 package actionauthorui
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
 	"github.com/forkbombeu/credimi/pkg/internal/pbutils"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	commonpb "go.temporal.io/api/common/v1"
+	enumspb "go.temporal.io/api/enums/v1"
+	historypb "go.temporal.io/api/history/v1"
+	workflowpb "go.temporal.io/api/workflow/v1"
+	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -95,6 +110,133 @@ func stubNamespaceToken(t *testing.T, err error) *[]string {
 	return &namespaces
 }
 
+// stubSessionRuns makes c list runs (oldest first) as the runs of sessionID,
+// newest first as Temporal's visibility lists them.
+func stubSessionRuns(t *testing.T, c *temporalmocks.Client, sessionID string, runs ...string) {
+	t.Helper()
+	start := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	executions := make([]*workflowpb.WorkflowExecutionInfo, 0, len(runs))
+	for i := len(runs) - 1; i >= 0; i-- {
+		executions = append(executions, &workflowpb.WorkflowExecutionInfo{
+			Execution: &commonpb.WorkflowExecution{WorkflowId: sessionID, RunId: runs[i]},
+			Type:      &commonpb.WorkflowType{Name: activities.ActionAuthorSessionWorkflowName},
+			StartTime: timestamppb.New(start.Add(time.Duration(i) * time.Minute)),
+		})
+	}
+	c.On("ListWorkflow", mock.Anything, mock.MatchedBy(
+		func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+			return req.GetQuery() == fmt.Sprintf("WorkflowId = %q", sessionID)
+		},
+	)).Return(&workflowservice.ListWorkflowExecutionsResponse{Executions: executions}, nil).Maybe()
+}
+
+// historyIterator iterates over a session's start event.
+type historyIterator struct{ events []*historypb.HistoryEvent }
+
+func (h *historyIterator) HasNext() bool { return len(h.events) > 0 }
+
+func (h *historyIterator) Next() (*historypb.HistoryEvent, error) {
+	if len(h.events) == 0 {
+		return nil, errors.New("no more events")
+	}
+	event := h.events[0]
+	h.events = h.events[1:]
+	return event, nil
+}
+
+// startSession fakes in c the session sessionID that actorID started for
+// organization, as the start activity leaves it: its only run "run" with
+// Credimi's grant in its start input.
+func startSession(
+	t *testing.T,
+	app core.App,
+	c *temporalmocks.Client,
+	sessionID, organization, actorID string,
+) {
+	t.Helper()
+	namespace, ok := actionauthor.SessionNamespace(sessionID)
+	require.True(t, ok)
+	const (
+		device  = "tenant/runner/device"
+		version = "tenant/wallet/v1"
+	)
+	grant, err := actionauthor.SignSession(app, actionauthor.SessionGrant{
+		SessionWorkflowID:       sessionID,
+		Namespace:               namespace,
+		Organization:            organization,
+		DeviceID:                device,
+		Platform:                actionauthor.PlatformAndroid,
+		WalletVersionIdentifier: version,
+		ActorID:                 actorID,
+	})
+	require.NoError(t, err)
+	input, err := temporalcrypto.DataConverter().ToPayloads(workflowengine.WorkflowInput{
+		Payload: map[string]any{
+			"device_id":                 device,
+			"platform":                  actionauthor.PlatformAndroid,
+			"wallet_version_identifier": version,
+			"actor_id":                  actorID,
+			"namespace":                 namespace,
+			"organization":              organization,
+			"grant":                     grant,
+		},
+	})
+	require.NoError(t, err)
+	stubSessionRuns(t, c, sessionID, "run")
+	c.On(
+		"GetWorkflowHistory",
+		mock.Anything,
+		sessionID,
+		"run",
+		false,
+		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	).Return(func(
+		context.Context,
+		string,
+		string,
+		bool,
+		enumspb.HistoryEventFilterType,
+	) client.HistoryEventIterator {
+		return &historyIterator{events: []*historypb.HistoryEvent{{
+			EventType: enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED,
+			Attributes: &historypb.HistoryEvent_WorkflowExecutionStartedEventAttributes{
+				WorkflowExecutionStartedEventAttributes: &historypb.WorkflowExecutionStartedEventAttributes{
+					Input: input,
+				},
+			},
+		}}}
+	}).Maybe()
+}
+
+// stubSessionTemporal answers every namespace with c, but brokenNamespace
+// with an error, empties the session cache, and counts the clients asked for.
+func stubSessionTemporal(t *testing.T, c client.Client, brokenNamespace string) *int {
+	t.Helper()
+	t.Setenv(
+		temporalcrypto.SecretsEncryptionKeyEnv,
+		"MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+	)
+	resetSessionRefs := func() {
+		sessionRefs.Clear()
+		sessionRefCount.Store(0)
+	}
+	resetSessionRefs()
+	clients := 0
+	orig := clientFor
+	t.Cleanup(func() {
+		clientFor = orig
+		resetSessionRefs()
+	})
+	clientFor = func(namespace string) (client.Client, error) {
+		clients++
+		if namespace == brokenNamespace {
+			return nil, errors.New("dial failed")
+		}
+		return c, nil
+	}
+	return &clients
+}
+
 func TestHandler(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -107,15 +249,14 @@ func TestHandler(t *testing.T) {
 	require.NotEmpty(t, organization)
 	// Sessions run in their runner's namespace, for the caller's organization.
 	const namespace = "runner-testrunner00001"
-	require.NoError(t, actionauthor.RecordSessionRun(
-		app, namespace, session, "run",
-		actionauthor.SessionDetails{ActorID: user.Id, Organization: organization},
-	))
+	temporal := &temporalmocks.Client{}
+	const broken = "ActionAuthorSession-brokenrunner001-11111111-2222-3333-4444-555555555555"
+	clients := stubSessionTemporal(t, temporal, "runner-brokenrunner001")
+	startSession(t, app, temporal, session, organization, user.Id)
 	foreign := "ActionAuthorSession-testrunner00001-11111111-2222-3333-4444-555555555555"
-	require.NoError(t, actionauthor.RecordSessionRun(
-		app, namespace, foreign, "run",
-		actionauthor.SessionDetails{ActorID: user.Id, Organization: "other-org"},
-	))
+	startSession(t, app, temporal, foreign, "other-org", user.Id)
+	unknown := "ActionAuthorSession-testrunner00001-00000000-0000-0000-0000-000000000000"
+	stubSessionRuns(t, temporal, unknown)
 	tokenNamespaces := stubNamespaceToken(t, nil)
 	cookieOf := func(user *core.Record) *http.Cookie {
 		token, err := user.NewAuthToken()
@@ -194,9 +335,11 @@ func TestHandler(t *testing.T) {
 		requireStatus(t, err, http.StatusUnauthorized)
 	})
 
-	t.Run("hides unrecorded and foreign sessions", func(t *testing.T) {
-		unrecorded := PathPrefix + "/ActionAuthorSession-testrunner00001-00000000-0000-0000-0000-000000000000/"
-		_, err := serve(httptest.NewRequest(http.MethodGet, unrecorded, nil), authCookie)
+	t.Run("hides unknown and foreign sessions", func(t *testing.T) {
+		_, err := serve(
+			httptest.NewRequest(http.MethodGet, PathPrefix+"/"+unknown+"/", nil),
+			authCookie,
+		)
 		requireStatus(t, err, http.StatusNotFound)
 		_, err = serve(
 			httptest.NewRequest(http.MethodGet, PathPrefix+"/"+foreign+"/", nil),
@@ -208,6 +351,14 @@ func TestHandler(t *testing.T) {
 			authCookie,
 		)
 		requireStatus(t, err, http.StatusNotFound)
+	})
+
+	t.Run("answers 500 when Temporal fails", func(t *testing.T) {
+		_, err := serve(
+			httptest.NewRequest(http.MethodGet, PathPrefix+"/"+broken+"/", nil),
+			authCookie,
+		)
+		requireStatus(t, err, http.StatusInternalServerError)
 	})
 
 	t.Run("proxies chat reads with the scope headers only", func(t *testing.T) {
@@ -350,5 +501,30 @@ func TestHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusPermanentRedirect, rec.Code)
 		require.Equal(t, base+"/?s="+chat, rec.Header().Get("Location"))
+	})
+
+	t.Run("looks a session up in Temporal once", func(t *testing.T) {
+		sessionRefs.Clear()
+		sessionRefCount.Store(0)
+		lists := func() int {
+			n := 0
+			for _, call := range temporal.Calls {
+				if call.Method == "ListWorkflow" {
+					n++
+				}
+			}
+			return n
+		}
+		clientsBefore, listsBefore := *clients, lists()
+		for range 2 {
+			_, err := serve(
+				httptest.NewRequest(http.MethodGet, base+"/api/status/"+chat, nil),
+				authCookie,
+			)
+			require.NoError(t, err)
+			require.Len(t, calls, 1)
+		}
+		require.Equal(t, clientsBefore+1, *clients)
+		require.Equal(t, listsBefore+1, lists())
 	})
 }

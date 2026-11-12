@@ -7,12 +7,14 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/actionauthor"
+	"github.com/forkbombeu/credimi/pkg/internal/mobilerunner"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalcrypto"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -55,50 +57,51 @@ func (v jsonEncodedValue) Get(valuePtr any) error {
 	return json.Unmarshal(encoded, valuePtr)
 }
 
-// recordAuthoringSession signs and records, as the start activity does, the
-// session authoringSessionID that userA started for organization on the
-// admin runner's emulator, in authoringSessionNamespace, and returns its
-// history.
-func recordAuthoringSession(
+// authoringSessionGrant is the start input of a session as the start
+// activity signs it: Credimi's grant binds it to sessionID, the namespace
+// its ID names (or namespace, when set), and the rest of the input.
+type authoringSessionGrant struct {
+	sessionID, organization, device, version, actorID string
+	namespace                                         string
+}
+
+// history returns the session's history: its start input, signed when
+// signed is true.
+func (g authoringSessionGrant) history(
 	t testing.TB,
 	app *tests.TestApp,
-	organization string,
+	signed bool,
 ) client.HistoryEventIterator {
 	t.Helper()
-	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-	require.NoError(t, err)
-	grant, err := actionauthor.SignSession(app, actionauthor.SessionGrant{
-		SessionWorkflowID:       authoringSessionID,
-		Namespace:               authoringSessionNamespace,
-		Organization:            organization,
-		DeviceID:                authoringSessionDevice,
-		Platform:                actionauthor.PlatformAndroid,
-		WalletVersionIdentifier: authoringAndroidVersion,
-		ActorID:                 user.Id,
-	})
-	require.NoError(t, err)
-	require.NoError(t, actionauthor.RecordSessionRun(
-		app,
-		authoringSessionNamespace,
-		authoringSessionID,
-		authoringSessionRun,
-		actionauthor.SessionDetails{
-			WalletVersionIdentifier: authoringAndroidVersion,
-			DeviceID:                authoringSessionDevice,
-			ActorID:                 user.Id,
-			Organization:            organization,
-		},
-	))
+	namespace := g.namespace
+	if namespace == "" {
+		var ok bool
+		namespace, ok = actionauthor.SessionNamespace(g.sessionID)
+		require.True(t, ok, g.sessionID)
+	}
+	payload := map[string]any{
+		"device_id":                 g.device,
+		"platform":                  actionauthor.PlatformAndroid,
+		"wallet_version_identifier": g.version,
+		"actor_id":                  g.actorID,
+		"namespace":                 namespace,
+		"organization":              g.organization,
+	}
+	if signed {
+		grant, err := actionauthor.SignSession(app, actionauthor.SessionGrant{
+			SessionWorkflowID:       g.sessionID,
+			Namespace:               namespace,
+			Organization:            g.organization,
+			DeviceID:                g.device,
+			Platform:                actionauthor.PlatformAndroid,
+			WalletVersionIdentifier: g.version,
+			ActorID:                 g.actorID,
+		})
+		require.NoError(t, err)
+		payload["grant"] = grant
+	}
 	input, err := temporalcrypto.DataConverter().ToPayloads(workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"device_id":                 authoringSessionDevice,
-			"platform":                  actionauthor.PlatformAndroid,
-			"wallet_version_identifier": authoringAndroidVersion,
-			"actor_id":                  user.Id,
-			"namespace":                 authoringSessionNamespace,
-			"organization":              organization,
-			"grant":                     grant,
-		},
+		Payload: payload,
 	})
 	require.NoError(t, err)
 	return &fakeHistoryIterator{events: []*historypb.HistoryEvent{{
@@ -109,6 +112,77 @@ func recordAuthoringSession(
 			},
 		},
 	}}}
+}
+
+// startAuthoringSession fakes, as the start activity leaves it in Temporal,
+// the session authoringSessionID that userA started for organization on the
+// admin runner's emulator: its run authoringSessionRun, listed as its only
+// run, and its signed start input.
+func startAuthoringSession(
+	t testing.TB,
+	app *tests.TestApp,
+	c *temporalmocks.Client,
+	organization string,
+) {
+	t.Helper()
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	stubSessionRuns(t, c, authoringSessionID, authoringSessionRun)
+	c.On(
+		"GetWorkflowHistory",
+		mock.Anything,
+		authoringSessionID,
+		authoringSessionRun,
+		false,
+		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	).Return(authoringSessionGrant{
+		sessionID:    authoringSessionID,
+		organization: organization,
+		device:       authoringSessionDevice,
+		version:      authoringAndroidVersion,
+		actorID:      user.Id,
+	}.history(t, app, true))
+}
+
+// sessionRunExecutions are runs (oldest first) of sessionID of workflowType,
+// newest first as Temporal's visibility lists them.
+func sessionRunExecutions(
+	sessionID, workflowType string,
+	runs ...string,
+) []*workflowpb.WorkflowExecutionInfo {
+	executions := make([]*workflowpb.WorkflowExecutionInfo, 0, len(runs))
+	for i := len(runs) - 1; i >= 0; i-- {
+		executions = append(executions, &workflowpb.WorkflowExecutionInfo{
+			Execution: &commonpb.WorkflowExecution{WorkflowId: sessionID, RunId: runs[i]},
+			Type:      &commonpb.WorkflowType{Name: workflowType},
+			StartTime: timestamppb.New(authoringSessionStart.Add(time.Duration(i) * time.Minute)),
+		})
+	}
+	return executions
+}
+
+// stubSessionWorkflowRuns makes c list executions as the runs of sessionID.
+func stubSessionWorkflowRuns(
+	c *temporalmocks.Client,
+	sessionID string,
+	executions []*workflowpb.WorkflowExecutionInfo,
+) {
+	c.On("ListWorkflow", mock.Anything, mock.MatchedBy(
+		func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+			return req.GetQuery() == fmt.Sprintf("WorkflowId = %q", sessionID)
+		},
+	)).Return(&workflowservice.ListWorkflowExecutionsResponse{Executions: executions}, nil).Maybe()
+}
+
+// stubSessionRuns makes c list runs (oldest first) as the runs of sessionID,
+// newest first as Temporal's visibility lists them.
+func stubSessionRuns(t testing.TB, c *temporalmocks.Client, sessionID string, runs ...string) {
+	t.Helper()
+	stubSessionWorkflowRuns(
+		c,
+		sessionID,
+		sessionRunExecutions(sessionID, activities.ActionAuthorSessionWorkflowName, runs...),
+	)
 }
 
 func authoringExecution(
@@ -151,8 +225,8 @@ func setAuthoringSessionKey(t testing.TB) {
 	)
 }
 
-// runningAuthoringSession fakes the running session recorded for userA's
-// organization and its chat in its first turn, with a pending save review.
+// runningAuthoringSession fakes the session userA started for their
+// organization, in status.
 func runningAuthoringSession(
 	app *tests.TestApp,
 	t testing.TB,
@@ -161,14 +235,7 @@ func runningAuthoringSession(
 ) {
 	c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionID, authoringSessionRun).
 		Return(authoringExecution(activities.ActionAuthorSessionWorkflowName, status, 0), nil)
-	c.On(
-		"GetWorkflowHistory",
-		mock.Anything,
-		authoringSessionID,
-		authoringSessionRun,
-		false,
-		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-	).Return(recordAuthoringSession(t, app, authoringNamespace))
+	startAuthoringSession(t, app, c, authoringNamespace)
 }
 
 func decodeBody[T any](t testing.TB, res *http.Response, value *T) {
@@ -244,7 +311,11 @@ func TestActionAuthorSessionReadsTheRunningChat(t *testing.T) {
 	}).Test(t)
 
 	// The session and its chat are read in the runner namespace it runs in.
-	require.Equal(t, []string{authoringSessionNamespace}, *namespaces)
+	require.Equal(
+		t,
+		[]string{authoringSessionNamespace},
+		*namespaces,
+	)
 	require.Equal(t, ActionAuthorSessionResponse{
 		SessionID:               authoringSessionID,
 		RunID:                   authoringSessionRun,
@@ -447,17 +518,17 @@ func TestActionAuthorSessionAnswersNotFound(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		sessionID string
-		// organization the session is recorded for; empty records none.
+		// organization the session is started for; empty starts none.
 		organization string
-		// user reading the session; empty is userA, who records it.
+		// user reading the session; empty is userA, who starts it.
 		user string
 		// member makes user a member of userA's organization.
 		member bool
 	}{
 		{name: "malformed id", sessionID: "ActionAuthorSession-ticket"},
-		{name: "unrecorded", sessionID: authoringSessionID},
+		{name: "not visible in Temporal", sessionID: authoringSessionID},
 		{
-			name:         "recorded for another organization",
+			name:         "started for another organization",
 			sessionID:    authoringSessionID,
 			organization: authoringForeignNS,
 		},
@@ -494,7 +565,9 @@ func TestActionAuthorSessionAnswersNotFound(t *testing.T) {
 					joinAgentRunnerOrganization(t, app, "member")
 				}
 				if tc.organization != "" {
-					recordAuthoringSession(t, app, tc.organization)
+					startAuthoringSession(t, app, c, tc.organization)
+				} else {
+					stubSessionRuns(t, c, tc.sessionID)
 				}
 				return app
 			},
@@ -512,12 +585,11 @@ func TestActionAuthorSessionAnswersNotFound(t *testing.T) {
 func TestActionAuthorSessionRefusesOtherWorkflows(t *testing.T) {
 	c := &temporalmocks.Client{}
 	stubAuthoringSessionTemporal(t, c)
-	c.On("DescribeWorkflowExecution", mock.Anything, authoringSessionID, authoringSessionRun).
-		Return(authoringExecution(
-			"Dynamic Pipeline Workflow",
-			enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
-			0,
-		), nil)
+	stubSessionWorkflowRuns(c, authoringSessionID, sessionRunExecutions(
+		authoringSessionID,
+		"Dynamic Pipeline Workflow",
+		authoringSessionRun,
+	))
 	(&tests.ApiScenario{
 		Name:            "pipeline under a session id",
 		Method:          http.MethodGet,
@@ -525,30 +597,76 @@ func TestActionAuthorSessionRefusesOtherWorkflows(t *testing.T) {
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusNotFound,
 		ExpectedContent: []string{`"reason":"session_not_found"`},
-		TestAppFactory: func(t testing.TB) *tests.TestApp {
-			app := setupActionAuthorApp(t)
-			recordAuthoringSession(t, app, authoringNamespace)
-			return app
-		},
+		TestAppFactory:  setupActionAuthorApp,
 	}).Test(t)
+
+	c.AssertNotCalled(t, "DescribeWorkflowExecution", mock.Anything, mock.Anything, mock.Anything)
+	c.AssertNotCalled(
+		t,
+		"GetWorkflowHistory",
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	)
 }
 
+// listedAuthoringSession is a session the wallet sessions query lists in a
+// runner's agent namespace.
+type listedAuthoringSession struct {
+	authoringSessionGrant
+	run     string
+	started time.Time
+	// signed signs the session's start input with Credimi's grant.
+	signed bool
+	// status is the described status of a session the handler keeps.
+	status enumspb.WorkflowExecutionStatus
+}
+
+func (s listedAuthoringSession) execution() *workflowpb.WorkflowExecutionInfo {
+	return &workflowpb.WorkflowExecutionInfo{
+		Execution: &commonpb.WorkflowExecution{WorkflowId: s.sessionID, RunId: s.run},
+		Type:      &commonpb.WorkflowType{Name: activities.ActionAuthorSessionWorkflowName},
+		StartTime: timestamppb.New(s.started),
+	}
+}
+
+// stub makes c answer the session's trusted run lookup: the listed run is
+// its only run.
+func (s listedAuthoringSession) stub(t testing.TB, app *tests.TestApp, c *temporalmocks.Client) {
+	t.Helper()
+	stubSessionWorkflowRuns(c, s.sessionID, []*workflowpb.WorkflowExecutionInfo{s.execution()})
+	c.On(
+		"GetWorkflowHistory",
+		mock.Anything,
+		s.sessionID,
+		s.run,
+		false,
+		enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	).Return(s.history(t, app, s.signed))
+	if s.status != enumspb.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED {
+		described := authoringExecution(activities.ActionAuthorSessionWorkflowName, s.status, 0)
+		described.WorkflowExecutionInfo.StartTime = timestamppb.New(s.started)
+		c.On("DescribeWorkflowExecution", mock.Anything, s.sessionID, s.run).
+			Return(described, nil)
+	}
+}
+
+// The sessions of the agent namespaces of the runners offered to the caller's
+// organization are merged newest first; listed runs that are not trusted
+// runs of the caller's sessions are dropped.
 func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 	c := &temporalmocks.Client{}
 	namespaces := stubAuthoringSessionTemporal(t, c)
-	describe := func(id string, status enumspb.WorkflowExecutionStatus, err error) {
-		c.On("DescribeWorkflowExecution", mock.Anything, id, "run").
-			Return(authoringExecution(activities.ActionAuthorSessionWorkflowName, status, 0), err)
-	}
-	describe("ActionAuthorSession-version", enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED, nil)
-	describe("ActionAuthorSession-store", enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING, nil)
-	c.On("DescribeWorkflowExecution", mock.Anything, "ActionAuthorSession-gone", "run").
-		Return(nil, serviceerror.NewNotFound("gone"))
+	const wallet = "usera-s-organization/authoring-handler-wallet"
+	var adminNamespace, tenantNamespace string
+	var oldest, newest string
 	var response ActionAuthorSessionsResponse
 	(&tests.ApiScenario{
 		Name:            "wallet sessions",
 		Method:          http.MethodGet,
-		URL:             "/api/action-author/sessions?wallet=usera-s-organization/authoring-handler-wallet",
+		URL:             "/api/action-author/sessions?wallet=" + wallet,
 		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
 		ExpectedStatus:  http.StatusOK,
 		ExpectedContent: []string{`"sessions":[`},
@@ -556,38 +674,96 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 			app := setupActionAuthorApp(t)
 			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 			require.NoError(t, err)
-			for _, row := range []struct{ namespace, organization, id, wallet, device, actor string }{
-				{"runner-other", authoringNamespace, "ActionAuthorSession-store", "usera-s-organization/authoring-handler-wallet", authoringSessionDevice, user.Id},
-				{authoringSessionNamespace, authoringNamespace, "ActionAuthorSession-gone", authoringAndroidVersion, authoringSessionDevice, user.Id},
-				{authoringSessionNamespace, authoringNamespace, "ActionAuthorSession-version", authoringAndroidVersion, "usera-s-organization/removed-runner/phone", user.Id},
-				{authoringSessionNamespace, authoringNamespace, "ActionAuthorSession-other-wallet", "usera-s-organization/authoring-handler-wallet2/v1", authoringSessionDevice, user.Id},
-				{authoringSessionNamespace, authoringNamespace, "ActionAuthorSession-other-actor", authoringAndroidVersion, authoringSessionDevice, "another-user"},
-				{authoringSessionNamespace, authoringForeignNS, "ActionAuthorSession-other-organization", authoringAndroidVersion, authoringSessionDevice, user.Id},
-			} {
-				require.NoError(t, actionauthor.RecordSessionRun(
-					app,
-					row.namespace,
-					row.id,
-					"run",
-					actionauthor.SessionDetails{
-						WalletVersionIdentifier: row.wallet,
-						DeviceID:                row.device,
-						ActorID:                 row.actor,
-						Organization:            row.organization,
+			other, err := app.FindAuthRecordByEmail("users", "userB@example.org")
+			require.NoError(t, err)
+			admin, err := app.FindFirstRecordByData("mobile_runners", "name", "admin-runner")
+			require.NoError(t, err)
+			tenant, err := app.FindFirstRecordByData("mobile_runners", "name", "tenant-runner")
+			require.NoError(t, err)
+			adminNamespace = mobilerunner.AgentNamespace(admin.Id)
+			tenantNamespace = mobilerunner.AgentNamespace(tenant.Id)
+			sessionID := func(runner *core.Record, ticket string) string {
+				return actionauthor.SessionWorkflowID(runner.Id, ticket)
+			}
+			oldest = sessionID(admin, "00000000-0000-4000-8000-000000000001")
+			newest = sessionID(tenant, "00000000-0000-4000-8000-000000000002")
+			day := func(d int) time.Time { return time.Date(2026, 1, d, 0, 0, 0, 0, time.UTC) }
+			sessions := map[string][]listedAuthoringSession{
+				adminNamespace: {
+					// Search attributes copied onto a workflow Credimi did not sign.
+					{
+						authoringSessionGrant: authoringSessionGrant{
+							sessionID:    sessionID(admin, "00000000-0000-4000-8000-000000000003"),
+							organization: authoringNamespace,
+							device:       authoringSessionDevice,
+							version:      authoringAndroidVersion,
+							actorID:      user.Id,
+						},
+						run:     "run-forged",
+						started: day(4),
 					},
-				))
-				// Rows of one test share a millisecond: order them by name.
-				_, err := app.DB().NewQuery(
-					"UPDATE action_author_sessions SET created = {:created} WHERE workflow_id = {:id}",
-				).Bind(map[string]any{
-					"created": map[string]string{
-						"ActionAuthorSession-store":   "2026-01-01 00:00:00.000Z",
-						"ActionAuthorSession-gone":    "2026-01-02 00:00:00.000Z",
-						"ActionAuthorSession-version": "2026-01-03 00:00:00.000Z",
-					}[row.id],
-					"id": row.id,
-				}).Execute()
-				require.NoError(t, err)
+					// Another user's session listed under the caller's actor.
+					{
+						authoringSessionGrant: authoringSessionGrant{
+							sessionID:    sessionID(admin, "00000000-0000-4000-8000-000000000004"),
+							organization: authoringNamespace,
+							device:       authoringSessionDevice,
+							version:      authoringAndroidVersion,
+							actorID:      other.Id,
+						},
+						run:     "run-other",
+						started: day(2),
+						signed:  true,
+					},
+					{
+						authoringSessionGrant: authoringSessionGrant{
+							sessionID:    oldest,
+							organization: authoringNamespace,
+							device:       "usera-s-organization/removed-runner/phone",
+							version:      authoringAndroidVersion,
+							actorID:      user.Id,
+						},
+						run:     "run-oldest",
+						started: day(1),
+						signed:  true,
+						status:  enumspb.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					},
+				},
+				tenantNamespace: {{
+					authoringSessionGrant: authoringSessionGrant{
+						sessionID:    newest,
+						organization: authoringNamespace,
+						device:       authoringSessionDevice,
+						version:      wallet + "/v2",
+						actorID:      user.Id,
+					},
+					run:     "run-newest",
+					started: day(3),
+					signed:  true,
+					status:  enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+				}},
+			}
+			query := fmt.Sprintf(
+				`WorkflowType = "Action author session" and ActionAuthorActor = "%s" and `+
+					`ActionAuthorWallet = "%s"`,
+				user.Id,
+				wallet,
+			)
+			for namespace, listed := range sessions {
+				executions := []*workflowpb.WorkflowExecutionInfo{}
+				for _, session := range listed {
+					session.stub(t, app, c)
+					executions = append(executions, session.execution())
+				}
+				c.On("ListWorkflow", mock.Anything, mock.MatchedBy(
+					func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+						return req.GetNamespace() == namespace && req.GetQuery() == query &&
+							req.GetPageSize() == actionAuthorSessionsPageSize
+					},
+				)).Return(
+					&workflowservice.ListWorkflowExecutionsResponse{Executions: executions},
+					nil,
+				).Once()
 			}
 			return app
 		},
@@ -596,33 +772,33 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 		},
 	}).Test(t)
 
-	// Each session is described in the namespace it was recorded in.
-	require.Equal(
-		t,
-		[]string{authoringSessionNamespace, authoringSessionNamespace, "runner-other"},
-		*namespaces,
-	)
+	// Each runner's agent namespace is listed.
+	require.Subset(t, *namespaces, []string{adminNamespace, tenantNamespace})
+	c.AssertNumberOfCalls(t, "DescribeWorkflowExecution", 2)
 	require.Equal(t, []ActionAuthorSessionListItem{
 		{
-			SessionID:               "ActionAuthorSession-version",
-			Status:                  "Completed",
-			StartTime:               "2026-01-02T03:04:05Z",
-			WalletVersionIdentifier: authoringAndroidVersion,
-			DeviceID:                "usera-s-organization/removed-runner/phone",
-		},
-		{
-			SessionID:               "ActionAuthorSession-store",
+			SessionID:               newest,
 			Status:                  "Running",
-			StartTime:               "2026-01-02T03:04:05Z",
-			WalletVersionIdentifier: "usera-s-organization/authoring-handler-wallet",
+			StartTime:               "2026-01-03T00:00:00Z",
+			WalletVersionIdentifier: wallet + "/v2",
 			DeviceID:                authoringSessionDevice,
 			DeviceName:              "android-emulator",
+		},
+		{
+			SessionID:               oldest,
+			Status:                  "Completed",
+			StartTime:               "2026-01-01T00:00:00Z",
+			WalletVersionIdentifier: authoringAndroidVersion,
+			DeviceID:                "usera-s-organization/removed-runner/phone",
 		},
 	}, response.Sessions)
 }
 
 func TestActionAuthorSessionsValidatesTheWallet(t *testing.T) {
-	stubAuthoringSessionTemporal(t, &temporalmocks.Client{})
+	c := &temporalmocks.Client{}
+	stubAuthoringSessionTemporal(t, c)
+	c.On("ListWorkflow", mock.Anything, mock.Anything).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).Maybe()
 	for _, wallet := range []string{"", "org", "org/wallet/v1", "/wallet"} {
 		(&tests.ApiScenario{
 			Name:            "wallet " + wallet,
