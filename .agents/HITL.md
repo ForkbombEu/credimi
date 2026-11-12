@@ -772,6 +772,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   2. `WorkflowInput.Config` of the session (the semaphore ticket metadata: ticket ID, device IDs, leader device, owner namespace) is not covered by the grant. Options: sign it into the grant too; or Temporal authorization of workflow starts.
 - default risk: (1) a runner of the namespace can receive and answer another runner's agent or device tasks. (2) whoever can send updates to a runner's semaphore in `default` can enqueue a copied signed ticket with other ticket metadata (required and leader devices); the start activity accepts it, and the session's run data and device release use that metadata while its grants still verify.
 - decisions: (1) for the agent queue: superseded by per-runner namespaces (entry of 12/11/2026); `<runner_id>-TaskQueue` in organization namespaces stays open. (2) none yet; stays open until Temporal authentication exists.
+- update (2026-11-12, agent): the `action_author_sessions` table and `actionauthor.RecordSessionRun` are removed; activities accept the session's trusted run instead, the earliest run of its ID with a valid grant (`activities.TrustedActionAuthorSession`), and the start activity uses the `FAIL` conflict policy so a run started earlier by someone else fails Credimi's start. Items 1 and 2 are unchanged.
 
 ### 2026-11-09 - Published mobile runners are superuser-only until a task-queue authorizer exists
 
@@ -852,6 +853,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   - The chat UI service connects with an ES256 token Credimi signs per session namespace (`X-Credimi-Temporal-Token`, subject `credimi-action-author-ui`, `<namespace>:write`, 15 minutes).
   - `runner-` is a reserved namespace prefix (`canonify.IsReservedNamespace`): new or renamed organizations whose name would canonify to `runner-*` get `org-runner-*`.
 - follow-up: before deploying, the operator checks production for organizations whose `canonified_name` starts with `runner-` and asks a maintainer if any exist (their tenant runners would get `409 organization_namespace_reserved`).
+- update (2026-11-12, agent): sessions are no longer recorded in a table: the namespace comes from the session ID (`ActionAuthorSession-<runner record id>-<ticket>`) and the organization from the grant of the session's trusted run, the earliest run of that ID (`activities.TrustedActionAuthorSession`, AGENTS.md "Action Author Sessions").
 
 ### 2026-11-12 - Action author pre-deploy review: runner ID claim, agent token scope, runner dashboard secrets
 
@@ -871,6 +873,7 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
   7. The model key stays in the runner: the agent reaches the model through a runner-local proxy with a per-process secret (option (a)). On native macOS the agent runs under a `sandbox-exec` profile hiding the runner's config and state, with no unsandboxed fallback.
   8. No limit on agent runners per organization (user decision): each costs one Temporal namespace and one Credimi pipeline worker in it, which is acceptable for now.
 - follow-up: deploy Credimi before the runners, and the chat UI only with its `./temporal-jwks` mount. Decisions 6 and 7 are credimi-runner changes (PR #126); the dashboard exposure stays on runners until that release is deployed. Still open: "Custom Temporal authorizer for runner task-queue isolation" and item 2 of "Action author session grants until Temporal authenticates callers", with `<runner_id>-TaskQueue` in organization namespaces.
+- update (2026-11-12, agent): the migrations of decisions 1 and 3 (`1792130000_mobile_runner_server_ids.js`, `1792140000_mobile_runner_agent_namespace_ready.js`) are merged into `pb_migrations/1792060000_mobile_runner_action_author.js`; the behaviour is unchanged.
 
 ### 2026-11-12 - Action author known risks accepted for the first deploy
 
@@ -886,3 +889,4 @@ Do not treat an entry here as approved policy until a human maintainer resolves 
 - default risk: 1 exposes the runner's keys, including the internal admin key on admin-managed Macs; 2-4 expose other organizations' test data and the model budget on shared runners.
 - decision: none yet. For the first deploy the agent is enabled only on Linux Docker and Coolify runners, and kept off on native macOS runners that hold the internal admin key or run other organizations' pipelines.
 - follow-up: fix 1 before enabling the agent on Macs; decide 2-4 before offering the agent to other organizations (`others_daily_tokens` above 0).
+- update (2026-11-12, agent): risk 3 is partly addressed: the runner's model proxy now meters tokens from model responses and enforces both daily limits itself (the pool comes from `POST /api/mobile-runner/action-author-session-pool`); Credimi no longer counts agent-reported usage. The proxy does not pin the configured model.
