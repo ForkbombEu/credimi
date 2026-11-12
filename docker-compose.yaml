@@ -144,10 +144,12 @@ services:
   action_author_ui:
     build:
       context: ./agents/action-author-ui
+      # Defaults are pinned in the Dockerfile. A name without a value is passed only
+      # when that variable is set (to override the pin); otherwise the default applies.
       args:
-        - PYTHON_VERSION=${ACTION_AUTHOR_UI_PYTHON_VERSION:?ACTION_AUTHOR_UI_PYTHON_VERSION is required}
-        - UV_VERSION=${ACTION_AUTHOR_UI_UV_VERSION:?ACTION_AUTHOR_UI_UV_VERSION is required}
-        - AGENT_HARNESS_VERSION=${AGENT_HARNESS_VERSION:?AGENT_HARNESS_VERSION is required}
+        - ACTION_AUTHOR_UI_PYTHON_VERSION
+        - ACTION_AUTHOR_UI_UV_VERSION
+        - AGENT_HARNESS_VERSION
     depends_on:
       temporal:
         condition: service_healthy

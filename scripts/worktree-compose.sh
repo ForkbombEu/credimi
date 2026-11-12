@@ -39,12 +39,13 @@ load_env() {
 	set +a
 }
 
-# The action_author_ui Dockerfile checks the pins too, but only after Compose
-# pulled the base images: refuse unpinned ones before anything is pulled.
+# The action_author_ui Dockerfile pins its base images; an override must pin a
+# digest too. The Dockerfile checks again, but only after Compose pulled the
+# images: refuse an unpinned override before anything is pulled.
 require_pinned_action_author_ui_bases() {
 	local value
 	for value in "${ACTION_AUTHOR_UI_PYTHON_VERSION:-}" "${ACTION_AUTHOR_UI_UV_VERSION:-}"; do
-		if [[ "${value}" != *@sha256:* ]]; then
+		if [[ -n "${value}" && "${value}" != *@sha256:* ]]; then
 			echo "ACTION_AUTHOR_UI_PYTHON_VERSION and ACTION_AUTHOR_UI_UV_VERSION must pin a digest (tag@sha256:...)" >&2
 			exit 1
 		fi
