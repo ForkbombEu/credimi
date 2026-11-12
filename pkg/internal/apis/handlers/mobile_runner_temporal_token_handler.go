@@ -42,6 +42,71 @@ type MobileRunnerTemporalTokenResponse struct {
 	ExpiresIn int `json:"expires_in"`
 }
 
+// authorizeRunnerKey resolves the runner a runner-facing call names and
+// allows it only to owners of the runner's organization (and superusers), only
+// to the internal admin key or a superuser for an admin-managed runner, and
+// never for a disabled runner. It returns the runner and its canonical ID.
+func authorizeRunnerKey(
+	e *core.RequestEvent,
+	runnerID string,
+) (*core.Record, string, *apierror.APIError) {
+	record, canonicalID, apiErr := resolveLifecycleRunner(e.App, e.Auth, runnerID)
+	if apiErr != nil {
+		return nil, "", apiErr
+	}
+	if !isSuperuserAuth(e.Auth) {
+		_, err := e.App.FindFirstRecordByFilter(
+			"orgAuthorizations",
+			"user = {:user} && organization = {:org} && role.name = {:role}",
+			dbx.Params{"user": e.Auth.Id, "org": record.GetString("owner"), "role": "owner"},
+		)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, "", apierror.New(
+				http.StatusForbidden,
+				"runner_id",
+				"runner_owner_role_required",
+				"only organization owners can obtain a Temporal token",
+			)
+		}
+		if err != nil {
+			return nil, "", apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed_to_check_role",
+				err.Error(),
+			)
+		}
+	}
+	if record.GetBool("admin_managed") && !isSuperuserAuth(e.Auth) {
+		return nil, "", apierror.New(
+			http.StatusForbidden,
+			"runner_id",
+			"admin_managed_runner",
+			"only the internal admin key can obtain a Temporal token for an admin-managed runner",
+		)
+	}
+	if record.GetBool("disabled") {
+		return nil, "", apierror.New(
+			http.StatusForbidden,
+			"runner_id",
+			"runner_disabled",
+			"mobile runner is disabled",
+		)
+	}
+	return record, canonicalID, nil
+}
+
+// agentNotEnabledError refuses an action author call of a runner whose agent
+// is not enabled.
+func agentNotEnabledError() *apierror.APIError {
+	return apierror.New(
+		http.StatusForbidden,
+		"scope",
+		"agent_not_enabled",
+		"the runner's action author is not enabled",
+	)
+}
+
 // HandleMobileRunnerTemporalToken returns a Temporal JWT that grants the
 // runner write access to the namespaces its workers poll, plus its agent
 // namespace when its action author is enabled. With scope "agent" it returns
@@ -66,60 +131,16 @@ func HandleMobileRunnerTemporalToken() func(*core.RequestEvent) error {
 			)
 		}
 
-		record, canonicalID, apiErr := resolveLifecycleRunner(e.App, e.Auth, input.RunnerID)
+		record, canonicalID, apiErr := authorizeRunnerKey(e, input.RunnerID)
 		if apiErr != nil {
 			return apiErr
-		}
-		if !isSuperuserAuth(e.Auth) {
-			_, err := e.App.FindFirstRecordByFilter(
-				"orgAuthorizations",
-				"user = {:user} && organization = {:org} && role.name = {:role}",
-				dbx.Params{"user": e.Auth.Id, "org": record.GetString("owner"), "role": "owner"},
-			)
-			if errors.Is(err, sql.ErrNoRows) {
-				return apierror.New(
-					http.StatusForbidden,
-					"runner_id",
-					"runner_owner_role_required",
-					"only organization owners can obtain a Temporal token",
-				)
-			}
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"organization",
-					"failed_to_check_role",
-					err.Error(),
-				)
-			}
-		}
-		if record.GetBool("admin_managed") && !isSuperuserAuth(e.Auth) {
-			return apierror.New(
-				http.StatusForbidden,
-				"runner_id",
-				"admin_managed_runner",
-				"only the internal admin key can obtain a Temporal token for an admin-managed runner",
-			)
-		}
-		if record.GetBool("disabled") {
-			return apierror.New(
-				http.StatusForbidden,
-				"runner_id",
-				"runner_disabled",
-				"mobile runner is disabled",
-			)
 		}
 
 		subject := "mobile-runner:" + canonify.NormalizePath(canonicalID)
 		var permissions []string
 		if input.Scope == MobileRunnerTemporalTokenScopeAgent {
 			if !record.GetBool("agent_enabled") {
-				return apierror.New(
-					http.StatusForbidden,
-					"scope",
-					"agent_not_enabled",
-					"the runner's action author is not enabled",
-				)
+				return agentNotEnabledError()
 			}
 			subject = "mobile-runner-agent:" + canonify.NormalizePath(canonicalID)
 			permissions = []string{mobilerunner.AgentNamespace(record.Id) + ":write"}

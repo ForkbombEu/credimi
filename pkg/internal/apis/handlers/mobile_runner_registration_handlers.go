@@ -57,6 +57,19 @@ var MobileRunnerRegistrationRoutes = routing.RouteGroup{
 				middlewares.RequireCachedAPIKey(),
 			},
 		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/action-author-session-pool",
+			Handler:        HandleMobileRunnerSessionPool,
+			RequestSchema:  MobileRunnerSessionPoolRequest{},
+			ResponseSchema: MobileRunnerSessionPoolResponse{},
+			// The runner's model proxy asks once per session: same key
+			// handling as /temporal-token.
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				{Func: observability.RunnerPreAuthLimit()},
+				middlewares.RequireCachedAPIKey(),
+			},
+		},
 	},
 }
 
