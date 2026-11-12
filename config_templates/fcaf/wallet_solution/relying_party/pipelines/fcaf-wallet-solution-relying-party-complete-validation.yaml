@@ -2013,8 +2013,41 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-create-true
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-null-issue-pid-session
       linked_to: dcql-claim-sets-non-array-1ebdf3bd-create-null
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-null
+      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-null-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-null-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-null.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-null
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-null.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-create-true
       use: http-request
       with:
         body:
@@ -2053,8 +2086,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-create-false
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-true-issue-pid-session
       linked_to: dcql-claim-sets-non-array-1ebdf3bd-create-true
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-true
+      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-true-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-true-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-true.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-true
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-true.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-create-false
       use: http-request
       with:
         body:
@@ -2093,8 +2158,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-create-zero
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-false-issue-pid-session
       linked_to: dcql-claim-sets-non-array-1ebdf3bd-create-false
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-false
+      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-false-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-false-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-false.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-false
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-false.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-create-zero
       use: http-request
       with:
         body:
@@ -2133,8 +2230,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-create-number
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-zero-issue-pid-session
       linked_to: dcql-claim-sets-non-array-1ebdf3bd-create-zero
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-zero
+      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-zero-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-zero-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-zero.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-zero
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-zero.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-create-number
       use: http-request
       with:
         body:
@@ -2173,8 +2302,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-create-string
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-number-issue-pid-session
       linked_to: dcql-claim-sets-non-array-1ebdf3bd-create-number
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-number
+      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-number-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-number-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-number.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-number
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-number.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-create-string
       use: http-request
       with:
         body:
@@ -2213,8 +2374,40 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-create-object
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-string-issue-pid-session
       linked_to: dcql-claim-sets-non-array-1ebdf3bd-create-string
+      use: http-request
+      with:
+        body:
+            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
+            issuer_configuration_id: eu-pid-device-bound
+        expected_status: 201
+        headers:
+            Content-Type: application/json
+        method: POST
+        url: ${fixture.verifier_url}/sessions
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-string
+      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-string-issue-pid-session
+      use: mobile-automation
+      with:
+        actions:
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-string-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
+              parameters:
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-string.outputs.body.deeplink }}
+        version_id: installed_from_external_source
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-string
+      use: http-request
+      with:
+        expected_status: 200
+        method: GET
+        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-string.outputs.body.session_id }}
+    - continue_on_error: true
+      id: dcql-claim-sets-non-array-1ebdf3bd-create-object
       use: http-request
       with:
         body:
@@ -2255,7 +2448,7 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/openid4vp/sessions
     - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-session
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-object-issue-pid-session
       linked_to: dcql-claim-sets-non-array-1ebdf3bd-create-object
       use: http-request
       with:
@@ -2268,163 +2461,18 @@ steps:
         method: POST
         url: ${fixture.verifier_url}/sessions
     - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-2-session
-      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-3-session
-      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-2-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-4-session
-      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-3-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-5-session
-      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-4-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-6-session
-      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-5-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-7-session
-      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-6-session
-      use: http-request
-      with:
-        body:
-            credential_configuration_id: urn:eu.europa.ec.eudi:pid:1.sd-jwt.key-attestation-required
-            issuer_configuration_id: eu-pid-device-bound
-        expected_status: 201
-        headers:
-            Content-Type: application/json
-        method: POST
-        url: ${fixture.verifier_url}/sessions
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets
-      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-7-session
+      id: dcql-claim-sets-non-array-1ebdf3bd-exercise-object
+      linked_to: dcql-claim-sets-non-array-1ebdf3bd-exercise-object-issue-pid-session
       use: mobile-automation
       with:
         actions:
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-reset-and-onboard
             - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
               parameters:
-                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-object-issue-pid-session.outputs.body.deeplink }}
+            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-expect-request-rejected
               parameters:
-                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-2-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-3-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-4-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-5-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-6-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-issue-pid
-              parameters:
-                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets-issue-pid-7-session.outputs.body.deeplink }}
-            - id: forkbomb-bv-andrea/eudiw-beta-wallet/fcaf-exercise-non-array-claim-sets
-              parameters:
-                deeplink_FALSE: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-false.outputs.body.deeplink }}
-                deeplink_NULL: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-null.outputs.body.deeplink }}
-                deeplink_NUMBER: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-number.outputs.body.deeplink }}
-                deeplink_OBJECT: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-object.outputs.body.deeplink }}
-                deeplink_STRING: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-string.outputs.body.deeplink }}
-                deeplink_TRUE: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-true.outputs.body.deeplink }}
-                deeplink_ZERO: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-zero.outputs.body.deeplink }}
+                deeplink: ${{ dcql-claim-sets-non-array-1ebdf3bd-create-object.outputs.body.deeplink }}
         version_id: installed_from_external_source
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-null
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-null.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-true
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-true.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-false
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-false.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-zero
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-zero.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-number
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-number.outputs.body.session_id }}
-    - continue_on_error: true
-      id: dcql-claim-sets-non-array-1ebdf3bd-fetch-string
-      use: http-request
-      with:
-        expected_status: 200
-        method: GET
-        url: ${fixture.verifier_url}/openid4vp/sessions/${{ dcql-claim-sets-non-array-1ebdf3bd-create-string.outputs.body.session_id }}
     - continue_on_error: true
       id: dcql-claim-sets-non-array-1ebdf3bd-fetch-object
       use: http-request
@@ -22145,19 +22193,25 @@ steps:
                 output:
                     false_value: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-false.outputs.body.raw.authorization_request_delivered | optional }}
                     false_value_session: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-false.outputs.body | optional }}
+                    false_visual_evidence: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-false.outputs.flow_output.maestro_screenshot_urls | optional }}
                     null_value: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-null.outputs.body.raw.authorization_request_delivered | optional }}
                     null_value_session: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-null.outputs.body | optional }}
+                    null_visual_evidence: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-null.outputs.flow_output.maestro_screenshot_urls | optional }}
                     object_value: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-object.outputs.body.raw.authorization_request_delivered | optional }}
                     object_value_session: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-object.outputs.body | optional }}
+                    object_visual_evidence: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-object.outputs.flow_output.maestro_screenshot_urls | optional }}
                     random_number: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-number.outputs.body.raw.authorization_request_delivered | optional }}
                     random_number_session: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-number.outputs.body | optional }}
+                    random_number_visual_evidence: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-number.outputs.flow_output.maestro_screenshot_urls | optional }}
                     string_value: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-string.outputs.body.raw.authorization_request_delivered | optional }}
                     string_value_session: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-string.outputs.body | optional }}
+                    string_visual_evidence: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-string.outputs.flow_output.maestro_screenshot_urls | optional }}
                     true_value: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-true.outputs.body.raw.authorization_request_delivered | optional }}
                     true_value_session: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-true.outputs.body | optional }}
-                    visual_evidence: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-non-array-claim-sets.outputs.flow_output.maestro_screenshot_urls | optional }}
+                    true_visual_evidence: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-true.outputs.flow_output.maestro_screenshot_urls | optional }}
                     zero_value: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-zero.outputs.body.raw.authorization_request_delivered | optional }}
                     zero_value_session: ${{ dcql-claim-sets-non-array-1ebdf3bd-fetch-zero.outputs.body | optional }}
+                    zero_visual_evidence: ${{ dcql-claim-sets-non-array-1ebdf3bd-exercise-zero.outputs.flow_output.maestro_screenshot_urls | optional }}
             pipeline.dcql.claim-sets-partial-fallback:
                 output:
                     dcql_exchange: ${{ dcql-main-interaction-eeb8ef1f-main-interaction-025-fetch-result.outputs.body | optional }}

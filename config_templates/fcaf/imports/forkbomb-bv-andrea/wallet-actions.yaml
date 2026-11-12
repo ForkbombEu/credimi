@@ -98,10 +98,6 @@ actions:
     category: verify-credential
     tags: fcaf, ws_rp
     file: wallet/fcaf-present-allowed-claim-path-components.yaml
-  - name: fcaf-exercise-non-array-claim-sets
-    category: verify-credential
-    tags: fcaf, ws_rp
-    file: wallet/fcaf-exercise-non-array-claim-sets.yaml
   - name: fcaf-exercise-non-array-claims
     category: verify-credential
     tags: fcaf, ws_rp
