@@ -11,10 +11,12 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -421,4 +423,30 @@ func TestLinkedBlockRetryable(t *testing.T) {
 	require.False(t, linkedBlockRetryable(
 		temporal.NewNonRetryableApplicationError("input", "CRE228", nil),
 	))
+}
+
+// TestTaskWorkflowIDFitsTemporalLimit reproduces a step of a linked block in a long FCAF
+// pipeline, whose child workflow ID used to exceed Temporal's 255 byte limit.
+func TestTaskWorkflowIDFitsTemporalLimit(t *testing.T) {
+	blockID := pipeline.LinkedStepsBlockID(
+		"Pipeline-fcaf-wallet-attestation-provider-complete-validation-"+
+			"3b3a6ffc-43eb-41e2-be81-25864385330d",
+		"jwt-key-attestation-issuance-d607cf80-create-jwt-key-attestation-issuance-session",
+	)
+	stepID := "jwt-key-attestation-issuance-d607cf80-obtain-jwt-key-attestation-credential"
+
+	env := (&testsuite.WorkflowTestSuite{}).NewTestWorkflowEnvironment()
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (string, error) { return taskWorkflowID(ctx, stepID), nil },
+		workflow.RegisterOptions{Name: pipeline.LinkedStepsWorkflowName},
+	)
+	env.SetStartWorkflowOptions(client.StartWorkflowOptions{ID: blockID})
+	env.ExecuteWorkflow(pipeline.LinkedStepsWorkflowName)
+	require.NoError(t, env.GetWorkflowError())
+	var id string
+	require.NoError(t, env.GetWorkflowResult(&id))
+
+	require.Greater(t, len(blockID+"-"+stepID+"-a1"), temporalid.MaxLength)
+	require.Len(t, id, temporalid.MaxLength)
+	require.True(t, strings.HasPrefix(id, blockID+"-"+stepID[:20]))
 }

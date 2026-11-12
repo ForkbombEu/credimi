@@ -13,6 +13,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
@@ -1019,11 +1020,11 @@ func (w *PipelineWorkflow) Start(
 	options := PrepareWorkflowOptions(wfDef.Runtime)
 	options.Options.Memo = memo
 	options.Options.StaticSummary = summaryLine(wfDef.Name)
-	options.Options.ID = fmt.Sprintf(
+	options.Options.ID = temporalid.Bounded(fmt.Sprintf(
 		"Pipeline-%s-%s",
 		canonify.CanonifyPlain(wfDef.Name),
 		uuid.NewString(),
-	)
+	))
 	namespace, ok := config["namespace"].(string)
 	if !ok || namespace == "" {
 		return result, fmt.Errorf("namespace is required")
@@ -1081,7 +1082,7 @@ func (w *PipelineWorkflow) Start(
 			entityIDs,
 		)
 		ctx := context.Background()
-		scheduleID := fmt.Sprintf("schedule_id_%s", options.Options.ID)
+		scheduleID := temporalid.BoundedSchedule("schedule_id_" + options.Options.ID)
 		scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
 			ID: scheduleID,
 			Spec: client.ScheduleSpec{
@@ -1092,7 +1093,9 @@ func (w *PipelineWorkflow) Start(
 				},
 			},
 			Action: &client.ScheduleWorkflowAction{
-				ID:                    fmt.Sprintf("scheduled_%s", options.Options.ID),
+				ID: temporalid.BoundedScheduledWorkflow(
+					"scheduled_" + options.Options.ID,
+				),
 				Workflow:              w.Name(),
 				TaskQueue:             options.Options.TaskQueue,
 				Args:                  []any{input},

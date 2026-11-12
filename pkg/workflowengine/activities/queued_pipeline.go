@@ -20,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	pipelineresults "github.com/forkbombeu/credimi/pkg/internal/pipeline_results"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobiledevicesemaphore"
 	"github.com/pocketbase/pocketbase/core"
@@ -272,12 +273,12 @@ func (a *StartQueuedPipelineActivity) Execute(
 	}
 	// The ticket ID makes the start idempotent: a retried or redelivered
 	// start of the same ticket resolves to the same workflow execution.
-	options.Options.ID = fmt.Sprintf(
+	options.Options.ID = temporalid.Bounded(fmt.Sprintf(
 		"%s%s-%s",
 		workflowIDPrefix,
 		canonify.CanonifyPlain(workflowDef.Name),
 		ticketKey,
-	)
+	))
 	options.Options.WorkflowIDReusePolicy = enumspb.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE
 	options.Options.WorkflowIDConflictPolicy = enumspb.WORKFLOW_ID_CONFLICT_POLICY_USE_EXISTING
 	options.Options.TaskQueue = pipelineTaskQueue

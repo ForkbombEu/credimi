@@ -7,6 +7,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
@@ -43,6 +45,13 @@ type StepDefinition struct {
 
 // LinkedStepsWorkflowName is the Temporal workflow type that runs a block of linked steps.
 const LinkedStepsWorkflowName = "Run linked steps"
+
+// LinkedStepsBlockID is the workflow ID of the linked steps block that starts with
+// firstStepID in the pipeline run pipelineWorkflowID. The engine starts the block with it,
+// and readers of the run's history rebuild it to recognize the block.
+func LinkedStepsBlockID(pipelineWorkflowID, firstStepID string) string {
+	return temporalid.Bounded(pipelineWorkflowID + "-" + canonify.CanonifyPlain(firstStepID))
+}
 
 // LinkedStepBlocks returns the inclusive [start, end] index ranges of the blocks of at
 // least two steps formed by consecutive linked_to fields.

@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/temporalid"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -196,5 +197,7 @@ func workerManagerWorkflowID(payload WorkerManagerWorkflowPayload) string {
 	runnerIDs := slices.Clone(payload.RunnerIDs)
 	slices.Sort(runnerIDs)
 	sum := sha256.Sum256([]byte(payload.OldNamespace + "|" + strings.Join(runnerIDs, ",")))
-	return "worker-manager-" + payload.Namespace + "-" + hex.EncodeToString(sum[:])[:12]
+	return temporalid.Bounded(
+		"worker-manager-" + payload.Namespace + "-" + hex.EncodeToString(sum[:])[:12],
+	)
 }
