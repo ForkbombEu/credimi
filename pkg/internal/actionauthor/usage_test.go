@@ -44,12 +44,12 @@ func TestAllowanceForPicksThePoolOfTheOrganization(t *testing.T) {
 	require.NoError(t, app.Save(runner))
 
 	own := AllowanceFor(runner, orgID)
-	assert.Equal(t, Allowance{RunnerID: runner.Id, Pool: PoolOwn, Tokens: 100}, own)
+	assert.Equal(t, Allowance{Pool: PoolOwn, Tokens: 100}, own)
 	assert.True(t, own.Offered())
 	assert.True(t, own.Limited())
 
 	others := AllowanceFor(runner, otherID)
-	assert.Equal(t, Allowance{RunnerID: runner.Id, Pool: PoolOthers, Tokens: 0}, others)
+	assert.Equal(t, Allowance{Pool: PoolOthers, Tokens: 0}, others)
 	assert.False(t, others.Offered())
 }
 

@@ -156,12 +156,7 @@ type sessionLookup struct {
 
 // stubSessionRuns makes c list runs (oldest first) as the runs of sessionID,
 // newest first as Temporal's visibility lists them.
-func stubSessionRuns(t *testing.T, c *temporalmocks.Client, sessionID string, runs ...string) {
-	t.Helper()
-	listSessionRuns(c, sessionID, runs...)
-}
-
-func listSessionRuns(c *temporalmocks.Client, sessionID string, runs ...string) {
+func stubSessionRuns(c *temporalmocks.Client, sessionID string, runs ...string) {
 	start := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	executions := make([]*workflowpb.WorkflowExecutionInfo, 0, len(runs))
 	for i := len(runs) - 1; i >= 0; i-- {
@@ -209,7 +204,7 @@ func validSessionLookup(t *testing.T, app core.App) sessionLookup {
 // client fakes the caller's namespace client.
 func (l sessionLookup) client() *temporalmocks.Client {
 	mockClient := &temporalmocks.Client{}
-	listSessionRuns(mockClient, authorTestSessionID, l.runs...)
+	stubSessionRuns(mockClient, authorTestSessionID, l.runs...)
 	mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestAuthorID, authorTestAuthorRun).
 		Return(l.author, l.authorErr).
 		Maybe()
@@ -755,7 +750,7 @@ func sessionRunsClient(
 ) *temporalmocks.Client {
 	t.Helper()
 	mockClient := &temporalmocks.Client{}
-	stubSessionRuns(t, mockClient, authorTestSessionID, runs...)
+	stubSessionRuns(mockClient, authorTestSessionID, runs...)
 	for _, run := range runs {
 		mockClient.On("DescribeWorkflowExecution", mock.Anything, authorTestSessionID, run).
 			Return(sessionDescription(), nil).
@@ -933,7 +928,7 @@ func TestReadActionAuthorSessionReadsATrustedSessionInAnyState(t *testing.T) {
 	completed.WorkflowExecutionInfo.CloseTime = timestamppb.New(closed)
 	newClient := func() *temporalmocks.Client {
 		mockClient := &temporalmocks.Client{}
-		stubSessionRuns(t, mockClient, authorTestSessionID, authorTestParentRun)
+		stubSessionRuns(mockClient, authorTestSessionID, authorTestParentRun)
 		mockClient.On(
 			"DescribeWorkflowExecution",
 			mock.Anything,

@@ -72,15 +72,6 @@ var updateActionAuthorWorkflow = func(
 // and is stubbed in unit tests.
 var lookupActionAuthorSession = activities.LookupActionAuthorSession
 
-func actionAuthorSessionNotFound() *apierror.APIError {
-	return apierror.New(
-		http.StatusNotFound,
-		"action_author",
-		"session_not_found",
-		"action author session not found",
-	)
-}
-
 // actionAuthorCallerSession authorizes the caller for the running session of
 // an agent workflow: the session's trusted run must have been started for the
 // caller's organization by the caller (404 session_not_found otherwise). It
@@ -100,12 +91,12 @@ func actionAuthorCallerSession(
 	actor := authoringActor(e.Auth)
 	organization, err := pbutils.GetUserOrganizationCanonifiedName(e.App, actor.ActorID)
 	if err != nil {
-		return nil, ref, actor, actionAuthorSessionNotFound()
+		return nil, ref, actor, actionAuthorSessionMissing()
 	}
 	sessionID := strings.TrimSuffix(authorWorkflowID, activities.ActionAuthorWorkflowIDSuffix)
 	namespace, ok := actionauthor.SessionNamespace(sessionID)
 	if !ok {
-		return nil, ref, actor, actionAuthorSessionNotFound()
+		return nil, ref, actor, actionAuthorSessionMissing()
 	}
 	c, err := queueTemporalClient(namespace)
 	if err != nil {
@@ -121,13 +112,13 @@ func actionAuthorCallerSession(
 	)
 	if errors.Is(err, actionauthor.ErrForbidden) ||
 		errors.Is(err, actionauthor.ErrSessionNotVisible) {
-		return nil, ref, actor, actionAuthorSessionNotFound()
+		return nil, ref, actor, actionAuthorSessionMissing()
 	}
 	if err != nil {
 		return nil, ref, actor, temporalUnavailableError()
 	}
 	if ref.Organization != organization || ref.Session.ActorID != actor.ActorID {
-		return nil, ref, actor, actionAuthorSessionNotFound()
+		return nil, ref, actor, actionAuthorSessionMissing()
 	}
 	return c, ref, actor, nil
 }

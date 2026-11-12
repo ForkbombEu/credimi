@@ -39,7 +39,7 @@ const ActionAuthorSessionWorkflowName = "Action author session"
 // Identity of the Python agent's ActionAuthor child workflow that the
 // session workflow (pkg/workflowengine/authorsession) starts with the ID
 // "<session workflow ID>-author"; the session's ID is
-// "ActionAuthorSession-<ticket>".
+// "ActionAuthorSession-<runner record id>-<ticket>".
 const (
 	ActionAuthorWorkflowType            = "ActionAuthor"
 	ActionAuthorWorkflowIDSuffix        = "-author"
@@ -571,8 +571,7 @@ func readSessionStart(
 	); err != nil {
 		return ref, err
 	}
-	// Grants signed before sessions recorded their organization have none;
-	// an empty organization would skip actionauthor.Select's check.
+	// An empty organization would skip actionauthor.Select's check.
 	if start.Organization == "" {
 		return ref, sessionForbidden("action author session has no organization")
 	}

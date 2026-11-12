@@ -161,7 +161,7 @@ func startedSessionClient(
 ) *[]string {
 	t.Helper()
 	mockClient := &temporalmocks.Client{}
-	stubSessionRuns(t, mockClient, queuedSessionID, runs...)
+	stubSessionRuns(mockClient, queuedSessionID, runs...)
 	for _, run := range runs {
 		mockClient.On(
 			"GetWorkflowHistory",

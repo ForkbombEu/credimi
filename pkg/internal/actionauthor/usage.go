@@ -26,9 +26,8 @@ const (
 // Allowance is a runner's daily token limit for one pool: 0 is no limit for
 // PoolOwn and not offered for PoolOthers.
 type Allowance struct {
-	RunnerID string
-	Pool     Pool
-	Tokens   int
+	Pool   Pool
+	Tokens int
 }
 
 // AllowanceFor returns the runner's allowance for sessions of orgID: the own
@@ -36,15 +35,13 @@ type Allowance struct {
 func AllowanceFor(runner *core.Record, orgID string) Allowance {
 	if runner.GetString("owner") == orgID {
 		return Allowance{
-			RunnerID: runner.Id,
-			Pool:     PoolOwn,
-			Tokens:   runner.GetInt("agent_own_daily_tokens"),
+			Pool:   PoolOwn,
+			Tokens: runner.GetInt("agent_own_daily_tokens"),
 		}
 	}
 	return Allowance{
-		RunnerID: runner.Id,
-		Pool:     PoolOthers,
-		Tokens:   runner.GetInt("agent_others_daily_tokens"),
+		Pool:   PoolOthers,
+		Tokens: runner.GetInt("agent_others_daily_tokens"),
 	}
 }
 

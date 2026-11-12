@@ -452,9 +452,8 @@ func (a *StartQueuedPipelineActivity) startActionAuthorSession(
 	if err != nil {
 		return result, err
 	}
-	workflowID := sessionWorkflowID
 	result.Output = StartQueuedPipelineActivityOutput{
-		WorkflowID:        workflowID,
+		WorkflowID:        sessionWorkflowID,
 		RunID:             runID,
 		WorkflowNamespace: start.Namespace,
 	}
