@@ -17,11 +17,18 @@ tags:
 # request, no-match notice, Wallet error, blocked presentation) proves the
 # request reached the Wallet. Home/Documents is therefore accepted only after
 # two bounded, optional waits for a decisive screen: a 30 s probe and, when that
-# finds nothing, a further 100 s window, so a Wallet slower than 33 s is not
-# The consent screen is captured, then answered with Share and the PIN so the
+# finds nothing, a further 100 s window, so a Wallet that reacts within 130 s is
+# not misread as having discontinued the interaction.
+#
+# A consent screen is captured, then answered with Share and the PIN so the
 # Verifier records the Authorization Response. The action fails afterwards:
 # reaching consent is itself a failure for every caller of this strict
 # rejection action.
+#
+# PocketBase keeps only the first 100 characters of the snake-cased
+# `<step id>-<screenshot name>` stem (tools/filesystem/file.go). Screenshot
+# names here stay within 15 characters (`request-refused`), which leaves room
+# for step ids of up to 84 characters.
 - launchApp:
     stopApp: true
     clearState: false

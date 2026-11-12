@@ -6,9 +6,10 @@ tags:
   - observe
   - engagement
 ---
-# Records the Wallet's reaction after request processing that ends before
-# credential selection. Unlike rejection and presentation actions, it never
-# selects or shares a credential.
+# Records the Wallet's reaction to a request without selecting or sharing a
+# credential: whichever screen it ends on, a consent screen included, is
+# screenshotted and left unanswered. The action never fails on the Wallet's
+# outcome; the calling test proves engagement from the Verifier's capture.
 - launchApp:
     stopApp: true
     clearState: false

@@ -495,6 +495,14 @@ sharing; the table records the fixtures of the 13/10/2026 run.
   and the failing assertion is the missing rejection evidence
   (`evidence value is empty`) [INFERENCE: the run's evidence is consistent with
   "the wallet kept the credential", not with a rejected issuance].
+- Re-confirmed 11/11/2026 on Reference Wallet 2026.09.42 (`emulator-5554`,
+  production Capture) with the `document_number` cases: the `__084` offer
+  (`CREDIMI-SDJWT-STATUS-WITHOUT-STATUS-LIST`) reached `View details`, so
+  `fcaf-expect-credential-rejected` failed and Capture recorded
+  `credential_issued`. The pinned probe showed the consent screen listing the
+  kept PID; `fcaf-expect-credential-absent` stored `absence-probe` and failed
+  without sharing, and the verifier session stayed `request_retrieved` with no
+  wallet response.
 
 ### Expected
 

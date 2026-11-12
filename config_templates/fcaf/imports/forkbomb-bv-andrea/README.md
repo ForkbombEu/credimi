@@ -50,10 +50,12 @@ The FCAF scenarios additionally share flows that must exist as `wallet_actions`
 records before the aggregate pipeline runs:
 
 - `fcaf-expect-request-rejected`: strict negative flow. The Wallet answers
-  with an error screen or returns Home; showing consent records the Verifier
-  response and fails the Wallet action.
-- `fcaf-observe-request`: records request processing that ends before
-  credential selection without selecting or sharing a credential.
+  with an error screen or the no-match notice, or returns Home; showing consent
+  records the Verifier response and fails the Wallet action.
+- `fcaf-observe-request`: records the Wallet's reaction to a request without
+  selecting or sharing a credential. A consent screen is recorded and left
+  unanswered; the calling test proves engagement from the Verifier's capture
+  (`oid4vp.request_uri_retrieval`), not from this action.
 - `fcaf-expect-no-matching-document`: the Wallet reports that it holds no
   credential satisfying the request.
 - `fcaf-expect-credential-absent`: the probe for a request pinned to a value
