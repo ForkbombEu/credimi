@@ -16,6 +16,7 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 )
 
 // MobileRunnerSessionPoolRequest names a running action author session of
@@ -34,7 +35,9 @@ type MobileRunnerSessionPoolResponse struct {
 
 // HandleMobileRunnerSessionPool tells a runner's model proxy which of the
 // runner's daily token pools a running action author session of the runner
-// spends; the proxy meters and enforces the limits itself.
+// spends; the proxy meters and enforces the limits itself. A session not
+// visible in Temporal yet answers 503, which the proxy retries; a session that
+// is not a running, trusted session of the runner answers 404.
 func HandleMobileRunnerSessionPool() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[MobileRunnerSessionPoolRequest](e)
@@ -65,9 +68,12 @@ func HandleMobileRunnerSessionPool() func(*core.RequestEvent) error {
 			input.SessionID,
 		)
 		switch {
-		case errors.Is(err, actionauthor.ErrForbidden),
-			errors.Is(err, actionauthor.ErrSessionNotVisible):
+		case errors.Is(err, actionauthor.ErrForbidden):
 			return runnerSessionNotFound()
+		case errors.Is(err, actionauthor.ErrSessionNotVisible):
+			// Temporal lists the run, or Credimi's run grant reaches it,
+			// shortly: the proxy retries.
+			return temporalUnavailableError()
 		case err != nil:
 			e.App.Logger().Warn(
 				"action author session pool lookup",
@@ -81,6 +87,10 @@ func HandleMobileRunnerSessionPool() func(*core.RequestEvent) error {
 			return temporalUnavailableError()
 		}
 		described, err := c.DescribeWorkflowExecution(ctx, ref.SessionWorkflowID, ref.SessionRunID)
+		var notFound *serviceerror.NotFound
+		if errors.As(err, &notFound) {
+			return runnerSessionNotFound()
+		}
 		if err != nil {
 			return temporalUnavailableError()
 		}

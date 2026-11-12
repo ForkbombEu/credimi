@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
@@ -46,7 +47,22 @@ func (f registrationFixture) startPoolSession(
 	status enumspb.WorkflowExecutionStatus,
 ) string {
 	t.Helper()
+	c, sessionID := f.poolSessionRun(t, runnerID, orgID)
+	c.On("DescribeWorkflowExecution", mock.Anything, sessionID, authoringSessionRun).
+		Return(authoringExecution(activities.ActionAuthorSessionWorkflowName, status, 1), nil).
+		Maybe()
+	stubAuthoringSessionTemporal(t, c)
+	return sessionID
+}
 
+// poolSessionRun fakes the trusted run of a session that Credimi started for
+// the organization orgID on the runner runnerID, without its description, and
+// returns the namespace's client and the session's ID.
+func (f registrationFixture) poolSessionRun(
+	t *testing.T,
+	runnerID, orgID string,
+) (*temporalmocks.Client, string) {
+	t.Helper()
 	sessionID := actionauthor.SessionWorkflowID(runnerID, poolTestTicket)
 	c := &temporalmocks.Client{}
 	stubSessionRuns(t, c, sessionID, authoringSessionRun)
@@ -64,11 +80,7 @@ func (f registrationFixture) startPoolSession(
 		version:      orgNamespace(t, f, orgID) + "/wallet/v1",
 		actorID:      f.user.Id,
 	}.history(t, f.app, authoringSessionRun, true)).Maybe()
-	c.On("DescribeWorkflowExecution", mock.Anything, sessionID, authoringSessionRun).
-		Return(authoringExecution(activities.ActionAuthorSessionWorkflowName, status, 1), nil).
-		Maybe()
-	stubAuthoringSessionTemporal(t, c)
-	return sessionID
+	return c, sessionID
 }
 
 func (f registrationFixture) poolTestRunner(t *testing.T) *core.Record {
@@ -159,12 +171,62 @@ func TestHandleMobileRunnerSessionPool(t *testing.T) {
 		)
 	})
 
-	t.Run("a session Credimi did not start is not found", func(t *testing.T) {
+	t.Run("a session Temporal does not list yet is retried", func(t *testing.T) {
 		f := setupRegistrationFixture(t)
 		runner := f.poolTestRunner(t)
 		c := &temporalmocks.Client{}
 		sessionID := actionauthor.SessionWorkflowID(runner.Id, poolTestTicket)
 		stubSessionRuns(t, c, sessionID)
+		stubAuthoringSessionTemporal(t, c)
+
+		_, err := f.requestSessionPool(t, f.user, sessionID)
+		requireRegistrationAPIError(
+			t,
+			err,
+			http.StatusServiceUnavailable,
+			"temporal",
+			"temporal_unavailable",
+		)
+	})
+
+	t.Run("a session whose run Temporal no longer finds is not found", func(t *testing.T) {
+		f := setupRegistrationFixture(t)
+		runner := f.poolTestRunner(t)
+		c, sessionID := f.poolSessionRun(t, runner.Id, f.orgID)
+		c.On("DescribeWorkflowExecution", mock.Anything, sessionID, authoringSessionRun).
+			Return(nil, serviceerror.NewNotFound("workflow not found"))
+		stubAuthoringSessionTemporal(t, c)
+
+		_, err := f.requestSessionPool(t, f.user, sessionID)
+		requireRegistrationAPIError(
+			t,
+			err,
+			http.StatusNotFound,
+			"action_author",
+			"session_not_found",
+		)
+	})
+
+	t.Run("a session Credimi did not start is not found", func(t *testing.T) {
+		f := setupRegistrationFixture(t)
+		runner := f.poolTestRunner(t)
+		c := &temporalmocks.Client{}
+		sessionID := actionauthor.SessionWorkflowID(runner.Id, poolTestTicket)
+		stubSessionRuns(t, c, sessionID, authoringSessionRun)
+		c.On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			sessionID,
+			authoringSessionRun,
+			false,
+			enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).Return(authoringSessionGrant{
+			sessionID:    sessionID,
+			organization: orgNamespace(t, f, f.orgID),
+			device:       tokenTestRunnerID + "/phone",
+			version:      orgNamespace(t, f, f.orgID) + "/wallet/v1",
+			actorID:      f.user.Id,
+		}.history(t, f.app, authoringSessionRun, false))
 		stubAuthoringSessionTemporal(t, c)
 
 		_, err := f.requestSessionPool(t, f.user, sessionID)
