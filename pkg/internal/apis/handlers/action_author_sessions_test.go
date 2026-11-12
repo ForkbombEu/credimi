@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -712,6 +713,9 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 			require.NoError(t, err)
 			tenant, err := app.FindFirstRecordByData("mobile_runners", "name", "tenant-runner")
 			require.NoError(t, err)
+			// Only runners whose agent namespace is ready are listed.
+			require.NoError(t, mobilerunner.MarkAgentNamespaceReady(app, admin.Id))
+			require.NoError(t, mobilerunner.MarkAgentNamespaceReady(app, tenant.Id))
 			adminNamespace = mobilerunner.AgentNamespace(admin.Id)
 			tenantNamespace = mobilerunner.AgentNamespace(tenant.Id)
 			sessionID := func(runner *core.Record, ticket string) string {
@@ -824,6 +828,251 @@ func TestActionAuthorSessionsListsTheWalletSessions(t *testing.T) {
 			DeviceID:                "usera-s-organization/removed-runner/phone",
 		},
 	}, response.Sessions)
+}
+
+// walletSessionsFixture is the caller userA, the agent namespaces of the
+// ready admin and tenant runners, and the sessions query of userA's sessions
+// of authoringSessionsWallet.
+type walletSessionsFixture struct {
+	app           *tests.TestApp
+	user          *core.Record
+	admin, tenant string
+	query         string
+}
+
+const authoringSessionsWallet = "usera-s-organization/authoring-handler-wallet"
+
+// session is a signed session of the caller on runner (an agent namespace),
+// listed with run, started on day d of January 2026.
+func (f walletSessionsFixture) session(
+	runnerNamespace, ticket, run string,
+	d int,
+) listedAuthoringSession {
+	return listedAuthoringSession{
+		authoringSessionGrant: authoringSessionGrant{
+			sessionID: actionauthor.SessionWorkflowID(
+				strings.TrimPrefix(runnerNamespace, "runner-"),
+				ticket,
+			),
+			organization: authoringNamespace,
+			device:       authoringSessionDevice,
+			version:      authoringAndroidVersion,
+			actorID:      f.user.Id,
+		},
+		run:     run,
+		started: time.Date(2026, 1, d, 0, 0, 0, 0, time.UTC),
+		signed:  true,
+		status:  enumspb.WORKFLOW_EXECUTION_STATUS_RUNNING,
+	}
+}
+
+// list makes c answer the sessions query in namespace with executions, or
+// with err.
+func (f walletSessionsFixture) list(
+	c *temporalmocks.Client,
+	namespace string,
+	err error,
+	executions ...*workflowpb.WorkflowExecutionInfo,
+) {
+	var resp *workflowservice.ListWorkflowExecutionsResponse
+	if err == nil {
+		resp = &workflowservice.ListWorkflowExecutionsResponse{Executions: executions}
+	}
+	c.On("ListWorkflow", mock.Anything, mock.MatchedBy(
+		func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+			return req.GetNamespace() == namespace && req.GetQuery() == f.query &&
+				req.GetPageSize() == 50 && len(req.GetNextPageToken()) == 0
+		},
+	)).Return(resp, err).Once()
+}
+
+// listWalletSessions lists userA's sessions of authoringSessionsWallet after
+// setup stubs c, expecting status, and returns the listed sessions and the
+// namespaces the handler asked a client for.
+func listWalletSessions(
+	t *testing.T,
+	status int,
+	setup func(t testing.TB, f walletSessionsFixture, c *temporalmocks.Client),
+) ([]ActionAuthorSessionListItem, []string) {
+	t.Helper()
+	c := &temporalmocks.Client{}
+	namespaces := stubAuthoringSessionTemporal(t, c)
+	content := `"sessions":[`
+	if status != http.StatusOK {
+		content = `"reason":"temporal_unavailable"`
+	}
+	var response ActionAuthorSessionsResponse
+	(&tests.ApiScenario{
+		Name:            "wallet sessions",
+		Method:          http.MethodGet,
+		URL:             "/api/action-author/sessions?wallet=" + authoringSessionsWallet,
+		Headers:         map[string]string{"Authorization": "Bearer " + authoringToken(t, "userA")},
+		ExpectedStatus:  status,
+		ExpectedContent: []string{content},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupActionAuthorApp(t)
+			user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+			require.NoError(t, err)
+			f := walletSessionsFixture{
+				app:  app,
+				user: user,
+				query: fmt.Sprintf(
+					`WorkflowType = "Action author session" and ActionAuthorActor = "%s" and `+
+						`ActionAuthorWallet = "%s"`,
+					user.Id,
+					authoringSessionsWallet,
+				),
+			}
+			for name, namespace := range map[string]*string{
+				"admin-runner":  &f.admin,
+				"tenant-runner": &f.tenant,
+			} {
+				runner, err := app.FindFirstRecordByData("mobile_runners", "name", name)
+				require.NoError(t, err)
+				require.NoError(t, mobilerunner.MarkAgentNamespaceReady(app, runner.Id))
+				*namespace = mobilerunner.AgentNamespace(runner.Id)
+			}
+			setup(t, f, c)
+			return app
+		},
+		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+			if status == http.StatusOK {
+				decodeBody(t, res, &response)
+			}
+		},
+	}).Test(t)
+	return response.Sessions, *namespaces
+}
+
+// A runner whose agent namespace is not ready is not listed, a namespace
+// Temporal does not know or that fails to list is skipped, and the request
+// fails only when every listed namespace fails.
+func TestActionAuthorSessionsSkipsUnavailableNamespaces(t *testing.T) {
+	unavailable := serviceerror.NewUnavailable("temporal down")
+	for _, tc := range []struct {
+		name                string
+		adminErr, tenantErr error
+		status              int
+	}{
+		{
+			name:     "missing namespace",
+			adminErr: serviceerror.NewNamespaceNotFound("runner-admin"),
+			status:   http.StatusOK,
+		},
+		{name: "failing namespace", adminErr: unavailable, status: http.StatusOK},
+		{
+			name:      "every namespace fails",
+			adminErr:  unavailable,
+			tenantErr: unavailable,
+			status:    http.StatusServiceUnavailable,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var unready, sessionID string
+			sessions, namespaces := listWalletSessions(t, tc.status, func(
+				t testing.TB,
+				f walletSessionsFixture,
+				c *temporalmocks.Client,
+			) {
+				tenant, err := f.app.FindFirstRecordByData(
+					"mobile_runners",
+					"name",
+					"tenant-runner",
+				)
+				require.NoError(t, err)
+				runner := createAuthoringRunner(
+					t,
+					f.app,
+					tenant.GetString("owner"),
+					"unready",
+					false,
+				)
+				unready = mobilerunner.AgentNamespace(runner.Id)
+				f.list(c, f.admin, tc.adminErr)
+				if tc.tenantErr != nil {
+					f.list(c, f.tenant, tc.tenantErr)
+					return
+				}
+				listed := f.session(f.tenant, "00000000-0000-4000-8000-000000000001", "run", 1)
+				listed.stub(t, f.app, c)
+				sessionID = listed.sessionID
+				f.list(c, f.tenant, nil, listed.execution())
+			})
+
+			require.NotContains(t, namespaces, unready)
+			if tc.status != http.StatusOK {
+				return
+			}
+			require.Len(t, sessions, 1)
+			require.Equal(t, sessionID, sessions[0].SessionID)
+		})
+	}
+}
+
+// Runs forged under the caller's search attributes are listed newer than the
+// caller's sessions, but never push them out of the list.
+func TestActionAuthorSessionsKeepsTrustedSessionsBehindForgedRuns(t *testing.T) {
+	var want []string
+	sessions, _ := listWalletSessions(t, http.StatusOK, func(
+		t testing.TB,
+		f walletSessionsFixture,
+		c *temporalmocks.Client,
+	) {
+		f.list(c, f.admin, nil)
+		executions := []*workflowpb.WorkflowExecutionInfo{}
+		for i := range actionAuthorRecentSessions + 2 {
+			forged := f.session(
+				f.tenant,
+				fmt.Sprintf("00000000-0000-4000-8000-%012d", 100+i),
+				"run-forged",
+				10+i,
+			)
+			forged.signed = false
+			forged.status = enumspb.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED
+			forged.stub(t, f.app, c)
+			executions = append(executions, forged.execution())
+		}
+		for i := range 2 {
+			listed := f.session(
+				f.tenant,
+				fmt.Sprintf("00000000-0000-4000-8000-%012d", 1+i),
+				"run",
+				2-i,
+			)
+			listed.stub(t, f.app, c)
+			want = append(want, listed.sessionID)
+			executions = append(executions, listed.execution())
+		}
+		f.list(c, f.tenant, nil, executions...)
+	})
+
+	got := make([]string, 0, len(sessions))
+	for _, session := range sessions {
+		got = append(got, session.SessionID)
+	}
+	require.Equal(t, want, got)
+}
+
+// A session listed with several runs is listed once.
+func TestActionAuthorSessionsListsASessionOnce(t *testing.T) {
+	var sessionID string
+	sessions, _ := listWalletSessions(t, http.StatusOK, func(
+		t testing.TB,
+		f walletSessionsFixture,
+		c *temporalmocks.Client,
+	) {
+		listed := f.session(f.tenant, "00000000-0000-4000-8000-000000000001", "run", 1)
+		listed.stub(t, f.app, c)
+		sessionID = listed.sessionID
+		replayed := listed.execution()
+		replayed.Execution = &commonpb.WorkflowExecution{WorkflowId: sessionID, RunId: "run-2"}
+		replayed.StartTime = timestamppb.New(listed.started.Add(time.Hour))
+		f.list(c, f.admin, nil)
+		f.list(c, f.tenant, nil, listed.execution(), replayed)
+	})
+
+	require.Len(t, sessions, 1)
+	require.Equal(t, sessionID, sessions[0].SessionID)
 }
 
 func TestActionAuthorSessionsValidatesTheWallet(t *testing.T) {

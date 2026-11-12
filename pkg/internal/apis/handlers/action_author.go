@@ -904,9 +904,11 @@ func queryActionAuthorChat(
 
 // HandleActionAuthorSessions lists the latest sessions of a wallet that the
 // caller started for their organization: Temporal lists them by search
-// attributes in the agent namespaces of the runners that offer the caller's
-// organization the agent, and each listed run is kept only when it is the
-// session's trusted run.
+// attributes in the ready agent namespaces of the runners that offer the
+// caller's organization the agent, and each listed session is kept only when
+// the listed ID has a trusted run of the caller's. Search attributes are
+// written by whoever starts a workflow, so the newest listed IDs are read
+// until actionAuthorRecentSessions are trusted: forged runs never hide them.
 func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		organization, apiErr := actionAuthorCallerNamespace(e)
@@ -938,31 +940,36 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 			escapeTemporalQueryValue(wallet),
 		)
 		var executions []*workflowpb.WorkflowExecutionInfo
+		namespaces, failed := 0, 0
 		for _, runner := range enabledMobileRunnerRecords(listed) {
-			if !actionAuthorRunnerOffered(runner, org.Id) || !runner.GetBool("agent_enabled") {
+			if !actionAuthorRunnerOffered(runner, org.Id) ||
+				!mobilerunner.AgentNamespaceReady(runner) {
 				continue
 			}
-			listed, err := listRunnerActionAuthorSessions(
-				e,
-				mobilerunner.AgentNamespace(runner.Id),
-				query,
-			)
+			namespace := mobilerunner.AgentNamespace(runner.Id)
+			namespaces++
+			listed, err := listRunnerActionAuthorSessions(e, namespace, query)
 			if err != nil {
-				return temporalUnavailableError()
+				failed++
+				e.App.Logger().Warn(
+					"action author sessions namespace skipped",
+					"namespace", namespace,
+					"error", err,
+				)
+				continue
 			}
 			executions = append(executions, listed...)
 		}
-		slices.SortStableFunc(executions, func(a, b *workflowpb.WorkflowExecutionInfo) int {
-			return b.GetStartTime().AsTime().Compare(a.GetStartTime().AsTime())
-		})
-		if len(executions) > actionAuthorRecentSessions {
-			executions = executions[:actionAuthorRecentSessions]
+		if failed > 0 && failed == namespaces {
+			return temporalUnavailableError()
 		}
 		response := ActionAuthorSessionsResponse{Sessions: []ActionAuthorSessionListItem{}}
-		for _, execution := range executions {
+		for _, execution := range newestSessionRuns(executions) {
+			if len(response.Sessions) == actionAuthorRecentSessions {
+				break
+			}
 			sessionID := execution.GetExecution().GetWorkflowId()
-			// Search attributes are written by whoever starts a workflow:
-			// only the trusted run of a session the caller started counts.
+			// Only the trusted run of a session the caller started counts.
 			info, err := activities.ReadActionAuthorSession(
 				ctx,
 				e.App,
@@ -995,6 +1002,25 @@ func HandleActionAuthorSessions() func(*core.RequestEvent) error {
 	}
 }
 
+// newestSessionRuns keeps the newest listed run of each session ID, newest
+// first.
+func newestSessionRuns(
+	executions []*workflowpb.WorkflowExecutionInfo,
+) []*workflowpb.WorkflowExecutionInfo {
+	slices.SortStableFunc(executions, func(a, b *workflowpb.WorkflowExecutionInfo) int {
+		return b.GetStartTime().AsTime().Compare(a.GetStartTime().AsTime())
+	})
+	seen := make(map[string]bool, len(executions))
+	return slices.DeleteFunc(executions, func(execution *workflowpb.WorkflowExecutionInfo) bool {
+		id := execution.GetExecution().GetWorkflowId()
+		if seen[id] {
+			return true
+		}
+		seen[id] = true
+		return false
+	})
+}
+
 // listRunnerActionAuthorSessions returns the first page of the sessions query
 // lists in a runner's agent namespace. A namespace without a client, not
 // registered or without the search attributes yet is skipped; other list
@@ -1018,9 +1044,12 @@ func listRunnerActionAuthorSessions(
 		Query:     query,
 	})
 	var notFound *serviceerror.NotFound
+	var namespaceNotFound *serviceerror.NamespaceNotFound
 	var invalid *serviceerror.InvalidArgument
 	switch {
-	case errors.As(err, &notFound), errors.As(err, &invalid):
+	case errors.As(err, &notFound),
+		errors.As(err, &namespaceNotFound),
+		errors.As(err, &invalid):
 		e.App.Logger().Warn(
 			"action author sessions namespace skipped",
 			"namespace", namespace,
@@ -1033,8 +1062,10 @@ func listRunnerActionAuthorSessions(
 	return resp.GetExecutions(), nil
 }
 
-// actionAuthorSessionsPageSize is how many sessions one runner namespace lists.
-const actionAuthorSessionsPageSize = 20
+// actionAuthorSessionsPageSize is how many sessions one runner namespace
+// lists: forged runs listed under the caller's search attributes must not
+// hide the caller's actionAuthorRecentSessions.
+const actionAuthorSessionsPageSize = 50
 
 // HandleActionAuthorSessionClose asks the agent chat of a running session to
 // close, or cancels a session whose chat has not started; the session then
