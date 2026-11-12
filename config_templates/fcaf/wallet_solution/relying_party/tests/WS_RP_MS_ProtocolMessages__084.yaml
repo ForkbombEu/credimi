@@ -28,8 +28,20 @@ evidence:
     from: pipeline.dcql.claims-non-array.outputs.string_value
   object_value:
     from: pipeline.dcql.claims-non-array.outputs.object_value
-  visual_evidence:
-    from: pipeline.dcql.claims-non-array.outputs.visual_evidence
+  null_visual_evidence:
+    from: pipeline.dcql.claims-non-array.outputs.null_visual_evidence
+  true_visual_evidence:
+    from: pipeline.dcql.claims-non-array.outputs.true_visual_evidence
+  false_visual_evidence:
+    from: pipeline.dcql.claims-non-array.outputs.false_visual_evidence
+  zero_visual_evidence:
+    from: pipeline.dcql.claims-non-array.outputs.zero_visual_evidence
+  random_number_visual_evidence:
+    from: pipeline.dcql.claims-non-array.outputs.random_number_visual_evidence
+  string_visual_evidence:
+    from: pipeline.dcql.claims-non-array.outputs.string_visual_evidence
+  object_visual_evidence:
+    from: pipeline.dcql.claims-non-array.outputs.object_visual_evidence
   null_value_session:
     from: pipeline.dcql.claims-non-array.outputs.null_value_session
   true_value_session:
@@ -101,11 +113,27 @@ assertions:
     property: claims
     expected_type: array
     valid: false
-- id: every_non_array_variant_has_visual_evidence
-  validator: evidence.minimum_items
-  input: evidence.visual_evidence
-  params:
-    min_items: 7
+- id: null_value_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.null_visual_evidence
+- id: true_value_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.true_visual_evidence
+- id: false_value_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.false_visual_evidence
+- id: zero_value_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.zero_visual_evidence
+- id: random_number_value_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.random_number_visual_evidence
+- id: string_value_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.string_visual_evidence
+- id: object_value_has_visual_evidence
+  validator: evidence.non_empty
+  input: evidence.object_visual_evidence
 - id: null_value_no_presentation_returned
   validator: oid4vp.no_presentation_returned
   input: evidence.null_value_session
